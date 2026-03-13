@@ -1,9 +1,23 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
-    "test:unit": { "dependsOn": ["build"] },
-    "test:integration": { "dependsOn": ["build"] },
-    "test:chaos": { "dependsOn": ["build"] }
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "test:unit": {
+      "outputs": [".vitest-cache/**"]
+    },
+    "test:integration": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "test:chaos": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    }
   }
 }
