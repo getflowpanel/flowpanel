@@ -11,14 +11,14 @@ export function sanitizeStack(stack: string, cwd: string): string {
     .filter((line) => !line.includes("node:internal/"))
     .map((line) => {
       // Keep @flowpanel frames as-is
-      if (line.includes("node_modules/@flowpanel/")) {
+      if (line.match(/node_modules[\\/]@flowpanel[\\/]/)) {
         return line;
       }
 
       // Collapse other node_modules to package name
-      const nmMatch = line.match(/\(node_modules\/(@[^/]+\/[^/]+|[^/]+)\//);
+      const nmMatch = line.match(/\(node_modules[\\/](@[^\\/]+[\\/][^\\/]+|[^\\/]+)[\\/]/);
       if (nmMatch) {
-        return line.replace(/\(node_modules\/[^)]+\)/, `(${nmMatch[1]})`);
+        return line.replace(/\(node_modules[\\/][^)]+\)/, `(${nmMatch[1]})`);
       }
 
       // Strip absolute cwd prefix from paths
