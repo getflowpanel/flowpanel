@@ -86,7 +86,7 @@ export function createWithRun(opts: WithRunOptions) {
         // Build SET clause for accumulated fields
         const fieldEntries = Object.entries(accumulatedFields);
         const fieldSetClause = fieldEntries
-          .map(([col], i) => `${col} = $${i + 4}`)
+          .map(([col], i) => `${col} = $${i + 3}`)
           .join(", ");
         const fieldValues = fieldEntries.map(([, v]) => v);
 
