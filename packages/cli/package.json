@@ -1,0 +1,25 @@
+{
+  "name": "@flowpanel/cli",
+  "version": "0.1.0",
+  "bin": {
+    "flowpanel": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --target node18 --banner.js '#!/usr/bin/env node'",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@flowpanel/core": "workspace:*",
+    "commander": "^12.0.0",
+    "ts-morph": "^22.0.0",
+    "chokidar": "^3.6.0",
+    "kleur": "^4.1.5",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "@types/node": "^20.0.0",
+    "@types/prompts": "^2.4.9"
+  }
+}
