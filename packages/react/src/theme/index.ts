@@ -50,5 +50,5 @@ export function themeToStyle(theme: ResolvedTheme): CSSProperties {
     vars[`--fp-stage-${stage}`] = color;
   }
 
-  return vars as CSSProperties;
+  return vars as unknown as CSSProperties;
 }

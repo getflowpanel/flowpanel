@@ -13,8 +13,9 @@
     "./theme.css": "./dist/theme/variables.css"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --external react --external react-dom"
+    "build": "tsup"
   },
+  "sideEffects": ["./dist/theme/variables.css"],
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"

@@ -24,15 +24,10 @@
   --fp-err:             #ef4444;
   --fp-warn:            #f59e0b;
 
-  /* ── Stage colors (default palette) ── */
-  --fp-stage-0: #818cf8;
-  --fp-stage-1: #6ee7b7;
-  --fp-stage-2: #f9a8d4;
-  --fp-stage-3: #fb923c;
-  --fp-stage-4: #a78bfa;
-  --fp-stage-5: #34d399;
-  --fp-stage-6: #fbbf24;
-  --fp-stage-7: #f87171;
+  /* ── Stage colors ────────────────────────────────────────────── */
+  /* Stage colors are injected at runtime by themeToStyle() as     */
+  /* --fp-stage-{stageName} (e.g. --fp-stage-parse, --fp-stage-score). */
+  /* No CSS defaults needed — resolveTheme() always assigns colors. */
 
   /* ── Shape ───────────────────────────────── */
   --fp-radius-card:     12px;
