@@ -8,9 +8,10 @@ interface MetricCardProps {
   loading?: boolean;
   onClick?: () => void;
   hasDrawer?: boolean;
+  expanded?: boolean;
 }
 
-export function MetricCard({ label, value, trend, sublabel, loading, onClick, hasDrawer }: MetricCardProps) {
+export function MetricCard({ label, value, trend, sublabel, loading, onClick, hasDrawer, expanded }: MetricCardProps) {
   if (loading) {
     return (
       <div
@@ -34,7 +35,7 @@ export function MetricCard({ label, value, trend, sublabel, loading, onClick, ha
         className="fp-card"
         style={{ padding: "20px 24px", minWidth: 160, cursor: "pointer", textAlign: "left", border: "1px solid var(--fp-border-1)" }}
         onClick={onClick}
-        aria-expanded={false}
+        aria-expanded={expanded ?? false}
         aria-haspopup="dialog"
       >
         <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--fp-text-2)", marginBottom: 8 }}>

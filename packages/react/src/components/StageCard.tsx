@@ -14,12 +14,14 @@ interface StageCardProps {
 }
 
 export function StageCard({
-  stage, color, total, succeeded, failed, running,
+  stage, color, total, succeeded, failed, running, avgDurationMs,
   selected, loading, onClick,
 }: StageCardProps) {
   if (loading) {
     return (
-      <div className="fp-card fp-skeleton" style={{ padding: 20, minWidth: 140, height: 100 }} aria-busy="true" />
+      <div className="fp-card" aria-busy="true" style={{ padding: 20, minWidth: 140, height: 100 }}>
+        <div className="fp-skeleton" style={{ height: "100%", borderRadius: "var(--fp-radius-sm)" }} />
+      </div>
     );
   }
 
@@ -55,6 +57,9 @@ export function StageCard({
         {failed > 0 && <span style={{ color: "var(--fp-err)" }}>{failed} failed</span>}
         {running > 0 && <span style={{ color: "var(--fp-warn)" }}>{running} running</span>}
         {successRate !== null && <span>{successRate}% ok</span>}
+        {avgDurationMs !== null && (
+          <span>avg {avgDurationMs >= 1000 ? `${(avgDurationMs / 1000).toFixed(1)}s` : `${avgDurationMs}ms`}</span>
+        )}
       </div>
     </button>
   );

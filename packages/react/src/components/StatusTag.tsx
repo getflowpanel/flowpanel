@@ -1,6 +1,6 @@
 import React from "react";
 
-type Status = "running" | "succeeded" | "failed";
+export type Status = "running" | "succeeded" | "failed";
 
 const STATUS_CONFIG: Record<Status, { label: string; bg: string; color: string }> = {
   running:   { label: "Running",   bg: "rgba(245,158,11,0.15)",  color: "#f59e0b" },
