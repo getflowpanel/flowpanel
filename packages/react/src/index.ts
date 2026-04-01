@@ -10,3 +10,14 @@ export { RunTable } from "./components/RunTable.js";
 export type { RunLogColumn } from "./components/RunTable.js";
 
 export { Drawer } from "./components/Drawer.js";
+
+export { CommandPalette } from "./components/CommandPalette.js";
+export type { Command } from "./components/CommandPalette.js";
+
+export { Header } from "./components/Header.js";
+export type { LiveStatus } from "./components/Header.js";
+
+export { Tabs } from "./components/Tabs.js";
+export type { TabConfig } from "./components/Tabs.js";
+
+export { DemoBanner } from "./components/DemoBanner.js";
