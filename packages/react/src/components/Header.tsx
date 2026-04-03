@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
+import type { LiveStatus } from "../hooks/useFlowPanelStream.js";
 
-export type LiveStatus = "live" | "reconnecting" | "polling" | "paused";
+export type { LiveStatus };
 
 const LIVE_STATUS_CONFIG: Record<LiveStatus, { color: string; label: string }> = {
   live:         { color: "#10b981", label: "Live" },

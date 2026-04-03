@@ -21,3 +21,9 @@ export { Tabs } from "./components/Tabs.js";
 export type { TabConfig } from "./components/Tabs.js";
 
 export { DemoBanner } from "./components/DemoBanner.js";
+
+export { useFlowPanelStream } from "./hooks/useFlowPanelStream.js";
+export type { LiveStatus as StreamLiveStatus, SseEvent } from "./hooks/useFlowPanelStream.js";
+
+export { useKeyboard } from "./hooks/useKeyboard.js";
+export type { KeyBinding } from "./hooks/useKeyboard.js";
