@@ -1,3 +1,6 @@
+export { FlowPanelUI } from "./FlowPanelUI.js";
+export type { FlowPanelUIProps } from "./FlowPanelUI.js";
+
 export { resolveTheme, themeToStyle } from "./theme/index.js";
 export type { ResolvedTheme } from "./theme/index.js";
 
