@@ -7,6 +7,7 @@
     "test:unit": "turbo run test:unit",
     "test:integration": "turbo run test:integration",
     "test:chaos": "turbo run test:chaos",
+    "test:e2e": "turbo run test:e2e",
     "lint": "turbo run lint"
   },
   "devDependencies": {
