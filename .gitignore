@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.turbo/
+
+# Next.js
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage/
+*.lcov
+
+# IDE / system
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+
+# Tooling (internal)
+.claude/
+.superpowers/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
