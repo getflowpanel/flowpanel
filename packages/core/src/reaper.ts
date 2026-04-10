@@ -23,11 +23,6 @@ function intervalToMinutes(interval: string): number {
   }
 }
 
-function intervalToPg(interval: string): string {
-  const minutes = intervalToMinutes(interval);
-  return `${minutes} minutes`;
-}
-
 export interface ReaperOptions {
   db: SqlExecutor;
   stages: readonly string[];
@@ -52,7 +47,7 @@ export function createReaper(opts: ReaperOptions): Reaper {
     try {
       for (const stage of stages) {
         const threshold = reaperThresholds[stage] ?? DEFAULT_THRESHOLD;
-        const pgInterval = intervalToPg(threshold);
+        const thresholdMinutes = intervalToMinutes(threshold);
         // Heartbeat staleness: 3 minutes (fixed)
         const rows = await db.execute<{ id: bigint }>(
           `UPDATE flowpanel_pipeline_run
@@ -62,11 +57,11 @@ export function createReaper(opts: ReaperOptions): Reaper {
              error_class   = 'OrphanedRun',
              error_message = 'Run exceeded timeout without heartbeat — recovered by reaper'
            WHERE status = 'running'
-             AND stage = '${stage}'
-             AND started_at < now() - INTERVAL '${pgInterval}'
+             AND stage = $1
+             AND started_at < now() - make_interval(mins => $2)
              AND (heartbeat_at IS NULL OR heartbeat_at < now() - INTERVAL '3 minutes')
            RETURNING id`,
-          [],
+          [stage, thresholdMinutes],
         );
 
         for (const row of rows) {

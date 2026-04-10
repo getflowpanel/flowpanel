@@ -66,9 +66,13 @@ describe("createReaper", () => {
 
     await reaper.sweep();
 
-    // Should generate queries for each stage with correct interval
-    const scoreQuery = queries.find((q) => q.sql.includes("score") && q.sql.includes("5 minutes"));
-    const parseQuery = queries.find((q) => q.sql.includes("parse") && q.sql.includes("10 minutes"));
+    // Stage name and threshold minutes are now parameterized
+    const scoreQuery = queries.find(
+      (q) => q.sql.includes("UPDATE") && q.params[0] === "score" && q.params[1] === 5,
+    );
+    const parseQuery = queries.find(
+      (q) => q.sql.includes("UPDATE") && q.params[0] === "parse" && q.params[1] === 10,
+    );
     expect(scoreQuery).toBeDefined();
     expect(parseQuery).toBeDefined();
   });

@@ -67,11 +67,17 @@ export function createRunsProcedures(
             params.push(input.timeRange.end);
           }
           if (input.search && input.search.length >= 2) {
-            const searchFields = (config as any).runLog?.search?.fields ?? [
+            const rawSearchFields: string[] = (config as any).runLog?.search?.fields ?? [
               "partition_key",
               "error_message",
             ];
-            const searchCols = searchFields.map((f: string) => fieldNameToColumn(f));
+            const searchCols = rawSearchFields.map((f: string) => {
+              const col = fieldNameToColumn(f);
+              if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col)) {
+                throw new Error(`Invalid search field identifier: ${col}`);
+              }
+              return col;
+            });
             const searchOr = searchCols
               .map((col: string) => `${col} ILIKE $${params.length + 1}`)
               .join(" OR ");
@@ -87,14 +93,13 @@ export function createRunsProcedures(
           applyRowLevelFilter(config, session, whereParts, params);
 
           const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
-          const limitParam = input.limit + 1;
 
           const rows = await db.execute<Record<string, unknown>>(
             `SELECT * FROM flowpanel_pipeline_run
            ${whereClause}
            ORDER BY id DESC
-           LIMIT ${limitParam}`,
-            params,
+           LIMIT $${params.length + 1}`,
+            [...params, input.limit + 1],
           );
 
           const hasNextPage = rows.length > input.limit;

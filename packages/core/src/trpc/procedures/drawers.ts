@@ -44,6 +44,8 @@ export function createDrawersProcedures(
   });
 }
 
+const ALLOWED_GROUP_COLUMNS = new Set(["stage", "status", "partition_key", "error_class"]);
+
 async function renderSection(db: any, _config: any, section: any, input: any): Promise<unknown> {
   const timeWhere = input.timeRange ? `WHERE started_at >= $1 AND started_at < $2` : "";
   const timeParams = input.timeRange ? [input.timeRange.start, input.timeRange.end] : [];
@@ -65,6 +67,9 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
     }
     case "breakdown": {
       const groupBy = section.groupBy ?? "stage";
+      if (!ALLOWED_GROUP_COLUMNS.has(groupBy)) {
+        throw new Error(`Invalid groupBy column: ${groupBy}`);
+      }
       const rows = await db.execute(
         `SELECT ${groupBy}, COUNT(*) AS count
          FROM flowpanel_pipeline_run ${timeWhere}
@@ -76,14 +81,16 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
     }
     case "error-list": {
       const limit = section.limit ?? 5;
+      const params = [...timeParams, limit];
+      const limitIdx = params.length;
       const rows = await db.execute(
         `SELECT error_class, COUNT(*) AS count
          FROM flowpanel_pipeline_run
          ${timeWhere ? `${timeWhere} AND` : "WHERE"} error_class IS NOT NULL
          GROUP BY error_class
          ORDER BY count DESC
-         LIMIT ${limit}`,
-        timeParams,
+         LIMIT $${limitIdx}`,
+        params,
       );
       return rows;
     }

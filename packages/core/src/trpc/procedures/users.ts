@@ -2,6 +2,16 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { FlowPanelContext } from "../context.js";
 
+// Allows plain identifiers (users) and schema-qualified names (public.users)
+function assertSafeIdentifier(value: string, name: string): void {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/.test(value)) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Invalid identifier "${name}": ${value}`,
+    });
+  }
+}
+
 export function createUsersProcedures(
   t: { procedure: any; router: (routes: any) => any },
   authedProcedure: any,
@@ -26,7 +36,12 @@ export function createUsersProcedures(
         }
 
         const { source, primaryKey, columns = [], periodStart, periodEnd } = (config as any).users;
+        assertSafeIdentifier(source, "source");
+        assertSafeIdentifier(primaryKey, "primaryKey");
+        if (periodStart) assertSafeIdentifier(periodStart, "periodStart");
+        if (periodEnd) assertSafeIdentifier(periodEnd, "periodEnd");
         const userCols = columns.map((c: any) => c.field).filter((f: string) => !f.startsWith("$"));
+        for (const col of userCols) assertSafeIdentifier(col, `column "${col}"`);
 
         const selectCols = userCols.length > 0 ? userCols.join(", ") : "*";
         const params: unknown[] = [];
@@ -71,8 +86,8 @@ export function createUsersProcedures(
            FROM ${source} u
            ${whereClause}
            ORDER BY u.${primaryKey}
-           LIMIT ${input.limit + 1}`,
-          params,
+           LIMIT $${params.length + 1}`,
+          [...params, input.limit + 1],
         );
 
         const hasNext = rows.length > input.limit;
@@ -89,6 +104,8 @@ export function createUsersProcedures(
         if (!(config as any).users) throw new TRPCError({ code: "BAD_REQUEST" });
 
         const { source, primaryKey } = (config as any).users;
+        assertSafeIdentifier(source, "source");
+        assertSafeIdentifier(primaryKey, "primaryKey");
         const rows = await db.execute<Record<string, unknown>>(
           `SELECT * FROM ${source} WHERE ${primaryKey} = $1 LIMIT 1`,
           [input.userId],
