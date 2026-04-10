@@ -24,6 +24,8 @@ export { ToastProvider, useToast } from "./components/Toast.js";
 export { Tooltip } from "./components/Tooltip.js";
 export type { FlowPanelUIProps } from "./FlowPanelUI.js";
 export { FlowPanelUI } from "./FlowPanelUI.js";
+export { FlowPanelContext, useFlowPanel } from "./context.js";
+export { formatDate } from "./utils/formatDate.js";
 export type { LiveStatus as StreamLiveStatus, SseEvent } from "./hooks/useFlowPanelStream.js";
 export { useFlowPanelStream } from "./hooks/useFlowPanelStream.js";
 export type { KeyBinding } from "./hooks/useKeyboard.js";

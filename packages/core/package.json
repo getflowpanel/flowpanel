@@ -40,6 +40,9 @@
 		"@trpc/server": "^11.16.0",
 		"zod": "^3.23.0"
 	},
+	"engines": {
+		"node": ">=18"
+	},
 	"devDependencies": {
 		"@types/node": "^20.0.0",
 		"tsup": "^8.0.0",

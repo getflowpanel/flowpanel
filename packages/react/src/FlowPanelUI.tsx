@@ -17,6 +17,7 @@ import { StageCard } from "./components/StageCard.js";
 import type { TabConfig } from "./components/Tabs.js";
 import { Tabs } from "./components/Tabs.js";
 import { ToastProvider } from "./components/Toast.js";
+import { FlowPanelContext } from "./context.js";
 import { useFlowPanelStream } from "./hooks/useFlowPanelStream.js";
 import { useKeyboard } from "./hooks/useKeyboard.js";
 import { resolveTheme, themeToStyle } from "./theme/index.js";
@@ -400,310 +401,337 @@ export function FlowPanelUI({
 	// ── Render ────────────────────────────────────────────────────────────────
 	return (
 		<ToastProvider>
-			<div className="fp-root" style={{ ...themeStyle, minHeight: "100vh" }} data-testid="fp-root">
-				<ErrorBoundary>
-					{/* Skip link for accessibility */}
-					<a
-						href="#fp-main"
-						style={{ position: "absolute", left: -9999, top: 0, zIndex: 100 }}
-						onFocus={(e) => {
-							(e.currentTarget as HTMLElement).style.left = "0";
-						}}
-						onBlur={(e) => {
-							(e.currentTarget as HTMLElement).style.left = "-9999px";
-						}}
-					>
-						Skip to main content
-					</a>
-
-					<Header
-						appName={config.appName}
-						timeRange={timeRange}
-						onTimeRangeChange={setTimeRange}
-						timeRangePresets={timePresets}
-						liveStatus={liveStatus}
-						onOpenPalette={() => setPaletteOpen(true)}
-					/>
-
-					{showDemoBanner && (
-						<DemoBanner
-							runCount={runsState.runs.length}
-							realRunCount={0}
-							onClear={async () => {
-								try {
-									await fetch(`${trpcBaseUrl}/flowpanel.demo.reset`, { method: "POST" });
-									void fetchData();
-								} catch (err) {
-									console.error("[FlowPanel] demo reset error:", err);
-								}
+			<FlowPanelContext.Provider value={{ timezone: config.timezone ?? "UTC" }}>
+				<div
+					className="fp-root"
+					style={{ ...themeStyle, minHeight: "100vh" }}
+					data-testid="fp-root"
+				>
+					<ErrorBoundary>
+						{/* Skip link for accessibility */}
+						<a
+							href="#fp-main"
+							style={{ position: "absolute", left: -9999, top: 0, zIndex: 100 }}
+							onFocus={(e) => {
+								(e.currentTarget as HTMLElement).style.left = "0";
 							}}
+							onBlur={(e) => {
+								(e.currentTarget as HTMLElement).style.left = "-9999px";
+							}}
+						>
+							Skip to main content
+						</a>
+
+						<Header
+							appName={config.appName}
+							timeRange={timeRange}
+							onTimeRangeChange={setTimeRange}
+							timeRangePresets={timePresets}
+							liveStatus={liveStatus}
+							onOpenPalette={() => setPaletteOpen(true)}
 						/>
-					)}
 
-					<Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+						{showDemoBanner && (
+							<DemoBanner
+								runCount={runsState.runs.length}
+								realRunCount={0}
+								onClear={async () => {
+									try {
+										await fetch(`${trpcBaseUrl}/flowpanel.demo.reset`, { method: "POST" });
+										void fetchData();
+									} catch (err) {
+										console.error("[FlowPanel] demo reset error:", err);
+									}
+								}}
+							/>
+						)}
 
-					<main id="fp-main" style={{ padding: "24px" }}>
-						{activeTab === "pipeline" && (
-							<>
-								{/* Metrics strip */}
-								<ErrorBoundary>
-									<section aria-label="Metrics" style={{ marginBottom: 24 }}>
-										<SectionHeader
-											label="Overview"
-											meta={loading ? undefined : "Last updated just now"}
-										/>
-										<div
-											style={{
-												display: "grid",
-												gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-												gap: 10,
-											}}
-										>
-											{Object.entries(config.metrics ?? {}).map(([name, mc]) => {
-												const result = metrics[name] as
-													| {
-															value?: string | number | null;
-															trend?: {
-																label: string;
-																direction: "positive" | "negative" | "neutral";
-															};
-															sublabel?: string;
-															sparkline?: number[];
-													  }
-													| undefined;
+						<Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-												return (
-													<MetricCard
-														key={name}
-														label={mc.label}
-														value={result?.value ?? null}
-														trend={result?.trend}
-														sublabel={result?.sublabel}
-														sparkline={result?.sparkline}
-														loading={loading}
-														hasDrawer={!!mc.drawer}
-														onClick={
-															mc.drawer
-																? () => setDrawerState({ open: true, type: mc.drawer! })
-																: undefined
-														}
-													/>
-												);
-											})}
-										</div>
-									</section>
-								</ErrorBoundary>
-
-								{/* Stage cards */}
-								{stageData.length > 0 &&
-									(() => {
-										const totalAllStages = stageData.reduce((s, d) => s + d.total, 0);
-										return (
-											<ErrorBoundary>
-												<section aria-label="Pipeline stages" style={{ marginBottom: 24 }}>
-													<SectionHeader
-														label="Pipeline Stages"
-														meta="Click to filter runs below"
-													/>
-													<div
-														style={{
-															display: "grid",
-															gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-															gap: 10,
-														}}
-													>
-														{stageData.map((s) => (
-															<StageCard
-																key={s.stage}
-																stage={s.stage}
-																color={theme.stageColors[s.stage] ?? "#818cf8"}
-																total={s.total}
-																totalAllStages={totalAllStages}
-																succeeded={s.succeeded}
-																failed={s.failed}
-																running={s.running}
-																avgDurationMs={s.avgDurationMs}
-																selected={selectedStage === s.stage}
-																loading={loading}
-																onClick={() =>
-																	setSelectedStage((prev) => (prev === s.stage ? null : s.stage))
-																}
-															/>
-														))}
-													</div>
-												</section>
-											</ErrorBoundary>
-										);
-									})()}
-
-								{/* Error summary */}
-								{topErrors && topErrors.totalFailed > 0 && (
+						<main id="fp-main" style={{ padding: "24px" }}>
+							{activeTab === "pipeline" && (
+								<>
+									{/* Metrics strip */}
 									<ErrorBoundary>
-										<section aria-label="Errors" style={{ marginBottom: 24 }}>
-											<SectionHeader label="Errors" meta={`${topErrors.totalFailed} failed`} />
-											<ErrorPanel
-												errors={topErrors.errors}
-												totalFailed={topErrors.totalFailed}
-												loading={loading}
-												onRetryAll={() => {
-													// TODO: wire to bulk retry when available
-												}}
-												onErrorClick={(errorClass) => {
-													setSelectedStage(null);
-													console.log("[FlowPanel] filter by error class:", errorClass);
-												}}
+										<section aria-label="Metrics" style={{ marginBottom: 24 }}>
+											<SectionHeader
+												label="Overview"
+												meta={loading ? undefined : "Last updated just now"}
 											/>
+											<div
+												style={{
+													display: "grid",
+													gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+													gap: 10,
+												}}
+											>
+												{Object.entries(config.metrics ?? {}).map(([name, mc]) => {
+													const result = metrics[name] as
+														| {
+																value?: string | number | null;
+																trend?: {
+																	label: string;
+																	direction: "positive" | "negative" | "neutral";
+																};
+																sublabel?: string;
+																sparkline?: number[];
+														  }
+														| undefined;
+
+													return (
+														<MetricCard
+															key={name}
+															label={mc.label}
+															value={result?.value ?? null}
+															trend={result?.trend}
+															sublabel={result?.sublabel}
+															sparkline={result?.sparkline}
+															loading={loading}
+															hasDrawer={!!mc.drawer}
+															onClick={
+																mc.drawer
+																	? () => setDrawerState({ open: true, type: mc.drawer! })
+																	: undefined
+															}
+														/>
+													);
+												})}
+											</div>
 										</section>
 									</ErrorBoundary>
-								)}
 
-								{/* Run volume chart */}
-								{chartData && chartData.buckets.length > 0 && (
-									<ErrorBoundary>
-										<section aria-label="Run volume" style={{ marginBottom: 24 }}>
-											<SectionHeader label="Run Volume" />
-											<div className="fp-card" style={{ padding: 16 }}>
-												<RunChart
-													buckets={chartData.buckets}
-													peakBucket={chartData.peakBucket}
+									{/* Stage cards */}
+									{stageData.length > 0 &&
+										(() => {
+											const totalAllStages = stageData.reduce((s, d) => s + d.total, 0);
+											return (
+												<ErrorBoundary>
+													<section aria-label="Pipeline stages" style={{ marginBottom: 24 }}>
+														<SectionHeader
+															label="Pipeline Stages"
+															meta="Click to filter runs below"
+														/>
+														<div
+															style={{
+																display: "grid",
+																gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+																gap: 10,
+															}}
+														>
+															{stageData.map((s) => (
+																<StageCard
+																	key={s.stage}
+																	stage={s.stage}
+																	color={theme.stageColors[s.stage] ?? "#818cf8"}
+																	total={s.total}
+																	totalAllStages={totalAllStages}
+																	succeeded={s.succeeded}
+																	failed={s.failed}
+																	running={s.running}
+																	avgDurationMs={s.avgDurationMs}
+																	selected={selectedStage === s.stage}
+																	loading={loading}
+																	onClick={() =>
+																		setSelectedStage((prev) => (prev === s.stage ? null : s.stage))
+																	}
+																/>
+															))}
+														</div>
+													</section>
+												</ErrorBoundary>
+											);
+										})()}
+
+									{/* Error summary */}
+									{topErrors && topErrors.totalFailed > 0 && (
+										<ErrorBoundary>
+											<section aria-label="Errors" style={{ marginBottom: 24 }}>
+												<SectionHeader label="Errors" meta={`${topErrors.totalFailed} failed`} />
+												<ErrorPanel
+													errors={topErrors.errors}
+													totalFailed={topErrors.totalFailed}
 													loading={loading}
+													onRetryAll={() => {
+														// TODO: wire to bulk retry when available
+													}}
+													onErrorClick={(errorClass) => {
+														setSelectedStage(null);
+														console.log("[FlowPanel] filter by error class:", errorClass);
+													}}
+												/>
+											</section>
+										</ErrorBoundary>
+									)}
+
+									{/* Run volume chart */}
+									{chartData && chartData.buckets.length > 0 && (
+										<ErrorBoundary>
+											<section aria-label="Run volume" style={{ marginBottom: 24 }}>
+												<SectionHeader label="Run Volume" />
+												<div className="fp-card" style={{ padding: 16 }}>
+													<RunChart
+														buckets={chartData.buckets}
+														peakBucket={chartData.peakBucket}
+														loading={loading}
+													/>
+												</div>
+											</section>
+										</ErrorBoundary>
+									)}
+
+									{/* Run log */}
+									<ErrorBoundary>
+										<section aria-label="Run log">
+											<SectionHeader
+												label="Run Log"
+												meta={
+													!loading && runsState.runs.length > 0
+														? `${runsState.runs.length.toLocaleString()} total`
+														: undefined
+												}
+											/>
+											<div className="fp-card" style={{ overflow: "hidden" }}>
+												<RunTable
+													runs={runsState.runs}
+													columns={runLogColumns}
+													stageColors={theme.stageColors}
+													loading={loading}
+													hasNextPage={!!runsState.nextCursor}
+													onLoadMore={handleLoadMore}
+													newRunsBanner={
+														runsState.bufferedNewRuns.length > 0
+															? runsState.bufferedNewRuns.length
+															: undefined
+													}
+													onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
+													onRowClick={(run) => {
+														setSelectedRunId(String(run["id"]));
+														setDrawerState({
+															open: true,
+															type: "runDetail",
+															runId: String(run["id"]),
+														});
+													}}
+													selectedRunId={selectedRunId}
 												/>
 											</div>
 										</section>
 									</ErrorBoundary>
-								)}
+								</>
+							)}
 
-								{/* Run log */}
-								<ErrorBoundary>
-									<section aria-label="Run log">
-										<SectionHeader
-											label="Run Log"
-											meta={
-												!loading && runsState.runs.length > 0
-													? `${runsState.runs.length.toLocaleString()} total`
-													: undefined
-											}
-										/>
-										<div className="fp-card" style={{ overflow: "hidden" }}>
-											<RunTable
-												runs={runsState.runs}
-												columns={runLogColumns}
-												stageColors={theme.stageColors}
-												loading={loading}
-												hasNextPage={!!runsState.nextCursor}
-												onLoadMore={handleLoadMore}
-												newRunsBanner={
-													runsState.bufferedNewRuns.length > 0
-														? runsState.bufferedNewRuns.length
-														: undefined
-												}
-												onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
-												onRowClick={(run) => {
-													setSelectedRunId(String(run["id"]));
-													setDrawerState({
-														open: true,
-														type: "runDetail",
-														runId: String(run["id"]),
-													});
-												}}
-												selectedRunId={selectedRunId}
-											/>
+							{/* Non-pipeline tabs */}
+							{activeTab !== "pipeline" &&
+								(() => {
+									const tabEntry = config.tabs?.find((t) => t.id === activeTab);
+
+									if (tabEntry?.component) {
+										const TabComponent = tabEntry.component as React.ComponentType<{
+											config: typeof config;
+											timeRange: string;
+										}>;
+										return (
+											<ErrorBoundary>
+												<div
+													id={`fp-tabpanel-${activeTab}`}
+													role="tabpanel"
+													aria-labelledby={`fp-tab-${activeTab}`}
+												>
+													<TabComponent config={config} timeRange={timeRange} />
+												</div>
+											</ErrorBoundary>
+										);
+									}
+
+									return (
+										<div
+											id={`fp-tabpanel-${activeTab}`}
+											role="tabpanel"
+											aria-labelledby={`fp-tab-${activeTab}`}
+											style={{ color: "var(--fp-text-3)", padding: 40, textAlign: "center" }}
+										>
+											<div style={{ fontSize: 14, marginBottom: 8 }}>
+												No component configured for &ldquo;{tabEntry?.label ?? activeTab}&rdquo;
+											</div>
+											<div style={{ fontSize: 12 }}>
+												Add a <code style={{ color: "var(--fp-accent-text)" }}>component</code> to
+												this tab in your flowpanel.config.ts
+											</div>
 										</div>
-									</section>
-								</ErrorBoundary>
-							</>
-						)}
+									);
+								})()}
+						</main>
 
-						{/* Non-pipeline tabs */}
-						{activeTab !== "pipeline" &&
-							(() => {
-								const tabConfig = tabs.find((t) => t.id === activeTab);
-								return (
-									<div
-										id={`fp-tabpanel-${activeTab}`}
-										role="tabpanel"
-										aria-labelledby={`fp-tab-${activeTab}`}
-										style={{
-											color: "var(--fp-text-3)",
-											padding: 40,
-											textAlign: "center",
-										}}
-									>
-										{tabConfig?.label ?? activeTab} view — coming soon
-									</div>
-								);
-							})()}
-					</main>
+						{/* Drawers */}
+						<Drawer
+							open={drawerState.open}
+							onClose={() => setDrawerState({ open: false, type: "" })}
+							title={drawerTitle}
+							sections={drawerData?.sections}
+							run={drawerData?.run}
+							actions={drawerData?.actions?.map((a) => ({
+								...a,
+								onClick: () => console.log("[FlowPanel] drawer action:", a.onClick),
+							}))}
+							loading={drawerLoading}
+						>
+							<div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
+								{drawerState.type === "runDetail"
+									? `Run details for ${drawerState.runId}`
+									: "Loading drawer content..."}
+							</div>
+						</Drawer>
 
-					{/* Drawers */}
-					<Drawer
-						open={drawerState.open}
-						onClose={() => setDrawerState({ open: false, type: "" })}
-						title={drawerTitle}
-						sections={drawerData?.sections}
-						run={drawerData?.run}
-						actions={drawerData?.actions?.map((a) => ({
-							...a,
-							onClick: () => console.log("[FlowPanel] drawer action:", a.onClick),
-						}))}
-						loading={drawerLoading}
-					>
-						<div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
-							{drawerState.type === "runDetail"
-								? `Run details for ${drawerState.runId}`
-								: "Loading drawer content..."}
-						</div>
-					</Drawer>
+						{/* Command palette */}
+						<CommandPalette
+							open={paletteOpen}
+							onClose={() => setPaletteOpen(false)}
+							commands={builtinCommands}
+						/>
 
-					{/* Command palette */}
-					<CommandPalette
-						open={paletteOpen}
-						onClose={() => setPaletteOpen(false)}
-						commands={builtinCommands}
-					/>
+						{/* Keyboard shortcuts help */}
+						<KeyboardHelp open={keyboardHelpOpen} onClose={() => setKeyboardHelpOpen(false)} />
 
-					{/* Keyboard shortcuts help */}
-					<KeyboardHelp open={keyboardHelpOpen} onClose={() => setKeyboardHelpOpen(false)} />
-
-					{/* ARIA live region */}
-					<div
-						role="status"
-						aria-live="assertive"
-						aria-atomic="true"
-						style={{
-							position: "absolute",
-							left: -9999,
-							width: 1,
-							height: 1,
-							overflow: "hidden",
-						}}
-					>
-						{liveAnnouncement}
-					</div>
-
-					{/* SSE reconnect banner */}
-					{liveStatus === "reconnecting" && (
+						{/* ARIA live region */}
 						<div
 							role="status"
-							aria-live="polite"
+							aria-live="assertive"
+							aria-atomic="true"
 							style={{
-								position: "fixed",
-								top: 52,
-								left: 0,
-								right: 0,
-								zIndex: 20,
-								background: "var(--fp-warn)",
-								color: "#000",
-								padding: "8px 24px",
-								textAlign: "center",
-								fontSize: 13,
+								position: "absolute",
+								left: -9999,
+								width: 1,
+								height: 1,
+								overflow: "hidden",
 							}}
 						>
-							● Live updates paused — reconnecting...
+							{liveAnnouncement}
 						</div>
-					)}
-				</ErrorBoundary>
-			</div>
+
+						{/* SSE reconnect banner */}
+						{liveStatus === "reconnecting" && (
+							<div
+								role="status"
+								aria-live="polite"
+								style={{
+									position: "fixed",
+									top: 52,
+									left: 0,
+									right: 0,
+									zIndex: 20,
+									background: "var(--fp-warn)",
+									color: "#000",
+									padding: "8px 24px",
+									textAlign: "center",
+									fontSize: 13,
+								}}
+							>
+								● Live updates paused — reconnecting...
+							</div>
+						)}
+					</ErrorBoundary>
+				</div>
+			</FlowPanelContext.Provider>
 		</ToastProvider>
 	);
 }

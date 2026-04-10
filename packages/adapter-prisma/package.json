@@ -28,6 +28,9 @@
 		"build": "tsup src/index.ts --format esm,cjs --dts",
 		"typecheck": "tsc --noEmit"
 	},
+	"engines": {
+		"node": ">=18"
+	},
 	"peerDependencies": {
 		"@prisma/client": ">=5.0.0"
 	},

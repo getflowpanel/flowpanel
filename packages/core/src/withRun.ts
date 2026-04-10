@@ -52,15 +52,25 @@ export function createWithRun(opts: WithRunOptions) {
 		}
 
 		// INSERT running row
-		const rows = await db.execute<{ id: bigint }>(
-			`INSERT INTO flowpanel_pipeline_run (stage, status, started_at)
+		let runId: bigint;
+		try {
+			const rows = await db.execute<{ id: bigint }>(
+				`INSERT INTO flowpanel_pipeline_run (stage, status, started_at)
        VALUES ($1, $2, now())
        RETURNING id`,
-			[stage, "running"],
-		);
-
-		const runId = rows[0]?.id;
-		if (runId == null) throw new Error("[flowpanel] Failed to create run row");
+				[stage, "running"],
+			);
+			const row = rows[0];
+			if (!row?.id) throw new Error("INSERT returned no rows");
+			runId = row.id;
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			throw new Error(
+				`[flowpanel] Failed to start run for stage "${stage}". ` +
+					`Check database connectivity and that migrations are applied (run: npx flowpanel migrate). ` +
+					`Original error: ${msg}`,
+			);
+		}
 
 		const debug = process.env.NODE_ENV === "development" || process.env.FLOWPANEL_DEBUG === "1";
 		if (debug) console.debug(`[flowpanel] withRun("${stage}")  started    runId=${runId}`);
@@ -115,14 +125,18 @@ export function createWithRun(opts: WithRunOptions) {
 
 				if (updated.length > 0) {
 					// Emit pg_notify for SSE delivery
-					await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
-						JSON.stringify({
-							event: "run.finished",
-							id: String(runId),
-							stage,
-							status: "succeeded",
-						}),
-					]);
+					try {
+						await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
+							JSON.stringify({
+								event: "run.finished",
+								id: String(runId),
+								stage,
+								status: "succeeded",
+							}),
+						]);
+					} catch {
+						// pg_notify not available (SQLite, restricted perms) — SSE will use polling
+					}
 				}
 
 				if (debug) console.debug(`[flowpanel] withRun("${stage}")  succeeded  runId=${runId}`);
@@ -137,15 +151,19 @@ export function createWithRun(opts: WithRunOptions) {
 					[String(runId), new Date(), errorClass, errorMessage, errorStack],
 				);
 
-				await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
-					JSON.stringify({
-						event: "run.failed",
-						id: String(runId),
-						stage,
-						status: "failed",
-						errorClass,
-					}),
-				]);
+				try {
+					await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
+						JSON.stringify({
+							event: "run.failed",
+							id: String(runId),
+							stage,
+							status: "failed",
+							errorClass,
+						}),
+					]);
+				} catch {
+					// pg_notify not available (SQLite, restricted perms) — SSE will use polling
+				}
 
 				if (debug)
 					console.debug(

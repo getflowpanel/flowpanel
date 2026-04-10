@@ -37,7 +37,15 @@ export const flowPanelConfigSchema = z.object({
 	timezone: timezoneSchema.default("UTC"),
 	basePath: z.string().startsWith("/").default("/admin"),
 
-	adapter: z.any(),
+	adapter: z.union([
+		z
+			.object({
+				execute: z.function(),
+				transaction: z.function(),
+			})
+			.passthrough(),
+		z.function(), // factory: () => Promise<SqlExecutor>
+	]),
 
 	pipeline: z.object({
 		stages: z

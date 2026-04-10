@@ -1,3 +1,12 @@
+// Node.js version guard — must be before imports
+const [major] = process.versions.node.split(".").map(Number);
+if (major !== undefined && major < 18) {
+	console.error(
+		`FlowPanel requires Node.js 18 or later. Current: ${process.version}\nUpgrade: https://nodejs.org/`,
+	);
+	process.exit(1);
+}
+
 import { Command } from "commander";
 import { checkForUpdates } from "./updateChecker.js";
 import { runAuditExport } from "./commands/audit-export.js";

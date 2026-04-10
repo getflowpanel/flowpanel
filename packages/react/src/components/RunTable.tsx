@@ -1,5 +1,7 @@
 import type React from "react";
 import { useRef, useState } from "react";
+import { useFlowPanel } from "../context.js";
+import { formatDate } from "../utils/formatDate.js";
 import { StagePill } from "./StagePill.js";
 import { StatusTag } from "./StatusTag.js";
 
@@ -9,7 +11,7 @@ export interface RunLogColumn {
 	width?: number;
 	flex?: number;
 	mono?: boolean;
-	format?: "number" | "currency-usd" | "currency-usd-micro" | "duration" | "date-relative";
+	format?: "number" | "currency-usd" | "currency-usd-micro" | "duration" | "date-relative" | "date";
 	render?: "statusTag" | "stagePill";
 }
 
@@ -26,7 +28,11 @@ interface RunTableProps {
 	onScrollToTop?: () => void;
 }
 
-function formatValue(value: unknown, format?: RunLogColumn["format"]): string {
+function formatValue(
+	value: unknown,
+	format: RunLogColumn["format"] | undefined,
+	timezone: string,
+): string {
 	if (value == null) return "—";
 	switch (format) {
 		case "number":
@@ -37,13 +43,10 @@ function formatValue(value: unknown, format?: RunLogColumn["format"]): string {
 			return `$${Number(value).toFixed(6)}`;
 		case "duration":
 			return `${(Number(value) / 1000).toFixed(2)}s`;
-		case "date-relative": {
-			const diff = Date.now() - new Date(String(value)).getTime();
-			if (diff < 60_000) return "just now";
-			if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-			if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-			return `${Math.floor(diff / 86_400_000)}d ago`;
-		}
+		case "date-relative":
+			return formatDate(String(value), "date-relative", timezone);
+		case "date":
+			return formatDate(String(value), "date", timezone);
 		default:
 			return String(value);
 	}
@@ -121,6 +124,7 @@ export function RunTable({
 	newRunsBanner,
 	onScrollToTop,
 }: RunTableProps) {
+	const { timezone } = useFlowPanel();
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [hoveredRow, setHoveredRow] = useState<number | null>(null);
 	const [search, setSearch] = useState("");
@@ -318,7 +322,7 @@ export function RunTable({
 													className={col.mono ? "fp-mono" : undefined}
 													style={{ fontSize: col.mono ? 11 : 12 }}
 												>
-													{formatValue(value, col.format)}
+													{formatValue(value, col.format, timezone)}
 												</span>
 											);
 										}
