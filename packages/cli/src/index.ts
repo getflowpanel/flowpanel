@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { checkForUpdates } from "./updateChecker.js";
 import { runAuditExport } from "./commands/audit-export.js";
 import { runDemo } from "./commands/demo.js";
 import { runDemoClear } from "./commands/demo-clear.js";
@@ -76,3 +77,5 @@ program
 	.action(runDev);
 
 program.parse();
+
+checkForUpdates("0.1.0");

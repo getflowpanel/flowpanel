@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { execFile } from "node:child_process";
 import { watch } from "chokidar";
 import kleur from "kleur";
 import { platform } from "os";
@@ -32,7 +32,7 @@ export async function runDev(opts: { port?: string }) {
 	// Best-effort browser open
 	const url = `http://localhost:${port}${basePath}`;
 	const cmd = platform() === "darwin" ? "open" : platform() === "win32" ? "start" : "xdg-open";
-	exec(`${cmd} ${url}`, () => {});
+	execFile(cmd, [url], () => {});
 
 	// Watch config file
 	const watcher = watch("flowpanel.config.ts", { ignoreInitial: true });

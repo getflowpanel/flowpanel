@@ -86,8 +86,8 @@ export async function runDemo() {
 				],
 			);
 			seeded++;
-		} catch {
-			// Skip on insert errors (table might not have all columns)
+		} catch (err: unknown) {
+			console.error(`[FlowPanel] Failed to insert run: ${(err as Error).message}`);
 		}
 
 		if (seeded % 100 === 0 && seeded > 0) {

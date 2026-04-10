@@ -31,7 +31,6 @@ export async function runDoctor({ prod = false, json = false } = {}): Promise<vo
 	const spinner = json ? null : ora("Running health checks...").start();
 
 	if (!json) console.log("");
-	if (spinner) spinner.stop();
 
 	try {
 		if (spinner) spinner.text = "Checking TypeScript...";
@@ -56,6 +55,7 @@ export async function runDoctor({ prod = false, json = false } = {}): Promise<vo
 	}
 
 	if (!config) {
+		if (spinner) spinner.stop();
 		const passCount = results.filter((r) => r.status === "pass").length;
 		const warnCount = results.filter((r) => r.status === "warn").length;
 		const failCount = results.filter((r) => r.status === "fail").length;
@@ -143,6 +143,8 @@ export async function runDoctor({ prod = false, json = false } = {}): Promise<vo
 		"Reaper not scheduled",
 		`Add to worker/index.ts:\n    ┌──────────────────────────────────────────┐\n    │  flowpanel.startReaper({ interval: "60s" });  │\n    └──────────────────────────────────────────┘`,
 	);
+
+	if (spinner) spinner.stop();
 
 	const passCount = results.filter((r) => r.status === "pass").length;
 	const warnCount = results.filter((r) => r.status === "warn").length;
