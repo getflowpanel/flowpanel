@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { flowPanelConfigSchema } from "../../config/schema.js";
 
+const adapter = {
+	execute: async () => [],
+	transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({}),
+	dialect: "postgres" as const,
+};
+
 const minimalConfig = {
 	appName: "test",
 	timezone: "UTC",
 	basePath: "/admin",
-	adapter: {},
+	adapter: adapter,
 	pipeline: {
 		stages: ["parse", "score"],
 		fields: { userId: z.string().nullable() },
@@ -57,5 +63,46 @@ describe("flowPanelConfigSchema", () => {
 			timezone: "NotATimezone",
 		});
 		expect(result.success).toBe(false);
+	});
+
+	describe("adapter validation", () => {
+		const baseConfig = {
+			appName: "test",
+			pipeline: { stages: ["ingest"] },
+			security: { auth: { getSession: async () => null } },
+		};
+
+		it("rejects null adapter", () => {
+			expect(flowPanelConfigSchema.safeParse({ ...baseConfig, adapter: null }).success).toBe(false);
+		});
+
+		it("rejects number adapter", () => {
+			expect(flowPanelConfigSchema.safeParse({ ...baseConfig, adapter: 42 }).success).toBe(false);
+		});
+
+		it("accepts valid SqlExecutor-shaped object", () => {
+			const mockAdapter = {
+				execute: async () => [],
+				transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({}),
+				dialect: "postgres" as const,
+			};
+			expect(flowPanelConfigSchema.safeParse({ ...baseConfig, adapter: mockAdapter }).success).toBe(
+				true,
+			);
+		});
+
+		it("accepts factory function", () => {
+			const factory = async () => ({
+				execute: async () => [],
+				transaction: async () => {},
+			});
+			expect(flowPanelConfigSchema.safeParse({ ...baseConfig, adapter: factory }).success).toBe(
+				true,
+			);
+		});
+
+		it("rejects empty object (missing execute and transaction)", () => {
+			expect(flowPanelConfigSchema.safeParse({ ...baseConfig, adapter: {} }).success).toBe(false);
+		});
 	});
 });

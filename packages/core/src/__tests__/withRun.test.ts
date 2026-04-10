@@ -181,4 +181,24 @@ describe("withRun", () => {
 		const heartbeatCall = calls.find((c) => c.sql.includes("heartbeat_at"));
 		expect(heartbeatCall).toBeDefined();
 	});
+
+	it("provides actionable error message when DB INSERT fails", async () => {
+		const brokenDb: SqlExecutor = {
+			...makeMockDb().executor,
+			async execute(sql: string) {
+				if (sql.includes("INSERT")) {
+					throw new Error("connect ECONNREFUSED 127.0.0.1:5432");
+				}
+				return [];
+			},
+		};
+		const withRun = createWithRun({
+			db: brokenDb,
+			stageFields: {},
+			stages: ["ingest"],
+			cwd: "/app",
+			redactionKeys: [],
+		});
+		await expect(withRun("ingest", async () => {})).rejects.toThrow(/Check database connectivity/);
+	});
 });
