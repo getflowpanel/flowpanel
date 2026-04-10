@@ -287,7 +287,7 @@ export function createRunsProcedures(
 					});
 
 					const queryDef = qb.chartBuckets(input.timeRange, "postgres");
-					const rows = await db.execute<Record<string, unknown>>(queryDef.sql, []);
+					const rows = await db.execute<Record<string, unknown>>(queryDef.sql, queryDef.params);
 
 					const buckets = rows.map((row) => {
 						const bucket = row["bucket"];

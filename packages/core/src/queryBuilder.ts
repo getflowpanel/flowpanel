@@ -3,7 +3,7 @@ import { fieldNameToColumn } from "./schemaGenerator.js";
 export interface QueryDef {
 	type: string;
 	sql: string;
-	params?: unknown[];
+	params: unknown[];
 	where?: Record<string, unknown>;
 	limit?: number;
 }
@@ -49,42 +49,79 @@ function resolveColumns(
 }
 
 class QueryBuilderInstance {
-	private _where: Record<string, unknown> = {};
+	private _where: {
+		stage?: string;
+		status?: string;
+		partitionKey?: string;
+		timeRange?: string;
+	} = {};
 
 	constructor(private opts: QueryBuilderOptions) {}
 
-	where(filter: Record<string, unknown>): QueryBuilderInstance {
+	where(filter: {
+		stage?: string;
+		status?: string;
+		partitionKey?: string;
+		timeRange?: string;
+	}): QueryBuilderInstance {
 		const next = new QueryBuilderInstance(this.opts);
 		next._where = { ...this._where, ...filter };
 		return next;
 	}
 
 	private stageFilter(): string | undefined {
-		return this._where["stage"] as string | undefined;
+		return this._where.stage;
 	}
 
-	private whereClause(): string {
+	private timeRangeToCutoff(range: string): string {
+		const units: Record<string, number> = { h: 3600000, d: 86400000 };
+		const match = range.match(/^(\d+)([hd])$/);
+		if (!match) return new Date(0).toISOString();
+		const ms = Number(match[1]) * units[match[2]!]!;
+		return new Date(Date.now() - ms).toISOString();
+	}
+
+	private whereClause(): [string, unknown[]] {
 		const parts: string[] = [];
-		if (this._where["stage"]) {
-			parts.push(`stage = '${this._where["stage"]}'`);
+		const params: unknown[] = [];
+		let idx = 1;
+
+		if (this._where.stage) {
+			parts.push(`stage = $${idx++}`);
+			params.push(this._where.stage);
 		}
-		return parts.length > 0 ? `WHERE ${parts.join(" AND ")}` : "";
+		if (this._where.status) {
+			parts.push(`status = $${idx++}`);
+			params.push(this._where.status);
+		}
+		if (this._where.partitionKey) {
+			parts.push(`partition_key = $${idx++}`);
+			params.push(this._where.partitionKey);
+		}
+		if (this._where.timeRange) {
+			parts.push(`started_at >= $${idx++}`);
+			params.push(this.timeRangeToCutoff(this._where.timeRange));
+		}
+
+		return [parts.length > 0 ? `WHERE ${parts.join(" AND ")}` : "", params];
 	}
 
 	count(): QueryDef {
-		const w = this.whereClause();
+		const [where, params] = this.whereClause();
 		return {
 			type: "count",
-			sql: `SELECT COUNT(*) AS value FROM flowpanel_pipeline_run${w ? " " + w : ""}`,
+			sql: `SELECT COUNT(*) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+			params,
 			where: this._where,
 		};
 	}
 
 	successRate(): QueryDef {
-		const w = this.whereClause();
+		const [where, params] = this.whereClause();
 		return {
 			type: "successRate",
-			sql: `SELECT ROUND(100.0 * SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(*), 0), 2) AS value FROM flowpanel_pipeline_run${w ? " " + w : ""}`,
+			sql: `SELECT ROUND(100.0 * SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(*), 0), 2) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+			params,
 			where: this._where,
 		};
 	}
@@ -97,80 +134,89 @@ class QueryBuilderInstance {
 			);
 		}
 		const expr = cols.map((c) => `COALESCE(${c}, 0)`).join(" + ");
-		const w = this.whereClause();
+		const [where, params] = this.whereClause();
 		return {
 			type: "sum",
-			sql: `SELECT SUM(${expr}) AS value FROM flowpanel_pipeline_run${w ? " " + w : ""}`,
+			sql: `SELECT SUM(${expr}) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+			params,
 			where: this._where,
 		};
 	}
 
 	avg(fieldName: string): QueryDef {
 		const col = RESERVED_COLUMNS[fieldName] ?? fieldNameToColumn(fieldName);
-		const w = this.whereClause();
+		const [where, params] = this.whereClause();
 		return {
 			type: "avg",
-			sql: `SELECT AVG(${col}) AS value FROM flowpanel_pipeline_run${w ? " " + w : ""}`,
+			sql: `SELECT AVG(${col}) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+			params,
 			where: this._where,
 		};
 	}
 
 	p95(fieldName: string): QueryDef {
 		const col = RESERVED_COLUMNS[fieldName] ?? fieldNameToColumn(fieldName);
-		const w = this.whereClause();
+		const [where, params] = this.whereClause();
 		return {
 			type: "p95",
-			sql: `SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY ${col}) AS value FROM flowpanel_pipeline_run${w ? " " + w : ""}`,
+			sql: `SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY ${col}) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+			params,
 			where: this._where,
 		};
 	}
 
 	hourly(_fieldOrAgg: string): QueryDef {
-		const w = this.whereClause();
+		const [where, params] = this.whereClause();
 		return {
 			type: "hourly",
-			sql: `SELECT date_trunc('hour', started_at) AS bucket, COUNT(*) AS value FROM flowpanel_pipeline_run${w ? " " + w : ""} GROUP BY bucket ORDER BY bucket`,
+			sql: `SELECT date_trunc('hour', started_at) AS bucket, COUNT(*) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""} GROUP BY bucket ORDER BY bucket`,
+			params,
 			where: this._where,
 		};
 	}
 
 	byStage(): QueryDef {
-		const w = this.whereClause();
+		const [where, params] = this.whereClause();
 		return {
 			type: "byStage",
-			sql: `SELECT stage, COUNT(*) AS count, SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS succeeded, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed FROM flowpanel_pipeline_run${w ? " " + w : ""} GROUP BY stage`,
+			sql: `SELECT stage, COUNT(*) AS count, SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS succeeded, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed FROM flowpanel_pipeline_run${where ? " " + where : ""} GROUP BY stage`,
+			params,
 			where: this._where,
 		};
 	}
 
-	topErrors(limit: number): QueryDef {
-		const w = this.whereClause();
-		const whereAndNull = w ? `${w} AND error_class IS NOT NULL` : `WHERE error_class IS NOT NULL`;
+	topErrors(limit = 5): QueryDef {
+		const [where, params] = this.whereClause();
+		const statusFilter = where
+			? ` AND status = 'failed' AND error_class IS NOT NULL`
+			: ` WHERE status = 'failed' AND error_class IS NOT NULL`;
+		const limitIdx = params.length + 1;
 		return {
 			type: "topErrors",
-			sql: `SELECT error_class, COUNT(*) AS count FROM flowpanel_pipeline_run ${whereAndNull} GROUP BY error_class ORDER BY count DESC LIMIT ${limit}`,
+			sql: `SELECT error_class, COUNT(*) AS count FROM flowpanel_pipeline_run ${where}${statusFilter} GROUP BY error_class ORDER BY count DESC LIMIT $${limitIdx}`,
+			params: [...params, limit],
 			where: this._where,
 			limit,
 		};
 	}
 
 	chartBuckets(timeRange: string, dialect: "postgres" | "sqlite"): QueryDef {
-		const w = this.whereClause();
+		// Ensure time range is applied
+		if (!this._where.timeRange) {
+			this._where = { ...this._where, timeRange };
+		}
+		const [where, params] = this.whereClause();
 
 		let bucketExpr: string;
 
 		if (dialect === "sqlite") {
-			// SQLite fallback: truncate to hour for all ranges
 			bucketExpr = `strftime('%Y-%m-%dT%H:00:00', started_at)`;
 		} else {
-			// Postgres
 			switch (timeRange) {
 				case "1h":
-					// Truncate to 5-min buckets: floor(minutes/5)*5
 					bucketExpr = `date_trunc('hour', started_at) + floor(extract(minute from started_at) / 5) * interval '5 minutes'`;
 					break;
 				case "6h":
-					// 30-min buckets
 					bucketExpr = `date_trunc('hour', started_at) + floor(extract(minute from started_at) / 30) * interval '30 minutes'`;
 					break;
 				case "24h":
@@ -189,7 +235,8 @@ class QueryBuilderInstance {
 
 		return {
 			type: "chartBuckets",
-			sql: `SELECT ${bucketExpr} AS bucket, COUNT(*) AS total, SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS succeeded, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed FROM flowpanel_pipeline_run${w ? " " + w : ""} GROUP BY bucket ORDER BY bucket`,
+			sql: `SELECT ${bucketExpr} AS bucket, COUNT(*) AS total, SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS succeeded, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed FROM flowpanel_pipeline_run${where ? " " + where : ""} GROUP BY bucket ORDER BY bucket`,
+			params,
 			where: this._where,
 		};
 	}
@@ -198,6 +245,7 @@ class QueryBuilderInstance {
 		return {
 			type: "aiCostPerUserPerPeriod",
 			sql: `SELECT u.id, u.email, COALESCE(usage.cost_usd, 0) AS value FROM users u LEFT JOIN LATERAL (SELECT SUM(cost_usd)::numeric AS cost_usd FROM flowpanel_ai_usage_daily WHERE partition_key = u.id::text AND day >= u.subscription_period_start AND day < u.subscription_period_end) usage ON true`,
+			params: [],
 		};
 	}
 }

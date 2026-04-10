@@ -76,3 +76,49 @@ describe("QueryBuilder", () => {
 		expect(() => qb.sum("nonExistentField")).toThrow();
 	});
 });
+
+const mockConfig = {
+	stages: ["ingest", "score"],
+	stageFields: { ingest: {}, score: {} },
+	fields: {},
+};
+
+describe("parameterized queries", () => {
+	it("count() with stage filter uses $1 param, not string interpolation", () => {
+		const qb = createQueryBuilder(mockConfig).where({ stage: "ingest" });
+		const result = qb.count();
+		expect(result.sql).toContain("$1");
+		expect(result.sql).not.toContain("'ingest'");
+		expect(result.params).toEqual(["ingest"]);
+	});
+
+	it("SQL injection attempt is safely parameterized", () => {
+		const qb = createQueryBuilder(mockConfig).where({
+			stage: "'; DROP TABLE flowpanel_pipeline_run; --",
+		});
+		const result = qb.count();
+		expect(result.sql).not.toContain("DROP");
+		expect(result.params?.[0]).toBe("'; DROP TABLE flowpanel_pipeline_run; --");
+	});
+
+	it("topErrors limit is parameterized", () => {
+		const result = createQueryBuilder(mockConfig).topErrors(10);
+		expect(result.sql).toMatch(/LIMIT \$\d/);
+		expect(result.params).toContain(10);
+	});
+
+	it("chartBuckets includes time filter in params when timeRange set via where()", () => {
+		const result = createQueryBuilder(mockConfig)
+			.where({ timeRange: "24h" })
+			.chartBuckets("24h", "postgres");
+		expect(result.sql).toContain("started_at >=");
+		expect(result.params!.length).toBeGreaterThan(0);
+		expect(typeof result.params![0]).toBe("string");
+	});
+
+	it("count() without filters has empty params", () => {
+		const result = createQueryBuilder(mockConfig).count();
+		expect(result.params).toEqual([]);
+		expect(result.sql).not.toContain("WHERE");
+	});
+});

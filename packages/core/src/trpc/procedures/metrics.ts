@@ -32,7 +32,7 @@ export function createMetricsProcedures(
 								fields: (config.pipeline as any).fields ?? {},
 							});
 							const queryDef = mc.query(qb);
-							const rows = await db.execute(queryDef.sql, queryDef.params ?? []);
+							const rows = await db.execute(queryDef.sql, queryDef.params);
 							results[name] = { value: (rows[0] as any)?.value ?? null };
 						}
 					} catch (err) {
@@ -65,7 +65,7 @@ export function createMetricsProcedures(
 					fields: (config.pipeline as any).fields ?? {},
 				});
 				const queryDef = metricConfig.query(qb);
-				const rows = await db.execute(queryDef.sql, queryDef.params ?? []);
+				const rows = await db.execute(queryDef.sql, queryDef.params);
 				return { value: (rows[0] as any)?.value ?? null };
 			}),
 	});
