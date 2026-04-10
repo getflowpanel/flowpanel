@@ -39,7 +39,9 @@ export function createDrawersProcedures(
 					run = rows[0] ?? null;
 				}
 
-				return { sections, run };
+				const actions = drawerConfig.actions ?? [];
+
+				return { sections, run, actions };
 			}),
 	});
 }
@@ -76,14 +78,15 @@ async function renderSection(db: any, config: any, section: any, input: any): Pr
 		}
 		case "error-list": {
 			const limit = section.limit ?? 5;
+			const limitIdx = timeParams.length + 1;
 			const rows = await db.execute(
 				`SELECT error_class, COUNT(*) AS count
          FROM flowpanel_pipeline_run
          ${timeWhere ? timeWhere + " AND" : "WHERE"} error_class IS NOT NULL
          GROUP BY error_class
          ORDER BY count DESC
-         LIMIT ${limit}`,
-				timeParams,
+         LIMIT $${limitIdx}`,
+				[...timeParams, limit],
 			);
 			return rows;
 		}
@@ -150,8 +153,12 @@ async function renderSection(db: any, config: any, section: any, input: any): Pr
 						status: String(r["status"] ?? "succeeded") as "succeeded" | "failed" | "running",
 					}));
 				}
-			} catch {
-				// fall through to single-run fallback
+			} catch (err: unknown) {
+				const msg = String((err as Error)?.message ?? "");
+				if (!msg.includes("does not exist") && !msg.includes("no such table")) {
+					throw err;
+				}
+				// Table doesn't exist — fall through to single-run fallback
 			}
 			// Fallback: single row representing the whole run
 			const rows = await db.execute<Record<string, unknown>>(

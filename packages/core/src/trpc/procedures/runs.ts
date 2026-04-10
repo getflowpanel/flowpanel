@@ -289,14 +289,14 @@ export function createRunsProcedures(
 			),
 
 		chart: authedProcedure
-			.input(z.object({ timeRange: z.string() }))
+			.input(z.object({ timeRange: z.enum(["1h", "6h", "24h", "7d", "30d"]) }))
 			.query(
 				async ({
 					ctx,
 					input,
 				}: {
 					ctx: FlowPanelContext & { session: Session };
-					input: { timeRange: string };
+					input: { timeRange: "1h" | "6h" | "24h" | "7d" | "30d" };
 				}) => {
 					const { db, config } = ctx;
 					const qb = createQueryBuilder({
@@ -305,7 +305,7 @@ export function createRunsProcedures(
 						fields: config.pipeline?.fields ?? {},
 					});
 
-					const queryDef = qb.chartBuckets(input.timeRange, "postgres");
+					const queryDef = qb.chartBuckets(input.timeRange, db.dialect);
 					const rows = await db.execute<Record<string, unknown>>(queryDef.sql, queryDef.params);
 
 					const buckets = rows.map((row) => {
@@ -358,6 +358,44 @@ export function createRunsProcedures(
 					}
 
 					return { buckets, peakBucket };
+				},
+			),
+
+		topErrors: authedProcedure
+			.input(
+				z.object({
+					timeRange: z.enum(["1h", "6h", "24h", "7d", "30d"]),
+					limit: z.number().int().min(1).max(20).default(5),
+				}),
+			)
+			.query(
+				async ({
+					ctx,
+					input,
+				}: {
+					ctx: FlowPanelContext & { session: Session };
+					input: { timeRange: "1h" | "6h" | "24h" | "7d" | "30d"; limit: number };
+				}) => {
+					const { db, config } = ctx;
+					const qb = createQueryBuilder({
+						stages: config.pipeline?.stages ?? [],
+						stageFields: config.pipeline?.stageFields ?? {},
+						fields: config.pipeline?.fields ?? {},
+					});
+
+					const errQuery = qb.where({ timeRange: input.timeRange }).topErrors(input.limit);
+					const errors = await db.execute<{ error_class: string; count: number }>(
+						errQuery.sql,
+						errQuery.params,
+					);
+
+					const totalQuery = qb.where({ timeRange: input.timeRange, status: "failed" }).count();
+					const [row] = await db.execute<{ value: number }>(totalQuery.sql, totalQuery.params);
+
+					return {
+						errors: errors.map((e) => ({ errorClass: e.error_class, count: e.count })),
+						totalFailed: row?.value ?? 0,
+					};
 				},
 			),
 	});
