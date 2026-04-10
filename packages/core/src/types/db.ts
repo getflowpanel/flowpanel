@@ -1,5 +1,6 @@
 // SqlExecutor interface — all adapters implement this
 export interface SqlExecutor {
+	readonly dialect: "postgres" | "sqlite";
 	execute<T = Record<string, unknown>>(sql: string, params: unknown[]): Promise<T[]>;
 	transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T>;
 	advisoryLock(key: bigint): Promise<void>;

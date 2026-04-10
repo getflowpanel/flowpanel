@@ -4,7 +4,10 @@ type DrizzleDb = {
 	execute: (query: { sql: string; params: unknown[] }) => Promise<unknown[]>;
 };
 
-export function drizzleAdapter(opts: { db: DrizzleDb | (() => Promise<DrizzleDb>) }): SqlExecutor {
+export function drizzleAdapter(opts: {
+	db: DrizzleDb | (() => Promise<DrizzleDb>);
+	dialect?: "postgres" | "sqlite";
+}): SqlExecutor {
 	let resolvedDb: DrizzleDb | null = null;
 
 	async function getDb(): Promise<DrizzleDb> {
@@ -15,6 +18,7 @@ export function drizzleAdapter(opts: { db: DrizzleDb | (() => Promise<DrizzleDb>
 	}
 
 	const executor: SqlExecutor = {
+		dialect: opts.dialect ?? "postgres",
 		async execute<T = Record<string, unknown>>(sqlText: string, params: unknown[]): Promise<T[]> {
 			const db = await getDb();
 			// Drizzle expects prepare: false for PgBouncer compatibility
@@ -28,7 +32,7 @@ export function drizzleAdapter(opts: { db: DrizzleDb | (() => Promise<DrizzleDb>
 			const drizzleWithTx = db as any;
 			if (typeof drizzleWithTx.transaction === "function") {
 				return drizzleWithTx.transaction(async (tx: DrizzleDb) => {
-					const txExecutor = drizzleAdapter({ db: tx });
+					const txExecutor = drizzleAdapter({ db: tx, dialect: opts.dialect ?? "postgres" });
 					return fn(txExecutor);
 				});
 			}

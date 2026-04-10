@@ -25,6 +25,7 @@ export function prismaAdapter(opts: { prisma: PrismaClientLike }): SqlExecutor {
 	}
 
 	const executor: SqlExecutor = {
+		dialect: "postgres",
 		async execute<T = Record<string, unknown>>(sql: string, params: unknown[]): Promise<T[]> {
 			return prisma.$queryRawUnsafe<T>(sql, ...params);
 		},
