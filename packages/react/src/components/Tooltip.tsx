@@ -12,37 +12,60 @@ interface TooltipPosition {
 	left: number;
 }
 
+function calcSide(
+	trigger: DOMRect,
+	size: { width: number; height: number },
+	side: "top" | "bottom" | "left" | "right",
+	gap: number,
+): { top: number; left: number } {
+	const cx = trigger.left + trigger.width / 2;
+	const cy = trigger.top + trigger.height / 2;
+	switch (side) {
+		case "top":
+			return { top: trigger.top - size.height - gap, left: cx - size.width / 2 };
+		case "bottom":
+			return { top: trigger.bottom + gap, left: cx - size.width / 2 };
+		case "left":
+			return { top: cy - size.height / 2, left: trigger.left - size.width - gap };
+		case "right":
+			return { top: cy - size.height / 2, left: trigger.right + gap };
+	}
+}
+
 function computePosition(
 	rect: DOMRect,
 	tooltipEl: HTMLElement,
 	side: "top" | "bottom" | "left" | "right",
 ): TooltipPosition {
 	const { width: tw, height: th } = tooltipEl.getBoundingClientRect();
+	const size = { width: tw, height: th };
 	const gap = 6;
+	const vw = window.innerWidth;
+	const vh = window.innerHeight;
 
-	switch (side) {
-		case "bottom":
-			return {
-				top: rect.bottom + gap,
-				left: rect.left + rect.width / 2 - tw / 2,
-			};
-		case "left":
-			return {
-				top: rect.top + rect.height / 2 - th / 2,
-				left: rect.left - tw - gap,
-			};
-		case "right":
-			return {
-				top: rect.top + rect.height / 2 - th / 2,
-				left: rect.right + gap,
-			};
-		case "top":
-		default:
-			return {
-				top: rect.top - th - gap,
-				left: rect.left + rect.width / 2 - tw / 2,
-			};
+	const opposite: Record<"top" | "bottom" | "left" | "right", "top" | "bottom" | "left" | "right"> =
+		{
+			top: "bottom",
+			bottom: "top",
+			left: "right",
+			right: "left",
+		};
+
+	const sides: Array<"top" | "bottom" | "left" | "right"> = [side, opposite[side]];
+
+	for (const s of sides) {
+		const pos = calcSide(rect, size, s, gap);
+		if (pos.top >= 4 && pos.left >= 4 && pos.top + th <= vh - 4 && pos.left + tw <= vw - 4) {
+			return pos;
+		}
 	}
+
+	// Fallback: preferred side, clamped to viewport
+	const pos = calcSide(rect, size, side, gap);
+	return {
+		top: Math.max(4, Math.min(pos.top, vh - th - 4)),
+		left: Math.max(4, Math.min(pos.left, vw - tw - 4)),
+	};
 }
 
 export function Tooltip({ content, children, side = "top", delay = 400 }: TooltipProps) {

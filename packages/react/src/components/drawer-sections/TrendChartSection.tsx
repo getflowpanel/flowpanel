@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 
 interface TrendChartSectionProps {
 	data: Array<{ bucket: string; value: number }>;
@@ -44,7 +44,7 @@ export function TrendChartSection({ data }: TrendChartSectionProps) {
 	const areaPath =
 		`M 0,${HEIGHT} ` + points.map((p) => `L ${p.x},${p.y}`).join(" ") + ` L ${WIDTH},${HEIGHT} Z`;
 
-	const gradientId = "fp-trend-gradient";
+	const gradientId = useId();
 
 	return (
 		<svg

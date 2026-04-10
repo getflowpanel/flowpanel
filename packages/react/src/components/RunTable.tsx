@@ -187,6 +187,7 @@ export function RunTable({
 			<div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
 				<input
 					placeholder="Search runs..."
+					data-fp-run-search=""
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
 					style={{

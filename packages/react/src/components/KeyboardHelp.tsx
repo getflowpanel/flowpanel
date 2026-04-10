@@ -91,7 +91,7 @@ export function KeyboardHelp({ open, onClose }: KeyboardHelpProps) {
 					left: "50%",
 					transform: "translate(-50%, -50%)",
 					zIndex: 51,
-					width: 420,
+					width: 480,
 					background: "var(--fp-surface-1)",
 					border: "1px solid var(--fp-border-1)",
 					borderRadius: "var(--fp-radius-card)",

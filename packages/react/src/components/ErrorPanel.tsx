@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 interface ErrorPanelProps {
-	errors: Array<{ errorClass: string; count: number }>;
+	errors: Array<{ errorClass: string; count: number; lastSeen?: string }>;
 	totalFailed: number;
 	loading?: boolean;
 	onRetryAll?: () => void;

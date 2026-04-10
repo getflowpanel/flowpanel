@@ -315,6 +315,18 @@ export function FlowPanelUI({
 			description: "Open command palette",
 		},
 		{ key: "?", handler: () => setKeyboardHelpOpen(true) },
+		{
+			key: "/",
+			handler: () => {
+				const el = document.querySelector<HTMLInputElement>("[data-fp-run-search]");
+				if (el) {
+					el.focus();
+					return true;
+				}
+				return false;
+			},
+			description: "Focus search",
+		},
 		{ key: "1", handler: () => setActiveTab(tabs[0]?.id ?? "pipeline") },
 		{
 			key: "2",

@@ -69,7 +69,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 							cursor: "pointer",
 						}}
 					>
-						Retry
+						Reload
 					</button>
 				</div>
 			);

@@ -1,5 +1,6 @@
 import React from "react";
 import type { LiveStatus } from "../hooks/useFlowPanelStream.js";
+import { Tooltip } from "./Tooltip.js";
 
 export type { LiveStatus };
 
@@ -69,40 +70,50 @@ export function Header({
 				</div>
 
 				{/* Live indicator */}
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						gap: 6,
-						border: "1px solid var(--fp-border-1)",
-						borderRadius: "var(--fp-radius-sm)",
-						padding: "5px 9px",
-					}}
-					aria-live="polite"
-					aria-label={`Connection: ${liveStatus}`}
-				>
-					<span
-						style={{
-							width: 7,
-							height: 7,
-							borderRadius: "50%",
-							background:
-								liveStatus === "live"
-									? "var(--fp-ok)"
-									: liveStatus === "reconnecting"
-										? "var(--fp-warn)"
-										: "var(--fp-text-4)",
-							boxShadow: liveStatus === "live" ? "0 0 0 2px rgba(16,185,129,0.2)" : "none",
-						}}
-					/>
-					<span style={{ fontSize: 12, color: "var(--fp-text-2)" }}>
-						{liveStatus === "live"
-							? "Live"
+				<Tooltip
+					content={
+						liveStatus === "live"
+							? "Live: receiving real-time updates"
 							: liveStatus === "reconnecting"
-								? "Reconnecting"
-								: "Polling"}
-					</span>
-				</div>
+								? "Reconnecting..."
+								: "Disconnected"
+					}
+				>
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: 6,
+							border: "1px solid var(--fp-border-1)",
+							borderRadius: "var(--fp-radius-sm)",
+							padding: "5px 9px",
+						}}
+						aria-live="polite"
+						aria-label={`Connection: ${liveStatus}`}
+					>
+						<span
+							style={{
+								width: 7,
+								height: 7,
+								borderRadius: "50%",
+								background:
+									liveStatus === "live"
+										? "var(--fp-ok)"
+										: liveStatus === "reconnecting"
+											? "var(--fp-warn)"
+											: "var(--fp-text-4)",
+								boxShadow: liveStatus === "live" ? "0 0 0 2px rgba(16,185,129,0.2)" : "none",
+							}}
+						/>
+						<span style={{ fontSize: 12, color: "var(--fp-text-2)" }}>
+							{liveStatus === "live"
+								? "Live"
+								: liveStatus === "reconnecting"
+									? "Reconnecting"
+									: "Polling"}
+						</span>
+					</div>
+				</Tooltip>
 
 				{/* Command palette trigger */}
 				{onOpenPalette && (

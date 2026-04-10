@@ -1,4 +1,5 @@
 import React from "react";
+import { Tooltip } from "./Tooltip.js";
 
 interface StageCardProps {
 	stage: string;
@@ -123,26 +124,28 @@ export function StageCard({
 					<span style={{ fontSize: 11, color: "var(--fp-err)" }}>{failed} failed</span>
 				)}
 				{running > 0 && (
-					<span
-						style={{
-							display: "flex",
-							alignItems: "center",
-							gap: 3,
-							fontSize: 11,
-							color: "var(--fp-text-2)",
-						}}
-					>
+					<Tooltip content="Currently executing">
 						<span
 							style={{
-								width: 5,
-								height: 5,
-								borderRadius: "50%",
-								background: color,
-								animation: "fp-pulse 1.6s ease-in-out infinite",
+								display: "flex",
+								alignItems: "center",
+								gap: 3,
+								fontSize: 11,
+								color: "var(--fp-text-2)",
 							}}
-						/>
-						{running} running
-					</span>
+						>
+							<span
+								style={{
+									width: 5,
+									height: 5,
+									borderRadius: "50%",
+									background: color,
+									animation: "fp-pulse 1.6s ease-in-out infinite",
+								}}
+							/>
+							{running} running
+						</span>
+					</Tooltip>
 				)}
 			</div>
 		</button>

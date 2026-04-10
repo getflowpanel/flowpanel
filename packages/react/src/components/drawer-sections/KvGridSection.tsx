@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useToast } from "../Toast.js";
 
 interface KvGridSectionProps {
 	data: Record<string, unknown>;
@@ -7,11 +8,13 @@ interface KvGridSectionProps {
 
 function CopyButton({ value }: { value: string }) {
 	const [copied, setCopied] = useState(false);
+	const { toast } = useToast();
 
 	function handleCopy() {
 		navigator.clipboard.writeText(value).then(() => {
 			setCopied(true);
 			setTimeout(() => setCopied(false), 1500);
+			toast({ message: "Copied", variant: "info" });
 		});
 	}
 

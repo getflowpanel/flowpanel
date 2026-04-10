@@ -42,6 +42,13 @@ interface ToastItemProps {
 }
 
 function ToastItemComponent({ item, onDismiss }: ToastItemProps) {
+	const [dismissing, setDismissing] = useState(false);
+
+	const handleDismiss = useCallback(() => {
+		setDismissing(true);
+		setTimeout(() => onDismiss(item.id), 120);
+	}, [item.id, onDismiss]);
+
 	return (
 		<div
 			role="status"
@@ -60,11 +67,14 @@ function ToastItemComponent({ item, onDismiss }: ToastItemProps) {
 				alignItems: "flex-start",
 				gap: 10,
 				animation: "fp-toast-in 150ms ease",
+				opacity: dismissing ? 0 : 1,
+				transform: dismissing ? "translateY(4px)" : "translateY(0)",
+				transition: "opacity 100ms ease, transform 100ms ease",
 			}}
 		>
 			<span style={{ flex: 1, lineHeight: "1.4" }}>{item.message}</span>
 			<button
-				onClick={() => onDismiss(item.id)}
+				onClick={handleDismiss}
 				aria-label="Dismiss notification"
 				style={{
 					background: "none",
