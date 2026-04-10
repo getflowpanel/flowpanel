@@ -5,6 +5,7 @@ import { CommandPalette } from "./components/CommandPalette.js";
 import { DemoBanner } from "./components/DemoBanner.js";
 import { Drawer } from "./components/Drawer.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.js";
+import { ErrorPanel } from "./components/ErrorPanel.js";
 import { Header } from "./components/Header.js";
 import { KeyboardHelp } from "./components/KeyboardHelp.js";
 import { MetricCard } from "./components/MetricCard.js";
@@ -111,6 +112,7 @@ export function FlowPanelUI({
 	const [drawerData, setDrawerData] = useState<{
 		sections: Array<{ type: string; data: unknown; error?: string }>;
 		run?: Record<string, unknown>;
+		actions?: Array<{ label: string; variant?: "default" | "danger"; onClick: string }>;
 	} | null>(null);
 	const [drawerLoading, setDrawerLoading] = useState(false);
 
@@ -136,6 +138,10 @@ export function FlowPanelUI({
 	const [chartData, setChartData] = useState<{
 		buckets: Array<{ label: string; total: number; succeeded: number; failed: number }>;
 		peakBucket: { label: string; total: number } | null;
+	} | null>(null);
+	const [topErrors, setTopErrors] = useState<{
+		errors: Array<{ errorClass: string; count: number }>;
+		totalFailed: number;
 	} | null>(null);
 
 	// ── Data fetching ─────────────────────────────────────────────────────────
@@ -183,6 +189,15 @@ export function FlowPanelUI({
 			)
 				.then(setChartData)
 				.catch(() => {});
+
+			// Fetch topErrors independently (non-blocking)
+			fetchJson<{ errors: Array<{ errorClass: string; count: number }>; totalFailed: number }>(
+				`${trpcBaseUrl}/flowpanel.runs.topErrors?input=${encodeURIComponent(
+					JSON.stringify({ timeRange }),
+				)}`,
+			)
+				.then(setTopErrors)
+				.catch((err) => console.error("[FlowPanel] topErrors:", err));
 
 			setMetrics(metricsData);
 			setStageData(stagesData);
@@ -432,25 +447,37 @@ export function FlowPanelUI({
 												gap: 10,
 											}}
 										>
-											{Object.entries(config.metrics ?? {}).map(([name, mc]) => (
-												<MetricCard
-													key={name}
-													label={mc.label}
-													value={
-														((metrics[name] as { value?: unknown } | undefined)?.value ?? null) as
-															| string
-															| number
-															| null
-													}
-													loading={loading}
-													hasDrawer={!!mc.drawer}
-													onClick={
-														mc.drawer
-															? () => setDrawerState({ open: true, type: mc.drawer! })
-															: undefined
-													}
-												/>
-											))}
+											{Object.entries(config.metrics ?? {}).map(([name, mc]) => {
+												const result = metrics[name] as
+													| {
+															value?: string | number | null;
+															trend?: {
+																label: string;
+																direction: "positive" | "negative" | "neutral";
+															};
+															sublabel?: string;
+															sparkline?: number[];
+													  }
+													| undefined;
+
+												return (
+													<MetricCard
+														key={name}
+														label={mc.label}
+														value={result?.value ?? null}
+														trend={result?.trend}
+														sublabel={result?.sublabel}
+														sparkline={result?.sparkline}
+														loading={loading}
+														hasDrawer={!!mc.drawer}
+														onClick={
+															mc.drawer
+																? () => setDrawerState({ open: true, type: mc.drawer! })
+																: undefined
+														}
+													/>
+												);
+											})}
 										</div>
 									</section>
 								</ErrorBoundary>
@@ -496,6 +523,27 @@ export function FlowPanelUI({
 											</ErrorBoundary>
 										);
 									})()}
+
+								{/* Error summary */}
+								{topErrors && topErrors.totalFailed > 0 && (
+									<ErrorBoundary>
+										<section aria-label="Errors" style={{ marginBottom: 24 }}>
+											<SectionHeader label="Errors" meta={`${topErrors.totalFailed} failed`} />
+											<ErrorPanel
+												errors={topErrors.errors}
+												totalFailed={topErrors.totalFailed}
+												loading={loading}
+												onRetryAll={() => {
+													// TODO: wire to bulk retry when available
+												}}
+												onErrorClick={(errorClass) => {
+													setSelectedStage(null);
+													console.log("[FlowPanel] filter by error class:", errorClass);
+												}}
+											/>
+										</section>
+									</ErrorBoundary>
+								)}
 
 								{/* Run volume chart */}
 								{chartData && chartData.buckets.length > 0 && (
@@ -582,6 +630,10 @@ export function FlowPanelUI({
 						title={drawerTitle}
 						sections={drawerData?.sections}
 						run={drawerData?.run}
+						actions={drawerData?.actions?.map((a) => ({
+							...a,
+							onClick: () => console.log("[FlowPanel] drawer action:", a.onClick),
+						}))}
 						loading={drawerLoading}
 					>
 						<div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
