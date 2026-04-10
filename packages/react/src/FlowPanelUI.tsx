@@ -382,7 +382,7 @@ export function FlowPanelUI({
 
           <main id="fp-main" style={{ padding: "24px" }}>
             {activeTab === "pipeline" && (
-              <>
+              <div id="fp-tabpanel-pipeline" role="tabpanel" aria-labelledby="fp-tab-pipeline">
                 {/* Metrics strip */}
                 <ErrorBoundary>
                   <section
@@ -594,7 +594,7 @@ await withRun({ stage: "parse", partitionKey: "doc-1" }, async (run) => {
                     </section>
                   )}
                 </ErrorBoundary>
-              </>
+              </div>
             )}
 
             {/* Non-pipeline tabs */}
@@ -606,7 +606,15 @@ await withRun({ stage: "parse", partitionKey: "doc-1" }, async (run) => {
                     config: typeof config;
                     timeRange: string;
                   }>;
-                  return <TabComponent config={config} timeRange={timeRange} />;
+                  return (
+                    <div
+                      id={`fp-tabpanel-${activeTab}`}
+                      role="tabpanel"
+                      aria-labelledby={`fp-tab-${activeTab}`}
+                    >
+                      <TabComponent config={config} timeRange={timeRange} />
+                    </div>
+                  );
                 }
                 return (
                   <div

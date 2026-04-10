@@ -34,16 +34,16 @@ export async function runDiff(): Promise<void> {
   console.log(`    Config:     ${kleur.green("flowpanel.config.ts ✓")}`);
 
   // Schema check
-  const tables = await db.execute<{ tablename: string }>(
+  const tables = (await db.execute(
     `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'flowpanel_%'`,
     [],
-  );
-  const indexes = await db
-    .execute<{ indexname: string }>(
+  )) as Array<{ tablename: string }>;
+  const indexes = (await db
+    .execute(
       `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename LIKE 'flowpanel_%'`,
       [],
     )
-    .catch(() => []);
+    .catch(() => [])) as Array<{ indexname: string }>;
 
   const appliedAll = tables.length >= 4;
   console.log(
@@ -56,10 +56,10 @@ export async function runDiff(): Promise<void> {
     console.log("\n    Stages:");
     for (const stage of stages) {
       try {
-        const rows = await db.execute<{ count: string }>(
+        const rows = (await db.execute(
           `SELECT COUNT(*) AS count FROM flowpanel_pipeline_run WHERE stage = $1`,
           [stage],
-        );
+        )) as Array<{ count: string }>;
         const count = Number(rows[0]?.count ?? 0);
         if (count > 0) {
           console.log(
@@ -126,13 +126,13 @@ export async function runDiff(): Promise<void> {
   }
 
   // Schema drift
-  const rows = await db.execute<{ column_name: string; data_type: string }>(
+  const rows = (await db.execute(
     `SELECT column_name, data_type
 		 FROM information_schema.columns
 		 WHERE table_name = 'flowpanel_pipeline_run'
 		 ORDER BY ordinal_position`,
     [],
-  );
+  )) as Array<{ column_name: string; data_type: string }>;
 
   if (rows.length > 0) {
     const actualCols = new Set(rows.map((r) => r.column_name));

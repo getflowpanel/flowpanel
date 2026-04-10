@@ -18,6 +18,7 @@
   "bin": {
     "flowpanel": "./dist/index.mjs"
   },
+  "type": "module",
   "main": "./dist/index.mjs",
   "scripts": {
     "build": "tsup",

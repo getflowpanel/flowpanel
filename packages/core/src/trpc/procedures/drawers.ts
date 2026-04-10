@@ -105,10 +105,9 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
     }
     case "kv-grid": {
       if (!input.runId) return null;
-      const rows = await db.execute<Record<string, unknown>>(
-        `SELECT * FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`,
-        [BigInt(input.runId)],
-      );
+      const rows = (await db.execute(`SELECT * FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`, [
+        BigInt(input.runId),
+      ])) as Record<string, unknown>[];
       if (!rows[0]) return null;
       const run = rows[0];
       // Return configured fields or all fields
@@ -136,10 +135,10 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
     }
     case "error-block": {
       if (!input.runId) return null;
-      const rows = await db.execute<Record<string, unknown>>(
+      const rows = (await db.execute(
         `SELECT error_class, error_message, error_stack FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`,
         [BigInt(input.runId)],
-      );
+      )) as Record<string, unknown>[];
       const run = rows[0];
       if (!run || !run.error_class) return null;
       return {
@@ -151,10 +150,9 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
     case "timeline": {
       if (!input.runId) return null;
       // Try step data first, fall back to single-step from run
-      const rows = await db.execute<Record<string, unknown>>(
-        `SELECT * FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`,
-        [BigInt(input.runId)],
-      );
+      const rows = (await db.execute(`SELECT * FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`, [
+        BigInt(input.runId),
+      ])) as Record<string, unknown>[];
       const run = rows[0];
       if (!run) return null;
       return [

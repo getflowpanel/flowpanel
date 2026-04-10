@@ -84,10 +84,10 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
 
   try {
     const db = await config.getDb();
-    const tables = await db.execute<{ tablename: string }>(
+    const tables = (await db.execute(
       `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'flowpanel_%'`,
       [],
-    );
+    )) as Array<{ tablename: string }>;
     if (tables.length >= 4) {
       pass("Schema                    up to date, no drift");
     } else {
@@ -99,10 +99,10 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
 
   try {
     const db = await config.getDb();
-    const rows = await db.execute<{ value: string }>(
+    const rows = (await db.execute(
       `SELECT value FROM flowpanel_meta WHERE key = 'timezone'`,
       [],
-    );
+    )) as Array<{ value: string }>;
     const tz = rows[0]?.value ?? "not set";
     pass(`Timezone lock             ${tz}`);
   } catch {
