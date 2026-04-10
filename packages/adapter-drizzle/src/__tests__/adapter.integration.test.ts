@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { Pool } from "pg";
-import { drizzleAdapter } from "../../index.js";
-import { applyMigrations } from "@flowpanel/core";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyMigrations } from "@flowpanel/core";
+import { Pool } from "pg";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { drizzleAdapter } from "../../index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -70,7 +70,13 @@ describe("drizzleAdapter integration", () => {
     const key = BigInt("12345678");
     await db.advisoryLock(key);
     // Verify lock held — try from another connection should fail
-    const pool2 = new Pool({ host: "localhost", port: 5433, database: "flowpanel_test", user: "test", password: "test" });
+    const pool2 = new Pool({
+      host: "localhost",
+      port: 5433,
+      database: "flowpanel_test",
+      user: "test",
+      password: "test",
+    });
     const db2 = drizzleAdapter({ db: pgToDb(pool2) as any });
     const acquired = await db2.advisoryTryLock(key);
     expect(acquired).toBe(false);
@@ -87,7 +93,7 @@ describe("drizzleAdapter integration", () => {
     // Verify tables exist
     const tables = await db.execute<{ tablename: string }>(
       `SELECT tablename FROM pg_tables WHERE schemaname = $1`,
-      [schema]
+      [schema],
     );
     const tableNames = tables.map((t) => t.tablename);
     expect(tableNames).toContain("flowpanel_meta");

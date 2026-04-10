@@ -1,13 +1,13 @@
-import React, { useRef, useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import type { LiveStatus } from "../hooks/useFlowPanelStream.js";
 
 export type { LiveStatus };
 
 const LIVE_STATUS_CONFIG: Record<LiveStatus, { color: string; label: string }> = {
-  live:         { color: "#10b981", label: "Live" },
+  live: { color: "#10b981", label: "Live" },
   reconnecting: { color: "#f59e0b", label: "Reconnecting..." },
-  polling:      { color: "#6366f1", label: "Polling" },
-  paused:       { color: "#5c5c6b", label: "Paused" },
+  polling: { color: "#6366f1", label: "Polling" },
+  paused: { color: "#5c5c6b", label: "Paused" },
 };
 
 interface HeaderProps {
@@ -18,7 +18,13 @@ interface HeaderProps {
   liveStatus: LiveStatus;
 }
 
-export function Header({ appName, timeRange, onTimeRangeChange, timeRangePresets, liveStatus }: HeaderProps) {
+export function Header({
+  appName,
+  timeRange,
+  onTimeRangeChange,
+  timeRangePresets,
+  liveStatus,
+}: HeaderProps) {
   const [showPresets, setShowPresets] = React.useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const lsCfg = LIVE_STATUS_CONFIG[liveStatus];
@@ -36,11 +42,16 @@ export function Header({ appName, timeRange, onTimeRangeChange, timeRangePresets
   }, [showPresets]);
 
   return (
-    <header style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "0 24px", height: 52,
-      borderBottom: "1px solid var(--fp-border-1)",
-    }}>
+    <header
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 24px",
+        height: 52,
+        borderBottom: "1px solid var(--fp-border-1)",
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fp-text-1)" }}>
           ⚡ {appName}
@@ -53,10 +64,13 @@ export function Header({ appName, timeRange, onTimeRangeChange, timeRangePresets
           <button
             onClick={() => setShowPresets((v) => !v)}
             style={{
-              padding: "5px 12px", borderRadius: 6,
+              padding: "5px 12px",
+              borderRadius: 6,
               background: "var(--fp-surface-2)",
               border: "1px solid var(--fp-border-1)",
-              color: "var(--fp-text-1)", cursor: "pointer", fontSize: 13,
+              color: "var(--fp-text-1)",
+              cursor: "pointer",
+              fontSize: 13,
             }}
             aria-haspopup="listbox"
             aria-expanded={showPresets}
@@ -69,10 +83,14 @@ export function Header({ appName, timeRange, onTimeRangeChange, timeRangePresets
               role="listbox"
               aria-label="Time range presets"
               style={{
-                position: "absolute", right: 0, top: "calc(100% + 4px)",
+                position: "absolute",
+                right: 0,
+                top: "calc(100% + 4px)",
                 background: "var(--fp-surface-1)",
                 border: "1px solid var(--fp-border-1)",
-                borderRadius: 8, overflow: "hidden", zIndex: 30,
+                borderRadius: 8,
+                overflow: "hidden",
+                zIndex: 30,
                 minWidth: 80,
               }}
             >
@@ -81,9 +99,14 @@ export function Header({ appName, timeRange, onTimeRangeChange, timeRangePresets
                   key={preset}
                   role="option"
                   aria-selected={preset === timeRange}
-                  onClick={() => { onTimeRangeChange(preset); setShowPresets(false); }}
+                  onClick={() => {
+                    onTimeRangeChange(preset);
+                    setShowPresets(false);
+                  }}
                   style={{
-                    padding: "8px 16px", cursor: "pointer", fontSize: 13,
+                    padding: "8px 16px",
+                    cursor: "pointer",
+                    fontSize: 13,
                     color: preset === timeRange ? "var(--fp-accent-text)" : "var(--fp-text-1)",
                     background: preset === timeRange ? "var(--fp-accent-dim)" : undefined,
                     transition: `background var(--fp-duration) ease`,
@@ -98,14 +121,23 @@ export function Header({ appName, timeRange, onTimeRangeChange, timeRangePresets
 
         {/* Live indicator */}
         <div
-          style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--fp-text-2)" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            fontSize: 12,
+            color: "var(--fp-text-2)",
+          }}
           aria-live="polite"
           aria-label={`Connection: ${lsCfg.label}`}
         >
           <span
             style={{
-              width: 7, height: 7, borderRadius: "50%",
-              background: lsCfg.color, display: "inline-block",
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: lsCfg.color,
+              display: "inline-block",
               boxShadow: liveStatus === "live" ? `0 0 0 2px ${lsCfg.color}33` : undefined,
             }}
             aria-hidden

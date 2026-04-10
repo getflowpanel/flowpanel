@@ -1,4 +1,5 @@
-import React, { useRef } from "react";
+import type React from "react";
+import { useRef } from "react";
 
 export interface TabConfig {
   id: string;
@@ -46,7 +47,12 @@ export function Tabs({ tabs, activeTab, onTabChange }: TabsProps) {
       ref={tablistRef}
       role="tablist"
       aria-label="Admin sections"
-      style={{ display: "flex", gap: 0, padding: "0 24px", borderBottom: "1px solid var(--fp-border-1)" }}
+      style={{
+        display: "flex",
+        gap: 0,
+        padding: "0 24px",
+        borderBottom: "1px solid var(--fp-border-1)",
+      }}
     >
       {tabs.map((tab, i) => {
         const isActive = tab.id === activeTab;
@@ -61,12 +67,16 @@ export function Tabs({ tabs, activeTab, onTabChange }: TabsProps) {
             onClick={() => onTabChange(tab.id)}
             onKeyDown={(e) => handleKeyDown(e, i)}
             style={{
-              padding: "10px 16px", fontSize: 13,
+              padding: "10px 16px",
+              fontSize: 13,
               fontWeight: isActive ? 600 : 400,
               color: isActive ? "var(--fp-text-1)" : "var(--fp-text-3)",
-              cursor: "pointer", background: "transparent", border: "none",
+              cursor: "pointer",
+              background: "transparent",
+              border: "none",
               borderBottom: isActive ? "2px solid var(--fp-accent)" : "2px solid transparent",
-              marginBottom: -1, transition: `color var(--fp-duration) ease`,
+              marginBottom: -1,
+              transition: `color var(--fp-duration) ease`,
             }}
           >
             {tab.label}

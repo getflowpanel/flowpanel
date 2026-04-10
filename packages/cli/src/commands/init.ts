@@ -1,11 +1,11 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import prompts from "prompts";
+import { generateSchema } from "@flowpanel/core";
 import kleur from "kleur";
+import prompts from "prompts";
+import { z } from "zod";
 import { detectStack } from "../utils/detect.js";
 import { formatSuccess, formatWarning } from "../utils/error-format.js";
-import { generateSchema } from "@flowpanel/core";
-import { z } from "zod";
 
 const BANNER = `
 ┌──────────────────────────────────────────────────────┐
@@ -23,9 +23,16 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
 
   const stack = await detectStack(cwd);
 
-  if (stack.nextjs) console.log(formatSuccess(`Detected  Next.js ${stack.nextjs}${stack.typescript ? " · TypeScript" : ""}${stack.drizzle ? " · Drizzle" : ""}${stack.bullmq ? " · BullMQ" : ""}`));
-  if (stack.betterAuth.found) console.log(formatSuccess(`Detected  Better Auth at ${stack.betterAuth.path ?? "package"}`));
-  if (stack.trpc.routerPath) console.log(formatSuccess(`Detected  tRPC v11 at ${stack.trpc.routerPath}`));
+  if (stack.nextjs)
+    console.log(
+      formatSuccess(
+        `Detected  Next.js ${stack.nextjs}${stack.typescript ? " · TypeScript" : ""}${stack.drizzle ? " · Drizzle" : ""}${stack.bullmq ? " · BullMQ" : ""}`,
+      ),
+    );
+  if (stack.betterAuth.found)
+    console.log(formatSuccess(`Detected  Better Auth at ${stack.betterAuth.path ?? "package"}`));
+  if (stack.trpc.routerPath)
+    console.log(formatSuccess(`Detected  tRPC v11 at ${stack.trpc.routerPath}`));
   console.log("");
 
   if (!stack.trpc.found) {
@@ -34,41 +41,47 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
     process.exit(1);
   }
 
-  const answers = await prompts([
+  const answers = await prompts(
+    [
+      {
+        type: "text",
+        name: "basePath",
+        message: "Mount FlowPanel at?",
+        initial: "/admin",
+      },
+      {
+        type: "list",
+        name: "stages",
+        message: "Pipeline stage names?",
+        initial: "parse, score, draft, notify",
+        separator: ",",
+      },
+      {
+        type: "text",
+        name: "timezone",
+        message: "Timezone (IANA)? ⚠ Locked after migrate.",
+        initial: "UTC",
+      },
+      {
+        type: "text",
+        name: "requireRole",
+        message: "Who can access the admin panel? (role check expression)",
+        initial: `role === "admin"`,
+      },
+      {
+        type: "confirm",
+        name: "seedDemo",
+        message: "Seed demo data for preview?",
+        initial: true,
+      },
+    ],
     {
-      type: "text",
-      name: "basePath",
-      message: "Mount FlowPanel at?",
-      initial: "/admin",
+      onCancel: () => {
+        console.log("\nAborted.");
+        process.exit(0);
+      },
     },
-    {
-      type: "list",
-      name: "stages",
-      message: "Pipeline stage names?",
-      initial: "parse, score, draft, notify",
-      separator: ",",
-    },
-    {
-      type: "text",
-      name: "timezone",
-      message: "Timezone (IANA)? ⚠ Locked after migrate.",
-      initial: "UTC",
-    },
-    {
-      type: "text",
-      name: "requireRole",
-      message: "Who can access the admin panel? (role check expression)",
-      initial: `role === "admin"`,
-    },
-    {
-      type: "confirm",
-      name: "seedDemo",
-      message: "Seed demo data for preview?",
-      initial: true,
-    },
-  ], {
-    onCancel: () => { console.log("\nAborted."); process.exit(0); },
-  });
+  );
 
   const stages = (answers.stages as string[]).map((s: string) => s.trim()).filter(Boolean);
   const basePath = answers.basePath as string;
@@ -76,7 +89,7 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
   const seedDemo = answers.seedDemo as boolean;
 
   console.log("\n  Writing files");
-  console.log("  " + "─".repeat(51));
+  console.log(`  ${"─".repeat(51)}`);
 
   const configContent = generateFlowPanelConfig({ stages, basePath, timezone });
   await writeFile(cwd, "flowpanel.config.ts", configContent);
@@ -96,11 +109,17 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
   await appendToFile(cwd, ".gitignore", "\n.flowpanel/\n");
   console.log(formatSuccess(".gitignore                                 +1 line (.flowpanel/)"));
 
-  await appendToFile(cwd, ".env.example", "\n# FlowPanel\n# FLOWPANEL_COOKIE_SECRET=\n# FLOWPANEL_COOKIE_SECRET_PREV=\n");
-  console.log(formatSuccess(".env.example                               +cookie secret keys (commented)"));
+  await appendToFile(
+    cwd,
+    ".env.example",
+    "\n# FlowPanel\n# FLOWPANEL_COOKIE_SECRET=\n# FLOWPANEL_COOKIE_SECRET_PREV=\n",
+  );
+  console.log(
+    formatSuccess(".env.example                               +cookie secret keys (commented)"),
+  );
 
   console.log("\n  Database");
-  console.log("  " + "─".repeat(51));
+  console.log(`  ${"─".repeat(51)}`);
 
   const migrationDir = path.join(cwd, "flowpanel", "migrations");
   await fs.mkdir(migrationDir, { recursive: true });
@@ -119,19 +138,27 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
 
   if (seedDemo) {
     console.log("\n  Demo data");
-    console.log("  " + "─".repeat(51));
+    console.log(`  ${"─".repeat(51)}`);
     console.log(formatSuccess("Demo data seeding will run after migration is applied"));
     console.log(kleur.gray("  Run: npx flowpanel migrate"));
   }
 
-  console.log("\n  " + "─".repeat(51));
+  console.log(`\n  ${"─".repeat(51)}`);
   console.log(formatSuccess(`Done\n`));
   console.log(`  Open  ${kleur.cyan(`http://localhost:3000${basePath}`)}\n`);
   console.log(kleur.gray("  Next step:  npx flowpanel migrate"));
   console.log(kleur.gray("  Then:       npx flowpanel worker:scan\n"));
 }
 
-function generateFlowPanelConfig({ stages, basePath, timezone }: { stages: string[]; basePath: string; timezone: string }): string {
+function generateFlowPanelConfig({
+  stages,
+  basePath,
+  timezone,
+}: {
+  stages: string[];
+  basePath: string;
+  timezone: string;
+}): string {
   const stagesStr = stages.map((s) => `"${s}"`).join(", ");
   const stageFieldsStr = stages.map((s) => `    ${s}: {},`).join("\n");
 
@@ -170,7 +197,7 @@ ${stageFieldsStr}
 `;
 }
 
-function generateAdminPage(basePath: string): string {
+function generateAdminPage(_basePath: string): string {
   return `import { FlowPanelUI } from "@flowpanel/react";
 import { flowpanel } from "@root/flowpanel.config";
 
@@ -186,14 +213,20 @@ async function patchTrpcRouter(cwd: string, routerPath: string): Promise<void> {
     let content = await fs.readFile(fullPath, "utf8");
     if (content.includes("flowpanel:router")) return;
 
-    content = `import { createFlowPanelRouter } from "@flowpanel/core/trpc";\nimport { flowpanel } from "@root/flowpanel.config";\n` + content;
+    content =
+      `import { createFlowPanelRouter } from "@flowpanel/core/trpc";\nimport { flowpanel } from "@root/flowpanel.config";\n` +
+      content;
     content = content.replace(
       /export const appRouter = .+?\.router\(\{/s,
-      (match) => match + `\n  // flowpanel:router\n  flowpanel: createFlowPanelRouter({ t, config: flowpanel, getRequest: (ctx) => ctx.req }),`
+      (match) =>
+        match +
+        `\n  // flowpanel:router\n  flowpanel: createFlowPanelRouter({ t, config: flowpanel, getRequest: (ctx) => ctx.req }),`,
     );
     await fs.writeFile(fullPath, content, "utf8");
   } catch {
-    console.log(formatWarning(`Could not auto-patch ${routerPath}. Add flowpanel router manually.`));
+    console.log(
+      formatWarning(`Could not auto-patch ${routerPath}. Add flowpanel router manually.`),
+    );
   }
 }
 

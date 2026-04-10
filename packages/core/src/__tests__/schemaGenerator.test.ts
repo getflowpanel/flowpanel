@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { generateSchema, fieldNameToColumn, zodTypeToSql } from "../schemaGenerator.js";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { fieldNameToColumn, generateSchema, zodTypeToSql } from "../schemaGenerator.js";
 
 describe("fieldNameToColumn", () => {
   it("converts camelCase to snake_case", () => {

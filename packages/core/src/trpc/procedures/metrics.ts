@@ -1,16 +1,18 @@
 import { z } from "zod";
-import type { FlowPanelContext } from "../context.js";
 import { createQueryBuilder } from "../../queryBuilder.js";
+import type { FlowPanelContext } from "../context.js";
 
 export function createMetricsProcedures(
   t: { procedure: any; router: (routes: any) => any },
-  authedProcedure: any
+  authedProcedure: any,
 ) {
   return t.router({
     getAll: authedProcedure
-      .input(z.object({
-        timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
-      }))
+      .input(
+        z.object({
+          timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
+        }),
+      )
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { db, config } = ctx;
         const metrics = (config as any).metrics ?? {};
@@ -20,7 +22,9 @@ export function createMetricsProcedures(
           try {
             const mc = metricConfig as any;
             if ("custom" in mc.query) {
-              results[name] = await mc.query.custom(db, { range: input.timeRange ?? defaultRange() });
+              results[name] = await mc.query.custom(db, {
+                range: input.timeRange ?? defaultRange(),
+              });
             } else {
               const qb = createQueryBuilder({
                 stages: config.pipeline.stages,
@@ -40,10 +44,12 @@ export function createMetricsProcedures(
       }),
 
     get: authedProcedure
-      .input(z.object({
-        name: z.string(),
-        timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
-      }))
+      .input(
+        z.object({
+          name: z.string(),
+          timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
+        }),
+      )
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { db, config } = ctx;
         const metricConfig = (config as any).metrics?.[input.name];

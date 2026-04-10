@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 export function fieldNameToColumn(name: string): string {
-  return name.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_/, "");
+  return name
+    .replace(/([A-Z])/g, "_$1")
+    .toLowerCase()
+    .replace(/^_/, "");
 }
 
 export function zodTypeToSql(schema: z.ZodTypeAny): string {
@@ -12,8 +15,7 @@ export function zodTypeToSql(schema: z.ZodTypeAny): string {
       : schema;
 
   if (unwrapped instanceof z.ZodString) {
-    const checks: Array<{ kind: string; value?: number }> =
-      (unwrapped._def as any).checks ?? [];
+    const checks: Array<{ kind: string; value?: number }> = (unwrapped._def as any).checks ?? [];
     const maxCheck = checks.find((c) => c.kind === "max");
     return maxCheck ? `VARCHAR(${maxCheck.value})` : "TEXT";
   }
@@ -24,9 +26,7 @@ export function zodTypeToSql(schema: z.ZodTypeAny): string {
   }
   if (unwrapped instanceof z.ZodBoolean) return "BOOLEAN";
   if (unwrapped instanceof z.ZodEnum) {
-    const values = (unwrapped as z.ZodEnum<any>).options
-      .map((v: string) => `'${v}'`)
-      .join(", ");
+    const values = (unwrapped as z.ZodEnum<any>).options.map((v: string) => `'${v}'`).join(", ");
     return `TEXT CHECK (value IN (${values}))`;
   }
   if (unwrapped instanceof z.ZodDate) return "TIMESTAMPTZ";
@@ -100,7 +100,7 @@ export function generateSchema(config: {
   const userIndexes = indexes
     .map(
       (cols) =>
-        `CREATE INDEX ON flowpanel_pipeline_run (${cols.map(fieldNameToColumn).join(", ")});`
+        `CREATE INDEX ON flowpanel_pipeline_run (${cols.map(fieldNameToColumn).join(", ")});`,
     )
     .join("\n");
 

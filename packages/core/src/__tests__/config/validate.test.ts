@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { validateConfig, ConfigValidationError } from "../../config/validate.js";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { ConfigValidationError, validateConfig } from "../../config/validate.js";
 
 const baseConfig: any = {
   appName: "test",

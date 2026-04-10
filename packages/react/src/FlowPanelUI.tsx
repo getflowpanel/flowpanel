@@ -1,16 +1,16 @@
-import React, { useState, useCallback, useReducer, useEffect } from "react";
 import type { FlowPanelConfig } from "@flowpanel/core";
-import { Header } from "./components/Header.js";
-import { Tabs } from "./components/Tabs.js";
-import type { TabConfig } from "./components/Tabs.js";
-import { MetricCard } from "./components/MetricCard.js";
-import { StageCard } from "./components/StageCard.js";
-import { RunTable } from "./components/RunTable.js";
-import type { RunLogColumn } from "./components/RunTable.js";
-import { Drawer } from "./components/Drawer.js";
-import { CommandPalette } from "./components/CommandPalette.js";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import type { Command } from "./components/CommandPalette.js";
+import { CommandPalette } from "./components/CommandPalette.js";
 import { DemoBanner } from "./components/DemoBanner.js";
+import { Drawer } from "./components/Drawer.js";
+import { Header } from "./components/Header.js";
+import { MetricCard } from "./components/MetricCard.js";
+import type { RunLogColumn } from "./components/RunTable.js";
+import { RunTable } from "./components/RunTable.js";
+import { StageCard } from "./components/StageCard.js";
+import type { TabConfig } from "./components/Tabs.js";
+import { Tabs } from "./components/Tabs.js";
 import { useFlowPanelStream } from "./hooks/useFlowPanelStream.js";
 import { useKeyboard } from "./hooks/useKeyboard.js";
 import { resolveTheme, themeToStyle } from "./theme/index.js";
@@ -40,10 +40,10 @@ function runsReducer(state: RunsState, action: RunsAction): RunsState {
       return {
         ...state,
         runs: state.runs.map((r) =>
-          String(r["id"]) === action.runId ? { ...r, ...action.update } : r
+          String(r.id) === action.runId ? { ...r, ...action.update } : r,
         ),
         bufferedNewRuns: state.bufferedNewRuns.map((r) =>
-          String(r["id"]) === action.runId ? { ...r, ...action.update } : r
+          String(r.id) === action.runId ? { ...r, ...action.update } : r,
         ),
       };
     case "LOAD_MORE":
@@ -122,8 +122,8 @@ export function FlowPanelUI({
       const [metricsData, stagesData, runsData] = await Promise.all([
         fetchJson<Record<string, unknown>>(
           `${trpcBaseUrl}/flowpanel.metrics.current?input=${encodeURIComponent(
-            JSON.stringify({ timeRange })
-          )}`
+            JSON.stringify({ timeRange }),
+          )}`,
         ),
         fetchJson<
           Array<{
@@ -136,16 +136,16 @@ export function FlowPanelUI({
           }>
         >(
           `${trpcBaseUrl}/flowpanel.stages.breakdown?input=${encodeURIComponent(
-            JSON.stringify({ timeRange })
-          )}`
+            JSON.stringify({ timeRange }),
+          )}`,
         ),
         fetchJson<{
           runs: Record<string, unknown>[];
           nextCursor: string | null;
         }>(
           `${trpcBaseUrl}/flowpanel.runs.list?input=${encodeURIComponent(
-            JSON.stringify({ timeRange, stage: selectedStage, limit: 50 })
-          )}`
+            JSON.stringify({ timeRange, stage: selectedStage, limit: 50 }),
+          )}`,
         ),
       ]);
       setMetrics(metricsData);
@@ -177,8 +177,8 @@ export function FlowPanelUI({
         const data = event.data as Record<string, unknown>;
         dispatchRuns({
           type: "UPDATE_RUN",
-          runId: String(data["id"]),
-          update: { status: data["status"], duration_ms: data["durationMs"] },
+          runId: String(data.id),
+          update: { status: data.status, duration_ms: data.durationMs },
         });
         if (event.event === "run.failed") setLiveAnnouncement("Run failed");
       } else if (event.event === "metrics.updated") {
@@ -201,8 +201,8 @@ export function FlowPanelUI({
             stage: selectedStage,
             limit: 50,
             cursor: runsState.nextCursor,
-          })
-        )}`
+          }),
+        )}`,
       );
       dispatchRuns({ type: "LOAD_MORE", runs: data.runs, nextCursor: data.nextCursor });
     } catch (err) {
@@ -212,9 +212,11 @@ export function FlowPanelUI({
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   // config.tabs entries have { id, label, icon, view } — map to TabConfig { id, label, icon? }
-  const tabs: TabConfig[] = config.tabs?.map((t) => ({ id: t.id, label: t.label, icon: t.icon })) ?? [
-    { id: "pipeline", label: "Pipeline" },
-  ];
+  const tabs: TabConfig[] = config.tabs?.map((t) => ({
+    id: t.id,
+    label: t.label,
+    icon: t.icon,
+  })) ?? [{ id: "pipeline", label: "Pipeline" }];
 
   useKeyboard([
     {
@@ -224,8 +226,18 @@ export function FlowPanelUI({
       description: "Open command palette",
     },
     { key: "1", handler: () => setActiveTab(tabs[0]?.id ?? "pipeline") },
-    { key: "2", handler: () => { if (tabs[1]) setActiveTab(tabs[1].id); } },
-    { key: "3", handler: () => { if (tabs[2]) setActiveTab(tabs[2].id); } },
+    {
+      key: "2",
+      handler: () => {
+        if (tabs[1]) setActiveTab(tabs[1].id);
+      },
+    },
+    {
+      key: "3",
+      handler: () => {
+        if (tabs[2]) setActiveTab(tabs[2].id);
+      },
+    },
     {
       key: "Escape",
       handler: () => {
@@ -239,18 +251,18 @@ export function FlowPanelUI({
   // config.runLog?.columns is RunLogColumn from core which has more format/render options
   // than RunTable's RunLogColumn — cast to ensure compatibility
   const runLogColumns: RunLogColumn[] = (config.runLog?.columns as RunLogColumn[] | undefined) ?? [
-    { field: "id",            label: "Run ID",   width: 90,  mono: true },
-    { field: "stage",         label: "Stage",    width: 72,  render: "stagePill" },
-    { field: "partition_key", label: "Target",   flex: 1 },
-    { field: "duration_ms",   label: "Duration", width: 80,  format: "duration" },
-    { field: "status",        label: "Status",   width: 110, render: "statusTag" },
+    { field: "id", label: "Run ID", width: 90, mono: true },
+    { field: "stage", label: "Stage", width: 72, render: "stagePill" },
+    { field: "partition_key", label: "Target", flex: 1 },
+    { field: "duration_ms", label: "Duration", width: 80, format: "duration" },
+    { field: "status", label: "Status", width: 110, render: "statusTag" },
   ];
 
   // ── Commands ──────────────────────────────────────────────────────────────
   const timePresets = config.timeRange?.presets ?? ["1h", "6h", "24h", "7d", "30d"];
   const builtinCommands: Command[] = [
-    { id: "clear-filters", label: "Clear filters",  action: () => setSelectedStage(null) },
-    { id: "refresh",       label: "Refresh data",   action: () => void fetchData() },
+    { id: "clear-filters", label: "Clear filters", action: () => setSelectedStage(null) },
+    { id: "refresh", label: "Refresh data", action: () => void fetchData() },
     ...timePresets.map((preset) => ({
       id: `time-${preset}`,
       label: `Set time range: ${preset}`,
@@ -267,15 +279,11 @@ export function FlowPanelUI({
       ? `Run ${drawerState.runId ?? ""}`
       : typeof drawerConfigEntry?.title === "string"
         ? drawerConfigEntry.title
-        : (drawerState.type || "Details");
+        : drawerState.type || "Details";
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="fp-root"
-      style={{ ...themeStyle, minHeight: "100vh" }}
-      data-testid="fp-root"
-    >
+    <div className="fp-root" style={{ ...themeStyle, minHeight: "100vh" }} data-testid="fp-root">
       {/* Skip link for accessibility */}
       <a
         href="#fp-main"
@@ -332,9 +340,7 @@ export function FlowPanelUI({
                   loading={loading}
                   hasDrawer={!!mc.drawer}
                   onClick={
-                    mc.drawer
-                      ? () => setDrawerState({ open: true, type: mc.drawer! })
-                      : undefined
+                    mc.drawer ? () => setDrawerState({ open: true, type: mc.drawer! }) : undefined
                   }
                 />
               ))}
@@ -393,9 +399,7 @@ export function FlowPanelUI({
               >
                 Run Log
                 {runsState.runs.length > 0 && !loading && (
-                  <span
-                    style={{ marginLeft: 8, fontWeight: 400, color: "var(--fp-text-3)" }}
-                  >
+                  <span style={{ marginLeft: 8, fontWeight: 400, color: "var(--fp-text-3)" }}>
                     {runsState.runs.length.toLocaleString()} total
                   </span>
                 )}
@@ -415,11 +419,11 @@ export function FlowPanelUI({
                   }
                   onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
                   onRowClick={(run) => {
-                    setSelectedRunId(String(run["id"]));
+                    setSelectedRunId(String(run.id));
                     setDrawerState({
                       open: true,
                       type: "runDetail",
-                      runId: String(run["id"]),
+                      runId: String(run.id),
                     });
                   }}
                   selectedRunId={selectedRunId}

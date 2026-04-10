@@ -3,13 +3,15 @@ import type { FlowPanelContext } from "../context.js";
 
 export function createStagesProcedures(
   t: { procedure: any; router: (routes: any) => any },
-  authedProcedure: any
+  authedProcedure: any,
 ) {
   return t.router({
     summary: authedProcedure
-      .input(z.object({
-        timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
-      }))
+      .input(
+        z.object({
+          timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
+        }),
+      )
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { db, config } = ctx;
         const stages = config.pipeline.stages;
@@ -39,7 +41,7 @@ export function createStagesProcedures(
            FROM flowpanel_pipeline_run
            ${whereClause}
            GROUP BY stage`,
-          params
+          params,
         );
 
         const byStage = new Map(rows.map((r) => [r.stage, r]));

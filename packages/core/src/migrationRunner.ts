@@ -1,11 +1,11 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as crypto from "node:crypto";
 import type { SqlExecutor } from "./types/db.js";
 
 // pg_advisory_lock key for migration serialization
 const MIGRATE_LOCK_KEY = BigInt(
-  "0x" + crypto.createHash("md5").update("flowpanel:migrate").digest("hex").slice(0, 16)
+  `0x${crypto.createHash("md5").update("flowpanel:migrate").digest("hex").slice(0, 16)}`,
 );
 
 export interface MigrationFile {
@@ -46,14 +46,14 @@ export async function ensureMigrationsTable(db: SqlExecutor): Promise<void> {
       checksum    TEXT NOT NULL,
       duration_ms INTEGER NOT NULL
     )`,
-    []
+    [],
   );
 }
 
 export async function getAppliedMigrations(db: SqlExecutor): Promise<Set<string>> {
   const rows = await db.execute<{ id: string }>(
     "SELECT id FROM flowpanel_migrations ORDER BY id",
-    []
+    [],
   );
   return new Set(rows.map((r) => r.id));
 }
@@ -61,7 +61,7 @@ export async function getAppliedMigrations(db: SqlExecutor): Promise<Set<string>
 export async function applyMigrations(
   db: SqlExecutor,
   migrationDirs: string[],
-  onProgress?: (id: string) => void
+  onProgress?: (id: string) => void,
 ): Promise<{ applied: string[]; skipped: string[] }> {
   await ensureMigrationsTable(db);
 
@@ -94,7 +94,7 @@ export async function applyMigrations(
 
         await tx.execute(
           `INSERT INTO flowpanel_migrations (id, checksum, duration_ms) VALUES ($1, $2, $3)`,
-          [file.id, file.checksum, Date.now() - start]
+          [file.id, file.checksum, Date.now() - start],
         );
       });
 
@@ -110,7 +110,7 @@ export async function applyMigrations(
 
 export async function getMigrationStatus(
   db: SqlExecutor,
-  migrationDirs: string[]
+  migrationDirs: string[],
 ): Promise<{ applied: string[]; pending: string[] }> {
   await ensureMigrationsTable(db);
   const files = await loadMigrationFiles(migrationDirs);

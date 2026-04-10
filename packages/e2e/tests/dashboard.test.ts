@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("dashboard", () => {
   test.beforeEach(async ({ page }) => {
@@ -13,9 +13,10 @@ test.describe("dashboard", () => {
 
   test("metric cards appear", async ({ page }) => {
     // Wait for skeleton loading to resolve
-    await page.waitForFunction(() =>
-      document.querySelectorAll(".fp-card:not([aria-busy='true'])").length > 0
-    , { timeout: 10_000 });
+    await page.waitForFunction(
+      () => document.querySelectorAll(".fp-card:not([aria-busy='true'])").length > 0,
+      { timeout: 10_000 },
+    );
     const cards = page.locator(".fp-card");
     await expect(cards.first()).toBeVisible();
   });

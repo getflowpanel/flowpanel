@@ -4,9 +4,7 @@ type DrizzleDb = {
   execute: (query: { sql: string; params: unknown[] }) => Promise<unknown[]>;
 };
 
-export function drizzleAdapter(opts: {
-  db: DrizzleDb | (() => Promise<DrizzleDb>);
-}): SqlExecutor {
+export function drizzleAdapter(opts: { db: DrizzleDb | (() => Promise<DrizzleDb>) }): SqlExecutor {
   let resolvedDb: DrizzleDb | null = null;
 
   async function getDb(): Promise<DrizzleDb> {
@@ -20,7 +18,7 @@ export function drizzleAdapter(opts: {
     async execute<T = Record<string, unknown>>(sqlText: string, params: unknown[]): Promise<T[]> {
       const db = await getDb();
       // Drizzle expects prepare: false for PgBouncer compatibility
-      const result = await db.execute({ sql: sqlText, params }) as T[];
+      const result = (await db.execute({ sql: sqlText, params })) as T[];
       return result;
     },
 
@@ -50,7 +48,7 @@ export function drizzleAdapter(opts: {
     async advisoryTryLock(key: bigint): Promise<boolean> {
       const rows = await executor.execute<{ pg_try_advisory_lock: boolean }>(
         `SELECT pg_try_advisory_lock($1)`,
-        [key.toString()]
+        [key.toString()],
       );
       return rows[0]?.pg_try_advisory_lock ?? false;
     },

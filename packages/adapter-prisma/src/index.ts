@@ -1,5 +1,5 @@
-import { Pool } from "pg";
 import type { SqlExecutor, SqlQuery } from "@flowpanel/core";
+import { Pool } from "pg";
 
 type PrismaClientLike = {
   $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T[]>;
@@ -57,7 +57,7 @@ export function prismaAdapter(opts: { prisma: PrismaClientLike }): SqlExecutor {
       try {
         const result = await client.query<{ pg_try_advisory_lock: boolean }>(
           "SELECT pg_try_advisory_lock($1)",
-          [key.toString()]
+          [key.toString()],
         );
         return result.rows[0]?.pg_try_advisory_lock ?? false;
       } finally {

@@ -1,28 +1,28 @@
 :root {
   /* ── Brand ──────────────────────────────── */
-  --fp-accent:          #6366f1;
-  --fp-accent-dim:      rgba(99,102,241,0.12);
-  --fp-accent-text:     #a5b4fc;
+  --fp-accent: #6366f1;
+  --fp-accent-dim: rgba(99, 102, 241, 0.12);
+  --fp-accent-text: #a5b4fc;
 
   /* ── Surfaces (dark default) ────────────── */
-  --fp-bg:              #060608;
-  --fp-surface-1:       #0d0d11;
-  --fp-surface-2:       #131318;
-  --fp-surface-3:       #1a1a21;
+  --fp-bg: #060608;
+  --fp-surface-1: #0d0d11;
+  --fp-surface-2: #131318;
+  --fp-surface-3: #1a1a21;
 
   /* ── Borders ─────────────────────────────── */
-  --fp-border-1:        rgba(255,255,255,0.05);
-  --fp-border-2:        rgba(255,255,255,0.09);
+  --fp-border-1: rgba(255, 255, 255, 0.05);
+  --fp-border-2: rgba(255, 255, 255, 0.09);
 
   /* ── Text ────────────────────────────────── */
-  --fp-text-1:          #f0f0f3;
-  --fp-text-2:          #9898a6;
-  --fp-text-3:          #5c5c6b;
+  --fp-text-1: #f0f0f3;
+  --fp-text-2: #9898a6;
+  --fp-text-3: #5c5c6b;
 
   /* ── Semantic ────────────────────────────── */
-  --fp-ok:              #10b981;
-  --fp-err:             #ef4444;
-  --fp-warn:            #f59e0b;
+  --fp-ok: #10b981;
+  --fp-err: #ef4444;
+  --fp-warn: #f59e0b;
 
   /* ── Stage colors ────────────────────────────────────────────── */
   /* Stage colors are injected at runtime by themeToStyle() as     */
@@ -30,15 +30,15 @@
   /* No CSS defaults needed — resolveTheme() always assigns colors. */
 
   /* ── Shape ───────────────────────────────── */
-  --fp-radius-card:     12px;
-  --fp-radius-sm:       8px;
+  --fp-radius-card: 12px;
+  --fp-radius-sm: 8px;
 
   /* ── Motion ──────────────────────────────── */
-  --fp-duration:        140ms;
+  --fp-duration: 140ms;
 
   /* ── Typography ──────────────────────────── */
-  --fp-font-sans:       "Inter", system-ui, sans-serif;
-  --fp-font-mono:       "JetBrains Mono", monospace;
+  --fp-font-sans: "Inter", system-ui, sans-serif;
+  --fp-font-mono: "JetBrains Mono", monospace;
 }
 
 .fp-root {
@@ -60,13 +60,22 @@
   border-radius: var(--fp-radius-card);
   transition: background var(--fp-duration) ease;
 }
-.fp-card:hover { background: var(--fp-surface-2); }
-.fp-card:active { background: var(--fp-surface-3); }
+.fp-card:hover {
+  background: var(--fp-surface-2);
+}
+.fp-card:active {
+  background: var(--fp-surface-3);
+}
 
 /* Skeleton pulse animation */
 @keyframes fp-pulse {
-  0%, 100% { opacity: 0.4; }
-  50%       { opacity: 0.8; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 .fp-skeleton {
   background: var(--fp-surface-2);

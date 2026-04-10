@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { flowPanelConfigSchema } from "../../config/schema.js";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { flowPanelConfigSchema } from "../../config/schema.js";
 
 const minimalConfig = {
   appName: "test",

@@ -14,9 +14,7 @@ export interface SqlQuery {
 }
 
 // Factory: can be a direct instance or a lazy async loader
-export type SqlExecutorFactory =
-  | SqlExecutor
-  | (() => Promise<SqlExecutor>);
+export type SqlExecutorFactory = SqlExecutor | (() => Promise<SqlExecutor>);
 
 // DB row shapes for FlowPanel tables
 export interface PipelineRunRow {

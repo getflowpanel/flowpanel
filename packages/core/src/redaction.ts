@@ -1,6 +1,12 @@
 const DEFAULT_REDACTION_KEYS = new Set([
-  "apikey", "api_key", "authorization", "password",
-  "token", "secret", "cookie", "bearer",
+  "apikey",
+  "api_key",
+  "authorization",
+  "password",
+  "token",
+  "secret",
+  "cookie",
+  "bearer",
 ]);
 
 const DEFAULT_PATTERNS: RegExp[] = [
@@ -26,8 +32,7 @@ export function redactString(value: string): string {
 export function redactValue(key: string, value: unknown, extraKeys: string[]): unknown {
   const lowerKey = key.toLowerCase();
   const isRedactedKey =
-    DEFAULT_REDACTION_KEYS.has(lowerKey) ||
-    extraKeys.some((k) => k.toLowerCase() === lowerKey);
+    DEFAULT_REDACTION_KEYS.has(lowerKey) || extraKeys.some((k) => k.toLowerCase() === lowerKey);
 
   if (isRedactedKey) return "[REDACTED]";
   if (typeof value === "string") return redactString(value);
@@ -37,7 +42,7 @@ export function redactValue(key: string, value: unknown, extraKeys: string[]): u
 
 export function redactObject(
   obj: Record<string, unknown>,
-  extraKeys: string[]
+  extraKeys: string[],
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {

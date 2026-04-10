@@ -28,11 +28,13 @@ export async function runDiff(): Promise<void> {
      FROM information_schema.columns
      WHERE table_name = 'flowpanel_pipeline_run'
      ORDER BY ordinal_position`,
-    []
+    [],
   );
 
   if (rows.length === 0) {
-    console.log(kleur.yellow("  flowpanel_pipeline_run does not exist. Run: npx flowpanel migrate"));
+    console.log(
+      kleur.yellow("  flowpanel_pipeline_run does not exist. Run: npx flowpanel migrate"),
+    );
     return;
   }
 

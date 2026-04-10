@@ -20,8 +20,6 @@
       "dependsOn": ["build"],
       "outputs": ["playwright-report/**"]
     },
-    "lint": {
-      "dependsOn": ["^build"]
-    }
+    "typecheck": { "dependsOn": ["^build"] }
   }
 }

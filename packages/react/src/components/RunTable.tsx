@@ -1,6 +1,7 @@
-import React, { useRef, useState } from "react";
-import { StatusTag } from "./StatusTag.js";
+import type React from "react";
+import { useRef, useState } from "react";
 import { StagePill } from "./StagePill.js";
+import { StatusTag } from "./StatusTag.js";
 
 export interface RunLogColumn {
   field: string;
@@ -28,10 +29,14 @@ interface RunTableProps {
 function formatValue(value: unknown, format?: RunLogColumn["format"]): string {
   if (value == null) return "—";
   switch (format) {
-    case "number": return Number(value).toLocaleString();
-    case "currency-usd": return `$${Number(value).toFixed(4)}`;
-    case "currency-usd-micro": return `$${Number(value).toFixed(6)}`;
-    case "duration": return `${(Number(value) / 1000).toFixed(2)}s`;
+    case "number":
+      return Number(value).toLocaleString();
+    case "currency-usd":
+      return `$${Number(value).toFixed(4)}`;
+    case "currency-usd-micro":
+      return `$${Number(value).toFixed(6)}`;
+    case "duration":
+      return `${(Number(value) / 1000).toFixed(2)}s`;
     case "date-relative": {
       const diff = Date.now() - new Date(String(value)).getTime();
       if (diff < 60_000) return "just now";
@@ -39,16 +44,24 @@ function formatValue(value: unknown, format?: RunLogColumn["format"]): string {
       if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
       return `${Math.floor(diff / 86_400_000)}d ago`;
     }
-    default: return String(value);
+    default:
+      return String(value);
   }
 }
 
 const SKELETON_ROWS = 8;
 
 export function RunTable({
-  runs, columns, stageColors, loading,
-  hasNextPage, onLoadMore, onRowClick, selectedRunId,
-  newRunsBanner, onScrollToTop,
+  runs,
+  columns,
+  stageColors,
+  loading,
+  hasNextPage,
+  onLoadMore,
+  onRowClick,
+  selectedRunId,
+  newRunsBanner,
+  onScrollToTop,
 }: RunTableProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -73,11 +86,15 @@ export function RunTable({
       {newRunsBanner != null && newRunsBanner > 0 && (
         <div
           style={{
-            position: "sticky", top: 0, zIndex: 10,
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
             background: "var(--fp-accent-dim)",
             color: "var(--fp-accent-text)",
-            padding: "8px 16px", textAlign: "center",
-            cursor: "pointer", fontSize: 13,
+            padding: "8px 16px",
+            textAlign: "center",
+            cursor: "pointer",
+            fontSize: 13,
           }}
           onClick={onScrollToTop}
           role="button"
@@ -91,12 +108,10 @@ export function RunTable({
 
       <table
         ref={tableRef}
-        role="grid"
         aria-rowcount={runs.length}
         aria-colcount={columns.length}
         aria-label="Pipeline runs"
         style={{ width: "100%", borderCollapse: "collapse" }}
-        tabIndex={0}
         onKeyDown={handleKeyDown}
       >
         <thead>
@@ -105,9 +120,13 @@ export function RunTable({
               <th
                 key={col.field}
                 style={{
-                  textAlign: "left", padding: "8px 12px",
-                  fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
-                  textTransform: "uppercase", color: "var(--fp-text-3)",
+                  textAlign: "left",
+                  padding: "8px 12px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: "var(--fp-text-3)",
                   borderBottom: "1px solid var(--fp-border-1)",
                   width: col.width,
                 }}
@@ -139,21 +158,29 @@ export function RunTable({
             ))
           ) : runs.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} style={{ padding: 40, textAlign: "center", color: "var(--fp-text-3)" }}>
+              <td
+                colSpan={columns.length}
+                style={{ padding: 40, textAlign: "center", color: "var(--fp-text-3)" }}
+              >
                 <div style={{ fontSize: 14 }}>No runs yet</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Add withRun() to your workers to start tracking pipeline runs.</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  Add withRun() to your workers to start tracking pipeline runs.
+                </div>
               </td>
             </tr>
           ) : (
             runs.map((run, idx) => {
-              const runId = String(run["id"]);
+              const runId = String(run.id);
               const isSelected = selectedRunId === runId || selectedIndex === idx;
-              const stage = String(run["stage"] ?? "");
+              const stage = String(run.stage ?? "");
 
               return (
                 <tr
                   key={runId}
-                  onClick={() => { setSelectedIndex(idx); onRowClick?.(run); }}
+                  onClick={() => {
+                    setSelectedIndex(idx);
+                    onRowClick?.(run);
+                  }}
                   style={{
                     cursor: "pointer",
                     background: isSelected ? "var(--fp-surface-2)" : undefined,
@@ -167,12 +194,17 @@ export function RunTable({
 
                     let cell: React.ReactNode;
                     if (col.render === "statusTag") {
-                      cell = <StatusTag status={run["status"] as "running" | "succeeded" | "failed"} />;
+                      cell = (
+                        <StatusTag status={run.status as "running" | "succeeded" | "failed"} />
+                      );
                     } else if (col.render === "stagePill") {
                       cell = <StagePill stage={stage} color={stageColors[stage] ?? "#818cf8"} />;
                     } else {
                       cell = (
-                        <span className={col.mono ? "fp-mono" : undefined} style={{ fontSize: col.mono ? 11 : 12 }}>
+                        <span
+                          className={col.mono ? "fp-mono" : undefined}
+                          style={{ fontSize: col.mono ? 11 : 12 }}
+                        >
                           {formatValue(value, col.format)}
                         </span>
                       );
@@ -181,7 +213,10 @@ export function RunTable({
                     return (
                       <td
                         key={col.field}
-                        style={{ padding: "10px 12px", borderBottom: "1px solid var(--fp-border-1)" }}
+                        style={{
+                          padding: "10px 12px",
+                          borderBottom: "1px solid var(--fp-border-1)",
+                        }}
                       >
                         {cell}
                       </td>
@@ -200,11 +235,13 @@ export function RunTable({
           <button
             onClick={onLoadMore}
             style={{
-              padding: "8px 20px", borderRadius: 6,
+              padding: "8px 20px",
+              borderRadius: 6,
               background: "var(--fp-surface-2)",
               border: "1px solid var(--fp-border-1)",
               color: "var(--fp-text-2)",
-              cursor: "pointer", fontSize: 13,
+              cursor: "pointer",
+              fontSize: 13,
             }}
           >
             Load 50 more

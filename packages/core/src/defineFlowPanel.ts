@@ -1,13 +1,16 @@
-import { flowPanelConfigSchema, type FlowPanelConfig } from "./config/schema.js";
+import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema.js";
 import { validateConfig } from "./config/validate.js";
-import { createWithRun } from "./withRun.js";
-import { createReaper } from "./reaper.js";
 import { createQueryBuilder, type QueryBuilder } from "./queryBuilder.js";
+import { createReaper } from "./reaper.js";
 import type { SqlExecutor, SqlExecutorFactory } from "./types/db.js";
+import { createWithRun } from "./withRun.js";
 
 export interface FlowPanel<TConfig extends FlowPanelConfig = FlowPanelConfig> {
   config: TConfig;
-  withRun<T>(stage: TConfig["pipeline"]["stages"][number], callback: (run: import("./withRun.js").RunHandle) => Promise<T>): Promise<T>;
+  withRun<T>(
+    stage: TConfig["pipeline"]["stages"][number],
+    callback: (run: import("./withRun.js").RunHandle) => Promise<T>,
+  ): Promise<T>;
   startReaper(options?: { interval?: string }): () => void;
   getDb(): Promise<SqlExecutor>;
   queryBuilder: QueryBuilder;
@@ -19,7 +22,7 @@ async function resolveDb(factory: SqlExecutorFactory): Promise<SqlExecutor> {
 }
 
 export function defineFlowPanel<TConfig extends FlowPanelConfig>(
-  rawConfig: TConfig
+  rawConfig: TConfig,
 ): FlowPanel<TConfig> {
   // Validate with Zod
   const parsed = flowPanelConfigSchema.safeParse(rawConfig);
@@ -55,7 +58,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
 
   const withRunImpl = async <T>(
     stage: string,
-    callback: (run: import("./withRun.js").RunHandle) => Promise<T>
+    callback: (run: import("./withRun.js").RunHandle) => Promise<T>,
   ): Promise<T> => {
     const db = await getDb();
     const withRun = createWithRun({
@@ -72,7 +75,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     const intervalStr = options?.interval ?? "60s";
     const match = intervalStr.match(/^(\d+)([smh])$/);
     const intervalMs = match
-      ? parseInt(match[1]!) * (match[2] === "s" ? 1000 : match[2] === "m" ? 60000 : 3600000)
+      ? parseInt(match[1]!, 10) * (match[2] === "s" ? 1000 : match[2] === "m" ? 60000 : 3600000)
       : 60000;
 
     const reaperThresholds: Record<string, string> = {};

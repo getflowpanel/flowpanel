@@ -8,9 +8,21 @@ export class ConfigValidationError extends Error {
 }
 
 const RESERVED_NAMES = new Set([
-  "id", "stage", "status", "startedAt", "finishedAt", "durationMs",
-  "errorClass", "errorMessage", "errorStack", "heartbeatAt", "isDemo",
-  "isHistorical", "partitionKey", "externalId", "retryOfRunId",
+  "id",
+  "stage",
+  "status",
+  "startedAt",
+  "finishedAt",
+  "durationMs",
+  "errorClass",
+  "errorMessage",
+  "errorStack",
+  "heartbeatAt",
+  "isDemo",
+  "isHistorical",
+  "partitionKey",
+  "externalId",
+  "retryOfRunId",
 ]);
 
 export function validateConfig(config: FlowPanelConfig): void {
@@ -20,7 +32,7 @@ export function validateConfig(config: FlowPanelConfig): void {
   for (const key of Object.keys(config.pipeline.fields ?? {})) {
     if (RESERVED_NAMES.has(key)) {
       throw new ConfigValidationError(
-        `pipeline.fields.${key}: "${key}" is a reserved field name. Remove it — it is already tracked automatically.`
+        `pipeline.fields.${key}: "${key}" is a reserved field name. Remove it — it is already tracked automatically.`,
       );
     }
   }
@@ -30,7 +42,7 @@ export function validateConfig(config: FlowPanelConfig): void {
     for (const key of Object.keys(fields as Record<string, unknown>)) {
       if (RESERVED_NAMES.has(key)) {
         throw new ConfigValidationError(
-          `pipeline.stageFields.${stage}.${key}: "${key}" is a reserved field name.`
+          `pipeline.stageFields.${stage}.${key}: "${key}" is a reserved field name.`,
         );
       }
     }
@@ -40,7 +52,7 @@ export function validateConfig(config: FlowPanelConfig): void {
   for (const stage of Object.keys(config.pipeline.stageFields ?? {})) {
     if (!stages.has(stage)) {
       throw new ConfigValidationError(
-        `pipeline.stageFields.${stage}: stage "${stage}" is not in pipeline.stages [${[...stages].join(", ")}].`
+        `pipeline.stageFields.${stage}: stage "${stage}" is not in pipeline.stages [${[...stages].join(", ")}].`,
       );
     }
   }
@@ -49,10 +61,11 @@ export function validateConfig(config: FlowPanelConfig): void {
   for (const [stage, costConfig] of Object.entries(config.pipeline.aiCostStages ?? {})) {
     if (!stages.has(stage)) {
       throw new ConfigValidationError(
-        `pipeline.aiCostStages.${stage}: stage "${stage}" is not in pipeline.stages.`
+        `pipeline.aiCostStages.${stage}: stage "${stage}" is not in pipeline.stages.`,
       );
     }
-    const stageFields = (config.pipeline.stageFields as Record<string, Record<string, unknown>>)?.[stage] ?? {};
+    const stageFields =
+      (config.pipeline.stageFields as Record<string, Record<string, unknown>>)?.[stage] ?? {};
     for (const fieldName of [
       costConfig.costField,
       costConfig.tokensIn,
@@ -63,7 +76,7 @@ export function validateConfig(config: FlowPanelConfig): void {
         const available = Object.keys(stageFields).join(", ");
         throw new ConfigValidationError(
           `pipeline.aiCostStages.${stage}: field "${fieldName}" not found in stageFields.${stage}. ` +
-            `Available: ${available || "(none)"}`
+            `Available: ${available || "(none)"}`,
         );
       }
     }
@@ -73,7 +86,7 @@ export function validateConfig(config: FlowPanelConfig): void {
   for (const stage of Object.keys(config.pipeline.reaperThresholds ?? {})) {
     if (!stages.has(stage)) {
       throw new ConfigValidationError(
-        `pipeline.reaperThresholds.${stage}: stage "${stage}" is not in pipeline.stages.`
+        `pipeline.reaperThresholds.${stage}: stage "${stage}" is not in pipeline.stages.`,
       );
     }
   }

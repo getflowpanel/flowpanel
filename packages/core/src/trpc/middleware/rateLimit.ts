@@ -16,44 +16,52 @@ function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
   return true;
 }
 
-export function createRateLimitMiddleware(
-  t: { middleware: (fn: (opts: any) => any) => any }
-) {
-  return t.middleware(async ({ ctx, next, path }: { ctx: FlowPanelContext & { session: any }; next: any; path: string }) => {
-    const config = ctx.config;
-    const rateLimits = (config.security as any)?.rateLimits ?? {};
-    const limitConfig = rateLimits[path];
+export function createRateLimitMiddleware(t: { middleware: (fn: (opts: any) => any) => any }) {
+  return t.middleware(
+    async ({
+      ctx,
+      next,
+      path,
+    }: {
+      ctx: FlowPanelContext & { session: any };
+      next: any;
+      path: string;
+    }) => {
+      const config = ctx.config;
+      const rateLimits = (config.security as any)?.rateLimits ?? {};
+      const limitConfig = rateLimits[path];
 
-    if (limitConfig && ctx.session) {
-      const userId = ctx.session.userId;
+      if (limitConfig && ctx.session) {
+        const userId = ctx.session.userId;
 
-      if (limitConfig.perMinute) {
-        const key = `rl:${path}:${userId}:min`;
-        if (!checkRateLimit(key, limitConfig.perMinute, 60_000)) {
-          // Log to audit log
-          await ctx.db.execute(
-            `INSERT INTO flowpanel_audit_log (user_id, user_role, action, result)
+        if (limitConfig.perMinute) {
+          const key = `rl:${path}:${userId}:min`;
+          if (!checkRateLimit(key, limitConfig.perMinute, 60_000)) {
+            // Log to audit log
+            await ctx.db.execute(
+              `INSERT INTO flowpanel_audit_log (user_id, user_role, action, result)
              VALUES ($1, $2, $3, 'denied')`,
-            [userId, ctx.session.role, path]
-          );
-          throw new TRPCError({
-            code: "TOO_MANY_REQUESTS",
-            message: `Rate limit exceeded: ${limitConfig.perMinute} requests per minute`,
-          });
+              [userId, ctx.session.role, path],
+            );
+            throw new TRPCError({
+              code: "TOO_MANY_REQUESTS",
+              message: `Rate limit exceeded: ${limitConfig.perMinute} requests per minute`,
+            });
+          }
+        }
+
+        if (limitConfig.perHour) {
+          const key = `rl:${path}:${userId}:hour`;
+          if (!checkRateLimit(key, limitConfig.perHour, 3_600_000)) {
+            throw new TRPCError({
+              code: "TOO_MANY_REQUESTS",
+              message: `Rate limit exceeded: ${limitConfig.perHour} requests per hour`,
+            });
+          }
         }
       }
 
-      if (limitConfig.perHour) {
-        const key = `rl:${path}:${userId}:hour`;
-        if (!checkRateLimit(key, limitConfig.perHour, 3_600_000)) {
-          throw new TRPCError({
-            code: "TOO_MANY_REQUESTS",
-            message: `Rate limit exceeded: ${limitConfig.perHour} requests per hour`,
-          });
-        }
-      }
-    }
-
-    return next();
-  });
+      return next();
+    },
+  );
 }

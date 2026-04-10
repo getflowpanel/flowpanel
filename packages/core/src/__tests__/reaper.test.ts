@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createReaper } from "../reaper.js";
 import type { SqlExecutor } from "../types/db.js";
 
@@ -10,11 +10,17 @@ function makeMockDb(tryLockResult = true) {
       if (sql.includes("RETURNING")) return [{ id: BigInt(42) }] as any;
       return [];
     },
-    async transaction(fn) { return fn(executor); },
+    async transaction(fn) {
+      return fn(executor);
+    },
     async advisoryLock() {},
     async advisoryUnlock() {},
-    async advisoryTryLock() { return tryLockResult; },
-    sql(strings, ...values) { return { text: strings.join("?"), values }; },
+    async advisoryTryLock() {
+      return tryLockResult;
+    },
+    sql(strings, ...values) {
+      return { text: strings.join("?"), values };
+    },
   };
   return { executor, queries };
 }
@@ -31,7 +37,7 @@ describe("createReaper", () => {
     await reaper.sweep();
 
     const updateQuery = queries.find(
-      (q) => q.sql.includes("UPDATE") && q.sql.includes("OrphanedRun")
+      (q) => q.sql.includes("UPDATE") && q.sql.includes("OrphanedRun"),
     );
     expect(updateQuery).toBeDefined();
   });
@@ -61,12 +67,8 @@ describe("createReaper", () => {
     await reaper.sweep();
 
     // Should generate queries for each stage with correct interval
-    const scoreQuery = queries.find(
-      (q) => q.sql.includes("score") && q.sql.includes("5 minutes")
-    );
-    const parseQuery = queries.find(
-      (q) => q.sql.includes("parse") && q.sql.includes("10 minutes")
-    );
+    const scoreQuery = queries.find((q) => q.sql.includes("score") && q.sql.includes("5 minutes"));
+    const parseQuery = queries.find((q) => q.sql.includes("parse") && q.sql.includes("10 minutes"));
     expect(scoreQuery).toBeDefined();
     expect(parseQuery).toBeDefined();
   });

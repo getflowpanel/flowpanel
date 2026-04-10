@@ -1,23 +1,28 @@
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import type { FlowPanelContext } from "../context.js";
 
 export function createUsersProcedures(
   t: { procedure: any; router: (routes: any) => any },
-  authedProcedure: any
+  authedProcedure: any,
 ) {
   return t.router({
     list: authedProcedure
-      .input(z.object({
-        cursor: z.string().optional(),
-        limit: z.number().min(1).max(200).default(50),
-        search: z.string().optional(),
-      }))
+      .input(
+        z.object({
+          cursor: z.string().optional(),
+          limit: z.number().min(1).max(200).default(50),
+          search: z.string().optional(),
+        }),
+      )
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { db, config } = ctx;
 
         if (!(config as any).users) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "users not configured in flowpanel.config.ts" });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "users not configured in flowpanel.config.ts",
+          });
         }
 
         const { source, primaryKey, columns = [], periodStart, periodEnd } = (config as any).users;
@@ -38,17 +43,25 @@ export function createUsersProcedures(
 
         const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
-        const computedCols = columns.filter((c: any) => c.field.startsWith("$")).map((c: any) => c.field);
+        const computedCols = columns
+          .filter((c: any) => c.field.startsWith("$"))
+          .map((c: any) => c.field);
         const lateralClauses: string[] = [];
 
         if (computedCols.includes("$runs24h")) {
-          lateralClauses.push(`(SELECT COUNT(*) FROM flowpanel_pipeline_run WHERE partition_key = u.${primaryKey}::text AND started_at > now() - INTERVAL '24 hours') AS runs_24h`);
+          lateralClauses.push(
+            `(SELECT COUNT(*) FROM flowpanel_pipeline_run WHERE partition_key = u.${primaryKey}::text AND started_at > now() - INTERVAL '24 hours') AS runs_24h`,
+          );
         }
         if (computedCols.includes("$lastActive")) {
-          lateralClauses.push(`(SELECT MAX(started_at) FROM flowpanel_pipeline_run WHERE partition_key = u.${primaryKey}::text) AS last_active`);
+          lateralClauses.push(
+            `(SELECT MAX(started_at) FROM flowpanel_pipeline_run WHERE partition_key = u.${primaryKey}::text) AS last_active`,
+          );
         }
         if (computedCols.includes("$aiSpendMtd") && periodStart && periodEnd) {
-          lateralClauses.push(`(SELECT COALESCE(SUM(cost_usd), 0) FROM flowpanel_ai_usage_daily WHERE partition_key = u.${primaryKey}::text AND day >= u.${periodStart} AND day < u.${periodEnd}) AS ai_spend_mtd`);
+          lateralClauses.push(
+            `(SELECT COALESCE(SUM(cost_usd), 0) FROM flowpanel_ai_usage_daily WHERE partition_key = u.${primaryKey}::text AND day >= u.${periodStart} AND day < u.${periodEnd}) AS ai_spend_mtd`,
+          );
         }
 
         const extraSelect = lateralClauses.length > 0 ? `, ${lateralClauses.join(", ")}` : "";
@@ -59,7 +72,7 @@ export function createUsersProcedures(
            ${whereClause}
            ORDER BY u.${primaryKey}
            LIMIT ${input.limit + 1}`,
-          params
+          params,
         );
 
         const hasNext = rows.length > input.limit;
@@ -78,7 +91,7 @@ export function createUsersProcedures(
         const { source, primaryKey } = (config as any).users;
         const rows = await db.execute<Record<string, unknown>>(
           `SELECT * FROM ${source} WHERE ${primaryKey} = $1 LIMIT 1`,
-          [input.userId]
+          [input.userId],
         );
         if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND" });
         return rows[0];

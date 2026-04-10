@@ -1,6 +1,6 @@
 import type { FlowPanelConfig } from "../config/schema.js";
-import type { SqlExecutor } from "../types/db.js";
 import type { Session } from "../types/config.js";
+import type { SqlExecutor } from "../types/db.js";
 
 export interface FlowPanelContext {
   config: FlowPanelConfig;

@@ -24,14 +24,14 @@ export async function detectStack(cwd: string): Promise<DetectedStack> {
   }
 
   const allDeps = {
-    ...pkg.dependencies ?? {},
-    ...pkg.devDependencies ?? {},
-    ...pkg.peerDependencies ?? {},
+    ...(pkg.dependencies ?? {}),
+    ...(pkg.devDependencies ?? {}),
+    ...(pkg.peerDependencies ?? {}),
   };
 
   let nextjs: string | null = null;
-  if (allDeps["next"]) {
-    const vMatch = String(allDeps["next"]).match(/(\d+)/);
+  if (allDeps.next) {
+    const vMatch = String(allDeps.next).match(/(\d+)/);
     nextjs = vMatch?.[1] ?? "unknown";
   }
 
@@ -58,14 +58,17 @@ export async function detectStack(cwd: string): Promise<DetectedStack> {
 
   return {
     nextjs,
-    typescript: !!allDeps["typescript"],
+    typescript: !!allDeps.typescript,
     drizzle: !!(allDeps["drizzle-orm"] || allDeps["drizzle-kit"]),
     prisma: !!allDeps["@prisma/client"],
-    bullmq: !!allDeps["bullmq"],
+    bullmq: !!allDeps.bullmq,
     betterAuth: { found: !!allDeps["better-auth"] || !!betterAuthPath, path: betterAuthPath },
     nextauth: !!allDeps["next-auth"],
     clerk: !!allDeps["@clerk/nextjs"],
-    trpc: { found: !!(allDeps["@trpc/server"] || allDeps["@trpc/client"]), routerPath: trpcRouterPath },
+    trpc: {
+      found: !!(allDeps["@trpc/server"] || allDeps["@trpc/client"]),
+      routerPath: trpcRouterPath,
+    },
     dbImport: null,
   };
 }
