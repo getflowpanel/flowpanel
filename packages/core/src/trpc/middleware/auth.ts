@@ -11,7 +11,11 @@ export function createAuthMiddleware(t: { middleware: (fn: (opts: any) => any) =
 
 		let session;
 		try {
-			session = await (config.security as any).auth.getSession(req);
+			session = await (
+				config.security.auth.getSession as (
+					req: Request,
+				) => Promise<import("../../types/config.js").Session | null>
+			)(req);
 		} catch {
 			throw new TRPCError({ code: "UNAUTHORIZED", message: "Session check failed" });
 		}
@@ -20,10 +24,10 @@ export function createAuthMiddleware(t: { middleware: (fn: (opts: any) => any) =
 			throw new TRPCError({ code: "UNAUTHORIZED" });
 		}
 
-		const requiredRole = (config.security as any).auth.requireRole;
+		const requiredRole = config.security.auth.requireRole;
 		if (requiredRole && session.role !== requiredRole) {
 			// Check permissions table
-			const perms = (config.security as any).permissions?.[session.role];
+			const perms = config.security.permissions?.[session.role];
 			if (!perms) {
 				throw new TRPCError({ code: "FORBIDDEN" });
 			}

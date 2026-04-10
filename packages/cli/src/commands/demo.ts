@@ -1,13 +1,13 @@
 import kleur from "kleur";
 import ora from "ora";
+import { loadConfig } from "../loadConfig.js";
 
 export async function runDemo() {
 	const spinner = ora("Loading config...").start();
 
-	let config: any;
+	let config: Awaited<ReturnType<typeof loadConfig>>;
 	try {
-		const mod = await import(`${process.cwd()}/flowpanel.config.ts`);
-		config = mod.default ?? mod.config;
+		config = await loadConfig();
 	} catch (err) {
 		spinner.fail("Could not load flowpanel.config.ts");
 		console.error(kleur.red(`  ${err}`));
@@ -26,7 +26,7 @@ export async function runDemo() {
 	const stageWeights =
 		stages.length === 4 ? [0.44, 0.28, 0.16, 0.12] : stages.map(() => 1 / stages.length);
 
-	const stageDurations: Array<[number, number]> = stages.map((_: string, i: number) => {
+	const stageDurations: Array<[number, number]> = stages.map((_, i) => {
 		const durations: Array<[number, number]> = [
 			[200, 500],
 			[1500, 3000],

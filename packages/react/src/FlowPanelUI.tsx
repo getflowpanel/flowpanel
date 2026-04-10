@@ -133,7 +133,10 @@ export function FlowPanelUI({
 	});
 	const [loading, setLoading] = useState(true);
 	const [liveAnnouncement, setLiveAnnouncement] = useState("");
-	const [chartData, setChartData] = useState<{ buckets: any[]; peakBucket: any } | null>(null);
+	const [chartData, setChartData] = useState<{
+		buckets: Array<{ label: string; total: number; succeeded: number; failed: number }>;
+		peakBucket: { label: string; total: number } | null;
+	} | null>(null);
 
 	// ── Data fetching ─────────────────────────────────────────────────────────
 	const fetchData = useCallback(async () => {
@@ -170,7 +173,10 @@ export function FlowPanelUI({
 			]);
 
 			// Fetch chart data independently (non-blocking)
-			fetchJson<{ buckets: any[]; peakBucket: any }>(
+			fetchJson<{
+				buckets: Array<{ label: string; total: number; succeeded: number; failed: number }>;
+				peakBucket: { label: string; total: number } | null;
+			}>(
 				`${trpcBaseUrl}/flowpanel.runs.chart?input=${encodeURIComponent(
 					JSON.stringify({ timeRange }),
 				)}`,

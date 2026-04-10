@@ -49,7 +49,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
 	const config = parsed.data as TConfig;
 
 	// Semantic validation
-	validateConfig(config as any);
+	validateConfig(config);
 
 	const cwd = process.cwd();
 	const redactionKeys = config.security?.redaction?.keys ?? [];
@@ -104,13 +104,15 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
 			r.sweep().catch((err) => console.error("[flowpanel] reaper error:", err));
 		}, intervalMs);
 
-		if ((stop as any).unref) (stop as any).unref();
+		if (typeof (stop as unknown as { unref?: () => void }).unref === "function") {
+			(stop as unknown as { unref: () => void }).unref();
+		}
 		return () => clearInterval(stop);
 	}
 
 	return {
 		config,
-		withRun: withRunImpl as any,
+		withRun: withRunImpl as FlowPanel<TConfig>["withRun"],
 		startReaper,
 		getDb,
 		queryBuilder,

@@ -2,7 +2,22 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createQueryBuilder } from "../../queryBuilder.js";
 import { fieldNameToColumn } from "../../schemaGenerator.js";
+import type { Session } from "../../types/config.js";
 import type { FlowPanelContext } from "../context.js";
+
+interface RunRow {
+	id: string;
+	run_id: string;
+	partition_key: string | null;
+	stage: string;
+	status: "running" | "succeeded" | "failed";
+	started_at: string;
+	finished_at: string | null;
+	duration_ms: number | null;
+	error_class: string | null;
+	error_message: string | null;
+	[key: string]: unknown;
+}
 
 const listInputSchema = z.object({
 	stage: z.string().optional(),
@@ -23,11 +38,15 @@ const cancelInputSchema = z.object({ runId: z.string() });
 
 function applyRowLevelFilter(
 	config: FlowPanelContext["config"],
-	session: any,
+	session: Session,
 	whereParts: string[],
 	params: unknown[],
 ) {
-	const filter = (config.security as any)?.rowLevel?.filter?.(session, {});
+	const filter = (
+		config.security.rowLevel?.filter as
+			| ((session: Session, ctx: Record<string, unknown>) => { partitionKey?: string } | undefined)
+			| undefined
+	)?.(session, {});
 	if (filter?.partitionKey) {
 		whereParts.push(`partition_key = $${params.length + 1}`);
 		params.push(filter.partitionKey);
@@ -46,7 +65,7 @@ export function createRunsProcedures(
 					ctx,
 					input,
 				}: {
-					ctx: FlowPanelContext & { session: any };
+					ctx: FlowPanelContext & { session: Session };
 					input: z.infer<typeof listInputSchema>;
 				}) => {
 					const { db, config, session } = ctx;
@@ -68,7 +87,7 @@ export function createRunsProcedures(
 						params.push(input.timeRange.end);
 					}
 					if (input.search && input.search.length >= 2) {
-						const searchFields = (config as any).runLog?.search?.fields ?? [
+						const searchFields = config.runLog?.search?.fields ?? [
 							"partition_key",
 							"error_message",
 						];
@@ -113,7 +132,7 @@ export function createRunsProcedures(
 					ctx,
 					input,
 				}: {
-					ctx: FlowPanelContext & { session: any };
+					ctx: FlowPanelContext & { session: Session };
 					input: { runId: string };
 				}) => {
 					const { db, config, session } = ctx;
@@ -137,12 +156,12 @@ export function createRunsProcedures(
 					ctx,
 					input,
 				}: {
-					ctx: FlowPanelContext & { session: any };
+					ctx: FlowPanelContext & { session: Session };
 					input: z.infer<typeof retryInputSchema>;
 				}) => {
 					const { db, config, session } = ctx;
 
-					if (!(config as any).pipeline.onRetry) {
+					if (!config.pipeline.onRetry) {
 						throw new TRPCError({
 							code: "BAD_REQUEST",
 							message: "Retry not configured. Add pipeline.onRetry to your flowpanel.config.ts",
@@ -167,10 +186,10 @@ export function createRunsProcedures(
 						[run["stage"], run["id"]],
 					);
 
-					await (config as any).pipeline.onRetry(
+					await (config.pipeline.onRetry as (...args: unknown[]) => unknown)(
 						{
 							stage: run["stage"] as string,
-							fields: run as any,
+							fields: run,
 							errorClass: run["error_class"] as string | undefined,
 							errorMessage: run["error_message"] as string | undefined,
 						},
@@ -188,7 +207,7 @@ export function createRunsProcedures(
 					ctx,
 					input,
 				}: {
-					ctx: FlowPanelContext & { session: any };
+					ctx: FlowPanelContext & { session: Session };
 					input: z.infer<typeof cancelInputSchema>;
 				}) => {
 					const { db } = ctx;
@@ -211,12 +230,12 @@ export function createRunsProcedures(
 					ctx,
 					input,
 				}: {
-					ctx: FlowPanelContext & { session: any };
+					ctx: FlowPanelContext & { session: Session };
 					input: z.infer<typeof bulkRetryInputSchema>;
 				}) => {
 					const { db, config } = ctx;
 
-					if (!(config as any).pipeline.onRetry) {
+					if (!config.pipeline.onRetry) {
 						throw new TRPCError({ code: "BAD_REQUEST", message: "Retry not configured" });
 					}
 
@@ -255,8 +274,8 @@ export function createRunsProcedures(
 					const results: { runId: string; success: boolean; error?: string }[] = [];
 					for (const run of runs) {
 						try {
-							await (config as any).pipeline.onRetry!(
-								{ stage: run["stage"] as string, fields: run as any },
+							await (config.pipeline.onRetry as (...args: unknown[]) => unknown)(
+								{ stage: run["stage"] as string, fields: run },
 								{ userId: ctx.session.userId, db },
 							);
 							results.push({ runId: String(run["id"]), success: true });
@@ -276,14 +295,14 @@ export function createRunsProcedures(
 					ctx,
 					input,
 				}: {
-					ctx: FlowPanelContext & { session: any };
+					ctx: FlowPanelContext & { session: Session };
 					input: { timeRange: string };
 				}) => {
 					const { db, config } = ctx;
 					const qb = createQueryBuilder({
-						stages: (config as any).pipeline?.stages ?? [],
-						stageFields: (config as any).pipeline?.stageFields ?? {},
-						fields: (config as any).fields ?? {},
+						stages: config.pipeline?.stages ?? [],
+						stageFields: config.pipeline?.stageFields ?? {},
+						fields: config.pipeline?.fields ?? {},
 					});
 
 					const queryDef = qb.chartBuckets(input.timeRange, "postgres");

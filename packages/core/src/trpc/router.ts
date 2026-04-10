@@ -1,5 +1,6 @@
 import { initTRPC } from "@trpc/server";
 import type { FlowPanelConfig } from "../config/schema.js";
+import type { SqlExecutor } from "../types/db.js";
 import type { FlowPanelContext } from "./context.js";
 import { createAuditLogMiddleware } from "./middleware/auditLog.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
@@ -17,7 +18,7 @@ export function createFlowPanelRouter<TContext extends object>({
 	getRequest,
 }: {
 	t: ReturnType<typeof initTRPC.context<TContext>>;
-	config: { config: FlowPanelConfig; getDb: () => Promise<any> };
+	config: { config: FlowPanelConfig; getDb: () => Promise<SqlExecutor> };
 	getRequest: (ctx: TContext) => Request;
 }) {
 	// Create a new tRPC instance scoped to FlowPanelContext

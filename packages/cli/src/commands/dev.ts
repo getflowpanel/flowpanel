@@ -2,11 +2,12 @@ import { exec } from "child_process";
 import { watch } from "chokidar";
 import kleur from "kleur";
 import { platform } from "os";
+import { loadConfig } from "../loadConfig.js";
 
 export async function runDev(opts: { port?: string }) {
 	console.log(kleur.bold("\n  ⚡ FlowPanel dev server\n"));
 
-	let config: any;
+	let config: Awaited<ReturnType<typeof loadConfig>>;
 	try {
 		config = await loadConfig();
 	} catch (err) {
@@ -48,12 +49,4 @@ export async function runDev(opts: { port?: string }) {
 			console.log(`  ${kleur.red("✗")} Config error: ${err}\n`);
 		}
 	});
-}
-
-async function loadConfig() {
-	// Clear module cache for hot reload
-	const configPath = `${process.cwd()}/flowpanel.config.ts`;
-	delete require.cache?.[configPath];
-	const mod = await import(configPath);
-	return mod.default ?? mod.config;
 }
