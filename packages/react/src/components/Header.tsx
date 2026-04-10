@@ -1,118 +1,129 @@
-import React, { useRef, useEffect } from "react";
+import React from "react";
 import type { LiveStatus } from "../hooks/useFlowPanelStream.js";
 
 export type { LiveStatus };
 
-const LIVE_STATUS_CONFIG: Record<LiveStatus, { color: string; label: string }> = {
-  live:         { color: "#10b981", label: "Live" },
-  reconnecting: { color: "#f59e0b", label: "Reconnecting..." },
-  polling:      { color: "#6366f1", label: "Polling" },
-  paused:       { color: "#5c5c6b", label: "Paused" },
-};
-
 interface HeaderProps {
-  appName: string;
-  timeRange: string;
-  onTimeRangeChange: (range: string) => void;
-  timeRangePresets: string[];
-  liveStatus: LiveStatus;
+	appName: string;
+	timeRange: string;
+	onTimeRangeChange: (range: string) => void;
+	timeRangePresets: string[];
+	liveStatus: LiveStatus;
+	onOpenPalette?: () => void;
 }
 
-export function Header({ appName, timeRange, onTimeRangeChange, timeRangePresets, liveStatus }: HeaderProps) {
-  const [showPresets, setShowPresets] = React.useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const lsCfg = LIVE_STATUS_CONFIG[liveStatus];
+export function Header({
+	appName,
+	timeRange,
+	onTimeRangeChange,
+	timeRangePresets,
+	liveStatus,
+	onOpenPalette,
+}: HeaderProps) {
+	return (
+		<header
+			style={{
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "space-between",
+				padding: "0 24px",
+				height: 52,
+				borderBottom: "1px solid var(--fp-border-1)",
+			}}
+		>
+			<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+				<span style={{ fontSize: 13, fontWeight: 600, color: "var(--fp-text-1)" }}>
+					⚡ {appName}
+				</span>
+			</div>
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!showPresets) return;
-    function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowPresets(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showPresets]);
+			<div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+				{/* Time range segmented control */}
+				<div
+					style={{
+						display: "flex",
+						background: "rgba(255,255,255,0.04)",
+						border: "1px solid var(--fp-border-1)",
+						borderRadius: "var(--fp-radius-sm)",
+						overflow: "hidden",
+					}}
+				>
+					{timeRangePresets.map((p) => (
+						<button
+							key={p}
+							onClick={() => onTimeRangeChange(p)}
+							style={{
+								padding: "5px 9px",
+								background: p === timeRange ? "rgba(255,255,255,0.07)" : "transparent",
+								fontWeight: p === timeRange ? 600 : 400,
+								color: p === timeRange ? "var(--fp-text-1)" : "var(--fp-text-4)",
+								border: "none",
+								cursor: "pointer",
+								fontSize: 12,
+								transition: "background var(--fp-duration) ease",
+							}}
+						>
+							{p}
+						</button>
+					))}
+				</div>
 
-  return (
-    <header style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "0 24px", height: 52,
-      borderBottom: "1px solid var(--fp-border-1)",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fp-text-1)" }}>
-          ⚡ {appName}
-        </span>
-      </div>
+				{/* Live indicator */}
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 6,
+						border: "1px solid var(--fp-border-1)",
+						borderRadius: "var(--fp-radius-sm)",
+						padding: "5px 9px",
+					}}
+					aria-live="polite"
+					aria-label={`Connection: ${liveStatus}`}
+				>
+					<span
+						style={{
+							width: 7,
+							height: 7,
+							borderRadius: "50%",
+							background:
+								liveStatus === "live"
+									? "var(--fp-ok)"
+									: liveStatus === "reconnecting"
+										? "var(--fp-warn)"
+										: "var(--fp-text-4)",
+							boxShadow: liveStatus === "live" ? "0 0 0 2px rgba(16,185,129,0.2)" : "none",
+						}}
+					/>
+					<span style={{ fontSize: 12, color: "var(--fp-text-2)" }}>
+						{liveStatus === "live"
+							? "Live"
+							: liveStatus === "reconnecting"
+								? "Reconnecting"
+								: "Polling"}
+					</span>
+				</div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        {/* Time range picker */}
-        <div ref={dropdownRef} style={{ position: "relative" }}>
-          <button
-            onClick={() => setShowPresets((v) => !v)}
-            style={{
-              padding: "5px 12px", borderRadius: 6,
-              background: "var(--fp-surface-2)",
-              border: "1px solid var(--fp-border-1)",
-              color: "var(--fp-text-1)", cursor: "pointer", fontSize: 13,
-            }}
-            aria-haspopup="listbox"
-            aria-expanded={showPresets}
-            aria-label={`Time range: ${timeRange}`}
-          >
-            {timeRange} ▾
-          </button>
-          {showPresets && (
-            <div
-              role="listbox"
-              aria-label="Time range presets"
-              style={{
-                position: "absolute", right: 0, top: "calc(100% + 4px)",
-                background: "var(--fp-surface-1)",
-                border: "1px solid var(--fp-border-1)",
-                borderRadius: 8, overflow: "hidden", zIndex: 30,
-                minWidth: 80,
-              }}
-            >
-              {timeRangePresets.map((preset) => (
-                <div
-                  key={preset}
-                  role="option"
-                  aria-selected={preset === timeRange}
-                  onClick={() => { onTimeRangeChange(preset); setShowPresets(false); }}
-                  style={{
-                    padding: "8px 16px", cursor: "pointer", fontSize: 13,
-                    color: preset === timeRange ? "var(--fp-accent-text)" : "var(--fp-text-1)",
-                    background: preset === timeRange ? "var(--fp-accent-dim)" : undefined,
-                    transition: `background var(--fp-duration) ease`,
-                  }}
-                >
-                  {preset}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Live indicator */}
-        <div
-          style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--fp-text-2)" }}
-          aria-live="polite"
-          aria-label={`Connection: ${lsCfg.label}`}
-        >
-          <span
-            style={{
-              width: 7, height: 7, borderRadius: "50%",
-              background: lsCfg.color, display: "inline-block",
-              boxShadow: liveStatus === "live" ? `0 0 0 2px ${lsCfg.color}33` : undefined,
-            }}
-            aria-hidden
-          />
-          {lsCfg.label}
-        </div>
-      </div>
-    </header>
-  );
+				{/* Command palette trigger */}
+				{onOpenPalette && (
+					<button
+						onClick={onOpenPalette}
+						aria-label="Open command palette"
+						style={{
+							padding: "5px 10px",
+							background: "transparent",
+							border: "1px solid var(--fp-border-1)",
+							borderRadius: "var(--fp-radius-sm)",
+							color: "var(--fp-text-4)",
+							cursor: "pointer",
+							fontSize: 11,
+							fontFamily: "var(--fp-font-mono)",
+						}}
+					>
+						⌘K
+					</button>
+				)}
+			</div>
+		</header>
+	);
 }

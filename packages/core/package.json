@@ -1,33 +1,49 @@
 {
-  "name": "@flowpanel/core",
-  "version": "0.1.0",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
-    },
-    "./trpc": {
-      "import": "./dist/trpc/index.js",
-      "require": "./dist/trpc/index.cjs",
-      "types": "./dist/trpc/index.d.ts"
-    }
-  },
-  "scripts": {
-    "build": "tsup",
-    "test:unit": "vitest run"
-  },
-  "dependencies": {
-    "@trpc/server": "^11.16.0",
-    "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "tsup": "^8.0.0",
-    "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
-  }
+	"name": "@flowpanel/core",
+	"version": "0.1.0",
+	"description": "Core logic for FlowPanel pipeline dashboards",
+	"keywords": [
+		"flowpanel",
+		"admin",
+		"pipeline",
+		"dashboard",
+		"trpc"
+	],
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Ch4m4/flowpanel",
+		"directory": "packages/core"
+	},
+	"homepage": "https://github.com/Ch4m4/flowpanel",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs",
+			"types": "./dist/index.d.ts"
+		},
+		"./trpc": {
+			"import": "./dist/trpc/index.js",
+			"require": "./dist/trpc/index.cjs",
+			"types": "./dist/trpc/index.d.ts"
+		}
+	},
+	"scripts": {
+		"build": "tsup",
+		"typecheck": "tsc --noEmit",
+		"test:unit": "vitest run"
+	},
+	"dependencies": {
+		"@trpc/server": "^11.16.0",
+		"zod": "^3.23.0"
+	},
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"tsup": "^8.0.0",
+		"typescript": "^5.4.0",
+		"vitest": "^1.6.0"
+	}
 }

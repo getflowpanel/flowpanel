@@ -1,69 +1,72 @@
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { getOrCreateBroker } from "../../sse/broker.js";
 import type { FlowPanelContext } from "../context.js";
 
 export function createStreamProcedure(
-  t: { procedure: any; router: (routes: any) => any },
-  authedProcedure: any
+	t: { procedure: any; router: (routes: any) => any },
+	authedProcedure: any,
 ) {
-  return t.router({
-    connect: authedProcedure
-      .input(z.object({
-        lastEventId: z.string().optional(),
-      }))
-      .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
-        const { config, db } = ctx;
-        const streamConfig = (config as any).ui?.stream ?? {};
-        const maxConnections = streamConfig.maxConnections ?? 50;
-        const heartbeatIntervalMs = parseInterval(streamConfig.heartbeatInterval ?? "15s");
-        const replayWindowMs = parseInterval(streamConfig.replayWindow ?? "60s");
+	return t.router({
+		connect: authedProcedure
+			.input(
+				z.object({
+					lastEventId: z.string().optional(),
+				}),
+			)
+			.query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
+				const { config, db } = ctx;
+				const streamConfig = (config as any).ui?.stream ?? {};
+				const maxConnections = streamConfig.maxConnections ?? 50;
+				const heartbeatIntervalMs = parseInterval(streamConfig.heartbeatInterval ?? "15s");
+				const replayWindowMs = parseInterval(streamConfig.replayWindow ?? "60s");
 
-        const broker = getOrCreateBroker(config as any, db, maxConnections, replayWindowMs);
+				const broker = getOrCreateBroker(config as any, db, maxConnections, replayWindowMs);
 
-        if (broker.clientCount() >= maxConnections) {
-          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many SSE connections" });
-        }
+				if (broker.clientCount() >= maxConnections) {
+					throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many SSE connections" });
+				}
 
-        const clientId = `${ctx.session.userId}-${Date.now()}`;
-        const encoder = new TextEncoder();
+				const clientId = `${ctx.session.userId}-${Date.now()}`;
+				const encoder = new TextEncoder();
 
-        const stream = new ReadableStream({
-          start(controller) {
-            function send(event: import("../../sse/broker.js").SseEvent) {
-              const data =
-                `id: ${event.id}\nevent: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`;
-              controller.enqueue(encoder.encode(data));
-            }
+				const stream = new ReadableStream({
+					start(controller) {
+						function send(event: import("../../sse/broker.js").SseEvent) {
+							const data = `id: ${event.id}\nevent: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`;
+							controller.enqueue(encoder.encode(data));
+						}
 
-            const unsubscribe = broker.subscribe(clientId, send, input.lastEventId);
+						const unsubscribe = broker.subscribe(clientId, send, input.lastEventId);
 
-            const heartbeat = setInterval(() => {
-              controller.enqueue(encoder.encode(`event: heartbeat\ndata: {}\n\n`));
-            }, heartbeatIntervalMs);
+						const heartbeat = setInterval(() => {
+							controller.enqueue(encoder.encode(`event: heartbeat\ndata: {}\n\n`));
+						}, heartbeatIntervalMs);
 
-            (controller as any).cancel = () => {
-              clearInterval(heartbeat);
-              unsubscribe();
-            };
-          },
-        });
+						(controller as any).cancel = () => {
+							clearInterval(heartbeat);
+							unsubscribe();
+						};
+					},
+				});
 
-        return new Response(stream, {
-          headers: {
-            "Content-Type": "text/event-stream; charset=utf-8",
-            "Cache-Control": "no-cache",
-            Connection: "keep-alive",
-            "X-FlowPanel-Fallback-Poll": String(parseInterval(streamConfig.fallbackPollingInterval ?? "10s") / 1000),
-          },
-        });
-      }),
-  });
+				return new Response(stream, {
+					headers: {
+						"Content-Type": "text/event-stream; charset=utf-8",
+						"Cache-Control": "no-cache",
+						Connection: "keep-alive",
+						"X-FlowPanel-Fallback-Poll": String(
+							parseInterval(streamConfig.fallbackPollingInterval ?? "10s") / 1000,
+						),
+					},
+				});
+			}),
+	});
 }
 
 function parseInterval(interval: string): number {
-  const match = interval.match(/^(\d+)([smh])$/);
-  if (!match) return 15_000;
-  const [, num, unit] = match;
-  return parseInt(num!) * (unit === "s" ? 1000 : unit === "m" ? 60_000 : 3_600_000);
+	const match = interval.match(/^(\d+)([smh])$/);
+	if (!match) return 15_000;
+	const [, num, unit] = match;
+	return parseInt(num!) * (unit === "s" ? 1000 : unit === "m" ? 60_000 : 3_600_000);
 }

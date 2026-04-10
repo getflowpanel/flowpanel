@@ -1,34 +1,48 @@
 {
-  "name": "@flowpanel/adapter-drizzle",
-  "version": "0.1.0",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts",
-    "test:integration:start-db": "docker compose -f docker-compose.test.yml up -d --wait",
-    "test:integration:stop-db": "docker compose -f docker-compose.test.yml down",
-    "test:integration": "pnpm test:integration:start-db && vitest run --project integration; pnpm test:integration:stop-db"
-  },
-  "peerDependencies": {
-    "drizzle-orm": ">=0.30.0"
-  },
-  "dependencies": {
-    "@flowpanel/core": "workspace:*"
-  },
-  "devDependencies": {
-    "tsup": "^8.0.0",
-    "@types/node": "^20.0.0",
-    "typescript": "^5.4.0",
-    "vitest": "^1.0.0",
-    "pg": "^8.11.0",
-    "@types/pg": "^8.11.0"
-  }
+	"name": "@flowpanel/adapter-drizzle",
+	"version": "0.1.0",
+	"description": "Drizzle ORM adapter for FlowPanel",
+	"keywords": [
+		"flowpanel",
+		"drizzle",
+		"adapter",
+		"orm"
+	],
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Ch4m4/flowpanel",
+		"directory": "packages/adapter-drizzle"
+	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"scripts": {
+		"build": "tsup src/index.ts --format esm,cjs --dts",
+		"typecheck": "tsc --noEmit",
+		"test:integration:start-db": "docker compose -f docker-compose.test.yml up -d --wait",
+		"test:integration:stop-db": "docker compose -f docker-compose.test.yml down",
+		"test:integration": "pnpm test:integration:start-db && vitest run --project integration; pnpm test:integration:stop-db"
+	},
+	"peerDependencies": {
+		"drizzle-orm": ">=0.30.0"
+	},
+	"dependencies": {
+		"@flowpanel/core": "workspace:*"
+	},
+	"devDependencies": {
+		"tsup": "^8.0.0",
+		"@types/node": "^20.0.0",
+		"typescript": "^5.4.0",
+		"vitest": "^1.0.0",
+		"pg": "^8.11.0",
+		"@types/pg": "^8.11.0"
+	}
 }

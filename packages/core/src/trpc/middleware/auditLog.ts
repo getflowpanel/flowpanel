@@ -1,32 +1,46 @@
 import type { FlowPanelContext } from "../context.js";
 
-export function createAuditLogMiddleware(
-  t: { middleware: (fn: (opts: any) => any) => any }
-) {
-  return t.middleware(async ({ ctx, next, path }: { ctx: FlowPanelContext & { session: any }; next: any; path: string }) => {
-    const result = await next();
+export function createAuditLogMiddleware(t: { middleware: (fn: (opts: any) => any) => any }) {
+	return t.middleware(
+		async ({
+			ctx,
+			next,
+			path,
+		}: {
+			ctx: FlowPanelContext & { session: any };
+			next: any;
+			path: string;
+		}) => {
+			const result = await next();
 
-    const isMutation = !path.startsWith("metrics") && !path.startsWith("runs.list") && !path.startsWith("runs.get") && !path.startsWith("stages") && !path.startsWith("users.list") && !path.startsWith("stream");
+			const isMutation =
+				!path.startsWith("metrics") &&
+				!path.startsWith("runs.list") &&
+				!path.startsWith("runs.get") &&
+				!path.startsWith("stages") &&
+				!path.startsWith("users.list") &&
+				!path.startsWith("stream");
 
-    if (isMutation && ctx.session) {
-      const forwardedFor = (ctx.req as any).headers?.get?.("x-forwarded-for");
-      const userAgent = (ctx.req as any).headers?.get?.("user-agent");
+			if (isMutation && ctx.session) {
+				const forwardedFor = (ctx.req as any).headers?.get?.("x-forwarded-for");
+				const userAgent = (ctx.req as any).headers?.get?.("user-agent");
 
-      await ctx.db.execute(
-        `INSERT INTO flowpanel_audit_log (user_id, user_role, ip_address, user_agent, action, result, request_id)
+				await ctx.db.execute(
+					`INSERT INTO flowpanel_audit_log (user_id, user_role, ip_address, user_agent, action, result, request_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          ctx.session.userId,
-          ctx.session.role,
-          forwardedFor ?? null,
-          userAgent ?? null,
-          path,
-          result.ok ? "success" : "error",
-          (ctx.req as any).headers?.get?.("x-request-id") ?? null,
-        ]
-      );
-    }
+					[
+						ctx.session.userId,
+						ctx.session.role,
+						forwardedFor ?? null,
+						userAgent ?? null,
+						path,
+						result.ok ? "success" : "error",
+						(ctx.req as any).headers?.get?.("x-request-id") ?? null,
+					],
+				);
+			}
 
-    return result;
-  });
+			return result;
+		},
+	);
 }
