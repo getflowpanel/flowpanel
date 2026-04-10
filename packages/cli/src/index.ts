@@ -6,6 +6,9 @@ import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runMigrate, runMigrateGen, runMigrateStatus } from "./commands/migrate.js";
 import { runWorkerScan } from "./commands/worker-scan.js";
+import { runDev } from "./commands/dev.js";
+import { runDemo } from "./commands/demo.js";
+import { runStatus } from "./commands/status.js";
 
 const [major] = process.versions.node.split(".").map(Number);
 if (major < 18) {
@@ -26,7 +29,8 @@ program
 program
   .command("migrate")
   .description("Apply pending schema migrations")
-  .action(() => runMigrate());
+  .option("--dry-run", "Show SQL without applying")
+  .action((opts) => runMigrate({ dryRun: opts.dryRun ?? false }));
 
 program
   .command("migrate:gen")
@@ -67,5 +71,21 @@ program
   .option("--format <fmt>", "csv or ndjson", "csv")
   .option("--out <file>", "Output file path")
   .action((opts) => runAuditExport(opts));
+
+program
+  .command("dev")
+  .description("Watch config and validate on change")
+  .action(() => runDev());
+
+program
+  .command("demo")
+  .description("Seed 500 demo runs for preview")
+  .action(() => runDemo());
+
+program
+  .command("status")
+  .description("Quick overview of FlowPanel state")
+  .option("--json", "Output as JSON")
+  .action((opts) => runStatus({ json: opts.json ?? false }));
 
 program.parse();

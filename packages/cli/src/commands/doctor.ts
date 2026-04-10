@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import kleur from "kleur";
+import ora from "ora";
 import { formatSuccess, formatWarning } from "../utils/error-format.js";
 
 export async function runDoctor({ prod = false } = {}): Promise<void> {
@@ -38,11 +39,14 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
     );
   }
 
+  const configSpinner = ora("Loading flowpanel.config.ts...").start();
   try {
     const mod = await import(configPath);
     config = mod.flowpanel;
+    configSpinner.succeed("flowpanel.config.ts       loaded successfully");
     pass("flowpanel.config.ts       valid config (Zod + semantic validation)");
   } catch (err) {
+    configSpinner.fail("flowpanel.config.ts       failed to load");
     fail("flowpanel.config.ts       failed to load", String(err).slice(0, 200));
     config = null;
   }
