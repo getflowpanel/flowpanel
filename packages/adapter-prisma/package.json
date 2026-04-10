@@ -12,7 +12,8 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts"
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "@prisma/client": ">=5.0.0"

@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import type { SqlExecutor } from "./types/db.js";
 
 const REAPER_LOCK_KEY = BigInt(
-  "0x" + crypto.createHash("md5").update("flowpanel:reaper").digest("hex").slice(0, 16)
+  `0x${crypto.createHash("md5").update("flowpanel:reaper").digest("hex").slice(0, 16)}`,
 );
 
 const DEFAULT_THRESHOLD = "10m";
@@ -12,16 +12,15 @@ function intervalToMinutes(interval: string): number {
   if (!match) return 10;
   const [, num, unit] = match;
   switch (unit) {
-    case "s": return parseInt(num!) / 60;
-    case "m": return parseInt(num!);
-    case "h": return parseInt(num!) * 60;
-    default:  return 10;
+    case "s":
+      return parseInt(num!, 10) / 60;
+    case "m":
+      return parseInt(num!, 10);
+    case "h":
+      return parseInt(num!, 10) * 60;
+    default:
+      return 10;
   }
-}
-
-function intervalToPg(interval: string): string {
-  const minutes = intervalToMinutes(interval);
-  return `${minutes} minutes`;
 }
 
 export interface ReaperOptions {
@@ -48,7 +47,7 @@ export function createReaper(opts: ReaperOptions): Reaper {
     try {
       for (const stage of stages) {
         const threshold = reaperThresholds[stage] ?? DEFAULT_THRESHOLD;
-        const pgInterval = intervalToPg(threshold);
+        const thresholdMinutes = intervalToMinutes(threshold);
         // Heartbeat staleness: 3 minutes (fixed)
         const rows = await db.execute<{ id: bigint }>(
           `UPDATE flowpanel_pipeline_run
@@ -58,24 +57,31 @@ export function createReaper(opts: ReaperOptions): Reaper {
              error_class   = 'OrphanedRun',
              error_message = 'Run exceeded timeout without heartbeat — recovered by reaper'
            WHERE status = 'running'
-             AND stage = '${stage}'
-             AND started_at < now() - INTERVAL '${pgInterval}'
+             AND stage = $1
+             AND started_at < now() - make_interval(mins => $2)
              AND (heartbeat_at IS NULL OR heartbeat_at < now() - INTERVAL '3 minutes')
            RETURNING id`,
-          []
+          [stage, thresholdMinutes],
         );
 
         for (const row of rows) {
           recovered.push(row.id);
           // Emit pg_notify for SSE
-          await db.execute(
-            `SELECT pg_notify('flowpanel_events', $1)`,
-            [JSON.stringify({ event: "run.failed", id: String(row.id), stage, errorClass: "OrphanedRun" })]
-          );
+          await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
+            JSON.stringify({
+              event: "run.failed",
+              id: String(row.id),
+              stage,
+              errorClass: "OrphanedRun",
+            }),
+          ]);
         }
       }
 
-      if (recovered.length > 0 && (process.env.FLOWPANEL_DEBUG === "1" || process.env.NODE_ENV === "development")) {
+      if (
+        recovered.length > 0 &&
+        (process.env.FLOWPANEL_DEBUG === "1" || process.env.NODE_ENV === "development")
+      ) {
         console.debug(`[flowpanel] reaper  recovered  runIds=[${recovered.join(", ")}]`);
       }
     } finally {

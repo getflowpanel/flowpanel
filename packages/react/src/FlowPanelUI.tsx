@@ -1,16 +1,20 @@
-import React, { useState, useCallback, useReducer, useEffect } from "react";
 import type { FlowPanelConfig } from "@flowpanel/core";
-import { Header } from "./components/Header.js";
-import { Tabs } from "./components/Tabs.js";
-import type { TabConfig } from "./components/Tabs.js";
-import { MetricCard } from "./components/MetricCard.js";
-import { StageCard } from "./components/StageCard.js";
-import { RunTable } from "./components/RunTable.js";
-import type { RunLogColumn } from "./components/RunTable.js";
-import { Drawer } from "./components/Drawer.js";
-import { CommandPalette } from "./components/CommandPalette.js";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import type { Command } from "./components/CommandPalette.js";
+import { CommandPalette } from "./components/CommandPalette.js";
 import { DemoBanner } from "./components/DemoBanner.js";
+import { Drawer } from "./components/Drawer.js";
+import { ErrorBoundary } from "./components/ErrorBoundary.js";
+import { Header } from "./components/Header.js";
+import { KeyboardHelp } from "./components/KeyboardHelp.js";
+import { MetricCard } from "./components/MetricCard.js";
+import type { RunLogColumn } from "./components/RunTable.js";
+import { RunTable } from "./components/RunTable.js";
+import { SectionHeader } from "./components/SectionHeader.js";
+import { StageCard } from "./components/StageCard.js";
+import type { TabConfig } from "./components/Tabs.js";
+import { Tabs } from "./components/Tabs.js";
+import { ToastProvider } from "./components/Toast.js";
 import { useFlowPanelStream } from "./hooks/useFlowPanelStream.js";
 import { useKeyboard } from "./hooks/useKeyboard.js";
 import { resolveTheme, themeToStyle } from "./theme/index.js";
@@ -40,10 +44,10 @@ function runsReducer(state: RunsState, action: RunsAction): RunsState {
       return {
         ...state,
         runs: state.runs.map((r) =>
-          String(r["id"]) === action.runId ? { ...r, ...action.update } : r
+          String(r.id) === action.runId ? { ...r, ...action.update } : r,
         ),
         bufferedNewRuns: state.bufferedNewRuns.map((r) =>
-          String(r["id"]) === action.runId ? { ...r, ...action.update } : r
+          String(r.id) === action.runId ? { ...r, ...action.update } : r,
         ),
       };
     case "LOAD_MORE":
@@ -88,6 +92,7 @@ export function FlowPanelUI({
   const [timeRange, setTimeRange] = useState(config.timeRange?.default ?? "24h");
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [drawerState, setDrawerState] = useState<{
     open: boolean;
     type: string;
@@ -122,8 +127,8 @@ export function FlowPanelUI({
       const [metricsData, stagesData, runsData] = await Promise.all([
         fetchJson<Record<string, unknown>>(
           `${trpcBaseUrl}/flowpanel.metrics.current?input=${encodeURIComponent(
-            JSON.stringify({ timeRange })
-          )}`
+            JSON.stringify({ timeRange }),
+          )}`,
         ),
         fetchJson<
           Array<{
@@ -136,16 +141,16 @@ export function FlowPanelUI({
           }>
         >(
           `${trpcBaseUrl}/flowpanel.stages.breakdown?input=${encodeURIComponent(
-            JSON.stringify({ timeRange })
-          )}`
+            JSON.stringify({ timeRange }),
+          )}`,
         ),
         fetchJson<{
           runs: Record<string, unknown>[];
           nextCursor: string | null;
         }>(
           `${trpcBaseUrl}/flowpanel.runs.list?input=${encodeURIComponent(
-            JSON.stringify({ timeRange, stage: selectedStage, limit: 50 })
-          )}`
+            JSON.stringify({ timeRange, stage: selectedStage, limit: 50 }),
+          )}`,
         ),
       ]);
       setMetrics(metricsData);
@@ -177,8 +182,8 @@ export function FlowPanelUI({
         const data = event.data as Record<string, unknown>;
         dispatchRuns({
           type: "UPDATE_RUN",
-          runId: String(data["id"]),
-          update: { status: data["status"], duration_ms: data["durationMs"] },
+          runId: String(data.id),
+          update: { status: data.status, duration_ms: data.durationMs },
         });
         if (event.event === "run.failed") setLiveAnnouncement("Run failed");
       } else if (event.event === "metrics.updated") {
@@ -201,8 +206,8 @@ export function FlowPanelUI({
             stage: selectedStage,
             limit: 50,
             cursor: runsState.nextCursor,
-          })
-        )}`
+          }),
+        )}`,
       );
       dispatchRuns({ type: "LOAD_MORE", runs: data.runs, nextCursor: data.nextCursor });
     } catch (err) {
@@ -211,10 +216,11 @@ export function FlowPanelUI({
   }, [trpcBaseUrl, timeRange, selectedStage, runsState.nextCursor]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  // config.tabs entries have { id, label, icon, view } — map to TabConfig { id, label, icon? }
-  const tabs: TabConfig[] = config.tabs?.map((t) => ({ id: t.id, label: t.label, icon: t.icon })) ?? [
-    { id: "pipeline", label: "Pipeline" },
-  ];
+  const tabs: TabConfig[] = config.tabs?.map((t) => ({
+    id: t.id,
+    label: t.label,
+    icon: t.icon,
+  })) ?? [{ id: "pipeline", label: "Pipeline" }];
 
   useKeyboard([
     {
@@ -224,37 +230,64 @@ export function FlowPanelUI({
       description: "Open command palette",
     },
     { key: "1", handler: () => setActiveTab(tabs[0]?.id ?? "pipeline") },
-    { key: "2", handler: () => { if (tabs[1]) setActiveTab(tabs[1].id); } },
-    { key: "3", handler: () => { if (tabs[2]) setActiveTab(tabs[2].id); } },
+    {
+      key: "2",
+      handler: () => {
+        if (tabs[1]) setActiveTab(tabs[1].id);
+      },
+    },
+    {
+      key: "3",
+      handler: () => {
+        if (tabs[2]) setActiveTab(tabs[2].id);
+      },
+    },
+    {
+      key: "?",
+      shift: true,
+      handler: () => setKeyboardHelpOpen(true),
+      description: "Show keyboard shortcuts",
+    },
     {
       key: "Escape",
       handler: () => {
-        if (drawerState.open) setDrawerState({ open: false, type: "" });
+        if (keyboardHelpOpen) setKeyboardHelpOpen(false);
+        else if (drawerState.open) setDrawerState({ open: false, type: "" });
         else if (paletteOpen) setPaletteOpen(false);
       },
     },
   ]);
 
   // ── Run log columns ───────────────────────────────────────────────────────
-  // config.runLog?.columns is RunLogColumn from core which has more format/render options
-  // than RunTable's RunLogColumn — cast to ensure compatibility
   const runLogColumns: RunLogColumn[] = (config.runLog?.columns as RunLogColumn[] | undefined) ?? [
-    { field: "id",            label: "Run ID",   width: 90,  mono: true },
-    { field: "stage",         label: "Stage",    width: 72,  render: "stagePill" },
-    { field: "partition_key", label: "Target",   flex: 1 },
-    { field: "duration_ms",   label: "Duration", width: 80,  format: "duration" },
-    { field: "status",        label: "Status",   width: 110, render: "statusTag" },
+    { field: "id", label: "Run ID", width: 90, mono: true },
+    { field: "stage", label: "Stage", width: 72, render: "stagePill" },
+    { field: "partition_key", label: "Target", flex: 1 },
+    { field: "duration_ms", label: "Duration", width: 80, format: "duration" },
+    { field: "status", label: "Status", width: 110, render: "statusTag" },
   ];
 
   // ── Commands ──────────────────────────────────────────────────────────────
   const timePresets = config.timeRange?.presets ?? ["1h", "6h", "24h", "7d", "30d"];
   const builtinCommands: Command[] = [
-    { id: "clear-filters", label: "Clear filters",  action: () => setSelectedStage(null) },
-    { id: "refresh",       label: "Refresh data",   action: () => void fetchData() },
+    {
+      id: "clear-filters",
+      label: "Clear filters",
+      action: () => setSelectedStage(null),
+      category: "Filters",
+    },
+    {
+      id: "refresh",
+      label: "Refresh data",
+      action: () => void fetchData(),
+      category: "Data",
+      shortcut: "⌘R",
+    },
     ...timePresets.map((preset) => ({
       id: `time-${preset}`,
       label: `Set time range: ${preset}`,
       action: () => setTimeRange(preset),
+      category: "Time Range",
     })),
   ];
 
@@ -267,246 +300,311 @@ export function FlowPanelUI({
       ? `Run ${drawerState.runId ?? ""}`
       : typeof drawerConfigEntry?.title === "string"
         ? drawerConfigEntry.title
-        : (drawerState.type || "Details");
+        : drawerState.type || "Details";
+
+  // ── Onboarding: show when no runs and not loading ─────────────────────────
+  const showOnboarding = !loading && runsState.runs.length === 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
+  const colorScheme = config.theme?.colorScheme ?? "auto";
+  const rootClassName = [
+    "fp-root",
+    colorScheme === "dark" ? "fp-dark" : "",
+    colorScheme === "light" ? "fp-light" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div
-      className="fp-root"
-      style={{ ...themeStyle, minHeight: "100vh" }}
-      data-testid="fp-root"
-    >
-      {/* Skip link for accessibility */}
-      <a
-        href="#fp-main"
-        style={{ position: "absolute", left: -9999, top: 0, zIndex: 100 }}
-        onFocus={(e) => {
-          (e.currentTarget as HTMLElement).style.left = "0";
-        }}
-        onBlur={(e) => {
-          (e.currentTarget as HTMLElement).style.left = "-9999px";
-        }}
+    <ToastProvider>
+      <div
+        className={rootClassName}
+        style={{ ...themeStyle, minHeight: "100vh" }}
+        data-testid="fp-root"
       >
-        Skip to main content
-      </a>
-
-      <Header
-        appName={config.appName}
-        timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
-        timeRangePresets={timePresets}
-        liveStatus={liveStatus}
-      />
-
-      {showDemoBanner && (
-        <DemoBanner
-          runCount={runsState.runs.length}
-          realRunCount={0}
-          onClear={() => {
-            // demo:clear is handled by CLI — just refresh
-            void fetchData();
+        {/* Skip link for accessibility */}
+        <a
+          href="#fp-main"
+          style={{ position: "absolute", left: -9999, top: 0, zIndex: 100 }}
+          onFocus={(e) => {
+            (e.currentTarget as HTMLElement).style.left = "0";
           }}
+          onBlur={(e) => {
+            (e.currentTarget as HTMLElement).style.left = "-9999px";
+          }}
+        >
+          Skip to main content
+        </a>
+
+        <Header
+          appName={config.appName}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange}
+          timeRangePresets={timePresets}
+          liveStatus={liveStatus}
+          onCommandPaletteOpen={() => setPaletteOpen(true)}
         />
-      )}
 
-      <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        {showDemoBanner && (
+          <DemoBanner
+            runCount={runsState.runs.length}
+            realRunCount={0}
+            onClear={() => {
+              void fetchData();
+            }}
+          />
+        )}
 
-      <main id="fp-main" style={{ padding: "24px" }}>
-        {activeTab === "pipeline" && (
-          <>
-            {/* Metrics strip */}
-            <section
-              aria-label="Metrics"
-              style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}
-            >
-              {Object.entries(config.metrics ?? {}).map(([name, mc]) => (
-                <MetricCard
-                  key={name}
-                  label={mc.label}
-                  value={
-                    ((metrics[name] as { value?: unknown } | undefined)?.value ?? null) as
-                      | string
-                      | number
-                      | null
-                  }
-                  loading={loading}
-                  hasDrawer={!!mc.drawer}
-                  onClick={
-                    mc.drawer
-                      ? () => setDrawerState({ open: true, type: mc.drawer! })
-                      : undefined
-                  }
-                />
-              ))}
-            </section>
+        <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-            {/* Stage cards */}
-            {stageData.length > 0 && (
-              <section aria-label="Pipeline stages" style={{ marginBottom: 24 }}>
-                <h3
+        <main id="fp-main" style={{ padding: "24px" }}>
+          {activeTab === "pipeline" && (
+            <>
+              {/* Metrics strip */}
+              <ErrorBoundary>
+                <section
+                  aria-label="Metrics"
                   style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "var(--fp-text-3)",
-                    marginBottom: 12,
-                    marginTop: 0,
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: 12,
+                    marginBottom: 24,
                   }}
                 >
-                  Pipeline Stages
-                </h3>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {stageData.map((s) => (
-                    <StageCard
-                      key={s.stage}
-                      stage={s.stage}
-                      color={theme.stageColors[s.stage] ?? "#818cf8"}
-                      total={s.total}
-                      succeeded={s.succeeded}
-                      failed={s.failed}
-                      running={s.running}
-                      avgDurationMs={s.avgDurationMs}
-                      selected={selectedStage === s.stage}
+                  {Object.entries(config.metrics ?? {}).map(([name, mc]) => (
+                    <MetricCard
+                      key={name}
+                      label={mc.label}
+                      value={
+                        ((metrics[name] as { value?: unknown } | undefined)?.value ?? null) as
+                          | string
+                          | number
+                          | null
+                      }
                       loading={loading}
-                      onClick={() =>
-                        setSelectedStage((prev) => (prev === s.stage ? null : s.stage))
+                      hasDrawer={!!mc.drawer}
+                      onClick={
+                        mc.drawer
+                          ? () => setDrawerState({ open: true, type: mc.drawer! })
+                          : undefined
                       }
                     />
                   ))}
-                </div>
-              </section>
-            )}
+                </section>
+              </ErrorBoundary>
 
-            {/* Run log */}
-            <section aria-label="Run log">
-              <h3
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: "var(--fp-text-3)",
-                  marginBottom: 12,
-                  marginTop: 0,
-                }}
-              >
-                Run Log
-                {runsState.runs.length > 0 && !loading && (
-                  <span
-                    style={{ marginLeft: 8, fontWeight: 400, color: "var(--fp-text-3)" }}
-                  >
-                    {runsState.runs.length.toLocaleString()} total
-                  </span>
+              {/* Stage cards */}
+              {stageData.length > 0 && (
+                <ErrorBoundary>
+                  <section aria-label="Pipeline stages" style={{ marginBottom: 24 }}>
+                    <SectionHeader label="Pipeline Stages" />
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                        gap: 12,
+                      }}
+                    >
+                      {stageData.map((s) => (
+                        <StageCard
+                          key={s.stage}
+                          stage={s.stage}
+                          color={theme.stageColors[s.stage] ?? "#818cf8"}
+                          total={s.total}
+                          succeeded={s.succeeded}
+                          failed={s.failed}
+                          running={s.running}
+                          avgDurationMs={s.avgDurationMs}
+                          selected={selectedStage === s.stage}
+                          loading={loading}
+                          onClick={() =>
+                            setSelectedStage((prev) => (prev === s.stage ? null : s.stage))
+                          }
+                        />
+                      ))}
+                    </div>
+                  </section>
+                </ErrorBoundary>
+              )}
+
+              {/* Onboarding or Run log */}
+              <ErrorBoundary>
+                {showOnboarding && stageData.length === 0 ? (
+                  <section aria-label="Getting started">
+                    <div
+                      className="fp-card"
+                      style={{
+                        padding: "32px 24px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 600,
+                          color: "var(--fp-text-1)",
+                          marginBottom: 8,
+                        }}
+                      >
+                        Get started with FlowPanel
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: "var(--fp-text-3)",
+                          marginBottom: 16,
+                        }}
+                      >
+                        Add withRun() to start tracking runs
+                      </div>
+                      <pre
+                        style={{
+                          display: "inline-block",
+                          textAlign: "left",
+                          padding: "16px 20px",
+                          background: "var(--fp-surface-1)",
+                          border: "1px solid var(--fp-border-1)",
+                          borderRadius: 8,
+                          fontFamily: "var(--fp-font-mono)",
+                          fontSize: 12,
+                          color: "var(--fp-text-2)",
+                          lineHeight: 1.6,
+                          overflow: "auto",
+                          maxWidth: "100%",
+                        }}
+                      >
+                        {`import { withRun } from "@flowpanel/core";
+
+await withRun({ stage: "parse", partitionKey: "doc-1" }, async (run) => {
+  // your pipeline logic
+  run.setMeta({ tokens: 420 });
+});`}
+                      </pre>
+                    </div>
+                  </section>
+                ) : (
+                  <section aria-label="Run log">
+                    <SectionHeader
+                      label="Run Log"
+                      meta={
+                        runsState.runs.length > 0 && !loading
+                          ? `${runsState.runs.length.toLocaleString()} total`
+                          : undefined
+                      }
+                    />
+                    <div className="fp-card" style={{ overflow: "hidden" }}>
+                      <RunTable
+                        runs={runsState.runs}
+                        columns={runLogColumns}
+                        stageColors={theme.stageColors}
+                        loading={loading}
+                        hasNextPage={!!runsState.nextCursor}
+                        onLoadMore={handleLoadMore}
+                        newRunsBanner={
+                          runsState.bufferedNewRuns.length > 0
+                            ? runsState.bufferedNewRuns.length
+                            : undefined
+                        }
+                        onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
+                        onRowClick={(run) => {
+                          setSelectedRunId(String(run.id));
+                          setDrawerState({
+                            open: true,
+                            type: "runDetail",
+                            runId: String(run.id),
+                          });
+                        }}
+                        selectedRunId={selectedRunId}
+                      />
+                    </div>
+                  </section>
                 )}
-              </h3>
-              <div className="fp-card" style={{ overflow: "hidden" }}>
-                <RunTable
-                  runs={runsState.runs}
-                  columns={runLogColumns}
-                  stageColors={theme.stageColors}
-                  loading={loading}
-                  hasNextPage={!!runsState.nextCursor}
-                  onLoadMore={handleLoadMore}
-                  newRunsBanner={
-                    runsState.bufferedNewRuns.length > 0
-                      ? runsState.bufferedNewRuns.length
-                      : undefined
-                  }
-                  onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
-                  onRowClick={(run) => {
-                    setSelectedRunId(String(run["id"]));
-                    setDrawerState({
-                      open: true,
-                      type: "runDetail",
-                      runId: String(run["id"]),
-                    });
+              </ErrorBoundary>
+            </>
+          )}
+
+          {/* Non-pipeline tabs */}
+          {activeTab !== "pipeline" &&
+            (() => {
+              const tabConfig = tabs.find((t) => t.id === activeTab);
+              return (
+                <div
+                  id={`fp-tabpanel-${activeTab}`}
+                  role="tabpanel"
+                  aria-labelledby={`fp-tab-${activeTab}`}
+                  style={{
+                    color: "var(--fp-text-3)",
+                    padding: 40,
+                    textAlign: "center",
                   }}
-                  selectedRunId={selectedRunId}
-                />
-              </div>
-            </section>
-          </>
-        )}
+                >
+                  {tabConfig?.label ?? activeTab} view — coming soon
+                </div>
+              );
+            })()}
+        </main>
 
-        {/* Non-pipeline tabs */}
-        {activeTab !== "pipeline" &&
-          (() => {
-            const tabConfig = tabs.find((t) => t.id === activeTab);
-            return (
-              <div
-                id={`fp-tabpanel-${activeTab}`}
-                role="tabpanel"
-                aria-labelledby={`fp-tab-${activeTab}`}
-                style={{
-                  color: "var(--fp-text-3)",
-                  padding: 40,
-                  textAlign: "center",
-                }}
-              >
-                {tabConfig?.label ?? activeTab} view — coming soon
-              </div>
-            );
-          })()}
-      </main>
+        {/* Drawers */}
+        <Drawer
+          open={drawerState.open}
+          onClose={() => setDrawerState({ open: false, type: "" })}
+          title={drawerTitle}
+        >
+          <div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
+            {drawerState.type === "runDetail"
+              ? `Run details for ${drawerState.runId}`
+              : "Loading drawer content..."}
+          </div>
+        </Drawer>
 
-      {/* Drawers */}
-      <Drawer
-        open={drawerState.open}
-        onClose={() => setDrawerState({ open: false, type: "" })}
-        title={drawerTitle}
-      >
-        <div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
-          {drawerState.type === "runDetail"
-            ? `Run details for ${drawerState.runId}`
-            : "Loading drawer content..."}
-        </div>
-      </Drawer>
+        {/* Command palette */}
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          commands={builtinCommands}
+        />
 
-      {/* Command palette */}
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        commands={builtinCommands}
-      />
+        {/* Keyboard help */}
+        <KeyboardHelp open={keyboardHelpOpen} onClose={() => setKeyboardHelpOpen(false)} />
 
-      {/* ARIA live region */}
-      <div
-        role="status"
-        aria-live="assertive"
-        aria-atomic="true"
-        style={{
-          position: "absolute",
-          left: -9999,
-          width: 1,
-          height: 1,
-          overflow: "hidden",
-        }}
-      >
-        {liveAnnouncement}
-      </div>
-
-      {/* SSE reconnect banner */}
-      {liveStatus === "reconnecting" && (
+        {/* ARIA live region */}
         <div
           role="status"
-          aria-live="polite"
+          aria-live="assertive"
+          aria-atomic="true"
           style={{
-            position: "fixed",
-            top: 52,
-            left: 0,
-            right: 0,
-            zIndex: 20,
-            background: "var(--fp-warn)",
-            color: "#000",
-            padding: "8px 24px",
-            textAlign: "center",
-            fontSize: 13,
+            position: "absolute",
+            left: -9999,
+            width: 1,
+            height: 1,
+            overflow: "hidden",
           }}
         >
-          ● Live updates paused — reconnecting...
+          {liveAnnouncement}
         </div>
-      )}
-    </div>
+
+        {/* SSE reconnect banner */}
+        {liveStatus === "reconnecting" && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              position: "fixed",
+              top: 52,
+              left: 0,
+              right: 0,
+              zIndex: 20,
+              background: "var(--fp-warn)",
+              color: "#000",
+              padding: "8px 24px",
+              textAlign: "center",
+              fontSize: 13,
+            }}
+          >
+            Live updates paused — reconnecting...
+          </div>
+        )}
+      </div>
+    </ToastProvider>
   );
 }

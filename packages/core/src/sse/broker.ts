@@ -18,7 +18,7 @@ export class SseBroker {
   constructor(
     private db: SqlExecutor,
     private maxConnections: number,
-    private replayWindowMs: number
+    private replayWindowMs: number,
   ) {}
 
   async start(): Promise<void> {
@@ -33,7 +33,7 @@ export class SseBroker {
     const sseEvent: SseEvent = { ...event, id: String(this.nextId++) };
 
     const cutoff = Date.now() - this.replayWindowMs;
-    this.eventLog = this.eventLog.filter((e) => parseInt(e.id) > cutoff);
+    this.eventLog = this.eventLog.filter((e) => parseInt(e.id, 10) > cutoff);
     this.eventLog.push(sseEvent);
 
     for (const callback of this.clients.values()) {
@@ -49,8 +49,8 @@ export class SseBroker {
     this.clients.set(clientId, callback);
 
     if (lastEventId) {
-      const replayFrom = parseInt(lastEventId);
-      const missed = this.eventLog.filter((e) => parseInt(e.id) > replayFrom);
+      const replayFrom = parseInt(lastEventId, 10);
+      const missed = this.eventLog.filter((e) => parseInt(e.id, 10) > replayFrom);
       for (const event of missed) {
         callback(event);
       }
@@ -73,7 +73,7 @@ export function getOrCreateBroker(
   configKey: object,
   db: SqlExecutor,
   maxConnections = 50,
-  replayWindowMs = 60_000
+  replayWindowMs = 60_000,
 ): SseBroker {
   let broker = brokers.get(configKey);
   if (!broker) {

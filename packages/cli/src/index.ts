@@ -1,11 +1,11 @@
 import { Command } from "commander";
+import { runAuditExport } from "./commands/audit-export.js";
+import { runDemoClear } from "./commands/demo-clear.js";
+import { runDiff } from "./commands/diff.js";
+import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runMigrate, runMigrateGen, runMigrateStatus } from "./commands/migrate.js";
-import { runDoctor } from "./commands/doctor.js";
-import { runDiff } from "./commands/diff.js";
-import { runDemoClear } from "./commands/demo-clear.js";
 import { runWorkerScan } from "./commands/worker-scan.js";
-import { runAuditExport } from "./commands/audit-export.js";
 
 const program = new Command()
   .name("flowpanel")

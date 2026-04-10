@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("runs procedures", () => {
   it("createRunsProcedures returns an object with list, get, retry, cancel, and bulkRetry", async () => {
@@ -6,7 +6,7 @@ describe("runs procedures", () => {
 
     // Mock procedure builder
     const mockProcedure = {
-      input: (schema: any) => ({
+      input: (_schema: any) => ({
         query: (fn: any) => ({ _def: { meta: { type: "query" } }, fn }),
         mutation: (fn: any) => ({ _def: { meta: { type: "mutation" } }, fn }),
       }),
@@ -17,7 +17,7 @@ describe("runs procedures", () => {
 
     const procs = createRunsProcedures(
       { procedure: mockProcedure, router: mockRouter } as any,
-      mockProcedure as any
+      mockProcedure as any,
     );
 
     expect(procs).toBeDefined();

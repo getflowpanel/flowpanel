@@ -17,7 +17,7 @@ export async function runDemoClear(): Promise<void> {
 
   const result = await db.execute<{ id: bigint }>(
     `DELETE FROM flowpanel_pipeline_run WHERE is_demo = true RETURNING id`,
-    []
+    [],
   );
 
   console.log(formatSuccess(`Cleared ${result.length} demo runs`));

@@ -22,13 +22,11 @@ export function useKeyboard(bindings: KeyBinding[], enabled = true): void {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       const isEditing =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable;
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
 
       for (const binding of bindingsRef.current) {
         const keyMatch = e.key === binding.key;
-        const metaMatch = binding.meta ? (e.metaKey || e.ctrlKey) : true;
+        const metaMatch = binding.meta ? e.metaKey || e.ctrlKey : true;
         const ctrlMatch = binding.ctrl ? e.ctrlKey : true;
         const shiftMatch = binding.shift ? e.shiftKey : !e.shiftKey;
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { sanitizeStack } from "../errorSanitizer.js";
 
 describe("sanitizeStack", () => {
@@ -14,7 +14,7 @@ describe("sanitizeStack", () => {
     const frames = Array.from({ length: 25 }, (_, i) => `    at fn${i} (src/file.ts:${i}:1)`);
     const stack = `Error: too many\n${frames.join("\n")}`;
     const result = sanitizeStack(stack, process.cwd());
-    const frameCount = (result.match(/    at /g) ?? []).length;
+    const frameCount = (result.match(/ {4}at /g) ?? []).length;
     expect(frameCount).toBeLessThanOrEqual(20);
     expect(result).toContain("frames omitted");
   });

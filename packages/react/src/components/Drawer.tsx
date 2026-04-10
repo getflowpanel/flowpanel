@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import type React from "react";
+import { useEffect, useRef } from "react";
 
 interface DrawerProps {
   open: boolean;
@@ -22,7 +23,7 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
 
     // Focus first focusable element
     const focusable = el.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     );
     focusable[0]?.focus();
 
@@ -34,8 +35,9 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
       }
 
       if (e.key === "Tab") {
+        // biome-ignore lint/style/noNonNullAssertion: el is guaranteed non-null inside this listener
         const focusableNow = el!.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         );
         const first = focusableNow[0];
         const last = focusableNow[focusableNow.length - 1];
@@ -73,7 +75,9 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
         onClick={onClose}
         aria-hidden="true"
         style={{
-          position: "fixed", inset: 0, zIndex: 40,
+          position: "fixed",
+          inset: 0,
+          zIndex: 40,
           background: "rgba(0,0,0,0.5)",
         }}
       />
@@ -85,8 +89,12 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
         aria-modal="true"
         aria-labelledby="fp-drawer-title"
         style={{
-          position: "fixed", top: 0, right: 0, bottom: 0,
-          width: 360, zIndex: 50,
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 360,
+          zIndex: 50,
           background: "var(--fp-surface-1)",
           borderLeft: "1px solid var(--fp-border-1)",
           overflowY: "auto",
@@ -94,26 +102,41 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
         }}
       >
         {/* Header */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "20px 24px",
-          borderBottom: "1px solid var(--fp-border-1)",
-          position: "sticky", top: 0,
-          background: "var(--fp-surface-1)",
-          zIndex: 1,
-        }}>
-          <h2 id="fp-drawer-title" style={{ fontSize: 15, fontWeight: 600, margin: 0, color: "var(--fp-text-1)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "20px 24px",
+            borderBottom: "1px solid var(--fp-border-1)",
+            position: "sticky",
+            top: 0,
+            background: "var(--fp-surface-1)",
+            zIndex: 1,
+          }}
+        >
+          <h2
+            id="fp-drawer-title"
+            style={{ fontSize: 15, fontWeight: 600, margin: 0, color: "var(--fp-text-1)" }}
+          >
             {title}
           </h2>
           <button
             onClick={onClose}
             aria-label="Close drawer"
             style={{
-              width: 28, height: 28, borderRadius: 6,
-              background: "transparent", border: "1px solid var(--fp-border-1)",
-              color: "var(--fp-text-2)", cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16, lineHeight: 1,
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              background: "transparent",
+              border: "1px solid var(--fp-border-1)",
+              color: "var(--fp-text-2)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+              lineHeight: 1,
             }}
           >
             ×
@@ -121,9 +144,7 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
         </div>
 
         {/* Content */}
-        <div style={{ padding: 24 }}>
-          {children}
-        </div>
+        <div style={{ padding: 24 }}>{children}</div>
       </div>
 
       {/* Slide-in animation */}

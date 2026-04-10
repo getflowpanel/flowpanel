@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { SqlExecutor } from "./types/db.js";
-import { fieldNameToColumn } from "./schemaGenerator.js";
-import { redactObject } from "./redaction.js";
 import { sanitizeError } from "./errorSanitizer.js";
+import { redactObject } from "./redaction.js";
+import { fieldNameToColumn } from "./schemaGenerator.js";
+import type { SqlExecutor } from "./types/db.js";
 
 export interface RunHandle {
   id: bigint;
@@ -26,16 +26,16 @@ export function createWithRun(opts: WithRunOptions) {
 
   return async function withRun<T>(
     stage: string,
-    callback: (run: RunHandle) => Promise<T>
+    callback: (run: RunHandle) => Promise<T>,
   ): Promise<T> {
     // Detect nested withRun
     const parentCtx = activeRunStorage.getStore();
     if (parentCtx) {
       console.warn(
         `[flowpanel] nested withRun detected. ` +
-        `Parent: run_${parentCtx.runId} (${parentCtx.stage}), ` +
-        `Child: new run (${stage}). ` +
-        `Consider: is this intentional sub-stage tracking?`
+          `Parent: run_${parentCtx.runId} (${parentCtx.stage}), ` +
+          `Child: new run (${stage}). ` +
+          `Consider: is this intentional sub-stage tracking?`,
       );
     }
 
@@ -44,7 +44,7 @@ export function createWithRun(opts: WithRunOptions) {
       `INSERT INTO flowpanel_pipeline_run (stage, status, started_at)
        VALUES ($1, $2, now())
        RETURNING id`,
-      [stage, "running"]
+      [stage, "running"],
     );
 
     const runId = rows[0]?.id;
@@ -72,10 +72,9 @@ export function createWithRun(opts: WithRunOptions) {
         if (debug) console.debug(`[flowpanel] withRun("${stage}")  run.set()`, redacted);
       },
       async heartbeat() {
-        await db.execute(
-          `UPDATE flowpanel_pipeline_run SET heartbeat_at = now() WHERE id = $1`,
-          [String(runId)]
-        );
+        await db.execute(`UPDATE flowpanel_pipeline_run SET heartbeat_at = now() WHERE id = $1`, [
+          String(runId),
+        ]);
       },
     };
 
@@ -85,17 +84,11 @@ export function createWithRun(opts: WithRunOptions) {
 
         // Build SET clause for accumulated fields
         const fieldEntries = Object.entries(accumulatedFields);
-        const fieldSetClause = fieldEntries
-          .map(([col], i) => `${col} = $${i + 3}`)
-          .join(", ");
+        const fieldSetClause = fieldEntries.map(([col], i) => `${col} = $${i + 3}`).join(", ");
         const fieldValues = fieldEntries.map(([, v]) => v);
 
         // Build SET clause: embed 'succeeded' literal so tests can match on sql text
-        const succeedSetClause = [
-          "status = 'succeeded'",
-          "finished_at = $2",
-          fieldSetClause,
-        ]
+        const succeedSetClause = ["status = 'succeeded'", "finished_at = $2", fieldSetClause]
           .filter(Boolean)
           .join(", ");
 
@@ -105,15 +98,19 @@ export function createWithRun(opts: WithRunOptions) {
            SET ${succeedSetClause}
            WHERE id = $1 AND status = 'running'
            RETURNING id`,
-          [String(runId), new Date(), ...fieldValues]
+          [String(runId), new Date(), ...fieldValues],
         );
 
         if (updated.length > 0) {
           // Emit pg_notify for SSE delivery
-          await db.execute(
-            `SELECT pg_notify('flowpanel_events', $1)`,
-            [JSON.stringify({ event: "run.finished", id: String(runId), stage, status: "succeeded" })]
-          );
+          await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
+            JSON.stringify({
+              event: "run.finished",
+              id: String(runId),
+              stage,
+              status: "succeeded",
+            }),
+          ]);
         }
 
         if (debug) console.debug(`[flowpanel] withRun("${stage}")  succeeded  runId=${runId}`);
@@ -125,15 +122,23 @@ export function createWithRun(opts: WithRunOptions) {
           `UPDATE flowpanel_pipeline_run
            SET status = 'failed', finished_at = $2, error_class = $3, error_message = $4, error_stack = $5
            WHERE id = $1 AND status = 'running'`,
-          [String(runId), new Date(), errorClass, errorMessage, errorStack]
+          [String(runId), new Date(), errorClass, errorMessage, errorStack],
         );
 
-        await db.execute(
-          `SELECT pg_notify('flowpanel_events', $1)`,
-          [JSON.stringify({ event: "run.failed", id: String(runId), stage, status: "failed", errorClass })]
-        );
+        await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
+          JSON.stringify({
+            event: "run.failed",
+            id: String(runId),
+            stage,
+            status: "failed",
+            errorClass,
+          }),
+        ]);
 
-        if (debug) console.debug(`[flowpanel] withRun("${stage}")  failed     runId=${runId}  errorClass=${errorClass}`);
+        if (debug)
+          console.debug(
+            `[flowpanel] withRun("${stage}")  failed     runId=${runId}  errorClass=${errorClass}`,
+          );
         throw err; // re-throw original
       }
     });

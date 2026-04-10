@@ -28,10 +28,7 @@ export function sanitizeStack(stack: string, cwd: string): string {
 
   const truncated =
     filtered.length > MAX_FRAMES
-      ? [
-          ...filtered.slice(0, MAX_FRAMES),
-          `    [${filtered.length - MAX_FRAMES} frames omitted]`,
-        ]
+      ? [...filtered.slice(0, MAX_FRAMES), `    [${filtered.length - MAX_FRAMES} frames omitted]`]
       : filtered;
 
   return [header, ...truncated].join("\n");
@@ -40,7 +37,7 @@ export function sanitizeStack(stack: string, cwd: string): string {
 export function sanitizeError(
   error: unknown,
   cwd: string,
-  redactStr: (s: string) => string = (s) => s
+  redactStr: (s: string) => string = (s) => s,
 ): { errorClass: string; errorMessage: string; errorStack: string } {
   if (!(error instanceof Error)) {
     return {

@@ -18,16 +18,10 @@ const mockConfig = {
   },
   tabs: [
     { id: "pipeline", label: "Pipeline", view: "pipeline" as const },
-    { id: "users",    label: "Users",    view: "userList" as const },
+    { id: "users", label: "Users", view: "userList" as const },
   ],
 } as any;
 
 export default function AdminPage() {
-  return (
-    <FlowPanelUI
-      config={mockConfig}
-      trpcBaseUrl="/api/mock"
-      showDemoBanner
-    />
-  );
+  return <FlowPanelUI config={mockConfig} trpcBaseUrl="/api/mock" showDemoBanner />;
 }

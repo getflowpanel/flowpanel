@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { SqlExecutor } from "../../types/db.js";
 
 // Simulates two concurrent withRun callbacks for same run ID
@@ -11,7 +11,7 @@ describe("double-finalization chaos", () => {
     // Simulate: first UPDATE changes status from 'running' to 'succeeded', returns row.
     // Second UPDATE: status is no longer 'running', RETURNING returns 0 rows.
     const mockDb: SqlExecutor = {
-      execute: async (sql, params) => {
+      execute: async (sql, _params) => {
         if (sql.includes("UPDATE") && sql.includes("status = 'running'")) {
           updateCount++;
           if (updateCount === 1) {

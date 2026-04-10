@@ -5,9 +5,7 @@ export interface AuthMiddlewareResult {
   session: import("../../types/config.js").Session;
 }
 
-export function createAuthMiddleware(
-  t: { middleware: (fn: (opts: any) => any) => any }
-) {
+export function createAuthMiddleware(t: { middleware: (fn: (opts: any) => any) => any }) {
   return t.middleware(async ({ ctx, next }: { ctx: FlowPanelContext; next: any }) => {
     const { config, req } = ctx;
 

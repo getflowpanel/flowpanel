@@ -1,6 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createAuthMiddleware } from "../../trpc/middleware/auth.js";
-import { TRPCError } from "@trpc/server";
 
 describe("auth middleware", () => {
   it("allows request when getSession returns valid session", async () => {
@@ -42,9 +41,7 @@ describe("auth middleware", () => {
       req: new Request("http://localhost/"),
     };
 
-    await expect(
-      middleware({ ctx, next: async () => ({}) })
-    ).rejects.toThrow();
+    await expect(middleware({ ctx, next: async () => ({}) })).rejects.toThrow();
   });
 
   it("throws UNAUTHORIZED when getSession throws", async () => {
@@ -63,9 +60,7 @@ describe("auth middleware", () => {
       req: new Request("http://localhost/"),
     };
 
-    await expect(
-      middleware({ ctx, next: async () => ({}) })
-    ).rejects.toThrow();
+    await expect(middleware({ ctx, next: async () => ({}) })).rejects.toThrow();
   });
 
   it("throws FORBIDDEN when session role does not match requireRole", async () => {
@@ -84,8 +79,6 @@ describe("auth middleware", () => {
       req: new Request("http://localhost/"),
     };
 
-    await expect(
-      middleware({ ctx, next: async () => ({}) })
-    ).rejects.toThrow();
+    await expect(middleware({ ctx, next: async () => ({}) })).rejects.toThrow();
   });
 });

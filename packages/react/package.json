@@ -13,21 +13,36 @@
     "./theme.css": "./dist/theme/variables.css"
   },
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "size-limit": "size-limit"
   },
-  "sideEffects": ["./dist/theme/variables.css"],
+  "sideEffects": [
+    "./dist/theme/variables.css"
+  ],
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*",
+    "@tanstack/react-query": "^5.0.0",
     "@trpc/client": "^11.0.0",
-    "@trpc/react-query": "^11.0.0",
-    "@tanstack/react-query": "^5.0.0"
+    "@trpc/react-query": "^11.0.0"
   },
   "devDependencies": {
-    "tsup": "^8.0.0",
-    "@types/react": "^18.0.0"
-  }
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^18.0.0",
+    "jsdom": "^29.0.2",
+    "tsup": "^8.0.0"
+  },
+  "size-limit": [
+    {
+      "path": "dist/index.js",
+      "limit": "30 kB"
+    }
+  ]
 }

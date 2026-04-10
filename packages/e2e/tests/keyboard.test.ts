@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("keyboard shortcuts", () => {
   test.beforeEach(async ({ page }) => {
@@ -28,7 +28,10 @@ test.describe("keyboard shortcuts", () => {
   test("key 1 switches back to Pipeline tab", async ({ page }) => {
     await page.keyboard.press("2");
     await page.keyboard.press("1");
-    await expect(page.getByRole("tab", { name: "Pipeline" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "Pipeline" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   test("command palette filters commands", async ({ page }) => {

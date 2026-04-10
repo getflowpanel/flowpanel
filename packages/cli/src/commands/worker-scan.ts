@@ -1,5 +1,5 @@
-import * as path from "node:path";
 import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import kleur from "kleur";
 
 export async function runWorkerScan(): Promise<void> {
@@ -16,7 +16,13 @@ export async function runWorkerScan(): Promise<void> {
   const stages: string[] = config.config.pipeline.stages;
   const patterns = ["worker/processors/**/*.ts", "src/app/api/**/route.ts"];
 
-  const candidates: Array<{ file: string; fn: string; stageGuess: string; confidence: string; wrapped: boolean }> = [];
+  const candidates: Array<{
+    file: string;
+    fn: string;
+    stageGuess: string;
+    confidence: string;
+    wrapped: boolean;
+  }> = [];
 
   for (const pattern of patterns) {
     // Simple glob using recursive readdir
@@ -43,7 +49,9 @@ export async function runWorkerScan(): Promise<void> {
   const unwrapped = candidates.filter((c) => !c.wrapped);
   const wrapped = candidates.filter((c) => c.wrapped);
 
-  console.log(`\n  found ${candidates.length} candidates · ${wrapped.length} already wrapped · ${unwrapped.length} suggested\n`);
+  console.log(
+    `\n  found ${candidates.length} candidates · ${wrapped.length} already wrapped · ${unwrapped.length} suggested\n`,
+  );
 
   for (const c of unwrapped) {
     console.log(kleur.yellow(`  ${c.file}`));
@@ -79,7 +87,7 @@ async function findFiles(cwd: string, pattern: string): Promise<string[]> {
       for (const entry of entries) {
         if (entry.isDirectory()) {
           await walk(path.join(dir, entry.name), remaining); // stay in ** mode
-          await walk(path.join(dir, entry.name), rest);      // try consuming **
+          await walk(path.join(dir, entry.name), rest); // try consuming **
         } else if (rest.length === 1) {
           const lastPattern = rest[0]!;
           if (matchGlob(entry.name, lastPattern)) {
@@ -116,7 +124,11 @@ function matchGlob(name: string, pattern: string): boolean {
   return name === pattern;
 }
 
-function guessStage(file: string, fnName: string, stages: string[]): { name: string; confidence: string } {
+function guessStage(
+  file: string,
+  fnName: string,
+  stages: string[],
+): { name: string; confidence: string } {
   const lowerFile = file.toLowerCase();
   const lowerFn = fnName.toLowerCase();
 
@@ -127,10 +139,18 @@ function guessStage(file: string, fnName: string, stages: string[]): { name: str
   }
 
   const heuristics: Record<string, string> = {
-    poll: "parse", scrape: "parse", fetch: "parse",
-    score: "score", rank: "score", classify: "score",
-    draft: "draft", generate: "draft", compose: "draft",
-    notify: "notify", send: "notify", dispatch: "notify",
+    poll: "parse",
+    scrape: "parse",
+    fetch: "parse",
+    score: "score",
+    rank: "score",
+    classify: "score",
+    draft: "draft",
+    generate: "draft",
+    compose: "draft",
+    notify: "notify",
+    send: "notify",
+    dispatch: "notify",
   };
 
   for (const [keyword, stage] of Object.entries(heuristics)) {

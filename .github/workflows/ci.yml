@@ -49,6 +49,13 @@ jobs:
       - name: Build all packages
         run: pnpm build
 
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Size limit
+        if: matrix.node == '20' && matrix.postgres == '16'
+        run: pnpm --filter @flowpanel/react run size-limit
+
       - name: Run unit tests
         run: pnpm test:unit
 

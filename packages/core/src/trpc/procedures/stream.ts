@@ -1,17 +1,19 @@
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { getOrCreateBroker } from "../../sse/broker.js";
 import type { FlowPanelContext } from "../context.js";
 
 export function createStreamProcedure(
   t: { procedure: any; router: (routes: any) => any },
-  authedProcedure: any
+  authedProcedure: any,
 ) {
   return t.router({
     connect: authedProcedure
-      .input(z.object({
-        lastEventId: z.string().optional(),
-      }))
+      .input(
+        z.object({
+          lastEventId: z.string().optional(),
+        }),
+      )
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { config, db } = ctx;
         const streamConfig = (config as any).ui?.stream ?? {};
@@ -31,8 +33,7 @@ export function createStreamProcedure(
         const stream = new ReadableStream({
           start(controller) {
             function send(event: import("../../sse/broker.js").SseEvent) {
-              const data =
-                `id: ${event.id}\nevent: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`;
+              const data = `id: ${event.id}\nevent: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`;
               controller.enqueue(encoder.encode(data));
             }
 
@@ -54,7 +55,9 @@ export function createStreamProcedure(
             "Content-Type": "text/event-stream; charset=utf-8",
             "Cache-Control": "no-cache",
             Connection: "keep-alive",
-            "X-FlowPanel-Fallback-Poll": String(parseInterval(streamConfig.fallbackPollingInterval ?? "10s") / 1000),
+            "X-FlowPanel-Fallback-Poll": String(
+              parseInterval(streamConfig.fallbackPollingInterval ?? "10s") / 1000,
+            ),
           },
         });
       }),
@@ -65,5 +68,5 @@ function parseInterval(interval: string): number {
   const match = interval.match(/^(\d+)([smh])$/);
   if (!match) return 15_000;
   const [, num, unit] = match;
-  return parseInt(num!) * (unit === "s" ? 1000 : unit === "m" ? 60_000 : 3_600_000);
+  return parseInt(num!, 10) * (unit === "s" ? 1000 : unit === "m" ? 60_000 : 3_600_000);
 }

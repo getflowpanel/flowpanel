@@ -2,17 +2,20 @@ import { z } from "zod";
 
 const intervalSchema = z.string().regex(/^\d+[smh]$/, "Must be like '10m', '5s', '2h'");
 
-const timezoneSchema = z.string().min(1).refine(
-  (tz) => {
-    try {
-      Intl.DateTimeFormat(undefined, { timeZone: tz });
-      return true;
-    } catch {
-      return false;
-    }
-  },
-  { message: "Invalid IANA timezone. Example: 'UTC', 'America/New_York'" }
-);
+const timezoneSchema = z
+  .string()
+  .min(1)
+  .refine(
+    (tz) => {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: "Invalid IANA timezone. Example: 'UTC', 'America/New_York'" },
+  );
 
 const fieldMapSchema = z.record(z.any());
 const stageFieldMapSchema = z.record(fieldMapSchema);
@@ -53,7 +56,7 @@ export const flowPanelConfigSchema = z.object({
           tokensIn: z.string(),
           tokensOut: z.string(),
           model: z.string(),
-        })
+        }),
       )
       .optional(),
     onRetry: z.function().optional(),
@@ -71,7 +74,7 @@ export const flowPanelConfigSchema = z.object({
         sublabel: z.function().optional(),
         drawer: z.string().optional(),
         refreshInterval: intervalSchema.optional(),
-      })
+      }),
     )
     .optional(),
 
@@ -126,7 +129,7 @@ export const flowPanelConfigSchema = z.object({
             fields: z.array(z.string()).optional(),
             limit: z.number().optional(),
             when: z.function().optional(),
-          })
+          }),
         ),
         actions: z
           .array(
@@ -135,10 +138,10 @@ export const flowPanelConfigSchema = z.object({
               onClick: z.string(),
               variant: z.enum(["default", "danger"]).optional(),
               when: z.function().optional(),
-            })
+            }),
           )
           .optional(),
-      })
+      }),
     )
     .optional(),
 
@@ -150,7 +153,7 @@ export const flowPanelConfigSchema = z.object({
         icon: z.string(),
         view: z.string(),
         component: z.function().optional(),
-      })
+      }),
     )
     .optional(),
 
@@ -166,11 +169,9 @@ export const flowPanelConfigSchema = z.object({
 
   security: z.object({
     auth: z.object({
-      getSession: z
-        .function()
-        .refine((fn) => typeof fn === "function", {
-          message: "getSession is required and must be a function",
-        }),
+      getSession: z.function().refine((fn) => typeof fn === "function", {
+        message: "getSession is required and must be a function",
+      }),
       requireRole: z.string().optional(),
       sessionMaxAge: intervalSchema.optional(),
       stepUpForDestructive: z.boolean().optional(),
@@ -181,7 +182,7 @@ export const flowPanelConfigSchema = z.object({
         z.object({
           read: z.array(z.string()),
           write: z.array(z.string()),
-        })
+        }),
       )
       .optional(),
     rowLevel: z.object({ filter: z.function() }).optional(),
@@ -191,7 +192,7 @@ export const flowPanelConfigSchema = z.object({
           perMinute: z.number().optional(),
           perHour: z.number().optional(),
           allowInMemoryInProd: z.boolean().optional(),
-        })
+        }),
       )
       .optional(),
     auditLog: z.object({ retentionDays: z.number() }).optional(),
@@ -208,7 +209,7 @@ export const flowPanelConfigSchema = z.object({
             id: z.string(),
             label: z.string(),
             action: z.function(),
-          })
+          }),
         )
         .optional(),
       stream: z
@@ -229,6 +230,7 @@ export const flowPanelConfigSchema = z.object({
       fontSans: z.string().optional(),
       fontMono: z.string().optional(),
       css: z.string().optional(),
+      colorScheme: z.enum(["dark", "light", "auto"]).default("auto"),
     })
     .optional(),
 

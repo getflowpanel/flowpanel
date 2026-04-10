@@ -1,28 +1,31 @@
 :root {
   /* ── Brand ──────────────────────────────── */
-  --fp-accent:          #6366f1;
-  --fp-accent-dim:      rgba(99,102,241,0.12);
-  --fp-accent-text:     #a5b4fc;
+  --fp-accent: #6366f1;
+  --fp-accent-dim: rgba(99, 102, 241, 0.12);
+  --fp-accent-text: #a5b4fc;
 
   /* ── Surfaces (dark default) ────────────── */
-  --fp-bg:              #060608;
-  --fp-surface-1:       #0d0d11;
-  --fp-surface-2:       #131318;
-  --fp-surface-3:       #1a1a21;
+  --fp-bg: #060608;
+  --fp-surface-1: #0d0d11;
+  --fp-surface-2: #131318;
+  --fp-surface-3: #1a1a21;
+  --fp-surface-4: #27272a;
 
   /* ── Borders ─────────────────────────────── */
-  --fp-border-1:        rgba(255,255,255,0.05);
-  --fp-border-2:        rgba(255,255,255,0.09);
+  --fp-border-1: rgba(255, 255, 255, 0.05);
+  --fp-border-2: rgba(255, 255, 255, 0.09);
 
   /* ── Text ────────────────────────────────── */
-  --fp-text-1:          #f0f0f3;
-  --fp-text-2:          #9898a6;
-  --fp-text-3:          #5c5c6b;
+  --fp-text-1: #f0f0f3;
+  --fp-text-2: #9898a6;
+  --fp-text-3: #5c5c6b;
+  --fp-text-4: #52525b;
+  --fp-text-5: #3f3f46;
 
   /* ── Semantic ────────────────────────────── */
-  --fp-ok:              #10b981;
-  --fp-err:             #ef4444;
-  --fp-warn:            #f59e0b;
+  --fp-ok: #10b981;
+  --fp-err: #ef4444;
+  --fp-warn: #f59e0b;
 
   /* ── Stage colors ────────────────────────────────────────────── */
   /* Stage colors are injected at runtime by themeToStyle() as     */
@@ -30,15 +33,80 @@
   /* No CSS defaults needed — resolveTheme() always assigns colors. */
 
   /* ── Shape ───────────────────────────────── */
-  --fp-radius-card:     12px;
-  --fp-radius-sm:       8px;
+  --fp-radius-card: 12px;
+  --fp-radius-sm: 4px;
+  --fp-radius-md: 6px;
+  --fp-radius-lg: 8px;
 
   /* ── Motion ──────────────────────────────── */
-  --fp-duration:        140ms;
+  --fp-duration: 140ms;
+  --fp-duration-fast: 100ms;
+  --fp-duration-normal: 200ms;
+  --fp-duration-slow: 300ms;
+  --fp-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Shadows ─────────────────────────────── */
+  --fp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --fp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
 
   /* ── Typography ──────────────────────────── */
-  --fp-font-sans:       "Inter", system-ui, sans-serif;
-  --fp-font-mono:       "JetBrains Mono", monospace;
+  --fp-font-sans: "Inter", system-ui, sans-serif;
+  --fp-font-mono: "JetBrains Mono", monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --fp-bg: #ffffff;
+    --fp-surface-1: #f4f4f5;
+    --fp-surface-2: #e4e4e7;
+    --fp-surface-3: #d4d4d8;
+    --fp-surface-4: #e4e4e7;
+    --fp-border-1: rgba(0, 0, 0, 0.06);
+    --fp-border-2: rgba(0, 0, 0, 0.1);
+    --fp-text-1: #18181b;
+    --fp-text-2: #3f3f46;
+    --fp-text-3: #71717a;
+    --fp-text-4: #a1a1aa;
+    --fp-text-5: #d4d4d8;
+    --fp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --fp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.fp-dark {
+  color-scheme: dark;
+  --fp-bg: #060608;
+  --fp-surface-1: #0d0d11;
+  --fp-surface-2: #131318;
+  --fp-surface-3: #1a1a21;
+  --fp-surface-4: #27272a;
+  --fp-border-1: rgba(255, 255, 255, 0.05);
+  --fp-border-2: rgba(255, 255, 255, 0.09);
+  --fp-text-1: #f0f0f3;
+  --fp-text-2: #9898a6;
+  --fp-text-3: #5c5c6b;
+  --fp-text-4: #52525b;
+  --fp-text-5: #3f3f46;
+  --fp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --fp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.fp-light {
+  color-scheme: light;
+  --fp-bg: #ffffff;
+  --fp-surface-1: #f4f4f5;
+  --fp-surface-2: #e4e4e7;
+  --fp-surface-3: #d4d4d8;
+  --fp-surface-4: #e4e4e7;
+  --fp-border-1: rgba(0, 0, 0, 0.06);
+  --fp-border-2: rgba(0, 0, 0, 0.1);
+  --fp-text-1: #18181b;
+  --fp-text-2: #3f3f46;
+  --fp-text-3: #71717a;
+  --fp-text-4: #a1a1aa;
+  --fp-text-5: #d4d4d8;
+  --fp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --fp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .fp-root {
@@ -60,17 +128,26 @@
   border-radius: var(--fp-radius-card);
   transition: background var(--fp-duration) ease;
 }
-.fp-card:hover { background: var(--fp-surface-2); }
-.fp-card:active { background: var(--fp-surface-3); }
+.fp-card:hover {
+  background: var(--fp-surface-2);
+}
+.fp-card:active {
+  background: var(--fp-surface-3);
+}
 
 /* Skeleton pulse animation */
 @keyframes fp-pulse {
-  0%, 100% { opacity: 0.4; }
-  50%       { opacity: 0.8; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 .fp-skeleton {
   background: var(--fp-surface-2);
-  border-radius: var(--fp-radius-sm);
+  border-radius: var(--fp-radius-md);
   animation: fp-pulse 1.6s ease-in-out infinite;
 }
 
@@ -78,4 +155,53 @@
 *:focus-visible {
   outline: 2px solid var(--fp-accent);
   outline-offset: 2px;
+}
+
+@keyframes fp-tooltip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fp-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fp-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes fp-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fp-drawer-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

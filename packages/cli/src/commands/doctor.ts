@@ -10,15 +10,18 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
   let failCount = 0;
   let config: any;
 
-  function pass(msg: string) { console.log(formatSuccess(msg)); passCount++; }
+  function pass(msg: string) {
+    console.log(formatSuccess(msg));
+    passCount++;
+  }
   function warn(msg: string, detail?: string) {
     console.log(formatWarning(msg));
-    if (detail) console.log(kleur.gray("    " + detail));
+    if (detail) console.log(kleur.gray(`    ${detail}`));
     warnCount++;
   }
   function fail(msg: string, detail?: string) {
-    console.log(kleur.red("  ✗ " + msg));
-    if (detail) console.log(kleur.gray("    " + detail));
+    console.log(kleur.red(`  ✗ ${msg}`));
+    if (detail) console.log(kleur.gray(`    ${detail}`));
     failCount++;
   }
 
@@ -29,7 +32,10 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
     execSync(`npx tsc --noEmit --skipLibCheck`, { cwd, stdio: "pipe" });
     pass("flowpanel.config.ts       valid TypeScript (tsc --noEmit passed)");
   } catch (err) {
-    fail("flowpanel.config.ts       TypeScript errors found", String((err as any).stderr).slice(0, 200));
+    fail(
+      "flowpanel.config.ts       TypeScript errors found",
+      String((err as any).stderr).slice(0, 200),
+    );
   }
 
   try {
@@ -53,7 +59,10 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
     if (session === null || (typeof session === "object" && "userId" in session)) {
       pass("getSession                mock invocation returned correct shape");
     } else {
-      warn("getSession                returned unexpected shape", "Expected null or { userId, role }");
+      warn(
+        "getSession                returned unexpected shape",
+        "Expected null or { userId, role }",
+      );
     }
   } catch (err) {
     warn("getSession                threw on mock request", String(err).slice(0, 100));
@@ -73,7 +82,7 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
     const db = await config.getDb();
     const tables = await db.execute<{ tablename: string }>(
       `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'flowpanel_%'`,
-      []
+      [],
     );
     if (tables.length >= 4) {
       pass("Schema                    up to date, no drift");
@@ -88,7 +97,7 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
     const db = await config.getDb();
     const rows = await db.execute<{ value: string }>(
       `SELECT value FROM flowpanel_meta WHERE key = 'timezone'`,
-      []
+      [],
     );
     const tz = rows[0]?.value ?? "not set";
     pass(`Timezone lock             ${tz}`);
@@ -97,7 +106,7 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
   }
 
   if (prod) {
-    const secret = process.env["FLOWPANEL_COOKIE_SECRET"];
+    const secret = process.env.FLOWPANEL_COOKIE_SECRET;
     if (!secret || secret.length < 32) {
       fail("FLOWPANEL_COOKIE_SECRET   not set or < 32 bytes");
     } else {
@@ -105,8 +114,9 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
     }
   }
 
-  warn("Reaper not scheduled",
-    `Add to worker/index.ts:\n    ┌──────────────────────────────────────────┐\n    │  flowpanel.startReaper({ interval: "60s" });  │\n    └──────────────────────────────────────────┘`
+  warn(
+    "Reaper not scheduled",
+    `Add to worker/index.ts:\n    ┌──────────────────────────────────────────┐\n    │  flowpanel.startReaper({ interval: "60s" });  │\n    └──────────────────────────────────────────┘`,
   );
 
   console.log(`\n  ${passCount} passed · ${warnCount} warnings · ${failCount} failed\n`);

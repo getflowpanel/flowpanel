@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 // Mock tRPC responses for E2E testing — no real DB needed
 
@@ -13,10 +13,10 @@ const MOCK_RUNS = Array.from({ length: 20 }, (_, i) => ({
 }));
 
 const MOCK_STAGE_DATA = [
-  { stage: "parse",  total: 1929, succeeded: 1910, failed: 12, running: 7,  avgDurationMs: 340 },
-  { stage: "score",  total: 1218, succeeded: 1200, failed: 8,  running: 10, avgDurationMs: 2100 },
-  { stage: "draft",  total: 681,  succeeded: 673,  failed: 3,  running: 5,  avgDurationMs: 1800 },
-  { stage: "notify", total: 529,  succeeded: 526,  failed: 2,  running: 1,  avgDurationMs: 120 },
+  { stage: "parse", total: 1929, succeeded: 1910, failed: 12, running: 7, avgDurationMs: 340 },
+  { stage: "score", total: 1218, succeeded: 1200, failed: 8, running: 10, avgDurationMs: 2100 },
+  { stage: "draft", total: 681, succeeded: 673, failed: 3, running: 5, avgDurationMs: 1800 },
+  { stage: "notify", total: 529, succeeded: 526, failed: 2, running: 1, avgDurationMs: 120 },
 ];
 
 const MOCK_METRICS = {
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ trpc
   if (procedure === "flowpanel.runs.list") {
     const url = new URL(req.url);
     const inputRaw = url.searchParams.get("input");
-    const input = inputRaw ? JSON.parse(decodeURIComponent(inputRaw)) as { cursor?: string } : {};
+    const input = inputRaw ? (JSON.parse(decodeURIComponent(inputRaw)) as { cursor?: string }) : {};
     const runs = input.cursor ? MOCK_RUNS.slice(10) : MOCK_RUNS.slice(0, 10);
     return tRPCResponse({ runs, nextCursor: input.cursor ? null : "cursor-page-2" });
   }
@@ -66,12 +66,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ trpc
             duration_ms: null,
             created_at: new Date().toISOString(),
           };
-          controller.enqueue(encoder.encode(`event: run.created\ndata: ${JSON.stringify(run)}\n\n`));
+          controller.enqueue(
+            encoder.encode(`event: run.created\ndata: ${JSON.stringify(run)}\n\n`),
+          );
         }, 500);
 
         // Simulate run finishing after 2s
         setTimeout(() => {
-          controller.enqueue(encoder.encode(`event: run.finished\ndata: ${JSON.stringify({ id: "run-live-1", status: "succeeded", durationMs: 1200 })}\n\n`));
+          controller.enqueue(
+            encoder.encode(
+              `event: run.finished\ndata: ${JSON.stringify({ id: "run-live-1", status: "succeeded", durationMs: 1200 })}\n\n`,
+            ),
+          );
         }, 2000);
 
         // Keep alive for 30s then close
@@ -83,7 +89,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ trpc
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
+        Connection: "keep-alive",
       },
     });
   }
@@ -94,13 +100,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ trpc
 export async function POST(req: NextRequest, { params }: { params: Promise<{ trpc: string[] }> }) {
   const { trpc } = await params;
   const procedure = trpc.join(".");
-  const body = await req.json() as Record<string, unknown>;
+  const body = (await req.json()) as Record<string, unknown>;
 
   // Test helper: create a run
   if (procedure === "flowpanel.test.createRun") {
     const run = {
       id: `run-test-${Date.now()}`,
-      stage: (body["stage"] as string) ?? "score",
+      stage: (body.stage as string) ?? "score",
       status: "running",
       partition_key: "test-user",
       duration_ms: null,

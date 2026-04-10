@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type LiveStatus = "live" | "reconnecting" | "polling" | "paused";
 
@@ -55,16 +55,20 @@ export function useFlowPanelStream({
       return (e: MessageEvent) => {
         lastEventIdRef.current = e.lastEventId;
         try {
-          onEventRef.current({ id: e.lastEventId, event: eventName, data: JSON.parse(e.data as string) });
+          onEventRef.current({
+            id: e.lastEventId,
+            event: eventName,
+            data: JSON.parse(e.data as string),
+          });
         } catch {
           // Malformed JSON — ignore
         }
       };
     }
 
-    es.addEventListener("run.created",    handleEvent("run.created"));
-    es.addEventListener("run.finished",   handleEvent("run.finished"));
-    es.addEventListener("run.failed",     handleEvent("run.failed"));
+    es.addEventListener("run.created", handleEvent("run.created"));
+    es.addEventListener("run.finished", handleEvent("run.finished"));
+    es.addEventListener("run.failed", handleEvent("run.failed"));
     es.addEventListener("metrics.updated", handleEvent("metrics.updated"));
     // Heartbeat keeps connection alive, no payload needed
     es.addEventListener("heartbeat", () => {});
@@ -80,7 +84,7 @@ export function useFlowPanelStream({
 
       setStatus("reconnecting");
       // Exponential backoff: 1s, 2s, 4s, capped at 30s
-      const delay = Math.min(1000 * Math.pow(2, retryCountRef.current - 1), 30_000);
+      const delay = Math.min(1000 * 2 ** (retryCountRef.current - 1), 30_000);
       setTimeout(connect, delay);
     };
   }, [url, maxRetries]);
