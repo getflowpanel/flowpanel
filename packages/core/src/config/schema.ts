@@ -230,6 +230,7 @@ export const flowPanelConfigSchema = z.object({
       fontSans: z.string().optional(),
       fontMono: z.string().optional(),
       css: z.string().optional(),
+      colorScheme: z.enum(["dark", "light", "auto"]).default("auto"),
     })
     .optional(),
 

@@ -1,5 +1,9 @@
 export type { Command } from "./components/CommandPalette.js";
 export { CommandPalette } from "./components/CommandPalette.js";
+export { ErrorBoundary } from "./components/ErrorBoundary.js";
+export { SectionHeader } from "./components/SectionHeader.js";
+export { ToastProvider, useToast } from "./components/Toast.js";
+export type { ToastVariant } from "./components/Toast.js";
 export { DemoBanner } from "./components/DemoBanner.js";
 export { Drawer } from "./components/Drawer.js";
 export type { LiveStatus } from "./components/Header.js";

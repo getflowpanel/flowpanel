@@ -28,7 +28,7 @@ export function StageCard({
       <div className="fp-card" aria-busy="true" style={{ padding: 20, minWidth: 140, height: 100 }}>
         <div
           className="fp-skeleton"
-          style={{ height: "100%", borderRadius: "var(--fp-radius-sm)" }}
+          style={{ height: "100%", borderRadius: "var(--fp-radius-lg)" }}
         />
       </div>
     );
