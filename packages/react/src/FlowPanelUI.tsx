@@ -6,6 +6,7 @@ import { DemoBanner } from "./components/DemoBanner.js";
 import { Drawer } from "./components/Drawer.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.js";
 import { Header } from "./components/Header.js";
+import { KeyboardHelp } from "./components/KeyboardHelp.js";
 import { MetricCard } from "./components/MetricCard.js";
 import type { RunLogColumn } from "./components/RunTable.js";
 import { RunTable } from "./components/RunTable.js";
@@ -91,6 +92,7 @@ export function FlowPanelUI({
   const [timeRange, setTimeRange] = useState(config.timeRange?.default ?? "24h");
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [drawerState, setDrawerState] = useState<{
     open: boolean;
     type: string;
@@ -214,7 +216,6 @@ export function FlowPanelUI({
   }, [trpcBaseUrl, timeRange, selectedStage, runsState.nextCursor]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  // config.tabs entries have { id, label, icon, view } — map to TabConfig { id, label, icon? }
   const tabs: TabConfig[] = config.tabs?.map((t) => ({
     id: t.id,
     label: t.label,
@@ -242,17 +243,22 @@ export function FlowPanelUI({
       },
     },
     {
+      key: "?",
+      shift: true,
+      handler: () => setKeyboardHelpOpen(true),
+      description: "Show keyboard shortcuts",
+    },
+    {
       key: "Escape",
       handler: () => {
-        if (drawerState.open) setDrawerState({ open: false, type: "" });
+        if (keyboardHelpOpen) setKeyboardHelpOpen(false);
+        else if (drawerState.open) setDrawerState({ open: false, type: "" });
         else if (paletteOpen) setPaletteOpen(false);
       },
     },
   ]);
 
   // ── Run log columns ───────────────────────────────────────────────────────
-  // config.runLog?.columns is RunLogColumn from core which has more format/render options
-  // than RunTable's RunLogColumn — cast to ensure compatibility
   const runLogColumns: RunLogColumn[] = (config.runLog?.columns as RunLogColumn[] | undefined) ?? [
     { field: "id", label: "Run ID", width: 90, mono: true },
     { field: "stage", label: "Stage", width: 72, render: "stagePill" },
@@ -264,12 +270,24 @@ export function FlowPanelUI({
   // ── Commands ──────────────────────────────────────────────────────────────
   const timePresets = config.timeRange?.presets ?? ["1h", "6h", "24h", "7d", "30d"];
   const builtinCommands: Command[] = [
-    { id: "clear-filters", label: "Clear filters", action: () => setSelectedStage(null) },
-    { id: "refresh", label: "Refresh data", action: () => void fetchData() },
+    {
+      id: "clear-filters",
+      label: "Clear filters",
+      action: () => setSelectedStage(null),
+      category: "Filters",
+    },
+    {
+      id: "refresh",
+      label: "Refresh data",
+      action: () => void fetchData(),
+      category: "Data",
+      shortcut: "⌘R",
+    },
     ...timePresets.map((preset) => ({
       id: `time-${preset}`,
       label: `Set time range: ${preset}`,
       action: () => setTimeRange(preset),
+      category: "Time Range",
     })),
   ];
 
@@ -283,6 +301,9 @@ export function FlowPanelUI({
       : typeof drawerConfigEntry?.title === "string"
         ? drawerConfigEntry.title
         : drawerState.type || "Details";
+
+  // ── Onboarding: show when no runs and not loading ─────────────────────────
+  const showOnboarding = !loading && runsState.runs.length === 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
   const colorScheme = config.theme?.colorScheme ?? "auto";
@@ -321,6 +342,7 @@ export function FlowPanelUI({
           onTimeRangeChange={setTimeRange}
           timeRangePresets={timePresets}
           liveStatus={liveStatus}
+          onCommandPaletteOpen={() => setPaletteOpen(true)}
         />
 
         {showDemoBanner && (
@@ -328,7 +350,6 @@ export function FlowPanelUI({
             runCount={runsState.runs.length}
             realRunCount={0}
             onClear={() => {
-              // demo:clear is handled by CLI — just refresh
               void fetchData();
             }}
           />
@@ -406,43 +427,98 @@ export function FlowPanelUI({
                 </ErrorBoundary>
               )}
 
-              {/* Run log */}
+              {/* Onboarding or Run log */}
               <ErrorBoundary>
-                <section aria-label="Run log">
-                  <SectionHeader
-                    label="Run Log"
-                    meta={
-                      runsState.runs.length > 0 && !loading
-                        ? `${runsState.runs.length.toLocaleString()} total`
-                        : undefined
-                    }
-                  />
-                  <div className="fp-card" style={{ overflow: "hidden" }}>
-                    <RunTable
-                      runs={runsState.runs}
-                      columns={runLogColumns}
-                      stageColors={theme.stageColors}
-                      loading={loading}
-                      hasNextPage={!!runsState.nextCursor}
-                      onLoadMore={handleLoadMore}
-                      newRunsBanner={
-                        runsState.bufferedNewRuns.length > 0
-                          ? runsState.bufferedNewRuns.length
+                {showOnboarding && stageData.length === 0 ? (
+                  <section aria-label="Getting started">
+                    <div
+                      className="fp-card"
+                      style={{
+                        padding: "32px 24px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 600,
+                          color: "var(--fp-text-1)",
+                          marginBottom: 8,
+                        }}
+                      >
+                        Get started with FlowPanel
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: "var(--fp-text-3)",
+                          marginBottom: 16,
+                        }}
+                      >
+                        Add withRun() to start tracking runs
+                      </div>
+                      <pre
+                        style={{
+                          display: "inline-block",
+                          textAlign: "left",
+                          padding: "16px 20px",
+                          background: "var(--fp-surface-1)",
+                          border: "1px solid var(--fp-border-1)",
+                          borderRadius: 8,
+                          fontFamily: "var(--fp-font-mono)",
+                          fontSize: 12,
+                          color: "var(--fp-text-2)",
+                          lineHeight: 1.6,
+                          overflow: "auto",
+                          maxWidth: "100%",
+                        }}
+                      >
+                        {`import { withRun } from "@flowpanel/core";
+
+await withRun({ stage: "parse", partitionKey: "doc-1" }, async (run) => {
+  // your pipeline logic
+  run.setMeta({ tokens: 420 });
+});`}
+                      </pre>
+                    </div>
+                  </section>
+                ) : (
+                  <section aria-label="Run log">
+                    <SectionHeader
+                      label="Run Log"
+                      meta={
+                        runsState.runs.length > 0 && !loading
+                          ? `${runsState.runs.length.toLocaleString()} total`
                           : undefined
                       }
-                      onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
-                      onRowClick={(run) => {
-                        setSelectedRunId(String(run.id));
-                        setDrawerState({
-                          open: true,
-                          type: "runDetail",
-                          runId: String(run.id),
-                        });
-                      }}
-                      selectedRunId={selectedRunId}
                     />
-                  </div>
-                </section>
+                    <div className="fp-card" style={{ overflow: "hidden" }}>
+                      <RunTable
+                        runs={runsState.runs}
+                        columns={runLogColumns}
+                        stageColors={theme.stageColors}
+                        loading={loading}
+                        hasNextPage={!!runsState.nextCursor}
+                        onLoadMore={handleLoadMore}
+                        newRunsBanner={
+                          runsState.bufferedNewRuns.length > 0
+                            ? runsState.bufferedNewRuns.length
+                            : undefined
+                        }
+                        onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
+                        onRowClick={(run) => {
+                          setSelectedRunId(String(run.id));
+                          setDrawerState({
+                            open: true,
+                            type: "runDetail",
+                            runId: String(run.id),
+                          });
+                        }}
+                        selectedRunId={selectedRunId}
+                      />
+                    </div>
+                  </section>
+                )}
               </ErrorBoundary>
             </>
           )}
@@ -488,6 +564,9 @@ export function FlowPanelUI({
           commands={builtinCommands}
         />
 
+        {/* Keyboard help */}
+        <KeyboardHelp open={keyboardHelpOpen} onClose={() => setKeyboardHelpOpen(false)} />
+
         {/* ARIA live region */}
         <div
           role="status"
@@ -522,7 +601,7 @@ export function FlowPanelUI({
               fontSize: 13,
             }}
           >
-            ● Live updates paused — reconnecting...
+            Live updates paused — reconnecting...
           </div>
         )}
       </div>
