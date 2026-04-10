@@ -8,8 +8,7 @@
       "@flowpanel/react",
       "@flowpanel/cli",
       "@flowpanel/adapter-drizzle",
-      "@flowpanel/adapter-prisma",
-      "@flowpanel/locale-ru"
+      "@flowpanel/adapter-prisma"
     ]
   ],
   "access": "public",
