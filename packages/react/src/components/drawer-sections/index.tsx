@@ -9,6 +9,7 @@ import { TrendChartSection } from "./TrendChartSection.js";
 
 const SECTION_RENDERERS: Record<
 	string,
+	// biome-ignore lint/suspicious/noExplicitAny: section data is dynamically typed
 	React.ComponentType<{ data: any; run?: Record<string, unknown> }>
 > = {
 	"stat-grid": StatGridSection,

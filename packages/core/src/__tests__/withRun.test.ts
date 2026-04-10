@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SqlExecutor } from "../types/db.js";
 import { createWithRun } from "../withRun.js";
 
 // Mock SqlExecutor
 function makeMockDb() {
+	// biome-ignore lint/suspicious/noExplicitAny: test mock db cast
 	const rows: any[] = [];
 	const calls: { sql: string; params: unknown[] }[] = [];
 
@@ -12,9 +13,11 @@ function makeMockDb() {
 			calls.push({ sql, params });
 			if (sql.includes("INSERT") && sql.includes("pipeline_run")) {
 				rows.push({ id: BigInt(1) });
+				// biome-ignore lint/suspicious/noExplicitAny: test mock db cast
 				return [{ id: BigInt(1) }] as any;
 			}
 			if (sql.includes("UPDATE") && sql.includes("RETURNING")) {
+				// biome-ignore lint/suspicious/noExplicitAny: test mock db cast
 				return [{ id: BigInt(1) }] as any;
 			}
 			return [];
@@ -56,8 +59,8 @@ describe("withRun", () => {
 			(c) => c.sql.includes("INSERT") && c.sql.includes("pipeline_run"),
 		);
 		expect(insertCall).toBeDefined();
-		expect(insertCall!.params).toContain("score");
-		expect(insertCall!.params).toContain("running");
+		expect(insertCall?.params).toContain("score");
+		expect(insertCall?.params).toContain("running");
 	});
 
 	it("UPDATEs to succeeded on completion", async () => {
@@ -95,7 +98,7 @@ describe("withRun", () => {
 			(c) => c.sql.includes("UPDATE") && c.sql.includes("score_tokens_in"),
 		);
 		expect(updateCall).toBeDefined();
-		expect(updateCall!.params).toContain(1200);
+		expect(updateCall?.params).toContain(1200);
 	});
 
 	it("catches error, records it as failed, re-throws", async () => {
@@ -117,7 +120,7 @@ describe("withRun", () => {
 
 		const failCall = calls.find((c) => c.sql.includes("UPDATE") && c.sql.includes("failed"));
 		expect(failCall).toBeDefined();
-		expect(failCall!.params).toContain("Error");
+		expect(failCall?.params).toContain("Error");
 	});
 
 	it("redacts apiKey in run.set()", async () => {
@@ -130,6 +133,7 @@ describe("withRun", () => {
 			redactionKeys: [],
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: test mock db cast
 		await withRun("score", async (run: any) => {
 			run.set({ apiKey: "sk-super-secret-key-1234567890" });
 		});

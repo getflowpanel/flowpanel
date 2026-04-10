@@ -1,12 +1,13 @@
-import { TRPCError } from "@trpc/server";
 import { describe, expect, it } from "vitest";
 import { createAuthMiddleware } from "../../trpc/middleware/auth.js";
 
 describe("auth middleware", () => {
 	it("allows request when getSession returns valid session", async () => {
 		const t = {
+			// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 			middleware: (fn: any) => fn,
 		};
+		// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 		const middleware = createAuthMiddleware(t as any);
 		const ctx = {
 			config: {
@@ -21,9 +22,11 @@ describe("auth middleware", () => {
 			req: new Request("http://localhost/"),
 		};
 
+		// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 		const result: any = {};
 		await middleware({
 			ctx,
+			// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 			next: async ({ ctx: newCtx }: any) => {
 				Object.assign(result, newCtx);
 				return {};
@@ -35,7 +38,9 @@ describe("auth middleware", () => {
 	});
 
 	it("throws UNAUTHORIZED when getSession returns null", async () => {
+		// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 		const t = { middleware: (fn: any) => fn };
+		// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 		const middleware = createAuthMiddleware(t as any);
 		const ctx = {
 			config: { security: { auth: { getSession: async () => null } } },
@@ -46,7 +51,9 @@ describe("auth middleware", () => {
 	});
 
 	it("throws UNAUTHORIZED when getSession throws", async () => {
+		// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 		const t = { middleware: (fn: any) => fn };
+		// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 		const middleware = createAuthMiddleware(t as any);
 		const ctx = {
 			config: {
@@ -65,7 +72,9 @@ describe("auth middleware", () => {
 	});
 
 	it("throws FORBIDDEN when session role does not match requireRole", async () => {
+		// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 		const t = { middleware: (fn: any) => fn };
+		// biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
 		const middleware = createAuthMiddleware(t as any);
 		const ctx = {
 			config: {

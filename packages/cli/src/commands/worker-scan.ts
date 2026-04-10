@@ -5,6 +5,7 @@ import kleur from "kleur";
 export async function runWorkerScan(): Promise<void> {
 	const cwd = process.cwd();
 
+	// biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
 	let config: any;
 	try {
 		config = (await import(path.join(cwd, "flowpanel.config.ts"))).flowpanel;

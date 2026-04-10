@@ -139,9 +139,9 @@ export async function runMigrateGen(): Promise<void> {
 		await fs.mkdir(migDir, { recursive: true });
 
 		const files = await fs.readdir(migDir).catch(() => [] as string[]);
-		const nums = files.filter((f) => /^\d{4}_/.test(f)).map((f) => parseInt(f.slice(0, 4)));
+		const nums = files.filter((f) => /^\d{4}_/.test(f)).map((f) => parseInt(f.slice(0, 4), 10));
 		const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
-		const id = String(next).padStart(4, "0") + "_schema_update";
+		const id = `${String(next).padStart(4, "0")}_schema_update`;
 		const outPath = path.join(migDir, `${id}.sql`);
 
 		spinner.text = `Writing ${id}.sql...`;

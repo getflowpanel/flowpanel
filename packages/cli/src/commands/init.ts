@@ -105,7 +105,7 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
 	const seedDemo = answers.seedDemo as boolean;
 
 	console.log("\n  Writing files");
-	console.log("  " + "─".repeat(51));
+	console.log(`  ${"─".repeat(51)}`);
 
 	const configContent = generateFlowPanelConfig({ stages, appName, adapter, defaultTimeRange });
 	await writeFile(cwd, "flowpanel.config.ts", configContent);
@@ -135,7 +135,7 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
 	);
 
 	console.log("\n  Database");
-	console.log("  " + "─".repeat(51));
+	console.log(`  ${"─".repeat(51)}`);
 
 	const migrationDir = path.join(cwd, "flowpanel", "migrations");
 	await fs.mkdir(migrationDir, { recursive: true });
@@ -172,15 +172,15 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
 		.filter(Boolean)
 		.join(" · ");
 
-	console.log("\n" + kleur.bold("  ⚡ FlowPanel Init") + "\n");
+	console.log(`\n${kleur.bold("  ⚡ FlowPanel Init")}\n`);
 	if (detectedParts) {
 		console.log(`  Detected: ${kleur.cyan(detectedParts)}\n`);
 	}
-	console.log(kleur.green("  ✓") + " Created flowpanel.config.ts");
-	console.log(kleur.green("  ✓") + ` Created app/admin/[[...trpc]]/route.ts`);
-	console.log(kleur.green("  ✓") + " Generated migration 0001_init.sql");
+	console.log(`${kleur.green("  ✓")} Created flowpanel.config.ts`);
+	console.log(`${kleur.green("  ✓")} Created app/admin/[[...trpc]]/route.ts`);
+	console.log(`${kleur.green("  ✓")} Generated migration 0001_init.sql`);
 	if (seedDemo) {
-		console.log(kleur.green("  ✓") + " Seeded 500 demo runs");
+		console.log(`${kleur.green("  ✓")} Seeded 500 demo runs`);
 	}
 	console.log("\n  Next steps:");
 	console.log(`    1. ${kleur.cyan("npm run dev")}`);
@@ -245,7 +245,7 @@ ${stageFieldsStr}
 `;
 }
 
-function generateAdminPage(basePath: string): string {
+function generateAdminPage(_basePath: string): string {
 	return `import { FlowPanelUI } from "@flowpanel/react";
 import { flowpanel } from "@root/flowpanel.config";
 

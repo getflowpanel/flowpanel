@@ -29,6 +29,7 @@ export function drizzleAdapter(opts: {
 		async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
 			const db = await getDb();
 			// Access Drizzle's transaction API
+			// biome-ignore lint/suspicious/noExplicitAny: Drizzle db cast for transaction API
 			const drizzleWithTx = db as any;
 			if (typeof drizzleWithTx.transaction === "function") {
 				return drizzleWithTx.transaction(async (tx: DrizzleDb) => {

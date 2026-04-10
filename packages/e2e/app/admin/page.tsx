@@ -20,6 +20,7 @@ const mockConfig = {
 		{ id: "pipeline", label: "Pipeline", view: "pipeline" as const },
 		{ id: "users", label: "Users", view: "userList" as const },
 	],
+	// biome-ignore lint/suspicious/noExplicitAny: e2e mock config cast
 } as any;
 
 export default function AdminPage() {

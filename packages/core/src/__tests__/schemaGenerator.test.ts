@@ -38,6 +38,7 @@ describe("zodTypeToSql", () => {
 });
 
 describe("generateSchema", () => {
+	// biome-ignore lint/suspicious/noExplicitAny: test config cast
 	const config: any = {
 		pipeline: {
 			stages: ["parse", "score"],

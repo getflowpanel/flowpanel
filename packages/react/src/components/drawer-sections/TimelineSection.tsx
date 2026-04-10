@@ -1,5 +1,3 @@
-import React from "react";
-
 interface TimelineStep {
 	step: string;
 	durationMs: number;

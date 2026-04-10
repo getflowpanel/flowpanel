@@ -1,5 +1,3 @@
-import React from "react";
-
 interface StatGridSectionProps {
 	data: Record<string, unknown>;
 	columns?: number;
@@ -11,7 +9,7 @@ function formatLabel(key: string): string {
 
 function formatDuration(ms: unknown): string {
 	const n = Number(ms);
-	if (isNaN(n)) return String(ms);
+	if (Number.isNaN(n)) return String(ms);
 	if (n < 1000) return `${Math.round(n)}ms`;
 	return `${(n / 1000).toFixed(1)}s`;
 }

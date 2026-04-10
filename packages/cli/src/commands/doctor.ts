@@ -7,6 +7,7 @@ export async function runDoctor({ prod = false, json = false } = {}): Promise<vo
 	const cwd = process.cwd();
 	const configPath = path.join(cwd, "flowpanel.config.ts");
 	const results: Array<{ status: "pass" | "warn" | "fail"; message: string; detail?: string }> = [];
+	// biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
 	let config: any;
 
 	function pass(msg: string) {
@@ -17,14 +18,14 @@ export async function runDoctor({ prod = false, json = false } = {}): Promise<vo
 		results.push({ status: "warn", message: msg, detail });
 		if (!json) {
 			console.log(formatWarning(msg));
-			if (detail) console.log(kleur.gray("    " + detail));
+			if (detail) console.log(kleur.gray(`    ${detail}`));
 		}
 	}
 	function fail(msg: string, detail?: string) {
 		results.push({ status: "fail", message: msg, detail });
 		if (!json) {
-			console.log(kleur.red("  ✗ " + msg));
-			if (detail) console.log(kleur.gray("    " + detail));
+			console.log(kleur.red(`  ✗ ${msg}`));
+			if (detail) console.log(kleur.gray(`    ${detail}`));
 		}
 	}
 
@@ -40,6 +41,7 @@ export async function runDoctor({ prod = false, json = false } = {}): Promise<vo
 	} catch (err) {
 		fail(
 			"flowpanel.config.ts       TypeScript errors found",
+			// biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
 			String((err as any).stderr).slice(0, 200),
 		);
 	}
@@ -131,7 +133,7 @@ export async function runDoctor({ prod = false, json = false } = {}): Promise<vo
 	}
 
 	if (prod) {
-		const secret = process.env["FLOWPANEL_COOKIE_SECRET"];
+		const secret = process.env.FLOWPANEL_COOKIE_SECRET;
 		if (!secret || secret.length < 32) {
 			fail("FLOWPANEL_COOKIE_SECRET   not set or < 32 bytes");
 		} else {

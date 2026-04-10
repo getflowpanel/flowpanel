@@ -54,7 +54,9 @@ function applyRowLevelFilter(
 }
 
 export function createRunsProcedures(
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
 	t: { procedure: any; router: (routes: any) => any },
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
 	authedProcedure: any,
 ) {
 	return t.router({

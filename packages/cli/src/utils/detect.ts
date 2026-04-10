@@ -16,6 +16,7 @@ export interface DetectedStack {
 
 export async function detectStack(cwd: string): Promise<DetectedStack> {
 	const pkgPath = path.join(cwd, "package.json");
+	// biome-ignore lint/suspicious/noExplicitAny: JSON parsed package.json
 	let pkg: Record<string, any> = {};
 	try {
 		pkg = JSON.parse(await fs.readFile(pkgPath, "utf8"));
@@ -30,8 +31,8 @@ export async function detectStack(cwd: string): Promise<DetectedStack> {
 	};
 
 	let nextjs: string | null = null;
-	if (allDeps["next"]) {
-		const vMatch = String(allDeps["next"]).match(/(\d+)/);
+	if (allDeps.next) {
+		const vMatch = String(allDeps.next).match(/(\d+)/);
 		nextjs = vMatch?.[1] ?? "unknown";
 	}
 
@@ -58,10 +59,10 @@ export async function detectStack(cwd: string): Promise<DetectedStack> {
 
 	return {
 		nextjs,
-		typescript: !!allDeps["typescript"],
+		typescript: !!allDeps.typescript,
 		drizzle: !!(allDeps["drizzle-orm"] || allDeps["drizzle-kit"]),
 		prisma: !!allDeps["@prisma/client"],
-		bullmq: !!allDeps["bullmq"],
+		bullmq: !!allDeps.bullmq,
 		betterAuth: { found: !!allDeps["better-auth"] || !!betterAuthPath, path: betterAuthPath },
 		nextauth: !!allDeps["next-auth"],
 		clerk: !!allDeps["@clerk/nextjs"],

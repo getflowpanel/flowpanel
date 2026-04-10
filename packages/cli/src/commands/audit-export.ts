@@ -10,6 +10,7 @@ export async function runAuditExport(opts: {
 }): Promise<void> {
 	const cwd = process.cwd();
 
+	// biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
 	let config: any;
 	try {
 		config = (await import(path.join(cwd, "flowpanel.config.ts"))).flowpanel;
@@ -50,7 +51,7 @@ export async function runAuditExport(opts: {
 			const headers = Object.keys(rows[0]!).filter((k) => k !== "details");
 			const detailKeys = new Set<string>();
 			for (const row of rows) {
-				const details = row["details"] as Record<string, unknown> | null;
+				const details = row.details as Record<string, unknown> | null;
 				if (details) Object.keys(details).forEach((k) => detailKeys.add(`details.${k}`));
 			}
 			const allHeaders = [...headers, ...detailKeys];
@@ -58,7 +59,8 @@ export async function runAuditExport(opts: {
 				const values = headers.map((h) => csvEscape(String(row[h] ?? "")));
 				const detailValues = [...detailKeys].map((k) => {
 					const key = k.replace("details.", "");
-					const details = row["details"] as any;
+					// biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
+					const details = row.details as any;
 					return csvEscape(String(details?.[key] ?? ""));
 				});
 				return [...values, ...detailValues].join(",");
@@ -71,7 +73,7 @@ export async function runAuditExport(opts: {
 		await fs.writeFile(opts.out, output, "utf8");
 		console.log(kleur.green(`  ✓ Exported ${rows.length} records to ${opts.out}`));
 	} else {
-		process.stdout.write(output + "\n");
+		process.stdout.write(`${output}\n`);
 	}
 }
 

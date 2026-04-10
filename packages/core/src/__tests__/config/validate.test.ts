@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ConfigValidationError, validateConfig } from "../../config/validate.js";
 
+// biome-ignore lint/suspicious/noExplicitAny: test config cast
 const baseConfig: any = {
 	appName: "test",
 	timezone: "UTC",

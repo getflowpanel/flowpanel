@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createReaper } from "../reaper.js";
 import type { SqlExecutor } from "../types/db.js";
 
@@ -7,6 +7,7 @@ function makeMockDb(tryLockResult = true) {
 	const executor: SqlExecutor = {
 		async execute(sql, params) {
 			queries.push({ sql, params });
+			// biome-ignore lint/suspicious/noExplicitAny: test mock cast
 			if (sql.includes("RETURNING")) return [{ id: BigInt(42) }] as any;
 			return [];
 		},

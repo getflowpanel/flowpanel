@@ -4,6 +4,7 @@ import kleur from "kleur";
 export async function runDiff(): Promise<void> {
 	const cwd = process.cwd();
 
+	// biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
 	let config: any;
 	try {
 		config = (await import(path.join(cwd, "flowpanel.config.ts"))).flowpanel;
@@ -15,6 +16,7 @@ export async function runDiff(): Promise<void> {
 	const { generateSchema } = await import("@flowpanel/core");
 	const expectedSql = generateSchema({ pipeline: config.config.pipeline });
 
+	// biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
 	let db: any;
 	try {
 		db = await config.getDb();

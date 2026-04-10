@@ -24,8 +24,11 @@ export function createFlowPanelRouter<TContext extends object>({
 	// Create a new tRPC instance scoped to FlowPanelContext
 	const fp = initTRPC.context<FlowPanelContext>().create();
 
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
 	const authMiddleware = createAuthMiddleware(fp as any);
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
 	const auditMiddleware = createAuditLogMiddleware(fp as any);
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
 	const rateLimitMiddleware = createRateLimitMiddleware(fp as any);
 
 	const authedProcedure = fp.procedure
@@ -34,27 +37,38 @@ export function createFlowPanelRouter<TContext extends object>({
 		.use(auditMiddleware);
 
 	const router = fp.router({
+		// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
 		runs: createRunsProcedures(fp as any, authedProcedure),
+		// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
 		metrics: createMetricsProcedures(fp as any, authedProcedure),
+		// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
 		drawers: createDrawersProcedures(fp as any, authedProcedure),
+		// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
 		stages: createStagesProcedures(fp as any, authedProcedure),
+		// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
 		users: createUsersProcedures(fp as any, authedProcedure),
+		// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
 		stream: createStreamProcedure(fp as any, authedProcedure),
 	});
 
 	// Wrap in a procedure that translates from the user's context to FlowPanelContext
-	return (t as any).procedure
-		.use(async ({ ctx, next }: any) => {
-			const req = getRequest(ctx);
-			const db = await config.getDb();
-			return next({
-				ctx: {
-					config: config.config,
-					db,
-					session: null,
-					req,
-				} as FlowPanelContext,
-			});
-		})
-		.use(router as any);
+	return (
+		// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+		(t as any).procedure
+			// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+			.use(async ({ ctx, next }: any) => {
+				const req = getRequest(ctx);
+				const db = await config.getDb();
+				return next({
+					ctx: {
+						config: config.config,
+						db,
+						session: null,
+						req,
+					} as FlowPanelContext,
+				});
+			})
+			// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+			.use(router as any)
+	);
 }

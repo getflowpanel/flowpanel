@@ -1,4 +1,4 @@
-import React, { useId } from "react";
+import { useId } from "react";
 
 interface TrendChartSectionProps {
 	data: Array<{ bucket: string; value: number }>;
@@ -41,8 +41,7 @@ export function TrendChartSection({ data }: TrendChartSectionProps) {
 	const polyline = points.map((p) => `${p.x},${p.y}`).join(" ");
 
 	// Area path: start from bottom-left, line through points, end at bottom-right
-	const areaPath =
-		`M 0,${HEIGHT} ` + points.map((p) => `L ${p.x},${p.y}`).join(" ") + ` L ${WIDTH},${HEIGHT} Z`;
+	const areaPath = `M 0,${HEIGHT} ${points.map((p) => `L ${p.x},${p.y}`).join(" ")} L ${WIDTH},${HEIGHT} Z`;
 
 	const gradientId = useId();
 

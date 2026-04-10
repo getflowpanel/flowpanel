@@ -1,5 +1,3 @@
-import React from "react";
-
 interface ErrorListItem {
 	errorClass: string;
 	count: number;

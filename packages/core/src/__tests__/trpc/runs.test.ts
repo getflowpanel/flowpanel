@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("runs procedures", () => {
 	it("createRunsProcedures returns an object with list, get, retry, cancel, and bulkRetry", async () => {
@@ -6,17 +6,23 @@ describe("runs procedures", () => {
 
 		// Mock procedure builder
 		const mockProcedure = {
-			input: (schema: any) => ({
+			// biome-ignore lint/suspicious/noExplicitAny: test mock procedure cast
+			input: (_schema: any) => ({
+				// biome-ignore lint/suspicious/noExplicitAny: test mock procedure cast
 				query: (fn: any) => ({ _def: { meta: { type: "query" } }, fn }),
+				// biome-ignore lint/suspicious/noExplicitAny: test mock procedure cast
 				mutation: (fn: any) => ({ _def: { meta: { type: "mutation" } }, fn }),
 			}),
 		};
 
 		// Mock router builder
+		// biome-ignore lint/suspicious/noExplicitAny: test mock procedure cast
 		const mockRouter = (routes: any) => routes;
 
 		const procs = createRunsProcedures(
+			// biome-ignore lint/suspicious/noExplicitAny: test mock procedure cast
 			{ procedure: mockProcedure, router: mockRouter } as any,
+			// biome-ignore lint/suspicious/noExplicitAny: test mock procedure cast
 			mockProcedure as any,
 		);
 

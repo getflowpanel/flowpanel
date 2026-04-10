@@ -11,18 +11,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function pgToDb(pool: Pool) {
 	return {
 		execute: async ({ sql, params }: { sql: string; params: unknown[] }) => {
+			// biome-ignore lint/suspicious/noExplicitAny: test helper any cast
 			const result = await pool.query(sql, params as any[]);
 			return result.rows;
 		},
+		// biome-ignore lint/suspicious/noExplicitAny: test helper any cast
 		transaction: async (fn: any) => {
 			const client = await pool.connect();
 			try {
 				await client.query("BEGIN");
 				const txDb = {
+					// biome-ignore lint/suspicious/noExplicitAny: test helper any cast
 					execute: async ({ sql, params }: any) => {
 						const r = await client.query(sql, params);
 						return r.rows;
 					},
+					// biome-ignore lint/suspicious/noExplicitAny: test helper any cast
 					transaction: async (fn2: any) => fn2(txDb),
 				};
 				const result = await fn(txDb);
@@ -60,12 +64,14 @@ afterAll(async () => {
 
 describe("drizzleAdapter integration", () => {
 	it("connects and runs a query", async () => {
+		// biome-ignore lint/suspicious/noExplicitAny: test helper any cast
 		const db = drizzleAdapter({ db: pgToDb(pool) as any });
 		const rows = await db.execute("SELECT 1 AS value", []);
 		expect(rows[0]).toMatchObject({ value: 1 });
 	});
 
 	it("advisory lock round-trip", async () => {
+		// biome-ignore lint/suspicious/noExplicitAny: test helper any cast
 		const db = drizzleAdapter({ db: pgToDb(pool) as any });
 		const key = BigInt("12345678");
 		await db.advisoryLock(key);
@@ -77,6 +83,7 @@ describe("drizzleAdapter integration", () => {
 			user: "test",
 			password: "test",
 		});
+		// biome-ignore lint/suspicious/noExplicitAny: test helper any cast
 		const db2 = drizzleAdapter({ db: pgToDb(pool2) as any });
 		const acquired = await db2.advisoryTryLock(key);
 		expect(acquired).toBe(false);
@@ -85,6 +92,7 @@ describe("drizzleAdapter integration", () => {
 	});
 
 	it("applyMigrations creates flowpanel tables", async () => {
+		// biome-ignore lint/suspicious/noExplicitAny: test helper any cast
 		const db = drizzleAdapter({ db: pgToDb(pool) as any });
 		const migrationsDir = path.resolve(__dirname, "../../../../core/migrations");
 		const { applied } = await applyMigrations(db, [migrationsDir]);
@@ -101,6 +109,7 @@ describe("drizzleAdapter integration", () => {
 	});
 
 	it("applyMigrations is idempotent", async () => {
+		// biome-ignore lint/suspicious/noExplicitAny: test helper any cast
 		const db = drizzleAdapter({ db: pgToDb(pool) as any });
 		const migrationsDir = path.resolve(__dirname, "../../../../core/migrations");
 		const { applied: firstApply } = await applyMigrations(db, [migrationsDir]);

@@ -1,5 +1,3 @@
-import React from "react";
-
 interface BreakdownItem {
 	label: string;
 	value: number;

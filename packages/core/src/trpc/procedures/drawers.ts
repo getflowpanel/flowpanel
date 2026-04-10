@@ -2,7 +2,9 @@ import { z } from "zod";
 import type { FlowPanelContext } from "../context.js";
 
 export function createDrawersProcedures(
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
 	t: { procedure: any; router: (routes: any) => any },
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC internal procedure type
 	authedProcedure: any,
 ) {
 	return t.router({
@@ -14,8 +16,10 @@ export function createDrawersProcedures(
 					timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
 				}),
 			)
+			// biome-ignore lint/suspicious/noExplicitAny: tRPC context and input types are dynamically typed at runtime
 			.query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
 				const { db, config } = ctx;
+				// biome-ignore lint/suspicious/noExplicitAny: FlowPanelConfig extensions are dynamically shaped
 				const drawerConfig = (config as any).drawers?.[input.drawerId];
 				if (!drawerConfig) throw new Error(`Drawer "${input.drawerId}" not found in config`);
 
@@ -46,6 +50,7 @@ export function createDrawersProcedures(
 	});
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: tRPC runtime types — db/config/section/input are dynamically shaped
 async function renderSection(db: any, config: any, section: any, input: any): Promise<unknown> {
 	const timeWhere = input.timeRange ? `WHERE started_at >= $1 AND started_at < $2` : "";
 	const timeParams = input.timeRange ? [input.timeRange.start, input.timeRange.end] : [];

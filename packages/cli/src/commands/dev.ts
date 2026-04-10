@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
+import { platform } from "node:os";
 import { watch } from "chokidar";
 import kleur from "kleur";
-import { platform } from "os";
 import { loadConfig } from "../loadConfig.js";
 
 export async function runDev(opts: { port?: string }) {
@@ -22,10 +22,10 @@ export async function runDev(opts: { port?: string }) {
 	console.log(`  Config:     ${kleur.gray("flowpanel.config.ts")} (watching)`);
 	console.log(`  Stages:     ${kleur.gray(config.pipeline?.stages?.join(", ") ?? "none")}`);
 	console.log(
-		`  Metrics:    ${kleur.gray(String(Object.keys(config.metrics ?? {}).length) + " configured")}`,
+		`  Metrics:    ${kleur.gray(`${String(Object.keys(config.metrics ?? {}).length)} configured`)}`,
 	);
 	console.log(
-		`  Drawers:    ${kleur.gray(String(Object.keys(config.drawers ?? {}).length) + " configured")}`,
+		`  Drawers:    ${kleur.gray(`${String(Object.keys(config.drawers ?? {}).length)} configured`)}`,
 	);
 	console.log(`\n  Watching for config changes... (Ctrl+C to stop)\n`);
 

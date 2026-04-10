@@ -112,8 +112,8 @@ describe("parameterized queries", () => {
 			.where({ timeRange: "24h" })
 			.chartBuckets("24h", "postgres");
 		expect(result.sql).toContain("started_at >=");
-		expect(result.params!.length).toBeGreaterThan(0);
-		expect(typeof result.params![0]).toBe("string");
+		expect(result.params?.length).toBeGreaterThan(0);
+		expect(typeof result.params?.[0]).toBe("string");
 	});
 
 	it("count() without filters has empty params", () => {

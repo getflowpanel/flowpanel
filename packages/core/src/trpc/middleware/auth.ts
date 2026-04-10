@@ -5,11 +5,13 @@ export interface AuthMiddlewareResult {
 	session: import("../../types/config.js").Session;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
 export function createAuthMiddleware(t: { middleware: (fn: (opts: any) => any) => any }) {
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
 	return t.middleware(async ({ ctx, next }: { ctx: FlowPanelContext; next: any }) => {
 		const { config, req } = ctx;
 
-		let session;
+		let session: import("../../types/config.js").Session | null = null;
 		try {
 			session = await (
 				config.security.auth.getSession as (
