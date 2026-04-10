@@ -45,7 +45,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
   let dbPromise: Promise<SqlExecutor> | null = null;
   function getDb(): Promise<SqlExecutor> {
     if (!dbPromise) {
-      dbPromise = resolveDb(config.adapter);
+      dbPromise = resolveDb(config.adapter as SqlExecutorFactory);
     }
     return dbPromise;
   }

@@ -37,7 +37,16 @@ export const flowPanelConfigSchema = z.object({
   timezone: timezoneSchema.default("UTC"),
   basePath: z.string().startsWith("/").default("/admin"),
 
-  adapter: z.any(),
+  adapter: z.union([
+    z
+      .object({
+        execute: z.function(),
+        transaction: z.function(),
+        dialect: z.enum(["postgres"]),
+      })
+      .passthrough(),
+    z.function(),
+  ]),
 
   pipeline: z.object({
     stages: z

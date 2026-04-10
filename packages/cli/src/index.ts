@@ -7,6 +7,12 @@ import { runInit } from "./commands/init.js";
 import { runMigrate, runMigrateGen, runMigrateStatus } from "./commands/migrate.js";
 import { runWorkerScan } from "./commands/worker-scan.js";
 
+const [major] = process.versions.node.split(".").map(Number);
+if (major < 18) {
+  console.error("FlowPanel requires Node.js 18+. You are running " + process.version);
+  process.exit(1);
+}
+
 const program = new Command()
   .name("flowpanel")
   .description("FlowPanel CLI — pipeline admin for Next.js")

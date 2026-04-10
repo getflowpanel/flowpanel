@@ -1,5 +1,5 @@
 import type { FlowPanelConfig } from "@flowpanel/core";
-import { useCallback, useEffect, useReducer, useState } from "react";
+import React, { useCallback, useEffect, useReducer, useState } from "react";
 import type { Command } from "./components/CommandPalette.js";
 import { CommandPalette } from "./components/CommandPalette.js";
 import { DemoBanner } from "./components/DemoBanner.js";
@@ -16,6 +16,7 @@ import { StageCard } from "./components/StageCard.js";
 import type { TabConfig } from "./components/Tabs.js";
 import { Tabs } from "./components/Tabs.js";
 import { ToastProvider } from "./components/Toast.js";
+import { FlowPanelContext } from "./context.js";
 import { useFlowPanelStream } from "./hooks/useFlowPanelStream.js";
 import { useKeyboard } from "./hooks/useKeyboard.js";
 import { resolveTheme, themeToStyle } from "./theme/index.js";
@@ -338,345 +339,354 @@ export function FlowPanelUI({
 
   return (
     <ToastProvider>
-      <div
-        className={rootClassName}
-        style={{ ...themeStyle, minHeight: "100vh" }}
-        data-testid="fp-root"
-      >
-        {/* Skip link for accessibility */}
-        <a
-          href="#fp-main"
-          style={{ position: "absolute", left: -9999, top: 0, zIndex: 100 }}
-          onFocus={(e) => {
-            (e.currentTarget as HTMLElement).style.left = "0";
-          }}
-          onBlur={(e) => {
-            (e.currentTarget as HTMLElement).style.left = "-9999px";
-          }}
+      <FlowPanelContext.Provider value={{ timezone: config.timezone ?? "UTC" }}>
+        <div
+          className={rootClassName}
+          style={{ ...themeStyle, minHeight: "100vh" }}
+          data-testid="fp-root"
         >
-          Skip to main content
-        </a>
-
-        <Header
-          appName={config.appName}
-          timeRange={timeRange}
-          onTimeRangeChange={setTimeRange}
-          timeRangePresets={timePresets}
-          liveStatus={liveStatus}
-          onCommandPaletteOpen={() => setPaletteOpen(true)}
-        />
-
-        {showDemoBanner && (
-          <DemoBanner
-            runCount={runsState.runs.length}
-            realRunCount={0}
-            onClear={() => {
-              void fetchData();
+          {/* Skip link for accessibility */}
+          <a
+            href="#fp-main"
+            style={{ position: "absolute", left: -9999, top: 0, zIndex: 100 }}
+            onFocus={(e) => {
+              (e.currentTarget as HTMLElement).style.left = "0";
             }}
+            onBlur={(e) => {
+              (e.currentTarget as HTMLElement).style.left = "-9999px";
+            }}
+          >
+            Skip to main content
+          </a>
+
+          <Header
+            appName={config.appName}
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            timeRangePresets={timePresets}
+            liveStatus={liveStatus}
+            onCommandPaletteOpen={() => setPaletteOpen(true)}
           />
-        )}
 
-        <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+          {showDemoBanner && (
+            <DemoBanner
+              runCount={runsState.runs.length}
+              realRunCount={0}
+              onClear={() => {
+                void fetchData();
+              }}
+            />
+          )}
 
-        <main id="fp-main" style={{ padding: "24px" }}>
-          {activeTab === "pipeline" && (
-            <>
-              {/* Metrics strip */}
-              <ErrorBoundary>
-                <section
-                  aria-label="Metrics"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                    gap: 12,
-                    marginBottom: 24,
-                  }}
-                >
-                  {Object.entries(config.metrics ?? {}).map(([name, mc]) => (
-                    <MetricCard
-                      key={name}
-                      label={mc.label}
-                      value={
-                        ((metrics[name] as { value?: unknown } | undefined)?.value ?? null) as
-                          | string
-                          | number
-                          | null
-                      }
-                      loading={loading}
-                      hasDrawer={!!mc.drawer}
-                      onClick={
-                        mc.drawer
-                          ? () => setDrawerState({ open: true, type: mc.drawer! })
-                          : undefined
-                      }
-                    />
-                  ))}
-                </section>
-              </ErrorBoundary>
+          <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-              {/* Stage cards */}
-              {stageData.length > 0 && (
+          <main id="fp-main" style={{ padding: "24px" }}>
+            {activeTab === "pipeline" && (
+              <>
+                {/* Metrics strip */}
                 <ErrorBoundary>
-                  <section aria-label="Pipeline stages" style={{ marginBottom: 24 }}>
-                    <SectionHeader label="Pipeline Stages" />
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                        gap: 12,
-                      }}
-                    >
-                      {stageData.map((s) => (
-                        <StageCard
-                          key={s.stage}
-                          stage={s.stage}
-                          color={theme.stageColors[s.stage] ?? "#818cf8"}
-                          total={s.total}
-                          succeeded={s.succeeded}
-                          failed={s.failed}
-                          running={s.running}
-                          avgDurationMs={s.avgDurationMs}
-                          selected={selectedStage === s.stage}
-                          loading={loading}
-                          onClick={() =>
-                            setSelectedStage((prev) => (prev === s.stage ? null : s.stage))
-                          }
-                        />
-                      ))}
-                    </div>
+                  <section
+                    aria-label="Metrics"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                      gap: 12,
+                      marginBottom: 24,
+                    }}
+                  >
+                    {Object.entries(config.metrics ?? {}).map(([name, mc]) => (
+                      <MetricCard
+                        key={name}
+                        label={mc.label}
+                        value={
+                          ((metrics[name] as { value?: unknown } | undefined)?.value ?? null) as
+                            | string
+                            | number
+                            | null
+                        }
+                        loading={loading}
+                        hasDrawer={!!mc.drawer}
+                        onClick={
+                          mc.drawer
+                            ? () => setDrawerState({ open: true, type: mc.drawer! })
+                            : undefined
+                        }
+                      />
+                    ))}
                   </section>
                 </ErrorBoundary>
-              )}
 
-              {/* Run chart */}
-              <ErrorBoundary>
-                <section aria-label="Run activity" style={{ marginBottom: 24 }}>
-                  <SectionHeader label="Activity" />
-                  <RunChart
-                    buckets={chartData?.buckets ?? []}
-                    peakBucket={chartData?.peakBucket}
-                    loading={loading}
-                  />
-                </section>
-              </ErrorBoundary>
+                {/* Stage cards */}
+                {stageData.length > 0 && (
+                  <ErrorBoundary>
+                    <section aria-label="Pipeline stages" style={{ marginBottom: 24 }}>
+                      <SectionHeader label="Pipeline Stages" />
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                          gap: 12,
+                        }}
+                      >
+                        {stageData.map((s) => (
+                          <StageCard
+                            key={s.stage}
+                            stage={s.stage}
+                            color={theme.stageColors[s.stage] ?? "#818cf8"}
+                            total={s.total}
+                            succeeded={s.succeeded}
+                            failed={s.failed}
+                            running={s.running}
+                            avgDurationMs={s.avgDurationMs}
+                            selected={selectedStage === s.stage}
+                            loading={loading}
+                            onClick={() =>
+                              setSelectedStage((prev) => (prev === s.stage ? null : s.stage))
+                            }
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  </ErrorBoundary>
+                )}
 
-              {topErrors.length > 0 && (
+                {/* Run chart */}
                 <ErrorBoundary>
-                  <section aria-label="Top errors" style={{ marginBottom: 24 }}>
-                    <SectionHeader label="Top Errors" />
-                    <div className="fp-card" style={{ padding: 16 }}>
-                      {topErrors.map((e) => (
-                        <div
-                          key={e.errorClass}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "8px 0",
-                            borderBottom: "1px solid var(--fp-border-1)",
-                            fontSize: 13,
-                          }}
-                        >
-                          <span style={{ color: "#ef4444", fontFamily: "var(--fp-font-mono)" }}>
-                            {e.errorClass}
-                          </span>
-                          <span
+                  <section aria-label="Run activity" style={{ marginBottom: 24 }}>
+                    <SectionHeader label="Activity" />
+                    <RunChart
+                      buckets={chartData?.buckets ?? []}
+                      peakBucket={chartData?.peakBucket}
+                      loading={loading}
+                    />
+                  </section>
+                </ErrorBoundary>
+
+                {topErrors.length > 0 && (
+                  <ErrorBoundary>
+                    <section aria-label="Top errors" style={{ marginBottom: 24 }}>
+                      <SectionHeader label="Top Errors" />
+                      <div className="fp-card" style={{ padding: 16 }}>
+                        {topErrors.map((e) => (
+                          <div
+                            key={e.errorClass}
                             style={{
-                              background: "rgba(239,68,68,0.1)",
-                              color: "#ef4444",
-                              padding: "2px 8px",
-                              borderRadius: 10,
-                              fontSize: 12,
-                              fontWeight: 500,
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "8px 0",
+                              borderBottom: "1px solid var(--fp-border-1)",
+                              fontSize: 13,
                             }}
                           >
-                            {e.count}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                </ErrorBoundary>
-              )}
+                            <span style={{ color: "#ef4444", fontFamily: "var(--fp-font-mono)" }}>
+                              {e.errorClass}
+                            </span>
+                            <span
+                              style={{
+                                background: "rgba(239,68,68,0.1)",
+                                color: "#ef4444",
+                                padding: "2px 8px",
+                                borderRadius: 10,
+                                fontSize: 12,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {e.count}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </ErrorBoundary>
+                )}
 
-              {/* Onboarding or Run log */}
-              <ErrorBoundary>
-                {showOnboarding && stageData.length === 0 ? (
-                  <section aria-label="Getting started">
-                    <div
-                      className="fp-card"
-                      style={{
-                        padding: "32px 24px",
-                        textAlign: "center",
-                      }}
-                    >
+                {/* Onboarding or Run log */}
+                <ErrorBoundary>
+                  {showOnboarding && stageData.length === 0 ? (
+                    <section aria-label="Getting started">
                       <div
+                        className="fp-card"
                         style={{
-                          fontSize: 15,
-                          fontWeight: 600,
-                          color: "var(--fp-text-1)",
-                          marginBottom: 8,
+                          padding: "32px 24px",
+                          textAlign: "center",
                         }}
                       >
-                        Get started with FlowPanel
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          color: "var(--fp-text-3)",
-                          marginBottom: 16,
-                        }}
-                      >
-                        Add withRun() to start tracking runs
-                      </div>
-                      <pre
-                        style={{
-                          display: "inline-block",
-                          textAlign: "left",
-                          padding: "16px 20px",
-                          background: "var(--fp-surface-1)",
-                          border: "1px solid var(--fp-border-1)",
-                          borderRadius: 8,
-                          fontFamily: "var(--fp-font-mono)",
-                          fontSize: 12,
-                          color: "var(--fp-text-2)",
-                          lineHeight: 1.6,
-                          overflow: "auto",
-                          maxWidth: "100%",
-                        }}
-                      >
-                        {`import { withRun } from "@flowpanel/core";
+                        <div
+                          style={{
+                            fontSize: 15,
+                            fontWeight: 600,
+                            color: "var(--fp-text-1)",
+                            marginBottom: 8,
+                          }}
+                        >
+                          Get started with FlowPanel
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            color: "var(--fp-text-3)",
+                            marginBottom: 16,
+                          }}
+                        >
+                          Add withRun() to start tracking runs
+                        </div>
+                        <pre
+                          style={{
+                            display: "inline-block",
+                            textAlign: "left",
+                            padding: "16px 20px",
+                            background: "var(--fp-surface-1)",
+                            border: "1px solid var(--fp-border-1)",
+                            borderRadius: 8,
+                            fontFamily: "var(--fp-font-mono)",
+                            fontSize: 12,
+                            color: "var(--fp-text-2)",
+                            lineHeight: 1.6,
+                            overflow: "auto",
+                            maxWidth: "100%",
+                          }}
+                        >
+                          {`import { withRun } from "@flowpanel/core";
 
 await withRun({ stage: "parse", partitionKey: "doc-1" }, async (run) => {
   // your pipeline logic
   run.setMeta({ tokens: 420 });
 });`}
-                      </pre>
-                    </div>
-                  </section>
-                ) : (
-                  <section aria-label="Run log">
-                    <SectionHeader
-                      label="Run Log"
-                      meta={
-                        runsState.runs.length > 0 && !loading
-                          ? `${runsState.runs.length.toLocaleString()} total`
-                          : undefined
-                      }
-                    />
-                    <div className="fp-card" style={{ overflow: "hidden" }}>
-                      <RunTable
-                        runs={runsState.runs}
-                        columns={runLogColumns}
-                        stageColors={theme.stageColors}
-                        loading={loading}
-                        hasNextPage={!!runsState.nextCursor}
-                        onLoadMore={handleLoadMore}
-                        newRunsBanner={
-                          runsState.bufferedNewRuns.length > 0
-                            ? runsState.bufferedNewRuns.length
+                        </pre>
+                      </div>
+                    </section>
+                  ) : (
+                    <section aria-label="Run log">
+                      <SectionHeader
+                        label="Run Log"
+                        meta={
+                          runsState.runs.length > 0 && !loading
+                            ? `${runsState.runs.length.toLocaleString()} total`
                             : undefined
                         }
-                        onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
-                        onRowClick={(run) => {
-                          setSelectedRunId(String(run.id));
-                          setDrawerState({
-                            open: true,
-                            type: "runDetail",
-                            runId: String(run.id),
-                          });
-                        }}
-                        selectedRunId={selectedRunId}
                       />
-                    </div>
-                  </section>
-                )}
-              </ErrorBoundary>
-            </>
-          )}
+                      <div className="fp-card" style={{ overflow: "hidden" }}>
+                        <RunTable
+                          runs={runsState.runs}
+                          columns={runLogColumns}
+                          stageColors={theme.stageColors}
+                          loading={loading}
+                          hasNextPage={!!runsState.nextCursor}
+                          onLoadMore={handleLoadMore}
+                          newRunsBanner={
+                            runsState.bufferedNewRuns.length > 0
+                              ? runsState.bufferedNewRuns.length
+                              : undefined
+                          }
+                          onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
+                          onRowClick={(run) => {
+                            setSelectedRunId(String(run.id));
+                            setDrawerState({
+                              open: true,
+                              type: "runDetail",
+                              runId: String(run.id),
+                            });
+                          }}
+                          selectedRunId={selectedRunId}
+                        />
+                      </div>
+                    </section>
+                  )}
+                </ErrorBoundary>
+              </>
+            )}
 
-          {/* Non-pipeline tabs */}
-          {activeTab !== "pipeline" &&
-            (() => {
-              const tabConfig = tabs.find((t) => t.id === activeTab);
-              return (
-                <div
-                  id={`fp-tabpanel-${activeTab}`}
-                  role="tabpanel"
-                  aria-labelledby={`fp-tab-${activeTab}`}
-                  style={{
-                    color: "var(--fp-text-3)",
-                    padding: 40,
-                    textAlign: "center",
-                  }}
-                >
-                  {tabConfig?.label ?? activeTab} view — coming soon
-                </div>
-              );
-            })()}
-        </main>
+            {/* Non-pipeline tabs */}
+            {activeTab !== "pipeline" &&
+              (() => {
+                const tabEntry = config.tabs?.find((t) => t.id === activeTab);
+                if (tabEntry && (tabEntry as any).component) {
+                  const TabComponent = (tabEntry as any).component as React.ComponentType<{
+                    config: typeof config;
+                    timeRange: string;
+                  }>;
+                  return <TabComponent config={config} timeRange={timeRange} />;
+                }
+                return (
+                  <div
+                    id={`fp-tabpanel-${activeTab}`}
+                    role="tabpanel"
+                    aria-labelledby={`fp-tab-${activeTab}`}
+                    style={{
+                      color: "var(--fp-text-3)",
+                      padding: 40,
+                      textAlign: "center",
+                    }}
+                  >
+                    Configure <code>component</code> in tabs config to render this tab.
+                  </div>
+                );
+              })()}
+          </main>
 
-        {/* Drawers */}
-        <Drawer
-          open={drawerState.open}
-          onClose={() => setDrawerState({ open: false, type: "" })}
-          title={drawerTitle}
-        >
-          <div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
-            {drawerState.type === "runDetail"
-              ? `Run details for ${drawerState.runId}`
-              : "Loading drawer content..."}
-          </div>
-        </Drawer>
+          {/* Drawers */}
+          <Drawer
+            open={drawerState.open}
+            onClose={() => setDrawerState({ open: false, type: "" })}
+            title={drawerTitle}
+          >
+            <div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
+              {drawerState.type === "runDetail"
+                ? `Run details for ${drawerState.runId}`
+                : "Loading drawer content..."}
+            </div>
+          </Drawer>
 
-        {/* Command palette */}
-        <CommandPalette
-          open={paletteOpen}
-          onClose={() => setPaletteOpen(false)}
-          commands={builtinCommands}
-        />
+          {/* Command palette */}
+          <CommandPalette
+            open={paletteOpen}
+            onClose={() => setPaletteOpen(false)}
+            commands={builtinCommands}
+          />
 
-        {/* Keyboard help */}
-        <KeyboardHelp open={keyboardHelpOpen} onClose={() => setKeyboardHelpOpen(false)} />
+          {/* Keyboard help */}
+          <KeyboardHelp open={keyboardHelpOpen} onClose={() => setKeyboardHelpOpen(false)} />
 
-        {/* ARIA live region */}
-        <div
-          role="status"
-          aria-live="assertive"
-          aria-atomic="true"
-          style={{
-            position: "absolute",
-            left: -9999,
-            width: 1,
-            height: 1,
-            overflow: "hidden",
-          }}
-        >
-          {liveAnnouncement}
-        </div>
-
-        {/* SSE reconnect banner */}
-        {liveStatus === "reconnecting" && (
+          {/* ARIA live region */}
           <div
             role="status"
-            aria-live="polite"
+            aria-live="assertive"
+            aria-atomic="true"
             style={{
-              position: "fixed",
-              top: 52,
-              left: 0,
-              right: 0,
-              zIndex: 20,
-              background: "var(--fp-warn)",
-              color: "#000",
-              padding: "8px 24px",
-              textAlign: "center",
-              fontSize: 13,
+              position: "absolute",
+              left: -9999,
+              width: 1,
+              height: 1,
+              overflow: "hidden",
             }}
           >
-            Live updates paused — reconnecting...
+            {liveAnnouncement}
           </div>
-        )}
-      </div>
+
+          {/* SSE reconnect banner */}
+          {liveStatus === "reconnecting" && (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                position: "fixed",
+                top: 52,
+                left: 0,
+                right: 0,
+                zIndex: 20,
+                background: "var(--fp-warn)",
+                color: "#000",
+                padding: "8px 24px",
+                textAlign: "center",
+                fontSize: 13,
+              }}
+            >
+              Live updates paused — reconnecting...
+            </div>
+          )}
+        </div>
+      </FlowPanelContext.Provider>
     </ToastProvider>
   );
 }

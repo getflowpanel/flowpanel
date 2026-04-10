@@ -17,7 +17,10 @@ export function createAuthMiddleware(t: { middleware: (fn: (opts: any) => any) =
     }
 
     if (!session) {
-      throw new TRPCError({ code: "UNAUTHORIZED" });
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated. Ensure security.auth.getSession() returns { id, role? }.",
+      });
     }
 
     const requiredRole = (config.security as any).auth.requireRole;

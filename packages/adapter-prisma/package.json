@@ -22,6 +22,9 @@
     "@flowpanel/core": "workspace:*",
     "pg": "^8.11.0"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "devDependencies": {
     "tsup": "^8.0.0",
     "@types/node": "^20.0.0",
