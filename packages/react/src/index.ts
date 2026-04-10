@@ -27,3 +27,15 @@ export type { KeyBinding } from "./hooks/useKeyboard.js";
 export { useKeyboard } from "./hooks/useKeyboard.js";
 export type { ResolvedTheme } from "./theme/index.js";
 export { resolveTheme, themeToStyle } from "./theme/index.js";
+export { RunChart } from "./components/RunChart.js";
+export type { RunChartProps } from "./components/RunChart.js";
+export {
+  renderDrawerSections,
+  StatGridSection,
+  KvGridSection,
+  TrendChartSection,
+  BreakdownSection,
+  ErrorListSection,
+  ErrorBlockSection,
+  TimelineSection,
+} from "./components/drawer-sections/index.js";

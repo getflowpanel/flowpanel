@@ -20,6 +20,26 @@ const bulkRetryInputSchema = z.object({
 });
 const cancelInputSchema = z.object({ runId: z.string() });
 
+const chartInputSchema = z.object({
+  timeRange: z.enum(["1h", "6h", "24h", "7d", "30d"]),
+});
+
+const topErrorsInputSchema = z.object({
+  timeRange: z.enum(["1h", "6h", "24h", "7d", "30d"]),
+  limit: z.number().min(1).max(50).default(10).optional(),
+});
+
+function getIntervalSql(timeRange: string): string {
+  const map: Record<string, string> = {
+    "1h": "1 hour",
+    "6h": "6 hours",
+    "24h": "24 hours",
+    "7d": "7 days",
+    "30d": "30 days",
+  };
+  return map[timeRange] ?? "24 hours";
+}
+
 function applyRowLevelFilter(
   config: FlowPanelContext["config"],
   session: any,
@@ -270,6 +290,108 @@ export function createRunsProcedures(
           }
 
           return { total: runs.length, results };
+        },
+      ),
+
+    chart: authedProcedure
+      .input(chartInputSchema)
+      .query(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: FlowPanelContext & { session: any };
+          input: z.infer<typeof chartInputSchema>;
+        }) => {
+          const { db } = ctx;
+          const interval = getIntervalSql(input.timeRange);
+
+          const bucketConfigs: Record<string, { count: number; stepMinutes: number }> = {
+            "1h": { count: 12, stepMinutes: 5 },
+            "6h": { count: 12, stepMinutes: 30 },
+            "24h": { count: 24, stepMinutes: 60 },
+            "7d": { count: 28, stepMinutes: 360 },
+            "30d": { count: 30, stepMinutes: 1440 },
+          };
+
+          const { count: bucketCount, stepMinutes } = bucketConfigs[input.timeRange];
+
+          const rows = await db.execute<{
+            bucket: string;
+            total: string;
+            succeeded: string;
+            failed: string;
+          }>(
+            `WITH buckets AS (
+              SELECT generate_series(
+                now() - interval '${interval}',
+                now() - interval '${stepMinutes} minutes',
+                interval '${stepMinutes} minutes'
+              ) AS bucket_start
+            )
+            SELECT
+              b.bucket_start AS bucket,
+              COALESCE(COUNT(r.id), 0) AS total,
+              COALESCE(COUNT(r.id) FILTER (WHERE r.status = 'succeeded'), 0) AS succeeded,
+              COALESCE(COUNT(r.id) FILTER (WHERE r.status = 'failed'), 0) AS failed
+            FROM buckets b
+            LEFT JOIN flowpanel_pipeline_run r
+              ON r.started_at >= b.bucket_start
+              AND r.started_at < b.bucket_start + interval '${stepMinutes} minutes'
+            GROUP BY b.bucket_start
+            ORDER BY b.bucket_start`,
+            [],
+          );
+
+          const buckets = rows.map((row) => ({
+            label: String(row.bucket),
+            total: Number(row.total),
+            succeeded: Number(row.succeeded),
+            failed: Number(row.failed),
+          }));
+
+          let peakBucket = 0;
+          let peakTotal = 0;
+          for (let i = 0; i < buckets.length; i++) {
+            if (buckets[i].total > peakTotal) {
+              peakTotal = buckets[i].total;
+              peakBucket = i;
+            }
+          }
+
+          return { buckets, peakBucket };
+        },
+      ),
+
+    topErrors: authedProcedure
+      .input(topErrorsInputSchema)
+      .query(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: FlowPanelContext & { session: any };
+          input: z.infer<typeof topErrorsInputSchema>;
+        }) => {
+          const { db } = ctx;
+          const interval = getIntervalSql(input.timeRange);
+          const limit = input.limit ?? 10;
+
+          const rows = await db.execute<{ error_class: string; count: string }>(
+            `SELECT error_class, COUNT(*) AS count
+            FROM flowpanel_pipeline_run
+            WHERE error_class IS NOT NULL
+              AND started_at >= now() - interval '${interval}'
+            GROUP BY error_class
+            ORDER BY count DESC
+            LIMIT $1`,
+            [limit],
+          );
+
+          return rows.map((row) => ({
+            errorClass: row.error_class,
+            count: Number(row.count),
+          }));
         },
       ),
   });

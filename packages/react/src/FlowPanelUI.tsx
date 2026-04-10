@@ -8,6 +8,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary.js";
 import { Header } from "./components/Header.js";
 import { KeyboardHelp } from "./components/KeyboardHelp.js";
 import { MetricCard } from "./components/MetricCard.js";
+import { RunChart } from "./components/RunChart.js";
 import type { RunLogColumn } from "./components/RunTable.js";
 import { RunTable } from "./components/RunTable.js";
 import { SectionHeader } from "./components/SectionHeader.js";
@@ -119,12 +120,17 @@ export function FlowPanelUI({
   });
   const [loading, setLoading] = useState(true);
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  const [chartData, setChartData] = useState<{
+    buckets: Array<{ label: string; total: number; succeeded: number; failed: number }>;
+    peakBucket: number;
+  } | null>(null);
+  const [topErrors, setTopErrors] = useState<Array<{ errorClass: string; count: number }>>([]);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [metricsData, stagesData, runsData] = await Promise.all([
+      const [metricsData, stagesData, runsData, chartResult, errorsResult] = await Promise.all([
         fetchJson<Record<string, unknown>>(
           `${trpcBaseUrl}/flowpanel.metrics.current?input=${encodeURIComponent(
             JSON.stringify({ timeRange }),
@@ -152,6 +158,19 @@ export function FlowPanelUI({
             JSON.stringify({ timeRange, stage: selectedStage, limit: 50 }),
           )}`,
         ),
+        fetchJson<{
+          buckets: Array<{ label: string; total: number; succeeded: number; failed: number }>;
+          peakBucket: number;
+        }>(
+          `${trpcBaseUrl}/flowpanel.runs.chart?input=${encodeURIComponent(
+            JSON.stringify({ timeRange }),
+          )}`,
+        ).catch(() => null),
+        fetchJson<Array<{ errorClass: string; count: number }>>(
+          `${trpcBaseUrl}/flowpanel.runs.topErrors?input=${encodeURIComponent(
+            JSON.stringify({ timeRange }),
+          )}`,
+        ).catch(() => []),
       ]);
       setMetrics(metricsData);
       setStageData(stagesData);
@@ -160,6 +179,8 @@ export function FlowPanelUI({
         runs: runsData.runs,
         nextCursor: runsData.nextCursor,
       });
+      setChartData(chartResult);
+      setTopErrors(errorsResult);
     } catch (err) {
       console.error("[FlowPanel] fetch error:", err);
     } finally {
@@ -421,6 +442,57 @@ export function FlowPanelUI({
                             setSelectedStage((prev) => (prev === s.stage ? null : s.stage))
                           }
                         />
+                      ))}
+                    </div>
+                  </section>
+                </ErrorBoundary>
+              )}
+
+              {/* Run chart */}
+              <ErrorBoundary>
+                <section aria-label="Run activity" style={{ marginBottom: 24 }}>
+                  <SectionHeader label="Activity" />
+                  <RunChart
+                    buckets={chartData?.buckets ?? []}
+                    peakBucket={chartData?.peakBucket}
+                    loading={loading}
+                  />
+                </section>
+              </ErrorBoundary>
+
+              {topErrors.length > 0 && (
+                <ErrorBoundary>
+                  <section aria-label="Top errors" style={{ marginBottom: 24 }}>
+                    <SectionHeader label="Top Errors" />
+                    <div className="fp-card" style={{ padding: 16 }}>
+                      {topErrors.map((e) => (
+                        <div
+                          key={e.errorClass}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "8px 0",
+                            borderBottom: "1px solid var(--fp-border-1)",
+                            fontSize: 13,
+                          }}
+                        >
+                          <span style={{ color: "#ef4444", fontFamily: "var(--fp-font-mono)" }}>
+                            {e.errorClass}
+                          </span>
+                          <span
+                            style={{
+                              background: "rgba(239,68,68,0.1)",
+                              color: "#ef4444",
+                              padding: "2px 8px",
+                              borderRadius: 10,
+                              fontSize: 12,
+                              fontWeight: 500,
+                            }}
+                          >
+                            {e.count}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   </section>
