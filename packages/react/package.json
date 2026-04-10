@@ -1,6 +1,20 @@
 {
   "name": "@flowpanel/react",
   "version": "0.1.0",
+  "description": "React UI components for FlowPanel admin dashboard",
+  "keywords": [
+    "flowpanel",
+    "admin",
+    "pipeline",
+    "dashboard"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ch4m4/flowpanel",
+    "directory": "packages/react"
+  },
+  "license": "MIT",
+  "homepage": "https://flowpanel.dev",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
