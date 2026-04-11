@@ -1,65 +1,55 @@
 import { Command } from "commander";
-import { runAuditExport } from "./commands/audit-export.js";
-import { runDemoClear } from "./commands/demo-clear.js";
-import { runDiff } from "./commands/diff.js";
+import kleur from "kleur";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
-import { runMigrate, runMigrateGen, runMigrateStatus } from "./commands/migrate.js";
-import { runWorkerScan } from "./commands/worker-scan.js";
+import { runMigrate, runMigrateStatus } from "./commands/migrate.js";
+import { runDemo } from "./commands/demo.js";
+import { showContextualHelp } from "./help.js";
+
+const [major] = process.versions.node.split(".").map(Number);
+if (major < 18) {
+  console.error("FlowPanel requires Node.js 18+. You are running " + process.version);
+  process.exit(1);
+}
 
 const program = new Command()
   .name("flowpanel")
-  .description("FlowPanel CLI — pipeline admin for Next.js")
-  .version("0.1.0");
+  .description(`${kleur.cyan("◆")} FlowPanel v0.1.0`)
+  .version("0.1.0")
+  .action(() => showContextualHelp());
 
 program
   .command("init")
-  .description("Scaffold config, page, mount tRPC, seed demo data")
+  .description("Add FlowPanel to your project")
   .action(() => runInit());
 
 program
   .command("migrate")
-  .description("Apply pending schema migrations")
-  .action(() => runMigrate());
-
-program
-  .command("migrate:gen")
-  .description("Generate migration from config diff")
-  .action(() => runMigrateGen());
-
-program
-  .command("migrate:status")
-  .description("Show applied/pending migrations")
-  .action(() => runMigrateStatus());
+  .description("Sync database with config")
+  .option("--dry-run", "Show SQL without applying")
+  .option("--status", "Show applied/pending migrations")
+  .action((opts) => {
+    if (opts.status) {
+      return runMigrateStatus();
+    }
+    return runMigrate({ dryRun: opts.dryRun ?? false });
+  });
 
 program
   .command("doctor")
-  .description("Health check: auth, schema, indexes, security, TS types")
+  .description("Check setup and troubleshoot")
   .option("--prod", "Pre-deploy security checklist (exits 1 on any failure)")
+  .option("--json", "Output as JSON")
   .action((opts) => runDoctor({ prod: opts.prod ?? false }));
 
 program
-  .command("diff")
-  .description("Show config ↔ DB schema drift")
-  .action(() => runDiff());
-
-program
-  .command("demo:clear")
-  .description("Remove seeded demo data")
-  .action(() => runDemoClear());
-
-program
-  .command("worker:scan")
-  .description("Scan processors, suggest withRun() wrapping")
-  .action(() => runWorkerScan());
-
-program
-  .command("audit:export")
-  .description("Export audit log to CSV or NDJSON")
-  .option("--from <date>", "Start date")
-  .option("--to <date>", "End date")
-  .option("--format <fmt>", "csv or ndjson", "csv")
-  .option("--out <file>", "Output file path")
-  .action((opts) => runAuditExport(opts));
+  .command("demo")
+  .description("Try FlowPanel with sample data")
+  .option("--port <number>", "Server port", "4400")
+  .option("--clear", "Clear seeded demo data instead")
+  .option("--no-open", "Do not open browser automatically")
+  .action((opts) =>
+    runDemo({ port: Number(opts.port), clear: opts.clear ?? false, open: opts.open ?? true }),
+  );
 
 program.parse();

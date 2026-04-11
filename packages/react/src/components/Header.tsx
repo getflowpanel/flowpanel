@@ -51,30 +51,18 @@ export function Header({
   return (
     <header
       ref={headerRef}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 24px",
-        height: 52,
-        borderBottom: "1px solid var(--fp-border-1)",
-      }}
+      className="fp:flex fp:items-center fp:justify-between fp:px-6 fp:h-[52px] fp:border-b fp:border-border"
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fp-text-1)" }}>{appName}</span>
+      <div className="fp:flex fp:items-center fp:gap-2">
+        <span className="fp:text-[13px] fp:font-semibold fp:text-foreground">{appName}</span>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div className="fp:flex fp:items-center fp:gap-3">
         {/* Segmented time range buttons */}
         <div
           role="group"
           aria-label="Time range"
-          style={{
-            display: "flex",
-            borderRadius: 6,
-            overflow: "hidden",
-            border: "1px solid var(--fp-border-1)",
-          }}
+          className="fp:flex fp:rounded-md fp:overflow-hidden fp:border fp:border-border"
         >
           {timeRangePresets.map((preset) => {
             const active = preset === timeRange;
@@ -86,13 +74,14 @@ export function Header({
                 style={{
                   padding: "5px 10px",
                   background: active ? "var(--fp-accent-dim)" : "transparent",
-                  color: active ? "var(--fp-accent-text)" : "var(--fp-text-2)",
+                  color: active ? "var(--fp-accent-text)" : undefined,
                   border: "none",
                   cursor: "pointer",
                   fontSize: 12,
                   fontWeight: active ? 600 : 400,
                   transition: "background var(--fp-duration) ease, color var(--fp-duration) ease",
                 }}
+                className={active ? "" : "fp:text-muted-foreground"}
               >
                 {preset}
               </button>
@@ -105,30 +94,15 @@ export function Header({
           <button
             onClick={onCommandPaletteOpen}
             aria-label="Open command palette"
-            style={{
-              padding: "4px 8px",
-              borderRadius: 4,
-              background: "var(--fp-surface-2)",
-              border: "1px solid var(--fp-border-1)",
-              color: "var(--fp-text-3)",
-              cursor: "pointer",
-              fontSize: 11,
-              fontFamily: "var(--fp-font-mono)",
-            }}
+            className="fp:py-1 fp:px-2 fp:rounded fp:bg-muted fp:border fp:border-border fp:text-muted-foreground fp:cursor-pointer fp:text-[11px] fp:font-mono"
           >
-            <kbd style={{ fontFamily: "inherit" }}>⌘K</kbd>
+            <kbd className="fp:font-[inherit]">⌘K</kbd>
           </button>
         )}
 
         {/* Live indicator */}
         <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            fontSize: 12,
-            color: "var(--fp-text-2)",
-          }}
+          className="fp:flex fp:items-center fp:gap-[5px] fp:text-xs fp:text-muted-foreground"
           aria-live="polite"
           aria-label={`Connection: ${lsCfg.label}`}
         >

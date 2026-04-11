@@ -1,6 +1,20 @@
 {
   "name": "@flowpanel/core",
   "version": "0.1.0",
+  "description": "Config-driven admin panel framework for Node.js pipelines",
+  "keywords": [
+    "flowpanel",
+    "admin",
+    "pipeline",
+    "dashboard"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ch4m4/flowpanel",
+    "directory": "packages/core"
+  },
+  "license": "MIT",
+  "homepage": "https://flowpanel.dev",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -24,6 +38,9 @@
   "dependencies": {
     "@trpc/server": "^11.16.0",
     "zod": "^3.23.0"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

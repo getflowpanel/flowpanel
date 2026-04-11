@@ -1,8 +1,9 @@
 export { z } from "zod";
 export type { FlowPanelConfig, FlowPanelConfigInput } from "./config/schema.js";
+export { flowPanelConfigSchema } from "./config/schema.js";
 export type { FlowPanel } from "./defineFlowPanel.js";
 export { defineFlowPanel } from "./defineFlowPanel.js";
-export { applyMigrations, getMigrationStatus } from "./migrationRunner.js";
+export { applyMigrations, getMigrationStatus, loadMigrationFiles } from "./migrationRunner.js";
 export { createQueryBuilder } from "./queryBuilder.js";
 export { createReaper } from "./reaper.js";
 export { generateSchema } from "./schemaGenerator.js";

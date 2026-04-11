@@ -1,7 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { applyMigrations, getMigrationStatus } from "@flowpanel/core";
+import { applyMigrations, getMigrationStatus, loadMigrationFiles } from "@flowpanel/core";
 import kleur from "kleur";
+import ora from "ora";
 import { formatError, formatSuccess } from "../utils/error-format.js";
 
 async function loadConfig() {
@@ -23,9 +24,8 @@ async function loadConfig() {
   }
 }
 
-export async function runMigrate(): Promise<void> {
+export async function runMigrate(opts?: { dryRun?: boolean }): Promise<void> {
   const { config, cwd } = await loadConfig();
-  const db = await config.getDb();
 
   const builtinMigrationsDir = path.resolve(
     new URL(import.meta.url).pathname,
@@ -33,25 +33,40 @@ export async function runMigrate(): Promise<void> {
   );
   const userMigrationsDir = path.join(cwd, "flowpanel", "migrations");
 
+  if (opts?.dryRun) {
+    const files = await loadMigrationFiles([builtinMigrationsDir, userMigrationsDir]);
+    if (files.length === 0) {
+      console.log(kleur.gray("  No migration files found."));
+      return;
+    }
+    for (const file of files) {
+      console.log(kleur.cyan(`\n-- Migration: ${file.id}`));
+      console.log(file.sql);
+    }
+    return;
+  }
+
+  const db = await config.getDb();
+  const spinner = ora("Applying migrations...").start();
+
   try {
     const { applied, skipped } = await applyMigrations(
       db,
       [builtinMigrationsDir, userMigrationsDir],
       (id) => {
-        console.log(formatSuccess(`Applied migration: ${id}`));
+        spinner.text = `Applied migration: ${id}`;
       },
     );
 
     if (applied.length === 0) {
-      console.log(kleur.gray("  No pending migrations. Schema is up to date."));
+      spinner.succeed("No pending migrations. Schema is up to date.");
     } else {
-      console.log(
-        formatSuccess(`Applied ${applied.length} migration(s). ${skipped.length} already applied.`),
-      );
+      spinner.succeed(`Applied ${applied.length} migration(s). ${skipped.length} already applied.`);
     }
   } catch (err) {
     const message = String(err);
     if (message.includes("already exists")) {
+      spinner.fail("Migration failed");
       console.error(
         formatError({
           problem: "Migration failed",
@@ -62,6 +77,7 @@ export async function runMigrate(): Promise<void> {
         }),
       );
     } else {
+      spinner.fail("Migration failed");
       console.error(
         formatError({
           problem: "Migration failed",

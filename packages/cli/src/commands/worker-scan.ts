@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import kleur from "kleur";
@@ -75,7 +76,7 @@ async function findFiles(cwd: string, pattern: string): Promise<string[]> {
     const segment = remaining[0]!;
     const rest = remaining.slice(1);
 
-    let entries: fs.Dirent[];
+    let entries: Dirent[];
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
     } catch {

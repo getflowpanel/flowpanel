@@ -1,6 +1,20 @@
 {
   "name": "@flowpanel/adapter-prisma",
   "version": "0.1.0",
+  "description": "Prisma ORM database adapter for FlowPanel",
+  "keywords": [
+    "flowpanel",
+    "admin",
+    "pipeline",
+    "dashboard"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ch4m4/flowpanel",
+    "directory": "packages/adapter-prisma"
+  },
+  "license": "MIT",
+  "homepage": "https://flowpanel.dev",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,6 +35,9 @@
   "dependencies": {
     "@flowpanel/core": "workspace:*",
     "pg": "^8.11.0"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

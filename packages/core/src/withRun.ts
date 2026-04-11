@@ -40,12 +40,19 @@ export function createWithRun(opts: WithRunOptions) {
     }
 
     // INSERT running row
-    const rows = await db.execute<{ id: bigint }>(
-      `INSERT INTO flowpanel_pipeline_run (stage, status, started_at)
-       VALUES ($1, $2, now())
-       RETURNING id`,
-      [stage, "running"],
-    );
+    let rows: { id: bigint }[];
+    try {
+      rows = await db.execute<{ id: bigint }>(
+        `INSERT INTO flowpanel_pipeline_run (stage, status, started_at)
+         VALUES ($1, $2, now())
+         RETURNING id`,
+        [stage, "running"],
+      );
+    } catch (err) {
+      throw new Error(
+        `[flowpanel] Failed to start run for stage "${stage}". Check database connectivity and run: npx flowpanel migrate. Original: ${(err as Error).message}`,
+      );
+    }
 
     const runId = rows[0]?.id;
     if (runId == null) throw new Error("[flowpanel] Failed to create run row");
@@ -102,15 +109,17 @@ export function createWithRun(opts: WithRunOptions) {
         );
 
         if (updated.length > 0) {
-          // Emit pg_notify for SSE delivery
-          await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
-            JSON.stringify({
-              event: "run.finished",
-              id: String(runId),
-              stage,
-              status: "succeeded",
-            }),
-          ]);
+          // Emit pg_notify for SSE delivery (silent fail — SSE fallback handles it)
+          try {
+            await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
+              JSON.stringify({
+                event: "run.finished",
+                id: String(runId),
+                stage,
+                status: "succeeded",
+              }),
+            ]);
+          } catch {}
         }
 
         if (debug) console.debug(`[flowpanel] withRun("${stage}")  succeeded  runId=${runId}`);
@@ -125,15 +134,18 @@ export function createWithRun(opts: WithRunOptions) {
           [String(runId), new Date(), errorClass, errorMessage, errorStack],
         );
 
-        await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
-          JSON.stringify({
-            event: "run.failed",
-            id: String(runId),
-            stage,
-            status: "failed",
-            errorClass,
-          }),
-        ]);
+        // Emit pg_notify for SSE delivery (silent fail — SSE fallback handles it)
+        try {
+          await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
+            JSON.stringify({
+              event: "run.failed",
+              id: String(runId),
+              stage,
+              status: "failed",
+              errorClass,
+            }),
+          ]);
+        } catch {}
 
         if (debug)
           console.debug(

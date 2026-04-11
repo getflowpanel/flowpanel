@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { generateSchema } from "@flowpanel/core";
 import kleur from "kleur";
+import ora from "ora";
 import prompts from "prompts";
 import { z } from "zod";
 import { detectStack } from "../utils/detect.js";
@@ -35,6 +36,17 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
     console.log(formatSuccess(`Detected  tRPC v11 at ${stack.trpc.routerPath}`));
   console.log("");
 
+  // Framework auto-detect
+  let framework = "generic";
+  if (stack.nextjs) framework = "nextjs";
+  else {
+    try {
+      const pkg = JSON.parse(await fs.readFile(path.join(cwd, "package.json"), "utf8"));
+      if (pkg.dependencies?.express) framework = "express";
+      else if (pkg.dependencies?.fastify) framework = "fastify";
+    } catch {}
+  }
+
   if (!stack.trpc.found) {
     console.error(kleur.red("  ✗ tRPC not detected. FlowPanel requires @trpc/server."));
     console.error(kleur.gray("  Install it: pnpm add @trpc/server @trpc/client"));
@@ -48,6 +60,15 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
         name: "basePath",
         message: "Mount FlowPanel at?",
         initial: "/admin",
+      },
+      {
+        type: "select",
+        name: "adapter",
+        message: "Database adapter?",
+        choices: [
+          { title: "Drizzle (PostgreSQL)", value: "drizzle" },
+          { title: "Prisma (PostgreSQL)", value: "prisma" },
+        ],
       },
       {
         type: "list",
@@ -85,13 +106,14 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
 
   const stages = (answers.stages as string[]).map((s: string) => s.trim()).filter(Boolean);
   const basePath = answers.basePath as string;
+  const adapter = (answers.adapter as string) ?? "drizzle";
   const timezone = answers.timezone as string;
   const seedDemo = answers.seedDemo as boolean;
 
   console.log("\n  Writing files");
   console.log(`  ${"─".repeat(51)}`);
 
-  const configContent = generateFlowPanelConfig({ stages, basePath, timezone });
+  const configContent = generateFlowPanelConfig({ stages, basePath, timezone, adapter });
   await writeFile(cwd, "flowpanel.config.ts", configContent);
   console.log(formatSuccess("flowpanel.config.ts                        created"));
 
@@ -146,6 +168,10 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
   console.log(`\n  ${"─".repeat(51)}`);
   console.log(formatSuccess(`Done\n`));
   console.log(`  Open  ${kleur.cyan(`http://localhost:3000${basePath}`)}\n`);
+  console.log(kleur.gray(`  Tip: Need PostgreSQL?`));
+  console.log(
+    kleur.gray(`  docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=dev postgres:16-alpine\n`),
+  );
   console.log(kleur.gray("  Next step:  npx flowpanel migrate"));
   console.log(kleur.gray("  Then:       npx flowpanel worker:scan\n"));
 }
@@ -154,25 +180,35 @@ function generateFlowPanelConfig({
   stages,
   basePath,
   timezone,
+  adapter,
 }: {
   stages: string[];
   basePath: string;
   timezone: string;
+  adapter: string;
 }): string {
   const stagesStr = stages.map((s) => `"${s}"`).join(", ");
   const stageFieldsStr = stages.map((s) => `    ${s}: {},`).join("\n");
 
+  const adapterImport =
+    adapter === "prisma"
+      ? `import { prismaAdapter } from "@flowpanel/adapter-prisma";`
+      : `import { drizzleAdapter } from "@flowpanel/adapter-drizzle";`;
+
+  const adapterConfig =
+    adapter === "prisma"
+      ? `prismaAdapter({\n    client: () => import("@/shared/lib/prisma").then((m) => m.prisma),\n  })`
+      : `drizzleAdapter({\n    db: () => import("@/shared/lib/db").then((m) => m.db),\n  })`;
+
   return `import { defineFlowPanel, z } from "@flowpanel/core";
-import { drizzleAdapter } from "@flowpanel/adapter-drizzle";
+${adapterImport}
 
 export const flowpanel = defineFlowPanel({
   appName: "my-app",
   timezone: "${timezone}",
   basePath: "${basePath}",
 
-  adapter: drizzleAdapter({
-    db: () => import("@/shared/lib/db").then((m) => m.db),
-  }),
+  adapter: ${adapterConfig},
 
   pipeline: {
     stages: [${stagesStr}] as const,

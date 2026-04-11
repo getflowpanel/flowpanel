@@ -103,10 +103,66 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
       );
       return rows;
     }
-    case "kv-grid":
-      return null;
-    case "error-block":
-      return null;
+    case "kv-grid": {
+      if (!input.runId) return null;
+      const rows = (await db.execute(`SELECT * FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`, [
+        BigInt(input.runId),
+      ])) as Record<string, unknown>[];
+      if (!rows[0]) return null;
+      const run = rows[0];
+      // Return configured fields or all fields
+      const fields = section.fields as string[] | undefined;
+      if (fields) {
+        const result: Record<string, unknown> = {};
+        for (const f of fields) {
+          result[f] = run[f] ?? null;
+        }
+        return result;
+      }
+      // Default useful fields
+      const { id, stage, status, partition_key, started_at, finished_at, duration_ms, ...rest } =
+        run;
+      return {
+        id: String(id),
+        stage,
+        status,
+        partition_key,
+        started_at,
+        finished_at,
+        duration_ms,
+        ...rest,
+      };
+    }
+    case "error-block": {
+      if (!input.runId) return null;
+      const rows = (await db.execute(
+        `SELECT error_class, error_message, error_stack FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`,
+        [BigInt(input.runId)],
+      )) as Record<string, unknown>[];
+      const run = rows[0];
+      if (!run || !run.error_class) return null;
+      return {
+        errorClass: run.error_class as string,
+        message: (run.error_message as string) ?? "",
+        stack: (run.error_stack as string) ?? undefined,
+      };
+    }
+    case "timeline": {
+      if (!input.runId) return null;
+      // Try step data first, fall back to single-step from run
+      const rows = (await db.execute(`SELECT * FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`, [
+        BigInt(input.runId),
+      ])) as Record<string, unknown>[];
+      const run = rows[0];
+      if (!run) return null;
+      return [
+        {
+          step: run.stage as string,
+          durationMs: (run.duration_ms as number) ?? 0,
+          status: run.status as string,
+        },
+      ];
+    }
     default:
       return null;
   }

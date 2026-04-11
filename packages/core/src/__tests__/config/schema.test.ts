@@ -6,7 +6,11 @@ const minimalConfig = {
   appName: "test",
   timezone: "UTC",
   basePath: "/admin",
-  adapter: {},
+  adapter: {
+    execute: async () => [],
+    transaction: async (fn: any) => fn(),
+    dialect: "postgres" as const,
+  },
   pipeline: {
     stages: ["parse", "score"],
     fields: { userId: z.string().nullable() },

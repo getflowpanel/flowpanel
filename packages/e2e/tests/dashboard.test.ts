@@ -32,8 +32,10 @@ test.describe("dashboard", () => {
     await expect(page.locator("[aria-label='Pipeline runs']")).toBeVisible();
   });
 
-  test("time range button is visible", async ({ page }) => {
-    await expect(page.getByRole("button", { name: /time range/i })).toBeVisible();
+  test("time range controls are visible", async ({ page }) => {
+    await expect(page.getByRole("group", { name: /time range/i })).toBeVisible();
+    // Individual preset buttons exist
+    await expect(page.getByRole("button", { name: "24h" })).toBeVisible();
   });
 
   test("tabs render with Pipeline and Users", async ({ page }) => {

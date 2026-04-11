@@ -139,6 +139,7 @@ export function StageCard({
             overflow: "hidden",
           }}
           role="progressbar"
+          aria-label={`${stage} success rate`}
           aria-valuenow={succeeded}
           aria-valuemax={total}
         >

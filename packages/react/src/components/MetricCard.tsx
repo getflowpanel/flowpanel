@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { cn } from "../utils/cn.js";
+import { Skeleton } from "./ui/skeleton.js";
 
 interface MetricCardProps {
   label: string;
@@ -20,16 +21,7 @@ function Sparkline({ data, color }: { data: number[]; color?: string }) {
   const barColor = color ?? "var(--fp-accent)";
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-end",
-        gap: 3,
-        height: 22,
-        marginTop: 8,
-      }}
-      aria-hidden
-    >
+    <div className="fp:flex fp:items-end fp:gap-[3px] fp:h-[22px] fp:mt-2" aria-hidden>
       {data.slice(0, 7).map((v, i) => (
         <div
           key={i}
@@ -47,14 +39,8 @@ function Sparkline({ data, color }: { data: number[]; color?: string }) {
   );
 }
 
-const cardBaseStyle = {
-  padding: "20px 24px",
-  minWidth: 160,
-  textAlign: "left" as const,
-  border: "1px solid var(--fp-border-1)",
-  transition:
-    "transform var(--fp-duration-fast) var(--fp-ease-out), box-shadow var(--fp-duration-fast) var(--fp-ease-out)",
-};
+const labelClasses =
+  "fp:text-[11px] fp:font-semibold fp:tracking-[0.06em] fp:uppercase fp:text-muted-foreground fp:mb-2";
 
 function CardContent({
   label,
@@ -69,33 +55,19 @@ function CardContent({
 >) {
   return (
     <>
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: "var(--fp-text-2)",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        className="fp-mono"
-        style={{ fontSize: 28, fontWeight: 700, color: "var(--fp-text-1)", lineHeight: 1 }}
-      >
+      <div className={labelClasses}>{label}</div>
+      <div className="fp-mono fp:text-[28px] fp:font-bold fp:text-foreground fp:leading-none">
         {value ?? "—"}
       </div>
       {sparkline && sparkline.length > 0 && <Sparkline data={sparkline} color={sparklineColor} />}
       {(trend || sublabel) && (
-        <div style={{ marginTop: 6, fontSize: 12, color: "var(--fp-text-3)" }}>
+        <div className="fp:mt-1.5 fp:text-xs fp:text-muted-foreground">
           {trend && (
             <span style={{ color: trend.startsWith("+") ? "var(--fp-ok)" : "var(--fp-err)" }}>
               {trend}
             </span>
           )}
-          {sublabel && <span style={{ marginLeft: trend ? 6 : 0 }}>{sublabel}</span>}
+          {sublabel && <span className={cn(trend ? "fp:ml-1.5" : "")}>{sublabel}</span>}
         </div>
       )}
     </>
@@ -119,46 +91,26 @@ export function MetricCard({
   if (loading) {
     return (
       <div
-        className="fp-card"
-        style={{ padding: "20px 24px", minWidth: 160 }}
+        className="fp-card fp:py-5 fp:px-6 fp:min-w-[160px]"
         aria-busy="true"
         aria-label="Loading metric"
       >
-        <div className="fp-skeleton" style={{ height: 11, width: "60%", marginBottom: 12 }} />
-        <div className="fp-skeleton" style={{ height: 28, width: "80%", marginBottom: 8 }} />
-        <div className="fp-skeleton" style={{ height: 10, width: "40%" }} />
+        <Skeleton className="fp:h-[11px] fp:w-[60%] fp:mb-3" />
+        <Skeleton className="fp:h-[28px] fp:w-[80%] fp:mb-2" />
+        <Skeleton className="fp:h-[10px] fp:w-[40%]" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="fp-card" style={{ padding: "20px 24px", minWidth: 160 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            color: "var(--fp-text-2)",
-            marginBottom: 8,
-          }}
-        >
-          {label}
-        </div>
-        <div style={{ fontSize: 12, color: "var(--fp-err)", marginBottom: 8 }}>{error}</div>
+      <div className="fp-card fp:py-5 fp:px-6 fp:min-w-[160px]">
+        <div className={labelClasses}>{label}</div>
+        <div className="fp:text-xs fp:text-destructive fp:mb-2">{error}</div>
         {onRetry && (
           <button
             onClick={onRetry}
-            style={{
-              padding: "4px 10px",
-              fontSize: 11,
-              borderRadius: 4,
-              background: "var(--fp-surface-2)",
-              border: "1px solid var(--fp-border-1)",
-              color: "var(--fp-text-2)",
-              cursor: "pointer",
-            }}
+            className="fp:py-1 fp:px-2.5 fp:text-[11px] fp:rounded fp:bg-muted fp:border fp:border-border fp:text-muted-foreground fp:cursor-pointer"
           >
             Retry
           </button>
@@ -167,30 +119,23 @@ export function MetricCard({
     );
   }
 
-  const [hovered, setHovered] = useState(false);
   const isClickable = !!onClick && !!hasDrawer;
 
-  const hoverStyle = hovered
-    ? { transform: "translateY(-1px)", boxShadow: "var(--fp-shadow-md)" }
-    : {};
-  const hoverHandlers = {
-    onMouseEnter: () => setHovered(true),
-    onMouseLeave: () => setHovered(false),
-  };
+  const cardClasses = cn(
+    "fp-card",
+    "fp:py-5 fp:px-6 fp:min-w-[160px] fp:text-left fp:border fp:border-border",
+    "fp:transition-transform fp:duration-[var(--duration-fast)]",
+    "hover:fp:-translate-y-px hover:fp:shadow-md",
+    isClickable && "fp:cursor-pointer",
+  );
 
   if (isClickable) {
     return (
       <button
-        className="fp-card"
-        style={{
-          ...cardBaseStyle,
-          ...hoverStyle,
-          cursor: "pointer",
-        }}
+        className={cardClasses}
         onClick={onClick}
         aria-expanded={expanded ?? false}
         aria-haspopup="dialog"
-        {...hoverHandlers}
       >
         <CardContent
           label={label}
@@ -205,7 +150,7 @@ export function MetricCard({
   }
 
   return (
-    <div className="fp-card" style={{ ...cardBaseStyle, ...hoverStyle }} {...hoverHandlers}>
+    <div className={cardClasses}>
       <CardContent
         label={label}
         value={value}

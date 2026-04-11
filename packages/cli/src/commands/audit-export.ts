@@ -33,10 +33,10 @@ export async function runAuditExport(opts: {
 
   const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
-  const rows = await db.execute<Record<string, unknown>>(
+  const rows = (await db.execute(
     `SELECT * FROM flowpanel_audit_log ${whereClause} ORDER BY at DESC`,
     params,
-  );
+  )) as Record<string, unknown>[];
 
   const format = opts.format ?? "csv";
   let output: string;

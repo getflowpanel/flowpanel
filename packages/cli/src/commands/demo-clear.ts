@@ -15,10 +15,10 @@ export async function runDemoClear(): Promise<void> {
 
   const db = await config.getDb();
 
-  const result = await db.execute<{ id: bigint }>(
+  const result = (await db.execute(
     `DELETE FROM flowpanel_pipeline_run WHERE is_demo = true RETURNING id`,
     [],
-  );
+  )) as Array<{ id: bigint }>;
 
   console.log(formatSuccess(`Cleared ${result.length} demo runs`));
   console.log(kleur.gray("  Re-seed at any time with: npx flowpanel init --seed"));

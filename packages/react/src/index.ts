@@ -27,3 +27,27 @@ export type { KeyBinding } from "./hooks/useKeyboard.js";
 export { useKeyboard } from "./hooks/useKeyboard.js";
 export type { ResolvedTheme } from "./theme/index.js";
 export { resolveTheme, themeToStyle } from "./theme/index.js";
+export { RunChart } from "./components/RunChart.js";
+export type { RunChartProps } from "./components/RunChart.js";
+export {
+  renderDrawerSections,
+  StatGridSection,
+  KvGridSection,
+  TrendChartSection,
+  BreakdownSection,
+  ErrorListSection,
+  ErrorBlockSection,
+  TimelineSection,
+} from "./components/drawer-sections/index.js";
+export { ErrorStateProvider, useErrorState } from "./components/ErrorStateProvider.js";
+export { DrawerFromURL, DrawerSection } from "./drawer/index.js";
+export { useDrawerURL } from "./hooks/useDrawerURL.js";
+export { formatDate } from "./utils/formatDate.js";
+export { FlowPanelContext, useFlowPanelConfig, useFlowPanelContainer } from "./context.js";
+export { FlowPanelProvider } from "./FlowPanelProvider.js";
+export { PipelineView } from "./components/PipelineView.js";
+export { MetricsStrip } from "./components/MetricsStrip.js";
+export { StageCards } from "./components/StageCards.js";
+export { ActivitySection } from "./components/ActivitySection.js";
+export { RunLogSection } from "./components/RunLogSection.js";
+export { StatusOverlays } from "./components/StatusOverlays.js";
