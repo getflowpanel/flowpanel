@@ -1,0 +1,79 @@
+@import "tailwindcss" prefix(fp) layer(flowpanel);
+@plugin "tailwindcss-animate";
+@import "./animations.css" layer(flowpanel);
+
+@layer flowpanel {
+  @theme {
+    --color-background: hsl(var(--background));
+    --color-foreground: hsl(var(--foreground));
+    --color-primary: hsl(var(--primary));
+    --color-primary-foreground: hsl(var(--primary-foreground));
+    --color-card: hsl(var(--card));
+    --color-card-foreground: hsl(var(--card-foreground));
+    --color-muted: hsl(var(--muted));
+    --color-muted-foreground: hsl(var(--muted-foreground));
+    --color-border: hsl(var(--border));
+    --color-destructive: hsl(var(--destructive));
+    --color-destructive-foreground: hsl(var(--destructive-foreground));
+    --color-accent: hsl(var(--accent));
+    --color-accent-foreground: hsl(var(--accent-foreground));
+    --color-status-ok: hsl(var(--status-ok));
+    --color-status-err: hsl(var(--status-err));
+    --color-status-warn: hsl(var(--status-warn));
+    --color-status-running: hsl(var(--status-running));
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+  }
+}
+
+.flowpanel {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --primary: 199 89% 48%;
+  --primary-foreground: 210 40% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --border: 240 5.9% 90%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --radius: 0.5rem;
+  --status-ok: 142 71% 45%;
+  --status-err: 0 84% 60%;
+  --status-warn: 38 92% 50%;
+  --status-running: 199 89% 48%;
+  --status-pending: 240 5% 65%;
+  --duration-instant: 80ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  font-feature-settings: "tnum";
+}
+
+.flowpanel.fp-dark {
+  --background: 217 33% 6%;
+  --foreground: 0 0% 98%;
+  --primary: 199 89% 48%;
+  --primary-foreground: 210 40% 8%;
+  --card: 217 33% 10%;
+  --card-foreground: 0 0% 98%;
+  --muted: 217 33% 15%;
+  --muted-foreground: 215 20% 55%;
+  --border: 217 33% 17%;
+  --accent: 217 33% 15%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 0% 98%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flowpanel,
+  .flowpanel * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

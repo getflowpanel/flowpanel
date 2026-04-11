@@ -9,5 +9,10 @@ export default defineConfig({
   onSuccess: async () => {
     mkdirSync("dist/theme", { recursive: true });
     copyFileSync("src/theme/variables.css", "dist/theme/variables.css");
+
+    const { execSync } = await import("node:child_process");
+    execSync("npx @tailwindcss/cli -i src/styles/index.css -o dist/styles.css --minify", {
+      stdio: "inherit",
+    });
   },
 });

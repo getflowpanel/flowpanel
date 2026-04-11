@@ -13,6 +13,10 @@
       "complexity": { "noForEach": "off" }
     }
   },
+  "css": {
+    "parser": { "cssModules": false, "tailwindDirectives": true },
+    "formatter": { "enabled": true }
+  },
   "javascript": {
     "formatter": { "quoteStyle": "double", "semicolons": "always" }
   },
