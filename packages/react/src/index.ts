@@ -41,4 +41,11 @@ export {
 } from "./components/drawer-sections/index.js";
 export { ErrorStateProvider, useErrorState } from "./components/ErrorStateProvider.js";
 export { formatDate } from "./utils/formatDate.js";
-export { FlowPanelContext } from "./context.js";
+export { FlowPanelContext, useFlowPanelConfig, useFlowPanelContainer } from "./context.js";
+export { FlowPanelProvider } from "./FlowPanelProvider.js";
+export { PipelineView } from "./components/PipelineView.js";
+export { MetricsStrip } from "./components/MetricsStrip.js";
+export { StageCards } from "./components/StageCards.js";
+export { ActivitySection } from "./components/ActivitySection.js";
+export { RunLogSection } from "./components/RunLogSection.js";
+export { StatusOverlays } from "./components/StatusOverlays.js";
