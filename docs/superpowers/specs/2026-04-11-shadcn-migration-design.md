@@ -226,43 +226,46 @@ shadcn color tokens scoped under `.flowpanel` container, not `:root`:
 
 Host app's CSS variables on `:root` are not affected.
 
-### Tailwind config
+### Tailwind v4 config (CSS-first)
 
-```js
-// packages/react/tailwind.config.js
-module.exports = {
-  prefix: "fp:",
-  content: ["./src/**/*.tsx"],
-  corePlugins: { preflight: false }, // no CSS reset — don't break host
-  theme: {
-    extend: {
-      colors: {
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        // ...standard shadcn color mapping
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
-    },
-  },
-  plugins: [require("tailwindcss-animate")],
+No `tailwind.config.js`. Everything in CSS:
+
+```css
+/* packages/react/src/styles/index.css */
+@import "tailwindcss" prefix(fp) layer(flowpanel);
+@import "tailwindcss-animate" layer(flowpanel);
+
+@layer flowpanel {
+  @theme {
+    --color-background: hsl(var(--background));
+    --color-foreground: hsl(var(--foreground));
+    --color-primary: hsl(var(--primary));
+    --color-primary-foreground: hsl(var(--primary-foreground));
+    --color-card: hsl(var(--card));
+    --color-card-foreground: hsl(var(--card-foreground));
+    --color-muted: hsl(var(--muted));
+    --color-muted-foreground: hsl(var(--muted-foreground));
+    --color-border: hsl(var(--border));
+    --color-status-ok: hsl(var(--status-ok));
+    --color-status-err: hsl(var(--status-err));
+    --color-status-warn: hsl(var(--status-warn));
+    --color-status-running: hsl(var(--status-running));
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+  }
+}
+
+/* Disable preflight — don't break host app styles */
+@layer base {
+  /* intentionally empty — no CSS reset */
 }
 ```
+
+`@layer flowpanel` wraps all FlowPanel styles into a single CSS layer,
+preventing specificity conflicts with host app. `prefix(fp)` adds `fp:`
+to all generated utility classes. Content detection is automatic in v4
+(scans files importing from the CSS).
 
 ### Radix portal containment
 
@@ -703,7 +706,7 @@ What's removed from current bundle:
 
 ## 9. Build Pipeline
 
-Single build step via tsup + postcss:
+Single build step via tsup + Tailwind v4 CLI:
 
 ```ts
 // packages/react/tsup.config.ts
@@ -712,9 +715,11 @@ export default defineConfig({
   format: ["esm", "cjs"],
   dts: true,
   external: ["react", "react-dom"],
-  onSuccess: "postcss src/styles/index.css -o dist/styles.css",
+  onSuccess: "npx @tailwindcss/cli -i src/styles/index.css -o dist/styles.css --minify",
 });
 ```
+
+Tailwind v4 uses its own CLI instead of PostCSS plugin. No `postcss.config.js` needed.
 
 CSS exported as `@flowpanel/react/styles.css`:
 
@@ -733,6 +738,10 @@ import "@flowpanel/react/styles.css";
 ```
 
 `sideEffects: ["*.css"]` — JS is fully tree-shakeable.
+
+**Breaking change from current API:** CSS export path changes from
+`@flowpanel/react/theme.css` to `@flowpanel/react/styles.css`. This is a
+one-line change for existing consumers. Acceptable at v0.x.
 
 ---
 
@@ -1095,8 +1104,8 @@ working drawer, URL sync). `pnpm build && pnpm test:unit && pnpm test:e2e`.
 
 ### Phase 1: Infrastructure (shadcn)
 
-11. Add Tailwind + PostCSS to `packages/react`
-12. Configure `fp:` prefix, `preflight: false`
+11. Add Tailwind v4 + `@tailwindcss/cli` to `packages/react`
+12. Configure `prefix(fp)` + `layer(flowpanel)` in CSS entry
 13. Scoped shadcn CSS variables under `.flowpanel` with brand colors
 14. `cn()` utility (clsx + tailwind-merge)
 15. `tailwindcss-animate` for Radix animations
@@ -1150,3 +1159,95 @@ working drawer, URL sync). `pnpm build && pnpm test:unit && pnpm test:e2e`.
 
 After each step: `pnpm build && pnpm test:unit && pnpm test:e2e`.
 Fix breakage before moving to next step.
+
+---
+
+## 14. File Structure (after migration)
+
+```
+packages/react/src/
+├── index.ts                     # public API exports
+├── FlowPanelUI.tsx              # ~50 LOC orchestrator
+├── FlowPanelProvider.tsx        # tRPC client + QueryClient + context
+├── context.ts                   # FlowPanelContext (config, container ref)
+│
+├── components/
+│   ├── ui/                      # shadcn primitives (copied, prefixed)
+│   │   ├── badge.tsx
+│   │   ├── button.tsx
+│   │   ├── card.tsx
+│   │   ├── command.tsx
+│   │   ├── dialog.tsx
+│   │   ├── sheet.tsx
+│   │   ├── skeleton.tsx
+│   │   ├── table.tsx
+│   │   ├── tabs.tsx
+│   │   └── tooltip.tsx
+│   │
+│   ├── Header.tsx
+│   ├── PipelineView.tsx         # layout for pipeline tab
+│   ├── MetricsStrip.tsx         # fetches + renders metrics
+│   ├── StageCards.tsx            # fetches + renders stages
+│   ├── ActivitySection.tsx      # RunChart + TopErrors
+│   ├── RunLogSection.tsx        # RunTable + empty state + infinite scroll
+│   ├── RunTable.tsx             # TanStack Table + shadcn Table
+│   ├── RunChart.tsx             # custom SVG chart (kept)
+│   ├── MetricCard.tsx
+│   ├── StageCard.tsx
+│   ├── StatusBadge.tsx          # replaces StatusTag
+│   ├── StagePill.tsx
+│   ├── SectionHeader.tsx
+│   ├── CommandPalette.tsx
+│   ├── DemoBanner.tsx
+│   ├── ErrorBoundary.tsx
+│   ├── ErrorPanel.tsx
+│   ├── KeyboardHelp.tsx
+│   ├── StatusOverlays.tsx       # reconnecting banner, ARIA live
+│   ├── SlotErrorBoundary.tsx
+│   └── Toast.tsx
+│
+├── drawer/
+│   ├── DrawerFromURL.tsx        # URL sync + keyboard nav
+│   ├── DrawerHeader.tsx
+│   ├── DrawerBody.tsx           # section resolver
+│   ├── DrawerSection.tsx        # switch by type
+│   └── sections/
+│       ├── StatGridSection.tsx
+│       ├── KvGridSection.tsx
+│       ├── TimelineSection.tsx
+│       ├── TrendChartSection.tsx
+│       ├── BreakdownSection.tsx
+│       ├── ErrorListSection.tsx
+│       └── ErrorBlockSection.tsx
+│
+├── hooks/
+│   ├── trpc.ts                  # internal tRPC client (not exported)
+│   ├── useFlowPanelSSE.ts       # SSE → cache invalidation
+│   ├── useFlowPanelStream.ts    # SSE connection management
+│   ├── useKeyboard.ts           # keyboard shortcuts
+│   └── useDrawerURL.ts          # URL sync for drawer
+│
+├── theme/
+│   ├── index.ts                 # resolveTheme, themeToStyle
+│   └── slots.ts                 # slot resolution + SlotErrorBoundary
+│
+├── styles/
+│   ├── index.css                # Tailwind v4 entry + @theme + tokens
+│   └── animations.css           # motion system keyframes
+│
+└── utils/
+    ├── cn.ts                    # clsx + tailwind-merge
+    └── formatDate.ts
+```
+
+### Conventions
+
+- `components/ui/` — shadcn primitives, copied and adapted with `fp:` prefix.
+  Never import these outside `packages/react`. They are internal building blocks.
+- `components/` — FlowPanel-specific components. Each is self-contained:
+  fetches own data, shows own skeleton, handles own errors.
+- `drawer/` — separated from components because drawer is a subsystem with
+  its own routing (URL sync), navigation (j/k), and section resolution.
+- `hooks/` — all hooks. `trpc.ts` is internal, not exported.
+- `styles/` — CSS only. No JS in this directory.
+- `theme/` — theme resolution and slot system.
