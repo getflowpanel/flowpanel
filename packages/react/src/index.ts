@@ -40,6 +40,8 @@ export {
   TimelineSection,
 } from "./components/drawer-sections/index.js";
 export { ErrorStateProvider, useErrorState } from "./components/ErrorStateProvider.js";
+export { DrawerFromURL, DrawerSection } from "./drawer/index.js";
+export { useDrawerURL } from "./hooks/useDrawerURL.js";
 export { formatDate } from "./utils/formatDate.js";
 export { FlowPanelContext, useFlowPanelConfig, useFlowPanelContainer } from "./context.js";
 export { FlowPanelProvider } from "./FlowPanelProvider.js";

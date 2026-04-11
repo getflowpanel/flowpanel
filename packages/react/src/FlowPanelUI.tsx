@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import type { Command } from "./components/CommandPalette.js";
 import { CommandPalette } from "./components/CommandPalette.js";
 import { DemoBanner } from "./components/DemoBanner.js";
-import { Drawer } from "./components/Drawer.js";
+import { DrawerFromURL } from "./drawer/index.js";
 import { Header } from "./components/Header.js";
 import { KeyboardHelp } from "./components/KeyboardHelp.js";
 import { PipelineView } from "./components/PipelineView.js";
@@ -13,6 +13,7 @@ import { Tabs } from "./components/Tabs.js";
 import { ToastProvider } from "./components/Toast.js";
 import { FlowPanelProvider } from "./FlowPanelProvider.js";
 import { useFlowPanelSSE } from "./hooks/useFlowPanelSSE.js";
+import { useDrawerURL } from "./hooks/useDrawerURL.js";
 import { useKeyboard } from "./hooks/useKeyboard.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,11 +35,7 @@ function FlowPanelInner({ config, trpcBaseUrl, showDemoBanner = false }: FlowPan
   const [timeRange, setTimeRange] = useState(config.timeRange?.default ?? "24h");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
-  const [drawerState, setDrawerState] = useState<{
-    open: boolean;
-    type: string;
-    runId?: string;
-  }>({ open: false, type: "" });
+  const { runId: drawerRunId, open: openDrawer, close: closeDrawer } = useDrawerURL();
 
   const tabs: TabConfig[] = config.tabs?.map((t) => ({
     id: t.id,
@@ -79,7 +76,7 @@ function FlowPanelInner({ config, trpcBaseUrl, showDemoBanner = false }: FlowPan
       key: "Escape",
       handler: () => {
         if (keyboardHelpOpen) setKeyboardHelpOpen(false);
-        else if (drawerState.open) setDrawerState({ open: false, type: "" });
+        else if (drawerRunId) closeDrawer();
         else if (paletteOpen) setPaletteOpen(false);
       },
     },
@@ -97,19 +94,8 @@ function FlowPanelInner({ config, trpcBaseUrl, showDemoBanner = false }: FlowPan
     })),
   ];
 
-  // ── Drawer title ────────────────────────────────────────────────────────
-  const drawerConfigEntry = config.drawers?.[drawerState.type] as
-    | { title?: string | ((...args: unknown[]) => string) }
-    | undefined;
-  const drawerTitle =
-    drawerState.type === "runDetail"
-      ? `Run ${drawerState.runId ?? ""}`
-      : typeof drawerConfigEntry?.title === "string"
-        ? drawerConfigEntry.title
-        : drawerState.type || "Details";
-
-  const handleOpenDrawer = (type: string, runId?: string) => {
-    setDrawerState({ open: true, type, runId });
+  const handleOpenDrawer = (_type: string, runId?: string) => {
+    if (runId) openDrawer(runId);
   };
 
   return (
@@ -177,17 +163,7 @@ function FlowPanelInner({ config, trpcBaseUrl, showDemoBanner = false }: FlowPan
           })()}
       </main>
 
-      <Drawer
-        open={drawerState.open}
-        onClose={() => setDrawerState({ open: false, type: "" })}
-        title={drawerTitle}
-      >
-        <div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
-          {drawerState.type === "runDetail"
-            ? `Run details for ${drawerState.runId}`
-            : "Loading drawer content..."}
-        </div>
-      </Drawer>
+      <DrawerFromURL />
 
       <CommandPalette
         open={paletteOpen}
