@@ -5,29 +5,11 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ label, meta }: SectionHeaderProps) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "baseline",
-        justifyContent: "space-between",
-        marginBottom: 12,
-        marginTop: 0,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
-          color: "var(--fp-text-3)",
-        }}
-      >
+    <div className="fp:flex fp:items-baseline fp:justify-between fp:mb-3 fp:mt-0">
+      <span className="fp:text-[11px] fp:font-semibold fp:tracking-[0.05em] fp:uppercase fp:text-muted-foreground">
         {label}
       </span>
-      {meta && (
-        <span style={{ fontSize: 12, color: "var(--fp-text-3)", fontWeight: 400 }}>{meta}</span>
-      )}
+      {meta && <span className="fp:text-xs fp:text-muted-foreground fp:font-normal">{meta}</span>}
     </div>
   );
 }
