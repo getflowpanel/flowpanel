@@ -79,8 +79,13 @@ program
 
 program
   .command("demo")
-  .description("Seed 500 demo runs for preview")
-  .action(() => runDemo());
+  .description("Launch standalone demo server (no database required)")
+  .option("--port <number>", "Server port", "4400")
+  .option("--clear", "Clear seeded demo data instead")
+  .option("--no-open", "Do not open browser automatically")
+  .action((opts) =>
+    runDemo({ port: Number(opts.port), clear: opts.clear ?? false, open: opts.open ?? true }),
+  );
 
 program
   .command("status")
