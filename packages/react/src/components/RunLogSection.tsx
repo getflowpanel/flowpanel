@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useFlowPanelConfig } from "../context.js";
 import { useTRPCClient } from "../hooks/trpc.js";
 import { resolveTheme } from "../theme/index.js";
@@ -11,21 +11,40 @@ import { SectionHeader } from "./SectionHeader.js";
 interface RunLogSectionProps {
   timeRange: string;
   selectedStage: string | null;
+  statusFilter: string | null;
+  searchQuery: string;
   onOpenDrawer: (type: string, runId?: string) => void;
+  onSearch: (query: string) => void;
+  onStatusFilter: (status: string | null) => void;
+  onRunIdsChange?: (ids: string[]) => void;
 }
 
-export function RunLogSection({ timeRange, selectedStage, onOpenDrawer }: RunLogSectionProps) {
+export function RunLogSection({
+  timeRange,
+  selectedStage,
+  statusFilter,
+  searchQuery,
+  onOpenDrawer,
+  onSearch,
+  onStatusFilter,
+  onRunIdsChange,
+}: RunLogSectionProps) {
   const config = useFlowPanelConfig();
   const client = useTRPCClient();
   const theme = resolveTheme(config);
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>();
 
   const { data, isLoading, fetchNextPage, hasNextPage } = useInfiniteQuery({
-    queryKey: [["flowpanel", "runs", "list"], { timeRange, stage: selectedStage }],
+    queryKey: [
+      ["flowpanel", "runs", "list"],
+      { timeRange, stage: selectedStage, status: statusFilter, search: searchQuery },
+    ],
     queryFn: ({ pageParam }: { pageParam?: string }) =>
       (client as any).flowpanel.runs.list.query({
         timeRange,
         stage: selectedStage ?? undefined,
+        status: statusFilter ?? undefined,
+        search: searchQuery || undefined,
         limit: 50,
         cursor: pageParam,
       }),
@@ -34,6 +53,10 @@ export function RunLogSection({ timeRange, selectedStage, onOpenDrawer }: RunLog
   });
 
   const runs = data?.pages.flatMap((page: any) => page.data) ?? [];
+
+  useEffect(() => {
+    onRunIdsChange?.(runs.map((r: any) => String(r.id)));
+  }, [runs, onRunIdsChange]);
 
   const handleLoadMore = useCallback(() => {
     if (hasNextPage) void fetchNextPage();
@@ -47,7 +70,8 @@ export function RunLogSection({ timeRange, selectedStage, onOpenDrawer }: RunLog
     { field: "status", label: "Status", width: 110, render: "statusTag" },
   ];
 
-  const showOnboarding = !isLoading && runs.length === 0;
+  const showOnboarding =
+    !isLoading && runs.length === 0 && !selectedStage && !statusFilter && !searchQuery;
 
   if (showOnboarding) {
     return (
@@ -122,6 +146,9 @@ await withRun({ stage: "parse", partitionKey: "doc-1" }, async (run) => {
               onOpenDrawer("runDetail", String(run.id));
             }}
             selectedRunId={selectedRunId}
+            onSearch={onSearch}
+            onStatusFilter={onStatusFilter}
+            activeStatusFilter={statusFilter}
           />
         </div>
       </section>

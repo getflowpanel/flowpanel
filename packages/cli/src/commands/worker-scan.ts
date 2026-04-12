@@ -1,4 +1,3 @@
-import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import kleur from "kleur";
@@ -6,6 +5,7 @@ import kleur from "kleur";
 export async function runWorkerScan(): Promise<void> {
   const cwd = process.cwd();
 
+  // biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
   let config: any;
   try {
     config = (await import(path.join(cwd, "flowpanel.config.ts"))).flowpanel;
@@ -76,7 +76,7 @@ async function findFiles(cwd: string, pattern: string): Promise<string[]> {
     const segment = remaining[0]!;
     const rest = remaining.slice(1);
 
-    let entries: Dirent[];
+    let entries: fs.Dirent[];
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
     } catch {

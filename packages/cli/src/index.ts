@@ -1,55 +1,90 @@
-import { Command } from "commander";
-import kleur from "kleur";
-import { runDoctor } from "./commands/doctor.js";
-import { runInit } from "./commands/init.js";
-import { runMigrate, runMigrateStatus } from "./commands/migrate.js";
-import { runDemo } from "./commands/demo.js";
-import { showContextualHelp } from "./help.js";
-
+// Node.js version guard — must be before imports
 const [major] = process.versions.node.split(".").map(Number);
-if (major < 18) {
-  console.error("FlowPanel requires Node.js 18+. You are running " + process.version);
+if (major !== undefined && major < 18) {
+  console.error(
+    `FlowPanel requires Node.js 18 or later. Current: ${process.version}\nUpgrade: https://nodejs.org/`,
+  );
   process.exit(1);
 }
 
+import { Command } from "commander";
+import { checkForUpdates } from "./updateChecker.js";
+import { runAuditExport } from "./commands/audit-export.js";
+import { runDemo } from "./commands/demo.js";
+import { runDemoClear } from "./commands/demo-clear.js";
+import { runDev } from "./commands/dev.js";
+import { runDiff } from "./commands/diff.js";
+import { runDoctor } from "./commands/doctor.js";
+import { runInit } from "./commands/init.js";
+import { runMigrate, runMigrateGen, runMigrateStatus } from "./commands/migrate.js";
+import { runWorkerScan } from "./commands/worker-scan.js";
+
 const program = new Command()
   .name("flowpanel")
-  .description(`${kleur.cyan("◆")} FlowPanel v0.1.0`)
-  .version("0.1.0")
-  .action(() => showContextualHelp());
+  .description("FlowPanel CLI — pipeline admin for Next.js")
+  .version("0.1.0");
+
+program.option("--json", "Output results as JSON");
 
 program
   .command("init")
-  .description("Add FlowPanel to your project")
+  .description("Scaffold config, page, mount tRPC, seed demo data")
   .action(() => runInit());
 
 program
   .command("migrate")
-  .description("Sync database with config")
+  .description("Apply pending schema migrations")
   .option("--dry-run", "Show SQL without applying")
-  .option("--status", "Show applied/pending migrations")
-  .action((opts) => {
-    if (opts.status) {
-      return runMigrateStatus();
-    }
-    return runMigrate({ dryRun: opts.dryRun ?? false });
-  });
+  .action((opts) => runMigrate({ dryRun: opts.dryRun ?? false }));
+
+program
+  .command("migrate:gen")
+  .description("Generate migration from config diff")
+  .action(() => runMigrateGen());
+
+program
+  .command("migrate:status")
+  .description("Show applied/pending migrations")
+  .action(() => runMigrateStatus());
 
 program
   .command("doctor")
-  .description("Check setup and troubleshoot")
+  .description("Health check: auth, schema, indexes, security, TS types")
   .option("--prod", "Pre-deploy security checklist (exits 1 on any failure)")
-  .option("--json", "Output as JSON")
-  .action((opts) => runDoctor({ prod: opts.prod ?? false }));
+  .action((opts) => runDoctor({ prod: opts.prod ?? false, json: program.opts().json ?? false }));
 
 program
-  .command("demo")
-  .description("Try FlowPanel with sample data")
-  .option("--port <number>", "Server port", "4400")
-  .option("--clear", "Clear seeded demo data instead")
-  .option("--no-open", "Do not open browser automatically")
-  .action((opts) =>
-    runDemo({ port: Number(opts.port), clear: opts.clear ?? false, open: opts.open ?? true }),
-  );
+  .command("diff")
+  .description("Show config ↔ DB schema drift")
+  .action(() => runDiff());
+
+program.command("demo").description("Seed 500 realistic demo runs").action(runDemo);
+
+program
+  .command("demo:clear")
+  .description("Remove seeded demo data")
+  .action(() => runDemoClear());
+
+program
+  .command("worker:scan")
+  .description("Scan processors, suggest withRun() wrapping")
+  .action(() => runWorkerScan());
+
+program
+  .command("audit:export")
+  .description("Export audit log to CSV or NDJSON")
+  .option("--from <date>", "Start date")
+  .option("--to <date>", "End date")
+  .option("--format <fmt>", "csv or ndjson", "csv")
+  .option("--out <file>", "Output file path")
+  .action((opts) => runAuditExport(opts));
+
+program
+  .command("dev")
+  .description("Watch config and auto-validate on changes")
+  .option("--port <port>", "Dev server port", "3000")
+  .action(runDev);
 
 program.parse();
+
+checkForUpdates("0.1.0");

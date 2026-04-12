@@ -15,6 +15,7 @@ export function showContextualHelp() {
     console.log(`    ${kleur.cyan("migrate")}    Sync database with config`);
     console.log(`    ${kleur.cyan("doctor")}     Check setup and troubleshoot`);
     console.log(`    ${kleur.cyan("demo")}       Try FlowPanel with sample data`);
+    console.log(`    ${kleur.cyan("dev")}        Watch config for changes`);
     console.log();
     console.log(kleur.dim("  flowpanel <command> --help for details"));
   } else {

@@ -11,21 +11,25 @@ export function zodTypeToSql(schema: z.ZodTypeAny): string {
   // Unwrap nullable/optional
   const unwrapped =
     schema instanceof z.ZodNullable || schema instanceof z.ZodOptional
-      ? (schema as z.ZodNullable<any> | z.ZodOptional<any>).unwrap()
+      ? // biome-ignore lint/suspicious/noExplicitAny: zod internal type unwrapping
+        (schema as z.ZodNullable<any> | z.ZodOptional<any>).unwrap()
       : schema;
 
   if (unwrapped instanceof z.ZodString) {
+    // biome-ignore lint/suspicious/noExplicitAny: zod internal type unwrapping
     const checks: Array<{ kind: string; value?: number }> = (unwrapped._def as any).checks ?? [];
     const maxCheck = checks.find((c) => c.kind === "max");
     return maxCheck ? `VARCHAR(${maxCheck.value})` : "TEXT";
   }
   if (unwrapped instanceof z.ZodNumber) {
+    // biome-ignore lint/suspicious/noExplicitAny: zod internal type unwrapping
     const checks: Array<{ kind: string }> = (unwrapped._def as any).checks ?? [];
     const isInt = checks.some((c) => c.kind === "int");
     return isInt ? "INTEGER" : "NUMERIC(12,6)";
   }
   if (unwrapped instanceof z.ZodBoolean) return "BOOLEAN";
   if (unwrapped instanceof z.ZodEnum) {
+    // biome-ignore lint/suspicious/noExplicitAny: zod internal type unwrapping
     const values = (unwrapped as z.ZodEnum<any>).options.map((v: string) => `'${v}'`).join(", ");
     return `TEXT CHECK (value IN (${values}))`;
   }

@@ -1,6 +1,7 @@
 @import "tailwindcss" prefix(fp) layer(flowpanel);
 @plugin "tailwindcss-animate";
 @import "./animations.css" layer(flowpanel);
+@import "../theme/variables.css";
 
 @layer flowpanel {
   @theme {

@@ -16,6 +16,7 @@ export interface DetectedStack {
 
 export async function detectStack(cwd: string): Promise<DetectedStack> {
   const pkgPath = path.join(cwd, "package.json");
+  // biome-ignore lint/suspicious/noExplicitAny: JSON parsed package.json
   let pkg: Record<string, any> = {};
   try {
     pkg = JSON.parse(await fs.readFile(pkgPath, "utf8"));

@@ -1,48 +1,52 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { execFile } from "node:child_process";
+import { platform } from "node:os";
+import { watch } from "chokidar";
 import kleur from "kleur";
+import { loadConfig } from "../loadConfig.js";
 
-export async function runDev(): Promise<void> {
-  const configPath = path.resolve("flowpanel.config.ts");
+export async function runDev(opts: { port?: string }) {
+  console.log(kleur.bold("\n  ⚡ FlowPanel dev server\n"));
 
-  console.log(kleur.bold("\n  FlowPanel Dev Mode\n"));
+  let config: Awaited<ReturnType<typeof loadConfig>>;
+  try {
+    config = await loadConfig();
+  } catch (err) {
+    console.error(kleur.red(`  Config error: ${err}`));
+    process.exit(1);
+  }
 
-  // Initial validation
-  await validateConfig(configPath);
+  const port = opts.port ?? "3000";
+  const basePath = config.basePath ?? "/admin";
 
-  console.log(kleur.gray("  Watching flowpanel.config.ts for changes...\n"));
-  console.log(kleur.gray("  Press Ctrl+C to stop.\n"));
+  console.log(`  Dashboard:  ${kleur.cyan(`http://localhost:${port}${basePath}`)}`);
+  console.log(`  Config:     ${kleur.gray("flowpanel.config.ts")} (watching)`);
+  console.log(`  Stages:     ${kleur.gray(config.pipeline?.stages?.join(", ") ?? "none")}`);
+  console.log(
+    `  Metrics:    ${kleur.gray(`${String(Object.keys(config.metrics ?? {}).length)} configured`)}`,
+  );
+  console.log(
+    `  Drawers:    ${kleur.gray(`${String(Object.keys(config.drawers ?? {}).length)} configured`)}`,
+  );
+  console.log(`\n  Watching for config changes... (Ctrl+C to stop)\n`);
 
-  // Watch config file for changes
-  const watcher = fs.watch(configPath, { persistent: true }, async (eventType) => {
-    if (eventType === "change") {
-      console.log(kleur.cyan("\n  Config changed, re-validating..."));
-      await validateConfig(configPath);
+  // Best-effort browser open
+  const url = `http://localhost:${port}${basePath}`;
+  const cmd = platform() === "darwin" ? "open" : platform() === "win32" ? "start" : "xdg-open";
+  execFile(cmd, [url], () => {});
+
+  // Watch config file
+  const watcher = watch("flowpanel.config.ts", { ignoreInitial: true });
+  watcher.on("change", async () => {
+    const time = new Date().toLocaleTimeString("en", { hour12: false });
+    console.log(`  ${kleur.gray(time)} Config changed — revalidating...`);
+    try {
+      const newConfig = await loadConfig();
+      console.log(
+        `  ${kleur.green("✓")} Config valid (${newConfig.pipeline?.stages?.length ?? 0} stages, ${Object.keys(newConfig.metrics ?? {}).length} metrics)`,
+      );
+      console.log(`           Run ${kleur.cyan("flowpanel migrate:gen")} if schema changed\n`);
+    } catch (err) {
+      console.log(`  ${kleur.red("✗")} Config error: ${err}\n`);
     }
   });
-
-  // Handle shutdown
-  process.on("SIGINT", () => {
-    watcher.close();
-    console.log(kleur.gray("\n  Dev mode stopped.\n"));
-    process.exit(0);
-  });
-}
-
-async function validateConfig(configPath: string): Promise<void> {
-  try {
-    const { loadConfig } = await import("../loadConfig.js");
-    const config = await loadConfig(configPath);
-
-    const stages = (config as any).pipeline?.stages ?? [];
-    const metrics = Object.keys((config as any).metrics ?? {});
-    const tabs = ((config as any).tabs ?? []).length;
-
-    console.log(kleur.green("  ✓ Config valid"));
-    console.log(kleur.gray(`    Stages: ${stages.join(", ")}`));
-    console.log(kleur.gray(`    Metrics: ${metrics.length} defined`));
-    console.log(kleur.gray(`    Tabs: ${tabs} configured`));
-  } catch (err) {
-    console.log(kleur.red(`  ✗ Config error: ${(err as Error).message}`));
-  }
 }

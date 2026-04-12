@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { applyMigrations, getMigrationStatus, loadMigrationFiles } from "@flowpanel/core";
+import { applyMigrations, getMigrationStatus } from "@flowpanel/core";
 import kleur from "kleur";
 import ora from "ora";
-import { formatError, formatSuccess } from "../utils/error-format.js";
+import { formatError } from "../utils/error-format.js";
 
 async function loadConfig() {
   const cwd = process.cwd();
@@ -24,8 +24,18 @@ async function loadConfig() {
   }
 }
 
-export async function runMigrate(opts?: { dryRun?: boolean }): Promise<void> {
-  const { config, cwd } = await loadConfig();
+export async function runMigrate(opts: { dryRun?: boolean } = {}): Promise<void> {
+  const spinner = ora("Loading config...").start();
+
+  let loadResult: Awaited<ReturnType<typeof loadConfig>>;
+  try {
+    loadResult = await loadConfig();
+  } catch (err) {
+    spinner.fail(String(err));
+    process.exit(1);
+  }
+
+  const { config, cwd } = loadResult;
 
   const builtinMigrationsDir = path.resolve(
     new URL(import.meta.url).pathname,
@@ -33,40 +43,58 @@ export async function runMigrate(opts?: { dryRun?: boolean }): Promise<void> {
   );
   const userMigrationsDir = path.join(cwd, "flowpanel", "migrations");
 
-  if (opts?.dryRun) {
-    const files = await loadMigrationFiles([builtinMigrationsDir, userMigrationsDir]);
-    if (files.length === 0) {
-      console.log(kleur.gray("  No migration files found."));
-      return;
-    }
-    for (const file of files) {
-      console.log(kleur.cyan(`\n-- Migration: ${file.id}`));
-      console.log(file.sql);
+  if (opts.dryRun) {
+    spinner.text = "Loading migration status...";
+    try {
+      const db = await config.getDb();
+      const { pending } = await getMigrationStatus(db, [builtinMigrationsDir, userMigrationsDir]);
+      spinner.info("Dry run — showing SQL without applying:");
+      for (const id of pending) {
+        const dirs = [builtinMigrationsDir, userMigrationsDir];
+        let sql: string | null = null;
+        for (const dir of dirs) {
+          const filePath = path.join(dir, `${id}.sql`);
+          try {
+            sql = await fs.readFile(filePath, "utf8");
+            break;
+          } catch {
+            // try next dir
+          }
+        }
+        console.log(`\n${kleur.bold(kleur.cyan(`-- ${id}`))}`);
+        console.log(sql ?? kleur.gray("(SQL file not found)"));
+      }
+      if (pending.length === 0) {
+        console.log(kleur.gray("  No pending migrations."));
+      }
+    } catch (err) {
+      spinner.fail(String(err));
+      process.exit(1);
     }
     return;
   }
 
-  const db = await config.getDb();
-  const spinner = ora("Applying migrations...").start();
-
   try {
+    spinner.text = "Connecting to database...";
+    const db = await config.getDb();
+
     const { applied, skipped } = await applyMigrations(
       db,
       [builtinMigrationsDir, userMigrationsDir],
       (id) => {
-        spinner.text = `Applied migration: ${id}`;
+        spinner.text = `Applying ${id}...`;
       },
     );
 
     if (applied.length === 0) {
       spinner.succeed("No pending migrations. Schema is up to date.");
     } else {
-      spinner.succeed(`Applied ${applied.length} migration(s). ${skipped.length} already applied.`);
+      spinner.succeed(`${applied.length} migration(s) applied. ${skipped.length} already applied.`);
     }
   } catch (err) {
     const message = String(err);
+    spinner.fail(message);
     if (message.includes("already exists")) {
-      spinner.fail("Migration failed");
       console.error(
         formatError({
           problem: "Migration failed",
@@ -77,7 +105,6 @@ export async function runMigrate(opts?: { dryRun?: boolean }): Promise<void> {
         }),
       );
     } else {
-      spinner.fail("Migration failed");
       console.error(
         formatError({
           problem: "Migration failed",
@@ -91,49 +118,85 @@ export async function runMigrate(opts?: { dryRun?: boolean }): Promise<void> {
 }
 
 export async function runMigrateGen(): Promise<void> {
-  const { config, cwd } = await loadConfig();
-  const { generateSchema } = await import("@flowpanel/core");
+  const spinner = ora("Loading config...").start();
 
-  const newSql = generateSchema({ pipeline: config.config.pipeline });
-  const migDir = path.join(cwd, "flowpanel", "migrations");
-  await fs.mkdir(migDir, { recursive: true });
+  let loadResult: Awaited<ReturnType<typeof loadConfig>>;
+  try {
+    loadResult = await loadConfig();
+  } catch (err) {
+    spinner.fail(String(err));
+    process.exit(1);
+  }
 
-  const files = await fs.readdir(migDir).catch(() => [] as string[]);
-  const nums = files.filter((f) => /^\d{4}_/.test(f)).map((f) => parseInt(f.slice(0, 4), 10));
-  const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
-  const id = `${String(next).padStart(4, "0")}_schema_update`;
-  const outPath = path.join(migDir, `${id}.sql`);
+  const { config, cwd } = loadResult;
 
-  await fs.writeFile(outPath, newSql, "utf8");
-  console.log(formatSuccess(`Generated: flowpanel/migrations/${id}.sql`));
-  console.log(kleur.gray("  Review the file then run: npx flowpanel migrate"));
+  try {
+    spinner.text = "Generating schema...";
+    const { generateSchema } = await import("@flowpanel/core");
+
+    const newSql = generateSchema({ pipeline: config.config.pipeline });
+    const migDir = path.join(cwd, "flowpanel", "migrations");
+    await fs.mkdir(migDir, { recursive: true });
+
+    const files = await fs.readdir(migDir).catch(() => [] as string[]);
+    const nums = files.filter((f) => /^\d{4}_/.test(f)).map((f) => parseInt(f.slice(0, 4), 10));
+    const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+    const id = `${String(next).padStart(4, "0")}_schema_update`;
+    const outPath = path.join(migDir, `${id}.sql`);
+
+    spinner.text = `Writing ${id}.sql...`;
+    await fs.writeFile(outPath, newSql, "utf8");
+    spinner.succeed(`Generated: flowpanel/migrations/${id}.sql`);
+    console.log(kleur.gray("  Review the file then run: npx flowpanel migrate"));
+  } catch (err) {
+    spinner.fail(String(err));
+    process.exit(1);
+  }
 }
 
 export async function runMigrateStatus(): Promise<void> {
-  const { config, cwd } = await loadConfig();
-  const db = await config.getDb();
+  const spinner = ora("Loading config...").start();
 
-  const builtinDir = path.resolve(
-    new URL(import.meta.url).pathname,
-    "../../../../../../core/migrations",
-  );
-  const userDir = path.join(cwd, "flowpanel", "migrations");
-
-  const { applied, pending } = await getMigrationStatus(db, [builtinDir, userDir]);
-
-  if (applied.length > 0) {
-    console.log("\n  Applied:");
-    for (const id of applied) {
-      console.log(kleur.green(`    ✓ ${id}`));
-    }
+  let loadResult: Awaited<ReturnType<typeof loadConfig>>;
+  try {
+    loadResult = await loadConfig();
+  } catch (err) {
+    spinner.fail(String(err));
+    process.exit(1);
   }
-  if (pending.length > 0) {
-    console.log("\n  Pending:");
-    for (const id of pending) {
-      console.log(kleur.yellow(`    ○ ${id}`));
+
+  const { config, cwd } = loadResult;
+
+  try {
+    spinner.text = "Checking migration status...";
+    const db = await config.getDb();
+
+    const builtinDir = path.resolve(
+      new URL(import.meta.url).pathname,
+      "../../../../../../core/migrations",
+    );
+    const userDir = path.join(cwd, "flowpanel", "migrations");
+
+    const { applied, pending } = await getMigrationStatus(db, [builtinDir, userDir]);
+    spinner.succeed(`${applied.length} applied, ${pending.length} pending`);
+
+    if (applied.length > 0) {
+      console.log("\n  Applied:");
+      for (const id of applied) {
+        console.log(kleur.green(`    ✓ ${id}`));
+      }
     }
-  }
-  if (applied.length === 0 && pending.length === 0) {
-    console.log(kleur.gray("  No migrations found."));
+    if (pending.length > 0) {
+      console.log("\n  Pending:");
+      for (const id of pending) {
+        console.log(kleur.yellow(`    ○ ${id}`));
+      }
+    }
+    if (applied.length === 0 && pending.length === 0) {
+      console.log(kleur.gray("  No migrations found."));
+    }
+  } catch (err) {
+    spinner.fail(String(err));
+    process.exit(1);
   }
 }

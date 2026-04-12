@@ -1,12 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { generateSchema } from "@flowpanel/core";
+import { generateSchema, z } from "@flowpanel/core";
 import kleur from "kleur";
 import ora from "ora";
 import prompts from "prompts";
-import { z } from "zod";
 import { detectStack } from "../utils/detect.js";
 import { formatSuccess, formatWarning } from "../utils/error-format.js";
+import { runDemo } from "./demo.js";
 
 const BANNER = `
 ┌──────────────────────────────────────────────────────┐
@@ -36,17 +36,6 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
     console.log(formatSuccess(`Detected  tRPC v11 at ${stack.trpc.routerPath}`));
   console.log("");
 
-  // Framework auto-detect
-  let framework = "generic";
-  if (stack.nextjs) framework = "nextjs";
-  else {
-    try {
-      const pkg = JSON.parse(await fs.readFile(path.join(cwd, "package.json"), "utf8"));
-      if (pkg.dependencies?.express) framework = "express";
-      else if (pkg.dependencies?.fastify) framework = "fastify";
-    } catch {}
-  }
-
   if (!stack.trpc.found) {
     console.error(kleur.red("  ✗ tRPC not detected. FlowPanel requires @trpc/server."));
     console.error(kleur.gray("  Install it: pnpm add @trpc/server @trpc/client"));
@@ -57,42 +46,44 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
     [
       {
         type: "text",
-        name: "basePath",
-        message: "Mount FlowPanel at?",
-        initial: "/admin",
+        name: "appName",
+        message: "App name",
+        initial: path.basename(process.cwd()),
       },
       {
         type: "select",
         name: "adapter",
-        message: "Database adapter?",
+        message: "Database adapter",
         choices: [
-          { title: "Drizzle (PostgreSQL)", value: "drizzle" },
-          { title: "Prisma (PostgreSQL)", value: "prisma" },
+          { title: "Prisma (PostgreSQL)", value: "prisma-pg" },
+          { title: "Prisma (SQLite)", value: "prisma-sqlite" },
+          { title: "Drizzle (PostgreSQL)", value: "drizzle-pg" },
+          { title: "Drizzle (SQLite)", value: "drizzle-sqlite" },
         ],
       },
       {
-        type: "list",
+        type: "text",
         name: "stages",
-        message: "Pipeline stage names?",
-        initial: "parse, score, draft, notify",
-        separator: ",",
+        message: "Pipeline stages (comma-separated)",
+        initial: "ingest,process,notify",
       },
       {
-        type: "text",
-        name: "timezone",
-        message: "Timezone (IANA)? ⚠ Locked after migrate.",
-        initial: "UTC",
-      },
-      {
-        type: "text",
-        name: "requireRole",
-        message: "Who can access the admin panel? (role check expression)",
-        initial: `role === "admin"`,
+        type: "select",
+        name: "defaultTimeRange",
+        message: "Default time range",
+        choices: [
+          { title: "1 hour", value: "1h" },
+          { title: "6 hours", value: "6h" },
+          { title: "24 hours (recommended)", value: "24h" },
+          { title: "7 days", value: "7d" },
+          { title: "30 days", value: "30d" },
+        ],
+        initial: 2,
       },
       {
         type: "confirm",
         name: "seedDemo",
-        message: "Seed demo data for preview?",
+        message: "Seed demo data? (500 sample runs)",
         initial: true,
       },
     ],
@@ -104,24 +95,27 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
     },
   );
 
-  const stages = (answers.stages as string[]).map((s: string) => s.trim()).filter(Boolean);
-  const basePath = answers.basePath as string;
-  const adapter = (answers.adapter as string) ?? "drizzle";
-  const timezone = answers.timezone as string;
+  const stages = (answers.stages as string)
+    .split(",")
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+  const appName = answers.appName as string;
+  const adapter = answers.adapter as string;
+  const defaultTimeRange = answers.defaultTimeRange as string;
   const seedDemo = answers.seedDemo as boolean;
 
   console.log("\n  Writing files");
   console.log(`  ${"─".repeat(51)}`);
 
-  const configContent = generateFlowPanelConfig({ stages, basePath, timezone, adapter });
+  const configContent = generateFlowPanelConfig({ stages, appName, adapter, defaultTimeRange });
   await writeFile(cwd, "flowpanel.config.ts", configContent);
   console.log(formatSuccess("flowpanel.config.ts                        created"));
 
-  const adminPageDir = path.join(cwd, "src", "app", "(dashboard)", basePath.replace(/^\//, ""));
+  const adminPageDir = path.join(cwd, "src", "app", "(dashboard)", "admin");
   await fs.mkdir(adminPageDir, { recursive: true });
-  const adminPageContent = generateAdminPage(basePath);
+  const adminPageContent = generateAdminPage("/admin");
   await writeFile(adminPageDir, "page.tsx", adminPageContent);
-  console.log(formatSuccess(`src/app/(dashboard)${basePath}/page.tsx         created`));
+  console.log(formatSuccess(`src/app/(dashboard)/admin/page.tsx         created`));
 
   if (stack.trpc.routerPath) {
     await patchTrpcRouter(cwd, stack.trpc.routerPath);
@@ -159,74 +153,92 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
   console.log(formatSuccess(`flowpanel/migrations/${migrationId}.sql         generated`));
 
   if (seedDemo) {
-    console.log("\n  Demo data");
-    console.log(`  ${"─".repeat(51)}`);
-    console.log(formatSuccess("Demo data seeding will run after migration is applied"));
-    console.log(kleur.gray("  Run: npx flowpanel migrate"));
+    const spinner = ora({ text: "Seeding demo data...", color: "cyan" }).start();
+    try {
+      await runDemo();
+      spinner.succeed("Seeded demo data");
+    } catch {
+      spinner.warn("Demo seed skipped — run `npx flowpanel demo` after setting up your database");
+    }
+  } else {
+    console.log(kleur.gray("  Skipped demo data. Run `npx flowpanel demo` later."));
   }
 
-  console.log(`\n  ${"─".repeat(51)}`);
-  console.log(formatSuccess(`Done\n`));
-  console.log(`  Open  ${kleur.cyan(`http://localhost:3000${basePath}`)}\n`);
-  console.log(kleur.gray(`  Tip: Need PostgreSQL?`));
-  console.log(
-    kleur.gray(`  docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=dev postgres:16-alpine\n`),
-  );
-  console.log(kleur.gray("  Next step:  npx flowpanel migrate"));
-  console.log(kleur.gray("  Then:       npx flowpanel worker:scan\n"));
+  const detectedParts = [
+    stack.nextjs ? `Next.js ${stack.nextjs}` : null,
+    stack.typescript ? "TypeScript" : null,
+    stack.drizzle ? "Drizzle" : stack.prisma ? "Prisma" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  console.log(`\n${kleur.bold("  ⚡ FlowPanel Init")}\n`);
+  if (detectedParts) {
+    console.log(`  Detected: ${kleur.cyan(detectedParts)}\n`);
+  }
+  console.log(`${kleur.green("  ✓")} Created flowpanel.config.ts`);
+  console.log(`${kleur.green("  ✓")} Created app/admin/[[...trpc]]/route.ts`);
+  console.log(`${kleur.green("  ✓")} Generated migration 0001_init.sql`);
+  if (seedDemo) {
+    console.log(`${kleur.green("  ✓")} Seeded 500 demo runs`);
+  }
+  console.log("\n  Next steps:");
+  console.log(`    1. ${kleur.cyan("npm run dev")}`);
+  console.log(`    2. Visit ${kleur.cyan("http://localhost:3000/admin")}`);
+  console.log("    3. Explore the dashboard!\n");
+  console.log(`  Tip: Run ${kleur.cyan("flowpanel dev")} for config hot-reload\n`);
 }
 
 function generateFlowPanelConfig({
   stages,
-  basePath,
-  timezone,
+  appName,
   adapter,
+  defaultTimeRange,
 }: {
   stages: string[];
-  basePath: string;
-  timezone: string;
+  appName: string;
   adapter: string;
+  defaultTimeRange: string;
 }): string {
   const stagesStr = stages.map((s) => `"${s}"`).join(", ");
   const stageFieldsStr = stages.map((s) => `    ${s}: {},`).join("\n");
 
-  const adapterImport =
-    adapter === "prisma"
-      ? `import { prismaAdapter } from "@flowpanel/adapter-prisma";`
-      : `import { drizzleAdapter } from "@flowpanel/adapter-drizzle";`;
+  const adapterImport = adapter.startsWith("prisma")
+    ? `import { prismaAdapter } from "@flowpanel/adapter-prisma";`
+    : `import { drizzleAdapter } from "@flowpanel/adapter-drizzle";`;
 
-  const adapterConfig =
-    adapter === "prisma"
-      ? `prismaAdapter({\n    client: () => import("@/shared/lib/prisma").then((m) => m.prisma),\n  })`
-      : `drizzleAdapter({\n    db: () => import("@/shared/lib/db").then((m) => m.db),\n  })`;
+  const adapterConfig = adapter.startsWith("prisma")
+    ? `prismaAdapter({ prisma: db })`
+    : `drizzleAdapter({ db: () => import("@/shared/lib/db").then((m) => m.db) })`;
 
-  return `import { defineFlowPanel, z } from "@flowpanel/core";
+  return `import { defineFlowPanel } from "@flowpanel/core";
 ${adapterImport}
 
 export const flowpanel = defineFlowPanel({
-  appName: "my-app",
-  timezone: "${timezone}",
-  basePath: "${basePath}",
+  appName: "${appName}",
+  timezone: "UTC",
+  basePath: "/admin",
 
   adapter: ${adapterConfig},
 
   pipeline: {
     stages: [${stagesStr}] as const,
-    fields: {
-      userId: z.string().nullable(),
-    },
+    fields: {},
     stageFields: {
 ${stageFieldsStr}
     },
   },
 
+  timeRange: {
+    default: "${defaultTimeRange}",
+  },
+
   security: {
     auth: {
-      getSession: async (req) => {
-        // TODO: implement using your auth library
-        return null;
-      },
-      requireRole: "admin",
+      // Return user session from request, or null if not authenticated.
+      // Must return: { id: string, role?: string, email?: string }
+      // For development — replace with real auth later:
+      getSession: async (_req) => ({ id: "dev", role: "admin", email: "dev@localhost" }),
     },
   },
 });

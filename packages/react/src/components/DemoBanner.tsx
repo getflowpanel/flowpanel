@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
 interface DemoBannerProps {
   runCount: number;
@@ -19,13 +19,30 @@ export function DemoBanner({ runCount, realRunCount, onClear }: DemoBannerProps)
     <div
       role="status"
       aria-label="Demo mode notice"
-      className="fp:flex fp:items-center fp:justify-between fp:py-2.5 fp:px-6 fp:bg-accent/10 fp:border-b fp:border-border fp:text-[13px] fp:text-muted-foreground"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "10px 24px",
+        background: "var(--fp-accent-dim)",
+        borderBottom: "1px solid var(--fp-border-1)",
+        fontSize: 13,
+        color: "var(--fp-text-2)",
+      }}
     >
       <span>ⓘ {message}</span>
-      <div className="fp:flex fp:gap-2">
+      <div style={{ display: "flex", gap: 8 }}>
         <button
           onClick={onClear}
-          className="fp:text-xs fp:py-[3px] fp:px-2.5 fp:rounded fp:bg-muted fp:border fp:border-border fp:cursor-pointer fp:text-foreground"
+          style={{
+            fontSize: 12,
+            padding: "3px 10px",
+            borderRadius: 4,
+            background: "var(--fp-surface-2)",
+            border: "1px solid var(--fp-border-1)",
+            cursor: "pointer",
+            color: "var(--fp-text-1)",
+          }}
           aria-label="Clear demo data"
         >
           Clear demo data
@@ -33,7 +50,15 @@ export function DemoBanner({ runCount, realRunCount, onClear }: DemoBannerProps)
         <button
           onClick={() => setDismissed(true)}
           aria-label="Dismiss demo notice"
-          className="fp:text-xs fp:py-[3px] fp:px-2 fp:rounded fp:bg-transparent fp:border-none fp:cursor-pointer fp:text-muted-foreground"
+          style={{
+            fontSize: 12,
+            padding: "3px 8px",
+            borderRadius: 4,
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--fp-text-3)",
+          }}
         >
           ×
         </button>

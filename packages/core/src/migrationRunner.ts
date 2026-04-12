@@ -5,7 +5,7 @@ import type { SqlExecutor } from "./types/db.js";
 
 // pg_advisory_lock key for migration serialization
 const MIGRATE_LOCK_KEY = BigInt(
-  `0x${crypto.createHash("md5").update("flowpanel:migrate").digest("hex").slice(0, 16)}`,
+  "0x" + crypto.createHash("md5").update("flowpanel:migrate").digest("hex").slice(0, 16),
 );
 
 export interface MigrationFile {

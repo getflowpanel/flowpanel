@@ -1,72 +1,79 @@
-interface BreakdownProps {
-  data: Array<{ label: string; count: number; color?: string }>;
+interface BreakdownItem {
+  label: string;
+  value: number;
+  color?: string;
 }
 
-export function BreakdownSection({ data }: BreakdownProps) {
-  if (data.length === 0) return null;
+interface BreakdownSectionProps {
+  data: Array<BreakdownItem>;
+}
 
-  const maxCount = Math.max(...data.map((d) => d.count), 1);
+export function BreakdownSection({ data }: BreakdownSectionProps) {
+  if (!data || data.length === 0) {
+    return <div style={{ color: "var(--fp-text-4)", fontSize: 12, padding: "8px 0" }}>No data</div>;
+  }
+
+  const maxValue = Math.max(...data.map((d) => d.value), 1);
 
   return (
-    <div
-      style={{
-        background: "var(--fp-surface-1)",
-        border: "1px solid var(--fp-border-1)",
-        borderRadius: 8,
-        padding: "12px 16px",
-        marginBottom: 12,
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
-    >
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {data.map((item, i) => {
-        const barColor = item.color ?? "var(--fp-accent)";
-        const widthPercent = (item.count / maxCount) * 100;
-
+        const pct = (item.value / maxValue) * 100;
         return (
-          <div key={i}>
-            <div
+          <div
+            key={i}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "120px 1fr 48px",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            {/* Label */}
+            <span
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 4,
+                fontSize: 13,
+                color: "var(--fp-text-2)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
+              title={item.label}
             >
-              <span style={{ fontSize: 12, color: "var(--fp-text-2)" }}>{item.label}</span>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontFamily: "var(--fp-font-mono)",
-                  fontWeight: 600,
-                  color: "var(--fp-text-1)",
-                  background: "var(--fp-surface-2, rgba(255,255,255,0.06))",
-                  padding: "2px 8px",
-                  borderRadius: 10,
-                }}
-              >
-                {item.count}
-              </span>
-            </div>
+              {item.label}
+            </span>
+
+            {/* Bar track */}
             <div
               style={{
                 height: 6,
-                background: "var(--fp-surface-2, rgba(255,255,255,0.06))",
                 borderRadius: 3,
+                background: "var(--fp-surface-2)",
                 overflow: "hidden",
               }}
             >
               <div
                 style={{
                   height: "100%",
-                  width: `${widthPercent}%`,
-                  background: barColor,
+                  width: `${pct}%`,
                   borderRadius: 3,
-                  transition: "width 0.3s ease",
+                  background: item.color ?? "var(--fp-accent)",
+                  transition: "width 300ms ease",
                 }}
               />
             </div>
+
+            {/* Value badge */}
+            <span
+              style={{
+                fontSize: 11,
+                color: "var(--fp-text-3)",
+                textAlign: "right",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {item.value.toLocaleString()}
+            </span>
           </div>
         );
       })}

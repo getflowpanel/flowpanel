@@ -5,7 +5,6 @@ export interface ResolvedTheme {
   radius: string;
   fontSans: string;
   fontMono: string;
-  colorScheme: "dark" | "light" | "auto";
   stageColors: Record<string, string>;
 }
 
@@ -21,13 +20,7 @@ const DEFAULT_PALETTE = [
 ];
 
 export function resolveTheme(config: {
-  theme?: {
-    accent?: string;
-    radius?: string;
-    fontSans?: string;
-    fontMono?: string;
-    colorScheme?: "dark" | "light" | "auto";
-  };
+  theme?: { accent?: string; radius?: string; fontSans?: string; fontMono?: string };
   pipeline: { stages: readonly string[]; stageColors?: Record<string, string> };
 }): ResolvedTheme {
   const sortedStages = [...config.pipeline.stages].sort();
@@ -44,7 +37,6 @@ export function resolveTheme(config: {
     radius: config.theme?.radius ?? "12px",
     fontSans: config.theme?.fontSans ?? '"Inter", system-ui, sans-serif',
     fontMono: config.theme?.fontMono ?? '"JetBrains Mono", monospace',
-    colorScheme: config.theme?.colorScheme ?? "auto",
     stageColors,
   };
 }

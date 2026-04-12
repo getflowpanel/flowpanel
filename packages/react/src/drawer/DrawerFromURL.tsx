@@ -16,7 +16,12 @@ const DEFAULT_SECTIONS: SectionConfig[] = [
   { type: "error-block", showIf: "hasError" },
 ];
 
-export function DrawerFromURL() {
+interface DrawerFromURLProps {
+  runIds?: string[];
+  onNavigate?: (runId: string) => void;
+}
+
+export function DrawerFromURL({ runIds, onNavigate }: DrawerFromURLProps) {
   const { runId, close } = useDrawerURL();
   const config = useFlowPanelConfig();
 
@@ -27,6 +32,13 @@ export function DrawerFromURL() {
     | undefined;
   const sections = drawerConfig?.sections ?? DEFAULT_SECTIONS;
 
+  const currentIndex = runIds?.indexOf(runId) ?? -1;
+  const prevRunId = currentIndex > 0 ? runIds![currentIndex - 1] : null;
+  const nextRunId =
+    currentIndex >= 0 && runIds && currentIndex < runIds.length - 1
+      ? runIds[currentIndex + 1]
+      : null;
+
   return (
     <Sheet
       open
@@ -36,7 +48,29 @@ export function DrawerFromURL() {
     >
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Run {runId}</SheetTitle>
+          <div className="fp:flex fp:items-center fp:justify-between fp:w-full">
+            <div className="fp:flex fp:items-center fp:gap-2">
+              {prevRunId && (
+                <button
+                  onClick={() => onNavigate?.(prevRunId)}
+                  aria-label="Previous run"
+                  className="fp:p-1 fp:rounded fp:hover:bg-muted fp:text-muted-foreground"
+                >
+                  ←
+                </button>
+              )}
+              <SheetTitle>Run {runId}</SheetTitle>
+              {nextRunId && (
+                <button
+                  onClick={() => onNavigate?.(nextRunId)}
+                  aria-label="Next run"
+                  className="fp:p-1 fp:rounded fp:hover:bg-muted fp:text-muted-foreground"
+                >
+                  →
+                </button>
+              )}
+            </div>
+          </div>
         </SheetHeader>
         <div className="fp:flex fp:flex-col fp:gap-3 fp:px-6 fp:py-4 fp:overflow-y-auto fp:flex-1">
           {sections.map((section, i) => (

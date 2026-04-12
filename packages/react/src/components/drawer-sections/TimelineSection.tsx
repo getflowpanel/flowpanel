@@ -1,105 +1,92 @@
-interface TimelineProps {
-  data: Array<{ step: string; durationMs: number; status: string }>;
+interface TimelineStep {
+  step: string;
+  durationMs: number;
+  status: "succeeded" | "failed" | "running";
 }
 
-const statusColorMap: Record<string, string> = {
-  succeeded: "#22c55e",
-  failed: "#ef4444",
-  running: "#3b82f6",
-};
+interface TimelineSectionProps {
+  data: Array<TimelineStep>;
+}
 
 function formatDuration(ms: number): string {
-  if (ms >= 60_000) return `${(ms / 60_000).toFixed(1)}m`;
-  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${ms}ms`;
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function TimelineSection({ data }: TimelineProps) {
-  if (data.length === 0) return null;
+export function TimelineSection({ data }: TimelineSectionProps) {
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ color: "var(--fp-text-4)", fontSize: 12, padding: "8px 0" }}>
+        No timeline data
+      </div>
+    );
+  }
 
-  const maxDuration = Math.max(...data.map((d) => d.durationMs), 1);
+  const totalDuration = data.reduce((sum, d) => sum + d.durationMs, 0) || 1;
 
   return (
-    <div
-      style={{
-        background: "var(--fp-surface-1)",
-        border: "1px solid var(--fp-border-1)",
-        borderRadius: 8,
-        padding: "12px 16px",
-        marginBottom: 12,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      <style>
-        {`@keyframes fp-timeline-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }`}
-      </style>
-      {data.map((item, i) => {
-        const color = statusColorMap[item.status] ?? "var(--fp-text-3)";
-        const widthPercent = (item.durationMs / maxDuration) * 100;
-        const isRunning = item.status === "running";
+    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+      {data.map((step, i) => {
+        const pct = (step.durationMs / totalDuration) * 100;
+        const isRunning = step.status === "running";
+        const isFailed = step.status === "failed";
+        const barColor = isFailed ? "var(--fp-err)" : "var(--fp-accent)";
 
         return (
-          <div key={i}>
-            <div
+          <div
+            key={i}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "100px 1fr 56px",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            {/* Step name */}
+            <span
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 4,
+                fontSize: 12,
+                color: "var(--fp-text-2)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
+              title={step.step}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: color,
-                    flexShrink: 0,
-                    animation: isRunning
-                      ? "fp-timeline-pulse 1.6s ease-in-out infinite"
-                      : undefined,
-                  }}
-                />
-                <span style={{ fontSize: 12, color: "var(--fp-text-2)" }}>{item.step}</span>
-              </div>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontFamily: "var(--fp-font-mono)",
-                  color: "var(--fp-text-3)",
-                  flexShrink: 0,
-                  marginLeft: 12,
-                }}
-              >
-                {formatDuration(item.durationMs)}
-              </span>
-            </div>
+              {step.step}
+            </span>
+
+            {/* Bar track */}
             <div
               style={{
-                height: 4,
-                background: "var(--fp-surface-2, rgba(255,255,255,0.06))",
-                borderRadius: 2,
+                height: 6,
+                borderRadius: 3,
+                background: "var(--fp-surface-2)",
                 overflow: "hidden",
               }}
             >
               <div
                 style={{
                   height: "100%",
-                  width: `${widthPercent}%`,
-                  background: color,
-                  borderRadius: 2,
-                  transition: "width 0.3s ease",
-                  animation: isRunning ? "fp-timeline-pulse 1.6s ease-in-out infinite" : undefined,
+                  width: `${pct}%`,
+                  borderRadius: 3,
+                  background: barColor,
+                  animation: isRunning ? "fp-pulse 1.2s ease-in-out infinite" : undefined,
                 }}
               />
             </div>
+
+            {/* Duration text */}
+            <span
+              style={{
+                fontSize: 11,
+                color: "var(--fp-text-3)",
+                textAlign: "right",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {formatDuration(step.durationMs)}
+            </span>
           </div>
         );
       })}

@@ -1,63 +1,83 @@
 import * as path from "node:path";
 import kleur from "kleur";
 import ora from "ora";
-import { formatSuccess, formatWarning } from "../utils/error-format.js";
+import { formatWarning } from "../utils/error-format.js";
 
-export async function runDoctor({ prod = false } = {}): Promise<void> {
+export async function runDoctor({ prod = false, json = false } = {}): Promise<void> {
   const cwd = process.cwd();
   const configPath = path.join(cwd, "flowpanel.config.ts");
-  let passCount = 0;
-  let warnCount = 0;
-  let failCount = 0;
+  const results: Array<{ status: "pass" | "warn" | "fail"; message: string; detail?: string }> = [];
+  // biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
   let config: any;
 
   function pass(msg: string) {
-    console.log(formatSuccess(msg));
-    passCount++;
+    results.push({ status: "pass", message: msg });
+    if (!json) console.log(kleur.green("  ✓ ") + msg);
   }
   function warn(msg: string, detail?: string) {
-    console.log(formatWarning(msg));
-    if (detail) console.log(kleur.gray(`    ${detail}`));
-    warnCount++;
+    results.push({ status: "warn", message: msg, detail });
+    if (!json) {
+      console.log(formatWarning(msg));
+      if (detail) console.log(kleur.gray(`    ${detail}`));
+    }
   }
   function fail(msg: string, detail?: string) {
-    console.log(kleur.red(`  ✗ ${msg}`));
-    if (detail) console.log(kleur.gray(`    ${detail}`));
-    failCount++;
+    results.push({ status: "fail", message: msg, detail });
+    if (!json) {
+      console.log(kleur.red(`  ✗ ${msg}`));
+      if (detail) console.log(kleur.gray(`    ${detail}`));
+    }
   }
 
-  console.log("");
+  const spinner = json ? null : ora("Running health checks...").start();
+
+  if (!json) console.log("");
 
   try {
+    if (spinner) spinner.text = "Checking TypeScript...";
     const { execSync } = await import("node:child_process");
     execSync(`npx tsc --noEmit --skipLibCheck`, { cwd, stdio: "pipe" });
     pass("flowpanel.config.ts       valid TypeScript (tsc --noEmit passed)");
   } catch (err) {
     fail(
       "flowpanel.config.ts       TypeScript errors found",
+      // biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
       String((err as any).stderr).slice(0, 200),
     );
   }
 
-  const configSpinner = ora("Loading flowpanel.config.ts...").start();
   try {
+    if (spinner) spinner.text = "Loading config...";
     const mod = await import(configPath);
     config = mod.flowpanel;
-    configSpinner.succeed("flowpanel.config.ts       loaded successfully");
     pass("flowpanel.config.ts       valid config (Zod + semantic validation)");
   } catch (err) {
-    configSpinner.fail("flowpanel.config.ts       failed to load");
     fail("flowpanel.config.ts       failed to load", String(err).slice(0, 200));
     config = null;
   }
 
   if (!config) {
-    console.log(`\n  ${failCount} failed · ${warnCount} warnings · ${passCount} passed`);
+    if (spinner) spinner.stop();
+    const passCount = results.filter((r) => r.status === "pass").length;
+    const warnCount = results.filter((r) => r.status === "warn").length;
+    const failCount = results.filter((r) => r.status === "fail").length;
+    if (json) {
+      console.log(
+        JSON.stringify(
+          { results, summary: { passed: passCount, warnings: warnCount, failed: failCount } },
+          null,
+          2,
+        ),
+      );
+    } else {
+      console.log(`\n  ${failCount} failed · ${warnCount} warnings · ${passCount} passed`);
+    }
     if (prod) process.exit(1);
     return;
   }
 
   try {
+    if (spinner) spinner.text = "Testing getSession...";
     const mockReq = new Request("http://localhost/");
     const session = await config.config.security.auth.getSession(mockReq);
     if (session === null || (typeof session === "object" && "userId" in session)) {
@@ -73,6 +93,7 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
   }
 
   try {
+    if (spinner) spinner.text = "Testing database connection...";
     const db = await config.getDb();
     const start = Date.now();
     await db.execute("SELECT 1", []);
@@ -83,11 +104,12 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
   }
 
   try {
+    if (spinner) spinner.text = "Checking schema...";
     const db = await config.getDb();
-    const tables = (await db.execute(
+    const tables = await db.execute<{ tablename: string }>(
       `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'flowpanel_%'`,
       [],
-    )) as Array<{ tablename: string }>;
+    );
     if (tables.length >= 4) {
       pass("Schema                    up to date, no drift");
     } else {
@@ -98,11 +120,12 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
   }
 
   try {
+    if (spinner) spinner.text = "Checking timezone lock...";
     const db = await config.getDb();
-    const rows = (await db.execute(
+    const rows = await db.execute<{ value: string }>(
       `SELECT value FROM flowpanel_meta WHERE key = 'timezone'`,
       [],
-    )) as Array<{ value: string }>;
+    );
     const tz = rows[0]?.value ?? "not set";
     pass(`Timezone lock             ${tz}`);
   } catch {
@@ -123,7 +146,23 @@ export async function runDoctor({ prod = false } = {}): Promise<void> {
     `Add to worker/index.ts:\n    ┌──────────────────────────────────────────┐\n    │  flowpanel.startReaper({ interval: "60s" });  │\n    └──────────────────────────────────────────┘`,
   );
 
-  console.log(`\n  ${passCount} passed · ${warnCount} warnings · ${failCount} failed\n`);
+  if (spinner) spinner.stop();
+
+  const passCount = results.filter((r) => r.status === "pass").length;
+  const warnCount = results.filter((r) => r.status === "warn").length;
+  const failCount = results.filter((r) => r.status === "fail").length;
+
+  if (json) {
+    console.log(
+      JSON.stringify(
+        { results, summary: { passed: passCount, warnings: warnCount, failed: failCount } },
+        null,
+        2,
+      ),
+    );
+  } else {
+    console.log(`\n  ${passCount} passed · ${warnCount} warnings · ${failCount} failed\n`);
+  }
 
   if (prod && failCount > 0) {
     process.exit(1);

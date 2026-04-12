@@ -4,7 +4,9 @@ import { getOrCreateBroker } from "../../sse/broker.js";
 import type { FlowPanelContext } from "../context.js";
 
 export function createStreamProcedure(
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
   t: { procedure: any; router: (routes: any) => any },
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
   authedProcedure: any,
 ) {
   return t.router({
@@ -14,13 +16,16 @@ export function createStreamProcedure(
           lastEventId: z.string().optional(),
         }),
       )
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { config, db } = ctx;
+        // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
         const streamConfig = (config as any).ui?.stream ?? {};
         const maxConnections = streamConfig.maxConnections ?? 50;
         const heartbeatIntervalMs = parseInterval(streamConfig.heartbeatInterval ?? "15s");
         const replayWindowMs = parseInterval(streamConfig.replayWindow ?? "60s");
 
+        // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
         const broker = getOrCreateBroker(config as any, db, maxConnections, replayWindowMs);
 
         if (broker.clientCount() >= maxConnections) {
@@ -43,6 +48,7 @@ export function createStreamProcedure(
               controller.enqueue(encoder.encode(`event: heartbeat\ndata: {}\n\n`));
             }, heartbeatIntervalMs);
 
+            // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
             (controller as any).cancel = () => {
               clearInterval(heartbeat);
               unsubscribe();
@@ -68,5 +74,5 @@ function parseInterval(interval: string): number {
   const match = interval.match(/^(\d+)([smh])$/);
   if (!match) return 15_000;
   const [, num, unit] = match;
-  return parseInt(num!, 10) * (unit === "s" ? 1000 : unit === "m" ? 60_000 : 3_600_000);
+  return parseInt(num!) * (unit === "s" ? 1000 : unit === "m" ? 60_000 : 3_600_000);
 }

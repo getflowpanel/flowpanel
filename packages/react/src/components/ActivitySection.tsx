@@ -52,13 +52,13 @@ export function ActivitySection({ timeRange }: ActivitySectionProps) {
                     fontSize: 13,
                   }}
                 >
-                  <span style={{ color: "#ef4444", fontFamily: "var(--fp-font-mono)" }}>
+                  <span style={{ color: "var(--fp-err)", fontFamily: "var(--fp-font-mono)" }}>
                     {e.errorClass}
                   </span>
                   <span
                     style={{
-                      background: "rgba(239,68,68,0.1)",
-                      color: "#ef4444",
+                      background: "color-mix(in srgb, var(--fp-err) 10%, transparent)",
+                      color: "var(--fp-err)",
                       padding: "2px 8px",
                       borderRadius: 10,
                       fontSize: 12,

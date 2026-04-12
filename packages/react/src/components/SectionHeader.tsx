@@ -1,3 +1,5 @@
+import React from "react";
+
 interface SectionHeaderProps {
   label: string;
   meta?: string;
@@ -5,11 +7,26 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ label, meta }: SectionHeaderProps) {
   return (
-    <div className="fp:flex fp:items-baseline fp:justify-between fp:mb-3 fp:mt-0">
-      <span className="fp:text-[11px] fp:font-semibold fp:tracking-[0.05em] fp:uppercase fp:text-muted-foreground">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        marginBottom: 12,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase" as const,
+          color: "var(--fp-text-5)",
+        }}
+      >
         {label}
       </span>
-      {meta && <span className="fp:text-xs fp:text-muted-foreground fp:font-normal">{meta}</span>}
+      {meta && <span style={{ fontSize: 11, color: "var(--fp-text-4)" }}>{meta}</span>}
     </div>
   );
 }

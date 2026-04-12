@@ -1,5 +1,6 @@
 import type { FlowPanelContext } from "../context.js";
 
+// biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
 export function createAuditLogMiddleware(t: { middleware: (fn: (opts: any) => any) => any }) {
   return t.middleware(
     async ({
@@ -7,7 +8,9 @@ export function createAuditLogMiddleware(t: { middleware: (fn: (opts: any) => an
       next,
       path,
     }: {
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
       ctx: FlowPanelContext & { session: any };
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
       next: any;
       path: string;
     }) => {
@@ -22,7 +25,9 @@ export function createAuditLogMiddleware(t: { middleware: (fn: (opts: any) => an
         !path.startsWith("stream");
 
       if (isMutation && ctx.session) {
+        // biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
         const forwardedFor = (ctx.req as any).headers?.get?.("x-forwarded-for");
+        // biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
         const userAgent = (ctx.req as any).headers?.get?.("user-agent");
 
         await ctx.db.execute(
@@ -35,6 +40,7 @@ export function createAuditLogMiddleware(t: { middleware: (fn: (opts: any) => an
             userAgent ?? null,
             path,
             result.ok ? "success" : "error",
+            // biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
             (ctx.req as any).headers?.get?.("x-request-id") ?? null,
           ],
         );

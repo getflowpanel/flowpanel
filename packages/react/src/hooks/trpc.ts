@@ -1,19 +1,19 @@
+import type { FlowPanelRouter } from "@flowpanel/core/trpc";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createContext, useContext } from "react";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyTRPCClient = ReturnType<typeof createTRPCClient<any>>;
+type FlowPanelClient = ReturnType<typeof createTRPCClient<FlowPanelRouter>>;
 
-export const TRPCClientContext = createContext<AnyTRPCClient | null>(null);
+export const TRPCClientContext = createContext<FlowPanelClient | null>(null);
 
-export function useTRPCClient(): AnyTRPCClient {
+export function useTRPCClient(): FlowPanelClient {
   const client = useContext(TRPCClientContext);
   if (!client) throw new Error("useTRPCClient must be used within FlowPanelProvider");
   return client;
 }
 
-export function createFlowPanelTRPCClient(baseUrl: string) {
-  return createTRPCClient<any>({
+export function createFlowPanelTRPCClient(baseUrl: string): FlowPanelClient {
+  return createTRPCClient<FlowPanelRouter>({
     links: [httpBatchLink({ url: baseUrl })],
   });
 }

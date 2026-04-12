@@ -10,6 +10,7 @@ export async function runAuditExport(opts: {
 }): Promise<void> {
   const cwd = process.cwd();
 
+  // biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
   let config: any;
   try {
     config = (await import(path.join(cwd, "flowpanel.config.ts"))).flowpanel;
@@ -33,10 +34,10 @@ export async function runAuditExport(opts: {
 
   const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
-  const rows = (await db.execute(
+  const rows = await db.execute<Record<string, unknown>>(
     `SELECT * FROM flowpanel_audit_log ${whereClause} ORDER BY at DESC`,
     params,
-  )) as Record<string, unknown>[];
+  );
 
   const format = opts.format ?? "csv";
   let output: string;
@@ -58,6 +59,7 @@ export async function runAuditExport(opts: {
         const values = headers.map((h) => csvEscape(String(row[h] ?? "")));
         const detailValues = [...detailKeys].map((k) => {
           const key = k.replace("details.", "");
+          // biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
           const details = row.details as any;
           return csvEscape(String(details?.[key] ?? ""));
         });

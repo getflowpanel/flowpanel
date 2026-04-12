@@ -5,6 +5,7 @@ import { formatSuccess } from "../utils/error-format.js";
 export async function runDemoClear(): Promise<void> {
   const cwd = process.cwd();
 
+  // biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
   let config: any;
   try {
     config = (await import(path.join(cwd, "flowpanel.config.ts"))).flowpanel;
@@ -15,10 +16,10 @@ export async function runDemoClear(): Promise<void> {
 
   const db = await config.getDb();
 
-  const result = (await db.execute(
+  const result = await db.execute<{ id: bigint }>(
     `DELETE FROM flowpanel_pipeline_run WHERE is_demo = true RETURNING id`,
     [],
-  )) as Array<{ id: bigint }>;
+  );
 
   console.log(formatSuccess(`Cleared ${result.length} demo runs`));
   console.log(kleur.gray("  Re-seed at any time with: npx flowpanel init --seed"));

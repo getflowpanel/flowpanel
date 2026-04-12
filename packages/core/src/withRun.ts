@@ -21,6 +21,18 @@ interface WithRunOptions {
 // Track active run per async context for nested detection
 const activeRunStorage = new AsyncLocalStorage<{ runId: bigint; stage: string }>();
 
+/**
+ * Wrap an async function to track it as a pipeline run.
+ * Automatically records start time, duration, status, and errors.
+ *
+ * @example
+ * ```ts
+ * await flowpanel.withRun("ingest", { partitionKey: userId }, async (run) => {
+ *   run.set({ itemsProcessed: 42 });
+ *   return processData();
+ * });
+ * ```
+ */
 export function createWithRun(opts: WithRunOptions) {
   const { db, stageFields, cwd, redactionKeys } = opts;
 
@@ -40,22 +52,25 @@ export function createWithRun(opts: WithRunOptions) {
     }
 
     // INSERT running row
-    let rows: { id: bigint }[];
+    let runId: bigint;
     try {
-      rows = await db.execute<{ id: bigint }>(
+      const rows = await db.execute<{ id: bigint }>(
         `INSERT INTO flowpanel_pipeline_run (stage, status, started_at)
-         VALUES ($1, $2, now())
-         RETURNING id`,
+       VALUES ($1, $2, now())
+       RETURNING id`,
         [stage, "running"],
       );
+      const row = rows[0];
+      if (!row?.id) throw new Error("INSERT returned no rows");
+      runId = row.id;
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       throw new Error(
-        `[flowpanel] Failed to start run for stage "${stage}". Check database connectivity and run: npx flowpanel migrate. Original: ${(err as Error).message}`,
+        `[flowpanel] Failed to start run for stage "${stage}". ` +
+          `Check database connectivity and that migrations are applied (run: npx flowpanel migrate). ` +
+          `Original error: ${msg}`,
       );
     }
-
-    const runId = rows[0]?.id;
-    if (runId == null) throw new Error("[flowpanel] Failed to create run row");
 
     const debug = process.env.NODE_ENV === "development" || process.env.FLOWPANEL_DEBUG === "1";
     if (debug) console.debug(`[flowpanel] withRun("${stage}")  started    runId=${runId}`);
@@ -109,7 +124,7 @@ export function createWithRun(opts: WithRunOptions) {
         );
 
         if (updated.length > 0) {
-          // Emit pg_notify for SSE delivery (silent fail — SSE fallback handles it)
+          // Emit pg_notify for SSE delivery
           try {
             await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
               JSON.stringify({
@@ -119,7 +134,9 @@ export function createWithRun(opts: WithRunOptions) {
                 status: "succeeded",
               }),
             ]);
-          } catch {}
+          } catch {
+            // pg_notify not available (SQLite, restricted perms) — SSE will use polling
+          }
         }
 
         if (debug) console.debug(`[flowpanel] withRun("${stage}")  succeeded  runId=${runId}`);
@@ -134,7 +151,6 @@ export function createWithRun(opts: WithRunOptions) {
           [String(runId), new Date(), errorClass, errorMessage, errorStack],
         );
 
-        // Emit pg_notify for SSE delivery (silent fail — SSE fallback handles it)
         try {
           await db.execute(`SELECT pg_notify('flowpanel_events', $1)`, [
             JSON.stringify({
@@ -145,7 +161,9 @@ export function createWithRun(opts: WithRunOptions) {
               errorClass,
             }),
           ]);
-        } catch {}
+        } catch {
+          // pg_notify not available (SQLite, restricted perms) — SSE will use polling
+        }
 
         if (debug)
           console.debug(

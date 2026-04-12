@@ -1,66 +1,76 @@
 import { useId } from "react";
 
-interface TrendChartProps {
-  data: Array<{ label: string; value: number }>;
+interface TrendChartSectionProps {
+  data: Array<{ bucket: string; value: number }>;
 }
 
-export function TrendChartSection({ data }: TrendChartProps) {
-  const gradientId = useId();
+const WIDTH = 280;
+const HEIGHT = 50;
 
-  if (data.length === 0) return null;
-
-  const max = Math.max(...data.map((d) => d.value), 1);
-  const width = 280;
-  const height = 50;
-  const padding = 2;
-
-  const points = data.map((d, i) => ({
-    x: padding + (i / Math.max(data.length - 1, 1)) * (width - padding * 2),
-    y: padding + (1 - d.value / max) * (height - padding * 2),
-  }));
-
-  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-  const areaPath = `${linePath} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
-
-  return (
-    <div
-      style={{
-        background: "var(--fp-surface-1)",
-        border: "1px solid var(--fp-border-1)",
-        borderRadius: 8,
-        padding: "12px 16px",
-        marginBottom: 12,
-      }}
-    >
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        style={{ width: "100%", height: "auto", display: "block" }}
-        aria-hidden
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--fp-accent)" stopOpacity={0.3} />
-            <stop offset="100%" stopColor="var(--fp-accent)" stopOpacity={0.02} />
-          </linearGradient>
-        </defs>
-        <path d={areaPath} fill={`url(#${gradientId})`} />
-        <path d={linePath} fill="none" stroke="var(--fp-accent)" strokeWidth={1.5} />
-        {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={2} fill="var(--fp-accent)" />
-        ))}
-      </svg>
+export function TrendChartSection({ data }: TrendChartSectionProps) {
+  if (!data || data.length === 0) {
+    return (
       <div
         style={{
+          height: HEIGHT,
           display: "flex",
-          justifyContent: "space-between",
-          marginTop: 6,
-          fontSize: 10,
-          color: "var(--fp-text-3)",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--fp-text-4)",
+          fontSize: 12,
         }}
       >
-        <span>{data[0].label}</span>
-        <span>{data[data.length - 1].label}</span>
+        No data
       </div>
-    </div>
+    );
+  }
+
+  const values = data.map((d) => d.value);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const range = maxVal - minVal || 1;
+
+  const n = data.length;
+  const xStep = WIDTH / Math.max(n - 1, 1);
+
+  const points = data.map((d, i) => ({
+    x: i * xStep,
+    y: HEIGHT - ((d.value - minVal) / range) * (HEIGHT - 6) - 3,
+  }));
+
+  const polyline = points.map((p) => `${p.x},${p.y}`).join(" ");
+
+  // Area path: start from bottom-left, line through points, end at bottom-right
+  const areaPath = `M 0,${HEIGHT} ${points.map((p) => `L ${p.x},${p.y}`).join(" ")} L ${WIDTH},${HEIGHT} Z`;
+
+  const gradientId = useId();
+
+  return (
+    <svg
+      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      width="100%"
+      preserveAspectRatio="none"
+      style={{ display: "block", overflow: "visible" }}
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--fp-accent)" stopOpacity="0.30" />
+          <stop offset="100%" stopColor="var(--fp-accent)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* Area fill */}
+      <path d={areaPath} fill={`url(#${gradientId})`} />
+
+      {/* Stroke line */}
+      <polyline
+        points={polyline}
+        fill="none"
+        stroke="var(--fp-accent)"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

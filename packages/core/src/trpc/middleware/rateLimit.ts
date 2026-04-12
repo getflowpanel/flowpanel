@@ -16,6 +16,7 @@ function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
   return true;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
 export function createRateLimitMiddleware(t: { middleware: (fn: (opts: any) => any) => any }) {
   return t.middleware(
     async ({
@@ -23,11 +24,14 @@ export function createRateLimitMiddleware(t: { middleware: (fn: (opts: any) => a
       next,
       path,
     }: {
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
       ctx: FlowPanelContext & { session: any };
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
       next: any;
       path: string;
     }) => {
       const config = ctx.config;
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
       const rateLimits = (config.security as any)?.rateLimits ?? {};
       const limitConfig = rateLimits[path];
 

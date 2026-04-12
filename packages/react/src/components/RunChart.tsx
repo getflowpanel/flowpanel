@@ -1,404 +1,343 @@
-import { useId, useMemo, useRef, useState, type MouseEvent } from "react";
+import React, { useState } from "react";
+
+export interface RunChartBucket {
+  label: string;
+  total: number;
+  succeeded: number;
+  failed: number;
+}
 
 export interface RunChartProps {
-  buckets: Array<{ label: string; total: number; succeeded: number; failed: number }>;
-  peakBucket?: number;
+  buckets: RunChartBucket[];
+  peakBucket: { label: string; total: number } | null;
   loading?: boolean;
-  error?: string;
 }
 
-const W = 760;
-const H = 120;
-const PAD_LEFT = 36;
-const PAD_RIGHT = 8;
-const PAD_TOP = 6;
-const PAD_BOTTOM = 18;
-const CHART_W = W - PAD_LEFT - PAD_RIGHT;
-const CHART_H = H - PAD_TOP - PAD_BOTTOM;
-
-type Series = "succeeded" | "failed";
-
-const SERIES_META: Record<Series, { color: string; label: string }> = {
-  succeeded: { color: "#22c55e", label: "Succeeded" },
-  failed: { color: "#ef4444", label: "Failed" },
-};
-
-function buildAreaPath(
-  values: number[],
-  max: number,
-  chartW: number,
-  chartH: number,
-  padLeft: number,
-  padTop: number,
-): string {
+function areaPath(values: number[], maxVal: number, w: number, h: number): string {
   if (values.length === 0) return "";
-  const step = values.length === 1 ? chartW : chartW / (values.length - 1);
-  const baseline = padTop + chartH;
-
-  const points = values.map((v, i) => {
-    const x = padLeft + i * step;
-    const y = max === 0 ? baseline : baseline - (v / max) * chartH;
-    return `${x},${y}`;
+  const step = w / Math.max(values.length - 1, 1);
+  let d = `M 0 ${h}`;
+  values.forEach((v, i) => {
+    d += ` L ${i * step} ${h - (maxVal > 0 ? (v / maxVal) * h : 0)}`;
   });
-
-  const lastX = padLeft + (values.length - 1) * step;
-  return `M${padLeft},${baseline} L${points.join(" L")} L${lastX},${baseline} Z`;
+  d += ` L ${w} ${h} Z`;
+  return d;
 }
 
-export function RunChart({ buckets, peakBucket, loading, error }: RunChartProps) {
-  const gradientId = useId();
-  const svgRef = useRef<SVGSVGElement>(null);
+function linePath(values: number[], maxVal: number, w: number, h: number): string {
+  if (values.length === 0) return "";
+  const step = w / Math.max(values.length - 1, 1);
+  return values
+    .map((v, i) => `${i === 0 ? "M" : "L"} ${i * step} ${h - (maxVal > 0 ? (v / maxVal) * h : 0)}`)
+    .join(" ");
+}
+
+const SVG_W = 760;
+const SVG_H = 80;
+
+export function RunChart({ buckets, peakBucket, loading }: RunChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
-  const [hiddenSeries, setHiddenSeries] = useState<Set<Series>>(() => new Set());
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 
-  const max = useMemo(() => {
-    if (buckets.length === 0) return 0;
-    return Math.max(...buckets.map((b) => b.total), 1);
-  }, [buckets]);
-
-  const midLabel = Math.round(max / 2);
-
-  const succeededValues = useMemo(() => buckets.map((b) => b.succeeded), [buckets]);
-  const failedValues = useMemo(() => buckets.map((b) => b.failed), [buckets]);
-
-  const succeededPath = useMemo(
-    () => buildAreaPath(succeededValues, max, CHART_W, CHART_H, PAD_LEFT, PAD_TOP),
-    [succeededValues, max],
-  );
-  const failedPath = useMemo(
-    () => buildAreaPath(failedValues, max, CHART_W, CHART_H, PAD_LEFT, PAD_TOP),
-    [failedValues, max],
-  );
-
-  const labelStep = useMemo(() => {
-    if (buckets.length <= 8) return 1;
-    if (buckets.length <= 16) return 2;
-    if (buckets.length <= 32) return 4;
-    return Math.ceil(buckets.length / 8);
-  }, [buckets.length]);
-
-  function toggleSeries(s: Series) {
+  const toggleSeries = (key: string) => {
     setHiddenSeries((prev) => {
       const next = new Set(prev);
-      if (next.has(s)) next.delete(s);
-      else next.add(s);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
       return next;
     });
-  }
-
-  function handleMouseMove(e: MouseEvent<SVGSVGElement>) {
-    const svg = svgRef.current;
-    if (!svg || buckets.length === 0) return;
-    const rect = svg.getBoundingClientRect();
-    const ratioX = (e.clientX - rect.left) / rect.width;
-    const svgX = ratioX * W;
-    const step = buckets.length === 1 ? CHART_W : CHART_W / (buckets.length - 1);
-    const idx = Math.round((svgX - PAD_LEFT) / step);
-    const clamped = Math.max(0, Math.min(buckets.length - 1, idx));
-    setHoverIndex(clamped);
-    setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  }
-
-  function handleMouseLeave() {
-    setHoverIndex(null);
-    setTooltipPos(null);
-  }
+  };
 
   if (loading) {
     return (
       <div
-        className="fp-card"
         style={{
-          background: "var(--fp-surface-1)",
-          border: "1px solid var(--fp-border-1)",
-          borderRadius: 8,
-          padding: 16,
+          height: 120,
+          borderRadius: 6,
+          background: "rgba(255,255,255,0.04)",
+          animation: "fp-pulse 1.4s ease-in-out infinite",
         }}
-        aria-busy="true"
         aria-label="Loading chart"
-      >
-        <div className="fp-skeleton" style={{ width: "100%", height: 120, borderRadius: 4 }} />
-      </div>
+        aria-busy="true"
+      />
     );
   }
 
-  if (error) {
-    return (
-      <div
-        className="fp-card"
-        style={{
-          background: "var(--fp-surface-1)",
-          border: "1px solid var(--fp-border-1)",
-          borderRadius: 8,
-          padding: 16,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: 120,
-            fontSize: 13,
-            color: "var(--fp-err, #ef4444)",
-          }}
-        >
-          {error}
-        </div>
-      </div>
-    );
+  const totals = buckets.map((b) => b.total);
+  const succeededVals = buckets.map((b) => b.succeeded);
+  const failedVals = buckets.map((b) => b.failed);
+  const maxVal = Math.max(...totals, 1);
+
+  // Find peak bucket index
+  let peakIndex = -1;
+  if (peakBucket && buckets.length > 0) {
+    peakIndex = buckets.findIndex((b) => b.label === peakBucket.label);
+    if (peakIndex === -1) {
+      // fallback: find by max total
+      let maxT = -1;
+      buckets.forEach((b, i) => {
+        if (b.total > maxT) {
+          maxT = b.total;
+          peakIndex = i;
+        }
+      });
+    }
   }
 
-  if (buckets.length === 0) {
-    return (
-      <div
-        className="fp-card"
-        style={{
-          background: "var(--fp-surface-1)",
-          border: "1px solid var(--fp-border-1)",
-          borderRadius: 8,
-          padding: 16,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: 120,
-            fontSize: 13,
-            color: "var(--fp-text-3)",
-          }}
-        >
-          No data for this time range
-        </div>
-      </div>
-    );
-  }
+  const step = SVG_W / Math.max(buckets.length - 1, 1);
+  const peakX = peakIndex >= 0 ? peakIndex * step : -1;
+  const peakY =
+    peakIndex >= 0 ? SVG_H - (maxVal > 0 ? (totals[peakIndex]! / maxVal) * SVG_H : 0) : 0;
 
-  const step = buckets.length === 1 ? CHART_W : CHART_W / (buckets.length - 1);
-  const hoverBucket = hoverIndex != null ? buckets[hoverIndex] : null;
-  const hoverX = hoverIndex != null ? PAD_LEFT + hoverIndex * step : null;
-  const peakX =
-    peakBucket != null && peakBucket >= 0 && peakBucket < buckets.length
-      ? PAD_LEFT + peakBucket * step
-      : null;
+  // X-axis labels: show every Nth label to avoid crowding
+  const labelStep = buckets.length > 12 ? Math.ceil(buckets.length / 8) : 1;
+  const visibleLabels = buckets
+    .map((b, i) => ({ label: b.label, index: i }))
+    .filter(({ index }) => index % labelStep === 0 || index === buckets.length - 1);
 
   return (
-    <div
-      className="fp-card"
-      style={{
-        background: "var(--fp-surface-1)",
-        border: "1px solid var(--fp-border-1)",
-        borderRadius: 8,
-        padding: 16,
-        position: "relative",
-      }}
-    >
+    <div style={{ position: "relative", paddingLeft: 32 }}>
+      {/* Y-axis labels */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 24,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          fontSize: 10,
+          color: "var(--fp-text-4, #475569)",
+          width: 28,
+          textAlign: "right",
+          paddingTop: 24,
+          paddingBottom: 4,
+        }}
+      >
+        <span>{maxVal}</span>
+        <span>{Math.round(maxVal / 2)}</span>
+        <span>0</span>
+      </div>
+
+      {/* Legend */}
+      <div
+        style={{
+          display: "flex",
+          gap: 4,
+          marginBottom: 8,
+          fontSize: 11,
+          color: "var(--fp-text-2, #94a3b8)",
+          userSelect: "none",
+        }}
+        aria-hidden="true"
+      >
+        {[
+          { key: "total", label: "Runs", color: "var(--fp-accent, #818cf8)" },
+          { key: "succeeded", label: "Succeeded", color: "var(--fp-ok, #34d399)" },
+          { key: "failed", label: "Failed", color: "var(--fp-err, #f87171)" },
+        ].map((s) => (
+          <button
+            key={s.key}
+            onClick={() => toggleSeries(s.key)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "2px 8px",
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              fontSize: 11,
+              color: "var(--fp-text-2, #94a3b8)",
+              opacity: hiddenSeries.has(s.key) ? 0.35 : 1,
+              textDecoration: hiddenSeries.has(s.key) ? "line-through" : "none",
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: s.color,
+                display: "inline-block",
+              }}
+            />
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* SVG Chart + Tooltip */}
       <div style={{ position: "relative" }}>
         <svg
-          ref={svgRef}
-          viewBox={`0 0 ${W} ${H}`}
+          viewBox={`0 0 ${SVG_W} ${SVG_H}`}
           width="100%"
-          style={{ display: "block", cursor: "crosshair" }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          aria-label="Run chart"
+          height="80"
+          preserveAspectRatio="none"
+          aria-label="Run volume chart"
           role="img"
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            setHoverIndex(
+              Math.min(Math.floor((x / rect.width) * buckets.length), buckets.length - 1),
+            );
+          }}
+          onMouseLeave={() => setHoverIndex(null)}
         >
           <defs>
-            <linearGradient id={`${gradientId}-green`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22c55e" stopOpacity={0.5} />
-              <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
+            <linearGradient id="grad-total" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--fp-accent, #818cf8)" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="var(--fp-accent, #818cf8)" stopOpacity="0" />
             </linearGradient>
-            <linearGradient id={`${gradientId}-red`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#ef4444" stopOpacity={0.5} />
-              <stop offset="100%" stopColor="#ef4444" stopOpacity={0.05} />
+            <linearGradient id="grad-succeeded" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--fp-ok, #34d399)" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="var(--fp-ok, #34d399)" stopOpacity="0" />
             </linearGradient>
           </defs>
 
           {/* Grid lines */}
-          <line
-            x1={PAD_LEFT}
-            y1={PAD_TOP + CHART_H / 3}
-            x2={W - PAD_RIGHT}
-            y2={PAD_TOP + CHART_H / 3}
-            stroke="var(--fp-border-1)"
-            strokeDasharray="4 3"
-            strokeWidth={0.5}
-          />
-          <line
-            x1={PAD_LEFT}
-            y1={PAD_TOP + (CHART_H * 2) / 3}
-            x2={W - PAD_RIGHT}
-            y2={PAD_TOP + (CHART_H * 2) / 3}
-            stroke="var(--fp-border-1)"
-            strokeDasharray="4 3"
-            strokeWidth={0.5}
-          />
+          <line x1="0" y1="27" x2={SVG_W} y2="27" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+          <line x1="0" y1="54" x2={SVG_W} y2="54" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
 
-          {/* Y-axis labels */}
-          <text
-            x={PAD_LEFT - 4}
-            y={PAD_TOP + 4}
-            textAnchor="end"
-            fontSize={9}
-            fill="var(--fp-text-3)"
-          >
-            {max}
-          </text>
-          <text
-            x={PAD_LEFT - 4}
-            y={PAD_TOP + CHART_H / 2 + 3}
-            textAnchor="end"
-            fontSize={9}
-            fill="var(--fp-text-3)"
-          >
-            {midLabel}
-          </text>
-          <text
-            x={PAD_LEFT - 4}
-            y={PAD_TOP + CHART_H + 3}
-            textAnchor="end"
-            fontSize={9}
-            fill="var(--fp-text-3)"
-          >
-            0
-          </text>
-
-          {/* Area paths */}
+          {/* Area fills */}
+          {!hiddenSeries.has("total") && (
+            <path d={areaPath(totals, maxVal, SVG_W, SVG_H)} fill="url(#grad-total)" />
+          )}
           {!hiddenSeries.has("succeeded") && (
-            <path d={succeededPath} fill={`url(#${gradientId}-green)`} />
-          )}
-          {!hiddenSeries.has("failed") && <path d={failedPath} fill={`url(#${gradientId}-red)`} />}
-
-          {/* Peak marker */}
-          {peakX != null && (
-            <>
-              <line
-                x1={peakX}
-                y1={PAD_TOP}
-                x2={peakX}
-                y2={PAD_TOP + CHART_H}
-                stroke="var(--fp-text-3)"
-                strokeDasharray="3 2"
-                strokeWidth={0.75}
-              />
-              <text
-                x={peakX}
-                y={PAD_TOP - 1}
-                textAnchor="middle"
-                fontSize={8}
-                fill="var(--fp-text-3)"
-              >
-                peak
-              </text>
-            </>
+            <path d={areaPath(succeededVals, maxVal, SVG_W, SVG_H)} fill="url(#grad-succeeded)" />
           )}
 
-          {/* Hover crosshair */}
-          {hoverX != null && (
-            <line
-              x1={hoverX}
-              y1={PAD_TOP}
-              x2={hoverX}
-              y2={PAD_TOP + CHART_H}
-              stroke="var(--fp-text-2)"
-              strokeWidth={0.75}
+          {/* Stroke lines */}
+          {!hiddenSeries.has("total") && (
+            <path
+              d={linePath(totals, maxVal, SVG_W, SVG_H)}
+              fill="none"
+              stroke="var(--fp-accent, #818cf8)"
+              strokeWidth="1"
+            />
+          )}
+          {!hiddenSeries.has("succeeded") && (
+            <path
+              d={linePath(succeededVals, maxVal, SVG_W, SVG_H)}
+              fill="none"
+              stroke="var(--fp-ok, #34d399)"
+              strokeWidth="1"
+            />
+          )}
+          {!hiddenSeries.has("failed") && (
+            <path
+              d={linePath(failedVals, maxVal, SVG_W, SVG_H)}
+              fill="none"
+              stroke="var(--fp-err, #f87171)"
+              strokeWidth="1"
+              strokeDasharray="2 2"
             />
           )}
 
-          {/* X-axis labels */}
-          {buckets.map((b, i) => {
-            if (i % labelStep !== 0) return null;
-            const x = PAD_LEFT + i * step;
-            return (
+          {/* Peak marker */}
+          {peakIndex >= 0 && peakX >= 0 && (
+            <>
+              <line
+                x1={peakX}
+                y1="0"
+                x2={peakX}
+                y2={SVG_H}
+                stroke="var(--fp-accent, #818cf8)"
+                strokeWidth="1"
+                strokeDasharray="3 3"
+                opacity="0.6"
+              />
               <text
-                key={i}
-                x={x}
-                y={H - 2}
-                textAnchor="middle"
-                fontSize={9}
-                fill="var(--fp-text-3)"
+                x={Math.min(peakX + 4, SVG_W - 40)}
+                y="10"
+                fill="var(--fp-accent, #818cf8)"
+                fontSize="9"
+                fontFamily="inherit"
+                opacity="0.8"
               >
-                {b.label}
+                peak
               </text>
-            );
-          })}
+              <circle
+                cx={peakX}
+                cy={peakY}
+                r="2.5"
+                fill="var(--fp-accent, #818cf8)"
+                opacity="0.8"
+              />
+            </>
+          )}
+
+          {/* Crosshair */}
+          {hoverIndex !== null && (
+            <line
+              x1={hoverIndex * (SVG_W / buckets.length) + SVG_W / buckets.length / 2}
+              y1={0}
+              x2={hoverIndex * (SVG_W / buckets.length) + SVG_W / buckets.length / 2}
+              y2={SVG_H}
+              stroke="rgba(255,255,255,0.2)"
+              strokeDasharray="2 2"
+            />
+          )}
         </svg>
 
-        {/* Tooltip */}
-        {hoverBucket && tooltipPos && (
+        {/* Hover tooltip */}
+        {hoverIndex !== null && buckets[hoverIndex] && (
           <div
             style={{
               position: "absolute",
-              left: tooltipPos.x,
-              top: tooltipPos.y - 52,
+              left: `${((hoverIndex + 0.5) / buckets.length) * 100}%`,
+              bottom: "calc(100% + 6px)",
               transform: "translateX(-50%)",
-              background: "var(--fp-surface-1)",
-              border: "1px solid var(--fp-border-1)",
+              background: "var(--fp-surface-3, #1e293b)",
+              border: "1px solid var(--fp-border-2, rgba(255,255,255,0.1))",
               borderRadius: 6,
               padding: "6px 10px",
               fontSize: 11,
-              color: "var(--fp-text-1)",
-              pointerEvents: "none",
               whiteSpace: "nowrap",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
               zIndex: 10,
-              fontFamily: "var(--fp-font-mono)",
+              pointerEvents: "none",
+              color: "var(--fp-text-1, #f1f5f9)",
             }}
           >
-            <div style={{ fontWeight: 600, marginBottom: 2 }}>{hoverBucket.label}</div>
-            <div>
-              <span style={{ color: "#22c55e" }}>●</span> {hoverBucket.succeeded}
-              <span style={{ marginLeft: 8, color: "#ef4444" }}>●</span> {hoverBucket.failed}
-              <span style={{ marginLeft: 8, color: "var(--fp-text-3)" }}>
-                Σ {hoverBucket.total}
-              </span>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>{buckets[hoverIndex]!.label}</div>
+            <div>{buckets[hoverIndex]!.total} runs</div>
+            <div style={{ color: "var(--fp-ok, #34d399)" }}>
+              {buckets[hoverIndex]!.succeeded} ok
+            </div>
+            <div style={{ color: "var(--fp-err, #f87171)" }}>
+              {buckets[hoverIndex]!.failed} failed
             </div>
           </div>
         )}
       </div>
 
-      {/* Legend */}
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        {(Object.keys(SERIES_META) as Series[]).map((s) => {
-          const meta = SERIES_META[s];
-          const hidden = hiddenSeries.has(s);
-          return (
-            <button
-              key={s}
-              onClick={() => toggleSeries(s)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "3px 10px",
-                fontSize: 11,
-                borderRadius: 9999,
-                border: "1px solid var(--fp-border-1)",
-                background: hidden ? "transparent" : "var(--fp-surface-1)",
-                color: hidden ? "var(--fp-text-3)" : "var(--fp-text-1)",
-                cursor: "pointer",
-                opacity: hidden ? 0.5 : 1,
-                transition: "opacity 150ms",
-              }}
-            >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: hidden ? "var(--fp-text-3)" : meta.color,
-                  display: "inline-block",
-                }}
-              />
-              {meta.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* X-axis labels */}
+      {buckets.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: 4,
+            fontSize: 10,
+            color: "var(--fp-text-3, #64748b)",
+            userSelect: "none",
+            overflow: "hidden",
+          }}
+          aria-hidden="true"
+        >
+          {visibleLabels.map(({ label, index }) => (
+            <span key={index} style={{ whiteSpace: "nowrap" }}>
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

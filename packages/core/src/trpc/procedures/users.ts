@@ -2,18 +2,10 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { FlowPanelContext } from "../context.js";
 
-// Allows plain identifiers (users) and schema-qualified names (public.users)
-function assertSafeIdentifier(value: string, name: string): void {
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/.test(value)) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `Invalid identifier "${name}": ${value}`,
-    });
-  }
-}
-
 export function createUsersProcedures(
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
   t: { procedure: any; router: (routes: any) => any },
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
   authedProcedure: any,
 ) {
   return t.router({
@@ -25,9 +17,11 @@ export function createUsersProcedures(
           search: z.string().optional(),
         }),
       )
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { db, config } = ctx;
 
+        // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
         if (!(config as any).users) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -35,13 +29,10 @@ export function createUsersProcedures(
           });
         }
 
+        // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
         const { source, primaryKey, columns = [], periodStart, periodEnd } = (config as any).users;
-        assertSafeIdentifier(source, "source");
-        assertSafeIdentifier(primaryKey, "primaryKey");
-        if (periodStart) assertSafeIdentifier(periodStart, "periodStart");
-        if (periodEnd) assertSafeIdentifier(periodEnd, "periodEnd");
+        // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
         const userCols = columns.map((c: any) => c.field).filter((f: string) => !f.startsWith("$"));
-        for (const col of userCols) assertSafeIdentifier(col, `column "${col}"`);
 
         const selectCols = userCols.length > 0 ? userCols.join(", ") : "*";
         const params: unknown[] = [];
@@ -59,7 +50,9 @@ export function createUsersProcedures(
         const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
         const computedCols = columns
+          // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
           .filter((c: any) => c.field.startsWith("$"))
+          // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
           .map((c: any) => c.field);
         const lateralClauses: string[] = [];
 
@@ -86,8 +79,8 @@ export function createUsersProcedures(
            FROM ${source} u
            ${whereClause}
            ORDER BY u.${primaryKey}
-           LIMIT $${params.length + 1}`,
-          [...params, input.limit + 1],
+           LIMIT ${input.limit + 1}`,
+          params,
         );
 
         const hasNext = rows.length > input.limit;
@@ -99,13 +92,14 @@ export function createUsersProcedures(
 
     get: authedProcedure
       .input(z.object({ userId: z.string() }))
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { db, config } = ctx;
+        // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
         if (!(config as any).users) throw new TRPCError({ code: "BAD_REQUEST" });
 
+        // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
         const { source, primaryKey } = (config as any).users;
-        assertSafeIdentifier(source, "source");
-        assertSafeIdentifier(primaryKey, "primaryKey");
         const rows = await db.execute<Record<string, unknown>>(
           `SELECT * FROM ${source} WHERE ${primaryKey} = $1 LIMIT 1`,
           [input.userId],

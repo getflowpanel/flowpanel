@@ -42,10 +42,9 @@ export const flowPanelConfigSchema = z.object({
       .object({
         execute: z.function(),
         transaction: z.function(),
-        dialect: z.enum(["postgres"]),
       })
       .passthrough(),
-    z.function(),
+    z.function(), // factory: () => Promise<SqlExecutor>
   ]),
 
   pipeline: z.object({
@@ -131,6 +130,7 @@ export const flowPanelConfigSchema = z.object({
               "error-list",
               "kv-grid",
               "error-block",
+              "timeline",
             ]),
             field: z.string().optional(),
             groupBy: z.string().optional(),
@@ -239,7 +239,6 @@ export const flowPanelConfigSchema = z.object({
       fontSans: z.string().optional(),
       fontMono: z.string().optional(),
       css: z.string().optional(),
-      colorScheme: z.enum(["dark", "light", "auto"]).default("auto"),
     })
     .optional(),
 

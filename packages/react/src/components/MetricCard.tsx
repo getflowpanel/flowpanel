@@ -1,37 +1,41 @@
-import { cn } from "../utils/cn.js";
-import { Skeleton } from "./ui/skeleton.js";
+import React, { useState } from "react";
 
 interface MetricCardProps {
   label: string;
   value: string | number | null;
-  trend?: string;
+  trend?: { label: string; direction: "positive" | "negative" | "neutral" };
   sublabel?: string;
   loading?: boolean;
-  error?: string;
   onClick?: () => void;
   hasDrawer?: boolean;
   expanded?: boolean;
   sparkline?: number[];
   sparklineColor?: string;
-  onRetry?: () => void;
 }
 
 function Sparkline({ data, color }: { data: number[]; color?: string }) {
   const max = Math.max(...data, 1);
-  const barColor = color ?? "var(--fp-accent)";
-
   return (
-    <div className="fp:flex fp:items-end fp:gap-[3px] fp:h-[22px] fp:mt-2" aria-hidden>
-      {data.slice(0, 7).map((v, i) => (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        gap: 2,
+        height: 22,
+        position: "absolute",
+        bottom: 12,
+        right: 16,
+      }}
+      aria-hidden="true"
+    >
+      {data.map((v, i) => (
         <div
           key={i}
           style={{
-            flex: 1,
-            height: `${Math.max((v / max) * 100, 4)}%`,
-            background: barColor,
-            borderRadius: 2,
-            minWidth: 4,
-            opacity: 0.7,
+            width: 3,
+            borderRadius: 1,
+            background: color ?? "var(--fp-accent)",
+            height: Math.max(1, (v / max) * 22) + "px",
           }}
         />
       ))}
@@ -39,37 +43,55 @@ function Sparkline({ data, color }: { data: number[]; color?: string }) {
   );
 }
 
-const labelClasses =
-  "fp:text-[11px] fp:font-semibold fp:tracking-[0.06em] fp:uppercase fp:text-muted-foreground fp:mb-2";
-
-function CardContent({
+function CardBody({
   label,
   value,
-  sparkline,
-  sparklineColor,
   trend,
   sublabel,
+  sparkline,
+  sparklineColor,
 }: Pick<
   MetricCardProps,
   "label" | "value" | "trend" | "sublabel" | "sparkline" | "sparklineColor"
 >) {
+  const trendColor =
+    trend?.direction === "positive"
+      ? "var(--fp-ok)"
+      : trend?.direction === "negative"
+        ? "var(--fp-err)"
+        : "var(--fp-text-3)";
+
   return (
     <>
-      <div className={labelClasses}>{label}</div>
-      <div className="fp-mono fp:text-[28px] fp:font-bold fp:text-foreground fp:leading-none">
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: "var(--fp-text-2)",
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        className="fp-mono"
+        style={{
+          fontSize: 28,
+          fontWeight: 700,
+          color: "var(--fp-text-1)",
+          lineHeight: 1,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
         {value ?? "—"}
       </div>
-      {sparkline && sparkline.length > 0 && <Sparkline data={sparkline} color={sparklineColor} />}
-      {(trend || sublabel) && (
-        <div className="fp:mt-1.5 fp:text-xs fp:text-muted-foreground">
-          {trend && (
-            <span style={{ color: trend.startsWith("+") ? "var(--fp-ok)" : "var(--fp-err)" }}>
-              {trend}
-            </span>
-          )}
-          {sublabel && <span className={cn(trend ? "fp:ml-1.5" : "")}>{sublabel}</span>}
-        </div>
+      {trend && <div style={{ fontSize: 11, marginTop: 2, color: trendColor }}>{trend.label}</div>}
+      {sublabel && (
+        <div style={{ fontSize: 11, color: "var(--fp-text-3)", marginTop: 4 }}>{sublabel}</div>
       )}
+      {sparkline && sparkline.length > 0 && <Sparkline data={sparkline} color={sparklineColor} />}
     </>
   );
 }
@@ -80,84 +102,97 @@ export function MetricCard({
   trend,
   sublabel,
   loading,
-  error,
   onClick,
   hasDrawer,
   expanded,
   sparkline,
   sparklineColor,
-  onRetry,
 }: MetricCardProps) {
+  const [hovered, setHovered] = useState(false);
+
   if (loading) {
     return (
       <div
-        className="fp-card fp:py-5 fp:px-6 fp:min-w-[160px]"
+        className="fp-card"
+        style={{ padding: "20px 24px", minWidth: 160 }}
         aria-busy="true"
         aria-label="Loading metric"
       >
-        <Skeleton className="fp:h-[11px] fp:w-[60%] fp:mb-3" />
-        <Skeleton className="fp:h-[28px] fp:w-[80%] fp:mb-2" />
-        <Skeleton className="fp:h-[10px] fp:w-[40%]" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="fp-card fp:py-5 fp:px-6 fp:min-w-[160px]">
-        <div className={labelClasses}>{label}</div>
-        <div className="fp:text-xs fp:text-destructive fp:mb-2">{error}</div>
-        {onRetry && (
-          <button
-            onClick={onRetry}
-            className="fp:py-1 fp:px-2.5 fp:text-[11px] fp:rounded fp:bg-muted fp:border fp:border-border fp:text-muted-foreground fp:cursor-pointer"
-          >
-            Retry
-          </button>
-        )}
+        <div className="fp-skeleton" style={{ height: 11, width: "60%", marginBottom: 12 }} />
+        <div className="fp-skeleton" style={{ height: 28, width: "80%", marginBottom: 8 }} />
+        <div className="fp-skeleton" style={{ height: 10, width: "40%" }} />
       </div>
     );
   }
 
   const isClickable = !!onClick && !!hasDrawer;
 
-  const cardClasses = cn(
-    "fp-card",
-    "fp:py-5 fp:px-6 fp:min-w-[160px] fp:text-left fp:border fp:border-border",
-    "fp:transition-transform fp:duration-[var(--duration-fast)]",
-    "hover:fp:-translate-y-px hover:fp:shadow-md",
-    isClickable && "fp:cursor-pointer",
-  );
+  const hoverBorderStyle =
+    isClickable && hovered ? { borderTop: "2px solid var(--fp-accent)" } : {};
 
   if (isClickable) {
     return (
       <button
-        className={cardClasses}
+        className="fp-card"
+        style={{
+          position: "relative",
+          padding: "20px 24px",
+          minWidth: 160,
+          cursor: "pointer",
+          textAlign: "left",
+          border: "1px solid var(--fp-border-1)",
+          ...hoverBorderStyle,
+        }}
         onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         aria-expanded={expanded ?? false}
         aria-haspopup="dialog"
       >
-        <CardContent
+        {hovered && (
+          <div
+            style={{
+              position: "absolute",
+              top: 6,
+              right: 10,
+              fontSize: 9,
+              color: "var(--fp-accent-text)",
+              pointerEvents: "none",
+            }}
+          >
+            Open breakdown ↗
+          </div>
+        )}
+        <CardBody
           label={label}
           value={value}
-          sparkline={sparkline}
-          sparklineColor={sparklineColor}
           trend={trend}
           sublabel={sublabel}
+          sparkline={sparkline}
+          sparklineColor={sparklineColor}
         />
       </button>
     );
   }
 
   return (
-    <div className={cardClasses}>
-      <CardContent
+    <div
+      className="fp-card"
+      style={{
+        position: "relative",
+        padding: "20px 24px",
+        minWidth: 160,
+        textAlign: "left",
+        border: "1px solid var(--fp-border-1)",
+      }}
+    >
+      <CardBody
         label={label}
         value={value}
-        sparkline={sparkline}
-        sparklineColor={sparklineColor}
         trend={trend}
         sublabel={sublabel}
+        sparkline={sparkline}
+        sparklineColor={sparklineColor}
       />
     </div>
   );

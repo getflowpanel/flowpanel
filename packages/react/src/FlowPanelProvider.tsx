@@ -3,15 +3,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useRef, useState } from "react";
 import { FlowPanelContext } from "./context.js";
 import { createFlowPanelTRPCClient, TRPCClientContext } from "./hooks/trpc.js";
+import { LocaleProvider } from "./locale/LocaleContext.js";
+import type { FlowPanelLocale } from "./locale/defaultLocale.js";
 import { resolveTheme, themeToStyle } from "./theme/index.js";
 
 interface FlowPanelProviderProps {
   config: FlowPanelConfig;
   trpcBaseUrl: string;
+  locale?: Partial<FlowPanelLocale>;
   children: React.ReactNode;
 }
 
-export function FlowPanelProvider({ config, trpcBaseUrl, children }: FlowPanelProviderProps) {
+export function FlowPanelProvider({
+  config,
+  trpcBaseUrl,
+  locale,
+  children,
+}: FlowPanelProviderProps) {
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } }),
   );
@@ -41,14 +49,16 @@ export function FlowPanelProvider({ config, trpcBaseUrl, children }: FlowPanelPr
             container: containerRef.current,
           }}
         >
-          <div
-            ref={containerRef}
-            className={rootClassName}
-            style={{ ...themeStyle, minHeight: "100vh" }}
-            data-testid="fp-root"
-          >
-            {children}
-          </div>
+          <LocaleProvider locale={locale}>
+            <div
+              ref={containerRef}
+              className={rootClassName}
+              style={{ ...themeStyle, minHeight: "100vh" }}
+              data-testid="fp-root"
+            >
+              {children}
+            </div>
+          </LocaleProvider>
         </FlowPanelContext.Provider>
       </QueryClientProvider>
     </TRPCClientContext.Provider>
