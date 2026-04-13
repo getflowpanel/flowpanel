@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import { createServer } from "node:http";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { handleTrpcRequest, createSSESimulation } from "./mock-router.js";
+import { createSSESimulation, handleTrpcRequest } from "./mock-router";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

@@ -27,7 +27,9 @@
       "!**/node_modules",
       "!**/pnpm-lock.yaml",
       "!**/playwright-report",
-      "!.superpowers"
+      "!.superpowers",
+      "!.turbo",
+      "!**/.next"
     ]
   }
 }

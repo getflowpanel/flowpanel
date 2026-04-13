@@ -8,6 +8,7 @@ export function drizzleAdapter(opts: {
   db: DrizzleDb | (() => Promise<DrizzleDb>);
   dialect?: "postgres" | "sqlite";
 }): SqlExecutor {
+  const dialect = opts.dialect ?? "postgres";
   let resolvedDb: DrizzleDb | null = null;
 
   async function getDb(): Promise<DrizzleDb> {
@@ -18,7 +19,7 @@ export function drizzleAdapter(opts: {
   }
 
   const executor: SqlExecutor = {
-    dialect: opts.dialect ?? "postgres",
+    dialect,
     async execute<T = Record<string, unknown>>(sqlText: string, params: unknown[]): Promise<T[]> {
       const db = await getDb();
       // Drizzle expects prepare: false for PgBouncer compatibility
@@ -33,7 +34,7 @@ export function drizzleAdapter(opts: {
       const drizzleWithTx = db as any;
       if (typeof drizzleWithTx.transaction === "function") {
         return drizzleWithTx.transaction(async (tx: DrizzleDb) => {
-          const txExecutor = drizzleAdapter({ db: tx, dialect: opts.dialect ?? "postgres" });
+          const txExecutor = drizzleAdapter({ db: tx, dialect });
           return fn(txExecutor);
         });
       }
@@ -43,14 +44,23 @@ export function drizzleAdapter(opts: {
     },
 
     async advisoryLock(key: bigint): Promise<void> {
+      if (dialect !== "postgres") {
+        throw new Error("Advisory locks require PostgreSQL");
+      }
       await executor.execute(`SELECT pg_advisory_lock($1)`, [key.toString()]);
     },
 
     async advisoryUnlock(key: bigint): Promise<void> {
+      if (dialect !== "postgres") {
+        throw new Error("Advisory locks require PostgreSQL");
+      }
       await executor.execute(`SELECT pg_advisory_unlock($1)`, [key.toString()]);
     },
 
     async advisoryTryLock(key: bigint): Promise<boolean> {
+      if (dialect !== "postgres") {
+        throw new Error("Advisory locks require PostgreSQL");
+      }
       const rows = await executor.execute<{ pg_try_advisory_lock: boolean }>(
         `SELECT pg_try_advisory_lock($1)`,
         [key.toString()],

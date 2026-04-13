@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "../locale/LocaleContext";
 
 export interface Command {
   id: string;
@@ -43,12 +44,13 @@ function groupByCategory(cmds: Command[]): Array<{ category: string; commands: C
   for (const cmd of cmds) {
     const cat = cmd.category ?? "Actions";
     if (!map.has(cat)) map.set(cat, []);
-    map.get(cat)!.push(cmd);
+    map.get(cat)?.push(cmd);
   }
   return Array.from(map.entries()).map(([category, commands]) => ({ category, commands }));
 }
 
 export function CommandPalette({ open, onClose, commands }: CommandPaletteProps) {
+  const locale = useLocale();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,8 +59,6 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
     if (open) {
       setQuery("");
       setSelected(0);
-      // Small timeout to ensure DOM is ready
-      setTimeout(() => inputRef.current?.focus(), 10);
     }
   }, [open]);
 
@@ -142,13 +142,15 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
       >
         <input
           ref={inputRef}
+          // biome-ignore lint/a11y/noAutofocus: command palette intentionally steals focus when opened
+          autoFocus
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
             setSelected(0);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Type to filter..."
+          placeholder={locale.commandPlaceholder}
           style={{
             width: "100%",
             padding: "14px 16px",
@@ -163,7 +165,7 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
           aria-autocomplete="list"
           aria-controls="fp-palette-list"
           aria-activedescendant={
-            flatFiltered[selected] ? `fp-palette-item-${flatFiltered[selected]!.id}` : undefined
+            flatFiltered[selected] ? `fp-palette-item-${flatFiltered[selected]?.id}` : undefined
           }
         />
         <div
@@ -181,7 +183,7 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
                 textAlign: "center",
               }}
             >
-              <div>No results for &ldquo;{query}&rdquo;</div>
+              <div>{locale.noCommands}</div>
               <div style={{ fontSize: 11, color: "var(--fp-text-4)", marginTop: 4 }}>
                 Try a different search term
               </div>
@@ -196,11 +198,19 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
                     key={cmd.id}
                     id={`fp-palette-item-${cmd.id}`}
                     role="option"
+                    tabIndex={isSelected ? 0 : -1}
                     aria-selected={isSelected}
                     onClick={() => {
                       saveRecentId(cmd.id);
                       cmd.action();
                       onClose();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        saveRecentId(cmd.id);
+                        cmd.action();
+                        onClose();
+                      }
                     }}
                     style={{
                       padding: "8px 16px",

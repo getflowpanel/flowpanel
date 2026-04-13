@@ -1,8 +1,8 @@
 import * as crypto from "node:crypto";
-import type { SqlExecutor } from "./types/db.js";
+import type { SqlExecutor } from "./types/db";
 
 const REAPER_LOCK_KEY = BigInt(
-  "0x" + crypto.createHash("md5").update("flowpanel:reaper").digest("hex").slice(0, 16),
+  `0x${crypto.createHash("md5").update("flowpanel:reaper").digest("hex").slice(0, 16)}`,
 );
 
 const DEFAULT_THRESHOLD = "10m";
@@ -10,22 +10,17 @@ const DEFAULT_THRESHOLD = "10m";
 function intervalToMinutes(interval: string): number {
   const match = interval.match(/^(\d+)([smh])$/);
   if (!match) return 10;
-  const [, num, unit] = match;
+  const [, num = "10", unit] = match;
   switch (unit) {
     case "s":
-      return parseInt(num!) / 60;
+      return parseInt(num, 10) / 60;
     case "m":
-      return parseInt(num!);
+      return parseInt(num, 10);
     case "h":
-      return parseInt(num!) * 60;
+      return parseInt(num, 10) * 60;
     default:
       return 10;
   }
-}
-
-function intervalToPg(interval: string): string {
-  const minutes = intervalToMinutes(interval);
-  return `${minutes} minutes`;
 }
 
 export interface ReaperOptions {
@@ -52,7 +47,7 @@ export function createReaper(opts: ReaperOptions): Reaper {
     try {
       for (const stage of stages) {
         const threshold = reaperThresholds[stage] ?? DEFAULT_THRESHOLD;
-        const pgInterval = intervalToPg(threshold);
+        const thresholdMinutes = intervalToMinutes(threshold);
         // Heartbeat staleness: 3 minutes (fixed)
         const rows = await db.execute<{ id: bigint }>(
           `UPDATE flowpanel_pipeline_run
@@ -62,11 +57,11 @@ export function createReaper(opts: ReaperOptions): Reaper {
              error_class   = 'OrphanedRun',
              error_message = 'Run exceeded timeout without heartbeat — recovered by reaper'
            WHERE status = 'running'
-             AND stage = '${stage}'
-             AND started_at < now() - INTERVAL '${pgInterval}'
+             AND stage = $1
+             AND started_at < now() - make_interval(mins => $2)
              AND (heartbeat_at IS NULL OR heartbeat_at < now() - INTERVAL '3 minutes')
            RETURNING id`,
-          [],
+          [stage, thresholdMinutes],
         );
 
         for (const row of rows) {

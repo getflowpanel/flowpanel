@@ -9,6 +9,10 @@ declare global {
 
 const config = window.__FP_DEMO_CONFIG__;
 
-createRoot(document.getElementById("fp-root")!).render(
-  <FlowPanelUI config={config as any} trpcBaseUrl="/api/trpc" showDemoBanner />,
-);
+const root = document.getElementById("fp-root");
+if (root) {
+  createRoot(root).render(
+    // biome-ignore lint/suspicious/noExplicitAny: demo entry config is loosely typed
+    <FlowPanelUI config={config as any} trpcBaseUrl="/api/trpc" showDemoBanner />,
+  );
+}

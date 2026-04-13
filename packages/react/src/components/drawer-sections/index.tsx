@@ -1,11 +1,11 @@
 import type React from "react";
-import { BreakdownSection } from "./BreakdownSection.js";
-import { ErrorBlockSection } from "./ErrorBlockSection.js";
-import { ErrorListSection } from "./ErrorListSection.js";
-import { KvGridSection } from "./KvGridSection.js";
-import { StatGridSection } from "./StatGridSection.js";
-import { TimelineSection } from "./TimelineSection.js";
-import { TrendChartSection } from "./TrendChartSection.js";
+import { BreakdownSection } from "./BreakdownSection";
+import { ErrorBlockSection } from "./ErrorBlockSection";
+import { ErrorListSection } from "./ErrorListSection";
+import { KvGridSection } from "./KvGridSection";
+import { StatGridSection } from "./StatGridSection";
+import { TimelineSection } from "./TimelineSection";
+import { TrendChartSection } from "./TrendChartSection";
 
 const SECTION_RENDERERS: Record<
   string,
@@ -43,12 +43,12 @@ export function renderDrawerSections(
   sections: Array<{ type: string; data: unknown; error?: string }>,
   run?: Record<string, unknown>,
 ) {
-  return sections.map((section, i) => {
-    if (section.error) return <ErrorFallback key={i} error={section.error} />;
+  return sections.map((section) => {
+    if (section.error) return <ErrorFallback key={`err-${section.type}`} error={section.error} />;
     const Renderer = SECTION_RENDERERS[section.type];
     if (!Renderer) return null;
     return (
-      <div key={i} style={{ marginBottom: 16 }}>
+      <div key={section.type} style={{ marginBottom: 16 }}>
         <Renderer data={section.data} run={run} />
       </div>
     );

@@ -1,14 +1,12 @@
-import * as path from "node:path";
 import kleur from "kleur";
 import ora from "ora";
-import { formatWarning } from "../utils/error-format.js";
+import { loadConfig } from "../loadConfig";
+import { formatWarning } from "../utils/error-format";
 
 export async function runDoctor({ prod = false, json = false } = {}): Promise<void> {
   const cwd = process.cwd();
-  const configPath = path.join(cwd, "flowpanel.config.ts");
   const results: Array<{ status: "pass" | "warn" | "fail"; message: string; detail?: string }> = [];
-  // biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
-  let config: any;
+  let config: Awaited<ReturnType<typeof loadConfig>> | null;
 
   function pass(msg: string) {
     results.push({ status: "pass", message: msg });
@@ -48,8 +46,7 @@ export async function runDoctor({ prod = false, json = false } = {}): Promise<vo
 
   try {
     if (spinner) spinner.text = "Loading config...";
-    const mod = await import(configPath);
-    config = mod.flowpanel;
+    config = await loadConfig();
     pass("flowpanel.config.ts       valid config (Zod + semantic validation)");
   } catch (err) {
     fail("flowpanel.config.ts       failed to load", String(err).slice(0, 200));

@@ -4,9 +4,9 @@ import { generateSchema, z } from "@flowpanel/core";
 import kleur from "kleur";
 import ora from "ora";
 import prompts from "prompts";
-import { detectStack } from "../utils/detect.js";
-import { formatSuccess, formatWarning } from "../utils/error-format.js";
-import { runDemo } from "./demo.js";
+import { detectStack } from "../utils/detect";
+import { formatSuccess, formatWarning } from "../utils/error-format";
+import { runDemo } from "./demo";
 
 const BANNER = `
 ┌──────────────────────────────────────────────────────┐
@@ -238,7 +238,12 @@ ${stageFieldsStr}
       // Return user session from request, or null if not authenticated.
       // Must return: { id: string, role?: string, email?: string }
       // For development — replace with real auth later:
-      getSession: async (_req) => ({ id: "dev", role: "admin", email: "dev@localhost" }),
+      getSession: async (_req) => ({
+        _flowpanelStub: true as const,
+        id: "dev",
+        role: "admin",
+        email: "dev@localhost",
+      }),
     },
   },
 });

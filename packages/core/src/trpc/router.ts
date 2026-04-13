@@ -1,16 +1,16 @@
 import { initTRPC } from "@trpc/server";
-import type { FlowPanelConfig } from "../config/schema.js";
-import type { SqlExecutor } from "../types/db.js";
-import type { FlowPanelContext } from "./context.js";
-import { createAuditLogMiddleware } from "./middleware/auditLog.js";
-import { createAuthMiddleware } from "./middleware/auth.js";
-import { createRateLimitMiddleware } from "./middleware/rateLimit.js";
-import { createDrawersProcedures } from "./procedures/drawers.js";
-import { createMetricsProcedures } from "./procedures/metrics.js";
-import { createRunsProcedures } from "./procedures/runs.js";
-import { createStagesProcedures } from "./procedures/stages.js";
-import { createStreamProcedure } from "./procedures/stream.js";
-import { createUsersProcedures } from "./procedures/users.js";
+import type { FlowPanelConfig } from "../config/schema";
+import type { SqlExecutor } from "../types/db";
+import type { FlowPanelContext } from "./context";
+import { createAuditLogMiddleware } from "./middleware/auditLog";
+import { createAuthMiddleware } from "./middleware/auth";
+import { createRateLimitMiddleware } from "./middleware/rateLimit";
+import { createDrawersProcedures } from "./procedures/drawers";
+import { createMetricsProcedures } from "./procedures/metrics";
+import { createRunsProcedures } from "./procedures/runs";
+import { createStagesProcedures } from "./procedures/stages";
+import { createStreamProcedure } from "./procedures/stream";
+import { createUsersProcedures } from "./procedures/users";
 
 export function createFlowPanelRouter<TContext extends object>({
   t,

@@ -74,6 +74,7 @@ function ToastItemComponent({ item, onDismiss }: ToastItemProps) {
     >
       <span style={{ flex: 1, lineHeight: "1.4" }}>{item.message}</span>
       <button
+        type="button"
         onClick={handleDismiss}
         aria-label="Dismiss notification"
         style={{

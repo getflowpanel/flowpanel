@@ -8,6 +8,8 @@ const WIDTH = 280;
 const HEIGHT = 50;
 
 export function TrendChartSection({ data }: TrendChartSectionProps) {
+  const gradientId = useId();
+
   if (!data || data.length === 0) {
     return (
       <div
@@ -43,11 +45,11 @@ export function TrendChartSection({ data }: TrendChartSectionProps) {
   // Area path: start from bottom-left, line through points, end at bottom-right
   const areaPath = `M 0,${HEIGHT} ${points.map((p) => `L ${p.x},${p.y}`).join(" ")} L ${WIDTH},${HEIGHT} Z`;
 
-  const gradientId = useId();
-
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      role="img"
+      aria-label="Trend chart"
       width="100%"
       preserveAspectRatio="none"
       style={{ display: "block", overflow: "visible" }}

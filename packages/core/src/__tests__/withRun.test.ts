@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { SqlExecutor } from "../types/db.js";
-import { createWithRun } from "../withRun.js";
+import type { SqlExecutor } from "../types/db";
+import { createWithRun } from "../withRun";
 
 // Mock SqlExecutor
 function makeMockDb() {
+  // biome-ignore lint/suspicious/noExplicitAny: test mock db cast
   const rows: any[] = [];
   const calls: { sql: string; params: unknown[] }[] = [];
 
@@ -12,9 +13,11 @@ function makeMockDb() {
       calls.push({ sql, params });
       if (sql.includes("INSERT") && sql.includes("pipeline_run")) {
         rows.push({ id: BigInt(1) });
+        // biome-ignore lint/suspicious/noExplicitAny: test mock db cast
         return [{ id: BigInt(1) }] as any;
       }
       if (sql.includes("UPDATE") && sql.includes("RETURNING")) {
+        // biome-ignore lint/suspicious/noExplicitAny: test mock db cast
         return [{ id: BigInt(1) }] as any;
       }
       return [];
@@ -130,6 +133,7 @@ describe("withRun", () => {
       redactionKeys: [],
     });
 
+    // biome-ignore lint/suspicious/noExplicitAny: test mock db cast
     await withRun("score", async (run: any) => {
       run.set({ apiKey: "sk-super-secret-key-1234567890" });
     });
@@ -180,5 +184,25 @@ describe("withRun", () => {
 
     const heartbeatCall = calls.find((c) => c.sql.includes("heartbeat_at"));
     expect(heartbeatCall).toBeDefined();
+  });
+
+  it("provides actionable error message when DB INSERT fails", async () => {
+    const brokenDb: SqlExecutor = {
+      ...makeMockDb().executor,
+      async execute(sql: string) {
+        if (sql.includes("INSERT")) {
+          throw new Error("connect ECONNREFUSED 127.0.0.1:5432");
+        }
+        return [];
+      },
+    };
+    const withRun = createWithRun({
+      db: brokenDb,
+      stageFields: {},
+      stages: ["ingest"],
+      cwd: "/app",
+      redactionKeys: [],
+    });
+    await expect(withRun("ingest", async () => {})).rejects.toThrow(/Check database connectivity/);
   });
 });

@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import type { FlowPanelContext } from "../context.js";
+import type { FlowPanelContext } from "../context";
 
 export function createUsersProcedures(
   // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types

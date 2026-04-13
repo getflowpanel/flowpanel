@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 interface DemoBannerProps {
   runCount: number;
@@ -33,6 +33,7 @@ export function DemoBanner({ runCount, realRunCount, onClear }: DemoBannerProps)
       <span>ⓘ {message}</span>
       <div style={{ display: "flex", gap: 8 }}>
         <button
+          type="button"
           onClick={onClear}
           style={{
             fontSize: 12,
@@ -48,6 +49,7 @@ export function DemoBanner({ runCount, realRunCount, onClear }: DemoBannerProps)
           Clear demo data
         </button>
         <button
+          type="button"
           onClick={() => setDismissed(true)}
           aria-label="Dismiss demo notice"
           style={{

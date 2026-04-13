@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 export interface RunChartBucket {
   label: string;
@@ -60,7 +60,6 @@ export function RunChart({ buckets, peakBucket, loading }: RunChartProps) {
           background: "rgba(255,255,255,0.04)",
           animation: "fp-pulse 1.4s ease-in-out infinite",
         }}
-        aria-label="Loading chart"
         aria-busy="true"
       />
     );
@@ -90,7 +89,7 @@ export function RunChart({ buckets, peakBucket, loading }: RunChartProps) {
   const step = SVG_W / Math.max(buckets.length - 1, 1);
   const peakX = peakIndex >= 0 ? peakIndex * step : -1;
   const peakY =
-    peakIndex >= 0 ? SVG_H - (maxVal > 0 ? (totals[peakIndex]! / maxVal) * SVG_H : 0) : 0;
+    peakIndex >= 0 ? SVG_H - (maxVal > 0 ? ((totals[peakIndex] ?? 0) / maxVal) * SVG_H : 0) : 0;
 
   // X-axis labels: show every Nth label to avoid crowding
   const labelStep = buckets.length > 12 ? Math.ceil(buckets.length / 8) : 1;
@@ -141,6 +140,7 @@ export function RunChart({ buckets, peakBucket, loading }: RunChartProps) {
           { key: "failed", label: "Failed", color: "var(--fp-err, #f87171)" },
         ].map((s) => (
           <button
+            type="button"
             key={s.key}
             onClick={() => toggleSeries(s.key)}
             style={{
@@ -305,13 +305,13 @@ export function RunChart({ buckets, peakBucket, loading }: RunChartProps) {
               color: "var(--fp-text-1, #f1f5f9)",
             }}
           >
-            <div style={{ fontWeight: 600, marginBottom: 2 }}>{buckets[hoverIndex]!.label}</div>
-            <div>{buckets[hoverIndex]!.total} runs</div>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>{buckets[hoverIndex]?.label}</div>
+            <div>{buckets[hoverIndex]?.total} runs</div>
             <div style={{ color: "var(--fp-ok, #34d399)" }}>
-              {buckets[hoverIndex]!.succeeded} ok
+              {buckets[hoverIndex]?.succeeded} ok
             </div>
             <div style={{ color: "var(--fp-err, #f87171)" }}>
-              {buckets[hoverIndex]!.failed} failed
+              {buckets[hoverIndex]?.failed} failed
             </div>
           </div>
         )}

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RunTable } from "../components/RunTable.js";
-import type { RunLogColumn } from "../components/RunTable.js";
+import type { RunLogColumn } from "../components/RunTable";
+import { RunTable } from "../components/RunTable";
 
 const columns: RunLogColumn[] = [
   { field: "id", label: "Run ID", width: 90, mono: true },

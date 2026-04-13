@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 interface MetricCardProps {
   label: string;
@@ -28,14 +28,15 @@ function Sparkline({ data, color }: { data: number[]; color?: string }) {
       }}
       aria-hidden="true"
     >
-      {data.map((v, i) => (
+      {data.map((v, idx) => (
         <div
-          key={i}
+          // biome-ignore lint/suspicious/noArrayIndexKey: sparkline data points have no stable id
+          key={idx}
           style={{
             width: 3,
             borderRadius: 1,
             background: color ?? "var(--fp-accent)",
-            height: Math.max(1, (v / max) * 22) + "px",
+            height: `${Math.max(1, (v / max) * 22)}px`,
           }}
         />
       ))}
@@ -112,12 +113,7 @@ export function MetricCard({
 
   if (loading) {
     return (
-      <div
-        className="fp-card"
-        style={{ padding: "20px 24px", minWidth: 160 }}
-        aria-busy="true"
-        aria-label="Loading metric"
-      >
+      <div className="fp-card" style={{ padding: "20px 24px", minWidth: 160 }} aria-busy="true">
         <div className="fp-skeleton" style={{ height: 11, width: "60%", marginBottom: 12 }} />
         <div className="fp-skeleton" style={{ height: 28, width: "80%", marginBottom: 8 }} />
         <div className="fp-skeleton" style={{ height: 10, width: "40%" }} />
@@ -133,6 +129,7 @@ export function MetricCard({
   if (isClickable) {
     return (
       <button
+        type="button"
         className="fp-card"
         style={{
           position: "relative",

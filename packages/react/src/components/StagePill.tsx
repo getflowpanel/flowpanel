@@ -1,5 +1,3 @@
-import React from "react";
-
 export function StagePill({ stage, color }: { stage: string; color: string }) {
   return (
     <span
@@ -14,7 +12,7 @@ export function StagePill({ stage, color }: { stage: string; color: string }) {
         fontSize: 11,
         fontWeight: 600,
       }}
-      aria-label={`Stage: ${stage}`}
+      title={`Stage: ${stage}`}
     >
       {stage}
     </span>

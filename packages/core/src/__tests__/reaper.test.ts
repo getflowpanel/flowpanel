@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createReaper } from "../reaper.js";
-import type { SqlExecutor } from "../types/db.js";
+import { createReaper } from "../reaper";
+import type { SqlExecutor } from "../types/db";
 
 function makeMockDb(tryLockResult = true) {
   const queries: { sql: string; params: unknown[] }[] = [];
   const executor: SqlExecutor = {
     async execute(sql, params) {
       queries.push({ sql, params });
+      // biome-ignore lint/suspicious/noExplicitAny: test mock cast
       if (sql.includes("RETURNING")) return [{ id: BigInt(42) }] as any;
       return [];
     },
@@ -56,7 +57,7 @@ describe("createReaper", () => {
     expect(updateQuery).toBeUndefined();
   });
 
-  it("uses correct threshold per stage", async () => {
+  it("uses correct threshold per stage (parameterized)", async () => {
     const { executor, queries } = makeMockDb(true);
     const reaper = createReaper({
       db: executor,
@@ -66,15 +67,14 @@ describe("createReaper", () => {
 
     await reaper.sweep();
 
-    // Stage name and threshold minutes are now parameterized
-    const scoreQuery = queries.find(
-      (q) => q.sql.includes("UPDATE") && q.params[0] === "score" && q.params[1] === 5,
-    );
-    const parseQuery = queries.find(
-      (q) => q.sql.includes("UPDATE") && q.params[0] === "parse" && q.params[1] === 10,
-    );
-    expect(scoreQuery).toBeDefined();
-    expect(parseQuery).toBeDefined();
+    const updates = queries.filter((q) => q.sql.includes("UPDATE flowpanel_pipeline_run"));
+    expect(updates).toHaveLength(2);
+
+    // Params: [stage, thresholdMinutes]
+    const parseUpdate = updates.find((q) => q.params[0] === "parse");
+    const scoreUpdate = updates.find((q) => q.params[0] === "score");
+    expect(parseUpdate?.params[1]).toBe(10);
+    expect(scoreUpdate?.params[1]).toBe(5);
   });
 
   it("does NOT kill runs within threshold", async () => {
@@ -87,9 +87,29 @@ describe("createReaper", () => {
 
     await reaper.sweep();
 
-    // Verify the WHERE clause uses started_at < now() - INTERVAL (not >)
+    // Verify the WHERE clause uses started_at < now() - make_interval
     const updateQuery = queries.find((q) => q.sql.includes("UPDATE"));
     expect(updateQuery?.sql).toContain("started_at <");
     expect(updateQuery?.sql).not.toContain("started_at >");
+  });
+
+  it("parameterizes stage and interval — no SQL injection via stage name", async () => {
+    const { executor, queries } = makeMockDb(true);
+    const reaper = createReaper({
+      db: executor,
+      stages: ["'; DROP TABLE x; --"],
+      reaperThresholds: {},
+    });
+
+    await reaper.sweep();
+
+    const updateQuery = queries.find((q) => q.sql.includes("UPDATE flowpanel_pipeline_run"));
+    expect(updateQuery).toBeDefined();
+    // SQL must not contain the injected payload — stage flows as $1 param
+    expect(updateQuery?.sql).not.toContain("DROP");
+    expect(updateQuery?.sql).toContain("stage = $1");
+    expect(updateQuery?.sql).toContain("make_interval(mins => $2)");
+    expect(updateQuery?.params[0]).toBe("'; DROP TABLE x; --");
+    expect(typeof updateQuery?.params[1]).toBe("number");
   });
 });

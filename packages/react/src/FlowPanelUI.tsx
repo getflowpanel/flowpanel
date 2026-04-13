@@ -1,70 +1,31 @@
 import type { FlowPanelConfig } from "@flowpanel/core";
-import React, { useCallback, useEffect, useReducer, useState } from "react";
-import type { Command } from "./components/CommandPalette.js";
-import { CommandPalette } from "./components/CommandPalette.js";
-import { DemoBanner } from "./components/DemoBanner.js";
-import { Drawer } from "./components/Drawer.js";
-import { ErrorBoundary } from "./components/ErrorBoundary.js";
-import { ErrorPanel } from "./components/ErrorPanel.js";
-import { Header } from "./components/Header.js";
-import { KeyboardHelp } from "./components/KeyboardHelp.js";
-import { MetricCard } from "./components/MetricCard.js";
-import { RunChart } from "./components/RunChart.js";
-import type { RunLogColumn } from "./components/RunTable.js";
-import { RunTable } from "./components/RunTable.js";
-import { SectionHeader } from "./components/SectionHeader.js";
-import { StageCard } from "./components/StageCard.js";
-import type { TabConfig } from "./components/Tabs.js";
-import { Tabs } from "./components/Tabs.js";
-import { ToastProvider } from "./components/Toast.js";
-import { FlowPanelContext } from "./context.js";
-import { useFlowPanelStream } from "./hooks/useFlowPanelStream.js";
-import { useKeyboard } from "./hooks/useKeyboard.js";
-import { resolveTheme, themeToStyle } from "./theme/index.js";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface RunsState {
-  runs: Record<string, unknown>[];
-  nextCursor: string | null;
-  bufferedNewRuns: Record<string, unknown>[];
-}
-
-type RunsAction =
-  | { type: "SET_RUNS"; runs: Record<string, unknown>[]; nextCursor: string | null }
-  | { type: "BUFFER_RUN"; run: Record<string, unknown> }
-  | { type: "UPDATE_RUN"; runId: string; update: Partial<Record<string, unknown>> }
-  | { type: "LOAD_MORE"; runs: Record<string, unknown>[]; nextCursor: string | null }
-  | { type: "FLUSH_BUFFERED" };
-
-function runsReducer(state: RunsState, action: RunsAction): RunsState {
-  switch (action.type) {
-    case "SET_RUNS":
-      return { runs: action.runs, nextCursor: action.nextCursor, bufferedNewRuns: [] };
-    case "BUFFER_RUN":
-      return { ...state, bufferedNewRuns: [action.run, ...state.bufferedNewRuns] };
-    case "UPDATE_RUN":
-      return {
-        ...state,
-        runs: state.runs.map((r) =>
-          String(r["id"]) === action.runId ? { ...r, ...action.update } : r,
-        ),
-        bufferedNewRuns: state.bufferedNewRuns.map((r) =>
-          String(r["id"]) === action.runId ? { ...r, ...action.update } : r,
-        ),
-      };
-    case "LOAD_MORE":
-      return { ...state, runs: [...state.runs, ...action.runs], nextCursor: action.nextCursor };
-    case "FLUSH_BUFFERED":
-      return {
-        runs: [...state.bufferedNewRuns, ...state.runs],
-        nextCursor: state.nextCursor,
-        bufferedNewRuns: [],
-      };
-    default:
-      return state;
-  }
-}
+import type React from "react";
+import { useCallback, useState } from "react";
+import type { Command } from "./components/CommandPalette";
+import { CommandPalette } from "./components/CommandPalette";
+import { DemoBanner } from "./components/DemoBanner";
+import { Drawer } from "./components/Drawer";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ErrorPanel } from "./components/ErrorPanel";
+import { Header } from "./components/Header";
+import { KeyboardHelp } from "./components/KeyboardHelp";
+import { MetricCard } from "./components/MetricCard";
+import { RunChart } from "./components/RunChart";
+import type { RunLogColumn } from "./components/RunTable";
+import { RunTable } from "./components/RunTable";
+import { SectionHeader } from "./components/SectionHeader";
+import { StageCard } from "./components/StageCard";
+import type { TabConfig } from "./components/Tabs";
+import { Tabs } from "./components/Tabs";
+import { ToastProvider } from "./components/Toast";
+import { FlowPanelContext } from "./context";
+import { useDrawerState } from "./hooks/useDrawerState";
+import type { MetricResult } from "./hooks/useFlowPanelData";
+import { useFlowPanelData } from "./hooks/useFlowPanelData";
+import { useFlowPanelLive } from "./hooks/useFlowPanelLive";
+import { useKeyboard } from "./hooks/useKeyboard";
+import { useLocale } from "./locale/LocaleContext";
+import { resolveTheme, themeToStyle } from "./theme/index";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -72,13 +33,6 @@ export interface FlowPanelUIProps {
   config: FlowPanelConfig;
   trpcBaseUrl?: string;
   showDemoBanner?: boolean;
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  const json = (await res.json()) as { result: { data: T } };
-  return json.result.data;
 }
 
 /**
@@ -96,212 +50,50 @@ export function FlowPanelUI({
 }: FlowPanelUIProps) {
   const theme = resolveTheme(config);
   const themeStyle = themeToStyle(theme);
+  const locale = useLocale();
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const firstTabId = config.tabs?.[0]?.id ?? "pipeline";
   const [activeTab, setActiveTab] = useState(firstTabId);
-  const [timeRange, setTimeRange] = useState(config.timeRange?.default ?? "24h");
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
-  const [drawerState, setDrawerState] = useState<{
-    open: boolean;
-    type: string;
-    runId?: string;
-  }>({ open: false, type: "" });
-  const [selectedRunId, setSelectedRunId] = useState<string | undefined>();
-  const [drawerData, setDrawerData] = useState<{
-    sections: Array<{ type: string; data: unknown; error?: string }>;
-    run?: Record<string, unknown>;
-    actions?: Array<{ label: string; variant?: "default" | "danger"; onClick: string }>;
-  } | null>(null);
-  const [drawerLoading, setDrawerLoading] = useState(false);
-
-  // ── Server state ──────────────────────────────────────────────────────────
-  const [metrics, setMetrics] = useState<Record<string, unknown>>({});
-  const [stageData, setStageData] = useState<
-    Array<{
-      stage: string;
-      total: number;
-      succeeded: number;
-      failed: number;
-      running: number;
-      avgDurationMs: number | null;
-    }>
-  >([]);
-  const [runsState, dispatchRuns] = useReducer(runsReducer, {
-    runs: [],
-    nextCursor: null,
-    bufferedNewRuns: [],
-  });
-  const [loading, setLoading] = useState(true);
-  const [liveAnnouncement, setLiveAnnouncement] = useState("");
-  const [chartData, setChartData] = useState<{
-    buckets: Array<{ label: string; total: number; succeeded: number; failed: number }>;
-    peakBucket: { label: string; total: number } | null;
-  } | null>(null);
-  const [topErrors, setTopErrors] = useState<{
-    errors: Array<{ errorClass: string; count: number }>;
-    totalFailed: number;
-  } | null>(null);
+  const [timeRange, setTimeRange] = useState(config.timeRange?.default ?? "24h");
 
   // ── Data fetching ─────────────────────────────────────────────────────────
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [metricsData, stagesData, runsData] = await Promise.all([
-        fetchJson<Record<string, unknown>>(
-          `${trpcBaseUrl}/flowpanel.metrics.current?input=${encodeURIComponent(
-            JSON.stringify({ timeRange }),
-          )}`,
-        ),
-        fetchJson<
-          Array<{
-            stage: string;
-            total: number;
-            succeeded: number;
-            failed: number;
-            running: number;
-            avgDurationMs: number | null;
-          }>
-        >(
-          `${trpcBaseUrl}/flowpanel.stages.breakdown?input=${encodeURIComponent(
-            JSON.stringify({ timeRange }),
-          )}`,
-        ),
-        fetchJson<{
-          runs: Record<string, unknown>[];
-          nextCursor: string | null;
-        }>(
-          `${trpcBaseUrl}/flowpanel.runs.list?input=${encodeURIComponent(
-            JSON.stringify({ timeRange, stage: selectedStage, limit: 50 }),
-          )}`,
-        ),
-      ]);
+  const {
+    metrics,
+    stageData,
+    runsState,
+    dispatchRuns,
+    loading,
+    error,
+    chartData,
+    topErrors,
+    refresh,
+    loadMore,
+    resetDemo,
+  } = useFlowPanelData({ config, baseUrl: trpcBaseUrl, timeRange, selectedStage });
 
-      // Fetch chart data independently (non-blocking)
-      fetchJson<{
-        buckets: Array<{ label: string; total: number; succeeded: number; failed: number }>;
-        peakBucket: { label: string; total: number } | null;
-      }>(
-        `${trpcBaseUrl}/flowpanel.runs.chart?input=${encodeURIComponent(
-          JSON.stringify({ timeRange }),
-        )}`,
-      )
-        .then(setChartData)
-        .catch(() => {});
+  // ── SSE live updates ──────────────────────────────────────────────────────
+  const setMetricsDirect = useCallback(
+    (_data: Record<string, unknown>) => {
+      // Metrics are updated via the data hook's internal state — trigger a refresh
+      void refresh();
+    },
+    [refresh],
+  );
 
-      // Fetch topErrors independently (non-blocking)
-      fetchJson<{ errors: Array<{ errorClass: string; count: number }>; totalFailed: number }>(
-        `${trpcBaseUrl}/flowpanel.runs.topErrors?input=${encodeURIComponent(
-          JSON.stringify({ timeRange }),
-        )}`,
-      )
-        .then(setTopErrors)
-        .catch((err) => console.error("[FlowPanel] topErrors:", err));
-
-      setMetrics(metricsData);
-      setStageData(stagesData);
-      dispatchRuns({
-        type: "SET_RUNS",
-        runs: runsData.runs,
-        nextCursor: runsData.nextCursor,
-      });
-    } catch (err) {
-      console.error("[FlowPanel] fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [trpcBaseUrl, timeRange, selectedStage]);
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
-
-  // ── Drawer data fetching ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!drawerState.open) {
-      setDrawerData(null);
-      return;
-    }
-
-    // Only fetch section data for config-driven drawers (not the built-in runDetail)
-    const drawerId = drawerState.type === "runDetail" ? "run-detail" : drawerState.type;
-    const drawerConfig = config.drawers?.[drawerId];
-    if (!drawerConfig) return;
-
-    let cancelled = false;
-    setDrawerLoading(true);
-    setDrawerData(null);
-
-    const input: Record<string, unknown> = { drawerId };
-    if (drawerState.runId) input["runId"] = drawerState.runId;
-
-    fetchJson<{
-      sections: Array<{ type: string; data: unknown; error?: string }>;
-      run?: Record<string, unknown>;
-    }>(`${trpcBaseUrl}/flowpanel.drawers.render?input=${encodeURIComponent(JSON.stringify(input))}`)
-      .then((data) => {
-        if (!cancelled) setDrawerData(data);
-      })
-      .catch((err) => {
-        console.error("[FlowPanel] drawer fetch error:", err);
-      })
-      .finally(() => {
-        if (!cancelled) setDrawerLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [drawerState.open, drawerState.type, drawerState.runId, config.drawers, trpcBaseUrl]);
-
-  // ── SSE stream ────────────────────────────────────────────────────────────
-  const { status: liveStatus } = useFlowPanelStream({
-    url: `${trpcBaseUrl}/flowpanel.stream.connect`,
-    onEvent: useCallback((event) => {
-      if (event.event === "run.created") {
-        dispatchRuns({ type: "BUFFER_RUN", run: event.data as Record<string, unknown> });
-        setLiveAnnouncement("New run started");
-      } else if (event.event === "run.finished" || event.event === "run.failed") {
-        const data = event.data as Record<string, unknown>;
-        dispatchRuns({
-          type: "UPDATE_RUN",
-          runId: String(data["id"]),
-          update: { status: data["status"], duration_ms: data["durationMs"] },
-        });
-        if (event.event === "run.failed") setLiveAnnouncement("Run failed");
-      } else if (event.event === "metrics.updated") {
-        setMetrics(event.data as Record<string, unknown>);
-      }
-    }, []),
+  const { status: liveStatus, liveAnnouncement } = useFlowPanelLive({
+    streamUrl: `${trpcBaseUrl}/flowpanel.stream.connect`,
+    dispatchRuns,
+    onMetricsUpdate: setMetricsDirect,
   });
 
-  // ── Load more ─────────────────────────────────────────────────────────────
-  const handleLoadMore = useCallback(async () => {
-    if (!runsState.nextCursor) return;
-    try {
-      const data = await fetchJson<{
-        runs: Record<string, unknown>[];
-        nextCursor: string | null;
-      }>(
-        `${trpcBaseUrl}/flowpanel.runs.list?input=${encodeURIComponent(
-          JSON.stringify({
-            timeRange,
-            stage: selectedStage,
-            limit: 50,
-            cursor: runsState.nextCursor,
-          }),
-        )}`,
-      );
-      dispatchRuns({ type: "LOAD_MORE", runs: data.runs, nextCursor: data.nextCursor });
-    } catch (err) {
-      console.error("[FlowPanel] load more error:", err);
-    }
-  }, [trpcBaseUrl, timeRange, selectedStage, runsState.nextCursor]);
+  // ── Drawer state ──────────────────────────────────────────────────────────
+  const drawer = useDrawerState({ config, baseUrl: trpcBaseUrl, allRuns: runsState.runs });
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  // config.tabs entries have { id, label, icon, view } — map to TabConfig { id, label, icon? }
   const tabs: TabConfig[] = config.tabs?.map((t) => ({
     id: t.id,
     label: t.label,
@@ -345,15 +137,13 @@ export function FlowPanelUI({
       key: "Escape",
       handler: () => {
         if (keyboardHelpOpen) setKeyboardHelpOpen(false);
-        else if (drawerState.open) setDrawerState({ open: false, type: "" });
+        else if (drawer.isOpen) drawer.closeDrawer();
         else if (paletteOpen) setPaletteOpen(false);
       },
     },
   ]);
 
   // ── Run log columns ───────────────────────────────────────────────────────
-  // config.runLog?.columns is RunLogColumn from core which has more format/render options
-  // than RunTable's RunLogColumn — cast to ensure compatibility
   const runLogColumns: RunLogColumn[] = (config.runLog?.columns as RunLogColumn[] | undefined) ?? [
     { field: "id", label: "Run ID", width: 90, mono: true },
     { field: "stage", label: "Stage", width: 72, render: "stagePill" },
@@ -367,11 +157,16 @@ export function FlowPanelUI({
   const builtinCommands: Command[] = [
     {
       id: "clear-filters",
-      label: "Clear filters",
+      label: locale.clearFilters,
       category: "Actions",
       action: () => setSelectedStage(null),
     },
-    { id: "refresh", label: "Refresh data", category: "Actions", action: () => void fetchData() },
+    {
+      id: "refresh",
+      label: locale.refreshData,
+      category: "Actions",
+      action: () => void refresh(),
+    },
     {
       id: "keyboard-help",
       label: "Keyboard shortcuts",
@@ -387,17 +182,6 @@ export function FlowPanelUI({
     })),
   ];
 
-  // ── Drawer title ──────────────────────────────────────────────────────────
-  const drawerConfigEntry = config.drawers?.[drawerState.type] as
-    | { title?: string | ((...args: unknown[]) => string) }
-    | undefined;
-  const drawerTitle =
-    drawerState.type === "runDetail"
-      ? `Run ${drawerState.runId ?? ""}`
-      : typeof drawerConfigEntry?.title === "string"
-        ? drawerConfigEntry.title
-        : drawerState.type || "Details";
-
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <ToastProvider>
@@ -408,7 +192,6 @@ export function FlowPanelUI({
           data-testid="fp-root"
         >
           <ErrorBoundary>
-            {/* Skip link for accessibility */}
             <a
               href="#fp-main"
               style={{ position: "absolute", left: -9999, top: 0, zIndex: 100 }}
@@ -419,7 +202,7 @@ export function FlowPanelUI({
                 (e.currentTarget as HTMLElement).style.left = "-9999px";
               }}
             >
-              Skip to main content
+              {locale.skipToMain}
             </a>
 
             <Header
@@ -432,196 +215,232 @@ export function FlowPanelUI({
             />
 
             {showDemoBanner && (
-              <DemoBanner
-                runCount={runsState.runs.length}
-                realRunCount={0}
-                onClear={async () => {
-                  try {
-                    await fetch(`${trpcBaseUrl}/flowpanel.demo.reset`, { method: "POST" });
-                    void fetchData();
-                  } catch (err) {
-                    console.error("[FlowPanel] demo reset error:", err);
-                  }
-                }}
-              />
+              <DemoBanner runCount={runsState.runs.length} realRunCount={0} onClear={resetDemo} />
             )}
 
             <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
             <main id="fp-main" style={{ padding: "24px" }}>
-              {activeTab === "pipeline" && (
-                <>
-                  {/* Metrics strip */}
-                  <ErrorBoundary>
-                    <section aria-label="Metrics" style={{ marginBottom: 24 }}>
-                      <SectionHeader
-                        label="Overview"
-                        meta={loading ? undefined : "Last updated just now"}
-                      />
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                          gap: 10,
-                        }}
-                      >
-                        {Object.entries(config.metrics ?? {}).map(([name, mc]) => {
-                          const result = metrics[name] as
-                            | {
-                                value?: string | number | null;
-                                trend?: {
-                                  label: string;
-                                  direction: "positive" | "negative" | "neutral";
-                                };
-                                sublabel?: string;
-                                sparkline?: number[];
-                              }
-                            | undefined;
+              {/* Error state */}
+              {error && !loading && (
+                <div
+                  role="alert"
+                  style={{
+                    padding: "16px 20px",
+                    marginBottom: 24,
+                    background: "rgba(239,68,68,0.1)",
+                    border: "1px solid rgba(239,68,68,0.3)",
+                    borderRadius: 8,
+                    color: "var(--fp-err, #ef4444)",
+                    fontSize: 13,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span>
+                    {locale.serverError}: {error}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void refresh()}
+                    style={{
+                      padding: "6px 14px",
+                      background: "rgba(239,68,68,0.15)",
+                      border: "1px solid rgba(239,68,68,0.3)",
+                      borderRadius: 6,
+                      color: "inherit",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {locale.retry}
+                  </button>
+                </div>
+              )}
 
-                          return (
-                            <MetricCard
-                              key={name}
-                              label={mc.label}
-                              value={result?.value ?? null}
-                              trend={result?.trend}
-                              sublabel={result?.sublabel}
-                              sparkline={result?.sparkline}
-                              loading={loading}
-                              hasDrawer={!!mc.drawer}
-                              onClick={
-                                mc.drawer
-                                  ? () => setDrawerState({ open: true, type: mc.drawer! })
-                                  : undefined
-                              }
-                            />
-                          );
-                        })}
-                      </div>
-                    </section>
-                  </ErrorBoundary>
+              {/* Hidden placeholder panels for inactive tabs (required for aria-controls validity) */}
+              {tabs
+                .filter((t) => t.id !== activeTab && t.id !== firstTabId)
+                .map((t) => (
+                  <div
+                    key={t.id}
+                    id={`fp-tabpanel-${t.id}`}
+                    role="tabpanel"
+                    aria-labelledby={`fp-tab-${t.id}`}
+                    hidden
+                  />
+                ))}
+              {activeTab !== firstTabId && (
+                <div
+                  id={`fp-tabpanel-${firstTabId}`}
+                  role="tabpanel"
+                  aria-labelledby={`fp-tab-${firstTabId}`}
+                  hidden
+                />
+              )}
 
-                  {/* Stage cards */}
-                  {stageData.length > 0 &&
-                    (() => {
-                      const totalAllStages = stageData.reduce((s, d) => s + d.total, 0);
-                      return (
-                        <ErrorBoundary>
-                          <section aria-label="Pipeline stages" style={{ marginBottom: 24 }}>
-                            <SectionHeader
-                              label="Pipeline Stages"
-                              meta="Click to filter runs below"
-                            />
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                                gap: 10,
-                              }}
-                            >
-                              {stageData.map((s) => (
-                                <StageCard
-                                  key={s.stage}
-                                  stage={s.stage}
-                                  color={theme.stageColors[s.stage] ?? "#818cf8"}
-                                  total={s.total}
-                                  totalAllStages={totalAllStages}
-                                  succeeded={s.succeeded}
-                                  failed={s.failed}
-                                  running={s.running}
-                                  avgDurationMs={s.avgDurationMs}
-                                  selected={selectedStage === s.stage}
-                                  loading={loading}
-                                  onClick={() =>
-                                    setSelectedStage((prev) => (prev === s.stage ? null : s.stage))
-                                  }
-                                />
-                              ))}
-                            </div>
-                          </section>
-                        </ErrorBoundary>
-                      );
-                    })()}
-
-                  {/* Error summary */}
-                  {topErrors && topErrors.totalFailed > 0 && (
+              {activeTab === firstTabId && (
+                <div
+                  id={`fp-tabpanel-${firstTabId}`}
+                  role="tabpanel"
+                  aria-labelledby={`fp-tab-${firstTabId}`}
+                >
+                  <>
+                    {/* Metrics strip */}
                     <ErrorBoundary>
-                      <section aria-label="Errors" style={{ marginBottom: 24 }}>
-                        <SectionHeader label="Errors" meta={`${topErrors.totalFailed} failed`} />
-                        <ErrorPanel
-                          errors={topErrors.errors}
-                          totalFailed={topErrors.totalFailed}
-                          loading={loading}
-                          onRetryAll={() => {
-                            // TODO: wire to bulk retry when available
-                          }}
-                          onErrorClick={(errorClass) => {
-                            setSelectedStage(null);
-                            console.log("[FlowPanel] filter by error class:", errorClass);
-                          }}
+                      <section aria-label="Metrics" style={{ marginBottom: 24 }}>
+                        <SectionHeader
+                          label="Overview"
+                          meta={loading ? undefined : "Last updated just now"}
                         />
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                            gap: 10,
+                          }}
+                        >
+                          {Object.entries(config.metrics ?? {}).map(([name, mc]) => {
+                            const result = metrics[name] as MetricResult | undefined;
+                            return (
+                              <MetricCard
+                                key={name}
+                                label={mc.label}
+                                value={result?.value ?? null}
+                                trend={result?.trend}
+                                sublabel={result?.sublabel}
+                                sparkline={result?.sparkline}
+                                loading={loading}
+                                hasDrawer={!!mc.drawer}
+                                onClick={
+                                  mc.drawer ? () => drawer.openDrawer(mc.drawer ?? "") : undefined
+                                }
+                              />
+                            );
+                          })}
+                        </div>
                       </section>
                     </ErrorBoundary>
-                  )}
 
-                  {/* Run volume chart */}
-                  {chartData && chartData.buckets.length > 0 && (
-                    <ErrorBoundary>
-                      <section aria-label="Run volume" style={{ marginBottom: 24 }}>
-                        <SectionHeader label="Run Volume" />
-                        <div className="fp-card" style={{ padding: 16 }}>
-                          <RunChart
-                            buckets={chartData.buckets}
-                            peakBucket={chartData.peakBucket}
+                    {/* Stage cards */}
+                    {stageData.length > 0 &&
+                      (() => {
+                        const totalAllStages = stageData.reduce((s, d) => s + d.total, 0);
+                        return (
+                          <ErrorBoundary>
+                            <section aria-label="Pipeline stages" style={{ marginBottom: 24 }}>
+                              <SectionHeader
+                                label="Pipeline Stages"
+                                meta="Click to filter runs below"
+                              />
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                                  gap: 10,
+                                }}
+                              >
+                                {stageData.map((s) => (
+                                  <StageCard
+                                    key={s.stage}
+                                    stage={s.stage}
+                                    color={theme.stageColors[s.stage] ?? "#818cf8"}
+                                    total={s.total}
+                                    totalAllStages={totalAllStages}
+                                    succeeded={s.succeeded}
+                                    failed={s.failed}
+                                    running={s.running}
+                                    avgDurationMs={s.avgDurationMs}
+                                    selected={selectedStage === s.stage}
+                                    loading={loading}
+                                    onClick={() =>
+                                      setSelectedStage((prev) =>
+                                        prev === s.stage ? null : s.stage,
+                                      )
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            </section>
+                          </ErrorBoundary>
+                        );
+                      })()}
+
+                    {/* Error summary */}
+                    {topErrors && topErrors.totalFailed > 0 && (
+                      <ErrorBoundary>
+                        <section aria-label="Errors" style={{ marginBottom: 24 }}>
+                          <SectionHeader label="Errors" meta={`${topErrors.totalFailed} failed`} />
+                          <ErrorPanel
+                            errors={topErrors.errors}
+                            totalFailed={topErrors.totalFailed}
                             loading={loading}
+                            onRetryAll={() => {}}
+                            onErrorClick={(_errorClass) => {
+                              setSelectedStage(null);
+                            }}
+                          />
+                        </section>
+                      </ErrorBoundary>
+                    )}
+
+                    {/* Run volume chart */}
+                    {chartData && chartData.buckets.length > 0 && (
+                      <ErrorBoundary>
+                        <section aria-label="Run volume" style={{ marginBottom: 24 }}>
+                          <SectionHeader label="Run Volume" />
+                          <div className="fp-card" style={{ padding: 16 }}>
+                            <RunChart
+                              buckets={chartData.buckets}
+                              peakBucket={chartData.peakBucket}
+                              loading={loading}
+                            />
+                          </div>
+                        </section>
+                      </ErrorBoundary>
+                    )}
+
+                    {/* Run log */}
+                    <ErrorBoundary>
+                      <section aria-label="Run log">
+                        <SectionHeader
+                          label="Run Log"
+                          meta={
+                            !loading && runsState.runs.length > 0
+                              ? `${runsState.runs.length.toLocaleString()} total`
+                              : undefined
+                          }
+                        />
+                        <div className="fp-card" style={{ overflow: "hidden" }}>
+                          <RunTable
+                            runs={runsState.runs}
+                            columns={runLogColumns}
+                            stageColors={theme.stageColors}
+                            loading={loading}
+                            hasNextPage={!!runsState.nextCursor}
+                            onLoadMore={loadMore}
+                            newRunsBanner={
+                              runsState.bufferedNewRuns.length > 0
+                                ? runsState.bufferedNewRuns.length
+                                : undefined
+                            }
+                            onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
+                            onRowClick={(run) => {
+                              drawer.openDrawer("runDetail", String(run.id));
+                            }}
+                            selectedRunId={drawer.selectedRunId}
                           />
                         </div>
                       </section>
                     </ErrorBoundary>
-                  )}
-
-                  {/* Run log */}
-                  <ErrorBoundary>
-                    <section aria-label="Run log">
-                      <SectionHeader
-                        label="Run Log"
-                        meta={
-                          !loading && runsState.runs.length > 0
-                            ? `${runsState.runs.length.toLocaleString()} total`
-                            : undefined
-                        }
-                      />
-                      <div className="fp-card" style={{ overflow: "hidden" }}>
-                        <RunTable
-                          runs={runsState.runs}
-                          columns={runLogColumns}
-                          stageColors={theme.stageColors}
-                          loading={loading}
-                          hasNextPage={!!runsState.nextCursor}
-                          onLoadMore={handleLoadMore}
-                          newRunsBanner={
-                            runsState.bufferedNewRuns.length > 0
-                              ? runsState.bufferedNewRuns.length
-                              : undefined
-                          }
-                          onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
-                          onRowClick={(run) => {
-                            setSelectedRunId(String(run["id"]));
-                            setDrawerState({
-                              open: true,
-                              type: "runDetail",
-                              runId: String(run["id"]),
-                            });
-                          }}
-                          selectedRunId={selectedRunId}
-                        />
-                      </div>
-                    </section>
-                  </ErrorBoundary>
-                </>
+                  </>
+                </div>
               )}
 
               {/* Non-pipeline tabs */}
-              {activeTab !== "pipeline" &&
+              {activeTab !== firstTabId &&
                 (() => {
                   const tabEntry = config.tabs?.find((t) => t.id === activeTab);
 
@@ -664,20 +483,20 @@ export function FlowPanelUI({
 
             {/* Drawers */}
             <Drawer
-              open={drawerState.open}
-              onClose={() => setDrawerState({ open: false, type: "" })}
-              title={drawerTitle}
-              sections={drawerData?.sections}
-              run={drawerData?.run}
-              actions={drawerData?.actions?.map((a) => ({
+              open={drawer.isOpen}
+              onClose={drawer.closeDrawer}
+              title={drawer.drawerTitle}
+              sections={drawer.drawerData?.sections}
+              run={drawer.drawerData?.run}
+              actions={drawer.drawerData?.actions?.map((a) => ({
                 ...a,
-                onClick: () => console.log("[FlowPanel] drawer action:", a.onClick),
+                onClick: () => {},
               }))}
-              loading={drawerLoading}
+              loading={drawer.drawerLoading}
             >
               <div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
-                {drawerState.type === "runDetail"
-                  ? `Run details for ${drawerState.runId}`
+                {drawer.type === "runDetail"
+                  ? `Run details for ${drawer.runId}`
                   : "Loading drawer content..."}
               </div>
             </Drawer>
@@ -726,7 +545,7 @@ export function FlowPanelUI({
                   fontSize: 13,
                 }}
               >
-                ● Live updates paused — reconnecting...
+                {locale.reconnecting}
               </div>
             )}
           </ErrorBoundary>

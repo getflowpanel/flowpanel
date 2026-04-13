@@ -34,6 +34,9 @@
   "peerDependencies": {
     "@prisma/client": ">=5.0.0"
   },
+  "files": [
+    "dist"
+  ],
   "dependencies": {
     "@flowpanel/core": "workspace:*",
     "pg": "^8.11.0"

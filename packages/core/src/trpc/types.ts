@@ -1,4 +1,4 @@
-import type { FlowPanelContext } from "./context.js";
+import type { FlowPanelContext } from "./context";
 
 /**
  * Shape of the tRPC instance passed to middleware and procedure factories.

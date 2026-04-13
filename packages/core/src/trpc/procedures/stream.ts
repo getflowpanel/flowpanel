@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getOrCreateBroker } from "../../sse/broker.js";
-import type { FlowPanelContext } from "../context.js";
+import { getOrCreateBroker } from "../../sse/broker";
+import type { FlowPanelContext } from "../context";
 
 export function createStreamProcedure(
   // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
@@ -35,6 +35,9 @@ export function createStreamProcedure(
         const clientId = `${ctx.session.userId}-${Date.now()}`;
         const encoder = new TextEncoder();
 
+        let unsubscribe: (() => void) | undefined;
+        let heartbeat: ReturnType<typeof setInterval> | undefined;
+
         const stream = new ReadableStream({
           start(controller) {
             function send(event: import("../../sse/broker.js").SseEvent) {
@@ -42,17 +45,15 @@ export function createStreamProcedure(
               controller.enqueue(encoder.encode(data));
             }
 
-            const unsubscribe = broker.subscribe(clientId, send, input.lastEventId);
+            unsubscribe = broker.subscribe(clientId, send, input.lastEventId);
 
-            const heartbeat = setInterval(() => {
+            heartbeat = setInterval(() => {
               controller.enqueue(encoder.encode(`event: heartbeat\ndata: {}\n\n`));
             }, heartbeatIntervalMs);
-
-            // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
-            (controller as any).cancel = () => {
-              clearInterval(heartbeat);
-              unsubscribe();
-            };
+          },
+          cancel() {
+            if (heartbeat) clearInterval(heartbeat);
+            if (unsubscribe) unsubscribe();
           },
         });
 
@@ -74,5 +75,5 @@ function parseInterval(interval: string): number {
   const match = interval.match(/^(\d+)([smh])$/);
   if (!match) return 15_000;
   const [, num, unit] = match;
-  return parseInt(num!) * (unit === "s" ? 1000 : unit === "m" ? 60_000 : 3_600_000);
+  return parseInt(num ?? "15", 10) * (unit === "s" ? 1000 : unit === "m" ? 60_000 : 3_600_000);
 }

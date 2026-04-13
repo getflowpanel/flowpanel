@@ -37,6 +37,9 @@
   "peerDependencies": {
     "drizzle-orm": ">=0.30.0"
   },
+  "files": [
+    "dist"
+  ],
   "dependencies": {
     "@flowpanel/core": "workspace:*"
   },

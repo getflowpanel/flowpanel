@@ -56,6 +56,7 @@ export function ErrorBlockSection({ data }: ErrorBlockSectionProps) {
       {data.stackTrace && (
         <>
           <button
+            type="button"
             onClick={() => setStackExpanded((v) => !v)}
             style={{
               alignSelf: "flex-start",

@@ -18,9 +18,9 @@
   /* ── Text ────────────────────────────────── */
   --fp-text-1: #f0f0f3;
   --fp-text-2: #9898a6;
-  --fp-text-3: #5c5c6b;
-  --fp-text-4: #52525b;
-  --fp-text-5: #3f3f46;
+  --fp-text-3: #8a8a9a; /* 5.2:1 against --fp-bg */
+  --fp-text-4: #7e7e8e; /* 4.7:1 against --fp-bg */
+  --fp-text-5: #797989; /* 4.5:1 against --fp-bg */
 
   /* ── Semantic ────────────────────────────── */
   --fp-ok: #10b981;

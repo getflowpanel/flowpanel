@@ -1,11 +1,12 @@
 // SSE event broker: LISTEN on pg_notify, fan-out to connected clients
 
-import type { SqlExecutor } from "../types/db.js";
+import type { SqlExecutor } from "../types/db";
 
 export interface SseEvent {
   id: string;
   event: string;
   data: unknown;
+  timestamp: number;
 }
 
 type ClientCallback = (event: SseEvent) => void;
@@ -24,16 +25,21 @@ export class SseBroker {
   async start(): Promise<void> {
     try {
       await this.db.execute(`LISTEN flowpanel_events`, []);
+      // NOTE: pg LISTEN/NOTIFY requires a persistent connection with a notification callback.
+      // The SqlExecutor interface doesn't support notification callbacks directly.
+      // If using node-postgres, the underlying client would need:
+      //   client.on('notification', (msg) => this.publish({ event: msg.channel, data: JSON.parse(msg.payload ?? "{}") }));
+      // This must be wired at the adapter level.
     } catch {
       // Fallback: polling mode
     }
   }
 
-  publish(event: Omit<SseEvent, "id">): void {
-    const sseEvent: SseEvent = { ...event, id: String(this.nextId++) };
+  publish(event: Omit<SseEvent, "id" | "timestamp">): void {
+    const now = Date.now();
+    const sseEvent: SseEvent = { ...event, id: String(this.nextId++), timestamp: now };
 
-    const cutoff = Date.now() - this.replayWindowMs;
-    this.eventLog = this.eventLog.filter((e) => parseInt(e.id) > cutoff);
+    this.eventLog = this.eventLog.filter((e) => e.timestamp > now - this.replayWindowMs);
     this.eventLog.push(sseEvent);
 
     for (const callback of this.clients.values()) {
@@ -49,8 +55,8 @@ export class SseBroker {
     this.clients.set(clientId, callback);
 
     if (lastEventId) {
-      const replayFrom = parseInt(lastEventId);
-      const missed = this.eventLog.filter((e) => parseInt(e.id) > replayFrom);
+      const replayFrom = parseInt(lastEventId, 10);
+      const missed = this.eventLog.filter((e) => parseInt(e.id, 10) > replayFrom);
       for (const event of missed) {
         callback(event);
       }
@@ -63,6 +69,18 @@ export class SseBroker {
 
   clientCount(): number {
     return this.clients.size;
+  }
+
+  destroy(): void {
+    this.clients.clear();
+    this.eventLog = [];
+  }
+
+  async persistEvent(event: Omit<SseEvent, "id" | "timestamp">): Promise<void> {
+    await this.db.execute(`INSERT INTO flowpanel_events (event, data) VALUES ($1, $2)`, [
+      event.event,
+      JSON.stringify(event.data),
+    ]);
   }
 }
 

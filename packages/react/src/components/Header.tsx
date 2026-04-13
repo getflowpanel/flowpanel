@@ -1,6 +1,7 @@
-import React from "react";
-import type { LiveStatus } from "../hooks/useFlowPanelStream.js";
-import { Tooltip } from "./Tooltip.js";
+import type { LiveStatus } from "../hooks/useFlowPanelStream";
+import { useLocale } from "../locale/LocaleContext";
+import { modKey } from "../utils/platform";
+import { Tooltip } from "./Tooltip";
 
 export type { LiveStatus };
 
@@ -21,6 +22,9 @@ export function Header({
   liveStatus,
   onOpenPalette,
 }: HeaderProps) {
+  const locale = useLocale();
+  const mod = modKey();
+
   return (
     <header
       style={{
@@ -33,9 +37,7 @@ export function Header({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fp-text-1)" }}>
-          ⚡ {appName}
-        </span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fp-text-1)" }}>{appName}</span>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -51,7 +53,10 @@ export function Header({
         >
           {timeRangePresets.map((p) => (
             <button
+              type="button"
               key={p}
+              aria-label={`Time range: ${p}`}
+              aria-pressed={p === timeRange}
               onClick={() => onTimeRangeChange(p)}
               style={{
                 padding: "5px 9px",
@@ -75,11 +80,12 @@ export function Header({
             liveStatus === "live"
               ? "Live: receiving real-time updates"
               : liveStatus === "reconnecting"
-                ? "Reconnecting..."
+                ? locale.reconnecting
                 : "Disconnected"
           }
         >
           <div
+            aria-label={`Connection status: ${liveStatus === "live" ? "live" : liveStatus === "reconnecting" ? "reconnecting" : "disconnected"}`}
             style={{
               display: "flex",
               alignItems: "center",
@@ -89,7 +95,6 @@ export function Header({
               padding: "5px 9px",
             }}
             aria-live="polite"
-            aria-label={`Connection: ${liveStatus}`}
           >
             <span
               style={{
@@ -107,10 +112,10 @@ export function Header({
             />
             <span style={{ fontSize: 12, color: "var(--fp-text-2)" }}>
               {liveStatus === "live"
-                ? "Live"
+                ? locale.liveStatus
                 : liveStatus === "reconnecting"
-                  ? "Reconnecting"
-                  : "Polling"}
+                  ? locale.reconnecting
+                  : locale.polling}
             </span>
           </div>
         </Tooltip>
@@ -118,6 +123,7 @@ export function Header({
         {/* Command palette trigger */}
         {onOpenPalette && (
           <button
+            type="button"
             onClick={onOpenPalette}
             aria-label="Open command palette"
             style={{
@@ -131,7 +137,7 @@ export function Header({
               fontFamily: "var(--fp-font-mono)",
             }}
           >
-            ⌘K
+            {mod}+K
           </button>
         )}
       </div>

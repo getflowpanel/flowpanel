@@ -1,8 +1,18 @@
 import { TRPCError } from "@trpc/server";
-import type { FlowPanelContext } from "../context.js";
+import type { FlowPanelContext } from "../context";
 
 // In-memory fallback rate limiter (production should use Redis)
 const memoryStore = new Map<string, { count: number; resetAt: number }>();
+
+const cleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of memoryStore) {
+    if (now - entry.resetAt > 120_000) {
+      memoryStore.delete(key);
+    }
+  }
+}, 60_000);
+cleanupInterval.unref();
 
 function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();

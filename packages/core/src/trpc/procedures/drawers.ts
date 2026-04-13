@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FlowPanelContext } from "../context.js";
+import type { FlowPanelContext } from "../context";
 
 export function createDrawersProcedures(
   // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
@@ -51,7 +51,12 @@ export function createDrawersProcedures(
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: tRPC runtime types — db/config/section/input are dynamically shaped
-async function renderSection(db: any, config: any, section: any, input: any): Promise<unknown> {
+export async function renderSection(
+  db: any,
+  _config: any,
+  section: any,
+  input: any,
+): Promise<unknown> {
   const timeWhere = input.timeRange ? `WHERE started_at >= $1 AND started_at < $2` : "";
   const timeParams = input.timeRange ? [input.timeRange.start, input.timeRange.end] : [];
 
@@ -71,9 +76,17 @@ async function renderSection(db: any, config: any, section: any, input: any): Pr
       return rows[0];
     }
     case "breakdown": {
-      const groupBy = section.groupBy ?? "stage";
+      // Whitelist — groupBy всегда выходит в SQL интерполяцией (нельзя параметризовать имена колонок).
+      // Валидируем против фиксированного набора.
+      const ALLOWED_GROUP_COLUMNS = ["stage", "status", "partition_key", "error_class"] as const;
+      type AllowedGroupColumn = (typeof ALLOWED_GROUP_COLUMNS)[number];
+      const groupByInput = (section.groupBy ?? "stage") as string;
+      if (!ALLOWED_GROUP_COLUMNS.includes(groupByInput as AllowedGroupColumn)) {
+        return [];
+      }
+      const groupBy = groupByInput as AllowedGroupColumn;
       const rows = await db.execute(
-        `SELECT ${groupBy}, COUNT(*) AS count
+        `SELECT ${groupBy} AS label, COUNT(*) AS count
          FROM flowpanel_pipeline_run ${timeWhere}
          GROUP BY ${groupBy}
          ORDER BY count DESC`,
@@ -87,7 +100,7 @@ async function renderSection(db: any, config: any, section: any, input: any): Pr
       const rows = await db.execute(
         `SELECT error_class, COUNT(*) AS count
          FROM flowpanel_pipeline_run
-         ${timeWhere ? timeWhere + " AND" : "WHERE"} error_class IS NOT NULL
+         ${timeWhere ? `${timeWhere} AND` : "WHERE"} error_class IS NOT NULL
          GROUP BY error_class
          ORDER BY count DESC
          LIMIT $${limitIdx}`,
@@ -135,9 +148,9 @@ async function renderSection(db: any, config: any, section: any, input: any): Pr
       const run = rows[0];
       if (!run) return null;
       return {
-        errorClass: run["error_class"] ?? "UnknownError",
-        errorMessage: run["error_message"] ?? "",
-        stackTrace: run["stack_trace"] ?? undefined,
+        errorClass: run.error_class ?? "UnknownError",
+        errorMessage: run.error_message ?? "",
+        stackTrace: run.stack_trace ?? undefined,
       };
     }
     case "timeline": {
@@ -153,9 +166,9 @@ async function renderSection(db: any, config: any, section: any, input: any): Pr
         );
         if (stageRows.length > 0) {
           return stageRows.map((r) => ({
-            step: String(r["step"] ?? ""),
-            durationMs: Number(r["duration_ms"] ?? 0),
-            status: String(r["status"] ?? "succeeded") as "succeeded" | "failed" | "running",
+            step: String(r.step ?? ""),
+            durationMs: Number(r.duration_ms ?? 0),
+            status: String(r.status ?? "succeeded") as "succeeded" | "failed" | "running",
           }));
         }
       } catch (err: unknown) {
@@ -174,9 +187,9 @@ async function renderSection(db: any, config: any, section: any, input: any): Pr
       if (!run) return [];
       return [
         {
-          step: String(run["stage"] ?? "run"),
-          durationMs: Number(run["duration_ms"] ?? 0),
-          status: String(run["status"] ?? "succeeded") as "succeeded" | "failed" | "running",
+          step: String(run.stage ?? "run"),
+          durationMs: Number(run.duration_ms ?? 0),
+          status: String(run.status ?? "succeeded") as "succeeded" | "failed" | "running",
         },
       ];
     }

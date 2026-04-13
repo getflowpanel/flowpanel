@@ -27,9 +27,11 @@ export function resolveTheme(config: {
   const stageColors: Record<string, string> = {};
 
   for (let i = 0; i < sortedStages.length; i++) {
-    const stage = sortedStages[i]!;
+    const stage = sortedStages[i] ?? "";
     stageColors[stage] =
-      config.pipeline.stageColors?.[stage] ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length]!;
+      config.pipeline.stageColors?.[stage] ??
+      DEFAULT_PALETTE[i % DEFAULT_PALETTE.length] ??
+      "#818cf8";
   }
 
   return {

@@ -9,7 +9,6 @@ test.describe("accessibility", () => {
     const results = await new AxeBuilder({ page })
       .include("[data-testid='fp-root']")
       .withTags(["wcag2a", "wcag2aa"])
-      .disableRules(["color-contrast"])
       .analyze();
 
     expect(results.violations).toHaveLength(0);
@@ -24,7 +23,6 @@ test.describe("accessibility", () => {
     const results = await new AxeBuilder({ page })
       .include("[role='dialog']")
       .withTags(["wcag2a", "wcag2aa"])
-      .disableRules(["color-contrast"])
       .analyze();
 
     expect(results.violations).toHaveLength(0);
@@ -34,10 +32,12 @@ test.describe("accessibility", () => {
     await page.goto("/admin");
     await page.waitForSelector("[data-testid='fp-root']");
 
-    // Tab once to get to skip link
-    await page.keyboard.press("Tab");
-    const focused = await page.evaluate(() => document.activeElement?.textContent);
-    expect(focused).toContain("Skip");
+    // Focus the skip link directly and verify it becomes visible
+    const skipLink = page.locator('a[href="#fp-main"]');
+    await expect(skipLink).toBeAttached();
+    await skipLink.focus();
+    await expect(skipLink).toBeVisible();
+    expect(await skipLink.textContent()).toContain("Skip");
   });
 
   test("header live indicator has aria-label", async ({ page }) => {

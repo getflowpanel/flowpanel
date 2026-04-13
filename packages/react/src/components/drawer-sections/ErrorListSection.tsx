@@ -20,11 +20,11 @@ export function ErrorListSection({ data, limit = 10 }: ErrorListSectionProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {items.map((item, i) => {
+      {items.map((item) => {
         const pct = (item.count / maxCount) * 100;
         return (
           <div
-            key={i}
+            key={item.errorClass}
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 80px 40px",

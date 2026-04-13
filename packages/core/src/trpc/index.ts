@@ -1,2 +1,2 @@
-export type { FlowPanelContext } from "./context.js";
-export { createFlowPanelRouter } from "./router.js";
+export type { FlowPanelContext } from "./context";
+export { createFlowPanelRouter } from "./router";

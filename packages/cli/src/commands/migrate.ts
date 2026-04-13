@@ -1,56 +1,36 @@
 import * as fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import * as path from "node:path";
 import { applyMigrations, getMigrationStatus } from "@flowpanel/core";
 import kleur from "kleur";
 import ora from "ora";
-import { formatError } from "../utils/error-format.js";
+import { loadConfig } from "../loadConfig";
+import { formatError } from "../utils/error-format";
 
-async function loadConfig() {
-  const cwd = process.cwd();
-  const configPath = path.join(cwd, "flowpanel.config.ts");
-  try {
-    const mod = await import(configPath);
-    return { config: mod.flowpanel, cwd };
-  } catch (err) {
-    console.error(
-      formatError({
-        problem: "Failed to load flowpanel.config.ts",
-        likelyCause: String(err),
-        toFix: "Make sure flowpanel.config.ts exists and has no TypeScript errors",
-        command: "npx flowpanel doctor",
-      }),
-    );
-    process.exit(1);
-  }
-}
+const require = createRequire(import.meta.url);
+const coreMigrationsDir = `${path.dirname(require.resolve("@flowpanel/core/package.json"))}/migrations`;
 
 export async function runMigrate(opts: { dryRun?: boolean } = {}): Promise<void> {
   const spinner = ora("Loading config...").start();
 
-  let loadResult: Awaited<ReturnType<typeof loadConfig>>;
+  let config: Awaited<ReturnType<typeof loadConfig>>;
   try {
-    loadResult = await loadConfig();
+    config = await loadConfig();
   } catch (err) {
     spinner.fail(String(err));
     process.exit(1);
   }
 
-  const { config, cwd } = loadResult;
-
-  const builtinMigrationsDir = path.resolve(
-    new URL(import.meta.url).pathname,
-    "../../../../../../core/migrations",
-  );
-  const userMigrationsDir = path.join(cwd, "flowpanel", "migrations");
+  const userMigrationsDir = path.join(process.cwd(), "flowpanel", "migrations");
 
   if (opts.dryRun) {
     spinner.text = "Loading migration status...";
     try {
       const db = await config.getDb();
-      const { pending } = await getMigrationStatus(db, [builtinMigrationsDir, userMigrationsDir]);
+      const { pending } = await getMigrationStatus(db, [coreMigrationsDir, userMigrationsDir]);
       spinner.info("Dry run — showing SQL without applying:");
       for (const id of pending) {
-        const dirs = [builtinMigrationsDir, userMigrationsDir];
+        const dirs = [coreMigrationsDir, userMigrationsDir];
         let sql: string | null = null;
         for (const dir of dirs) {
           const filePath = path.join(dir, `${id}.sql`);
@@ -80,7 +60,7 @@ export async function runMigrate(opts: { dryRun?: boolean } = {}): Promise<void>
 
     const { applied, skipped } = await applyMigrations(
       db,
-      [builtinMigrationsDir, userMigrationsDir],
+      [coreMigrationsDir, userMigrationsDir],
       (id) => {
         spinner.text = `Applying ${id}...`;
       },
@@ -120,22 +100,20 @@ export async function runMigrate(opts: { dryRun?: boolean } = {}): Promise<void>
 export async function runMigrateGen(): Promise<void> {
   const spinner = ora("Loading config...").start();
 
-  let loadResult: Awaited<ReturnType<typeof loadConfig>>;
+  let config: Awaited<ReturnType<typeof loadConfig>>;
   try {
-    loadResult = await loadConfig();
+    config = await loadConfig();
   } catch (err) {
     spinner.fail(String(err));
     process.exit(1);
   }
-
-  const { config, cwd } = loadResult;
 
   try {
     spinner.text = "Generating schema...";
     const { generateSchema } = await import("@flowpanel/core");
 
     const newSql = generateSchema({ pipeline: config.config.pipeline });
-    const migDir = path.join(cwd, "flowpanel", "migrations");
+    const migDir = path.join(process.cwd(), "flowpanel", "migrations");
     await fs.mkdir(migDir, { recursive: true });
 
     const files = await fs.readdir(migDir).catch(() => [] as string[]);
@@ -157,27 +135,21 @@ export async function runMigrateGen(): Promise<void> {
 export async function runMigrateStatus(): Promise<void> {
   const spinner = ora("Loading config...").start();
 
-  let loadResult: Awaited<ReturnType<typeof loadConfig>>;
+  let config: Awaited<ReturnType<typeof loadConfig>>;
   try {
-    loadResult = await loadConfig();
+    config = await loadConfig();
   } catch (err) {
     spinner.fail(String(err));
     process.exit(1);
   }
 
-  const { config, cwd } = loadResult;
-
   try {
     spinner.text = "Checking migration status...";
     const db = await config.getDb();
 
-    const builtinDir = path.resolve(
-      new URL(import.meta.url).pathname,
-      "../../../../../../core/migrations",
-    );
-    const userDir = path.join(cwd, "flowpanel", "migrations");
+    const userDir = path.join(process.cwd(), "flowpanel", "migrations");
 
-    const { applied, pending } = await getMigrationStatus(db, [builtinDir, userDir]);
+    const { applied, pending } = await getMigrationStatus(db, [coreMigrationsDir, userDir]);
     spinner.succeed(`${applied.length} applied, ${pending.length} pending`);
 
     if (applied.length > 0) {

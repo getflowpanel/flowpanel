@@ -1,6 +1,6 @@
-import { createContext, useContext } from "react";
 import type React from "react";
-import { defaultLocale, type FlowPanelLocale } from "./defaultLocale.js";
+import { createContext, useContext } from "react";
+import { defaultLocale, type FlowPanelLocale } from "./defaultLocale";
 
 const LocaleContext = createContext<FlowPanelLocale>(defaultLocale);
 

@@ -8,16 +8,16 @@ if (major !== undefined && major < 18) {
 }
 
 import { Command } from "commander";
-import { checkForUpdates } from "./updateChecker.js";
-import { runAuditExport } from "./commands/audit-export.js";
-import { runDemo } from "./commands/demo.js";
-import { runDemoClear } from "./commands/demo-clear.js";
-import { runDev } from "./commands/dev.js";
-import { runDiff } from "./commands/diff.js";
-import { runDoctor } from "./commands/doctor.js";
-import { runInit } from "./commands/init.js";
-import { runMigrate, runMigrateGen, runMigrateStatus } from "./commands/migrate.js";
-import { runWorkerScan } from "./commands/worker-scan.js";
+import { runAuditExport } from "./commands/audit-export";
+import { runDemo } from "./commands/demo";
+import { runDemoClear } from "./commands/demo-clear";
+import { runDev } from "./commands/dev";
+import { runDiff } from "./commands/diff";
+import { runDoctor } from "./commands/doctor";
+import { runInit } from "./commands/init";
+import { runMigrate, runMigrateGen, runMigrateStatus } from "./commands/migrate";
+import { runWorkerScan } from "./commands/worker-scan";
+import { checkForUpdates } from "./updateChecker";
 
 const program = new Command()
   .name("flowpanel")

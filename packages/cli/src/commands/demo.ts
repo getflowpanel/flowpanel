@@ -1,6 +1,6 @@
 import kleur from "kleur";
 import ora from "ora";
-import { loadConfig } from "../loadConfig.js";
+import { loadConfig } from "../loadConfig";
 
 export async function runDemo() {
   const spinner = ora("Loading config...").start();
@@ -14,7 +14,7 @@ export async function runDemo() {
     process.exit(1);
   }
 
-  const db = config.adapter;
+  const db = await config.getDb();
   if (!db) {
     spinner.fail("No adapter configured");
     process.exit(1);
@@ -22,7 +22,7 @@ export async function runDemo() {
 
   spinner.text = "Seeding 500 demo runs...";
 
-  const stages = config.pipeline?.stages ?? ["ingest", "process", "notify"];
+  const stages = config.config.pipeline?.stages ?? ["ingest", "process", "notify"];
   const stageWeights =
     stages.length === 4 ? [0.44, 0.28, 0.16, 0.12] : stages.map(() => 1 / stages.length);
 

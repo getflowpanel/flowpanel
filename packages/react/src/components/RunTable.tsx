@@ -1,9 +1,11 @@
 import type React from "react";
 import { useRef, useState } from "react";
-import { useFlowPanel } from "../context.js";
-import { formatDate } from "../utils/formatDate.js";
-import { StagePill } from "./StagePill.js";
-import { StatusTag } from "./StatusTag.js";
+import { useFlowPanel } from "../context";
+import { useLocale } from "../locale/LocaleContext";
+import { formatDate } from "../utils/formatDate";
+import { modKey } from "../utils/platform";
+import { StagePill } from "./StagePill";
+import { StatusTag } from "./StatusTag";
 
 export interface RunLogColumn {
   field: string;
@@ -33,7 +35,7 @@ function formatValue(
   format: RunLogColumn["format"] | undefined,
   timezone: string,
 ): string {
-  if (value == null) return "—";
+  if (value == null) return "\u2014";
   switch (format) {
     case "number":
       return Number(value).toLocaleString();
@@ -65,6 +67,7 @@ function Chip({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
         padding: "4px 10px",
@@ -125,6 +128,8 @@ export function RunTable({
   onScrollToTop,
 }: RunTableProps) {
   const { timezone } = useFlowPanel();
+  const locale = useLocale();
+  const mod = modKey();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -132,14 +137,14 @@ export function RunTable({
   const tableRef = useRef<HTMLTableElement>(null);
 
   const filtered = runs.filter((r) => {
-    if (statusFilter && String(r["status"]) !== statusFilter) return false;
+    if (statusFilter && String(r.status) !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
-        String(r["partition_key"] ?? "")
+        String(r.partition_key ?? "")
           .toLowerCase()
           .includes(q) ||
-        String(r["id"] ?? "")
+        String(r.id ?? "")
           .toLowerCase()
           .includes(q)
       );
@@ -147,7 +152,6 @@ export function RunTable({
     return true;
   });
 
-  // Keyboard navigation (j/k/Enter)
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "j" || e.key === "ArrowDown") {
       e.preventDefault();
@@ -165,7 +169,8 @@ export function RunTable({
     <div style={{ position: "relative" }}>
       {/* New runs banner */}
       {newRunsBanner != null && newRunsBanner > 0 && (
-        <div
+        <button
+          type="button"
           style={{
             position: "sticky",
             top: 0,
@@ -176,21 +181,20 @@ export function RunTable({
             textAlign: "center",
             cursor: "pointer",
             fontSize: 13,
+            width: "100%",
+            border: "none",
           }}
           onClick={onScrollToTop}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && onScrollToTop?.()}
-          aria-label={`${newRunsBanner} new run${newRunsBanner > 1 ? "s" : ""} — click to scroll to top`}
+          aria-label={locale.newRuns(newRunsBanner)}
         >
-          ↑ {newRunsBanner} new run{newRunsBanner > 1 ? "s" : ""} — scroll to top to see
-        </div>
+          {locale.newRuns(newRunsBanner)}
+        </button>
       )}
 
       {/* Search + filter row */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
         <input
-          placeholder="Search runs..."
+          placeholder={locale.searchPlaceholder}
           data-fp-run-search=""
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -205,14 +209,18 @@ export function RunTable({
             outline: "none",
           }}
         />
-        <Chip label="All" active={statusFilter === null} onClick={() => setStatusFilter(null)} />
         <Chip
-          label="Running"
+          label={locale.statusAll}
+          active={statusFilter === null}
+          onClick={() => setStatusFilter(null)}
+        />
+        <Chip
+          label={locale.statusRunning}
           active={statusFilter === "running"}
           onClick={() => setStatusFilter("running")}
         />
         <Chip
-          label="Failed"
+          label={locale.statusFailed}
           active={statusFilter === "failed"}
           onClick={() => setStatusFilter("failed")}
           color="err"
@@ -221,12 +229,10 @@ export function RunTable({
 
       <table
         ref={tableRef}
-        role="grid"
         aria-rowcount={filtered.length}
         aria-colcount={columns.length}
         aria-label="Pipeline runs"
         style={{ width: "100%", borderCollapse: "collapse" }}
-        tabIndex={0}
         onKeyDown={handleKeyDown}
       >
         <thead>
@@ -255,6 +261,7 @@ export function RunTable({
         <tbody>
           {loading ? (
             Array.from({ length: SKELETON_ROWS }, (_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows have no stable id
               <tr key={i} aria-busy="true">
                 {columns.map((col) => (
                   <td key={col.field} style={{ padding: "10px 12px" }}>
@@ -277,17 +284,19 @@ export function RunTable({
                 colSpan={columns.length}
                 style={{ padding: 40, textAlign: "center", color: "var(--fp-text-3)" }}
               >
-                <div style={{ fontSize: 14 }}>No runs yet</div>
+                <div style={{ fontSize: 14 }}>
+                  {search || statusFilter ? locale.noMatchTitle : locale.noRunsTitle}
+                </div>
                 <div style={{ fontSize: 12, marginTop: 4 }}>
-                  Add withRun() to your workers to start tracking pipeline runs.
+                  {search || statusFilter ? locale.noMatchDescription : locale.noRunsDescription}
                 </div>
               </td>
             </tr>
           ) : (
             filtered.map((run, idx) => {
-              const runId = String(run["id"]);
-              const isSelected = selectedRunId === String(run["id"]) || selectedIndex === idx;
-              const stage = String(run["stage"] ?? "");
+              const runId = String(run.id);
+              const isSelected = selectedRunId === String(run.id) || selectedIndex === idx;
+              const stage = String(run.stage ?? "");
 
               return (
                 <tr
@@ -312,7 +321,7 @@ export function RunTable({
                     let cell: React.ReactNode;
                     if (col.render === "statusTag") {
                       cell = (
-                        <StatusTag status={run["status"] as "running" | "succeeded" | "failed"} />
+                        <StatusTag status={run.status as "running" | "succeeded" | "failed"} />
                       );
                     } else if (col.render === "stagePill") {
                       cell = <StagePill stage={stage} color={stageColors[stage] ?? "#818cf8"} />;
@@ -333,7 +342,7 @@ export function RunTable({
                         style={{
                           padding: "10px 12px",
                           borderBottom: "1px solid var(--fp-border-1)",
-                          ...(colIdx === 0 ? { position: "relative" } : {}),
+                          ...(colIdx === 0 ? { position: "relative" as const } : {}),
                         }}
                       >
                         {colIdx === 0 && (
@@ -376,9 +385,9 @@ export function RunTable({
       >
         <span>{filtered.length.toLocaleString()} runs</span>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Kbd>j/k</Kbd> navigate <span style={{ margin: "0 2px" }}>·</span>
-          <Kbd>Enter</Kbd> open <span style={{ margin: "0 2px" }}>·</span>
-          <Kbd>⌘K</Kbd> search
+          <Kbd>j/k</Kbd> navigate <span style={{ margin: "0 2px" }}>&middot;</span>
+          <Kbd>Enter</Kbd> open <span style={{ margin: "0 2px" }}>&middot;</span>
+          <Kbd>{`${mod}+K`}</Kbd> search
         </span>
       </div>
 
@@ -386,6 +395,7 @@ export function RunTable({
       {hasNextPage && !loading && (
         <div style={{ textAlign: "center", padding: "12px 0" }}>
           <button
+            type="button"
             onClick={onLoadMore}
             style={{
               padding: "8px 20px",
@@ -397,7 +407,7 @@ export function RunTable({
               fontSize: 13,
             }}
           >
-            Load 50 more
+            {locale.loadMore}
           </button>
         </div>
       )}

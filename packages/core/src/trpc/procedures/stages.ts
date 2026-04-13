@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FlowPanelContext } from "../context.js";
+import type { FlowPanelContext } from "../context";
 
 export function createStagesProcedures(
   // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types

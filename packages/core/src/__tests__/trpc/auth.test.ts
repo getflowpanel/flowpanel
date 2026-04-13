@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createAuthMiddleware } from "../../trpc/middleware/auth.js";
+import { createAuthMiddleware } from "../../trpc/middleware/auth";
 
 describe("auth middleware", () => {
   it("allows request when getSession returns valid session", async () => {
     const t = {
+      // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
       middleware: (fn: any) => fn,
     };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
     const middleware = createAuthMiddleware(t as any);
     const ctx = {
       config: {
@@ -20,9 +22,11 @@ describe("auth middleware", () => {
       req: new Request("http://localhost/"),
     };
 
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
     const result: any = {};
     await middleware({
       ctx,
+      // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
       next: async ({ ctx: newCtx }: any) => {
         Object.assign(result, newCtx);
         return {};
@@ -34,7 +38,9 @@ describe("auth middleware", () => {
   });
 
   it("throws UNAUTHORIZED when getSession returns null", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
     const t = { middleware: (fn: any) => fn };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
     const middleware = createAuthMiddleware(t as any);
     const ctx = {
       config: { security: { auth: { getSession: async () => null } } },
@@ -45,7 +51,9 @@ describe("auth middleware", () => {
   });
 
   it("throws UNAUTHORIZED when getSession throws", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
     const t = { middleware: (fn: any) => fn };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
     const middleware = createAuthMiddleware(t as any);
     const ctx = {
       config: {
@@ -64,7 +72,9 @@ describe("auth middleware", () => {
   });
 
   it("throws FORBIDDEN when session role does not match requireRole", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
     const t = { middleware: (fn: any) => fn };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
     const middleware = createAuthMiddleware(t as any);
     const ctx = {
       config: {
@@ -74,6 +84,27 @@ describe("auth middleware", () => {
             requireRole: "admin",
           },
           permissions: {},
+        },
+      },
+      req: new Request("http://localhost/"),
+    };
+
+    await expect(middleware({ ctx, next: async () => ({}) })).rejects.toThrow();
+  });
+
+  it("rejects role with empty permissions arrays", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
+    const t = { middleware: (fn: any) => fn };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock middleware cast
+    const middleware = createAuthMiddleware(t as any);
+    const ctx = {
+      config: {
+        security: {
+          auth: {
+            getSession: async () => ({ userId: "user1", role: "viewer" }),
+            requireRole: "admin",
+          },
+          permissions: { viewer: { read: [], write: [] } },
         },
       },
       req: new Request("http://localhost/"),

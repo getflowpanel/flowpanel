@@ -1,12 +1,13 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { sanitizeError } from "./errorSanitizer.js";
-import { redactObject } from "./redaction.js";
-import { fieldNameToColumn } from "./schemaGenerator.js";
-import type { SqlExecutor } from "./types/db.js";
+import { sanitizeError } from "./errorSanitizer";
+import { redactObject } from "./redaction";
+import { fieldNameToColumn } from "./schemaGenerator";
+import type { RunFields } from "./types/config";
+import type { SqlExecutor } from "./types/db";
 
 export interface RunHandle {
   id: bigint;
-  set(fields: Record<string, unknown>): void;
+  set(fields: RunFields): void;
   heartbeat(): Promise<void>;
 }
 
@@ -144,11 +145,26 @@ export function createWithRun(opts: WithRunOptions) {
       } catch (err) {
         const { errorClass, errorMessage, errorStack } = sanitizeError(err, cwd);
 
+        const fieldEntries = Object.entries(accumulatedFields);
+        const fieldSetClause = fieldEntries.map(([col], i) => `${col} = $${i + 6}`).join(", ");
+        const fieldValues = fieldEntries.map(([, v]) => v);
+
+        const failSetClause = [
+          "status = 'failed'",
+          "finished_at = $2",
+          "error_class = $3",
+          "error_message = $4",
+          "error_stack = $5",
+          fieldSetClause,
+        ]
+          .filter(Boolean)
+          .join(", ");
+
         await db.execute(
           `UPDATE flowpanel_pipeline_run
-           SET status = 'failed', finished_at = $2, error_class = $3, error_message = $4, error_stack = $5
+           SET ${failSetClause}
            WHERE id = $1 AND status = 'running'`,
-          [String(runId), new Date(), errorClass, errorMessage, errorStack],
+          [String(runId), new Date(), errorClass, errorMessage, errorStack, ...fieldValues],
         );
 
         try {

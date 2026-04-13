@@ -1,5 +1,4 @@
 import { copyFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 import { defineConfig } from "tsup";
 
 export default defineConfig({

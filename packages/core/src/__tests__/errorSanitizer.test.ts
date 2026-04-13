@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeStack } from "../errorSanitizer.js";
+import { sanitizeStack } from "../errorSanitizer";
 
 describe("sanitizeStack", () => {
   it("strips absolute paths to relative", () => {

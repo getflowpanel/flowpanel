@@ -26,7 +26,7 @@ export function TimelineSection({ data }: TimelineSectionProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-      {data.map((step, i) => {
+      {data.map((step) => {
         const pct = (step.durationMs / totalDuration) * 100;
         const isRunning = step.status === "running";
         const isFailed = step.status === "failed";
@@ -34,7 +34,7 @@ export function TimelineSection({ data }: TimelineSectionProps) {
 
         return (
           <div
-            key={i}
+            key={step.step}
             style={{
               display: "grid",
               gridTemplateColumns: "100px 1fr 56px",

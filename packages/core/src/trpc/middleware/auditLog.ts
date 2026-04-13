@@ -1,4 +1,4 @@
-import type { FlowPanelContext } from "../context.js";
+import type { FlowPanelContext } from "../context";
 
 // biome-ignore lint/suspicious/noExplicitAny: tRPC middleware internal type
 export function createAuditLogMiddleware(t: { middleware: (fn: (opts: any) => any) => any }) {

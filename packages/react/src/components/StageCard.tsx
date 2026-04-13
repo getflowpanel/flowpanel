@@ -1,5 +1,4 @@
-import React from "react";
-import { Tooltip } from "./Tooltip.js";
+import { Tooltip } from "./Tooltip";
 
 interface StageCardProps {
   stage: string;
@@ -50,6 +49,7 @@ export function StageCard({
 
   return (
     <button
+      type="button"
       className="fp-card"
       onClick={onClick}
       style={{

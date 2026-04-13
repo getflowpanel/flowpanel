@@ -1,11 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { createQueryBuilder } from "../../queryBuilder.js";
-import { fieldNameToColumn } from "../../schemaGenerator.js";
-import type { Session } from "../../types/config.js";
-import type { FlowPanelContext } from "../context.js";
+import { createQueryBuilder } from "../../queryBuilder";
+import { fieldNameToColumn } from "../../schemaGenerator";
+import type { Session } from "../../types/config";
+import type { FlowPanelContext } from "../context";
 
-interface RunRow {
+interface _RunRow {
   id: string;
   run_id: string;
   partition_key: string | null;
@@ -121,7 +121,7 @@ export function createRunsProcedures(
 
           const hasNextPage = rows.length > input.limit;
           const data = hasNextPage ? rows.slice(0, input.limit) : rows;
-          const nextCursor = hasNextPage ? String(data[data.length - 1]?.["id"]) : null;
+          const nextCursor = hasNextPage ? String(data[data.length - 1]?.id) : null;
 
           return { data, nextCursor };
         },
@@ -185,15 +185,15 @@ export function createRunsProcedures(
             `INSERT INTO flowpanel_pipeline_run (stage, status, retry_of_run_id, started_at)
            VALUES ($1, 'running', $2, now())
            RETURNING id`,
-            [run["stage"], run["id"]],
+            [run.stage, run.id],
           );
 
           await (config.pipeline.onRetry as (...args: unknown[]) => unknown)(
             {
-              stage: run["stage"] as string,
+              stage: run.stage as string,
               fields: run,
-              errorClass: run["error_class"] as string | undefined,
-              errorMessage: run["error_message"] as string | undefined,
+              errorClass: run.error_class as string | undefined,
+              errorMessage: run.error_message as string | undefined,
             },
             { userId: session.userId, db },
           );
@@ -277,12 +277,12 @@ export function createRunsProcedures(
           for (const run of runs) {
             try {
               await (config.pipeline.onRetry as (...args: unknown[]) => unknown)(
-                { stage: run["stage"] as string, fields: run },
+                { stage: run.stage as string, fields: run },
                 { userId: ctx.session.userId, db },
               );
-              results.push({ runId: String(run["id"]), success: true });
+              results.push({ runId: String(run.id), success: true });
             } catch (err) {
-              results.push({ runId: String(run["id"]), success: false, error: String(err) });
+              results.push({ runId: String(run.id), success: false, error: String(err) });
             }
           }
 
@@ -311,12 +311,12 @@ export function createRunsProcedures(
           const rows = await db.execute<Record<string, unknown>>(queryDef.sql, queryDef.params);
 
           const buckets = rows.map((row) => {
-            const bucket = row["bucket"];
+            const bucket = row.bucket;
             let label = "";
 
             if (bucket instanceof Date || (typeof bucket === "string" && bucket.length > 0)) {
               const d = bucket instanceof Date ? bucket : new Date(bucket as string);
-              if (!isNaN(d.getTime())) {
+              if (!Number.isNaN(d.getTime())) {
                 if (input.timeRange === "30d") {
                   // "Jan 5"
                   label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -345,9 +345,9 @@ export function createRunsProcedures(
 
             return {
               label,
-              total: Number(row["total"] ?? 0),
-              succeeded: Number(row["succeeded"] ?? 0),
-              failed: Number(row["failed"] ?? 0),
+              total: Number(row.total ?? 0),
+              succeeded: Number(row.succeeded ?? 0),
+              failed: Number(row.failed ?? 0),
             };
           });
 

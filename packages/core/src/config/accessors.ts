@@ -1,4 +1,4 @@
-import type { FlowPanelConfig } from "./schema.js";
+import type { FlowPanelConfig } from "./schema";
 
 // These accessors centralize the type casts needed to access optional config
 // sections. The Zod schema makes all sections optional, so TypeScript can't

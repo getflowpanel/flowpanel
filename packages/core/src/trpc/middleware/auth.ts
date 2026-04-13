@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import type { FlowPanelContext } from "../context.js";
+import type { FlowPanelContext } from "../context";
 
 export interface AuthMiddlewareResult {
   session: import("../../types/config.js").Session;
@@ -32,9 +32,14 @@ export function createAuthMiddleware(t: { middleware: (fn: (opts: any) => any) =
 
     const requiredRole = config.security.auth.requireRole;
     if (requiredRole && session.role !== requiredRole) {
-      // Check permissions table
       const perms = config.security.permissions?.[session.role];
       if (!perms) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      const hasRead = perms.read?.length > 0;
+      const hasWrite = perms.write?.length > 0;
+      if (!hasRead && !hasWrite) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
     }

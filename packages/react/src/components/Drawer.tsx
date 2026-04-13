@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useRef } from "react";
-import { renderDrawerSections } from "./drawer-sections/index.js";
+import { renderDrawerSections } from "./drawer-sections/index";
 
 interface DrawerAction {
   label: string;
@@ -69,9 +69,10 @@ export function Drawer({
       }
 
       if (e.key === "Tab") {
-        const focusableNow = el!.querySelectorAll<HTMLElement>(
+        const focusableNow = el?.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         );
+        if (!focusableNow || focusableNow.length === 0) return;
         const first = focusableNow[0];
         const last = focusableNow[focusableNow.length - 1];
 
@@ -176,6 +177,7 @@ export function Drawer({
             {title}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close drawer"
             style={{
@@ -214,9 +216,10 @@ export function Drawer({
               flexShrink: 0,
             }}
           >
-            {actions.map((action, i) => (
+            {actions.map((action) => (
               <button
-                key={i}
+                type="button"
+                key={action.label}
                 onClick={action.onClick}
                 style={{
                   padding: "7px 14px",

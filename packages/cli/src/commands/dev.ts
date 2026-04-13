@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { platform } from "node:os";
 import { watch } from "chokidar";
 import kleur from "kleur";
-import { loadConfig } from "../loadConfig.js";
+import { loadConfig } from "../loadConfig";
 
 export async function runDev(opts: { port?: string }) {
   console.log(kleur.bold("\n  ⚡ FlowPanel dev server\n"));
@@ -16,16 +16,16 @@ export async function runDev(opts: { port?: string }) {
   }
 
   const port = opts.port ?? "3000";
-  const basePath = config.basePath ?? "/admin";
+  const basePath = config.config.basePath ?? "/admin";
 
   console.log(`  Dashboard:  ${kleur.cyan(`http://localhost:${port}${basePath}`)}`);
   console.log(`  Config:     ${kleur.gray("flowpanel.config.ts")} (watching)`);
-  console.log(`  Stages:     ${kleur.gray(config.pipeline?.stages?.join(", ") ?? "none")}`);
+  console.log(`  Stages:     ${kleur.gray(config.config.pipeline?.stages?.join(", ") ?? "none")}`);
   console.log(
-    `  Metrics:    ${kleur.gray(`${String(Object.keys(config.metrics ?? {}).length)} configured`)}`,
+    `  Metrics:    ${kleur.gray(`${String(Object.keys(config.config.metrics ?? {}).length)} configured`)}`,
   );
   console.log(
-    `  Drawers:    ${kleur.gray(`${String(Object.keys(config.drawers ?? {}).length)} configured`)}`,
+    `  Drawers:    ${kleur.gray(`${String(Object.keys(config.config.drawers ?? {}).length)} configured`)}`,
   );
   console.log(`\n  Watching for config changes... (Ctrl+C to stop)\n`);
 
@@ -42,7 +42,7 @@ export async function runDev(opts: { port?: string }) {
     try {
       const newConfig = await loadConfig();
       console.log(
-        `  ${kleur.green("✓")} Config valid (${newConfig.pipeline?.stages?.length ?? 0} stages, ${Object.keys(newConfig.metrics ?? {}).length} metrics)`,
+        `  ${kleur.green("✓")} Config valid (${newConfig.config.pipeline?.stages?.length ?? 0} stages, ${Object.keys(newConfig.config.metrics ?? {}).length} metrics)`,
       );
       console.log(`           Run ${kleur.cyan("flowpanel migrate:gen")} if schema changed\n`);
     } catch (err) {

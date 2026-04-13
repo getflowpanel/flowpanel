@@ -1,14 +1,19 @@
-import React from "react";
+import { useLocale } from "../locale/LocaleContext";
 
 export type Status = "running" | "succeeded" | "failed";
 
-const STATUS_CONFIG: Record<Status, { label: string; bg: string; color: string }> = {
-  running: { label: "Running", bg: "rgba(245,158,11,0.15)", color: "#f59e0b" },
-  succeeded: { label: "Succeeded", bg: "rgba(16,185,129,0.15)", color: "#10b981" },
-  failed: { label: "Failed", bg: "rgba(239,68,68,0.15)", color: "#ef4444" },
+const STATUS_STYLE: Record<Status, { bg: string; color: string }> = {
+  // Colors are bright enough to meet WCAG AA 4.5:1 against any dark background,
+  // including when the semi-transparent tag background is composited on top of
+  // a selected-row highlight (--fp-surface-2).
+  running: { bg: "rgba(251,191,36,0.15)", color: "#fbbf24" }, // amber-400
+  succeeded: { bg: "rgba(52,211,153,0.15)", color: "#34d399" }, // emerald-400
+  failed: { bg: "rgba(248,113,113,0.15)", color: "#f87171" }, // red-400
 };
 
 export function StatusTag({ status, loading }: { status: Status; loading?: boolean }) {
+  const locale = useLocale();
+
   if (loading) {
     return (
       <span
@@ -18,7 +23,13 @@ export function StatusTag({ status, loading }: { status: Status; loading?: boole
     );
   }
 
-  const cfg = STATUS_CONFIG[status];
+  const style = STATUS_STYLE[status];
+  const labelMap: Record<Status, string> = {
+    running: locale.statusRunning,
+    succeeded: locale.statusSucceeded,
+    failed: locale.statusFailed,
+  };
+
   return (
     <span
       style={{
@@ -27,19 +38,19 @@ export function StatusTag({ status, loading }: { status: Status; loading?: boole
         gap: 5,
         padding: "3px 10px",
         borderRadius: 6,
-        background: cfg.bg,
-        color: cfg.color,
+        background: style.bg,
+        color: style.color,
         fontSize: 11,
         fontWeight: 600,
         letterSpacing: "0.03em",
       }}
-      aria-label={`Status: ${status}`}
+      title={`Status: ${status}`}
     >
       <span
-        style={{ width: 5, height: 5, borderRadius: "50%", background: cfg.color }}
+        style={{ width: 5, height: 5, borderRadius: "50%", background: style.color }}
         aria-hidden={true}
       />
-      {cfg.label}
+      {labelMap[status]}
     </span>
   );
 }

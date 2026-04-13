@@ -17,11 +17,11 @@ export function BreakdownSection({ data }: BreakdownSectionProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {data.map((item, i) => {
+      {data.map((item) => {
         const pct = (item.value / maxValue) * 100;
         return (
           <div
-            key={i}
+            key={item.label}
             style={{
               display: "grid",
               gridTemplateColumns: "120px 1fr 48px",

@@ -1,14 +1,11 @@
-import * as path from "node:path";
 import kleur from "kleur";
-import { formatSuccess } from "../utils/error-format.js";
+import { loadConfig } from "../loadConfig";
+import { formatSuccess } from "../utils/error-format";
 
 export async function runDemoClear(): Promise<void> {
-  const cwd = process.cwd();
-
-  // biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
-  let config: any;
+  let config: Awaited<ReturnType<typeof loadConfig>>;
   try {
-    config = (await import(path.join(cwd, "flowpanel.config.ts"))).flowpanel;
+    config = await loadConfig();
   } catch (err) {
     console.error(kleur.red(`Failed to load config: ${err}`));
     process.exit(1);

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import kleur from "kleur";
 
-const CACHE_DIR = path.join(process.env["HOME"] ?? process.env["USERPROFILE"] ?? ".", ".flowpanel");
+const CACHE_DIR = path.join(process.env.HOME ?? process.env.USERPROFILE ?? ".", ".flowpanel");
 const CACHE_PATH = path.join(CACHE_DIR, "update-check.json");
 const CACHE_TTL = 86_400_000; // 24h
 

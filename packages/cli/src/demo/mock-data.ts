@@ -46,7 +46,7 @@ function buildScenarioRuns(): DemoRun[] {
 
     for (let t = 0; t < throughput; t++) {
       const id = String(idCounter++);
-      const stage = STAGES[Math.floor(rand() * STAGES.length)]!;
+      const stage = STAGES[Math.floor(rand() * STAGES.length)] ?? "ingest";
       const partitionKey = `doc-${Math.floor(rand() * 9999)
         .toString()
         .padStart(4, "0")}`;
@@ -170,7 +170,8 @@ export function generateDemoStages() {
   }
 
   return STAGES.map((stage) => {
-    const s = stageMap.get(stage)!;
+    const s = stageMap.get(stage);
+    if (!s) return { stage, total: 0, succeeded: 0, failed: 0, running: 0, avgDurationMs: 0 };
     return {
       stage,
       total: s.total,

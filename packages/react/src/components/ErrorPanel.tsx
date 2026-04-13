@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 interface ErrorPanelProps {
   errors: Array<{ errorClass: string; count: number; lastSeen?: string }>;
@@ -25,14 +25,13 @@ export function ErrorPanel({
   const maxCount = visibleErrors.reduce((acc, e) => Math.max(acc, e.count), 1);
 
   return (
-    <div
+    <section
       style={{
         background: "var(--fp-surface-1, var(--fp-surface-2))",
         border: "1px solid var(--fp-border-1)",
         borderRadius: "var(--fp-radius-sm)",
         overflow: "hidden",
       }}
-      role="region"
       aria-label="Error summary"
     >
       {/* Header */}
@@ -67,10 +66,11 @@ export function ErrorPanel({
 
         {onRetryAll && (
           <button
+            type="button"
             onClick={onRetryAll}
             style={{
               background: "transparent",
-              border: "1px solid rgba(239,68,68,0.3)",
+              border: "1px solid color-mix(in srgb, var(--fp-err) 30%, transparent)",
               borderRadius: "var(--fp-radius-sm)",
               color: "var(--fp-err)",
               fontSize: 11,
@@ -89,16 +89,19 @@ export function ErrorPanel({
 
       {/* Error rows */}
       {visibleErrors.length > 0 && (
-        <div role="list">
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
           {visibleErrors.map((error, i) => {
             const barWidth = (error.count / maxCount) * 100;
             const isHovered = hoveredRow === i;
 
             return (
-              <div
+              <li
                 key={error.errorClass}
-                role="listitem"
                 onClick={() => onErrorClick?.(error.errorClass)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") onErrorClick?.(error.errorClass);
+                }}
+                tabIndex={onErrorClick ? 0 : undefined}
                 onMouseEnter={() => setHoveredRow(i)}
                 onMouseLeave={() => setHoveredRow(null)}
                 style={{
@@ -139,7 +142,7 @@ export function ErrorPanel({
                     minWidth: 0,
                     height: 4,
                     borderRadius: 2,
-                    background: "rgba(239,68,68,0.1)",
+                    background: "color-mix(in srgb, var(--fp-err) 10%, transparent)",
                     overflow: "hidden",
                   }}
                   aria-hidden="true"
@@ -149,7 +152,7 @@ export function ErrorPanel({
                       height: "100%",
                       width: `${barWidth}%`,
                       borderRadius: 2,
-                      background: "rgba(239,68,68,0.4)",
+                      background: "color-mix(in srgb, var(--fp-err) 40%, transparent)",
                       transition: "width var(--fp-duration, 150ms)",
                     }}
                   />
@@ -167,11 +170,11 @@ export function ErrorPanel({
                 >
                   {error.count}
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
-    </div>
+    </section>
   );
 }

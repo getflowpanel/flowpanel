@@ -119,8 +119,8 @@ export function generateSchema(config: {
   run_count     INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (day, partition_key, stage, model)
 );
-CREATE INDEX IF NOT EXISTS ON flowpanel_ai_usage_daily (day DESC);
-CREATE INDEX IF NOT EXISTS ON flowpanel_ai_usage_daily (partition_key, day DESC);`;
+CREATE INDEX IF NOT EXISTS idx_ai_usage_day ON flowpanel_ai_usage_daily (day DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_partition_day ON flowpanel_ai_usage_daily (partition_key, day DESC);`;
 
   const metaTable = `CREATE TABLE IF NOT EXISTS flowpanel_meta (
   key   TEXT PRIMARY KEY,
@@ -142,8 +142,8 @@ CREATE INDEX IF NOT EXISTS ON flowpanel_ai_usage_daily (partition_key, day DESC)
   details     JSONB,
   request_id  TEXT
 );
-CREATE INDEX IF NOT EXISTS ON flowpanel_audit_log (at DESC);
-CREATE INDEX IF NOT EXISTS ON flowpanel_audit_log (user_id, at DESC);`;
+CREATE INDEX IF NOT EXISTS idx_audit_log_at ON flowpanel_audit_log (at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_at ON flowpanel_audit_log (user_id, at DESC);`;
 
   const migrationsTable = `CREATE TABLE IF NOT EXISTS flowpanel_migrations (
   id          TEXT PRIMARY KEY,

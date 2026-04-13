@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useToast } from "../Toast.js";
+import { useToast } from "../Toast";
 
 interface KvGridSectionProps {
   data: Record<string, unknown>;
@@ -20,6 +20,7 @@ function CopyButton({ value }: { value: string }) {
 
   return (
     <button
+      type="button"
       onClick={handleCopy}
       title="Copy to clipboard"
       style={{

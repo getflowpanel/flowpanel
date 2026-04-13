@@ -112,6 +112,7 @@ export function KeyboardHelp({ open, onClose }: KeyboardHelpProps) {
             Keyboard Shortcuts
           </span>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close keyboard shortcuts"
             style={{
