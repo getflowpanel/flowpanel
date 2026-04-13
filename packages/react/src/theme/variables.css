@@ -46,6 +46,63 @@
   --fp-font-mono: "JetBrains Mono", monospace;
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Light theme — auto-detected via prefers-color-scheme.
+   Suppressed when the root is explicitly .fp-dark (forced override).
+   ────────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: light) {
+  :root:not(.fp-dark) .fp-root {
+    --fp-bg: #ffffff;
+    --fp-surface-1: #fafafa;
+    --fp-surface-2: #f4f4f5;
+    --fp-surface-3: #e4e4e7;
+    --fp-surface-4: #d4d4d8;
+
+    --fp-border-1: rgba(0, 0, 0, 0.06);
+    --fp-border-2: rgba(0, 0, 0, 0.12);
+
+    --fp-text-1: #18181b;
+    --fp-text-2: #3f3f46;
+    --fp-text-3: #52525b; /* WCAG AA against #ffffff */
+    --fp-text-4: #71717a;
+    --fp-text-5: #a1a1aa;
+
+    --fp-accent-dim: rgba(99, 102, 241, 0.08);
+    --fp-accent-text: #4338ca;
+
+    --fp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --fp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Forced light mode — same vars as above, but unconditional. */
+.fp-light.fp-root,
+.fp-light .fp-root {
+  --fp-bg: #ffffff;
+  --fp-surface-1: #fafafa;
+  --fp-surface-2: #f4f4f5;
+  --fp-surface-3: #e4e4e7;
+  --fp-surface-4: #d4d4d8;
+
+  --fp-border-1: rgba(0, 0, 0, 0.06);
+  --fp-border-2: rgba(0, 0, 0, 0.12);
+
+  --fp-text-1: #18181b;
+  --fp-text-2: #3f3f46;
+  --fp-text-3: #52525b;
+  --fp-text-4: #71717a;
+  --fp-text-5: #a1a1aa;
+
+  --fp-accent-dim: rgba(99, 102, 241, 0.08);
+  --fp-accent-text: #4338ca;
+
+  --fp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --fp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* .fp-dark explicitly pins dark mode — the default :root tokens already match,
+   so no overrides are needed; the class just blocks the @media rule above. */
+
 .fp-root {
   font-family: var(--fp-font-sans);
   background-color: var(--fp-bg);

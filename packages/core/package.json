@@ -29,7 +29,9 @@
       "import": "./dist/trpc/index.js",
       "require": "./dist/trpc/index.cjs",
       "types": "./dist/trpc/index.d.ts"
-    }
+    },
+    "./package.json": "./package.json",
+    "./migrations/*": "./migrations/*"
   },
   "scripts": {
     "build": "tsup",

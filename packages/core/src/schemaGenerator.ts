@@ -152,6 +152,18 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_user_at ON flowpanel_audit_log (user_id
   duration_ms INTEGER NOT NULL
 );`;
 
+  // Events table — backs SSE broker replay and cross-process fan-out.
+  // Either consumed via LISTEN (if adapter supports it) or polled every 2s.
+  // Rows older than 1 hour are garbage collected by the broker.
+  const eventsTable = `CREATE TABLE IF NOT EXISTS flowpanel_events (
+  id         BIGSERIAL PRIMARY KEY,
+  event      TEXT NOT NULL,
+  data       JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_fp_events_created ON flowpanel_events (created_at);
+CREATE INDEX IF NOT EXISTS idx_fp_events_id ON flowpanel_events (id);`;
+
   return [
     `CREATE TABLE IF NOT EXISTS flowpanel_pipeline_run (\n${allCols}\n);`,
     coreIndexes,
@@ -160,6 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_user_at ON flowpanel_audit_log (user_id
     metaTable,
     auditTable,
     migrationsTable,
+    eventsTable,
   ]
     .filter(Boolean)
     .join("\n\n");

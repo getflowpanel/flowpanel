@@ -25,7 +25,7 @@ import { useFlowPanelData } from "./hooks/useFlowPanelData";
 import { useFlowPanelLive } from "./hooks/useFlowPanelLive";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useLocale } from "./locale/LocaleContext";
-import { resolveTheme, themeToStyle } from "./theme/index";
+import { resolveTheme, themeToClassName, themeToStyle } from "./theme/index";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -187,7 +187,7 @@ export function FlowPanelUI({
     <ToastProvider>
       <FlowPanelContext.Provider value={{ timezone: config.timezone ?? "UTC" }}>
         <div
-          className="fp-root"
+          className={`fp-root ${themeToClassName(config.theme?.colorScheme)}`.trim()}
           style={{ ...themeStyle, minHeight: "100vh" }}
           data-testid="fp-root"
         >

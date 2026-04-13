@@ -44,6 +44,6 @@ export { useKeyboard } from "./hooks/useKeyboard";
 export type { FlowPanelLocale } from "./locale/defaultLocale";
 export { LocaleProvider, useLocale } from "./locale/LocaleContext";
 export type { ResolvedTheme } from "./theme/index";
-export { resolveTheme, themeToStyle } from "./theme/index";
+export { resolveTheme, themeToClassName, themeToStyle } from "./theme/index";
 export { formatDate } from "./utils/formatDate";
 export { isMac, modKey } from "./utils/platform";

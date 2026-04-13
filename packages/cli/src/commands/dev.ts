@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
+import { watch } from "node:fs";
 import { platform } from "node:os";
-import { watch } from "chokidar";
+import { resolve } from "node:path";
 import kleur from "kleur";
 import { loadConfig } from "../loadConfig";
 
@@ -34,19 +35,32 @@ export async function runDev(opts: { port?: string }) {
   const cmd = platform() === "darwin" ? "open" : platform() === "win32" ? "start" : "xdg-open";
   execFile(cmd, [url], () => {});
 
-  // Watch config file
-  const watcher = watch("flowpanel.config.ts", { ignoreInitial: true });
-  watcher.on("change", async () => {
-    const time = new Date().toLocaleTimeString("en", { hour12: false });
-    console.log(`  ${kleur.gray(time)} Config changed — revalidating...`);
-    try {
-      const newConfig = await loadConfig();
-      console.log(
-        `  ${kleur.green("✓")} Config valid (${newConfig.config.pipeline?.stages?.length ?? 0} stages, ${Object.keys(newConfig.config.metrics ?? {}).length} metrics)`,
-      );
-      console.log(`           Run ${kleur.cyan("flowpanel migrate:gen")} if schema changed\n`);
-    } catch (err) {
-      console.log(`  ${kleur.red("✗")} Config error: ${err}\n`);
-    }
+  // Watch config file — node:fs.watch is native in Node 22. Debounced to coalesce
+  // multiple "change" events that editors fire during save (e.g. atomic replace).
+  const configPath = resolve("flowpanel.config.ts");
+  let debounceTimer: NodeJS.Timeout | null = null;
+
+  const watcher = watch(configPath, (eventType) => {
+    if (eventType !== "change") return;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(async () => {
+      const time = new Date().toLocaleTimeString("en", { hour12: false });
+      console.log(`  ${kleur.gray(time)} Config changed — revalidating...`);
+      try {
+        const newConfig = await loadConfig();
+        console.log(
+          `  ${kleur.green("✓")} Config valid (${newConfig.config.pipeline?.stages?.length ?? 0} stages, ${Object.keys(newConfig.config.metrics ?? {}).length} metrics)`,
+        );
+        console.log(`           Run ${kleur.cyan("flowpanel migrate:gen")} if schema changed\n`);
+      } catch (err) {
+        console.log(`  ${kleur.red("✗")} Config error: ${err}\n`);
+      }
+    }, 100);
+  });
+
+  // Clean shutdown
+  process.on("SIGINT", () => {
+    watcher.close();
+    process.exit(0);
   });
 }

@@ -7,6 +7,17 @@ export interface SqlExecutor {
   advisoryUnlock(key: bigint): Promise<void>;
   advisoryTryLock(key: bigint): Promise<boolean>;
   sql(strings: TemplateStringsArray, ...values: unknown[]): SqlQuery;
+
+  /**
+   * Optional pg_notify LISTEN support for cross-process SSE fan-out.
+   *
+   * Adapters that wrap a dedicated pg client (not a pool) can implement this
+   * to deliver notifications via the `client.on('notification')` callback.
+   * If not implemented, the SSE broker falls back to polling `flowpanel_events`.
+   *
+   * The returned function unsubscribes (UNLISTEN + detach handler).
+   */
+  listen?(channel: string, handler: (payload: string) => void): Promise<() => void>;
 }
 
 export interface SqlQuery {

@@ -8,6 +8,7 @@ if (major !== undefined && major < 18) {
 }
 
 import { Command } from "commander";
+import kleur from "kleur";
 import { runAuditExport } from "./commands/audit-export";
 import { runDemo } from "./commands/demo";
 import { runDemoClear } from "./commands/demo-clear";
@@ -16,6 +17,7 @@ import { runDiff } from "./commands/diff";
 import { runDoctor } from "./commands/doctor";
 import { runInit } from "./commands/init";
 import { runMigrate, runMigrateGen, runMigrateStatus } from "./commands/migrate";
+import { runStatus } from "./commands/status";
 import { runWorkerScan } from "./commands/worker-scan";
 import { checkForUpdates } from "./updateChecker";
 
@@ -84,6 +86,26 @@ program
   .description("Watch config and auto-validate on changes")
   .option("--port <port>", "Dev server port", "3000")
   .action(runDev);
+
+program
+  .command("status")
+  .description("Quick overview: runs, schema health, last run, dashboard URL")
+  .action(() => runStatus({ json: program.opts().json ?? false }));
+
+program.addHelpText(
+  "after",
+  `
+${kleur.bold("Command groups")}
+
+  ${kleur.cyan("Getting started:")}  init · demo · dev
+  ${kleur.cyan("Database:")}         migrate · migrate:status · migrate:gen
+  ${kleur.cyan("Diagnostics:")}      status · doctor · diff
+  ${kleur.cyan("Maintenance:")}      worker:scan · audit:export · demo:clear
+
+Run ${kleur.bold("flowpanel <command> --help")} for command-specific options.
+Docs: ${kleur.cyan("https://flowpanel.dev")}
+`,
+);
 
 program.parse();
 

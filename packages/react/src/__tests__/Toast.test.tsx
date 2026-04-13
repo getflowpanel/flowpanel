@@ -9,7 +9,7 @@ function ToastTrigger({ messages }: { messages?: string[] }) {
       type="button"
       onClick={() => {
         for (const msg of messages ?? ["Hello"]) {
-          toast(msg);
+          toast({ message: msg });
         }
       }}
     >

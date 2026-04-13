@@ -57,3 +57,19 @@ export function themeToStyle(theme: ResolvedTheme): CSSProperties {
 
   return vars as unknown as CSSProperties;
 }
+
+/**
+ * Resolve a CSS class name for the requested colorScheme.
+ *
+ * - "auto"  → no class. The user agent's prefers-color-scheme media query decides.
+ * - "dark"  → "fp-dark"  — forces the dark palette even on light systems.
+ * - "light" → "fp-light" — forces the light palette even on dark systems.
+ *
+ * The class is applied to the FlowPanelUI root, and CSS selectors in
+ * `theme/variables.css` override the appropriate custom properties.
+ */
+export function themeToClassName(colorScheme: "dark" | "light" | "auto" | undefined): string {
+  if (colorScheme === "dark") return "fp-dark";
+  if (colorScheme === "light") return "fp-light";
+  return "";
+}

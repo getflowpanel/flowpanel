@@ -130,6 +130,80 @@ describe("SseBroker", () => {
     expect(replayed[0].event).toBe("recent");
   });
 
+  it("uses LISTEN when adapter supports it", async () => {
+    let registeredHandler: ((payload: string) => void) | null = null;
+    const listenDb = {
+      execute: vi.fn().mockResolvedValue([]),
+      transaction: vi.fn(),
+      advisoryLock: vi.fn(),
+      advisoryUnlock: vi.fn(),
+      advisoryTryLock: vi.fn(),
+      sql: vi.fn(),
+      listen: vi.fn(async (_channel: string, handler: (p: string) => void) => {
+        registeredHandler = handler;
+        return async () => {};
+      }),
+    } as unknown as SqlExecutor;
+
+    const listenBroker = new SseBroker(listenDb, 50, 60_000);
+    await listenBroker.start();
+
+    expect(listenDb.listen).toHaveBeenCalledWith("flowpanel_events", expect.any(Function));
+
+    const received: SseEvent[] = [];
+    listenBroker.subscribe("c1", (e) => received.push(e));
+
+    // Simulate a pg_notify payload arriving
+    registeredHandler?.(JSON.stringify({ event: "run.created", id: "42" }));
+
+    expect(received).toHaveLength(1);
+    expect(received[0].event).toBe("run.created");
+
+    await listenBroker.destroy();
+  });
+
+  it("falls back to polling when adapter has no listen() method", async () => {
+    vi.useFakeTimers();
+    const rows = [
+      { id: 1, event: "run.created", data: { id: "1" } },
+      { id: 2, event: "run.finished", data: { id: "1" } },
+    ];
+    let pollCall = 0;
+    const pollDb = {
+      execute: vi.fn(async (sql: string) => {
+        if (sql.includes("MAX(id)")) return [{ id: 0 }];
+        if (sql.includes("SELECT id, event, data")) {
+          pollCall++;
+          return pollCall === 1 ? rows : [];
+        }
+        return [];
+      }),
+      transaction: vi.fn(),
+      advisoryLock: vi.fn(),
+      advisoryUnlock: vi.fn(),
+      advisoryTryLock: vi.fn(),
+      sql: vi.fn(),
+    } as unknown as SqlExecutor;
+
+    const pollBroker = new SseBroker(pollDb, 50, 60_000);
+    const received: SseEvent[] = [];
+    pollBroker.subscribe("c1", (e) => received.push(e));
+
+    await pollBroker.start();
+    await vi.advanceTimersByTimeAsync(2_000); // trigger one poll tick
+
+    // Drain pending microtasks
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(received.length).toBeGreaterThanOrEqual(2);
+    expect(received.map((e) => e.event)).toContain("run.created");
+    expect(received.map((e) => e.event)).toContain("run.finished");
+
+    await pollBroker.destroy();
+    vi.useRealTimers();
+  });
+
   it("drops oldest events when buffer exceeds replay window", () => {
     const tinyWindowBroker = new SseBroker(db, 50, 1);
 
