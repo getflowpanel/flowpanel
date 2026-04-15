@@ -5,15 +5,9 @@ import type { SerializedResource } from "@flowpanel/core";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Button } from "../ui/button";
 import { cn } from "../utils/cn";
+import { getNestedValue } from "../utils/getNestedValue";
 import { CellRenderer } from "./cells";
 import { ResourceForm } from "./ResourceForm";
-
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  return path.split(".").reduce<unknown>((acc, key) => {
-    if (acc && typeof acc === "object") return (acc as Record<string, unknown>)[key];
-    return undefined;
-  }, obj);
-}
 
 function DetailGrid({
   resource,
@@ -22,9 +16,7 @@ function DetailGrid({
   resource: SerializedResource;
   row: Record<string, unknown>;
 }) {
-  const detailColumns = resource.columns.filter(
-    (c) => c.opts.visible !== "list" || c.opts.visible === "always",
-  );
+  const detailColumns = resource.columns.filter((c) => c.opts.visible !== "list");
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -49,11 +41,13 @@ function ActionButton({
   action,
   row,
   baseUrl,
+  resourceId,
   onSuccess,
 }: {
   action: SerializedResource["actions"][number];
   row: Record<string, unknown>;
   baseUrl: string;
+  resourceId: string;
   onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -76,11 +70,12 @@ function ActionButton({
       const response = await fetch(`${baseUrl}/flowpanel.resource.action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resourceId: "", actionId: action.id, row }),
+        body: JSON.stringify({ resourceId, actionId: action.id, recordId: row.id }),
       });
       if (!response.ok) {
         throw new Error(`Server returned ${response.status}`);
       }
+      // TODO(phase-2): Wire toast notifications from action.onSuccess.toast
       onSuccess?.();
     } catch (err) {
       setError((err as Error).message);
@@ -155,6 +150,7 @@ export function ResourceDrawer({
                       action={action}
                       row={row}
                       baseUrl={baseUrl}
+                      resourceId={resource.id}
                       onSuccess={onSuccess}
                     />
                   ))}

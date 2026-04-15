@@ -5,14 +5,8 @@ import type { SerializedResource } from "@flowpanel/core";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Skeleton } from "../ui/skeleton";
 import { cn } from "../utils/cn";
+import { getNestedValue } from "../utils/getNestedValue";
 import { CellRenderer } from "./cells";
-
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  return path.split(".").reduce<unknown>((acc, key) => {
-    if (acc && typeof acc === "object") return (acc as Record<string, unknown>)[key];
-    return undefined;
-  }, obj);
-}
 
 const SKELETON_ROWS = 8;
 
@@ -34,7 +28,7 @@ export function ResourceTable({
   selectedRowId?: string;
 }) {
   const visibleColumns = resource.columns.filter((c) => c.opts.visible !== "detail");
-  const primaryKey = "id";
+  const primaryKey = resource.primaryKey;
 
   return (
     <Table>

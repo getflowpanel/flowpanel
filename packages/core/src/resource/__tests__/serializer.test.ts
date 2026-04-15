@@ -44,6 +44,7 @@ function makeResolvedResource(overrides: Partial<ResolvedResource> = {}): Resolv
   return {
     id: "subscription",
     modelName: "Subscription",
+    primaryKey: "id",
     label: "Subscription",
     labelPlural: "Subscriptions",
     icon: "credit-card",

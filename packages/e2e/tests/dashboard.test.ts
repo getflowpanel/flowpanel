@@ -38,7 +38,8 @@ test.describe("dashboard", () => {
 
   test("tabs render with Pipeline and Users", async ({ page }) => {
     await expect(page.getByRole("tab", { name: "Pipeline" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Users" })).toBeVisible();
+    // Users tab is auto-added by the resource system from /flowpanel.resource.schema
+    await expect(page.getByRole("tab", { name: "Users" })).toBeVisible({ timeout: 10_000 });
   });
 
   test("demo banner is shown", async ({ page }) => {

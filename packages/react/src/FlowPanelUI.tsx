@@ -1,6 +1,6 @@
-import type { FlowPanelConfig } from "@flowpanel/core";
+import type { FlowPanelConfig, SerializedResource } from "@flowpanel/core";
 import type React from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Command } from "./components/CommandPalette";
 import { CommandPalette } from "./components/CommandPalette";
 import { DemoBanner } from "./components/DemoBanner";
@@ -25,6 +25,7 @@ import { useFlowPanelData } from "./hooks/useFlowPanelData";
 import { useFlowPanelLive } from "./hooks/useFlowPanelLive";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useLocale } from "./locale/LocaleContext";
+import { ResourcePage } from "./resource/ResourcePage";
 import { resolveTheme, themeToClassName, themeToStyle } from "./theme/index";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -90,15 +91,53 @@ export function FlowPanelUI({
     onMetricsUpdate: setMetricsDirect,
   });
 
+  // ── Resource schema ────────────────────────────────────────────────────────
+  const [resourceMap, setResourceMap] = useState<Record<string, SerializedResource>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${trpcBaseUrl}/flowpanel.resource.schema`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as
+          | { result?: { data?: { resources: Record<string, SerializedResource> } } }
+          | { resources: Record<string, SerializedResource> };
+        if (cancelled) return;
+        const payload =
+          "result" in json && json.result?.data
+            ? json.result.data
+            : (json as { resources: Record<string, SerializedResource> });
+        setResourceMap(payload.resources ?? {});
+      } catch {
+        // Resource schema not available — no resource tabs shown
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trpcBaseUrl]);
+
   // ── Drawer state ──────────────────────────────────────────────────────────
   const drawer = useDrawerState({ config, baseUrl: trpcBaseUrl, allRuns: runsState.runs });
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  const tabs: TabConfig[] = config.tabs?.map((t) => ({
+  const configTabs: TabConfig[] = config.tabs?.map((t) => ({
     id: t.id,
     label: t.label,
     icon: t.icon,
   })) ?? [{ id: "pipeline", label: "Pipeline" }];
+
+  const resourceTabs: TabConfig[] = Object.entries(resourceMap).map(([key, res]) => ({
+    id: `resource:${key}`,
+    label: res.labelPlural,
+  }));
+
+  const tabs: TabConfig[] = [...configTabs, ...resourceTabs];
 
   useKeyboard([
     {
@@ -179,6 +218,12 @@ export function FlowPanelUI({
       label: `Set time range: ${preset}`,
       category: "Time Range",
       action: () => setTimeRange(preset),
+    })),
+    ...Object.entries(resourceMap).map(([key, res]) => ({
+      id: `go-resource-${key}`,
+      label: `Go to ${res.labelPlural}`,
+      category: "Resources",
+      action: () => setActiveTab(`resource:${key}`),
     })),
   ];
 
@@ -439,8 +484,28 @@ export function FlowPanelUI({
                 </div>
               )}
 
-              {/* Non-pipeline tabs */}
+              {/* Resource tabs */}
+              {activeTab.startsWith("resource:") &&
+                (() => {
+                  const resourceKey = activeTab.slice("resource:".length);
+                  const resource = resourceMap[resourceKey];
+                  if (!resource) return null;
+                  return (
+                    <ErrorBoundary>
+                      <div
+                        id={`fp-tabpanel-${activeTab}`}
+                        role="tabpanel"
+                        aria-labelledby={`fp-tab-${activeTab}`}
+                      >
+                        <ResourcePage resource={resource} baseUrl={trpcBaseUrl} />
+                      </div>
+                    </ErrorBoundary>
+                  );
+                })()}
+
+              {/* Non-pipeline, non-resource tabs */}
               {activeTab !== firstTabId &&
+                !activeTab.startsWith("resource:") &&
                 (() => {
                   const tabEntry = config.tabs?.find((t) => t.id === activeTab);
 

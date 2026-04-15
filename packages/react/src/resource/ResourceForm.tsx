@@ -63,7 +63,7 @@ export function ResourceForm({
         : `${baseUrl}/flowpanel.resource.create`;
 
       const body = isEdit
-        ? { resourceId: resource.id, id: row?.id, data: values }
+        ? { resourceId: resource.id, recordId: row?.id, data: values }
         : { resourceId: resource.id, data: values };
 
       const response = await fetch(endpoint, {
@@ -106,9 +106,10 @@ export function ResourceForm({
         return;
       }
 
+      const jsonObj = json as { result?: { data?: Record<string, unknown> } };
       const saved =
-        "result" in json && json.result?.data
-          ? json.result.data
+        "result" in json && jsonObj.result?.data
+          ? jsonObj.result.data
           : (json as Record<string, unknown>);
 
       onSuccess?.(saved);

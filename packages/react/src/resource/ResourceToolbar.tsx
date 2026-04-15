@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { Search, X, Plus } from "lucide-react";
 import type { SerializedResource } from "@flowpanel/core";
 import { Button } from "../ui/button";
@@ -30,6 +31,30 @@ export function ResourceToolbar({
     search.length > 0 ||
     Object.values(filters).some((v) => v !== undefined && v !== null && v !== "");
 
+  // Debounced search input
+  const [localSearch, setLocalSearch] = useState(search);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Sync local state when external search changes (e.g. clear filters)
+  useEffect(() => {
+    setLocalSearch(search);
+  }, [search]);
+
+  const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocalSearch(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onSearchChange(value);
+    }, 300);
+  };
+
+  const handleClearSearch = () => {
+    setLocalSearch("");
+    clearTimeout(debounceRef.current);
+    onSearchChange("");
+  };
+
   return (
     <div className="flex flex-col gap-3">
       {/* Top row: search + New button */}
@@ -39,14 +64,14 @@ export function ResourceToolbar({
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               placeholder={`Search ${resource.labelPlural.toLowerCase()}…`}
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
+              value={localSearch}
+              onChange={handleSearchInput}
               className="pl-8 pr-8"
             />
-            {search && (
+            {localSearch && (
               <button
                 type="button"
-                onClick={() => onSearchChange("")}
+                onClick={handleClearSearch}
                 className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
                 aria-label="Clear search"
               >

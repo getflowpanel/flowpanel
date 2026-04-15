@@ -19,8 +19,17 @@ import {
   isNull,
   isNotNull,
   and,
+  or,
   type SQL,
 } from "drizzle-orm";
+
+/**
+ * Escape LIKE wildcard characters in user-supplied values to prevent
+ * wildcard injection (e.g. "%" or "_" in search terms).
+ */
+function escapeLike(value: string): string {
+  return value.replace(/[%_\\]/g, "\\$&");
+}
 
 /**
  * Translate a NormalizedFilter[] to a Drizzle SQL condition.
@@ -70,14 +79,14 @@ export function normalizedFiltersToDrizzleWhere(
         condition = ne(col, value);
         break;
       case "contains":
-        // Use ilike for case-insensitive matching when possible
-        condition = ilike(col, `%${value}%`);
+        // Use ilike for case-insensitive matching; escape LIKE wildcards in user input
+        condition = ilike(col, `%${escapeLike(String(value))}%`);
         break;
       case "startsWith":
-        condition = ilike(col, `${value}%`);
+        condition = ilike(col, `${escapeLike(String(value))}%`);
         break;
       case "endsWith":
-        condition = ilike(col, `%${value}`);
+        condition = ilike(col, `%${escapeLike(String(value))}`);
         break;
       case "in":
         condition = inArray(col, value as unknown[]);
@@ -116,4 +125,30 @@ export function normalizedFiltersToDrizzleWhere(
   if (conditions.length === 0) return undefined;
   if (conditions.length === 1) return conditions[0];
   return and(...conditions);
+}
+
+/**
+ * Translate a NormalizedFilter[] to a Drizzle OR condition (for search).
+ */
+export function normalizedFiltersToDrizzleOr(
+  filters: NormalizedFilter[],
+  table: unknown,
+): SQL | undefined {
+  // Reuse the same filter logic but combine with OR instead of AND
+  const conditions: SQL[] = [];
+  const tableRecord = table as Record<string, unknown>;
+
+  for (const filter of filters) {
+    if (filter.field.includes(".")) continue;
+    const column = tableRecord[filter.field];
+    if (!column) continue;
+
+    // Build individual condition using a single-element AND (reuse existing logic)
+    const single = normalizedFiltersToDrizzleWhere([filter], table);
+    if (single) conditions.push(single);
+  }
+
+  if (conditions.length === 0) return undefined;
+  if (conditions.length === 1) return conditions[0];
+  return or(...conditions);
 }

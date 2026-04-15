@@ -5,6 +5,7 @@ import kleur from "kleur";
 import ora from "ora";
 import prompts from "prompts";
 import { detectStack } from "../utils/detect";
+import { detectModels } from "../utils/detect-models";
 import { formatSuccess, formatWarning } from "../utils/error-format";
 import { runDemo } from "./demo";
 
@@ -41,6 +42,17 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
     console.error(kleur.gray("  Install it: pnpm add @trpc/server @trpc/client"));
     process.exit(1);
   }
+
+  // Detect user models (Prisma schema.prisma or Drizzle schema.ts)
+  const detected = await detectModels(cwd);
+  if (detected.schemaPath && detected.models.length > 0) {
+    console.log(
+      formatSuccess(
+        `Detected  ${detected.source} schema at ${detected.schemaPath} (${detected.models.length} ${detected.models.length === 1 ? "model" : "models"})`,
+      ),
+    );
+  }
+  console.log("");
 
   const answers = await prompts(
     [
@@ -104,10 +116,39 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
   const defaultTimeRange = answers.defaultTimeRange as string;
   const seedDemo = answers.seedDemo as boolean;
 
+  // Multi-select prompt for models if detected
+  let selectedModels: string[] = [];
+  if (detected.models.length > 0) {
+    const modelAnswer = await prompts(
+      {
+        type: "multiselect",
+        name: "models",
+        message: "Which models to include in admin?",
+        choices: detected.models.map((m) => ({ title: m, value: m, selected: true })),
+        hint: "Space to toggle · Enter to confirm",
+        instructions: false,
+      },
+      {
+        onCancel: () => {
+          console.log("\nAborted.");
+          process.exit(0);
+        },
+      },
+    );
+    selectedModels = (modelAnswer.models as string[]) ?? [];
+  }
+
   console.log("\n  Writing files");
   console.log(`  ${"─".repeat(51)}`);
 
-  const configContent = generateFlowPanelConfig({ stages, appName, adapter, defaultTimeRange });
+  const configContent = generateFlowPanelConfig({
+    stages,
+    appName,
+    adapter,
+    defaultTimeRange,
+    models: selectedModels,
+    source: detected.source,
+  });
   await writeFile(cwd, "flowpanel.config.ts", configContent);
   console.log(formatSuccess("flowpanel.config.ts                        created"));
 
@@ -179,6 +220,33 @@ export async function runInit(cwd: string = process.cwd()): Promise<void> {
   console.log(`${kleur.green("  ✓")} Created flowpanel.config.ts`);
   console.log(`${kleur.green("  ✓")} Created app/admin/[[...trpc]]/route.ts`);
   console.log(`${kleur.green("  ✓")} Generated migration 0001_init.sql`);
+  if (selectedModels.length > 0) {
+    console.log(
+      `${kleur.green("  ✓")} Added ${selectedModels.length} resource${selectedModels.length === 1 ? "" : "s"}: ${selectedModels.join(", ")}`,
+    );
+  }
+
+  // Check for Tailwind config and show guidance if present
+  const tailwindConfigs = [
+    "tailwind.config.ts",
+    "tailwind.config.js",
+    "tailwind.config.mjs",
+    "tailwind.config.cjs",
+  ];
+  let tailwindPath: string | null = null;
+  for (const tw of tailwindConfigs) {
+    try {
+      await fs.access(path.join(cwd, tw));
+      tailwindPath = tw;
+      break;
+    } catch {}
+  }
+  if (tailwindPath) {
+    console.log(
+      `${kleur.yellow("  !")} Add @flowpanel/react to Tailwind content globs in ${tailwindPath}:`,
+    );
+    console.log(kleur.gray(`      content: [..., "./node_modules/@flowpanel/react/dist/**/*.js"]`));
+  }
   if (seedDemo) {
     console.log(`${kleur.green("  ✓")} Seeded 500 demo runs`);
   }
@@ -194,11 +262,15 @@ function generateFlowPanelConfig({
   appName,
   adapter,
   defaultTimeRange,
+  models,
+  source,
 }: {
   stages: string[];
   appName: string;
   adapter: string;
   defaultTimeRange: string;
+  models: string[];
+  source: "prisma" | "drizzle" | null;
 }): string {
   const stagesStr = stages.map((s) => `"${s}"`).join(", ");
   const stageFieldsStr = stages.map((s) => `    ${s}: {},`).join("\n");
@@ -211,7 +283,25 @@ function generateFlowPanelConfig({
     ? `prismaAdapter({ prisma: db })`
     : `drizzleAdapter({ db: () => import("@/shared/lib/db").then((m) => m.db) })`;
 
-  return `import { defineFlowPanel } from "@flowpanel/core";
+  // Generate resource() calls for detected models
+  let resourcesBody: string;
+  if (models.length === 0) {
+    resourcesBody = `    // Add your models here, e.g.:
+    // user: resource(prisma.user),
+    // post: resource(prisma.post, {
+    //   columns: [(p) => p.title, (p) => p.author.name, (p) => p.status],
+    //   filters: [(p) => p.status],
+    // }),`;
+  } else if (source === "prisma") {
+    resourcesBody = models
+      .map((m) => `    ${camelCase(m)}: resource(db.${camelCase(m)}),`)
+      .join("\n");
+  } else {
+    // Drizzle: pass the schema table name
+    resourcesBody = models.map((m) => `    ${m}: resource("${capitalize(m)}"),`).join("\n");
+  }
+
+  return `import { defineFlowPanel, resource } from "@flowpanel/core";
 ${adapterImport}
 
 export const flowpanel = defineFlowPanel({
@@ -221,6 +311,12 @@ export const flowpanel = defineFlowPanel({
 
   adapter: ${adapterConfig},
 
+  // Resources
+  resources: {
+${resourcesBody}
+  },
+
+  // Pipeline (optional — for background job tracking)
   pipeline: {
     stages: [${stagesStr}] as const,
     fields: {},
@@ -229,15 +325,8 @@ ${stageFieldsStr}
     },
   },
 
-  timeRange: {
-    default: "${defaultTimeRange}",
-  },
-
   security: {
     auth: {
-      // Return user session from request, or null if not authenticated.
-      // Must return: { id: string, role?: string, email?: string }
-      // For development — replace with real auth later:
       getSession: async (_req) => ({
         _flowpanelStub: true as const,
         id: "dev",
@@ -295,4 +384,14 @@ async function appendToFile(cwd: string, filename: string, content: string): Pro
   } catch {
     await fs.writeFile(fullPath, content, "utf8");
   }
+}
+
+function camelCase(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

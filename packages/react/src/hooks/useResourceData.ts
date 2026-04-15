@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SerializedResource } from "@flowpanel/core";
+import type { SerializedResource, SerializedFilter } from "@flowpanel/core";
 
 export interface ResourceDataParams {
   sort?: { field: string; dir: "asc" | "desc" };
@@ -31,6 +31,65 @@ export interface UseResourceDataReturn extends ResourceDataState {
   setFilter: (filterId: string, value: unknown) => void;
   clearFilters: () => void;
   refresh: () => void;
+}
+
+/**
+ * Convert UI filter state (keyed by filter ID) to NormalizedFilter[] for the server.
+ */
+function filtersToNormalized(
+  filterValues: Record<string, unknown>,
+  filterDefs: SerializedFilter[],
+): Array<{ field: string; op: string; value: unknown }> {
+  const result: Array<{ field: string; op: string; value: unknown }> = [];
+
+  for (const [filterId, value] of Object.entries(filterValues)) {
+    if (value === undefined || value === null || value === "") continue;
+
+    const def = filterDefs.find((f) => f.id === filterId);
+    if (!def) continue;
+
+    // Range values: { min, max } or { from, to }
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const obj = value as Record<string, unknown>;
+      if (obj.min !== undefined && obj.min !== null && obj.min !== "") {
+        result.push({ field: def.path, op: "gte", value: obj.min });
+      }
+      if (obj.max !== undefined && obj.max !== null && obj.max !== "") {
+        result.push({ field: def.path, op: "lte", value: obj.max });
+      }
+      if (obj.from !== undefined && obj.from !== null) {
+        result.push({ field: def.path, op: "gte", value: obj.from });
+      }
+      if (obj.to !== undefined && obj.to !== null) {
+        result.push({ field: def.path, op: "lte", value: obj.to });
+      }
+      continue;
+    }
+
+    // Array values → "in" operator
+    if (Array.isArray(value)) {
+      if (value.length > 0) {
+        result.push({ field: def.path, op: "in", value });
+      }
+      continue;
+    }
+
+    // Boolean
+    if (typeof value === "boolean") {
+      result.push({ field: def.path, op: "eq", value });
+      continue;
+    }
+
+    // Scalar → eq for enums, contains for text
+    const mode = def.mode === "auto" ? (def.opts?.options?.length ? "enum" : "text") : def.mode;
+    if (mode === "text") {
+      result.push({ field: def.path, op: "contains", value });
+    } else {
+      result.push({ field: def.path, op: "eq", value });
+    }
+  }
+
+  return result;
 }
 
 export function useResourceData({
@@ -71,6 +130,8 @@ export function useResourceData({
     setError(null);
 
     try {
+      const normalizedFilters = filtersToNormalized(filters, resource.filters);
+
       const response = await fetch(`${baseUrl}/flowpanel.resource.list`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,8 +140,8 @@ export function useResourceData({
           page,
           pageSize,
           sort,
-          search: search || undefined,
-          filters: Object.keys(filters).length > 0 ? filters : undefined,
+          search: search ? { query: search } : undefined,
+          filters: normalizedFilters.length > 0 ? normalizedFilters : undefined,
         }),
         signal: controller.signal,
       });

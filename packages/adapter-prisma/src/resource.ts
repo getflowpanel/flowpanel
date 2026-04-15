@@ -67,8 +67,19 @@ export function createPrismaResourceAdapter(
 
     async findMany(model: string, args: FindManyArgs): Promise<{ data: Row[]; total: number }> {
       const delegate = getDelegate(prisma, model);
-      const where = args.where ? normalizedFiltersToPrismaWhere(args.where) : undefined;
+      const regularWhere = args.where ? normalizedFiltersToPrismaWhere(args.where) : undefined;
       const orderBy = args.orderBy ? buildOrderBy(args.orderBy.field, args.orderBy.dir) : undefined;
+
+      // Build combined where: AND regular filters with OR search filters
+      let where: Record<string, unknown> | undefined = regularWhere;
+      if (args.searchOr && args.searchOr.length > 0) {
+        const orClauses = args.searchOr.map((f) => normalizedFiltersToPrismaWhere([f]));
+        if (where) {
+          where = { AND: [where, { OR: orClauses }] };
+        } else {
+          where = { OR: orClauses };
+        }
+      }
 
       const prismaArgs: Record<string, unknown> = {
         ...(where !== undefined && { where }),

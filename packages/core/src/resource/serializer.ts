@@ -162,7 +162,7 @@ export function serializeResource(
   resource: ResolvedResource,
   sessionRoles: string[],
 ): SerializedResource {
-  const readOnly = (resource as any).readOnly === true;
+  const readOnly = resource.readOnly === true;
 
   const columns = resource.columns.map(serializeColumn);
   const filters = resource.filters.map(serializeFilter);
@@ -181,6 +181,7 @@ export function serializeResource(
   return {
     id: resource.id,
     modelName: resource.modelName,
+    primaryKey: resource.primaryKey,
     label: resource.label,
     labelPlural: resource.labelPlural,
     icon: resource.icon,

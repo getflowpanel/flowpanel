@@ -120,6 +120,14 @@ export interface FlowPanelSchema {
 // FlowPanel interface
 // ---------------------------------------------------------------------------
 
+/** The shape expected by createFlowPanelRouter's `config` parameter. */
+export interface FlowPanelRouterConfig {
+  config: FlowPanelConfig;
+  getDb: () => Promise<SqlExecutor>;
+  resources?: Record<string, ResolvedResource>;
+  resourceAdapter?: ResourceAdapter;
+}
+
 export interface FlowPanel<TConfig extends FlowPanelConfig = FlowPanelConfig> {
   config: TConfig;
   withRun<T>(
@@ -134,6 +142,9 @@ export interface FlowPanel<TConfig extends FlowPanelConfig = FlowPanelConfig> {
   resources?: Record<string, ResolvedResource>;
   resourceAdapter?: ResourceAdapter;
   getSchema(sessionRoles?: string[]): FlowPanelSchema;
+
+  /** Returns the config object needed by createFlowPanelRouter. */
+  getRouterConfig(): FlowPanelRouterConfig;
 }
 
 // ---------------------------------------------------------------------------
@@ -374,6 +385,15 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     };
   }
 
+  function getRouterConfig(): FlowPanelRouterConfig {
+    return {
+      config,
+      getDb,
+      resources: resolvedResources,
+      resourceAdapter,
+    };
+  }
+
   return {
     config,
     withRun: withRunImpl as FlowPanel<TConfig>["withRun"],
@@ -385,6 +405,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     resources: resolvedResources,
     resourceAdapter,
     getSchema,
+    getRouterConfig,
   };
 }
 

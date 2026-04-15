@@ -1,3 +1,5 @@
+// Native <input type="date"> provides accessible date input across browsers.
+// Swap for shadcn Calendar + react-day-picker in Phase 2 if richer UX is needed.
 import { Input } from "../../ui/input";
 
 interface DateRangeValue {

@@ -7,7 +7,8 @@ import type { ModelMetadata, ResourceAdapter } from "../types";
 // Mock adapter & SQL executor
 // ---------------------------------------------------------------------------
 
-const mockSqlExecutor = {
+// biome-ignore lint/suspicious/noExplicitAny: Zod-inferred function shapes reject vi.fn mocks; mocks satisfy the runtime shape
+const mockSqlExecutor: any = {
   execute: vi.fn(async () => []),
   transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
   dialect: "postgres" as const,
@@ -145,7 +146,7 @@ const baseConfig = {
   timezone: "UTC" as const,
   basePath: "/admin" as const,
   pipeline: {
-    stages: ["ingest", "process"] as const,
+    stages: ["ingest", "process"],
     fields: { userId: z.string().nullable() },
     stageFields: {},
   },
@@ -194,7 +195,7 @@ describe("defineFlowPanel v2 — with resources (object form)", () => {
 
     const fp = defineFlowPanel({
       ...baseConfig,
-      adapter: { sql: mockSqlExecutor, resource: mockAdapter },
+      adapter: { sql: mockSqlExecutor, resource: mockAdapter } as never,
       resources: {
         users: resource("User", { label: "Users", icon: "users" }),
         posts: resource("Post", { label: "Posts" }),
@@ -224,7 +225,7 @@ describe("defineFlowPanel v2 — with resources (object form)", () => {
 
     const fp = defineFlowPanel({
       ...baseConfig,
-      adapter: { sql: mockSqlExecutor, resource: mockAdapter },
+      adapter: { sql: mockSqlExecutor, resource: mockAdapter } as never,
       resources: {
         users: resource("User"),
       },
@@ -248,7 +249,7 @@ describe("defineFlowPanel v2 — with resources (function form)", () => {
 
     const fp = defineFlowPanel({
       ...baseConfig,
-      adapter: { sql: mockSqlExecutor, resource: mockAdapter },
+      adapter: { sql: mockSqlExecutor, resource: mockAdapter } as never,
       resources: (fp) => ({
         users: fp.resource("User", { label: "Team Members", icon: "team" }),
       }),
@@ -267,7 +268,7 @@ describe("defineFlowPanel v2 — schema serialization", () => {
 
     const fp = defineFlowPanel({
       ...baseConfig,
-      adapter: { sql: mockSqlExecutor, resource: mockAdapter },
+      adapter: { sql: mockSqlExecutor, resource: mockAdapter } as never,
       resources: {
         users: resource("User", {
           label: "Users",
@@ -304,7 +305,7 @@ describe("defineFlowPanel v2 — schema serialization", () => {
 
     const fp = defineFlowPanel({
       ...baseConfig,
-      adapter: { sql: mockSqlExecutor, resource: mockAdapter },
+      adapter: { sql: mockSqlExecutor, resource: mockAdapter } as never,
       resources: {
         users: resource("User", {
           columns: (c) => [
@@ -336,7 +337,7 @@ describe("defineFlowPanel v2 — adapter detection", () => {
     // Should not throw
     const fp = defineFlowPanel({
       ...baseConfig,
-      adapter: { sql: mockSqlExecutor, resource: mockAdapter },
+      adapter: { sql: mockSqlExecutor, resource: mockAdapter } as never,
       resources: {
         users: resource("User"),
       },
@@ -380,7 +381,7 @@ describe("defineFlowPanel v2 — resource with actions and computes", () => {
 
     const fp = defineFlowPanel({
       ...baseConfig,
-      adapter: { sql: mockSqlExecutor, resource: mockAdapter },
+      adapter: { sql: mockSqlExecutor, resource: mockAdapter } as never,
       resources: {
         users: resource("User", {
           columns: (c) => [
@@ -433,7 +434,7 @@ describe("defineFlowPanel v2 — resource with custom search fields", () => {
 
     const fp = defineFlowPanel({
       ...baseConfig,
-      adapter: { sql: mockSqlExecutor, resource: mockAdapter },
+      adapter: { sql: mockSqlExecutor, resource: mockAdapter } as never,
       resources: {
         users: resource("User", {
           searchFields: [(p) => p.email, (p) => p.name],
@@ -452,7 +453,7 @@ describe("defineFlowPanel v2 — multiple resources with different configs", () 
 
     const fp = defineFlowPanel({
       ...baseConfig,
-      adapter: { sql: mockSqlExecutor, resource: mockAdapter },
+      adapter: { sql: mockSqlExecutor, resource: mockAdapter } as never,
       resources: {
         users: resource("User", {
           label: "Users",

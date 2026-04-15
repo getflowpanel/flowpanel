@@ -76,6 +76,8 @@ export interface NormalizedFilter {
 
 export interface FindManyArgs {
   where?: NormalizedFilter[];
+  /** Search filters combined with OR semantics (separate from regular AND filters). */
+  searchOr?: NormalizedFilter[];
   orderBy?: { field: string; dir: "asc" | "desc" };
   skip?: number;
   take?: number;
@@ -313,12 +315,12 @@ export interface ResourceOptions<TRow = Row> {
   defaultPageSize?: number;
   /** Fields to include in full-text search. */
   searchFields?: PathFn<TRow>[];
-  /** Column definitions. */
-  columns?: (builder: ColumnBuilder<TRow>) => ResolvedColumn[];
-  /** Filter definitions. */
-  filters?: (builder: FilterBuilder<TRow>) => ResolvedFilter[];
-  /** Row-level actions. */
-  actions?: (builder: ActionBuilder<TRow>) => ResolvedAction[];
+  /** Column definitions — shorthand PathFn[] or builder function. */
+  columns?: PathFn<TRow>[] | ((builder: ColumnBuilder<TRow>) => ResolvedColumn[]);
+  /** Filter definitions — shorthand PathFn[] or builder function. */
+  filters?: PathFn<TRow>[] | ((builder: FilterBuilder<TRow>) => ResolvedFilter[]);
+  /** Row-level actions. Return either a keyed record (keys → action IDs) or an array. */
+  actions?: (builder: ActionBuilder<TRow>) => Record<string, ResolvedAction> | ResolvedAction[];
   /** Access control configuration. */
   access?: AccessConfig;
   /** Field-level access rules. */
@@ -327,6 +329,8 @@ export interface ResourceOptions<TRow = Row> {
   include?: Record<string, unknown>;
   /** Navigation path segment, e.g. "users". Defaults to lowercase model name. */
   path?: string;
+  /** When true, forces create/update/delete access to false regardless of roles. */
+  readOnly?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -348,6 +352,8 @@ export interface ResolvedResource {
   /** Unique resource identifier derived from the model name. */
   id: string;
   modelName: string;
+  /** Primary key field name from model metadata. */
+  primaryKey: string;
   label: string;
   labelPlural: string;
   icon?: string;
@@ -361,6 +367,7 @@ export interface ResolvedResource {
   access: AccessConfig;
   fieldAccess: FieldAccessRule[];
   include?: Record<string, unknown>;
+  readOnly?: boolean;
   /** Map of action id -> handler function for server-side lookup. */
   _handlers: Record<string, (row: Row, ctx: unknown) => Promise<unknown>>;
   /** Map of column id -> compute function for server-side lookup. */
@@ -421,6 +428,8 @@ export interface SerializedAccess {
 export interface SerializedResource {
   id: string;
   modelName: string;
+  /** Primary key field name (e.g. "id", "uuid"). */
+  primaryKey: string;
   label: string;
   labelPlural: string;
   icon?: string;
