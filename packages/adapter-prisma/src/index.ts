@@ -1,15 +1,16 @@
-import type { SqlExecutor, SqlQuery } from "@flowpanel/core";
+import type { SqlExecutor, SqlQuery, ResourceAdapter } from "@flowpanel/core";
 import { Pool } from "pg";
+import { extractModelsFromDmmf, extractEnumsFromDmmf, type DmmfDatamodel } from "./metadata";
+import { createPrismaResourceAdapter } from "./resource";
 
 type PrismaClientLike = {
   $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T[]>;
   $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
   $transaction<T>(fn: (tx: PrismaClientLike) => Promise<T>): Promise<T>;
+  [key: string]: unknown;
 };
 
-export function prismaAdapter(opts: { prisma: PrismaClientLike }): SqlExecutor {
-  const { prisma } = opts;
-
+function createSqlExecutor(prisma: PrismaClientLike): SqlExecutor {
   // Lazy pool for advisory locks only
   let lockPool: Pool | null = null;
   const lockClients = new Map<string, import("pg").PoolClient>();
@@ -32,7 +33,7 @@ export function prismaAdapter(opts: { prisma: PrismaClientLike }): SqlExecutor {
 
     async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
       return prisma.$transaction(async (tx: PrismaClientLike) => {
-        const txExecutor = prismaAdapter({ prisma: tx });
+        const txExecutor = createSqlExecutor(tx);
         return fn(txExecutor);
       });
     },
@@ -88,4 +89,47 @@ export function prismaAdapter(opts: { prisma: PrismaClientLike }): SqlExecutor {
   };
 
   return executor;
+}
+
+function tryResolveDmmf(prisma: PrismaClientLike): { datamodel: DmmfDatamodel } | null {
+  // Prisma 5+: stored on the instance
+  if (prisma._baseDmmf) return prisma._baseDmmf as { datamodel: DmmfDatamodel };
+  // Try require('@prisma/client').Prisma.dmmf
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Prisma } = require("@prisma/client") as {
+      Prisma?: { dmmf?: { datamodel: DmmfDatamodel } };
+    };
+    if (Prisma?.dmmf) return Prisma.dmmf;
+  } catch {
+    // not installed or not accessible
+  }
+  return null;
+}
+
+export function prismaAdapter(opts: {
+  prisma: PrismaClientLike;
+  /** Optionally pass the DMMF directly (e.g. from `import { Prisma } from "@prisma/client"`). */
+  dmmf?: { datamodel: DmmfDatamodel };
+}): {
+  sql: SqlExecutor;
+  resource: ResourceAdapter;
+} {
+  const { prisma } = opts;
+  const sql = createSqlExecutor(prisma);
+
+  const dmmf = opts.dmmf ?? tryResolveDmmf(prisma);
+
+  if (!dmmf) {
+    throw new Error(
+      "Could not resolve Prisma DMMF. Pass `dmmf` explicitly: " +
+        "`prismaAdapter({ prisma, dmmf: Prisma.dmmf })`",
+    );
+  }
+
+  const models = extractModelsFromDmmf(dmmf);
+  const enums = extractEnumsFromDmmf(dmmf);
+  const resource = createPrismaResourceAdapter(prisma as Record<string, unknown>, models, enums);
+
+  return { sql, resource };
 }

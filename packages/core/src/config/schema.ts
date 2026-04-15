@@ -55,6 +55,7 @@ export const flowPanelConfigSchema = z.object({
 
   adapter: z
     .union([
+      // Direct SqlExecutor
       z
         .object({
           execute: z.function(),
@@ -62,6 +63,36 @@ export const flowPanelConfigSchema = z.object({
           dialect: z.enum(["postgres"]),
         })
         .passthrough(),
+      // { sql: SqlExecutor, resource: ResourceAdapter } from prismaAdapter()/drizzleAdapter()
+      z
+        .object({
+          sql: z
+            .object({
+              execute: z.function(),
+              transaction: z.function(),
+            })
+            .passthrough(),
+          resource: z
+            .object({
+              findMany: z.function(),
+            })
+            .passthrough(),
+        })
+        .passthrough(),
+      // PrismaClient (duck-typed)
+      z
+        .object({
+          $queryRawUnsafe: z.function(),
+        })
+        .passthrough(),
+      // Drizzle db (duck-typed)
+      z
+        .object({
+          select: z.function(),
+          insert: z.function(),
+        })
+        .passthrough(),
+      // Factory function
       z.function(),
     ])
     .describe("Database adapter — use drizzleAdapter() or prismaAdapter()"),
