@@ -17,6 +17,7 @@ import { runDiff } from "./commands/diff";
 import { runDoctor } from "./commands/doctor";
 import { runInit } from "./commands/init";
 import { runMigrate, runMigrateGen, runMigrateStatus } from "./commands/migrate";
+import { runScaffold } from "./commands/scaffold";
 import { runStatus } from "./commands/status";
 import { runWorkerScan } from "./commands/worker-scan";
 import { checkForUpdates } from "./updateChecker";
@@ -32,6 +33,11 @@ program
   .command("init")
   .description("Scaffold config, page, mount tRPC, seed demo data")
   .action(() => runInit());
+
+program
+  .command("scaffold [model]")
+  .description("Generate a resource config stub for a model from your schema")
+  .action((model: string | undefined) => runScaffold(model));
 
 program
   .command("migrate")
@@ -97,7 +103,7 @@ program.addHelpText(
   `
 ${kleur.bold("Command groups")}
 
-  ${kleur.cyan("Getting started:")}  init · demo · dev
+  ${kleur.cyan("Getting started:")}  init · scaffold · demo · dev
   ${kleur.cyan("Database:")}         migrate · migrate:status · migrate:gen
   ${kleur.cyan("Diagnostics:")}      status · doctor · diff
   ${kleur.cyan("Maintenance:")}      worker:scan · audit:export · demo:clear

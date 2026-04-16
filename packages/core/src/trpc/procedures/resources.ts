@@ -82,6 +82,27 @@ const actionInputSchema = z.object({
   recordId: z.union([z.string(), z.number()]),
 });
 
+const bulkActionInputSchema = z.object({
+  resourceId: z.string(),
+  actionId: z.string(),
+  recordIds: z
+    .array(z.union([z.string(), z.number()]))
+    .min(1)
+    .max(1000),
+});
+
+const collectionActionInputSchema = z.object({
+  resourceId: z.string(),
+  actionId: z.string(),
+});
+
+const dialogActionInputSchema = z.object({
+  resourceId: z.string(),
+  actionId: z.string(),
+  values: z.record(z.unknown()),
+  recordId: z.union([z.string(), z.number()]).optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Access helpers
 // ---------------------------------------------------------------------------
@@ -507,11 +528,24 @@ export function createResourceProcedures(
             });
           }
 
+          const action = resource.actions.find((a) => a.id === input.actionId);
+          if (!action) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `Action "${input.actionId}" not found on resource "${input.resourceId}".`,
+            });
+          }
+          if (action.type !== "mutation") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Action "${input.actionId}" is not a per-row mutation. Use action.${action.type} procedure instead.`,
+            });
+          }
           const handler = resource._handlers[input.actionId];
           if (!handler) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message: `Action "${input.actionId}" not found on resource "${input.resourceId}".`,
+              message: `Action "${input.actionId}" handler missing.`,
             });
           }
 
@@ -543,6 +577,155 @@ export function createResourceProcedures(
           }
 
           const result = await handler(row, ctx);
+          return result ?? { success: true };
+        },
+      ),
+
+    // ---- actionBulk ---------------------------------------------------------
+    actionBulk: authedProcedure
+      .input(bulkActionInputSchema)
+      .mutation(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: FlowPanelContext & { session: Session };
+          input: z.infer<typeof bulkActionInputSchema>;
+        }) => {
+          const resource = getResource(ctx, input.resourceId);
+          const adapter = getAdapter(ctx);
+          const roles = getSessionRoles(ctx.session);
+
+          if (!checkAccess(resource.access[input.actionId], roles, ctx)) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: `Not allowed to perform action "${input.actionId}".`,
+            });
+          }
+
+          const action = resource.actions.find((a) => a.id === input.actionId);
+          if (!action || action.type !== "bulk") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Action "${input.actionId}" is not a bulk action.`,
+            });
+          }
+
+          const metadata = adapter.getModelMetadata(resource.modelName);
+          const pk = metadata.primaryKey;
+          const rowLevel = getRowLevelFilters(ctx, input.resourceId);
+
+          // Fetch all rows in a single query
+          const rowsResult = await adapter.findMany(resource.modelName, {
+            where: [{ field: pk, op: "in", value: input.recordIds }, ...rowLevel],
+            include: resource.include,
+            take: input.recordIds.length,
+          });
+
+          const handler = action.handler as (rows: Row[], ctx: unknown) => Promise<unknown>;
+          const result = await handler(rowsResult.data, ctx);
+          return result ?? { success: true, affected: rowsResult.data.length };
+        },
+      ),
+
+    // ---- actionCollection ---------------------------------------------------
+    actionCollection: authedProcedure
+      .input(collectionActionInputSchema)
+      .mutation(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: FlowPanelContext & { session: Session };
+          input: z.infer<typeof collectionActionInputSchema>;
+        }) => {
+          const resource = getResource(ctx, input.resourceId);
+          const roles = getSessionRoles(ctx.session);
+
+          if (!checkAccess(resource.access[input.actionId], roles, ctx)) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: `Not allowed to perform action "${input.actionId}".`,
+            });
+          }
+
+          const action = resource.actions.find((a) => a.id === input.actionId);
+          if (!action || action.type !== "collection") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Action "${input.actionId}" is not a collection action.`,
+            });
+          }
+
+          const handler = action.handler as (ctx: unknown) => Promise<unknown>;
+          const result = await handler(ctx);
+          return result ?? { success: true };
+        },
+      ),
+
+    // ---- actionDialog -------------------------------------------------------
+    actionDialog: authedProcedure
+      .input(dialogActionInputSchema)
+      .mutation(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: FlowPanelContext & { session: Session };
+          input: z.infer<typeof dialogActionInputSchema>;
+        }) => {
+          const resource = getResource(ctx, input.resourceId);
+          const adapter = getAdapter(ctx);
+          const roles = getSessionRoles(ctx.session);
+
+          if (!checkAccess(resource.access[input.actionId], roles, ctx)) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: `Not allowed to perform action "${input.actionId}".`,
+            });
+          }
+
+          const action = resource.actions.find((a) => a.id === input.actionId);
+          if (!action || action.type !== "dialog") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Action "${input.actionId}" is not a dialog action.`,
+            });
+          }
+
+          // Validate fields against schema
+          for (const field of action.schema.fields) {
+            if (field.required && input.values[field.name] == null) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: `Field "${field.name}" is required.`,
+              });
+            }
+          }
+
+          let row: Row | null = null;
+          if (input.recordId !== undefined) {
+            const metadata = adapter.getModelMetadata(resource.modelName);
+            const pk = metadata.primaryKey;
+            row = await adapter.findUnique(resource.modelName, {
+              where: { [pk]: input.recordId },
+              include: resource.include,
+            });
+            if (!row) {
+              throw new TRPCError({ code: "NOT_FOUND", message: "Record not found." });
+            }
+            const rowLevel = getRowLevelFilters(ctx, input.resourceId);
+            if (rowLevel.length > 0 && !rowPassesRowLevel(row, rowLevel)) {
+              throw new TRPCError({ code: "NOT_FOUND", message: "Record not found." });
+            }
+          }
+
+          const handler = action.handler as (
+            values: Record<string, unknown>,
+            row: Row | null,
+            ctx: unknown,
+          ) => Promise<unknown>;
+          const result = await handler(input.values, row, ctx);
           return result ?? { success: true };
         },
       ),

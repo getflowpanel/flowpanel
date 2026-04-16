@@ -7,6 +7,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn } from "../utils/cn";
 import { FilterWidget } from "./filters";
+import { ResourceActionButton } from "./ResourceActionButton";
 
 export function ResourceToolbar({
   resource,
@@ -16,6 +17,8 @@ export function ResourceToolbar({
   onFilterChange,
   onClearFilters,
   onCreateClick,
+  baseUrl,
+  onActionSuccess,
 }: {
   resource: SerializedResource;
   search: string;
@@ -24,6 +27,8 @@ export function ResourceToolbar({
   onFilterChange: (filterId: string, value: unknown) => void;
   onClearFilters: () => void;
   onCreateClick?: () => void;
+  baseUrl?: string;
+  onActionSuccess?: () => void;
 }) {
   const hasSearch = resource.searchFields.length > 0;
   const hasFilters = resource.filters.length > 0;
@@ -88,6 +93,21 @@ export function ResourceToolbar({
               Clear filters
             </Button>
           )}
+          {/* Collection and non-row link actions render as top-bar buttons */}
+          {baseUrl &&
+            resource.actions
+              .filter(
+                (a) => a.type === "collection" || (a.type === "link" && !a.href.includes("{")),
+              )
+              .map((action) => (
+                <ResourceActionButton
+                  key={action.id}
+                  action={action}
+                  resourceId={resource.id}
+                  baseUrl={baseUrl}
+                  onSuccess={onActionSuccess}
+                />
+              ))}
           {resource.access.create && onCreateClick && (
             <Button size="sm" onClick={onCreateClick}>
               <Plus className="h-4 w-4 mr-1" />

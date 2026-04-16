@@ -322,13 +322,19 @@ export function resolveResource<TRow = Row>(
   const defaultSort = opts.defaultSort ?? { field: metadata.primaryKey, dir: "desc" as const };
 
   // ---- Server-side maps -----------------------------------------------------
+  // `_handlers` holds only per-row mutation handlers (backward-compatible with the
+  // original `action` tRPC procedure). Bulk/collection/dialog handlers are invoked
+  // directly from `action.handler` by the dedicated bulk/collection/dialog procedures
+  // via `resource.actions.find(...)`.
   const _handlers: Record<string, (row: Row, ctx: unknown) => Promise<unknown>> = {};
   const _computes: Record<string, (row: Row) => unknown> = {};
   const _whens: Record<string, (row: Row) => boolean> = {};
 
   for (const action of actions) {
-    _handlers[action.id] = action.handler;
-    if (action.when) {
+    if (action.type === "mutation") {
+      _handlers[action.id] = action.handler;
+    }
+    if ("when" in action && action.when) {
       _whens[action.id] = action.when;
     }
   }

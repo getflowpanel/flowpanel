@@ -5,14 +5,19 @@
 import { getPathString, resolvePath } from "./path";
 import type {
   ActionBuilder,
+  ActionDownloadResult,
+  BulkActionConfig,
+  CollectionActionConfig,
   ColumnBuilder,
   ComputedColumnOpts,
   ConfirmConfig,
   CustomColumnOpts,
   CustomFilterOpts,
+  DialogActionConfig,
   FieldColumnOpts,
   FilterBuilder,
   FilterOpts,
+  LinkActionConfig,
   MutationActionConfig,
   PathFn,
   ResolvedAction,
@@ -139,28 +144,88 @@ export function createFilterBuilder<TRow>(): FilterBuilder<TRow> {
 // ActionBuilder
 // ---------------------------------------------------------------------------
 
+function resolveConfirm(confirm: string | ConfirmConfig | undefined): ConfirmConfig | undefined {
+  if (confirm === undefined) return undefined;
+  if (typeof confirm === "string") return { title: confirm };
+  return confirm;
+}
+
 export function createActionBuilder<TRow>(): ActionBuilder<TRow> {
   return {
     mutation(config: MutationActionConfig<TRow, unknown>): ResolvedAction {
       const { label, icon, variant, confirm, when, handler, onSuccess } = config;
-
-      let resolvedConfirm: ConfirmConfig | undefined;
-      if (typeof confirm === "string") {
-        resolvedConfirm = { title: confirm };
-      } else {
-        resolvedConfirm = confirm;
-      }
-
       return {
         id: "",
         type: "mutation",
         label,
         icon,
         variant: variant ?? "default",
-        confirm: resolvedConfirm,
+        confirm: resolveConfirm(confirm),
         when: when as ((row: Row) => boolean) | undefined,
         handler: handler as (row: Row, ctx: unknown) => Promise<unknown>,
         onSuccess,
+      };
+    },
+
+    bulk(config: BulkActionConfig<TRow, unknown>): ResolvedAction {
+      const { label, icon, variant, confirm, handler, onSuccess } = config;
+      return {
+        id: "",
+        type: "bulk",
+        label,
+        icon,
+        variant: variant ?? "default",
+        confirm: resolveConfirm(confirm),
+        handler: handler as (rows: Row[], ctx: unknown) => Promise<ActionDownloadResult | void>,
+        onSuccess,
+      };
+    },
+
+    collection(config: CollectionActionConfig<unknown>): ResolvedAction {
+      const { label, icon, variant, confirm, handler, onSuccess } = config;
+      return {
+        id: "",
+        type: "collection",
+        label,
+        icon,
+        variant: variant ?? "default",
+        confirm: resolveConfirm(confirm),
+        handler: handler as (ctx: unknown) => Promise<ActionDownloadResult | void>,
+        onSuccess,
+      };
+    },
+
+    link(config: LinkActionConfig<TRow>): ResolvedAction {
+      const { label, icon, href, external, when } = config;
+      return {
+        id: "",
+        type: "link",
+        label,
+        icon,
+        variant: "default",
+        href: href as string | ((row: Row) => string),
+        external,
+        when: when as ((row: Row) => boolean) | undefined,
+      };
+    },
+
+    dialog(config: DialogActionConfig<TRow, unknown>): ResolvedAction {
+      const { label, icon, variant, schema, confirm, handler, onSuccess, when } = config;
+      return {
+        id: "",
+        type: "dialog",
+        label,
+        icon,
+        variant: variant ?? "default",
+        schema,
+        confirm: resolveConfirm(confirm),
+        handler: handler as (
+          values: Record<string, unknown>,
+          row: Row | null,
+          ctx: unknown,
+        ) => Promise<ActionDownloadResult | void>,
+        onSuccess,
+        when: when as ((row: Row) => boolean) | undefined,
       };
     },
   };

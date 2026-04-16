@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import type { SerializedResource } from "@flowpanel/core";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Button } from "../ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 import { cn } from "../utils/cn";
 import { getNestedValue } from "../utils/getNestedValue";
 import { CellRenderer } from "./cells";
+import { ResourceActionButton } from "./ResourceActionButton";
 import { ResourceForm } from "./ResourceForm";
 
 function DetailGrid({
@@ -37,68 +37,6 @@ function DetailGrid({
   );
 }
 
-function ActionButton({
-  action,
-  row,
-  baseUrl,
-  resourceId,
-  onSuccess,
-}: {
-  action: SerializedResource["actions"][number];
-  row: Record<string, unknown>;
-  baseUrl: string;
-  resourceId: string;
-  onSuccess?: () => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  if (!action.allowed) return null;
-
-  const handleClick = async () => {
-    if (action.confirm) {
-      const confirmMsg =
-        typeof action.confirm.description === "string"
-          ? action.confirm.description
-          : (action.confirm.title ?? `Are you sure you want to ${action.label.toLowerCase()}?`);
-      if (!window.confirm(confirmMsg)) return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`${baseUrl}/flowpanel.resource.action`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resourceId, actionId: action.id, recordId: row.id }),
-      });
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-      // TODO(phase-2): Wire toast notifications from action.onSuccess.toast
-      onSuccess?.();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-1">
-      <Button
-        variant={action.variant === "danger" ? "destructive" : "outline"}
-        size="sm"
-        onClick={() => void handleClick()}
-        disabled={loading}
-      >
-        {loading ? "Running…" : action.label}
-      </Button>
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
-
 export function ResourceDrawer({
   resource,
   mode,
@@ -123,7 +61,7 @@ export function ResourceDrawer({
         ? `Edit ${resource.label}`
         : resource.label;
 
-  const handleSuccess = (savedRow: Record<string, unknown>) => {
+  const handleSuccess = (_savedRow: Record<string, unknown>) => {
     onSuccess?.();
     onClose();
   };
@@ -141,19 +79,23 @@ export function ResourceDrawer({
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {mode === "detail" && row && (
             <div className="flex flex-col gap-6">
-              {/* Action buttons */}
+              {/* Action buttons — per-row actions (mutation, link, dialog). Bulk/collection are shown on the page toolbar. */}
               {resource.actions.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {resource.actions.map((action) => (
-                    <ActionButton
-                      key={action.id}
-                      action={action}
-                      row={row}
-                      baseUrl={baseUrl}
-                      resourceId={resource.id}
-                      onSuccess={onSuccess}
-                    />
-                  ))}
+                  {resource.actions
+                    .filter(
+                      (a) => a.type === "mutation" || a.type === "link" || a.type === "dialog",
+                    )
+                    .map((action) => (
+                      <ResourceActionButton
+                        key={action.id}
+                        action={action}
+                        row={row}
+                        baseUrl={baseUrl}
+                        resourceId={resource.id}
+                        onSuccess={onSuccess}
+                      />
+                    ))}
                   {resource.access.update && (
                     <Button
                       variant="outline"

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { SerializedResource } from "@flowpanel/core";
 import { Button } from "../ui/button";
+import { toast } from "../ui/sonner";
 import { FieldWidget } from "./fields";
 
 interface FormErrors {
@@ -112,9 +113,12 @@ export function ResourceForm({
           ? jsonObj.result.data
           : (json as Record<string, unknown>);
 
+      toast.success(isEdit ? `${resource.label} updated` : `${resource.label} created`);
       onSuccess?.(saved);
     } catch (err) {
-      setGlobalError((err as Error).message ?? "An unexpected error occurred");
+      const message = (err as Error).message ?? "An unexpected error occurred";
+      setGlobalError(message);
+      toast.error(isEdit ? "Update failed" : "Create failed", { description: message });
     } finally {
       setSubmitting(false);
     }

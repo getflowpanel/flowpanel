@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SerializedResource } from "@flowpanel/core";
 import { cn } from "../utils/cn";
 import { useResourceData } from "../hooks/useResourceData";
 import { useUrlState } from "../hooks/useUrlState";
+import { BulkActionBar } from "./BulkActionBar";
 import { ResourceTable } from "./ResourceTable";
 import { ResourceToolbar } from "./ResourceToolbar";
 import { ResourcePagination } from "./ResourcePagination";
@@ -47,6 +48,13 @@ export function ResourcePage({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>("detail");
   const [drawerRow, setDrawerRow] = useState<Record<string, unknown> | undefined>();
+
+  // Bulk selection state
+  const hasBulkActions = useMemo(
+    () => resource.actions.some((a) => a.type === "bulk"),
+    [resource.actions],
+  );
+  const [selected, setSelected] = useState<Array<string | number>>([]);
 
   // Selected row for highlight
   const selectedRowId = drawerRow ? String(drawerRow.id ?? "") : undefined;
@@ -118,6 +126,8 @@ export function ResourcePage({
         onFilterChange={setFilter}
         onClearFilters={clearFilters}
         onCreateClick={resource.access.create ? handleCreateClick : undefined}
+        baseUrl={baseUrl}
+        onActionSuccess={() => void refresh()}
       />
 
       {/* Table or empty state */}
@@ -136,6 +146,8 @@ export function ResourcePage({
             onSort={setSort}
             onRowClick={handleRowClick}
             selectedRowId={selectedRowId}
+            selection={hasBulkActions ? selected : undefined}
+            onSelectionChange={hasBulkActions ? setSelected : undefined}
           />
 
           {/* Empty search/filter result */}
@@ -162,6 +174,17 @@ export function ResourcePage({
             />
           </div>
         </div>
+      )}
+
+      {/* Bulk action bar — floats above footer when selection is non-empty */}
+      {hasBulkActions && (
+        <BulkActionBar
+          resource={resource}
+          baseUrl={baseUrl}
+          selected={selected}
+          onClear={() => setSelected([])}
+          onSuccess={() => void refresh()}
+        />
       )}
 
       {/* Drawer */}
