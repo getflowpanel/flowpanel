@@ -1,13 +1,20 @@
-import type { FlowPanelConfig, SerializedResource } from "@flowpanel/core";
+import type {
+  FlowPanelConfig,
+  SerializedQueue,
+  SerializedResource,
+  SerializedWidget,
+} from "@flowpanel/core";
+import { Activity, LayoutDashboard, ListOrdered, Table as TableIcon } from "lucide-react";
+import { DashboardPage } from "./dashboard/DashboardPage";
+import { QueuePage } from "./queue/QueuePage";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Command } from "./components/CommandPalette";
 import { CommandPalette } from "./components/CommandPalette";
 import { DemoBanner } from "./components/DemoBanner";
 import { Drawer } from "./components/Drawer";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ErrorPanel } from "./components/ErrorPanel";
-import { Header } from "./components/Header";
 import { KeyboardHelp } from "./components/KeyboardHelp";
 import { MetricCard } from "./components/MetricCard";
 import { RunChart } from "./components/RunChart";
@@ -15,15 +22,15 @@ import type { RunLogColumn } from "./components/RunTable";
 import { RunTable } from "./components/RunTable";
 import { SectionHeader } from "./components/SectionHeader";
 import { StageCard } from "./components/StageCard";
-import type { TabConfig } from "./components/Tabs";
-import { Tabs } from "./components/Tabs";
-import { ToastProvider } from "./components/Toast";
 import { FlowPanelContext } from "./context";
 import { useDrawerState } from "./hooks/useDrawerState";
 import type { MetricResult } from "./hooks/useFlowPanelData";
 import { useFlowPanelData } from "./hooks/useFlowPanelData";
 import { useFlowPanelLive } from "./hooks/useFlowPanelLive";
 import { useKeyboard } from "./hooks/useKeyboard";
+import { FlowPanelShell } from "./layout/FlowPanelShell";
+import { HeaderControls } from "./layout/HeaderControls";
+import type { SidebarNavGroup } from "./layout/Sidebar";
 import { useLocale } from "./locale/LocaleContext";
 import { ResourcePage } from "./resource/ResourcePage";
 import { resolveTheme, themeToClassName, themeToStyle } from "./theme/index";
@@ -37,7 +44,8 @@ export interface FlowPanelUIProps {
 }
 
 /**
- * Main dashboard component. Renders the full FlowPanel admin UI.
+ * Main dashboard component. Renders the full FlowPanel admin UI with
+ * shadcn-based sidebar layout, dark/light/system theme, and resource tabs.
  *
  * @example
  * ```tsx
@@ -79,7 +87,6 @@ export function FlowPanelUI({
   // ── SSE live updates ──────────────────────────────────────────────────────
   const setMetricsDirect = useCallback(
     (_data: Record<string, unknown>) => {
-      // Metrics are updated via the data hook's internal state — trigger a refresh
       void refresh();
     },
     [refresh],
@@ -93,6 +100,8 @@ export function FlowPanelUI({
 
   // ── Resource schema ────────────────────────────────────────────────────────
   const [resourceMap, setResourceMap] = useState<Record<string, SerializedResource>>({});
+  const [dashboardWidgets, setDashboardWidgets] = useState<SerializedWidget[]>([]);
+  const [queueMap, setQueueMap] = useState<Record<string, SerializedQueue>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -122,22 +131,118 @@ export function FlowPanelUI({
     };
   }, [trpcBaseUrl]);
 
+  // Load queue schema
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${trpcBaseUrl}/flowpanel.queue.schema`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as
+          | { result?: { data?: { queues: Record<string, SerializedQueue> } } }
+          | { queues: Record<string, SerializedQueue> };
+        if (cancelled) return;
+        const payload =
+          "result" in json && json.result?.data
+            ? json.result.data
+            : (json as { queues: Record<string, SerializedQueue> });
+        setQueueMap(payload.queues ?? {});
+      } catch {
+        // Queue schema not available — no queue tabs shown
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trpcBaseUrl]);
+
+  // Load dashboard layout (widget definitions only — data fetched by DashboardPage)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${trpcBaseUrl}/flowpanel.dashboard.schema`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as
+          | { result?: { data?: { widgets: SerializedWidget[] } } }
+          | { widgets: SerializedWidget[] };
+        if (cancelled) return;
+        const payload =
+          "result" in json && json.result?.data
+            ? json.result.data
+            : (json as { widgets: SerializedWidget[] });
+        setDashboardWidgets(payload.widgets ?? []);
+      } catch {
+        // Dashboard not configured — "Dashboard" nav entry hidden
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trpcBaseUrl]);
+
   // ── Drawer state ──────────────────────────────────────────────────────────
   const drawer = useDrawerState({ config, baseUrl: trpcBaseUrl, allRuns: runsState.runs });
 
+  // ── Sidebar navigation groups ──────────────────────────────────────────────
+  const configTabs = config.tabs ?? [{ id: "pipeline", label: "Pipeline" }];
+
+  const nav = useMemo<SidebarNavGroup[]>(() => {
+    const groups: SidebarNavGroup[] = [];
+
+    // Core section (dashboard + pipeline + user-defined tabs)
+    const coreItems: SidebarNavGroup["items"] = [];
+    if (dashboardWidgets.length > 0) {
+      coreItems.push({ id: "dashboard", label: "Dashboard", icon: LayoutDashboard });
+    }
+    for (const t of configTabs) {
+      coreItems.push({ id: t.id, label: t.label, icon: Activity });
+    }
+    if (coreItems.length > 0) {
+      groups.push({ id: "core", label: "Monitoring", items: coreItems });
+    }
+
+    // Resources section
+    const resourceEntries = Object.entries(resourceMap);
+    if (resourceEntries.length > 0) {
+      groups.push({
+        id: "resources",
+        label: "Data",
+        items: resourceEntries.map(([key, res]) => ({
+          id: `resource:${key}`,
+          label: res.labelPlural,
+          icon: TableIcon,
+        })),
+      });
+    }
+
+    // Queues section
+    const queueEntries = Object.entries(queueMap);
+    if (queueEntries.length > 0) {
+      groups.push({
+        id: "queues",
+        label: "Queues",
+        items: queueEntries.map(([key, q]) => ({
+          id: `queue:${key}`,
+          label: q.label,
+          icon: ListOrdered,
+        })),
+      });
+    }
+
+    return groups;
+  }, [configTabs, resourceMap, dashboardWidgets, queueMap]);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  const configTabs: TabConfig[] = config.tabs?.map((t) => ({
-    id: t.id,
-    label: t.label,
-    icon: t.icon,
-  })) ?? [{ id: "pipeline", label: "Pipeline" }];
-
-  const resourceTabs: TabConfig[] = Object.entries(resourceMap).map(([key, res]) => ({
-    id: `resource:${key}`,
-    label: res.labelPlural,
-  }));
-
-  const tabs: TabConfig[] = [...configTabs, ...resourceTabs];
+  const flatNavIds = nav.flatMap((g) => g.items.map((i) => i.id));
 
   useKeyboard([
     {
@@ -159,19 +264,9 @@ export function FlowPanelUI({
       },
       description: "Focus search",
     },
-    { key: "1", handler: () => setActiveTab(tabs[0]?.id ?? "pipeline") },
-    {
-      key: "2",
-      handler: () => {
-        if (tabs[1]) setActiveTab(tabs[1].id);
-      },
-    },
-    {
-      key: "3",
-      handler: () => {
-        if (tabs[2]) setActiveTab(tabs[2].id);
-      },
-    },
+    { key: "1", handler: () => flatNavIds[0] && setActiveTab(flatNavIds[0]) },
+    { key: "2", handler: () => flatNavIds[1] && setActiveTab(flatNavIds[1]) },
+    { key: "3", handler: () => flatNavIds[2] && setActiveTab(flatNavIds[2]) },
     {
       key: "Escape",
       handler: () => {
@@ -229,393 +324,354 @@ export function FlowPanelUI({
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <ToastProvider>
-      <FlowPanelContext.Provider value={{ timezone: config.timezone ?? "UTC" }}>
-        <div
-          className={`fp-root ${themeToClassName(config.theme?.colorScheme)}`.trim()}
-          style={{ ...themeStyle, minHeight: "100vh" }}
-          data-testid="fp-root"
-        >
-          <ErrorBoundary>
-            <a
-              href="#fp-main"
-              style={{ position: "absolute", left: -9999, top: 0, zIndex: 100 }}
-              onFocus={(e) => {
-                (e.currentTarget as HTMLElement).style.left = "0";
-              }}
-              onBlur={(e) => {
-                (e.currentTarget as HTMLElement).style.left = "-9999px";
-              }}
-            >
-              {locale.skipToMain}
-            </a>
-
-            <Header
-              appName={config.appName}
-              timeRange={timeRange}
-              onTimeRangeChange={setTimeRange}
-              timeRangePresets={timePresets}
-              liveStatus={liveStatus}
-              onOpenPalette={() => setPaletteOpen(true)}
-            />
-
+    <FlowPanelContext.Provider value={{ timezone: config.timezone ?? "UTC" }}>
+      <div
+        className={`fp-root ${themeToClassName(config.theme?.colorScheme)}`.trim()}
+        style={themeStyle}
+        data-testid="fp-root"
+      >
+        <ErrorBoundary>
+          <FlowPanelShell
+            appName={config.appName}
+            nav={nav}
+            activeKey={activeTab}
+            onNavigate={setActiveTab}
+            headerRight={
+              <HeaderControls
+                timeRange={timeRange}
+                onTimeRangeChange={setTimeRange}
+                timeRangePresets={timePresets}
+                liveStatus={liveStatus}
+                onOpenPalette={() => setPaletteOpen(true)}
+              />
+            }
+          >
             {showDemoBanner && (
               <DemoBanner runCount={runsState.runs.length} realRunCount={0} onClear={resetDemo} />
             )}
 
-            <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-
-            <main id="fp-main" style={{ padding: "24px" }}>
-              {/* Error state */}
-              {error && !loading && (
-                <div
-                  role="alert"
-                  style={{
-                    padding: "16px 20px",
-                    marginBottom: 24,
-                    background: "rgba(239,68,68,0.1)",
-                    border: "1px solid rgba(239,68,68,0.3)",
-                    borderRadius: 8,
-                    color: "var(--fp-err, #ef4444)",
-                    fontSize: 13,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span>
-                    {locale.serverError}: {error}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void refresh()}
-                    style={{
-                      padding: "6px 14px",
-                      background: "rgba(239,68,68,0.15)",
-                      border: "1px solid rgba(239,68,68,0.3)",
-                      borderRadius: 6,
-                      color: "inherit",
-                      cursor: "pointer",
-                      fontSize: 12,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {locale.retry}
-                  </button>
-                </div>
-              )}
-
-              {/* Hidden placeholder panels for inactive tabs (required for aria-controls validity) */}
-              {tabs
-                .filter((t) => t.id !== activeTab && t.id !== firstTabId)
-                .map((t) => (
-                  <div
-                    key={t.id}
-                    id={`fp-tabpanel-${t.id}`}
-                    role="tabpanel"
-                    aria-labelledby={`fp-tab-${t.id}`}
-                    hidden
-                  />
-                ))}
-              {activeTab !== firstTabId && (
-                <div
-                  id={`fp-tabpanel-${firstTabId}`}
-                  role="tabpanel"
-                  aria-labelledby={`fp-tab-${firstTabId}`}
-                  hidden
-                />
-              )}
-
-              {activeTab === firstTabId && (
-                <div
-                  id={`fp-tabpanel-${firstTabId}`}
-                  role="tabpanel"
-                  aria-labelledby={`fp-tab-${firstTabId}`}
-                >
-                  <>
-                    {/* Metrics strip */}
-                    <ErrorBoundary>
-                      <section aria-label="Metrics" style={{ marginBottom: 24 }}>
-                        <SectionHeader
-                          label="Overview"
-                          meta={loading ? undefined : "Last updated just now"}
-                        />
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                            gap: 10,
-                          }}
-                        >
-                          {Object.entries(config.metrics ?? {}).map(([name, mc]) => {
-                            const result = metrics[name] as MetricResult | undefined;
-                            return (
-                              <MetricCard
-                                key={name}
-                                label={mc.label}
-                                value={result?.value ?? null}
-                                trend={result?.trend}
-                                sublabel={result?.sublabel}
-                                sparkline={result?.sparkline}
-                                loading={loading}
-                                hasDrawer={!!mc.drawer}
-                                onClick={
-                                  mc.drawer ? () => drawer.openDrawer(mc.drawer ?? "") : undefined
-                                }
-                              />
-                            );
-                          })}
-                        </div>
-                      </section>
-                    </ErrorBoundary>
-
-                    {/* Stage cards */}
-                    {stageData.length > 0 &&
-                      (() => {
-                        const totalAllStages = stageData.reduce((s, d) => s + d.total, 0);
-                        return (
-                          <ErrorBoundary>
-                            <section aria-label="Pipeline stages" style={{ marginBottom: 24 }}>
-                              <SectionHeader
-                                label="Pipeline Stages"
-                                meta="Click to filter runs below"
-                              />
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                                  gap: 10,
-                                }}
-                              >
-                                {stageData.map((s) => (
-                                  <StageCard
-                                    key={s.stage}
-                                    stage={s.stage}
-                                    color={theme.stageColors[s.stage] ?? "#818cf8"}
-                                    total={s.total}
-                                    totalAllStages={totalAllStages}
-                                    succeeded={s.succeeded}
-                                    failed={s.failed}
-                                    running={s.running}
-                                    avgDurationMs={s.avgDurationMs}
-                                    selected={selectedStage === s.stage}
-                                    loading={loading}
-                                    onClick={() =>
-                                      setSelectedStage((prev) =>
-                                        prev === s.stage ? null : s.stage,
-                                      )
-                                    }
-                                  />
-                                ))}
-                              </div>
-                            </section>
-                          </ErrorBoundary>
-                        );
-                      })()}
-
-                    {/* Error summary */}
-                    {topErrors && topErrors.totalFailed > 0 && (
-                      <ErrorBoundary>
-                        <section aria-label="Errors" style={{ marginBottom: 24 }}>
-                          <SectionHeader label="Errors" meta={`${topErrors.totalFailed} failed`} />
-                          <ErrorPanel
-                            errors={topErrors.errors}
-                            totalFailed={topErrors.totalFailed}
-                            loading={loading}
-                            onRetryAll={() => {}}
-                            onErrorClick={(_errorClass) => {
-                              setSelectedStage(null);
-                            }}
-                          />
-                        </section>
-                      </ErrorBoundary>
-                    )}
-
-                    {/* Run volume chart */}
-                    {chartData && chartData.buckets.length > 0 && (
-                      <ErrorBoundary>
-                        <section aria-label="Run volume" style={{ marginBottom: 24 }}>
-                          <SectionHeader label="Run Volume" />
-                          <div className="fp-card" style={{ padding: 16 }}>
-                            <RunChart
-                              buckets={chartData.buckets}
-                              peakBucket={chartData.peakBucket}
-                              loading={loading}
-                            />
-                          </div>
-                        </section>
-                      </ErrorBoundary>
-                    )}
-
-                    {/* Run log */}
-                    <ErrorBoundary>
-                      <section aria-label="Run log">
-                        <SectionHeader
-                          label="Run Log"
-                          meta={
-                            !loading && runsState.runs.length > 0
-                              ? `${runsState.runs.length.toLocaleString()} total`
-                              : undefined
-                          }
-                        />
-                        <div className="fp-card" style={{ overflow: "hidden" }}>
-                          <RunTable
-                            runs={runsState.runs}
-                            columns={runLogColumns}
-                            stageColors={theme.stageColors}
-                            loading={loading}
-                            hasNextPage={!!runsState.nextCursor}
-                            onLoadMore={loadMore}
-                            newRunsBanner={
-                              runsState.bufferedNewRuns.length > 0
-                                ? runsState.bufferedNewRuns.length
-                                : undefined
-                            }
-                            onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
-                            onRowClick={(run) => {
-                              drawer.openDrawer("runDetail", String(run.id));
-                            }}
-                            selectedRunId={drawer.selectedRunId}
-                          />
-                        </div>
-                      </section>
-                    </ErrorBoundary>
-                  </>
-                </div>
-              )}
-
-              {/* Resource tabs */}
-              {activeTab.startsWith("resource:") &&
-                (() => {
-                  const resourceKey = activeTab.slice("resource:".length);
-                  const resource = resourceMap[resourceKey];
-                  if (!resource) return null;
-                  return (
-                    <ErrorBoundary>
-                      <div
-                        id={`fp-tabpanel-${activeTab}`}
-                        role="tabpanel"
-                        aria-labelledby={`fp-tab-${activeTab}`}
-                      >
-                        <ResourcePage resource={resource} baseUrl={trpcBaseUrl} />
-                      </div>
-                    </ErrorBoundary>
-                  );
-                })()}
-
-              {/* Non-pipeline, non-resource tabs */}
-              {activeTab !== firstTabId &&
-                !activeTab.startsWith("resource:") &&
-                (() => {
-                  const tabEntry = config.tabs?.find((t) => t.id === activeTab);
-
-                  if (tabEntry?.component) {
-                    const TabComponent = tabEntry.component as React.ComponentType<{
-                      config: typeof config;
-                      timeRange: string;
-                    }>;
-                    return (
-                      <ErrorBoundary>
-                        <div
-                          id={`fp-tabpanel-${activeTab}`}
-                          role="tabpanel"
-                          aria-labelledby={`fp-tab-${activeTab}`}
-                        >
-                          <TabComponent config={config} timeRange={timeRange} />
-                        </div>
-                      </ErrorBoundary>
-                    );
-                  }
-
-                  return (
-                    <div
-                      id={`fp-tabpanel-${activeTab}`}
-                      role="tabpanel"
-                      aria-labelledby={`fp-tab-${activeTab}`}
-                      style={{ color: "var(--fp-text-3)", padding: 40, textAlign: "center" }}
-                    >
-                      <div style={{ fontSize: 14, marginBottom: 8 }}>
-                        No component configured for &ldquo;{tabEntry?.label ?? activeTab}&rdquo;
-                      </div>
-                      <div style={{ fontSize: 12 }}>
-                        Add a <code style={{ color: "var(--fp-accent-text)" }}>component</code> to
-                        this tab in your flowpanel.config.ts
-                      </div>
-                    </div>
-                  );
-                })()}
-            </main>
-
-            {/* Drawers */}
-            <Drawer
-              open={drawer.isOpen}
-              onClose={drawer.closeDrawer}
-              title={drawer.drawerTitle}
-              sections={drawer.drawerData?.sections}
-              run={drawer.drawerData?.run}
-              actions={drawer.drawerData?.actions?.map((a) => ({
-                ...a,
-                onClick: () => {},
-              }))}
-              loading={drawer.drawerLoading}
-            >
-              <div style={{ color: "var(--fp-text-3)", fontSize: 13 }}>
-                {drawer.type === "runDetail"
-                  ? `Run details for ${drawer.runId}`
-                  : "Loading drawer content..."}
-              </div>
-            </Drawer>
-
-            {/* Command palette */}
-            <CommandPalette
-              open={paletteOpen}
-              onClose={() => setPaletteOpen(false)}
-              commands={builtinCommands}
-            />
-
-            {/* Keyboard shortcuts help */}
-            <KeyboardHelp open={keyboardHelpOpen} onClose={() => setKeyboardHelpOpen(false)} />
-
-            {/* ARIA live region */}
-            <div
-              role="status"
-              aria-live="assertive"
-              aria-atomic="true"
-              style={{
-                position: "absolute",
-                left: -9999,
-                width: 1,
-                height: 1,
-                overflow: "hidden",
-              }}
-            >
-              {liveAnnouncement}
-            </div>
-
-            {/* SSE reconnect banner */}
-            {liveStatus === "reconnecting" && (
+            {/* Error banner */}
+            {error && !loading && (
               <div
-                role="status"
-                aria-live="polite"
-                style={{
-                  position: "fixed",
-                  top: 52,
-                  left: 0,
-                  right: 0,
-                  zIndex: 20,
-                  background: "var(--fp-warn)",
-                  color: "#000",
-                  padding: "8px 24px",
-                  textAlign: "center",
-                  fontSize: 13,
-                }}
+                role="alert"
+                className="mb-6 flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
               >
-                {locale.reconnecting}
+                <span>
+                  {locale.serverError}: {error}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void refresh()}
+                  className="rounded-md border border-destructive/30 bg-destructive/15 px-3 py-1 text-xs font-semibold transition-colors hover:bg-destructive/25"
+                >
+                  {locale.retry}
+                </button>
               </div>
             )}
-          </ErrorBoundary>
-        </div>
-      </FlowPanelContext.Provider>
-    </ToastProvider>
+
+            {/* Dashboard tab */}
+            {activeTab === "dashboard" && dashboardWidgets.length > 0 && (
+              <ErrorBoundary>
+                <DashboardPage widgets={dashboardWidgets} baseUrl={trpcBaseUrl} />
+              </ErrorBoundary>
+            )}
+
+            {/* Pipeline tab (or first configured tab) */}
+            {activeTab === firstTabId && activeTab !== "dashboard" && (
+              <PipelineSection
+                config={config}
+                theme={theme}
+                metrics={metrics}
+                stageData={stageData}
+                runs={runsState}
+                dispatchRuns={dispatchRuns}
+                loading={loading}
+                chartData={chartData}
+                topErrors={topErrors}
+                loadMore={loadMore}
+                selectedStage={selectedStage}
+                setSelectedStage={setSelectedStage}
+                runLogColumns={runLogColumns}
+                openRunDetail={(id) => drawer.openDrawer("runDetail", String(id))}
+                selectedRunId={drawer.selectedRunId}
+                openMetricDrawer={(name) => drawer.openDrawer(name)}
+              />
+            )}
+
+            {/* Resource tab */}
+            {activeTab.startsWith("resource:") &&
+              (() => {
+                const resourceKey = activeTab.slice("resource:".length);
+                const resource = resourceMap[resourceKey];
+                if (!resource) return null;
+                return (
+                  <ErrorBoundary>
+                    <ResourcePage resource={resource} baseUrl={trpcBaseUrl} />
+                  </ErrorBoundary>
+                );
+              })()}
+
+            {/* Queue tab */}
+            {activeTab.startsWith("queue:") &&
+              (() => {
+                const queueKey = activeTab.slice("queue:".length);
+                const queue = queueMap[queueKey];
+                if (!queue) return null;
+                return (
+                  <ErrorBoundary>
+                    <QueuePage queue={queue} baseUrl={trpcBaseUrl} />
+                  </ErrorBoundary>
+                );
+              })()}
+
+            {/* User-defined custom tab (beyond first) */}
+            {activeTab !== firstTabId &&
+              activeTab !== "dashboard" &&
+              !activeTab.startsWith("resource:") &&
+              !activeTab.startsWith("queue:") &&
+              (() => {
+                const tabEntry = config.tabs?.find((t) => t.id === activeTab);
+                if (tabEntry?.component) {
+                  const TabComponent = tabEntry.component as React.ComponentType<{
+                    config: typeof config;
+                    timeRange: string;
+                  }>;
+                  return (
+                    <ErrorBoundary>
+                      <TabComponent config={config} timeRange={timeRange} />
+                    </ErrorBoundary>
+                  );
+                }
+                return (
+                  <div className="py-16 text-center text-sm text-muted-foreground">
+                    <div className="mb-2">
+                      No component configured for &ldquo;{tabEntry?.label ?? activeTab}&rdquo;
+                    </div>
+                    <div className="text-xs">
+                      Add a{" "}
+                      <code className="rounded bg-muted px-1 py-0.5 text-foreground">
+                        component
+                      </code>{" "}
+                      to this tab in your flowpanel.config.ts
+                    </div>
+                  </div>
+                );
+              })()}
+          </FlowPanelShell>
+
+          {/* Drawers */}
+          <Drawer
+            open={drawer.isOpen}
+            onClose={drawer.closeDrawer}
+            title={drawer.drawerTitle}
+            sections={drawer.drawerData?.sections}
+            run={drawer.drawerData?.run}
+            actions={drawer.drawerData?.actions?.map((a) => ({
+              ...a,
+              onClick: () => {},
+            }))}
+            loading={drawer.drawerLoading}
+          >
+            <div className="text-sm text-muted-foreground">
+              {drawer.type === "runDetail"
+                ? `Run details for ${drawer.runId}`
+                : "Loading drawer content..."}
+            </div>
+          </Drawer>
+
+          {/* Command palette */}
+          <CommandPalette
+            open={paletteOpen}
+            onClose={() => setPaletteOpen(false)}
+            commands={builtinCommands}
+          />
+
+          {/* Keyboard shortcuts help */}
+          <KeyboardHelp open={keyboardHelpOpen} onClose={() => setKeyboardHelpOpen(false)} />
+
+          {/* ARIA live region */}
+          <div role="status" aria-live="assertive" aria-atomic="true" className="sr-only">
+            {liveAnnouncement}
+          </div>
+
+          {/* SSE reconnect banner */}
+          {liveStatus === "reconnecting" && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="fixed inset-x-0 top-14 z-30 bg-yellow-500 py-2 text-center text-xs font-medium text-black"
+            >
+              {locale.reconnecting}
+            </div>
+          )}
+        </ErrorBoundary>
+      </div>
+    </FlowPanelContext.Provider>
+  );
+}
+
+// ─── Pipeline section (extracted for readability) ─────────────────────────────
+
+interface PipelineSectionProps {
+  config: FlowPanelConfig;
+  theme: ReturnType<typeof resolveTheme>;
+  metrics: Record<string, unknown>;
+  stageData: ReturnType<typeof useFlowPanelData>["stageData"];
+  runs: ReturnType<typeof useFlowPanelData>["runsState"];
+  dispatchRuns: ReturnType<typeof useFlowPanelData>["dispatchRuns"];
+  loading: boolean;
+  chartData: ReturnType<typeof useFlowPanelData>["chartData"];
+  topErrors: ReturnType<typeof useFlowPanelData>["topErrors"];
+  loadMore: () => void;
+  selectedStage: string | null;
+  setSelectedStage: React.Dispatch<React.SetStateAction<string | null>>;
+  runLogColumns: RunLogColumn[];
+  openRunDetail: (id: string | number) => void;
+  selectedRunId?: string | null | undefined;
+  openMetricDrawer: (name: string) => void;
+}
+
+function PipelineSection({
+  config,
+  theme,
+  metrics,
+  stageData,
+  runs,
+  dispatchRuns,
+  loading,
+  chartData,
+  topErrors,
+  loadMore,
+  selectedStage,
+  setSelectedStage,
+  runLogColumns,
+  openRunDetail,
+  selectedRunId,
+  openMetricDrawer,
+}: PipelineSectionProps) {
+  return (
+    <div className="space-y-6">
+      {/* Metrics strip */}
+      {Object.keys(config.metrics ?? {}).length > 0 && (
+        <ErrorBoundary>
+          <section aria-label="Metrics">
+            <SectionHeader label="Overview" meta={loading ? undefined : "Last updated just now"} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {Object.entries(config.metrics ?? {}).map(([name, mc]) => {
+                const result = metrics[name] as MetricResult | undefined;
+                return (
+                  <MetricCard
+                    key={name}
+                    label={mc.label}
+                    value={result?.value ?? null}
+                    trend={result?.trend}
+                    sublabel={result?.sublabel}
+                    sparkline={result?.sparkline}
+                    loading={loading}
+                    hasDrawer={!!mc.drawer}
+                    onClick={mc.drawer ? () => openMetricDrawer(mc.drawer ?? "") : undefined}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        </ErrorBoundary>
+      )}
+
+      {/* Stage cards */}
+      {stageData.length > 0 &&
+        (() => {
+          const totalAllStages = stageData.reduce((s, d) => s + d.total, 0);
+          return (
+            <ErrorBoundary>
+              <section aria-label="Pipeline stages">
+                <SectionHeader label="Pipeline Stages" meta="Click to filter runs below" />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {stageData.map((s) => (
+                    <StageCard
+                      key={s.stage}
+                      stage={s.stage}
+                      color={theme.stageColors[s.stage] ?? "#818cf8"}
+                      total={s.total}
+                      totalAllStages={totalAllStages}
+                      succeeded={s.succeeded}
+                      failed={s.failed}
+                      running={s.running}
+                      avgDurationMs={s.avgDurationMs}
+                      selected={selectedStage === s.stage}
+                      loading={loading}
+                      onClick={() =>
+                        setSelectedStage((prev) => (prev === s.stage ? null : s.stage))
+                      }
+                    />
+                  ))}
+                </div>
+              </section>
+            </ErrorBoundary>
+          );
+        })()}
+
+      {/* Error summary */}
+      {topErrors && topErrors.totalFailed > 0 && (
+        <ErrorBoundary>
+          <section aria-label="Errors">
+            <SectionHeader label="Errors" meta={`${topErrors.totalFailed} failed`} />
+            <ErrorPanel
+              errors={topErrors.errors}
+              totalFailed={topErrors.totalFailed}
+              loading={loading}
+              onRetryAll={() => {}}
+              onErrorClick={() => setSelectedStage(null)}
+            />
+          </section>
+        </ErrorBoundary>
+      )}
+
+      {/* Run volume chart */}
+      {chartData && chartData.buckets.length > 0 && (
+        <ErrorBoundary>
+          <section aria-label="Run volume">
+            <SectionHeader label="Run Volume" />
+            <div className="rounded-lg border border-border bg-card p-4">
+              <RunChart
+                buckets={chartData.buckets}
+                peakBucket={chartData.peakBucket}
+                loading={loading}
+              />
+            </div>
+          </section>
+        </ErrorBoundary>
+      )}
+
+      {/* Run log */}
+      <ErrorBoundary>
+        <section aria-label="Run log">
+          <SectionHeader
+            label="Run Log"
+            meta={
+              !loading && runs.runs.length > 0
+                ? `${runs.runs.length.toLocaleString()} total`
+                : undefined
+            }
+          />
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <RunTable
+              runs={runs.runs}
+              columns={runLogColumns}
+              stageColors={theme.stageColors}
+              loading={loading}
+              hasNextPage={!!runs.nextCursor}
+              onLoadMore={loadMore}
+              newRunsBanner={
+                runs.bufferedNewRuns.length > 0 ? runs.bufferedNewRuns.length : undefined
+              }
+              onScrollToTop={() => dispatchRuns({ type: "FLUSH_BUFFERED" })}
+              onRowClick={(run) => openRunDetail(String(run.id))}
+              selectedRunId={selectedRunId ?? undefined}
+            />
+          </div>
+        </section>
+      </ErrorBoundary>
+    </div>
   );
 }
