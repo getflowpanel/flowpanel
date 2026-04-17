@@ -1,8 +1,10 @@
 import { z } from "zod";
-import type { FlowPanelContext } from "../context.js";
+import type { FlowPanelContext } from "../context";
 
 export function createDrawersProcedures(
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
   t: { procedure: any; router: (routes: any) => any },
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal procedure type
   authedProcedure: any,
 ) {
   return t.router({
@@ -14,8 +16,10 @@ export function createDrawersProcedures(
           timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
         }),
       )
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC context and input types are dynamically typed at runtime
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { db, config } = ctx;
+        // biome-ignore lint/suspicious/noExplicitAny: FlowPanelConfig extensions are dynamically shaped
         const drawerConfig = (config as any).drawers?.[input.drawerId];
         if (!drawerConfig) throw new Error(`Drawer "${input.drawerId}" not found in config`);
 
@@ -39,14 +43,20 @@ export function createDrawersProcedures(
           run = rows[0] ?? null;
         }
 
-        return { sections, run };
+        const actions = drawerConfig.actions ?? [];
+
+        return { sections, run, actions };
       }),
   });
 }
 
-const ALLOWED_GROUP_COLUMNS = new Set(["stage", "status", "partition_key", "error_class"]);
-
-async function renderSection(db: any, _config: any, section: any, input: any): Promise<unknown> {
+// biome-ignore lint/suspicious/noExplicitAny: tRPC runtime types — db/config/section/input are dynamically shaped
+export async function renderSection(
+  db: any,
+  _config: any,
+  section: any,
+  input: any,
+): Promise<unknown> {
   const timeWhere = input.timeRange ? `WHERE started_at >= $1 AND started_at < $2` : "";
   const timeParams = input.timeRange ? [input.timeRange.start, input.timeRange.end] : [];
 
@@ -66,12 +76,17 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
       return rows[0];
     }
     case "breakdown": {
-      const groupBy = section.groupBy ?? "stage";
-      if (!ALLOWED_GROUP_COLUMNS.has(groupBy)) {
-        throw new Error(`Invalid groupBy column: ${groupBy}`);
+      // Whitelist — groupBy всегда выходит в SQL интерполяцией (нельзя параметризовать имена колонок).
+      // Валидируем против фиксированного набора.
+      const ALLOWED_GROUP_COLUMNS = ["stage", "status", "partition_key", "error_class"] as const;
+      type AllowedGroupColumn = (typeof ALLOWED_GROUP_COLUMNS)[number];
+      const groupByInput = (section.groupBy ?? "stage") as string;
+      if (!ALLOWED_GROUP_COLUMNS.includes(groupByInput as AllowedGroupColumn)) {
+        return [];
       }
+      const groupBy = groupByInput as AllowedGroupColumn;
       const rows = await db.execute(
-        `SELECT ${groupBy}, COUNT(*) AS count
+        `SELECT ${groupBy} AS label, COUNT(*) AS count
          FROM flowpanel_pipeline_run ${timeWhere}
          GROUP BY ${groupBy}
          ORDER BY count DESC`,
@@ -81,8 +96,7 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
     }
     case "error-list": {
       const limit = section.limit ?? 5;
-      const params = [...timeParams, limit];
-      const limitIdx = params.length;
+      const limitIdx = timeParams.length + 1;
       const rows = await db.execute(
         `SELECT error_class, COUNT(*) AS count
          FROM flowpanel_pipeline_run
@@ -90,7 +104,7 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
          GROUP BY error_class
          ORDER BY count DESC
          LIMIT $${limitIdx}`,
-        params,
+        [...timeParams, limit],
       );
       return rows;
     }
@@ -104,62 +118,78 @@ async function renderSection(db: any, _config: any, section: any, input: any): P
       return rows;
     }
     case "kv-grid": {
-      if (!input.runId) return null;
-      const rows = (await db.execute(`SELECT * FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`, [
-        BigInt(input.runId),
-      ])) as Record<string, unknown>[];
-      if (!rows[0]) return null;
+      if (!input.runId) return {};
+      const rows = await db.execute<Record<string, unknown>>(
+        `SELECT * FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`,
+        [BigInt(input.runId)],
+      );
       const run = rows[0];
-      // Return configured fields or all fields
-      const fields = section.fields as string[] | undefined;
-      if (fields) {
-        const result: Record<string, unknown> = {};
-        for (const f of fields) {
-          result[f] = run[f] ?? null;
+      if (!run) return {};
+      const fields: Record<string, unknown> = {};
+      const keys = section.fields as string[] | undefined;
+      if (keys && keys.length > 0) {
+        for (const k of keys) {
+          fields[k] = run[k] ?? null;
         }
-        return result;
+      } else {
+        // return all non-null scalar fields
+        for (const [k, v] of Object.entries(run)) {
+          if (v !== null && v !== undefined) fields[k] = v;
+        }
       }
-      // Default useful fields
-      const { id, stage, status, partition_key, started_at, finished_at, duration_ms, ...rest } =
-        run;
-      return {
-        id: String(id),
-        stage,
-        status,
-        partition_key,
-        started_at,
-        finished_at,
-        duration_ms,
-        ...rest,
-      };
+      return fields;
     }
     case "error-block": {
       if (!input.runId) return null;
-      const rows = (await db.execute(
-        `SELECT error_class, error_message, error_stack FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`,
+      const rows = await db.execute<Record<string, unknown>>(
+        `SELECT error_class, error_message, stack_trace FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`,
         [BigInt(input.runId)],
-      )) as Record<string, unknown>[];
+      );
       const run = rows[0];
-      if (!run || !run.error_class) return null;
+      if (!run) return null;
       return {
-        errorClass: run.error_class as string,
-        message: (run.error_message as string) ?? "",
-        stack: (run.error_stack as string) ?? undefined,
+        errorClass: run.error_class ?? "UnknownError",
+        errorMessage: run.error_message ?? "",
+        stackTrace: run.stack_trace ?? undefined,
       };
     }
     case "timeline": {
-      if (!input.runId) return null;
-      // Try step data first, fall back to single-step from run
-      const rows = (await db.execute(`SELECT * FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`, [
-        BigInt(input.runId),
-      ])) as Record<string, unknown>[];
+      if (!input.runId) return [];
+      // Try to get stage-level rows first (if a stage_runs table exists)
+      try {
+        const stageRows = await db.execute<Record<string, unknown>>(
+          `SELECT stage AS step, duration_ms, status
+           FROM flowpanel_pipeline_stage_run
+           WHERE run_id = $1
+           ORDER BY started_at ASC`,
+          [BigInt(input.runId)],
+        );
+        if (stageRows.length > 0) {
+          return stageRows.map((r) => ({
+            step: String(r.step ?? ""),
+            durationMs: Number(r.duration_ms ?? 0),
+            status: String(r.status ?? "succeeded") as "succeeded" | "failed" | "running",
+          }));
+        }
+      } catch (err: unknown) {
+        const msg = String((err as Error)?.message ?? "");
+        if (!msg.includes("does not exist") && !msg.includes("no such table")) {
+          throw err;
+        }
+        // Table doesn't exist — fall through to single-run fallback
+      }
+      // Fallback: single row representing the whole run
+      const rows = await db.execute<Record<string, unknown>>(
+        `SELECT stage, duration_ms, status FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`,
+        [BigInt(input.runId)],
+      );
       const run = rows[0];
-      if (!run) return null;
+      if (!run) return [];
       return [
         {
-          step: run.stage as string,
-          durationMs: (run.duration_ms as number) ?? 0,
-          status: run.status as string,
+          step: String(run.stage ?? "run"),
+          durationMs: Number(run.duration_ms ?? 0),
+          status: String(run.status ?? "succeeded") as "succeeded" | "failed" | "running",
         },
       ];
     }

@@ -1,6 +1,7 @@
 @import "tailwindcss" prefix(fp) layer(flowpanel);
-@plugin "tailwindcss-animate";
 @import "./animations.css" layer(flowpanel);
+@import "../theme/variables.css";
+@plugin "tailwindcss-animate";
 
 @layer flowpanel {
   @theme {
@@ -73,7 +74,7 @@
 @media (prefers-reduced-motion: reduce) {
   .flowpanel,
   .flowpanel * {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms;
+    transition-duration: 0.01ms;
   }
 }

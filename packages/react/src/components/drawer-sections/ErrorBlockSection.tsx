@@ -1,75 +1,98 @@
-interface ErrorBlockProps {
-  data: { errorClass: string; message: string; stack?: string };
+import { useState } from "react";
+
+interface ErrorBlockData {
+  errorClass: string;
+  errorMessage: string;
+  stackTrace?: string;
 }
 
-export function ErrorBlockSection({ data }: ErrorBlockProps) {
+interface ErrorBlockSectionProps {
+  data: ErrorBlockData;
+}
+
+export function ErrorBlockSection({ data }: ErrorBlockSectionProps) {
+  const [stackExpanded, setStackExpanded] = useState(false);
+
+  if (!data) return null;
+
   return (
     <div
       style={{
-        background: "rgba(239, 68, 68, 0.06)",
-        border: "1px solid rgba(239, 68, 68, 0.2)",
-        borderRadius: 8,
-        padding: "14px 16px",
-        marginBottom: 12,
+        background: "rgba(239,68,68,0.08)",
+        borderLeft: "3px solid var(--fp-err)",
+        borderRadius: "0 6px 6px 0",
+        padding: "12px 14px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
       }}
     >
-      <div
+      {/* Error class */}
+      <span
         style={{
-          fontSize: 13,
+          fontSize: 12,
+          fontFamily: "var(--fp-font-mono, monospace)",
+          color: "var(--fp-err)",
           fontWeight: 600,
-          fontFamily: "var(--fp-font-mono)",
-          color: "#ef4444",
-          marginBottom: 6,
         }}
       >
         {data.errorClass}
-      </div>
-      <div
+      </span>
+
+      {/* Error message */}
+      <span
         style={{
-          fontSize: 12,
-          fontFamily: "var(--fp-font-mono)",
+          fontSize: 13,
+          fontFamily: "var(--fp-font-mono, monospace)",
           color: "var(--fp-text-2)",
-          lineHeight: 1.5,
+          whiteSpace: "pre-wrap",
           wordBreak: "break-word",
         }}
       >
-        {data.message}
-      </div>
-      {data.stack && (
-        <details
-          style={{
-            marginTop: 10,
-          }}
-        >
-          <summary
+        {data.errorMessage}
+      </span>
+
+      {/* Stack trace toggle */}
+      {data.stackTrace && (
+        <>
+          <button
+            type="button"
+            onClick={() => setStackExpanded((v) => !v)}
             style={{
-              fontSize: 11,
-              color: "var(--fp-text-3)",
+              alignSelf: "flex-start",
+              background: "transparent",
+              border: "none",
+              padding: 0,
               cursor: "pointer",
-              userSelect: "none",
-            }}
-          >
-            Stack trace
-          </summary>
-          <pre
-            style={{
-              marginTop: 8,
-              padding: 12,
               fontSize: 11,
-              fontFamily: "var(--fp-font-mono)",
               color: "var(--fp-text-3)",
-              background: "rgba(0, 0, 0, 0.15)",
-              borderRadius: 6,
-              overflow: "auto",
-              maxHeight: 200,
-              lineHeight: 1.6,
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-all",
+              textDecoration: "underline",
+              marginTop: 2,
             }}
           >
-            {data.stack}
-          </pre>
-        </details>
+            {stackExpanded ? "Hide stack" : "Show stack"}
+          </button>
+
+          {stackExpanded && (
+            <pre
+              style={{
+                margin: 0,
+                fontSize: 11,
+                fontFamily: "var(--fp-font-mono, monospace)",
+                color: "var(--fp-text-3)",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                background: "rgba(0,0,0,0.06)",
+                borderRadius: 4,
+                padding: "8px 10px",
+                maxHeight: 260,
+                overflowY: "auto",
+              }}
+            >
+              {data.stackTrace}
+            </pre>
+          )}
+        </>
       )}
     </div>
   );

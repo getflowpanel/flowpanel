@@ -5,9 +5,7 @@
   "scripts": {
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "dev": "next dev --port 3099",
-    "build": "next build",
-    "start": "next start --port 3099"
+    "dev": "next dev --port 3100"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",

@@ -1,12 +1,18 @@
 export function StagePill({ stage, color }: { stage: string; color: string }) {
   return (
     <span
-      className="fp:inline-flex fp:items-center fp:gap-1 fp:py-0.5 fp:px-2 fp:rounded fp:text-[11px] fp:font-semibold"
       style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "2px 8px",
+        borderRadius: 4,
         background: `${color}22`,
         color,
+        fontSize: 11,
+        fontWeight: 600,
       }}
-      aria-label={`Stage: ${stage}`}
+      title={`Stage: ${stage}`}
     >
       {stage}
     </span>

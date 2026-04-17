@@ -1,46 +1,45 @@
 {
   "name": "@flowpanel/cli",
   "version": "0.1.0",
-  "description": "CLI tools for FlowPanel setup, migration, and diagnostics",
+  "description": "CLI tools for FlowPanel — init, migrate, doctor, dev",
   "keywords": [
     "flowpanel",
-    "admin",
+    "cli",
     "pipeline",
-    "dashboard"
+    "admin"
   ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Ch4m4/flowpanel",
     "directory": "packages/cli"
   },
-  "license": "MIT",
-  "homepage": "https://flowpanel.dev",
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
     "flowpanel": "./dist/index.mjs"
   },
-  "type": "module",
   "main": "./dist/index.mjs",
   "scripts": {
     "build": "tsup",
-    "dev": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx src/index.ts"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*",
     "commander": "^12.0.0",
-    "jiti": "^2.6.1",
     "kleur": "^4.1.5",
     "ora": "^9.3.0",
-    "prompts": "^2.4.2",
-    "ts-morph": "^22.0.0",
-    "zod": "^3.25.76"
+    "prompts": "^2.4.2"
   },
-  "engines": {
-    "node": ">=18"
-  },
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/prompts": "^2.4.9",
-    "tsup": "^8.0.0"
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
   }
 }

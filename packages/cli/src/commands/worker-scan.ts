@@ -1,14 +1,14 @@
-import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import kleur from "kleur";
+import { loadConfig } from "../loadConfig";
 
 export async function runWorkerScan(): Promise<void> {
   const cwd = process.cwd();
 
-  let config: any;
+  let config: Awaited<ReturnType<typeof loadConfig>>;
   try {
-    config = (await import(path.join(cwd, "flowpanel.config.ts"))).flowpanel;
+    config = await loadConfig();
   } catch {
     console.error(kleur.red("Failed to load flowpanel.config.ts"));
     process.exit(1);
@@ -34,7 +34,7 @@ export async function runWorkerScan(): Promise<void> {
 
       const fnMatches = content.matchAll(/export async function (\w+)/g);
       for (const match of fnMatches) {
-        const fnName = match[1]!;
+        const fnName = match[1] ?? "";
         const stageGuess = guessStage(file, fnName, stages);
         candidates.push({
           file,
@@ -73,10 +73,10 @@ async function findFiles(cwd: string, pattern: string): Promise<string[]> {
 
   async function walk(dir: string, remaining: string[]): Promise<void> {
     if (remaining.length === 0) return;
-    const segment = remaining[0]!;
+    const segment = remaining[0] ?? "";
     const rest = remaining.slice(1);
 
-    let entries: Dirent[];
+    let entries: fs.Dirent[];
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
     } catch {
@@ -90,7 +90,7 @@ async function findFiles(cwd: string, pattern: string): Promise<string[]> {
           await walk(path.join(dir, entry.name), remaining); // stay in ** mode
           await walk(path.join(dir, entry.name), rest); // try consuming **
         } else if (rest.length === 1) {
-          const lastPattern = rest[0]!;
+          const lastPattern = rest[0] ?? "";
           if (matchGlob(entry.name, lastPattern)) {
             results.push(path.relative(cwd, path.join(dir, entry.name)));
           }

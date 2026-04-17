@@ -1,61 +1,144 @@
-import * as path from "node:path";
 import kleur from "kleur";
-import { formatError, formatSuccess } from "../utils/error-format.js";
+import { loadConfig } from "../loadConfig";
 
-interface StatusResult {
-  configFound: boolean;
-  stages: string[];
-  migrationsApplied: number;
-  totalRuns: number;
+interface StatusJson {
+  app: string;
+  adapter: "postgres" | "sqlite" | "unknown";
+  runs: { total: number; running: number };
+  schema: { tablesFound: number };
+  dashboard: string;
+  lastRun: { stage: string; status: string; ago: string } | null;
 }
 
-export async function runStatus(opts: { json: boolean }): Promise<void> {
-  const cwd = process.cwd();
-  const configPath = path.join(cwd, "flowpanel.config.ts");
+export async function runStatus(opts: { json?: boolean } = {}): Promise<void> {
+  const json = opts.json ?? false;
 
-  const result: StatusResult = {
-    configFound: false,
-    stages: [],
-    migrationsApplied: 0,
-    totalRuns: 0,
-  };
-
+  let config: Awaited<ReturnType<typeof loadConfig>>;
   try {
-    const mod = await import(configPath);
-    const config = mod.flowpanel;
-    result.configFound = true;
-    result.stages = (config.config.pipeline.stages as string[]) ?? [];
-
-    try {
-      const db = await config.getDb();
-      const migRows = await db.execute("SELECT count(*)::int AS cnt FROM flowpanel_migrations");
-      result.migrationsApplied = migRows.rows?.[0]?.cnt ?? 0;
-
-      const runRows = await db.execute("SELECT count(*)::int AS cnt FROM flowpanel_runs");
-      result.totalRuns = runRows.rows?.[0]?.cnt ?? 0;
-    } catch {
-      // DB not reachable — report what we can
+    config = await loadConfig();
+  } catch (err) {
+    if (json) {
+      console.log(JSON.stringify({ error: `Could not load flowpanel.config.ts: ${err}` }));
+    } else {
+      console.error(kleur.red(`\n  Could not load flowpanel.config.ts\n  ${err}\n`));
     }
-  } catch {
-    // Config not found
+    process.exit(1);
   }
 
-  if (opts.json) {
-    console.log(JSON.stringify(result, null, 2));
+  const db = await config.getDb();
+  if (!db) {
+    if (json) {
+      console.log(JSON.stringify({ error: "No adapter configured" }));
+    } else {
+      console.error(kleur.red("\n  No adapter configured in flowpanel.config.ts\n"));
+    }
+    process.exit(1);
+  }
+
+  // Totals
+  let total = 0;
+  let running = 0;
+  try {
+    const rows = await db.execute<{ total: string | number; running: string | number }>(
+      `SELECT
+         COUNT(*) AS total,
+         COUNT(*) FILTER (WHERE status = 'running') AS running
+       FROM flowpanel_pipeline_run`,
+      [],
+    );
+    total = Number(rows[0]?.total ?? 0);
+    running = Number(rows[0]?.running ?? 0);
+  } catch {
+    // Schema not migrated yet — leave as 0
+  }
+
+  // Last run
+  let lastRun: StatusJson["lastRun"] = null;
+  try {
+    const rows = await db.execute<{ stage: string; status: string; started_at: Date | string }>(
+      `SELECT stage, status, started_at
+       FROM flowpanel_pipeline_run
+       ORDER BY started_at DESC
+       LIMIT 1`,
+      [],
+    );
+    if (rows[0]) {
+      const row = rows[0];
+      const startedMs = new Date(row.started_at).getTime();
+      const ago = formatAgo(Date.now() - startedMs);
+      lastRun = { stage: row.stage, status: row.status, ago };
+    }
+  } catch {
+    // Ignore
+  }
+
+  // Schema health
+  let tableCount = 0;
+  try {
+    const rows = await db.execute<{ count: string | number }>(
+      `SELECT COUNT(*)::int AS count
+       FROM pg_tables
+       WHERE tablename LIKE 'flowpanel\\_%' ESCAPE '\\'`,
+      [],
+    );
+    tableCount = Number(rows[0]?.count ?? 0);
+  } catch {
+    // Ignore
+  }
+
+  const basePath = config.config.basePath ?? "/admin";
+  const dashboard = `http://localhost:3000${basePath}`;
+  const adapter = (db.dialect ?? "unknown") as StatusJson["adapter"];
+
+  if (json) {
+    const out: StatusJson = {
+      app: config.config.appName ?? "unknown",
+      adapter,
+      runs: { total, running },
+      schema: { tablesFound: tableCount },
+      dashboard,
+      lastRun,
+    };
+    console.log(JSON.stringify(out, null, 2));
     return;
   }
 
-  console.log(kleur.bold("\n  FlowPanel Status\n"));
+  const schemaOk = tableCount >= 5;
+  const schemaLabel = schemaOk
+    ? kleur.green("✓ up to date")
+    : kleur.yellow(`⚠ ${tableCount}/5 tables (run migrate)`);
 
-  if (result.configFound) {
-    console.log(formatSuccess(`Config found`));
-    console.log(kleur.gray(`    Stages: ${result.stages.join(", ")}`));
-    console.log(kleur.gray(`    Migrations applied: ${result.migrationsApplied}`));
-    console.log(kleur.gray(`    Total runs: ${result.totalRuns}`));
-  } else {
-    console.log(kleur.yellow("  ○ No flowpanel.config.ts found"));
-    console.log(kleur.gray("    Run: npx flowpanel init"));
+  console.log(kleur.bold("\nFlowPanel Status\n"));
+  console.log(`  ${kleur.gray("App:       ")} ${config.config.appName ?? kleur.gray("(unnamed)")}`);
+  console.log(`  ${kleur.gray("Adapter:   ")} ${adapter}`);
+  console.log(
+    `  ${kleur.gray("Runs:      ")} ${total.toLocaleString()} total ${running > 0 ? kleur.cyan(`(${running} running)`) : ""}`,
+  );
+  console.log(`  ${kleur.gray("Health:    ")} ${schemaLabel}`);
+  console.log(`  ${kleur.gray("Dashboard: ")} ${kleur.cyan(dashboard)}`);
+
+  if (lastRun) {
+    const statusColor =
+      lastRun.status === "succeeded"
+        ? kleur.green
+        : lastRun.status === "failed"
+          ? kleur.red
+          : kleur.yellow;
+    console.log(
+      `  ${kleur.gray("Last run:  ")} ${lastRun.ago} ago (${lastRun.stage}, ${statusColor(lastRun.status)})`,
+    );
+  } else if (total === 0) {
+    console.log(
+      `  ${kleur.gray("Last run:  ")} ${kleur.gray("none yet — try")} ${kleur.cyan("flowpanel demo")}`,
+    );
   }
 
-  console.log("");
+  console.log();
+}
+
+function formatAgo(ms: number): string {
+  if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
+  if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
+  if (ms < 86_400_000) return `${Math.round(ms / 3_600_000)}h`;
+  return `${Math.round(ms / 86_400_000)}d`;
 }

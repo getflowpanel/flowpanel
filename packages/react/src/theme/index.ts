@@ -5,7 +5,6 @@ export interface ResolvedTheme {
   radius: string;
   fontSans: string;
   fontMono: string;
-  colorScheme: "dark" | "light" | "auto";
   stageColors: Record<string, string>;
 }
 
@@ -21,22 +20,18 @@ const DEFAULT_PALETTE = [
 ];
 
 export function resolveTheme(config: {
-  theme?: {
-    accent?: string;
-    radius?: string;
-    fontSans?: string;
-    fontMono?: string;
-    colorScheme?: "dark" | "light" | "auto";
-  };
+  theme?: { accent?: string; radius?: string; fontSans?: string; fontMono?: string };
   pipeline: { stages: readonly string[]; stageColors?: Record<string, string> };
 }): ResolvedTheme {
   const sortedStages = [...config.pipeline.stages].sort();
   const stageColors: Record<string, string> = {};
 
   for (let i = 0; i < sortedStages.length; i++) {
-    const stage = sortedStages[i]!;
+    const stage = sortedStages[i] ?? "";
     stageColors[stage] =
-      config.pipeline.stageColors?.[stage] ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length]!;
+      config.pipeline.stageColors?.[stage] ??
+      DEFAULT_PALETTE[i % DEFAULT_PALETTE.length] ??
+      "#818cf8";
   }
 
   return {
@@ -44,7 +39,6 @@ export function resolveTheme(config: {
     radius: config.theme?.radius ?? "12px",
     fontSans: config.theme?.fontSans ?? '"Inter", system-ui, sans-serif',
     fontMono: config.theme?.fontMono ?? '"JetBrains Mono", monospace',
-    colorScheme: config.theme?.colorScheme ?? "auto",
     stageColors,
   };
 }
@@ -62,4 +56,20 @@ export function themeToStyle(theme: ResolvedTheme): CSSProperties {
   }
 
   return vars as unknown as CSSProperties;
+}
+
+/**
+ * Resolve a CSS class name for the requested colorScheme.
+ *
+ * - "auto"  → no class. The user agent's prefers-color-scheme media query decides.
+ * - "dark"  → "fp-dark"  — forces the dark palette even on light systems.
+ * - "light" → "fp-light" — forces the light palette even on dark systems.
+ *
+ * The class is applied to the FlowPanelUI root, and CSS selectors in
+ * `theme/variables.css` override the appropriate custom properties.
+ */
+export function themeToClassName(colorScheme: "dark" | "light" | "auto" | undefined): string {
+  if (colorScheme === "dark") return "fp-dark";
+  if (colorScheme === "light") return "fp-light";
+  return "";
 }

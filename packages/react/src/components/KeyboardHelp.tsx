@@ -1,81 +1,67 @@
 import type React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
-interface KeyboardHelpProps {
+export interface KeyboardHelpProps {
   open: boolean;
   onClose: () => void;
 }
 
-interface ShortcutEntry {
-  keys: string[];
+interface ShortcutRow {
   description: string;
+  keys: string[];
 }
 
-const GROUPS: Array<{ title: string; shortcuts: ShortcutEntry[] }> = [
+interface ShortcutSection {
+  title: string;
+  shortcuts: ShortcutRow[];
+}
+
+const SECTIONS: ShortcutSection[] = [
   {
     title: "Global",
     shortcuts: [
-      { keys: ["⌘", "K"], description: "Open command palette" },
-      { keys: ["1"], description: "Switch to first tab" },
-      { keys: ["2"], description: "Switch to second tab" },
-      { keys: ["3"], description: "Switch to third tab" },
-      { keys: ["Esc"], description: "Close overlay" },
+      { description: "Command palette", keys: ["⌘K"] },
+      { description: "Keyboard shortcuts", keys: ["?"] },
+      { description: "Close", keys: ["Esc"] },
+      { description: "Switch tabs", keys: ["1", "2", "3"] },
     ],
   },
   {
     title: "Run Table",
     shortcuts: [
-      { keys: ["j"], description: "Next row" },
-      { keys: ["k"], description: "Previous row" },
-      { keys: ["↵"], description: "Open run details" },
+      { description: "Navigate rows", keys: ["j", "k"] },
+      { description: "Open detail", keys: ["Enter"] },
+      { description: "Focus search", keys: ["/"] },
     ],
   },
   {
     title: "Drawer",
-    shortcuts: [{ keys: ["Esc"], description: "Close drawer" }],
+    shortcuts: [{ description: "Close", keys: ["Esc"] }],
   },
 ];
 
 const kbdStyle: React.CSSProperties = {
-  display: "inline-block",
-  padding: "2px 6px",
-  fontSize: 11,
-  fontFamily: "var(--fp-font-mono)",
   background: "var(--fp-surface-3)",
+  border: "1px solid var(--fp-border-2)",
   borderRadius: 4,
-  border: "1px solid var(--fp-border-1)",
-  color: "var(--fp-text-2)",
-  lineHeight: 1.4,
-  minWidth: 20,
-  textAlign: "center",
+  fontFamily: "var(--fp-font-mono)",
+  fontSize: 11,
+  color: "var(--fp-text-3)",
+  padding: "2px 6px",
+  lineHeight: "1.4",
 };
 
 export function KeyboardHelp({ open, onClose }: KeyboardHelpProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
-    function handleKey(e: KeyboardEvent) {
+    function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();
       }
     }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open, onClose]);
-
-  // Close on click outside
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
   if (!open) return null;
@@ -85,17 +71,17 @@ export function KeyboardHelp({ open, onClose }: KeyboardHelpProps) {
       {/* Backdrop */}
       <div
         aria-hidden
+        onClick={onClose}
         style={{
           position: "fixed",
           inset: 0,
-          zIndex: 80,
+          zIndex: 50,
           background: "rgba(0,0,0,0.5)",
           backdropFilter: "blur(4px)",
         }}
       />
       {/* Dialog */}
       <div
-        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Keyboard shortcuts"
@@ -104,85 +90,85 @@ export function KeyboardHelp({ open, onClose }: KeyboardHelpProps) {
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
+          zIndex: 51,
           width: 480,
-          maxWidth: "90vw",
-          maxHeight: "80vh",
-          overflowY: "auto",
-          zIndex: 90,
           background: "var(--fp-surface-1)",
-          border: "1px solid var(--fp-border-2)",
-          borderRadius: 12,
-          boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+          border: "1px solid var(--fp-border-1)",
+          borderRadius: "var(--fp-radius-card)",
+          padding: 24,
+          boxShadow: "var(--fp-shadow-md)",
         }}
       >
         {/* Header */}
         <div
           style={{
-            padding: "16px 20px 12px",
-            borderBottom: "1px solid var(--fp-border-1)",
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 20,
           }}
         >
           <span style={{ fontSize: 14, fontWeight: 600, color: "var(--fp-text-1)" }}>
             Keyboard Shortcuts
           </span>
           <button
+            type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label="Close keyboard shortcuts"
             style={{
               background: "none",
               border: "none",
-              color: "var(--fp-text-3)",
               cursor: "pointer",
-              fontSize: 16,
-              padding: "2px 6px",
+              color: "var(--fp-text-3)",
+              fontSize: 18,
+              lineHeight: 1,
+              padding: "0 2px",
+              display: "flex",
+              alignItems: "center",
             }}
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* Groups */}
-        <div style={{ padding: "12px 20px 20px" }}>
-          {GROUPS.map((group) => (
-            <div key={group.title} style={{ marginBottom: 16 }}>
+        {/* Sections */}
+        {SECTIONS.map((section, sectionIdx) => (
+          <div key={section.title} style={{ marginTop: sectionIdx === 0 ? 0 : 16 }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "var(--fp-text-5)",
+                marginBottom: 8,
+              }}
+            >
+              {section.title}
+            </div>
+            {section.shortcuts.map((row) => (
               <div
+                key={row.description}
                 style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: "var(--fp-text-4)",
-                  marginBottom: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "5px 0",
+                  borderBottom: "1px solid var(--fp-border-1)",
                 }}
               >
-                {group.title}
-              </div>
-              {group.shortcuts.map((sc) => (
-                <div
-                  key={sc.description}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "6px 0",
-                  }}
-                >
-                  <span style={{ fontSize: 13, color: "var(--fp-text-2)" }}>{sc.description}</span>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {sc.keys.map((k) => (
-                      <kbd key={k} style={kbdStyle}>
-                        {k}
-                      </kbd>
-                    ))}
-                  </div>
+                <span style={{ fontSize: 13, color: "var(--fp-text-2)" }}>{row.description}</span>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {row.keys.map((k) => (
+                    <kbd key={k} style={kbdStyle}>
+                      {k}
+                    </kbd>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </>
   );

@@ -11,21 +11,25 @@ export function zodTypeToSql(schema: z.ZodTypeAny): string {
   // Unwrap nullable/optional
   const unwrapped =
     schema instanceof z.ZodNullable || schema instanceof z.ZodOptional
-      ? (schema as z.ZodNullable<any> | z.ZodOptional<any>).unwrap()
+      ? // biome-ignore lint/suspicious/noExplicitAny: zod internal type unwrapping
+        (schema as z.ZodNullable<any> | z.ZodOptional<any>).unwrap()
       : schema;
 
   if (unwrapped instanceof z.ZodString) {
+    // biome-ignore lint/suspicious/noExplicitAny: zod internal type unwrapping
     const checks: Array<{ kind: string; value?: number }> = (unwrapped._def as any).checks ?? [];
     const maxCheck = checks.find((c) => c.kind === "max");
     return maxCheck ? `VARCHAR(${maxCheck.value})` : "TEXT";
   }
   if (unwrapped instanceof z.ZodNumber) {
+    // biome-ignore lint/suspicious/noExplicitAny: zod internal type unwrapping
     const checks: Array<{ kind: string }> = (unwrapped._def as any).checks ?? [];
     const isInt = checks.some((c) => c.kind === "int");
     return isInt ? "INTEGER" : "NUMERIC(12,6)";
   }
   if (unwrapped instanceof z.ZodBoolean) return "BOOLEAN";
   if (unwrapped instanceof z.ZodEnum) {
+    // biome-ignore lint/suspicious/noExplicitAny: zod internal type unwrapping
     const values = (unwrapped as z.ZodEnum<any>).options.map((v: string) => `'${v}'`).join(", ");
     return `TEXT CHECK (value IN (${values}))`;
   }
@@ -115,8 +119,8 @@ export function generateSchema(config: {
   run_count     INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (day, partition_key, stage, model)
 );
-CREATE INDEX IF NOT EXISTS ON flowpanel_ai_usage_daily (day DESC);
-CREATE INDEX IF NOT EXISTS ON flowpanel_ai_usage_daily (partition_key, day DESC);`;
+CREATE INDEX IF NOT EXISTS idx_ai_usage_day ON flowpanel_ai_usage_daily (day DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_partition_day ON flowpanel_ai_usage_daily (partition_key, day DESC);`;
 
   const metaTable = `CREATE TABLE IF NOT EXISTS flowpanel_meta (
   key   TEXT PRIMARY KEY,
@@ -138,8 +142,8 @@ CREATE INDEX IF NOT EXISTS ON flowpanel_ai_usage_daily (partition_key, day DESC)
   details     JSONB,
   request_id  TEXT
 );
-CREATE INDEX IF NOT EXISTS ON flowpanel_audit_log (at DESC);
-CREATE INDEX IF NOT EXISTS ON flowpanel_audit_log (user_id, at DESC);`;
+CREATE INDEX IF NOT EXISTS idx_audit_log_at ON flowpanel_audit_log (at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_at ON flowpanel_audit_log (user_id, at DESC);`;
 
   const migrationsTable = `CREATE TABLE IF NOT EXISTS flowpanel_migrations (
   id          TEXT PRIMARY KEY,
@@ -147,6 +151,18 @@ CREATE INDEX IF NOT EXISTS ON flowpanel_audit_log (user_id, at DESC);`;
   checksum    TEXT NOT NULL,
   duration_ms INTEGER NOT NULL
 );`;
+
+  // Events table — backs SSE broker replay and cross-process fan-out.
+  // Either consumed via LISTEN (if adapter supports it) or polled every 2s.
+  // Rows older than 1 hour are garbage collected by the broker.
+  const eventsTable = `CREATE TABLE IF NOT EXISTS flowpanel_events (
+  id         BIGSERIAL PRIMARY KEY,
+  event      TEXT NOT NULL,
+  data       JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_fp_events_created ON flowpanel_events (created_at);
+CREATE INDEX IF NOT EXISTS idx_fp_events_id ON flowpanel_events (id);`;
 
   return [
     `CREATE TABLE IF NOT EXISTS flowpanel_pipeline_run (\n${allCols}\n);`,
@@ -156,6 +172,7 @@ CREATE INDEX IF NOT EXISTS ON flowpanel_audit_log (user_id, at DESC);`;
     metaTable,
     auditTable,
     migrationsTable,
+    eventsTable,
   ]
     .filter(Boolean)
     .join("\n\n");

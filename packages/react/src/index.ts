@@ -1,53 +1,107 @@
-export type { Command } from "./components/CommandPalette.js";
-export { CommandPalette } from "./components/CommandPalette.js";
-export { ErrorBoundary } from "./components/ErrorBoundary.js";
-export { ErrorPanel } from "./components/ErrorPanel.js";
-export { KeyboardHelp } from "./components/KeyboardHelp.js";
-export { SectionHeader } from "./components/SectionHeader.js";
-export { ToastProvider, useToast } from "./components/Toast.js";
-export type { ToastVariant } from "./components/Toast.js";
-export { DemoBanner } from "./components/DemoBanner.js";
-export { Drawer } from "./components/Drawer.js";
-export type { LiveStatus } from "./components/Header.js";
-export { Header } from "./components/Header.js";
-export { MetricCard } from "./components/MetricCard.js";
-export type { RunLogColumn } from "./components/RunTable.js";
-export { RunTable } from "./components/RunTable.js";
-export { StageCard } from "./components/StageCard.js";
-export { StagePill } from "./components/StagePill.js";
-export type { Status } from "./components/StatusTag.js";
-export { StatusTag } from "./components/StatusTag.js";
-export type { TabConfig } from "./components/Tabs.js";
-export { Tabs } from "./components/Tabs.js";
-export type { FlowPanelUIProps } from "./FlowPanelUI.js";
-export { FlowPanelUI } from "./FlowPanelUI.js";
-export type { LiveStatus as StreamLiveStatus, SseEvent } from "./hooks/useFlowPanelStream.js";
-export { useFlowPanelStream } from "./hooks/useFlowPanelStream.js";
-export type { KeyBinding } from "./hooks/useKeyboard.js";
-export { useKeyboard } from "./hooks/useKeyboard.js";
-export type { ResolvedTheme } from "./theme/index.js";
-export { resolveTheme, themeToStyle } from "./theme/index.js";
-export { RunChart } from "./components/RunChart.js";
-export type { RunChartProps } from "./components/RunChart.js";
+export type { Command } from "./components/CommandPalette";
+export { CommandPalette } from "./components/CommandPalette";
+export { DemoBanner } from "./components/DemoBanner";
+export { Drawer } from "./components/Drawer";
+export { ErrorBoundary } from "./components/ErrorBoundary";
+export { ErrorPanel } from "./components/ErrorPanel";
+export type { LiveStatus } from "./components/Header";
+export { Header } from "./components/Header";
+export type { KeyboardHelpProps } from "./components/KeyboardHelp";
+export { KeyboardHelp } from "./components/KeyboardHelp";
+export { MetricCard } from "./components/MetricCard";
+export type { RunChartBucket, RunChartProps } from "./components/RunChart";
+export { RunChart } from "./components/RunChart";
+export type { RunLogColumn } from "./components/RunTable";
+export { RunTable } from "./components/RunTable";
+export { SectionHeader } from "./components/SectionHeader";
+export { StageCard } from "./components/StageCard";
+export { StagePill } from "./components/StagePill";
+export type { Status } from "./components/StatusTag";
+export { StatusTag } from "./components/StatusTag";
+export type { TabConfig } from "./components/Tabs";
+export { Tabs } from "./components/Tabs";
+export { ToastProvider, useToast } from "./components/Toast";
+export { Tooltip } from "./components/Tooltip";
+export { FlowPanelContext, useFlowPanel } from "./context";
+export type { FlowPanelUIProps } from "./FlowPanelUI";
+export { FlowPanelUI } from "./FlowPanelUI";
+export { useDrawerState } from "./hooks/useDrawerState";
+export type {
+  ChartData,
+  DrawerResponse,
+  MetricResult,
+  RunsAction,
+  RunsState,
+  StageBreakdown,
+  TopErrors,
+} from "./hooks/useFlowPanelData";
+export { useFlowPanelData } from "./hooks/useFlowPanelData";
+export { useFlowPanelLive } from "./hooks/useFlowPanelLive";
+export type { LiveStatus as StreamLiveStatus, SseEvent } from "./hooks/useFlowPanelStream";
+export { useFlowPanelStream } from "./hooks/useFlowPanelStream";
+export type { KeyBinding } from "./hooks/useKeyboard";
+export { useKeyboard } from "./hooks/useKeyboard";
+export type { FlowPanelLocale } from "./locale/defaultLocale";
+export { LocaleProvider, useLocale } from "./locale/LocaleContext";
+export type { ResolvedTheme } from "./theme/index";
+export { resolveTheme, themeToClassName, themeToStyle } from "./theme/index";
+export { formatDate } from "./utils/formatDate";
+export { isMac, modKey } from "./utils/platform";
+
+// Resource UI
+export { ResourcePage } from "./resource/ResourcePage";
+export { ResourceTable } from "./resource/ResourceTable";
+export { ResourceToolbar } from "./resource/ResourceToolbar";
+export { ResourceDrawer } from "./resource/ResourceDrawer";
+export { ResourceForm } from "./resource/ResourceForm";
+export { ResourcePagination } from "./resource/ResourcePagination";
+export { ResourceEmptyState } from "./resource/ResourceEmptyState";
+export { ResourceActionButton } from "./resource/ResourceActionButton";
+export { BulkActionBar } from "./resource/BulkActionBar";
+export { CellRenderer } from "./resource/cells";
+export { FilterWidget } from "./resource/filters";
+export { FieldWidget } from "./resource/fields";
+export { useResourceData } from "./hooks/useResourceData";
+export { useUrlState } from "./hooks/useUrlState";
+
+// Queue UI (Phase 2)
+export { QueuePage } from "./queue/QueuePage";
+export { QueueTable } from "./queue/QueueTable";
+export { JobDetail } from "./queue/JobDetail";
+
+// Dashboard (Phase 2)
+export { DashboardPage } from "./dashboard/DashboardPage";
+export type { DashboardPageProps } from "./dashboard/DashboardPage";
+export { MetricWidget } from "./dashboard/widgets/MetricWidget";
+export { ListWidget } from "./dashboard/widgets/ListWidget";
+export { ChartWidget } from "./dashboard/widgets/ChartWidget";
+export { CustomWidget } from "./dashboard/widgets/CustomWidget";
+
+// Layout (Phase 2)
+export { FlowPanelShell } from "./layout/FlowPanelShell";
+export type { FlowPanelShellProps } from "./layout/FlowPanelShell";
+export { Sidebar } from "./layout/Sidebar";
+export type { SidebarNavItem, SidebarNavGroup, SidebarProps } from "./layout/Sidebar";
+export { ShellHeader } from "./layout/ShellHeader";
+export { HeaderControls } from "./layout/HeaderControls";
+export { ThemeToggle } from "./layout/ThemeToggle";
+
+// UI primitives (Phase 2 additions)
+export { Toaster, toast } from "./ui/sonner";
 export {
-  renderDrawerSections,
-  StatGridSection,
-  KvGridSection,
-  TrendChartSection,
-  BreakdownSection,
-  ErrorListSection,
-  ErrorBlockSection,
-  TimelineSection,
-} from "./components/drawer-sections/index.js";
-export { ErrorStateProvider, useErrorState } from "./components/ErrorStateProvider.js";
-export { DrawerFromURL, DrawerSection } from "./drawer/index.js";
-export { useDrawerURL } from "./hooks/useDrawerURL.js";
-export { formatDate } from "./utils/formatDate.js";
-export { FlowPanelContext, useFlowPanelConfig, useFlowPanelContainer } from "./context.js";
-export { FlowPanelProvider } from "./FlowPanelProvider.js";
-export { PipelineView } from "./components/PipelineView.js";
-export { MetricsStrip } from "./components/MetricsStrip.js";
-export { StageCards } from "./components/StageCards.js";
-export { ActivitySection } from "./components/ActivitySection.js";
-export { RunLogSection } from "./components/RunLogSection.js";
-export { StatusOverlays } from "./components/StatusOverlays.js";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
+
+// Confirm dialog helper
+export { ConfirmDialog } from "./components/ConfirmDialog";
+export type { ConfirmDialogProps } from "./components/ConfirmDialog";

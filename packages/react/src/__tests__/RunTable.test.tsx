@@ -1,7 +1,17 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { RunTable } from "../components/RunTable.js";
-import type { RunLogColumn } from "../components/RunTable.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { FlowPanelContext } from "../context";
+import { LocaleProvider } from "../locale/LocaleContext";
+import type { RunLogColumn } from "../components/RunTable";
+import { RunTable } from "../components/RunTable";
+
+function TestWrap({ children }: { children: React.ReactNode }) {
+  return (
+    <LocaleProvider>
+      <FlowPanelContext.Provider value={{ timezone: "UTC" }}>{children}</FlowPanelContext.Provider>
+    </LocaleProvider>
+  );
+}
 
 const columns: RunLogColumn[] = [
   { field: "id", label: "Run ID", width: 90, mono: true },
@@ -16,24 +26,36 @@ describe("RunTable", () => {
   });
 
   it("renders empty state when no runs", () => {
-    render(<RunTable runs={[]} columns={columns} stageColors={stageColors} />);
-    expect(screen.getByText("No runs yet")).toBeInTheDocument();
+    render(
+      <TestWrap>
+        <RunTable runs={[]} columns={columns} stageColors={stageColors} />
+      </TestWrap>,
+    );
+    expect(screen.getByText(/no pipeline runs yet/i)).toBeInTheDocument();
   });
 
-  it("filters runs by status chip", () => {
-    const onStatusFilter = vi.fn();
+  it("filters runs by status chip — failed-only hides succeeded rows", () => {
+    const runs = [
+      { id: "1", status: "succeeded" },
+      { id: "2", status: "failed" },
+      { id: "3", status: "running" },
+    ];
+
     render(
-      <RunTable
-        runs={[]}
-        columns={columns}
-        stageColors={stageColors}
-        onStatusFilter={onStatusFilter}
-        activeStatusFilter={null}
-      />,
+      <TestWrap>
+        <RunTable runs={runs} columns={columns} stageColors={stageColors} />
+      </TestWrap>,
     );
 
-    fireEvent.click(screen.getByText("Failed"));
-    expect(onStatusFilter).toHaveBeenCalledWith("failed");
+    // All 3 visible initially
+    expect(screen.getAllByRole("row")).toHaveLength(4); // 3 rows + 1 header
+
+    // Click "Failed" chip (button role distinguishes it from status cells)
+    fireEvent.click(screen.getByRole("button", { name: "Failed" }));
+
+    // Only the failed row remains (plus header)
+    expect(screen.getAllByRole("row")).toHaveLength(2);
+    expect(screen.getByText("2")).toBeInTheDocument();
   });
 
   it("navigates rows with j/k keys", () => {
@@ -43,12 +65,16 @@ describe("RunTable", () => {
       { id: "3", status: "running" },
     ];
 
-    render(<RunTable runs={runs} columns={columns} stageColors={stageColors} />);
+    render(
+      <TestWrap>
+        <RunTable runs={runs} columns={columns} stageColors={stageColors} />
+      </TestWrap>,
+    );
     const table = screen.getByRole("table");
 
     fireEvent.keyDown(table, { key: "j" });
     const rows = screen.getAllByRole("row");
-    // After pressing j, the second data row (index 1) should be selected
+    // Header row + 3 data rows. Index 0 is default, j moves to index 1 (second data row).
     expect(rows[2]).toHaveAttribute("aria-selected", "true");
 
     fireEvent.keyDown(table, { key: "k" });

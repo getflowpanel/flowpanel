@@ -1,4 +1,4 @@
-import type { FlowPanelConfig } from "./schema.js";
+import type { FlowPanelConfig } from "./schema";
 
 export class ConfigValidationError extends Error {
   constructor(message: string) {

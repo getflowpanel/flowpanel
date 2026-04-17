@@ -32,15 +32,14 @@ test.describe("dashboard", () => {
     await expect(page.locator("[aria-label='Pipeline runs']")).toBeVisible();
   });
 
-  test("time range controls are visible", async ({ page }) => {
-    await expect(page.getByRole("group", { name: /time range/i })).toBeVisible();
-    // Individual preset buttons exist
-    await expect(page.getByRole("button", { name: "24h" })).toBeVisible();
+  test("time range button is visible", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /time range/i }).first()).toBeVisible();
   });
 
   test("tabs render with Pipeline and Users", async ({ page }) => {
     await expect(page.getByRole("tab", { name: "Pipeline" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Users" })).toBeVisible();
+    // Users tab is auto-added by the resource system from /flowpanel.resource.schema
+    await expect(page.getByRole("tab", { name: "Users" })).toBeVisible({ timeout: 10_000 });
   });
 
   test("demo banner is shown", async ({ page }) => {

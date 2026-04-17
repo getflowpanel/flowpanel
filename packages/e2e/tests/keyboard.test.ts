@@ -4,8 +4,9 @@ test.describe("keyboard shortcuts", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/admin");
     await page.waitForSelector("[data-testid='fp-root']");
-    // Click body to ensure page has focus
-    await page.click("body");
+    // Click the active Pipeline tab to give the page keyboard focus
+    // without triggering any drawers or interactive data elements
+    await page.getByRole("tab", { name: "Pipeline" }).click();
   });
 
   test("Cmd+K opens command palette", async ({ page }) => {
@@ -36,6 +37,8 @@ test.describe("keyboard shortcuts", () => {
 
   test("command palette filters commands", async ({ page }) => {
     await page.keyboard.press("Meta+k");
+    // Wait for palette input to be focused before typing
+    await page.waitForSelector("[role='dialog'][aria-label='Command palette'] input");
     await page.keyboard.type("24");
     await expect(page.getByRole("option", { name: /24h/ })).toBeVisible();
   });

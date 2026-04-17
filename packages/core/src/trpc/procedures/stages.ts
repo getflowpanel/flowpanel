@@ -1,8 +1,10 @@
 import { z } from "zod";
-import type { FlowPanelContext } from "../context.js";
+import type { FlowPanelContext } from "../context";
 
 export function createStagesProcedures(
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
   t: { procedure: any; router: (routes: any) => any },
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
   authedProcedure: any,
 ) {
   return t.router({
@@ -12,6 +14,7 @@ export function createStagesProcedures(
           timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
         }),
       )
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
       .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
         const { db, config } = ctx;
         const stages = config.pipeline.stages;
@@ -49,6 +52,7 @@ export function createStagesProcedures(
           const row = byStage.get(stage);
           return {
             stage,
+            // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
             color: (config.pipeline as any).stageColors?.[stage] ?? null,
             total: Number(row?.total ?? 0),
             succeeded: Number(row?.succeeded ?? 0),

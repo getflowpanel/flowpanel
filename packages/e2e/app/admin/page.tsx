@@ -9,8 +9,18 @@ const mockConfig = {
     stages: ["parse", "score", "draft", "notify"],
   },
   metrics: {
-    totalRuns: { label: "Total runs" },
+    totalRuns: { label: "Total runs", drawer: "overview" },
     successRate: { label: "Success rate" },
+  },
+  drawers: {
+    overview: {
+      title: "Pipeline Overview",
+      sections: [
+        { type: "stat-grid" as const },
+        { type: "trend-chart" as const },
+        { type: "breakdown" as const, groupBy: "stage" as const },
+      ],
+    },
   },
   timeRange: {
     default: "24h",
@@ -18,8 +28,9 @@ const mockConfig = {
   },
   tabs: [
     { id: "pipeline", label: "Pipeline", view: "pipeline" as const },
-    { id: "users", label: "Users", view: "userList" as const },
+    // "Users" is provided by the resource system (auto-added from schema fetch)
   ],
+  // biome-ignore lint/suspicious/noExplicitAny: e2e mock config cast
 } as any;
 
 export default function AdminPage() {

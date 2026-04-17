@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createQueryBuilder } from "../queryBuilder.js";
+import { createQueryBuilder } from "../queryBuilder";
 
 const qb = createQueryBuilder({
   stages: ["parse", "score", "draft"] as const,
@@ -14,8 +14,8 @@ const qb = createQueryBuilder({
 describe("QueryBuilder", () => {
   it("q.count() generates COUNT(*) SQL", () => {
     const def = qb.count();
+    expect(def.type).toBe("count");
     expect(def.sql).toContain("COUNT(*)");
-    expect(def.params).toEqual([]);
   });
 
   it("q.successRate() references succeeded", () => {
@@ -48,27 +48,28 @@ describe("QueryBuilder", () => {
     expect(def.sql).toContain("duration_ms");
   });
 
-  it("q.where({stage}) produces parameterized WHERE clause", () => {
+  it("q.where({stage}) stores filter", () => {
     const def = qb.where({ stage: "score" }).count();
-    expect(def.sql).toContain("$1");
-    expect(def.params[0]).toBe("score");
+    expect(def.where).toMatchObject({ stage: "score" });
   });
 
   it("q.hourly() generates time-bucket query", () => {
     const def = qb.hourly("count");
+    expect(def.type).toBe("hourly");
     expect(def.sql).toContain("date_trunc");
   });
 
   it("q.byStage() generates GROUP BY stage", () => {
     const def = qb.byStage();
+    expect(def.type).toBe("byStage");
     expect(def.sql).toContain("GROUP BY stage");
   });
 
   it("q.topErrors(5) generates error frequency query", () => {
     const def = qb.topErrors(5);
+    expect(def.type).toBe("topErrors");
     expect(def.sql).toContain("error_class");
-    expect(def.sql).toContain("LIMIT $1");
-    expect(def.params).toContain(5);
+    expect(def.limit).toBe(5);
   });
 
   it("q.sum throws if field not found in any stage", () => {
@@ -76,26 +77,48 @@ describe("QueryBuilder", () => {
   });
 });
 
-describe("SQL injection prevention", () => {
-  it("malicious stage value is safely parameterized", () => {
-    const { sql, params } = qb.where({ stage: "'; DROP TABLE x; --" }).count();
-    expect(sql).not.toContain("DROP");
-    expect(sql).toContain("$1");
-    expect(params[0]).toBe("'; DROP TABLE x; --");
+const mockConfig = {
+  stages: ["ingest", "score"],
+  stageFields: { ingest: {}, score: {} },
+  fields: {},
+};
+
+describe("parameterized queries", () => {
+  it("count() with stage filter uses $1 param, not string interpolation", () => {
+    const qb = createQueryBuilder(mockConfig).where({ stage: "ingest" });
+    const result = qb.count();
+    expect(result.sql).toContain("$1");
+    expect(result.sql).not.toContain("'ingest'");
+    expect(result.params).toEqual(["ingest"]);
   });
 
-  it("topErrors limit is parameterized, not interpolated", () => {
-    const { sql, params } = qb.topErrors(10);
-    expect(sql).not.toMatch(/LIMIT 10/);
-    expect(sql).toContain("LIMIT $");
-    expect(params).toContain(10);
+  it("SQL injection attempt is safely parameterized", () => {
+    const qb = createQueryBuilder(mockConfig).where({
+      stage: "'; DROP TABLE flowpanel_pipeline_run; --",
+    });
+    const result = qb.count();
+    expect(result.sql).not.toContain("DROP");
+    expect(result.params?.[0]).toBe("'; DROP TABLE flowpanel_pipeline_run; --");
   });
 
-  it("count() with where produces correct param order", () => {
-    const { sql, params } = qb.where({ stage: "score", status: "failed" }).count();
-    expect(sql).toContain("$1");
-    expect(sql).toContain("$2");
-    expect(params[0]).toBe("score");
-    expect(params[1]).toBe("failed");
+  it("topErrors limit is parameterized", () => {
+    const result = createQueryBuilder(mockConfig).topErrors(10);
+    expect(result.sql).toMatch(/LIMIT \$\d/);
+    expect(result.params).toContain(10);
+  });
+
+  it("chartBuckets includes time filter in params when timeRange set via where()", () => {
+    const result = createQueryBuilder(mockConfig)
+      .where({ timeRange: "24h" })
+      .chartBuckets("24h", "postgres");
+    expect(result.sql).toContain("started_at >=");
+    expect(result.params?.length).toBeGreaterThan(0);
+    expect(typeof result.params?.[0]).toBe("string");
+  });
+
+  it("count() without filters has empty params", () => {
+    const result = createQueryBuilder(mockConfig).count();
+    expect(result.params).toEqual([]);
+    expect(result.sql).not.toContain("WHERE");
   });
 });

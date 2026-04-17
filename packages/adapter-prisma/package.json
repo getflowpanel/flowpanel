@@ -1,20 +1,19 @@
 {
   "name": "@flowpanel/adapter-prisma",
   "version": "0.1.0",
-  "description": "Prisma ORM database adapter for FlowPanel",
+  "description": "Prisma adapter for FlowPanel",
   "keywords": [
     "flowpanel",
-    "admin",
-    "pipeline",
-    "dashboard"
+    "prisma",
+    "adapter",
+    "orm"
   ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Ch4m4/flowpanel",
     "directory": "packages/adapter-prisma"
   },
-  "license": "MIT",
-  "homepage": "https://flowpanel.dev",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -27,22 +26,28 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run src/__tests__/metadata.test.ts src/__tests__/filters.test.ts",
+    "test:integration": "vitest run --project integration"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "peerDependencies": {
     "@prisma/client": ">=5.0.0"
   },
+  "files": [
+    "dist"
+  ],
   "dependencies": {
     "@flowpanel/core": "workspace:*",
     "pg": "^8.11.0"
-  },
-  "engines": {
-    "node": ">=18"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.11.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^1.0.0"
   }
 }

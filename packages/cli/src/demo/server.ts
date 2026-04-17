@@ -1,11 +1,53 @@
+import * as fs from "node:fs";
 import { createServer } from "node:http";
-import { handleTrpcRequest, createSSESimulation } from "./mock-router.js";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createSSESimulation, handleTrpcRequest } from "./mock-router";
 
-export function startDemoServer(port: number): Promise<{ close: () => void }> {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function serveDemoPanel(
+  res: import("node:http").ServerResponse,
+  config: Record<string, unknown>,
+): void {
+  const templatePath = path.join(__dirname, "panel", "template.html");
+  let html: string;
+
+  try {
+    html = fs.readFileSync(templatePath, "utf8");
+  } catch {
+    html = `<!DOCTYPE html><html><body><pre>Demo panel not built. Run: pnpm build</pre></body></html>`;
+  }
+
+  html = html.replace("__CONFIG_JSON__", JSON.stringify(config));
+  res.writeHead(200, { "Content-Type": "text/html" });
+  res.end(html);
+}
+
+function serveStaticAsset(
+  res: import("node:http").ServerResponse,
+  filePath: string,
+  contentType: string,
+): void {
+  try {
+    const content = fs.readFileSync(filePath);
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end(content);
+  } catch {
+    res.writeHead(404);
+    res.end("Not found");
+  }
+}
+
+export function startDemoServer(
+  port: number,
+  demoConfig: Record<string, unknown>,
+): Promise<{ close: () => void }> {
   const sse = createSSESimulation();
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+    const pathname = url.pathname;
 
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -13,6 +55,24 @@ export function startDemoServer(port: number): Promise<{ close: () => void }> {
     if (req.method === "OPTIONS") {
       res.writeHead(200);
       res.end();
+      return;
+    }
+
+    // Static assets for demo panel
+    if (pathname === "/__fp/panel.js") {
+      serveStaticAsset(res, path.join(__dirname, "..", "demo-panel.js"), "application/javascript");
+      return;
+    }
+
+    if (pathname === "/__fp/theme.css") {
+      const reactDist = path.join(__dirname, "..", "..", "react", "dist");
+      serveStaticAsset(res, path.join(reactDist, "theme", "variables.css"), "text/css");
+      return;
+    }
+
+    if (pathname === "/__fp/styles.css") {
+      const reactDist = path.join(__dirname, "..", "..", "react", "dist");
+      serveStaticAsset(res, path.join(reactDist, "styles.css"), "text/css");
       return;
     }
 
@@ -46,19 +106,8 @@ export function startDemoServer(port: number): Promise<{ close: () => void }> {
       return;
     }
 
-    if (url.pathname === "/" || url.pathname === "/admin") {
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(
-        `<!DOCTYPE html><html><head><meta charset="utf-8"><title>FlowPanel Demo</title>` +
-          `<style>body{font-family:system-ui;background:#0F172A;color:#e2e8f0;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}` +
-          `.card{background:#1e293b;padding:32px;border-radius:12px;text-align:center;max-width:480px}` +
-          `h1{color:#38BDF8;margin-bottom:8px}p{color:#94a3b8;font-size:14px;line-height:1.6}` +
-          `code{background:#0f172a;padding:2px 6px;border-radius:4px;font-size:13px}</style></head>` +
-          `<body><div class="card"><h1>&#9670; FlowPanel Demo</h1>` +
-          `<p>Demo server running on port ${port}.</p>` +
-          `<p>API: <code>/api/trpc/*</code> &middot; SSE: <code>/api/trpc/flowpanel.stream.connect</code></p>` +
-          `</div></body></html>`,
-      );
+    if (pathname === "/" || pathname === "/admin") {
+      serveDemoPanel(res, demoConfig);
       return;
     }
 

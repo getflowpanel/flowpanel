@@ -1,25 +1,27 @@
-import { Component } from "react";
-import type { ErrorInfo, ReactNode } from "react";
+import React from "react";
 
-interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null };
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[FlowPanel] Caught render error:", error, info.componentStack);
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[FlowPanel] Component error:", error, info.componentStack);
   }
 
   render() {
@@ -28,34 +30,47 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div
           style={{
+            borderLeft: "3px solid var(--fp-err)",
+            background: "rgba(239,68,68,0.05)",
+            borderRadius: "var(--fp-radius-sm)",
             padding: 16,
-            background: "var(--fp-surface-1)",
-            border: "1px solid var(--fp-err)",
-            borderRadius: "var(--fp-radius-lg)",
-            color: "var(--fp-text-2)",
-            fontSize: 13,
+            margin: "12px 0",
           }}
         >
-          <div style={{ color: "var(--fp-err)", marginBottom: 8, fontWeight: 600 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--fp-text-1)",
+              marginBottom: 6,
+            }}
+          >
             Something went wrong
           </div>
-          <div style={{ fontFamily: "var(--fp-font-mono)", fontSize: 11, marginBottom: 12 }}>
-            {this.state.error?.message}
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--fp-text-3)",
+              fontFamily: "var(--fp-font-mono)",
+            }}
+          >
+            {this.state.error?.message ?? "Unknown error"}
           </div>
           <button
             type="button"
             onClick={() => this.setState({ hasError: false, error: null })}
             style={{
-              padding: "4px 10px",
+              marginTop: 10,
+              padding: "5px 10px",
+              fontSize: 12,
               background: "var(--fp-surface-3)",
               border: "1px solid var(--fp-border-2)",
-              borderRadius: "var(--fp-radius-sm)",
-              color: "var(--fp-text-1)",
+              borderRadius: 6,
+              color: "var(--fp-text-2)",
               cursor: "pointer",
-              fontSize: 12,
             }}
           >
-            Try again
+            Reload
           </button>
         </div>
       );

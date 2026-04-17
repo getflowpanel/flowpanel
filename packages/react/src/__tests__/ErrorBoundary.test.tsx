@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ErrorBoundary } from "../components/ErrorBoundary.js";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 function Bomb(): JSX.Element {
   throw new Error("Boom!");

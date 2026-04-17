@@ -7,7 +7,7 @@ export default defineConfig({
   workers: 1,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:3099",
+    baseURL: "http://localhost:3100",
     trace: "on-first-retry",
   },
   projects: [
@@ -16,12 +16,10 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: "pnpm dev",
-        url: "http://localhost:3099",
-        reuseExistingServer: true,
-        timeout: 120_000,
-      },
+  webServer: {
+    command: "pnpm dev",
+    url: "http://localhost:3100/admin",
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
 });

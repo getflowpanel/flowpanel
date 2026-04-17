@@ -1,15 +1,22 @@
 import { initTRPC } from "@trpc/server";
-import type { FlowPanelConfig } from "../config/schema.js";
-import type { FlowPanelContext } from "./context.js";
-import { createAuditLogMiddleware } from "./middleware/auditLog.js";
-import { createAuthMiddleware } from "./middleware/auth.js";
-import { createRateLimitMiddleware } from "./middleware/rateLimit.js";
-import { createDrawersProcedures } from "./procedures/drawers.js";
-import { createMetricsProcedures } from "./procedures/metrics.js";
-import { createRunsProcedures } from "./procedures/runs.js";
-import { createStagesProcedures } from "./procedures/stages.js";
-import { createStreamProcedure } from "./procedures/stream.js";
-import { createUsersProcedures } from "./procedures/users.js";
+import type { FlowPanelConfig } from "../config/schema";
+import type { ResolvedQueue } from "../queue/types";
+import type { ResourceAdapter, ResolvedResource } from "../resource/types";
+import type { SqlExecutor } from "../types/db";
+import type { ResolvedWidget } from "../widget/types";
+import type { FlowPanelContext } from "./context";
+import { createAuditLogMiddleware } from "./middleware/auditLog";
+import { createAuthMiddleware } from "./middleware/auth";
+import { createRateLimitMiddleware } from "./middleware/rateLimit";
+import { createDashboardProcedures } from "./procedures/dashboard";
+import { createDrawersProcedures } from "./procedures/drawers";
+import { createMetricsProcedures } from "./procedures/metrics";
+import { createQueueProcedures } from "./procedures/queues";
+import { createResourceProcedures } from "./procedures/resources";
+import { createRunsProcedures } from "./procedures/runs";
+import { createStagesProcedures } from "./procedures/stages";
+import { createStreamProcedure } from "./procedures/stream";
+import { createUsersProcedures } from "./procedures/users";
 
 export function createFlowPanelRouter<TContext extends object>({
   t,
@@ -17,14 +24,24 @@ export function createFlowPanelRouter<TContext extends object>({
   getRequest,
 }: {
   t: ReturnType<typeof initTRPC.context<TContext>>;
-  config: { config: FlowPanelConfig; getDb: () => Promise<any> };
+  config: {
+    config: FlowPanelConfig;
+    getDb: () => Promise<SqlExecutor>;
+    resources?: Record<string, ResolvedResource>;
+    resourceAdapter?: ResourceAdapter;
+    dashboard?: ResolvedWidget[];
+    queues?: Record<string, ResolvedQueue>;
+  };
   getRequest: (ctx: TContext) => Request;
 }) {
   // Create a new tRPC instance scoped to FlowPanelContext
   const fp = initTRPC.context<FlowPanelContext>().create();
 
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
   const authMiddleware = createAuthMiddleware(fp as any);
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
   const auditMiddleware = createAuditLogMiddleware(fp as any);
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
   const rateLimitMiddleware = createRateLimitMiddleware(fp as any);
 
   const authedProcedure = fp.procedure
@@ -33,27 +50,48 @@ export function createFlowPanelRouter<TContext extends object>({
     .use(auditMiddleware);
 
   const router = fp.router({
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     runs: createRunsProcedures(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     metrics: createMetricsProcedures(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     drawers: createDrawersProcedures(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     stages: createStagesProcedures(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     users: createUsersProcedures(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     stream: createStreamProcedure(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+    resource: createResourceProcedures(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+    dashboard: createDashboardProcedures(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+    queue: createQueueProcedures(fp as any, authedProcedure),
   });
 
   // Wrap in a procedure that translates from the user's context to FlowPanelContext
-  return (t as any).procedure
-    .use(async ({ ctx, next }: any) => {
-      const req = getRequest(ctx);
-      const db = await config.getDb();
-      return next({
-        ctx: {
-          config: config.config,
-          db,
-          session: null,
-          req,
-        } as FlowPanelContext,
-      });
-    })
-    .use(router as any);
+  return (
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+    (t as any).procedure
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+      .use(async ({ ctx, next }: any) => {
+        const req = getRequest(ctx);
+        const db = await config.getDb();
+        return next({
+          ctx: {
+            config: config.config,
+            db,
+            session: null,
+            req,
+            resources: config.resources,
+            resourceAdapter: config.resourceAdapter,
+            dashboard: config.dashboard,
+            queues: config.queues,
+          } as FlowPanelContext,
+        });
+      })
+      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+      .use(router as any)
+  );
 }
