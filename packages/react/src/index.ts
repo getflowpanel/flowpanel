@@ -56,8 +56,52 @@ export { ResourceDrawer } from "./resource/ResourceDrawer";
 export { ResourceForm } from "./resource/ResourceForm";
 export { ResourcePagination } from "./resource/ResourcePagination";
 export { ResourceEmptyState } from "./resource/ResourceEmptyState";
+export { ResourceActionButton } from "./resource/ResourceActionButton";
+export { BulkActionBar } from "./resource/BulkActionBar";
 export { CellRenderer } from "./resource/cells";
 export { FilterWidget } from "./resource/filters";
 export { FieldWidget } from "./resource/fields";
 export { useResourceData } from "./hooks/useResourceData";
 export { useUrlState } from "./hooks/useUrlState";
+
+// Queue UI (Phase 2)
+export { QueuePage } from "./queue/QueuePage";
+export { QueueTable } from "./queue/QueueTable";
+export { JobDetail } from "./queue/JobDetail";
+
+// Dashboard (Phase 2)
+export { DashboardPage } from "./dashboard/DashboardPage";
+export type { DashboardPageProps } from "./dashboard/DashboardPage";
+export { MetricWidget } from "./dashboard/widgets/MetricWidget";
+export { ListWidget } from "./dashboard/widgets/ListWidget";
+export { ChartWidget } from "./dashboard/widgets/ChartWidget";
+export { CustomWidget } from "./dashboard/widgets/CustomWidget";
+
+// Layout (Phase 2)
+export { FlowPanelShell } from "./layout/FlowPanelShell";
+export type { FlowPanelShellProps } from "./layout/FlowPanelShell";
+export { Sidebar } from "./layout/Sidebar";
+export type { SidebarNavItem, SidebarNavGroup, SidebarProps } from "./layout/Sidebar";
+export { ShellHeader } from "./layout/ShellHeader";
+export { HeaderControls } from "./layout/HeaderControls";
+export { ThemeToggle } from "./layout/ThemeToggle";
+
+// UI primitives (Phase 2 additions)
+export { Toaster, toast } from "./ui/sonner";
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
+
+// Confirm dialog helper
+export { ConfirmDialog } from "./components/ConfirmDialog";
+export type { ConfirmDialogProps } from "./components/ConfirmDialog";

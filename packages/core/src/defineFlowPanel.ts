@@ -1,6 +1,8 @@
 import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema";
 import { validateConfig } from "./config/validate";
 import { createQueryBuilder, type QueryBuilder } from "./queryBuilder";
+import { resolveQueues, serializeQueues } from "./queue/resolver";
+import type { QueueAdapter, ResolvedQueue, SerializedQueue } from "./queue/types";
 import { createReaper } from "./reaper";
 import { resolveResource } from "./resource/resolver";
 import { serializeResource } from "./resource/serializer";
@@ -11,6 +13,8 @@ import type {
   SerializedResource,
 } from "./resource/types";
 import type { SqlExecutor, SqlExecutorFactory } from "./types/db";
+import { resolveDashboard as resolveDashboardFn } from "./widget/builder";
+import { serializeDashboard } from "./widget/serializer";
 import { createWithRun } from "./withRun";
 
 // ---------------------------------------------------------------------------
@@ -114,6 +118,8 @@ function detectAdapter(input: unknown): AdapterResult {
 export interface FlowPanelSchema {
   appName: string;
   resources?: Record<string, SerializedResource>;
+  dashboard?: import("./widget/types").SerializedWidget[];
+  queues?: Record<string, SerializedQueue>;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,6 +132,8 @@ export interface FlowPanelRouterConfig {
   getDb: () => Promise<SqlExecutor>;
   resources?: Record<string, ResolvedResource>;
   resourceAdapter?: ResourceAdapter;
+  dashboard?: import("./widget/types").ResolvedWidget[];
+  queues?: Record<string, ResolvedQueue>;
 }
 
 export interface FlowPanel<TConfig extends FlowPanelConfig = FlowPanelConfig> {
@@ -141,6 +149,8 @@ export interface FlowPanel<TConfig extends FlowPanelConfig = FlowPanelConfig> {
   // v2 resource fields
   resources?: Record<string, ResolvedResource>;
   resourceAdapter?: ResourceAdapter;
+  dashboard?: import("./widget/types").ResolvedWidget[];
+  queues?: Record<string, ResolvedQueue>;
   getSchema(sessionRoles?: string[]): FlowPanelSchema;
 
   /** Returns the config object needed by createFlowPanelRouter. */
@@ -164,6 +174,10 @@ export interface FlowPanelV2Extensions {
   resources?:
     | Record<string, ResourceDescriptor>
     | ((fp: ResourceFactory) => Record<string, ResourceDescriptor>);
+  /** Dashboard widgets — array or builder function. */
+  dashboard?: import("./widget/types").DashboardConfig;
+  /** Queue adapters keyed by id. Each shows up as its own tab in the admin. */
+  queues?: Record<string, QueueAdapter>;
 }
 
 export interface ResourceFactory {
@@ -233,6 +247,8 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     rowLevel: _rowLevel,
     audit: _audit,
     resources: resourcesConfig,
+    dashboard: dashboardConfig,
+    queues: queuesConfig,
     ...baseConfig
   } = rawConfig as TConfig & FlowPanelV2Extensions & Record<string, unknown>;
 
@@ -306,6 +322,16 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
       resolvedResources[key] = resolveResource(key, descriptor, metadata);
     }
   }
+
+  // ---- Dashboard resolution ------------------------------------------------
+  const resolvedDashboard: import("./widget/types").ResolvedWidget[] | undefined = dashboardConfig
+    ? resolveDashboardFn(dashboardConfig as import("./widget/types").DashboardConfig)
+    : undefined;
+
+  // ---- Queue resolution ----------------------------------------------------
+  const resolvedQueuesMap = queuesConfig
+    ? resolveQueues(queuesConfig as Record<string, QueueAdapter>)
+    : undefined;
 
   // ---- Existing pipeline setup (unchanged) ---------------------------------
   const cwd = process.cwd();
@@ -382,6 +408,8 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
             ]),
           )
         : undefined,
+      dashboard: resolvedDashboard ? serializeDashboard(resolvedDashboard) : undefined,
+      queues: resolvedQueuesMap ? serializeQueues(resolvedQueuesMap) : undefined,
     };
   }
 
@@ -391,6 +419,8 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
       getDb,
       resources: resolvedResources,
       resourceAdapter,
+      dashboard: resolvedDashboard,
+      queues: resolvedQueuesMap,
     };
   }
 
@@ -404,6 +434,8 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     // v2 fields
     resources: resolvedResources,
     resourceAdapter,
+    dashboard: resolvedDashboard,
+    queues: resolvedQueuesMap,
     getSchema,
     getRouterConfig,
   };
