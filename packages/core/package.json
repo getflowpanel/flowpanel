@@ -1,20 +1,21 @@
 {
   "name": "@flowpanel/core",
   "version": "0.1.0",
-  "description": "Config-driven admin panel framework for Node.js pipelines",
+  "description": "Core logic for FlowPanel pipeline dashboards",
   "keywords": [
     "flowpanel",
     "admin",
     "pipeline",
-    "dashboard"
+    "dashboard",
+    "trpc"
   ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Ch4m4/flowpanel",
     "directory": "packages/core"
   },
-  "license": "MIT",
-  "homepage": "https://flowpanel.dev",
+  "homepage": "https://github.com/Ch4m4/flowpanel",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -32,8 +33,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "test:unit": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@trpc/server": "^11.16.0",

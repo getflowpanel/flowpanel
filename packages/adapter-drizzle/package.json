@@ -1,20 +1,19 @@
 {
   "name": "@flowpanel/adapter-drizzle",
   "version": "0.1.0",
-  "description": "Drizzle ORM database adapter for FlowPanel",
+  "description": "Drizzle ORM adapter for FlowPanel",
   "keywords": [
     "flowpanel",
-    "admin",
-    "pipeline",
-    "dashboard"
+    "drizzle",
+    "adapter",
+    "orm"
   ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Ch4m4/flowpanel",
     "directory": "packages/adapter-drizzle"
   },
-  "license": "MIT",
-  "homepage": "https://flowpanel.dev",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -32,14 +31,14 @@
     "test:integration:stop-db": "docker compose -f docker-compose.test.yml down",
     "test:integration": "pnpm test:integration:start-db && vitest run --project integration; pnpm test:integration:stop-db"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "peerDependencies": {
     "drizzle-orm": ">=0.30.0"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*"
-  },
-  "engines": {
-    "node": ">=18"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
