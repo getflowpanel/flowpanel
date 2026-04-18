@@ -1,14 +1,15 @@
-import { cleanup, render, screen, act } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { ToastProvider, useToast } from "../components/Toast.js";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider, useToast } from "../components/Toast";
 
 function ToastTrigger({ messages }: { messages?: string[] }) {
   const { toast } = useToast();
   return (
     <button
+      type="button"
       onClick={() => {
         for (const msg of messages ?? ["Hello"]) {
-          toast(msg);
+          toast({ message: msg });
         }
       }}
     >

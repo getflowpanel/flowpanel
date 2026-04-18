@@ -15,6 +15,10 @@ interface StreamOptions {
   maxRetries?: number;
 }
 
+/**
+ * SSE streaming hook with automatic reconnection and polling fallback.
+ * Returns live connection status: "live" | "reconnecting" | "polling" | "paused".
+ */
 export function useFlowPanelStream({
   url,
   onEvent,

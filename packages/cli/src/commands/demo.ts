@@ -1,85 +1,109 @@
-import { exec } from "node:child_process";
 import kleur from "kleur";
-import { startDemoServer } from "../demo/server.js";
-import { createSSESimulation } from "../demo/mock-router.js";
+import ora from "ora";
+import { loadConfig } from "../loadConfig";
 
-interface DemoOptions {
-  port: number;
-  clear: boolean;
-  open: boolean;
-}
+export async function runDemo() {
+  const spinner = ora("Loading config...").start();
 
-function formatTime(date: Date): string {
-  return date.toTimeString().slice(0, 8);
-}
-
-function formatDuration(ms: number): string {
-  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
-}
-
-function openBrowser(url: string): void {
-  const cmd =
-    process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  exec(`${cmd} ${url}`);
-}
-
-export async function runDemo(opts: DemoOptions): Promise<void> {
-  if (opts.clear) {
-    const { runDemoClear } = await import("./demo-clear.js");
-    await runDemoClear();
-    return;
+  let config: Awaited<ReturnType<typeof loadConfig>>;
+  try {
+    config = await loadConfig();
+  } catch (err) {
+    spinner.fail("Could not load flowpanel.config.ts");
+    console.error(kleur.red(`  ${err}`));
+    process.exit(1);
   }
 
-  const port = opts.port;
-
-  console.log(kleur.bold().cyan("\n  ◆ FlowPanel v0.1.0\n"));
-  console.log(kleur.gray(`  Starting demo server on port ${port}...\n`));
-
-  const { close } = await startDemoServer(port);
-  const url = `http://localhost:${port}`;
-
-  console.log(kleur.green(`  ✓ Demo server ready: ${kleur.bold(url)}`));
-  console.log(kleur.gray(`  API: ${url}/api/trpc/*`));
-  console.log(kleur.gray(`  SSE: ${url}/api/trpc/flowpanel.stream.connect\n`));
-  console.log(kleur.gray("  Press Ctrl+C to stop\n"));
-
-  if (opts.open) {
-    openBrowser(url);
+  const db = await config.getDb();
+  if (!db) {
+    spinner.fail("No adapter configured");
+    process.exit(1);
   }
 
-  const sse = createSSESimulation();
-  const interval = setInterval(() => {
-    const event = sse.generateEvent();
-    const now = formatTime(new Date());
-    const data = event.data as Record<string, unknown>;
-    const id = `#${data.id}`;
+  spinner.text = "Seeding 500 demo runs...";
 
-    if (event.event === "run.created") {
-      const stage = (data.stage as string).padEnd(10);
-      console.log(
-        `  ${kleur.gray(now)}  ${kleur.cyan("run.created")}   ${kleur.bold(id.padEnd(7))}  ${kleur.magenta(stage)}  ${data.partition_key}`,
-      );
-    } else if (event.event === "run.finished") {
-      const status = data.status as string;
-      const durationMs = data.durationMs as number;
-      const marker =
-        status === "ok"
-          ? kleur.green(`${formatDuration(durationMs)} ✓`)
-          : kleur.red(`${formatDuration(durationMs)} ✗`);
-      console.log(
-        `  ${kleur.gray(now)}  ${kleur.yellow("run.finished")}  ${kleur.bold(id.padEnd(7))}             ${marker}`,
-      );
-    }
-  }, 3000);
+  const stages = config.config.pipeline?.stages ?? ["ingest", "process", "notify"];
+  const stageWeights =
+    stages.length === 4 ? [0.44, 0.28, 0.16, 0.12] : stages.map(() => 1 / stages.length);
 
-  await new Promise<void>((resolve) => {
-    const shutdown = () => {
-      clearInterval(interval);
-      close();
-      console.log(kleur.gray("\n  Demo server stopped.\n"));
-      resolve();
-    };
-    process.on("SIGINT", shutdown);
-    process.on("SIGTERM", shutdown);
+  const stageDurations: Array<[number, number]> = stages.map((_, i) => {
+    const durations: Array<[number, number]> = [
+      [200, 500],
+      [1500, 3000],
+      [1000, 2500],
+      [80, 200],
+    ];
+    return durations[i % durations.length];
   });
+
+  const errorMessages = [
+    "OpenAI rate limit exceeded",
+    "Connection timeout to upstream",
+    "DB constraint violation: unique_user_run",
+    "Invalid response format from API",
+    "Memory limit exceeded during processing",
+  ];
+
+  const now = Date.now();
+  let seeded = 0;
+
+  for (let i = 0; i < 500; i++) {
+    const hoursAgo = Math.random() * 24;
+    const startedAt = new Date(now - hoursAgo * 3600000);
+
+    // Business hours bias (UTC 08-18)
+    const hour = startedAt.getUTCHours();
+    const isBusinessHours = hour >= 8 && hour <= 18;
+    if (!isBusinessHours && Math.random() > 0.35) continue;
+
+    const stageIdx = weightedRandom(stageWeights);
+    const stage = stages[stageIdx];
+    const [minDur, maxDur] = stageDurations[stageIdx];
+    const duration = Math.floor(minDur + Math.random() * (maxDur - minDur));
+
+    const statusRoll = Math.random();
+    const status = statusRoll < 0.97 ? "succeeded" : statusRoll < 0.99 ? "failed" : "running";
+
+    const userId = `user_${String(Math.floor(Math.random() * 20) + 1).padStart(3, "0")}`;
+    const errorMessage =
+      status === "failed" ? errorMessages[Math.floor(Math.random() * errorMessages.length)] : null;
+    const errorClass = errorMessage
+      ? errorMessage.split(":")[0].split(" ").slice(0, 3).join("")
+      : null;
+
+    try {
+      await db.execute(
+        `INSERT INTO flowpanel_pipeline_run (stage, status, partition_key, duration_ms, error_class, error_message, started_at, is_demo)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, true)`,
+        [
+          stage,
+          status,
+          userId,
+          status === "running" ? null : duration,
+          errorClass,
+          errorMessage,
+          startedAt,
+        ],
+      );
+      seeded++;
+    } catch (err: unknown) {
+      console.error(`[FlowPanel] Failed to insert run: ${(err as Error).message}`);
+    }
+
+    if (seeded % 100 === 0 && seeded > 0) {
+      spinner.text = `Seeding demo runs... ${seeded}/500`;
+    }
+  }
+
+  spinner.succeed(`Seeded ${seeded} demo runs across ${stages.length} stages`);
+}
+
+function weightedRandom(weights: number[]): number {
+  const r = Math.random();
+  let sum = 0;
+  for (let i = 0; i < weights.length; i++) {
+    sum += weights[i];
+    if (r <= sum) return i;
+  }
+  return weights.length - 1;
 }

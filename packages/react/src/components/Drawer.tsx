@@ -1,15 +1,36 @@
 import type React from "react";
 import { useEffect, useRef } from "react";
-import { renderDrawerSections } from "./drawer-sections/index.js";
+import { renderDrawerSections } from "./drawer-sections/index";
+
+interface DrawerAction {
+  label: string;
+  variant?: "default" | "danger";
+  onClick: () => void;
+}
 
 interface DrawerProps {
   open: boolean;
   onClose: () => void;
   title: string;
   children?: React.ReactNode;
-  loading?: boolean;
   sections?: Array<{ type: string; data: unknown; error?: string }>;
-  actions?: Array<{ label: string; onClick: () => void; variant?: string }>;
+  run?: Record<string, unknown>;
+  actions?: Array<DrawerAction>;
+  loading?: boolean;
+}
+
+function SkeletonBlock({ height = 60 }: { height?: number }) {
+  return (
+    <div
+      style={{
+        height,
+        borderRadius: 8,
+        background: "var(--fp-surface-2)",
+        marginBottom: 12,
+        animation: "fp-skeleton-pulse 1.5s ease-in-out infinite",
+      }}
+    />
+  );
 }
 
 export function Drawer({
@@ -17,9 +38,10 @@ export function Drawer({
   onClose,
   title,
   children,
-  loading,
   sections,
+  run,
   actions,
+  loading,
 }: DrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const lastFocusedRef = useRef<Element | null>(null);
@@ -47,10 +69,10 @@ export function Drawer({
       }
 
       if (e.key === "Tab") {
-        // biome-ignore lint/style/noNonNullAssertion: el is guaranteed non-null inside this listener
-        const focusableNow = el!.querySelectorAll<HTMLElement>(
+        const focusableNow = el?.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         );
+        if (!focusableNow || focusableNow.length === 0) return;
         const first = focusableNow[0];
         const last = focusableNow[focusableNow.length - 1];
 
@@ -80,6 +102,22 @@ export function Drawer({
 
   if (!open) return null;
 
+  function renderContent() {
+    if (loading) {
+      return (
+        <>
+          <SkeletonBlock height={72} />
+          <SkeletonBlock height={120} />
+          <SkeletonBlock height={56} />
+        </>
+      );
+    }
+    if (sections) {
+      return renderDrawerSections(sections, run);
+    }
+    return children;
+  }
+
   return (
     <>
       {/* Backdrop */}
@@ -92,6 +130,7 @@ export function Drawer({
           zIndex: 40,
           background: "rgba(0,0,0,0.5)",
           backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
         }}
       />
 
@@ -106,15 +145,14 @@ export function Drawer({
           top: 0,
           right: 0,
           bottom: 0,
-          width: "100%",
-          maxWidth: 420,
+          width: 420,
           zIndex: 50,
           background: "var(--fp-surface-1)",
           borderLeft: "1px solid var(--fp-border-1)",
           overflowY: "auto",
+          animation: "fp-slide-in 200ms cubic-bezier(.22,.1,.36,1)",
           display: "flex",
-          flexDirection: "column" as const,
-          animation: "fp-slide-in 200ms var(--fp-ease-out, cubic-bezier(.22,.1,.36,1))",
+          flexDirection: "column",
         }}
       >
         {/* Header */}
@@ -129,6 +167,7 @@ export function Drawer({
             top: 0,
             background: "var(--fp-surface-1)",
             zIndex: 1,
+            flexShrink: 0,
           }}
         >
           <h2
@@ -138,6 +177,7 @@ export function Drawer({
             {title}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close drawer"
             style={{
@@ -160,29 +200,7 @@ export function Drawer({
         </div>
 
         {/* Content */}
-        <div style={{ padding: 24, flex: 1 }}>
-          {loading ? (
-            <>
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  style={{
-                    height: 60,
-                    borderRadius: 8,
-                    background: "var(--fp-surface-2, #e5e7eb)",
-                    marginBottom: 12,
-                    animation: "fp-pulse 1.5s ease-in-out infinite",
-                  }}
-                />
-              ))}
-            </>
-          ) : (
-            <>
-              {sections && renderDrawerSections(sections)}
-              {children}
-            </>
-          )}
-        </div>
+        <div style={{ padding: 24, flex: 1 }}>{renderContent()}</div>
 
         {/* Actions footer */}
         {actions && actions.length > 0 && (
@@ -190,27 +208,28 @@ export function Drawer({
             style={{
               position: "sticky",
               bottom: 0,
+              background: "var(--fp-surface-1)",
+              borderTop: "1px solid var(--fp-border-1)",
+              padding: "12px 24px",
               display: "flex",
               gap: 8,
-              padding: "12px 24px",
-              borderTop: "1px solid var(--fp-border-1)",
-              background: "var(--fp-surface-1)",
-              zIndex: 1,
+              flexShrink: 0,
             }}
           >
             {actions.map((action) => (
               <button
+                type="button"
                 key={action.label}
                 onClick={action.onClick}
                 style={{
-                  padding: "6px 14px",
+                  padding: "7px 14px",
                   fontSize: 13,
                   fontWeight: 500,
                   borderRadius: 6,
-                  border: "1px solid var(--fp-border-1)",
-                  background: "transparent",
-                  color: "var(--fp-text-1)",
                   cursor: "pointer",
+                  border: `1px solid ${action.variant === "danger" ? "var(--fp-err)" : "var(--fp-border-1)"}`,
+                  background: "transparent",
+                  color: action.variant === "danger" ? "var(--fp-err)" : "var(--fp-text-2)",
                 }}
               >
                 {action.label}
@@ -220,20 +239,15 @@ export function Drawer({
         )}
       </div>
 
-      {/* Slide-in animation */}
+      {/* Animations */}
       <style>{`
         @keyframes fp-slide-in {
           from { transform: translateX(100%); }
           to   { transform: translateX(0); }
         }
-        @keyframes fp-pulse {
+        @keyframes fp-skeleton-pulse {
           0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-        @media (max-width: 768px) {
-          [role="dialog"][aria-modal="true"] {
-            max-width: 100% !important;
-          }
+          50% { opacity: 0.5; }
         }
       `}</style>
     </>

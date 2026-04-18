@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { MetricCard } from "../components/MetricCard.js";
+import { MetricCard } from "../components/MetricCard";
 
 describe("MetricCard", () => {
   it("renders sparkline bars when sparkline prop is provided", () => {
@@ -12,18 +12,20 @@ describe("MetricCard", () => {
     const sparklineContainer = container.querySelector("[aria-hidden]");
     expect(sparklineContainer).toBeInTheDocument();
     // Should have 5 bar divs inside
-    expect(sparklineContainer!.children).toHaveLength(5);
+    expect(sparklineContainer?.children).toHaveLength(5);
   });
 
-  it("shows trend arrow with correct color", () => {
-    const { rerender } = render(<MetricCard label="Runs" value={100} trend="+12%" />);
+  it("renders trend label for positive and negative directions", () => {
+    const { rerender } = render(
+      <MetricCard label="Runs" value={100} trend={{ label: "+12%", direction: "positive" }} />,
+    );
 
-    const positive = screen.getByText("+12%");
-    expect(positive).toHaveStyle({ color: "var(--fp-ok)" });
+    expect(screen.getByText("+12%")).toBeInTheDocument();
 
-    rerender(<MetricCard label="Runs" value={100} trend="-5%" />);
+    rerender(
+      <MetricCard label="Runs" value={100} trend={{ label: "-5%", direction: "negative" }} />,
+    );
 
-    const negative = screen.getByText("-5%");
-    expect(negative).toHaveStyle({ color: "var(--fp-err)" });
+    expect(screen.getByText("-5%")).toBeInTheDocument();
   });
 });

@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { flowPanelConfigSchema } from "../../config/schema.js";
+import { flowPanelConfigSchema } from "../../config/schema";
+
+const adapter = {
+  execute: async () => [],
+  transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({}),
+  dialect: "postgres" as const,
+};
 
 const minimalConfig = {
   appName: "test",
   timezone: "UTC",
   basePath: "/admin",
-  adapter: {
-    execute: async () => [],
-    transaction: async (fn: any) => fn(),
-    dialect: "postgres" as const,
-  },
+  adapter: adapter,
   pipeline: {
     stages: ["parse", "score"],
     fields: { userId: z.string().nullable() },
@@ -60,6 +62,27 @@ describe("flowPanelConfigSchema", () => {
       ...minimalConfig,
       timezone: "NotATimezone",
     });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects stage name with SQL injection characters", () => {
+    const bad = {
+      ...minimalConfig,
+      pipeline: { ...minimalConfig.pipeline, stages: ["ingest'; DROP TABLE"] },
+    };
+    const result = flowPanelConfigSchema.safeParse(bad);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects users.source with SQL injection characters", () => {
+    const bad = {
+      ...minimalConfig,
+      users: {
+        source: "users; DROP TABLE",
+        primaryKey: "id",
+      },
+    };
+    const result = flowPanelConfigSchema.safeParse(bad);
     expect(result.success).toBe(false);
   });
 });

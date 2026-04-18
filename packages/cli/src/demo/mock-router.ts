@@ -1,6 +1,6 @@
-import { generateDemoRuns, generateDemoMetrics, generateDemoStages } from "./mock-data.js";
+import { generateDemoMetrics, generateDemoRuns, generateDemoStages } from "./mock-data";
 
-let runs = generateDemoRuns(500);
+const runs = generateDemoRuns(500);
 
 const handlers: Record<string, (input: Record<string, unknown>) => unknown> = {
   "flowpanel.metrics.getAll": () => generateDemoMetrics(),
@@ -12,7 +12,7 @@ const handlers: Record<string, (input: Record<string, unknown>) => unknown> = {
     const slice = runs.slice(startIdx, startIdx + limit);
     return {
       runs: slice,
-      nextCursor: slice.length === limit ? (slice[slice.length - 1]!.id as string) : null,
+      nextCursor: slice.length === limit ? (slice[slice.length - 1]?.id as string) : null,
     };
   },
   "flowpanel.runs.get": (input) => runs.find((r) => r.id === input.runId) ?? null,
@@ -46,11 +46,12 @@ export function createSSESimulation() {
     generateEvent() {
       const isFinish = Math.random() > 0.5;
       if (isFinish) {
-        const run = runs[Math.floor(Math.random() * Math.min(10, runs.length))]!;
+        const run = runs[Math.floor(Math.random() * Math.min(10, runs.length))] ?? runs[0];
         return { event: "run.finished", data: { id: run.id, status: "ok", durationMs: 1200 } };
       }
       nextId++;
-      const stage = ["ingest", "transform", "embed", "index"][Math.floor(Math.random() * 4)]!;
+      const stage =
+        ["ingest", "transform", "embed", "index"][Math.floor(Math.random() * 4)] ?? "ingest";
       const newRun: Record<string, unknown> = {
         id: String(nextId),
         stage,

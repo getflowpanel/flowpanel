@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { applyMigrations } from "@flowpanel/core";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { drizzleAdapter } from "../../index.js";
+import { drizzleAdapter } from "../../index";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -112,7 +112,7 @@ describe("drizzleAdapter integration", () => {
     // biome-ignore lint/suspicious/noExplicitAny: test helper any cast
     const db = drizzleAdapter({ db: pgToDb(pool) as any });
     const migrationsDir = path.resolve(__dirname, "../../../../core/migrations");
-    const { applied: firstApply } = await applyMigrations(db, [migrationsDir]);
+    const { applied: _firstApply } = await applyMigrations(db, [migrationsDir]);
     const { applied: secondApply } = await applyMigrations(db, [migrationsDir]);
     // Second run: nothing new to apply
     expect(secondApply.length).toBe(0);

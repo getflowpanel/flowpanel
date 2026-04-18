@@ -58,6 +58,7 @@ export function Tabs({ tabs, activeTab, onTabChange }: TabsProps) {
         const isActive = tab.id === activeTab;
         return (
           <button
+            type="button"
             key={tab.id}
             role="tab"
             aria-selected={isActive}

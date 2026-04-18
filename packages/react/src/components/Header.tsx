@@ -1,14 +1,9 @@
-import { useEffect, useRef } from "react";
-import type { LiveStatus } from "../hooks/useFlowPanelStream.js";
+import type { LiveStatus } from "../hooks/useFlowPanelStream";
+import { useLocale } from "../locale/LocaleContext";
+import { modKey } from "../utils/platform";
+import { Tooltip } from "./Tooltip";
 
 export type { LiveStatus };
-
-const LIVE_STATUS_CONFIG: Record<LiveStatus, { color: string; label: string }> = {
-  live: { color: "#10b981", label: "Live" },
-  reconnecting: { color: "#f59e0b", label: "Reconnecting..." },
-  polling: { color: "#6366f1", label: "Polling" },
-  paused: { color: "#5c5c6b", label: "Paused" },
-};
 
 interface HeaderProps {
   appName: string;
@@ -16,7 +11,7 @@ interface HeaderProps {
   onTimeRangeChange: (range: string) => void;
   timeRangePresets: string[];
   liveStatus: LiveStatus;
-  onCommandPaletteOpen?: () => void;
+  onOpenPalette?: () => void;
 }
 
 export function Header({
@@ -25,100 +20,126 @@ export function Header({
   onTimeRangeChange,
   timeRangePresets,
   liveStatus,
-  onCommandPaletteOpen,
+  onOpenPalette,
 }: HeaderProps) {
-  const headerRef = useRef<HTMLElement>(null);
-  const lsCfg = LIVE_STATUS_CONFIG[liveStatus];
-
-  // Responsive: check width
-  useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
-    const mq = window.matchMedia("(max-width: 768px)");
-    function apply() {
-      if (el) {
-        el.style.flexWrap = mq.matches ? "wrap" : "nowrap";
-        el.style.height = mq.matches ? "auto" : "52px";
-        el.style.gap = mq.matches ? "8px" : "0";
-        el.style.padding = mq.matches ? "12px 24px" : "0 24px";
-      }
-    }
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
+  const locale = useLocale();
+  const mod = modKey();
 
   return (
     <header
-      ref={headerRef}
-      className="fp:flex fp:items-center fp:justify-between fp:px-6 fp:h-[52px] fp:border-b fp:border-border"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 24px",
+        height: 52,
+        borderBottom: "1px solid var(--fp-border-1)",
+      }}
     >
-      <div className="fp:flex fp:items-center fp:gap-2">
-        <span className="fp:text-[13px] fp:font-semibold fp:text-foreground">{appName}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fp-text-1)" }}>{appName}</span>
       </div>
 
-      <div className="fp:flex fp:items-center fp:gap-3">
-        {/* Segmented time range buttons */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Time range segmented control */}
         <div
-          role="group"
-          aria-label="Time range"
-          className="fp:flex fp:rounded-md fp:overflow-hidden fp:border fp:border-border"
+          style={{
+            display: "flex",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid var(--fp-border-1)",
+            borderRadius: "var(--fp-radius-sm)",
+            overflow: "hidden",
+          }}
         >
-          {timeRangePresets.map((preset) => {
-            const active = preset === timeRange;
-            return (
-              <button
-                key={preset}
-                onClick={() => onTimeRangeChange(preset)}
-                aria-pressed={active}
-                style={{
-                  padding: "5px 10px",
-                  background: active ? "var(--fp-accent-dim)" : "transparent",
-                  color: active ? "var(--fp-accent-text)" : undefined,
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: active ? 600 : 400,
-                  transition: "background var(--fp-duration) ease, color var(--fp-duration) ease",
-                }}
-                className={active ? "" : "fp:text-muted-foreground"}
-              >
-                {preset}
-              </button>
-            );
-          })}
+          {timeRangePresets.map((p) => (
+            <button
+              type="button"
+              key={p}
+              aria-label={`Time range: ${p}`}
+              aria-pressed={p === timeRange}
+              onClick={() => onTimeRangeChange(p)}
+              style={{
+                padding: "5px 9px",
+                background: p === timeRange ? "rgba(255,255,255,0.07)" : "transparent",
+                fontWeight: p === timeRange ? 600 : 400,
+                color: p === timeRange ? "var(--fp-text-1)" : "var(--fp-text-4)",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12,
+                transition: "background var(--fp-duration) ease",
+              }}
+            >
+              {p}
+            </button>
+          ))}
         </div>
-
-        {/* Command palette button */}
-        {onCommandPaletteOpen && (
-          <button
-            onClick={onCommandPaletteOpen}
-            aria-label="Open command palette"
-            className="fp:py-1 fp:px-2 fp:rounded fp:bg-muted fp:border fp:border-border fp:text-muted-foreground fp:cursor-pointer fp:text-[11px] fp:font-mono"
-          >
-            <kbd className="fp:font-[inherit]">⌘K</kbd>
-          </button>
-        )}
 
         {/* Live indicator */}
-        <div
-          className="fp:flex fp:items-center fp:gap-[5px] fp:text-xs fp:text-muted-foreground"
-          aria-live="polite"
-          aria-label={`Connection: ${lsCfg.label}`}
+        <Tooltip
+          content={
+            liveStatus === "live"
+              ? "Live: receiving real-time updates"
+              : liveStatus === "reconnecting"
+                ? locale.reconnecting
+                : "Disconnected"
+          }
         >
-          <span
+          <div
+            aria-label={`Connection status: ${liveStatus === "live" ? "live" : liveStatus === "reconnecting" ? "reconnecting" : "disconnected"}`}
             style={{
-              width: 7,
-              height: 7,
-              borderRadius: "50%",
-              background: lsCfg.color,
-              display: "inline-block",
-              boxShadow: liveStatus === "live" ? `0 0 0 2px ${lsCfg.color}33` : undefined,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              border: "1px solid var(--fp-border-1)",
+              borderRadius: "var(--fp-radius-sm)",
+              padding: "5px 9px",
             }}
-            aria-hidden
-          />
-          {lsCfg.label}
-        </div>
+            aria-live="polite"
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background:
+                  liveStatus === "live"
+                    ? "var(--fp-ok)"
+                    : liveStatus === "reconnecting"
+                      ? "var(--fp-warn)"
+                      : "var(--fp-text-4)",
+                boxShadow: liveStatus === "live" ? "0 0 0 2px rgba(16,185,129,0.2)" : "none",
+              }}
+            />
+            <span style={{ fontSize: 12, color: "var(--fp-text-2)" }}>
+              {liveStatus === "live"
+                ? locale.liveStatus
+                : liveStatus === "reconnecting"
+                  ? locale.reconnecting
+                  : locale.polling}
+            </span>
+          </div>
+        </Tooltip>
+
+        {/* Command palette trigger */}
+        {onOpenPalette && (
+          <button
+            type="button"
+            onClick={onOpenPalette}
+            aria-label="Open command palette"
+            style={{
+              padding: "5px 10px",
+              background: "transparent",
+              border: "1px solid var(--fp-border-1)",
+              borderRadius: "var(--fp-radius-sm)",
+              color: "var(--fp-text-4)",
+              cursor: "pointer",
+              fontSize: 11,
+              fontFamily: "var(--fp-font-mono)",
+            }}
+          >
+            {mod}+K
+          </button>
+        )}
       </div>
     </header>
   );

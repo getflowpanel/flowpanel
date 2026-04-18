@@ -1,12 +1,13 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "../locale/LocaleContext";
 
 export interface Command {
   id: string;
   label: string;
   action: () => void;
-  category?: string;
   description?: string;
+  category?: string;
   shortcut?: string;
 }
 
@@ -16,14 +17,13 @@ interface CommandPaletteProps {
   commands: Command[];
 }
 
-const RECENT_STORAGE_KEY = "fp-recent-commands";
+const RECENT_KEY = "fp-recent-commands";
 const MAX_RECENT = 5;
 
 function getRecentIds(): string[] {
   try {
-    const raw = sessionStorage.getItem(RECENT_STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as string[];
+    const raw = sessionStorage.getItem(RECENT_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
   } catch {
     return [];
   }
@@ -31,116 +31,63 @@ function getRecentIds(): string[] {
 
 function saveRecentId(id: string): void {
   try {
-    const ids = getRecentIds().filter((r) => r !== id);
+    const ids = getRecentIds().filter((x) => x !== id);
     ids.unshift(id);
-    sessionStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(ids.slice(0, MAX_RECENT)));
+    sessionStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, MAX_RECENT)));
   } catch {
-    // sessionStorage not available
+    // ignore storage errors
   }
 }
 
-function fuzzyMatch(query: string, text: string): boolean {
-  const q = query.toLowerCase();
-  const t = text.toLowerCase();
-  let qi = 0;
-  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
-    if (t[ti] === q[qi]) qi++;
+function groupByCategory(cmds: Command[]): Array<{ category: string; commands: Command[] }> {
+  const map = new Map<string, Command[]>();
+  for (const cmd of cmds) {
+    const cat = cmd.category ?? "Actions";
+    if (!map.has(cat)) map.set(cat, []);
+    map.get(cat)?.push(cmd);
   }
-  return qi === q.length;
+  return Array.from(map.entries()).map(([category, commands]) => ({ category, commands }));
 }
-
-const kbdStyle: React.CSSProperties = {
-  display: "inline-block",
-  padding: "1px 5px",
-  fontSize: 10,
-  fontFamily: "var(--fp-font-mono)",
-  background: "var(--fp-surface-3)",
-  borderRadius: 3,
-  border: "1px solid var(--fp-border-1)",
-  color: "var(--fp-text-3)",
-  lineHeight: 1.4,
-};
 
 export function CommandPalette({ open, onClose, commands }: CommandPaletteProps) {
+  const locale = useLocale();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const paletteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
       setQuery("");
       setSelected(0);
-      setTimeout(() => inputRef.current?.focus(), 10);
     }
-  }, [open]);
-
-  // Responsive width
-  useEffect(() => {
-    if (!open) return;
-    const el = paletteRef.current;
-    if (!el) return;
-    const mq = window.matchMedia("(max-width: 640px)");
-    function apply() {
-      if (!el) return;
-      if (mq.matches) {
-        el.style.width = "100%";
-        el.style.top = "0";
-        el.style.left = "0";
-        el.style.transform = "none";
-        el.style.borderRadius = "0";
-      } else {
-        el.style.width = "480px";
-        el.style.top = "20vh";
-        el.style.left = "50%";
-        el.style.transform = "translateX(-50%)";
-        el.style.borderRadius = "12px";
-      }
-    }
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
   }, [open]);
 
   if (!open) return null;
 
-  // Build filtered list: recent first when query empty, fuzzy filter otherwise
-  let filtered: Command[];
-  if (query.trim() === "") {
+  const filtered = commands.filter(
+    (c) =>
+      c.label.toLowerCase().includes(query.toLowerCase()) ||
+      (c.description ?? "").toLowerCase().includes(query.toLowerCase()),
+  );
+
+  // Build grouped display: when query is empty, prepend "Recent" section
+  let groups: Array<{ category: string; commands: Command[] }>;
+  if (query === "") {
     const recentIds = getRecentIds();
     const recentCmds = recentIds
       .map((id) => commands.find((c) => c.id === id))
-      .filter((c): c is Command => c != null);
-    const rest = commands.filter((c) => !recentIds.includes(c.id));
-    filtered = [...recentCmds, ...rest];
+      .filter((c): c is Command => c !== undefined);
+    const mainGroups = groupByCategory(filtered);
+    groups =
+      recentCmds.length > 0
+        ? [{ category: "Recent", commands: recentCmds }, ...mainGroups]
+        : mainGroups;
   } else {
-    filtered = commands.filter((c) => fuzzyMatch(query, c.label));
+    groups = groupByCategory(filtered);
   }
 
-  // Group by category
-  const grouped: Array<{
-    category: string | null;
-    items: Array<{ cmd: Command; globalIndex: number }>;
-  }> = [];
-  let globalIdx = 0;
-  const categoryMap = new Map<string | null, Array<{ cmd: Command; globalIndex: number }>>();
-
-  for (const cmd of filtered) {
-    const cat = cmd.category ?? null;
-    if (!categoryMap.has(cat)) {
-      const arr: Array<{ cmd: Command; globalIndex: number }> = [];
-      categoryMap.set(cat, arr);
-      grouped.push({ category: cat, items: arr });
-    }
-    categoryMap.get(cat)!.push({ cmd, globalIndex: globalIdx });
-    globalIdx++;
-  }
-
-  function executeCommand(cmd: Command) {
-    saveRecentId(cmd.id);
-    cmd.action();
-    onClose();
-  }
+  // Flatten for keyboard navigation index
+  const flatFiltered = groups.flatMap((g) => g.commands);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
@@ -150,15 +97,21 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelected((i) => Math.min(i + 1, filtered.length - 1));
+      setSelected((i) => Math.min(i + 1, flatFiltered.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelected((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
-      const cmd = filtered[selected];
-      if (cmd) executeCommand(cmd);
+      const cmd = flatFiltered[selected];
+      if (cmd) {
+        saveRecentId(cmd.id);
+        cmd.action();
+        onClose();
+      }
     }
   }
+
+  let flatIndex = 0;
 
   return (
     <>
@@ -170,7 +123,6 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
       />
       {/* Palette */}
       <div
-        ref={paletteRef}
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
@@ -190,13 +142,15 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
       >
         <input
           ref={inputRef}
+          // biome-ignore lint/a11y/noAutofocus: command palette intentionally steals focus when opened
+          autoFocus
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
             setSelected(0);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Type to filter..."
+          placeholder={locale.commandPlaceholder}
           style={{
             width: "100%",
             padding: "14px 16px",
@@ -211,16 +165,16 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
           aria-autocomplete="list"
           aria-controls="fp-palette-list"
           aria-activedescendant={
-            filtered[selected] ? `fp-palette-item-${filtered[selected]?.id}` : undefined
+            flatFiltered[selected] ? `fp-palette-item-${flatFiltered[selected]?.id}` : undefined
           }
         />
         <div
           id="fp-palette-list"
           role="listbox"
           aria-label="Commands"
-          style={{ maxHeight: 320, overflowY: "auto" }}
+          style={{ maxHeight: 360, overflowY: "auto" }}
         >
-          {filtered.length === 0 ? (
+          {flatFiltered.length === 0 ? (
             <div
               style={{
                 padding: "20px 16px",
@@ -229,58 +183,97 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
                 textAlign: "center",
               }}
             >
-              No commands found
+              <div>{locale.noCommands}</div>
+              <div style={{ fontSize: 11, color: "var(--fp-text-4)", marginTop: 4 }}>
+                Try a different search term
+              </div>
             </div>
           ) : (
-            grouped.map((group) => (
-              <div key={group.category ?? "__none"}>
-                {group.category && (
-                  <div
-                    style={{
-                      padding: "8px 16px 4px",
-                      fontSize: 10,
-                      fontWeight: 600,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "var(--fp-text-4)",
-                    }}
-                  >
-                    {group.category}
-                  </div>
-                )}
-                {group.items.map(({ cmd, globalIndex }) => (
+            groups.map((group, groupIdx) => {
+              const items = group.commands.map((cmd) => {
+                const currentIndex = flatIndex++;
+                const isSelected = currentIndex === selected;
+                return (
                   <div
                     key={cmd.id}
                     id={`fp-palette-item-${cmd.id}`}
                     role="option"
-                    aria-selected={globalIndex === selected}
-                    onClick={() => executeCommand(cmd)}
+                    tabIndex={isSelected ? 0 : -1}
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      saveRecentId(cmd.id);
+                      cmd.action();
+                      onClose();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        saveRecentId(cmd.id);
+                        cmd.action();
+                        onClose();
+                      }
+                    }}
                     style={{
-                      padding: "10px 16px",
+                      padding: "8px 16px",
                       fontSize: 13,
                       cursor: "pointer",
-                      background: globalIndex === selected ? "var(--fp-surface-2)" : undefined,
+                      background: isSelected ? "var(--fp-surface-2)" : undefined,
                       color: "var(--fp-text-1)",
                       transition: `background var(--fp-duration) ease`,
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "space-between",
                       gap: 8,
                     }}
                   >
-                    <div>
-                      <div>{cmd.label}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <span>{cmd.label}</span>
+                        {cmd.shortcut && (
+                          <span
+                            style={{
+                              marginLeft: "auto",
+                              fontSize: 10,
+                              fontFamily: "var(--fp-font-mono)",
+                              color: "var(--fp-text-4)",
+                            }}
+                          >
+                            {cmd.shortcut}
+                          </span>
+                        )}
+                      </div>
                       {cmd.description && (
-                        <div style={{ fontSize: 11, color: "var(--fp-text-3)", marginTop: 2 }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--fp-text-4)",
+                            marginTop: 1,
+                          }}
+                        >
                           {cmd.description}
                         </div>
                       )}
                     </div>
-                    {cmd.shortcut && <kbd style={kbdStyle}>{cmd.shortcut}</kbd>}
                   </div>
-                ))}
-              </div>
-            ))
+                );
+              });
+
+              return (
+                <div key={group.category}>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      color: "var(--fp-text-5)",
+                      padding: `${groupIdx === 0 ? 8 : 16}px 16px 4px`,
+                    }}
+                  >
+                    {group.category}
+                  </div>
+                  {items}
+                </div>
+              );
+            })
           )}
         </div>
         {/* Keyboard hint */}

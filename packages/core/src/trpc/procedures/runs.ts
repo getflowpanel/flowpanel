@@ -1,7 +1,23 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { fieldNameToColumn } from "../../schemaGenerator.js";
-import type { FlowPanelContext } from "../context.js";
+import { createQueryBuilder } from "../../queryBuilder";
+import { fieldNameToColumn } from "../../schemaGenerator";
+import type { Session } from "../../types/config";
+import type { FlowPanelContext } from "../context";
+
+interface _RunRow {
+  id: string;
+  run_id: string;
+  partition_key: string | null;
+  stage: string;
+  status: "running" | "succeeded" | "failed";
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number | null;
+  error_class: string | null;
+  error_message: string | null;
+  [key: string]: unknown;
+}
 
 const listInputSchema = z.object({
   stage: z.string().optional(),
@@ -20,33 +36,17 @@ const bulkRetryInputSchema = z.object({
 });
 const cancelInputSchema = z.object({ runId: z.string() });
 
-const chartInputSchema = z.object({
-  timeRange: z.enum(["1h", "6h", "24h", "7d", "30d"]),
-});
-
-const topErrorsInputSchema = z.object({
-  timeRange: z.enum(["1h", "6h", "24h", "7d", "30d"]),
-  limit: z.number().min(1).max(50).default(10).optional(),
-});
-
-function getIntervalSql(timeRange: string): string {
-  const map: Record<string, string> = {
-    "1h": "1 hour",
-    "6h": "6 hours",
-    "24h": "24 hours",
-    "7d": "7 days",
-    "30d": "30 days",
-  };
-  return map[timeRange] ?? "24 hours";
-}
-
 function applyRowLevelFilter(
   config: FlowPanelContext["config"],
-  session: any,
+  session: Session,
   whereParts: string[],
   params: unknown[],
 ) {
-  const filter = (config.security as any)?.rowLevel?.filter?.(session, {});
+  const filter = (
+    config.security.rowLevel?.filter as
+      | ((session: Session, ctx: Record<string, unknown>) => { partitionKey?: string } | undefined)
+      | undefined
+  )?.(session, {});
   if (filter?.partitionKey) {
     whereParts.push(`partition_key = $${params.length + 1}`);
     params.push(filter.partitionKey);
@@ -54,7 +54,9 @@ function applyRowLevelFilter(
 }
 
 export function createRunsProcedures(
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
   t: { procedure: any; router: (routes: any) => any },
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
   authedProcedure: any,
 ) {
   return t.router({
@@ -65,7 +67,7 @@ export function createRunsProcedures(
           ctx,
           input,
         }: {
-          ctx: FlowPanelContext & { session: any };
+          ctx: FlowPanelContext & { session: Session };
           input: z.infer<typeof listInputSchema>;
         }) => {
           const { db, config, session } = ctx;
@@ -87,17 +89,11 @@ export function createRunsProcedures(
             params.push(input.timeRange.end);
           }
           if (input.search && input.search.length >= 2) {
-            const rawSearchFields: string[] = (config as any).runLog?.search?.fields ?? [
+            const searchFields = config.runLog?.search?.fields ?? [
               "partition_key",
               "error_message",
             ];
-            const searchCols = rawSearchFields.map((f: string) => {
-              const col = fieldNameToColumn(f);
-              if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col)) {
-                throw new Error(`Invalid search field identifier: ${col}`);
-              }
-              return col;
-            });
+            const searchCols = searchFields.map((f: string) => fieldNameToColumn(f));
             const searchOr = searchCols
               .map((col: string) => `${col} ILIKE $${params.length + 1}`)
               .join(" OR ");
@@ -113,13 +109,14 @@ export function createRunsProcedures(
           applyRowLevelFilter(config, session, whereParts, params);
 
           const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
+          const limitParam = input.limit + 1;
 
           const rows = await db.execute<Record<string, unknown>>(
             `SELECT * FROM flowpanel_pipeline_run
            ${whereClause}
            ORDER BY id DESC
-           LIMIT $${params.length + 1}`,
-            [...params, input.limit + 1],
+           LIMIT ${limitParam}`,
+            params,
           );
 
           const hasNextPage = rows.length > input.limit;
@@ -137,7 +134,7 @@ export function createRunsProcedures(
           ctx,
           input,
         }: {
-          ctx: FlowPanelContext & { session: any };
+          ctx: FlowPanelContext & { session: Session };
           input: { runId: string };
         }) => {
           const { db, config, session } = ctx;
@@ -161,12 +158,12 @@ export function createRunsProcedures(
           ctx,
           input,
         }: {
-          ctx: FlowPanelContext & { session: any };
+          ctx: FlowPanelContext & { session: Session };
           input: z.infer<typeof retryInputSchema>;
         }) => {
           const { db, config, session } = ctx;
 
-          if (!(config as any).pipeline.onRetry) {
+          if (!config.pipeline.onRetry) {
             throw new TRPCError({
               code: "BAD_REQUEST",
               message: "Retry not configured. Add pipeline.onRetry to your flowpanel.config.ts",
@@ -191,10 +188,10 @@ export function createRunsProcedures(
             [run.stage, run.id],
           );
 
-          await (config as any).pipeline.onRetry(
+          await (config.pipeline.onRetry as (...args: unknown[]) => unknown)(
             {
               stage: run.stage as string,
-              fields: run as any,
+              fields: run,
               errorClass: run.error_class as string | undefined,
               errorMessage: run.error_message as string | undefined,
             },
@@ -212,7 +209,7 @@ export function createRunsProcedures(
           ctx,
           input,
         }: {
-          ctx: FlowPanelContext & { session: any };
+          ctx: FlowPanelContext & { session: Session };
           input: z.infer<typeof cancelInputSchema>;
         }) => {
           const { db } = ctx;
@@ -235,12 +232,12 @@ export function createRunsProcedures(
           ctx,
           input,
         }: {
-          ctx: FlowPanelContext & { session: any };
+          ctx: FlowPanelContext & { session: Session };
           input: z.infer<typeof bulkRetryInputSchema>;
         }) => {
           const { db, config } = ctx;
 
-          if (!(config as any).pipeline.onRetry) {
+          if (!config.pipeline.onRetry) {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Retry not configured" });
           }
 
@@ -279,8 +276,8 @@ export function createRunsProcedures(
           const results: { runId: string; success: boolean; error?: string }[] = [];
           for (const run of runs) {
             try {
-              await (config as any).pipeline.onRetry?.(
-                { stage: run.stage as string, fields: run as any },
+              await (config.pipeline.onRetry as (...args: unknown[]) => unknown)(
+                { stage: run.stage as string, fields: run },
                 { userId: ctx.session.userId, db },
               );
               results.push({ runId: String(run.id), success: true });
@@ -294,68 +291,71 @@ export function createRunsProcedures(
       ),
 
     chart: authedProcedure
-      .input(chartInputSchema)
+      .input(z.object({ timeRange: z.enum(["1h", "6h", "24h", "7d", "30d"]) }))
       .query(
         async ({
           ctx,
           input,
         }: {
-          ctx: FlowPanelContext & { session: any };
-          input: z.infer<typeof chartInputSchema>;
+          ctx: FlowPanelContext & { session: Session };
+          input: { timeRange: "1h" | "6h" | "24h" | "7d" | "30d" };
         }) => {
-          const { db } = ctx;
-          const interval = getIntervalSql(input.timeRange);
+          const { db, config } = ctx;
+          const qb = createQueryBuilder({
+            stages: config.pipeline?.stages ?? [],
+            stageFields: config.pipeline?.stageFields ?? {},
+            fields: config.pipeline?.fields ?? {},
+          });
 
-          const bucketConfigs: Record<string, { count: number; stepMinutes: number }> = {
-            "1h": { count: 12, stepMinutes: 5 },
-            "6h": { count: 12, stepMinutes: 30 },
-            "24h": { count: 24, stepMinutes: 60 },
-            "7d": { count: 28, stepMinutes: 360 },
-            "30d": { count: 30, stepMinutes: 1440 },
-          };
+          const queryDef = qb.chartBuckets(input.timeRange, db.dialect);
+          const rows = await db.execute<Record<string, unknown>>(queryDef.sql, queryDef.params);
 
-          const { count: bucketCount, stepMinutes } = bucketConfigs[input.timeRange];
+          const buckets = rows.map((row) => {
+            const bucket = row.bucket;
+            let label = "";
 
-          const rows = await db.execute<{
-            bucket: string;
-            total: string;
-            succeeded: string;
-            failed: string;
-          }>(
-            `WITH buckets AS (
-              SELECT generate_series(
-                now() - interval '${interval}',
-                now() - interval '${stepMinutes} minutes',
-                interval '${stepMinutes} minutes'
-              ) AS bucket_start
-            )
-            SELECT
-              b.bucket_start AS bucket,
-              COALESCE(COUNT(r.id), 0) AS total,
-              COALESCE(COUNT(r.id) FILTER (WHERE r.status = 'succeeded'), 0) AS succeeded,
-              COALESCE(COUNT(r.id) FILTER (WHERE r.status = 'failed'), 0) AS failed
-            FROM buckets b
-            LEFT JOIN flowpanel_pipeline_run r
-              ON r.started_at >= b.bucket_start
-              AND r.started_at < b.bucket_start + interval '${stepMinutes} minutes'
-            GROUP BY b.bucket_start
-            ORDER BY b.bucket_start`,
-            [],
-          );
+            if (bucket instanceof Date || (typeof bucket === "string" && bucket.length > 0)) {
+              const d = bucket instanceof Date ? bucket : new Date(bucket as string);
+              if (!Number.isNaN(d.getTime())) {
+                if (input.timeRange === "30d") {
+                  // "Jan 5"
+                  label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                } else if (input.timeRange === "7d") {
+                  // "Mon 03:00" or just "Mon" at midnight
+                  const timeStr = d.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  });
+                  if (timeStr === "00:00") {
+                    label = d.toLocaleDateString("en-US", { weekday: "short" });
+                  } else {
+                    label = `${d.toLocaleDateString("en-US", { weekday: "short" })} ${timeStr}`;
+                  }
+                } else {
+                  // "03:00"
+                  label = d.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  });
+                }
+              }
+            }
 
-          const buckets = rows.map((row) => ({
-            label: String(row.bucket),
-            total: Number(row.total),
-            succeeded: Number(row.succeeded),
-            failed: Number(row.failed),
-          }));
+            return {
+              label,
+              total: Number(row.total ?? 0),
+              succeeded: Number(row.succeeded ?? 0),
+              failed: Number(row.failed ?? 0),
+            };
+          });
 
-          let peakBucket = 0;
-          let peakTotal = 0;
-          for (let i = 0; i < buckets.length; i++) {
-            if (buckets[i].total > peakTotal) {
-              peakTotal = buckets[i].total;
-              peakBucket = i;
+          // Find peak bucket
+          let peakBucket: { label: string; total: number } | null = null;
+          for (const b of buckets) {
+            if (!peakBucket || b.total > peakBucket.total) {
+              peakBucket = { label: b.label, total: b.total };
             }
           }
 
@@ -364,34 +364,40 @@ export function createRunsProcedures(
       ),
 
     topErrors: authedProcedure
-      .input(topErrorsInputSchema)
+      .input(
+        z.object({
+          timeRange: z.enum(["1h", "6h", "24h", "7d", "30d"]),
+          limit: z.number().int().min(1).max(20).default(5),
+        }),
+      )
       .query(
         async ({
           ctx,
           input,
         }: {
-          ctx: FlowPanelContext & { session: any };
-          input: z.infer<typeof topErrorsInputSchema>;
+          ctx: FlowPanelContext & { session: Session };
+          input: { timeRange: "1h" | "6h" | "24h" | "7d" | "30d"; limit: number };
         }) => {
-          const { db } = ctx;
-          const interval = getIntervalSql(input.timeRange);
-          const limit = input.limit ?? 10;
+          const { db, config } = ctx;
+          const qb = createQueryBuilder({
+            stages: config.pipeline?.stages ?? [],
+            stageFields: config.pipeline?.stageFields ?? {},
+            fields: config.pipeline?.fields ?? {},
+          });
 
-          const rows = await db.execute<{ error_class: string; count: string }>(
-            `SELECT error_class, COUNT(*) AS count
-            FROM flowpanel_pipeline_run
-            WHERE error_class IS NOT NULL
-              AND started_at >= now() - interval '${interval}'
-            GROUP BY error_class
-            ORDER BY count DESC
-            LIMIT $1`,
-            [limit],
+          const errQuery = qb.where({ timeRange: input.timeRange }).topErrors(input.limit);
+          const errors = await db.execute<{ error_class: string; count: number }>(
+            errQuery.sql,
+            errQuery.params,
           );
 
-          return rows.map((row) => ({
-            errorClass: row.error_class,
-            count: Number(row.count),
-          }));
+          const totalQuery = qb.where({ timeRange: input.timeRange, status: "failed" }).count();
+          const [row] = await db.execute<{ value: number }>(totalQuery.sql, totalQuery.params);
+
+          return {
+            errors: errors.map((e) => ({ errorClass: e.error_class, count: e.count })),
+            totalFailed: row?.value ?? 0,
+          };
         },
       ),
   });

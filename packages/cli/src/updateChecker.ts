@@ -1,44 +1,39 @@
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import * as os from "node:os";
+import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import kleur from "kleur";
 
-const CACHE_DIR = path.join(os.homedir(), ".flowpanel");
-const CACHE_FILE = path.join(CACHE_DIR, "update-check.json");
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_DIR = path.join(process.env.HOME ?? process.env.USERPROFILE ?? ".", ".flowpanel");
+const CACHE_PATH = path.join(CACHE_DIR, "update-check.json");
+const CACHE_TTL = 86_400_000; // 24h
 
-export async function checkForUpdates(currentVersion: string): Promise<void> {
+export function checkForUpdates(currentVersion: string): void {
   try {
-    // Check cache first
-    try {
-      const cached = JSON.parse(await fs.readFile(CACHE_FILE, "utf8"));
-      if (Date.now() - cached.checkedAt < CHECK_INTERVAL_MS) {
-        if (cached.latest && cached.latest !== currentVersion) {
-          printUpdateBanner(currentVersion, cached.latest);
-        }
+    if (fs.existsSync(CACHE_PATH)) {
+      const cached = JSON.parse(fs.readFileSync(CACHE_PATH, "utf-8")) as {
+        latest: string;
+        checkedAt: number;
+      };
+      if (Date.now() - cached.checkedAt < CACHE_TTL) {
+        if (cached.latest !== currentVersion) printNotice(currentVersion, cached.latest);
         return;
       }
-    } catch {}
-
-    // Fetch latest version
-    const res = await fetch("https://registry.npmjs.org/@flowpanel/cli/latest");
-    if (!res.ok) return;
-    const data = (await res.json()) as { version: string };
-    const latest = data.version;
-
-    // Cache result
-    await fs.mkdir(CACHE_DIR, { recursive: true });
-    await fs.writeFile(CACHE_FILE, JSON.stringify({ latest, checkedAt: Date.now() }), "utf8");
-
-    if (latest !== currentVersion) {
-      printUpdateBanner(currentVersion, latest);
     }
+    const latest = execSync("npm view @flowpanel/cli version", {
+      encoding: "utf-8",
+      timeout: 5000,
+    }).trim();
+    if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+    fs.writeFileSync(CACHE_PATH, JSON.stringify({ latest, checkedAt: Date.now() }));
+    if (latest !== currentVersion) printNotice(currentVersion, latest);
   } catch {
-    // Silent failure — never block CLI on update check
+    // Silent on network failure
   }
 }
 
-function printUpdateBanner(current: string, latest: string): void {
-  console.log(kleur.yellow(`\n  Update available: ${current} → ${latest}`));
-  console.log(kleur.gray("  Run: pnpm add -g @flowpanel/cli\n"));
+function printNotice(current: string, latest: string): void {
+  console.log(
+    `\n  ${kleur.yellow("Update available:")} ${kleur.dim(current)} → ${kleur.green(latest)}` +
+      `\n  Run: ${kleur.cyan("npm install @flowpanel/cli@latest")}\n`,
+  );
 }

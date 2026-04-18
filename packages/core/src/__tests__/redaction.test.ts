@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redactObject, redactString } from "../redaction.js";
+import { redactObject, redactString } from "../redaction";
 
 describe("redactObject", () => {
   it("redacts a known key", () => {
@@ -16,7 +16,9 @@ describe("redactObject", () => {
 
   it("redacts nested object keys", () => {
     const result = redactObject({ meta: { apiKey: "secret123", name: "ok" } }, []);
+    // biome-ignore lint/suspicious/noExplicitAny: test result cast
     expect((result.meta as any).apiKey).toBe("[REDACTED]");
+    // biome-ignore lint/suspicious/noExplicitAny: test result cast
     expect((result.meta as any).name).toBe("ok");
   });
 

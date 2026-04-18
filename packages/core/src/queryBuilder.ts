@@ -1,4 +1,4 @@
-import { fieldNameToColumn } from "./schemaGenerator.js";
+import { fieldNameToColumn } from "./schemaGenerator";
 
 export interface QueryDef {
   type: string;
@@ -30,7 +30,7 @@ function resolveColumns(
   stageFields: Record<string, Record<string, unknown>>,
 ): string[] {
   if (fieldName in RESERVED_COLUMNS) {
-    return [RESERVED_COLUMNS[fieldName]!];
+    return [RESERVED_COLUMNS[fieldName] ?? fieldName];
   }
 
   const col = fieldNameToColumn(fieldName);
@@ -77,7 +77,7 @@ class QueryBuilderInstance {
     const units: Record<string, number> = { h: 3600000, d: 86400000 };
     const match = range.match(/^(\d+)([hd])$/);
     if (!match) return new Date(0).toISOString();
-    const ms = Number(match[1]) * units[match[2]!]!;
+    const ms = Number(match[1]) * (units[match[2] ?? "h"] ?? 3600000);
     return new Date(Date.now() - ms).toISOString();
   }
 
@@ -110,7 +110,7 @@ class QueryBuilderInstance {
     const [where, params] = this.whereClause();
     return {
       type: "count",
-      sql: `SELECT COUNT(*) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+      sql: `SELECT COUNT(*) AS value FROM flowpanel_pipeline_run${where ? ` ${where}` : ""}`,
       params,
       where: this._where,
     };
@@ -120,7 +120,7 @@ class QueryBuilderInstance {
     const [where, params] = this.whereClause();
     return {
       type: "successRate",
-      sql: `SELECT ROUND(100.0 * SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(*), 0), 2) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+      sql: `SELECT ROUND(100.0 * SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(*), 0), 2) AS value FROM flowpanel_pipeline_run${where ? ` ${where}` : ""}`,
       params,
       where: this._where,
     };
@@ -137,7 +137,7 @@ class QueryBuilderInstance {
     const [where, params] = this.whereClause();
     return {
       type: "sum",
-      sql: `SELECT SUM(${expr}) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+      sql: `SELECT SUM(${expr}) AS value FROM flowpanel_pipeline_run${where ? ` ${where}` : ""}`,
       params,
       where: this._where,
     };
@@ -148,7 +148,7 @@ class QueryBuilderInstance {
     const [where, params] = this.whereClause();
     return {
       type: "avg",
-      sql: `SELECT AVG(${col}) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+      sql: `SELECT AVG(${col}) AS value FROM flowpanel_pipeline_run${where ? ` ${where}` : ""}`,
       params,
       where: this._where,
     };
@@ -159,7 +159,7 @@ class QueryBuilderInstance {
     const [where, params] = this.whereClause();
     return {
       type: "p95",
-      sql: `SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY ${col}) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""}`,
+      sql: `SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY ${col}) AS value FROM flowpanel_pipeline_run${where ? ` ${where}` : ""}`,
       params,
       where: this._where,
     };
@@ -169,7 +169,7 @@ class QueryBuilderInstance {
     const [where, params] = this.whereClause();
     return {
       type: "hourly",
-      sql: `SELECT date_trunc('hour', started_at) AS bucket, COUNT(*) AS value FROM flowpanel_pipeline_run${where ? " " + where : ""} GROUP BY bucket ORDER BY bucket`,
+      sql: `SELECT date_trunc('hour', started_at) AS bucket, COUNT(*) AS value FROM flowpanel_pipeline_run${where ? ` ${where}` : ""} GROUP BY bucket ORDER BY bucket`,
       params,
       where: this._where,
     };
@@ -179,7 +179,7 @@ class QueryBuilderInstance {
     const [where, params] = this.whereClause();
     return {
       type: "byStage",
-      sql: `SELECT stage, COUNT(*) AS count, SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS succeeded, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed FROM flowpanel_pipeline_run${where ? " " + where : ""} GROUP BY stage`,
+      sql: `SELECT stage, COUNT(*) AS count, SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS succeeded, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed FROM flowpanel_pipeline_run${where ? ` ${where}` : ""} GROUP BY stage`,
       params,
       where: this._where,
     };
@@ -235,7 +235,7 @@ class QueryBuilderInstance {
 
     return {
       type: "chartBuckets",
-      sql: `SELECT ${bucketExpr} AS bucket, COUNT(*) AS total, SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS succeeded, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed FROM flowpanel_pipeline_run${where ? " " + where : ""} GROUP BY bucket ORDER BY bucket`,
+      sql: `SELECT ${bucketExpr} AS bucket, COUNT(*) AS total, SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS succeeded, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed FROM flowpanel_pipeline_run${where ? ` ${where}` : ""} GROUP BY bucket ORDER BY bucket`,
       params,
       where: this._where,
     };

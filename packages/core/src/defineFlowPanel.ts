@@ -1,9 +1,9 @@
-import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema.js";
-import { validateConfig } from "./config/validate.js";
-import { createQueryBuilder, type QueryBuilder } from "./queryBuilder.js";
-import { createReaper } from "./reaper.js";
-import type { SqlExecutor, SqlExecutorFactory } from "./types/db.js";
-import { createWithRun } from "./withRun.js";
+import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema";
+import { validateConfig } from "./config/validate";
+import { createQueryBuilder, type QueryBuilder } from "./queryBuilder";
+import { createReaper } from "./reaper";
+import type { SqlExecutor, SqlExecutorFactory } from "./types/db";
+import { createWithRun } from "./withRun";
 
 export interface FlowPanel<TConfig extends FlowPanelConfig = FlowPanelConfig> {
   config: TConfig;
@@ -21,6 +21,19 @@ async function resolveDb(factory: SqlExecutorFactory): Promise<SqlExecutor> {
   return factory;
 }
 
+/**
+ * Define a FlowPanel pipeline dashboard.
+ *
+ * @example
+ * ```ts
+ * const flowpanel = defineFlowPanel({
+ *   appName: "My App",
+ *   adapter: prismaAdapter({ prisma }),
+ *   pipeline: { stages: ["ingest", "process", "notify"] },
+ *   security: { auth: { getSession } },
+ * });
+ * ```
+ */
 export function defineFlowPanel<TConfig extends FlowPanelConfig>(
   rawConfig: TConfig,
 ): FlowPanel<TConfig> {
@@ -36,7 +49,20 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
   const config = parsed.data as TConfig;
 
   // Semantic validation
-  validateConfig(config as any);
+  validateConfig(config);
+
+  // Warn if getSession is still the init-generated stub
+  const getSessionFn = config.security?.auth?.getSession;
+  if (getSessionFn) {
+    const fnStr = (getSessionFn as (...args: unknown[]) => unknown).toString();
+    if (fnStr.includes("dev@localhost") || fnStr.includes("_flowpanelStub")) {
+      console.warn(
+        "[flowpanel] WARNING: getSession() is still the init-generated stub. " +
+          "All requests will be unauthenticated. " +
+          "Implement real authentication in flowpanel.config.ts → security.auth.getSession",
+      );
+    }
+  }
 
   const cwd = process.cwd();
   const redactionKeys = config.security?.redaction?.keys ?? [];
@@ -75,7 +101,8 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     const intervalStr = options?.interval ?? "60s";
     const match = intervalStr.match(/^(\d+)([smh])$/);
     const intervalMs = match
-      ? parseInt(match[1]!, 10) * (match[2] === "s" ? 1000 : match[2] === "m" ? 60000 : 3600000)
+      ? parseInt(match[1] ?? "60", 10) *
+        (match[2] === "s" ? 1000 : match[2] === "m" ? 60000 : 3600000)
       : 60000;
 
     const reaperThresholds: Record<string, string> = {};
@@ -91,13 +118,15 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
       r.sweep().catch((err) => console.error("[flowpanel] reaper error:", err));
     }, intervalMs);
 
-    if ((stop as any).unref) (stop as any).unref();
+    if (typeof (stop as unknown as { unref?: () => void }).unref === "function") {
+      (stop as unknown as { unref: () => void }).unref();
+    }
     return () => clearInterval(stop);
   }
 
   return {
     config,
-    withRun: withRunImpl as any,
+    withRun: withRunImpl as FlowPanel<TConfig>["withRun"],
     startReaper,
     getDb,
     queryBuilder,

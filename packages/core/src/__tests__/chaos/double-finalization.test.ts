@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SqlExecutor } from "../../types/db.js";
+import type { SqlExecutor } from "../../types/db";
 
 // Simulates two concurrent withRun callbacks for same run ID
 // Verifies idempotent finalization via RETURNING guard
@@ -15,10 +15,13 @@ describe("double-finalization chaos", () => {
         if (sql.includes("UPDATE") && sql.includes("status = 'running'")) {
           updateCount++;
           if (updateCount === 1) {
+            // biome-ignore lint/suspicious/noExplicitAny: test mock cast
             return [{ id: BigInt(1) }] as any; // First: succeeds
           }
+          // biome-ignore lint/suspicious/noExplicitAny: test mock cast
           return [] as any; // Second: row already updated, returns nothing
         }
+        // biome-ignore lint/suspicious/noExplicitAny: test mock cast
         if (sql.includes("INSERT")) return [{ id: BigInt(1) }] as any;
         return [];
       },

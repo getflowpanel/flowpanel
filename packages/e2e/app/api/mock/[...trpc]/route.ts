@@ -48,6 +48,56 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ trpc
     return tRPCResponse({ runs, nextCursor: input.cursor ? null : "cursor-page-2" });
   }
 
+  if (procedure === "flowpanel.drawers.render") {
+    const url = new URL(req.url);
+    const inputRaw = url.searchParams.get("input");
+    const input = inputRaw
+      ? (JSON.parse(decodeURIComponent(inputRaw)) as { drawerId: string; runId?: string })
+      : { drawerId: "" };
+
+    // stat-grid: aggregate stats
+    const statData = {
+      total: 4357,
+      succeeded: 4321,
+      failed: 36,
+      running: 0,
+      avg_duration_ms: 1240,
+      p95_duration_ms: 4800,
+    };
+
+    // trend-chart: last 12 hourly buckets
+    const trendData = Array.from({ length: 12 }, (_, i) => ({
+      bucket: `${String(i).padStart(2, "0")}:00`,
+      value: Math.floor(50 + Math.sin(i / 2) * 30 + Math.random() * 40),
+    }));
+
+    // breakdown by stage
+    const breakdownData = [
+      { stage: "parse", count: 1929 },
+      { stage: "score", count: 1218 },
+      { stage: "draft", count: 681 },
+      { stage: "notify", count: 529 },
+    ];
+
+    const sections: Array<{ type: string; data: unknown }> = [
+      { type: "stat-grid", data: statData },
+      { type: "trend-chart", data: trendData },
+      { type: "breakdown", data: breakdownData },
+    ];
+
+    // If opening a specific run — add kv-grid with run fields
+    if (input.runId) {
+      const run = MOCK_RUNS.find((r) => r.id === input.runId);
+      if (run) {
+        const { status, stage, duration_ms, ...rest } = run;
+        sections.unshift({ type: "stat-grid", data: { status, stage, duration_ms } });
+        sections.push({ type: "kv-grid", data: rest });
+      }
+    }
+
+    return tRPCResponse({ sections, run: null, actions: [] });
+  }
+
   if (procedure === "flowpanel.stream.connect") {
     // SSE endpoint — send heartbeat and a few mock events
     const encoder = new TextEncoder();
@@ -58,26 +108,34 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ trpc
 
         // Simulate a new run after 500ms
         setTimeout(() => {
-          const run = {
-            id: "run-live-1",
-            stage: "score",
-            status: "running",
-            partition_key: "user-99",
-            duration_ms: null,
-            created_at: new Date().toISOString(),
-          };
-          controller.enqueue(
-            encoder.encode(`event: run.created\ndata: ${JSON.stringify(run)}\n\n`),
-          );
+          try {
+            const run = {
+              id: "run-live-1",
+              stage: "score",
+              status: "running",
+              partition_key: "user-99",
+              duration_ms: null,
+              created_at: new Date().toISOString(),
+            };
+            controller.enqueue(
+              encoder.encode(`event: run.created\ndata: ${JSON.stringify(run)}\n\n`),
+            );
+          } catch {
+            // Stream already closed (client disconnected)
+          }
         }, 500);
 
         // Simulate run finishing after 2s
         setTimeout(() => {
-          controller.enqueue(
-            encoder.encode(
-              `event: run.finished\ndata: ${JSON.stringify({ id: "run-live-1", status: "succeeded", durationMs: 1200 })}\n\n`,
-            ),
-          );
+          try {
+            controller.enqueue(
+              encoder.encode(
+                `event: run.finished\ndata: ${JSON.stringify({ id: "run-live-1", status: "succeeded", durationMs: 1200 })}\n\n`,
+              ),
+            );
+          } catch {
+            // Stream already closed (client disconnected)
+          }
         }, 2000);
 
         // Keep alive for 30s then close
