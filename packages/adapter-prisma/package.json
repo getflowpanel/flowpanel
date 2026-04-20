@@ -27,6 +27,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run src/__tests__/metadata.test.ts src/__tests__/filters.test.ts",
     "test:integration": "vitest run --project integration"
   },
   "engines": {

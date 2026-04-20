@@ -1,5 +1,6 @@
 import { initTRPC } from "@trpc/server";
 import type { FlowPanelConfig } from "../config/schema";
+import type { ResourceAdapter, ResolvedResource } from "../resource/types";
 import type { SqlExecutor } from "../types/db";
 import type { FlowPanelContext } from "./context";
 import { createAuditLogMiddleware } from "./middleware/auditLog";
@@ -7,6 +8,7 @@ import { createAuthMiddleware } from "./middleware/auth";
 import { createRateLimitMiddleware } from "./middleware/rateLimit";
 import { createDrawersProcedures } from "./procedures/drawers";
 import { createMetricsProcedures } from "./procedures/metrics";
+import { createResourceProcedures } from "./procedures/resources";
 import { createRunsProcedures } from "./procedures/runs";
 import { createStagesProcedures } from "./procedures/stages";
 import { createStreamProcedure } from "./procedures/stream";
@@ -18,7 +20,12 @@ export function createFlowPanelRouter<TContext extends object>({
   getRequest,
 }: {
   t: ReturnType<typeof initTRPC.context<TContext>>;
-  config: { config: FlowPanelConfig; getDb: () => Promise<SqlExecutor> };
+  config: {
+    config: FlowPanelConfig;
+    getDb: () => Promise<SqlExecutor>;
+    resources?: Record<string, ResolvedResource>;
+    resourceAdapter?: ResourceAdapter;
+  };
   getRequest: (ctx: TContext) => Request;
 }) {
   // Create a new tRPC instance scoped to FlowPanelContext
@@ -49,6 +56,8 @@ export function createFlowPanelRouter<TContext extends object>({
     users: createUsersProcedures(fp as any, authedProcedure),
     // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     stream: createStreamProcedure(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+    resource: createResourceProcedures(fp as any, authedProcedure),
   });
 
   // Wrap in a procedure that translates from the user's context to FlowPanelContext
@@ -65,6 +74,8 @@ export function createFlowPanelRouter<TContext extends object>({
             db,
             session: null,
             req,
+            resources: config.resources,
+            resourceAdapter: config.resourceAdapter,
           } as FlowPanelContext,
         });
       })
