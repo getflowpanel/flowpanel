@@ -76,6 +76,8 @@ export interface NormalizedFilter {
 
 export interface FindManyArgs {
   where?: NormalizedFilter[];
+  /** Search filters combined with OR semantics (separate from regular AND filters). */
+  searchOr?: NormalizedFilter[];
   orderBy?: { field: string; dir: "asc" | "desc" };
   skip?: number;
   take?: number;
@@ -208,18 +210,133 @@ export interface MutationActionConfig<TRow, TCtx> {
   rateLimit?: { perMinute?: number; perHour?: number };
 }
 
-export interface ResolvedAction {
-  id: string;
-  type: "mutation";
+/** Optional download result returned from any non-mutation handler. */
+export interface ActionDownloadResult {
+  download?: { filename: string; content: string; mimeType?: string };
+}
+
+/** Bulk action: applies to an array of selected rows. */
+export interface BulkActionConfig<TRow, TCtx> {
   label: string;
-  /** Icon identifier string. */
+  icon?: string;
+  variant?: "default" | "danger";
+  confirm?: string | ConfirmConfig;
+  handler: (rows: TRow[], ctx: TCtx) => Promise<void | ActionDownloadResult>;
+  onSuccess?: { toast?: string; invalidate?: string[] };
+  rateLimit?: { perMinute?: number; perHour?: number };
+}
+
+/** Collection action: toolbar button with no row context (e.g. "Export CSV"). */
+export interface CollectionActionConfig<TCtx> {
+  label: string;
+  icon?: string;
+  variant?: "default" | "danger";
+  confirm?: string | ConfirmConfig;
+  handler: (ctx: TCtx) => Promise<void | ActionDownloadResult>;
+  onSuccess?: { toast?: string; invalidate?: string[] };
+  rateLimit?: { perMinute?: number; perHour?: number };
+}
+
+/**
+ * Link action: renders an anchor or a window.open call. The href may be a static
+ * template with `{field}` placeholders substituted from the row — e.g. `/customer/{id}`.
+ */
+export interface LinkActionConfig<TRow> {
+  label: string;
+  icon?: string;
+  /** URL template or row-aware function. Placeholders of the form `{path}` are substituted. */
+  href: string | ((row: TRow) => string);
+  external?: boolean;
+  when?: (row: TRow) => boolean;
+}
+
+/** One field in a dialog action's prompt schema. */
+export interface DialogField {
+  name: string;
+  label?: string;
+  type: "text" | "textarea" | "number" | "boolean" | "select" | "date";
+  required?: boolean;
+  options?: string[];
+  placeholder?: string;
+  defaultValue?: unknown;
+  help?: string;
+}
+
+export interface DialogSchema {
+  title?: string;
+  description?: string;
+  fields: DialogField[];
+  submitLabel?: string;
+}
+
+/** Dialog action: opens a dialog with a schema, then runs a handler with the values. */
+export interface DialogActionConfig<TRow, TCtx> {
+  label: string;
+  icon?: string;
+  variant?: "default" | "danger";
+  schema: DialogSchema;
+  confirm?: string | ConfirmConfig;
+  handler: (
+    values: Record<string, unknown>,
+    row: TRow | null,
+    ctx: TCtx,
+  ) => Promise<void | ActionDownloadResult>;
+  onSuccess?: { toast?: string; invalidate?: string[] };
+  when?: (row: TRow) => boolean;
+  rateLimit?: { perMinute?: number; perHour?: number };
+}
+
+// Resolved (server-side) action variants —  discriminated union on `type`.
+
+interface ResolvedActionBase {
+  id: string;
+  label: string;
   icon?: string;
   variant: "default" | "danger";
   confirm?: ConfirmConfig;
-  when?: (row: Row) => boolean;
-  handler: (row: Row, ctx: unknown) => Promise<unknown>;
   onSuccess?: { toast?: string; invalidate?: string[] };
 }
+
+export interface ResolvedMutationAction extends ResolvedActionBase {
+  type: "mutation";
+  when?: (row: Row) => boolean;
+  handler: (row: Row, ctx: unknown) => Promise<unknown>;
+}
+
+export interface ResolvedBulkAction extends ResolvedActionBase {
+  type: "bulk";
+  handler: (rows: Row[], ctx: unknown) => Promise<ActionDownloadResult | void>;
+}
+
+export interface ResolvedCollectionAction extends ResolvedActionBase {
+  type: "collection";
+  handler: (ctx: unknown) => Promise<ActionDownloadResult | void>;
+}
+
+export interface ResolvedLinkAction extends ResolvedActionBase {
+  type: "link";
+  href: string | ((row: Row) => string);
+  external?: boolean;
+  when?: (row: Row) => boolean;
+}
+
+export interface ResolvedDialogAction extends ResolvedActionBase {
+  type: "dialog";
+  schema: DialogSchema;
+  handler: (
+    values: Record<string, unknown>,
+    row: Row | null,
+    ctx: unknown,
+  ) => Promise<ActionDownloadResult | void>;
+  when?: (row: Row) => boolean;
+}
+
+export type ResolvedAction =
+  | ResolvedMutationAction
+  | ResolvedBulkAction
+  | ResolvedCollectionAction
+  | ResolvedLinkAction
+  | ResolvedDialogAction;
 
 // ---------------------------------------------------------------------------
 // Access Types
@@ -293,7 +410,16 @@ export interface FilterBuilder<TRow> {
 }
 
 export interface ActionBuilder<TRow> {
+  /** Per-row mutation: the main action kind, takes one row. */
   mutation(config: MutationActionConfig<TRow, unknown>): ResolvedAction;
+  /** Bulk: applies to an array of selected rows. */
+  bulk(config: BulkActionConfig<TRow, unknown>): ResolvedAction;
+  /** Collection: toolbar button with no row context (e.g. "Export CSV"). */
+  collection(config: CollectionActionConfig<unknown>): ResolvedAction;
+  /** Link: renders as an anchor; `href` may be a static string or `(row) => string`. */
+  link(config: LinkActionConfig<TRow>): ResolvedAction;
+  /** Dialog: opens a prompt dialog with a schema, then runs handler with values. */
+  dialog(config: DialogActionConfig<TRow, unknown>): ResolvedAction;
 }
 
 // ---------------------------------------------------------------------------
@@ -313,12 +439,12 @@ export interface ResourceOptions<TRow = Row> {
   defaultPageSize?: number;
   /** Fields to include in full-text search. */
   searchFields?: PathFn<TRow>[];
-  /** Column definitions. */
-  columns?: (builder: ColumnBuilder<TRow>) => ResolvedColumn[];
-  /** Filter definitions. */
-  filters?: (builder: FilterBuilder<TRow>) => ResolvedFilter[];
-  /** Row-level actions. */
-  actions?: (builder: ActionBuilder<TRow>) => ResolvedAction[];
+  /** Column definitions — shorthand PathFn[] or builder function. */
+  columns?: PathFn<TRow>[] | ((builder: ColumnBuilder<TRow>) => ResolvedColumn[]);
+  /** Filter definitions — shorthand PathFn[] or builder function. */
+  filters?: PathFn<TRow>[] | ((builder: FilterBuilder<TRow>) => ResolvedFilter[]);
+  /** Row-level actions. Return either a keyed record (keys → action IDs) or an array. */
+  actions?: (builder: ActionBuilder<TRow>) => Record<string, ResolvedAction> | ResolvedAction[];
   /** Access control configuration. */
   access?: AccessConfig;
   /** Field-level access rules. */
@@ -327,6 +453,8 @@ export interface ResourceOptions<TRow = Row> {
   include?: Record<string, unknown>;
   /** Navigation path segment, e.g. "users". Defaults to lowercase model name. */
   path?: string;
+  /** When true, forces create/update/delete access to false regardless of roles. */
+  readOnly?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -348,6 +476,8 @@ export interface ResolvedResource {
   /** Unique resource identifier derived from the model name. */
   id: string;
   modelName: string;
+  /** Primary key field name from model metadata. */
+  primaryKey: string;
   label: string;
   labelPlural: string;
   icon?: string;
@@ -361,6 +491,7 @@ export interface ResolvedResource {
   access: AccessConfig;
   fieldAccess: FieldAccessRule[];
   include?: Record<string, unknown>;
+  readOnly?: boolean;
   /** Map of action id -> handler function for server-side lookup. */
   _handlers: Record<string, (row: Row, ctx: unknown) => Promise<unknown>>;
   /** Map of column id -> compute function for server-side lookup. */
@@ -394,10 +525,8 @@ export interface SerializedFilter {
   opts: FilterOpts;
 }
 
-/** Action descriptor safe to send to the client. */
-export interface SerializedAction {
+interface SerializedActionBase {
   id: string;
-  type: "mutation";
   label: string;
   icon?: string;
   variant: "default" | "danger";
@@ -406,6 +535,43 @@ export interface SerializedAction {
   allowed: boolean;
   onSuccess?: { toast?: string; invalidate?: string[] };
 }
+
+export interface SerializedMutationAction extends SerializedActionBase {
+  type: "mutation";
+}
+
+export interface SerializedBulkAction extends SerializedActionBase {
+  type: "bulk";
+}
+
+export interface SerializedCollectionAction extends SerializedActionBase {
+  type: "collection";
+}
+
+export interface SerializedLinkAction extends SerializedActionBase {
+  type: "link";
+  /**
+   * URL template. Placeholders like `{id}` or `{user.email}` are substituted with
+   * corresponding row fields client-side. When `hrefIsDynamic` is true, the URL
+   * requires server-side evaluation (currently returns the template literal).
+   */
+  href: string;
+  hrefIsDynamic?: boolean;
+  external?: boolean;
+}
+
+export interface SerializedDialogAction extends SerializedActionBase {
+  type: "dialog";
+  schema: DialogSchema;
+}
+
+/** Action descriptor safe to send to the client. */
+export type SerializedAction =
+  | SerializedMutationAction
+  | SerializedBulkAction
+  | SerializedCollectionAction
+  | SerializedLinkAction
+  | SerializedDialogAction;
 
 /** Access evaluated to booleans for the current session. */
 export interface SerializedAccess {
@@ -421,6 +587,8 @@ export interface SerializedAccess {
 export interface SerializedResource {
   id: string;
   modelName: string;
+  /** Primary key field name (e.g. "id", "uuid"). */
+  primaryKey: string;
   label: string;
   labelPlural: string;
   icon?: string;

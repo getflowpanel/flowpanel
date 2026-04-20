@@ -28,7 +28,7 @@ const mockConfig = {
   },
   tabs: [
     { id: "pipeline", label: "Pipeline", view: "pipeline" as const },
-    { id: "users", label: "Users", view: "userList" as const },
+    // "Users" is provided by the resource system (auto-added from schema fetch)
   ],
   // biome-ignore lint/suspicious/noExplicitAny: e2e mock config cast
 } as any;

@@ -1,4 +1,4 @@
-import { eq, count, asc, desc, type SQL } from "drizzle-orm";
+import { eq, count, asc, desc, and, type SQL } from "drizzle-orm";
 import type {
   ResourceAdapter,
   FindManyArgs,
@@ -6,7 +6,7 @@ import type {
   Row,
   NormalizedFilter,
 } from "@flowpanel/core";
-import { normalizedFiltersToDrizzleWhere } from "./filters";
+import { normalizedFiltersToDrizzleWhere, normalizedFiltersToDrizzleOr } from "./filters";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle db type is opaque across versions
 type DrizzleDatabaseLike = any;
@@ -19,12 +19,14 @@ interface TableEntry {
 /**
  * Create a Drizzle ResourceAdapter.
  *
- * @param db      The Drizzle database instance.
+ * @param getDb   Async resolver returning the Drizzle database instance.
+ *                Accepts a plain db or a factory function; callers should wrap
+ *                both into `() => Promise<db>` at the call site.
  * @param tables  Map of model name → { table, metadata }.
  * @param enums   Map of enum name → values[].
  */
 export function createDrizzleResourceAdapter(
-  db: DrizzleDatabaseLike,
+  getDb: () => Promise<DrizzleDatabaseLike>,
   tables: Map<string, TableEntry>,
   enums: Map<string, string[]>,
 ): ResourceAdapter {
@@ -45,9 +47,18 @@ export function createDrizzleResourceAdapter(
     return col;
   }
 
-  function buildWhere(filters: NormalizedFilter[] | undefined, table: unknown): SQL | undefined {
-    if (!filters || filters.length === 0) return undefined;
-    return normalizedFiltersToDrizzleWhere(filters, table);
+  function buildWhere(
+    filters: NormalizedFilter[] | undefined,
+    searchOr: NormalizedFilter[] | undefined,
+    table: unknown,
+  ): SQL | undefined {
+    const regularWhere =
+      filters && filters.length > 0 ? normalizedFiltersToDrizzleWhere(filters, table) : undefined;
+    const searchOrWhere =
+      searchOr && searchOr.length > 0 ? normalizedFiltersToDrizzleOr(searchOr, table) : undefined;
+
+    if (regularWhere && searchOrWhere) return and(regularWhere, searchOrWhere);
+    return regularWhere ?? searchOrWhere;
   }
 
   function buildOrderBy(
@@ -76,8 +87,9 @@ export function createDrizzleResourceAdapter(
     },
 
     async findMany(model: string, args: FindManyArgs): Promise<{ data: Row[]; total: number }> {
+      const db = await getDb();
       const { table, metadata } = getEntry(model);
-      const where = buildWhere(args.where, table);
+      const where = buildWhere(args.where, args.searchOr, table);
       const orderByExpr = buildOrderBy(args.orderBy, table);
 
       // Check if relational query builder is available and include is requested
@@ -126,6 +138,7 @@ export function createDrizzleResourceAdapter(
       model: string,
       args: { where: Record<string, unknown>; include?: Record<string, unknown> },
     ): Promise<Row | null> {
+      const db = await getDb();
       const { table, metadata } = getEntry(model);
       const pkCol = getPkColumn(table, metadata.primaryKey);
       const pkValue = args.where[metadata.primaryKey];
@@ -153,8 +166,9 @@ export function createDrizzleResourceAdapter(
     },
 
     async count(model: string, args: { where?: NormalizedFilter[] }): Promise<number> {
+      const db = await getDb();
       const { table } = getEntry(model);
-      const where = buildWhere(args.where, table);
+      const where = buildWhere(args.where, undefined, table);
 
       // biome-ignore lint/suspicious/noExplicitAny: Drizzle builder is dynamic
       let query: any = db.select({ count: count() }).from(table as any);
@@ -165,6 +179,7 @@ export function createDrizzleResourceAdapter(
     },
 
     async create(model: string, args: { data: Record<string, unknown> }): Promise<Row> {
+      const db = await getDb();
       const { table } = getEntry(model);
 
       // biome-ignore lint/suspicious/noExplicitAny: Drizzle builder is dynamic
@@ -181,6 +196,7 @@ export function createDrizzleResourceAdapter(
       model: string,
       args: { where: Record<string, unknown>; data: Record<string, unknown> },
     ): Promise<Row> {
+      const db = await getDb();
       const { table, metadata } = getEntry(model);
       const pkCol = getPkColumn(table, metadata.primaryKey);
       const pkValue = args.where[metadata.primaryKey];
@@ -198,6 +214,7 @@ export function createDrizzleResourceAdapter(
     },
 
     async delete(model: string, args: { where: Record<string, unknown> }): Promise<Row> {
+      const db = await getDb();
       const { table, metadata } = getEntry(model);
       const pkCol = getPkColumn(table, metadata.primaryKey);
       const pkValue = args.where[metadata.primaryKey];

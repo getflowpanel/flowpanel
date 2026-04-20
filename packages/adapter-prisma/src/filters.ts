@@ -1,6 +1,14 @@
 import type { NormalizedFilter } from "@flowpanel/core";
 
 /**
+ * Escape LIKE wildcards (%, _) in user-supplied search values to prevent
+ * unintended pattern matching in Prisma contains/startsWith/endsWith.
+ */
+function escapeLike(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+/**
  * Build a nested Prisma where clause from a dot-path like "user.email".
  * e.g. setNested({}, ["user", "email"], { contains: "foo" }) → { user: { email: { contains: "foo" } } }
  */
@@ -49,11 +57,11 @@ function filterToCondition(filter: NormalizedFilter): unknown {
     case "neq":
       return { not: value };
     case "contains":
-      return { contains: value, mode: "insensitive" };
+      return { contains: escapeLike(String(value)), mode: "insensitive" };
     case "startsWith":
-      return { startsWith: value, mode: "insensitive" };
+      return { startsWith: escapeLike(String(value)), mode: "insensitive" };
     case "endsWith":
-      return { endsWith: value, mode: "insensitive" };
+      return { endsWith: escapeLike(String(value)), mode: "insensitive" };
     case "in":
       return { in: value };
     case "notIn":

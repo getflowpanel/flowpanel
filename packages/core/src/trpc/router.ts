@@ -1,13 +1,17 @@
 import { initTRPC } from "@trpc/server";
 import type { FlowPanelConfig } from "../config/schema";
+import type { ResolvedQueue } from "../queue/types";
 import type { ResourceAdapter, ResolvedResource } from "../resource/types";
 import type { SqlExecutor } from "../types/db";
+import type { ResolvedWidget } from "../widget/types";
 import type { FlowPanelContext } from "./context";
 import { createAuditLogMiddleware } from "./middleware/auditLog";
 import { createAuthMiddleware } from "./middleware/auth";
 import { createRateLimitMiddleware } from "./middleware/rateLimit";
+import { createDashboardProcedures } from "./procedures/dashboard";
 import { createDrawersProcedures } from "./procedures/drawers";
 import { createMetricsProcedures } from "./procedures/metrics";
+import { createQueueProcedures } from "./procedures/queues";
 import { createResourceProcedures } from "./procedures/resources";
 import { createRunsProcedures } from "./procedures/runs";
 import { createStagesProcedures } from "./procedures/stages";
@@ -25,6 +29,8 @@ export function createFlowPanelRouter<TContext extends object>({
     getDb: () => Promise<SqlExecutor>;
     resources?: Record<string, ResolvedResource>;
     resourceAdapter?: ResourceAdapter;
+    dashboard?: ResolvedWidget[];
+    queues?: Record<string, ResolvedQueue>;
   };
   getRequest: (ctx: TContext) => Request;
 }) {
@@ -58,6 +64,10 @@ export function createFlowPanelRouter<TContext extends object>({
     stream: createStreamProcedure(fp as any, authedProcedure),
     // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     resource: createResourceProcedures(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+    dashboard: createDashboardProcedures(fp as any, authedProcedure),
+    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
+    queue: createQueueProcedures(fp as any, authedProcedure),
   });
 
   // Wrap in a procedure that translates from the user's context to FlowPanelContext
@@ -76,6 +86,8 @@ export function createFlowPanelRouter<TContext extends object>({
             req,
             resources: config.resources,
             resourceAdapter: config.resourceAdapter,
+            dashboard: config.dashboard,
+            queues: config.queues,
           } as FlowPanelContext,
         });
       })

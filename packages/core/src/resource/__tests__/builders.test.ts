@@ -241,7 +241,11 @@ describe("createActionBuilder", () => {
     });
 
     it("passes ConfirmConfig as-is", () => {
-      const confirm = { title: "Delete?", description: "This is permanent.", intent: "destructive" as const };
+      const confirm = {
+        title: "Delete?",
+        description: "This is permanent.",
+        intent: "destructive" as const,
+      };
       const action = a.mutation({ label: "Delete", confirm, handler: async () => {} });
       expect(action.confirm).toBe(confirm);
     });
@@ -257,7 +261,69 @@ describe("createActionBuilder", () => {
       });
       expect(action.icon).toBe("archive");
       expect(action.onSuccess).toEqual({ toast: "Archived!" });
-      expect(action.when).toBe(when);
+      // `when` only exists on mutation/link/dialog variants
+      expect(action.type === "mutation" && action.when).toBe(when);
+    });
+  });
+
+  describe("bulk()", () => {
+    it("creates a bulk action", () => {
+      const handler = async () => {};
+      const action = a.bulk({ label: "Archive selected", handler });
+      expect(action.type).toBe("bulk");
+      expect(action.label).toBe("Archive selected");
+      expect(action.variant).toBe("default");
+    });
+
+    it("honours danger variant and string confirm", () => {
+      const action = a.bulk({
+        label: "Delete selected",
+        variant: "danger",
+        confirm: "Are you sure?",
+        handler: async () => {},
+      });
+      expect(action.variant).toBe("danger");
+      expect(action.confirm).toEqual({ title: "Are you sure?" });
+    });
+  });
+
+  describe("collection()", () => {
+    it("creates a collection action", () => {
+      const action = a.collection({ label: "Export CSV", handler: async () => {} });
+      expect(action.type).toBe("collection");
+      expect(action.label).toBe("Export CSV");
+    });
+  });
+
+  describe("link()", () => {
+    it("creates a static link action", () => {
+      const action = a.link({ label: "Docs", href: "/docs" });
+      expect(action.type).toBe("link");
+      expect(action.type === "link" && action.href).toBe("/docs");
+      expect(action.type === "link" && action.external).toBeUndefined();
+    });
+
+    it("keeps function href on resolved action", () => {
+      const href = (row: UserRow) => `/users/${row.id}`;
+      const action = a.link({ label: "Open", href });
+      expect(action.type === "link" && action.href).toBe(href);
+    });
+
+    it("passes external flag", () => {
+      const action = a.link({ label: "Stripe", href: "https://stripe.com", external: true });
+      expect(action.type === "link" && action.external).toBe(true);
+    });
+  });
+
+  describe("dialog()", () => {
+    it("creates a dialog action with schema", () => {
+      const action = a.dialog({
+        label: "Send email",
+        schema: { fields: [{ name: "subject", type: "text", required: true }] },
+        handler: async () => {},
+      });
+      expect(action.type).toBe("dialog");
+      expect(action.type === "dialog" && action.schema.fields[0]?.name).toBe("subject");
     });
   });
 });
@@ -268,10 +334,7 @@ describe("createActionBuilder", () => {
 
 describe("resolveShorthandColumns", () => {
   it("converts array of PathFns to ResolvedColumns", () => {
-    const cols = resolveShorthandColumns<UserRow>([
-      (p) => p.email,
-      (p) => p.createdAt,
-    ]);
+    const cols = resolveShorthandColumns<UserRow>([(p) => p.email, (p) => p.createdAt]);
     expect(cols).toHaveLength(2);
     expect(cols[0].path).toBe("email");
     expect(cols[1].path).toBe("createdAt");

@@ -95,7 +95,7 @@ export function drizzleAdapter(opts: {
     }
   }
 
-  const resource = createDrizzleResourceAdapter(opts.db, tablesMap, enumsMap);
+  const resource = createDrizzleResourceAdapter(getDb, tablesMap, enumsMap);
 
   const sql: SqlExecutor = {
     dialect,

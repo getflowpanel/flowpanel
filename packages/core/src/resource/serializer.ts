@@ -100,9 +100,8 @@ function serializeAction(
   accessRule: AccessRule | undefined,
   sessionRoles: string[],
 ): SerializedAction {
-  return {
+  const base = {
     id: action.id,
-    type: action.type,
     label: action.label,
     icon: action.icon,
     variant: action.variant,
@@ -110,6 +109,30 @@ function serializeAction(
     allowed: evaluateAccessRule(accessRule, sessionRoles),
     onSuccess: action.onSuccess,
   };
+
+  switch (action.type) {
+    case "mutation":
+      return { ...base, type: "mutation" };
+    case "bulk":
+      return { ...base, type: "bulk" };
+    case "collection":
+      return { ...base, type: "collection" };
+    case "link": {
+      // A string href is served as-is. A function href is marked dynamic — the client
+      // will still render the link with the literal fallback but should treat hrefIsDynamic
+      // as a signal to post to a server-side resolver in a future extension.
+      const hrefIsDynamic = typeof action.href === "function";
+      return {
+        ...base,
+        type: "link",
+        href: hrefIsDynamic ? "" : (action.href as string),
+        hrefIsDynamic,
+        external: action.external,
+      };
+    }
+    case "dialog":
+      return { ...base, type: "dialog", schema: action.schema };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +185,7 @@ export function serializeResource(
   resource: ResolvedResource,
   sessionRoles: string[],
 ): SerializedResource {
-  const readOnly = (resource as any).readOnly === true;
+  const readOnly = resource.readOnly === true;
 
   const columns = resource.columns.map(serializeColumn);
   const filters = resource.filters.map(serializeFilter);
@@ -181,6 +204,7 @@ export function serializeResource(
   return {
     id: resource.id,
     modelName: resource.modelName,
+    primaryKey: resource.primaryKey,
     label: resource.label,
     labelPlural: resource.labelPlural,
     icon: resource.icon,

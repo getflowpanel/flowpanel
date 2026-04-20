@@ -155,6 +155,71 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ trpc
   return NextResponse.json({ error: "Unknown procedure" }, { status: 404 });
 }
 
+// ─── Resource mocks ──────────────────────────────────────────────────────────
+
+const MOCK_USERS: Record<string, unknown>[] = [
+  {
+    id: 1,
+    email: "alice@example.com",
+    name: "Alice",
+    role: "admin",
+    createdAt: new Date(Date.now() - 86400_000 * 30).toISOString(),
+  },
+  {
+    id: 2,
+    email: "bob@example.com",
+    name: "Bob",
+    role: "user",
+    createdAt: new Date(Date.now() - 86400_000 * 14).toISOString(),
+  },
+  {
+    id: 3,
+    email: "carol@example.com",
+    name: "Carol",
+    role: "user",
+    createdAt: new Date(Date.now() - 86400_000 * 7).toISOString(),
+  },
+];
+
+const SERIALIZED_USERS_RESOURCE = {
+  id: "users",
+  modelName: "User",
+  primaryKey: "id",
+  label: "User",
+  labelPlural: "Users",
+  icon: "users",
+  path: "users",
+  defaultSort: { field: "id", dir: "desc" },
+  defaultPageSize: 50,
+  searchFields: ["email", "name"],
+  columns: [
+    { id: "id", path: "id", label: "Id", type: "field", format: "auto", opts: {} },
+    { id: "email", path: "email", label: "Email", type: "field", format: "auto", opts: {} },
+    { id: "name", path: "name", label: "Name", type: "field", format: "auto", opts: {} },
+    { id: "role", path: "role", label: "Role", type: "field", format: "enum", opts: {} },
+    {
+      id: "createdAt",
+      path: "createdAt",
+      label: "Created At",
+      type: "field",
+      format: "relative",
+      opts: {},
+    },
+  ],
+  filters: [
+    {
+      id: "role",
+      path: "role",
+      label: "Role",
+      mode: "enum",
+      opts: { options: ["admin", "user"] },
+    },
+  ],
+  actions: [],
+  access: { list: true, read: true, create: true, update: true, delete: true },
+  fieldAccess: [],
+};
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ trpc: string[] }> }) {
   const { trpc } = await params;
   const procedure = trpc.join(".");
@@ -171,6 +236,84 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ trp
       created_at: new Date().toISOString(),
     };
     return NextResponse.json({ runId: run.id, run });
+  }
+
+  // ── Resource procedures ─────────────────────────────────────────────────
+  if (procedure === "flowpanel.resource.schema") {
+    return tRPCResponse({ resources: { users: SERIALIZED_USERS_RESOURCE } });
+  }
+
+  if (procedure === "flowpanel.resource.list") {
+    const input = body as {
+      resourceId: string;
+      page: number;
+      pageSize: number;
+      search?: { query: string };
+      filters?: Array<{ field: string; op: string; value: unknown }>;
+    };
+    let rows = [...MOCK_USERS];
+    if (input.search?.query) {
+      const q = input.search.query.toLowerCase();
+      rows = rows.filter(
+        (r) =>
+          String(r.email ?? "")
+            .toLowerCase()
+            .includes(q) ||
+          String(r.name ?? "")
+            .toLowerCase()
+            .includes(q),
+      );
+    }
+    if (input.filters) {
+      for (const f of input.filters) {
+        rows = rows.filter((r) => {
+          const v = r[f.field];
+          if (f.op === "eq") return v === f.value;
+          if (f.op === "in" && Array.isArray(f.value)) return f.value.includes(v);
+          return true;
+        });
+      }
+    }
+    const total = rows.length;
+    const start = (input.page - 1) * input.pageSize;
+    const data = rows.slice(start, start + input.pageSize);
+    return tRPCResponse({
+      data,
+      total,
+      page: input.page,
+      pageSize: input.pageSize,
+      totalPages: Math.max(1, Math.ceil(total / input.pageSize)),
+    });
+  }
+
+  if (procedure === "flowpanel.resource.get") {
+    const input = body as { recordId: number | string };
+    const row = MOCK_USERS.find((r) => r.id === input.recordId);
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return tRPCResponse(row);
+  }
+
+  if (procedure === "flowpanel.resource.create") {
+    const input = body as { data: Record<string, unknown> };
+    const row = { id: MOCK_USERS.length + 1, createdAt: new Date().toISOString(), ...input.data };
+    MOCK_USERS.push(row);
+    return tRPCResponse(row);
+  }
+
+  if (procedure === "flowpanel.resource.update") {
+    const input = body as { recordId: number | string; data: Record<string, unknown> };
+    const idx = MOCK_USERS.findIndex((r) => r.id === input.recordId);
+    if (idx === -1) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    MOCK_USERS[idx] = { ...MOCK_USERS[idx], ...input.data };
+    return tRPCResponse(MOCK_USERS[idx]);
+  }
+
+  if (procedure === "flowpanel.resource.delete") {
+    const input = body as { recordId: number | string };
+    const idx = MOCK_USERS.findIndex((r) => r.id === input.recordId);
+    if (idx === -1) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    MOCK_USERS.splice(idx, 1);
+    return tRPCResponse({ success: true });
   }
 
   return NextResponse.json({ error: "Unknown procedure" }, { status: 404 });
