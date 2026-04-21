@@ -76,7 +76,7 @@ function Chip({
         background: active
           ? color === "err"
             ? "rgba(239,68,68,0.15)"
-            : "rgba(255,255,255,0.08)"
+            : "var(--fp-surface-selected)"
           : "transparent",
         border: "1px solid var(--fp-border-1)",
         color: active

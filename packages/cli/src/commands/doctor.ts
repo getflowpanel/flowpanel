@@ -1,167 +1,130 @@
-import kleur from "kleur";
-import ora from "ora";
-import { loadConfig } from "../loadConfig";
-import { formatWarning } from "../utils/error-format";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
+import type { Command } from "commander";
 
-export async function runDoctor({ prod = false, json = false } = {}): Promise<void> {
-  const cwd = process.cwd();
-  const results: Array<{ status: "pass" | "warn" | "fail"; message: string; detail?: string }> = [];
-  let config: Awaited<ReturnType<typeof loadConfig>> | null;
+type CheckResult = { name: string; ok: boolean; detail?: string };
 
-  function pass(msg: string) {
-    results.push({ status: "pass", message: msg });
-    if (!json) console.log(kleur.green("  ✓ ") + msg);
-  }
-  function warn(msg: string, detail?: string) {
-    results.push({ status: "warn", message: msg, detail });
-    if (!json) {
-      console.log(formatWarning(msg));
-      if (detail) console.log(kleur.gray(`    ${detail}`));
-    }
-  }
-  function fail(msg: string, detail?: string) {
-    results.push({ status: "fail", message: msg, detail });
-    if (!json) {
-      console.log(kleur.red(`  ✗ ${msg}`));
-      if (detail) console.log(kleur.gray(`    ${detail}`));
-    }
-  }
+export function doctorCommand(cli: Command): void {
+  cli
+    .command("doctor")
+    .description("Run a health check on FlowPanel setup")
+    .action(async () => {
+      p.intro(pc.bgBlue(pc.white(" FlowPanel doctor ")));
 
-  const spinner = json ? null : ora("Running health checks...").start();
+      const results: CheckResult[] = [];
+      results.push(await checkNodeVersion());
+      results.push(await checkAdapterDetected());
+      results.push(await checkFlowPanelConfig());
+      results.push(await checkDrizzleRelations());
+      results.push(await checkTailwindPreset());
 
-  if (!json) console.log("");
+      printResults(results);
 
-  try {
-    if (spinner) spinner.text = "Checking TypeScript...";
-    const { execSync } = await import("node:child_process");
-    execSync(`npx tsc --noEmit --skipLibCheck`, { cwd, stdio: "pipe" });
-    pass("flowpanel.config.ts       valid TypeScript (tsc --noEmit passed)");
-  } catch (err) {
-    fail(
-      "flowpanel.config.ts       TypeScript errors found",
-      // biome-ignore lint/suspicious/noExplicitAny: dynamically loaded config
-      String((err as any).stderr).slice(0, 200),
-    );
-  }
-
-  try {
-    if (spinner) spinner.text = "Loading config...";
-    config = await loadConfig();
-    pass("flowpanel.config.ts       valid config (Zod + semantic validation)");
-  } catch (err) {
-    fail("flowpanel.config.ts       failed to load", String(err).slice(0, 200));
-    config = null;
-  }
-
-  if (!config) {
-    if (spinner) spinner.stop();
-    const passCount = results.filter((r) => r.status === "pass").length;
-    const warnCount = results.filter((r) => r.status === "warn").length;
-    const failCount = results.filter((r) => r.status === "fail").length;
-    if (json) {
-      console.log(
-        JSON.stringify(
-          { results, summary: { passed: passCount, warnings: warnCount, failed: failCount } },
-          null,
-          2,
-        ),
+      const failed = results.filter((r) => !r.ok).length;
+      p.outro(
+        failed === 0
+          ? pc.green(`All ${results.length} checks passed`)
+          : pc.red(`${failed} check(s) failed`),
       );
-    } else {
-      console.log(`\n  ${failCount} failed · ${warnCount} warnings · ${passCount} passed`);
-    }
-    if (prod) process.exit(1);
-    return;
-  }
+      process.exit(failed === 0 ? 0 : 1);
+    });
+}
 
-  try {
-    if (spinner) spinner.text = "Testing getSession...";
-    const mockReq = new Request("http://localhost/");
-    const session = await config.config.security.auth.getSession(mockReq);
-    if (session === null || (typeof session === "object" && "userId" in session)) {
-      pass("getSession                mock invocation returned correct shape");
-    } else {
-      warn(
-        "getSession                returned unexpected shape",
-        "Expected null or { userId, role }",
-      );
-    }
-  } catch (err) {
-    warn("getSession                threw on mock request", String(err).slice(0, 100));
+function printResults(results: CheckResult[]): void {
+  for (const r of results) {
+    const icon = r.ok ? pc.green("✓") : pc.red("✗");
+    const detail = r.detail ? pc.dim(`  ${r.detail}`) : "";
+    console.log(`  ${icon} ${r.name}${detail}`);
   }
+}
 
-  try {
-    if (spinner) spinner.text = "Testing database connection...";
-    const db = await config.getDb();
-    const start = Date.now();
-    await db.execute("SELECT 1", []);
-    const ms = Date.now() - start;
-    pass(`Database                  connected (${ms}ms)`);
-  } catch (err) {
-    fail("Database                  connection failed", String(err).slice(0, 100));
-  }
+async function checkNodeVersion(): Promise<CheckResult> {
+  const version = process.version;
+  const major = parseInt(version.slice(1), 10);
+  return { name: "Node.js version", ok: major >= 20, detail: version };
+}
 
-  try {
-    if (spinner) spinner.text = "Checking schema...";
-    const db = await config.getDb();
-    const tables = await db.execute<{ tablename: string }>(
-      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'flowpanel_%'`,
-      [],
-    );
-    if (tables.length >= 4) {
-      pass("Schema                    up to date, no drift");
-    } else {
-      warn("Schema                    tables missing", "Run: npx flowpanel migrate");
+async function checkAdapterDetected(): Promise<CheckResult> {
+  const hasPrisma = await fileExists("prisma/schema.prisma");
+  const hasDrizzle =
+    (await fileExists("drizzle.config.ts")) || (await fileExists("drizzle.config.js"));
+  return {
+    name: "ORM adapter",
+    ok: hasPrisma || hasDrizzle,
+    detail: hasPrisma ? "Prisma detected" : hasDrizzle ? "Drizzle detected" : "No ORM detected",
+  };
+}
+
+async function checkFlowPanelConfig(): Promise<CheckResult> {
+  const candidates = [
+    "src/flowpanel.ts",
+    "flowpanel.ts",
+    "src/app/flowpanel.ts",
+    "flowpanel.config.ts",
+    "src/flowpanel.config.ts",
+  ];
+  for (const c of candidates) {
+    if (await fileExists(c)) {
+      return { name: "FlowPanel config", ok: true, detail: c };
     }
+  }
+  return {
+    name: "FlowPanel config",
+    ok: false,
+    detail: "No flowpanel.ts / flowpanel.config.ts found",
+  };
+}
+
+async function checkDrizzleRelations(): Promise<CheckResult> {
+  const hasDrizzle = await fileExists("drizzle.config.ts");
+  if (!hasDrizzle) return { name: "Drizzle relations", ok: true, detail: "N/A (not Drizzle)" };
+  try {
+    const { readFileSync } = await import("node:fs");
+    const schemaFiles = ["drizzle/schema.ts", "src/db/schema.ts", "src/schema.ts"];
+    for (const f of schemaFiles) {
+      if (await fileExists(f)) {
+        const content = readFileSync(f, "utf-8");
+        const hasRelations = content.includes("relations(");
+        return {
+          name: "Drizzle relations",
+          ok: hasRelations,
+          detail: hasRelations ? `Found in ${f}` : `No relations() in ${f}`,
+        };
+      }
+    }
+    return { name: "Drizzle relations", ok: false, detail: "Schema file not found" };
   } catch {
-    warn("Schema                    could not check (DB not connected)");
+    return { name: "Drizzle relations", ok: false, detail: "Could not check" };
   }
+}
 
+async function checkTailwindPreset(): Promise<CheckResult> {
   try {
-    if (spinner) spinner.text = "Checking timezone lock...";
-    const db = await config.getDb();
-    const rows = await db.execute<{ value: string }>(
-      `SELECT value FROM flowpanel_meta WHERE key = 'timezone'`,
-      [],
-    );
-    const tz = rows[0]?.value ?? "not set";
-    pass(`Timezone lock             ${tz}`);
-  } catch {
-    warn("Timezone lock             flowpanel_meta not yet created");
-  }
-
-  if (prod) {
-    const secret = process.env.FLOWPANEL_COOKIE_SECRET;
-    if (!secret || secret.length < 32) {
-      fail("FLOWPANEL_COOKIE_SECRET   not set or < 32 bytes");
-    } else {
-      pass("FLOWPANEL_COOKIE_SECRET   set, ≥ 32 bytes");
+    const { readFileSync } = await import("node:fs");
+    const candidates = ["tailwind.config.ts", "tailwind.config.js"];
+    for (const f of candidates) {
+      if (await fileExists(f)) {
+        const content = readFileSync(f, "utf-8");
+        const hasPreset = content.includes("@flowpanel/react");
+        return {
+          name: "Tailwind preset",
+          ok: hasPreset,
+          detail: hasPreset ? "FlowPanel preset configured" : "FlowPanel preset not found",
+        };
+      }
     }
+    return { name: "Tailwind preset", ok: false, detail: "No tailwind.config found" };
+  } catch {
+    return { name: "Tailwind preset", ok: false, detail: "Could not check" };
   }
+}
 
-  warn(
-    "Reaper not scheduled",
-    `Add to worker/index.ts:\n    ┌──────────────────────────────────────────┐\n    │  flowpanel.startReaper({ interval: "60s" });  │\n    └──────────────────────────────────────────┘`,
-  );
-
-  if (spinner) spinner.stop();
-
-  const passCount = results.filter((r) => r.status === "pass").length;
-  const warnCount = results.filter((r) => r.status === "warn").length;
-  const failCount = results.filter((r) => r.status === "fail").length;
-
-  if (json) {
-    console.log(
-      JSON.stringify(
-        { results, summary: { passed: passCount, warnings: warnCount, failed: failCount } },
-        null,
-        2,
-      ),
-    );
-  } else {
-    console.log(`\n  ${passCount} passed · ${warnCount} warnings · ${failCount} failed\n`);
-  }
-
-  if (prod && failCount > 0) {
-    process.exit(1);
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    const { access } = await import("node:fs/promises");
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
   }
 }

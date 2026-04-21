@@ -57,7 +57,7 @@ export function RunChart({ buckets, peakBucket, loading }: RunChartProps) {
         style={{
           height: 120,
           borderRadius: 6,
-          background: "rgba(255,255,255,0.04)",
+          background: "var(--fp-surface-hover)",
           animation: "fp-pulse 1.4s ease-in-out infinite",
         }}
         aria-busy="true"
@@ -201,8 +201,8 @@ export function RunChart({ buckets, peakBucket, loading }: RunChartProps) {
           </defs>
 
           {/* Grid lines */}
-          <line x1="0" y1="27" x2={SVG_W} y2="27" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
-          <line x1="0" y1="54" x2={SVG_W} y2="54" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+          <line x1="0" y1="27" x2={SVG_W} y2="27" stroke="var(--fp-chart-grid)" strokeWidth="1" />
+          <line x1="0" y1="54" x2={SVG_W} y2="54" stroke="var(--fp-chart-grid)" strokeWidth="1" />
 
           {/* Area fills */}
           {!hiddenSeries.has("total") && (
@@ -279,7 +279,7 @@ export function RunChart({ buckets, peakBucket, loading }: RunChartProps) {
               y1={0}
               x2={hoverIndex * (SVG_W / buckets.length) + SVG_W / buckets.length / 2}
               y2={SVG_H}
-              stroke="rgba(255,255,255,0.2)"
+              stroke="var(--fp-chart-crosshair)"
               strokeDasharray="2 2"
             />
           )}
@@ -294,12 +294,12 @@ export function RunChart({ buckets, peakBucket, loading }: RunChartProps) {
               bottom: "calc(100% + 6px)",
               transform: "translateX(-50%)",
               background: "var(--fp-surface-3, #1e293b)",
-              border: "1px solid var(--fp-border-2, rgba(255,255,255,0.1))",
+              border: "1px solid var(--fp-border-2)",
               borderRadius: 6,
               padding: "6px 10px",
               fontSize: 11,
               whiteSpace: "nowrap",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+              boxShadow: "var(--fp-shadow-md)",
               zIndex: 10,
               pointerEvents: "none",
               color: "var(--fp-text-1, #f1f5f9)",

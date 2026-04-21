@@ -40,6 +40,22 @@
   --fp-duration: 140ms;
   --fp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --fp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --fp-shadow-overlay: 0 24px 64px rgba(0, 0, 0, 0.5);
+
+  /* ── Overlays ────────────────────────────── */
+  --fp-overlay-backdrop: rgba(0, 0, 0, 0.5);
+  --fp-overlay-backdrop-heavy: rgba(0, 0, 0, 0.6);
+
+  /* ── Surface tints (dark default) ───────── */
+  --fp-surface-hover: rgba(255, 255, 255, 0.04);
+  --fp-surface-active: rgba(255, 255, 255, 0.07);
+  --fp-surface-selected: rgba(255, 255, 255, 0.08);
+  --fp-surface-subtle: rgba(255, 255, 255, 0.06);
+  --fp-chart-crosshair: rgba(255, 255, 255, 0.2);
+  --fp-chart-grid: rgba(255, 255, 255, 0.04);
+
+  /* ── Code backgrounds ────────────────────── */
+  --fp-code-bg: rgba(0, 0, 0, 0.06);
 
   /* ── Typography ──────────────────────────── */
   --fp-font-sans: "Inter", system-ui, sans-serif;
@@ -72,6 +88,16 @@
 
     --fp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
     --fp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --fp-shadow-overlay: 0 24px 64px rgba(0, 0, 0, 0.2);
+    --fp-overlay-backdrop: rgba(0, 0, 0, 0.3);
+    --fp-overlay-backdrop-heavy: rgba(0, 0, 0, 0.4);
+    --fp-surface-hover: rgba(0, 0, 0, 0.04);
+    --fp-surface-active: rgba(0, 0, 0, 0.07);
+    --fp-surface-selected: rgba(0, 0, 0, 0.08);
+    --fp-surface-subtle: rgba(0, 0, 0, 0.04);
+    --fp-chart-crosshair: rgba(0, 0, 0, 0.2);
+    --fp-chart-grid: rgba(0, 0, 0, 0.06);
+    --fp-code-bg: rgba(0, 0, 0, 0.06);
   }
 }
 
@@ -98,6 +124,16 @@
 
   --fp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --fp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --fp-shadow-overlay: 0 24px 64px rgba(0, 0, 0, 0.2);
+  --fp-overlay-backdrop: rgba(0, 0, 0, 0.3);
+  --fp-overlay-backdrop-heavy: rgba(0, 0, 0, 0.4);
+  --fp-surface-hover: rgba(0, 0, 0, 0.04);
+  --fp-surface-active: rgba(0, 0, 0, 0.07);
+  --fp-surface-selected: rgba(0, 0, 0, 0.08);
+  --fp-surface-subtle: rgba(0, 0, 0, 0.04);
+  --fp-chart-crosshair: rgba(0, 0, 0, 0.2);
+  --fp-chart-grid: rgba(0, 0, 0, 0.06);
+  --fp-code-bg: rgba(0, 0, 0, 0.06);
 }
 
 /* .fp-dark explicitly pins dark mode — the default :root tokens already match,

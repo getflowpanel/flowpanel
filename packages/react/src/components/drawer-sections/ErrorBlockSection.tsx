@@ -82,7 +82,7 @@ export function ErrorBlockSection({ data }: ErrorBlockSectionProps) {
                 color: "var(--fp-text-3)",
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
-                background: "rgba(0,0,0,0.06)",
+                background: "var(--fp-code-bg)",
                 borderRadius: 4,
                 padding: "8px 10px",
                 maxHeight: 260,

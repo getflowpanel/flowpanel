@@ -88,7 +88,7 @@ export function StageCard({
         style={{
           width: "100%",
           height: 2,
-          background: "rgba(255,255,255,0.06)",
+          background: "var(--fp-surface-subtle)",
           borderRadius: 1,
           marginTop: 8,
           marginBottom: 8,

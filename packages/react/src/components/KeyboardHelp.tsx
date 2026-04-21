@@ -76,7 +76,7 @@ export function KeyboardHelp({ open, onClose }: KeyboardHelpProps) {
           position: "fixed",
           inset: 0,
           zIndex: 50,
-          background: "rgba(0,0,0,0.5)",
+          background: "var(--fp-overlay-backdrop)",
           backdropFilter: "blur(4px)",
         }}
       />

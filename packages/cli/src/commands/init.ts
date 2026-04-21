@@ -1,260 +1,234 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
+import type { Command } from "commander";
 import { generateSchema, z } from "@flowpanel/core";
-import kleur from "kleur";
-import ora from "ora";
-import prompts from "prompts";
 import { detectStack } from "../utils/detect";
 import { detectModels } from "../utils/detect-models";
-import { formatSuccess, formatWarning } from "../utils/error-format";
-import { runDemo } from "./demo";
+import { formatWarning } from "../utils/error-format";
 
-const BANNER = `
-┌──────────────────────────────────────────────────────┐
-│                                                       │
-│  ⚡ FlowPanel  v0.1.0                                 │
-│                                                       │
-│  The admin panel you didn't want to build.            │
-│  Pipeline tracking · AI cost · Crash recovery         │
-│                                                       │
-└──────────────────────────────────────────────────────┘
-`;
+export function initCommand(cli: Command): void {
+  cli
+    .command("init")
+    .description("Initialize FlowPanel in this project")
+    .option("--adapter <name>", "Force adapter: prisma | drizzle")
+    .option("--models <list>", "Comma-separated model names to include")
+    .option("--yes", "Skip prompts (CI mode)")
+    .action(async (options: { adapter?: string; models?: string; yes?: boolean }) => {
+      p.intro(pc.bgBlue(pc.white(" FlowPanel init ")));
 
-export async function runInit(cwd: string = process.cwd()): Promise<void> {
-  console.log(kleur.bold(BANNER));
+      const cwd = process.cwd();
+      const stack = await detectStack(cwd);
 
-  const stack = await detectStack(cwd);
+      const detectedParts: string[] = [];
+      if (stack.nextjs) detectedParts.push(`Next.js ${stack.nextjs}`);
+      if (stack.typescript) detectedParts.push("TypeScript");
+      if (stack.drizzle) detectedParts.push("Drizzle");
+      if (stack.bullmq) detectedParts.push("BullMQ");
+      if (stack.betterAuth.found) detectedParts.push("Better Auth");
+      if (stack.trpc.found) detectedParts.push("tRPC");
 
-  if (stack.nextjs)
-    console.log(
-      formatSuccess(
-        `Detected  Next.js ${stack.nextjs}${stack.typescript ? " · TypeScript" : ""}${stack.drizzle ? " · Drizzle" : ""}${stack.bullmq ? " · BullMQ" : ""}`,
-      ),
-    );
-  if (stack.betterAuth.found)
-    console.log(formatSuccess(`Detected  Better Auth at ${stack.betterAuth.path ?? "package"}`));
-  if (stack.trpc.routerPath)
-    console.log(formatSuccess(`Detected  tRPC v11 at ${stack.trpc.routerPath}`));
-  console.log("");
+      if (detectedParts.length > 0) {
+        p.note(detectedParts.join(" · "), "Detected stack");
+      }
 
-  if (!stack.trpc.found) {
-    console.error(kleur.red("  ✗ tRPC not detected. FlowPanel requires @trpc/server."));
-    console.error(kleur.gray("  Install it: pnpm add @trpc/server @trpc/client"));
-    process.exit(1);
-  }
+      if (!stack.trpc.found) {
+        p.cancel(
+          pc.red("tRPC not detected. FlowPanel requires @trpc/server.\n") +
+            pc.dim("Install it: pnpm add @trpc/server @trpc/client"),
+        );
+        process.exit(1);
+      }
 
-  // Detect user models (Prisma schema.prisma or Drizzle schema.ts)
-  const detected = await detectModels(cwd);
-  if (detected.schemaPath && detected.models.length > 0) {
-    console.log(
-      formatSuccess(
-        `Detected  ${detected.source} schema at ${detected.schemaPath} (${detected.models.length} ${detected.models.length === 1 ? "model" : "models"})`,
-      ),
-    );
-  }
-  console.log("");
+      const detected = await detectModels(cwd);
+      if (detected.schemaPath && detected.models.length > 0) {
+        p.log.success(
+          `${detected.source} schema at ${detected.schemaPath} (${detected.models.length} ${detected.models.length === 1 ? "model" : "models"})`,
+        );
+      }
 
-  const answers = await prompts(
-    [
-      {
-        type: "text",
-        name: "appName",
-        message: "App name",
-        initial: path.basename(process.cwd()),
-      },
-      {
-        type: "select",
-        name: "adapter",
-        message: "Database adapter",
-        choices: [
-          { title: "Prisma (PostgreSQL)", value: "prisma-pg" },
-          { title: "Prisma (SQLite)", value: "prisma-sqlite" },
-          { title: "Drizzle (PostgreSQL)", value: "drizzle-pg" },
-          { title: "Drizzle (SQLite)", value: "drizzle-sqlite" },
-        ],
-      },
-      {
-        type: "text",
-        name: "stages",
-        message: "Pipeline stages (comma-separated)",
-        initial: "ingest,process,notify",
-      },
-      {
-        type: "select",
-        name: "defaultTimeRange",
-        message: "Default time range",
-        choices: [
-          { title: "1 hour", value: "1h" },
-          { title: "6 hours", value: "6h" },
-          { title: "24 hours (recommended)", value: "24h" },
-          { title: "7 days", value: "7d" },
-          { title: "30 days", value: "30d" },
-        ],
-        initial: 2,
-      },
-      {
-        type: "confirm",
-        name: "seedDemo",
-        message: "Seed demo data? (500 sample runs)",
-        initial: true,
-      },
-    ],
-    {
-      onCancel: () => {
-        console.log("\nAborted.");
-        process.exit(0);
-      },
-    },
-  );
+      let appName = path.basename(cwd);
+      let adapter = options.adapter ?? (stack.drizzle ? "drizzle-pg" : "prisma-pg");
+      let stages = ["ingest", "process", "notify"];
+      let defaultTimeRange = "24h";
+      let seedDemo = false;
+      let selectedModels: string[] = options.models
+        ? options.models
+            .split(",")
+            .map((m) => m.trim())
+            .filter(Boolean)
+        : [];
 
-  const stages = (answers.stages as string)
-    .split(",")
-    .map((s: string) => s.trim())
-    .filter(Boolean);
-  const appName = answers.appName as string;
-  const adapter = answers.adapter as string;
-  const defaultTimeRange = answers.defaultTimeRange as string;
-  const seedDemo = answers.seedDemo as boolean;
-
-  // Multi-select prompt for models if detected
-  let selectedModels: string[] = [];
-  if (detected.models.length > 0) {
-    const modelAnswer = await prompts(
-      {
-        type: "multiselect",
-        name: "models",
-        message: "Which models to include in admin?",
-        choices: detected.models.map((m) => ({ title: m, value: m, selected: true })),
-        hint: "Space to toggle · Enter to confirm",
-        instructions: false,
-      },
-      {
-        onCancel: () => {
-          console.log("\nAborted.");
+      if (!options.yes) {
+        const appNameAnswer = await p.text({
+          message: "App name",
+          initialValue: appName,
+        });
+        if (p.isCancel(appNameAnswer)) {
+          p.cancel("Aborted.");
           process.exit(0);
+        }
+        appName = appNameAnswer as string;
+
+        if (!options.adapter) {
+          const adapterAnswer = await p.select({
+            message: "Database adapter",
+            options: [
+              { label: "Prisma (PostgreSQL)", value: "prisma-pg" },
+              { label: "Prisma (SQLite)", value: "prisma-sqlite" },
+              { label: "Drizzle (PostgreSQL)", value: "drizzle-pg" },
+              { label: "Drizzle (SQLite)", value: "drizzle-sqlite" },
+            ],
+          });
+          if (p.isCancel(adapterAnswer)) {
+            p.cancel("Aborted.");
+            process.exit(0);
+          }
+          adapter = adapterAnswer as string;
+        }
+
+        const stagesAnswer = await p.text({
+          message: "Pipeline stages (comma-separated)",
+          initialValue: stages.join(","),
+        });
+        if (p.isCancel(stagesAnswer)) {
+          p.cancel("Aborted.");
+          process.exit(0);
+        }
+        stages = (stagesAnswer as string)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        const timeRangeAnswer = await p.select({
+          message: "Default time range",
+          options: [
+            { label: "1 hour", value: "1h" },
+            { label: "6 hours", value: "6h" },
+            { label: "24 hours (recommended)", value: "24h" },
+            { label: "7 days", value: "7d" },
+            { label: "30 days", value: "30d" },
+          ],
+        });
+        if (p.isCancel(timeRangeAnswer)) {
+          p.cancel("Aborted.");
+          process.exit(0);
+        }
+        defaultTimeRange = timeRangeAnswer as string;
+
+        const seedAnswer = await p.confirm({
+          message: "Seed demo data? (500 sample runs)",
+          initialValue: false,
+        });
+        if (p.isCancel(seedAnswer)) {
+          p.cancel("Aborted.");
+          process.exit(0);
+        }
+        seedDemo = seedAnswer as boolean;
+
+        if (!options.models && detected.models.length > 0) {
+          const modelsAnswer = await p.multiselect({
+            message: "Which models to include in admin?",
+            options: detected.models.map((m) => ({ label: m, value: m })),
+            initialValues: detected.models,
+            required: false,
+          });
+          if (p.isCancel(modelsAnswer)) {
+            p.cancel("Aborted.");
+            process.exit(0);
+          }
+          selectedModels = modelsAnswer as string[];
+        }
+      }
+
+      const s = p.spinner();
+      s.start("Writing files...");
+
+      const configContent = generateFlowPanelConfig({
+        stages,
+        appName,
+        adapter,
+        defaultTimeRange,
+        models: selectedModels,
+        source: detected.source,
+      });
+      await writeFile(cwd, "flowpanel.config.ts", configContent);
+
+      const adminPageDir = path.join(cwd, "src", "app", "(dashboard)", "admin");
+      await fs.mkdir(adminPageDir, { recursive: true });
+      const adminPageContent = generateAdminPage("/admin");
+      await writeFile(adminPageDir, "page.tsx", adminPageContent);
+
+      if (stack.trpc.routerPath) {
+        await patchTrpcRouter(cwd, stack.trpc.routerPath);
+      }
+
+      await appendToFile(cwd, ".gitignore", "\n.flowpanel/\n");
+      await appendToFile(
+        cwd,
+        ".env.example",
+        "\n# FlowPanel\n# FLOWPANEL_COOKIE_SECRET=\n# FLOWPANEL_COOKIE_SECRET_PREV=\n",
+      );
+
+      const migrationDir = path.join(cwd, "flowpanel", "migrations");
+      await fs.mkdir(migrationDir, { recursive: true });
+
+      const schemaSql = generateSchema({
+        pipeline: {
+          stages,
+          fields: { userId: z.string().nullable() },
+          stageFields: Object.fromEntries(stages.map((st) => [st, {}])),
         },
-      },
-    );
-    selectedModels = (modelAnswer.models as string[]) ?? [];
-  }
+      });
 
-  console.log("\n  Writing files");
-  console.log(`  ${"─".repeat(51)}`);
+      const migrationId = "0001_init";
+      await writeFile(migrationDir, `${migrationId}.sql`, schemaSql);
 
-  const configContent = generateFlowPanelConfig({
-    stages,
-    appName,
-    adapter,
-    defaultTimeRange,
-    models: selectedModels,
-    source: detected.source,
-  });
-  await writeFile(cwd, "flowpanel.config.ts", configContent);
-  console.log(formatSuccess("flowpanel.config.ts                        created"));
+      s.stop("Files written");
 
-  const adminPageDir = path.join(cwd, "src", "app", "(dashboard)", "admin");
-  await fs.mkdir(adminPageDir, { recursive: true });
-  const adminPageContent = generateAdminPage("/admin");
-  await writeFile(adminPageDir, "page.tsx", adminPageContent);
-  console.log(formatSuccess(`src/app/(dashboard)/admin/page.tsx         created`));
+      p.log.success("flowpanel.config.ts — created");
+      p.log.success("src/app/(dashboard)/admin/page.tsx — created");
+      p.log.success(`flowpanel/migrations/${migrationId}.sql — generated`);
+      if (stack.trpc.routerPath) {
+        p.log.success(`${stack.trpc.routerPath} — patched`);
+      }
+      if (selectedModels.length > 0) {
+        p.log.success(
+          `Added ${selectedModels.length} resource${selectedModels.length === 1 ? "" : "s"}: ${selectedModels.join(", ")}`,
+        );
+      }
 
-  if (stack.trpc.routerPath) {
-    await patchTrpcRouter(cwd, stack.trpc.routerPath);
-    console.log(formatSuccess(`${stack.trpc.routerPath}          +2 lines`));
-  }
+      // Tailwind hint
+      const tailwindConfigs = [
+        "tailwind.config.ts",
+        "tailwind.config.js",
+        "tailwind.config.mjs",
+        "tailwind.config.cjs",
+      ];
+      for (const tw of tailwindConfigs) {
+        try {
+          await fs.access(path.join(cwd, tw));
+          p.log.warn(
+            `Add @flowpanel/react to Tailwind content globs in ${tw}:\n` +
+              pc.dim(`  content: [..., "./node_modules/@flowpanel/react/dist/**/*.js"]`),
+          );
+          break;
+        } catch {}
+      }
 
-  await appendToFile(cwd, ".gitignore", "\n.flowpanel/\n");
-  console.log(formatSuccess(".gitignore                                 +1 line (.flowpanel/)"));
+      if (seedDemo) {
+        p.log.info("Run `npx flowpanel demo` after setting up your database to seed demo data.");
+      }
 
-  await appendToFile(
-    cwd,
-    ".env.example",
-    "\n# FlowPanel\n# FLOWPANEL_COOKIE_SECRET=\n# FLOWPANEL_COOKIE_SECRET_PREV=\n",
-  );
-  console.log(
-    formatSuccess(".env.example                               +cookie secret keys (commented)"),
-  );
-
-  console.log("\n  Database");
-  console.log(`  ${"─".repeat(51)}`);
-
-  const migrationDir = path.join(cwd, "flowpanel", "migrations");
-  await fs.mkdir(migrationDir, { recursive: true });
-
-  const schemaSql = generateSchema({
-    pipeline: {
-      stages,
-      fields: { userId: z.string().nullable() },
-      stageFields: Object.fromEntries(stages.map((s) => [s, {}])),
-    },
-  });
-
-  const migrationId = "0001_init";
-  await writeFile(migrationDir, `${migrationId}.sql`, schemaSql);
-  console.log(formatSuccess(`flowpanel/migrations/${migrationId}.sql         generated`));
-
-  if (seedDemo) {
-    const spinner = ora({ text: "Seeding demo data...", color: "cyan" }).start();
-    try {
-      await runDemo();
-      spinner.succeed("Seeded demo data");
-    } catch {
-      spinner.warn("Demo seed skipped — run `npx flowpanel demo` after setting up your database");
-    }
-  } else {
-    console.log(kleur.gray("  Skipped demo data. Run `npx flowpanel demo` later."));
-  }
-
-  const detectedParts = [
-    stack.nextjs ? `Next.js ${stack.nextjs}` : null,
-    stack.typescript ? "TypeScript" : null,
-    stack.drizzle ? "Drizzle" : stack.prisma ? "Prisma" : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  console.log(`\n${kleur.bold("  ⚡ FlowPanel Init")}\n`);
-  if (detectedParts) {
-    console.log(`  Detected: ${kleur.cyan(detectedParts)}\n`);
-  }
-  console.log(`${kleur.green("  ✓")} Created flowpanel.config.ts`);
-  console.log(`${kleur.green("  ✓")} Created app/admin/[[...trpc]]/route.ts`);
-  console.log(`${kleur.green("  ✓")} Generated migration 0001_init.sql`);
-  if (selectedModels.length > 0) {
-    console.log(
-      `${kleur.green("  ✓")} Added ${selectedModels.length} resource${selectedModels.length === 1 ? "" : "s"}: ${selectedModels.join(", ")}`,
-    );
-  }
-
-  // Check for Tailwind config and show guidance if present
-  const tailwindConfigs = [
-    "tailwind.config.ts",
-    "tailwind.config.js",
-    "tailwind.config.mjs",
-    "tailwind.config.cjs",
-  ];
-  let tailwindPath: string | null = null;
-  for (const tw of tailwindConfigs) {
-    try {
-      await fs.access(path.join(cwd, tw));
-      tailwindPath = tw;
-      break;
-    } catch {}
-  }
-  if (tailwindPath) {
-    console.log(
-      `${kleur.yellow("  !")} Add @flowpanel/react to Tailwind content globs in ${tailwindPath}:`,
-    );
-    console.log(kleur.gray(`      content: [..., "./node_modules/@flowpanel/react/dist/**/*.js"]`));
-  }
-  if (seedDemo) {
-    console.log(`${kleur.green("  ✓")} Seeded 500 demo runs`);
-  }
-  console.log("\n  Next steps:");
-  console.log(`    1. ${kleur.cyan("npm run dev")}`);
-  console.log(`    2. Visit ${kleur.cyan("http://localhost:3000/admin")}`);
-  console.log("    3. Explore the dashboard!\n");
-  console.log(`  Tip: Run ${kleur.cyan("flowpanel dev")} for config hot-reload\n`);
+      p.outro(
+        pc.green("Done! ") +
+          pc.dim("Next: ") +
+          pc.cyan("npm run dev") +
+          pc.dim(" → visit ") +
+          pc.cyan("http://localhost:3000/admin"),
+      );
+    });
 }
 
 function generateFlowPanelConfig({
@@ -283,7 +257,6 @@ function generateFlowPanelConfig({
     ? `prismaAdapter({ prisma: db })`
     : `drizzleAdapter({ db: () => import("@/shared/lib/db").then((m) => m.db) })`;
 
-  // Generate resource() calls for detected models
   let resourcesBody: string;
   if (models.length === 0) {
     resourcesBody = `    // Add your models here, e.g.:
@@ -297,7 +270,6 @@ function generateFlowPanelConfig({
       .map((m) => `    ${camelCase(m)}: resource(db.${camelCase(m)}),`)
       .join("\n");
   } else {
-    // Drizzle: pass the schema table name
     resourcesBody = models.map((m) => `    ${m}: resource("${capitalize(m)}"),`).join("\n");
   }
 
@@ -366,7 +338,7 @@ async function patchTrpcRouter(cwd: string, routerPath: string): Promise<void> {
     );
     await fs.writeFile(fullPath, content, "utf8");
   } catch {
-    console.log(
+    console.warn(
       formatWarning(`Could not auto-patch ${routerPath}. Add flowpanel router manually.`),
     );
   }

@@ -45,7 +45,7 @@ export function Header({
         <div
           style={{
             display: "flex",
-            background: "rgba(255,255,255,0.04)",
+            background: "var(--fp-surface-hover)",
             border: "1px solid var(--fp-border-1)",
             borderRadius: "var(--fp-radius-sm)",
             overflow: "hidden",
@@ -60,7 +60,7 @@ export function Header({
               onClick={() => onTimeRangeChange(p)}
               style={{
                 padding: "5px 9px",
-                background: p === timeRange ? "rgba(255,255,255,0.07)" : "transparent",
+                background: p === timeRange ? "var(--fp-surface-active)" : "transparent",
                 fontWeight: p === timeRange ? 600 : 400,
                 color: p === timeRange ? "var(--fp-text-1)" : "var(--fp-text-4)",
                 border: "none",

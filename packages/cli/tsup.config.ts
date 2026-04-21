@@ -9,4 +9,5 @@ export default defineConfig({
   },
   clean: true,
   shims: true,
+  onSuccess: "chmod +x dist/index.js 2>/dev/null || chmod +x dist/index.mjs 2>/dev/null || true",
 });

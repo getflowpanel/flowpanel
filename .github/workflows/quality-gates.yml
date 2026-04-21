@@ -1,0 +1,74 @@
+name: quality-gates
+on: [push, pull_request]
+jobs:
+  no-any-in-public-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for `: any` in public index.ts files
+        run: |
+          set -e
+          found=0
+          for idx in packages/*/src/index.ts; do
+            if grep -qn ": any" "$idx" 2>/dev/null; then
+              echo "❌ $idx contains \`: any\` in public exports"
+              grep -n ": any" "$idx"
+              found=1
+            fi
+          done
+          if [ "$found" = "1" ]; then exit 1; fi
+          echo "✔ No \`: any\` in public exports"
+
+  no-inline-styles:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for style={{ in packages/react
+        run: |
+          if grep -rqn "style={{" packages/react/src 2>/dev/null; then
+            echo "❌ inline styles found — use Tailwind classes + design tokens"
+            grep -rn "style={{" packages/react/src
+            exit 1
+          fi
+          echo "✔ No inline styles found"
+
+  no-hardcoded-rgba-white:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for rgba(255,255,255 / rgba(0,0,0 in .ts/.tsx files
+        run: |
+          if grep -rnE "rgba\(\s*255,\s*255,\s*255|rgba\(\s*0,\s*0,\s*0" \
+               --include="*.ts" --include="*.tsx" packages/react/src 2>/dev/null | grep -q .; then
+            echo "❌ hardcoded rgba found in TypeScript sources — use design tokens"
+            grep -rnE "rgba\(\s*255,\s*255,\s*255|rgba\(\s*0,\s*0,\s*0" \
+              --include="*.ts" --include="*.tsx" packages/react/src
+            exit 1
+          fi
+          echo "✔ No hardcoded rgba found in TypeScript sources"
+
+  import-boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tsx scripts/check-import-boundaries.ts
+
+  file-size-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tsx scripts/check-file-sizes.ts

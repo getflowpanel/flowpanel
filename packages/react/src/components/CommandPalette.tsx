@@ -119,7 +119,12 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
       <div
         onClick={onClose}
         aria-hidden
-        style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.6)" }}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 60,
+          background: "var(--fp-overlay-backdrop-heavy)",
+        }}
       />
       {/* Palette */}
       <div
@@ -137,7 +142,7 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
           border: "1px solid var(--fp-border-2)",
           borderRadius: 12,
           overflow: "hidden",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+          boxShadow: "var(--fp-shadow-overlay)",
         }}
       >
         <input

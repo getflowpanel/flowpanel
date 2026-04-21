@@ -1,79 +1,108 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import kleur from "kleur";
-import prompts from "prompts";
+import { existsSync } from "node:fs";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
+import type { Command } from "commander";
 import { detectModels } from "../utils/detect-models";
-import { formatSuccess } from "../utils/error-format";
 
 /**
- * `flowpanel scaffold <modelName>` — generate a resource() config stub for a model
- * in the user's project. Detects Prisma or Drizzle and writes to
- * `flowpanel/<resourceName>.ts`.
+ * `flowpanel scaffold <Model>` — generate a resource() config stub for a model.
  */
-export async function runScaffold(
-  modelName: string | undefined,
-  cwd: string = process.cwd(),
-): Promise<void> {
-  const detected = await detectModels(cwd);
-  if (!detected.schemaPath || detected.models.length === 0) {
-    console.error(kleur.red("  ✗ No Prisma or Drizzle schema found."));
-    console.error(kleur.gray("  Run `flowpanel init` first or create a schema."));
-    process.exit(1);
-  }
+export function scaffoldCommand(cli: Command): void {
+  cli
+    .command("scaffold [model]")
+    .description("Generate a resource config stub")
+    .option("--fields <list>", "Comma-separated field names")
+    .option("--force", "Overwrite existing file")
+    .addHelpText("after", "\n  Example:\n    flowpanel scaffold User --fields email,name,createdAt")
+    .action(async (model: string | undefined, options: { fields?: string; force?: boolean }) => {
+      p.intro(`Scaffolding resource${model ? `: ${pc.bold(model)}` : ""}`);
 
-  let selected = modelName;
-  if (!selected) {
-    const { model } = await prompts({
-      type: "select",
-      name: "model",
-      message: "Which model to scaffold?",
-      choices: detected.models.map((m) => ({ title: m, value: m })),
+      const cwd = process.cwd();
+      const detected = await detectModels(cwd);
+
+      let selected = model;
+
+      if (!selected) {
+        if (!detected.schemaPath || detected.models.length === 0) {
+          p.cancel(
+            pc.red("No Prisma or Drizzle schema found.\n") +
+              pc.dim("Run `flowpanel init` first or create a schema."),
+          );
+          process.exit(1);
+        }
+
+        const answer = await p.select({
+          message: "Which model to scaffold?",
+          options: detected.models.map((m) => ({ label: m, value: m })),
+        });
+        if (p.isCancel(answer)) {
+          p.cancel("Aborted.");
+          process.exit(0);
+        }
+        selected = answer as string;
+      }
+
+      if (!selected) {
+        p.cancel(pc.red("No model specified."));
+        process.exit(1);
+      }
+
+      // Validate against schema if we have one (skip if model passed via CLI arg directly)
+      if (detected.models.length > 0 && !detected.models.includes(selected)) {
+        p.log.warn(
+          `Model "${selected}" not found in schema. Available: ${detected.models.join(", ")}`,
+        );
+      }
+
+      const resourceName = camelLowerFirst(selected);
+      const outPath = `src/flowpanel/resources/${resourceName}.ts`;
+      const outFile = path.join(cwd, outPath);
+
+      if (existsSync(outFile) && !options.force) {
+        p.cancel(`${outPath} already exists. Use ${pc.cyan("--force")} to overwrite.`);
+        process.exit(1);
+      }
+
+      const fields = options.fields
+        ? options.fields
+            .split(",")
+            .map((f) => f.trim())
+            .filter(Boolean)
+        : null;
+
+      const stub = renderStub(selected, detected.source === "drizzle", fields);
+      await fs.mkdir(path.dirname(outFile), { recursive: true });
+      await fs.writeFile(outFile, stub, "utf-8");
+
+      p.log.success(`Created ${outPath}`);
+      p.log.info(
+        `Next steps:\n` +
+          `  • Import it in your flowpanel.config.ts\n` +
+          `  • Add to resources: { ${resourceName}: ${resourceName}Resource }`,
+      );
+
+      p.outro(pc.green(`✓ Created ${outPath}`));
     });
-    selected = model;
-  }
-
-  if (!selected) {
-    console.error(kleur.red("  ✗ No model specified."));
-    process.exit(1);
-  }
-
-  if (!detected.models.includes(selected)) {
-    console.error(
-      kleur.red(
-        `  ✗ Model "${selected}" not found in ${detected.schemaPath}. Available: ${detected.models.join(", ")}`,
-      ),
-    );
-    process.exit(1);
-  }
-
-  const resourceName = camelLowerFirst(selected);
-  const outDir = path.join(cwd, "flowpanel", "resources");
-  await fs.mkdir(outDir, { recursive: true });
-  const outFile = path.join(outDir, `${resourceName}.ts`);
-
-  const stub = renderStub(selected, detected.source === "drizzle");
-  await fs.writeFile(outFile, stub, "utf-8");
-
-  console.log(formatSuccess(`Created  ${path.relative(cwd, outFile)}`));
-  console.log(kleur.gray("\n  Next steps:"));
-  console.log(kleur.gray(`    • Import it in your flowpanel.config.ts`));
-  console.log(
-    kleur.gray(`    • Add to the resources map: { ${resourceName}: ${resourceName}Resource }`),
-  );
-  console.log(kleur.gray(`    • Re-run \`flowpanel dev\` to see the new tab`));
 }
 
 function camelLowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
 
-function renderStub(modelName: string, isDrizzle: boolean): string {
+function renderStub(modelName: string, isDrizzle: boolean, fields: string[] | null): string {
   const resourceName = camelLowerFirst(modelName);
   const modelImport = isDrizzle ? `${resourceName} as ${resourceName}Table` : modelName;
   const resourceTarget = isDrizzle ? `${resourceName}Table` : `prisma.${resourceName}`;
   const importLine = isDrizzle
     ? `import { ${modelImport} } from "../../drizzle/schema";`
     : `import { prisma } from "../../lib/prisma";`;
+
+  const columnsBody =
+    fields && fields.length > 0
+      ? fields.map((f) => `    (p) => p.${f},`).join("\n")
+      : `    (p) => p.id,\n    // (p) => p.name,\n    // (p) => p.createdAt,`;
 
   return `/**
  * FlowPanel resource for ${modelName}.
@@ -93,9 +122,7 @@ export const ${resourceName}Resource = resource(${resourceTarget}, {
 
   // Columns (shorthand): array of path functions
   columns: [
-    (p) => p.id,
-    // (p) => p.name,
-    // (p) => p.createdAt,
+${columnsBody}
   ],
 
   // Filters (shorthand)

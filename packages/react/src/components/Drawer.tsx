@@ -128,7 +128,7 @@ export function Drawer({
           position: "fixed",
           inset: 0,
           zIndex: 40,
-          background: "rgba(0,0,0,0.5)",
+          background: "var(--fp-overlay-backdrop)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
         }}
