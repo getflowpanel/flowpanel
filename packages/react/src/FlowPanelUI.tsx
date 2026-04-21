@@ -14,6 +14,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { DemoBanner } from "./components/DemoBanner";
 import { Drawer } from "./components/Drawer";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { FlowPanelErrorBoundary } from "./layout/ErrorBoundary";
 import { ErrorPanel } from "./components/ErrorPanel";
 import { KeyboardHelp } from "./components/KeyboardHelp";
 import { MetricCard } from "./components/MetricCard";
@@ -41,6 +42,7 @@ export interface FlowPanelUIProps {
   config: FlowPanelConfig;
   trpcBaseUrl?: string;
   showDemoBanner?: boolean;
+  onError?: (error: Error, info: React.ErrorInfo) => void;
 }
 
 /**
@@ -56,6 +58,7 @@ export function FlowPanelUI({
   config,
   trpcBaseUrl = "/api/trpc",
   showDemoBanner = false,
+  onError,
 }: FlowPanelUIProps) {
   const theme = resolveTheme(config);
   const themeStyle = themeToStyle(theme);
@@ -330,7 +333,7 @@ export function FlowPanelUI({
         style={themeStyle}
         data-testid="fp-root"
       >
-        <ErrorBoundary>
+        <FlowPanelErrorBoundary onError={onError}>
           <FlowPanelShell
             appName={config.appName}
             nav={nav}
@@ -504,7 +507,7 @@ export function FlowPanelUI({
               {locale.reconnecting}
             </div>
           )}
-        </ErrorBoundary>
+        </FlowPanelErrorBoundary>
       </div>
     </FlowPanelContext.Provider>
   );

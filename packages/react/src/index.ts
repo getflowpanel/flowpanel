@@ -78,6 +78,7 @@ export { ChartWidget } from "./dashboard/widgets/ChartWidget";
 export { CustomWidget } from "./dashboard/widgets/CustomWidget";
 
 // Layout (Phase 2)
+export { FlowPanelErrorBoundary } from "./layout/ErrorBoundary";
 export { FlowPanelShell } from "./layout/FlowPanelShell";
 export type { FlowPanelShellProps } from "./layout/FlowPanelShell";
 export { Sidebar } from "./layout/Sidebar";

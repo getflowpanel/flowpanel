@@ -187,9 +187,10 @@ export function ResourceActionButton({
         size={size}
         className={className}
         onClick={requestRun}
-        disabled={loading || (action.type === "bulk" && (!recordIds || recordIds.length === 0))}
+        loading={loading}
+        disabled={action.type === "bulk" && (!recordIds || recordIds.length === 0)}
       >
-        {loading ? "Running…" : action.label}
+        {action.label}
         {action.type === "bulk" && recordIds && recordIds.length > 0 && (
           <span className="ml-1.5 rounded bg-background/20 px-1.5 py-0.5 text-xs font-mono">
             {recordIds.length}
@@ -290,9 +291,9 @@ function DialogActionForm({
             <Button
               type="submit"
               variant={action.variant === "danger" ? "destructive" : "default"}
-              disabled={loading}
+              loading={loading}
             >
-              {loading ? "Running…" : (schema.submitLabel ?? action.label)}
+              {schema.submitLabel ?? action.label}
             </Button>
           </DialogFooter>
         </form>

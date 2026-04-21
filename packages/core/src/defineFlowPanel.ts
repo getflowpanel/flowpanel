@@ -1,5 +1,6 @@
 import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema";
 import { validateConfig } from "./config/validate";
+import { FlowPanelConfigError } from "./errors";
 import { createQueryBuilder, type QueryBuilder } from "./queryBuilder";
 import { resolveQueues, serializeQueues } from "./queue/resolver";
 import type { QueueAdapter, ResolvedQueue, SerializedQueue } from "./queue/types";
@@ -170,10 +171,13 @@ export interface FlowPanelV2Extensions {
   rowLevel?: (ctx: unknown) => object;
   /** Audit configuration for resources. */
   audit?: { enabled: boolean; retentionDays?: number };
-  /** Resource definitions — object or builder function. */
+  /** Resource definitions — object, builder function, or "auto" (dev-only). */
   resources?:
     | Record<string, ResourceDescriptor>
-    | ((fp: ResourceFactory) => Record<string, ResourceDescriptor>);
+    | ((fp: ResourceFactory) => Record<string, ResourceDescriptor>)
+    | "auto";
+  /** Allow resources: "auto" in production. Understand the risk before using. */
+  unsafeAllowAutoResourcesInProduction?: boolean;
   /** Dashboard widgets — array or builder function. */
   dashboard?: import("./widget/types").DashboardConfig;
   /** Queue adapters keyed by id. Each shows up as its own tab in the admin. */
@@ -249,6 +253,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     resources: resourcesConfig,
     dashboard: dashboardConfig,
     queues: queuesConfig,
+    unsafeAllowAutoResourcesInProduction,
     ...baseConfig
   } = rawConfig as TConfig & FlowPanelV2Extensions & Record<string, unknown>;
 
@@ -288,7 +293,19 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
   // ---- Resource processing -------------------------------------------------
   let resolvedResources: Record<string, ResolvedResource> | undefined;
 
-  if (resourcesConfig) {
+  if (resourcesConfig === "auto") {
+    if (process.env.NODE_ENV === "production" && !unsafeAllowAutoResourcesInProduction) {
+      throw new FlowPanelConfigError(
+        'resources: "auto" is not allowed in production. ' +
+          "It exposes every database model to the admin, including sensitive tables. " +
+          "Declare resources explicitly, or pass unsafeAllowAutoResourcesInProduction: true if you understand the risk.",
+      );
+    }
+    console.warn(
+      '[FlowPanel] resources: "auto" detected — all database models will be exposed. ' +
+        "Run `flowpanel doctor` to review. Not recommended for production.",
+    );
+  } else if (resourcesConfig) {
     if (!resourceAdapter) {
       throw new Error(
         "resources require a ResourceAdapter. Use prismaAdapter() or drizzleAdapter() " +

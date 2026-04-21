@@ -30,14 +30,17 @@
     "test": "vitest run src/__tests__/metadata.test.ts src/__tests__/filters.test.ts",
     "test:integration": "vitest run --project integration"
   },
+  "sideEffects": false,
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "peerDependencies": {
-    "@prisma/client": ">=5.0.0"
+    "@prisma/client": ">=5.0.0 <7.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "package.json",
+    "README.md"
   ],
   "dependencies": {
     "@flowpanel/core": "workspace:*",

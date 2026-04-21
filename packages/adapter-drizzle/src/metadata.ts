@@ -211,9 +211,15 @@ export function buildModelMetadata(
 
     // Call the config function with Drizzle's real helpers so One/Many instances
     // are constructed correctly (they require the sourceTable on their builders).
+    //
+    // `createTableRelationsHelpers` expects an `AnyTable`; we've verified via
+    // `relObj["table"] !== tableObj` above that tableObj is indeed the source
+    // Table instance. Cast through unknown to satisfy the strict DTS build.
     let relMap: Record<string, unknown>;
     try {
-      const helpers = createTableRelationsHelpers(tableObj);
+      // biome-ignore lint/suspicious/noExplicitAny: drizzle helpers require AnyTable at type level,
+      // duck-typed at runtime.
+      const helpers = createTableRelationsHelpers(tableObj as any);
       relMap = (relObj["config"] as (helpers: unknown) => Record<string, unknown>)(helpers);
     } catch {
       // If the config call fails (e.g. due to unexpected API differences), skip

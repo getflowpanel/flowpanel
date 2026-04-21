@@ -1,0 +1,38 @@
+{
+  "name": "next-prisma-saas",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@flowpanel/core": "workspace:*",
+    "@flowpanel/react": "workspace:*",
+    "@flowpanel/adapter-prisma": "workspace:*",
+    "@prisma/client": "^5.20.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@trpc/client": "^11.0.0",
+    "@trpc/react-query": "^11.0.0",
+    "@trpc/server": "^11.0.0",
+    "next": "^15.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "superjson": "^2.2.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "prisma": "^5.20.0",
+    "tailwindcss": "^3.4.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.6.0"
+  }
+}

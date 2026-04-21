@@ -1,0 +1,44 @@
+/* Public design token contract. Changing any variable defined here is a
+   breaking change that must ship with a changeset. */
+
+.fp {
+  /* Colors (hsl channels, space-separated) */
+  --fp-background: 0 0% 100%;
+  --fp-foreground: 222 47% 11%;
+  --fp-muted: 210 40% 96%;
+  --fp-muted-foreground: 215 16% 47%;
+  --fp-border: 214 32% 91%;
+  --fp-input: 214 32% 91%;
+  --fp-ring: 221 83% 53%;
+  --fp-primary: 221 83% 53%;
+  --fp-primary-foreground: 0 0% 100%;
+  --fp-destructive: 0 84% 60%;
+  --fp-destructive-foreground: 0 0% 100%;
+  --fp-success: 142 71% 45%;
+  --fp-success-foreground: 0 0% 100%;
+
+  /* Geometry */
+  --fp-radius: 0.5rem;
+  --fp-density: 1;
+
+  /* Typography */
+  --fp-font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --fp-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+}
+
+.fp.fp-dark {
+  --fp-background: 222 47% 7%;
+  --fp-foreground: 210 40% 98%;
+  --fp-muted: 217 32% 17%;
+  --fp-muted-foreground: 215 20% 65%;
+  --fp-border: 217 32% 17%;
+  --fp-input: 217 32% 17%;
+  --fp-ring: 221 83% 53%;
+  --fp-primary: 221 83% 53%;
+  --fp-primary-foreground: 0 0% 100%;
+  --fp-destructive: 0 72% 51%;
+  --fp-destructive-foreground: 0 0% 98%;
+  --fp-success: 142 70% 45%;
+  --fp-success-foreground: 0 0% 100%;
+}

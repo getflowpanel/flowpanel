@@ -31,14 +31,17 @@
     "test:integration:stop-db": "docker compose -f docker-compose.test.yml down",
     "test:integration": "pnpm test:integration:start-db && vitest run --project integration; pnpm test:integration:stop-db"
   },
+  "sideEffects": false,
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "peerDependencies": {
-    "drizzle-orm": ">=0.30.0"
+    "drizzle-orm": ">=0.30.0 <1.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "package.json",
+    "README.md"
   ],
   "dependencies": {
     "@flowpanel/core": "workspace:*"

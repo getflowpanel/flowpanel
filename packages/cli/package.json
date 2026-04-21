@@ -14,8 +14,9 @@
     "url": "https://github.com/Ch4m4/flowpanel",
     "directory": "packages/cli"
   },
+  "sideEffects": false,
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "bin": {
     "flowpanel": "./dist/index.mjs"
@@ -36,7 +37,9 @@
     "prompts": "^2.4.2"
   },
   "files": [
-    "dist"
+    "dist",
+    "package.json",
+    "README.md"
   ],
   "devDependencies": {
     "@types/node": "^20.0.0",

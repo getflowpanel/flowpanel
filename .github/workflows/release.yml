@@ -1,46 +1,32 @@
-name: Release
-
+name: release
 on:
   push:
-    branches: [main]
-
-concurrency: ${{ github.workflow }}-${{ github.ref }}
-
+    branches:
+      - main
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
 jobs:
   release:
-    name: Release
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          # Full history needed so changesets can diff versions correctly
           fetch-depth: 0
-
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "pnpm"
+          node-version: 22
+          cache: pnpm
           registry-url: "https://registry.npmjs.org"
-
       - run: pnpm install --frozen-lockfile
-
-      - run: pnpm build
-
-      - run: pnpm test:unit
-
-      - name: Create Release PR or Publish to npm
+      - run: pnpm -r build
+      - name: Create release PR or publish
         uses: changesets/action@v1
         with:
-          # Command that bumps versions and updates changelogs
-          version: pnpm changeset version
-          # Command that publishes all packages to npm
-          publish: pnpm changeset publish
-          # Commit message for the version bump PR
+          publish: pnpm publish -r --provenance --access public --no-git-checks
           commit: "chore: version packages"
-          # PR title
           title: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

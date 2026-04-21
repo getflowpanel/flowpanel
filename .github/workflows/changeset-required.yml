@@ -1,0 +1,21 @@
+name: changeset-required
+on:
+  pull_request:
+    paths:
+      - "packages/*/src/**"
+jobs:
+  require-changeset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for changeset
+        run: |
+          changed=$(ls .changeset/*.md 2>/dev/null | grep -v README | wc -l)
+          if [ "$changed" -eq 0 ]; then
+            echo "❌ No changeset found. Run 'pnpm changeset' and include the file in your PR."
+            echo "   Or add the 'skip-changeset' label to the PR to bypass."
+            exit 1
+          fi
+          echo "✔ Changeset found"

@@ -1,4 +1,11 @@
 export { z } from "zod";
+export {
+  FlowPanelError,
+  FlowPanelConfigError,
+  FlowPanelAdapterError,
+  FlowPanelAccessError,
+  FlowPanelValidationError,
+} from "./errors";
 export type { FlowPanelConfig, FlowPanelConfigInput } from "./config/schema";
 export { sqlIdentifier } from "./config/schema";
 export type {
@@ -16,6 +23,9 @@ export { generateSchema } from "./schemaGenerator";
 export type { RunFields } from "./types/config";
 export type { SqlExecutor, SqlExecutorFactory, SqlQuery } from "./types/db";
 export type { RunHandle } from "./withRun";
+
+// Context helper
+export { createFlowPanelContext, type FlowPanelContextBase } from "./trpc/createContext";
 
 // Resource module
 export { createResourceDescriptor, resolveResource } from "./resource/resolver";

@@ -29,14 +29,17 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "sideEffects": false,
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "peerDependencies": {
     "bullmq": ">=4.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "package.json",
+    "README.md"
   ],
   "dependencies": {
     "@flowpanel/core": "workspace:*"
