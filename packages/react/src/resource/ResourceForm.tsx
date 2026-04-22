@@ -27,12 +27,22 @@ export function ResourceForm({
   baseUrl,
   onSuccess,
   onCancel,
+  fieldRenderers,
 }: {
   resource: SerializedResource;
   row?: Record<string, unknown>;
   baseUrl: string;
   onSuccess?: (savedRow: Record<string, unknown>) => void;
   onCancel?: () => void;
+  fieldRenderers?: Record<
+    string,
+    (props: {
+      name: string;
+      value: unknown;
+      onChange: (next: unknown) => void;
+      error?: string;
+    }) => import("react").ReactNode
+  >;
 }) {
   const isEdit = !!row;
   const editableColumns = getEditableColumns(resource);
@@ -185,6 +195,7 @@ export function ResourceForm({
             error={errors[path]}
             meta={meta}
             disabled={submitting}
+            render={fieldRenderers?.[path] as import("./fields").FieldRenderFn | undefined}
           />
         );
       })}

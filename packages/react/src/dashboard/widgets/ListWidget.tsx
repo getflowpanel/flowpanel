@@ -25,6 +25,7 @@ export function ListWidget({ widget, data, loading, error }: ListWidgetProps) {
       ) : loading || !data ? (
         <ul className="divide-y divide-border">
           {Array.from({ length: 5 }).map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: placeholder skeleton rows
             <li key={i} className="flex items-center gap-3 px-4 py-3">
               <div className="flex-1 space-y-1.5">
                 <Skeleton className="h-3 w-32" />
@@ -39,7 +40,7 @@ export function ListWidget({ widget, data, loading, error }: ListWidgetProps) {
         </div>
       ) : (
         <ul className="divide-y divide-border">
-          {data.items.map((item, i) => {
+          {data.items.map((item) => {
             const inner = (
               <>
                 <div className="min-w-0 flex-1">
@@ -56,8 +57,9 @@ export function ListWidget({ widget, data, loading, error }: ListWidgetProps) {
                 {item.meta && <span className="text-xs text-muted-foreground">{item.meta}</span>}
               </>
             );
+            const key = item.href ?? item.primary;
             return (
-              <li key={i}>
+              <li key={key}>
                 {item.href ? (
                   <a
                     href={item.href}

@@ -59,9 +59,10 @@ export async function detectModels(cwd: string): Promise<DetectedModels> {
 export function parsePrismaModels(content: string): string[] {
   const modelRegex = /^\s*model\s+(\w+)\s*\{/gm;
   const names: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = modelRegex.exec(content)) !== null) {
+  let match = modelRegex.exec(content);
+  while (match !== null) {
     names.push(match[1]!);
+    match = modelRegex.exec(content);
   }
   return names;
 }
@@ -74,9 +75,10 @@ export function parseDrizzleModels(content: string): string[] {
   const tableRegex =
     /export\s+const\s+(\w+)\s*=\s*(?:pg|sqlite|mysql)Table\s*\(\s*["']([^"']+)["']/g;
   const names: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = tableRegex.exec(content)) !== null) {
+  let match = tableRegex.exec(content);
+  while (match !== null) {
     names.push(match[1]!);
+    match = tableRegex.exec(content);
   }
   return names;
 }

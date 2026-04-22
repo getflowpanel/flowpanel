@@ -59,8 +59,10 @@ export { ResourceEmptyState } from "./resource/ResourceEmptyState";
 export { ResourceActionButton } from "./resource/ResourceActionButton";
 export { BulkActionBar } from "./resource/BulkActionBar";
 export { CellRenderer } from "./resource/cells";
+export type { CellRenderFn } from "./resource/cells";
 export { FilterWidget } from "./resource/filters";
 export { FieldWidget } from "./resource/fields";
+export type { FieldRenderFn } from "./resource/fields";
 export { useResourceData } from "./hooks/useResourceData";
 export { useUrlState } from "./hooks/useUrlState";
 

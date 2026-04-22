@@ -43,12 +43,14 @@ export class FlowPanelErrorBoundary extends React.Component<Props, State> {
           </p>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={this.reset}
               className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
               Try again
             </button>
             <button
+              type="button"
               onClick={() => {
                 window.location.href = "/admin";
               }}

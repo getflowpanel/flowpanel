@@ -17,9 +17,26 @@ type DrawerMode = "detail" | "create" | "edit";
 export function ResourcePage({
   resource,
   baseUrl,
+  columnRenderers,
+  fieldRenderers,
 }: {
   resource: SerializedResource;
   baseUrl: string;
+  /** Per-column render overrides keyed by column id. */
+  columnRenderers?: Record<
+    string,
+    (value: unknown, row: Record<string, unknown>) => import("react").ReactNode
+  >;
+  /** Per-field render overrides keyed by field name. */
+  fieldRenderers?: Record<
+    string,
+    (props: {
+      name: string;
+      value: unknown;
+      onChange: (next: unknown) => void;
+      error?: string;
+    }) => import("react").ReactNode
+  >;
 }) {
   // URL state sync
   const { initialParams, syncToUrl } = useUrlState(resource.id);
@@ -148,6 +165,7 @@ export function ResourcePage({
             selectedRowId={selectedRowId}
             selection={hasBulkActions ? selected : undefined}
             onSelectionChange={hasBulkActions ? setSelected : undefined}
+            columnRenderers={columnRenderers}
           />
 
           {/* Empty search/filter result */}
@@ -196,6 +214,7 @@ export function ResourcePage({
         onClose={handleDrawerClose}
         baseUrl={baseUrl}
         onSuccess={handleDrawerSuccess}
+        fieldRenderers={fieldRenderers}
       />
     </div>
   );

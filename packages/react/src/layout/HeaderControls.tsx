@@ -3,8 +3,8 @@
 import { Command as CommandIcon, Radio, WifiOff } from "lucide-react";
 import type { LiveStatus } from "../hooks/useFlowPanelStream";
 import { useLocale } from "../locale/LocaleContext";
-import { modKey } from "../utils/platform";
 import { cn } from "../utils/cn";
+import { modKey } from "../utils/platform";
 import { ThemeToggle } from "./ThemeToggle";
 
 export interface HeaderControlsProps {
@@ -40,6 +40,7 @@ export function HeaderControls({
           {timeRangePresets.map((p) => {
             const active = p === timeRange;
             return (
+              // biome-ignore lint/a11y/useSemanticElements: button-based radio group for segmented control styling
               <button
                 type="button"
                 key={p}
@@ -62,6 +63,7 @@ export function HeaderControls({
 
       {liveStatus && (
         <div
+          role="status"
           className={cn(
             "hidden sm:inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs",
             liveStatus === "live" && "text-foreground",

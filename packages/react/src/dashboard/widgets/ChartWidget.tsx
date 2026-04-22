@@ -79,7 +79,7 @@ function ChartSvg({
             const w = step * 0.7;
             return (
               <rect
-                key={i}
+                key={b.label}
                 x={x}
                 y={y}
                 width={w}
@@ -125,7 +125,7 @@ function ChartSvg({
                   const x = pad.left + i * step + step / 2;
                   const y = pad.top + innerH - (b.value / max) * innerH;
                   return (
-                    <circle key={i} cx={x} cy={y} r={2.5} fill={color}>
+                    <circle key={b.label} cx={x} cy={y} r={2.5} fill={color}>
                       <title>{`${b.label}: ${b.value.toLocaleString()}`}</title>
                     </circle>
                   );

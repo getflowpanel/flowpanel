@@ -85,6 +85,7 @@ export function Header({
           }
         >
           <div
+            role="status"
             aria-label={`Connection status: ${liveStatus === "live" ? "live" : liveStatus === "reconnecting" ? "reconnecting" : "disconnected"}`}
             style={{
               display: "flex",

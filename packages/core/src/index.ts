@@ -32,6 +32,16 @@ export { createResourceDescriptor, resolveResource } from "./resource/resolver";
 export { serializeResource } from "./resource/serializer";
 export { createFilter, mergeFilters } from "./resource/filters";
 
+// Pages module (custom admin pages)
+export { resolvePages, serializePages, canAccessPage } from "./pages/resolver";
+export type {
+  FlowPanelPage,
+  PageAccessContext,
+  PageAccessRule,
+  ResolvedPage,
+  SerializedPage,
+} from "./pages/types";
+
 // Queue module
 export { resolveQueues, serializeQueue, serializeQueues } from "./queue/resolver";
 export type {
@@ -120,4 +130,5 @@ export type {
   ResolvedLinkAction,
   ResolvedDialogAction,
   ColumnFormat,
+  InferRow,
 } from "./resource/types";

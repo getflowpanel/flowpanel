@@ -31,6 +31,7 @@ export function QueueTable({
       <TableBody>
         {loading && jobs.length === 0
           ? Array.from({ length: 6 }).map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: placeholder skeleton rows
               <TableRow key={i}>
                 <TableCell colSpan={6}>
                   <Skeleton className="h-4 w-full" />

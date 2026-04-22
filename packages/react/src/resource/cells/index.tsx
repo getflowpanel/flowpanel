@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { SerializedColumn } from "@flowpanel/core";
 import { TextCell } from "./TextCell";
 import { BadgeCell } from "./BadgeCell";
@@ -8,15 +9,32 @@ import { ImageCell } from "./ImageCell";
 import { JsonCell } from "./JsonCell";
 import { NumberCell } from "./NumberCell";
 
+/**
+ * Custom cell renderer override. Takes precedence over the format-based
+ * dispatcher — returns `ReactNode` or `undefined` (undefined = fall through
+ * to dispatcher).
+ */
+export type CellRenderFn = (value: unknown, row: Record<string, unknown>) => ReactNode | undefined;
+
 export function CellRenderer({
   column,
   value,
   row,
+  render,
 }: {
   column: SerializedColumn;
   value: unknown;
   row: Record<string, unknown>;
+  /** Custom render fn (per-column override, takes precedence over format dispatch). */
+  render?: CellRenderFn;
 }) {
+  // Custom render takes priority — receives raw value (even if null/undefined)
+  // so consumers can render fallbacks themselves.
+  if (render) {
+    const out = render(value, row);
+    if (out !== undefined) return <>{out}</>;
+  }
+
   if (value === null || value === undefined) {
     return <span className="text-muted-foreground">—</span>;
   }

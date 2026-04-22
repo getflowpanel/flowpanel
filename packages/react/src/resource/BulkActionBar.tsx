@@ -27,8 +27,7 @@ export function BulkActionBar({
   };
 
   return (
-    <div
-      role="region"
+    <section
       aria-label="Bulk action toolbar"
       className="sticky bottom-3 z-20 mx-auto flex w-full max-w-3xl items-center gap-3 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur"
     >
@@ -48,6 +47,6 @@ export function BulkActionBar({
           <X className="h-4 w-4" />
         </Button>
       </div>
-    </div>
+    </section>
   );
 }

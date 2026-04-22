@@ -45,6 +45,7 @@ export function ResourceDrawer({
   onClose,
   baseUrl,
   onSuccess,
+  fieldRenderers,
 }: {
   resource: SerializedResource;
   mode: "detail" | "create" | "edit";
@@ -53,6 +54,15 @@ export function ResourceDrawer({
   onClose: () => void;
   baseUrl: string;
   onSuccess?: () => void;
+  fieldRenderers?: Record<
+    string,
+    (props: {
+      name: string;
+      value: unknown;
+      onChange: (next: unknown) => void;
+      error?: string;
+    }) => import("react").ReactNode
+  >;
 }) {
   const title =
     mode === "create"
@@ -122,6 +132,7 @@ export function ResourceDrawer({
               baseUrl={baseUrl}
               onSuccess={handleSuccess}
               onCancel={onClose}
+              fieldRenderers={fieldRenderers}
             />
           )}
         </div>

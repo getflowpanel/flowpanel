@@ -16,6 +16,46 @@ export type { Path, PathFn };
 export type Row = Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
+// InferRow — escape hatch type utility
+// ---------------------------------------------------------------------------
+
+/**
+ * Infer the row type of a model from the adapter. Escape hatch for cases where
+ * automatic inference through `defineFlowPanel` + `resource()` cannot reach —
+ * e.g. deep unions, recursive relations, Drizzle's table identity tricks.
+ *
+ * @example
+ *   // Prisma
+ *   import type { InferRow } from "@flowpanel/core";
+ *   type User = InferRow<typeof prisma, "user">;
+ *   //   ^? { id: string; email: string; ... }
+ *
+ *   // Drizzle (table key = schema export name)
+ *   type User = InferRow<typeof db, "users">;
+ *
+ * For typical code, row types flow automatically through `access`, `when`,
+ * `handler`, and `computed.path` callbacks without this utility.
+ */
+export type InferRow<TAdapter, TModelName extends string> =
+  // Prisma-shaped: adapter[model].findUnique returns the row
+  TAdapter extends {
+    [K in TModelName]: {
+      findUnique: (args: never) => Promise<infer R | null>;
+    };
+  }
+    ? R
+    : // Drizzle-shaped: adapter.query[model].findFirst returns the row
+      TAdapter extends {
+          query: {
+            [K in TModelName]: {
+              findFirst: (args: never) => Promise<infer R | undefined>;
+            };
+          };
+        }
+      ? NonNullable<R>
+      : Row;
+
+// ---------------------------------------------------------------------------
 // Model Metadata (from DMMF / Drizzle introspection)
 // ---------------------------------------------------------------------------
 

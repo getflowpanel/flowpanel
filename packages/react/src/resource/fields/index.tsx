@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { FieldMetadata } from "@flowpanel/core";
 import type { FieldProps } from "./TextField";
 import { TextField } from "./TextField";
@@ -10,12 +11,26 @@ import { JsonField } from "./JsonField";
 
 export type { FieldProps };
 
+/**
+ * Custom form-field renderer override. Takes precedence over the type-based
+ * dispatcher — returns `ReactNode` or `undefined` (undefined = fall through).
+ */
+export type FieldRenderFn = (props: FieldProps) => ReactNode | undefined;
+
 export interface FieldWidgetProps extends FieldProps {
   /** Field metadata from the model (for type detection and enum values). */
   meta?: FieldMetadata;
+  /** Custom renderer (per-field override, takes precedence over type dispatch). */
+  render?: FieldRenderFn;
 }
 
-export function FieldWidget({ meta, ...props }: FieldWidgetProps) {
+export function FieldWidget({ meta, render, ...props }: FieldWidgetProps) {
+  // Custom render takes priority.
+  if (render) {
+    const out = render(props);
+    if (out !== undefined) return <>{out}</>;
+  }
+
   if (!meta) {
     return <TextField {...props} />;
   }

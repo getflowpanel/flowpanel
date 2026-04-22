@@ -105,9 +105,9 @@ export function useUrlState(resourceId: string): {
     return () => {
       if (typeof window === "undefined") return;
       const sp = new URLSearchParams(window.location.search);
-      [`${PREFIX}sort`, `${PREFIX}search`, `${PREFIX}filters`, `${PREFIX}page`].forEach((k) =>
-        sp.delete(k),
-      );
+      for (const k of [`${PREFIX}sort`, `${PREFIX}search`, `${PREFIX}filters`, `${PREFIX}page`]) {
+        sp.delete(k);
+      }
       const newSearch = sp.toString();
       const newUrl = newSearch
         ? `${window.location.pathname}?${newSearch}`

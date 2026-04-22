@@ -2,6 +2,8 @@ import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema";
 import { validateConfig } from "./config/validate";
 import { FlowPanelConfigError } from "./errors";
 import { createQueryBuilder, type QueryBuilder } from "./queryBuilder";
+import { resolvePages, serializePages } from "./pages/resolver";
+import type { FlowPanelPage, ResolvedPage, SerializedPage } from "./pages/types";
 import { resolveQueues, serializeQueues } from "./queue/resolver";
 import type { QueueAdapter, ResolvedQueue, SerializedQueue } from "./queue/types";
 import { createReaper } from "./reaper";
@@ -121,6 +123,7 @@ export interface FlowPanelSchema {
   resources?: Record<string, SerializedResource>;
   dashboard?: import("./widget/types").SerializedWidget[];
   queues?: Record<string, SerializedQueue>;
+  pages?: SerializedPage[];
 }
 
 // ---------------------------------------------------------------------------
@@ -152,6 +155,7 @@ export interface FlowPanel<TConfig extends FlowPanelConfig = FlowPanelConfig> {
   resourceAdapter?: ResourceAdapter;
   dashboard?: import("./widget/types").ResolvedWidget[];
   queues?: Record<string, ResolvedQueue>;
+  pages?: ResolvedPage[];
   getSchema(sessionRoles?: string[]): FlowPanelSchema;
 
   /** Returns the config object needed by createFlowPanelRouter. */
@@ -182,6 +186,18 @@ export interface FlowPanelV2Extensions {
   dashboard?: import("./widget/types").DashboardConfig;
   /** Queue adapters keyed by id. Each shows up as its own tab in the admin. */
   queues?: Record<string, QueueAdapter>;
+  /**
+   * Custom pages — React components rendered inside the admin shell at
+   * `/admin/<path>`. Use for reports, settings, wizards, anything that isn't
+   * a CRUD resource or queue.
+   *
+   * @example
+   *   pages: [
+   *     { path: "reports", component: ReportsPage, icon: "bar-chart-3" },
+   *     { path: "settings", component: SettingsPage, access: ["admin"] },
+   *   ]
+   */
+  pages?: readonly FlowPanelPage[];
 }
 
 export interface ResourceFactory {
@@ -253,6 +269,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     resources: resourcesConfig,
     dashboard: dashboardConfig,
     queues: queuesConfig,
+    pages: pagesConfig,
     unsafeAllowAutoResourcesInProduction,
     ...baseConfig
   } = rawConfig as TConfig & FlowPanelV2Extensions & Record<string, unknown>;
@@ -350,6 +367,14 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     ? resolveQueues(queuesConfig as Record<string, QueueAdapter>)
     : undefined;
 
+  // ---- Pages resolution ----------------------------------------------------
+  const resolvedPages: ResolvedPage[] | undefined = pagesConfig
+    ? resolvePages(pagesConfig as readonly FlowPanelPage[], {
+        resourceIds: resolvedResources ? Object.keys(resolvedResources) : [],
+        queueIds: resolvedQueuesMap ? Object.keys(resolvedQueuesMap) : [],
+      })
+    : undefined;
+
   // ---- Existing pipeline setup (unchanged) ---------------------------------
   const cwd = process.cwd();
   const redactionKeys = config.security?.redaction?.keys ?? [];
@@ -427,6 +452,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
         : undefined,
       dashboard: resolvedDashboard ? serializeDashboard(resolvedDashboard) : undefined,
       queues: resolvedQueuesMap ? serializeQueues(resolvedQueuesMap) : undefined,
+      pages: resolvedPages ? serializePages(resolvedPages, sessionRoles) : undefined,
     };
   }
 
@@ -453,6 +479,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     resourceAdapter,
     dashboard: resolvedDashboard,
     queues: resolvedQueuesMap,
+    pages: resolvedPages,
     getSchema,
     getRouterConfig,
   };

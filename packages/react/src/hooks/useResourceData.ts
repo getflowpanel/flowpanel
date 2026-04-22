@@ -1,7 +1,7 @@
 "use client";
 
+import type { SerializedFilter, SerializedResource } from "@flowpanel/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SerializedResource, SerializedFilter } from "@flowpanel/core";
 
 export interface ResourceDataParams {
   sort?: { field: string; dir: "asc" | "desc" };
@@ -168,7 +168,7 @@ export function useResourceData({
     } finally {
       setLoading(false);
     }
-  }, [resource.id, baseUrl, page, pageSize, sort, search, filters]);
+  }, [resource.id, resource.filters, baseUrl, page, pageSize, sort, search, filters]);
 
   useEffect(() => {
     void fetchData();

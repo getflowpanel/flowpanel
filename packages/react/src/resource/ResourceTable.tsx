@@ -1,7 +1,7 @@
 "use client";
 
 import type { SerializedResource } from "@flowpanel/core";
-import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { cn } from "../utils/cn";
@@ -20,6 +20,7 @@ export function ResourceTable({
   selectedRowId,
   selection,
   onSelectionChange,
+  columnRenderers,
 }: {
   resource: SerializedResource;
   data: Record<string, unknown>[];
@@ -31,6 +32,11 @@ export function ResourceTable({
   /** Selected ids for bulk actions. Undefined disables selection column. */
   selection?: Array<string | number>;
   onSelectionChange?: (ids: Array<string | number>) => void;
+  /** Per-column render overrides, keyed by column id. */
+  columnRenderers?: Record<
+    string,
+    (value: unknown, row: Record<string, unknown>) => import("react").ReactNode
+  >;
 }) {
   const visibleColumns = resource.columns.filter((c) => c.opts.visible !== "detail");
   const primaryKey = resource.primaryKey;
@@ -120,6 +126,7 @@ export function ResourceTable({
       <TableBody>
         {loading && data.length === 0
           ? Array.from({ length: SKELETON_ROWS }, (_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: placeholder skeleton rows
               <TableRow key={`skel-${i}`}>
                 {selectionEnabled && (
                   <TableCell>
@@ -170,7 +177,12 @@ export function ResourceTable({
                           col.opts.align === "center" && "text-center",
                         )}
                       >
-                        <CellRenderer column={col} value={value} row={row} />
+                        <CellRenderer
+                          column={col}
+                          value={value}
+                          row={row}
+                          render={columnRenderers?.[col.id]}
+                        />
                       </TableCell>
                     );
                   })}

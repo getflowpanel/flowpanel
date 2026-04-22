@@ -9,7 +9,10 @@
   "linter": {
     "rules": {
       "recommended": true,
-      "suspicious": { "noExplicitAny": "warn" },
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noUnknownAtRules": "off"
+      },
       "complexity": { "noForEach": "off" }
     }
   },

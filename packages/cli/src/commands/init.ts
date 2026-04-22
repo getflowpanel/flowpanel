@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as p from "@clack/prompts";
-import pc from "picocolors";
-import type { Command } from "commander";
 import { generateSchema, z } from "@flowpanel/core";
+import type { Command } from "commander";
+import pc from "picocolors";
 import { detectStack } from "../utils/detect";
 import { detectModels } from "../utils/detect-models";
 import { formatWarning } from "../utils/error-format";
@@ -52,7 +52,6 @@ export function initCommand(cli: Command): void {
       let adapter = options.adapter ?? (stack.drizzle ? "drizzle-pg" : "prisma-pg");
       let stages = ["ingest", "process", "notify"];
       let defaultTimeRange = "24h";
-      let seedDemo = false;
       let selectedModels: string[] = options.models
         ? options.models
             .split(",")
@@ -116,16 +115,6 @@ export function initCommand(cli: Command): void {
           process.exit(0);
         }
         defaultTimeRange = timeRangeAnswer as string;
-
-        const seedAnswer = await p.confirm({
-          message: "Seed demo data? (500 sample runs)",
-          initialValue: false,
-        });
-        if (p.isCancel(seedAnswer)) {
-          p.cancel("Aborted.");
-          process.exit(0);
-        }
-        seedDemo = seedAnswer as boolean;
 
         if (!options.models && detected.models.length > 0) {
           const modelsAnswer = await p.multiselect({
@@ -215,10 +204,6 @@ export function initCommand(cli: Command): void {
           );
           break;
         } catch {}
-      }
-
-      if (seedDemo) {
-        p.log.info("Run `npx flowpanel demo` after setting up your database to seed demo data.");
       }
 
       p.outro(
