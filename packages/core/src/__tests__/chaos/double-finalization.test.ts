@@ -11,6 +11,7 @@ describe("double-finalization chaos", () => {
     // Simulate: first UPDATE changes status from 'running' to 'succeeded', returns row.
     // Second UPDATE: status is no longer 'running', RETURNING returns 0 rows.
     const mockDb: SqlExecutor = {
+      dialect: "postgres",
       execute: async (sql, _params) => {
         if (sql.includes("UPDATE") && sql.includes("status = 'running'")) {
           updateCount++;

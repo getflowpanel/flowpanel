@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mock drizzle-orm operators
@@ -28,23 +28,23 @@ vi.mock("drizzle-orm", () => {
   return { eq, ne, like, ilike, inArray, notInArray, gte, lte, gt, lt, isNull, isNotNull, and };
 });
 
+import type { NormalizedFilter } from "@flowpanel/core";
 // Now import after mock is set up
 import {
+  and,
   eq,
-  ne,
+  gt,
+  gte,
   ilike,
   inArray,
-  notInArray,
-  gte,
-  lte,
-  gt,
-  lt,
-  isNull,
   isNotNull,
-  and,
+  isNull,
+  lt,
+  lte,
+  ne,
+  notInArray,
 } from "drizzle-orm";
 import { normalizedFiltersToDrizzleWhere } from "../filters";
-import type { NormalizedFilter } from "@flowpanel/core";
 
 // ---------------------------------------------------------------------------
 // Helpers

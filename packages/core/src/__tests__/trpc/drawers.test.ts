@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderSection } from "../../trpc/procedures/drawers";
+import type { SqlExecutor } from "../../types/db";
 
 function makeMockDb() {
   const queries: { sql: string; params: unknown[] }[] = [];
@@ -7,7 +8,8 @@ function makeMockDb() {
     queries.push({ sql, params });
     return [];
   });
-  return { db: { execute }, queries, execute };
+  const db = { execute } as unknown as SqlExecutor;
+  return { db, queries, execute };
 }
 
 describe("drawers.breakdown SQL injection", () => {

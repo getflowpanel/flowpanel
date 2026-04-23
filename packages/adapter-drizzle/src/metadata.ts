@@ -1,4 +1,4 @@
-import type { ModelMetadata, FieldMetadata } from "@flowpanel/core";
+import type { FieldMetadata, ModelMetadata } from "@flowpanel/core";
 import { createTableRelationsHelpers } from "drizzle-orm";
 
 /**

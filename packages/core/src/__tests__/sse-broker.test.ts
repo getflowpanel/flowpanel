@@ -153,8 +153,12 @@ describe("SseBroker", () => {
     const received: SseEvent[] = [];
     listenBroker.subscribe("c1", (e) => received.push(e));
 
-    // Simulate a pg_notify payload arriving
-    registeredHandler?.(JSON.stringify({ event: "run.created", id: "42" }));
+    // Simulate a pg_notify payload arriving.
+    // TS narrows `registeredHandler` to `null` because the assignment happens inside a vi.fn callback;
+    // we know start() awaits it, so cast back to its declared type before calling.
+    (registeredHandler as ((payload: string) => void) | null)?.(
+      JSON.stringify({ event: "run.created", id: "42" }),
+    );
 
     expect(received).toHaveLength(1);
     expect(received[0].event).toBe("run.created");

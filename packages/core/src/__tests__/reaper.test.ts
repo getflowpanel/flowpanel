@@ -5,6 +5,7 @@ import type { SqlExecutor } from "../types/db";
 function makeMockDb(tryLockResult = true) {
   const queries: { sql: string; params: unknown[] }[] = [];
   const executor: SqlExecutor = {
+    dialect: "postgres",
     async execute(sql, params) {
       queries.push({ sql, params });
       // biome-ignore lint/suspicious/noExplicitAny: test mock cast

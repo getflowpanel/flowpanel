@@ -6,19 +6,19 @@ import type { NormalizedFilter } from "@flowpanel/core";
 // For real usage we import directly; Drizzle is a peer dependency.
 
 import {
+  and,
   eq,
-  ne,
-  like,
+  gt,
+  gte,
   ilike,
   inArray,
-  notInArray,
-  gte,
-  lte,
-  gt,
-  lt,
-  isNull,
   isNotNull,
-  and,
+  isNull,
+  like,
+  lt,
+  lte,
+  ne,
+  notInArray,
   or,
   type SQL,
 } from "drizzle-orm";

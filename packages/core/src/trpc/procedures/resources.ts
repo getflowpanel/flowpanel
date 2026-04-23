@@ -257,8 +257,6 @@ function getRowLevelFilters(
     } else if (value === null) {
       filters.push({ field, op: "isNull", value: null });
     } else if (typeof value === "object") {
-      // Skip nested objects — not supported in rowLevel scalar shape
-      continue;
     } else {
       filters.push({ field, op: "eq", value });
     }

@@ -1,7 +1,7 @@
 import { initTRPC } from "@trpc/server";
 import type { FlowPanelConfig } from "../config/schema";
 import type { ResolvedQueue } from "../queue/types";
-import type { ResourceAdapter, ResolvedResource } from "../resource/types";
+import type { ResolvedResource, ResourceAdapter } from "../resource/types";
 import type { SqlExecutor } from "../types/db";
 import type { ResolvedWidget } from "../widget/types";
 import type { FlowPanelContext } from "./context";
@@ -23,7 +23,7 @@ export function createFlowPanelRouter<TContext extends object>({
   config,
   getRequest,
 }: {
-  t: ReturnType<typeof initTRPC.context<TContext>>;
+  t: ReturnType<ReturnType<typeof initTRPC.context<TContext>>["create"]>;
   config: {
     config: FlowPanelConfig;
     getDb: () => Promise<SqlExecutor>;

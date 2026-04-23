@@ -2,16 +2,21 @@
   "name": "freelance-radar",
   "private": true,
   "version": "0.0.0",
-  "description": "FlowPanel 1.0 API target — reviewable spec, not yet runnable",
-  "scripts": {},
+  "description": "FlowPanel 1.0 API target — B1 surface compiles; rest grows with the B-series",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@flowpanel/adapter-drizzle": "workspace:*",
     "@flowpanel/core": "workspace:*",
     "@flowpanel/react": "workspace:*",
     "drizzle-orm": "^0.36.0",
+    "pg": "^8.13.0",
     "react": "^18.3.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.11.0",
     "@types/react": "^18.3.0",
     "typescript": "^5.6.0"
   }

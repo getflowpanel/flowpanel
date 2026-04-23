@@ -12,6 +12,7 @@
 
 import { relations } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -67,7 +68,7 @@ export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
-  parentId: integer("parent_id").references((): ReturnType<typeof serial> => categories.id),
+  parentId: integer("parent_id").references((): AnyPgColumn => categories.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -1,18 +1,20 @@
 import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema";
 import { validateConfig } from "./config/validate";
 import { FlowPanelConfigError } from "./errors";
-import { createQueryBuilder, type QueryBuilder } from "./queryBuilder";
 import { resolvePages, serializePages } from "./pages/resolver";
 import type { FlowPanelPage, ResolvedPage, SerializedPage } from "./pages/types";
+import { createQueryBuilder, type QueryBuilder } from "./queryBuilder";
 import { resolveQueues, serializeQueues } from "./queue/resolver";
 import type { QueueAdapter, ResolvedQueue, SerializedQueue } from "./queue/types";
 import { createReaper } from "./reaper";
+import { isTypedResourceDefinition, lowerTypedResource } from "./resource/lowerTyped";
 import { resolveResource } from "./resource/resolver";
 import { serializeResource } from "./resource/serializer";
+import type { TypedResourceDefinition } from "./resource/typedTypes";
 import type {
+  ResolvedResource,
   ResourceAdapter,
   ResourceDescriptor,
-  ResolvedResource,
   SerializedResource,
 } from "./resource/types";
 import type { SqlExecutor, SqlExecutorFactory } from "./types/db";
@@ -23,6 +25,28 @@ import { createWithRun } from "./withRun";
 // ---------------------------------------------------------------------------
 // Adapter detection helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Loads an optional peer dependency without tripping bundler static analyzers.
+ *
+ * Webpack / Next.js reads every `require("literal")` at build time and will
+ * fail the client bundle even when the call site is unreachable. Constructing
+ * the require via `Function("return require")` hides it from static analysis
+ * while still working in any CJS-wrapped runtime (Node, Next SSR, webpack
+ * server bundles). Returns `null` in pure ESM Node — consumers that hit this
+ * path should pass the adapter explicitly.
+ */
+function loadOptionalPeer<T>(spec: string): T | null {
+  try {
+    const dynamicRequire = Function(
+      "spec",
+      "return typeof require === 'function' ? require(spec) : null",
+    ) as (s: string) => T | null;
+    return dynamicRequire(spec);
+  } catch {
+    return null;
+  }
+}
 
 interface AdapterResult {
   sql: SqlExecutor;
@@ -83,30 +107,30 @@ function detectAdapter(input: unknown): AdapterResult {
 
   // 4. PrismaClient — auto-wrap
   if (isPrismaClient(input)) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { prismaAdapter } = require("@flowpanel/adapter-prisma");
-      return prismaAdapter({ prisma: input });
-    } catch {
+    const mod = loadOptionalPeer<{
+      prismaAdapter: (opts: { prisma: unknown }) => AdapterResult;
+    }>("@flowpanel/adapter-prisma");
+    if (!mod) {
       throw new Error(
-        "adapter: PrismaClient detected but @flowpanel/adapter-prisma is not installed. " +
-          "Install it: pnpm add @flowpanel/adapter-prisma",
+        "adapter: PrismaClient detected but @flowpanel/adapter-prisma could not be loaded. " +
+          "Install it (pnpm add @flowpanel/adapter-prisma), or pass prismaAdapter({ prisma }) explicitly.",
       );
     }
+    return mod.prismaAdapter({ prisma: input });
   }
 
   // 5. Drizzle db — auto-wrap
   if (isDrizzleDb(input)) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { drizzleAdapter } = require("@flowpanel/adapter-drizzle");
-      return drizzleAdapter({ db: input });
-    } catch {
+    const mod = loadOptionalPeer<{
+      drizzleAdapter: (opts: { db: unknown }) => AdapterResult;
+    }>("@flowpanel/adapter-drizzle");
+    if (!mod) {
       throw new Error(
-        "adapter: Drizzle db detected but @flowpanel/adapter-drizzle is not installed. " +
-          "Install it: pnpm add @flowpanel/adapter-drizzle",
+        "adapter: Drizzle db detected but @flowpanel/adapter-drizzle could not be loaded. " +
+          "Install it (pnpm add @flowpanel/adapter-drizzle), or pass drizzleAdapter({ db }) explicitly.",
       );
     }
+    return mod.drizzleAdapter({ db: input });
   }
 
   throw new Error(
@@ -176,9 +200,11 @@ export interface FlowPanelV2Extensions {
   /** Audit configuration for resources. */
   audit?: { enabled: boolean; retentionDays?: number };
   /** Resource definitions — object, builder function, or "auto" (dev-only). */
+  // biome-ignore lint/suspicious/noExplicitAny: TypedResourceDefinition<TRow> is contravariant in TRow via action handlers; `any` is the standard widening for union-accepting options.
   resources?:
-    | Record<string, ResourceDescriptor>
-    | ((fp: ResourceFactory) => Record<string, ResourceDescriptor>)
+    | Record<string, ResourceDescriptor | TypedResourceDefinition<any>>
+    // biome-ignore lint/suspicious/noExplicitAny: see above
+    | ((fp: ResourceFactory) => Record<string, ResourceDescriptor | TypedResourceDefinition<any>>)
     | "auto";
   /** Allow resources: "auto" in production. Understand the risk before using. */
   unsafeAllowAutoResourcesInProduction?: boolean;
@@ -343,7 +369,13 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
       typeof resourcesConfig === "function" ? resourcesConfig(factory) : resourcesConfig;
 
     resolvedResources = {};
-    for (const [key, descriptor] of Object.entries(descriptors)) {
+    for (const [key, raw] of Object.entries(descriptors)) {
+      if (isTypedResourceDefinition(raw)) {
+        // New typed builder (defineResource) output — bypass descriptor pipeline.
+        resolvedResources[key] = lowerTypedResource(key, raw as TypedResourceDefinition);
+        continue;
+      }
+      const descriptor = raw as ResourceDescriptor;
       // Determine model name from adapter, modelRef (if string), or fall back to key
       const modelName =
         (

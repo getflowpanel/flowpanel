@@ -1,6 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { serializeResource } from "../serializer";
-import type { ResolvedResource, ResolvedColumn, ResolvedFilter, ResolvedAction } from "../types";
+import type {
+  ResolvedAction,
+  ResolvedColumn,
+  ResolvedFilter,
+  ResolvedMutationAction,
+  ResolvedResource,
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Helpers to build minimal ResolvedResource
@@ -30,14 +36,14 @@ function makeFilter(overrides: Partial<ResolvedFilter> = {}): ResolvedFilter {
 }
 
 function makeAction(overrides: Partial<ResolvedAction> = {}): ResolvedAction {
-  return {
+  const base: ResolvedMutationAction = {
     id: "cancel",
     type: "mutation",
     label: "Cancel",
     variant: "default",
     handler: vi.fn().mockResolvedValue(undefined),
-    ...overrides,
   };
+  return { ...base, ...overrides } as ResolvedAction;
 }
 
 function makeResolvedResource(overrides: Partial<ResolvedResource> = {}): ResolvedResource {

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { ModelMetadata, ResolvedResource, ResourceAdapter, Row } from "../../resource/types";
 import { createResourceProcedures } from "../../trpc/procedures/resources";
-import type { ResolvedResource, ResourceAdapter, ModelMetadata, Row } from "../../resource/types";
 import type { Session } from "../../types/config";
 
 // Minimal tRPC double that just invokes handlers directly.
@@ -75,6 +75,7 @@ function makeAdapter(rows: Row[]): ResourceAdapter {
       async (_m: string, args: { where: Record<string, unknown> }) =>
         rows.find((r) => r.id === args.where.id) as Row,
     ),
+    count: vi.fn(async (_m: string) => rows.length),
     getModelMetadata: () => metadata,
     getEnumValues: () => [],
     getModelNames: () => ["Post"],

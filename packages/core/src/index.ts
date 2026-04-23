@@ -1,11 +1,4 @@
 export { z } from "zod";
-export {
-  FlowPanelError,
-  FlowPanelConfigError,
-  FlowPanelAdapterError,
-  FlowPanelAccessError,
-  FlowPanelValidationError,
-} from "./errors";
 export type { FlowPanelConfig, FlowPanelConfigInput } from "./config/schema";
 export { sqlIdentifier } from "./config/schema";
 export type {
@@ -16,24 +9,16 @@ export type {
   ResourceFactory,
 } from "./defineFlowPanel";
 export { defineFlowPanel, resource } from "./defineFlowPanel";
+export {
+  FlowPanelAccessError,
+  FlowPanelAdapterError,
+  FlowPanelConfigError,
+  FlowPanelError,
+  FlowPanelValidationError,
+} from "./errors";
 export { applyMigrations, getMigrationStatus } from "./migrationRunner";
-export { createQueryBuilder } from "./queryBuilder";
-export { createReaper } from "./reaper";
-export { generateSchema } from "./schemaGenerator";
-export type { RunFields } from "./types/config";
-export type { SqlExecutor, SqlExecutorFactory, SqlQuery } from "./types/db";
-export type { RunHandle } from "./withRun";
-
-// Context helper
-export { createFlowPanelContext, type FlowPanelContextBase } from "./trpc/createContext";
-
-// Resource module
-export { createResourceDescriptor, resolveResource } from "./resource/resolver";
-export { serializeResource } from "./resource/serializer";
-export { createFilter, mergeFilters } from "./resource/filters";
-
 // Pages module (custom admin pages)
-export { resolvePages, serializePages, canAccessPage } from "./pages/resolver";
+export { canAccessPage, resolvePages, serializePages } from "./pages/resolver";
 export type {
   FlowPanelPage,
   PageAccessContext,
@@ -41,7 +26,7 @@ export type {
   ResolvedPage,
   SerializedPage,
 } from "./pages/types";
-
+export { createQueryBuilder } from "./queryBuilder";
 // Queue module
 export { resolveQueues, serializeQueue, serializeQueues } from "./queue/resolver";
 export type {
@@ -53,11 +38,79 @@ export type {
   ResolvedQueue,
   SerializedQueue,
 } from "./queue/types";
+export { createReaper } from "./reaper";
+// Resource module
+export { defineResource } from "./resource/defineResource";
+export { createFilter, mergeFilters } from "./resource/filters";
+export { createResourceDescriptor, resolveResource } from "./resource/resolver";
+export { serializeResource } from "./resource/serializer";
+export type {
+  DefineResourceOptions,
+  TypedAction,
+  TypedBulkAction,
+  TypedBulkEditAction,
+  TypedColumn,
+  TypedComputedColumn,
+  TypedFieldColumn,
+  TypedFilter,
+  TypedResourceDefinition,
+  TypedRowAction,
+} from "./resource/typedTypes";
+export type {
+  AccessConfig,
+  AccessRule,
+  ActionBuilder,
+  ActionDownloadResult,
+  BulkActionConfig,
+  CollectionActionConfig,
+  ColumnFormat,
+  ConfirmConfig,
+  DialogActionConfig,
+  DialogField,
+  DialogSchema,
+  FieldMetadata,
+  FilterMode,
+  FilterOp,
+  FindManyArgs,
+  InferRow,
+  LinkActionConfig,
+  ModelMetadata,
+  MutationActionConfig,
+  NormalizedFilter,
+  ResolvedAction,
+  ResolvedBulkAction,
+  ResolvedCollectionAction,
+  ResolvedColumn,
+  ResolvedDialogAction,
+  ResolvedFilter,
+  ResolvedLinkAction,
+  ResolvedMutationAction,
+  ResolvedResource,
+  ResourceAdapter,
+  ResourceDescriptor,
+  ResourceOptions,
+  Row,
+  SerializedAccess,
+  SerializedAction,
+  SerializedBulkAction,
+  SerializedCollectionAction,
+  SerializedColumn,
+  SerializedDialogAction,
+  SerializedFilter,
+  SerializedLinkAction,
+  SerializedMutationAction,
+  SerializedResource,
+} from "./resource/types";
+export { generateSchema } from "./schemaGenerator";
+// Context helper
+export { createFlowPanelContext, type FlowPanelContextBase } from "./trpc/createContext";
+export type { RunFields } from "./types/config";
+export type { SqlExecutor, SqlExecutorFactory, SqlQuery } from "./types/db";
 
 // Widget / Dashboard module
 export { createWidgetBuilder, resolveDashboard } from "./widget/builder";
-export { serializeDashboard, serializeWidget } from "./widget/serializer";
 export { evaluateDashboard, evaluateWidget } from "./widget/evaluator";
+export { serializeDashboard, serializeWidget } from "./widget/serializer";
 export type {
   ChartBucket,
   ChartWidgetConfig,
@@ -87,48 +140,4 @@ export type {
   WidgetData,
   WidgetLayout,
 } from "./widget/types";
-export type {
-  ResourceAdapter,
-  ResourceDescriptor,
-  ResourceOptions,
-  ResolvedResource,
-  SerializedResource,
-  SerializedColumn,
-  SerializedFilter,
-  SerializedAction,
-  SerializedMutationAction,
-  SerializedBulkAction,
-  SerializedCollectionAction,
-  SerializedLinkAction,
-  SerializedDialogAction,
-  SerializedAccess,
-  AccessRule,
-  AccessConfig,
-  ActionBuilder,
-  ActionDownloadResult,
-  BulkActionConfig,
-  CollectionActionConfig,
-  ConfirmConfig,
-  DialogActionConfig,
-  DialogField,
-  DialogSchema,
-  LinkActionConfig,
-  MutationActionConfig,
-  NormalizedFilter,
-  FilterOp,
-  FilterMode,
-  Row,
-  ModelMetadata,
-  FieldMetadata,
-  FindManyArgs,
-  ResolvedColumn,
-  ResolvedFilter,
-  ResolvedAction,
-  ResolvedMutationAction,
-  ResolvedBulkAction,
-  ResolvedCollectionAction,
-  ResolvedLinkAction,
-  ResolvedDialogAction,
-  ColumnFormat,
-  InferRow,
-} from "./resource/types";
+export type { RunHandle } from "./withRun";

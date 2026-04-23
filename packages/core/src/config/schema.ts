@@ -243,15 +243,16 @@ export const flowPanelConfigSchema = z.object({
   security: z.object({
     auth: z.object({
       getSession: z
-        .function()
-        .refine((fn) => typeof fn === "function", {
+        .custom<(req: Request) => Promise<unknown>>((fn) => typeof fn === "function", {
           message: "getSession is required and must be a function",
         })
         .describe("Async function that returns the current user session from a request"),
       requireRole: z.string().optional(),
       sessionMaxAge: intervalSchema.optional(),
       stepUpForDestructive: z.boolean().optional(),
-      stepUpVerify: z.function().optional(),
+      stepUpVerify: z
+        .custom<(req: Request, op: string) => Promise<boolean>>((fn) => typeof fn === "function")
+        .optional(),
     }),
     permissions: z
       .record(

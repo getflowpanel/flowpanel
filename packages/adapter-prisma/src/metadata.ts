@@ -1,4 +1,4 @@
-import type { ModelMetadata, FieldMetadata } from "@flowpanel/core";
+import type { FieldMetadata, ModelMetadata } from "@flowpanel/core";
 
 // Prisma DMMF types (from @prisma/client runtime)
 export interface DmmfField {

@@ -3,10 +3,10 @@ import {
   createActionBuilder,
   createColumnBuilder,
   createFilterBuilder,
+  lastSegment,
   resolveShorthandColumns,
   resolveShorthandFilters,
   titleCase,
-  lastSegment,
 } from "../builders";
 
 // ---------------------------------------------------------------------------
@@ -223,6 +223,7 @@ describe("createActionBuilder", () => {
       expect(action.label).toBe("Delete");
       expect(action.variant).toBe("default");
       expect(action.id).toBe("");
+      if (action.type !== "mutation") throw new Error("expected mutation action");
       expect(action.handler).toBe(handler);
     });
 

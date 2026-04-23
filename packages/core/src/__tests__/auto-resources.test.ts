@@ -1,15 +1,17 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
-import { FlowPanelConfigError } from "../errors";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { defineFlowPanel } from "../defineFlowPanel";
+import { FlowPanelConfigError } from "../errors";
 
 const baseConfig = {
   appName: "Test App",
+  timezone: "UTC",
+  basePath: "/admin",
   adapter: {
     execute: vi.fn(),
     transaction: vi.fn(),
     dialect: "postgres" as const,
   },
-  pipeline: { stages: ["ingest"] },
+  pipeline: { stages: ["ingest"], fields: {}, stageFields: {} },
   security: { auth: { getSession: async () => null } },
 };
 

@@ -77,10 +77,7 @@ describe("mergeFilters", () => {
   });
 
   it("same field+op incoming overrides even when different ops exist for same field", () => {
-    const existing = [
-      createFilter("amount", "gte", 10),
-      createFilter("amount", "lte", 100),
-    ];
+    const existing = [createFilter("amount", "gte", 10), createFilter("amount", "lte", 100)];
     const incoming = [createFilter("amount", "gte", 50)];
     const result = mergeFilters(existing, incoming);
     expect(result).toHaveLength(2);
@@ -119,10 +116,7 @@ describe("filtersToSearchParams / searchParamsToFilters", () => {
   });
 
   it("serializes and deserializes number values", () => {
-    const filters = [
-      createFilter("amount", "gte", 10),
-      createFilter("amount", "lte", 100),
-    ];
+    const filters = [createFilter("amount", "gte", 10), createFilter("amount", "lte", 100)];
     const params = filtersToSearchParams(filters);
     const restored = searchParamsToFilters(params);
     expect(restored).toEqual(filters);

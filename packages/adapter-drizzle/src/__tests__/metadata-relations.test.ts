@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { pgTable, serial, text, integer } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { integer, pgTable, serial, text } from "drizzle-orm/pg-core";
+import { describe, expect, it } from "vitest";
 import { buildModelMetadata } from "../metadata";
 
 describe("Drizzle metadata — relations", () => {

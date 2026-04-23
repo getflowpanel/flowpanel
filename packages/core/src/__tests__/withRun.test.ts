@@ -9,6 +9,7 @@ function makeMockDb() {
   const calls: { sql: string; params: unknown[] }[] = [];
 
   const executor: SqlExecutor = {
+    dialect: "postgres",
     async execute(sql, params) {
       calls.push({ sql, params });
       if (sql.includes("INSERT") && sql.includes("pipeline_run")) {

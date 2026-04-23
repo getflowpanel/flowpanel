@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { defineFlowPanel, resource } from "../../defineFlowPanel";
 import type { ModelMetadata, ResourceAdapter } from "../types";
@@ -326,7 +326,7 @@ describe("defineFlowPanel v2 — schema serialization", () => {
     expect(userSer.columns[1].id).toBe("fullInfo");
     expect(userSer.columns[1].type).toBe("computed");
     // No compute function in serialized output
-    expect((userSer.columns[1] as Record<string, unknown>).compute).toBeUndefined();
+    expect((userSer.columns[1] as unknown as Record<string, unknown>).compute).toBeUndefined();
   });
 });
 

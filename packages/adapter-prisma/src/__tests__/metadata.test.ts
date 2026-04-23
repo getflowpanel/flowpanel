@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { extractModelsFromDmmf, extractEnumsFromDmmf } from "../metadata";
+import { describe, expect, it } from "vitest";
+import { extractEnumsFromDmmf, extractModelsFromDmmf } from "../metadata";
 
 const baseDmmf = {
   datamodel: {

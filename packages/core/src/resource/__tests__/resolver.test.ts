@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   createResourceDescriptor,
-  resolveResource,
   inferIncludeFromPaths,
   mergeIncludes,
+  resolveResource,
 } from "../resolver";
 import type { ModelMetadata } from "../types";
 

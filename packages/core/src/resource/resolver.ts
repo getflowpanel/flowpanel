@@ -3,16 +3,16 @@
  * using ModelMetadata from the ORM adapter.
  */
 
-import { resolvePathStrings, type PathProxy } from "./path";
 import {
+  createActionBuilder,
   createColumnBuilder,
   createFilterBuilder,
-  createActionBuilder,
+  lastSegment,
   resolveShorthandColumns,
   resolveShorthandFilters,
   titleCase,
-  lastSegment,
 } from "./builders";
+import { type PathProxy, resolvePathStrings } from "./path";
 import type {
   ModelMetadata,
   PathFn,

@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { applyMigrations } from "@flowpanel/core";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { drizzleAdapter } from "../../index";
+import { drizzleAdapter } from "../index";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -65,16 +65,16 @@ afterAll(async () => {
 describe("drizzleAdapter integration", () => {
   it("connects and runs a query", async () => {
     // biome-ignore lint/suspicious/noExplicitAny: test helper any cast
-    const db = drizzleAdapter({ db: pgToDb(pool) as any });
-    const rows = await db.execute("SELECT 1 AS value", []);
+    const { sql } = drizzleAdapter({ db: pgToDb(pool) as any });
+    const rows = await sql.execute("SELECT 1 AS value", []);
     expect(rows[0]).toMatchObject({ value: 1 });
   });
 
   it("advisory lock round-trip", async () => {
     // biome-ignore lint/suspicious/noExplicitAny: test helper any cast
-    const db = drizzleAdapter({ db: pgToDb(pool) as any });
+    const { sql } = drizzleAdapter({ db: pgToDb(pool) as any });
     const key = BigInt("12345678");
-    await db.advisoryLock(key);
+    await sql.advisoryLock(key);
     // Verify lock held — try from another connection should fail
     const pool2 = new Pool({
       host: "localhost",
@@ -84,22 +84,22 @@ describe("drizzleAdapter integration", () => {
       password: "test",
     });
     // biome-ignore lint/suspicious/noExplicitAny: test helper any cast
-    const db2 = drizzleAdapter({ db: pgToDb(pool2) as any });
-    const acquired = await db2.advisoryTryLock(key);
+    const { sql: sql2 } = drizzleAdapter({ db: pgToDb(pool2) as any });
+    const acquired = await sql2.advisoryTryLock(key);
     expect(acquired).toBe(false);
-    await db.advisoryUnlock(key);
+    await sql.advisoryUnlock(key);
     await pool2.end();
   });
 
   it("applyMigrations creates flowpanel tables", async () => {
     // biome-ignore lint/suspicious/noExplicitAny: test helper any cast
-    const db = drizzleAdapter({ db: pgToDb(pool) as any });
+    const { sql } = drizzleAdapter({ db: pgToDb(pool) as any });
     const migrationsDir = path.resolve(__dirname, "../../../../core/migrations");
-    const { applied } = await applyMigrations(db, [migrationsDir]);
+    const { applied } = await applyMigrations(sql, [migrationsDir]);
     expect(applied.length).toBeGreaterThanOrEqual(1);
 
     // Verify tables exist
-    const tables = await db.execute<{ tablename: string }>(
+    const tables = await sql.execute<{ tablename: string }>(
       `SELECT tablename FROM pg_tables WHERE schemaname = $1`,
       [schema],
     );
@@ -110,10 +110,10 @@ describe("drizzleAdapter integration", () => {
 
   it("applyMigrations is idempotent", async () => {
     // biome-ignore lint/suspicious/noExplicitAny: test helper any cast
-    const db = drizzleAdapter({ db: pgToDb(pool) as any });
+    const { sql } = drizzleAdapter({ db: pgToDb(pool) as any });
     const migrationsDir = path.resolve(__dirname, "../../../../core/migrations");
-    const { applied: _firstApply } = await applyMigrations(db, [migrationsDir]);
-    const { applied: secondApply } = await applyMigrations(db, [migrationsDir]);
+    const { applied: _firstApply } = await applyMigrations(sql, [migrationsDir]);
+    const { applied: secondApply } = await applyMigrations(sql, [migrationsDir]);
     // Second run: nothing new to apply
     expect(secondApply.length).toBe(0);
   });

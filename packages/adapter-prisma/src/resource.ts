@@ -1,4 +1,4 @@
-import type { ResourceAdapter, FindManyArgs, ModelMetadata, Row } from "@flowpanel/core";
+import type { FindManyArgs, ModelMetadata, ResourceAdapter, Row } from "@flowpanel/core";
 import { normalizedFiltersToPrismaWhere } from "./filters";
 
 type PrismaDelegate = {
@@ -23,7 +23,7 @@ function toLowerFirst(s: string): string {
  */
 function buildOrderBy(field: string, dir: "asc" | "desc"): Record<string, unknown> {
   const parts = field.split(".");
-  let result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = {};
   let current = result;
   for (let i = 0; i < parts.length - 1; i++) {
     const nested: Record<string, unknown> = {};

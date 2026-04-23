@@ -98,9 +98,7 @@ describe("isPath", () => {
 
 describe("resolvePath", () => {
   it("resolves PathFn to a Path with correct string", () => {
-    const path = resolvePath<{ user: { email: string } }>(
-      (p) => p.user.email,
-    );
+    const path = resolvePath<{ user: { email: string } }>((p) => p.user.email);
     expect(getPathString(path)).toBe("user.email");
   });
 
@@ -113,20 +111,13 @@ describe("resolvePath", () => {
 describe("resolvePathStrings", () => {
   it("resolves array of PathFns to string array", () => {
     type Row = { email: string; name: string; createdAt: Date };
-    const strings = resolvePathStrings<Row>([
-      (p) => p.email,
-      (p) => p.name,
-      (p) => p.createdAt,
-    ]);
+    const strings = resolvePathStrings<Row>([(p) => p.email, (p) => p.name, (p) => p.createdAt]);
     expect(strings).toEqual(["email", "name", "createdAt"]);
   });
 
   it("resolves nested PathFns to string array", () => {
     type Row = { user: { email: string; name: string } };
-    const strings = resolvePathStrings<Row>([
-      (p) => p.user.email,
-      (p) => p.user.name,
-    ]);
+    const strings = resolvePathStrings<Row>([(p) => p.user.email, (p) => p.user.name]);
     expect(strings).toEqual(["user.email", "user.name"]);
   });
 

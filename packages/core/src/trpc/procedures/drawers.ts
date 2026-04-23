@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SqlExecutor } from "../../types/db";
 import type { FlowPanelContext } from "../context";
 
 export function createDrawersProcedures(
@@ -50,9 +51,9 @@ export function createDrawersProcedures(
   });
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: tRPC runtime types — db/config/section/input are dynamically shaped
+// biome-ignore lint/suspicious/noExplicitAny: _config, section and input shapes come from dynamic FlowPanel config extensions
 export async function renderSection(
-  db: any,
+  db: SqlExecutor,
   _config: any,
   section: any,
   input: any,

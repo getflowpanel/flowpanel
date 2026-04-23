@@ -1,6 +1,21 @@
 import { z } from "zod";
-import { createQueryBuilder } from "../../queryBuilder";
+import { createQueryBuilder, type QueryBuilder } from "../../queryBuilder";
+import type { SqlExecutor } from "../../types/db";
 import type { FlowPanelContext } from "../context";
+
+// `metrics[*].query` is validated by Zod as `Record<string, unknown>` because
+// its exact shape depends on how a consumer wires up the query builder. At
+// runtime we know it's either a qb → { sql, params } function or an object
+// with `custom(db, opts)`. Narrow here to keep the caller code readable.
+type CustomMetricQuery = {
+  custom: (db: SqlExecutor, opts: { range: { start: Date; end: Date } }) => Promise<unknown>;
+};
+type BuilderMetricQuery = (qb: QueryBuilder) => { sql: string; params: unknown[] };
+type MetricQuery = CustomMetricQuery | BuilderMetricQuery;
+
+function isCustom(q: MetricQuery): q is CustomMetricQuery {
+  return typeof q === "object" && q !== null && "custom" in q;
+}
 
 export function createMetricsProcedures(
   // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
@@ -22,9 +37,10 @@ export function createMetricsProcedures(
         const results: Record<string, unknown> = {};
 
         for (const [name, metricConfig] of Object.entries(metrics)) {
+          const query = metricConfig.query as unknown as MetricQuery;
           try {
-            if ("custom" in metricConfig.query) {
-              results[name] = await metricConfig.query.custom(db, {
+            if (isCustom(query)) {
+              results[name] = await query.custom(db, {
                 range: input.timeRange ?? defaultRange(),
               });
             } else {
@@ -33,7 +49,7 @@ export function createMetricsProcedures(
                 stageFields: config.pipeline.stageFields,
                 fields: config.pipeline.fields,
               });
-              const queryDef = metricConfig.query(qb);
+              const queryDef = query(qb);
               const rows = await db.execute<{ value: unknown }>(queryDef.sql, queryDef.params);
               results[name] = { value: rows[0]?.value ?? null };
             }
@@ -57,9 +73,10 @@ export function createMetricsProcedures(
         const { db, config } = ctx;
         const metricConfig = config.metrics?.[input.name];
         if (!metricConfig) throw new Error(`Metric "${input.name}" not found`);
+        const query = metricConfig.query as unknown as MetricQuery;
 
-        if ("custom" in metricConfig.query) {
-          return metricConfig.query.custom(db, { range: input.timeRange ?? defaultRange() });
+        if (isCustom(query)) {
+          return query.custom(db, { range: input.timeRange ?? defaultRange() });
         }
 
         const qb = createQueryBuilder({
@@ -67,7 +84,7 @@ export function createMetricsProcedures(
           stageFields: config.pipeline.stageFields,
           fields: config.pipeline.fields,
         });
-        const queryDef = metricConfig.query(qb);
+        const queryDef = query(qb);
         const rows = await db.execute<{ value: unknown }>(queryDef.sql, queryDef.params);
         return { value: rows[0]?.value ?? null };
       }),

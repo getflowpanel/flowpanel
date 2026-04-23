@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { normalizedFiltersToPrismaWhere } from "../filters";
 import type { NormalizedFilter } from "@flowpanel/core";
+import { describe, expect, it } from "vitest";
+import { normalizedFiltersToPrismaWhere } from "../filters";
 
 describe("normalizedFiltersToPrismaWhere", () => {
   it("returns empty object for empty filters", () => {

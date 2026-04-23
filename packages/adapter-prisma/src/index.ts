@@ -1,13 +1,29 @@
-import type { SqlExecutor, SqlQuery, ResourceAdapter } from "@flowpanel/core";
+import type { ResourceAdapter, SqlExecutor, SqlQuery } from "@flowpanel/core";
 import { Pool } from "pg";
-import { extractModelsFromDmmf, extractEnumsFromDmmf, type DmmfDatamodel } from "./metadata";
+import { type DmmfDatamodel, extractEnumsFromDmmf, extractModelsFromDmmf } from "./metadata";
 import { createPrismaResourceAdapter } from "./resource";
+import { prismaBridge } from "./typed";
 
+export { prismaBridge } from "./typed";
+
+// Register the typed-builder bridge so `defineResource(prisma.user, …)` can
+// resolve delegates to metadata through @flowpanel/core without a direct
+// Prisma dependency.
+{
+  // biome-ignore lint/suspicious/noExplicitAny: cross-package bridge
+  const g = globalThis as any;
+  g.__FP_PRISMA_TYPED__ = {
+    inferMetadata: (delegate: unknown) => prismaBridge.inferMetadata(delegate),
+  };
+}
+
+// Structural shape of a PrismaClient sufficient for the SQL executor.
+// Kept loose so the generated `@prisma/client` (with its overloaded
+// $transaction and DMMF additions) satisfies it without a cast.
 type PrismaClientLike = {
-  $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T[]>;
-  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
-  $transaction<T>(fn: (tx: PrismaClientLike) => Promise<T>): Promise<T>;
-  [key: string]: unknown;
+  $queryRawUnsafe: (query: string, ...values: unknown[]) => Promise<unknown>;
+  $executeRawUnsafe: (query: string, ...values: unknown[]) => Promise<unknown>;
+  $transaction: (...args: unknown[]) => Promise<unknown>;
 };
 
 function createSqlExecutor(prisma: PrismaClientLike): SqlExecutor {
@@ -28,14 +44,14 @@ function createSqlExecutor(prisma: PrismaClientLike): SqlExecutor {
   const executor: SqlExecutor = {
     dialect: "postgres",
     async execute<T = Record<string, unknown>>(sql: string, params: unknown[]): Promise<T[]> {
-      return prisma.$queryRawUnsafe<T>(sql, ...params);
+      return prisma.$queryRawUnsafe(sql, ...params) as Promise<T[]>;
     },
 
     async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
       return prisma.$transaction(async (tx: PrismaClientLike) => {
         const txExecutor = createSqlExecutor(tx);
         return fn(txExecutor);
-      });
+      }) as Promise<T>;
     },
 
     async advisoryLock(key: bigint): Promise<void> {
@@ -92,8 +108,9 @@ function createSqlExecutor(prisma: PrismaClientLike): SqlExecutor {
 }
 
 function tryResolveDmmf(prisma: PrismaClientLike): { datamodel: DmmfDatamodel } | null {
-  // Prisma 5+: stored on the instance
-  if (prisma._baseDmmf) return prisma._baseDmmf as { datamodel: DmmfDatamodel };
+  // Prisma 5+: stored on the instance (not part of the public type)
+  const baseDmmf = (prisma as Record<string, unknown>)._baseDmmf;
+  if (baseDmmf) return baseDmmf as { datamodel: DmmfDatamodel };
   // Try require('@prisma/client').Prisma.dmmf
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -130,6 +147,10 @@ export function prismaAdapter(opts: {
   const models = extractModelsFromDmmf(dmmf);
   const enums = extractEnumsFromDmmf(dmmf);
   const resource = createPrismaResourceAdapter(prisma as Record<string, unknown>, models, enums);
+
+  // Register delegates with the typed-builder bridge so
+  // `defineResource(prisma.user, …)` can resolve to ModelMetadata.
+  prismaBridge.register(prisma as Record<string, unknown>, models);
 
   return { sql, resource };
 }

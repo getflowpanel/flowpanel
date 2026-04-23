@@ -1,6 +1,6 @@
 import type { FlowPanelConfig } from "../config/schema";
 import type { ResolvedQueue } from "../queue/types";
-import type { ResourceAdapter, ResolvedResource } from "../resource/types";
+import type { ResolvedResource, ResourceAdapter } from "../resource/types";
 import type { Session } from "../types/config";
 import type { SqlExecutor } from "../types/db";
 import type { ResolvedWidget } from "../widget/types";

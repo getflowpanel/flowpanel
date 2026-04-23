@@ -1,12 +1,35 @@
-import type { SqlExecutor, SqlQuery, ResourceAdapter } from "@flowpanel/core";
+import type { ModelMetadata, ResourceAdapter, SqlExecutor, SqlQuery } from "@flowpanel/core";
 import { extractModelFromDrizzleTable } from "./metadata";
 import { createDrizzleResourceAdapter } from "./resource";
-import type { ModelMetadata } from "@flowpanel/core";
+import { inferMetadata } from "./typed";
 
+export { normalizedFiltersToDrizzleWhere } from "./filters";
 // Re-export for library consumers
 export { extractModelFromDrizzleTable } from "./metadata";
-export { normalizedFiltersToDrizzleWhere } from "./filters";
 export { createDrizzleResourceAdapter } from "./resource";
+export { inferMetadata, schemaTableKeys } from "./typed";
+
+// ── defineResource bridge ──────────────────────────────────────────────────
+//
+// Register `inferMetadata` on a well-known global so `@flowpanel/core`'s
+// `defineResource(table, opts)` can look it up without a direct dependency
+// on drizzle-orm. This runs at module load time — importing any symbol from
+// this package is enough to enable the bridge.
+{
+  // biome-ignore lint/suspicious/noExplicitAny: cross-package bridge
+  const g = globalThis as any;
+  const prev = g.__FP_DRIZZLE_TYPED__;
+  g.__FP_DRIZZLE_TYPED__ = {
+    inferMetadata: (table: unknown, opts?: { schema?: Record<string, unknown> }) =>
+      inferMetadata(table, opts ?? {}),
+    // Expose schema setter so `drizzleAdapter({ schema })` below can enrich
+    // metadata lookups with relation info without re-wiring the bridge.
+    setSchema(schema: Record<string, unknown>) {
+      g.__FP_DRIZZLE_TYPED__.inferMetadata = (table: unknown) => inferMetadata(table, { schema });
+    },
+    ...(prev ?? {}),
+  };
+}
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle db type is opaque across versions
 type DrizzleDatabaseLike = any;
@@ -66,6 +89,13 @@ export function drizzleAdapter(opts: {
       resolvedDb = typeof opts.db === "function" ? await opts.db() : opts.db;
     }
     return resolvedDb as DrizzleDb;
+  }
+
+  // Wire relation-aware metadata lookups for defineResource(table).
+  if (opts.schema) {
+    // biome-ignore lint/suspicious/noExplicitAny: cross-package bridge
+    const g = globalThis as any;
+    g.__FP_DRIZZLE_TYPED__?.setSchema?.(opts.schema);
   }
 
   // Build metadata map
