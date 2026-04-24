@@ -16,6 +16,24 @@ export {
   FlowPanelError,
   FlowPanelValidationError,
 } from "./errors";
+// Metric helpers
+export {
+  type BreakdownOptions,
+  type BreakdownParams,
+  breakdown,
+  defaultBucketFor,
+  type MetricBucket,
+  type MetricCtx,
+  type MetricHandle,
+  type MetricOptions,
+  type MetricRange,
+  metric,
+  parseRange,
+  previousRange,
+  type TimeseriesOptions,
+  type TimeseriesParams,
+  timeseries,
+} from "./metric";
 export { applyMigrations, getMigrationStatus } from "./migrationRunner";
 // Pages module (custom admin pages)
 export { canAccessPage, resolvePages, serializePages } from "./pages/resolver";

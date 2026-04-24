@@ -14,8 +14,8 @@
 
 import "server-only";
 import { drizzleAdapter } from "@flowpanel/adapter-drizzle";
-import { defineFlowPanel, defineResource } from "@flowpanel/core";
-import { and, eq, type InferSelectModel, sum } from "drizzle-orm";
+import { breakdown, defineFlowPanel, defineResource, metric, timeseries } from "@flowpanel/core";
+import { and, between, sql as drizzleSql, eq, type InferSelectModel, sum } from "drizzle-orm";
 import { db } from "./db/client";
 import * as schema from "./db/schema";
 import { getSession } from "./lib/auth";
@@ -133,7 +133,62 @@ const aiCostResource = defineResource<AiCostRow>(aiCosts, {
   defaultSort: { field: "createdAt", dir: "desc" },
 });
 
-// ─── Root config (B1 surface only — widgets/drawers/theme arrive in B2/B5/B7/B8) ─
+// ─── Metrics (B2 ✅) ──────────────────────────────────────────────────────
+//
+// Three helper shapes cover the common patterns. `compute` is ORM-agnostic
+// (the user casts ctx.db); the helpers handle ranges + trend math.
+
+// Scalar + auto vs-previous-period trend — `...mrr` spreads into w.metric().
+export const mrr = metric({
+  defaultRange: "30d",
+  trend: "vs-previous-period",
+  compute: async ({ db: ctxDb }, { start, end }) => {
+    const d = ctxDb as typeof db;
+    const [r] = await d
+      .select({ v: sum(payments.amountRub) })
+      .from(payments)
+      .where(and(eq(payments.status, "succeeded"), between(payments.paidAt, start, end)));
+    return Number(r?.v ?? 0);
+  },
+});
+
+// Time series for w.chart({ kind: "line", data: signups }).
+export const signups = timeseries({
+  defaultRange: "30d",
+  defaultBucket: "day",
+  compute: async ({ db: ctxDb }, { start, end, bucket }) => {
+    const d = ctxDb as typeof db;
+    const result = await d.execute<{ t: string; c: number }>(drizzleSql`
+      SELECT date_trunc(${bucket}, ${users.createdAt}) AS t, COUNT(*)::int AS c
+      FROM ${users}
+      WHERE ${users.createdAt} >= ${start} AND ${users.createdAt} < ${end}
+      GROUP BY t ORDER BY t
+    `);
+    return result.rows.map((r) => ({
+      label: new Date(r.t).toISOString().slice(0, 10),
+      value: r.c,
+    }));
+  },
+});
+
+// Breakdown for w.chart({ kind: "bar", data: aiSpendByModel }).
+export const aiSpendByModel = breakdown({
+  defaultRange: "30d",
+  sort: "value-desc",
+  limit: 10,
+  compute: async ({ db: ctxDb }, { range }) => {
+    const d = ctxDb as typeof db;
+    const conds = range ? between(aiCosts.createdAt, range.start, range.end) : undefined;
+    const rows = await d
+      .select({ label: aiCosts.model, v: sum(aiCosts.costUsd) })
+      .from(aiCosts)
+      .where(conds)
+      .groupBy(aiCosts.model);
+    return rows.map((r) => ({ label: r.label, value: Number(r.v ?? 0) }));
+  },
+});
+
+// ─── Root config (B1+B2 surface — widgets/drawers/theme arrive in B5/B7/B8) ─
 
 export const flowpanel = defineFlowPanel({
   appName: "freelance-radar",
@@ -161,8 +216,8 @@ export const flowpanel = defineFlowPanel({
   },
 });
 
-// TODO(B2): metrics as typed Drizzle queries
+// B2 ✅ metrics helpers (metric/timeseries/breakdown) — above
 // TODO(B5): realtime: true opt-in on resources + widgets
 // TODO(B7): theme tokens (preset + token overrides)
-// TODO(B8): widgets { mrr: w.metric({...}), aiSpend: w.chart({...}) }
+// TODO(B8): widgets { mrr: w.metric({ ...mrr }), aiSpend: w.chart({ data: aiSpendByModel }) }
 // TODO(B8): dashboards with sections + grid layout
