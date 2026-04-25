@@ -14,7 +14,9 @@ describe("FlowPanel error hierarchy", () => {
     expect(err).toBeInstanceOf(FlowPanelConfigError);
     expect(err.code).toBe("config");
     expect(err.name).toBe("FlowPanelConfigError");
-    expect(err.message).toBe("bad config");
+    // message is rendered with the canonical prefix; rawMessage preserves the caller's text.
+    expect(err.message).toContain("bad config");
+    expect(err.rawMessage).toBe("bad config");
   });
 
   it("FlowPanelAdapterError extends FlowPanelError", () => {

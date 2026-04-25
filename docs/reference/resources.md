@@ -147,3 +147,44 @@ defineFlowPanel({
 ```
 
 This merges into every find/update/delete. A tenant can never see another tenant's records — including via action handlers.
+
+## Audit hook
+
+Every mutation can ship to a custom audit sink:
+
+```ts
+defineFlowPanel({
+  ...,
+  audit: async (event) => {
+    await logger.info({
+      tag: "admin_action",
+      path: event.path,
+      actor: event.actor?.id,
+      ok: event.ok,
+      error: event.error,
+      ip: event.ip,
+      requestId: event.requestId,
+    });
+  },
+});
+```
+
+The `AuditEvent` shape:
+
+```ts
+interface AuditEvent {
+  path: string;                     // e.g. "resource.userMutation"
+  kind: "mutation" | "query";
+  ok: boolean;
+  error?: string;
+  actor: { id, email, role } | null;
+  ip?: string;
+  userAgent?: string;
+  requestId?: string;
+  at: Date;
+}
+```
+
+The hook is additive to the built-in `flowpanel_audit_log` DB trail. It fires
+for every mutation regardless of session. If your callback throws, the error
+is logged and swallowed — audit problems never affect responses.

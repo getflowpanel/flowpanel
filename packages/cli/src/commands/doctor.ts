@@ -1,6 +1,7 @@
 import * as p from "@clack/prompts";
-import pc from "picocolors";
 import type { Command } from "commander";
+import pc from "picocolors";
+import { checkBoundary } from "./doctor/boundary";
 
 type CheckResult = { name: string; ok: boolean; detail?: string };
 
@@ -8,15 +9,21 @@ export function doctorCommand(cli: Command): void {
   cli
     .command("doctor")
     .description("Run a health check on FlowPanel setup")
-    .action(async () => {
+    .option("--boundary-check", "Run only the server/client import-boundary check")
+    .action(async (opts: { boundaryCheck?: boolean }) => {
       p.intro(pc.bgBlue(pc.white(" FlowPanel doctor ")));
 
       const results: CheckResult[] = [];
-      results.push(await checkNodeVersion());
-      results.push(await checkAdapterDetected());
-      results.push(await checkFlowPanelConfig());
-      results.push(await checkDrizzleRelations());
-      results.push(await checkTailwindPreset());
+      if (opts.boundaryCheck) {
+        results.push(await checkImportBoundary());
+      } else {
+        results.push(await checkNodeVersion());
+        results.push(await checkAdapterDetected());
+        results.push(await checkFlowPanelConfig());
+        results.push(await checkDrizzleRelations());
+        results.push(await checkTailwindPreset());
+        results.push(await checkImportBoundary());
+      }
 
       printResults(results);
 
@@ -28,6 +35,38 @@ export function doctorCommand(cli: Command): void {
       );
       process.exit(failed === 0 ? 0 : 1);
     });
+}
+
+async function checkImportBoundary(): Promise<CheckResult> {
+  const res = await checkBoundary({ cwd: process.cwd() });
+  if (!res.configPath) {
+    return {
+      name: "Server/client boundary",
+      ok: false,
+      detail: "No flowpanel config file found",
+    };
+  }
+  if (!res.hasServerOnly) {
+    return {
+      name: "Server/client boundary",
+      ok: false,
+      detail: `${res.configPath} missing \`import "server-only"\` guard`,
+    };
+  }
+  if (res.leaks.length > 0) {
+    const first = res.leaks[0];
+    const via = first ? first.chain.slice(0, -1).join(" → ") : "";
+    return {
+      name: "Server/client boundary",
+      ok: false,
+      detail: `${res.leaks.length} client file(s) transitively import the config (${first?.from}${via ? ` via ${via}` : ""})`,
+    };
+  }
+  return {
+    name: "Server/client boundary",
+    ok: true,
+    detail: `${res.configPath} is server-only; no client imports`,
+  };
 }
 
 function printResults(results: CheckResult[]): void {

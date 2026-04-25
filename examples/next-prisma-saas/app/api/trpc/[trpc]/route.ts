@@ -1,12 +1,7 @@
-import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { createFlowPanelHandler } from "@flowpanel/core";
 import { flowpanel } from "@/src/flowpanel";
 
-const handler = (req: Request) =>
-  fetchRequestHandler({
-    endpoint: "/api/trpc",
-    req,
-    router: (flowpanel as any).router,
-    createContext: () => ({}),
-  });
+const handler = createFlowPanelHandler(flowpanel);
 
-export { handler as GET, handler as POST };
+export const { GET, POST } = handler;
+export type AppRouter = typeof handler.router;

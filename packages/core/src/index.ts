@@ -1,4 +1,5 @@
 export { z } from "zod";
+export type { AuditActor, AuditEvent } from "./config/auditEvent";
 export type { FlowPanelConfig, FlowPanelConfigInput } from "./config/schema";
 export { sqlIdentifier } from "./config/schema";
 export type {
@@ -10,12 +11,24 @@ export type {
 } from "./defineFlowPanel";
 export { defineFlowPanel, resource } from "./defineFlowPanel";
 export {
+  createFlowPanelHandler,
+  type FlowPanelHandler,
+  type FlowPanelHandlerOptions,
+} from "./createFlowPanelHandler";
+export {
+  type ConfigErrorContext,
   FlowPanelAccessError,
   FlowPanelAdapterError,
   FlowPanelConfigError,
   FlowPanelError,
   FlowPanelValidationError,
 } from "./errors";
+export {
+  didYouMean,
+  fromZodError,
+  renderCodeFrame,
+  renderConfigError,
+} from "./errors/index";
 // Metric helpers
 export {
   type BreakdownOptions,

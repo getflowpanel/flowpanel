@@ -278,6 +278,20 @@ export const flowPanelConfigSchema = z.object({
     redaction: z.object({ keys: z.array(z.string()) }).optional(),
   }),
 
+  /**
+   * Called after every mutation procedure with a structured AuditEvent.
+   * Additive to the built-in `flowpanel_audit_log` table write — use it to
+   * ship events to your own logger / SIEM / compliance sink.
+   *
+   * Failures inside the callback are logged and swallowed so audit problems
+   * never affect the underlying response.
+   */
+  audit: z
+    .custom<(event: import("./auditEvent").AuditEvent) => Promise<void> | void>(
+      (fn) => typeof fn === "function",
+    )
+    .optional(),
+
   ui: z
     .object({
       locale: z.string().optional(),

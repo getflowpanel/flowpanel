@@ -1,4 +1,5 @@
 import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema";
+import { fromZodError } from "./errors/fromZod";
 import { validateConfig } from "./config/validate";
 import { FlowPanelConfigError } from "./errors";
 import { resolvePages, serializePages } from "./pages/resolver";
@@ -300,13 +301,15 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     ...baseConfig
   } = rawConfig as TConfig & FlowPanelV2Extensions & Record<string, unknown>;
 
-  // Validate with Zod (base config only)
+  // Validate with Zod (base config only). Raw ZodError is unfriendly — wrap
+  // via fromZodError to get code frames, Did-you-mean, and docs links where
+  // applicable.
   const parsed = flowPanelConfigSchema.safeParse(baseConfig);
   if (!parsed.success) {
-    const messages = parsed.error.issues
-      .map((i) => `  ${i.path.join(".")}: ${i.message}`)
-      .join("\n");
-    throw new Error(`FlowPanel config validation failed:\n${messages}`);
+    throw fromZodError(parsed.error, {
+      received: baseConfig,
+      docs: "https://flowpanel.dev/docs/reference/config",
+    });
   }
 
   const config = parsed.data as TConfig;
