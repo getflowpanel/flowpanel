@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { FlowPanelContext } from "../context";
-import { LocaleProvider } from "../locale/LocaleContext";
 import type { RunLogColumn } from "../components/RunTable";
 import { RunTable } from "../components/RunTable";
+import { FlowPanelContext } from "../context";
+import { LocaleProvider } from "../locale/LocaleContext";
 
 function TestWrap({ children }: { children: React.ReactNode }) {
   return (

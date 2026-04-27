@@ -1,5 +1,7 @@
 import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema";
 import { fromZodError } from "./errors/fromZod";
+
+let warnedMetricsDeprecated = false;
 import { validateConfig } from "./config/validate";
 import { FlowPanelConfigError } from "./errors";
 import { resolvePages, serializePages } from "./pages/resolver";
@@ -316,6 +318,22 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
 
   // Semantic validation
   validateConfig(config);
+
+  // A9 — deprecation nudge for the legacy `config.metrics` block.
+  // Warn once per process; silent in tests to keep output clean.
+  if (
+    config.metrics &&
+    Object.keys(config.metrics).length > 0 &&
+    !process.env.VITEST &&
+    !warnedMetricsDeprecated
+  ) {
+    warnedMetricsDeprecated = true;
+    console.warn(
+      "[flowpanel] `config.metrics` is deprecated — migrate to the B2 helpers: " +
+        "`metric()` / `timeseries()` / `breakdown()` from @flowpanel/core used inside " +
+        "a `widgets: (w) => [...]` dashboard block. See docs/reference/metrics.md.",
+    );
+  }
 
   // Warn if getSession is still the init-generated stub
   const getSessionFn = config.security?.auth?.getSession;

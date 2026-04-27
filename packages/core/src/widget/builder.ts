@@ -109,14 +109,53 @@ export function createWidgetBuilder<TCtx = unknown>(): WidgetBuilder<TCtx> {
 }
 
 /**
- * Resolves a DashboardConfig (either an array or a builder function) to a
- * flat list of ResolvedWidget instances.
+ * Resolves a DashboardConfig to a flat list of ResolvedWidget instances.
+ *
+ * Accepts any of:
+ *  - ResolvedWidget[]                    — legacy / pre-built
+ *  - (w) => ResolvedWidget[]             — builder function
+ *  - { sections: Array<DashboardSection> } — grouped layout (B8)
+ *
+ * For sections, widgets from every section are flattened into one array
+ * (so server-side evaluation stays dead simple); use `resolveSections` to
+ * get the visual grouping back on the client.
  */
 export function resolveDashboard<TCtx = unknown>(
   config: DashboardConfig<TCtx> | undefined,
 ): ResolvedWidget[] {
   if (!config) return [];
   if (Array.isArray(config)) return config;
-  const builder = createWidgetBuilder<TCtx>();
-  return config(builder);
+  if (typeof config === "function") {
+    const builder = createWidgetBuilder<TCtx>();
+    return config(builder);
+  }
+  // sections shape
+  const out: ResolvedWidget[] = [];
+  for (const section of config.sections) {
+    const builder = createWidgetBuilder<TCtx>();
+    const list = Array.isArray(section.widgets) ? section.widgets : section.widgets(builder);
+    out.push(...list);
+  }
+  return out;
+}
+
+/**
+ * Returns the section metadata (title/description + contained widget ids)
+ * for a sections-shaped DashboardConfig. Returns null for flat configs.
+ */
+export function resolveSections<TCtx = unknown>(
+  config: DashboardConfig<TCtx> | undefined,
+): import("./types").ResolvedSection[] | null {
+  if (!config || Array.isArray(config) || typeof config === "function") return null;
+  const out: import("./types").ResolvedSection[] = [];
+  for (const section of config.sections) {
+    const builder = createWidgetBuilder<TCtx>();
+    const list = Array.isArray(section.widgets) ? section.widgets : section.widgets(builder);
+    out.push({
+      title: section.title,
+      ...(section.description ? { description: section.description } : {}),
+      widgetIds: list.map((w) => w.id),
+    });
+  }
+  return out;
 }

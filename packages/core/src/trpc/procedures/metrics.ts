@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createQueryBuilder, type QueryBuilder } from "../../queryBuilder";
 import type { SqlExecutor } from "../../types/db";
-import type { FlowPanelContext } from "../context";
+import type { AuthedContext, FlowPanelTRPC } from "../types";
 
 // `metrics[*].query` is validated by Zod as `Record<string, unknown>` because
 // its exact shape depends on how a consumer wires up the query builder. At
@@ -17,21 +17,24 @@ function isCustom(q: MetricQuery): q is CustomMetricQuery {
   return typeof q === "object" && q !== null && "custom" in q;
 }
 
-export function createMetricsProcedures(
-  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
-  t: { procedure: any; router: (routes: any) => any },
-  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal procedure type
-  authedProcedure: any,
-) {
+const getAllInputSchema = z.object({
+  timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
+});
+type GetAllInput = z.infer<typeof getAllInputSchema>;
+
+const getInputSchema = z.object({
+  name: z.string(),
+  timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
+});
+type GetInput = z.infer<typeof getInputSchema>;
+
+export function createMetricsProcedures(t: FlowPanelTRPC, authedProcedure: unknown) {
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC procedure builder
+  const p = authedProcedure as any;
   return t.router({
-    getAll: authedProcedure
-      .input(
-        z.object({
-          timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
-        }),
-      )
-      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
-      .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
+    getAll: p
+      .input(getAllInputSchema)
+      .query(async ({ ctx, input }: { ctx: AuthedContext; input: GetAllInput }) => {
         const { db, config } = ctx;
         const metrics = config.metrics ?? {};
         const results: Record<string, unknown> = {};
@@ -61,15 +64,9 @@ export function createMetricsProcedures(
         return results;
       }),
 
-    get: authedProcedure
-      .input(
-        z.object({
-          name: z.string(),
-          timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
-        }),
-      )
-      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
-      .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
+    get: p
+      .input(getInputSchema)
+      .query(async ({ ctx, input }: { ctx: AuthedContext; input: GetInput }) => {
         const { db, config } = ctx;
         const metricConfig = config.metrics?.[input.name];
         if (!metricConfig) throw new Error(`Metric "${input.name}" not found`);

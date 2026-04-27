@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import type { SerializedFilter } from "@flowpanel/core";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "../../ui/input";
 
 export function TextFilter({

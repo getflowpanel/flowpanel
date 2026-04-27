@@ -18,7 +18,9 @@ export function BulkActionBar({
   onClear: () => void;
   onSuccess?: () => void;
 }) {
-  const bulkActions = resource.actions.filter((a) => a.type === "bulk");
+  // Include both `bulk` (no UI) and `dialog` actions — the typed builder's
+  // bulkEdit surface is lowered to a dialog action that accepts recordIds.
+  const bulkActions = resource.actions.filter((a) => a.type === "bulk" || a.type === "dialog");
   if (selected.length === 0 || bulkActions.length === 0) return null;
 
   const runSuccess = () => {

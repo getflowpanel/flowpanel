@@ -1,21 +1,18 @@
 import { z } from "zod";
-import type { FlowPanelContext } from "../context";
+import type { AuthedContext, FlowPanelTRPC } from "../types";
 
-export function createStagesProcedures(
-  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
-  t: { procedure: any; router: (routes: any) => any },
-  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
-  authedProcedure: any,
-) {
+const stagesInputSchema = z.object({
+  timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
+});
+type StagesInput = z.infer<typeof stagesInputSchema>;
+
+export function createStagesProcedures(t: FlowPanelTRPC, authedProcedure: unknown) {
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC procedure builder
+  const p = authedProcedure as any;
   return t.router({
-    summary: authedProcedure
-      .input(
-        z.object({
-          timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
-        }),
-      )
-      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
-      .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
+    summary: p
+      .input(stagesInputSchema)
+      .query(async ({ ctx, input }: { ctx: AuthedContext; input: StagesInput }) => {
         const { db, config } = ctx;
         const stages = config.pipeline.stages;
         const params: unknown[] = [];
@@ -48,12 +45,13 @@ export function createStagesProcedures(
         );
 
         const byStage = new Map(rows.map((r) => [r.stage, r]));
+        const stageColors = (config.pipeline as { stageColors?: Record<string, string> })
+          .stageColors;
         return stages.map((stage) => {
           const row = byStage.get(stage);
           return {
             stage,
-            // biome-ignore lint/suspicious/noExplicitAny: tRPC internal and config extension types
-            color: (config.pipeline as any).stageColors?.[stage] ?? null,
+            color: stageColors?.[stage] ?? null,
             total: Number(row?.total ?? 0),
             succeeded: Number(row?.succeeded ?? 0),
             failed: Number(row?.failed ?? 0),

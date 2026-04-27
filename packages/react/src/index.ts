@@ -1,5 +1,8 @@
 export type { Command } from "./components/CommandPalette";
 export { CommandPalette } from "./components/CommandPalette";
+export type { ConfirmDialogProps } from "./components/ConfirmDialog";
+// Confirm dialog helper
+export { ConfirmDialog } from "./components/ConfirmDialog";
 export { DemoBanner } from "./components/DemoBanner";
 export { Drawer } from "./components/Drawer";
 export { ErrorBoundary } from "./components/ErrorBoundary";
@@ -23,6 +26,13 @@ export { Tabs } from "./components/Tabs";
 export { ToastProvider, useToast } from "./components/Toast";
 export { Tooltip } from "./components/Tooltip";
 export { FlowPanelContext, useFlowPanel } from "./context";
+export type { DashboardPageProps } from "./dashboard/DashboardPage";
+// Dashboard (Phase 2)
+export { DashboardPage } from "./dashboard/DashboardPage";
+export { ChartWidget } from "./dashboard/widgets/ChartWidget";
+export { CustomWidget } from "./dashboard/widgets/CustomWidget";
+export { ListWidget } from "./dashboard/widgets/ListWidget";
+export { MetricWidget } from "./dashboard/widgets/MetricWidget";
 export type { FlowPanelUIProps } from "./FlowPanelUI";
 export { FlowPanelUI } from "./FlowPanelUI";
 export { useDrawerState } from "./hooks/useDrawerState";
@@ -39,58 +49,58 @@ export { useFlowPanelData } from "./hooks/useFlowPanelData";
 export { useFlowPanelLive } from "./hooks/useFlowPanelLive";
 export type { LiveStatus as StreamLiveStatus, SseEvent } from "./hooks/useFlowPanelStream";
 export { useFlowPanelStream } from "./hooks/useFlowPanelStream";
+// B10 — the canonical short-name hooks (aliases + new).
+export { useMetric } from "./hooks/useMetric";
+export type { UseMutationOptions } from "./hooks/useMutation";
+export {
+  broadcastInvalidation,
+  subscribeToInvalidation,
+  useMutation,
+} from "./hooks/useMutation";
+export { useResourceData as useResource } from "./hooks/useResourceData";
+export { useFlowPanelLive as useLiveRuns } from "./hooks/useFlowPanelLive";
 export type { KeyBinding } from "./hooks/useKeyboard";
 export { useKeyboard } from "./hooks/useKeyboard";
-export type { FlowPanelLocale } from "./locale/defaultLocale";
-export { LocaleProvider, useLocale } from "./locale/LocaleContext";
-export type { ResolvedTheme } from "./theme/index";
-export { resolveTheme, themeToClassName, themeToStyle } from "./theme/index";
-export { formatDate } from "./utils/formatDate";
-export { isMac, modKey } from "./utils/platform";
-
-// Resource UI
-export { ResourcePage } from "./resource/ResourcePage";
-export { ResourceTable } from "./resource/ResourceTable";
-export { ResourceToolbar } from "./resource/ResourceToolbar";
-export { ResourceDrawer } from "./resource/ResourceDrawer";
-export { ResourceForm } from "./resource/ResourceForm";
-export { ResourcePagination } from "./resource/ResourcePagination";
-export { ResourceEmptyState } from "./resource/ResourceEmptyState";
-export { ResourceActionButton } from "./resource/ResourceActionButton";
-export { BulkActionBar } from "./resource/BulkActionBar";
-export { CellRenderer } from "./resource/cells";
-export type { CellRenderFn } from "./resource/cells";
-export { FilterWidget } from "./resource/filters";
-export { FieldWidget } from "./resource/fields";
-export type { FieldRenderFn } from "./resource/fields";
+export type { LiveEvent, UseLiveOptions } from "./hooks/useLive";
+export { useLive } from "./hooks/useLive";
 export { useResourceData } from "./hooks/useResourceData";
 export { useUrlState } from "./hooks/useUrlState";
-
+// Layout (Phase 2)
+export { FlowPanelErrorBoundary } from "./layout/ErrorBoundary";
+export type { FlowPanelShellProps } from "./layout/FlowPanelShell";
+export { FlowPanelShell } from "./layout/FlowPanelShell";
+export { HeaderControls } from "./layout/HeaderControls";
+export { ShellHeader } from "./layout/ShellHeader";
+export type { SidebarNavGroup, SidebarNavItem, SidebarProps } from "./layout/Sidebar";
+export { Sidebar } from "./layout/Sidebar";
+export { ThemeToggle } from "./layout/ThemeToggle";
+export type { FlowPanelLocale } from "./locale/defaultLocale";
+export { LocaleProvider, useLocale } from "./locale/LocaleContext";
+export { JobDetail } from "./queue/JobDetail";
 // Queue UI (Phase 2)
 export { QueuePage } from "./queue/QueuePage";
 export { QueueTable } from "./queue/QueueTable";
-export { JobDetail } from "./queue/JobDetail";
-
-// Dashboard (Phase 2)
-export { DashboardPage } from "./dashboard/DashboardPage";
-export type { DashboardPageProps } from "./dashboard/DashboardPage";
-export { MetricWidget } from "./dashboard/widgets/MetricWidget";
-export { ListWidget } from "./dashboard/widgets/ListWidget";
-export { ChartWidget } from "./dashboard/widgets/ChartWidget";
-export { CustomWidget } from "./dashboard/widgets/CustomWidget";
-
-// Layout (Phase 2)
-export { FlowPanelErrorBoundary } from "./layout/ErrorBoundary";
-export { FlowPanelShell } from "./layout/FlowPanelShell";
-export type { FlowPanelShellProps } from "./layout/FlowPanelShell";
-export { Sidebar } from "./layout/Sidebar";
-export type { SidebarNavItem, SidebarNavGroup, SidebarProps } from "./layout/Sidebar";
-export { ShellHeader } from "./layout/ShellHeader";
-export { HeaderControls } from "./layout/HeaderControls";
-export { ThemeToggle } from "./layout/ThemeToggle";
-
-// UI primitives (Phase 2 additions)
-export { Toaster, toast } from "./ui/sonner";
+export { BulkActionBar } from "./resource/BulkActionBar";
+export type { CellRenderFn } from "./resource/cells";
+export { CellRenderer } from "./resource/cells";
+export type { FieldRenderFn } from "./resource/fields";
+export { FieldWidget } from "./resource/fields";
+export { FilterWidget } from "./resource/filters";
+export { ResourceActionButton } from "./resource/ResourceActionButton";
+export { ResourceDrawer } from "./resource/ResourceDrawer";
+export { ResourceEmptyState } from "./resource/ResourceEmptyState";
+export { ResourceForm } from "./resource/ResourceForm";
+// Resource UI
+export { ResourcePage } from "./resource/ResourcePage";
+export { ResourcePagination } from "./resource/ResourcePagination";
+export { ResourceTable } from "./resource/ResourceTable";
+export { ResourceToolbar } from "./resource/ResourceToolbar";
+export type { ComponentOverrides } from "./theme/components";
+export { ComponentOverridesProvider, useComponentOverride } from "./theme/components";
+export type { ResolvedTheme } from "./theme/index";
+export { resolveTheme, themeToClassName, themeToStyle } from "./theme/index";
+export type { PresetName, ThemeTokens } from "./theme/presets";
+export { resolvePresetStyle, THEME_PRESETS, tokensToStyle } from "./theme/presets";
 export {
   AlertDialog,
   AlertDialogAction,
@@ -104,7 +114,7 @@ export {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "./ui/alert-dialog";
-
-// Confirm dialog helper
-export { ConfirmDialog } from "./components/ConfirmDialog";
-export type { ConfirmDialogProps } from "./components/ConfirmDialog";
+// UI primitives (Phase 2 additions)
+export { Toaster, toast } from "./ui/sonner";
+export { formatDate } from "./utils/formatDate";
+export { isMac, modKey } from "./utils/platform";

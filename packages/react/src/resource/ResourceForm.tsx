@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import type { SerializedResource } from "@flowpanel/core";
+import { useState } from "react";
 import { Button } from "../ui/button";
 import { toast } from "../ui/sonner";
 import { FieldWidget } from "./fields";

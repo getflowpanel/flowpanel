@@ -1,9 +1,9 @@
+import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { existsSync } from "node:fs";
 import * as p from "@clack/prompts";
-import pc from "picocolors";
 import type { Command } from "commander";
+import pc from "picocolors";
 import { detectModels } from "../utils/detect-models";
 
 /**

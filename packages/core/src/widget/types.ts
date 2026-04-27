@@ -150,10 +150,31 @@ export interface WidgetBuilder<TCtx = unknown> {
   custom<TData = unknown>(config: CustomWidgetConfig<TCtx, TData>): ResolvedWidget;
 }
 
-/** Dashboard definition accepts an array of resolved widgets or a builder function. */
+/**
+ * A dashboard section groups widgets under a title, optionally with a
+ * description. Useful when the dashboard has > ~8 widgets and a single
+ * flat grid becomes hard to scan.
+ */
+export interface DashboardSection<TCtx = unknown> {
+  title: string;
+  description?: string;
+  widgets: ResolvedWidget[] | ((w: WidgetBuilder<TCtx>) => ResolvedWidget[]);
+}
+
+/** Dashboard definition accepts an array of resolved widgets, a builder
+ *  function, or a sections-based shape. */
 export type DashboardConfig<TCtx = unknown> =
   | ResolvedWidget[]
-  | ((w: WidgetBuilder<TCtx>) => ResolvedWidget[]);
+  | ((w: WidgetBuilder<TCtx>) => ResolvedWidget[])
+  | { sections: Array<DashboardSection<TCtx>> };
+
+/** Section with widget ids — returned by resolveDashboard so the client
+ *  can group cards visually without re-resolving the config. */
+export interface ResolvedSection {
+  title: string;
+  description?: string;
+  widgetIds: string[];
+}
 
 // ---------------------------------------------------------------------------
 // Serialized (client-safe) widget — no functions

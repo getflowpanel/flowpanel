@@ -1,9 +1,9 @@
-import type { SerializedFilter, FilterMode } from "@flowpanel/core";
-import { EnumFilter } from "./EnumFilter";
-import { TextFilter } from "./TextFilter";
-import { DateRangeFilter } from "./DateRangeFilter";
+import type { FilterMode, SerializedFilter } from "@flowpanel/core";
 import { BooleanFilter } from "./BooleanFilter";
+import { DateRangeFilter } from "./DateRangeFilter";
+import { EnumFilter } from "./EnumFilter";
 import { NumberFilter } from "./NumberFilter";
+import { TextFilter } from "./TextFilter";
 
 export function FilterWidget({
   filter,
@@ -38,4 +38,4 @@ function autoDetectMode(filter: SerializedFilter): FilterMode {
   return "text";
 }
 
-export { EnumFilter, TextFilter, DateRangeFilter, BooleanFilter, NumberFilter };
+export { BooleanFilter, DateRangeFilter, EnumFilter, NumberFilter, TextFilter };

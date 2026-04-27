@@ -1,5 +1,5 @@
-import { cn } from "../../utils/cn";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { cn } from "../../utils/cn";
 import type { FieldProps } from "./TextField";
 
 interface SelectFieldProps extends FieldProps {

@@ -8,6 +8,7 @@ if (major !== undefined && major < 20) {
 }
 
 import { Command } from "commander";
+import { addCommand } from "./commands/add";
 import { doctorCommand } from "./commands/doctor";
 import { initCommand } from "./commands/init";
 import { scaffoldCommand } from "./commands/scaffold";
@@ -17,5 +18,6 @@ const program = new Command().name("flowpanel").description("FlowPanel CLI").ver
 initCommand(program);
 scaffoldCommand(program);
 doctorCommand(program);
+addCommand(program);
 
 program.parse();

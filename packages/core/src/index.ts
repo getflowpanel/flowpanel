@@ -139,7 +139,7 @@ export type { RunFields } from "./types/config";
 export type { SqlExecutor, SqlExecutorFactory, SqlQuery } from "./types/db";
 
 // Widget / Dashboard module
-export { createWidgetBuilder, resolveDashboard } from "./widget/builder";
+export { createWidgetBuilder, resolveDashboard, resolveSections } from "./widget/builder";
 export { evaluateDashboard, evaluateWidget } from "./widget/evaluator";
 export { serializeDashboard, serializeWidget } from "./widget/serializer";
 export type {
@@ -149,6 +149,8 @@ export type {
   CustomWidgetConfig,
   CustomWidgetData,
   DashboardConfig,
+  DashboardSection,
+  ResolvedSection,
   DashboardData,
   ListItem,
   ListWidgetConfig,

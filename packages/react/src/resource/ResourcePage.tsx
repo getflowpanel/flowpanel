@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
 import type { SerializedResource } from "@flowpanel/core";
-import { cn } from "../utils/cn";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useResourceData } from "../hooks/useResourceData";
 import { useUrlState } from "../hooks/useUrlState";
+import { cn } from "../utils/cn";
 import { BulkActionBar } from "./BulkActionBar";
-import { ResourceTable } from "./ResourceTable";
-import { ResourceToolbar } from "./ResourceToolbar";
-import { ResourcePagination } from "./ResourcePagination";
 import { ResourceDrawer } from "./ResourceDrawer";
 import { ResourceEmptyState } from "./ResourceEmptyState";
+import { ResourcePagination } from "./ResourcePagination";
+import { ResourceTable } from "./ResourceTable";
+import { ResourceToolbar } from "./ResourceToolbar";
 
 type DrawerMode = "detail" | "create" | "edit";
 
@@ -145,6 +145,7 @@ export function ResourcePage({
         onCreateClick={resource.access.create ? handleCreateClick : undefined}
         baseUrl={baseUrl}
         onActionSuccess={() => void refresh()}
+        rows={data}
       />
 
       {/* Table or empty state */}

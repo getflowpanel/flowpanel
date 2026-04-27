@@ -217,5 +217,9 @@ export function serializeResource(
     actions,
     access,
     fieldAccess,
+    flags: {
+      realtime: (resource as ResolvedResource & { _realtime?: boolean })._realtime === true,
+      export: (resource as ResolvedResource & { _export?: boolean })._export === true,
+    },
   };
 }

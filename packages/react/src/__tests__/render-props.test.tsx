@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import type { FieldMetadata, SerializedColumn } from "@flowpanel/core";
 import { cleanup, render, screen } from "@testing-library/react";
-import type { SerializedColumn, FieldMetadata } from "@flowpanel/core";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CellRenderer } from "../resource/cells";
 import { FieldWidget } from "../resource/fields";
 

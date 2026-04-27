@@ -1,13 +1,13 @@
-import type { ReactNode } from "react";
 import type { FieldMetadata } from "@flowpanel/core";
+import type { ReactNode } from "react";
+import { DateField } from "./DateField";
+import { JsonField } from "./JsonField";
+import { NumberField } from "./NumberField";
+import { SelectField } from "./SelectField";
+import { SwitchField } from "./SwitchField";
+import { TextareaField } from "./TextareaField";
 import type { FieldProps } from "./TextField";
 import { TextField } from "./TextField";
-import { TextareaField } from "./TextareaField";
-import { SelectField } from "./SelectField";
-import { DateField } from "./DateField";
-import { SwitchField } from "./SwitchField";
-import { NumberField } from "./NumberField";
-import { JsonField } from "./JsonField";
 
 export type { FieldProps };
 
@@ -63,4 +63,4 @@ export function FieldWidget({ meta, render, ...props }: FieldWidgetProps) {
   }
 }
 
-export { TextField, TextareaField, SelectField, DateField, SwitchField, NumberField, JsonField };
+export { DateField, JsonField, NumberField, SelectField, SwitchField, TextareaField, TextField };

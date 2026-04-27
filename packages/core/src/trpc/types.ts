@@ -8,7 +8,8 @@ import type { FlowPanelContext } from "./context";
 export interface FlowPanelTRPC {
   middleware: (fn: MiddlewareFn) => unknown;
   procedure: unknown;
-  router: (routes: Record<string, unknown>) => unknown;
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC's router() accepts any record shape; the return is itself an opaque tRPC object.
+  router: (routes: Record<string, unknown>) => any;
 }
 
 export type MiddlewareFn = (opts: {
@@ -28,8 +29,10 @@ export interface ProcedureFactoryDeps {
 }
 
 /**
- * Context available after auth middleware runs.
+ * Context available after auth middleware runs — session is guaranteed
+ * non-null. Use this in procedures reached via `authedProcedure`.
  */
+import type { Session } from "../types/config";
 export interface AuthedContext extends FlowPanelContext {
-  session: { userId: string; role: string };
+  session: Session;
 }

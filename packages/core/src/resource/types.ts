@@ -641,4 +641,11 @@ export interface SerializedResource {
   actions: SerializedAction[];
   access: SerializedAccess;
   fieldAccess: Array<{ path: string; read: boolean; write: boolean }>;
+  /** Flags forwarded from the typed builder so the client can conditionally
+   *  render UI (Export button, live badge, etc.). Always serialized — false
+   *  for resources that didn't opt in. */
+  flags?: {
+    realtime?: boolean;
+    export?: boolean;
+  };
 }

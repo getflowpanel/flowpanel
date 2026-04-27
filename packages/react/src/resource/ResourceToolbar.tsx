@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Search, X, Plus } from "lucide-react";
 import type { SerializedResource } from "@flowpanel/core";
+import { Download, Plus, Search, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn } from "../utils/cn";
+import { downloadCsv } from "./csv";
 import { FilterWidget } from "./filters";
 import { ResourceActionButton } from "./ResourceActionButton";
 
@@ -19,6 +20,7 @@ export function ResourceToolbar({
   onCreateClick,
   baseUrl,
   onActionSuccess,
+  rows,
 }: {
   resource: SerializedResource;
   search: string;
@@ -29,6 +31,8 @@ export function ResourceToolbar({
   onCreateClick?: () => void;
   baseUrl?: string;
   onActionSuccess?: () => void;
+  /** Currently-visible rows — used for the CSV export button when `resource.flags.export`. */
+  rows?: Record<string, unknown>[];
 }) {
   const hasSearch = resource.searchFields.length > 0;
   const hasFilters = resource.filters.length > 0;
@@ -108,6 +112,17 @@ export function ResourceToolbar({
                   onSuccess={onActionSuccess}
                 />
               ))}
+          {resource.flags?.export && rows && rows.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadCsv(resource.id, rows, resource.columns)}
+              aria-label="Export current page as CSV"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Export CSV
+            </Button>
+          )}
           {resource.access.create && onCreateClick && (
             <Button size="sm" onClick={onCreateClick}>
               <Plus className="h-4 w-4 mr-1" />

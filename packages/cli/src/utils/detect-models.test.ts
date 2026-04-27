@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { parsePrismaModels, parseDrizzleModels } from "./detect-models";
+import { describe, expect, it } from "vitest";
+import { parseDrizzleModels, parsePrismaModels } from "./detect-models";
 
 describe("parsePrismaModels", () => {
   it("extracts model names from a Prisma schema", () => {

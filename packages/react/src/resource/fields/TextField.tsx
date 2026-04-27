@@ -1,5 +1,5 @@
-import { cn } from "../../utils/cn";
 import { Input } from "../../ui/input";
+import { cn } from "../../utils/cn";
 
 export interface FieldProps {
   name: string;

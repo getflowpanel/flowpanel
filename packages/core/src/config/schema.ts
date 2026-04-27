@@ -130,7 +130,16 @@ export const flowPanelConfigSchema = z.object({
     reaperThresholds: z.record(intervalSchema).optional(),
   }),
 
-  /** Each key becomes a metric card on the dashboard (e.g. "totalRuns", "errorRate") */
+  /**
+   * Legacy string-SQL metric cards.
+   *
+   * @deprecated Use the B2 helpers `metric()` / `timeseries()` / `breakdown()`
+   * inside a `widgets: (w) => [...]` dashboard block instead. The typed
+   * helpers are ORM-agnostic, auto-compute previous-period trends, and
+   * avoid hand-rolled SQL strings.
+   *
+   * Planned for removal in 1.0.0.
+   */
   metrics: z
     .record(
       z.object({

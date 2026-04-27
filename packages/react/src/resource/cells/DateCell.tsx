@@ -1,4 +1,4 @@
-import { formatDistanceToNow, format as dateFnsFormat } from "date-fns";
+import { format as dateFnsFormat, formatDistanceToNow } from "date-fns";
 
 export function DateCell({
   value,

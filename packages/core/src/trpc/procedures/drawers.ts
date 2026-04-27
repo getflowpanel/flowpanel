@@ -1,31 +1,41 @@
 import { z } from "zod";
 import type { SqlExecutor } from "../../types/db";
-import type { FlowPanelContext } from "../context";
+import type { AuthedContext, FlowPanelTRPC } from "../types";
 
-export function createDrawersProcedures(
-  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder type
-  t: { procedure: any; router: (routes: any) => any },
-  // biome-ignore lint/suspicious/noExplicitAny: tRPC internal procedure type
-  authedProcedure: any,
-) {
+const drawerInputSchema = z.object({
+  drawerId: z.string(),
+  runId: z.string().optional(),
+  timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
+});
+type DrawerInput = z.infer<typeof drawerInputSchema>;
+
+interface DrawerSection {
+  type: string;
+  field?: string;
+  groupBy?: string;
+  limit?: number;
+  fields?: string[];
+}
+interface DrawerConfig {
+  sections: DrawerSection[];
+  actions?: unknown[];
+}
+interface ConfigWithDrawers {
+  drawers?: Record<string, DrawerConfig>;
+}
+
+export function createDrawersProcedures(t: FlowPanelTRPC, authedProcedure: unknown) {
+  // biome-ignore lint/suspicious/noExplicitAny: tRPC procedure builder
+  const p = authedProcedure as any;
   return t.router({
-    render: authedProcedure
-      .input(
-        z.object({
-          drawerId: z.string(),
-          runId: z.string().optional(),
-          timeRange: z.object({ start: z.date(), end: z.date() }).optional(),
-        }),
-      )
-      // biome-ignore lint/suspicious/noExplicitAny: tRPC context and input types are dynamically typed at runtime
-      .query(async ({ ctx, input }: { ctx: FlowPanelContext & { session: any }; input: any }) => {
+    render: p
+      .input(drawerInputSchema)
+      .query(async ({ ctx, input }: { ctx: AuthedContext; input: DrawerInput }) => {
         const { db, config } = ctx;
-        // biome-ignore lint/suspicious/noExplicitAny: FlowPanelConfig extensions are dynamically shaped
-        const drawerConfig = (config as any).drawers?.[input.drawerId];
+        const drawerConfig = (config as unknown as ConfigWithDrawers).drawers?.[input.drawerId];
         if (!drawerConfig) throw new Error(`Drawer "${input.drawerId}" not found in config`);
 
         const sections: Record<string, unknown>[] = [];
-
         for (const section of drawerConfig.sections) {
           try {
             const data = await renderSection(db, config, section, input);
@@ -45,21 +55,19 @@ export function createDrawersProcedures(
         }
 
         const actions = drawerConfig.actions ?? [];
-
         return { sections, run, actions };
       }),
   });
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: _config, section and input shapes come from dynamic FlowPanel config extensions
 export async function renderSection(
   db: SqlExecutor,
-  _config: any,
-  section: any,
-  input: any,
+  _config: unknown,
+  section: DrawerSection,
+  input: Partial<DrawerInput>,
 ): Promise<unknown> {
   const timeWhere = input.timeRange ? `WHERE started_at >= $1 AND started_at < $2` : "";
-  const timeParams = input.timeRange ? [input.timeRange.start, input.timeRange.end] : [];
+  const timeParams: unknown[] = input.timeRange ? [input.timeRange.start, input.timeRange.end] : [];
 
   switch (section.type) {
     case "stat-grid": {
@@ -77,8 +85,6 @@ export async function renderSection(
       return rows[0];
     }
     case "breakdown": {
-      // Whitelist — groupBy всегда выходит в SQL интерполяцией (нельзя параметризовать имена колонок).
-      // Валидируем против фиксированного набора.
       const ALLOWED_GROUP_COLUMNS = ["stage", "status", "partition_key", "error_class"] as const;
       type AllowedGroupColumn = (typeof ALLOWED_GROUP_COLUMNS)[number];
       const groupByInput = (section.groupBy ?? "stage") as string;
@@ -127,13 +133,12 @@ export async function renderSection(
       const run = rows[0];
       if (!run) return {};
       const fields: Record<string, unknown> = {};
-      const keys = section.fields as string[] | undefined;
+      const keys = section.fields;
       if (keys && keys.length > 0) {
         for (const k of keys) {
           fields[k] = run[k] ?? null;
         }
       } else {
-        // return all non-null scalar fields
         for (const [k, v] of Object.entries(run)) {
           if (v !== null && v !== undefined) fields[k] = v;
         }
@@ -156,7 +161,6 @@ export async function renderSection(
     }
     case "timeline": {
       if (!input.runId) return [];
-      // Try to get stage-level rows first (if a stage_runs table exists)
       try {
         const stageRows = await db.execute<Record<string, unknown>>(
           `SELECT stage AS step, duration_ms, status
@@ -177,9 +181,7 @@ export async function renderSection(
         if (!msg.includes("does not exist") && !msg.includes("no such table")) {
           throw err;
         }
-        // Table doesn't exist — fall through to single-run fallback
       }
-      // Fallback: single row representing the whole run
       const rows = await db.execute<Record<string, unknown>>(
         `SELECT stage, duration_ms, status FROM flowpanel_pipeline_run WHERE id = $1 LIMIT 1`,
         [BigInt(input.runId)],

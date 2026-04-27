@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { serializeResource } from "../../resource/serializer";
+import { publishResourceEvent, type ResourceEventPayload } from "../../sse/publisher";
 import type {
   AccessRule,
   ModelMetadata,
@@ -410,6 +411,10 @@ export function createResourceProcedures(
           }
 
           const row = await adapter.create(resource.modelName, { data: safeData });
+          await maybePublish(ctx, resource, input.resourceId, {
+            op: "create",
+            id: row[metadata.primaryKey] as string | number,
+          });
           return applyComputes(resource, row);
         },
       ),
@@ -455,6 +460,10 @@ export function createResourceProcedures(
             where: { [pk]: input.recordId },
             data: safeData,
           });
+          await maybePublish(ctx, resource, input.resourceId, {
+            op: "update",
+            id: input.recordId,
+          });
           return applyComputes(resource, row);
         },
       ),
@@ -499,6 +508,10 @@ export function createResourceProcedures(
             where: { [pk]: input.recordId },
           });
 
+          await maybePublish(ctx, resource, input.resourceId, {
+            op: "delete",
+            id: input.recordId,
+          });
           return { success: true as const };
         },
       ),
@@ -575,6 +588,11 @@ export function createResourceProcedures(
           }
 
           const result = await handler(row, ctx);
+          await maybePublish(ctx, resource, input.resourceId, {
+            op: "action",
+            id: input.recordId,
+            actionId: input.actionId,
+          });
           return result ?? { success: true };
         },
       ),
@@ -746,4 +764,20 @@ export function createResourceProcedures(
         return { resources: serialized };
       }),
   });
+}
+
+/**
+ * Publish a realtime event if the resource opted in via `realtime: true`.
+ * The `_realtime` flag is set by `lowerTypedResource`; old-style resources
+ * default to false. Fire-and-forget — errors already swallowed by publisher.
+ */
+async function maybePublish(
+  ctx: FlowPanelContext,
+  resource: ResolvedResource,
+  resourceKey: string,
+  payload: ResourceEventPayload,
+): Promise<void> {
+  const realtime = (resource as ResolvedResource & { _realtime?: boolean })._realtime;
+  if (!realtime) return;
+  await publishResourceEvent(ctx.db, resourceKey, payload);
 }

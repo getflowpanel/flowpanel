@@ -1,7 +1,7 @@
 "use client";
 
-import { Plus, Inbox } from "lucide-react";
 import type { SerializedResource } from "@flowpanel/core";
+import { Inbox, Plus } from "lucide-react";
 import { Button } from "../ui/button";
 
 export function ResourceEmptyState({

@@ -258,7 +258,8 @@ function generateFlowPanelConfig({
     resourcesBody = models.map((m) => `    ${m}: resource("${capitalize(m)}"),`).join("\n");
   }
 
-  return `import { defineFlowPanel, resource } from "@flowpanel/core";
+  return `import "server-only";
+import { defineFlowPanel, resource } from "@flowpanel/core";
 ${adapterImport}
 
 export const flowpanel = defineFlowPanel({

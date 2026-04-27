@@ -4,6 +4,7 @@ import type { DialogField, SerializedAction } from "@flowpanel/core";
 import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { Button, buttonVariants } from "../ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,11 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import { Button, buttonVariants } from "../ui/button";
 import { Input } from "../ui/input";
+import { toast } from "../ui/sonner";
 import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
-import { toast } from "../ui/sonner";
 import { cn } from "../utils/cn";
 import { getNestedValue } from "../utils/getNestedValue";
 
