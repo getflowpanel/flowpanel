@@ -1,4 +1,4 @@
-import { readFileSync, globSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 
 const violations: string[] = [];
 
@@ -41,7 +41,7 @@ for (const pkg of ["adapter-prisma", "adapter-drizzle", "queue-bullmq"]) {
 
 if (violations.length > 0) {
   console.error("Import boundary violations:");
-  for (const v of violations) console.error("  " + v);
+  for (const v of violations) console.error(`  ${v}`);
   process.exit(1);
 }
 console.log("✔ Import boundaries clean.");

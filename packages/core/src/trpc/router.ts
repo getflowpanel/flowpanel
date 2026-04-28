@@ -15,7 +15,6 @@ import { createQueueProcedures } from "./procedures/queues";
 import { createResourceProcedures } from "./procedures/resources";
 import { createRunsProcedures } from "./procedures/runs";
 import { createStagesProcedures } from "./procedures/stages";
-import { createStreamProcedure } from "./procedures/stream";
 import { createUsersProcedures } from "./procedures/users";
 
 export function createFlowPanelRouter<TContext extends object>({
@@ -60,8 +59,6 @@ export function createFlowPanelRouter<TContext extends object>({
     stages: createStagesProcedures(fp as any, authedProcedure),
     // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     users: createUsersProcedures(fp as any, authedProcedure),
-    // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
-    stream: createStreamProcedure(fp as any, authedProcedure),
     // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast
     resource: createResourceProcedures(fp as any, authedProcedure),
     // biome-ignore lint/suspicious/noExplicitAny: tRPC internal builder cast

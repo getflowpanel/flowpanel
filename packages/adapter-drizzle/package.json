@@ -15,17 +15,17 @@
     "directory": "packages/adapter-drizzle"
   },
   "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test:integration:start-db": "docker compose -f docker-compose.test.yml up -d --wait",
     "test:integration:stop-db": "docker compose -f docker-compose.test.yml down",

@@ -13,8 +13,7 @@
  * pulling a TypeScript compiler into the CLI. Document the caveat.
  */
 
-import { readFileSync } from "node:fs";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 

@@ -1,4 +1,4 @@
-import { readFileSync, globSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 
 const THRESHOLD = 250;
 const warnings: Array<{ file: string; lines: number }> = [];

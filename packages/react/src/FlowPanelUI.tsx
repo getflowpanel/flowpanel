@@ -107,7 +107,8 @@ export function FlowPanelUI({
   );
 
   const { status: liveStatus, liveAnnouncement } = useFlowPanelLive({
-    streamUrl: `${trpcBaseUrl}/flowpanel.stream.connect`,
+    // SSE runs via its own route (not tRPC) — see createFlowPanelStreamHandler.
+    streamUrl: "/api/flowpanel/stream",
     dispatchRuns,
     onMetricsUpdate: setMetricsDirect,
   });

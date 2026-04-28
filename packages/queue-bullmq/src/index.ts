@@ -18,7 +18,7 @@
  */
 
 import type { GetJobsArgs, JobState, QueueAdapter, QueueJob, QueueStatus } from "@flowpanel/core";
-import type { Job, JobState as BullJobState, Queue } from "bullmq";
+import type { JobState as BullJobState, Job, Queue } from "bullmq";
 
 export interface BullmqAdapterOptions {
   /** Optional human label. */

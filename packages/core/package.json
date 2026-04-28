@@ -17,18 +17,18 @@
   },
   "homepage": "https://github.com/Ch4m4/flowpanel",
   "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
     },
     "./trpc": {
-      "import": "./dist/trpc/index.js",
-      "require": "./dist/trpc/index.cjs",
-      "types": "./dist/trpc/index.d.ts"
+      "types": "./dist/trpc/index.d.ts",
+      "import": "./dist/trpc/index.mjs",
+      "require": "./dist/trpc/index.cjs"
     },
     "./package.json": "./package.json",
     "./migrations/*": "./migrations/*"

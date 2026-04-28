@@ -19,8 +19,12 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { FlowPanel, FlowPanelRouterConfig } from "./defineFlowPanel";
 import { createFlowPanelRouter } from "./trpc";
 
-/** Minimal context threaded through the tRPC router. */
-interface HandlerContext {
+/**
+ * Minimal context threaded through the tRPC router the handler builds.
+ * Exported so the client can type `AppRouter = typeof handler.router`
+ * without TS complaining about an unnameable internal symbol.
+ */
+export interface FlowPanelHandlerContext {
   req: Request;
 }
 
@@ -47,11 +51,11 @@ export function createFlowPanelHandler(
 ) {
   const { endpoint = "/api/trpc", onError } = options;
 
-  const t = initTRPC.context<HandlerContext>().create();
+  const t = initTRPC.context<FlowPanelHandlerContext>().create();
   const routerConfig: FlowPanelRouterConfig = flowpanel.getRouterConfig();
 
   const appRouter = t.router({
-    flowpanel: createFlowPanelRouter<HandlerContext>({
+    flowpanel: createFlowPanelRouter<FlowPanelHandlerContext>({
       t,
       config: routerConfig,
       getRequest: (ctx) => ctx.req,

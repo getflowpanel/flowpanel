@@ -2,8 +2,8 @@
 
 import type { ReactNode } from "react";
 import { Toaster } from "../ui/sonner";
-import { Sidebar, type SidebarNavGroup } from "./Sidebar";
 import { ShellHeader } from "./ShellHeader";
+import { Sidebar, type SidebarNavGroup } from "./Sidebar";
 
 export interface FlowPanelShellProps {
   appName: string;

@@ -46,9 +46,13 @@ export type {
   TopErrors,
 } from "./hooks/useFlowPanelData";
 export { useFlowPanelData } from "./hooks/useFlowPanelData";
-export { useFlowPanelLive } from "./hooks/useFlowPanelLive";
+export { useFlowPanelLive, useFlowPanelLive as useLiveRuns } from "./hooks/useFlowPanelLive";
 export type { LiveStatus as StreamLiveStatus, SseEvent } from "./hooks/useFlowPanelStream";
 export { useFlowPanelStream } from "./hooks/useFlowPanelStream";
+export type { KeyBinding } from "./hooks/useKeyboard";
+export { useKeyboard } from "./hooks/useKeyboard";
+export type { LiveEvent, UseLiveOptions } from "./hooks/useLive";
+export { useLive } from "./hooks/useLive";
 // B10 — the canonical short-name hooks (aliases + new).
 export { useMetric } from "./hooks/useMetric";
 export type { UseMutationOptions } from "./hooks/useMutation";
@@ -57,13 +61,7 @@ export {
   subscribeToInvalidation,
   useMutation,
 } from "./hooks/useMutation";
-export { useResourceData as useResource } from "./hooks/useResourceData";
-export { useFlowPanelLive as useLiveRuns } from "./hooks/useFlowPanelLive";
-export type { KeyBinding } from "./hooks/useKeyboard";
-export { useKeyboard } from "./hooks/useKeyboard";
-export type { LiveEvent, UseLiveOptions } from "./hooks/useLive";
-export { useLive } from "./hooks/useLive";
-export { useResourceData } from "./hooks/useResourceData";
+export { useResourceData as useResource, useResourceData } from "./hooks/useResourceData";
 export { useUrlState } from "./hooks/useUrlState";
 // Layout (Phase 2)
 export { FlowPanelErrorBoundary } from "./layout/ErrorBoundary";

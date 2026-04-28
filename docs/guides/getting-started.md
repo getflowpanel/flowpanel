@@ -36,9 +36,40 @@ It will:
 3. Create `flowpanel.config.ts` with `resource()` calls for those models.
 4. Create `app/admin/page.tsx` mounting `<FlowPanelUI />`.
 5. Add the FlowPanel Tailwind preset to your config.
-6. Wire up the `/api/trpc` router.
+6. Wire up the `/api/trpc` route handler.
+7. Wire up the `/api/flowpanel/stream` route handler for realtime (SSE runs on a dedicated route — tRPC's JSON transport can't carry `text/event-stream`).
 
-Run `pnpm dev` and navigate to `/admin`. That's it — your data is now CRUD-editable with filters, sorts, and search.
+### Run the audit-log migration
+
+FlowPanel ships one tiny migration — the `flowpanel_audit_log` table that every mutation writes to (required even if you don't use realtime). Pick one:
+
+```ts
+// scripts/flowpanel-migrate.ts
+import { applyMigrations } from "@flowpanel/core";
+import { flowpanel } from "@/flowpanel.config";
+
+await applyMigrations(flowpanel);
+```
+
+```bash
+pnpm tsx scripts/flowpanel-migrate.ts
+```
+
+Or let the CLI do it:
+
+```bash
+pnpm flowpanel migrate
+```
+
+You only run this once per environment (and again whenever FlowPanel ships a new migration — you'll see it in the changelog). The runner is idempotent: re-running it is a no-op.
+
+### Start dev
+
+```bash
+pnpm dev
+```
+
+Navigate to `/admin`. That's it — your data is now CRUD-editable with filters, sorts, search, and live updates.
 
 ## Anatomy of a config
 

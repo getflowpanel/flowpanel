@@ -10,7 +10,7 @@
  * not by global injection — the override surface is for brand tweaks.
  */
 
-import { createContext, type ComponentType, useContext } from "react";
+import { type ComponentType, createContext, useContext } from "react";
 
 export interface ComponentOverrides {
   Button?: ComponentType<Record<string, unknown>>;

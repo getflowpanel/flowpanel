@@ -6,6 +6,31 @@ The admin panel for modern Next.js SaaS. One config, zero UI code — CRUD resou
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/Ch4m4/flowpanel/actions/workflows/ci.yml/badge.svg)](https://github.com/Ch4m4/flowpanel/actions/workflows/ci.yml)
 
+## Preview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FlowPanel / my-saas                         ⌘K   🔔    avatar ▾              │
+├──────────────┬──────────────────────────────────────────────────────────────┤
+│ Overview     │  Users           [New user]  [Export CSV]         123 rows   │
+│ Monitoring   │  ─────────────────────────────────────────────────────────── │
+│   Runs       │  ☐  email                role    plan    created at  ≡      │
+│   Queues     │  ☐  ada@example.com      admin   pro     2026-04-03         │
+│ Data         │  ☑  grace@example.com    editor  pro     2026-04-02   ⋯     │
+│   Users      │      └─ 42 selected  [Archive] [Change plan] [Delete]       │
+│   Orgs       │  ☐  linus@example.com    viewer  free    2026-04-01         │
+│   Payments   │  …                                                           │
+│ Dashboards   │                                                              │
+│   Revenue  ▸ │  Dashboards • KPIs                        30d ▾  live ●      │
+│   Growth     │  ┌─ MRR ──────┐ ┌─ Signups ──┐ ┌─ AI spend ─────────┐       │
+│              │  │  $34.2k    │ │   1,284    │ │ ▇▇▆▅▄▃▂▁ gpt-4     │       │
+│              │  │  +8.2% vs… │ │   +12% wk  │ │ ▂▃▅▆▇█ claude-3    │       │
+│              │  └────────────┘ └────────────┘ └────────────────────┘       │
+└──────────────┴──────────────────────────────────────────────────────────────┘
+```
+
+Rendered screenshots land on the docs site when we cut the first public release candidate. In the meantime, clone `examples/freelance-radar` (Drizzle) or `examples/next-prisma-saas` (Prisma), run `docker compose up && pnpm dev`, and the real UI is at `/admin`.
+
 ## What you get
 
 - **CRUD resources** inferred from Prisma or Drizzle. Path proxies (`(p) => p.user.email`) keep everything type-safe.

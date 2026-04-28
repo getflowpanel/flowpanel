@@ -53,48 +53,20 @@ export const flowPanelConfigSchema = z.object({
     .describe("IANA timezone for date display. Example: 'America/New_York'"),
   basePath: z.string().startsWith("/").default("/admin"),
 
+  /**
+   * Database adapter. Pass the result of `drizzleAdapter({ db, schema })` or
+   * `prismaAdapter({ prisma })`; both return a branded `FlowPanelAdapter`
+   * that TypeScript narrows cleanly — no cast needed.
+   *
+   * Runtime validation is a duck-type check (accepts the canonical
+   * `{sql, resource}` shape plus legacy raw executors / Prisma clients /
+   * Drizzle dbs for backward compatibility).
+   */
   adapter: z
-    .union([
-      // Direct SqlExecutor
-      z
-        .object({
-          execute: z.function(),
-          transaction: z.function(),
-          dialect: z.enum(["postgres"]),
-        })
-        .passthrough(),
-      // { sql: SqlExecutor, resource: ResourceAdapter } from prismaAdapter()/drizzleAdapter()
-      z
-        .object({
-          sql: z
-            .object({
-              execute: z.function(),
-              transaction: z.function(),
-            })
-            .passthrough(),
-          resource: z
-            .object({
-              findMany: z.function(),
-            })
-            .passthrough(),
-        })
-        .passthrough(),
-      // PrismaClient (duck-typed)
-      z
-        .object({
-          $queryRawUnsafe: z.function(),
-        })
-        .passthrough(),
-      // Drizzle db (duck-typed)
-      z
-        .object({
-          select: z.function(),
-          insert: z.function(),
-        })
-        .passthrough(),
-      // Factory function
-      z.function(),
-    ])
+    .custom<import("./adapter").FlowPanelAdapter>(
+      (val) => val != null && (typeof val === "object" || typeof val === "function"),
+      { message: "adapter must be the result of drizzleAdapter() or prismaAdapter()" },
+    )
     .describe("Database adapter — use drizzleAdapter() or prismaAdapter()"),
 
   pipeline: z.object({

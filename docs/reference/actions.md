@@ -2,6 +2,45 @@
 
 Actions are the primary DX surface for custom behavior in an admin. FlowPanel supports **five kinds**, each with a clear place in a resource workflow.
 
+## Lifecycle — what happens when a user clicks an action
+
+Understanding this end-to-end is the difference between debugging in
+minutes versus hours. Every action follows the same five-hop pipeline:
+
+```
+┌────────────────┐   1. Click    ┌──────────────────┐   2. Confirm?   ┌─────────────────┐
+│ ResourceTable  │──────────────▶│  ActionButton    │────────────────▶│ ConfirmDialog   │
+│   / Drawer     │               │  (react)         │                 │  (optional)     │
+└────────────────┘               └──────────────────┘                 └─────────────────┘
+                                                                              │
+                                                                    3. tRPC mutation
+                                                                              ▼
+┌────────────────┐   6. Toast    ┌──────────────────┐   5. Audit log  ┌─────────────────┐
+│ onSuccess      │◀──────────────│  useMutation     │◀────────────────│ actionHandler   │
+│  (toast/invl.) │               │  (react-query)   │                 │  (@core/tRPC)   │
+└────────────────┘               └──────────────────┘                 └─────────────────┘
+                                                                              │
+                                                                    4. Your handler()
+                                                                              ▼
+                                                                     ┌─────────────────┐
+                                                                     │   ctx.db / ORM  │
+                                                                     │   + publish     │
+                                                                     └─────────────────┘
+```
+
+| Step | Where it runs | Notes |
+|---|---|---|
+| 1 — Click | `<ActionButton>` in the resource table / drawer / toolbar | `disabled` + `when` predicates evaluated here with the current row |
+| 2 — Confirm | `<ConfirmDialog>` (shadcn) | Only if `confirm` is set; `typeToConfirm` blocks the CTA until the user retypes the string |
+| 3 — Mutation call | `trpc.flowpanel.resource.action.mutate()` | React-Query handles pending/error states; step-up auth runs here if `stepUp: true` |
+| 4 — Server handler | `actionHandler` in `packages/core/src/trpc/procedures/resources.ts` | Resolves auth + rate-limit middleware, then invokes your `handler(row, ctx)` / `handler(rows, ctx)` / `handler(ctx)` |
+| 5 — Audit log | `auditLog` middleware | Writes `{ actor, action, resource, rowId, duration_ms }` to `flowpanel_audit_log` — always, even on failure |
+| 6 — Toast + invalidate | `useMutation.onSuccess` | Fires the configured `onSuccess.toast`, then invalidates tag-matched queries (live tables re-fetch within 50ms) |
+
+**Where to set breakpoints.** If the UI feels broken, steps 1–2 are client-side — open React DevTools on `ActionButton`. If the handler never runs, step 4 failed — check browser Network + server logs for `resource.action` mutation. If the UI doesn't refresh after success, it's step 6 — confirm the resource has `realtime: true` or that your `invalidate:` tags match the query keys.
+
+## The five action kinds
+
 | Kind | Where it renders | Signature |
 |---|---|---|
 | `a.mutation` | per-row in the detail drawer | `(row, ctx) => Promise` |

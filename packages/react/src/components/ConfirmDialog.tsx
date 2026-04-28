@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertDialog,

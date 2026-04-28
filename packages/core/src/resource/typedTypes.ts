@@ -6,6 +6,7 @@
  * the existing `ResolvedResource` at config-load time (Task 6).
  */
 
+import type { FpDb, FpSession } from "../types/augmentation";
 import type { ColumnRef, ComputedColumnInput } from "./columnRefs";
 import type { TableProxy } from "./tableProxy";
 import type { ColumnFormat, FieldColumnOpts, FilterMode, FilterOpts } from "./types";
@@ -31,11 +32,11 @@ export interface TypedComputedColumn<TRow = unknown, TValue = unknown> {
   label: string;
   format: ColumnFormat | "auto";
   sortExpr?: string;
-  compute?: (ctx: { row: TRow; db: unknown; session: unknown }) => Promise<TValue> | TValue;
+  compute?: (ctx: { row: TRow; db: FpDb; session: FpSession }) => Promise<TValue> | TValue;
   computeBatch?: (ctx: {
     rows: readonly TRow[];
-    db: unknown;
-    session: unknown;
+    db: FpDb;
+    session: FpSession;
   }) => Promise<ReadonlyMap<string | number, TValue>> | ReadonlyMap<string | number, TValue>;
 }
 
@@ -53,15 +54,15 @@ export interface TypedFilter {
 
 // ─── Actions ───────────────────────────────────────────────────────────────
 
-export type TypedActionContext<TRow, TSession = unknown> = {
+export type TypedActionContext<TRow, TSession = FpSession> = {
   row: TRow;
-  db: unknown;
+  db: FpDb;
   session: TSession;
 };
 
-export type TypedBulkActionContext<TRow, TSession = unknown> = {
+export type TypedBulkActionContext<TRow, TSession = FpSession> = {
   rows: readonly TRow[];
-  db: unknown;
+  db: FpDb;
   session: TSession;
 };
 
@@ -101,7 +102,7 @@ export interface TypedBulkEditAction<TRow = unknown, TSession = unknown> {
   run: (ctx: {
     rows: readonly TRow[];
     patch: Partial<TRow>;
-    db: unknown;
+    db: FpDb;
     session: TSession;
   }) => Promise<void> | void;
 }

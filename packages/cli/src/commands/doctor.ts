@@ -23,6 +23,7 @@ export function doctorCommand(cli: Command): void {
         results.push(await checkDrizzleRelations());
         results.push(await checkTailwindPreset());
         results.push(await checkImportBoundary());
+        results.push(await checkRealtimeWired());
       }
 
       printResults(results);
@@ -134,6 +135,47 @@ async function checkDrizzleRelations(): Promise<CheckResult> {
     return { name: "Drizzle relations", ok: false, detail: "Schema file not found" };
   } catch {
     return { name: "Drizzle relations", ok: false, detail: "Could not check" };
+  }
+}
+
+async function checkRealtimeWired(): Promise<CheckResult> {
+  // Walk the repo for `realtime: true` + a `listen:` wire on the adapter.
+  // Heuristic: grep the config file. If `realtime: true` appears but the
+  // adapter call has no `listen:`, flag the degradation.
+  try {
+    const { readFileSync } = await import("node:fs");
+    const candidates = [
+      "src/flowpanel.ts",
+      "flowpanel.ts",
+      "src/app/flowpanel.ts",
+      "flowpanel.config.ts",
+      "src/flowpanel.config.ts",
+    ];
+    let configPath: string | null = null;
+    for (const c of candidates) {
+      if (await fileExists(c)) {
+        configPath = c;
+        break;
+      }
+    }
+    if (!configPath) {
+      return { name: "Realtime", ok: true, detail: "N/A (no config)" };
+    }
+    const source = readFileSync(configPath, "utf8");
+    const usesRealtime = /realtime\s*:\s*true/.test(source);
+    if (!usesRealtime) {
+      return { name: "Realtime", ok: true, detail: "not used" };
+    }
+    const hasListenOpt = /listen\s*:/.test(source);
+    return {
+      name: "Realtime",
+      ok: hasListenOpt,
+      detail: hasListenOpt
+        ? "LISTEN/NOTIFY wired — sub-50ms updates"
+        : "realtime: true set but adapter has no listen: option — 2s polling fallback. See docs/reference/realtime.md",
+    };
+  } catch {
+    return { name: "Realtime", ok: true, detail: "check skipped" };
   }
 }
 

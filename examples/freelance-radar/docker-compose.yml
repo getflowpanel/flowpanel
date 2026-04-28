@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fp
+      POSTGRES_PASSWORD: fp
+      POSTGRES_DB: freelance_radar
+    ports:
+      - "54329:5432"
+    volumes:
+      - freelance_radar_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fp -d freelance_radar"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+volumes:
+  freelance_radar_data:

@@ -1,45 +1,48 @@
-# freelance-radar — FlowPanel 1.0 spec
+# freelance-radar — FlowPanel demo
 
-> **This directory is not executable yet.** It holds the target API surface
-> for FlowPanel 1.0 as a runnable-shaped example. The config compiles once
-> the **B1 (typed resource builder)**, **B2 (metrics builder)**, **B5
-> (realtime)**, **B7 (theme tokens)**, and **B8 (widget namespace)** tasks
-> land. Until then, treat `src/flowpanel.ts` as a reviewable contract.
+End-to-end demo of a realistic admin panel on **Drizzle + PostgreSQL**.
+Covers enums, self-referential FKs, one-to-many relations, JSON columns,
+computeBatch (N+1 avoidance), row actions with confirm + stepUp, and the
+B2 metric helpers.
 
-## Why this exists
+## Run in 60 seconds
 
-FlowPanel is designed for a specific shape of product — a Next.js SaaS
-backed by Drizzle or Prisma, needing a CRUD admin with realtime signals,
-custom domain tabs, and one-click actions against production data.
+```bash
+# 1. boot Postgres
+pnpm docker:up
 
-`freelance-radar` is a synthetic-but-realistic target: 5 tables, enums,
-self-referential category tree, JSONB columns, Russian payment flow
-(YuKassa), AI cost tracking. If the 1.0 API can model this admin in
-≤300 LOC with zero `any` and full type inference, it's ready.
+# 2. apply schema
+pnpm db:push
 
-## Layout
+# 3. seed sample data
+pnpm db:seed
 
-```
-src/
-├── db/
-│   └── schema.ts              # Drizzle: 5 tables, enums, relations
-├── pages/
-│   ├── CategoryTreeEditor.tsx # custom page (drag-and-drop tree)
-│   └── AiCostsDetailPage.tsx  # custom report page
-├── lib/
-│   ├── auth.ts                # getSession stub
-│   └── ukassa.ts              # YuKassa refund stub
-└── flowpanel.ts               # THE CONFIG (target API)
+# 4. start Next.js
+pnpm dev
 ```
 
-## Checklist (used to validate the 1.0 API)
+Open **http://localhost:3000** → click "Open admin".
 
-- [ ] `src/flowpanel.ts` typechecks with `strict: true`
-- [ ] ≤ 300 LOC
-- [ ] 0 `any`, 0 non-null assertions (`!`)
-- [ ] ⌘Click on any column reference jumps to the Drizzle schema
-- [ ] Renaming `users.email` in schema → red squiggle in config
-- [ ] `npm run dev` serves a working admin with all 4 resources
-- [ ] `realtime: true` widgets update on INSERT from another session (≤ 2s)
-- [ ] `components` prop on `<FlowPanelUI>` can swap the `<Button>` primitive
-- [ ] `npx flowpanel add resource-table` copies the component for local edit
+## What's inside
+
+| File | Role |
+| ---- | ---- |
+| `src/flowpanel.ts` | The config — typed resources, actions, B2 metrics. |
+| `src/flowpanel-types.d.ts` | Module augmentation: `ctx.db` is typed as `typeof db` everywhere without casts. |
+| `src/db/schema.ts` | Drizzle schema with enums, relations, JSON columns. |
+| `app/api/trpc/[trpc]/route.ts` | **6 lines** — `createFlowPanelHandler(flowpanel)`. |
+| `app/admin/page.tsx` | Admin entry — lists resource keys. Full UI lands in B8. |
+| `scripts/seed.ts` | Realistic seed data (4 users, 3 jobs, payments, AI cost rows). |
+
+## Stack
+
+- **Next.js 15** App Router
+- **Drizzle ORM** (postgres-js or node-postgres)
+- **PostgreSQL 16** via Docker
+- **@flowpanel/core** + **@flowpanel/adapter-drizzle** + **@flowpanel/react**
+
+## Stop the database
+
+```bash
+pnpm docker:down
+```

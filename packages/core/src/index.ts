@@ -1,7 +1,15 @@
 export { z } from "zod";
+export type { CanonicalAdapter, FlowPanelAdapter } from "./config/adapter";
+export { brandAdapter } from "./config/adapter";
 export type { AuditActor, AuditEvent } from "./config/auditEvent";
 export type { FlowPanelConfig, FlowPanelConfigInput } from "./config/schema";
 export { sqlIdentifier } from "./config/schema";
+export {
+  createFlowPanelHandler,
+  type FlowPanelHandler,
+  type FlowPanelHandlerContext,
+  type FlowPanelHandlerOptions,
+} from "./createFlowPanelHandler";
 export type {
   FlowPanel,
   FlowPanelRouterConfig,
@@ -10,11 +18,6 @@ export type {
   ResourceFactory,
 } from "./defineFlowPanel";
 export { defineFlowPanel, resource } from "./defineFlowPanel";
-export {
-  createFlowPanelHandler,
-  type FlowPanelHandler,
-  type FlowPanelHandlerOptions,
-} from "./createFlowPanelHandler";
 export {
   type ConfigErrorContext,
   FlowPanelAccessError,
@@ -133,8 +136,17 @@ export type {
   SerializedResource,
 } from "./resource/types";
 export { generateSchema } from "./schemaGenerator";
+// Realtime stream handler — mounted at a separate route from tRPC.
+export {
+  createFlowPanelStreamHandler,
+  type FlowPanelStreamHandler,
+  type FlowPanelStreamHandlerOptions,
+} from "./stream/handler";
 // Context helper
 export { createFlowPanelContext, type FlowPanelContextBase } from "./trpc/createContext";
+// Module augmentation — declare your db / session shape once; every
+// resource callback picks it up without casts or generic repetition.
+export type { FlowPanelTypes, FpDb, FpSession } from "./types/augmentation";
 export type { RunFields } from "./types/config";
 export type { SqlExecutor, SqlExecutorFactory, SqlQuery } from "./types/db";
 
@@ -149,9 +161,8 @@ export type {
   CustomWidgetConfig,
   CustomWidgetData,
   DashboardConfig,
-  DashboardSection,
-  ResolvedSection,
   DashboardData,
+  DashboardSection,
   ListItem,
   ListWidgetConfig,
   ListWidgetData,
@@ -162,6 +173,7 @@ export type {
   ResolvedCustomWidget,
   ResolvedListWidget,
   ResolvedMetricWidget,
+  ResolvedSection,
   ResolvedWidget,
   SerializedChartWidget,
   SerializedCustomWidget,

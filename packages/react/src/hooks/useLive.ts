@@ -29,7 +29,7 @@ export interface UseLiveOptions<TData = unknown> {
   channel: string;
   /** Fired whenever an event on that channel arrives. */
   onEvent?: (event: LiveEvent<TData>) => void;
-  /** Stream endpoint URL. Defaults to "/api/trpc/flowpanel.stream.connect". */
+  /** Stream endpoint URL. Defaults to "/api/flowpanel/stream". */
   url?: string;
   /** Retry backoff cap before falling back to "polling" status. */
   maxRetries?: number;
@@ -38,7 +38,7 @@ export interface UseLiveOptions<TData = unknown> {
 export function useLive<TData = unknown>({
   channel,
   onEvent,
-  url = "/api/trpc/flowpanel.stream.connect",
+  url = "/api/flowpanel/stream",
   maxRetries = 3,
 }: UseLiveOptions<TData>): { status: LiveStatus; reconnect: () => void } {
   const [status, setStatus] = useState<LiveStatus>("reconnecting");

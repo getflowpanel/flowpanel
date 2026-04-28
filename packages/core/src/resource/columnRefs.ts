@@ -37,20 +37,20 @@ export function isColumnRef(value: unknown): value is ColumnRef {
 }
 
 /**
- * Context passed to computed column callbacks. `db` is intentionally typed as
- * `unknown` at the core level; the Drizzle/Prisma adapters narrow it when the
- * resource is bound to a concrete adapter.
+ * Context passed to computed column callbacks. `db` and `session` flow
+ * from the user's `declare module "@flowpanel/core" { interface FlowPanelTypes }`
+ * augmentation — no cast needed inside callbacks.
  */
 export interface ComputeContext<TRow = unknown> {
   readonly row: TRow;
-  readonly db: unknown;
-  readonly session: unknown;
+  readonly db: import("../types/augmentation").FpDb;
+  readonly session: import("../types/augmentation").FpSession;
 }
 
 export interface BatchComputeContext<TRow = unknown> {
   readonly rows: readonly TRow[];
-  readonly db: unknown;
-  readonly session: unknown;
+  readonly db: import("../types/augmentation").FpDb;
+  readonly session: import("../types/augmentation").FpSession;
 }
 
 /**

@@ -50,6 +50,15 @@ export class SseBroker {
         // Fall through to polling if LISTEN fails (e.g. adapter doesn't really support it).
         console.warn("[flowpanel] LISTEN failed, falling back to polling:", err);
       }
+    } else {
+      // Once-per-process nudge. Polling works — but 2s latency floor vs sub-50ms
+      // with LISTEN. Users who declared `realtime: true` should know.
+      console.warn(
+        "[flowpanel] realtime: adapter has no `listen` method — falling back to 2s polling. " +
+          "For sub-50ms updates, pass a dedicated pg client's LISTEN via " +
+          "`drizzleAdapter({ db, schema, listen: async (channel, handler) => { ... } })`. " +
+          "See docs/reference/realtime.md.",
+      );
     }
 
     // Polling fallback — poll flowpanel_events every POLL_INTERVAL_MS.

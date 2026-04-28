@@ -5,7 +5,21 @@
     "noEmit": true,
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["esnext", "dom"]
+    "lib": ["esnext", "dom"],
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "allowJs": true,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
   },
-  "include": ["src/**/*"]
+  "include": [".next/types/**/*", "app/**/*", "scripts/**/*", "src/**/*", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }

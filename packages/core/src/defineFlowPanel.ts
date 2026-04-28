@@ -1,7 +1,9 @@
+import { detectAdapter, isSqlExecutor } from "./config/detectAdapter";
 import { type FlowPanelConfig, flowPanelConfigSchema } from "./config/schema";
 import { fromZodError } from "./errors/fromZod";
 
 let warnedMetricsDeprecated = false;
+
 import { validateConfig } from "./config/validate";
 import { FlowPanelConfigError } from "./errors";
 import { resolvePages, serializePages } from "./pages/resolver";
@@ -24,122 +26,6 @@ import type { SqlExecutor, SqlExecutorFactory } from "./types/db";
 import { resolveDashboard as resolveDashboardFn } from "./widget/builder";
 import { serializeDashboard } from "./widget/serializer";
 import { createWithRun } from "./withRun";
-
-// ---------------------------------------------------------------------------
-// Adapter detection helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Loads an optional peer dependency without tripping bundler static analyzers.
- *
- * Webpack / Next.js reads every `require("literal")` at build time and will
- * fail the client bundle even when the call site is unreachable. Constructing
- * the require via `Function("return require")` hides it from static analysis
- * while still working in any CJS-wrapped runtime (Node, Next SSR, webpack
- * server bundles). Returns `null` in pure ESM Node — consumers that hit this
- * path should pass the adapter explicitly.
- */
-function loadOptionalPeer<T>(spec: string): T | null {
-  try {
-    const dynamicRequire = Function(
-      "spec",
-      "return typeof require === 'function' ? require(spec) : null",
-    ) as (s: string) => T | null;
-    return dynamicRequire(spec);
-  } catch {
-    return null;
-  }
-}
-
-interface AdapterResult {
-  sql: SqlExecutor;
-  resource?: ResourceAdapter;
-}
-
-function isAdapterResult(input: unknown): input is { sql: SqlExecutor; resource: ResourceAdapter } {
-  if (input === null || typeof input !== "object") return false;
-  const obj = input as Record<string, unknown>;
-  return (
-    obj.sql !== undefined &&
-    typeof obj.sql === "object" &&
-    obj.sql !== null &&
-    "execute" in (obj.sql as object) &&
-    obj.resource !== undefined &&
-    typeof obj.resource === "object" &&
-    obj.resource !== null &&
-    "findMany" in (obj.resource as object)
-  );
-}
-
-function isSqlExecutor(input: unknown): input is SqlExecutor {
-  if (input === null || typeof input !== "object") return false;
-  const obj = input as Record<string, unknown>;
-  return (
-    typeof obj.execute === "function" && typeof obj.transaction === "function" && "dialect" in obj
-  );
-}
-
-function isPrismaClient(input: unknown): boolean {
-  if (input === null || typeof input !== "object") return false;
-  const obj = input as Record<string, unknown>;
-  return typeof obj.$queryRawUnsafe === "function";
-}
-
-function isDrizzleDb(input: unknown): boolean {
-  if (input === null || typeof input !== "object") return false;
-  const obj = input as Record<string, unknown>;
-  return typeof obj.select === "function" && typeof obj.insert === "function";
-}
-
-function detectAdapter(input: unknown): AdapterResult {
-  // 1. Already a { sql, resource } adapter result (from prismaAdapter/drizzleAdapter)
-  if (isAdapterResult(input)) {
-    return input;
-  }
-
-  // 2. Direct SqlExecutor (existing pipeline-only usage)
-  if (isSqlExecutor(input)) {
-    return { sql: input };
-  }
-
-  // 3. SqlExecutorFactory function
-  if (typeof input === "function") {
-    // Wrap factory: return a lazy sql executor, no resource adapter
-    return { sql: input as unknown as SqlExecutor };
-  }
-
-  // 4. PrismaClient — auto-wrap
-  if (isPrismaClient(input)) {
-    const mod = loadOptionalPeer<{
-      prismaAdapter: (opts: { prisma: unknown }) => AdapterResult;
-    }>("@flowpanel/adapter-prisma");
-    if (!mod) {
-      throw new Error(
-        "adapter: PrismaClient detected but @flowpanel/adapter-prisma could not be loaded. " +
-          "Install it (pnpm add @flowpanel/adapter-prisma), or pass prismaAdapter({ prisma }) explicitly.",
-      );
-    }
-    return mod.prismaAdapter({ prisma: input });
-  }
-
-  // 5. Drizzle db — auto-wrap
-  if (isDrizzleDb(input)) {
-    const mod = loadOptionalPeer<{
-      drizzleAdapter: (opts: { db: unknown }) => AdapterResult;
-    }>("@flowpanel/adapter-drizzle");
-    if (!mod) {
-      throw new Error(
-        "adapter: Drizzle db detected but @flowpanel/adapter-drizzle could not be loaded. " +
-          "Install it (pnpm add @flowpanel/adapter-drizzle), or pass drizzleAdapter({ db }) explicitly.",
-      );
-    }
-    return mod.drizzleAdapter({ db: input });
-  }
-
-  throw new Error(
-    "Unrecognized adapter. Pass a PrismaClient, Drizzle db, prismaAdapter(), drizzleAdapter(), or a SqlExecutor.",
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Schema type

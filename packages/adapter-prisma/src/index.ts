@@ -1,4 +1,10 @@
-import type { ResourceAdapter, SqlExecutor, SqlQuery } from "@flowpanel/core";
+import {
+  brandAdapter,
+  type CanonicalAdapter,
+  type ResourceAdapter,
+  type SqlExecutor,
+  type SqlQuery,
+} from "@flowpanel/core";
 import { Pool } from "pg";
 import { type DmmfDatamodel, extractEnumsFromDmmf, extractModelsFromDmmf } from "./metadata";
 import { createPrismaResourceAdapter } from "./resource";
@@ -128,12 +134,32 @@ export function prismaAdapter(opts: {
   prisma: PrismaClientLike;
   /** Optionally pass the DMMF directly (e.g. from `import { Prisma } from "@prisma/client"`). */
   dmmf?: { datamodel: DmmfDatamodel };
-}): {
-  sql: SqlExecutor;
-  resource: ResourceAdapter;
-} {
+  /**
+   * Optional pg `LISTEN`/`NOTIFY` for sub-50ms realtime updates. Without
+   * this, FlowPanel polls `flowpanel_events` every 2s. Prisma doesn't
+   * expose LISTEN directly — pass a dedicated `pg.Client`:
+   *
+   * ```ts
+   * import { Client } from "pg";
+   * const pgClient = new Client(env.DATABASE_URL);
+   * await pgClient.connect();
+   * prismaAdapter({
+   *   prisma,
+   *   listen: async (channel, handler) => {
+   *     pgClient.on("notification", (msg) => { if (msg.channel === channel && msg.payload) handler(msg.payload); });
+   *     await pgClient.query(`LISTEN ${channel}`);
+   *     return async () => { await pgClient.query(`UNLISTEN ${channel}`); };
+   *   },
+   * });
+   * ```
+   */
+  listen?: (channel: string, handler: (payload: string) => void) => Promise<() => void>;
+}): CanonicalAdapter {
   const { prisma } = opts;
   const sql = createSqlExecutor(prisma);
+  if (opts.listen) {
+    sql.listen = opts.listen;
+  }
 
   const dmmf = opts.dmmf ?? tryResolveDmmf(prisma);
 
@@ -152,5 +178,5 @@ export function prismaAdapter(opts: {
   // `defineResource(prisma.user, …)` can resolve to ModelMetadata.
   prismaBridge.register(prisma as Record<string, unknown>, models);
 
-  return { sql, resource };
+  return brandAdapter({ sql, resource });
 }

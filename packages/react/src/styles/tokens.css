@@ -17,9 +17,46 @@
   --fp-success: 142 71% 45%;
   --fp-success-foreground: 0 0% 100%;
 
-  /* Geometry */
+  /* Geometry — radius + density (density scales spacing) */
   --fp-radius: 0.5rem;
+  --fp-radius-sm: calc(var(--fp-radius) - 4px);
+  --fp-radius-md: var(--fp-radius);
+  --fp-radius-lg: calc(var(--fp-radius) + 4px);
   --fp-density: 1;
+
+  /* Spacing scale (4px base, multiplied by --fp-density) */
+  --fp-space-1: calc(0.25rem * var(--fp-density));
+  --fp-space-2: calc(0.5rem * var(--fp-density));
+  --fp-space-3: calc(0.75rem * var(--fp-density));
+  --fp-space-4: calc(1rem * var(--fp-density));
+  --fp-space-5: calc(1.5rem * var(--fp-density));
+  --fp-space-6: calc(2rem * var(--fp-density));
+  --fp-space-7: calc(3rem * var(--fp-density));
+  --fp-space-8: calc(4rem * var(--fp-density));
+
+  /* Font size scale (tailwind-aligned) */
+  --fp-text-xs: 0.75rem;
+  --fp-text-sm: 0.875rem;
+  --fp-text-base: 1rem;
+  --fp-text-lg: 1.125rem;
+  --fp-text-xl: 1.25rem;
+  --fp-text-2xl: 1.5rem;
+
+  /* Elevation — shadow ramp (light-theme values; dark overrides below) */
+  --fp-shadow-xs: 0 1px 1px rgb(0 0 0 / 0.04);
+  --fp-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+  --fp-shadow-md: 0 4px 8px -2px rgb(0 0 0 / 0.08), 0 2px 4px -1px rgb(0 0 0 / 0.04);
+  --fp-shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.12), 0 4px 8px -2px rgb(0 0 0 / 0.04);
+  --fp-shadow-xl: 0 24px 48px -8px rgb(0 0 0 / 0.16);
+
+  /* Motion — duration + easing ramp (respected by all fp-* transitions) */
+  --fp-duration-instant: 80ms;
+  --fp-duration-fast: 140ms;
+  --fp-duration-base: 200ms;
+  --fp-duration-slow: 320ms;
+  --fp-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --fp-ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --fp-ease-overshoot: cubic-bezier(0.2, 1.2, 0.2, 1);
 
   /* Typography */
   --fp-font-sans:
@@ -41,4 +78,11 @@
   --fp-destructive-foreground: 0 0% 98%;
   --fp-success: 142 70% 45%;
   --fp-success-foreground: 0 0% 100%;
+
+  /* Shadows read stronger on dark surfaces. */
+  --fp-shadow-xs: 0 1px 1px rgb(0 0 0 / 0.4);
+  --fp-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+  --fp-shadow-md: 0 4px 8px -2px rgb(0 0 0 / 0.5), 0 2px 4px -1px rgb(0 0 0 / 0.3);
+  --fp-shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.6), 0 4px 8px -2px rgb(0 0 0 / 0.3);
+  --fp-shadow-xl: 0 24px 48px -8px rgb(0 0 0 / 0.7);
 }

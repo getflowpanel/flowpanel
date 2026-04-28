@@ -16,6 +16,17 @@
       "complexity": { "noForEach": "off" }
     }
   },
+  "overrides": [
+    {
+      "includes": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx", "**/test/**", "**/tests/**"],
+      "linter": {
+        "rules": {
+          "style": { "noNonNullAssertion": "off" },
+          "suspicious": { "noExplicitAny": "off" }
+        }
+      }
+    }
+  ],
   "css": {
     "parser": { "cssModules": false, "tailwindDirectives": true },
     "formatter": { "enabled": true }

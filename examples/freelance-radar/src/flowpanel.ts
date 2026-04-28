@@ -1,15 +1,15 @@
 /**
- * freelance-radar admin — target configuration for FlowPanel 1.0.
+ * freelance-radar admin — end-to-end FlowPanel demo on Drizzle + Postgres.
  *
- * This file grows as the B-series tasks land. Currently:
- *   B1 ✅  typed resource builder (Drizzle) — the blocks below compile
- *   B2 ⏳  metrics via Drizzle-native query builder
- *   B5 ⏳  realtime opt-in
- *   B7 ⏳  theme tokens
- *   B8 ⏳  widget namespace (w.metric / w.chart / w.table / w.kv / w.activity)
+ * Covers:
+ *   - Typed resource builder (Drizzle tables + relations + enums + JSON)
+ *   - Row actions with confirm + stepUp + disabled
+ *   - computeBatch for N+1-safe computed columns (see users.totalPaid)
+ *   - B2 metric helpers: mrr (scalar + trend), signups (time series),
+ *     aiSpendByModel (breakdown)
  *
- * The commented sections illustrate the intended final shape; they'll be
- * uncommented as each B task reaches main.
+ * Module augmentation lives in ./flowpanel-types.d.ts — `ctx.db` is
+ * typed as `typeof db` everywhere, no `as typeof db` casts.
  */
 
 import "server-only";
@@ -49,11 +49,10 @@ const userResource = defineResource<UserRow>(users, {
       label: "Total paid",
       format: "money",
       // computeBatch — avoids N+1 on list queries.
-      computeBatch: async ({ rows, db: ctxDb }) => {
-        const d = ctxDb as typeof db;
+      computeBatch: async ({ rows, db }) => {
         const ids = rows.map((r) => r.id);
         if (ids.length === 0) return new Map();
-        const byUser = await d
+        const byUser = await db
           .select({ userId: payments.userId, v: sum(payments.amountRub) })
           .from(payments)
           .where(and(eq(payments.status, "succeeded")))
@@ -70,9 +69,8 @@ const userResource = defineResource<UserRow>(users, {
       type: "row",
       label: "Promote to Pro",
       icon: "star",
-      run: async ({ row, db: ctxDb }) => {
-        const d = ctxDb as typeof db;
-        await d.update(users).set({ plan: "pro" }).where(eq(users.id, row.id));
+      run: async ({ row, db }) => {
+        await db.update(users).set({ plan: "pro" }).where(eq(users.id, row.id));
       },
     },
     cancel: {
@@ -80,23 +78,22 @@ const userResource = defineResource<UserRow>(users, {
       label: "Cancel subscription",
       confirm: "Cancel this subscription? Access revoked immediately.",
       stepUp: true,
-      run: async ({ row, db: ctxDb }) => {
-        const d = ctxDb as typeof db;
-        await d.update(users).set({ status: "canceled" }).where(eq(users.id, row.id));
+      run: async ({ row, db }) => {
+        await db.update(users).set({ status: "canceled" }).where(eq(users.id, row.id));
       },
     },
   },
 });
 
 const jobResource = defineResource<JobRow>(jobs, {
-  columns: (j) => [j.title, j.platform, j.category, j.priceUsd, j.postedAt, j.archived],
-  filters: (j) => [j.platform, j.category, j.postedAt, j.archived],
+  columns: (j) => [j.title, j.platform, j.categoryId, j.priceUsd, j.postedAt, j.archived],
+  filters: (j) => [j.platform, j.categoryId, j.postedAt, j.archived],
   defaultSort: { field: "postedAt", dir: "desc" },
 });
 
 const paymentResource = defineResource<PaymentRow>(payments, {
   label: "Payment",
-  columns: (p) => [p.id, p.user, p.amountRub, p.status, p.ukassaId, p.paidAt],
+  columns: (p) => [p.id, p.userId, p.amountRub, p.status, p.ukassaId, p.paidAt],
   filters: (p) => [p.status, p.createdAt],
   defaultSort: { field: "createdAt", dir: "desc" },
   actions: {
@@ -108,10 +105,9 @@ const paymentResource = defineResource<PaymentRow>(payments, {
         `Refund ₽${(row.amountRub / 100).toFixed(2)} to ${row.user?.email ?? "user"}?`,
       stepUp: true,
       disabled: ({ row }) => row.status !== "succeeded",
-      run: async ({ row, db: ctxDb }) => {
-        const d = ctxDb as typeof db;
+      run: async ({ row, db }) => {
         await refundUkassaPayment(row.ukassaId);
-        await d.update(payments).set({ status: "refunded" }).where(eq(payments.id, row.id));
+        await db.update(payments).set({ status: "refunded" }).where(eq(payments.id, row.id));
       },
     },
   },
@@ -142,9 +138,8 @@ const aiCostResource = defineResource<AiCostRow>(aiCosts, {
 export const mrr = metric({
   defaultRange: "30d",
   trend: "vs-previous-period",
-  compute: async ({ db: ctxDb }, { start, end }) => {
-    const d = ctxDb as typeof db;
-    const [r] = await d
+  compute: async ({ db }, { start, end }) => {
+    const [r] = await db
       .select({ v: sum(payments.amountRub) })
       .from(payments)
       .where(and(eq(payments.status, "succeeded"), between(payments.paidAt, start, end)));
@@ -156,9 +151,8 @@ export const mrr = metric({
 export const signups = timeseries({
   defaultRange: "30d",
   defaultBucket: "day",
-  compute: async ({ db: ctxDb }, { start, end, bucket }) => {
-    const d = ctxDb as typeof db;
-    const result = await d.execute<{ t: string; c: number }>(drizzleSql`
+  compute: async ({ db }, { start, end, bucket }) => {
+    const result = await db.execute<{ t: string; c: number }>(drizzleSql`
       SELECT date_trunc(${bucket}, ${users.createdAt}) AS t, COUNT(*)::int AS c
       FROM ${users}
       WHERE ${users.createdAt} >= ${start} AND ${users.createdAt} < ${end}
@@ -176,10 +170,9 @@ export const aiSpendByModel = breakdown({
   defaultRange: "30d",
   sort: "value-desc",
   limit: 10,
-  compute: async ({ db: ctxDb }, { range }) => {
-    const d = ctxDb as typeof db;
+  compute: async ({ db }, { range }) => {
     const conds = range ? between(aiCosts.createdAt, range.start, range.end) : undefined;
-    const rows = await d
+    const rows = await db
       .select({ label: aiCosts.model, v: sum(aiCosts.costUsd) })
       .from(aiCosts)
       .where(conds)
@@ -195,8 +188,7 @@ export const flowpanel = defineFlowPanel({
   basePath: "/admin",
   timezone: "Europe/Moscow",
 
-  // biome-ignore lint/suspicious/noExplicitAny: zod adapter union accepts the runtime shape but TS infers too strict
-  adapter: drizzleAdapter({ db, schema }) as any,
+  adapter: drizzleAdapter({ db, schema }),
 
   resources: {
     user: userResource,

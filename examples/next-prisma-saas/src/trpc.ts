@@ -1,4 +1,4 @@
 import { createTRPCReact } from "@trpc/react-query";
+import type { AppRouter } from "@/app/api/trpc/[trpc]/route";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const trpc = createTRPCReact<any>();
+export const trpc = createTRPCReact<AppRouter>();

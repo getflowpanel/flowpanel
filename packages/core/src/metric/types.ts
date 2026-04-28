@@ -24,7 +24,7 @@ export type MetricBucket = "hour" | "day" | "week" | "month";
  * `defaultRange`).
  */
 export interface MetricCtx {
-  readonly db: unknown;
+  readonly db: import("../types/augmentation").FpDb;
   readonly range?: MetricRange;
-  readonly session?: unknown;
+  readonly session?: import("../types/augmentation").FpSession;
 }

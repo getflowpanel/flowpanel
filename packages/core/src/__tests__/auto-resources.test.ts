@@ -1,16 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { FlowPanelAdapter } from "../config/adapter";
 import { defineFlowPanel } from "../defineFlowPanel";
 import { FlowPanelConfigError } from "../errors";
+
+const stubAdapter: FlowPanelAdapter = {
+  execute: vi.fn(),
+  transaction: vi.fn(),
+  dialect: "postgres",
+  // biome-ignore lint/suspicious/noExplicitAny: partial stub — full SqlExecutor methods unused in this suite
+} as any;
 
 const baseConfig = {
   appName: "Test App",
   timezone: "UTC",
   basePath: "/admin",
-  adapter: {
-    execute: vi.fn(),
-    transaction: vi.fn(),
-    dialect: "postgres" as const,
-  },
+  adapter: stubAdapter,
   pipeline: { stages: ["ingest"], fields: {}, stageFields: {} },
   security: { auth: { getSession: async () => null } },
 };

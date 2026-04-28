@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFlowPanelHandler } from "../createFlowPanelHandler";
 import type { FlowPanelConfig } from "../config/schema";
+import { createFlowPanelHandler } from "../createFlowPanelHandler";
 import type { FlowPanelRouterConfig } from "../defineFlowPanel";
 
 function stubFlowPanel(): { getRouterConfig: () => FlowPanelRouterConfig } {

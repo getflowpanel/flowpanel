@@ -11,11 +11,13 @@ import { Command } from "commander";
 import { addCommand } from "./commands/add";
 import { doctorCommand } from "./commands/doctor";
 import { initCommand } from "./commands/init";
+import { migrateCommand } from "./commands/migrate";
 import { scaffoldCommand } from "./commands/scaffold";
 
 const program = new Command().name("flowpanel").description("FlowPanel CLI").version("0.1.0");
 
 initCommand(program);
+migrateCommand(program);
 scaffoldCommand(program);
 doctorCommand(program);
 addCommand(program);

@@ -1,4 +1,11 @@
-import type { ModelMetadata, ResourceAdapter, SqlExecutor, SqlQuery } from "@flowpanel/core";
+import {
+  brandAdapter,
+  type CanonicalAdapter,
+  type ModelMetadata,
+  type ResourceAdapter,
+  type SqlExecutor,
+  type SqlQuery,
+} from "@flowpanel/core";
 import { extractModelFromDrizzleTable } from "./metadata";
 import { createDrizzleResourceAdapter } from "./resource";
 import { inferMetadata } from "./typed";
@@ -77,10 +84,29 @@ export function drizzleAdapter(opts: {
    * If not provided, enum values are inferred from column definitions.
    */
   enums?: Record<string, string[]>;
-}): {
-  sql: SqlExecutor;
-  resource: ResourceAdapter;
-} {
+  /**
+   * Optional: wire PostgreSQL `LISTEN`/`NOTIFY` for sub-50ms realtime
+   * updates. Without this, FlowPanel falls back to polling
+   * `flowpanel_events` every 2s (still works, just slower).
+   *
+   * Implement using your pg driver directly — Drizzle doesn't expose
+   * LISTEN since it's connection-scoped. Example with `postgres.js`:
+   *
+   * ```ts
+   * import postgres from "postgres";
+   * const sql = postgres(env.DATABASE_URL);
+   * drizzleAdapter({
+   *   db: drizzle(sql, { schema }),
+   *   schema,
+   *   listen: async (channel, handler) => {
+   *     const sub = await sql.listen(channel, handler);
+   *     return () => sub.unlisten();
+   *   },
+   * });
+   * ```
+   */
+  listen?: (channel: string, handler: (payload: string) => void) => Promise<() => void>;
+}): CanonicalAdapter {
   const dialect = opts.dialect ?? "postgres";
   let resolvedDb: DrizzleDb | null = null;
 
@@ -181,6 +207,8 @@ export function drizzleAdapter(opts: {
       return rows[0]?.pg_try_advisory_lock ?? false;
     },
 
+    ...(opts.listen ? { listen: opts.listen } : {}),
+
     sql(strings: TemplateStringsArray, ...values: unknown[]): SqlQuery {
       let text = "";
       let paramIndex = 1;
@@ -196,5 +224,5 @@ export function drizzleAdapter(opts: {
     },
   };
 
-  return { sql, resource };
+  return brandAdapter({ sql, resource });
 }
