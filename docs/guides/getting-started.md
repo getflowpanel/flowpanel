@@ -219,7 +219,13 @@ Then import from `@/flowpanel/widgets/<Name>` and drop into a `w.custom` widget 
 
 ## Next steps
 
+### Reference
 - [Resources](../reference/resources.md) — columns, filters, forms, access
 - [Actions](../reference/actions.md) — `a.mutation`, `a.bulk`, `a.collection`, `a.link`, `a.dialog`
 - [Dashboard](../reference/dashboard.md) — widgets (`metric`, `list`, `chart`, `custom`)
 - [Queues](../reference/queues.md) — BullMQ integration and queue inspection
+
+### Recipes
+- [Multi-tenant admin](../recipes/multi-tenant.md) — tenant/org scope via one `rowLevel` function
+- [File uploads](../recipes/file-uploads.md) — presigned URL flow to S3 / R2 / Supabase Storage
+- [JSONB editor](../recipes/jsonb-editor.md) — three options from read-only preview to full free-form edit

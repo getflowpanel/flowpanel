@@ -9,10 +9,20 @@
 - Core works: CRUD, filters, actions, row-level security, SSE realtime,
   widget/dashboard builder, Drizzle + Prisma adapters, shadcn-based UI
   with design tokens.
-- 447 unit tests passing. Typecheck green across 9 packages.
+- 447 unit tests passing (350 core + 42 react + 39 prisma + 16 cli).
+  Typecheck green across 9 packages + flagship.
 - One end-to-end example (`examples/freelance-radar`).
-- **Zero external adopters.** Zero e2e tests. No CI matrix. No
-  changelog discipline. Public API still leaks internals.
+- CI is in place and strict: `ci.yml` gates build + typecheck + lint +
+  unit + integration (pg 16) + Playwright E2E + changesets;
+  `quality-gates.yml` blocks `: any` in public exports, inline styles,
+  hardcoded white/black rgba, cross-package import boundaries; a
+  `main`-only matrix covers node 20+22 × pg 13+16 and macOS.
+- Playwright suite in `packages/e2e/` with 4 files (dashboard,
+  resources, keyboard, accessibility) against a fixture Next.js app.
+- **Zero external adopters.** E2E doesn't cover the `flowpanel init →
+  dev → /admin` scaffolding path (fixture uses a hand-rolled config).
+  No SECURITY.md. No real-world recipes (multi-tenant, file uploads,
+  JSONB editor).
 
 ## Definition of "safe to try"
 
@@ -59,18 +69,38 @@ ships an admin on a real side-project and reports no critical bugs.
 
 **Gate:** first real adopter cannot hit "install → broken → no fix in docs".
 
-### 1.1 E2E test (one is non-negotiable)
-Scenario lives in `packages/e2e/`:
-```
-create-next-app → add FlowPanel → flowpanel init --yes → next dev
-→ curl /admin = 200 with "FlowPanel"
-→ curl /api/trpc/flowpanel.schema = 200 with resource list
-→ playwright: CRUD cycle on a test resource
-```
-Runs in CI. Catches 80% of init/route/adapter regressions.
+### 1.1 E2E: scaffolding path
 
-### 1.2 CI matrix
-`.github/workflows/ci.yml` — Node 20+22 × ubuntu+macos. Required: typecheck, lint, unit tests, build, e2e. Windows deferred to 1.0.
+The existing Playwright suite runs against a fixture config; what's
+missing is coverage of the `flowpanel init → dev → /admin` path
+users actually take. Options in order of increasing cost:
+
+- **1.1a** Extract pure generator functions (`generateFlowPanelConfig`,
+  `generateAdminPage`, SQL migration) from `init.ts` into a testable
+  module. Unit tests assert shape, parse-ability, and `tsc` clean.
+  Cheap (1-2 hours), catches 70% of template regressions.
+- **1.1b** Full integration test in a scratch directory: run `flowpanel
+  init --yes` against a minimal Next.js fixture, then boot the dev
+  server and hit `/admin` + `/api/trpc/flowpanel.schema`. Expensive
+  but catches route-wiring + tRPC-patch bugs unit tests can't see.
+
+Start with 1.1a.
+
+### 1.2 CI matrix — already live
+
+`.github/workflows/ci.yml` gates: build + typecheck + lint + unit
++ integration (pg 16) + Playwright E2E + changeset requirement.
+`main`-only: matrix Node 20+22 × pg 13+16 + macOS smoke + chaos.
+`quality-gates.yml` additionally blocks `: any` in public index,
+inline styles, hardcoded rgba white/black, cross-package import
+boundary violations, and oversize files.
+
+Remaining tightenings (not blockers):
+
+- Gate `test:unit` also requires `@flowpanel/cli` and
+  `@flowpanel/adapter-prisma` — wired in commit `3cdd1c9`.
+- Track flaky macos-smoke and surface as required check when stable
+  for 30 days.
 
 ### 1.3 Error envelope audit
 Every throw point in core + adapters answers three questions: what, why, fix. Preflight check that surfaces "run `flowpanel migrate`" instead of a cryptic SQL error on first boot with no audit table.
@@ -87,8 +117,11 @@ Each is `docs/recipes/*.md` + a working cutout in the flagship example:
 - Filter builder injection audit (drizzle + prisma adapters).
 - `SECURITY.md` with CVE reporting channel.
 
-### 1.6 Changeset discipline
-Every `feat:` / `fix:` commit has a `.changeset/` entry. CI fails PRs without one (unless labelled `no-release`).
+### 1.6 Changeset discipline — already live
+
+`.github/workflows/changeset-required.yml` fails PRs that touch
+`packages/*/src/**` without a `.changeset/*.md` entry (unless labelled
+`skip-changeset`). Enforced since pre-0.9. Nothing to do here.
 
 **Exit criteria**
 - CI green on all matrix slots
