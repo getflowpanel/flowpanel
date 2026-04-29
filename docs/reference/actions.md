@@ -52,7 +52,7 @@ minutes versus hours. Every action follows the same five-hop pipeline:
 ## Defining actions
 
 ```ts
-resource(prisma.user, {
+defineResource<User>(prisma.user, {
   actions: (a) => ({
     // per-row mutation with confirm
     archive: a.mutation({

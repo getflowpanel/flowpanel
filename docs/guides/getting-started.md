@@ -75,7 +75,8 @@ Navigate to `/admin`. That's it — your data is now CRUD-editable with filters,
 
 ```ts
 // flowpanel.config.ts
-import { defineFlowPanel, resource } from "@flowpanel/core";
+import type { User } from "@prisma/client";
+import { defineFlowPanel, defineResource } from "@flowpanel/core";
 import { prisma } from "./lib/prisma";
 
 export const flowpanel = defineFlowPanel({
@@ -84,9 +85,9 @@ export const flowpanel = defineFlowPanel({
   pipeline: { stages: [] },       // keep even if empty
 
   resources: {
-    user: resource(prisma.user, {
-      columns: [(p) => p.email, (p) => p.role, (p) => p.createdAt],
-      filters: [(p) => p.role],
+    user: defineResource<User>(prisma.user, {
+      columns: (u) => [u.email, u.role, u.createdAt],
+      filters: (u) => [u.role],
       searchFields: ["email", "name"],
       actions: (a) => ({
         archive: a.mutation({
@@ -126,6 +127,81 @@ export const flowpanel = defineFlowPanel({
   },
 });
 ```
+
+## Add a dashboard
+
+Drop a `dashboard` block into the same config. Widgets evaluate server-side; the client never sees your queries:
+
+```ts
+import { defineFlowPanel, metric } from "@flowpanel/core";
+
+const mrr = metric({
+  trend: "vs-previous-period",
+  compute: async ({ db }, { start, end }) =>
+    db.payment.aggregate({
+      _sum: { amount: true },
+      where: { status: "succeeded", paidAt: { gte: start, lt: end } },
+    }).then((r) => r._sum.amount ?? 0),
+});
+
+defineFlowPanel({
+  // ...
+  dashboard: (w) => [
+    w.metric({ label: "MRR", format: "money", prefix: "$", ...mrr }),
+    w.list({
+      label: "Recent signups",
+      rows: async ({ db }) => db.user.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
+      render: (u) => ({ primary: u.email, secondary: u.name }),
+    }),
+  ],
+});
+```
+
+For big dashboards, group widgets under `sections: [{ title, widgets }]` — see [Dashboard reference](../reference/dashboard.md#sections).
+
+## Custom pages & tabs
+
+Anything that isn't a CRUD resource — reports, settings, mapping screens — lives as a `pages` entry:
+
+```ts
+import { ReportsPage } from "@/admin/ReportsPage";
+
+defineFlowPanel({
+  // ...
+  pages: [
+    { path: "reports", component: ReportsPage, icon: "bar-chart-3" },
+    { path: "categories", component: CategoryMappingPage },
+  ],
+});
+```
+
+Each page gets its own route under `/admin/<path>` and a sidebar entry. Build your own tabs, toolbars, or drag-and-drop UI — FlowPanel just hosts the layout and auth.
+
+## Opt into realtime
+
+Set `realtime: true` on any resource and its list/detail view will live-update when someone else mutates a row:
+
+```ts
+resources: {
+  user: defineResource<User>(db.user, { realtime: true, columns: (u) => [u.email] }),
+},
+```
+
+The SSE route scaffolded by `flowpanel init` at `app/api/flowpanel/stream/route.ts` handles transport, reconnection, and fallback polling for you.
+
+## shadcn-style widget scaffolding
+
+Need a status banner, sparkline, or custom stat card? Copy a template into your repo — the file is yours to edit, no wrapper API:
+
+```bash
+pnpm flowpanel add stat-card
+pnpm flowpanel add status-banner
+pnpm flowpanel add sparkline
+pnpm flowpanel add timeline
+pnpm flowpanel add kv
+```
+
+Then import from `@/flowpanel/widgets/<Name>` and drop into a `w.custom` widget or a custom page.
 
 ## What you get for free
 

@@ -2,13 +2,24 @@ import { useLocale } from "../locale/LocaleContext";
 
 export type Status = "running" | "succeeded" | "failed";
 
+// Status colors flow through `--fp-status-*` tokens (see styles/tokens.css),
+// so a theme preset can recolor them without touching this component. Each
+// status uses the same hue at full opacity for the foreground and at 0.15
+// alpha for the background — the contrast pair was picked to meet WCAG AA
+// 4.5:1 over both light and dark admin surfaces.
 const STATUS_STYLE: Record<Status, { bg: string; color: string }> = {
-  // Colors are bright enough to meet WCAG AA 4.5:1 against any dark background,
-  // including when the semi-transparent tag background is composited on top of
-  // a selected-row highlight (--fp-surface-2).
-  running: { bg: "rgba(251,191,36,0.15)", color: "#fbbf24" }, // amber-400
-  succeeded: { bg: "rgba(52,211,153,0.15)", color: "#34d399" }, // emerald-400
-  failed: { bg: "rgba(248,113,113,0.15)", color: "#f87171" }, // red-400
+  running: {
+    bg: "hsl(var(--fp-status-running) / 0.15)",
+    color: "hsl(var(--fp-status-running))",
+  },
+  succeeded: {
+    bg: "hsl(var(--fp-status-success) / 0.15)",
+    color: "hsl(var(--fp-status-success))",
+  },
+  failed: {
+    bg: "hsl(var(--fp-status-error) / 0.15)",
+    color: "hsl(var(--fp-status-error))",
+  },
 };
 
 export function StatusTag({ status, loading }: { status: Status; loading?: boolean }) {

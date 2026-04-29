@@ -1,24 +1,23 @@
 "use client";
 
-import type { DialogField, SerializedAction } from "@flowpanel/core";
+/**
+ * ResourceActionButton — the polymorphic button that handles all five
+ * action kinds (mutation, bulk, collection, link, dialog). Keeps the
+ * dispatcher thin: confirm logic goes through ConfirmDialog, dialog
+ * forms go through DialogActionForm, download/envelope helpers live in
+ * actionResult.ts.
+ */
+
+import type { SerializedAction } from "@flowpanel/core";
 import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Button, buttonVariants } from "../ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/dialog";
-import { Input } from "../ui/input";
 import { toast } from "../ui/sonner";
-import { Switch } from "../ui/switch";
-import { Textarea } from "../ui/textarea";
 import { cn } from "../utils/cn";
 import { getNestedValue } from "../utils/getNestedValue";
+import { type ActionDownload, extractResultData, triggerDownload } from "./actionResult";
+import { DialogActionForm } from "./DialogActionForm";
 
 interface BaseProps {
   action: SerializedAction;
@@ -42,14 +41,6 @@ function substituteHref(template: string, row: Record<string, unknown> | undefin
   });
 }
 
-/**
- * Polymorphic action button that handles all five action kinds:
- * - mutation: per-row mutation, optional confirm
- * - bulk: applied to recordIds[]
- * - collection: toolbar-level, no row
- * - link: navigates (new tab or same window)
- * - dialog: opens a form dialog and submits values
- */
 export function ResourceActionButton({
   action,
   resourceId,
@@ -70,7 +61,7 @@ export function ResourceActionButton({
     action.variant === "danger" ? "destructive" : "outline";
 
   // ──────────────────────────────────────────────────────────────
-  // LINK action
+  // LINK action — renders as an <a>, no network call.
   // ──────────────────────────────────────────────────────────────
   if (action.type === "link") {
     const href = substituteHref(action.href, row);
@@ -89,7 +80,7 @@ export function ResourceActionButton({
   }
 
   // ──────────────────────────────────────────────────────────────
-  // MUTATION / BULK / COLLECTION / DIALOG — button-triggered
+  // MUTATION / BULK / COLLECTION / DIALOG — button-triggered POST.
   // ──────────────────────────────────────────────────────────────
   const runNetwork = async (path: string, body: Record<string, unknown>) => {
     setLoading(true);
@@ -103,7 +94,6 @@ export function ResourceActionButton({
         const text = await response.text();
         throw new Error(text || `Server returned ${response.status}`);
       }
-      // Handle optional download response
       let result: unknown;
       try {
         result = await response.json();
@@ -112,8 +102,7 @@ export function ResourceActionButton({
       }
       const data = extractResultData(result);
       if (data && typeof data === "object" && "download" in data) {
-        const dl = (data as { download?: { filename: string; content: string; mimeType?: string } })
-          .download;
+        const dl = (data as { download?: ActionDownload }).download;
         if (dl) triggerDownload(dl);
       }
       toast.success(action.onSuccess?.toast ?? `${action.label} succeeded`);
@@ -222,192 +211,4 @@ export function ResourceActionButton({
       )}
     </>
   );
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// DialogActionForm
-// ────────────────────────────────────────────────────────────────────────────
-
-function DialogActionForm({
-  open,
-  onOpenChange,
-  action,
-  onSubmit,
-  loading,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  action: SerializedAction & { type: "dialog" };
-  onSubmit: (values: Record<string, unknown>) => Promise<void>;
-  loading: boolean;
-}) {
-  const { schema } = action;
-  const [values, setValues] = useState<Record<string, unknown>>(() => {
-    const initial: Record<string, unknown> = {};
-    for (const f of schema.fields) {
-      initial[f.name] = f.defaultValue ?? "";
-    }
-    return initial;
-  });
-
-  const setField = (name: string, value: unknown) =>
-    setValues((prev) => ({ ...prev, [name]: value }));
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await onSubmit(values);
-    if (!loading) onOpenChange(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={(e) => void submit(e)}>
-          <DialogHeader>
-            <DialogTitle>{schema.title ?? action.label}</DialogTitle>
-            {schema.description && <DialogDescription>{schema.description}</DialogDescription>}
-          </DialogHeader>
-
-          <div className="my-4 space-y-4">
-            {schema.fields.map((field) => (
-              <DialogFieldRow
-                key={field.name}
-                field={field}
-                value={values[field.name]}
-                onChange={(v) => setField(field.name, v)}
-              />
-            ))}
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant={action.variant === "danger" ? "destructive" : "default"}
-              loading={loading}
-            >
-              {schema.submitLabel ?? action.label}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function DialogFieldRow({
-  field,
-  value,
-  onChange,
-}: {
-  field: DialogField;
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  const id = `fp-dialog-${field.name}`;
-  const label = field.label ?? field.name;
-
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-1.5",
-        field.type === "boolean" && "flex-row items-center justify-between",
-      )}
-    >
-      <label htmlFor={id} className="text-sm font-medium leading-none">
-        {label}
-        {field.required && <span className="text-destructive ml-0.5">*</span>}
-      </label>
-      {field.type === "text" && (
-        <Input
-          id={id}
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={field.placeholder}
-          required={field.required}
-          disabled={false}
-        />
-      )}
-      {field.type === "number" && (
-        <Input
-          id={id}
-          type="number"
-          value={(value as string | number) ?? ""}
-          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-          placeholder={field.placeholder}
-          required={field.required}
-        />
-      )}
-      {field.type === "textarea" && (
-        <Textarea
-          id={id}
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={field.placeholder}
-          required={field.required}
-          rows={4}
-        />
-      )}
-      {field.type === "boolean" && (
-        <Switch id={id} checked={Boolean(value)} onCheckedChange={(v) => onChange(v)} />
-      )}
-      {field.type === "select" && (
-        <select
-          id={id}
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          required={field.required}
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          {!field.required && <option value="">—</option>}
-          {field.options?.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      )}
-      {field.type === "date" && (
-        <Input
-          id={id}
-          type="date"
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          required={field.required}
-        />
-      )}
-      {field.help && <p className="text-xs text-muted-foreground">{field.help}</p>}
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Utilities
-// ────────────────────────────────────────────────────────────────────────────
-
-function extractResultData(raw: unknown): unknown {
-  if (raw && typeof raw === "object" && "result" in raw) {
-    const r = (raw as { result?: { data?: unknown } }).result;
-    if (r && typeof r === "object" && "data" in r) return r.data;
-  }
-  return raw;
-}
-
-function triggerDownload(dl: { filename: string; content: string; mimeType?: string }) {
-  const blob = new Blob([dl.content], { type: dl.mimeType ?? "application/octet-stream" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = dl.filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }

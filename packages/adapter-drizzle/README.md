@@ -17,15 +17,20 @@ pnpm add @flowpanel/adapter-drizzle drizzle-orm
 
 ```ts
 // flowpanel.config.ts
-import { defineFlowPanel, resource } from "@flowpanel/core";
+import { type InferSelectModel } from "drizzle-orm";
+import { defineFlowPanel, defineResource } from "@flowpanel/core";
 import { drizzleAdapter } from "@flowpanel/adapter-drizzle";
 import { db } from "./db";           // your Drizzle db instance
 import * as schema from "./schema";  // tables + relations() exports
 
+type Post = InferSelectModel<typeof schema.posts>;
+
 export default defineFlowPanel({
   adapter: drizzleAdapter({ db, schema }),
   resources: {
-    posts: resource(schema.posts),
+    posts: defineResource<Post>(schema.posts, {
+      columns: (p) => [p.id, p.title],
+    }),
   },
 });
 ```

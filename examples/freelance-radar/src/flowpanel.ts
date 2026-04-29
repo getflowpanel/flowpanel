@@ -36,6 +36,7 @@ type AiCostRow = InferSelectModel<typeof aiCosts>;
 
 const userResource = defineResource<UserRow>(users, {
   label: "User",
+  realtime: true,
   columns: (u) => [
     u.id,
     u.email,
@@ -93,6 +94,7 @@ const jobResource = defineResource<JobRow>(jobs, {
 
 const paymentResource = defineResource<PaymentRow>(payments, {
   label: "Payment",
+  realtime: true,
   columns: (p) => [p.id, p.userId, p.amountRub, p.status, p.ukassaId, p.paidAt],
   filters: (p) => [p.status, p.createdAt],
   defaultSort: { field: "createdAt", dir: "desc" },
@@ -181,7 +183,7 @@ export const aiSpendByModel = breakdown({
   },
 });
 
-// ─── Root config (B1+B2 surface — widgets/drawers/theme arrive in B5/B7/B8) ─
+// ─── Root config ───────────────────────────────────────────────────────────
 
 export const flowpanel = defineFlowPanel({
   appName: "freelance-radar",
@@ -197,6 +199,31 @@ export const flowpanel = defineFlowPanel({
     aiCost: aiCostResource,
   },
 
+  // Dashboard — each widget evaluates its loader on the server; the
+  // client receives JSON payloads. `...mrr` spreads { value, trend }
+  // from metric() into w.metric(). For a sections-grouped layout see
+  // docs/reference/dashboard.md#sections.
+  dashboard: (w) => [
+    w.metric({
+      label: "MRR",
+      format: "money",
+      prefix: "₽",
+      layout: { span: 4 },
+      ...mrr,
+    }),
+    w.chart({
+      label: "Sign-ups",
+      kind: "line",
+      data: signups,
+    }),
+    w.chart({
+      label: "AI spend by model",
+      kind: "bar",
+      format: "money",
+      data: aiSpendByModel,
+    }),
+  ],
+
   pipeline: {
     stages: ["parse", "score", "notify"] as const,
     fields: {},
@@ -207,9 +234,3 @@ export const flowpanel = defineFlowPanel({
     auth: { getSession },
   },
 });
-
-// B2 ✅ metrics helpers (metric/timeseries/breakdown) — above
-// TODO(B5): realtime: true opt-in on resources + widgets
-// TODO(B7): theme tokens (preset + token overrides)
-// TODO(B8): widgets { mrr: w.metric({ ...mrr }), aiSpend: w.chart({ data: aiSpendByModel }) }
-// TODO(B8): dashboards with sections + grid layout

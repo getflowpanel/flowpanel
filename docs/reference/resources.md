@@ -3,16 +3,26 @@
 A **resource** is a CRUD-backed entity in your admin: a Prisma model, a Drizzle table, or anything the adapter knows how to list / read / create / update / delete.
 
 ```ts
-resource(modelRef, {
+import { defineResource } from "@flowpanel/core";
+
+defineResource<Row>(tableOrDelegate, {
   label?, labelPlural?,
   defaultSort?, defaultPageSize?,
   columns, filters?, searchFields?,
   actions?, access?, fieldAccess?,
-  icon?, readOnly?,
+  icon?, readOnly?, realtime?,
 })
 ```
 
-`modelRef` is your Prisma model delegate (`prisma.user`) or Drizzle table (`users`).
+The first argument is your Prisma model delegate (`prisma.user`) or Drizzle table (`users`). The `<Row>` generic is your row type (`InferSelectModel<typeof users>` for Drizzle, or `User` for Prisma) — it drives column selectors and action callbacks.
+
+## `defineResource` vs `resource` — which?
+
+**`defineResource`** (recommended) walks your table metadata at config-load time, so column selectors (`(u) => u.email`) are typed, typos throw before a user opens the page, and filter modes are inferred from column types.
+
+**`resource`** is the low-level escape hatch — it just wraps `{ modelRef, opts }` without any metadata touch. Reach for it only when you truly have no ORM metadata (raw string model name, dynamic scaffolding, one-off smoke configs, tests).
+
+Every example below uses `defineResource` and assumes the typed path.
 
 ## Columns
 

@@ -41,7 +41,8 @@ renames ship as breaking changes.
 |---|---|---|
 | Color — base | `--fp-background`, `--fp-foreground`, `--fp-muted`, `--fp-muted-foreground`, `--fp-border`, `--fp-input`, `--fp-ring` | Page chrome, inputs, focus |
 | Color — brand | `--fp-primary`, `--fp-primary-foreground` | CTAs, active states |
-| Color — semantic | `--fp-destructive`, `--fp-destructive-foreground`, `--fp-success`, `--fp-success-foreground` | Warn/ok, status tags |
+| Color — semantic | `--fp-destructive`, `--fp-destructive-foreground`, `--fp-success`, `--fp-success-foreground` | Button variants, alert blocks |
+| Color — status | `--fp-status-running`, `--fp-status-success`, `--fp-status-error` | Pipeline/job status pills (StatusTag). Separate from semantic colors so theme presets can tint these without repainting destructive buttons. |
 | Radius | `--fp-radius` (base), `--fp-radius-sm`, `--fp-radius-md`, `--fp-radius-lg` | Corner rounding across cards/inputs/buttons |
 | Spacing | `--fp-space-1` … `--fp-space-8` (0.25rem × density … 4rem × density) | Padding, gaps — multiply by `--fp-density` at runtime |
 | Density | `--fp-density` | Global scalar for spacing (1 = default, 0.9 = denser, 1.1 = airy) |

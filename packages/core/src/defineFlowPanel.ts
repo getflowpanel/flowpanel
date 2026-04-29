@@ -76,10 +76,14 @@ export interface FlowPanel<TConfig extends FlowPanelConfig = FlowPanelConfig> {
 }
 
 // ---------------------------------------------------------------------------
-// v2 config extensions (accepted alongside FlowPanelConfig)
+// Config extensions (accepted alongside the Zod-validated FlowPanelConfig)
+//
+// Kept separate because these fields carry functions and typed builders that
+// don't belong in a Zod schema; they are merged into the accepted input of
+// `defineFlowPanel()` without going through Zod validation.
 // ---------------------------------------------------------------------------
 
-export interface FlowPanelV2Extensions {
+export interface FlowPanelConfigExtensions {
   /** Custom handler-level context (e.g. Stripe, Telegram clients). */
   context?: () => Promise<object> | object;
   /** Declared role names for access rules. */
@@ -136,7 +140,12 @@ async function resolveDb(factory: SqlExecutorFactory): Promise<SqlExecutor> {
 // ---------------------------------------------------------------------------
 
 /**
- * Creates a ResourceDescriptor. Used in defineFlowPanel's `resources` config.
+ * Low-level `ResourceDescriptor` factory.
+ *
+ * Prefer {@link defineResource} — it infers column/filter metadata from your
+ * Drizzle table or Prisma delegate and enables typed column selectors.
+ * Reach for `resource()` only when you have no ORM metadata at hand — raw
+ * string model names in tests, dynamic scaffolding, or one-off smoke configs.
  *
  * @example
  * ```ts
@@ -173,7 +182,7 @@ export function resource(
  * ```
  */
 export function defineFlowPanel<TConfig extends FlowPanelConfig>(
-  rawConfig: TConfig & FlowPanelV2Extensions,
+  rawConfig: TConfig & FlowPanelConfigExtensions,
 ): FlowPanel<TConfig> {
   // Extract v2 extensions before Zod validation (Zod doesn't know about them)
   const {
@@ -187,7 +196,7 @@ export function defineFlowPanel<TConfig extends FlowPanelConfig>(
     pages: pagesConfig,
     unsafeAllowAutoResourcesInProduction,
     ...baseConfig
-  } = rawConfig as TConfig & FlowPanelV2Extensions & Record<string, unknown>;
+  } = rawConfig as TConfig & FlowPanelConfigExtensions & Record<string, unknown>;
 
   // Validate with Zod (base config only). Raw ZodError is unfriendly — wrap
   // via fromZodError to get code frames, Did-you-mean, and docs links where

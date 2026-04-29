@@ -17,6 +17,13 @@
   --fp-success: 142 71% 45%;
   --fp-success-foreground: 0 0% 100%;
 
+  /* Status palette — used by run/job status pills. Separate from the
+     semantic `success/destructive` above so theme presets can tint these
+     without changing button colors. */
+  --fp-status-running: 45 93% 58%; /* amber-400  */
+  --fp-status-success: 156 64% 54%; /* emerald-400 */
+  --fp-status-error: 0 91% 71%; /* red-400    */
+
   /* Geometry — radius + density (density scales spacing) */
   --fp-radius: 0.5rem;
   --fp-radius-sm: calc(var(--fp-radius) - 4px);

@@ -14,9 +14,11 @@ export type {
   FlowPanel,
   FlowPanelRouterConfig,
   FlowPanelSchema,
-  FlowPanelV2Extensions,
-  ResourceFactory,
 } from "./defineFlowPanel";
+// `defineFlowPanel` is the root config factory.
+// `resource` is a low-level descriptor factory kept for tests and for cases
+// where no ORM metadata is available (string model name). In normal code,
+// prefer `defineResource` — it does metadata inference and typed column refs.
 export { defineFlowPanel, resource } from "./defineFlowPanel";
 export {
   type ConfigErrorContext,
@@ -51,8 +53,8 @@ export {
   timeseries,
 } from "./metric";
 export { applyMigrations, getMigrationStatus } from "./migrationRunner";
-// Pages module (custom admin pages)
-export { canAccessPage, resolvePages, serializePages } from "./pages/resolver";
+// Pages module (custom admin pages) — only the public types; resolve/serialize
+// helpers are internal pipeline steps used by the tRPC router.
 export type {
   FlowPanelPage,
   PageAccessContext,
@@ -61,8 +63,7 @@ export type {
   SerializedPage,
 } from "./pages/types";
 export { createQueryBuilder } from "./queryBuilder";
-// Queue module
-export { resolveQueues, serializeQueue, serializeQueues } from "./queue/resolver";
+// Queue module — types only; resolve/serialize helpers are internal.
 export type {
   GetJobsArgs,
   JobState,
@@ -73,11 +74,10 @@ export type {
   SerializedQueue,
 } from "./queue/types";
 export { createReaper } from "./reaper";
-// Resource module
+// Resource module — typed builder + public types; the `createFilter`,
+// `mergeFilters`, `createResourceDescriptor`, `resolveResource`,
+// `serializeResource` helpers are pipeline internals and kept unexported.
 export { defineResource } from "./resource/defineResource";
-export { createFilter, mergeFilters } from "./resource/filters";
-export { createResourceDescriptor, resolveResource } from "./resource/resolver";
-export { serializeResource } from "./resource/serializer";
 export type {
   DefineResourceOptions,
   TypedAction,
@@ -150,10 +150,10 @@ export type { FlowPanelTypes, FpDb, FpSession } from "./types/augmentation";
 export type { RunFields } from "./types/config";
 export type { SqlExecutor, SqlExecutorFactory, SqlQuery } from "./types/db";
 
-// Widget / Dashboard module
-export { createWidgetBuilder, resolveDashboard, resolveSections } from "./widget/builder";
-export { evaluateDashboard, evaluateWidget } from "./widget/evaluator";
-export { serializeDashboard, serializeWidget } from "./widget/serializer";
+// Widget / Dashboard module — only the builder factory + public types.
+// The resolve/evaluate/serialize helpers are pipeline internals used by
+// the tRPC router and not part of the user-facing API.
+export { createWidgetBuilder } from "./widget/builder";
 export type {
   ChartBucket,
   ChartWidgetConfig,

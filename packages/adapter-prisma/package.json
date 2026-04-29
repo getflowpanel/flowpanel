@@ -27,7 +27,7 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run src/__tests__/metadata.test.ts src/__tests__/filters.test.ts",
+    "test:unit": "vitest run src/__tests__/metadata.test.ts src/__tests__/filters.test.ts",
     "test:integration": "vitest run --project integration"
   },
   "sideEffects": false,

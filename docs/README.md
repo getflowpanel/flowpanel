@@ -19,7 +19,7 @@ defineFlowPanel({
   pipeline: { stages: [...] },
 
   resources: {                        // table UIs with CRUD
-    user: resource(prisma.user, {...}),
+    user: defineResource<User>(prisma.user, {...}),
   },
 
   dashboard: (w) => [                 // live overview cards

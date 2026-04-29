@@ -52,7 +52,8 @@ pnpm dev
 
 ```ts
 // flowpanel.config.ts
-import { defineFlowPanel, resource } from "@flowpanel/core";
+import type { User } from "@prisma/client";
+import { defineFlowPanel, defineResource } from "@flowpanel/core";
 import { prisma } from "./lib/prisma";
 
 export const flowpanel = defineFlowPanel({
@@ -61,9 +62,9 @@ export const flowpanel = defineFlowPanel({
   pipeline: { stages: [] },
 
   resources: {
-    user: resource(prisma.user, {
-      columns: [(p) => p.email, (p) => p.role, (p) => p.createdAt],
-      filters: [(p) => p.role],
+    user: defineResource<User>(prisma.user, {
+      columns: (u) => [u.email, u.role, u.createdAt],
+      filters: (u) => [u.role],
       searchFields: ["email", "name"],
       actions: (a) => ({
         archive: a.mutation({

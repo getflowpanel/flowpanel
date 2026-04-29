@@ -206,13 +206,14 @@ export function initCommand(cli: Command): void {
         } catch {}
       }
 
-      p.outro(
-        pc.green("Done! ") +
-          pc.dim("Next: ") +
-          pc.cyan("npm run dev") +
-          pc.dim(" → visit ") +
-          pc.cyan("http://localhost:3000/admin"),
+      p.note(
+        `${pc.dim("1.")} ${pc.cyan("pnpm flowpanel migrate")}  ${pc.dim("— create the audit_log table (once per env)")}\n` +
+          `${pc.dim("2.")} ${pc.cyan("pnpm dev")}               ${pc.dim("— start Next.js")}\n` +
+          `${pc.dim("3.")} Open ${pc.cyan("http://localhost:3000/admin")}`,
+        "Next steps",
       );
+
+      p.outro(pc.green("Done — welcome to FlowPanel."));
     });
 }
 
