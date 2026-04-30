@@ -1,0 +1,76 @@
+/* FlowPanel design tokens — 30 CSS custom properties + motion + theme map */
+:root {
+  /* Color (HSL triplets) */
+  --fp-bg-1: 0 0% 100%;
+  --fp-bg-2: 220 14% 96%;
+  --fp-bg-3: 220 14% 92%;
+  --fp-text-1: 220 10% 15%;
+  --fp-text-2: 220 10% 40%;
+  --fp-text-3: 220 10% 60%;
+  --fp-border-1: 220 13% 91%;
+  --fp-border-2: 220 13% 86%;
+  --fp-accent: 220 90% 56%;
+  --fp-accent-text: 220 100% 98%;
+  --fp-ok: 142 70% 45%;
+  --fp-warn: 38 92% 50%;
+  --fp-err: 0 84% 60%;
+
+  /* Radius */
+  --fp-radius-sm: 0.25rem;
+  --fp-radius: 0.5rem;
+  --fp-radius-lg: 0.75rem;
+
+  /* Spacing base (4pt grid) */
+  --fp-space-unit: 4px;
+
+  /* Type */
+  --fp-font-sans:
+    ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  --fp-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Motion */
+  --fp-duration-fast: 120ms;
+  --fp-duration: 180ms;
+  --fp-duration-slow: 280ms;
+  --fp-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --fp-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --fp-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dark {
+  --fp-bg-1: 220 15% 10%;
+  --fp-bg-2: 220 15% 14%;
+  --fp-bg-3: 220 15% 18%;
+  --fp-text-1: 220 10% 96%;
+  --fp-text-2: 220 10% 78%;
+  --fp-text-3: 220 10% 60%;
+  --fp-border-1: 220 13% 22%;
+  --fp-border-2: 220 13% 28%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --fp-duration-fast: 0ms;
+    --fp-duration: 0ms;
+    --fp-duration-slow: 0ms;
+  }
+}
+
+@theme {
+  --color-fp-bg-1: hsl(var(--fp-bg-1));
+  --color-fp-bg-2: hsl(var(--fp-bg-2));
+  --color-fp-bg-3: hsl(var(--fp-bg-3));
+  --color-fp-text-1: hsl(var(--fp-text-1));
+  --color-fp-text-2: hsl(var(--fp-text-2));
+  --color-fp-text-3: hsl(var(--fp-text-3));
+  --color-fp-border-1: hsl(var(--fp-border-1));
+  --color-fp-border-2: hsl(var(--fp-border-2));
+  --color-fp-accent: hsl(var(--fp-accent));
+  --color-fp-accent-text: hsl(var(--fp-accent-text));
+  --color-fp-ok: hsl(var(--fp-ok));
+  --color-fp-warn: hsl(var(--fp-warn));
+  --color-fp-err: hsl(var(--fp-err));
+  --radius-fp: var(--fp-radius);
+  --radius-fp-sm: var(--fp-radius-sm);
+  --radius-fp-lg: var(--fp-radius-lg);
+}

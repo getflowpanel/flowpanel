@@ -1,0 +1,14 @@
+[
+  {
+    "name": "flowpanel/react (UI bundle)",
+    "path": "dist/react.js",
+    "import": "{ AdminShell, DataTable, AutoForm, Form }",
+    "limit": "55 KB"
+  },
+  {
+    "name": "flowpanel/client (hooks)",
+    "path": "dist/client.js",
+    "import": "{ useAdminMutation }",
+    "limit": "25 KB"
+  }
+]

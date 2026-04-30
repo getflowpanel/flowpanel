@@ -1,16 +1,18 @@
 {
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
-  "linked": [
+  "fixed": [
     [
+      "flowpanel",
       "@flowpanel/core",
+      "@flowpanel/next",
       "@flowpanel/react",
-      "@flowpanel/cli",
+      "@flowpanel/client",
       "@flowpanel/adapter-drizzle",
-      "@flowpanel/adapter-prisma"
+      "@flowpanel/cli"
     ]
   ],
+  "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch"

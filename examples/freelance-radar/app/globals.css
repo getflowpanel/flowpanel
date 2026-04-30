@@ -1,4 +1,4 @@
-@import "@flowpanel/react/styles";
+@import "@flowpanel/react/styles/admin.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

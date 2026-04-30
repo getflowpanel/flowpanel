@@ -1,0 +1,30 @@
+import { defineAdmin, resource } from "flowpanel";
+import { drizzleAdapter } from "flowpanel/drizzle";
+import { db } from "{{DB}}";
+import * as schema from "{{SCHEMA}}";
+import { getSession } from "{{AUTH}}";
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+
+  auth: {
+    session: getSession,
+    role: (s) => (s as any)?.user?.role ?? "guest",
+    requireRole: "admin",
+  },
+
+  theme: {
+    brand: { name: "{{APP_NAME}}" },
+    accent: "hsl(220 90% 56%)",
+    mode: "auto",
+  },
+
+  resources: [
+    // resource(schema.users, {
+    //   label: "Users",
+    //   columns: ["email", "name", "createdAt"],
+    //   search: ["email", "name"],
+    //   defaultSort: { field: "createdAt", dir: "desc" },
+    // }),
+  ],
+});

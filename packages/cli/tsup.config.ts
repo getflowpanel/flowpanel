@@ -1,19 +1,23 @@
+import { cpSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { defineConfig } from "tsup";
 
 export default defineConfig({
   entry: ["src/index.ts"],
   format: ["esm"],
   target: "node20",
-  banner: {
-    js: "#!/usr/bin/env node",
-  },
+  outExtension: () => ({ js: ".mjs" }),
+  banner: { js: "#!/usr/bin/env node" },
   clean: true,
+  splitting: false,
   shims: true,
-  // Widget templates live as `.tpl` files next to the code that imports them.
-  // esbuild inlines each as a string via the `text` loader, so the templates
-  // land inside `dist/index.mjs` — no extra copy step, no runtime `fs`.
-  loader: {
-    ".tpl": "text",
+  // Templates ship as real files in `dist/templates/` and are read at runtime
+  // via `template.ts`. Keep them outside the bundle so users can inspect the
+  // rendered source (and so the bundle stays small).
+  external: ["jiti"],
+  onSuccess: async () => {
+    const src = resolve("src/templates");
+    const dst = resolve("dist/templates");
+    if (existsSync(src)) cpSync(src, dst, { recursive: true });
   },
-  onSuccess: "chmod +x dist/index.js 2>/dev/null || chmod +x dist/index.mjs 2>/dev/null || true",
 });

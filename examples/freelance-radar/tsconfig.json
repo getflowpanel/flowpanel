@@ -20,6 +20,12 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": [".next/types/**/*", "app/**/*", "scripts/**/*", "src/**/*", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    ".next/types/**/*",
+    "app/**/*",
+    "src/**/*",
+    "flowpanel.config.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", "scripts"]
 }

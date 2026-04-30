@@ -25,6 +25,14 @@
           "suspicious": { "noExplicitAny": "off" }
         }
       }
+    },
+    {
+      "includes": ["packages/react/src/_data/DataTable.tsx"],
+      "linter": {
+        "rules": {
+          "a11y": { "noNoninteractiveTabindex": "off" }
+        }
+      }
     }
   ],
   "css": {

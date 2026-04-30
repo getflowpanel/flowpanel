@@ -1,12 +1,12 @@
 {
   "name": "@flowpanel/cli",
-  "version": "0.1.0",
-  "description": "CLI tools for FlowPanel — init, scaffold, doctor",
+  "version": "0.1.0-alpha.0",
+  "description": "CLI for FlowPanel — init, migrate, doctor",
   "keywords": [
     "flowpanel",
     "cli",
-    "pipeline",
-    "admin"
+    "admin",
+    "nextjs"
   ],
   "license": "MIT",
   "repository": {
@@ -32,6 +32,7 @@
     "@clack/prompts": "^1.2.0",
     "@flowpanel/core": "workspace:*",
     "commander": "^12.0.0",
+    "jiti": "^2.4.2",
     "kleur": "^4.1.5",
     "picocolors": "^1.1.1"
   },

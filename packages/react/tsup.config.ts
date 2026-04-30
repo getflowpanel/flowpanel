@@ -1,18 +1,15 @@
-import { copyFileSync, mkdirSync } from "node:fs";
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: {
-    index: "src/index.ts",
-    tailwind: "src/tailwind.ts",
-  },
-  format: ["esm", "cjs"],
+  entry: { index: "src/index.ts" },
+  format: ["esm"],
+  outExtension: () => ({ js: ".mjs" }),
   dts: true,
-  external: ["react", "react-dom"],
-  onSuccess: async () => {
-    mkdirSync("dist/theme", { recursive: true });
-    copyFileSync("src/theme/variables.css", "dist/theme/variables.css");
-    mkdirSync("dist/styles", { recursive: true });
-    copyFileSync("src/styles/tokens.css", "dist/styles/tokens.css");
-  },
+  clean: true,
+  splitting: false,
+  external: ["react", "react-dom", "next", "next/navigation", "@flowpanel/core", "zod"],
+  // Preserve "use client" on bundled output so Next.js RSC pipelines treat
+  // the module as a client boundary. All primitives here are safe in a
+  // client context, so a bundle-level banner is acceptable for M1.
+  banner: { js: '"use client";' },
 });

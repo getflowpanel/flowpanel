@@ -1,13 +1,11 @@
 {
   "name": "@flowpanel/core",
-  "version": "0.1.0",
-  "description": "Core logic for FlowPanel pipeline dashboards",
+  "version": "0.1.0-alpha.0",
+  "description": "Core logic for FlowPanel — types, defineAdmin, runtime helpers",
   "keywords": [
     "flowpanel",
     "admin",
-    "pipeline",
-    "dashboard",
-    "trpc"
+    "nextjs"
   ],
   "license": "MIT",
   "repository": {
@@ -16,8 +14,8 @@
     "directory": "packages/core"
   },
   "homepage": "https://github.com/Ch4m4/flowpanel",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
+  "type": "module",
+  "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -25,13 +23,7 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
-    "./trpc": {
-      "types": "./dist/trpc/index.d.ts",
-      "import": "./dist/trpc/index.mjs",
-      "require": "./dist/trpc/index.cjs"
-    },
-    "./package.json": "./package.json",
-    "./migrations/*": "./migrations/*"
+    "./package.json": "./package.json"
   },
   "scripts": {
     "build": "tsup",
@@ -41,13 +33,9 @@
   "sideEffects": false,
   "files": [
     "dist",
-    "migrations",
-    "package.json",
     "README.md"
   ],
-  "dependencies": {},
   "peerDependencies": {
-    "@trpc/server": "^11.0.0",
     "zod": "^3.23.0"
   },
   "engines": {
@@ -55,8 +43,11 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/react": "^19.2.14",
+    "react": "^19.2.5",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "zod": "^3.23.0"
   }
 }
