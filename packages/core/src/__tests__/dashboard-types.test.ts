@@ -1,18 +1,18 @@
-import { describe, it } from "vitest";
 import { expectTypeOf } from "expect-type";
+import { describe, it } from "vitest";
 import type {
-  DashboardConfig,
-  SectionConfig,
-  MetricWidget,
-  TableWidget,
-  CustomWidget,
-  StatGroupWidget,
-  WidgetConfig,
-  ResolvedDateRange,
-  CommandPaletteConfig,
   CommandGroup,
+  CommandPaletteConfig,
+  CustomWidget,
+  DashboardConfig,
   DrawerConfig,
   DrawerTab,
+  MetricWidget,
+  ResolvedDateRange,
+  SectionConfig,
+  StatGroupWidget,
+  TableWidget,
+  WidgetConfig,
 } from "../index.js";
 
 describe("M2 public types", () => {

@@ -9,7 +9,8 @@
       "@flowpanel/react",
       "@flowpanel/client",
       "@flowpanel/adapter-drizzle",
-      "@flowpanel/cli"
+      "@flowpanel/cli",
+      "@flowpanel/charts"
     ]
   ],
   "linked": [],

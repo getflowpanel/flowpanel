@@ -23,6 +23,8 @@ export { AutoForm, type AutoFormProps } from "./_forms/AutoForm.js";
 export { Field as FormField, type FieldProps as FormFieldProps } from "./_forms/Field.js";
 // Forms
 export { Form, type FormActionResult, type FormProps, useFormContext } from "./_forms/Form.js";
+export { FormError } from "./_forms/FormError.js";
+export { FormSubmit } from "./_forms/FormSubmit.js";
 // Layout
 export {
   Card,
@@ -32,18 +34,35 @@ export {
 } from "./_layout/Card.js";
 export { MetricGrid, type MetricGridProps } from "./_layout/MetricGrid.js";
 export { Section, type SectionProps } from "./_layout/Section.js";
+export { AdminNav, type NavEntry, type NavGroup } from "./_shell/AdminNav.js";
+// Shell
+export { AdminShell, type AdminShellProps } from "./_shell/AdminShell.js";
+export {
+  type CommandGroupUI,
+  CommandPalette,
+  type CommandPaletteProps,
+} from "./_shell/CommandPalette.js";
+export {
+  Drawer,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  type DrawerProps,
+  type DrawerWidth,
+} from "./_shell/Drawer.js";
+export { PageHeader, type PageHeaderProps } from "./_shell/PageHeader.js";
 // Widgets
 export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget.js";
 export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard.js";
 export { StatGroupCard, type StatGroupCardProps } from "./_widgets/StatGroupCard.js";
 export { TableWidget, type TableWidgetProps } from "./_widgets/TableWidget.js";
-export { FormError } from "./_forms/FormError.js";
-export { FormSubmit } from "./_forms/FormSubmit.js";
-export { AdminNav, type NavEntry, type NavGroup } from "./_shell/AdminNav.js";
-// Shell
-export { AdminShell, type AdminShellProps } from "./_shell/AdminShell.js";
-export { PageHeader, type PageHeaderProps } from "./_shell/PageHeader.js";
 // Hooks
+export { type AdminCommand, useAdminCommand } from "./hooks/useAdminCommand.js";
+export {
+  type AdminDrawer,
+  type AdminDrawerState,
+  useAdminDrawer,
+} from "./hooks/useAdminDrawer.js";
 export { type UrlState, useUrlState } from "./hooks/useUrlState.js";
 export { cn } from "./lib/cn.js";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format.js";

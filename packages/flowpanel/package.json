@@ -1,6 +1,6 @@
 {
   "name": "flowpanel",
-  "version": "0.1.0-alpha.0",
+  "version": "0.2.0-alpha.0",
   "description": "Config-first admin panel framework for Next.js 15",
   "license": "MIT",
   "type": "module",
@@ -32,6 +32,10 @@
     "./server": {
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js"
+    },
+    "./charts": {
+      "types": "./dist/charts.d.ts",
+      "import": "./dist/charts.js"
     }
   },
   "files": [
@@ -47,7 +51,8 @@
     "@flowpanel/next": "workspace:*",
     "@flowpanel/adapter-drizzle": "workspace:*",
     "@flowpanel/react": "workspace:*",
-    "@flowpanel/client": "workspace:*"
+    "@flowpanel/client": "workspace:*",
+    "@flowpanel/charts": "workspace:*"
   },
   "peerDependencies": {
     "next": "^15.0.0",

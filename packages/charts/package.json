@@ -1,0 +1,41 @@
+{
+  "name": "@flowpanel/charts",
+  "version": "0.2.0-alpha.0",
+  "description": "Recharts-backed chart widgets for FlowPanel dashboards",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "import": "./dist/runtime.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flowpanel/core": "workspace:*",
+    "@flowpanel/react": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "recharts": "^2.15.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "recharts": "^2.15.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.6.0"
+  }
+}

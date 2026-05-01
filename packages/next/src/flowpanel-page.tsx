@@ -1,11 +1,14 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
+import { CommandHost, DrawerHost } from "@flowpanel/next/client";
 import { AdminShell } from "@flowpanel/react";
 import type * as React from "react";
+import { DashboardPage } from "./pages/dashboard.js";
 import { NotFound } from "./pages/not-found.js";
 import { ResourceCreatePage } from "./pages/resource-create.js";
 import { ResourceDetailPage } from "./pages/resource-detail.js";
 import { ResourceEditPage } from "./pages/resource-edit.js";
 import { ResourceListPage } from "./pages/resource-list.js";
+import { matchDashboard } from "./runtime/dashboard-routing.js";
 import { buildNav, resourceNavName } from "./runtime/nav.js";
 
 type PageParams = { slug?: string[] };
@@ -28,6 +31,9 @@ export function Flowpanel(config: ResolvedAdminConfig) {
     }
 
     const navGroups = buildNav(config);
+    const navItems = navGroups.flatMap((g) =>
+      g.items.map((it) => ({ label: it.label, href: it.href })),
+    );
     const slugPath = `/${slug.join("/")}`;
     const currentPath = `/admin${slugPath === "/" ? "" : slugPath}`;
     const url = new URL(`http://localhost/admin${slugPath}`);
@@ -44,6 +50,11 @@ export function Flowpanel(config: ResolvedAdminConfig) {
         {...(brandName ? { brandName } : {})}
       >
         {content}
+        <DrawerHost />
+        <CommandHost
+          navItems={navItems}
+          {...(config.commandPalette ? { config: config.commandPalette } : {})}
+        />
       </AdminShell>
     );
   };
@@ -55,13 +66,30 @@ async function renderContent(
   sp: URLSearchParams,
   req: Request,
 ): Promise<React.ReactNode> {
+  // Dashboards take priority over resources — a dashboard registered at
+  // "/" + slug.join("/") intercepts before the resource fallthrough.
+  const dash = matchDashboard(slug, config);
+  if (dash) {
+    const session = await config.auth.session();
+    return (
+      <DashboardPage
+        config={config}
+        dashboard={dash}
+        searchParams={sp}
+        req={req}
+        session={session}
+      />
+    );
+  }
+
   if (slug.length === 0) {
     const first = config.resources?.[0];
     if (!first) return <NotFound />;
     return <ResourceListPage config={config} resource={first} searchParams={sp} req={req} />;
   }
 
-  const resourceName = slug[0]!;
+  const resourceName = slug[0];
+  if (!resourceName) return <NotFound />;
   const resource = config.resourcesByName.get(resourceName);
   if (!resource) return <NotFound />;
   const name = resourceNavName(resource);
@@ -70,7 +98,8 @@ async function renderContent(
     return <ResourceListPage config={config} resource={resource} searchParams={sp} req={req} />;
   }
 
-  const second = slug[1]!;
+  const second = slug[1];
+  if (!second) return <NotFound />;
   if (slug.length === 2 && second === "new") {
     return <ResourceCreatePage config={config} resource={resource} name={name} req={req} />;
   }

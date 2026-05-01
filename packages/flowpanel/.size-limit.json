@@ -10,5 +10,11 @@
     "path": "dist/client.js",
     "import": "{ useAdminMutation }",
     "limit": "25 KB"
+  },
+  {
+    "name": "flowpanel/charts (lazy)",
+    "path": "dist/charts.js",
+    "import": "{ areaChart, barChart, lineChart, pieChart }",
+    "limit": "60 KB"
   }
 ]

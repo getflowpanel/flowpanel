@@ -56,6 +56,44 @@
   }
 }
 
+/* Drawer animations — side-variant slide + overlay fade. Respect
+   prefers-reduced-motion via the duration token above. */
+@keyframes fp-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fp-slide-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fp-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fp-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @theme {
   --color-fp-bg-1: hsl(var(--fp-bg-1));
   --color-fp-bg-2: hsl(var(--fp-bg-2));

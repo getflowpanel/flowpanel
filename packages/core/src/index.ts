@@ -23,6 +23,11 @@ export type {
   ResourceIntrospection,
 } from "./types/adapter.js";
 export type {
+  CommandGroup,
+  CommandItem,
+  CommandPaletteConfig,
+} from "./types/command.js";
+export type {
   AdminConfig,
   AuditConfig,
   AuditEvent,
@@ -38,6 +43,24 @@ export type {
   QueryContext,
   RequestContext,
 } from "./types/context.js";
+export type {
+  DashboardConfig,
+  DateRangeConfig,
+  DateRangePreset,
+  PageConfig,
+  ResolvedDateRange,
+  SectionConfig,
+} from "./types/dashboard.js";
+export type {
+  DrawerAction,
+  DrawerConfig,
+  DrawerFieldFormSpec,
+  DrawerTab,
+  DrawerTabFields,
+  DrawerTabResource,
+  DrawerTabWidgets,
+  DrawerWidth,
+} from "./types/drawer.js";
 export {
   FlowpanelAccessError,
   FlowpanelAuthError,
@@ -85,26 +108,3 @@ export type {
   WidgetConfig,
   WidgetContext,
 } from "./types/widget.js";
-export type {
-  DashboardConfig,
-  DateRangeConfig,
-  DateRangePreset,
-  PageConfig,
-  ResolvedDateRange,
-  SectionConfig,
-} from "./types/dashboard.js";
-export type {
-  DrawerAction,
-  DrawerConfig,
-  DrawerFieldFormSpec,
-  DrawerTab,
-  DrawerTabFields,
-  DrawerTabResource,
-  DrawerTabWidgets,
-  DrawerWidth,
-} from "./types/drawer.js";
-export type {
-  CommandGroup,
-  CommandItem,
-  CommandPaletteConfig,
-} from "./types/command.js";

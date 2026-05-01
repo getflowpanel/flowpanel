@@ -1,4 +1,6 @@
-import { defineAdmin, resource } from "flowpanel";
+import { gte, sql } from "drizzle-orm";
+import { dashboard, defineAdmin, metric, resource, table } from "flowpanel";
+import { areaChart } from "flowpanel/charts";
 import { drizzleAdapter } from "flowpanel/drizzle";
 import { headers } from "next/headers";
 import { db } from "@/src/db/client";
@@ -25,6 +27,8 @@ export default defineAdmin({
       search: ["email", "telegramId"],
       filters: ["plan", "status"],
       defaultSort: { field: "createdAt", dir: "desc" },
+      rowClick: "drawer",
+      drawer: { width: "lg", header: (u: any) => String(u.email), fields: "*" },
     }),
     resource(schema.categories, {
       label: "Categories",
@@ -45,4 +49,78 @@ export default defineAdmin({
       defaultSort: { field: "createdAt", dir: "desc" },
     }),
   ],
+  dashboards: [
+    dashboard({
+      path: "/",
+      label: "Overview",
+      dateRange: { preset: "last7d" },
+      sections: [
+        {
+          label: "Today",
+          columns: 4,
+          widgets: [
+            metric("Users", async ({ db }) => {
+              const rows = await (db as any)
+                .select({ c: sql<number>`count(*)::int` })
+                .from(schema.users);
+              return Number(rows[0]?.c ?? 0);
+            }),
+            metric("Jobs", async ({ db }) => {
+              const rows = await (db as any)
+                .select({ c: sql<number>`count(*)::int` })
+                .from(schema.jobs);
+              return Number(rows[0]?.c ?? 0);
+            }),
+            metric("Categories", async ({ db }) => {
+              const rows = await (db as any)
+                .select({ c: sql<number>`count(*)::int` })
+                .from(schema.categories);
+              return Number(rows[0]?.c ?? 0);
+            }),
+            metric("Payments", async ({ db }) => {
+              const rows = await (db as any)
+                .select({ c: sql<number>`count(*)::int` })
+                .from(schema.payments);
+              return Number(rows[0]?.c ?? 0);
+            }),
+          ],
+        },
+        {
+          label: "Signups",
+          columns: 1,
+          widgets: [
+            areaChart(
+              "Signups",
+              async ({ db, dateRange }) => {
+                const rows = await (db as any)
+                  .select({
+                    day: sql<string>`date_trunc('day', ${schema.users.createdAt})`,
+                    count: sql<number>`count(*)::int`,
+                  })
+                  .from(schema.users)
+                  .where(gte(schema.users.createdAt, dateRange.from))
+                  .groupBy(sql`date_trunc('day', ${schema.users.createdAt})`)
+                  .orderBy(sql`date_trunc('day', ${schema.users.createdAt})`);
+                return rows as unknown[];
+              },
+              { x: "day", y: "count", smooth: true, height: 220 },
+            ),
+          ],
+        },
+        {
+          label: "Recent users",
+          columns: 1,
+          widgets: [table({ resource: "users", limit: 10, rowClick: "drawer" })],
+        },
+      ],
+    }),
+  ],
+  commandPalette: {
+    groups: [
+      {
+        label: "Actions",
+        items: [{ label: "Open Overview", action: { type: "navigate", href: "/admin" } }],
+      },
+    ],
+  },
 });

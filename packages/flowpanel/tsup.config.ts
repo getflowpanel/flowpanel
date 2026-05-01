@@ -9,6 +9,7 @@ export default defineConfig({
     client: "src/client.ts",
     bullmq: "src/bullmq.ts",
     server: "src/server.ts",
+    charts: "src/charts.ts",
   },
   format: ["esm"],
   dts: true,
@@ -23,5 +24,8 @@ export default defineConfig({
     "tailwindcss",
     "bullmq",
     "ioredis",
+    "recharts",
+    "@flowpanel/charts",
+    "@flowpanel/charts/runtime",
   ],
 });

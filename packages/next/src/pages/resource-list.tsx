@@ -10,6 +10,7 @@ import {
   type RequireRole,
   runWithRequestContext,
 } from "@flowpanel/core";
+import { DataTableWithDrawerRows } from "@flowpanel/next/client";
 import { Button, DataTable, type DataTableColumn, PageHeader } from "@flowpanel/react";
 import { resourceNavName } from "../runtime/nav.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
@@ -91,6 +92,7 @@ export async function ResourceListPage({
   });
 
   const rowKey = (resource.options.rowKey as string | undefined) ?? "id";
+  const useDrawerRowClick = resource.options.rowClick === "drawer" && !!resource.options.drawer;
 
   return (
     <>
@@ -106,16 +108,30 @@ export async function ResourceListPage({
               ),
             })}
       />
-      <DataTable
-        columns={columns}
-        rows={result.rows as Row[]}
-        total={result.total}
-        page={result.page}
-        pageSize={result.pageSize}
-        rowKey={rowKey as keyof Row & string}
-        {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
-        emptyTitle={`No ${resource.options.plural ?? name}`}
-      />
+      {useDrawerRowClick ? (
+        <DataTableWithDrawerRows
+          resource={name}
+          columns={columns}
+          rows={result.rows as Row[]}
+          total={result.total}
+          page={result.page}
+          pageSize={result.pageSize}
+          rowKey={rowKey as keyof Row & string}
+          {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
+          emptyTitle={`No ${resource.options.plural ?? name}`}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={result.rows as Row[]}
+          total={result.total}
+          page={result.page}
+          pageSize={result.pageSize}
+          rowKey={rowKey as keyof Row & string}
+          {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
+          emptyTitle={`No ${resource.options.plural ?? name}`}
+        />
+      )}
     </>
   );
 }

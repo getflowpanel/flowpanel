@@ -1,6 +1,6 @@
 "use client";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { DateRangePreset } from "@flowpanel/core";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { cn } from "../lib/cn.js";
 
 // NOTE: Custom calendar range selection is deferred to M4 polish; for M2 the
