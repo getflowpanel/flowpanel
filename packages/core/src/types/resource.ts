@@ -7,7 +7,10 @@ import type {
   QueryContext,
   RequestContext,
 } from "./context.js";
+import type { DrawerConfig } from "./drawer.js";
 import type { Scope } from "./session.js";
+
+export type { DrawerConfig };
 
 export type SelectOption = { label: string; value: string | number | boolean };
 
@@ -98,17 +101,6 @@ export interface DetailTab<Row> {
   render?: (row: Row) => ReactNode;
 }
 
-export interface DrawerConfig<Row> {
-  width?: "sm" | "md" | "lg" | "xl" | number;
-  header?: (row: Row) => ReactNode;
-  fields?: (keyof Row | FieldDef<Row>)[] | "*";
-  tabs?: DetailTab<Row>[];
-  actions?: RowAction<Row>[];
-  footer?: (row: Row) => ReactNode;
-  editable?: boolean;
-  viewDetailsLink?: boolean;
-}
-
 export interface ListResult<Row> {
   rows: Row[];
   total: number;
@@ -132,7 +124,7 @@ export interface ResourceOptions<Row> {
   rowClick?: "drawer" | "detail" | ((row: Row) => string | undefined) | false;
   rowKey?: keyof Row & string;
 
-  drawer?: DrawerConfig<Row>;
+  drawer?: DrawerConfig;
   detail?: {
     header?: (row: Row) => ReactNode;
     tabs?: DetailTab<Row>[];

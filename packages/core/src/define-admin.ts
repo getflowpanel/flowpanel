@@ -1,4 +1,5 @@
 import type { AdminConfig, ResolvedAdminConfig } from "./types/config.js";
+import type { DashboardConfig } from "./types/dashboard.js";
 import type { ResourceConfig } from "./types/resource.js";
 
 function resolveResourceName(ref: unknown, options: { name?: string }): string {
@@ -30,5 +31,12 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
     }
     resourcesByName.set(name, r);
   }
-  return { ...config, __resolved: true, resourcesByName };
+  const dashboardsByPath = new Map<string, DashboardConfig>();
+  for (const d of config.dashboards ?? []) {
+    if (dashboardsByPath.has(d.path)) {
+      throw new Error(`Duplicate dashboard path: "${d.path}".`);
+    }
+    dashboardsByPath.set(d.path, d);
+  }
+  return { ...config, __resolved: true, resourcesByName, dashboardsByPath };
 }

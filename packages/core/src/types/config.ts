@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
 import type { Adapter } from "./adapter.js";
+import type { CommandPaletteConfig } from "./command.js";
 import type { RequestContext } from "./context.js";
+import type { DashboardConfig, PageConfig } from "./dashboard.js";
 import type { ResourceConfig } from "./resource.js";
 import type { Scope, ScopeContext, Session } from "./session.js";
 
@@ -51,6 +53,9 @@ export interface AdminConfig {
   scope?: (ctx: ScopeContext) => Promise<Scope> | Scope;
   theme?: ThemeConfig;
   resources?: ResourceConfig[];
+  dashboards?: DashboardConfig[];
+  pages?: PageConfig[];
+  commandPalette?: CommandPaletteConfig;
   audit?: AuditConfig;
   hooks?: {
     onError?: (err: Error, ctx: RequestContext) => void | Promise<void>;
@@ -60,4 +65,5 @@ export interface AdminConfig {
 export interface ResolvedAdminConfig extends AdminConfig {
   readonly __resolved: true;
   readonly resourcesByName: Map<string, ResourceConfig>;
+  readonly dashboardsByPath: Map<string, DashboardConfig>;
 }

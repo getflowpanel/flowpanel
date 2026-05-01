@@ -11,15 +11,32 @@ export {
   type DataTableProps,
   type DataTableSort,
 } from "./_data/DataTable.js";
+export { DateRangePicker, type DateRangePickerProps } from "./_data/DateRangePicker.js";
 // Data mini
 export { KV, KVRow } from "./_data/KV.js";
 export { Pagination, type PaginationProps } from "./_data/Pagination.js";
 // Feedback
 export { EmptyState, type EmptyStateProps } from "./_feedback/EmptyState.js";
+export { ErrorCard } from "./_feedback/ErrorCard.js";
+export { SkeletonCard } from "./_feedback/SkeletonCard.js";
 export { AutoForm, type AutoFormProps } from "./_forms/AutoForm.js";
 export { Field as FormField, type FieldProps as FormFieldProps } from "./_forms/Field.js";
 // Forms
 export { Form, type FormActionResult, type FormProps, useFormContext } from "./_forms/Form.js";
+// Layout
+export {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "./_layout/Card.js";
+export { MetricGrid, type MetricGridProps } from "./_layout/MetricGrid.js";
+export { Section, type SectionProps } from "./_layout/Section.js";
+// Widgets
+export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget.js";
+export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard.js";
+export { StatGroupCard, type StatGroupCardProps } from "./_widgets/StatGroupCard.js";
+export { TableWidget, type TableWidgetProps } from "./_widgets/TableWidget.js";
 export { FormError } from "./_forms/FormError.js";
 export { FormSubmit } from "./_forms/FormSubmit.js";
 export { AdminNav, type NavEntry, type NavGroup } from "./_shell/AdminNav.js";
@@ -29,6 +46,7 @@ export { PageHeader, type PageHeaderProps } from "./_shell/PageHeader.js";
 // Hooks
 export { type UrlState, useUrlState } from "./hooks/useUrlState.js";
 export { cn } from "./lib/cn.js";
+export { formatNumber, type NumericFormat, type Tone } from "./lib/format.js";
 // UI primitives
 export { Button, type ButtonProps, buttonVariants } from "./ui/button.js";
 export { Checkbox } from "./ui/checkbox.js";
