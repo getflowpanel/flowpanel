@@ -5,4 +5,8 @@ export { CommandHost, type CommandHostProps } from "./command/CommandHost.js";
 export { DataTableWithDrawerRows } from "./drawer/DataTableWithDrawerRows.js";
 export { DrawerHost } from "./drawer/DrawerHost.js";
 export { DashboardDateRange } from "./pages/dashboard-date-range.js";
+export {
+  ResourceListFilters,
+  type ResourceListFiltersProps,
+} from "./pages/resource-list-filters.js";
 export { WidgetErrorBoundary } from "./runtime/WidgetErrorBoundary.js";

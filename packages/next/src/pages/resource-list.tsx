@@ -10,9 +10,10 @@ import {
   type RequireRole,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { DataTableWithDrawerRows } from "@flowpanel/next/client";
+import { DataTableWithDrawerRows, ResourceListFilters } from "@flowpanel/next/client";
 import { Button, DataTable, type DataTableColumn, PageHeader } from "@flowpanel/react";
 import { resourceNavName } from "../runtime/nav.js";
+import { parseListParams, resolveFilterSpecs } from "../runtime/parse-list-params.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 
 export interface ResourceListPageProps {
@@ -39,24 +40,16 @@ export async function ResourceListPage({
 
   const name = resourceNavName(resource);
   const pageSize = resource.options.pageSize ?? 20;
-  const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
-  const search = searchParams.get("q") ?? "";
-  const sortField = searchParams.get("sort");
-  const sortDir: "asc" | "desc" = searchParams.get("dir") === "asc" ? "asc" : "desc";
-  const sort: { field: string; dir: "asc" | "desc" } | null = sortField
-    ? { field: sortField, dir: sortDir }
-    : resource.options.defaultSort
-      ? {
-          field: resource.options.defaultSort.field as string,
-          dir: resource.options.defaultSort.dir,
-        }
-      : null;
+  const defaultSortRaw = resource.options.defaultSort;
+  const defaultSort: { field: string; dir: "asc" | "desc" } | undefined = defaultSortRaw
+    ? { field: defaultSortRaw.field as string, dir: defaultSortRaw.dir }
+    : undefined;
+  const { page, search, sort, filters } = parseListParams(searchParams, defaultSort);
 
-  const filters: Record<string, unknown> = {};
-  for (const [k, v] of searchParams.entries()) {
-    if (k === "page" || k === "q" || k === "sort" || k === "dir") continue;
-    filters[k] = v;
-  }
+  const filterSpecs = await resolveFilterSpecs(resource.options.filters, {
+    db: config.adapter.db,
+    session: reqCtx.session,
+  });
 
   const ctx: ListQueryContext<Row> = {
     ...reqCtx,
@@ -108,6 +101,7 @@ export async function ResourceListPage({
               ),
             })}
       />
+      <ResourceListFilters filters={filterSpecs} />
       {useDrawerRowClick ? (
         <DataTableWithDrawerRows
           resource={name}

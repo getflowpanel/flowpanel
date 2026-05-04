@@ -12,6 +12,31 @@ export {
   type DataTableSort,
 } from "./_data/DataTable.js";
 export { DateRangePicker, type DateRangePickerProps } from "./_data/DateRangePicker.js";
+export { FilterBar, type FilterBarProps, type FilterBarSpec } from "./_data/FilterBar.js";
+export {
+  BooleanFilter,
+  type BooleanFilterProps,
+} from "./_data/filters/BooleanFilter.js";
+export {
+  DateRangeFilter,
+  type DateRangeFilterProps,
+} from "./_data/filters/DateRangeFilter.js";
+export {
+  MultiSelectFilter,
+  type MultiSelectFilterOption,
+  type MultiSelectFilterProps,
+} from "./_data/filters/MultiSelectFilter.js";
+export {
+  NumericRangeFilter,
+  type NumericRangeFilterProps,
+} from "./_data/filters/NumericRangeFilter.js";
+export {
+  SelectFilter,
+  type SelectFilterOption,
+  type SelectFilterProps,
+} from "./_data/filters/SelectFilter.js";
+export { TagFilter, type TagFilterProps } from "./_data/filters/TagFilter.js";
+export { TextFilter, type TextFilterProps } from "./_data/filters/TextFilter.js";
 // Data mini
 export { KV, KVRow } from "./_data/KV.js";
 export { Pagination, type PaginationProps } from "./_data/Pagination.js";
@@ -63,6 +88,11 @@ export {
   type AdminDrawerState,
   useAdminDrawer,
 } from "./hooks/useAdminDrawer.js";
+export {
+  type TableSort,
+  useAdminTable,
+  type UseAdminTable,
+} from "./hooks/useAdminTable.js";
 export { type UrlState, useUrlState } from "./hooks/useUrlState.js";
 export { cn } from "./lib/cn.js";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format.js";
