@@ -14,6 +14,7 @@
     "docker:down": "docker compose down"
   },
   "dependencies": {
+    "@flowpanel/core": "workspace:*",
     "drizzle-orm": "^0.36.0",
     "flowpanel": "workspace:*",
     "next": "^15.0.0",

@@ -7,6 +7,12 @@ import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 import { type AdminSession, getSession } from "@/src/lib/auth";
 
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
   auth: {
@@ -60,27 +66,21 @@ export default defineAdmin({
           columns: 4,
           widgets: [
             metric("Users", async ({ db }) => {
-              const rows = await (db as any)
-                .select({ c: sql<number>`count(*)::int` })
-                .from(schema.users);
+              const rows = await db.select({ c: sql<number>`count(*)::int` }).from(schema.users);
               return Number(rows[0]?.c ?? 0);
             }),
             metric("Jobs", async ({ db }) => {
-              const rows = await (db as any)
-                .select({ c: sql<number>`count(*)::int` })
-                .from(schema.jobs);
+              const rows = await db.select({ c: sql<number>`count(*)::int` }).from(schema.jobs);
               return Number(rows[0]?.c ?? 0);
             }),
             metric("Categories", async ({ db }) => {
-              const rows = await (db as any)
+              const rows = await db
                 .select({ c: sql<number>`count(*)::int` })
                 .from(schema.categories);
               return Number(rows[0]?.c ?? 0);
             }),
             metric("Payments", async ({ db }) => {
-              const rows = await (db as any)
-                .select({ c: sql<number>`count(*)::int` })
-                .from(schema.payments);
+              const rows = await db.select({ c: sql<number>`count(*)::int` }).from(schema.payments);
               return Number(rows[0]?.c ?? 0);
             }),
           ],
@@ -92,7 +92,7 @@ export default defineAdmin({
             areaChart(
               "Signups",
               async ({ db, dateRange }) => {
-                const rows = await (db as any)
+                const rows = await db
                   .select({
                     day: sql<string>`date_trunc('day', ${schema.users.createdAt})`,
                     count: sql<number>`count(*)::int`,

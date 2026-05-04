@@ -9,13 +9,17 @@ import { and, asc, desc, eq, getTableColumns, ilike, like, or, sql } from "drizz
 import { introspect } from "./introspect.js";
 import { inferSchema } from "./schema.js";
 
-export interface DrizzleAdapterOptions {
-  db: unknown;
+export interface DrizzleAdapterOptions<DB = unknown> {
+  db: DB;
   schema: Record<string, unknown>;
   dialect?: "pg" | "mysql" | "sqlite";
 }
 
-export function drizzleAdapter(opts: DrizzleAdapterOptions): Adapter {
+export function drizzleAdapter<DB>(opts: {
+  db: DB;
+  schema: Record<string, unknown>;
+  dialect?: "pg" | "mysql" | "sqlite";
+}): Adapter<DB> {
   const dialect = opts.dialect ?? "pg";
   const likeOp = dialect === "pg" ? ilike : like;
 

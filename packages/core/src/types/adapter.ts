@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { ItemQueryContext, ListQueryContext, MutationContext } from "./context.js";
+import type { InferDB } from "./registry.js";
 import type { ListResult } from "./resource.js";
 
 export interface ColumnMeta {
@@ -19,9 +20,9 @@ export interface ResourceIntrospection {
   primaryKey: string;
 }
 
-export interface Adapter {
+export interface Adapter<DB = InferDB> {
   kind: "drizzle" | "prisma";
-  db: unknown;
+  db: DB;
   introspect(ref: unknown): ResourceIntrospection;
   inferSchema(ref: unknown): {
     create: z.ZodTypeAny;
@@ -33,4 +34,5 @@ export interface Adapter {
   create(ref: unknown, ctx: MutationContext<any>): Promise<any>;
   update(ref: unknown, ctx: MutationContext<any>): Promise<any>;
   delete(ref: unknown, ctx: MutationContext<any>): Promise<void>;
+  restore?(ref: unknown, ctx: MutationContext<any>): Promise<void>;
 }

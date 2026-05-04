@@ -1,10 +1,11 @@
 import type { ComponentType, ReactNode } from "react";
 import type { ResolvedDateRange } from "./dashboard.js";
+import type { InferDB } from "./registry.js";
 import type { Session } from "./session.js";
 
 /** Server-side context passed to every widget `query` function. */
-export interface WidgetContext {
-  db: unknown;
+export interface WidgetContext<DB = InferDB> {
+  db: DB;
   session: Session | null;
   dateRange: ResolvedDateRange;
   req: Request;
