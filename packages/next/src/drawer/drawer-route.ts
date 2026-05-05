@@ -87,6 +87,7 @@ async function serializeTab(
     };
   }
   const filter = typeof tab.filter === "function" ? tab.filter(row) : {};
+  const softDelete = target.options.delete?.softDelete;
   const listCtx: ListQueryContext<Record<string, unknown>> = {
     ...reqCtx,
     req,
@@ -99,6 +100,7 @@ async function serializeTab(
     page: 1,
     pageSize: 20,
     search: "",
+    ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
   };
   const result = await runWithRequestContext(reqCtx, () =>
     config.adapter.list(target.ref, listCtx),

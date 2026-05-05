@@ -18,6 +18,7 @@ import {
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { resourceNavName } from "../runtime/nav.js";
+import { publishResource } from "../runtime/publish.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 
 interface Schemas {
@@ -124,6 +125,10 @@ export function makeActions(
       await baseAudit(`${name}.create`, reqCtx, {
         ...(rowId !== undefined && rowId !== null ? { targetId: String(rowId) } : {}),
       });
+      await publishResource(name, {
+        action: "create",
+        ...(rowId !== undefined && rowId !== null ? { id: String(rowId) } : {}),
+      });
       revalidatePath(`/admin/${name}`);
       return row;
     },
@@ -154,6 +159,7 @@ export function makeActions(
       );
       if (!row) throw new FlowpanelNotFoundError();
       await baseAudit(`${name}.update`, reqCtx, { targetId: id });
+      await publishResource(name, { action: "update", id });
       revalidatePath(`/admin/${name}`);
       revalidatePath(`/admin/${name}/${id}`);
       return row;
@@ -171,14 +177,17 @@ export function makeActions(
           | undefined,
       });
 
+      const softDelete = resource.options.delete?.softDelete;
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
         db: config.adapter.db,
         input: {},
         id,
+        ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
       };
       await runWithRequestContext(reqCtx, () => config.adapter.delete(resource.ref, mctx));
       await baseAudit(`${name}.delete`, reqCtx, { targetId: id });
+      await publishResource(name, { action: "delete", id });
       revalidatePath(`/admin/${name}`);
     },
   };

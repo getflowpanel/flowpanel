@@ -14,6 +14,11 @@ export {
 } from "./drawer/drawer-route.js";
 export { Flowpanel } from "./flowpanel-page.js";
 export { handlers } from "./handlers.js";
+export {
+  applyActionResult,
+  type ApplyActionResultOptions,
+} from "./runtime/apply-action-result.js";
 export { buildNav, resourceNavName } from "./runtime/nav.js";
+export { publish, publishResource } from "./runtime/publish.js";
 export { type BuildRequestCtxArgs, buildRequestContext } from "./runtime/request-setup.js";
 export { stream } from "./stream.js";

@@ -51,6 +51,7 @@ export async function ResourceListPage({
     session: reqCtx.session,
   });
 
+  const softDelete = resource.options.delete?.softDelete;
   const ctx: ListQueryContext<Row> = {
     ...reqCtx,
     db: config.adapter.db,
@@ -62,6 +63,7 @@ export async function ResourceListPage({
     page,
     pageSize,
     search,
+    ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
   };
 
   const result = await runWithRequestContext(reqCtx, () => config.adapter.list(resource.ref, ctx));

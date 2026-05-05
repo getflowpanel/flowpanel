@@ -55,6 +55,9 @@ export function drizzleAdapter<DB>(opts: {
         clauses.push(or(...(ors as any)));
       }
     }
+    if (ctx.softDelete?.column && cols[ctx.softDelete.column]) {
+      clauses.push(sql`${cols[ctx.softDelete.column]} IS NULL`);
+    }
     return clauses.length ? and(...(clauses as any)) : undefined;
   }
 
@@ -130,7 +133,28 @@ export function drizzleAdapter<DB>(opts: {
       const db = getDb(ctx as any);
       const pk = pkFor(cols as any);
       if (!ctx.id) throw new Error("delete requires ctx.id");
-      await db.delete(ref).where(eq((cols as any)[pk], ctx.id));
+      const softCol = ctx.softDelete?.column;
+      if (softCol && (cols as any)[softCol]) {
+        await db
+          .update(ref)
+          .set({ [softCol]: new Date() })
+          .where(eq((cols as any)[pk], ctx.id));
+      } else {
+        await db.delete(ref).where(eq((cols as any)[pk], ctx.id));
+      }
+    },
+
+    async restore(ref: any, ctx: MutationContext<any>) {
+      const cols = getTableColumns(ref);
+      const db = getDb(ctx as any);
+      const pk = pkFor(cols as any);
+      const softCol = ctx.softDelete?.column;
+      if (!softCol) throw new Error("restore requires ctx.softDelete to be configured");
+      if (!ctx.id) throw new Error("restore requires ctx.id");
+      await db
+        .update(ref)
+        .set({ [softCol]: null })
+        .where(eq((cols as any)[pk], ctx.id));
     },
   };
 }

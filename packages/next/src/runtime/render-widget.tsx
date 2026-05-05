@@ -80,6 +80,7 @@ export async function renderWidget(
       } else if (widget.options.resource) {
         const res = config.resourcesByName.get(widget.options.resource);
         if (res) {
+          const softDelete = res.options.delete?.softDelete;
           const listCtx: ListQueryContext<Record<string, unknown>> = {
             req: ctx.req,
             session: ctx.session,
@@ -96,6 +97,7 @@ export async function renderWidget(
             page: 1,
             pageSize: widget.options.limit ?? 10,
             search: "",
+            ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
           };
           const r = await config.adapter.list(res.ref, listCtx);
           rows = r.rows;

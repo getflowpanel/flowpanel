@@ -1,3 +1,4 @@
+import type { BulkAction } from "./types/action.js";
 import type { AdminConfig, ResolvedAdminConfig } from "./types/config.js";
 import type { DashboardConfig } from "./types/dashboard.js";
 import type { ResourceConfig } from "./types/resource.js";
@@ -22,7 +23,39 @@ function resolveResourceName(ref: unknown, options: { name?: string }): string {
   );
 }
 
+/**
+ * Sentinel BulkAction injected by `defineAdmin` when a resource has `delete`
+ * enabled and no explicit `bulkActions`. The actual delete execution is wired
+ * at the runtime layer (@flowpanel/next) in Phase 4; this `run` is a no-op
+ * guard so the shape is a valid BulkAction.
+ */
+const defaultDeleteBulk: BulkAction<unknown> = {
+  key: "delete",
+  label: "Delete",
+  variant: "destructive",
+  confirm: { title: "Delete selected items?", description: "This cannot be undone." },
+  run: async () => ({
+    ok: false,
+    error: "default bulk delete is wired at the runtime layer; this sentinel should never execute",
+  }),
+};
+
+/**
+ * Resolve a FlowPanel admin configuration.
+ *
+ * Side effect: for each resource where `delete` is enabled (i.e. not
+ * `delete: { disabled: true }`) and `bulkActions` is `undefined`, this
+ * mutates `options.bulkActions` to `[defaultDeleteBulk]` so users get a
+ * destructive batch-delete action for free. Opt out with `bulkActions: []`
+ * or `delete: { disabled: true }`.
+ */
 export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
+  for (const r of config.resources ?? []) {
+    const deleteDisabled = r.options.delete?.disabled === true;
+    if (!deleteDisabled && r.options.bulkActions === undefined) {
+      r.options.bulkActions = [defaultDeleteBulk];
+    }
+  }
   const resourcesByName = new Map<string, ResourceConfig>();
   for (const r of config.resources ?? []) {
     const name = resolveResourceName(r.ref, r.options);
