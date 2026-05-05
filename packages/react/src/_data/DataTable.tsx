@@ -37,6 +37,11 @@ export interface DataTableProps<Row> {
   emptyDescription?: string;
   emptyAction?: React.ReactNode;
   className?: string;
+  selection?: string[];
+  onSelectionChange?: (ids: string[]) => void;
+  /** When provided, the caller controls row-key extraction; defaults to String(row[rowKey]). */
+  getRowKey?: (row: Row) => string;
+  columnVisibility?: Record<string, boolean>;
 }
 
 export function DataTable<Row extends Record<string, unknown>>({
@@ -56,11 +61,45 @@ export function DataTable<Row extends Record<string, unknown>>({
   emptyDescription,
   emptyAction,
   className,
+  selection,
+  onSelectionChange,
+  getRowKey,
+  columnVisibility,
 }: DataTableProps<Row>) {
-  const visible = React.useMemo(() => columns.filter((c) => !c.hidden), [columns]);
+  const visible = React.useMemo(
+    () => columns.filter((c) => !c.hidden && (columnVisibility?.[c.field] ?? true)),
+    [columns, columnVisibility],
+  );
   const rowPadding = density === "compact" ? "py-1.5" : "py-3";
   const [cursor, setCursor] = React.useState<number>(-1);
   const tbodyRef = React.useRef<HTMLTableSectionElement>(null);
+
+  const selectionEnabled = onSelectionChange !== undefined;
+  const keyOf = React.useCallback(
+    (row: Row) => (getRowKey ? getRowKey(row) : String(row[rowKey])),
+    [getRowKey, rowKey],
+  );
+  const selectionSet = React.useMemo(() => new Set(selection ?? []), [selection]);
+  const allOnPageSelected = rows.length > 0 && rows.every((r) => selectionSet.has(keyOf(r)));
+
+  const toggleRow = (id: string) => {
+    if (!onSelectionChange) return;
+    const next = new Set(selectionSet);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSelectionChange(Array.from(next));
+  };
+  const toggleAll = () => {
+    if (!onSelectionChange) return;
+    if (allOnPageSelected) {
+      const remaining = Array.from(selectionSet).filter((id) => !rows.some((r) => keyOf(r) === id));
+      onSelectionChange(remaining);
+    } else {
+      const union = new Set(selectionSet);
+      for (const r of rows) union.add(keyOf(r));
+      onSelectionChange(Array.from(union));
+    }
+  };
 
   // Reset cursor when the row set changes (new page, filter, etc).
   // biome-ignore lint/correctness/useExhaustiveDependencies: rows identity change is the trigger.
@@ -102,6 +141,9 @@ export function DataTable<Row extends Record<string, unknown>>({
         <table className="w-full text-sm">
           <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
             <tr>
+              {selectionEnabled ? (
+                <th scope="col" className="w-10 px-4 py-2" aria-hidden="true" />
+              ) : null}
               {visible.map((c) => (
                 <th
                   key={c.field}
@@ -118,6 +160,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             {skeletonRows.map((_, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders have no stable identity.
               <tr key={`skeleton-${i}`} className="border-t border-fp-border-1">
+                {selectionEnabled ? <td className={cn("px-4", rowPadding)} /> : null}
                 {visible.map((c) => (
                   <td key={c.field} className={cn("px-4", rowPadding)}>
                     <Skeleton className="h-4 w-24" />
@@ -150,6 +193,21 @@ export function DataTable<Row extends Record<string, unknown>>({
       <table className="w-full text-sm">
         <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
           <tr>
+            {selectionEnabled ? (
+              <th scope="col" className="w-10 px-4 py-2">
+                <input
+                  type="checkbox"
+                  checked={allOnPageSelected}
+                  aria-label={
+                    allOnPageSelected
+                      ? "Deselect all rows on this page"
+                      : "Select all rows on this page"
+                  }
+                  onChange={toggleAll}
+                  className="h-4 w-4 accent-fp-accent"
+                />
+              </th>
+            ) : null}
             {visible.map((c) => {
               const active = sort?.field === c.field;
               const ariaSort: React.AriaAttributes["aria-sort"] = active
@@ -189,12 +247,14 @@ export function DataTable<Row extends Record<string, unknown>>({
           className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-accent focus-visible:ring-inset"
         >
           {rows.map((r, idx) => {
-            const key = String(r[rowKey]);
+            const key = keyOf(r);
             const active = idx === cursor;
+            const isSelected = selectionEnabled && selectionSet.has(key);
             return (
               <tr
                 key={key}
                 aria-rowindex={idx + 1}
+                aria-selected={selectionEnabled ? isSelected : undefined}
                 onClick={() => onRowClick?.(r)}
                 className={cn(
                   "border-t border-fp-border-1 text-fp-text-1 transition-colors",
@@ -202,6 +262,21 @@ export function DataTable<Row extends Record<string, unknown>>({
                   active && "bg-fp-bg-2",
                 )}
               >
+                {selectionEnabled ? (
+                  <td className={cn("px-4", rowPadding)}>
+                    <input
+                      type="checkbox"
+                      checked={selectionSet.has(key)}
+                      aria-label={`Select row ${key}`}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleRow(key);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-4 w-4 accent-fp-accent"
+                    />
+                  </td>
+                ) : null}
                 {visible.map((c) => (
                   <td
                     key={c.field}

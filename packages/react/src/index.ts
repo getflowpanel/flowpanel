@@ -5,6 +5,12 @@ export { Badge, type BadgeProps, type BadgeTone } from "./_atoms/Badge.js";
 export { Kbd } from "./_atoms/Kbd.js";
 export { Mono } from "./_atoms/Mono.js";
 export { StatusDot, type StatusTone } from "./_atoms/StatusDot.js";
+export { BulkBar, type BulkBarAction, type BulkBarProps } from "./_data/BulkBar.js";
+export {
+  ColumnVisibilityMenu,
+  type ColumnVisibilityMenuColumn,
+  type ColumnVisibilityMenuProps,
+} from "./_data/ColumnVisibilityMenu.js";
 export {
   DataTable,
   type DataTableColumn,
@@ -12,6 +18,11 @@ export {
   type DataTableSort,
 } from "./_data/DataTable.js";
 export { DateRangePicker, type DateRangePickerProps } from "./_data/DateRangePicker.js";
+export {
+  type DataTableDensity,
+  DensityToggle,
+  type DensityToggleProps,
+} from "./_data/DensityToggle.js";
 export { FilterBar, type FilterBarProps, type FilterBarSpec } from "./_data/FilterBar.js";
 export {
   BooleanFilter,
