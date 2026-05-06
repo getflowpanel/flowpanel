@@ -24,6 +24,13 @@ export {
   type DensityToggleProps,
 } from "./_data/DensityToggle.js";
 export { FilterBar, type FilterBarProps, type FilterBarSpec } from "./_data/FilterBar.js";
+export { JsonEditor, type JsonEditorProps } from "./_data/JsonEditor.js";
+export {
+  type ReferenceItem,
+  ReferencePicker,
+  type ReferencePickerProps,
+} from "./_data/ReferencePicker.js";
+export { TagInput, type TagInputProps } from "./_data/TagInput.js";
 export {
   BooleanFilter,
   type BooleanFilterProps,
@@ -60,11 +67,17 @@ export { HealthBanner, type HealthBannerProps } from "./_feedback/HealthBanner.j
 export { SkeletonCard } from "./_feedback/SkeletonCard.js";
 export { SkeletonTable, type SkeletonTableProps } from "./_feedback/SkeletonTable.js";
 export { Toast, type ToastApi, ToastProvider, useToast } from "./_feedback/Toast.js";
+export {
+  AsyncSelect,
+  type AsyncSelectOption,
+  type AsyncSelectProps,
+} from "./_forms/AsyncSelect.js";
 export { AutoForm, type AutoFormProps } from "./_forms/AutoForm.js";
 export { Field as FormField, type FieldProps as FormFieldProps } from "./_forms/Field.js";
 // Forms
 export { Form, type FormActionResult, type FormProps, useFormContext } from "./_forms/Form.js";
 export { FormError } from "./_forms/FormError.js";
+export { FormSection, type FormSectionProps } from "./_forms/FormSection.js";
 export { FormSubmit } from "./_forms/FormSubmit.js";
 // Layout
 export {

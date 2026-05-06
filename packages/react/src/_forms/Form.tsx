@@ -30,6 +30,9 @@ export interface FormContextValue {
 
 const FormCtx = React.createContext<FormContextValue | null>(null);
 
+/** @internal Exposed for test harnesses so Field can be rendered without Form. */
+export const FormContext = FormCtx;
+
 export function useFormContext(): FormContextValue {
   const ctx = React.useContext(FormCtx);
   if (!ctx) throw new Error("Form children must be rendered inside <Form>");
