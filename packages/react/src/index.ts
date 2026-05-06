@@ -52,9 +52,14 @@ export { TextFilter, type TextFilterProps } from "./_data/filters/TextFilter.js"
 export { KV, KVRow } from "./_data/KV.js";
 export { Pagination, type PaginationProps } from "./_data/Pagination.js";
 // Feedback
+export { ConfirmDialog, type ConfirmDialogProps } from "./_feedback/ConfirmDialog.js";
 export { EmptyState, type EmptyStateProps } from "./_feedback/EmptyState.js";
 export { ErrorCard } from "./_feedback/ErrorCard.js";
+export { ErrorState, type ErrorStateProps } from "./_feedback/ErrorState.js";
+export { HealthBanner, type HealthBannerProps } from "./_feedback/HealthBanner.js";
 export { SkeletonCard } from "./_feedback/SkeletonCard.js";
+export { SkeletonTable, type SkeletonTableProps } from "./_feedback/SkeletonTable.js";
+export { Toast, type ToastApi, ToastProvider, useToast } from "./_feedback/Toast.js";
 export { AutoForm, type AutoFormProps } from "./_forms/AutoForm.js";
 export { Field as FormField, type FieldProps as FormFieldProps } from "./_forms/Field.js";
 // Forms
@@ -107,6 +112,7 @@ export {
 export { type UrlState, useUrlState } from "./hooks/useUrlState.js";
 export { cn } from "./lib/cn.js";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format.js";
+export { type DownloadPayload, triggerDownload } from "./lib/trigger-download.js";
 // UI primitives
 export { Button, type ButtonProps, buttonVariants } from "./ui/button.js";
 export { Checkbox } from "./ui/checkbox.js";
