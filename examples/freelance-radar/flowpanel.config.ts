@@ -57,7 +57,35 @@ export default defineAdmin({
       ],
       defaultSort: { field: "createdAt", dir: "desc" },
       rowClick: "drawer",
-      drawer: { width: "lg", header: (u: any) => String(u.email), fields: "*" },
+      delete: { softDelete: "deletedAt" },
+      export: {
+        formats: ["csv", "json"],
+        fields: ["id", "email", "plan", "status", "createdAt"],
+      },
+      drawer: {
+        width: "lg",
+        header: (u: any) => String(u.email),
+        fields: "*",
+        actions: [
+          {
+            key: "disable",
+            label: "Disable user",
+            variant: "destructive",
+            confirm: "Disable this user? They'll lose access immediately.",
+            run: async (row, _input, _ctx) => {
+              // Showcase action: pretends to issue an UPDATE. Real config
+              // would use ctx.db + drizzle update — kept simple here to
+              // avoid coupling the showcase to the seeding flow.
+              const u = row as { email?: string };
+              return {
+                ok: true,
+                message: `Disabled ${u.email ?? "user"}`,
+                refresh: true,
+              };
+            },
+          },
+        ],
+      },
     }),
     resource(schema.categories, {
       label: "Categories",
@@ -85,6 +113,10 @@ export default defineAdmin({
         { field: "postedAt", type: "daterange", label: "Posted" },
       ],
       defaultSort: { field: "postedAt", dir: "desc" },
+      export: {
+        formats: ["csv"],
+        fields: ["id", "title", "platform", "priceUsd", "postedAt"],
+      },
     }),
     resource(schema.payments, {
       label: "Payments",

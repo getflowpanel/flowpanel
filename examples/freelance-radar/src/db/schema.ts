@@ -57,6 +57,7 @@ export const users = pgTable(
     status: subscriptionStatus("status").notNull().default("trialing"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     lastSeenAt: timestamp("last_seen_at"),
+    deletedAt: timestamp("deleted_at"),
   },
   (t) => ({
     emailIdx: uniqueIndex("users_email_idx").on(t.email),

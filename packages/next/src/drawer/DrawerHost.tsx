@@ -1,17 +1,24 @@
 "use client";
 import {
+  ConfirmDialog,
   Drawer,
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
   KV,
   KVRow,
+  MetricCard,
+  type NumericFormat,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  type Tone,
+  triggerDownload,
   useAdminDrawer,
+  useToast,
 } from "@flowpanel/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route.js";
 
@@ -78,6 +85,127 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
   );
 }
 
+function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "widgets" }> }) {
+  if (tab.widgets.length === 0) {
+    return <div className="py-6 text-sm text-fp-text-3">No widgets configured.</div>;
+  }
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {tab.widgets.map((w, i) => {
+        // biome-ignore lint/suspicious/noArrayIndexKey: stable order in server-resolved payload
+        const key = i;
+        if (w.kind === "metric") {
+          return (
+            <MetricCard
+              key={key}
+              label={w.label}
+              value={w.value}
+              {...(w.format ? { format: w.format as NumericFormat } : {})}
+              {...(w.sublabel ? { sublabel: w.sublabel } : {})}
+              {...(w.tone ? { tone: w.tone as Tone } : {})}
+            />
+          );
+        }
+        if (w.kind === "table") {
+          if (w.rows.length === 0) {
+            return (
+              <div key={key} className="py-6 text-sm text-fp-text-3 md:col-span-2">
+                No data.
+              </div>
+            );
+          }
+          const cols = w.columns.length > 0 ? w.columns : Object.keys(w.rows[0] ?? {});
+          return (
+            <div
+              key={key}
+              className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1 md:col-span-2"
+            >
+              {w.label ? (
+                <div className="border-b border-fp-border-1 bg-fp-bg-2 px-4 py-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
+                  {w.label}
+                </div>
+              ) : null}
+              <table className="w-full text-sm">
+                <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
+                  <tr>
+                    {cols.map((c) => (
+                      <th key={c} scope="col" className="px-4 py-2 text-left font-medium">
+                        {c}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {w.rows.map((r, idx) => (
+                    <tr
+                      // biome-ignore lint/suspicious/noArrayIndexKey: server-resolved list without stable id
+                      key={idx}
+                      className="border-t border-fp-border-1 text-fp-text-1"
+                    >
+                      {cols.map((c) => (
+                        <td key={c} className="px-4 py-2">
+                          {formatValue(r[c])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        if (w.kind === "statGroup") {
+          return (
+            <div
+              key={key}
+              className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 md:col-span-2"
+            >
+              {w.label ? (
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
+                  {w.label}
+                </div>
+              ) : null}
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {w.stats.map((s, j) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: stable order inside widget
+                  <div key={j}>
+                    <div className="text-xs text-fp-text-3">{s.label}</div>
+                    <div className="text-lg font-semibold text-fp-text-1 tabular-nums">
+                      {formatValue(s.value)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+        if (w.kind === "chart") {
+          return (
+            <div
+              key={key}
+              className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2"
+            >
+              <div className="font-medium text-fp-text-2">{w.label}</div>
+              <div className="mt-1 text-xs">
+                Chart visualization lives on dashboards. Data points: {w.dataPoints}.
+              </div>
+            </div>
+          );
+        }
+        // unsupported
+        return (
+          <div
+            key={key}
+            className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2"
+          >
+            {w.reason}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function DrawerBody({ payload }: { payload: DrawerPayload }) {
   const { state, open } = useAdminDrawer();
   const tabs = payload.tabs;
@@ -108,16 +236,26 @@ function DrawerBody({ payload }: { payload: DrawerPayload }) {
             <FieldsView row={payload.row} fields={t.fields} />
           ) : t.kind === "resource" ? (
             <ResourceTabView tab={t} />
+          ) : t.kind === "widgets" ? (
+            <WidgetTabView tab={t} />
           ) : (
             <div className="rounded-fp-sm border border-fp-border-1 bg-fp-bg-2 p-3 text-sm text-fp-text-3">
-              Widget tabs land in 0.2.0-alpha.0 (M3). Use <code>fields</code> or{" "}
-              <code>resource</code> tabs for now.
+              Unsupported tab kind.
             </div>
           )}
         </TabsContent>
       ))}
     </Tabs>
   );
+}
+
+interface DrawerActionResult {
+  ok: boolean;
+  message?: string;
+  error?: string;
+  refresh?: boolean | string | string[];
+  redirect?: string;
+  download?: { filename: string; data: string; mime?: string };
 }
 
 function ActionButton({
@@ -129,12 +267,13 @@ function ActionButton({
   resource: string;
   id: string;
 }) {
+  const toast = useToast();
+  const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  async function onClick() {
-    if (action.confirm && !window.confirm(action.confirm)) return;
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  async function runAction() {
     setPending(true);
-    setMsg(null);
     try {
       const res = await fetch(
         `/api/flowpanel/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(
@@ -142,27 +281,43 @@ function ActionButton({
         )}/actions/${encodeURIComponent(action.key)}`,
         { method: "POST" },
       );
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({ error: res.statusText }))) as {
-          error?: string;
-        };
-        setMsg(body.error ?? `error ${res.status}`);
-      } else {
-        setMsg("ok");
+      const result = (await res.json().catch(() => ({
+        ok: false,
+        error: res.statusText,
+      }))) as DrawerActionResult;
+      if (!res.ok || result.ok === false) {
+        toast.error(result.error ?? `Error ${res.status}`);
+        return;
+      }
+      if (result.message) toast.success(result.message);
+      if (result.download) triggerDownload(result.download);
+      if (result.redirect) {
+        router.push(result.redirect);
+      } else if (result.refresh !== false) {
+        router.refresh();
       }
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "error");
+      toast.error(e instanceof Error ? e.message : "Action failed");
     } finally {
       setPending(false);
     }
   }
+
+  function onClick() {
+    if (action.confirm) {
+      setConfirmOpen(true);
+    } else {
+      void runAction();
+    }
+  }
+
   const variantClass =
     action.variant === "destructive"
       ? "bg-fp-err text-fp-accent-text hover:bg-fp-err/90"
       : "bg-fp-accent text-fp-accent-text hover:bg-fp-accent/90";
+
   return (
-    <div className="flex items-center gap-2">
-      {msg ? <span className="text-xs text-fp-text-3">{msg}</span> : null}
+    <>
       <button
         type="button"
         onClick={onClick}
@@ -171,7 +326,17 @@ function ActionButton({
       >
         {pending ? "…" : action.label}
       </button>
-    </div>
+      {action.confirm ? (
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title={action.confirm}
+          confirmLabel={action.label}
+          {...(action.variant === "destructive" ? { variant: "destructive" as const } : {})}
+          onConfirm={runAction}
+        />
+      ) : null}
+    </>
   );
 }
 

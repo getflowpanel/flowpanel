@@ -1,7 +1,7 @@
 import type { Adapter } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { drawerActionRoute, drawerRoute } from "../drawer/drawer-route.js";
+import { drawerRoute } from "../drawer/drawer-route.js";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",
@@ -142,7 +142,7 @@ describe("drawerRoute (tabs)", () => {
     });
   }
 
-  it("serializes fields, resource, and widgets-deferred tabs", async () => {
+  it("serializes fields, resource, and widgets tabs", async () => {
     const handler = drawerRoute(mkConfigWithTabs());
     const res = await handler(mkReq(), {
       params: Promise.resolve({ resource: "users", id: "abc" }),
@@ -152,7 +152,7 @@ describe("drawerRoute (tabs)", () => {
       tabs: (
         | { kind: "fields"; key: string; fields: unknown }
         | { kind: "resource"; key: string; rows: unknown[]; columns: string[] }
-        | { kind: "widgets-deferred"; key: string }
+        | { kind: "widgets"; key: string; widgets: unknown[] }
       )[];
     };
     expect(body.tabs).toHaveLength(3);
@@ -167,16 +167,6 @@ describe("drawerRoute (tabs)", () => {
     // filter(row).userId was threaded through adapter.list.
     expect(payments.rows[0]?.userId).toBe("abc");
     expect(payments.columns).toEqual(["id", "userId", "amount"]);
-    expect(body.tabs[2]).toMatchObject({ kind: "widgets-deferred", key: "activity" });
-  });
-});
-
-describe("drawerActionRoute", () => {
-  it("returns 501 — runner deferred to M3", async () => {
-    const handler = drawerActionRoute(mkConfig());
-    const res = await handler(new Request("http://localhost", { method: "POST" }), {
-      params: Promise.resolve({ resource: "users", id: "abc", action: "resend-welcome" }),
-    });
-    expect(res.status).toBe(501);
+    expect(body.tabs[2]).toMatchObject({ kind: "widgets", key: "activity", widgets: [] });
   });
 });

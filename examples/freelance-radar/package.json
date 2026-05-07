@@ -1,7 +1,7 @@
 {
   "name": "freelance-radar",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "FlowPanel end-to-end demo — freelance job radar admin on Drizzle + Postgres",
   "scripts": {
     "dev": "next dev",
