@@ -1,10 +1,19 @@
 // Lib
 
 // Atoms
+export { Avatar, type AvatarProps } from "./_atoms/Avatar.js";
 export { Badge, type BadgeProps, type BadgeTone } from "./_atoms/Badge.js";
+export { CopyButton, type CopyButtonProps } from "./_atoms/CopyButton.js";
 export { Kbd } from "./_atoms/Kbd.js";
 export { Mono } from "./_atoms/Mono.js";
+export { Sparkline, type SparklineProps } from "./_atoms/Sparkline.js";
+export {
+  StatusBadge,
+  type StatusBadgeProps,
+  type StatusBadgeTone,
+} from "./_atoms/StatusBadge.js";
 export { StatusDot, type StatusTone } from "./_atoms/StatusDot.js";
+export { TimeAgo, type TimeAgoProps } from "./_atoms/TimeAgo.js";
 export { BulkBar, type BulkBarAction, type BulkBarProps } from "./_data/BulkBar.js";
 export {
   ColumnVisibilityMenu,
@@ -87,15 +96,28 @@ export {
   CardHeader,
 } from "./_layout/Card.js";
 export { MetricGrid, type MetricGridProps } from "./_layout/MetricGrid.js";
-export { Section, type SectionProps } from "./_layout/Section.js";
+export {
+  Divider,
+  type DividerProps,
+  Section,
+  SectionLabel,
+  type SectionLabelProps,
+  type SectionProps,
+} from "./_layout/Section.js";
 export { AdminNav, type NavEntry, type NavGroup } from "./_shell/AdminNav.js";
 // Shell
 export { AdminShell, type AdminShellProps } from "./_shell/AdminShell.js";
+export {
+  type BreadcrumbItem,
+  Breadcrumbs,
+  type BreadcrumbsProps,
+} from "./_shell/Breadcrumbs.js";
 export {
   type CommandGroupUI,
   CommandPalette,
   type CommandPaletteProps,
 } from "./_shell/CommandPalette.js";
+export { DetailShell, type DetailShellProps } from "./_shell/DetailShell.js";
 export {
   Drawer,
   DrawerContent,

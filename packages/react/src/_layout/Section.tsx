@@ -1,6 +1,29 @@
 import type * as React from "react";
 import { cn } from "../lib/cn.js";
 
+export interface SectionLabelProps {
+  label: string;
+  description?: string;
+  className?: string;
+}
+
+export function SectionLabel({ label, description, className }: SectionLabelProps) {
+  return (
+    <div className={className}>
+      <h2 className="text-sm font-medium text-fp-text-2 uppercase tracking-wide">{label}</h2>
+      {description ? <p className="text-xs text-fp-text-3 mt-0.5">{description}</p> : null}
+    </div>
+  );
+}
+
+export interface DividerProps {
+  className?: string;
+}
+
+export function Divider({ className }: DividerProps) {
+  return <hr className={cn("my-4 border-fp-border-1", className)} />;
+}
+
 export interface SectionProps {
   label?: string;
   description?: string;
@@ -21,12 +44,7 @@ const colClass: Record<number, string> = {
 export function Section({ label, description, columns = 1, className, children }: SectionProps) {
   return (
     <section className={cn("space-y-3", className)} data-columns={columns}>
-      {label ? (
-        <div>
-          <h2 className="text-sm font-medium text-fp-text-2 uppercase tracking-wide">{label}</h2>
-          {description ? <p className="text-xs text-fp-text-3 mt-0.5">{description}</p> : null}
-        </div>
-      ) : null}
+      {label ? <SectionLabel label={label} {...(description ? { description } : {})} /> : null}
       <div className={cn("grid gap-3", colClass[columns] ?? "grid-cols-1")}>{children}</div>
     </section>
   );
