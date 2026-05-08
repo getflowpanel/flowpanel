@@ -1,11 +1,18 @@
 import type { ComponentType } from "react";
+import type { RateLimitOptions } from "../runtime/rate-limit.js";
 import type { Adapter } from "./adapter.js";
 import type { CommandPaletteConfig } from "./command.js";
 import type { RequestContext } from "./context.js";
 import type { DashboardConfig, PageConfig } from "./dashboard.js";
+import type { QueueConfig } from "./queue.js";
 import type { RealtimeConfig } from "./realtime.js";
 import type { ResourceConfig } from "./resource.js";
 import type { Scope, ScopeContext, Session } from "./session.js";
+
+export type RateLimitConfig = RateLimitOptions & {
+  per?: "user" | "ip";
+  enabled?: boolean;
+};
 
 export interface AuthConfig {
   session: () => Promise<Session | null>;
@@ -56,9 +63,11 @@ export interface AdminConfig {
   resources?: ResourceConfig[];
   dashboards?: DashboardConfig[];
   pages?: PageConfig[];
+  queues?: QueueConfig[];
   commandPalette?: CommandPaletteConfig;
   audit?: AuditConfig;
   realtime?: RealtimeConfig;
+  rateLimit?: RateLimitConfig;
   hooks?: {
     onError?: (err: Error, ctx: RequestContext) => void | Promise<void>;
   };
@@ -68,4 +77,5 @@ export interface ResolvedAdminConfig extends AdminConfig {
   readonly __resolved: true;
   readonly resourcesByName: Map<string, ResourceConfig>;
   readonly dashboardsByPath: Map<string, DashboardConfig>;
+  readonly queuesByKey: Map<string, QueueConfig>;
 }

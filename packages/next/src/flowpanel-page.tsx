@@ -1,9 +1,11 @@
-import type { ResolvedAdminConfig } from "@flowpanel/core";
+import type { ResolvedAdminConfig, RequireRole } from "@flowpanel/core";
+import { checkRequireRole } from "@flowpanel/core";
 import { CommandHost, DrawerHost } from "@flowpanel/next/client";
 import { AdminShell } from "@flowpanel/react";
 import type * as React from "react";
 import { DashboardPage } from "./pages/dashboard.js";
 import { NotFound } from "./pages/not-found.js";
+import { QueuePage } from "./pages/queue-page.js";
 import { ResourceCreatePage } from "./pages/resource-create.js";
 import { ResourceDetailPage } from "./pages/resource-detail.js";
 import { ResourceEditPage } from "./pages/resource-edit.js";
@@ -11,6 +13,7 @@ import { ResourceListPage } from "./pages/resource-list.js";
 import { matchDashboard } from "./runtime/dashboard-routing.js";
 import { buildNav, resourceNavName } from "./runtime/nav.js";
 import { bindPublisher } from "./runtime/publish.js";
+import { buildRequestContext } from "./runtime/request-setup.js";
 
 type PageParams = { slug?: string[] };
 type PageProps = {
@@ -88,6 +91,19 @@ async function renderContent(
     const first = config.resources?.[0];
     if (!first) return <NotFound />;
     return <ResourceListPage config={config} resource={first} searchParams={sp} req={req} />;
+  }
+
+  if (slug[0] === "queues" && slug.length === 2) {
+    const qkey = slug[1] ?? "";
+    const q = config.queuesByKey.get(qkey);
+    if (q) {
+      if (q.options.requireRole) {
+        const reqCtx = await buildRequestContext({ req, config });
+        checkRequireRole(q.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
+      }
+      return <QueuePage queue={q} />;
+    }
+    return <NotFound />;
   }
 
   const resourceName = slug[0];

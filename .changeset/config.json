@@ -9,6 +9,7 @@
       "@flowpanel/react",
       "@flowpanel/client",
       "@flowpanel/adapter-drizzle",
+      "@flowpanel/adapter-bullmq",
       "@flowpanel/cli",
       "@flowpanel/charts"
     ]

@@ -47,6 +47,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@flowpanel/adapter-bullmq": "workspace:*",
     "@flowpanel/adapter-drizzle": "workspace:*",
     "@flowpanel/charts": "workspace:*",
     "@flowpanel/client": "workspace:*",

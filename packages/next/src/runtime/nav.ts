@@ -12,7 +12,8 @@ export function resourceNavName(resource: { ref: unknown; options: { name?: stri
 }
 
 export function buildNav(config: ResolvedAdminConfig): NavGroup[] {
-  const items = [...config.resourcesByName.values()]
+  const groups: NavGroup[] = [];
+  const resourceItems = [...config.resourcesByName.values()]
     .filter((r: ResourceConfig) => !r.options.hidden)
     .map((r: ResourceConfig) => {
       const name = resourceNavName(r);
@@ -21,5 +22,13 @@ export function buildNav(config: ResolvedAdminConfig): NavGroup[] {
         href: `/admin/${name}`,
       };
     });
-  return items.length ? [{ label: "Resources", items }] : [];
+  if (resourceItems.length) groups.push({ label: "Resources", items: resourceItems });
+
+  const queueItems = [...config.queuesByKey.entries()].map(([key, q]) => ({
+    label: q.options.label,
+    href: `/admin/queues/${key}`,
+  }));
+  if (queueItems.length) groups.push({ label: "Queues", items: queueItems });
+
+  return groups;
 }

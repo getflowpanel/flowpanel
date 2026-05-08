@@ -1,4 +1,5 @@
 export { dashboard, page } from "./builders/dashboard.js";
+export { queue } from "./builders/queue.js";
 export { resource } from "./builders/resource.js";
 export { custom, metric, statGroup, table } from "./builders/widget.js";
 export { defineAdmin } from "./define-admin.js";
@@ -6,6 +7,11 @@ export { emitAudit } from "./runtime/audit.js";
 export { checkRequireRole, type RequireRole } from "./runtime/auth.js";
 export { type DateRangeInput, resolveDateRange } from "./runtime/date-range.js";
 export { createPublisher, type Publisher, type PublisherOptions } from "./runtime/publish.js";
+export {
+  createRateLimiter,
+  type RateLimiter,
+  type RateLimitOptions,
+} from "./runtime/rate-limit.js";
 export {
   getRequestContext,
   runWithRequestContext,
@@ -22,6 +28,7 @@ export type {
   ColumnMeta,
   ResourceIntrospection,
 } from "./types/adapter.js";
+export type { QueueConfig, QueueOptions } from "./types/queue.js";
 export type { RealtimeConfig } from "./types/realtime.js";
 export type { FlowpanelTypes, InferDB } from "./types/registry.js";
 export type {
@@ -34,6 +41,7 @@ export type {
   AuditConfig,
   AuditEvent,
   AuthConfig,
+  RateLimitConfig,
   ResolvedAdminConfig,
   ThemeConfig,
 } from "./types/config.js";

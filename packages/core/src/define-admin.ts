@@ -1,6 +1,7 @@
 import type { BulkAction } from "./types/action.js";
 import type { AdminConfig, ResolvedAdminConfig } from "./types/config.js";
 import type { DashboardConfig } from "./types/dashboard.js";
+import type { QueueConfig } from "./types/queue.js";
 import type { ResourceConfig } from "./types/resource.js";
 
 function resolveResourceName(ref: unknown, options: { name?: string }): string {
@@ -71,5 +72,13 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
     }
     dashboardsByPath.set(d.path, d);
   }
-  return { ...config, __resolved: true, resourcesByName, dashboardsByPath };
+  const queuesByKey = new Map<string, QueueConfig>();
+  for (const q of config.queues ?? []) {
+    const name = (q.ref as { name?: string })?.name;
+    const key = q.options.key ?? name;
+    if (!key) throw new Error("queue() requires options.key when the queue has no .name");
+    if (queuesByKey.has(key)) throw new Error(`duplicate queue key: ${key}`);
+    queuesByKey.set(key, q);
+  }
+  return { ...config, __resolved: true, resourcesByName, dashboardsByPath, queuesByKey };
 }
