@@ -1,20 +1,29 @@
-import { createPublisher, type Publisher } from "@flowpanel/core";
+import { createPublisher, type Publisher, type ResolvedAdminConfig } from "@flowpanel/core";
 
 /**
  * Package-local singleton publisher for @flowpanel/next.
  *
- * CAVEAT (M2.5 → M3): `flowpanel/server` maintains its own in-process
- * singleton publisher with the same API. Because the memory driver keeps
- * subscribers in a per-instance Map, events published via `@flowpanel/next`
- * are NOT visible to subscribers connected through `flowpanel/server`, and
- * vice-versa. This is acceptable for memory-backed dev use because the SSE
- * broker is per-process anyway; in M3 both singletons will consolidate onto
- * the Redis-backed publisher with a shared backend.
+ * Memory vs redis selection is driven by `config.realtime`; `bindPublisher(cfg)`
+ * is called at every entry point (server actions, drawer route, page render)
+ * so publishes land on the right driver per deployment. The binding is
+ * idempotent — repeated calls with the same config object are no-ops.
  *
- * This module exists to avoid an `@flowpanel/next` → `flowpanel` circular
- * dependency (`flowpanel/server` depends on `@flowpanel/next` transitively).
+ * When `config.realtime` is unset we fall back to a memory publisher so tests
+ * and dev flows keep working without explicit wiring.
  */
 let publisher: Publisher | null = null;
+let boundConfig: ResolvedAdminConfig | null = null;
+
+/**
+ * Binds the runtime publisher to the admin config's realtime settings.
+ * Idempotent: calling with the same config object is a no-op. Calling with
+ * a different config re-initializes the publisher (test-only scenario).
+ */
+export function bindPublisher(config: ResolvedAdminConfig): void {
+  if (boundConfig === config && publisher) return;
+  publisher = createPublisher(config.realtime ?? { driver: "memory" });
+  boundConfig = config;
+}
 
 function getPublisher(): Publisher {
   if (!publisher) publisher = createPublisher({ driver: "memory" });
@@ -30,4 +39,8 @@ export async function publishResource(
   event: { action: "create" | "update" | "delete"; id?: string },
 ): Promise<void> {
   return getPublisher().publish(`resource.${name}`, event);
+}
+
+export function subscribe(channel: string, handler: (payload: unknown) => void): () => void {
+  return getPublisher().subscribe(channel, handler);
 }

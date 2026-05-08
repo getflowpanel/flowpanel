@@ -19,6 +19,6 @@ export {
   type ApplyActionResultOptions,
 } from "./runtime/apply-action-result.js";
 export { buildNav, resourceNavName } from "./runtime/nav.js";
-export { publish, publishResource } from "./runtime/publish.js";
+export { bindPublisher, publish, publishResource, subscribe } from "./runtime/publish.js";
 export { type BuildRequestCtxArgs, buildRequestContext } from "./runtime/request-setup.js";
 export { stream } from "./stream.js";

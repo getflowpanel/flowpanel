@@ -8,6 +8,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("../runtime/publish.js", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
+  bindPublisher: vi.fn(),
 }));
 
 import { makeActions } from "../actions/resource-actions.js";

@@ -22,6 +22,7 @@ export type {
   ColumnMeta,
   ResourceIntrospection,
 } from "./types/adapter.js";
+export type { RealtimeConfig } from "./types/realtime.js";
 export type { FlowpanelTypes, InferDB } from "./types/registry.js";
 export type {
   CommandGroup,

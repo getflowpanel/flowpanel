@@ -4,6 +4,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("../runtime/publish.js", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
+  bindPublisher: vi.fn(),
 }));
 
 import type { Adapter, DrawerAction, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";

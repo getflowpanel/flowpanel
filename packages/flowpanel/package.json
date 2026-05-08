@@ -47,12 +47,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@flowpanel/adapter-drizzle": "workspace:*",
+    "@flowpanel/charts": "workspace:*",
+    "@flowpanel/client": "workspace:*",
     "@flowpanel/core": "workspace:*",
     "@flowpanel/next": "workspace:*",
-    "@flowpanel/adapter-drizzle": "workspace:*",
-    "@flowpanel/react": "workspace:*",
-    "@flowpanel/client": "workspace:*",
-    "@flowpanel/charts": "workspace:*"
+    "@flowpanel/react": "workspace:*"
   },
   "peerDependencies": {
     "next": "^15.0.0",
@@ -75,5 +75,8 @@
   "devDependencies": {
     "tsup": "^8.0.0",
     "typescript": "^5.5.0"
+  },
+  "optionalDependencies": {
+    "ioredis": "^5.10.1"
   }
 }

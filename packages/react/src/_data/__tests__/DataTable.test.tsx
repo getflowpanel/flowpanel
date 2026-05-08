@@ -2,6 +2,13 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(""),
+  usePathname: () => "/",
+}));
+
 import { DataTable } from "../DataTable.js";
 
 afterEach(() => cleanup());

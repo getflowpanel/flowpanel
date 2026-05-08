@@ -3,6 +3,7 @@ import type { Adapter } from "./adapter.js";
 import type { CommandPaletteConfig } from "./command.js";
 import type { RequestContext } from "./context.js";
 import type { DashboardConfig, PageConfig } from "./dashboard.js";
+import type { RealtimeConfig } from "./realtime.js";
 import type { ResourceConfig } from "./resource.js";
 import type { Scope, ScopeContext, Session } from "./session.js";
 
@@ -57,6 +58,7 @@ export interface AdminConfig {
   pages?: PageConfig[];
   commandPalette?: CommandPaletteConfig;
   audit?: AuditConfig;
+  realtime?: RealtimeConfig;
   hooks?: {
     onError?: (err: Error, ctx: RequestContext) => void | Promise<void>;
   };

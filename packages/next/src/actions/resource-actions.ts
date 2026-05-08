@@ -18,7 +18,7 @@ import {
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { resourceNavName } from "../runtime/nav.js";
-import { publishResource } from "../runtime/publish.js";
+import { bindPublisher, publishResource } from "../runtime/publish.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 
 interface Schemas {
@@ -75,6 +75,7 @@ export function makeActions(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
 ): ResourceActions {
+  bindPublisher(config);
   const name = resourceNavName(resource);
   const schemas = schemasFor(config, resource);
 

@@ -36,7 +36,13 @@
     "README.md"
   ],
   "peerDependencies": {
+    "ioredis": "^5.10.1",
     "zod": "^3.23.0"
+  },
+  "peerDependenciesMeta": {
+    "ioredis": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20"

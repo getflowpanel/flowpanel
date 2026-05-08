@@ -1,5 +1,7 @@
 "use client";
+import { useRouter } from "next/navigation";
 import * as React from "react";
+import { useLiveChannel } from "../hooks/useLiveChannel.js";
 import { cn } from "../lib/cn.js";
 import { Skeleton } from "../ui/skeleton.js";
 import { Pagination } from "./Pagination.js";
@@ -42,6 +44,12 @@ export interface DataTableProps<Row> {
   /** When provided, the caller controls row-key extraction; defaults to String(row[rowKey]). */
   getRowKey?: (row: Row) => string;
   columnVisibility?: Record<string, boolean>;
+  /**
+   * Subscribe to an SSE channel and trigger `router.refresh()` on events.
+   * Pass a string for the channel or an object with `debounceMs` (default 200).
+   * Requires Next.js router context.
+   */
+  realtime?: string | { channel: string; debounceMs?: number };
 }
 
 export function DataTable<Row extends Record<string, unknown>>({
@@ -65,7 +73,28 @@ export function DataTable<Row extends Record<string, unknown>>({
   onSelectionChange,
   getRowKey,
   columnVisibility,
+  realtime,
 }: DataTableProps<Row>) {
+  const router = useRouter();
+  const realtimeCfg =
+    typeof realtime === "string" ? { channel: realtime, debounceMs: 200 } : realtime;
+  const realtimeChannel = realtimeCfg?.channel ?? "";
+  const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleLiveEvent = React.useCallback(() => {
+    if (!realtimeCfg) return;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      router.refresh();
+    }, realtimeCfg.debounceMs ?? 200);
+  }, [realtimeCfg, router]);
+  React.useEffect(
+    () => () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    },
+    [],
+  );
+  useLiveChannel(realtimeChannel, handleLiveEvent);
+
   const visible = React.useMemo(
     () => columns.filter((c) => !c.hidden && (columnVisibility?.[c.field] ?? true)),
     [columns, columnVisibility],

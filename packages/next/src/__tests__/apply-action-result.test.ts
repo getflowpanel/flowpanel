@@ -4,6 +4,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("../runtime/publish.js", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
+  bindPublisher: vi.fn(),
 }));
 
 import { revalidatePath } from "next/cache";

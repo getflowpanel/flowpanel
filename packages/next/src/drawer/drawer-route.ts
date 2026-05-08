@@ -15,7 +15,7 @@ import {
   runWithRequestContext,
 } from "@flowpanel/core";
 import { applyActionResult } from "../runtime/apply-action-result.js";
-import { publish } from "../runtime/publish.js";
+import { bindPublisher, publish } from "../runtime/publish.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 
 /**
@@ -305,6 +305,7 @@ export interface DrawerRouteCtx {
  * Returns a precomputed `DrawerPayload` — row + metadata + serialized tabs in one pass.
  */
 export function drawerRoute(config: ResolvedAdminConfig) {
+  bindPublisher(config);
   return async function GET(req: Request, ctx: DrawerRouteCtx): Promise<Response> {
     const { resource: resourceName, id } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
@@ -384,6 +385,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
  * toasts / downloads / redirects via the browser.
  */
 export function drawerActionRoute(config: ResolvedAdminConfig) {
+  bindPublisher(config);
   return async function POST(
     req: Request,
     ctx: { params: Promise<{ resource: string; id: string; action: string }> },

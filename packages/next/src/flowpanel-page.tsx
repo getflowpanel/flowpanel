@@ -10,6 +10,7 @@ import { ResourceEditPage } from "./pages/resource-edit.js";
 import { ResourceListPage } from "./pages/resource-list.js";
 import { matchDashboard } from "./runtime/dashboard-routing.js";
 import { buildNav, resourceNavName } from "./runtime/nav.js";
+import { bindPublisher } from "./runtime/publish.js";
 
 type PageParams = { slug?: string[] };
 type PageProps = {
@@ -18,6 +19,7 @@ type PageProps = {
 };
 
 export function Flowpanel(config: ResolvedAdminConfig) {
+  bindPublisher(config);
   return async function FlowpanelPage({ params, searchParams }: PageProps) {
     const { slug = [] } = await params;
     const spRaw = await searchParams;
