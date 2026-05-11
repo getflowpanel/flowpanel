@@ -4,6 +4,8 @@ import * as React from "react";
 import { useLiveChannel } from "../hooks/useLiveChannel.js";
 import { cn } from "../lib/cn.js";
 import { Skeleton } from "../ui/skeleton.js";
+import { ColumnPinMenu } from "./ColumnPinMenu.js";
+import { ColumnResizer } from "./ColumnResizer.js";
 import { Pagination } from "./Pagination.js";
 
 export interface DataTableColumn<Row> {
@@ -44,6 +46,10 @@ export interface DataTableProps<Row> {
   /** When provided, the caller controls row-key extraction; defaults to String(row[rowKey]). */
   getRowKey?: (row: Row) => string;
   columnVisibility?: Record<string, boolean>;
+  columnWidths?: Record<string, number>;
+  onColumnWidthsChange?: (widths: Record<string, number>) => void;
+  pinnedColumns?: { left?: string[]; right?: string[] };
+  onPinnedColumnsChange?: (pinned: { left?: string[]; right?: string[] }) => void;
   /**
    * Subscribe to an SSE channel and trigger `router.refresh()` on events.
    * Pass a string for the channel or an object with `debounceMs` (default 200).
@@ -73,9 +79,23 @@ export function DataTable<Row extends Record<string, unknown>>({
   onSelectionChange,
   getRowKey,
   columnVisibility,
+  columnWidths,
+  onColumnWidthsChange,
+  pinnedColumns,
+  onPinnedColumnsChange,
   realtime,
 }: DataTableProps<Row>) {
   const router = useRouter();
+  const [liveWidths, setLiveWidths] = React.useState<Record<string, number>>(columnWidths ?? {});
+  React.useEffect(() => {
+    setLiveWidths(columnWidths ?? {});
+  }, [columnWidths]);
+  const resizingRef = React.useRef<{ field: string; base: number } | null>(null);
+  const liveWidthsRef = React.useRef(liveWidths);
+  React.useEffect(() => {
+    liveWidthsRef.current = liveWidths;
+  }, [liveWidths]);
+  const effectiveWidths = liveWidths;
   const realtimeCfg =
     typeof realtime === "string" ? { channel: realtime, debounceMs: 200 } : realtime;
   const realtimeChannel = realtimeCfg?.channel ?? "";
@@ -99,6 +119,55 @@ export function DataTable<Row extends Record<string, unknown>>({
     () => columns.filter((c) => !c.hidden && (columnVisibility?.[c.field] ?? true)),
     [columns, columnVisibility],
   );
+
+  const { leftPins, rightPins } = React.useMemo(
+    () => ({
+      leftPins: pinnedColumns?.left ?? [],
+      rightPins: pinnedColumns?.right ?? [],
+    }),
+    [pinnedColumns],
+  );
+
+  const orderedVisible = React.useMemo(() => {
+    const leftSet = new Set(leftPins);
+    const rightSet = new Set(rightPins);
+    const left: typeof visible = [];
+    const middle: typeof visible = [];
+    const right: typeof visible = [];
+    for (const c of visible) {
+      if (leftSet.has(c.field)) left.push(c);
+      else if (rightSet.has(c.field)) right.push(c);
+      else middle.push(c);
+    }
+    left.sort((a, b) => leftPins.indexOf(a.field) - leftPins.indexOf(b.field));
+    right.sort((a, b) => rightPins.indexOf(a.field) - rightPins.indexOf(b.field));
+    return [...left, ...middle, ...right];
+  }, [visible, leftPins, rightPins]);
+
+  const pinMeta = React.useMemo(() => {
+    const map = new Map<string, { side: "left" | "right" | "none"; offset: number }>();
+    let leftOffset = 0;
+    for (const c of orderedVisible) {
+      if (leftPins.includes(c.field)) {
+        map.set(c.field, { side: "left", offset: leftOffset });
+        const w = liveWidths[c.field] ?? (typeof c.width === "number" ? c.width : 120);
+        leftOffset += w;
+      }
+    }
+    let rightOffset = 0;
+    for (const c of [...orderedVisible].reverse()) {
+      if (rightPins.includes(c.field)) {
+        map.set(c.field, { side: "right", offset: rightOffset });
+        const w = liveWidths[c.field] ?? (typeof c.width === "number" ? c.width : 120);
+        rightOffset += w;
+      }
+    }
+    for (const c of orderedVisible) {
+      if (!map.has(c.field)) map.set(c.field, { side: "none", offset: 0 });
+    }
+    return map;
+  }, [orderedVisible, leftPins, rightPins, liveWidths]);
+
   const rowPadding = density === "compact" ? "py-1.5" : "py-3";
   const [cursor, setCursor] = React.useState<number>(-1);
   const tbodyRef = React.useRef<HTMLTableSectionElement>(null);
@@ -173,7 +242,7 @@ export function DataTable<Row extends Record<string, unknown>>({
               {selectionEnabled ? (
                 <th scope="col" className="w-10 px-4 py-2" aria-hidden="true" />
               ) : null}
-              {visible.map((c) => (
+              {orderedVisible.map((c) => (
                 <th
                   key={c.field}
                   scope="col"
@@ -190,7 +259,7 @@ export function DataTable<Row extends Record<string, unknown>>({
               // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders have no stable identity.
               <tr key={`skeleton-${i}`} className="border-t border-fp-border-1">
                 {selectionEnabled ? <td className={cn("px-4", rowPadding)} /> : null}
-                {visible.map((c) => (
+                {orderedVisible.map((c) => (
                   <td key={c.field} className={cn("px-4", rowPadding)}>
                     <Skeleton className="h-4 w-24" />
                   </td>
@@ -237,19 +306,39 @@ export function DataTable<Row extends Record<string, unknown>>({
                 />
               </th>
             ) : null}
-            {visible.map((c) => {
+            {orderedVisible.map((c) => {
               const active = sort?.field === c.field;
               const ariaSort: React.AriaAttributes["aria-sort"] = active
                 ? sort?.dir === "asc"
                   ? "ascending"
                   : "descending"
                 : "none";
+              const width = effectiveWidths[c.field] ?? c.width;
+              const meta = pinMeta.get(c.field) ?? { side: "none" as const, offset: 0 };
+              const stickyStyle: React.CSSProperties =
+                meta.side === "left"
+                  ? {
+                      position: "sticky",
+                      left: meta.offset,
+                      background: "var(--fp-bg-2)",
+                      zIndex: 2,
+                    }
+                  : meta.side === "right"
+                    ? {
+                        position: "sticky",
+                        right: meta.offset,
+                        background: "var(--fp-bg-2)",
+                        zIndex: 2,
+                      }
+                    : { position: "relative" };
+              const currentPin: "left" | "right" | null =
+                meta.side === "left" ? "left" : meta.side === "right" ? "right" : null;
               return (
                 <th
                   key={c.field}
                   scope="col"
                   aria-sort={c.sortable ? ariaSort : undefined}
-                  style={{ width: c.width, textAlign: c.align ?? "left" }}
+                  style={{ width, textAlign: c.align ?? "left", ...stickyStyle }}
                   className={cn(
                     "px-4 py-2 font-medium select-none",
                     c.sortable && "cursor-pointer hover:text-fp-text-1",
@@ -262,6 +351,41 @@ export function DataTable<Row extends Record<string, unknown>>({
                     <span aria-hidden className="ml-1">
                       {sort?.dir === "asc" ? "↑" : "↓"}
                     </span>
+                  ) : null}
+                  {onPinnedColumnsChange ? (
+                    <ColumnPinMenu
+                      field={c.field}
+                      currentPin={currentPin}
+                      onPin={(side) => {
+                        const nextLeft = leftPins.filter((f) => f !== c.field);
+                        const nextRight = rightPins.filter((f) => f !== c.field);
+                        if (side === "left") nextLeft.push(c.field);
+                        if (side === "right") nextRight.push(c.field);
+                        onPinnedColumnsChange({ left: nextLeft, right: nextRight });
+                      }}
+                    />
+                  ) : null}
+                  {onColumnWidthsChange ? (
+                    <ColumnResizer
+                      onResize={(delta) => {
+                        const currentBase =
+                          resizingRef.current?.field === c.field
+                            ? resizingRef.current.base
+                            : (effectiveWidths[c.field] ??
+                              (typeof c.width === "number" ? c.width : 120));
+                        if (resizingRef.current?.field !== c.field) {
+                          resizingRef.current = { field: c.field, base: currentBase };
+                        }
+                        setLiveWidths((w) => ({
+                          ...w,
+                          [c.field]: Math.max(40, currentBase + delta),
+                        }));
+                      }}
+                      onResizeEnd={() => {
+                        resizingRef.current = null;
+                        onColumnWidthsChange?.(liveWidthsRef.current);
+                      }}
+                    />
                   ) : null}
                 </th>
               );
@@ -306,15 +430,34 @@ export function DataTable<Row extends Record<string, unknown>>({
                     />
                   </td>
                 ) : null}
-                {visible.map((c) => (
-                  <td
-                    key={c.field}
-                    style={{ textAlign: c.align ?? "left" }}
-                    className={cn("px-4", rowPadding, c.className)}
-                  >
-                    {c.render ? c.render(r) : String(r[c.field] ?? "")}
-                  </td>
-                ))}
+                {orderedVisible.map((c) => {
+                  const meta = pinMeta.get(c.field) ?? { side: "none" as const, offset: 0 };
+                  const stickyStyle: React.CSSProperties =
+                    meta.side === "left"
+                      ? {
+                          position: "sticky",
+                          left: meta.offset,
+                          background: "var(--fp-bg-1)",
+                          zIndex: 1,
+                        }
+                      : meta.side === "right"
+                        ? {
+                            position: "sticky",
+                            right: meta.offset,
+                            background: "var(--fp-bg-1)",
+                            zIndex: 1,
+                          }
+                        : {};
+                  return (
+                    <td
+                      key={c.field}
+                      style={{ textAlign: c.align ?? "left", ...stickyStyle }}
+                      className={cn("px-4", rowPadding, c.className)}
+                    >
+                      {c.render ? c.render(r) : String(r[c.field] ?? "")}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}

@@ -17,6 +17,11 @@ export { StatusDot, type StatusTone } from "./_atoms/StatusDot.js";
 export { TimeAgo, type TimeAgoProps } from "./_atoms/TimeAgo.js";
 export { BulkBar, type BulkBarAction, type BulkBarProps } from "./_data/BulkBar.js";
 export {
+  ColumnPinMenu,
+  type ColumnPinMenuProps,
+  type PinSide,
+} from "./_data/ColumnPinMenu.js";
+export {
   ColumnVisibilityMenu,
   type ColumnVisibilityMenuColumn,
   type ColumnVisibilityMenuProps,

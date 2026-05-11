@@ -86,7 +86,8 @@ export function drizzleAdapter<DB>(opts: {
       const offset = (ctx.page - 1) * ctx.pageSize;
       const rows = await q.limit(ctx.pageSize).offset(offset);
 
-      let countQ: any = db.select({ c: sql<number>`count(*)::int` }).from(ref);
+      const countExpr = dialect === "pg" ? sql<number>`count(*)::int` : sql<number>`count(*)`;
+      let countQ: any = db.select({ c: countExpr }).from(ref);
       if (where) countQ = countQ.where(where);
       const [countRow] = await countQ;
       const total = Number(countRow?.c ?? 0);
@@ -107,7 +108,26 @@ export function drizzleAdapter<DB>(opts: {
     },
 
     async create(ref: any, ctx: MutationContext<any>) {
+      const cols = getTableColumns(ref);
       const db = getDb(ctx as any);
+      if (dialect === "mysql" || dialect === "sqlite") {
+        await db.insert(ref).values(ctx.input as any);
+        const pk = pkFor(cols as any);
+        const id = (ctx.input as Record<string, unknown>)[pk];
+        if (id === undefined || id === null) {
+          throw new Error(
+            `drizzleAdapter: create requires explicit primary key on dialect "${dialect}" ` +
+              `(auto-generated PKs not yet supported for non-RETURNING dialects). ` +
+              `Provide input.${pk}, or use dialect "pg" which supports RETURNING.`,
+          );
+        }
+        const rows = await db
+          .select()
+          .from(ref)
+          .where(eq((cols as any)[pk], id))
+          .limit(1);
+        return rows[0];
+      }
       const rows = await db
         .insert(ref)
         .values(ctx.input as any)
@@ -120,6 +140,18 @@ export function drizzleAdapter<DB>(opts: {
       const db = getDb(ctx as any);
       const pk = pkFor(cols as any);
       if (!ctx.id) throw new Error("update requires ctx.id");
+      if (dialect === "mysql" || dialect === "sqlite") {
+        await db
+          .update(ref)
+          .set(ctx.input as any)
+          .where(eq((cols as any)[pk], ctx.id));
+        const rows = await db
+          .select()
+          .from(ref)
+          .where(eq((cols as any)[pk], ctx.id))
+          .limit(1);
+        return rows[0];
+      }
       const rows = await db
         .update(ref)
         .set(ctx.input as any)

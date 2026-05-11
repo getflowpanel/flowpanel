@@ -46,10 +46,14 @@
     "drizzle-zod": "^0.5.0"
   },
   "devDependencies": {
+    "@testcontainers/mysql": "^11.14.0",
     "@testcontainers/postgresql": "^10.0.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.11.0",
+    "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.45.0",
+    "mysql2": "^3.22.2",
     "pg": "^8.11.0",
     "postgres": "^3.4.0",
     "testcontainers": "^10.0.0",
