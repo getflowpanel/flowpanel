@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/react",
-  "version": "0.2.5-alpha.0",
+  "version": "0.3.0-alpha.1",
   "description": "Internal UI primitives for FlowPanel — shadcn-style components built on Radix + Tailwind v4 + design tokens",
   "license": "MIT",
   "repository": {

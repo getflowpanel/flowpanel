@@ -201,6 +201,34 @@ importers:
         specifier: ^3.23.0
         version: 3.25.76
 
+  packages/adapter-prisma:
+    dependencies:
+      '@flowpanel/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.20.0
+        version: 5.22.0(prisma@5.22.0)
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.39
+      prisma:
+        specifier: ^5.20.0
+        version: 5.22.0
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.39)(happy-dom@15.11.7)(jsdom@29.0.2)(lightningcss@1.32.0)
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+
   packages/charts:
     dependencies:
       '@flowpanel/core':
@@ -336,6 +364,9 @@ importers:
       '@flowpanel/adapter-drizzle':
         specifier: workspace:*
         version: link:../adapter-drizzle
+      '@flowpanel/adapter-prisma':
+        specifier: workspace:*
+        version: link:../adapter-prisma
       '@flowpanel/charts':
         specifier: workspace:*
         version: link:../charts
@@ -1661,6 +1692,15 @@ packages:
 
   '@prisma/client-runtime-utils@7.7.0':
     resolution: {integrity: sha512-BLyd0UpFYOtyJFTHm7jS9vesHW7P83abibodQMiIofqjBKzDHQ1VAsQkdfvXyYDkPlONPfOTz7/rv3x/+CQqvQ==}
+
+  '@prisma/client@5.22.0':
+    resolution: {integrity: sha512-M0SVXfyHnQREBKxCgyo7sffrKttwE6R8PMq330MIUF0pTwjUhLbW84pFDlf06B27XyCR++VtjugEnIHdr07SVA==}
+    engines: {node: '>=16.13'}
+    peerDependencies:
+      prisma: '*'
+    peerDependenciesMeta:
+      prisma:
+        optional: true
 
   '@prisma/client@7.7.0':
     resolution: {integrity: sha512-5Ar4OsZpJ54s21sy5oDNNW9gQtd4NuxCaiM7+JDTOU07D6VvlpLjYzAVCMB1+JzokN+08dAVomlx+b7bhJd3ww==}
@@ -6086,6 +6126,10 @@ snapshots:
   '@prisma/client-runtime-utils@7.7.0':
     optional: true
 
+  '@prisma/client@5.22.0(prisma@5.22.0)':
+    optionalDependencies:
+      prisma: 5.22.0
+
   '@prisma/client@7.7.0(prisma@5.22.0)(typescript@5.9.3)':
     dependencies:
       '@prisma/client-runtime-utils': 7.7.0
@@ -6094,11 +6138,9 @@ snapshots:
       typescript: 5.9.3
     optional: true
 
-  '@prisma/debug@5.22.0':
-    optional: true
+  '@prisma/debug@5.22.0': {}
 
-  '@prisma/engines-version@5.22.0-44.605197351a3c8bdd595af2d2a9bc3025bca48ea2':
-    optional: true
+  '@prisma/engines-version@5.22.0-44.605197351a3c8bdd595af2d2a9bc3025bca48ea2': {}
 
   '@prisma/engines@5.22.0':
     dependencies:
@@ -6106,19 +6148,16 @@ snapshots:
       '@prisma/engines-version': 5.22.0-44.605197351a3c8bdd595af2d2a9bc3025bca48ea2
       '@prisma/fetch-engine': 5.22.0
       '@prisma/get-platform': 5.22.0
-    optional: true
 
   '@prisma/fetch-engine@5.22.0':
     dependencies:
       '@prisma/debug': 5.22.0
       '@prisma/engines-version': 5.22.0-44.605197351a3c8bdd595af2d2a9bc3025bca48ea2
       '@prisma/get-platform': 5.22.0
-    optional: true
 
   '@prisma/get-platform@5.22.0':
     dependencies:
       '@prisma/debug': 5.22.0
-    optional: true
 
   '@protobufjs/aspromise@1.1.2': {}
 
@@ -8673,7 +8712,6 @@ snapshots:
       '@prisma/engines': 5.22.0
     optionalDependencies:
       fsevents: 2.3.3
-    optional: true
 
   process-nextick-args@2.0.1: {}
 

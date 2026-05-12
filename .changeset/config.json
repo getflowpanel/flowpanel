@@ -11,7 +11,8 @@
       "@flowpanel/adapter-drizzle",
       "@flowpanel/adapter-bullmq",
       "@flowpanel/cli",
-      "@flowpanel/charts"
+      "@flowpanel/charts",
+      "@flowpanel/adapter-prisma"
     ]
   ],
   "linked": [],

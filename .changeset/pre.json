@@ -1,0 +1,18 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "freelance-radar": "0.0.1",
+    "@flowpanel/adapter-bullmq": "0.2.5-alpha.0",
+    "@flowpanel/adapter-drizzle": "0.2.5-alpha.0",
+    "@flowpanel/charts": "0.2.5-alpha.0",
+    "@flowpanel/cli": "0.2.5-alpha.0",
+    "@flowpanel/client": "0.2.5-alpha.0",
+    "@flowpanel/core": "0.2.5-alpha.0",
+    "@flowpanel/e2e": "0.1.0",
+    "flowpanel": "0.2.5-alpha.0",
+    "@flowpanel/next": "0.2.5-alpha.0",
+    "@flowpanel/react": "0.2.5-alpha.0"
+  },
+  "changesets": ["m3-phase1-realtime-config", "m3-queues-realtime"]
+}

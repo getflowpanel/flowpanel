@@ -1,6 +1,6 @@
 {
   "name": "flowpanel",
-  "version": "0.2.5-alpha.0",
+  "version": "0.3.0-alpha.1",
   "description": "Config-first admin panel framework for Next.js 15",
   "license": "MIT",
   "type": "module",
@@ -36,6 +36,10 @@
     "./charts": {
       "types": "./dist/charts.d.ts",
       "import": "./dist/charts.js"
+    },
+    "./prisma": {
+      "types": "./dist/prisma.d.ts",
+      "import": "./dist/prisma.js"
     }
   },
   "files": [
@@ -49,6 +53,7 @@
   "dependencies": {
     "@flowpanel/adapter-bullmq": "workspace:*",
     "@flowpanel/adapter-drizzle": "workspace:*",
+    "@flowpanel/adapter-prisma": "workspace:*",
     "@flowpanel/charts": "workspace:*",
     "@flowpanel/client": "workspace:*",
     "@flowpanel/core": "workspace:*",
@@ -70,6 +75,9 @@
       "optional": true
     },
     "ioredis": {
+      "optional": true
+    },
+    "@prisma/client": {
       "optional": true
     }
   },

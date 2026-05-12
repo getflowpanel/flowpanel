@@ -1,0 +1,10 @@
+# Prisma artifacts
+:memory:
+*.db
+*.db-journal
+
+# Generated client (not committed; resolved at test time)
+node_modules/.prisma/
+
+# Build output
+dist/

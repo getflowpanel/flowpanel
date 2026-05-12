@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/adapter-bullmq",
-  "version": "0.2.5-alpha.0",
+  "version": "0.3.0-alpha.1",
   "description": "BullMQ queue UIs for FlowPanel via bull-board",
   "license": "MIT",
   "type": "module",
