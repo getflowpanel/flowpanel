@@ -1,7 +1,7 @@
 import type { ResolvedAdminConfig, RequireRole } from "@flowpanel/core";
 import { checkRequireRole } from "@flowpanel/core";
 import { CommandHost, DrawerHost } from "@flowpanel/next/client";
-import { AdminShell } from "@flowpanel/react";
+import { AdminShell, type FlowpanelComponentSlots } from "@flowpanel/react";
 import type * as React from "react";
 import { DashboardPage } from "./pages/dashboard.js";
 import { NotFound } from "./pages/not-found.js";
@@ -48,11 +48,17 @@ export function Flowpanel(config: ResolvedAdminConfig) {
     const content = await renderContent(config, slug, sp, req);
 
     const brandName = config.theme?.brand?.name;
+    // theme.components is Record<string,ComponentType<any>> at the config boundary;
+    // cast to Partial<FlowpanelComponentSlots> — user must supply "use client" components.
+    const themeComponents = config.theme?.components as
+      | Partial<FlowpanelComponentSlots>
+      | undefined;
     return (
       <AdminShell
         navGroups={navGroups}
         currentPath={slug.length === 0 ? "/admin" : currentPath}
         {...(brandName ? { brandName } : {})}
+        {...(themeComponents ? { themeComponents } : {})}
       >
         {content}
         <DrawerHost />

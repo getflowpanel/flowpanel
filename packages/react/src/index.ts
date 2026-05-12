@@ -156,6 +156,11 @@ export {
   type UseLiveChannelOptions,
 } from "./hooks/useLiveChannel.js";
 export { type UrlState, useUrlState } from "./hooks/useUrlState.js";
+export {
+  ComponentsProvider,
+  useComponents,
+  type FlowpanelComponentSlots,
+} from "./_provider/ComponentsContext.js";
 export { cn } from "./lib/cn.js";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format.js";
 export { type DownloadPayload, triggerDownload } from "./lib/trigger-download.js";
