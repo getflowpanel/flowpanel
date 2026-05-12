@@ -3,8 +3,21 @@ import { eq } from "drizzle-orm";
 import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { execSync } from "node:child_process";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { drizzleAdapter } from "../index.js";
+
+// Check Docker availability synchronously so describe.skipIf works at module load time.
+function isDockerAvailable(): boolean {
+  try {
+    execSync("docker info", { stdio: "ignore", timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const dockerAvailable = isDockerAvailable();
 
 const users = pgTable("users_soft", {
   id: text("id").primaryKey(),
@@ -19,6 +32,7 @@ let client: ReturnType<typeof postgres>;
 let adapter: ReturnType<typeof drizzleAdapter>;
 
 beforeAll(async () => {
+  if (!dockerAvailable) return;
   container = await new PostgreSqlContainer("postgres:16-alpine").start();
   client = postgres(container.getConnectionUri());
   db = drizzle(client);
@@ -39,6 +53,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  if (!dockerAvailable) return;
   await client`DELETE FROM users_soft`;
 });
 
@@ -56,7 +71,7 @@ const baseCtx = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-describe("Drizzle adapter soft-delete", () => {
+describe.skipIf(!dockerAvailable)("Drizzle adapter soft-delete", () => {
   it("list WITHOUT softDelete ctx returns all rows", async () => {
     await db.insert(users).values([
       { id: "1", email: "a@x.com" },

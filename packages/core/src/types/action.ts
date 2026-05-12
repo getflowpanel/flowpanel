@@ -1,4 +1,5 @@
 import type { ActionContext, RequestContext } from "./context.js";
+import type { InferDB } from "./registry.js";
 import type { FieldDef } from "./resource.js";
 
 export type ActionResult =
@@ -15,7 +16,7 @@ export type ActionResult =
       fieldErrors?: Record<string, string>;
     };
 
-export interface RowAction<Row> {
+export interface RowAction<Row, DB = InferDB> {
   key: string;
   label: string;
   icon?: string;
@@ -26,10 +27,10 @@ export interface RowAction<Row> {
   hidden?: (row: Row, ctx: RequestContext) => boolean | Promise<boolean>;
   disabled?: (row: Row) => boolean | string;
   requireRole?: string | string[];
-  run: (row: Row, input: unknown, ctx: ActionContext) => Promise<ActionResult>;
+  run: (row: Row, input: unknown, ctx: ActionContext<DB>) => Promise<ActionResult>;
 }
 
-export interface BulkAction<Row> {
+export interface BulkAction<Row, DB = InferDB> {
   key: string;
   label: string;
   icon?: string;
@@ -37,5 +38,5 @@ export interface BulkAction<Row> {
   confirm?: string | { title: string; description?: string };
   form?: FieldDef<Row>[];
   requireRole?: string | string[];
-  run: (ids: string[], input: unknown, ctx: ActionContext) => Promise<ActionResult>;
+  run: (ids: string[], input: unknown, ctx: ActionContext<DB>) => Promise<ActionResult>;
 }

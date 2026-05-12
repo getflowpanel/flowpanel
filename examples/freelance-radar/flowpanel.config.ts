@@ -1,11 +1,12 @@
-import { gte, sql } from "drizzle-orm";
-import { dashboard, defineAdmin, metric, resource, table } from "flowpanel";
+import { eq, gte, sql } from "drizzle-orm";
+import { dashboard, defineAdmin, metric, queue, resource, table } from "flowpanel";
 import { areaChart } from "flowpanel/charts";
 import { drizzleAdapter } from "flowpanel/drizzle";
 import { headers } from "next/headers";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 import { type AdminSession, getSession } from "@/src/lib/auth";
+import { queuesMap } from "@/src/lib/queues";
 
 declare module "@flowpanel/core" {
   interface FlowpanelTypes {
@@ -15,6 +16,7 @@ declare module "@flowpanel/core" {
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
+  realtime: { driver: "memory" },
   auth: {
     session: async () => {
       const h = await headers();
@@ -72,11 +74,12 @@ export default defineAdmin({
             label: "Disable user",
             variant: "destructive",
             confirm: "Disable this user? They'll lose access immediately.",
-            run: async (row, _input, _ctx) => {
-              // Showcase action: pretends to issue an UPDATE. Real config
-              // would use ctx.db + drizzle update — kept simple here to
-              // avoid coupling the showcase to the seeding flow.
-              const u = row as { email?: string };
+            run: async (row, _input, ctx) => {
+              const u = row as { id: number; email?: string };
+              await ctx.db
+                .update(schema.users)
+                .set({ deletedAt: new Date() })
+                .where(eq(schema.users.id, u.id));
               return {
                 ok: true,
                 message: `Disabled ${u.email ?? "user"}`,
@@ -138,6 +141,32 @@ export default defineAdmin({
       defaultSort: { field: "createdAt", dir: "desc" },
     }),
   ],
+  queues: [
+    ...(queuesMap.scraper
+      ? [
+          queue(queuesMap.scraper, {
+            label: "Scraper",
+            boardUrl: "http://localhost:3001/queues/scraper",
+          }),
+        ]
+      : []),
+    ...(queuesMap.emails
+      ? [
+          queue(queuesMap.emails, {
+            label: "Emails",
+            boardUrl: "http://localhost:3001/queues/emails",
+          }),
+        ]
+      : []),
+    ...(queuesMap.billing
+      ? [
+          queue(queuesMap.billing, {
+            label: "Billing",
+            boardUrl: "http://localhost:3001/queues/billing",
+          }),
+        ]
+      : []),
+  ],
   dashboards: [
     dashboard({
       path: "/",
@@ -193,7 +222,43 @@ export default defineAdmin({
         {
           label: "Recent users",
           columns: 1,
-          widgets: [table({ resource: "users", limit: 10, rowClick: "drawer" })],
+          widgets: [
+            table({ resource: "users", limit: 10, rowClick: "drawer", realtime: "resource.users" }),
+          ],
+        },
+      ],
+    }),
+    dashboard({
+      path: "/monitoring",
+      label: "Monitoring",
+      sections: [
+        {
+          label: "Queue health",
+          columns: 3,
+          widgets: [
+            metric("Scraper active", async () => {
+              if (!queuesMap.scraper) return 0;
+              const counts = await queuesMap.scraper.getJobCounts("active");
+              return Number(counts.active ?? 0);
+            }),
+            metric("Emails waiting", async () => {
+              if (!queuesMap.emails) return 0;
+              const counts = await queuesMap.emails.getJobCounts("waiting");
+              return Number(counts.waiting ?? 0);
+            }),
+            metric("Billing failed", async () => {
+              if (!queuesMap.billing) return 0;
+              const counts = await queuesMap.billing.getJobCounts("failed");
+              return Number(counts.failed ?? 0);
+            }),
+          ],
+        },
+        {
+          label: "Recent jobs",
+          columns: 1,
+          widgets: [
+            table({ resource: "jobs", limit: 10, rowClick: "drawer", realtime: "resource.jobs" }),
+          ],
         },
       ],
     }),

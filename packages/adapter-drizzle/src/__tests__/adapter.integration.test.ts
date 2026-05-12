@@ -3,8 +3,21 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { execSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { drizzleAdapter } from "../index.js";
+
+// Check Docker availability synchronously so describe.skipIf works at module load time.
+function isDockerAvailable(): boolean {
+  try {
+    execSync("docker info", { stdio: "ignore", timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const dockerAvailable = isDockerAvailable();
 
 const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -20,6 +33,7 @@ let db: ReturnType<typeof drizzle>;
 let client: ReturnType<typeof postgres>;
 
 beforeAll(async () => {
+  if (!dockerAvailable) return;
   container = await new PostgreSqlContainer("postgres:16-alpine").start();
   client = postgres(container.getConnectionUri());
   db = drizzle(client);
@@ -67,7 +81,7 @@ function ctx(overrides: Partial<ListQueryContext<any>> = {}): ListQueryContext<a
   } as ListQueryContext<any>;
 }
 
-describe("drizzleAdapter CRUD", () => {
+describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
   const adapter = drizzleAdapter({ db: null as any, schema: { users }, dialect: "pg" });
 
   it("list returns rows with pagination", async () => {

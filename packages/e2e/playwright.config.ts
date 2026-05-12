@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: false,
@@ -7,7 +9,7 @@ export default defineConfig({
   workers: 1,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:3100",
+    baseURL: BASE_URL,
     trace: "on-first-retry",
   },
   projects: [
@@ -17,9 +19,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:3100/admin",
+    // Boots the freelance-radar example. Requires Postgres reachable at
+    // DATABASE_URL (see examples/freelance-radar/docker-compose.yml).
+    command: "pnpm --filter freelance-radar dev",
+    url: `${BASE_URL}/admin`,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
+    stdout: "pipe",
+    stderr: "pipe",
   },
 });

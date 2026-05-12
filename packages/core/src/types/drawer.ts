@@ -1,4 +1,5 @@
-import type { Session } from "./session.js";
+import type { ActionContext } from "./context.js";
+import type { InferDB } from "./registry.js";
 import type { WidgetConfig } from "./widget.js";
 
 export type DrawerWidth = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
@@ -30,7 +31,7 @@ export interface DrawerFieldFormSpec {
   options?: string[];
 }
 
-export interface DrawerAction {
+export interface DrawerAction<DB = InferDB> {
   key: string;
   label: string;
   variant?: "default" | "destructive";
@@ -41,7 +42,7 @@ export interface DrawerAction {
   run: (
     row: unknown,
     formData: Record<string, unknown>,
-    ctx: { session: Session | null },
+    ctx: ActionContext<DB>,
   ) => Promise<{ ok: boolean; message?: string; refresh?: boolean | string | string[] }>;
 }
 

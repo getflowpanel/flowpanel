@@ -1,3 +1,4 @@
+import type { InferDB } from "./registry.js";
 import type { Scope, Session } from "./session.js";
 
 export interface RequestContext {
@@ -46,7 +47,7 @@ export interface MutationContext<Row, Db = unknown> extends RequestContext {
   softDelete?: { column: string };
 }
 
-export interface ActionContext<Db = unknown> extends RequestContext {
+export interface ActionContext<Db = InferDB> extends RequestContext {
   db: Db;
   publish: (channel: string, payload?: unknown) => Promise<void>;
 }
