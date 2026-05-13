@@ -94,6 +94,73 @@
   }
 }
 
+/* Skeleton shimmer (replaces Tailwind animate-pulse for FlowPanel's primitive). */
+@keyframes fp-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.fp-skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--fp-bg-2)) 0%,
+    hsl(var(--fp-bg-3)) 50%,
+    hsl(var(--fp-bg-2)) 100%
+  );
+  background-size: 200% 100%;
+  animation: fp-shimmer 1.5s linear infinite;
+}
+
+/* Scale-in for popovers, dropdowns, alert dialogs.
+   Radix sets data-state="open" on its content node when the trigger fires. */
+@keyframes fp-scale-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.fp-popover-content[data-state="open"],
+.fp-dropdown-content[data-state="open"],
+.fp-confirm-content[data-state="open"] {
+  animation: fp-scale-in var(--fp-duration) var(--fp-ease-out);
+  transform-origin: var(--radix-popover-content-transform-origin, center);
+}
+
+/* BulkBar slide-up when selection becomes non-empty. */
+@keyframes fp-slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.fp-bulkbar[data-state="open"] {
+  animation: fp-slide-up var(--fp-duration) var(--fp-ease-spring);
+}
+
+/* Reduce-motion: kill all of the above. The existing @media block at the
+   top of this file zeroes the duration tokens, but explicit cancellation
+   is clearer for animation-name based rules. */
+@media (prefers-reduced-motion: reduce) {
+  .fp-skeleton,
+  .fp-popover-content[data-state="open"],
+  .fp-dropdown-content[data-state="open"],
+  .fp-confirm-content[data-state="open"],
+  .fp-bulkbar[data-state="open"] {
+    animation: none;
+  }
+}
+
 @theme {
   --color-fp-bg-1: hsl(var(--fp-bg-1));
   --color-fp-bg-2: hsl(var(--fp-bg-2));

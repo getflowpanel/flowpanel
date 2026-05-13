@@ -1,5 +1,6 @@
 "use client";
 import { useLabels } from "../_provider/LabelsContext.js";
+import { cn } from "../lib/cn.js";
 import { Button } from "../ui/button.js";
 
 export interface BulkBarAction {
@@ -21,9 +22,13 @@ export function BulkBar({ selection, actions, onClear }: BulkBarProps) {
   if (selection.length === 0) return null;
   return (
     <div
+      data-state={selection.length > 0 ? "open" : "closed"}
       role="region"
       aria-label={labels.bulkBar.selected(selection.length)}
-      className="sticky bottom-4 z-30 mx-auto mt-3 flex w-fit items-center gap-3 rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 shadow-lg"
+      className={cn(
+        "fp-bulkbar",
+        "sticky bottom-4 z-30 mx-auto mt-3 flex w-fit items-center gap-3 rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 shadow-lg",
+      )}
     >
       <span className="text-sm text-fp-text-2">{labels.bulkBar.selected(selection.length)}</span>
       {actions.map((a) => (
