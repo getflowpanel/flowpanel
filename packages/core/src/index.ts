@@ -45,6 +45,12 @@ export type {
   ResolvedAdminConfig,
   ThemeConfig,
 } from "./types/config.js";
+export {
+  DEFAULT_LABELS,
+  mergeLabels,
+  type LabelsConfig,
+  type ResolvedLabels,
+} from "./types/labels.js";
 export type {
   ActionContext,
   ItemQueryContext,

@@ -53,12 +53,14 @@ export function Flowpanel(config: ResolvedAdminConfig) {
     const themeComponents = config.theme?.components as
       | Partial<FlowpanelComponentSlots>
       | undefined;
+    const labels = config.labels;
     return (
       <AdminShell
         navGroups={navGroups}
         currentPath={slug.length === 0 ? "/admin" : currentPath}
         {...(brandName ? { brandName } : {})}
         {...(themeComponents ? { themeComponents } : {})}
+        {...(labels ? { labels } : {})}
       >
         {content}
         <DrawerHost />

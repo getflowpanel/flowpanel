@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { useLabels } from "../_provider/LabelsContext.js";
 import { useLiveChannel } from "../hooks/useLiveChannel.js";
 import { cn } from "../lib/cn.js";
 import { Skeleton } from "../ui/skeleton.js";
@@ -71,7 +72,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   onRowClick,
   onSortChange,
   onPageChange,
-  emptyTitle = "No data",
+  emptyTitle,
   emptyDescription,
   emptyAction,
   className,
@@ -86,6 +87,8 @@ export function DataTable<Row extends Record<string, unknown>>({
   realtime,
 }: DataTableProps<Row>) {
   const router = useRouter();
+  const labels = useLabels();
+  const effectiveEmptyTitle = emptyTitle ?? labels.noResults;
   const [liveWidths, setLiveWidths] = React.useState<Record<string, number>>(columnWidths ?? {});
   React.useEffect(() => {
     setLiveWidths(columnWidths ?? {});
@@ -276,7 +279,7 @@ export function DataTable<Row extends Record<string, unknown>>({
     return (
       <div className={cn(frame, className)}>
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="text-base font-medium text-fp-text-1">{emptyTitle}</div>
+          <div className="text-base font-medium text-fp-text-1">{effectiveEmptyTitle}</div>
           {emptyDescription ? (
             <div className="mt-1 text-sm text-fp-text-3">{emptyDescription}</div>
           ) : null}

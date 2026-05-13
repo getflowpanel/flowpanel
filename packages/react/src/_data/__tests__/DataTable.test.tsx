@@ -2,6 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LabelsProvider } from "../../_provider/LabelsContext.js";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
@@ -239,5 +240,21 @@ describe("DataTable", () => {
       />,
     );
     expect(screen.getByTestId("nm").textContent).toBe("Alice");
+  });
+
+  it("renders localized empty title via LabelsProvider when emptyTitle prop omitted", () => {
+    render(
+      <LabelsProvider value={{ noResults: "Ничего не найдено" }}>
+        <DataTable
+          columns={[{ field: "email" }]}
+          rows={[]}
+          total={0}
+          page={1}
+          pageSize={10}
+          rowKey="id"
+        />
+      </LabelsProvider>,
+    );
+    expect(screen.getByText("Ничего не найдено")).toBeTruthy();
   });
 });

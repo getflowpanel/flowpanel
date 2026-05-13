@@ -2,6 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LabelsProvider } from "../../_provider/LabelsContext.js";
 import { ReferencePicker } from "../ReferencePicker.js";
 
 afterEach(cleanup);
@@ -41,5 +42,15 @@ describe("ReferencePicker", () => {
     const item = await screen.findByText("The Answer");
     fireEvent.click(item);
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("42"));
+  });
+
+  it("uses noResults from LabelsProvider when emptyText prop is omitted", async () => {
+    render(
+      <LabelsProvider value={{ noResults: "Aucun résultat" }}>
+        <ReferencePicker value={null} onChange={vi.fn()} search={async () => []} />
+      </LabelsProvider>,
+    );
+    fireEvent.click(screen.getByRole("combobox"));
+    expect(await screen.findByText("Aucun résultat")).toBeTruthy();
   });
 });

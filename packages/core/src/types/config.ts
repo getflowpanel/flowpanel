@@ -4,6 +4,7 @@ import type { Adapter } from "./adapter.js";
 import type { CommandPaletteConfig } from "./command.js";
 import type { RequestContext } from "./context.js";
 import type { DashboardConfig, PageConfig } from "./dashboard.js";
+import type { LabelsConfig } from "./labels.js";
 import type { QueueConfig } from "./queue.js";
 import type { RealtimeConfig } from "./realtime.js";
 import type { ResourceConfig } from "./resource.js";
@@ -60,6 +61,7 @@ export interface AdminConfig {
   auth: AuthConfig;
   scope?: (ctx: ScopeContext) => Promise<Scope> | Scope;
   theme?: ThemeConfig;
+  labels?: LabelsConfig;
   resources?: ResourceConfig[];
   dashboards?: DashboardConfig[];
   pages?: PageConfig[];

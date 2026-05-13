@@ -1,6 +1,7 @@
 "use client";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "cmdk";
 import * as React from "react";
+import { useLabels } from "../_provider/LabelsContext.js";
 import { Button } from "../ui/button.js";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover.js";
 
@@ -14,7 +15,7 @@ export interface ReferencePickerProps {
   onChange: (id: string | null) => void;
   search: (query: string) => Promise<ReferenceItem[]>;
   placeholder?: string;
-  emptyText?: string;
+  emptyText?: string | undefined;
   debounceMs?: number;
   className?: string;
 }
@@ -24,10 +25,12 @@ export function ReferencePicker({
   onChange,
   search,
   placeholder = "Search…",
-  emptyText = "No results",
+  emptyText,
   debounceMs = 200,
   className,
 }: ReferencePickerProps) {
+  const labels = useLabels();
+  const effectiveEmptyText = emptyText ?? labels.noResults;
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [items, setItems] = React.useState<ReferenceItem[]>([]);
@@ -75,7 +78,7 @@ export function ReferencePicker({
           />
           <CommandList className="max-h-60 overflow-auto p-1">
             <CommandEmpty className="px-3 py-4 text-center text-sm text-fp-text-3">
-              {emptyText}
+              {effectiveEmptyText}
             </CommandEmpty>
             {items.map((r) => (
               <CommandItem

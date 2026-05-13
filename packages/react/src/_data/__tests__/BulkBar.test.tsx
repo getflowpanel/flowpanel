@@ -2,6 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LabelsProvider } from "../../_provider/LabelsContext.js";
 import { BulkBar } from "../BulkBar.js";
 
 afterEach(cleanup);
@@ -49,5 +50,14 @@ describe("BulkBar", () => {
     render(<BulkBar selection={["1"]} actions={[]} onClear={onClear} />);
     fireEvent.click(screen.getByRole("button", { name: /clear/i }));
     expect(onClear).toHaveBeenCalled();
+  });
+
+  it("renders localized selected count via LabelsProvider", () => {
+    render(
+      <LabelsProvider value={{ bulkBar: { selected: (n) => `${n} выбрано` } }}>
+        <BulkBar selection={["1", "2", "3"]} actions={[]} onClear={vi.fn()} />
+      </LabelsProvider>,
+    );
+    expect(screen.getByText("3 выбрано")).toBeTruthy();
   });
 });

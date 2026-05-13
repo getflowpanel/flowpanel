@@ -161,6 +161,7 @@ export {
   useComponents,
   type FlowpanelComponentSlots,
 } from "./_provider/ComponentsContext.js";
+export { LabelsProvider, useLabels } from "./_provider/LabelsContext.js";
 export { cn } from "./lib/cn.js";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format.js";
 export { type DownloadPayload, triggerDownload } from "./lib/trigger-download.js";
