@@ -76,6 +76,7 @@ export { Pagination, type PaginationProps } from "./_data/Pagination.js";
 // Feedback
 export { ConfirmDialog, type ConfirmDialogProps } from "./_feedback/ConfirmDialog.js";
 export { EmptyState, type EmptyStateProps } from "./_feedback/EmptyState.js";
+export { DefaultEmptyState } from "./_feedback/EmptyStateDefault.js";
 export { ErrorCard } from "./_feedback/ErrorCard.js";
 export { ErrorState, type ErrorStateProps } from "./_feedback/ErrorState.js";
 export { HealthBanner, type HealthBannerProps } from "./_feedback/HealthBanner.js";
@@ -136,6 +137,7 @@ export { PageHeader, type PageHeaderProps } from "./_shell/PageHeader.js";
 // Widgets
 export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget.js";
 export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard.js";
+export { DefaultMetricCard } from "./_widgets/MetricCardDefault.js";
 export { StatGroupCard, type StatGroupCardProps } from "./_widgets/StatGroupCard.js";
 export { TableWidget, type TableWidgetProps } from "./_widgets/TableWidget.js";
 // Hooks

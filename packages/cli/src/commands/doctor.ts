@@ -1,9 +1,28 @@
 import { execSync } from "node:child_process";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { hasMarker } from "../eject/marker.js";
 import { detectStack, fileExists } from "../utils/detect.js";
 import { log } from "../utils/log.js";
+
+export async function checkEjectMarker(cwd: string, resourceName: string): Promise<string | null> {
+  const candidate = path.join(cwd, "app/admin", resourceName, "page.tsx");
+  try {
+    const src = await fs.readFile(candidate, "utf8");
+    if (!hasMarker(src)) {
+      return (
+        `${path.relative(cwd, candidate)} exists but lacks the eject marker. ` +
+        `If this file is hand-written, that's fine; if it was meant to be ejected, ` +
+        `re-run \`flowpanel eject resource ${resourceName}\` (or add the marker manually).`
+      );
+    }
+  } catch (e: unknown) {
+    if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") throw e;
+  }
+  return null;
+}
 
 interface Check {
   name: string;

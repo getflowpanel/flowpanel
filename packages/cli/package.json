@@ -34,7 +34,8 @@
     "commander": "^12.0.0",
     "jiti": "^2.4.2",
     "kleur": "^4.1.5",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "ts-morph": "^28.0.0"
   },
   "files": [
     "dist",

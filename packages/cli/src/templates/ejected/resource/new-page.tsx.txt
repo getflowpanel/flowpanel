@@ -1,0 +1,17 @@
+/**
+ * Ejected create view for "{{name}}". Default Next.js App Router conventions apply.
+ *
+ * Suggested pattern:
+ *   import { AutoForm } from "@flowpanel/react";
+ *   import { create{{name}} } from "./actions";
+ */
+export default function NewPage() {
+  return (
+    <div className="p-6">
+      <h1 className="text-xl font-semibold">New {{name}}</h1>
+      <p className="mt-2 text-sm text-fp-text-2">
+        Wire your create form here.
+      </p>
+    </div>
+  );
+}

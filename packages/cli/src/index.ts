@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { doctorCommand } from "./commands/doctor.js";
+import { ejectCommand } from "./commands/eject.js";
 import { initCommand } from "./commands/init.js";
 import { migrateCommand } from "./commands/migrate.js";
 
@@ -11,5 +12,6 @@ const cli = new Command()
 initCommand(cli);
 migrateCommand(cli);
 doctorCommand(cli);
+ejectCommand(cli);
 
 cli.parse();

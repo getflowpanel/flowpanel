@@ -1,0 +1,18 @@
+/**
+ * Ejected edit view for "{{name}}".
+ */
+export default async function EditPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return (
+    <div className="p-6">
+      <h1 className="text-xl font-semibold">Edit {{name}} · {id}</h1>
+      <p className="mt-2 text-sm text-fp-text-2">
+        Wire your edit form here.
+      </p>
+    </div>
+  );
+}

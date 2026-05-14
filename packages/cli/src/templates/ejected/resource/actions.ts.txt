@@ -1,0 +1,16 @@
+/**
+ * Server actions for the "{{name}}" resource.
+ *
+ * This file is part of the eject scaffold. Add Server Actions here for
+ * create / update / delete and call them from the matching page files.
+ *
+ * Example:
+ *   "use server";
+ *   import { revalidatePath } from "next/cache";
+ *
+ *   export async function create{{name}}(input: unknown) {
+ *     // ... write via your adapter
+ *     revalidatePath("/admin/{{name}}");
+ *   }
+ */
+export {};

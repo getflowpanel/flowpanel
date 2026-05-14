@@ -5,6 +5,7 @@ import { drizzleAdapter } from "flowpanel/drizzle";
 import { headers } from "next/headers";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
+import { PriorityMetricCard } from "@/src/admin/PriorityMetricCard";
 import { type AdminSession, getSession } from "@/src/lib/auth";
 import { queuesMap } from "@/src/lib/queues";
 
@@ -27,7 +28,19 @@ export default defineAdmin({
     role: (s) => (s as AdminSession | null)?.role ?? "guest",
     requireRole: "admin",
   },
-  theme: { brand: { name: "FreelanceRadar" } },
+  theme: {
+    brand: { name: "FreelanceRadar" },
+    // L2 customization showcase: wrap the default MetricCard with a tone ring.
+    components: { MetricCard: PriorityMetricCard },
+  },
+  // i18n showcase: localize built-in chrome to Russian.
+  labels: {
+    actions: { save: "Сохранить", cancel: "Отмена", delete: "Удалить" },
+    bulkBar: { selected: (n) => `${n} выбрано`, clear: "Очистить" },
+    pagination: { previous: "Назад", next: "Вперёд", of: "из", rowsPerPage: "Строк на странице" },
+    noResults: "Ничего не найдено",
+    confirm: { ok: "Подтвердить", cancel: "Отмена" },
+  },
   resources: [
     resource(schema.users, {
       label: "Users",
