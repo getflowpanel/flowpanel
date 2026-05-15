@@ -11,6 +11,7 @@ export default defineConfig({
     server: "src/server.ts",
     charts: "src/charts.ts",
     prisma: "src/prisma.ts",
+    auth: "src/auth.ts",
   },
   format: ["esm"],
   dts: true,

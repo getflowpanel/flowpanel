@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/core",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.1",
   "description": "Core logic for FlowPanel — types, defineAdmin, runtime helpers",
   "keywords": [
     "flowpanel",
@@ -27,6 +27,11 @@
       "types": "./dist/labels.d.ts",
       "import": "./dist/labels.mjs",
       "require": "./dist/labels.cjs"
+    },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "import": "./dist/auth.mjs",
+      "require": "./dist/auth.cjs"
     },
     "./package.json": "./package.json"
   },

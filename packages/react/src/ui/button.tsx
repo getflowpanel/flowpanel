@@ -1,45 +1,21 @@
 "use client";
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
-import { cn } from "../lib/cn.js";
+import { useComponents } from "../_provider/ComponentsContext.js";
+export { DefaultButton, buttonVariants, type ButtonProps } from "./buttonDefault.js";
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-fp text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-accent focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        default: "bg-fp-accent text-fp-accent-text hover:opacity-90",
-        destructive: "bg-fp-err text-white hover:opacity-90",
-        outline: "border border-fp-border-1 bg-transparent hover:bg-fp-bg-2",
-        ghost: "hover:bg-fp-bg-2 text-fp-text-1",
-        link: "text-fp-accent underline-offset-4 hover:underline",
-      },
-      size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-fp-sm px-3",
-        lg: "h-10 rounded-fp px-8",
-        icon: "h-9 w-9",
-      },
-    },
-    defaultVariants: { variant: "default", size: "default" },
-  },
-);
-
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean;
-}
-
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
-    return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
-    );
+/**
+ * Renders whatever override the user registered via theme.components.Button,
+ * falling back to DefaultButton.
+ *
+ * Note: if you provide a custom Button override, it SHOULD also be
+ * React.forwardRef-aware to avoid the warning Radix emits when using asChild.
+ */
+export const Button = React.forwardRef<HTMLButtonElement, import("./buttonDefault.js").ButtonProps>(
+  (props, ref) => {
+    const Slot = useComponents().Button as React.ForwardRefExoticComponent<
+      import("./buttonDefault.js").ButtonProps & React.RefAttributes<HTMLButtonElement>
+    >;
+    return <Slot {...props} ref={ref} />;
   },
 );
 Button.displayName = "Button";
-
-export { buttonVariants };

@@ -42,9 +42,11 @@ describe("createPublisher — redis driver", () => {
     const p = createPublisher({ driver: "redis", url: "redis://localhost:6379" });
     const handler = vi.fn();
     const unsub = p.subscribe("foo", handler);
-    // Allow the async load() to run
-    await new Promise((r) => setTimeout(r, 0));
-    expect(mockSub.subscribe).toHaveBeenCalledWith("foo");
+    // Wait for the fire-and-forget `load().then(sub.subscribe)` chain to settle.
+    // Using vi.waitFor instead of a fixed setTimeout removes the timing flake.
+    await vi.waitFor(() => {
+      expect(mockSub.subscribe).toHaveBeenCalledWith("foo");
+    });
     // Simulate incoming event by invoking the 'message' callback that was wired via on()
     const onCall = mockSub.on.mock.calls.find((c) => c[0] === "message");
     expect(onCall).toBeDefined();

@@ -1,8 +1,8 @@
 // Lib
 
 // Atoms
-export { Avatar, type AvatarProps } from "./_atoms/Avatar.js";
-export { Badge, type BadgeProps, type BadgeTone } from "./_atoms/Badge.js";
+export { Avatar, DefaultAvatar, type AvatarProps } from "./_atoms/Avatar.js";
+export { Badge, DefaultBadge, type BadgeProps, type BadgeTone } from "./_atoms/Badge.js";
 export { CopyButton, type CopyButtonProps } from "./_atoms/CopyButton.js";
 export { Kbd } from "./_atoms/Kbd.js";
 export { LiveIndicator, type LiveIndicatorProps } from "./_atoms/LiveIndicator.js";
@@ -10,6 +10,7 @@ export { Mono } from "./_atoms/Mono.js";
 export { Sparkline, type SparklineProps } from "./_atoms/Sparkline.js";
 export {
   StatusBadge,
+  DefaultStatusBadge,
   type StatusBadgeProps,
   type StatusBadgeTone,
 } from "./_atoms/StatusBadge.js";
@@ -72,16 +73,24 @@ export { TagFilter, type TagFilterProps } from "./_data/filters/TagFilter.js";
 export { TextFilter, type TextFilterProps } from "./_data/filters/TextFilter.js";
 // Data mini
 export { KV, KVRow } from "./_data/KV.js";
-export { Pagination, type PaginationProps } from "./_data/Pagination.js";
+export { Pagination, DefaultPagination, type PaginationProps } from "./_data/Pagination.js";
 // Feedback
-export { ConfirmDialog, type ConfirmDialogProps } from "./_feedback/ConfirmDialog.js";
+export {
+  ConfirmDialog,
+  DefaultConfirmDialog,
+  type ConfirmDialogProps,
+} from "./_feedback/ConfirmDialog.js";
 export { EmptyState, type EmptyStateProps } from "./_feedback/EmptyState.js";
 export { DefaultEmptyState } from "./_feedback/EmptyStateDefault.js";
 export { ErrorCard } from "./_feedback/ErrorCard.js";
 export { ErrorState, type ErrorStateProps } from "./_feedback/ErrorState.js";
 export { HealthBanner, type HealthBannerProps } from "./_feedback/HealthBanner.js";
 export { SkeletonCard } from "./_feedback/SkeletonCard.js";
-export { SkeletonTable, type SkeletonTableProps } from "./_feedback/SkeletonTable.js";
+export {
+  SkeletonTable,
+  DefaultSkeletonTable,
+  type SkeletonTableProps,
+} from "./_feedback/SkeletonTable.js";
 export { Toast, type ToastApi, ToastProvider, useToast } from "./_feedback/Toast.js";
 export {
   AsyncSelect,
@@ -133,7 +142,7 @@ export {
   type DrawerProps,
   type DrawerWidth,
 } from "./_shell/Drawer.js";
-export { PageHeader, type PageHeaderProps } from "./_shell/PageHeader.js";
+export { PageHeader, DefaultPageHeader, type PageHeaderProps } from "./_shell/PageHeader.js";
 // Widgets
 export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget.js";
 export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard.js";
@@ -168,7 +177,7 @@ export { cn } from "./lib/cn.js";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format.js";
 export { type DownloadPayload, triggerDownload } from "./lib/trigger-download.js";
 // UI primitives
-export { Button, type ButtonProps, buttonVariants } from "./ui/button.js";
+export { Button, DefaultButton, type ButtonProps, buttonVariants } from "./ui/button.js";
 export { Checkbox } from "./ui/checkbox.js";
 export {
   Dialog,

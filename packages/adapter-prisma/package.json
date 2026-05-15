@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/adapter-prisma",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.1",
   "description": "Prisma ORM adapter for FlowPanel",
   "keywords": [
     "flowpanel",

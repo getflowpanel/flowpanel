@@ -1,4 +1,4 @@
-import { Button } from "../ui/button.js";
+import { DefaultButton as Button } from "../ui/buttonDefault.js";
 
 export interface ErrorStateProps {
   title?: string;

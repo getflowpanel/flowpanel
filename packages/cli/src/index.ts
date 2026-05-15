@@ -1,8 +1,10 @@
 import { Command } from "commander";
+import { devCommand } from "./commands/dev.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { ejectCommand } from "./commands/eject.js";
 import { initCommand } from "./commands/init.js";
 import { migrateCommand } from "./commands/migrate.js";
+import { newCommand } from "./commands/new.js";
 
 const cli = new Command()
   .name("flowpanel")
@@ -13,5 +15,7 @@ initCommand(cli);
 migrateCommand(cli);
 doctorCommand(cli);
 ejectCommand(cli);
+devCommand(cli);
+newCommand(cli);
 
 cli.parse();

@@ -11,9 +11,9 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
  */
 async function resolveTemplatesRoot(): Promise<string> {
   const candidates = [
-    path.join(HERE, "..", "templates", "ejected"), // src layout: src/eject/ → src/templates/ejected
-    path.join(HERE, "..", "..", "templates", "ejected"), // dist layout: dist/eject/ → dist/templates/ejected
-    path.join(HERE, "templates", "ejected"), // single-bundle dist
+    path.join(HERE, "..", "templates", "ejected"),
+    path.join(HERE, "..", "..", "templates", "ejected"),
+    path.join(HERE, "templates", "ejected"),
   ];
   for (const dir of candidates) {
     try {
@@ -26,12 +26,22 @@ async function resolveTemplatesRoot(): Promise<string> {
   throw new Error(`Eject templates not found. Tried: ${candidates.join(", ")}`);
 }
 
-export interface CopyResourceOptions {
+interface BaseCopyOptions {
   cwd: string;
-  resourceName: string;
   version: string;
   force?: boolean;
 }
+
+export interface CopyResourceOptions extends BaseCopyOptions {
+  resourceName: string;
+}
+
+export interface CopyDashboardOptions extends BaseCopyOptions {
+  /** Dashboard config path, e.g. "/" or "/monitoring". */
+  dashboardPath: string;
+}
+
+export type CopyLayoutOptions = BaseCopyOptions;
 
 const RESOURCE_LAYOUT: ReadonlyArray<readonly [srcRel: string, destRel: string]> = [
   ["resource/page.tsx.txt", "page.tsx"],
@@ -41,6 +51,34 @@ const RESOURCE_LAYOUT: ReadonlyArray<readonly [srcRel: string, destRel: string]>
   ["resource/actions.ts.txt", "actions.ts"],
 ];
 
+async function writeStamped(
+  templatePath: string,
+  destPath: string,
+  vars: Record<string, string>,
+  version: string,
+  force: boolean,
+  cwd: string,
+): Promise<void> {
+  if (!force) {
+    try {
+      await fs.access(destPath);
+      throw new Error(
+        `Eject target already exists: ${path.relative(cwd, destPath)} (pass force: true to overwrite)`,
+      );
+    } catch (e: unknown) {
+      if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") throw e;
+    }
+  }
+  const raw = await fs.readFile(templatePath, "utf8");
+  const substituted = Object.entries(vars).reduce(
+    (acc, [key, value]) => acc.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), value),
+    raw,
+  );
+  const stamped = stampMarker(substituted, version);
+  await fs.mkdir(path.dirname(destPath), { recursive: true });
+  await fs.writeFile(destPath, stamped, "utf8");
+}
+
 export async function copyResourceTemplates(opts: CopyResourceOptions): Promise<string[]> {
   const templatesRoot = await resolveTemplatesRoot();
   const targetDir = path.join(opts.cwd, "app/admin", opts.resourceName);
@@ -48,23 +86,54 @@ export async function copyResourceTemplates(opts: CopyResourceOptions): Promise<
 
   for (const [srcRel, destRel] of RESOURCE_LAYOUT) {
     const dest = path.join(targetDir, destRel);
-    if (!opts.force) {
-      try {
-        await fs.access(dest);
-        throw new Error(
-          `Eject target already exists: ${path.relative(opts.cwd, dest)} (pass force: true to overwrite)`,
-        );
-      } catch (e: unknown) {
-        if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") throw e;
-      }
-    }
-    const tplPath = path.join(templatesRoot, srcRel);
-    const raw = await fs.readFile(tplPath, "utf8");
-    const substituted = raw.replace(/\{\{\s*name\s*\}\}/g, opts.resourceName);
-    const stamped = stampMarker(substituted, opts.version);
-    await fs.mkdir(path.dirname(dest), { recursive: true });
-    await fs.writeFile(dest, stamped, "utf8");
+    await writeStamped(
+      path.join(templatesRoot, srcRel),
+      dest,
+      { name: opts.resourceName },
+      opts.version,
+      opts.force ?? false,
+      opts.cwd,
+    );
     written.push(dest);
   }
   return written;
+}
+
+/**
+ * Eject a dashboard. Writes a single `app/admin/<path>/page.tsx` (root
+ * dashboard at `path: "/"` lands at `app/admin/page.tsx`).
+ */
+export async function copyDashboardTemplate(opts: CopyDashboardOptions): Promise<string[]> {
+  const templatesRoot = await resolveTemplatesRoot();
+  const normalized = opts.dashboardPath === "/" ? "" : opts.dashboardPath.replace(/^\//, "");
+  const dest = path.join(opts.cwd, "app/admin", normalized, "page.tsx");
+
+  await writeStamped(
+    path.join(templatesRoot, "dashboard/page.tsx.txt"),
+    dest,
+    { path: opts.dashboardPath },
+    opts.version,
+    opts.force ?? false,
+    opts.cwd,
+  );
+  return [dest];
+}
+
+/**
+ * Eject the admin layout. Writes `app/admin/layout.tsx` that wraps
+ * children in `<AdminShell>` from @flowpanel/react.
+ */
+export async function copyLayoutTemplate(opts: CopyLayoutOptions): Promise<string[]> {
+  const templatesRoot = await resolveTemplatesRoot();
+  const dest = path.join(opts.cwd, "app/admin", "layout.tsx");
+
+  await writeStamped(
+    path.join(templatesRoot, "layout/layout.tsx.txt"),
+    dest,
+    {},
+    opts.version,
+    opts.force ?? false,
+    opts.cwd,
+  );
+  return [dest];
 }

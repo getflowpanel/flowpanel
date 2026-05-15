@@ -1,34 +1,11 @@
-export interface AvatarProps {
-  src?: string;
-  alt?: string;
-  fallback?: string;
-  size?: "sm" | "md" | "lg";
-  className?: string;
-}
+"use client";
+import * as React from "react";
+import { useComponents } from "../_provider/ComponentsContext.js";
+export { DefaultAvatar, type AvatarProps } from "./AvatarDefault.js";
 
-const SIZE = { sm: 24, md: 32, lg: 48 } as const;
-
-export function Avatar({ src, alt, fallback, size = "md", className }: AvatarProps) {
-  const px = SIZE[size];
-  const initials = (fallback ?? "").trim().slice(0, 2).toUpperCase() || "?";
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt={alt ?? ""}
-        width={px}
-        height={px}
-        className={`rounded-full object-cover ${className ?? ""}`}
-      />
-    );
-  }
-  return (
-    <div
-      aria-hidden
-      style={{ width: px, height: px }}
-      className={`flex items-center justify-center rounded-full bg-fp-bg-2 text-xs font-medium text-fp-text-2 ${className ?? ""}`}
-    >
-      {initials}
-    </div>
-  );
+/** Renders whatever override the user registered via theme.components.Avatar,
+ *  falling back to DefaultAvatar. */
+export function Avatar(props: import("./AvatarDefault.js").AvatarProps): React.JSX.Element {
+  const Slot = useComponents().Avatar;
+  return <Slot {...props} />;
 }

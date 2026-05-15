@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/adapter-drizzle",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.1",
   "description": "Drizzle ORM adapter for FlowPanel",
   "keywords": [
     "flowpanel",
