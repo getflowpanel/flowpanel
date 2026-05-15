@@ -1,0 +1,45 @@
+name: Feature request
+description: Suggest an addition or change to FlowPanel
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening, please skim
+        [`docs/spec/flowpanel-v1.0.md`](https://github.com/Ch4m4/flowpanel/blob/main/docs/spec/flowpanel-v1.0.md)
+        section 30 ("Out of scope") — your feature may be deliberately
+        deferred to 1.1+.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can't you do today? Be specific about the use case.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        What would the API look like? Code snippets are welcome.
+        Bias toward additive changes over breaking changes.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: |
+        What workarounds exist today? Why aren't they good enough?
+        (This often clarifies the actual need.)
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I checked [the out-of-scope list](https://github.com/Ch4m4/flowpanel/blob/main/docs/spec/flowpanel-v1.0.md) — this isn't already deferred.
+          required: true
+        - label: I'm willing to send a PR if the design is approved.
+          required: false

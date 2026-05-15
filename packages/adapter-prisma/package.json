@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/adapter-prisma",
-  "version": "0.3.0-alpha.1",
+  "version": "1.0.0-beta.2",
   "description": "Prisma ORM adapter for FlowPanel",
   "keywords": [
     "flowpanel",
@@ -27,7 +27,22 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "pretest:unit": "prisma generate --schema=prisma/schema.prisma",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:types": "tsd"
+  },
+  "tsd": {
+    "directory": "types-test",
+    "compilerOptions": {
+      "moduleResolution": "node",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "paths": {
+        "@flowpanel/adapter-prisma": [
+          "./dist/index.d.ts"
+        ]
+      }
+    }
   },
   "sideEffects": false,
   "engines": {
@@ -54,6 +69,7 @@
     "@prisma/client": "^5.20.0",
     "@types/node": "^20.0.0",
     "prisma": "^5.20.0",
+    "tsd": "^0.33.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.0.0",

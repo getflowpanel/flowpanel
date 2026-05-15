@@ -1,18 +1,19 @@
 {
   "mode": "pre",
-  "tag": "alpha",
+  "tag": "beta",
   "initialVersions": {
-    "freelance-radar": "0.0.1",
-    "@flowpanel/adapter-bullmq": "0.2.5-alpha.0",
-    "@flowpanel/adapter-drizzle": "0.2.5-alpha.0",
-    "@flowpanel/charts": "0.2.5-alpha.0",
-    "@flowpanel/cli": "0.2.5-alpha.0",
-    "@flowpanel/client": "0.2.5-alpha.0",
-    "@flowpanel/core": "0.2.5-alpha.0",
+    "freelance-radar": "0.0.2-alpha.0",
+    "@flowpanel/adapter-bullmq": "0.3.0-alpha.1",
+    "@flowpanel/adapter-drizzle": "0.3.0-alpha.1",
+    "@flowpanel/adapter-prisma": "0.3.0-alpha.1",
+    "@flowpanel/charts": "0.3.0-alpha.1",
+    "@flowpanel/cli": "0.3.0-alpha.1",
+    "@flowpanel/client": "0.3.0-alpha.1",
+    "@flowpanel/core": "0.3.0-alpha.1",
     "@flowpanel/e2e": "0.1.0",
-    "flowpanel": "0.2.5-alpha.0",
-    "@flowpanel/next": "0.2.5-alpha.0",
-    "@flowpanel/react": "0.2.5-alpha.0"
+    "flowpanel": "0.3.0-alpha.1",
+    "@flowpanel/next": "0.3.0-alpha.1",
+    "@flowpanel/react": "0.3.0-alpha.1"
   },
-  "changesets": ["m3-phase1-realtime-config", "m3-queues-realtime"]
+  "changesets": ["m3-phase1-realtime-config", "m3-queues-realtime", "m4a-prisma-eject-polish"]
 }

@@ -1,5 +1,14 @@
 # freelance-radar
 
+## 0.0.2-beta.1
+
+### Patch Changes
+
+- Updated dependencies
+  - flowpanel@1.0.0-beta.2
+  - @flowpanel/core@1.0.0-beta.2
+  - @flowpanel/adapter-bullmq@1.0.0-beta.2
+
 ## 0.0.2-alpha.0
 
 ### Patch Changes

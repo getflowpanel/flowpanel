@@ -1,0 +1,81 @@
+name: Bug report
+description: Something is broken in FlowPanel
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A small reproduction goes a long way —
+        please link to a repo or paste a minimal snippet.
+
+  - type: input
+    id: version
+    attributes:
+      label: FlowPanel version
+      description: From your `package.json` (e.g. `1.0.0` or `1.0.0-beta.2`)
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: adapter
+    attributes:
+      label: Adapter
+      options:
+        - Drizzle
+        - Prisma
+        - Other / N/A
+    validations:
+      required: true
+
+  - type: input
+    id: dialect
+    attributes:
+      label: Database dialect (if applicable)
+      description: Postgres / MySQL / SQLite / N/A
+      placeholder: "Postgres 16"
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: "20.x"
+
+  - type: input
+    id: next
+    attributes:
+      label: Next.js version
+      placeholder: "15.x"
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Minimal repro — link to a repo, or paste a code snippet.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the error / stack if any.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched existing issues for duplicates.
+          required: true
+        - label: I read [`docs/invariants.md`](https://github.com/Ch4m4/flowpanel/blob/main/docs/invariants.md) and the bug isn't an intended invariant.
+          required: false

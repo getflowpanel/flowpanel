@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts" },
+  entry: { index: "src/index.ts", labels: "src/labels.ts" },
   format: ["esm", "cjs"],
   // Emit consistent `.mjs` + `.cjs` so package.json's import/require
   // exports match file-system reality (tsup's default `.js` + `.mjs`

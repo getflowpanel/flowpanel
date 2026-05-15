@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/charts",
-  "version": "0.3.0-alpha.1",
+  "version": "1.0.0-beta.2",
   "description": "Recharts-backed chart widgets for FlowPanel dashboards",
   "license": "MIT",
   "type": "module",

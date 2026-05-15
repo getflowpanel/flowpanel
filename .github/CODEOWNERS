@@ -1,0 +1,18 @@
+# GitHub CODEOWNERS — automatic review requests on PR.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo.
+*                                @Ch4m4
+
+# Public-API surfaces require explicit review.
+/packages/*/src/index.ts         @Ch4m4
+/packages/flowpanel/src/         @Ch4m4
+
+# Architectural decisions and invariants — never bypass review.
+/docs/invariants.md              @Ch4m4
+/docs/adr/                       @Ch4m4
+/docs/spec/                      @Ch4m4
+
+# Release artifacts.
+/.changeset/                     @Ch4m4
+/.github/workflows/release.yml   @Ch4m4
