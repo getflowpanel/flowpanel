@@ -2,6 +2,7 @@
  * Seed the demo database with realistic freelance-radar data.
  * Run: `pnpm db:seed` (after `pnpm docker:up && pnpm db:push`).
  */
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "../src/db/schema";
@@ -17,14 +18,22 @@ const db = drizzle(
 async function seed() {
   console.log("⏳ seeding…");
 
-  // Users
+  // Wipe in dependency order so seed is re-runnable.
+  await db.execute(
+    sql`TRUNCATE TABLE ${schema.aiCosts}, ${schema.payments}, ${schema.jobs}, ${schema.categories}, ${schema.users} RESTART IDENTITY CASCADE`,
+  );
+
+  // Users — spread across the last week so the Signups chart has a real curve.
+  const day = (n: number) => new Date(Date.now() - n * 86400_000);
   const userRows = await db
     .insert(schema.users)
     .values([
-      { email: "alice@example.com", plan: "pro", status: "active" },
-      { email: "bob@example.com", plan: "free", status: "trialing" },
-      { email: "carol@example.com", plan: "team", status: "active" },
-      { email: "dan@example.com", plan: "free", status: "canceled" },
+      { email: "alice@example.com", plan: "pro", status: "active", createdAt: day(6) },
+      { email: "bob@example.com", plan: "free", status: "trialing", createdAt: day(5) },
+      { email: "carol@example.com", plan: "team", status: "active", createdAt: day(3) },
+      { email: "dan@example.com", plan: "free", status: "canceled", createdAt: day(2) },
+      { email: "erin@example.com", plan: "pro", status: "active", createdAt: day(1) },
+      { email: "frank@example.com", plan: "free", status: "trialing", createdAt: day(0) },
     ])
     .returning({ id: schema.users.id });
 

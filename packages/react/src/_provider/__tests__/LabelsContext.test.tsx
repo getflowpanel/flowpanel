@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { DEFAULT_LABELS } from "@flowpanel/core";
+import { DEFAULT_LABELS, formatLabel } from "@flowpanel/core";
 import { LabelsProvider, useLabels } from "../LabelsContext.js";
 
 afterEach(() => cleanup());
@@ -19,7 +19,7 @@ function NoResultsProbe() {
 
 function BulkSelectedProbe({ n }: { n: number }) {
   const l = useLabels();
-  return <div data-testid="bulk-selected">{l.bulkBar.selected(n)}</div>;
+  return <div data-testid="bulk-selected">{formatLabel(l.bulkBar.selected, { n })}</div>;
 }
 
 describe("LabelsContext", () => {

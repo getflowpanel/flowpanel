@@ -35,6 +35,7 @@ export function AreaChart({ data, options }: { data: unknown[]; options: AreaCha
             stroke="hsl(var(--fp-accent))"
             fill="hsl(var(--fp-accent) / 0.2)"
             strokeWidth={2}
+            isAnimationActive={false}
           />
         ))}
       </RcArea>

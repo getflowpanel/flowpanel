@@ -2,8 +2,13 @@
  * Localizable strings for FlowPanel's built-in chrome.
  *
  * Pass via `defineAdmin({ labels: { ... } })`. Unset keys fall back to
- * English defaults. Function-valued labels (e.g. `bulkBar.selected`) are
- * replaced wholesale, not deep-merged.
+ * English defaults.
+ *
+ * Templates use `{name}` placeholders. The resolver `formatLabel(template, vars)`
+ * substitutes them. We use plain strings (not functions) so the labels object
+ * can be serialized across the React Server Components boundary — `defineAdmin`
+ * is server-evaluated, but the labels are consumed in client components like
+ * BulkBar via `useLabels()`.
  */
 export interface LabelsConfig {
   /** Empty list state — used when a resource list returns 0 rows. */
@@ -19,11 +24,12 @@ export interface LabelsConfig {
   };
   /** Bulk action bar. */
   bulkBar?: {
-    selected?: (n: number) => string;
+    /** Use `{n}` for the selection count. Default: `"{n} selected"`. */
+    selected?: string;
     clear?: string;
   };
-  /** Resource search input placeholder. `resourceLabel` is the resource's `label` config. */
-  searchPlaceholder?: (resourceLabel: string) => string;
+  /** Resource search input placeholder. Use `{label}` for the resource's label. */
+  searchPlaceholder?: string;
   /** Generic action buttons. */
   actions?: {
     save?: string;
@@ -53,13 +59,13 @@ export interface LabelsConfig {
   };
 }
 
-/** Singleton defaults. Keep stable referential equality so consumers can short-circuit. */
+/** Singleton defaults. Plain strings only — RSC-serializable. */
 export const DEFAULT_LABELS: {
   noResults: string;
   allOption: string;
   pagination: Required<NonNullable<LabelsConfig["pagination"]>>;
   bulkBar: Required<NonNullable<LabelsConfig["bulkBar"]>>;
-  searchPlaceholder: (resourceLabel: string) => string;
+  searchPlaceholder: string;
   actions: Required<NonNullable<LabelsConfig["actions"]>>;
   drawer: Required<NonNullable<LabelsConfig["drawer"]>>;
   formError: string;
@@ -69,8 +75,8 @@ export const DEFAULT_LABELS: {
   noResults: "No results",
   allOption: "All",
   pagination: { previous: "Previous", next: "Next", of: "of", rowsPerPage: "Rows per page" },
-  bulkBar: { selected: (n) => `${n} selected`, clear: "Clear" },
-  searchPlaceholder: (label) => `Search ${label.toLowerCase()}…`,
+  bulkBar: { selected: "{n} selected", clear: "Clear" },
+  searchPlaceholder: "Search {label}…",
   actions: {
     save: "Save",
     cancel: "Cancel",
@@ -101,7 +107,16 @@ export function mergeLabels(user?: LabelsConfig): ResolvedLabels {
     drawer: { ...DEFAULT_LABELS.drawer, ...(user.drawer ?? {}) },
     confirm: { ...DEFAULT_LABELS.confirm, ...(user.confirm ?? {}) },
     palette: { ...DEFAULT_LABELS.palette, ...(user.palette ?? {}) },
-    // searchPlaceholder, noResults, allOption, formError are top-level scalars/functions
-    // already covered by ...user spread above.
   } as ResolvedLabels;
+}
+
+/**
+ * Substitute `{key}` placeholders in a label template with values.
+ *
+ * @example
+ *   formatLabel("{n} selected", { n: 3 })  // → "3 selected"
+ *   formatLabel("Search {label}…", { label: "users" })  // → "Search users…"
+ */
+export function formatLabel(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key) => (key in vars ? String(vars[key]) : match));
 }

@@ -47,6 +47,7 @@ export type {
 } from "./types/config.js";
 export {
   DEFAULT_LABELS,
+  formatLabel,
   mergeLabels,
   type LabelsConfig,
   type ResolvedLabels,

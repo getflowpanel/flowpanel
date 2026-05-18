@@ -36,7 +36,7 @@ export default defineAdmin({
   // i18n showcase: localize built-in chrome to Russian.
   labels: {
     actions: { save: "Сохранить", cancel: "Отмена", delete: "Удалить" },
-    bulkBar: { selected: (n) => `${n} выбрано`, clear: "Очистить" },
+    bulkBar: { selected: "{n} выбрано", clear: "Очистить" },
     pagination: { previous: "Назад", next: "Вперёд", of: "из", rowsPerPage: "Строк на странице" },
     noResults: "Ничего не найдено",
     confirm: { ok: "Подтвердить", cancel: "Отмена" },

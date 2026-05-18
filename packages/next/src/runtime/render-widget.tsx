@@ -121,12 +121,19 @@ export async function renderWidget(
       // main bundle. The package is introduced in Phase 3; until then, fall
       // back to a placeholder.
       try {
-        const chartsMod: { renderChart: (w: WidgetConfig, data: unknown) => ReactNode } =
+        const chartsMod: {
+          // biome-ignore lint/suspicious/noExplicitAny: cross-package dynamic import
+          ChartRenderer: (props: any) => ReactNode;
+        } =
           // biome-ignore lint/suspicious/noExplicitAny: dynamic import surface not typed in Phase 2
           (await import("@flowpanel/charts/runtime" as any)) as any;
         const data = await widget.query(ctx);
-        return chartsMod.renderChart(widget, data);
-      } catch {
+        const Renderer = chartsMod.ChartRenderer;
+        return (
+          <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />
+        );
+      } catch (e) {
+        console.error("[flowpanel/charts] dynamic import failed:", e);
         return (
           <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 text-xs text-fp-text-3">
             Charts package not installed — run `pnpm add @flowpanel/charts`.

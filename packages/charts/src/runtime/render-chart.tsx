@@ -8,25 +8,32 @@ import { PieChart } from "./PieChart.js";
 
 type ChartWidget = Extract<WidgetConfig, { kind: `${string}Chart` }>;
 
-export function renderChart(widget: ChartWidget, data: unknown[]) {
+export interface ChartRendererProps {
+  kind: ChartWidget["kind"];
+  label?: string;
+  options: ChartWidget["options"];
+  data: unknown[];
+}
+
+export function ChartRenderer({ kind, label, options, data }: ChartRendererProps) {
   let body: ReactNode;
-  switch (widget.kind) {
+  switch (kind) {
     case "areaChart":
-      body = <AreaChart data={data} options={widget.options} />;
+      body = <AreaChart data={data} options={options as never} />;
       break;
     case "barChart":
-      body = <BarChart data={data} options={widget.options} />;
+      body = <BarChart data={data} options={options as never} />;
       break;
     case "lineChart":
-      body = <LineChart data={data} options={widget.options} />;
+      body = <LineChart data={data} options={options as never} />;
       break;
     case "pieChart":
-      body = <PieChart data={data} options={widget.options} />;
+      body = <PieChart data={data} options={options as never} />;
       break;
   }
   return (
     <Card>
-      <CardHeader>{widget.label}</CardHeader>
+      <CardHeader>{label}</CardHeader>
       <div className="p-3">{body}</div>
     </Card>
   );

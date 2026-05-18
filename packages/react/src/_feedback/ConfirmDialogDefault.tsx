@@ -32,11 +32,11 @@ export function DefaultConfirmDialog({
           <AlertDialog.Title className="text-base font-semibold text-fp-text-1">
             {title}
           </AlertDialog.Title>
-          {description ? (
-            <AlertDialog.Description className="mt-2 text-sm text-fp-text-3">
-              {description}
-            </AlertDialog.Description>
-          ) : null}
+          <AlertDialog.Description
+            className={description ? "mt-2 text-sm text-fp-text-3" : "sr-only"}
+          >
+            {description ?? "Confirm action"}
+          </AlertDialog.Description>
           <div className="mt-5 flex justify-end gap-2">
             <AlertDialog.Cancel asChild>
               <DefaultButton variant="ghost" size="sm">

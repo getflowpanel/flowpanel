@@ -11,6 +11,6 @@ body {
 
 body {
   font-family: var(--fp-font-sans);
-  background: hsl(var(--fp-background));
-  color: hsl(var(--fp-foreground));
+  background: hsl(var(--fp-bg-2));
+  color: hsl(var(--fp-text-1));
 }

@@ -22,9 +22,23 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route.js";
 
+const dateFmt = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+const formatDate = (d: Date) => dateFmt.format(d).replace(",", "");
+
 function formatValue(v: unknown): string {
   if (v === null || v === undefined) return "—";
-  if (v instanceof Date) return v.toISOString();
+  if (v instanceof Date) return formatDate(v);
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) return formatDate(d);
+  }
   if (typeof v === "object") return JSON.stringify(v);
   return String(v);
 }

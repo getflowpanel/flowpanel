@@ -54,7 +54,7 @@ describe("BulkBar", () => {
 
   it("renders localized selected count via LabelsProvider", () => {
     render(
-      <LabelsProvider value={{ bulkBar: { selected: (n) => `${n} выбрано` } }}>
+      <LabelsProvider value={{ bulkBar: { selected: "{n} выбрано" } }}>
         <BulkBar selection={["1", "2", "3"]} actions={[]} onClear={vi.fn()} />
       </LabelsProvider>,
     );

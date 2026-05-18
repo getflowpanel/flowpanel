@@ -1,4 +1,5 @@
 "use client";
+import { formatLabel } from "@flowpanel/core/labels";
 import { useLabels } from "../_provider/LabelsContext.js";
 import { cn } from "../lib/cn.js";
 import { Button } from "../ui/button.js";
@@ -24,13 +25,15 @@ export function BulkBar({ selection, actions, onClear }: BulkBarProps) {
     <div
       data-state={selection.length > 0 ? "open" : "closed"}
       role="region"
-      aria-label={labels.bulkBar.selected(selection.length)}
+      aria-label={formatLabel(labels.bulkBar.selected, { n: selection.length })}
       className={cn(
         "fp-bulkbar",
         "sticky bottom-4 z-30 mx-auto mt-3 flex w-fit items-center gap-3 rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 shadow-lg",
       )}
     >
-      <span className="text-sm text-fp-text-2">{labels.bulkBar.selected(selection.length)}</span>
+      <span className="text-sm text-fp-text-2">
+        {formatLabel(labels.bulkBar.selected, { n: selection.length })}
+      </span>
       {actions.map((a) => (
         <Button
           key={a.key}

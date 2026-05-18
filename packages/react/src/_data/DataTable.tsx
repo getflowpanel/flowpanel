@@ -9,6 +9,26 @@ import { ColumnPinMenu } from "./ColumnPinMenu.js";
 import { ColumnResizer } from "./ColumnResizer.js";
 import { Pagination } from "./Pagination.js";
 
+const dateFmt = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+function formatCell(v: unknown): React.ReactNode {
+  if (v === null || v === undefined) return "";
+  if (v instanceof Date) return dateFmt.format(v).replace(",", "");
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
+    const d = new Date(v);
+    if (!Number.isNaN(d.getTime())) return dateFmt.format(d).replace(",", "");
+  }
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  return String(v);
+}
+
 export interface DataTableColumn<Row> {
   field: keyof Row & string;
   label?: string;
@@ -457,7 +477,7 @@ export function DataTable<Row extends Record<string, unknown>>({
                       style={{ textAlign: c.align ?? "left", ...stickyStyle }}
                       className={cn("px-4", rowPadding, c.className)}
                     >
-                      {c.render ? c.render(r) : String(r[c.field] ?? "")}
+                      {c.render ? c.render(r) : formatCell(r[c.field])}
                     </td>
                   );
                 })}
