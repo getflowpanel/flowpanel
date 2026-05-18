@@ -1,0 +1,81 @@
+---
+title: 'FlowPanel'
+description: 'One typed config → full admin panel for Next.js. Drizzle or Prisma. Realtime. Queues. Eject when you outgrow it.'
+template: splash
+hero:
+  tagline: 'One typed config → full admin panel for your Next.js app.'
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: Get started
+      link: /getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/Ch4m4/flowpanel
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why FlowPanel?
+
+<CardGrid stagger>
+  <Card title="Type-safe end-to-end" icon="seti:typescript">
+    `ctx.db` is typed everywhere through one `declare module` augmentation. No codegen, no `as any` casts. Drizzle and Prisma both first-class.
+  </Card>
+
+  <Card title="Customize three ways" icon="setting">
+    L1 props (90% of cases) → L2 `theme.components` overrides (10 slots) → L3 `flowpanel eject` for full ownership. No hidden trapdoors.
+  </Card>
+
+  <Card title="Batteries included" icon="rocket">
+    CRUD lists + drawers, dashboards, BullMQ queues, realtime SSE, soft-delete, audit, scope, rate-limit. Server Actions throughout.
+  </Card>
+
+  <Card title="Real OSS in 2026" icon="open-book">
+    `pnpm` workspaces, `tsup` builds, `vitest` + `tsd` + `axe-core` + `size-limit` in CI. ADRs, invariants, Contributor Covenant 2.1.
+  </Card>
+</CardGrid>
+
+## 60-second install
+
+```bash
+pnpm add flowpanel
+pnpm flowpanel init
+pnpm flowpanel dev
+```
+
+## What's in the box
+
+```ts
+// flowpanel.config.ts
+import { defineAdmin, resource, dashboard, queue } from "flowpanel";
+import { drizzleAdapter } from "flowpanel/drizzle";
+import { withClerk } from "flowpanel/auth";
+import { db } from "@/db/client";
+import * as schema from "@/db/schema";
+
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes { db: typeof db }
+}
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: withClerk({ requireRole: "admin" }),
+  resources: [
+    resource(schema.users, {
+      columns: ["email", "plan", "status", "createdAt"],
+      filters: [{ field: "plan", type: "select", options: [...] }],
+      drawer: { fields: "*", actions: [...] },
+      delete: { softDelete: "deletedAt" },
+    }),
+    resource(schema.jobs, { columns: ["title", "platform", "priceUsd"] }),
+  ],
+  realtime: { driver: "memory" },
+  queues: [queue(scraperQueue, { label: "Scraper" })],
+});
+```
+
+That's it. Run `pnpm flowpanel dev` and visit `/admin`.

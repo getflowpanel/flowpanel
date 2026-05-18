@@ -11,14 +11,12 @@
 ```bash
 pnpm add flowpanel
 pnpm flowpanel init
+pnpm flowpanel dev
 ```
 
-`flowpanel init` detects your stack (Next.js, Drizzle/Prisma, auth) and scaffolds:
+Visit `http://localhost:3000/admin`. Done.
 
-- `flowpanel.config.ts`
-- `app/admin/[[...slug]]/page.tsx`
-- `app/api/flowpanel/[...route]/route.ts`
-- `app/api/flowpanel/stream/route.ts`
+`flowpanel init` detects your stack (Next.js, Drizzle/Prisma, auth) and scaffolds the config + 6 wiring files. `flowpanel dev` starts Next.js (and bull-board if `REDIS_URL` is set).
 
 ## Use
 
@@ -26,9 +24,9 @@ pnpm flowpanel init
 // flowpanel.config.ts
 import { defineAdmin, resource, dashboard, metric, table } from "flowpanel";
 import { drizzleAdapter } from "flowpanel/drizzle";
+import { withClerk } from "flowpanel/auth";
 import { db } from "@/db/client";
 import * as schema from "@/db/schema";
-import { getSession } from "@/lib/auth";
 
 declare module "@flowpanel/core" {
   interface FlowpanelTypes {
@@ -38,11 +36,7 @@ declare module "@flowpanel/core" {
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  auth: {
-    session: () => getSession(),
-    role: (s) => s?.role ?? "guest",
-    requireRole: "admin",
-  },
+  auth: withClerk({ requireRole: "admin" }),
   realtime: { driver: "memory" },
 
   resources: [
@@ -95,7 +89,10 @@ on row click; soft-deleted rows are filtered out automatically.
 - **Filters, sort, pagination, column resize, column pin, bulk select.**
   All URL-synced for shareable links.
 - **Three customization tiers** (spec §8): props → `theme.components`
-  overrides → eject (`flowpanel eject resource users`).
+  overrides (10 slots: Button, Badge, Avatar, StatusBadge, EmptyState,
+  MetricCard, PageHeader, Pagination, ConfirmDialog, SkeletonTable) → eject (`flowpanel eject resource users`).
+- **First-class auth** — `withClerk`, `withNextAuth`, `withLucia` from
+  `flowpanel/auth`. Or write your own 4-field `AuthConfig`.
 - **i18n** — `labels` config localizes built-in chrome (BulkBar,
   pagination, drawer, confirm, palette).
 - **A11y** — WCAG 2.2 AA. Focus traps, aria-live, skip-to-content,
@@ -141,11 +138,9 @@ Three eject targets, no fourth: `resource`, `dashboard`, `layout`. See
 
 ## Documentation
 
-- [Getting started](docs/guides/getting-started.md)
-- Reference: [resources](docs/reference/resources.md) · [dashboard](docs/reference/dashboard.md) · [actions](docs/reference/actions.md) · [realtime](docs/reference/realtime.md) · [queues](docs/reference/queues.md) · [theme](docs/reference/theme.md) · [adapters](docs/reference/adapters.md)
-- Recipes: [file uploads](docs/recipes/file-uploads.md) · [JSONB editor](docs/recipes/jsonb-editor.md) · [multi-tenant](docs/recipes/multi-tenant.md)
-- [Public-API invariants](docs/invariants.md)
-- [ADRs](docs/adr/)
+**<https://flowpanel.dev>** — full reference, recipes, and getting-started guide.
+
+In-repo: [Public-API invariants](docs/invariants.md) · [ADRs](docs/adr/) · [Spec](docs/spec/flowpanel-v1.0.md)
 
 ## Contributing
 
