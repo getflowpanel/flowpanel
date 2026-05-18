@@ -1,36 +1,43 @@
 "use client";
-import * as React from "react";
+import {
+  type ComponentType,
+  createContext,
+  type JSX,
+  type ReactNode,
+  useContext,
+  useMemo,
+} from "react";
 // Import only the pure renderer (no context dependency) to avoid circular refs.
-import { DefaultEmptyState, type EmptyStateProps } from "../_feedback/EmptyStateDefault.js";
-import { DefaultMetricCard, type MetricCardProps } from "../_widgets/MetricCardDefault.js";
-import { DefaultButton, type ButtonProps } from "../ui/buttonDefault.js";
-import { DefaultBadge, type BadgeProps } from "../_atoms/BadgeDefault.js";
 import { DefaultAvatar, type AvatarProps } from "../_atoms/AvatarDefault.js";
+import { DefaultBadge, type BadgeProps } from "../_atoms/BadgeDefault.js";
 import { DefaultStatusBadge, type StatusBadgeProps } from "../_atoms/StatusBadgeDefault.js";
-import { DefaultPageHeader, type PageHeaderProps } from "../_shell/PageHeaderDefault.js";
-import { DefaultPagination, type PaginationProps } from "../_data/PaginationDefault.js";
 import {
   DefaultConfirmDialog,
   type ConfirmDialogProps,
 } from "../_feedback/ConfirmDialogDefault.js";
+import { DefaultEmptyState, type EmptyStateProps } from "../_feedback/EmptyStateDefault.js";
 import {
   DefaultSkeletonTable,
   type SkeletonTableProps,
 } from "../_feedback/SkeletonTableDefault.js";
+import { DefaultPagination, type PaginationProps } from "../_data/PaginationDefault.js";
+import { DefaultPageHeader, type PageHeaderProps } from "../_shell/PageHeaderDefault.js";
+import { DefaultButton, type ButtonProps } from "../ui/buttonDefault.js";
+import { DefaultMetricCard, type MetricCardProps } from "../_widgets/MetricCardDefault.js";
 
 export interface FlowpanelComponentSlots {
-  EmptyState: React.ComponentType<EmptyStateProps>;
-  MetricCard: React.ComponentType<MetricCardProps>;
-  /** Override the Button component. Your override SHOULD be React.forwardRef-aware
+  EmptyState: ComponentType<EmptyStateProps>;
+  MetricCard: ComponentType<MetricCardProps>;
+  /** Override the Button component. Your override SHOULD be forwardRef-aware
    *  to avoid warnings from Radix UI when Button is used with asChild. */
-  Button: React.ComponentType<ButtonProps>;
-  Badge: React.ComponentType<BadgeProps>;
-  Avatar: React.ComponentType<AvatarProps>;
-  StatusBadge: React.ComponentType<StatusBadgeProps>;
-  PageHeader: React.ComponentType<PageHeaderProps>;
-  Pagination: React.ComponentType<PaginationProps>;
-  ConfirmDialog: React.ComponentType<ConfirmDialogProps>;
-  SkeletonTable: React.ComponentType<SkeletonTableProps>;
+  Button: ComponentType<ButtonProps>;
+  Badge: ComponentType<BadgeProps>;
+  Avatar: ComponentType<AvatarProps>;
+  StatusBadge: ComponentType<StatusBadgeProps>;
+  PageHeader: ComponentType<PageHeaderProps>;
+  Pagination: ComponentType<PaginationProps>;
+  ConfirmDialog: ComponentType<ConfirmDialogProps>;
+  SkeletonTable: ComponentType<SkeletonTableProps>;
 }
 
 const DEFAULTS: FlowpanelComponentSlots = {
@@ -46,19 +53,19 @@ const DEFAULTS: FlowpanelComponentSlots = {
   SkeletonTable: DefaultSkeletonTable,
 };
 
-const Ctx = React.createContext<FlowpanelComponentSlots>(DEFAULTS);
+const Ctx = createContext<FlowpanelComponentSlots>(DEFAULTS);
 
 export function ComponentsProvider({
   value,
   children,
 }: {
   value?: Partial<FlowpanelComponentSlots>;
-  children: React.ReactNode;
-}): React.JSX.Element {
-  const merged = React.useMemo(() => ({ ...DEFAULTS, ...(value ?? {}) }), [value]);
+  children: ReactNode;
+}): JSX.Element {
+  const merged = useMemo(() => ({ ...DEFAULTS, ...(value ?? {}) }), [value]);
   return <Ctx.Provider value={merged}>{children}</Ctx.Provider>;
 }
 
 export function useComponents(): FlowpanelComponentSlots {
-  return React.useContext(Ctx);
+  return useContext(Ctx);
 }

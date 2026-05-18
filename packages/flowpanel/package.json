@@ -1,6 +1,6 @@
 {
   "name": "flowpanel",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Config-first admin panel framework for Next.js 15",
   "license": "MIT",
   "type": "module",

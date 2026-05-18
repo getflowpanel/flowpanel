@@ -112,12 +112,30 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5433/flowpanel_test
 
-  # ── E2E tests ────────────────────────────────────────────────────────────
+  # ── E2E tests against freelance-radar ────────────────────────────────────
+  # Boots the actual freelance-radar example with a real Postgres service,
+  # runs db:push + seed, then runs Playwright (config in packages/e2e/
+  # spawns `pnpm --filter freelance-radar dev` as its webServer).
   e2e:
     name: E2E tests
     runs-on: ubuntu-latest
     needs: check
-    timeout-minutes: 10
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: freelance_radar
+          POSTGRES_USER: fp
+          POSTGRES_PASSWORD: fp
+        ports: ["54329:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://fp:fp@localhost:54329/freelance_radar
     steps:
       - uses: actions/checkout@v4
 
@@ -152,18 +170,17 @@ jobs:
         working-directory: packages/e2e
         run: pnpm exec playwright install-deps chromium
 
-      - name: Build & start E2E server
-        working-directory: packages/e2e
-        run: |
-          pnpm build
-          pnpm start &
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3099 > /dev/null 2>&1 && break
-            sleep 1
-          done
+      - name: Apply Drizzle schema to freelance-radar DB
+        working-directory: examples/freelance-radar
+        run: pnpm db:push
 
-      - run: pnpm exec playwright test
+      - name: Seed freelance-radar DB
+        working-directory: examples/freelance-radar
+        run: pnpm db:seed
+
+      - name: Run Playwright (boots freelance-radar via webServer)
         working-directory: packages/e2e
+        run: pnpm exec playwright test
 
       - uses: actions/upload-artifact@v4
         if: failure()

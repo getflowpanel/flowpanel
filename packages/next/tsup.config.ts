@@ -1,5 +1,13 @@
 import { defineConfig } from "tsup";
 
+// Use the automatic JSX runtime so the bundle emits
+//   import { jsx } from "react/jsx-runtime"
+// instead of bare `React.createElement(...)` calls. Bare calls require
+// `React` to be in scope, which we never import explicitly in TSX files.
+const sharedEsbuild = (options: { jsx?: string }): void => {
+  options.jsx = "automatic";
+};
+
 export default defineConfig([
   {
     entry: ["src/index.ts"],
@@ -7,6 +15,7 @@ export default defineConfig([
     dts: true,
     splitting: false,
     clean: true,
+    esbuildOptions: sharedEsbuild,
     external: [
       "next",
       "next/navigation",
@@ -28,6 +37,7 @@ export default defineConfig([
     dts: true,
     splitting: false,
     clean: false,
+    esbuildOptions: sharedEsbuild,
     external: [
       "next",
       "next/navigation",
