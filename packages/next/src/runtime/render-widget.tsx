@@ -81,7 +81,7 @@ export async function renderWidget(
         const res = config.resourcesByName.get(widget.options.resource);
         if (res) {
           const softDelete = res.options.delete?.softDelete;
-          const listCtx: ListQueryContext<Record<string, unknown>> = {
+          const listCtx: ListQueryContext<unknown> = {
             req: ctx.req,
             session: ctx.session,
             role: "",

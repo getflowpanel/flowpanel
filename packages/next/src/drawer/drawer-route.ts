@@ -147,7 +147,7 @@ async function serializeTab(
               const target = config.resourcesByName.get(w.options.resource);
               if (target) {
                 const softDelete = target.options.delete?.softDelete;
-                const listCtx: ListQueryContext<Record<string, unknown>> = {
+                const listCtx: ListQueryContext<unknown> = {
                   ...reqCtx,
                   req,
                   db: config.adapter.db,
@@ -264,7 +264,7 @@ async function serializeTab(
   }
   const filter = typeof tab.filter === "function" ? tab.filter(row) : {};
   const softDelete = target.options.delete?.softDelete;
-  const listCtx: ListQueryContext<Record<string, unknown>> = {
+  const listCtx: ListQueryContext<unknown> = {
     ...reqCtx,
     req,
     db: config.adapter.db,

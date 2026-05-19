@@ -1,145 +1,112 @@
 ---
 title: 'Realtime'
-description: 'FlowPanel ships a live-update pipeline on PostgreSQL. **Two modes:**'
+description: 'FlowPanel ships a pub/sub abstraction with two drivers: memory (default) and Redis pub/sub.'
 ---
 
 
-FlowPanel ships a live-update pipeline on PostgreSQL. **Two modes:**
+FlowPanel ships a pub/sub abstraction with two drivers: an in-process
+**memory** publisher (default) and **Redis** pub/sub. Server code
+publishes on a channel; the SSE handler at `/api/flowpanel/stream`
+forwards messages to subscribed browsers as Server-Sent Events.
 
-| Mode | Latency | Setup | Note |
-| ---- | ------- | ----- | ---- |
-| `LISTEN`/`NOTIFY` | < 50ms | pass `listen:` to the adapter | Recommended. |
-| Polling fallback | 2s | nothing | Automatic. FlowPanel logs a one-time warning at startup. |
+> **WIP — Postgres `LISTEN/NOTIFY` is not implemented.** The publisher
+> drivers are `"memory"` and `"redis"` (`packages/core/src/runtime/publish.ts:6`).
 
-Both write to the same `flowpanel_events` table — the difference is only
-how the SSE broker learns that a new row has landed.
-
-## Server: opt in per resource
+## Configure the publisher
 
 ```ts
-import { defineResource } from "@flowpanel/core";
-
-const userResource = defineResource<User>(users, {
-  realtime: true, // ← on
-  ...
+defineAdmin({
+  ...,
+  realtime: { driver: "memory" },                              // default for dev
+  // or
+  realtime: { driver: "redis", url: process.env.REDIS_URL!, keyPrefix: "fp:" },
 });
 ```
 
-Every successful mutation (`create` / `update` / `delete` / row action)
-now publishes `resource.<key>` with `{ op, id, actionId? }` payload. Writes
-are fire-and-forget — a broker/DB failure never affects the underlying
-mutation.
-
-## Wire LISTEN for sub-50ms updates
-
-### Drizzle + postgres.js
+Type: `RealtimeConfig` re-exports `PublisherOptions`
+(`packages/core/src/types/realtime.ts:3`,
+`packages/core/src/runtime/publish.ts:6`):
 
 ```ts
-import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
+type PublisherOptions =
+  | { driver: "memory" }
+  | { driver: "redis"; url: string; keyPrefix?: string };
+```
 
-const sql = postgres(process.env.DATABASE_URL!);
+`ioredis` is loaded lazily — install it only if you pick `"redis"`
+(`packages/core/src/runtime/publish.ts:54`).
 
-export const adapter = drizzleAdapter({
-  db: drizzle(sql, { schema }),
-  schema,
-  listen: async (channel, handler) => {
-    const sub = await sql.listen(channel, handler);
-    return () => sub.unlisten();
-  },
+## Opt a resource into realtime
+
+```ts
+resource(schema.users, {
+  realtime: true,             // publishes "resource.users" on every mutation
 });
 ```
 
-### Drizzle + pg
+Or pin a custom channel name:
 
 ```ts
-import { Client } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-// Dedicated client for LISTEN — pool connections get recycled.
-const listenClient = new Client({ connectionString: process.env.DATABASE_URL });
-await listenClient.connect();
-
-export const adapter = drizzleAdapter({
-  db: drizzle(pool),
-  schema,
-  listen: async (channel, handler) => {
-    listenClient.on("notification", (msg) => {
-      if (msg.channel === channel && msg.payload) handler(msg.payload);
-    });
-    await listenClient.query(`LISTEN ${channel}`);
-    return async () => {
-      await listenClient.query(`UNLISTEN ${channel}`);
-    };
-  },
-});
+resource(schema.users, { realtime: "users.live" });
 ```
 
-### Prisma
+(`packages/core/src/types/resource.ts:151`).
 
-Prisma doesn't expose LISTEN — use a sidecar `pg.Client`:
+The runtime calls `publishResource(name, { action, id? })` after every
+successful create/update/delete handled through the resource path
+(`packages/next/src/runtime/publish.ts:37`). Channel format is
+`resource.<name>`, payload is `{ action: "create" | "update" | "delete";
+id?: string }`.
+
+## Wire the SSE endpoint
 
 ```ts
-import { Client } from "pg";
+// app/api/flowpanel/stream/route.ts
+import { stream } from "@flowpanel/next";
+import { flowpanel } from "@/src/flowpanel";
 
-const listenClient = new Client({ connectionString: process.env.DATABASE_URL });
-await listenClient.connect();
-
-export const adapter = prismaAdapter({
-  prisma,
-  listen: async (channel, handler) => {
-    listenClient.on("notification", (msg) => {
-      if (msg.channel === channel && msg.payload) handler(msg.payload);
-    });
-    await listenClient.query(`LISTEN ${channel}`);
-    return async () => { await listenClient.query(`UNLISTEN ${channel}`); };
-  },
-});
+export const GET = stream(flowpanel);
 ```
 
-## Check your setup
+(`packages/next/src/stream.ts:10`). The handler reads `?channel=`
+parameters from the request URL, subscribes to each, and writes SSE
+`message` frames as payloads come in. A `: keep-alive` comment fires
+every 15s to defeat proxy buffering.
 
-```
-$ pnpm flowpanel doctor
-  ✓ Realtime  LISTEN/NOTIFY wired — sub-50ms updates
-```
+## Publishing from action handlers
 
-If you see:
+`ActionContext.publish(channel, payload?)` is wired to the same
+publisher (`packages/core/src/types/context.ts:52`). Use it from row /
+bulk action `run` callbacks to publish on additional channels:
 
-```
-  ✗ Realtime  realtime: true set but adapter has no listen: option — 2s polling fallback
-```
-
-you're on polling. Admin still works; just 2s lag instead of 50ms.
-
-## Client: `useLive`
-
-```tsx
-import { useLive } from "@flowpanel/react";
-import { useQueryClient } from "@tanstack/react-query";
-
-function UsersPage() {
-  const qc = useQueryClient();
-  const { status } = useLive({
-    channel: "resource.user",
-    onEvent: () => qc.invalidateQueries({ queryKey: ["resource.list", "user"] }),
-  });
-  // status: "live" | "reconnecting" | "polling" | "paused"
+```ts
+run: async (row, _input, ctx) => {
+  await ctx.publish("resource.users", { action: "update", id: String(row.id) });
+  return { ok: true };
 }
 ```
 
+Server-side code outside an action context can use the package-local
+helpers from `@flowpanel/next`:
+
+```ts
+import { publish, publishResource } from "@flowpanel/next";
+
+await publishResource("users", { action: "update", id: "abc" });
+await publish("custom.channel", { hello: "world" });
+```
+
+(`packages/next/src/runtime/publish.ts`).
+
+## Widget-level subscriptions
+
+Dashboard widgets (`metric`, `table`, charts, custom) accept a
+`realtime: string | string[]` option that the client uses to invalidate
+the widget when those channels publish. See [Dashboard](../dashboard/).
+
 ## Channel naming
 
-| Channel | Fired by |
-| ------- | -------- |
-| `resource.<key>` | Row changed (any mutation op). |
-| `run.created/finished/failed` | Pipeline-run lifecycle. |
-| `metrics.updated` | Cross-cutting metrics refresh. |
-
-## Multi-process deployments
-
-`LISTEN`/`NOTIFY` is cross-connection by design — every Next.js worker
-receives every event. The broker de-duplicates by event id before fanning
-out to its local SSE clients. No Redis / no coordinator required, as long
-as every process talks to the same Postgres.
+The only channel the runtime publishes on automatically is
+`resource.<name>`. You can publish on any string from your own code.
+There is no Postgres `NOTIFY` integration, no `run.created/finished/failed`
+events, no `metrics.updated` channel — those are not implemented today.

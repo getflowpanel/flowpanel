@@ -9,14 +9,25 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { buildTickFormatter } from "./format-tick.js";
 
 export function AreaChart({ data, options }: { data: unknown[]; options: AreaChartOptions }) {
   const ys = Array.isArray(options.y) ? options.y : [options.y];
+  const tickFormatter = buildTickFormatter(
+    data as Record<string, unknown>[],
+    options.x,
+    options.bucket,
+  );
   return (
     <ResponsiveContainer width="100%" height={options.height ?? 240}>
       <RcArea data={data as object[]}>
         <CartesianGrid stroke="hsl(var(--fp-border-1))" strokeDasharray="3 3" />
-        <XAxis dataKey={options.x} stroke="hsl(var(--fp-text-3))" fontSize={12} />
+        <XAxis
+          dataKey={options.x}
+          stroke="hsl(var(--fp-text-3))"
+          fontSize={12}
+          tickFormatter={tickFormatter}
+        />
         <YAxis stroke="hsl(var(--fp-text-3))" fontSize={12} />
         <Tooltip
           contentStyle={{

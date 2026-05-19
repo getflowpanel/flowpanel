@@ -1,45 +1,68 @@
 ---
 title: 'JSONB / JSON column editor'
-description: 'Postgres `jsonb` columns (and Prisma `Json`, Drizzle `jsonb()`) are where'
+description: 'Patterns for displaying and editing Postgres jsonb, Prisma Json, and Drizzle jsonb() columns.'
 ---
 
 
 Postgres `jsonb` columns (and Prisma `Json`, Drizzle `jsonb()`) are where
 "we'll figure out the schema later" goes to live forever. An admin needs to
-see the contents without scrolling through a 40-line string, edit safely
-without destroying valid JSON on a typo, and occasionally search on a key.
+see the contents without scrolling through a 40-line string, and edit
+without destroying valid JSON on a typo.
 
-FlowPanel gives you three knobs. Pick based on how much the admin will
-actually edit the column.
+FlowPanel ships the basic pieces:
+
+- a `type: "json"` field on `FieldDef`
+  (`packages/core/src/types/resource.ts`) — the form renderer wires this
+  to the `JsonEditor` primitive (a textarea with on-the-fly parse + error
+  message; see `packages/react/src/_data/JsonEditor.tsx` and
+  `packages/react/src/_forms/Field.tsx:75-81`)
+- a `ColumnDef.render: (row, ctx) => ReactNode` hook for custom list-cell
+  rendering (see `packages/core/src/types/resource.ts:17-28`)
+- typed `RowAction.form?: FieldDef[]` so a row action can pop a form with
+  validated fields (see `packages/core/src/types/action.ts`)
+
+There is **no** named-cell-renderer registry (e.g. `render: "json-preview"`),
+no `<FlowPanelUI components={{ ... }} />` slot for arbitrary keys, no
+`a.dialog(...)` action builder, and no `columns: (c) => [...]` builder
+function. Earlier drafts of this page used those — they don't exist and
+have been removed.
+
+Pick from the three options below based on how much the admin will edit
+the column.
 
 ## Option A — read-only collapsed view (80% of cases)
 
 If admins only read the JSON (configs, incoming webhooks, audit payloads),
-the cheapest option is a custom cell renderer that shows a compact preview
-with a click-to-expand:
+the cheapest option is a column with a custom `render` function:
 
 ```ts
 // flowpanel.config.ts
-resources: {
-  webhook: defineResource<Webhook>(prisma.webhook, {
-    columns: (w) => [
-      w.id,
-      w.receivedAt,
-      w.source,
-      { id: "payload", label: "Payload", render: "json-preview" },
-    ],
-  }),
-}
+import { resource } from "flowpanel";
+import { JsonPreview } from "@/admin/JsonPreview"; // your component
+
+resource(prisma.webhook, {
+  label: "Webhooks",
+  columns: [
+    "id",
+    "receivedAt",
+    "source",
+    {
+      field: "payload",
+      label: "Payload",
+      render: (row) => <JsonPreview value={(row as { payload: unknown }).payload} />,
+    },
+  ],
+});
 ```
 
 ```tsx
-// src/flowpanel/widgets/JsonPreview.tsx
+// src/admin/JsonPreview.tsx
 "use client";
 import { useState } from "react";
 
 export function JsonPreview({ value }: { value: unknown }) {
   const [open, setOpen] = useState(false);
-  if (value == null) return <span className="text-muted-foreground">—</span>;
+  if (value == null) return <span className="text-fp-text-3">—</span>;
 
   const text = typeof value === "string" ? value : JSON.stringify(value);
   const preview = text.length > 60 ? `${text.slice(0, 60)}…` : text;
@@ -51,7 +74,7 @@ export function JsonPreview({ value }: { value: unknown }) {
       className="inline-block"
     >
       <summary className="cursor-pointer font-mono text-xs">{preview}</summary>
-      <pre className="mt-1 max-h-96 overflow-auto rounded-md bg-muted p-2 text-xs">
+      <pre className="mt-1 max-h-96 overflow-auto rounded-fp bg-fp-bg-2 p-2 text-xs">
         {JSON.stringify(value, null, 2)}
       </pre>
     </details>
@@ -59,128 +82,106 @@ export function JsonPreview({ value }: { value: unknown }) {
 }
 ```
 
-Wire it in once:
-
-```tsx
-<FlowPanelUI config={flowpanel} components={{ "json-preview": JsonPreview }} />
-```
-
-**No special form field.** The default form will render this column as
-a textarea of raw JSON — acceptable since the 80% case doesn't edit here.
-
-## Option B — full edit with validation (shaped column)
-
-If the JSON column has a stable shape (config blobs, feature flags,
-webhook settings), don't store it as JSON in the form at all — edit it
-through a `dialog` action with typed fields, and write back the assembled
-object:
+If admins also need to edit raw JSON in the resource form, declare the
+field with `type: "json"` — the built-in `Field` component renders the
+shipped `JsonEditor` (parse error live-displayed, hidden input keeps the
+value form-submittable):
 
 ```ts
-const featureFlags = defineResource<User>(prisma.user, {
-  columns: (u) => [u.email, { id: "flags", label: "Flags", render: "json-preview" }],
-  actions: (a) => ({
-    editFlags: a.dialog({
-      label: "Edit flags",
-      schema: {
-        fields: [
-          { name: "betaFeatures", type: "boolean", label: "Enable beta" },
-          { name: "maxProjects", type: "number", label: "Max projects", defaultValue: 10 },
-          {
-            name: "plan",
-            type: "select",
-            label: "Plan",
-            options: ["free", "pro", "team"],
-            required: true,
-          },
-        ],
-      },
-      handler: async (values, row, ctx) => {
-        await ctx.db.user.update({
-          where: { id: row!.id },
-          data: { flags: values }, // Prisma serializes to JSONB
-        });
-      },
-    }),
-  }),
+resource(prisma.webhook, {
+  // ...
+  update: {
+    fields: [
+      { name: "source", type: "text", required: true },
+      { name: "payload", type: "json", label: "Payload" },
+    ],
+  },
 });
 ```
 
-This is the **boring right answer** for shaped data. Validation is free
-(form marks required, enforces numbers), and admins can't typo-corrupt
-the column. You trade flexibility for correctness — worth it unless the
-shape really is open-ended.
+## Option B — full edit with validation (shaped column)
 
-## Option C — free-form edit (the rare last resort)
+If the JSON column has a stable shape (config blobs, feature flags),
+don't expose it as raw JSON in the form at all. Use a typed
+`RowAction.form` so the dialog has labelled fields and the handler
+assembles the object:
 
-If admins genuinely need to edit arbitrary JSON (you're building a
-FlowPanel admin for FlowPanel, basically), ship a code-editor-lite
-custom widget and validate on submit:
+```ts
+import type { RowAction } from "@flowpanel/core";
 
-```bash
-pnpm flowpanel add json-field       # (not in default set yet — write it)
+const editFlags: RowAction<typeof prisma.user.fields> = {
+  key: "editFlags",
+  label: "Edit flags",
+  form: [
+    { name: "betaFeatures", type: "boolean", label: "Enable beta" },
+    { name: "maxProjects", type: "number", label: "Max projects", defaultValue: 10 },
+    {
+      name: "plan",
+      type: "select",
+      label: "Plan",
+      options: [
+        { label: "Free", value: "free" },
+        { label: "Pro", value: "pro" },
+        { label: "Team", value: "team" },
+      ],
+      required: true,
+    },
+  ],
+  run: async (row, input, ctx) => {
+    await ctx.db.user.update({
+      where: { id: (row as { id: string }).id },
+      data: { flags: input as Record<string, unknown> },
+    });
+    return { ok: true, refresh: true };
+  },
+};
+
+resource(prisma.user, {
+  columns: [
+    "email",
+    {
+      field: "flags",
+      label: "Flags",
+      render: (row) => <JsonPreview value={(row as { flags: unknown }).flags} />,
+    },
+  ],
+  actions: [editFlags],
+});
 ```
 
-```tsx
-// src/flowpanel/widgets/JsonField.tsx
-"use client";
-import { useState } from "react";
+This is the **boring right answer** for shaped data. Validation comes
+from `FieldDef` (required, types, options) and admins can't typo-corrupt
+the column.
 
-export function JsonField({
-  value,
-  onChange,
-}: {
-  value: unknown;
-  onChange: (v: unknown) => void;
-}) {
-  const [text, setText] = useState(() => JSON.stringify(value ?? {}, null, 2));
-  const [error, setError] = useState<string | null>(null);
+## Option C — free-form edit
 
-  const tryParse = (next: string) => {
-    setText(next);
-    try {
-      const parsed = JSON.parse(next);
-      setError(null);
-      onChange(parsed);
-    } catch (e) {
-      setError((e as Error).message);
-      // Don't call onChange — keep the last valid object upstream.
-    }
-  };
+For genuinely free-form edits, lean on `type: "json"` in a normal
+`update.fields` declaration — that's exactly what the shipped
+`JsonEditor` is for. There is no extra wiring needed:
 
-  return (
-    <div className="space-y-1">
-      <textarea
-        value={text}
-        onChange={(e) => tryParse(e.target.value)}
-        rows={10}
-        className="w-full rounded-md border border-input bg-transparent p-2 font-mono text-xs"
-        spellCheck={false}
-      />
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
+```ts
+resource(prisma.user, {
+  // ...
+  update: {
+    fields: [
+      { name: "email", type: "email", required: true },
+      { name: "flags", type: "json", label: "Feature flags" },
+    ],
+  },
+});
 ```
 
-Wire it as a form field override for the `flags` column:
-
-```tsx
-<FlowPanelUI
-  config={flowpanel}
-  components={{
-    "json-preview": JsonPreview,
-    "form:flags": JsonField, // reserved prefix for form field overrides
-  }}
-/>
-```
+If you need a richer editor (Monaco / CodeMirror, schema-driven), eject
+the resource (see README) and own the form yourself. FlowPanel does not
+ship a pluggable form-field registry today.
 
 ## Querying by a JSON key
 
 Filtering on a JSON property (`WHERE flags->>'plan' = 'pro'`) is not
-something FlowPanel generates from a `filter` builder — adapter support
-varies and the SQL is hard to round-trip through the normalized filter
-IR. The pattern: expose it as a **computed column** sourced from a
-generated column or a view.
+something FlowPanel generates from a `filters` declaration — adapter
+support varies and the SQL is hard to round-trip through the typed
+filter shape. The pattern: surface it as a regular column sourced from
+a generated column or a view.
 
 ```sql
 -- migrations/0002_flags_plan.sql
@@ -189,23 +190,26 @@ ALTER TABLE users
 CREATE INDEX users_plan_idx ON users (plan);
 ```
 
-Then treat `plan` as a regular column in your resource — you get list
-filtering, sorting, and indexes for free.
+Then treat `plan` as a regular column in your resource — list filtering,
+sorting, and indexing all come for free.
 
 ## Checklist before shipping
 
-- [ ] Pick Option A (preview) unless admins really edit the column.
-- [ ] Free-form edits always go through a `dialog` with server-side
-      validation — a client-side JSON parser is not authorisation.
-- [ ] `row-level security` still applies — writing `{ flags: values }`
-      goes through the same access rules as any update.
+- [ ] Pick Option A (preview + `type: "json"` field) unless admins really
+      edit the column shape.
+- [ ] Free-form edits go through `update.fields` with `type: "json"`,
+      which renders `JsonEditor` with parse-error feedback.
+- [ ] Multi-tenant `scope` (other recipe) still applies — writing
+      `{ flags: input }` goes through the same per-resource scope you
+      configured.
 - [ ] If you need filtering on a JSON key, surface it as a generated
-      column with an index; don't reach into the resource filter IR.
+      column with an index; don't reach into the filter shape.
 
 ## What we deliberately don't do
 
-- **No Monaco / CodeMirror in the core bundle.** A full editor adds
+- **No Monaco / CodeMirror in the core bundle.** The shipped
+  `JsonEditor` is a textarea with parse feedback. A full editor adds
   ~500 KB gzipped and most admins never edit JSON. If you want one,
-  lazy-load it in a custom form field you own.
-- **No JSON schema auto-inference.** Peeking at a column's contents to
+  eject the resource form and own it.
+- **No JSON-schema auto-inference.** Peeking at a column's contents to
   guess a schema is fragile and lies by the second record.

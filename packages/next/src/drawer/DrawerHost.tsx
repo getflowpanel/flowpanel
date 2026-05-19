@@ -5,6 +5,7 @@ import {
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
+  humanize,
   KV,
   KVRow,
   MetricCard,
@@ -56,7 +57,7 @@ function FieldsView({ row, fields }: { row: Record<string, unknown>; fields: "*"
   return (
     <KV>
       {entries.map(([k, v]) => (
-        <KVRow key={k} label={k} value={formatValue(v)} />
+        <KVRow key={k} label={humanize(k)} value={formatValue(v)} />
       ))}
     </KV>
   );

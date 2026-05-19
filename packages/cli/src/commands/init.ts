@@ -35,25 +35,25 @@ export function initCommand(cli: Command): void {
       }
       if (!stack.drizzle && !stack.prisma) {
         p.cancel(
-          "No ORM detected. Install one: pnpm add drizzle-orm  (Prisma support lands in 1.1)",
+          "No ORM detected. Install one: pnpm add drizzle-orm  (or pnpm add @prisma/client prisma).",
         );
         process.exit(1);
       }
-      if (stack.prisma && !stack.drizzle) {
-        p.cancel("Prisma support lands in FlowPanel 1.1. For M1, install drizzle-orm.");
-        process.exit(1);
-      }
+
+      // Drizzle wins if both are installed (rare, but possible during migration).
+      const orm: "drizzle" | "prisma" = stack.drizzle ? "drizzle" : "prisma";
 
       const parts = [
         stack.nextjs ? `Next.js ${stack.nextjs}` : null,
         stack.typescript ? "TypeScript" : null,
         stack.drizzle ? "Drizzle" : null,
+        stack.prisma ? "Prisma" : null,
         stack.tailwind ? `Tailwind ${stack.tailwindMajor ?? ""}` : null,
       ].filter(Boolean) as string[];
       p.note(parts.join(" · "), "Detected stack");
 
       const defaults = {
-        db: (await detectDbClient(cwd)) ?? "@/server/lib/db",
+        db: (await detectDbClient(cwd)) ?? (orm === "prisma" ? "@/lib/prisma" : "@/server/lib/db"),
         schema: (await detectSchema(cwd)) ?? "@/server/lib/db/schema",
         auth: (await detectAuth(cwd)) ?? "@/server/lib/auth",
         appName: path.basename(cwd),
@@ -76,7 +76,10 @@ export function initCommand(cli: Command): void {
         appName = appNameAns;
 
         const dbAns = await p.text({
-          message: "Drizzle db client path",
+          message:
+            orm === "prisma"
+              ? "Prisma client path (must export `prisma`)"
+              : "Drizzle db client path",
           initialValue: defaults.db,
         });
         if (p.isCancel(dbAns)) {
@@ -85,15 +88,17 @@ export function initCommand(cli: Command): void {
         }
         db = dbAns;
 
-        const schemaAns = await p.text({
-          message: "Drizzle schema path",
-          initialValue: defaults.schema,
-        });
-        if (p.isCancel(schemaAns)) {
-          p.cancel("Aborted.");
-          process.exit(0);
+        if (orm === "drizzle") {
+          const schemaAns = await p.text({
+            message: "Drizzle schema path",
+            initialValue: defaults.schema,
+          });
+          if (p.isCancel(schemaAns)) {
+            p.cancel("Aborted.");
+            process.exit(0);
+          }
+          schemaPath = schemaAns;
         }
-        schemaPath = schemaAns;
 
         const authAns = await p.text({
           message: "Auth helper path (must export getSession)",
@@ -106,8 +111,11 @@ export function initCommand(cli: Command): void {
         auth = authAns;
       }
 
+      const configTemplate =
+        orm === "prisma" ? "flowpanel.config.prisma.ts.txt" : "flowpanel.config.drizzle.ts.txt";
+
       const files: Record<string, string> = {
-        "flowpanel.config.ts": await tpl("flowpanel.config.ts.txt", {
+        "flowpanel.config.ts": await tpl(configTemplate, {
           DB: db,
           SCHEMA: schemaPath,
           AUTH: auth,

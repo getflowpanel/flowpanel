@@ -56,14 +56,14 @@ export async function ResourceListPage({
   });
 
   const softDelete = resource.options.delete?.softDelete;
-  const ctx: ListQueryContext<Row> = {
+  const ctx: ListQueryContext<unknown> = {
     ...reqCtx,
     db: config.adapter.db,
     dateRange: { from: new Date(0), to: new Date() },
     searchParams,
     signal: new AbortController().signal,
     filters,
-    sort: sort as ListQueryContext<Row>["sort"],
+    sort: sort as ListQueryContext<unknown>["sort"],
     page,
     pageSize,
     search,

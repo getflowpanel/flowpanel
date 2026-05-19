@@ -1,98 +1,144 @@
 ---
 title: 'Theme'
-description: 'FlowPanel''s UI is styled via CSS variables under the `--fp-*` namespace.'
+description: 'FlowPanel ships a small theme surface with three layers: component overrides, CSS variables, and stylesheet overrides.'
 ---
 
 
-FlowPanel's UI is styled via CSS variables under the `--fp-*` namespace.
-You can pick a preset, override specific tokens, or swap primitives with
-your own components.
+FlowPanel ships a small theme surface with three layers, ordered from
+highest leverage to lowest:
 
-## Preset
+1. **Component overrides** — swap one of the 10 slot primitives for your
+   own React component (`theme.components`).
+2. **CSS variables at runtime** — set `--fp-*` tokens via `theme.cssVars`
+   without rebuilding.
+3. **Stylesheet override** — load your own CSS that targets the same
+   `--fp-*` tokens.
 
-```tsx
-import { THEME_PRESETS, resolvePresetStyle } from "@flowpanel/react";
+> **WIP — preset bundle (`THEME_PRESETS`, `resolvePresetStyle`,
+> `themeToClassName`, `<FlowPanelUI>` wrapper) is not implemented.**
+> Today the API is `theme.components`, `theme.cssVars`, and the brand /
+> nav / user fields below.
 
-<FlowPanelUI
-  style={resolvePresetStyle("violet", undefined)}
-  {...rest}
-/>
-```
+## `ThemeConfig`
 
-Built-in presets: `default`, `violet`, `emerald`, `slate`.
+`packages/core/src/types/config.ts:26`:
 
-## Custom tokens
-
-```tsx
-<FlowPanelUI style={resolvePresetStyle("default", {
-  primary: "340 100% 50%",       // HSL channels, space-separated
-  radius: "0.375rem",
-  density: 0.9,
-})} />
-```
-
-Every key in `ThemeTokens` maps to a `--fp-*` variable; anything you omit
-falls back to the preset, and anything the preset omits falls back to the
-base tokens declared in `@flowpanel/react/src/styles/tokens.css`.
-
-## The full token contract
-
-Changing any of these at runtime via CSS (or inline `style`) re-skins the
-panel without rebuilds. Everything here is considered a public API —
-renames ship as breaking changes.
-
-| Token group | Variables | Purpose |
-|---|---|---|
-| Color — base | `--fp-background`, `--fp-foreground`, `--fp-muted`, `--fp-muted-foreground`, `--fp-border`, `--fp-input`, `--fp-ring` | Page chrome, inputs, focus |
-| Color — brand | `--fp-primary`, `--fp-primary-foreground` | CTAs, active states |
-| Color — semantic | `--fp-destructive`, `--fp-destructive-foreground`, `--fp-success`, `--fp-success-foreground` | Button variants, alert blocks |
-| Color — status | `--fp-status-running`, `--fp-status-success`, `--fp-status-error` | Pipeline/job status pills (StatusTag). Separate from semantic colors so theme presets can tint these without repainting destructive buttons. |
-| Radius | `--fp-radius` (base), `--fp-radius-sm`, `--fp-radius-md`, `--fp-radius-lg` | Corner rounding across cards/inputs/buttons |
-| Spacing | `--fp-space-1` … `--fp-space-8` (0.25rem × density … 4rem × density) | Padding, gaps — multiply by `--fp-density` at runtime |
-| Density | `--fp-density` | Global scalar for spacing (1 = default, 0.9 = denser, 1.1 = airy) |
-| Font size | `--fp-text-xs`, `-sm`, `-base`, `-lg`, `-xl`, `-2xl` | Typographic scale |
-| Elevation | `--fp-shadow-xs`, `-sm`, `-md`, `-lg`, `-xl` | Auto-boosted on `.fp-dark` for legibility |
-| Motion — duration | `--fp-duration-instant` (80ms), `-fast` (140ms), `-base` (200ms), `-slow` (320ms) | Transition times |
-| Motion — easing | `--fp-ease-standard`, `-emphasized`, `-overshoot` | Standard Material-inspired curves |
-| Typography | `--fp-font-sans`, `--fp-font-mono` | Font stacks |
-
-### Overriding without React
-
-You can skip `resolvePresetStyle()` entirely and scope CSS directly:
-
-```css
-:root {
-  --fp-primary: 340 100% 50%;
-  --fp-radius: 0.375rem;
-  --fp-shadow-md: 0 4px 24px -2px rgb(99 102 241 / 0.4);
+```ts
+interface ThemeConfig {
+  brand?:  { name?: string; logo?: string; href?: string };
+  accent?: string;
+  mode?:   "light" | "dark" | "auto";
+  cssVars?: Record<string, string>;
+  components?: Record<string, ComponentType<any>>;
+  nav?:  { groups?: Array<{ label: string; items: string[] }> };
+  user?: (s: Session | null) => {
+    name?: string; email?: string; avatar?: string;
+    items?: Array<{ label: string; href?: string; variant?: "default" | "destructive" }>;
+    signOut?: string;
+  };
 }
 ```
 
-This is the recommended approach when you already have a design system —
-FlowPanel inherits whatever you set on `.fp` or its parent.
-
-## Light / dark
-
-```tsx
-<FlowPanelUI className={themeToClassName("dark")} ... />
+```ts
+defineAdmin({
+  ...,
+  theme: {
+    brand: { name: "Acme Admin", logo: "/logo.svg", href: "/" },
+    cssVars: { "--fp-accent": "266 90% 60%", "--fp-radius": "0.375rem" },
+    components: { MetricCard: MyMetricCard },
+    nav: { groups: [{ label: "Ops", items: ["users", "jobs"] }] },
+  },
+});
 ```
 
-The root element gets `.fp-dark` (or `.fp-light`); matching CSS selectors
-in `variables.css` swap the palette without changing the layout.
+The `accent` and `mode` fields are part of the type but their effect
+depends on whether your CSS layer reads them. The shipped stylesheet
+toggles dark via the `.dark` class (`packages/react/src/styles/admin.css:40`).
 
-## Component overrides
+## Component overrides — the 10 slots
 
-For brand tweaks beyond colors, you can swap the built-in primitives:
+The slots are defined in
+`packages/react/src/_provider/ComponentsContext.tsx:28`:
+
+| Slot | Default props type |
+|---|---|
+| `EmptyState` | `EmptyStateProps` |
+| `MetricCard` | `MetricCardProps` |
+| `Button` | `ButtonProps` |
+| `Badge` | `BadgeProps` |
+| `Avatar` | `AvatarProps` |
+| `StatusBadge` | `StatusBadgeProps` |
+| `PageHeader` | `PageHeaderProps` |
+| `Pagination` | `PaginationProps` |
+| `ConfirmDialog` | `ConfirmDialogProps` |
+| `SkeletonTable` | `SkeletonTableProps` |
+
+Pass overrides through `theme.components` in `defineAdmin`. The
+`@flowpanel/next` shell wires them into the React tree via
+`ComponentsProvider` automatically.
+
+For ad-hoc React trees outside the FlowPanel shell, use the provider
+directly:
 
 ```tsx
-import { ComponentOverridesProvider } from "@flowpanel/react";
+import { ComponentsProvider } from "@flowpanel/react";
 import { MyButton } from "./MyButton";
 
-<ComponentOverridesProvider value={{ Button: MyButton }}>
-  <FlowPanelUI ... />
-</ComponentOverridesProvider>
+<ComponentsProvider value={{ Button: MyButton }}>
+  {children}
+</ComponentsProvider>
 ```
 
-Keep the override surface small (Button, Badge, Card). For deeper
-customisation, copy a widget into your app via `npx flowpanel add <widget>`
-(B9) and edit directly — shadcn-style, no prop-drilling.
+(`packages/react/src/_provider/ComponentsContext.tsx:58`).
+
+The `Button` override should be `forwardRef`-aware to stay compatible
+with Radix `asChild`.
+
+## CSS tokens
+
+The actual tokens live in `packages/react/src/styles/admin.css:1`. Color
+values are HSL triplets (no `hsl()` wrapper) so `hsl(var(--token) /
+<alpha>)` works downstream.
+
+| Group | Variables |
+|---|---|
+| Background | `--fp-bg-1`, `--fp-bg-2`, `--fp-bg-3` |
+| Text | `--fp-text-1`, `--fp-text-2`, `--fp-text-3` |
+| Border | `--fp-border-1`, `--fp-border-2` |
+| Accent | `--fp-accent`, `--fp-accent-text` |
+| Semantic | `--fp-ok`, `--fp-warn`, `--fp-err` |
+| Radius | `--fp-radius-sm`, `--fp-radius`, `--fp-radius-lg` |
+| Spacing | `--fp-space-unit` (4px base) |
+| Type | `--fp-font-sans`, `--fp-font-mono` |
+| Motion duration | `--fp-duration-fast` (120ms), `--fp-duration` (180ms), `--fp-duration-slow` (280ms) |
+| Motion easing | `--fp-ease-out`, `--fp-ease-in-out`, `--fp-ease-spring` |
+
+Dark-mode overrides live under the `.dark` class
+(`packages/react/src/styles/admin.css:40`).
+
+`prefers-reduced-motion: reduce` zeros all motion durations
+(`packages/react/src/styles/admin.css:51`).
+
+The `@theme` block at the bottom of `admin.css` exposes the same tokens
+as Tailwind v4 utilities (`bg-fp-bg-1`, `text-fp-text-2`,
+`rounded-fp`, etc.).
+
+## Runtime token overrides
+
+Either feed `theme.cssVars` (the runtime applies them as inline `style`
+on the shell root):
+
+```ts
+theme: { cssVars: { "--fp-accent": "266 90% 60%", "--fp-radius": "0.375rem" } }
+```
+
+Or scope your own stylesheet:
+
+```css
+.fp-admin {
+  --fp-accent: 266 90% 60%;
+  --fp-radius: 0.375rem;
+}
+```
+
+Both approaches cascade to every primitive that reads the token.

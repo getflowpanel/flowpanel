@@ -1,0 +1,38 @@
+import { defineAdmin, resource } from "flowpanel";
+import { prismaAdapter } from "flowpanel/prisma";
+import { prisma } from "{{DB}}";
+import { getSession } from "{{AUTH}}";
+
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    db: typeof prisma;
+  }
+}
+
+export default defineAdmin({
+  adapter: prismaAdapter({ prisma }),
+
+  auth: {
+    session: getSession,
+    role: (s) =>
+      (s as { user?: { role?: string } } | null | undefined)?.user?.role ?? "guest",
+    requireRole: "admin",
+  },
+
+  theme: {
+    brand: { name: "{{APP_NAME}}" },
+    accent: "hsl(220 90% 56%)",
+    mode: "auto",
+  },
+
+  resources: [
+    // Prisma resources are referenced by model name (string). The adapter
+    // resolves `prisma.<lowercased>` at runtime and uses DMMF for introspection.
+    // resource("User", {
+    //   label: "Users",
+    //   columns: ["email", "name", "createdAt"],
+    //   search: ["email", "name"],
+    //   defaultSort: { field: "createdAt", dir: "desc" },
+    // }),
+  ],
+});

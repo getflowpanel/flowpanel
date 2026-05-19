@@ -149,6 +149,7 @@ export {
   type DrawerWidth,
 } from "./_shell/Drawer.js";
 export { PageHeader, DefaultPageHeader, type PageHeaderProps } from "./_shell/PageHeader.js";
+export { ThemeScript, type ThemeScriptProps } from "./_shell/ThemeScript.js";
 // Widgets
 export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget.js";
 export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard.js";
@@ -173,6 +174,18 @@ export {
   type UseLiveChannelOptions,
 } from "./hooks/useLiveChannel.js";
 export { type UrlState, useUrlState } from "./hooks/useUrlState.js";
+export { useTheme, type UseTheme, type UseThemeOptions } from "./hooks/useTheme.js";
+export {
+  applyThemeClass,
+  buildThemeInitScript,
+  readStoredTheme,
+  resolveTheme,
+  THEME_STORAGE_KEY,
+  type ThemeChoice,
+  type ThemeMode,
+  toggleTheme,
+  writeStoredTheme,
+} from "./lib/theme.js";
 export {
   ComponentsProvider,
   useComponents,
@@ -181,6 +194,7 @@ export {
 export { LabelsProvider, useLabels } from "./_provider/LabelsContext.js";
 export { cn } from "./lib/cn.js";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format.js";
+export { humanize, resolveFieldLabel } from "./lib/humanize.js";
 export { type DownloadPayload, triggerDownload } from "./lib/trigger-download.js";
 // UI primitives
 export { Button, DefaultButton, type ButtonProps, buttonVariants } from "./ui/button.js";

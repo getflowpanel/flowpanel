@@ -72,7 +72,9 @@ export function migrateCommand(cli: Command): void {
 
       const db = config.adapter?.db;
       if (!db || typeof db.execute !== "function") {
-        log.err("Adapter db.execute() unavailable. Verify drizzleAdapter({ db, schema }) wiring.");
+        log.err(
+          "Adapter db.execute() unavailable. Verify your adapter wiring (drizzleAdapter or prismaAdapter).",
+        );
         process.exit(1);
       }
 

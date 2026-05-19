@@ -9,7 +9,8 @@ export default defineAdmin({
 
   auth: {
     session: getSession,
-    role: (s) => (s as any)?.user?.role ?? "guest",
+    role: (s) =>
+      (s as { user?: { role?: string } } | null | undefined)?.user?.role ?? "guest",
     requireRole: "admin",
   },
 

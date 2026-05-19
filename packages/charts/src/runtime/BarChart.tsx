@@ -9,10 +9,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { buildTickFormatter } from "./format-tick.js";
 
 export function BarChart({ data, options }: { data: unknown[]; options: BarChartOptions }) {
   const ys = Array.isArray(options.y) ? options.y : [options.y];
   const layout = options.horizontal ? "vertical" : "horizontal";
+  const categoryTickFormatter = buildTickFormatter(
+    data as Record<string, unknown>[],
+    options.x,
+    options.bucket,
+  );
   return (
     <ResponsiveContainer width="100%" height={options.height ?? 240}>
       <RcBar data={data as object[]} layout={layout}>
@@ -25,11 +31,17 @@ export function BarChart({ data, options }: { data: unknown[]; options: BarChart
               dataKey={options.x}
               stroke="hsl(var(--fp-text-3))"
               fontSize={12}
+              tickFormatter={categoryTickFormatter}
             />
           </>
         ) : (
           <>
-            <XAxis dataKey={options.x} stroke="hsl(var(--fp-text-3))" fontSize={12} />
+            <XAxis
+              dataKey={options.x}
+              stroke="hsl(var(--fp-text-3))"
+              fontSize={12}
+              tickFormatter={categoryTickFormatter}
+            />
             <YAxis stroke="hsl(var(--fp-text-3))" fontSize={12} />
           </>
         )}

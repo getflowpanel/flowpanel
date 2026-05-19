@@ -1,6 +1,11 @@
 "use client";
 import type { CommandPaletteConfig } from "@flowpanel/core";
-import { type CommandGroupUI, CommandPalette, useAdminCommand } from "@flowpanel/react";
+import {
+  type CommandGroupUI,
+  CommandPalette,
+  toggleTheme,
+  useAdminCommand,
+} from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 
@@ -76,7 +81,7 @@ export function CommandHost({ navItems, config }: CommandHostProps) {
             label: "Toggle dark mode",
             onSelect: () => {
               close();
-              document.documentElement.classList.toggle("dark");
+              toggleTheme();
             },
           },
         ],

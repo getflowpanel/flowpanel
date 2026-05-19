@@ -19,6 +19,16 @@ try {
   // Integration tests will be skipped
 }
 
+type TestRow = {
+  id: number | string;
+  email: string;
+  name?: string | null;
+  active?: number;
+  age?: number | null;
+  deletedAt?: Date | null;
+  createdAt?: Date;
+};
+
 const CREATE_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS "TestUser" (
     "id"        INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -73,7 +83,10 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     });
 
     const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
-    const found = await adapter.get("TestUser", { id: String(created.id), db: undefined } as any);
+    const found = (await adapter.get("TestUser", {
+      id: String(created.id),
+      db: undefined,
+    } as any)) as TestRow;
     expect(found).not.toBeNull();
     expect(found.email).toBe("get-test@example.com");
 
@@ -84,18 +97,18 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
   it("create + update + delete roundtrip", async () => {
     const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
 
-    const created = await adapter.create("TestUser", {
+    const created = (await adapter.create("TestUser", {
       input: { email: "crud@example.com", active: true },
       db: undefined,
-    } as any);
+    } as any)) as TestRow;
     expect(created.id).toBeDefined();
     expect(created.email).toBe("crud@example.com");
 
-    const updated = await adapter.update("TestUser", {
+    const updated = (await adapter.update("TestUser", {
       id: String(created.id),
       input: { name: "Updated Name" },
       db: undefined,
-    } as any);
+    } as any)) as TestRow;
     expect(updated.name).toBe("Updated Name");
 
     await adapter.delete!("TestUser", { id: String(created.id), input: {}, db: undefined } as any);
@@ -106,10 +119,10 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
   it("soft-delete + restore roundtrip", async () => {
     const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
 
-    const created = await adapter.create("TestUser", {
+    const created = (await adapter.create("TestUser", {
       input: { email: "softdel@example.com" },
       db: undefined,
-    } as any);
+    } as any)) as TestRow;
 
     const createdIdStr = String(created.id);
 
@@ -139,7 +152,10 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
       db: undefined,
     } as any);
 
-    const restored = await adapter.get("TestUser", { id: createdIdStr, db: undefined } as any);
+    const restored = (await adapter.get("TestUser", {
+      id: createdIdStr,
+      db: undefined,
+    } as any)) as TestRow;
     expect(restored).not.toBeNull();
     expect(restored.deletedAt).toBeNull();
   });

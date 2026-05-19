@@ -1,190 +1,133 @@
 ---
 title: 'Actions'
-description: 'Actions are the primary DX surface for custom behavior in an admin. FlowPanel supports **five kinds**, each with a clear place in a resource workflow.'
+description: 'FlowPanel ships two action shapes for resources: per-row (RowAction) and bulk (BulkAction).'
 ---
 
 
-Actions are the primary DX surface for custom behavior in an admin. FlowPanel supports **five kinds**, each with a clear place in a resource workflow.
+FlowPanel ships **two action shapes** for resources: per-row (`RowAction`)
+and bulk (`BulkAction`). Both render in the resource list / drawer and
+share most options.
 
-## Lifecycle — what happens when a user clicks an action
+> **WIP — collection / link / dialog kinds, plus a builder callback
+> (`actions: (a) => ({ ... })`), are not implemented.** Use the array
+> shapes documented below.
 
-Understanding this end-to-end is the difference between debugging in
-minutes versus hours. Every action follows the same five-hop pipeline:
-
-```
-┌────────────────┐   1. Click    ┌──────────────────┐   2. Confirm?   ┌─────────────────┐
-│ ResourceTable  │──────────────▶│  ActionButton    │────────────────▶│ ConfirmDialog   │
-│   / Drawer     │               │  (react)         │                 │  (optional)     │
-└────────────────┘               └──────────────────┘                 └─────────────────┘
-                                                                              │
-                                                                    3. tRPC mutation
-                                                                              ▼
-┌────────────────┐   6. Toast    ┌──────────────────┐   5. Audit log  ┌─────────────────┐
-│ onSuccess      │◀──────────────│  useMutation     │◀────────────────│ actionHandler   │
-│  (toast/invl.) │               │  (react-query)   │                 │  (@core/tRPC)   │
-└────────────────┘               └──────────────────┘                 └─────────────────┘
-                                                                              │
-                                                                    4. Your handler()
-                                                                              ▼
-                                                                     ┌─────────────────┐
-                                                                     │   ctx.db / ORM  │
-                                                                     │   + publish     │
-                                                                     └─────────────────┘
-```
-
-| Step | Where it runs | Notes |
-|---|---|---|
-| 1 — Click | `<ActionButton>` in the resource table / drawer / toolbar | `disabled` + `when` predicates evaluated here with the current row |
-| 2 — Confirm | `<ConfirmDialog>` (shadcn) | Only if `confirm` is set; `typeToConfirm` blocks the CTA until the user retypes the string |
-| 3 — Mutation call | `trpc.flowpanel.resource.action.mutate()` | React-Query handles pending/error states; step-up auth runs here if `stepUp: true` |
-| 4 — Server handler | `actionHandler` in `packages/core/src/trpc/procedures/resources.ts` | Resolves auth + rate-limit middleware, then invokes your `handler(row, ctx)` / `handler(rows, ctx)` / `handler(ctx)` |
-| 5 — Audit log | `auditLog` middleware | Writes `{ actor, action, resource, rowId, duration_ms }` to `flowpanel_audit_log` — always, even on failure |
-| 6 — Toast + invalidate | `useMutation.onSuccess` | Fires the configured `onSuccess.toast`, then invalidates tag-matched queries (live tables re-fetch within 50ms) |
-
-**Where to set breakpoints.** If the UI feels broken, steps 1–2 are client-side — open React DevTools on `ActionButton`. If the handler never runs, step 4 failed — check browser Network + server logs for `resource.action` mutation. If the UI doesn't refresh after success, it's step 6 — confirm the resource has `realtime: true` or that your `invalidate:` tags match the query keys.
-
-## The five action kinds
-
-| Kind | Where it renders | Signature |
-|---|---|---|
-| `a.mutation` | per-row in the detail drawer | `(row, ctx) => Promise` |
-| `a.bulk` | sticky bar when rows are selected | `(rows, ctx) => Promise` |
-| `a.collection` | toolbar, no row context | `(ctx) => Promise` |
-| `a.link` | per-row or toolbar as an anchor | `(row) => url` |
-| `a.dialog` | opens a form, then calls handler | `(values, row?, ctx) => Promise` |
-
-## Defining actions
+## Where actions live
 
 ```ts
-defineResource<User>(prisma.user, {
-  actions: (a) => ({
-    // per-row mutation with confirm
-    archive: a.mutation({
-      label: "Archive",
-      variant: "danger",
-      confirm: {
-        title: "Archive user?",
-        description: "The user will be signed out of all sessions.",
-        typeToConfirm: "ARCHIVE",       // optional: type-to-confirm for destructive ops
+resource(schema.users, {
+  // per-row inline / menu actions
+  actions: [
+    {
+      key: "disable",
+      label: "Disable user",
+      variant: "destructive",
+      confirm: "Disable this user? They'll lose access immediately.",
+      run: async (row, _input, ctx) => {
+        await ctx.db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, row.id));
+        return { ok: true, message: "Disabled", refresh: true };
       },
-      when: (row) => !row.archivedAt,   // hides button when already archived
-      handler: async (row, ctx) => {
-        await ctx.db.user.update({
-          where: { id: row.id },
-          data: { archivedAt: new Date() },
-        });
-      },
-      onSuccess: { toast: "User archived" },
-    }),
-
-    // bulk action on selected rows
-    archiveMany: a.bulk({
+    },
+  ],
+  // sticky bulk bar over selection
+  bulkActions: [
+    {
+      key: "archiveMany",
       label: "Archive selected",
-      variant: "danger",
+      variant: "destructive",
       confirm: "Archive all selected users?",
-      handler: async (rows, ctx) => {
-        await ctx.db.user.updateMany({
-          where: { id: { in: rows.map((r) => r.id) } },
-          data: { archivedAt: new Date() },
-        });
+      run: async (ids, _input, ctx) => {
+        await ctx.db.update(users).set({ archivedAt: new Date() }).where(inArray(users.id, ids));
+        return { ok: true, refresh: true };
       },
-    }),
-
-    // collection — no row context
-    exportCsv: a.collection({
-      label: "Export CSV",
-      handler: async (ctx) => {
-        const users = await ctx.db.user.findMany();
-        return {
-          download: {
-            filename: "users.csv",
-            content: toCsv(users),
-            mimeType: "text/csv",
-          },
-        };
-      },
-    }),
-
-    // link — static template with row-field substitution
-    viewInStripe: a.link({
-      label: "View in Stripe",
-      href: "https://dashboard.stripe.com/customers/{stripeCustomerId}",
-      external: true,
-    }),
-
-    // dialog — form → handler
-    sendEmail: a.dialog({
-      label: "Send email",
-      schema: {
-        title: "Send email",
-        fields: [
-          { name: "subject", type: "text", required: true },
-          { name: "body", type: "textarea", required: true },
-          { name: "priority", type: "select", options: ["low", "normal", "high"] },
-        ],
-      },
-      handler: async (values, row, ctx) => {
-        await sendEmail(row!.email, values.subject, values.body, values.priority);
-      },
-      onSuccess: { toast: "Email queued" },
-    }),
-  }),
+    },
+  ],
 });
 ```
 
-## Confirm config
+Drawer-scoped actions live under `drawer.actions` with their own shape
+(`DrawerAction`, `packages/core/src/types/drawer.ts:34`).
 
-Any action (except `a.link`) accepts `confirm`:
+## `RowAction<Row>`
+
+Defined at `packages/core/src/types/action.ts:19`.
+
+| Field | Type |
+|---|---|
+| `key` | `string` |
+| `label` | `string` |
+| `icon` | `string` |
+| `variant` | `"default" \| "destructive" \| "success"` |
+| `placement` | `"inline" \| "menu"` |
+| `confirm` | `string \| { title; description?; confirmLabel? }` |
+| `form` | `FieldDef<Row>[]` |
+| `hidden` | `(row, ctx) => boolean \| Promise<boolean>` |
+| `disabled` | `(row) => boolean \| string` |
+| `requireRole` | `string \| string[]` |
+| `run` | `(row, input, ctx: ActionContext) => Promise<ActionResult>` |
+
+## `BulkAction<Row>`
+
+Defined at `packages/core/src/types/action.ts:33`.
+
+| Field | Type |
+|---|---|
+| `key` | `string` |
+| `label` | `string` |
+| `icon` | `string` |
+| `variant` | `"default" \| "destructive"` |
+| `confirm` | `string \| { title; description? }` |
+| `form` | `FieldDef<Row>[]` |
+| `requireRole` | `string \| string[]` |
+| `run` | `(ids: string[], input, ctx: ActionContext) => Promise<ActionResult>` |
+
+## `ActionResult`
+
+`packages/core/src/types/action.ts:5` — a discriminated union:
 
 ```ts
-confirm: "Are you sure?"                        // string → title
-confirm: {
-  title: "Delete user?",
-  description: "This is permanent.",
-  intent: "destructive",                        // adds warning icon
-  typeToConfirm: "my-email@example.com",        // require exact match
-  confirmLabel: "Yes, delete",
+type ActionResult =
+  | { ok: true;  message?: string;
+                refresh?: boolean | string[];
+                redirect?: string;
+                download?: { filename: string; data: string | Blob | Uint8Array; mime?: string } }
+  | { ok: false; error: string;
+                fieldErrors?: Record<string, string> };
+```
+
+- `refresh: true` invalidates the current resource list; pass an array of
+  resource names to invalidate several.
+- `download` triggers a file download client-side.
+- `fieldErrors` maps form-field names to per-field error messages
+  surfaced under each input.
+
+## `ActionContext`
+
+`packages/core/src/types/context.ts:50` — extends `RequestContext` with:
+
+```ts
+interface ActionContext<Db = InferDB> extends RequestContext {
+  db: Db;
+  publish: (channel: string, payload?: unknown) => Promise<void>;
 }
 ```
 
-`typeToConfirm` is the common 10/10 pattern — the confirm button stays disabled until the user types the exact string. Use it for delete operations on high-value resources.
+`RequestContext` carries `req`, `session`, `role`, `scope`, `ip`,
+`userAgent` (`packages/core/src/types/context.ts:4`).
 
-## Downloads
+## Optional form input
 
-Bulk, collection, and dialog actions can return a `download` payload:
+If `form: FieldDef<Row>[]` is set, the runtime opens a dialog before
+calling `run`; the user-entered values are passed as the `input` argument
+(typed `unknown` — validate inside `run`). `FieldDef` is documented in
+[Resources](../resources/) and lives at `packages/core/src/types/resource.ts:73`.
 
-```ts
-handler: async (rows, ctx) => ({
-  download: {
-    filename: "report.json",
-    content: JSON.stringify(rows, null, 2),
-    mimeType: "application/json",
-  },
-}),
-```
-
-The client automatically triggers a file download when a handler responds with `download`.
-
-## onSuccess
+## Role gating
 
 ```ts
-onSuccess: {
-  toast: "User archived",            // custom toast message
-  invalidate: ["users", "audit"],    // (hooks reserved for future cache integration)
-}
+requireRole: "admin",
+requireRole: ["admin", "support"],
 ```
 
-By default, FlowPanel shows `{label} succeeded` on success and `{label} failed` with the error message on failure — both via sonner toasts.
-
-## Access
-
-Action IDs double as access keys:
-
-```ts
-access: {
-  archive: ["admin"],           // only admins see the Archive button
-  exportCsv: () => isBusiness,  // dynamic predicate
-}
-```
-
-When an action is not allowed, its button is simply not rendered — no 403 needed.
+When the session role doesn't match, the action button is not rendered.
+There is no separate `access: { ... }` block.

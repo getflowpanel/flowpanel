@@ -1,4 +1,7 @@
-import type * as React from "react";
+"use client";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { Menu } from "lucide-react";
+import * as React from "react";
 import { AdminNav, type NavGroup } from "./AdminNav.js";
 import { AdminTabs } from "./AdminTabs.js";
 
@@ -30,6 +33,13 @@ export function AdminShell({
   currentPath,
   children,
 }: AdminShellProps) {
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+
+  // Close mobile drawer when route changes (navigation completes).
+  React.useEffect(() => {
+    setMobileNavOpen(false);
+  }, [currentPath]);
+
   const skipLink = (
     <a
       href="#main"
@@ -56,12 +66,41 @@ export function AdminShell({
   }
 
   return (
-    <div className="flex h-screen bg-fp-bg-2 text-fp-text-1 antialiased font-sans">
-      <AdminNav
-        groups={navGroups}
-        currentPath={currentPath}
-        {...(brandName !== undefined ? { brandName } : {})}
-      />
+    <div className="flex h-screen flex-col bg-fp-bg-2 text-fp-text-1 antialiased font-sans md:flex-row">
+      {/* Mobile top bar: visible below md, hidden md+. */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-fp-border-1 bg-fp-bg-1 px-3 py-2 md:hidden">
+        <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <DialogPrimitive.Trigger
+            aria-label="Open navigation"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-fp-sm text-fp-text-2 hover:bg-fp-bg-2 focus:outline-none focus:ring-2 focus:ring-fp-accent"
+          >
+            <Menu className="h-5 w-5" aria-hidden="true" />
+          </DialogPrimitive.Trigger>
+          <span className="text-sm font-semibold text-fp-text-1">{brandName ?? "Admin"}</span>
+          <DialogPrimitive.Portal>
+            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-[fp-fade-in_var(--fp-duration)_var(--fp-ease-out)] data-[state=closed]:animate-[fp-fade-out_var(--fp-duration)_var(--fp-ease-out)]" />
+            <DialogPrimitive.Content
+              aria-describedby={undefined}
+              className="fixed left-0 top-0 z-50 flex h-dvh w-[min(80vw,288px)] flex-col bg-fp-bg-1 shadow-xl focus:outline-none data-[state=open]:animate-[fp-fade-in_var(--fp-duration)_var(--fp-ease-out)] data-[state=closed]:animate-[fp-fade-out_var(--fp-duration)_var(--fp-ease-out)]"
+            >
+              <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
+              <AdminNav
+                groups={navGroups}
+                currentPath={currentPath}
+                {...(brandName !== undefined ? { brandName } : {})}
+              />
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        </DialogPrimitive.Root>
+      </div>
+      {/* Desktop inline sidebar: hidden below md, shown md+. */}
+      <div className="hidden md:block md:h-full">
+        <AdminNav
+          groups={navGroups}
+          currentPath={currentPath}
+          {...(brandName !== undefined ? { brandName } : {})}
+        />
+      </div>
       <main id="main" className="flex-1 overflow-auto">
         {skipLink}
         <div className="mx-auto max-w-7xl px-6 py-6">{children}</div>

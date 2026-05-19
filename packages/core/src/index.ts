@@ -106,6 +106,8 @@ export type {
   AreaChartWidget,
   BarChartOptions,
   BarChartWidget,
+  ChartBucket,
+  ChartOptionsBase,
   CustomOptions,
   CustomWidget,
   LineChartOptions,

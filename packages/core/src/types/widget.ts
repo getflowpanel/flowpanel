@@ -87,6 +87,16 @@ export interface StatGroupWidget {
   options: StatGroupOptions;
 }
 
+/**
+ * Aggregation bucket for the chart's x-axis. When the x-values are dates
+ * (Date objects or ISO strings), this controls the tick label format.
+ *
+ * - `"day"`, `"week"`, `"month"`, `"year"` → date-only labels (no time).
+ * - `"hour"`, `"minute"` → include the time component.
+ * - `"auto"` (default) → infer from the gap between consecutive points.
+ */
+export type ChartBucket = "minute" | "hour" | "day" | "week" | "month" | "year" | "auto";
+
 /** Charts are defined in @flowpanel/charts but their config lives in core. */
 export interface ChartOptionsBase {
   x: string;
@@ -97,6 +107,11 @@ export interface ChartOptionsBase {
   drilldown?: string;
   span?: Span;
   realtime?: string | string[];
+  /**
+   * X-axis aggregation bucket. Affects tick formatting when x is a date.
+   * Defaults to `"auto"`.
+   */
+  bucket?: ChartBucket;
 }
 
 export interface AreaChartOptions extends ChartOptionsBase {

@@ -3,7 +3,7 @@ import { tpl } from "../../utils/template.js";
 
 describe("init templates (resolution)", () => {
   it("substitutes DB/SCHEMA/AUTH/APP_NAME into config template", async () => {
-    const out = await tpl("flowpanel.config.ts.txt", {
+    const out = await tpl("flowpanel.config.drizzle.ts.txt", {
       DB: "@/server/db",
       SCHEMA: "@/server/schema",
       AUTH: "@/server/auth",

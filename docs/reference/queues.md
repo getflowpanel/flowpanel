@@ -1,74 +1,73 @@
 # Queues
 
-FlowPanel ships with first-class queue inspection and control. Today there's a BullMQ adapter; the `QueueAdapter` interface makes adding more (pgmq, SQS, Inngest…) a small package.
+Today FlowPanel ships a **BullMQ** integration in
+`@flowpanel/adapter-bullmq`. The admin embeds the [bull-board](https://github.com/felixmosh/bull-board)
+UI for each registered queue; it does not implement its own job
+inspector.
 
-## BullMQ
+> **WIP — generic `QueueAdapter` interface (pgmq, SQS, etc.) is not
+> implemented.** Only BullMQ is supported.
+
+## Setup
 
 ```bash
-pnpm add @flowpanel/queue-bullmq
+pnpm add @flowpanel/adapter-bullmq bullmq
 ```
 
 ```ts
 import { Queue } from "bullmq";
 import { defineAdmin, queue } from "flowpanel";
+import { startBoardServer } from "@flowpanel/adapter-bullmq";
 
-const emailQueue = new Queue("email", { connection: { host: "localhost", port: 6379 } });
-const webhookQueue = new Queue("webhooks", { connection: { /* … */ } });
+const scraperQueue = new Queue("scraper", { connection: { host: "localhost", port: 6379 } });
+const emailQueue   = new Queue("emails",  { connection: { /* ... */ } });
 
-export const flowpanel = defineAdmin({
+// Mount the bull-board UI on a separate port (run alongside Next.js).
+await startBoardServer({
+  queues: { scraper: scraperQueue, emails: emailQueue },
+  port: 3001,
+});
+
+export default defineAdmin({
   ...,
   queues: [
-    queue(emailQueue,   { label: "Email" }),
-    queue(webhookQueue, { label: "Webhook delivery" }),
+    queue(scraperQueue, { label: "Scraper", boardUrl: "http://localhost:3001/queues/scraper" }),
+    queue(emailQueue,   { label: "Emails",  boardUrl: "http://localhost:3001/queues/emails"  }),
   ],
 });
 ```
 
-Each queue gets its own entry under the "Queues" sidebar group. The queue page shows:
+`queue()` lives at `packages/core/src/builders/queue.ts:11`.
+`startBoardServer` is exported from `@flowpanel/adapter-bullmq`
+(`packages/adapter-bullmq/src/index.ts:2`).
 
-- **Status strip** — live counts per state (waiting / active / delayed / failed / completed)
-- **State filter pills** — quickly narrow the table
-- **Job table** — id, name, state badge, attempts, schedule, duration; auto-refreshes every 5s
-- **Job detail** — click any row for input, return value, stack trace, and actions (Retry / Remove)
-- **Queue controls** — Pause / Resume / Drain buttons when the adapter supports them
+## `QueueOptions`
 
-## Controls
+`packages/core/src/types/queue.ts:1`:
 
-The UI exposes these operations, wired automatically to the adapter:
+| Field | Type | Notes |
+|---|---|---|
+| `label` | `string` | Required. Sidebar label. |
+| `boardUrl` | `string` | Required. Full URL to this queue's bull-board page. |
+| `key` | `string` | Optional. Defaults to `queue.name`. |
+| `requireRole` | `string \| string[]` | Optional role gate for the queue page. |
 
-| Control | When it appears |
-|---|---|
-| Pause | `adapter.pause` is defined **and** queue is not already paused |
-| Resume | `adapter.resume` is defined **and** queue is paused |
-| Drain | `adapter.drain` is defined |
-| Retry (per-job) | Job state is `failed` |
-| Remove (per-job) | Always (confirms via destructive dialog) |
+## What renders
 
-## The `QueueAdapter` interface
+Each queue gets a sidebar entry under "Queues" leading to
+`/admin/queues/<key>`. The page embeds the bull-board UI at `boardUrl`
+in an iframe — pause/resume/drain/retry/remove are handled by
+bull-board, not by FlowPanel.
 
-Any queue backend can plug in:
+## `bullmqAdapter` helper (optional)
 
 ```ts
-interface QueueAdapter {
-  name: string;
-  label?: string;
+import { bullmqAdapter } from "@flowpanel/adapter-bullmq";
 
-  getStatus(): Promise<QueueStatus>;
-  getJobs(args: { state?, limit?, offset? }): Promise<{ jobs: QueueJob[]; total: number }>;
-  getJob(id: string): Promise<QueueJob | null>;
-
-  retry(id: string): Promise<void>;
-  remove(id: string): Promise<void>;
-
-  pause?(): Promise<void>;
-  resume?(): Promise<void>;
-  drain?(): Promise<void>;
-  clean?(state: "completed" | "failed", olderThanMs?): Promise<number>;
-}
+const adapter = bullmqAdapter({ scraper: scraperQueue, emails: emailQueue });
+// adapter.queues.scraper === scraperQueue
 ```
 
-Optional methods surface or hide themselves in the UI based on the `capabilities` FlowPanel reports to the client. You can partially implement — read-only adapters just omit retry/remove/pause.
-
-## Access
-
-Queue procedures live under `flowpanel.queue.*` on the tRPC router. Apply your usual tRPC middleware for auth/role gating — FlowPanel does not hard-code a separate access model for queues.
+Defined at `packages/adapter-bullmq/src/adapter.ts:17`. It's a thin
+record wrapper, useful for passing the queue map around with a typed
+shape.

@@ -83,6 +83,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
     const themeComponents = config.theme?.components as
       | Partial<FlowpanelComponentSlots>
       | undefined;
+    const themeMode = config.theme?.mode;
     const labels = config.labels;
 
     const globals = (
@@ -116,6 +117,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
     return (
       <FlowpanelGlobals
         {...(themeComponents ? { themeComponents } : {})}
+        {...(themeMode ? { themeMode } : {})}
         {...(labels ? { labels } : {})}
       >
         {body}

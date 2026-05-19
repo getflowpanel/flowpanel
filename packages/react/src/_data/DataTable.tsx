@@ -4,6 +4,7 @@ import * as React from "react";
 import { useLabels } from "../_provider/LabelsContext.js";
 import { useLiveChannel } from "../hooks/useLiveChannel.js";
 import { cn } from "../lib/cn.js";
+import { resolveFieldLabel } from "../lib/humanize.js";
 import { Skeleton } from "../ui/skeleton.js";
 import { ColumnPinMenu } from "./ColumnPinMenu.js";
 import { ColumnResizer } from "./ColumnResizer.js";
@@ -291,7 +292,7 @@ export function DataTable<Row extends Record<string, unknown>>({
                       wCss !== undefined && "w-[var(--fp-col-w)]",
                     )}
                   >
-                    {c.label ?? c.field}
+                    {resolveFieldLabel(c.label, c.field)}
                   </th>
                 );
               })}
@@ -386,7 +387,7 @@ export function DataTable<Row extends Record<string, unknown>>({
                   )}
                   onClick={() => handleHeaderClick(c)}
                 >
-                  {c.label ?? c.field}
+                  {resolveFieldLabel(c.label, c.field)}
                   {active ? (
                     <span aria-hidden className="ml-1">
                       {sort?.dir === "asc" ? "↑" : "↓"}

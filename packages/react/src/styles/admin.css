@@ -148,6 +148,17 @@
   animation: fp-slide-up var(--fp-duration) var(--fp-ease-spring);
 }
 
+/* Hide scrollbars while keeping scroll behavior. Used by the tabs shell to
+   make horizontal overflow swipe-able on narrow viewports without the visual
+   noise of a system scrollbar. */
+.fp-scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.fp-scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Reduce-motion: kill all of the above. The existing @media block at the
    top of this file zeroes the duration tokens, but explicit cancellation
    is clearer for animation-name based rules. */

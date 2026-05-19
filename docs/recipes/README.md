@@ -7,7 +7,7 @@ grew beyond "recipe" and belongs in `docs/reference/`.
 | Recipe | When |
 |---|---|
 | [Multi-tenant admin](./multi-tenant.md) | SaaS with a `tenantId`/`organizationId` scope on most tables |
-| [File uploads](./file-uploads.md) | Any column that stores a URL pointing at S3/R2/Supabase Storage |
+| [File uploads](./file-uploads.md) | (WIP — planned for v1.1) any column that stores a URL pointing at S3/R2/Supabase Storage |
 | [JSONB / JSON editor](./jsonb-editor.md) | Postgres `jsonb`, Prisma `Json`, Drizzle `jsonb()` columns |
 
 Each page ends with a pre-ship checklist and a "what we deliberately don't
