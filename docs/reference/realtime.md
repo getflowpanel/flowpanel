@@ -13,9 +13,9 @@ how the SSE broker learns that a new row has landed.
 ## Server: opt in per resource
 
 ```ts
-import { defineResource } from "@flowpanel/core";
+import { resource } from "flowpanel";
 
-const userResource = defineResource<User>(users, {
+const userResource = resource(users, {
   realtime: true, // ← on
   ...
 });

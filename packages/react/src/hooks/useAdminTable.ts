@@ -9,9 +9,11 @@ export interface TableSort {
 
 export interface UseAdminTable {
   page: number;
+  search: string;
   sort: TableSort | null;
   filters: Record<string, string>;
   setPage: (p: number) => void;
+  setSearch: (q: string) => void;
   setSort: (s: TableSort | null) => void;
   setFilter: (field: string, value: string | null) => void;
   clearFilters: () => void;
@@ -27,6 +29,7 @@ export function useAdminTable(): UseAdminTable {
   const sp = useSearchParams();
 
   const page = Number(sp.get("page") ?? "1") || 1;
+  const search = sp.get("q") ?? "";
   const sortRaw = sp.get("sort");
   const sort: TableSort | null = sortRaw
     ? (() => {
@@ -49,9 +52,16 @@ export function useAdminTable(): UseAdminTable {
 
   return {
     page,
+    search,
     sort,
     filters,
     setPage: (p: number) => push((q) => q.set("page", String(p))),
+    setSearch: (val: string) =>
+      push((q) => {
+        if (val === "") q.delete("q");
+        else q.set("q", val);
+        q.delete("page");
+      }),
     setSort: (s: TableSort | null) =>
       push((q) => {
         if (!s) q.delete("sort");

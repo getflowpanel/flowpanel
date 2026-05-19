@@ -9,4 +9,8 @@ export {
   ResourceListFilters,
   type ResourceListFiltersProps,
 } from "./pages/resource-list-filters.js";
+export {
+  ResourceListSearch,
+  type ResourceListSearchProps,
+} from "./pages/resource-list-search.js";
 export { WidgetErrorBoundary } from "./runtime/WidgetErrorBoundary.js";

@@ -28,8 +28,12 @@ export default defineAdmin({
     role: (s) => (s as AdminSession | null)?.role ?? "guest",
     requireRole: "admin",
   },
+  // Embedded mode: the host's app/layout.tsx already provides a top header
+  // with the product brand. FlowPanel only contributes the tab strip + the
+  // content beneath it. Set `shell: "sidebar"` for a standalone admin and
+  // `shell: "bare"` to drop chrome entirely.
+  shell: { mode: "tabs", brand: false },
   theme: {
-    brand: { name: "FreelanceRadar" },
     // L2 customization showcase: wrap the default MetricCard with a tone ring.
     components: { MetricCard: PriorityMetricCard },
   },
@@ -79,7 +83,7 @@ export default defineAdmin({
       },
       drawer: {
         width: "lg",
-        header: (u: any) => String(u.email),
+        header: (u) => String((u as typeof schema.users.$inferSelect).email),
         fields: "*",
         actions: [
           {

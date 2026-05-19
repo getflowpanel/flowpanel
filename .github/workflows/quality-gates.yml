@@ -21,7 +21,6 @@ jobs:
 
   no-inline-styles:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Check for style={{ in packages/react
@@ -62,6 +61,8 @@ jobs:
 
   file-size-check:
     runs-on: ubuntu-latest
+    # TODO: flip to blocking after splitting DataTable.tsx, drawer-route.ts, DrawerHost.tsx
+    # (each currently exceeds the 250-line threshold).
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4

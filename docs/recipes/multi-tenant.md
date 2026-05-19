@@ -4,64 +4,64 @@ Most SaaS admins are scoped to one tenant (workspace, organization, account).
 A user on team A must never see team B's rows — not through list, not through
 a crafted `get`, not through search, not through a filter twist on an action.
 
-FlowPanel enforces this through **one function** in `security.rowLevel`. Every
-CRUD endpoint applies it. The rest of this page shows the whole pattern end
-to end.
+FlowPanel enforces this through **one function** at the top-level `scope`
+field. Every CRUD endpoint applies it. The rest of this page shows the whole
+pattern end to end.
 
 ## The whole thing, in one config
 
 ```ts
 // flowpanel.config.ts
-import { defineFlowPanel, defineResource } from "@flowpanel/core";
-import { prismaAdapter } from "@flowpanel/adapter-prisma";
+import { defineAdmin, resource } from "flowpanel";
+import { prismaAdapter } from "flowpanel/prisma";
 import { prisma } from "./lib/prisma";
 import { getSession } from "./lib/auth"; // returns { userId, role, tenantId }
 
-export const flowpanel = defineFlowPanel({
-  appName: "My SaaS",
+export const flowpanel = defineAdmin({
   adapter: prismaAdapter({ prisma }),
 
-  security: {
-    auth: { getSession },
-
-    // The heart of the pattern: one function, called once per request,
-    // returns the scalar fields every resource query must be scoped by.
-    rowLevel: {
-      filter: (session, ctx) => {
-        // Per-resource dispatch via ctx.resource — rarely needed, but
-        // there for the case where one resource is NOT scoped (e.g. a
-        // global `audit_log` table only admins see).
-        if (ctx.resource === "auditLog") return {}; // no scope
-
-        return { tenantId: session.tenantId };
-      },
-    },
+  auth: {
+    session: getSession,
+    role: (s) => (s as { role?: string } | null)?.role ?? "guest",
+    requireRole: "admin",
   },
 
-  resources: {
+  // The heart of the pattern: one function, called once per request,
+  // returns the scalar fields every resource query is scoped by.
+  scope: ({ session }) => {
+    const s = session as { tenantId?: string } | null;
+    return s?.tenantId ? { tenantId: s.tenantId } : null;
+  },
+
+  resources: [
     // The `tenantId` column must exist on each scoped table. FlowPanel
     // won't invent it — it's enforced only if it's there.
-    project: defineResource<Project>(prisma.project, {
-      columns: (p) => [p.name, p.status, p.createdAt],
-      // No mention of tenantId here — rowLevel handles it invisibly.
+    resource(prisma.project, {
+      label: "Projects",
+      columns: ["name", "status", "createdAt"],
+      // No mention of tenantId here — global scope handles it invisibly.
     }),
 
-    invoice: defineResource<Invoice>(prisma.invoice, {
-      columns: (i) => [i.number, i.amount, i.status],
+    resource(prisma.invoice, {
+      label: "Invoices",
+      columns: ["number", "amount", "status"],
     }),
 
     // Opt-out: admin-only, not tenant-scoped.
-    auditLog: defineResource<AuditLog>(prisma.auditLog, {
-      access: { list: ["superadmin"] },
-      columns: (a) => [a.action, a.actorEmail, a.createdAt],
+    resource(prisma.auditLog, {
+      label: "Audit log",
+      columns: ["action", "actorEmail", "createdAt"],
+      // `scope: "bypass"` opts this resource out of the global scope.
+      scope: "bypass",
+      requireRole: ["superadmin"],
     }),
-  },
+  ],
 });
 ```
 
 ## What FlowPanel enforces for you
 
-For **every** resource where `rowLevel.filter` returns a scalar:
+For **every** resource where `scope` returns a scalar:
 
 | Endpoint | Behaviour |
 |---|---|
@@ -151,7 +151,7 @@ middleware is doing its job.
 ## Widgets + dashboards
 
 Widgets bypass the resource router — they read `ctx.db` directly. That
-means `rowLevel` cannot reach them automatically. The pattern:
+means the global `scope` cannot reach them automatically. The pattern:
 
 ```ts
 dashboard: (w) => [
@@ -184,8 +184,8 @@ loaders. Never read it from a request parameter or URL.
 
 - [ ] `tenantId` (or your equivalent) is **NOT** in any resource's
       `columns`, `filters`, or form fields.
-- [ ] `rowLevel.filter` returns a scalar for every tenant-scoped
-      resource and `{}` for the rest.
+- [ ] Top-level `scope` returns the tenancy scalar; per-resource
+      `scope: "bypass"` opts out the rare cross-tenant resource.
 - [ ] Three integration tests above pass on a real Postgres.
 - [ ] Every widget loader derives scope from `ctx.session`, never from
       widget input.

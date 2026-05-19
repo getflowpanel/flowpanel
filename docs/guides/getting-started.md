@@ -75,55 +75,62 @@ Navigate to `/admin`. That's it — your data is now CRUD-editable with filters,
 
 ```ts
 // flowpanel.config.ts
-import type { User } from "@prisma/client";
-import { defineFlowPanel, defineResource } from "@flowpanel/core";
+import { dashboard, defineAdmin, metric, resource, table } from "flowpanel";
+import { prismaAdapter } from "flowpanel/prisma";
 import { prisma } from "./lib/prisma";
 
-export const flowpanel = defineFlowPanel({
+export const flowpanel = defineAdmin({
   appName: "My SaaS",
-  adapter: prisma,                // auto-detects Prisma client
-  pipeline: { stages: [] },       // keep even if empty
+  adapter: prismaAdapter({ prisma }),
 
-  resources: {
-    user: defineResource<User>(prisma.user, {
-      columns: (u) => [u.email, u.role, u.createdAt],
-      filters: (u) => [u.role],
-      searchFields: ["email", "name"],
-      actions: (a) => ({
-        archive: a.mutation({
-          label: "Archive",
-          confirm: "Archive this user?",
-          handler: async (row, ctx) => {
-            await ctx.db.user.update({
-              where: { id: row.id },
-              data: { archivedAt: new Date() },
-            });
+  resources: [
+    resource(prisma.user, {
+      label: "Users",
+      columns: ["email", "role", "createdAt"],
+      filters: [{ field: "role", type: "select", options: [/* ... */] }],
+      search: ["email", "name"],
+      drawer: {
+        actions: [
+          {
+            key: "archive",
+            label: "Archive",
+            confirm: "Archive this user?",
+            run: async (row, _input, ctx) => {
+              const u = row as { id: string };
+              await ctx.db.user.update({
+                where: { id: u.id },
+                data: { archivedAt: new Date() },
+              });
+              return { ok: true, refresh: true };
+            },
           },
-        }),
-      }),
-    }),
-  },
-
-  dashboard: (w) => [
-    w.metric({
-      label: "Total users",
-      value: async (ctx) => ctx.db.user.count(),
-    }),
-    w.list({
-      label: "Recent signups",
-      rows: async (ctx) =>
-        ctx.db.user.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
-      render: (u) => ({ primary: u.email, secondary: u.name }),
+        ],
+      },
     }),
   ],
 
-  security: {
-    auth: {
-      getSession: async (req) => {
-        // your auth session lookup
-        return { userId: "…", role: "admin" };
-      },
+  dashboards: [
+    dashboard({
+      path: "/",
+      label: "Overview",
+      sections: [
+        {
+          widgets: [
+            metric("Total users", async ({ db }) => db.user.count()),
+            table({ resource: "user", limit: 5 }),
+          ],
+        },
+      ],
+    }),
+  ],
+
+  auth: {
+    session: async () => {
+      // your auth session lookup
+      return { userId: "…", role: "admin" } as const;
     },
+    role: (s) => s?.role ?? "guest",
+    requireRole: "admin",
   },
 });
 ```
@@ -133,25 +140,36 @@ export const flowpanel = defineFlowPanel({
 Drop a `dashboard` block into the same config. Widgets evaluate server-side; the client never sees your queries:
 
 ```ts
-import { defineFlowPanel, metric } from "@flowpanel/core";
+import { dashboard, defineAdmin, metric, table } from "flowpanel";
 
-const mrr = metric({
-  trend: "vs-previous-period",
-  compute: async ({ db }, { start, end }) =>
-    db.payment.aggregate({
-      _sum: { amount: true },
-      where: { status: "succeeded", paidAt: { gte: start, lt: end } },
-    }).then((r) => r._sum.amount ?? 0),
-});
-
-defineFlowPanel({
+defineAdmin({
   // ...
-  dashboard: (w) => [
-    w.metric({ label: "MRR", format: "money", prefix: "$", ...mrr }),
-    w.list({
-      label: "Recent signups",
-      rows: async ({ db }) => db.user.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
-      render: (u) => ({ primary: u.email, secondary: u.name }),
+  dashboards: [
+    dashboard({
+      path: "/",
+      label: "Overview",
+      dateRange: { preset: "last30d" },
+      sections: [
+        {
+          widgets: [
+            metric(
+              "MRR",
+              async ({ db, dateRange }) => {
+                const r = await db.payment.aggregate({
+                  _sum: { amount: true },
+                  where: {
+                    status: "succeeded",
+                    paidAt: { gte: dateRange.from, lt: dateRange.to },
+                  },
+                });
+                return r._sum.amount ?? 0;
+              },
+              { format: "currency" },
+            ),
+            table({ resource: "user", limit: 5 }),
+          ],
+        },
+      ],
     }),
   ],
 });
@@ -164,13 +182,13 @@ For big dashboards, group widgets under `sections: [{ title, widgets }]` — see
 Anything that isn't a CRUD resource — reports, settings, mapping screens — lives as a `pages` entry:
 
 ```ts
-import { ReportsPage } from "@/admin/ReportsPage";
+import { defineAdmin, page } from "flowpanel";
 
-defineFlowPanel({
+defineAdmin({
   // ...
   pages: [
-    { path: "reports", component: ReportsPage, icon: "bar-chart-3" },
-    { path: "categories", component: CategoryMappingPage },
+    page({ path: "/reports", label: "Reports", icon: "bar-chart-3", href: "/admin/reports" }),
+    page({ path: "/categories", label: "Categories", href: "/admin/categories" }),
   ],
 });
 ```
@@ -182,9 +200,9 @@ Each page gets its own route under `/admin/<path>` and a sidebar entry. Build yo
 Set `realtime: true` on any resource and its list/detail view will live-update when someone else mutates a row:
 
 ```ts
-resources: {
-  user: defineResource<User>(db.user, { realtime: true, columns: (u) => [u.email] }),
-},
+resources: [
+  resource(db.user, { realtime: true, columns: ["email"] }),
+],
 ```
 
 The SSE route scaffolded by `flowpanel init` at `app/api/flowpanel/stream/route.ts` handles transport, reconnection, and fallback polling for you.

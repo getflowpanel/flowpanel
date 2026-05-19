@@ -27,6 +27,13 @@ export function resourceNavName(resource: { ref: unknown; options: { name?: stri
 
 export function buildNav(config: ResolvedAdminConfig): NavGroup[] {
   const groups: NavGroup[] = [];
+
+  const dashboardItems = [...config.dashboardsByPath.values()].map((d) => ({
+    label: d.label,
+    href: `/admin${d.path === "/" ? "" : d.path}`,
+  }));
+  if (dashboardItems.length) groups.push({ label: "Dashboards", items: dashboardItems });
+
   const resourceItems = [...config.resourcesByName.values()]
     .filter((r: ResourceConfig) => !r.options.hidden)
     .map((r: ResourceConfig) => {

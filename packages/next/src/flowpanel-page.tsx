@@ -1,7 +1,7 @@
-import type { ResolvedAdminConfig, RequireRole } from "@flowpanel/core";
+import type { ResolvedAdminConfig, RequireRole, ShellConfig, ShellMode } from "@flowpanel/core";
 import { checkRequireRole } from "@flowpanel/core";
 import { CommandHost, DrawerHost } from "@flowpanel/next/client";
-import { AdminShell, type FlowpanelComponentSlots } from "@flowpanel/react";
+import { AdminShell, type FlowpanelComponentSlots, FlowpanelGlobals } from "@flowpanel/react";
 import type * as React from "react";
 import { DashboardPage } from "./pages/dashboard.js";
 import { NotFound } from "./pages/not-found.js";
@@ -21,7 +21,39 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export function Flowpanel(config: ResolvedAdminConfig) {
+export interface FlowpanelOptions {
+  /**
+   * Override `config.shell` at render time. Useful when the same admin
+   * config is mounted at different routes with different chrome (e.g.
+   * standalone `/admin` with sidebar, embedded `/dashboard/admin` with
+   * tabs).
+   */
+  shell?: ShellConfig | ShellMode;
+}
+
+interface ResolvedShell {
+  mode: ShellMode;
+  brandName?: string;
+}
+
+function resolveShell(
+  config: ResolvedAdminConfig,
+  override?: ShellConfig | ShellMode,
+): ResolvedShell {
+  const raw = override ?? config.shell;
+  const cfg: ShellConfig = typeof raw === "string" ? { mode: raw } : (raw ?? {});
+  const mode: ShellMode = cfg.mode ?? "sidebar";
+
+  if (cfg.brand === false || mode === "bare") {
+    return { mode };
+  }
+  const brandName =
+    (cfg.brand && typeof cfg.brand === "object" ? cfg.brand.name : undefined) ??
+    config.theme?.brand?.name;
+  return { mode, ...(brandName !== undefined ? { brandName } : {}) };
+}
+
+export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = {}) {
   bindPublisher(config);
   return async function FlowpanelPage({ params, searchParams }: PageProps) {
     const { slug = [] } = await params;
@@ -47,30 +79,62 @@ export function Flowpanel(config: ResolvedAdminConfig) {
 
     const content = await renderContent(config, slug, sp, req);
 
-    const brandName = config.theme?.brand?.name;
-    // theme.components is Record<string,ComponentType<any>> at the config boundary;
-    // cast to Partial<FlowpanelComponentSlots> — user must supply "use client" components.
+    const shell = resolveShell(config, opts.shell);
     const themeComponents = config.theme?.components as
       | Partial<FlowpanelComponentSlots>
       | undefined;
     const labels = config.labels;
-    return (
-      <AdminShell
-        navGroups={navGroups}
-        currentPath={slug.length === 0 ? "/admin" : currentPath}
-        {...(brandName ? { brandName } : {})}
-        {...(themeComponents ? { themeComponents } : {})}
-        {...(labels ? { labels } : {})}
-      >
-        {content}
+
+    const globals = (
+      <>
         <DrawerHost />
         <CommandHost
           navItems={navItems}
           {...(config.commandPalette ? { config: config.commandPalette } : {})}
         />
-      </AdminShell>
+      </>
+    );
+
+    const body =
+      shell.mode === "bare" ? (
+        <>
+          {content}
+          {globals}
+        </>
+      ) : (
+        <AdminShell
+          variant={shell.mode}
+          navGroups={navGroups}
+          currentPath={slug.length === 0 ? "/admin" : currentPath}
+          {...(shell.brandName !== undefined ? { brandName: shell.brandName } : {})}
+        >
+          {content}
+          {globals}
+        </AdminShell>
+      );
+
+    return (
+      <FlowpanelGlobals
+        {...(themeComponents ? { themeComponents } : {})}
+        {...(labels ? { labels } : {})}
+      >
+        {body}
+      </FlowpanelGlobals>
     );
   };
+}
+
+/**
+ * Sugar for `Flowpanel(config, { shell: "bare" })`. Renders only the page
+ * content — the host app provides chrome via its own `app/layout.tsx` or
+ * a wrapper component. Globals (toasts, drawer, ⌘K, realtime) are still
+ * mounted, so feature parity is preserved.
+ */
+export function FlowpanelContent(
+  config: ResolvedAdminConfig,
+  opts: Omit<FlowpanelOptions, "shell"> = {},
+) {
+  return Flowpanel(config, { ...opts, shell: "bare" });
 }
 
 async function renderContent(

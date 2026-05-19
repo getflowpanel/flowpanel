@@ -39,8 +39,5 @@ export function startBoardServer(opts: StartBoardServerOptions): Server {
   app.use(basePath, serverAdapter.getRouter());
 
   const port = opts.port ?? 3001;
-  return app.listen(port, () => {
-    // eslint-disable-next-line no-console
-    console.log(`[flowpanel/bullmq] board listening on http://localhost:${port}${basePath}`);
-  });
+  return app.listen(port);
 }

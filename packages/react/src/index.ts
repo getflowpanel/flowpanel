@@ -122,7 +122,13 @@ export {
 } from "./_layout/Section.js";
 export { AdminNav, type NavEntry, type NavGroup } from "./_shell/AdminNav.js";
 // Shell
-export { AdminShell, type AdminShellProps } from "./_shell/AdminShell.js";
+export {
+  AdminShell,
+  type AdminShellProps,
+  type AdminShellVariant,
+} from "./_shell/AdminShell.js";
+export { AdminTabs } from "./_shell/AdminTabs.js";
+export { FlowpanelGlobals, type FlowpanelGlobalsProps } from "./_shell/FlowpanelGlobals.js";
 export {
   type BreadcrumbItem,
   Breadcrumbs,

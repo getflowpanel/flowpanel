@@ -16,8 +16,8 @@ with a click-to-expand:
 
 ```ts
 // flowpanel.config.ts
-resources: {
-  webhook: defineResource<Webhook>(prisma.webhook, {
+resources: [
+  resource(prisma.webhook, {
     columns: (w) => [
       w.id,
       w.receivedAt,
@@ -25,7 +25,7 @@ resources: {
       { id: "payload", label: "Payload", render: "json-preview" },
     ],
   }),
-}
+]
 ```
 
 ```tsx
@@ -72,7 +72,7 @@ through a `dialog` action with typed fields, and write back the assembled
 object:
 
 ```ts
-const featureFlags = defineResource<User>(prisma.user, {
+const featureFlags = resource(prisma.user, {
   columns: (u) => [u.email, { id: "flags", label: "Flags", render: "json-preview" }],
   actions: (a) => ({
     editFlags: a.dialog({

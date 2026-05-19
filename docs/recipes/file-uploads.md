@@ -35,16 +35,16 @@ in (1) is a `flowpanel add image-cell` template, the storage in (3) is yours.
 
 ```ts
 // flowpanel.config.ts
-import { defineFlowPanel, defineResource } from "@flowpanel/core";
-import { prismaAdapter } from "@flowpanel/adapter-prisma";
+import { defineAdmin, resource } from "flowpanel";
+import { prismaAdapter } from "flowpanel/prisma";
 import { prisma } from "./lib/prisma";
 import { presignPutUrl, publicUrl } from "./lib/storage"; // your S3/R2 helpers
 
-export const flowpanel = defineFlowPanel({
+export const flowpanel = defineAdmin({
   adapter: prismaAdapter({ prisma }),
 
-  resources: {
-    user: defineResource<User>(prisma.user, {
+  resources: [
+    resource(prisma.user, {
       columns: (u) => [
         u.email,
         u.name,
@@ -100,9 +100,7 @@ export const flowpanel = defineFlowPanel({
         }),
       }),
     }),
-  },
-
-  security: { auth: { getSession } },
+  ],
 });
 ```
 

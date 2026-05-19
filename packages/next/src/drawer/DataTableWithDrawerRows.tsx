@@ -4,6 +4,7 @@ import {
   type DataTableColumn,
   type DataTableSort,
   useAdminDrawer,
+  useAdminTable,
 } from "@flowpanel/react";
 
 /**
@@ -12,7 +13,7 @@ import {
  * `resource.options.rowClick === "drawer"`.
  */
 export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown>> {
-  resource: string;
+  resource?: string;
   columns: DataTableColumn<Row>[];
   rows: Row[];
   total: number;
@@ -28,17 +29,24 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
 ) {
   const { resource, rowKey, sort, emptyTitle, ...rest } = props;
   const { open } = useAdminDrawer();
+  const table = useAdminTable();
   return (
     <DataTable
       {...rest}
       rowKey={rowKey}
       {...(sort ? { sort } : {})}
       {...(emptyTitle ? { emptyTitle } : {})}
-      onRowClick={(row) => {
-        const id = row[rowKey];
-        if (id === undefined || id === null) return;
-        open({ resource, id: String(id) });
-      }}
+      onSortChange={(s) => table.setSort(s as { field: string; dir: "asc" | "desc" })}
+      onPageChange={(p) => table.setPage(p)}
+      {...(resource
+        ? {
+            onRowClick: (row: Row) => {
+              const id = row[rowKey];
+              if (id === undefined || id === null) return;
+              open({ resource, id: String(id) });
+            },
+          }
+        : {})}
     />
   );
 }

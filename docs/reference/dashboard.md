@@ -1,242 +1,196 @@
 # Dashboard
 
-A **dashboard** is a grid of widgets that live-reload every 30 seconds. Widgets are pure async functions that run server-side; the client only receives data (never code), so secrets stay on the server.
+A **dashboard** is a page of widget sections, registered in `defineAdmin({ dashboards })`. Widgets are pure async functions that run server-side; the client only receives the resolved data.
 
 ```ts
-defineFlowPanel({
+import { dashboard, defineAdmin, metric, table } from "flowpanel";
+import { areaChart } from "flowpanel/charts";
+
+defineAdmin({
   ...,
-  dashboard: (w) => [
-    w.metric({
-      label: "MRR",
-      format: "money",
-      value: async (ctx) => ctx.db.subscription.aggregate({ _sum: { amount: true } }).then(r => r._sum.amount ?? 0),
-      trend: async (ctx) => ({ delta: 12, deltaPercent: 8.3, direction: "up", period: "7d" }),
-    }),
-
-    w.chart({
-      label: "Signups (14d)",
-      kind: "bar",
-      data: async (ctx) => last14DaySignups(ctx.db),
-    }),
-
-    w.list({
-      label: "Recent errors",
-      layout: { span: 6 },
-      rows: async (ctx) => ctx.db.run.findMany({ where: { status: "error" }, take: 5 }),
-      render: (run) => ({
-        primary: run.partitionKey,
-        secondary: run.errorMessage,
-        meta: relativeTime(run.createdAt),
-      }),
-    }),
-
-    w.custom({
-      id: "conversion-funnel",
-      label: "Signup funnel",
-      data: async (ctx) => computeFunnel(ctx.db),
-      // component prop is consumed by DashboardPage `components` map (see below)
+  dashboards: [
+    dashboard({
+      path: "/",
+      label: "Overview",
+      dateRange: { preset: "last7d" },
+      sections: [
+        {
+          label: "Today",
+          columns: 4,
+          widgets: [
+            metric("Users", async ({ db }) => db.user.count()),
+            metric("Active jobs", async ({ db }) => db.job.count({ where: { archived: false } })),
+          ],
+        },
+        {
+          label: "Signups",
+          widgets: [
+            areaChart(
+              "Signups",
+              async ({ db, dateRange }) => loadDailySignups(db, dateRange),
+              { x: "day", y: "count", smooth: true, height: 220 },
+            ),
+          ],
+        },
+        {
+          label: "Recent users",
+          widgets: [
+            table({ resource: "user", limit: 10, rowClick: "drawer" }),
+          ],
+        },
+      ],
     }),
   ],
 });
 ```
 
-## Widget kinds
-
-### `w.metric`
-
-Single number or string with an optional trend indicator.
+## `dashboard(config)`
 
 ```ts
-w.metric({
-  label, icon?, description?, layout?,
-  format?: "number" | "money" | "percent" | "bytes" | "duration",
-  prefix?, suffix?,
-  value:  (ctx) => Promise<number | string | null>,
-  trend?: (ctx) => Promise<{ delta, deltaPercent?, period?, direction? } | null>,
-  sublabel?: string | ((ctx) => Promise<string | null>),
+dashboard({
+  path: string,           // route under the admin shell, e.g. "/" or "/monitoring"
+  label: string,
+  icon?: string,
+  dateRange?: DateRangeConfig,
+  realtime?: string | string[],
+  sections: SectionConfig[],
 })
 ```
 
-### `w.list`
-
-Compact list with primary/secondary text and optional badge or link.
+### `DateRangeConfig`
 
 ```ts
-w.list({
-  label,
-  rows:  (ctx) => Promise<Row[]>,
-  render: (row) => ({ primary, secondary?, meta?, badge?, href? }),
-  limit?:        // default 10
-  emptyMessage?: // default "No … yet"
-})
-```
-
-### `w.chart`
-
-Lightweight SVG chart (bar / line / area). No chart library added to your bundle.
-
-```ts
-w.chart({
-  label,
-  kind?: "bar" | "line" | "area",   // default "bar"
-  data: (ctx) => Promise<Array<{ label: string; value: number }>>,
-  color?: string,
-  format?: "number" | "money" | "duration",
-})
-```
-
-### `w.custom`
-
-Your component, your data loader. The server runs `data(ctx)`, the client mounts your React component with the resolved payload.
-
-```ts
-// flowpanel.config.ts — server side
-w.custom({
-  id: "conversion-funnel",
-  label: "Signup funnel",
-  data: async (ctx) => ({ steps: [...] }),
-})
-```
-
-```tsx
-// app/admin/page.tsx — client side
-import { ConversionFunnel } from "@/components/funnel";
-
-<FlowPanelUI
-  config={config}
-  trpcBaseUrl="/api/trpc"
-  // DashboardPage wires this automatically when using <FlowPanelUI />.
-  // If you render DashboardPage directly, pass it via components:
-  components={{ "conversion-funnel": ConversionFunnel }}
-/>
-```
-
-## Layout
-
-Widgets render in a 12-column grid. Default spans:
-
-| Widget | Span |
-|---|---|
-| `metric` | 3 |
-| `list` | 6 |
-| `chart` | 12 |
-| `custom` | 12 |
-
-Override per-widget with `layout: { span: 4 }`. Valid values: `1 | 2 | 3 | 4 | 6 | 8 | 12`.
-
-## Sections
-
-Past roughly eight widgets a flat grid becomes hard to scan. Group them with `sections` — each section gets a heading and optional description, and the grid resets underneath:
-
-```ts
-dashboard: {
-  sections: [
-    {
-      title: "Revenue",
-      description: "30-day MRR with trend vs previous period.",
-      widgets: (w) => [
-        w.metric({ label: "MRR", format: "money", prefix: "$", ...mrr }),
-      ],
-    },
-    {
-      title: "Growth",
-      widgets: (w) => [
-        w.chart({ label: "Sign-ups", kind: "line", data: signups }),
-      ],
-    },
-  ],
-};
-```
-
-The server flattens all widgets from every section into one batch, so performance matches a flat dashboard; the client restores the visual grouping.
-
-## With metric / timeseries / breakdown helpers
-
-`w.metric` wants `{ value, trend }`; `w.chart` wants `{ data }`. The `metric()` / `timeseries()` / `breakdown()` helpers from `@flowpanel/core` return exactly those shapes, so you write the query once and spread it:
-
-```ts
-import { breakdown, metric, timeseries } from "@flowpanel/core";
-
-export const mrr = metric({
-  defaultRange: "30d",
-  trend: "vs-previous-period",
-  compute: async ({ db }, { start, end }) =>
-    db.payment.aggregate({
-      _sum: { amount: true },
-      where: { status: "succeeded", paidAt: { gte: start, lt: end } },
-    }).then((r) => r._sum.amount ?? 0),
-});
-
-export const signups = timeseries({
-  defaultRange: "30d",
-  compute: async ({ db }, { start, end, bucket }) =>
-    groupSignupsByBucket(db, { start, end, bucket }),
-});
-
-export const spendByModel = breakdown({
-  defaultRange: "30d",
-  sort: "value-desc",
-  limit: 10,
-  compute: async ({ db }, { range }) => spendGroupedByModel(db, range),
-});
-
-// Then:
-dashboard: (w) => [
-  w.metric({ label: "MRR", format: "money", prefix: "$", ...mrr }),
-  w.chart({ label: "Sign-ups", kind: "line", data: signups }),
-  w.chart({ label: "Spend by model", kind: "bar", data: spendByModel }),
-]
-```
-
-Why this split: trend math ("vs previous period") and bucket resolution are boilerplate most dashboards repeat. The helpers own that, the widget builder owns presentation.
-
-## Recipes
-
-### Status banner + sparkline inside a custom widget
-
-The screenshots on the landing page (health strip, per-platform cards with mini charts) don't ship as built-in widget kinds — they're one generic `w.custom` each, rendered by small components you own. Copy a template:
-
-```bash
-pnpm flowpanel add status-banner
-pnpm flowpanel add sparkline
-```
-
-Now wire them into a custom widget:
-
-```ts
-// flowpanel.config.ts
-dashboard: (w) => [
-  w.custom({
-    id: "health",
-    label: "Health",
-    layout: { span: 12 },
-    data: async ({ db }) => ({
-      status: await probeSystems(db),
-      parserTrend: await last24hParserOps(db),
-    }),
-  }),
-],
-```
-
-```tsx
-// app/admin/page.tsx
-import { StatusBanner } from "@/flowpanel/widgets/StatusBanner";
-import { Sparkline } from "@/flowpanel/widgets/Sparkline";
-
-function HealthWidget({ data }: { data: { status: "ok" | "warn" | "error"; parserTrend: number[] } }) {
-  return (
-    <div className="space-y-3">
-      <StatusBanner status={data.status} message="All systems operational" />
-      <Sparkline data={data.parserTrend} width={240} height={40} />
-    </div>
-  );
+{
+  preset?: "today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD",
+  default?: { from: Date; to: Date },
+  allowCustom?: boolean,
 }
-
-<FlowPanelUI config={config} components={{ health: HealthWidget }} />
 ```
 
-This is the shadcn philosophy applied to dashboards: composition over prop-drilling, and the component is a file you own — not a dependency to pin.
+The resolved range lands in every widget's `ctx.dateRange` as `{ from, to, preset }`.
 
-## Error handling
+### `SectionConfig`
 
-If a widget's data loader throws, that widget shows the error inline and the rest keep loading independently. FlowPanel never fails the whole page for a single bad query.
+```ts
+{
+  label?: string,
+  description?: string,
+  columns?: 1 | 2 | 3 | 4 | 6 | 12,
+  widgets: WidgetConfig[],
+}
+```
+
+`columns` controls the section grid; widgets without `span` fill one column.
+
+## Widget builders
+
+All widgets share a server-side `ctx`:
+
+```ts
+interface WidgetContext {
+  db: InferDB;                 // your typed adapter db
+  session: Session | null;
+  dateRange: ResolvedDateRange;
+  req: Request;
+}
+```
+
+### `metric(label, query, options?)`
+
+```ts
+metric(
+  label: string,
+  query: (ctx: WidgetContext) => Promise<number | string>,
+  options?: {
+    icon?: string,
+    format?: "number" | "currency" | "percent" | "bytes" | "duration",
+    sublabel?: string,
+    delta?: (ctx) => Promise<{ value: number; vs: string } | null>,
+    sparkline?: (ctx) => Promise<number[]>,
+    tone?: "default" | "accent" | "success" | "warning" | "danger" | "muted",
+    drilldown?: string,
+    drawer?: { resource: string; id?: (value: unknown) => string },
+    span?: 1 | 2 | 3 | 4 | 6 | 8 | 12,
+    realtime?: string | string[],
+  },
+)
+```
+
+### `table(options)`
+
+```ts
+table({
+  label?: string,
+  resource?: string,                                   // pull rows from a registered resource
+  query?: (ctx) => Promise<unknown[]>,                 // or an inline loader
+  columns?: string[],
+  limit?: number,
+  rowClick?: "drawer" | "detail" | ((row) => void),
+  emptyState?: ReactNode,
+  realtime?: string | string[],
+  span?: Span,
+})
+```
+
+Either `resource` or `query` is required.
+
+### `statGroup(options)`
+
+A compact row of related stats inside one card.
+
+```ts
+statGroup({
+  label?: string,
+  span?: Span,
+  stats: Array<{
+    label: string,
+    value: unknown | ((ctx, row?) => Promise<unknown>),
+    format?: "number" | "currency" | "percent" | "bytes" | "duration",
+    tone?: Tone,
+  }>,
+})
+```
+
+### `custom(Component, props, options?)`
+
+Your React component, your data loader. The server runs `props(ctx)` (or uses the static value) and the client mounts the component with the resolved props.
+
+```ts
+custom(Funnel, async ({ db, dateRange }) => loadFunnel(db, dateRange), {
+  span: 12,
+  realtime: "resource.user",
+})
+```
+
+### Charts — `flowpanel/charts`
+
+```ts
+import { areaChart, barChart, lineChart, pieChart } from "flowpanel/charts";
+```
+
+Each takes `(label, query, options)`:
+
+```ts
+areaChart(label, query, { x, y, height?, format?, tooltip?, drilldown?, span?, realtime?, stacked?, smooth? })
+barChart (label, query, { x, y, ..., stacked?, horizontal? })
+lineChart(label, query, { x, y, ..., smooth?, markers? })
+pieChart (label, query, { category, value, donut?, showLegend?, height?, span?, drilldown?, realtime? })
+```
+
+`query` returns the raw rows; `x` / `y` / `category` / `value` are the field keys the chart reads from each row.
+
+## Widget context lifecycle
+
+Widgets are evaluated server-side per request. There's no shared cache — if two widgets hit the same expensive query, factor it out to a helper that both call. Errors thrown inside a `query` are caught at the section boundary so a failing widget can't blank the page.
+
+## Realtime
+
+Set `realtime` on a widget (or on the dashboard) to a channel name to re-fetch its data when that channel publishes:
+
+```ts
+metric("Users", async ({ db }) => db.user.count(), { realtime: "resource.user" })
+table({ resource: "user", realtime: "resource.user" })
+dashboard({ ..., realtime: ["resource.user", "resource.job"] })
+```
+
+`resource.<name>` channels fire automatically on any mutation through that resource (see `docs/reference/realtime.md`).

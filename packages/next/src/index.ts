@@ -12,7 +12,7 @@ export {
   type SerializedDrawerAction,
   type SerializedDrawerTab,
 } from "./drawer/drawer-route.js";
-export { Flowpanel } from "./flowpanel-page.js";
+export { Flowpanel, FlowpanelContent, type FlowpanelOptions } from "./flowpanel-page.js";
 export { handlers } from "./handlers.js";
 export {
   applyActionResult,

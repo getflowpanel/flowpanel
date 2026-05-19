@@ -13,20 +13,23 @@
  * read the source of `<AdminShell>` in @flowpanel/react and inline the
  * pieces you want to own.
  */
-import { AdminShell } from "flowpanel/react";
+import { AdminShell, FlowpanelGlobals } from "flowpanel/react";
 import config from "@/flowpanel.config";
 import type { ReactNode } from "react";
 
 export default function Layout({ children }: { children: ReactNode }) {
-  // The default AdminShell renders nav + main + skip-link.
-  // Customize freely from here — add analytics, custom header bar, etc.
+  // FlowpanelGlobals provides theme/labels/toast contexts.
+  // AdminShell renders nav + main + skip-link. Pass variant="tabs"
+  // for a horizontal tab strip instead of the default sidebar.
   return (
-    <AdminShell
-      navGroups={[]}
-      currentPath="/admin"
-      brandName={config.theme?.brand?.name}
-    >
-      {children}
-    </AdminShell>
+    <FlowpanelGlobals labels={config.labels}>
+      <AdminShell
+        navGroups={[]}
+        currentPath="/admin"
+        brandName={config.theme?.brand?.name}
+      >
+        {children}
+      </AdminShell>
+    </FlowpanelGlobals>
   );
 }

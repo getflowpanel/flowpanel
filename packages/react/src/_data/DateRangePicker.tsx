@@ -1,6 +1,7 @@
 "use client";
 import type { DateRangePreset } from "@flowpanel/core";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { Calendar } from "lucide-react";
 import { cn } from "../lib/cn.js";
 
 // NOTE: Custom calendar range selection is deferred to M4 polish; for M2 the
@@ -27,7 +28,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger className="inline-flex items-center gap-2 px-3 h-9 rounded-fp border border-fp-border-1 bg-fp-bg-1 text-sm text-fp-text-1 hover:bg-fp-bg-2">
-        <span className="text-fp-text-3">📅</span>
+        <Calendar className="h-3.5 w-3.5 text-fp-text-3" aria-hidden />
         {active?.label}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>

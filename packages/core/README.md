@@ -11,7 +11,7 @@ Core types, builders, and runtime for FlowPanel.
 - **`defineAdmin(config)`** — the config entry point.
 - **Builders:** `resource`, `dashboard`, `page`, `metric`, `table`, `custom`, `statGroup`, `queue`.
 - **Types:** `Adapter`, `AdminConfig`, `ResolvedAdminConfig`, `WidgetContext`, `ActionContext`, `LabelsConfig`, `ThemeConfig`, `FlowpanelTypes`, `Session`, `Scope`, errors.
-- **Runtime:** `createPublisher` (memory + Redis), `createRateLimiter` (memory + Redis), `runWithRequestContext`, `emitAudit`, `checkRequireRole`, `assertResourceScope`, `resolveDateRange`.
+- **Runtime:** `createPublisher` (memory + Redis), `createRateLimiter` (memory + Redis), `runWithRequestContext`, `emitAudit`, `checkRequireRole`, `assertResourceScope`.
 
 ## Subpath exports
 

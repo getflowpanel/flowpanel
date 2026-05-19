@@ -3,26 +3,18 @@
 A **resource** is a CRUD-backed entity in your admin: a Prisma model, a Drizzle table, or anything the adapter knows how to list / read / create / update / delete.
 
 ```ts
-import { defineResource } from "@flowpanel/core";
+import { resource } from "flowpanel";
 
-defineResource<Row>(tableOrDelegate, {
+resource(tableOrDelegate, {
   label?, labelPlural?,
   defaultSort?, defaultPageSize?,
-  columns, filters?, searchFields?,
+  columns, filters?, search?,
   actions?, access?, fieldAccess?,
   icon?, readOnly?, realtime?,
 })
 ```
 
-The first argument is your Prisma model delegate (`prisma.user`) or Drizzle table (`users`). The `<Row>` generic is your row type (`InferSelectModel<typeof users>` for Drizzle, or `User` for Prisma) — it drives column selectors and action callbacks.
-
-## `defineResource` vs `resource` — which?
-
-**`defineResource`** (recommended) walks your table metadata at config-load time, so column selectors (`(u) => u.email`) are typed, typos throw before a user opens the page, and filter modes are inferred from column types.
-
-**`resource`** is the low-level escape hatch — it just wraps `{ modelRef, opts }` without any metadata touch. Reach for it only when you truly have no ORM metadata (raw string model name, dynamic scaffolding, one-off smoke configs, tests).
-
-Every example below uses `defineResource` and assumes the typed path.
+The first argument is your Prisma model delegate (`prisma.user`) or Drizzle table (`users`). FlowPanel infers the row type from the reference — column selectors and action callbacks are typed without an explicit generic.
 
 ## Columns
 
@@ -148,10 +140,10 @@ Every handler receives a `ctx` object:
 ## Row-level security
 
 ```ts
-defineFlowPanel({
+defineAdmin({
   ...
-  rowLevel: (ctx) => ({
-    tenantId: ctx.session.tenantId,   // every row must match
+  scope: ({ session }) => ({
+    tenantId: (session as any).tenantId, // every row must match
   }),
 });
 ```
@@ -163,7 +155,7 @@ This merges into every find/update/delete. A tenant can never see another tenant
 Every mutation can ship to a custom audit sink:
 
 ```ts
-defineFlowPanel({
+defineAdmin({
   ...,
   audit: async (event) => {
     await logger.info({

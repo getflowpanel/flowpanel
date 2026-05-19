@@ -13,23 +13,22 @@ FlowPanel is the admin panel for modern Next.js SaaS. One config, zero UI code.
 ## Concepts at a glance
 
 ```ts
-defineFlowPanel({
+defineAdmin({
   appName: "My SaaS",
   adapter: prisma,                    // or drizzle
   pipeline: { stages: [...] },
 
-  resources: {                        // table UIs with CRUD
-    user: defineResource<User>(prisma.user, {...}),
-  },
-
-  dashboard: (w) => [                 // live overview cards
-    w.metric(...),
-    w.chart(...),
+  resources: [                        // table UIs with CRUD
+    resource(prisma.user, {...}),
   ],
 
-  queues: {                           // BullMQ inspection
-    email: bullmqAdapter(emailQueue),
-  },
+  dashboards: [                       // live overview pages
+    dashboard({ path: "/", label: "Overview", sections: [{ widgets: [metric(...), areaChart(...)] }] }),
+  ],
+
+  queues: [                           // BullMQ inspection
+    queue(emailQueue, { label: "Email" }),
+  ],
 });
 ```
 

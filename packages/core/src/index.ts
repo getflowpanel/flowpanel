@@ -5,7 +5,6 @@ export { custom, metric, statGroup, table } from "./builders/widget.js";
 export { defineAdmin } from "./define-admin.js";
 export { emitAudit } from "./runtime/audit.js";
 export { checkRequireRole, type RequireRole } from "./runtime/auth.js";
-export { type DateRangeInput, resolveDateRange } from "./runtime/date-range.js";
 export { createPublisher, type Publisher, type PublisherOptions } from "./runtime/publish.js";
 export {
   createRateLimiter,
@@ -43,6 +42,8 @@ export type {
   AuthConfig,
   RateLimitConfig,
   ResolvedAdminConfig,
+  ShellConfig,
+  ShellMode,
   ThemeConfig,
 } from "./types/config.js";
 export {

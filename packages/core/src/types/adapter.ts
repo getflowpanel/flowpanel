@@ -29,10 +29,10 @@ export interface Adapter<DB = InferDB> {
     update: z.ZodTypeAny;
     select: z.ZodTypeAny;
   };
-  list(ref: unknown, ctx: ListQueryContext<any>): Promise<ListResult<any>>;
-  get(ref: unknown, ctx: ItemQueryContext): Promise<any | null>;
-  create(ref: unknown, ctx: MutationContext<any>): Promise<any>;
-  update(ref: unknown, ctx: MutationContext<any>): Promise<any>;
-  delete(ref: unknown, ctx: MutationContext<any>): Promise<void>;
-  restore?(ref: unknown, ctx: MutationContext<any>): Promise<void>;
+  list(ref: unknown, ctx: ListQueryContext<unknown>): Promise<ListResult<unknown>>;
+  get(ref: unknown, ctx: ItemQueryContext): Promise<unknown | null>;
+  create(ref: unknown, ctx: MutationContext<unknown>): Promise<unknown>;
+  update(ref: unknown, ctx: MutationContext<unknown>): Promise<unknown>;
+  delete(ref: unknown, ctx: MutationContext<unknown>): Promise<void>;
+  restore?(ref: unknown, ctx: MutationContext<unknown>): Promise<void>;
 }

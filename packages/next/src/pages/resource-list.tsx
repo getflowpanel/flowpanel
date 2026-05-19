@@ -10,7 +10,11 @@ import {
   type RequireRole,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { DataTableWithDrawerRows, ResourceListFilters } from "@flowpanel/next/client";
+import {
+  DataTableWithDrawerRows,
+  ResourceListFilters,
+  ResourceListSearch,
+} from "@flowpanel/next/client";
 import { Button, DataTable, type DataTableColumn, PageHeader } from "@flowpanel/react";
 import { resourceNavName } from "../runtime/nav.js";
 import { parseListParams, resolveFilterSpecs } from "../runtime/parse-list-params.js";
@@ -70,14 +74,14 @@ export async function ResourceListPage({
 
   const columns: DataTableColumn<Row>[] = resource.options.columns.map((c) => {
     if (typeof c === "string" || typeof c === "number" || typeof c === "symbol") {
-      return { field: String(c) };
+      return { field: String(c), sortable: true };
     }
     const col = c as ColumnDef<Row>;
     const out: DataTableColumn<Row> = {
       field: String(col.field ?? ""),
       ...(col.label ? { label: col.label } : {}),
       ...(col.render ? { render: (row: Row) => col.render?.(row, reqCtx) } : {}),
-      ...(col.sortable !== undefined ? { sortable: col.sortable } : {}),
+      sortable: col.sortable ?? true,
       ...(col.width !== undefined ? { width: col.width } : {}),
       ...(col.align ? { align: col.align } : {}),
       ...(col.className ? { className: col.className } : {}),
@@ -103,6 +107,9 @@ export async function ResourceListPage({
               ),
             })}
       />
+      {resource.options.search && resource.options.search.length > 0 ? (
+        <ResourceListSearch placeholder={`Search ${name}…`} />
+      ) : null}
       <ResourceListFilters filters={filterSpecs} />
       {useDrawerRowClick ? (
         <DataTableWithDrawerRows
@@ -117,7 +124,7 @@ export async function ResourceListPage({
           emptyTitle={`No ${resource.options.plural ?? name}`}
         />
       ) : (
-        <DataTable
+        <DataTableWithDrawerRows
           columns={columns}
           rows={result.rows as Row[]}
           total={result.total}

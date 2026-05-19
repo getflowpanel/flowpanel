@@ -29,6 +29,17 @@ function formatCell(v: unknown): React.ReactNode {
   return String(v);
 }
 
+const ALIGN_CLASS = {
+  left: "text-left",
+  center: "text-center",
+  right: "text-right",
+} as const;
+
+function widthToCss(w: number | string | undefined): string | undefined {
+  if (w === undefined) return undefined;
+  return typeof w === "number" ? `${w}px` : w;
+}
+
 export interface DataTableColumn<Row> {
   field: keyof Row & string;
   label?: string;
@@ -265,16 +276,25 @@ export function DataTable<Row extends Record<string, unknown>>({
               {selectionEnabled ? (
                 <th scope="col" className="w-10 px-4 py-2" aria-hidden="true" />
               ) : null}
-              {orderedVisible.map((c) => (
-                <th
-                  key={c.field}
-                  scope="col"
-                  style={{ width: c.width, textAlign: c.align ?? "left" }}
-                  className="px-4 py-2 font-medium"
-                >
-                  {c.label ?? c.field}
-                </th>
-              ))}
+              {orderedVisible.map((c) => {
+                const wCss = widthToCss(c.width);
+                return (
+                  <th
+                    key={c.field}
+                    scope="col"
+                    {...(wCss !== undefined
+                      ? { style: { "--fp-col-w": wCss } as React.CSSProperties }
+                      : {})}
+                    className={cn(
+                      "px-4 py-2 font-medium",
+                      ALIGN_CLASS[c.align ?? "left"],
+                      wCss !== undefined && "w-[var(--fp-col-w)]",
+                    )}
+                  >
+                    {c.label ?? c.field}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -337,23 +357,12 @@ export function DataTable<Row extends Record<string, unknown>>({
                   : "descending"
                 : "none";
               const width = effectiveWidths[c.field] ?? c.width;
+              const wCss = widthToCss(width);
               const meta = pinMeta.get(c.field) ?? { side: "none" as const, offset: 0 };
-              const stickyStyle: React.CSSProperties =
-                meta.side === "left"
-                  ? {
-                      position: "sticky",
-                      left: meta.offset,
-                      background: "var(--fp-bg-2)",
-                      zIndex: 2,
-                    }
-                  : meta.side === "right"
-                    ? {
-                        position: "sticky",
-                        right: meta.offset,
-                        background: "var(--fp-bg-2)",
-                        zIndex: 2,
-                      }
-                    : { position: "relative" };
+              const cssVars: Record<string, string> = {};
+              if (wCss !== undefined) cssVars["--fp-col-w"] = wCss;
+              if (meta.side === "left") cssVars["--fp-col-pin-left"] = `${meta.offset}px`;
+              else if (meta.side === "right") cssVars["--fp-col-pin-right"] = `${meta.offset}px`;
               const currentPin: "left" | "right" | null =
                 meta.side === "left" ? "left" : meta.side === "right" ? "right" : null;
               return (
@@ -361,9 +370,17 @@ export function DataTable<Row extends Record<string, unknown>>({
                   key={c.field}
                   scope="col"
                   aria-sort={c.sortable ? ariaSort : undefined}
-                  style={{ width, textAlign: c.align ?? "left", ...stickyStyle }}
+                  {...(Object.keys(cssVars).length > 0
+                    ? { style: cssVars as React.CSSProperties }
+                    : {})}
                   className={cn(
                     "px-4 py-2 font-medium select-none",
+                    ALIGN_CLASS[c.align ?? "left"],
+                    wCss !== undefined && "w-[var(--fp-col-w)]",
+                    meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-2 z-[2]",
+                    meta.side === "right" &&
+                      "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-2 z-[2]",
+                    meta.side === "none" && "relative",
                     c.sortable && "cursor-pointer hover:text-fp-text-1",
                     c.className,
                   )}
@@ -455,27 +472,26 @@ export function DataTable<Row extends Record<string, unknown>>({
                 ) : null}
                 {orderedVisible.map((c) => {
                   const meta = pinMeta.get(c.field) ?? { side: "none" as const, offset: 0 };
-                  const stickyStyle: React.CSSProperties =
-                    meta.side === "left"
-                      ? {
-                          position: "sticky",
-                          left: meta.offset,
-                          background: "var(--fp-bg-1)",
-                          zIndex: 1,
-                        }
-                      : meta.side === "right"
-                        ? {
-                            position: "sticky",
-                            right: meta.offset,
-                            background: "var(--fp-bg-1)",
-                            zIndex: 1,
-                          }
-                        : {};
+                  const cssVars: Record<string, string> = {};
+                  if (meta.side === "left") cssVars["--fp-col-pin-left"] = `${meta.offset}px`;
+                  else if (meta.side === "right")
+                    cssVars["--fp-col-pin-right"] = `${meta.offset}px`;
                   return (
                     <td
                       key={c.field}
-                      style={{ textAlign: c.align ?? "left", ...stickyStyle }}
-                      className={cn("px-4", rowPadding, c.className)}
+                      {...(Object.keys(cssVars).length > 0
+                        ? { style: cssVars as React.CSSProperties }
+                        : {})}
+                      className={cn(
+                        "px-4",
+                        rowPadding,
+                        ALIGN_CLASS[c.align ?? "left"],
+                        meta.side === "left" &&
+                          "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-1 z-[1]",
+                        meta.side === "right" &&
+                          "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-1 z-[1]",
+                        c.className,
+                      )}
                     >
                       {c.render ? c.render(r) : formatCell(r[c.field])}
                     </td>

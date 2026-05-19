@@ -56,11 +56,32 @@ export interface AuditConfig {
   retention?: string;
 }
 
+/**
+ * How FlowPanel renders surrounding chrome around the content area.
+ *
+ * - `sidebar` — full app shell with left sidebar nav + brand. The default;
+ *   suited to standalone admins where FlowPanel owns the whole route.
+ * - `tabs` — horizontal tab strip above content. Bare layout otherwise; suited
+ *   to admins embedded under a host app's existing header.
+ * - `bare` — no shell at all. Only the page content is rendered. The host
+ *   app's `app/layout.tsx` (or a wrapper component) supplies all chrome.
+ *   Globals (toasts, drawer host, command palette, realtime) still mount,
+ *   so feature parity is preserved.
+ */
+export type ShellMode = "sidebar" | "tabs" | "bare";
+
+export interface ShellConfig {
+  mode?: ShellMode;
+  /** Overrides `theme.brand`. `false` hides brand even in sidebar/tabs. */
+  brand?: { name?: string; logo?: string; href?: string } | false;
+}
+
 export interface AdminConfig {
   adapter: Adapter;
   auth: AuthConfig;
   scope?: (ctx: ScopeContext) => Promise<Scope> | Scope;
   theme?: ThemeConfig;
+  shell?: ShellConfig | ShellMode;
   labels?: LabelsConfig;
   resources?: ResourceConfig[];
   dashboards?: DashboardConfig[];

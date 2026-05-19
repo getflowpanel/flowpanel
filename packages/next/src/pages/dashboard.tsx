@@ -6,10 +6,10 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { resolveDateRange } from "@flowpanel/core";
 import { DashboardDateRange, WidgetErrorBoundary } from "@flowpanel/next/client";
 import { Section, SkeletonCard } from "@flowpanel/react";
 import { Suspense } from "react";
+import { resolveDateRange } from "../runtime/date-range.js";
 import { renderWidget } from "../runtime/render-widget.js";
 
 export interface DashboardPageProps {

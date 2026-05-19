@@ -10,18 +10,17 @@ pnpm add @flowpanel/queue-bullmq
 
 ```ts
 import { Queue } from "bullmq";
-import { bullmqAdapter } from "@flowpanel/queue-bullmq";
-import { defineFlowPanel } from "@flowpanel/core";
+import { defineAdmin, queue } from "flowpanel";
 
 const emailQueue = new Queue("email", { connection: { host: "localhost", port: 6379 } });
 const webhookQueue = new Queue("webhooks", { connection: { /* … */ } });
 
-export const flowpanel = defineFlowPanel({
+export const flowpanel = defineAdmin({
   ...,
-  queues: {
-    email:    bullmqAdapter(emailQueue,   { label: "Email" }),
-    webhooks: bullmqAdapter(webhookQueue, { label: "Webhook delivery" }),
-  },
+  queues: [
+    queue(emailQueue,   { label: "Email" }),
+    queue(webhookQueue, { label: "Webhook delivery" }),
+  ],
 });
 ```
 

@@ -1,4 +1,4 @@
-import type { DateRangePreset, ResolvedDateRange } from "../types/dashboard.js";
+import type { DateRangePreset, ResolvedDateRange } from "@flowpanel/core";
 
 export interface DateRangeInput {
   preset?: DateRangePreset;
