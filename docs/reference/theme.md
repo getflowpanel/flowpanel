@@ -138,3 +138,100 @@ Or scope your own stylesheet:
 ```
 
 Both approaches cascade to every primitive that reads the token.
+
+## Dark mode persistence
+
+FlowPanel persists the user's light/dark choice in
+`localStorage["fp-theme"]` and applies the `.dark` class on
+`<html>` before hydration to avoid a flash of light/dark mismatch.
+
+### `<ThemeScript />`
+
+Inline `<script>` that runs synchronously on first paint to apply the
+stored class. Rendered automatically by `<FlowpanelGlobals>` (which
+`Flowpanel()` mounts for you), so for the standard wiring there is
+nothing manual to do. Source: `packages/react/src/_shell/ThemeScript.tsx:9`.
+
+```tsx
+import { ThemeScript } from "@flowpanel/react";
+
+// Render inside <head> if you mount the admin without <FlowpanelGlobals>.
+<ThemeScript defaultMode="auto" />
+```
+
+The `defaultMode` prop sets which mode wins when the user has no stored
+choice: `"light"`, `"dark"`, or `"auto"` (follow `prefers-color-scheme`).
+Defaults to `"auto"`. `<FlowpanelGlobals>` forwards
+`theme.mode` from `defineAdmin({ theme })` automatically.
+
+### `<html suppressHydrationWarning>` is required
+
+Because `ThemeScript` mutates `<html class>` before React hydrates, React
+will see a className mismatch on first render and warn unless the host
+app's root layout opts out:
+
+```tsx
+// app/layout.tsx
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+Same pattern as `next-themes`. The flag scopes warning suppression to the
+single attribute, not the whole tree.
+
+### `useTheme()` hook
+
+```ts
+import { useTheme } from "@flowpanel/react";
+
+function ThemeToggle() {
+  const { theme, toggle, setTheme } = useTheme();
+  return (
+    <button onClick={toggle}>
+      {theme === "dark" ? "Light" : "Dark"} mode
+    </button>
+  );
+}
+```
+
+`UseTheme` (`packages/react/src/hooks/useTheme.ts:21`):
+
+| Field | Type |
+|---|---|
+| `theme` | `"light" \| "dark"` — current resolved choice |
+| `toggle` | `() => void` — flip & persist |
+| `setTheme` | `(next: "light" \| "dark") => void` — set explicitly & persist |
+
+Options: `{ defaultMode?: "light" \| "dark" \| "auto" }`. When `"auto"`
+and no stored choice, the hook watches `prefers-color-scheme` and updates
+live.
+
+### Runtime helpers (no hook)
+
+`@flowpanel/react` also re-exports the imperative API the hook is built
+on, useful from event handlers outside React (`packages/react/src/lib/theme.ts`):
+
+```ts
+import {
+  applyThemeClass,
+  buildThemeInitScript,
+  readStoredTheme,
+  resolveTheme,
+  THEME_STORAGE_KEY,
+  toggleTheme,
+  writeStoredTheme,
+} from "@flowpanel/react";
+
+toggleTheme();                  // flip + persist, returns "light" | "dark"
+applyThemeClass("dark");        // just sets html.classList, no persistence
+writeStoredTheme("dark");       // just persists
+readStoredTheme();              // string | null
+```
+
+The built-in `Toggle dark mode` command in the ⌘K palette calls
+`toggleTheme()` directly.

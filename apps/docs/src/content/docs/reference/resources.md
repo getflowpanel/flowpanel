@@ -64,6 +64,39 @@ columns: [
 There is no per-column `format` option. Use `render` if you need custom
 cell rendering.
 
+### Default header / label humanization
+
+Column headers, drawer field labels, and auto-generated form labels are
+humanized by default when no explicit `label` is set.
+
+| Input | Default label |
+|---|---|
+| `email` | `Email` |
+| `firstName` | `First name` |
+| `created_at` | `Created at` |
+| `telegramId` | `Telegram ID` |
+| `apiKey` | `API key` |
+
+Common initialisms stay uppercase regardless of position: `ID`, `URL`,
+`URI`, `API`, `IP`, `UUID`, `UI`, `UX`, `HTTP`, `HTTPS`, `SQL`, `JSON`,
+`CSV`, `XML`, `HTML`, `CSS`, `DNS`, `TCP`, `UDP`, `SSL`, `TLS`, `JWT`,
+`OTP`, `SMS`, `MS`, `DB`. Source: `packages/react/src/lib/humanize.ts:17`.
+
+Passing an explicit `label` short-circuits humanization — including
+`label: ""` to render an empty header. The same rule applies to
+`FieldDef.label` and `DrawerAction` labels.
+
+The functions are exported from `@flowpanel/react` for reuse in custom
+cells:
+
+```ts
+import { humanize, resolveFieldLabel } from "@flowpanel/react";
+
+humanize("createdAt");                   // "Created at"
+resolveFieldLabel(undefined, "email");   // "Email"
+resolveFieldLabel("Plan", "plan");       // "Plan"
+```
+
 ## Filters
 
 `filters` is an array of field names (strings) or `FilterDef<Row>` objects

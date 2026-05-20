@@ -171,13 +171,40 @@ import { areaChart, barChart, lineChart, pieChart } from "flowpanel/charts";
 Each takes `(label, query, options)`:
 
 ```ts
-areaChart(label, query, { x, y, height?, format?, tooltip?, drilldown?, span?, realtime?, stacked?, smooth? })
-barChart (label, query, { x, y, ..., stacked?, horizontal? })
-lineChart(label, query, { x, y, ..., smooth?, markers? })
+areaChart(label, query, { x, y, height?, format?, tooltip?, drilldown?, span?, realtime?, bucket?, stacked?, smooth? })
+barChart (label, query, { x, y, ..., bucket?, stacked?, horizontal? })
+lineChart(label, query, { x, y, ..., bucket?, smooth?, markers? })
 pieChart (label, query, { category, value, donut?, showLegend?, height?, span?, drilldown?, realtime? })
 ```
 
 `query` returns the raw rows; `x` / `y` / `category` / `value` are the field keys the chart reads from each row.
+
+### X-axis bucket — `ChartBucket`
+
+`areaChart`, `barChart`, and `lineChart` accept an optional `bucket` that
+controls x-axis tick formatting when the x-values are dates. Type
+(`packages/core/src/types/widget.ts:98`):
+
+```ts
+type ChartBucket = "minute" | "hour" | "day" | "week" | "month" | "year" | "auto";
+```
+
+| Bucket | Tick format |
+|---|---|
+| `"day"`, `"week"`, `"month"`, `"year"` | `YYYY-MM-DD` (date only) |
+| `"hour"`, `"minute"` | `YYYY-MM-DD HH:mm` |
+| `"auto"` *(default)* | Infers from spacing between the first ~5 points: all gaps ≥ 23h → `"day"`, else `"hour"`. |
+
+```ts
+lineChart(
+  "Signups per day",
+  async ({ db, dateRange }) => loadDailySignups(db, dateRange),
+  { x: "day", y: "count", bucket: "day", height: 220 },
+)
+```
+
+Source: `packages/charts/src/runtime/format-tick.ts`. `pieChart` has no
+`bucket` option (no x-axis).
 
 ## Widget context lifecycle
 

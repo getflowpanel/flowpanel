@@ -8,6 +8,8 @@ Russian `labels`.
 
 ## Run in 60 seconds
 
+**Prereq:** Docker Desktop running (`docker info` should succeed).
+
 ```bash
 pnpm docker:up         # Postgres 16 (port 54329)
 pnpm db:push           # apply Drizzle schema

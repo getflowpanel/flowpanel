@@ -14,7 +14,7 @@ export const metadata: Metadata = {
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-fp-bg-2 text-fp-text-1 antialiased">
         <header className="border-b border-fp-border-1 bg-fp-bg-1">
           <div className="mx-auto flex h-12 max-w-7xl items-center gap-3 px-6">
@@ -23,7 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               ·
             </span>
             <span className="text-sm text-fp-text-2">FreelanceRadar</span>
-            <span className="ml-auto text-xs text-fp-text-3">Host chrome (your app)</span>
+            <span className="ml-auto rounded-full border border-fp-border-1 px-2 py-0.5 text-xs text-fp-text-3">
+              Production
+            </span>
           </div>
         </header>
         {children}

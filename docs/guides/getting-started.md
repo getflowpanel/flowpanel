@@ -55,6 +55,14 @@ they already exist):
 
 Pass `--yes` to accept detected defaults for CI.
 
+> **Add `suppressHydrationWarning` to your `<html>` tag** in
+> `app/layout.tsx`. FlowPanel injects an inline `<ThemeScript>` that
+> applies the persisted `.dark` class before hydration; without
+> `suppressHydrationWarning` React warns on the className mismatch on
+> first render. Same pattern as `next-themes`. See
+> [Theme](../reference/theme.md#dark-mode-persistence) for the full
+> story.
+
 ## Migrate
 
 ```bash
@@ -202,5 +210,9 @@ Open `http://localhost:3000/admin`.
 - `docs/reference/queues.md` — BullMQ + bull-board setup
 - `docs/reference/realtime.md` — pub/sub drivers and SSE wiring
 - `docs/reference/theme.md` — `theme.components` slots and `--fp-*` tokens
+- `docs/reference/shell.md` — `shell.mode` (sidebar | tabs | bare), mobile drawer
+- `docs/reference/command-palette.md` — ⌘K palette config and built-in groups
+- `docs/reference/cli.md` — `init`, `migrate`, `doctor`, `eject`, `new`, `dev`
+- `docs/reference/types-augmentation.md` — typed `ctx.db` via `FlowpanelTypes`
 - `docs/recipes/multi-tenant.md` — scope-based row-level security
 - `docs/recipes/jsonb-editor.md` — JSON/JSONB column patterns

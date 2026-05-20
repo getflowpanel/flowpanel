@@ -9,6 +9,23 @@ FlowPanel ships two ORM adapters (`@flowpanel/adapter-drizzle`,
 (`@flowpanel/adapter-bullmq`). All implement the `Adapter` interface in
 `@flowpanel/core` (`packages/core/src/types/adapter.ts:23`).
 
+## Choosing an adapter
+
+`flowpanel init` scaffolds the matching config based on what your
+project already depends on:
+
+| Detected in `package.json` | Config template | Adapter import |
+|---|---|---|
+| `drizzle-orm` | `flowpanel.config.drizzle.ts` | `drizzleAdapter({ db, schema })` |
+| `@prisma/client` | `flowpanel.config.prisma.ts` | `prismaAdapter({ prisma })` |
+| Both | Drizzle wins | `drizzleAdapter(...)` |
+| Neither | `flowpanel init` aborts | — |
+
+Source: `packages/cli/src/commands/init.ts:44`. Either path is
+first-class — pick whichever your app already uses; no FlowPanel feature
+gates on the ORM beyond what the feature-parity table at the bottom
+shows.
+
 ## The `Adapter` contract
 
 ```ts

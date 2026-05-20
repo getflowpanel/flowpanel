@@ -1,56 +1,41 @@
 # FlowPanel Documentation
 
-FlowPanel is the admin panel for modern Next.js SaaS. One config, zero UI code.
+One typed config → full admin panel for your Next.js app. Drizzle or
+Prisma. Realtime. Queues. Eject when you outgrow it.
 
-## Start here
+The canonical Markdown lives here under `docs/`. The published site
+(<https://flowpanel.dev>) renders the same files from
+`apps/docs/src/content/docs/` via Astro Starlight.
 
-- **[Getting started](./guides/getting-started.md)** — install, scaffold, run your first admin
-- **[Resources](./reference/resources.md)** — CRUD entities with filters, sort, search
-- **[Actions](./reference/actions.md)** — five action kinds: mutation, bulk, collection, link, dialog
-- **[Dashboard](./reference/dashboard.md)** — widget-based dashboards (metric / list / chart / custom)
-- **[Queues](./reference/queues.md)** — BullMQ inspection and control
+## Guides
 
-## Concepts at a glance
+- [Getting started](./guides/getting-started.md) — install, scaffold, run your first admin
 
-```ts
-defineAdmin({
-  appName: "My SaaS",
-  adapter: prisma,                    // or drizzle
-  pipeline: { stages: [...] },
+## Reference
 
-  resources: [                        // table UIs with CRUD
-    resource(prisma.user, {...}),
-  ],
+- [Resources](./reference/resources.md) — columns, filters, drawer, scope, audit
+- [Dashboards](./reference/dashboard.md) — sections, widget builders, dateRange, charts
+- [Actions](./reference/actions.md) — `RowAction`, `BulkAction`, `ActionResult`
+- [Realtime](./reference/realtime.md) — pub/sub drivers and SSE wiring
+- [Queues](./reference/queues.md) — BullMQ + bull-board setup
+- [Shell](./reference/shell.md) — `sidebar` / `tabs` / `bare` modes, mobile drawer
+- [Theme](./reference/theme.md) — `theme.components` slots, tokens, dark mode
+- [Command palette](./reference/command-palette.md) — built-in groups and ⌘K config
+- [Adapters](./reference/adapters.md) — Drizzle / Prisma feature matrix
+- [Next.js handlers](./reference/handler.md) — `handlers(config)` + `stream(config)`
+- [Errors](./reference/errors.md) — typed error hierarchy and `onError` hook
+- [Metrics](./reference/metrics.md) — pointer to dashboard `metric()` (helper module is WIP)
+- [CLI](./reference/cli.md) — `init`, `migrate`, `doctor`, `eject`, `dev`, `new`
+- [Typing `ctx.db`](./reference/types-augmentation.md) — `FlowpanelTypes` augmentation
 
-  dashboards: [                       // live overview pages
-    dashboard({ path: "/", label: "Overview", sections: [{ widgets: [metric(...), areaChart(...)] }] }),
-  ],
+## Recipes
 
-  queues: [                           // BullMQ inspection
-    queue(emailQueue, { label: "Email" }),
-  ],
-});
-```
+- [Multi-tenant admin](./recipes/multi-tenant.md) — scope-based row-level security
+- [JSON / JSONB editor](./recipes/jsonb-editor.md) — read, edit, filter shaped JSON columns
+- [File uploads](./recipes/file-uploads.md) — WIP, planned for v1.1
 
-That's the whole surface. Every feature is composable — define only what you need.
+## Specs and contracts
 
-## Design principles
-
-1. **shadcn + Tailwind inside, polished 2026 defaults outside.** Dark mode, responsive, keyboard-navigable.
-2. **Type-safe API.** Path proxies like `(p) => p.user.email` infer from your Prisma / Drizzle schema.
-3. **Progressive disclosure.** Shorthand covers 80%; the full builder API is there when you need it.
-4. **Server is the source of truth.** Widget/action handlers run on the server; only data reaches the client.
-5. **ORM-agnostic core.** Prisma and Drizzle both work through the same `ResourceAdapter` interface.
-
-## CLI
-
-```bash
-flowpanel init              # scaffold config, page, tRPC router, tailwind preset
-flowpanel scaffold <Model>  # generate a resource stub for one model
-flowpanel dev               # watch config and validate on change
-flowpanel migrate           # apply pipeline schema migrations
-flowpanel doctor            # health check (auth, schema, indexes, TS types)
-flowpanel status            # quick overview
-```
-
-Run `flowpanel <cmd> --help` for command options.
+- [Public-API invariants](./invariants.md) — the contract surface FlowPanel commits to from 1.0
+- [ADRs](./adr/) — architectural decisions and their rationales
+- [Spec v1.0](./spec/flowpanel-v1.0.md) — frozen scope and module-by-module spec
