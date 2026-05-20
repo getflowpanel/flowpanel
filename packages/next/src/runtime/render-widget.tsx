@@ -7,13 +7,14 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import {
-  CustomWidget as CustomWidgetRenderer,
   MetricCard,
+  RealtimeRefresh,
   StatGroupCard,
   TableWidget as TableWidgetRenderer,
 } from "@flowpanel/react";
-import type { ReactNode } from "react";
+import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { prerenderResourceCells } from "./prerender-cells.js";
+import { ServerCard } from "./_server-card.js";
 
 /**
  * Render a widget on the server.
@@ -35,16 +36,21 @@ export async function renderWidget(
       ]);
       const sparkline = widget.options.sparkline ? await widget.options.sparkline(ctx) : undefined;
       return (
-        <MetricCard
-          label={widget.label}
-          value={value}
-          {...(widget.options.format ? { format: widget.options.format } : {})}
-          {...(widget.options.sublabel ? { sublabel: widget.options.sublabel } : {})}
-          delta={delta}
-          {...(sparkline ? { sparkline } : {})}
-          {...(widget.options.tone ? { tone: widget.options.tone } : {})}
-          {...(widget.options.drilldown ? { drilldown: widget.options.drilldown } : {})}
-        />
+        <Fragment>
+          <MetricCard
+            label={widget.label}
+            value={value}
+            {...(widget.options.format ? { format: widget.options.format } : {})}
+            {...(widget.options.sublabel ? { sublabel: widget.options.sublabel } : {})}
+            delta={delta}
+            {...(sparkline ? { sparkline } : {})}
+            {...(widget.options.tone ? { tone: widget.options.tone } : {})}
+            {...(widget.options.drilldown ? { drilldown: widget.options.drilldown } : {})}
+          />
+          {widget.options.realtime ? (
+            <RealtimeRefresh channels={widget.options.realtime} />
+          ) : null}
+        </Fragment>
       );
     }
     case "statGroup": {
@@ -63,18 +69,40 @@ export async function renderWidget(
         }),
       );
       return (
-        <StatGroupCard
-          {...(widget.options.label ? { label: widget.options.label } : {})}
-          stats={stats}
-        />
+        <Fragment>
+          <StatGroupCard
+            {...(widget.options.label ? { label: widget.options.label } : {})}
+            stats={stats}
+          />
+          {widget.options.realtime ? (
+            <RealtimeRefresh channels={widget.options.realtime} />
+          ) : null}
+        </Fragment>
       );
     }
     case "custom": {
+      // Render the user-authored Component server-side, here, in the same RSC
+      // context where the dashboard config was authored. We deliberately do
+      // NOT delegate to a component imported from `@flowpanel/react` — that
+      // package is bundled with `"use client"`, so passing `Component` (a
+      // function) into it would fail RSC serialization with:
+      //   "Functions cannot be passed directly to Client Components".
+      // By invoking the Component here, only its rendered JSX (a plain,
+      // serializable React tree) ever crosses into any client boundary.
       const props =
         typeof widget.props === "function"
           ? await (widget.props as (c: WidgetContext) => Promise<unknown>)(ctx)
           : widget.props;
-      return <CustomWidgetRenderer Component={widget.Component} props={props} frame />;
+      const Component = widget.Component as ComponentType<unknown>;
+      const inner = createElement(Component, props as Record<string, unknown>);
+      return (
+        <Fragment>
+          <ServerCard>{inner}</ServerCard>
+          {widget.options.realtime ? (
+            <RealtimeRefresh channels={widget.options.realtime} />
+          ) : null}
+        </Fragment>
+      );
     }
     case "table": {
       type Row = Record<string, unknown>;
@@ -162,6 +190,7 @@ export async function renderWidget(
           }))}
           rowKey={"id"}
           {...(prerenderedCells ? { prerenderedCells } : {})}
+          {...(widget.options.realtime ? { realtime: widget.options.realtime } : {})}
         />
       );
     }
@@ -182,7 +211,12 @@ export async function renderWidget(
         const data = await widget.query(ctx);
         const Renderer = chartsMod.ChartRenderer;
         return (
-          <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />
+          <Fragment>
+    <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />
+            {widget.options.realtime ? (
+              <RealtimeRefresh channels={widget.options.realtime} />
+            ) : null}
+          </Fragment>
         );
       } catch (e) {
         console.error("[flowpanel/charts] dynamic import failed:", e);
