@@ -8,7 +8,7 @@ import type {
   RequestContext,
 } from "./context.js";
 import type { DrawerConfig } from "./drawer.js";
-import type { Scope } from "./session.js";
+import type { Scope, Session } from "./session.js";
 
 export type { DrawerConfig };
 
@@ -140,7 +140,7 @@ export interface ResourceOptions<Row> {
   bulkActions?: BulkAction<Row>[];
 
   scope?: "bypass" | ((scope: Scope, query: unknown) => unknown);
-  requireRole?: string | string[] | ((s: unknown) => boolean);
+  requireRole?: string | string[] | ((session: Session | null) => boolean);
 
   listQuery?: (ctx: ListQueryContext<Row>) => Promise<ListResult<Row>>;
   itemQuery?: (ctx: ItemQueryContext) => Promise<Row | null>;

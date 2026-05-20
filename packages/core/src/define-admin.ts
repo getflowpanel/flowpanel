@@ -44,21 +44,22 @@ const defaultDeleteBulk: BulkAction<unknown> = {
 /**
  * Resolve a FlowPanel admin configuration.
  *
- * Side effect: for each resource where `delete` is enabled (i.e. not
- * `delete: { disabled: true }`) and `bulkActions` is `undefined`, this
- * mutates `options.bulkActions` to `[defaultDeleteBulk]` so users get a
- * destructive batch-delete action for free. Opt out with `bulkActions: []`
- * or `delete: { disabled: true }`.
+ * Pure: `config` and every nested `ResourceConfig` / `ResourceConfig.options`
+ * is treated as immutable. For each resource where `delete` is enabled
+ * (i.e. not `delete: { disabled: true }`) and `bulkActions` is `undefined`,
+ * a CLONED resource with `bulkActions: [defaultDeleteBulk]` is produced.
+ * Opt out with `bulkActions: []` or `delete: { disabled: true }`.
  */
 export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
-  for (const r of config.resources ?? []) {
+  const resources = (config.resources ?? []).map((r) => {
     const deleteDisabled = r.options.delete?.disabled === true;
     if (!deleteDisabled && r.options.bulkActions === undefined) {
-      r.options.bulkActions = [defaultDeleteBulk];
+      return { ...r, options: { ...r.options, bulkActions: [defaultDeleteBulk] } };
     }
-  }
+    return r;
+  });
   const resourcesByName = new Map<string, ResourceConfig>();
-  for (const r of config.resources ?? []) {
+  for (const r of resources) {
     const name = resolveResourceName(r.ref, r.options);
     if (resourcesByName.has(name)) {
       throw new Error(`Duplicate resource name: "${name}". Each resource name must be unique.`);
@@ -80,5 +81,12 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
     if (queuesByKey.has(key)) throw new Error(`duplicate queue key: ${key}`);
     queuesByKey.set(key, q);
   }
-  return { ...config, __resolved: true, resourcesByName, dashboardsByPath, queuesByKey };
+  return {
+    ...config,
+    resources,
+    __resolved: true,
+    resourcesByName,
+    dashboardsByPath,
+    queuesByKey,
+  };
 }

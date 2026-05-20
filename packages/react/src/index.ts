@@ -186,11 +186,8 @@ export {
   toggleTheme,
   writeStoredTheme,
 } from "./lib/theme.js";
-export {
-  ComponentsProvider,
-  useComponents,
-  type FlowpanelComponentSlots,
-} from "./_provider/ComponentsContext.js";
+export { ComponentsProvider, useComponents } from "./_provider/ComponentsContext.js";
+export type { FlowpanelComponentSlots } from "@flowpanel/core";
 export { LabelsProvider, useLabels } from "./_provider/LabelsContext.js";
 export { cn } from "./lib/cn.js";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format.js";
@@ -218,9 +215,6 @@ export {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuPortal,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuSub,
@@ -237,8 +231,6 @@ export {
   SelectGroup,
   SelectItem,
   SelectLabel,
-  SelectScrollDownButton,
-  SelectScrollUpButton,
   SelectSeparator,
   SelectTrigger,
   SelectValue,

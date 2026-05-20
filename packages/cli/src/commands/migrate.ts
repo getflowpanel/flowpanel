@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
 import { fileExists } from "../utils/detect.js";
@@ -26,6 +27,8 @@ export function migrateCommand(cli: Command): void {
     .description("Apply SQL migrations from flowpanel/migrations/")
     .option("--dry-run", "Print migrations that would be applied without running them")
     .action(async (opts: MigrateOptions) => {
+      p.intro(pc.bgMagenta(pc.black(" FlowPanel migrate ")));
+
       const cwd = process.cwd();
       const dir = path.join(cwd, "flowpanel", "migrations");
 
@@ -33,12 +36,13 @@ export function migrateCommand(cli: Command): void {
         .filter((f) => f.endsWith(".sql"))
         .sort();
       if (files.length === 0) {
-        log.warn(`No migrations found in ${path.relative(cwd, dir)}`);
+        p.outro(pc.yellow(`No migrations found in ${path.relative(cwd, dir)}`));
         return;
       }
 
       if (opts.dryRun) {
         for (const f of files) log.info(`would apply: ${f}`);
+        p.outro(pc.dim(`${files.length} migration${files.length === 1 ? "" : "s"} (dry run)`));
         return;
       }
 
@@ -106,8 +110,10 @@ export function migrateCommand(cli: Command): void {
         ran++;
       }
 
-      if (ran === 0) log.info("All migrations up to date.");
-      else
-        process.stdout.write(pc.green(`Done. ${ran} migration${ran === 1 ? "" : "s"} applied.\n`));
+      if (ran === 0) {
+        p.outro(pc.dim("All migrations up to date."));
+      } else {
+        p.outro(pc.green(`${ran} migration${ran === 1 ? "" : "s"} applied`));
+      }
     });
 }

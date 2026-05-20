@@ -1,12 +1,6 @@
 "use client";
-import {
-  type ComponentType,
-  createContext,
-  type JSX,
-  type ReactNode,
-  useContext,
-  useMemo,
-} from "react";
+import type { FlowpanelComponentSlots } from "@flowpanel/core";
+import { createContext, type JSX, type ReactNode, useContext, useMemo } from "react";
 // Import only the pure renderer (no context dependency) to avoid circular refs.
 import { DefaultAvatar, type AvatarProps } from "../_atoms/AvatarDefault.js";
 import { DefaultBadge, type BadgeProps } from "../_atoms/BadgeDefault.js";
@@ -25,20 +19,32 @@ import { DefaultPageHeader, type PageHeaderProps } from "../_shell/PageHeaderDef
 import { DefaultButton, type ButtonProps } from "../ui/buttonDefault.js";
 import { DefaultMetricCard, type MetricCardProps } from "../_widgets/MetricCardDefault.js";
 
-export interface FlowpanelComponentSlots {
-  EmptyState: ComponentType<EmptyStateProps>;
-  MetricCard: ComponentType<MetricCardProps>;
-  /** Override the Button component. Your override SHOULD be forwardRef-aware
-   *  to avoid warnings from Radix UI when Button is used with asChild. */
-  Button: ComponentType<ButtonProps>;
-  Badge: ComponentType<BadgeProps>;
-  Avatar: ComponentType<AvatarProps>;
-  StatusBadge: ComponentType<StatusBadgeProps>;
-  PageHeader: ComponentType<PageHeaderProps>;
-  Pagination: ComponentType<PaginationProps>;
-  ConfirmDialog: ComponentType<ConfirmDialogProps>;
-  SkeletonTable: ComponentType<SkeletonTableProps>;
+/**
+ * Augment the core slot registry with the 10 shipped React slots. Keeps the
+ * prop interfaces (`MetricCardProps`, `ButtonProps`, …) co-located with the
+ * components themselves; `theme.components` resolves through this interface
+ * so typos in slot keys and prop mismatches fail at compile time.
+ *
+ * Per invariant I-11, these keys are append-only across minors.
+ */
+declare module "@flowpanel/core" {
+  interface FlowpanelComponentSlots {
+    EmptyState: import("react").ComponentType<EmptyStateProps>;
+    MetricCard: import("react").ComponentType<MetricCardProps>;
+    /** Override the Button component. Your override SHOULD be forwardRef-aware
+     *  to avoid warnings from Radix UI when Button is used with asChild. */
+    Button: import("react").ComponentType<ButtonProps>;
+    Badge: import("react").ComponentType<BadgeProps>;
+    Avatar: import("react").ComponentType<AvatarProps>;
+    StatusBadge: import("react").ComponentType<StatusBadgeProps>;
+    PageHeader: import("react").ComponentType<PageHeaderProps>;
+    Pagination: import("react").ComponentType<PaginationProps>;
+    ConfirmDialog: import("react").ComponentType<ConfirmDialogProps>;
+    SkeletonTable: import("react").ComponentType<SkeletonTableProps>;
+  }
 }
+
+export type { FlowpanelComponentSlots };
 
 const DEFAULTS: FlowpanelComponentSlots = {
   EmptyState: DefaultEmptyState,

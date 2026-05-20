@@ -1,5 +1,5 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { checkRequireRole, type RequireRole } from "@flowpanel/core";
+import { checkRequireRole } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import type { z } from "zod";
 import { makeFormAction } from "../actions/resource-actions.js";
@@ -32,7 +32,7 @@ function pickSchema(
 
 export async function ResourceCreatePage({ config, resource, name, req }: ResourceCreatePageProps) {
   const reqCtx = await buildRequestContext({ req, config });
-  checkRequireRole(resource.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
+  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
 
   if (resource.options.create?.disabled) {
     return <div className="text-fp-text-3">Create is disabled for this resource.</div>;

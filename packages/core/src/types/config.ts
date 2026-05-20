@@ -1,4 +1,3 @@
-import type { ComponentType } from "react";
 import type { RateLimitOptions } from "../runtime/rate-limit.js";
 import type { Adapter } from "./adapter.js";
 import type { CommandPaletteConfig } from "./command.js";
@@ -23,12 +22,25 @@ export interface AuthConfig {
   forbiddenUrl?: string;
 }
 
+/**
+ * Slot registry for L2 component overrides registered via
+ * `theme.components`. Empty in `@flowpanel/core`; `@flowpanel/react`
+ * augments it with the 10 shipped slot signatures (`MetricCard`,
+ * `Button`, …). Consumers can augment further to register their own
+ * slot keys.
+ *
+ * Per invariant I-11, slot keys are append-only across minor versions.
+ */
+export interface FlowpanelComponentSlots {
+  // empty — `@flowpanel/react` augments with the shipped 10 slots
+}
+
 export interface ThemeConfig {
   brand?: { name?: string; logo?: string; href?: string };
   accent?: string;
   mode?: "light" | "dark" | "auto";
   cssVars?: Record<string, string>;
-  components?: Record<string, ComponentType<any>>;
+  components?: Partial<FlowpanelComponentSlots>;
   nav?: { groups?: Array<{ label: string; items: string[] }> };
   user?: (s: Session | null) => {
     name?: string;

@@ -8,15 +8,17 @@ import type {
   ResolvedAdminConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import {
-  assertResourceScope,
-  checkRequireRole,
-  type RequireRole,
-  runWithRequestContext,
-} from "@flowpanel/core";
+import { runWithRequestContext } from "@flowpanel/core";
 import { applyActionResult } from "../runtime/apply-action-result.js";
 import { bindPublisher, publish } from "../runtime/publish.js";
+import { requireAuthorized } from "../runtime/require-authorized.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
+import { parseActionBody } from "./parse-action-body.js";
+import { type SerializedWidget, serializeWidget } from "./serialize-widget.js";
+
+// Re-exported so external consumers of `drawer-route.ts` keep their import
+// shape after the split.
+export type { SerializedWidget };
 
 /**
  * Wire-safe shape of `DrawerAction`. The `run` function can't cross the
@@ -32,38 +34,6 @@ export interface SerializedDrawerAction {
   form?: DrawerAction["form"];
   palette?: boolean;
 }
-
-export type SerializedWidget =
-  | {
-      kind: "metric";
-      label: string;
-      value: number | string;
-      format?: string;
-      sublabel?: string;
-      tone?: string;
-      span?: number;
-    }
-  | {
-      kind: "table";
-      label?: string;
-      rows: Record<string, unknown>[];
-      columns: string[];
-      span?: number;
-    }
-  | {
-      kind: "statGroup";
-      label?: string;
-      stats: { label: string; value: unknown; format?: string; tone?: string }[];
-      span?: number;
-    }
-  | {
-      kind: "chart";
-      subkind: "area" | "bar" | "line" | "pie";
-      label: string;
-      dataPoints: number;
-      span?: number;
-    }
-  | { kind: "unsupported"; label?: string; reason: string; span?: number };
 
 export type SerializedDrawerTab =
   | { kind: "fields"; key: string; label: string; fields: "*" | string[] }
@@ -120,133 +90,7 @@ async function serializeTab(
     };
     const widgets: SerializedWidget[] = [];
     for (const w of tab.widgets) {
-      try {
-        switch (w.kind) {
-          case "metric": {
-            const value = await runWithRequestContext(reqCtx, () => w.query(widgetCtx));
-            widgets.push({
-              kind: "metric",
-              label: w.label,
-              value,
-              ...(w.options.format ? { format: w.options.format } : {}),
-              ...(w.options.sublabel ? { sublabel: w.options.sublabel } : {}),
-              ...(w.options.tone ? { tone: w.options.tone } : {}),
-              ...(w.options.span ? { span: w.options.span } : {}),
-            });
-            break;
-          }
-          case "table": {
-            let rows: Record<string, unknown>[] = [];
-            let columns: string[] = [];
-            if (w.options.query) {
-              const raw = (await runWithRequestContext(reqCtx, () =>
-                w.options.query!(widgetCtx),
-              )) as unknown[];
-              rows = raw as Record<string, unknown>[];
-            } else if (w.options.resource) {
-              const target = config.resourcesByName.get(w.options.resource);
-              if (target) {
-                const softDelete = target.options.delete?.softDelete;
-                const listCtx: ListQueryContext<unknown> = {
-                  ...reqCtx,
-                  req,
-                  db: config.adapter.db,
-                  dateRange: { from: new Date(0), to: new Date() },
-                  searchParams: new URLSearchParams(),
-                  signal: new AbortController().signal,
-                  filters: {},
-                  sort: null,
-                  page: 1,
-                  pageSize: w.options.limit ?? 10,
-                  search: "",
-                  ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
-                };
-                const r = await runWithRequestContext(reqCtx, () =>
-                  config.adapter.list(target.ref, listCtx),
-                );
-                rows = r.rows as Record<string, unknown>[];
-                columns = (target.options.columns as unknown[])
-                  .map((c) =>
-                    typeof c === "string" ? c : String((c as { field?: string }).field ?? ""),
-                  )
-                  .filter(Boolean);
-              }
-            }
-            if (w.options.columns && w.options.columns.length > 0) {
-              columns = w.options.columns;
-            } else if (columns.length === 0 && rows[0]) {
-              columns = Object.keys(rows[0]);
-            }
-            widgets.push({
-              kind: "table",
-              ...(w.options.label ? { label: w.options.label } : {}),
-              rows,
-              columns,
-              ...(w.options.span ? { span: w.options.span } : {}),
-            });
-            break;
-          }
-          case "statGroup": {
-            const stats = await Promise.all(
-              w.options.stats.map(async (s) => ({
-                label: s.label,
-                value:
-                  typeof s.value === "function"
-                    ? await runWithRequestContext(reqCtx, () =>
-                        (s.value as (c: WidgetContext) => Promise<unknown>)(widgetCtx),
-                      )
-                    : s.value,
-                ...(s.format ? { format: s.format } : {}),
-                ...(s.tone ? { tone: s.tone } : {}),
-              })),
-            );
-            widgets.push({
-              kind: "statGroup",
-              ...(w.options.label ? { label: w.options.label } : {}),
-              stats,
-              ...(w.options.span ? { span: w.options.span } : {}),
-            });
-            break;
-          }
-          case "areaChart":
-          case "barChart":
-          case "lineChart":
-          case "pieChart": {
-            const data = (await runWithRequestContext(reqCtx, () =>
-              w.query(widgetCtx),
-            )) as unknown[];
-            const subkind = (
-              w.kind === "areaChart"
-                ? "area"
-                : w.kind === "barChart"
-                  ? "bar"
-                  : w.kind === "lineChart"
-                    ? "line"
-                    : "pie"
-            ) as "area" | "bar" | "line" | "pie";
-            widgets.push({
-              kind: "chart",
-              subkind,
-              label: w.label,
-              dataPoints: data.length,
-              ...(w.options.span ? { span: w.options.span } : {}),
-            });
-            break;
-          }
-          default:
-            // custom widgets — React component refs can't serialize through a
-            // fetch boundary. Surface a clear message rather than a blank tile.
-            widgets.push({
-              kind: "unsupported",
-              reason: "custom widgets are not supported in drawer tabs",
-            });
-        }
-      } catch (err) {
-        widgets.push({
-          kind: "unsupported",
-          reason: err instanceof Error ? err.message : "widget query failed",
-        });
-      }
+      widgets.push(await serializeWidget(w, config, reqCtx, widgetCtx, req));
     }
     return { kind: "widgets", key: tab.key, label: tab.label, widgets };
   }
@@ -322,14 +166,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
 
     const reqCtx = await buildRequestContext({ req, config });
     try {
-      checkRequireRole(resource.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
-      assertResourceScope({
-        hasGlobal: !!config.scope,
-        resourceScope: resource.options.scope as
-          | "bypass"
-          | ((...a: unknown[]) => unknown)
-          | undefined,
-      });
+      requireAuthorized(config, resource, reqCtx);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "forbidden";
       return Response.json({ error: msg }, { status: 403 });
@@ -402,14 +239,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
 
     const reqCtx = await buildRequestContext({ req, config });
     try {
-      checkRequireRole(resource.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
-      assertResourceScope({
-        hasGlobal: !!config.scope,
-        resourceScope: resource.options.scope as
-          | "bypass"
-          | ((...a: unknown[]) => unknown)
-          | undefined,
-      });
+      requireAuthorized(config, resource, reqCtx);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "forbidden";
       return Response.json({ ok: false, error: msg }, { status: 403 });
@@ -430,29 +260,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
       return Response.json({ ok: false, error: "not found" }, { status: 404 });
     }
 
-    // Parse the body. Drawer actions may submit via <Form> (form-data),
-    // programmatic fetch with JSON, or no body (click-to-run buttons).
-    let input: Record<string, unknown> = {};
-    const contentType = req.headers.get("content-type") ?? "";
-    if (
-      contentType.includes("multipart/form-data") ||
-      contentType.includes("application/x-www-form-urlencoded")
-    ) {
-      try {
-        const fd = await req.formData();
-        for (const [k, v] of fd.entries()) {
-          input[k] = v;
-        }
-      } catch {
-        // empty / malformed body — treat as no input
-      }
-    } else if (contentType.includes("application/json")) {
-      try {
-        input = (await req.json()) as Record<string, unknown>;
-      } catch {
-        // empty / malformed body — treat as no input
-      }
-    }
+    const input = await parseActionBody(req);
 
     const actionCtx = {
       ...reqCtx,

@@ -4,6 +4,12 @@ import { db } from "{{DB}}";
 import * as schema from "{{SCHEMA}}";
 import { getSession } from "{{AUTH}}";
 
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
 
@@ -13,6 +19,8 @@ export default defineAdmin({
       (s as { user?: { role?: string } } | null | undefined)?.user?.role ?? "guest",
     requireRole: "admin",
   },
+
+  realtime: { driver: "memory" },
 
   theme: {
     brand: { name: "{{APP_NAME}}" },

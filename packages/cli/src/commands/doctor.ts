@@ -92,7 +92,7 @@ export async function runDoctorChecks(
     add(
       label,
       exists,
-      "Run: flowpanel init",
+      "Run: flowpanel doctor --fix",
       exists ? undefined : async () => makeFix(cwd, relDest, templateName),
     );
   }
@@ -100,7 +100,7 @@ export async function runDoctorChecks(
   add(
     "flowpanel/migrations directory",
     await fileExists(path.join(cwd, "flowpanel", "migrations")),
-    "Run: flowpanel init",
+    "Run: flowpanel doctor --fix",
     // covered by migration.sql.txt fix above (mkdir recursive), but keep the check
   );
 

@@ -7,18 +7,16 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import {
-  assertResourceScope,
-  checkRequireRole,
   emitAudit,
   FlowpanelNotFoundError,
   FlowpanelValidationError,
-  type RequireRole,
   runWithRequestContext,
 } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { resourceNavName } from "../runtime/nav.js";
 import { bindPublisher, publishResource } from "../runtime/publish.js";
+import { requireAuthorized } from "../runtime/require-authorized.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 
 interface Schemas {
@@ -101,14 +99,7 @@ export function makeActions(
     async create(input) {
       const req = new Request(`http://localhost/admin/${name}/new`);
       const reqCtx = await buildRequestContext({ req, config });
-      checkRequireRole(resource.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
-      assertResourceScope({
-        hasGlobal: !!config.scope,
-        resourceScope: resource.options.scope as
-          | "bypass"
-          | ((...a: unknown[]) => unknown)
-          | undefined,
-      });
+      requireAuthorized(config, resource, reqCtx);
 
       const parsed = schemas.create.safeParse(input);
       if (!parsed.success) throw new FlowpanelValidationError(zodFieldErrors(parsed.error));
@@ -137,14 +128,7 @@ export function makeActions(
     async update(id, input) {
       const req = new Request(`http://localhost/admin/${name}/${id}/edit`);
       const reqCtx = await buildRequestContext({ req, config });
-      checkRequireRole(resource.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
-      assertResourceScope({
-        hasGlobal: !!config.scope,
-        resourceScope: resource.options.scope as
-          | "bypass"
-          | ((...a: unknown[]) => unknown)
-          | undefined,
-      });
+      requireAuthorized(config, resource, reqCtx);
 
       const parsed = schemas.update.safeParse(input);
       if (!parsed.success) throw new FlowpanelValidationError(zodFieldErrors(parsed.error));
@@ -169,14 +153,7 @@ export function makeActions(
     async delete(id) {
       const req = new Request(`http://localhost/admin/${name}/${id}`);
       const reqCtx = await buildRequestContext({ req, config });
-      checkRequireRole(resource.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
-      assertResourceScope({
-        hasGlobal: !!config.scope,
-        resourceScope: resource.options.scope as
-          | "bypass"
-          | ((...a: unknown[]) => unknown)
-          | undefined,
-      });
+      requireAuthorized(config, resource, reqCtx);
 
       const softDelete = resource.options.delete?.softDelete;
       const mctx: MutationContext<Record<string, unknown>> = {

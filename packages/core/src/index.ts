@@ -29,7 +29,7 @@ export type {
 } from "./types/adapter.js";
 export type { QueueConfig, QueueOptions } from "./types/queue.js";
 export type { RealtimeConfig } from "./types/realtime.js";
-export type { FlowpanelTypes, InferDB } from "./types/registry.js";
+export type { FlowpanelTypes, InferDB, InferRow } from "./types/registry.js";
 export type {
   CommandGroup,
   CommandItem,
@@ -40,6 +40,7 @@ export type {
   AuditConfig,
   AuditEvent,
   AuthConfig,
+  FlowpanelComponentSlots,
   RateLimitConfig,
   ResolvedAdminConfig,
   ShellConfig,

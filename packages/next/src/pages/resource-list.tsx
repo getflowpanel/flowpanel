@@ -36,7 +36,7 @@ export async function ResourceListPage({
   req,
 }: ResourceListPageProps) {
   const reqCtx = await buildRequestContext({ req, config });
-  checkRequireRole(resource.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
+  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,

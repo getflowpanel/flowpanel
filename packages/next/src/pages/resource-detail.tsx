@@ -1,10 +1,5 @@
 import type { ItemQueryContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import {
-  assertResourceScope,
-  checkRequireRole,
-  type RequireRole,
-  runWithRequestContext,
-} from "@flowpanel/core";
+import { assertResourceScope, checkRequireRole, runWithRequestContext } from "@flowpanel/core";
 import { Button, KV, KVRow, PageHeader } from "@flowpanel/react";
 import type * as React from "react";
 import { buildRequestContext } from "../runtime/request-setup.js";
@@ -26,7 +21,7 @@ export async function ResourceDetailPage({
   req,
 }: ResourceDetailPageProps) {
   const reqCtx = await buildRequestContext({ req, config });
-  checkRequireRole(resource.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
+  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,

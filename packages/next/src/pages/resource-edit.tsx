@@ -1,5 +1,5 @@
 import type { ItemQueryContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { checkRequireRole, type RequireRole, runWithRequestContext } from "@flowpanel/core";
+import { checkRequireRole, runWithRequestContext } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { makeFormAction } from "../actions/resource-actions.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
@@ -16,7 +16,7 @@ export interface ResourceEditPageProps {
 
 export async function ResourceEditPage({ config, resource, name, id, req }: ResourceEditPageProps) {
   const reqCtx = await buildRequestContext({ req, config });
-  checkRequireRole(resource.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
+  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
 
   if (resource.options.update?.disabled) {
     return <div className="text-fp-text-3">Editing is disabled for this resource.</div>;

@@ -19,6 +19,8 @@ export default defineAdmin({
     requireRole: "admin",
   },
 
+  realtime: { driver: "memory" },
+
   theme: {
     brand: { name: "{{APP_NAME}}" },
     accent: "hsl(220 90% 56%)",

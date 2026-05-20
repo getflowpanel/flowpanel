@@ -1,4 +1,4 @@
-import type { ResolvedAdminConfig, RequireRole, ShellConfig, ShellMode } from "@flowpanel/core";
+import type { ResolvedAdminConfig, ShellConfig, ShellMode } from "@flowpanel/core";
 import { checkRequireRole } from "@flowpanel/core";
 import { CommandHost, DrawerHost } from "@flowpanel/next/client";
 import { AdminShell, type FlowpanelComponentSlots, FlowpanelGlobals } from "@flowpanel/react";
@@ -173,7 +173,7 @@ async function renderContent(
     if (q) {
       if (q.options.requireRole) {
         const reqCtx = await buildRequestContext({ req, config });
-        checkRequireRole(q.options.requireRole as RequireRole, reqCtx.role, reqCtx.session);
+        checkRequireRole(q.options.requireRole, reqCtx.role, reqCtx.session);
       }
       return <QueuePage queue={q} />;
     }
