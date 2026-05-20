@@ -1,4 +1,5 @@
 ---
+"@flowpanel/core": patch
 "@flowpanel/next": patch
 "@flowpanel/react": patch
 ---
@@ -24,3 +25,8 @@ with the previous framed render. No consumer API changes — props of
 `@flowpanel/react`'s `CustomWidget` is kept (and JSDoc-deprecated) for
 direct client-side consumers that were already operating in a client
 context.
+
+Also adds `CustomOptions.frame?: boolean` (defaulting to `true`). When set
+to `false`, `render-widget` skips the `ServerCard` wrapper — useful for
+custom widgets that own their outer layout (e.g. a grid of inner cards),
+to avoid visibly nesting one card inside another.

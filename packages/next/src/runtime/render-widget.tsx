@@ -95,9 +95,14 @@ export async function renderWidget(
           : widget.props;
       const Component = widget.Component as ComponentType<unknown>;
       const inner = createElement(Component, props as Record<string, unknown>);
+      // When `frame: false` is passed, skip the ServerCard wrapper. This is
+      // for widgets that own their outer layout (e.g. a grid of inner cards)
+      // — wrapping them in the default frame would visibly nest a card
+      // inside another card.
+      const framed = widget.options.frame === false ? inner : <ServerCard>{inner}</ServerCard>;
       return (
         <Fragment>
-          <ServerCard>{inner}</ServerCard>
+          {framed}
           {widget.options.realtime ? (
             <RealtimeRefresh channels={widget.options.realtime} />
           ) : null}

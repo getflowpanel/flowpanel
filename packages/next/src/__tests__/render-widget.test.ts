@@ -198,6 +198,30 @@ describe("renderWidget — custom widgets server-render", () => {
     expect(found?.label).toBe("hello");
   });
 
+  it("custom widget skips the ServerCard wrapper when options.frame === false", async () => {
+    const Comp = () => null;
+    const widget: WidgetConfig = {
+      kind: "custom",
+      Component: Comp,
+      props: {},
+      options: { frame: false },
+    } as never;
+    const node = await renderWidget(widget, ctx, cfg);
+
+    // No ServerCard in the tree — the user's Component appears as a direct
+    // child of the returned Fragment.
+    function hasServerCard(tree: ReactNode): boolean {
+      if (tree === null || tree === undefined || typeof tree !== "object") return false;
+      if (Array.isArray(tree)) return tree.some(hasServerCard);
+      if (!isValidElement(tree)) return false;
+      const el = tree as ReactElement<{ children?: ReactNode }>;
+      if (el.type === ServerCard) return true;
+      return hasServerCard(el.props.children);
+    }
+    expect(hasServerCard(node)).toBe(false);
+    expect(treeHasType(node, Comp)).toBe(true);
+  });
+
   it("custom widget does NOT pass Component as a prop to any wrapping element", async () => {
     // The whole reason this code path exists: a function prop can't cross
     // the RSC boundary, so no element in the returned tree may carry the
