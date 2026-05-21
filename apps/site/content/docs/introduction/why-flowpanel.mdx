@@ -1,0 +1,37 @@
+---
+title: Why flowpanel
+description: A typed admin panel that lives inside your Next.js codebase, not a separate service.
+---
+
+Most admin tools force you to choose between two bad options: build the
+whole thing yourself, or run a SaaS in a separate browser tab. flowpanel
+is the middle path — a typed dashboard that lives at `/admin` in your
+Next.js app, built from one config file.
+
+## The premises
+
+**Your schema is the contract.** Adding a column to a Drizzle table or
+Prisma model should add a column to the admin. Renaming a field should
+be a type-error in the config, not a silent visual bug. flowpanel
+infers the row type from your `resource(ref, ...)` ref — `$inferSelect`
+on Drizzle tables, the augmented model map on Prisma — so the admin
+stays type-checked against the source of truth.
+
+**Config first, source last.** Most resources need a typed CRUD UI with
+filters, sort, and pagination. Some need a custom column renderer. A
+few need a fully custom drawer. flowpanel ships three customization
+layers — config props, theme slots, and eject — so you reach for the
+heaviest tool only when the lighter ones won't do.
+
+**Self-hostable, MIT.** No platform lock-in. The admin runs in your
+existing Next.js process. You can self-host it, eject it, or remove it
+without rewriting the rest of your app.
+
+## What flowpanel is _not_
+
+- **Not a no-code platform.** flowpanel produces typed React code; you
+  read and modify TypeScript, not JSON in a UI builder.
+- **Not a CMS.** It doesn't model your content schema for you — it
+  introspects the schema you already have.
+- **Not a replacement for prod tooling.** Use Datadog, Sentry, Better
+  Stack for ops. flowpanel is for the team's everyday CRUD surface.

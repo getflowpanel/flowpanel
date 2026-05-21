@@ -1,0 +1,74 @@
+---
+title: Adapters
+description: How flowpanel reads and writes your data — Drizzle, Prisma, or your own.
+---
+
+An adapter is the plug between flowpanel's typed admin surface and your
+data layer. It exposes a small interface (`list`, `get`, `create`,
+`update`, `delete`, `introspect`, `inferSchema`) that the framework
+calls; what's behind that interface is up to you.
+
+## First-party adapters
+
+| Package | Connects to |
+|---|---|
+| `flowpanel/drizzle` | Drizzle ORM + its schema. Reads `$inferSelect` for row types. |
+| `flowpanel/prisma` | Prisma Client + DMMF. Looks up `prisma[<modelLower>]` at runtime. |
+
+Pick one with the adapter toggle in the sidebar to see the matching
+example. The choice persists per browser via a cookie.
+
+<AdapterTabs>
+  <AdapterTab adapter="drizzle">
+
+```ts
+import { defineAdmin, resource } from "flowpanel";
+import { drizzleAdapter } from "flowpanel/drizzle";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: { /* ... */ },
+  resources: [
+    resource(schema.users, { columns: ["email", "role"] }),
+  ],
+});
+```
+
+  </AdapterTab>
+  <AdapterTab adapter="prisma">
+
+```ts
+import { defineAdmin, resource } from "flowpanel";
+import { prismaAdapter } from "flowpanel/prisma";
+import { prisma } from "@/lib/prisma";
+
+export default defineAdmin({
+  adapter: prismaAdapter({ prisma }),
+  auth: { /* ... */ },
+  resources: [
+    resource("User", { columns: ["email", "role"] }),
+  ],
+});
+```
+
+  </AdapterTab>
+</AdapterTabs>
+
+`prismaAdapter` keys the delegate off the model name's lower-cased
+form (`prisma.user`, `prisma.order`), so pass the PascalCase model
+name from `schema.prisma`.
+
+## Custom adapters
+
+If you don't use Drizzle or Prisma, implement the `Adapter` interface
+directly. It's documented in `packages/core/src/types/adapter.ts` —
+six async methods (`list`, `get`, `create`, `update`, `delete`,
+`restore`), two sync introspection helpers (`introspect`,
+`inferSchema`), and a `kind` discriminant.
+
+## Why two adapters
+
+The two first-party adapters exist because flowpanel doesn't ship its
+own ORM. You bring the schema and the client; flowpanel reads them.

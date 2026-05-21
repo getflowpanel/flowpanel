@@ -1,0 +1,67 @@
+---
+title: Column renderers
+description: Override how a single field renders in the table or drawer.
+---
+
+The lightest customization layer is **L1: props**. Hand a `render`
+function to any column and you control what that cell looks like —
+without touching the rest of the page.
+
+## A status badge
+
+```ts
+resource(schema.orders, {
+  columns: [
+    "id",
+    {
+      field: "status",
+      render: (row) => (
+        <span data-status={row.status} className="badge">
+          {row.status}
+        </span>
+      ),
+    },
+    "total",
+  ],
+})
+```
+
+The column object accepts `field` (the row key to read from — typed
+against `keyof Row`) and `render` (a function returning a `ReactNode`).
+Other supported keys: `label`, `sortable`, `width`, `align`,
+`className`, `hidden`, `pinnable`, `tone`.
+
+`row` is the **typed** record — `schema.orders.$inferSelect` for
+Drizzle, or your augmented model type for Prisma. Autocomplete and
+type-checking work end-to-end.
+
+## Joined or computed values
+
+`ColumnDef.field` is `keyof Row & string`, so dotted relation paths
+aren't supported as column identifiers. To display a value from a
+joined record, drop the `field` and provide a `render` that pulls from
+the row directly (Drizzle relation queries) or fans out via your own
+loader:
+
+```ts
+{
+  label: "Customer",
+  render: (row) => row.customerEmail ?? "—",
+}
+```
+
+## Default labels
+
+If you omit `label`, FlowPanel humanizes the raw field name —
+`createdAt` becomes "Created at", `apiKey` becomes "API key", common
+initialisms (`ID`, `URL`, `API`, ...) stay uppercase. The same helper
+is exported as `humanize(name)` and `resolveFieldLabel(label, field)`
+from `@flowpanel/react`.
+
+## When to reach for theme slots
+
+If you find yourself overriding every column's renderer, or reaching
+for behavior the column API doesn't expose, that's the signal to step
+up to **L2: theme slots** — swap one of the 10 component primitives
+(see [Theme slots](/docs/customization/theme-slots)). If even that's
+not enough, **L3: eject** writes the page's source into your repo.

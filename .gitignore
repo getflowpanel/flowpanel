@@ -15,9 +15,13 @@ build/
 # Next.js
 .next/
 out/
+next-env.d.ts
 
-# Astro
-.astro/
+# Fumadocs MDX generated source
+.source/
+
+# Build artifacts in public/
+apps/site/public/stars.json
 
 # Environment files
 .env

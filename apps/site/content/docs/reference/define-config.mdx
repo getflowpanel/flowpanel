@@ -1,0 +1,112 @@
+---
+title: defineAdmin
+description: The full type signature of the config entry point.
+---
+
+`defineAdmin` is the only required call in your config. It takes one
+options object, validates uniqueness (resource names, dashboard paths,
+queue keys), wires the default bulk-delete action when applicable, and
+returns a `ResolvedAdminConfig` that the Next.js bridge consumes.
+
+Per invariant I-1, `defineAdmin` is **pure** — no I/O, no module-level
+mutation. It can be imported from anywhere (a Next.js page, a script,
+a test) without side effects.
+
+```ts
+export function defineAdmin(config: AdminConfig): ResolvedAdminConfig;
+```
+
+## AdminConfig
+
+```ts
+interface AdminConfig {
+  adapter: Adapter;
+  auth: AuthConfig;
+  scope?: (ctx: ScopeContext) => Promise<Scope> | Scope;
+  theme?: ThemeConfig;
+  shell?: ShellConfig | ShellMode;
+  labels?: LabelsConfig;
+  resources?: ResourceConfig[];
+  dashboards?: DashboardConfig[];
+  pages?: PageConfig[];
+  queues?: QueueConfig[];
+  commandPalette?: CommandPaletteConfig;
+  audit?: AuditConfig;
+  realtime?: RealtimeConfig;
+  rateLimit?: RateLimitConfig;
+  hooks?: {
+    onError?: (err: Error, ctx: RequestContext) => void | Promise<void>;
+  };
+}
+```
+
+`adapter` and `auth` are required. Everything else is optional with
+sensible defaults: no resources rendered, sidebar shell, English
+labels, no realtime, no rate limit, no audit sink.
+
+## ResolvedAdminConfig
+
+```ts
+interface ResolvedAdminConfig extends AdminConfig {
+  readonly __resolved: true;
+  readonly resourcesByName: Map<string, ResourceConfig>;
+  readonly dashboardsByPath: Map<string, DashboardConfig>;
+  readonly queuesByKey: Map<string, QueueConfig>;
+}
+```
+
+The lookup maps are precomputed so request-time routing is O(1).
+`defineAdmin` throws if two resources share a name, two dashboards
+share a path, or two queues share a key.
+
+You hand the resolved config to `Flowpanel(config)` (page) and
+`handlers(config)` (API). Both come from `flowpanel/next`:
+
+```ts
+// app/admin/[[...slug]]/page.tsx
+import { Flowpanel } from "flowpanel/next";
+import config from "@/flowpanel.config";
+
+export default Flowpanel(config);
+```
+
+```ts
+// app/api/flowpanel/[...route]/route.ts
+import { handlers } from "flowpanel/next";
+import config from "@/flowpanel.config";
+
+export const { GET, POST } = handlers(config);
+```
+
+## ShellMode
+
+The shell wrapper around the content area:
+
+```ts
+type ShellMode = "sidebar" | "tabs" | "bare";
+```
+
+- `"sidebar"` — full app shell with left sidebar nav + brand. Default;
+  for standalone admins where FlowPanel owns the whole route.
+- `"tabs"` — horizontal tab strip above content. For admins embedded
+  under a host app's existing header.
+- `"bare"` — no shell at all. The host app's `app/layout.tsx` (or a
+  wrapper component) supplies all chrome. Globals (toasts, drawer
+  host, command palette, realtime) still mount.
+
+## Default bulk delete
+
+When a resource has `delete` enabled (i.e. **not**
+`delete: { disabled: true }`) and no explicit `bulkActions`,
+`defineAdmin` injects a default `delete` bulk action. Opt out with
+`bulkActions: []` or `delete: { disabled: true }`.
+
+## Resource and other builders
+
+See **Core concepts / Resources** for the human-friendly overview of
+`resource(ref, options)`, and the source types in
+`packages/core/src/types/resource.ts` for the canonical definition.
+The companion builders are `dashboard`, `page`, `queue`, `metric`,
+`table`, `statGroup`, `custom`, and the chart builders
+(`areaChart`, `barChart`, `lineChart`, `pieChart` from
+`flowpanel/charts`).

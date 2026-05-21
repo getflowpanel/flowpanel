@@ -1,0 +1,69 @@
+---
+title: Prisma
+description: Wire flowpanel to a Prisma 5+ project.
+---
+
+`flowpanel/prisma` is the first-party Prisma adapter. It loads
+DMMF from `@prisma/client`, introspects your models, and resolves each
+resource's delegate (`prisma.user`, `prisma.order`, …) at runtime.
+
+## Install
+
+The adapter ships with the umbrella `flowpanel` package — nothing
+extra to install. You need a generated Prisma Client: run
+`prisma generate` before booting.
+
+## Use
+
+```ts
+import { defineAdmin, resource } from "flowpanel";
+import { prismaAdapter } from "flowpanel/prisma";
+import { prisma } from "@/lib/prisma";
+import type { User } from "@prisma/client";
+
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    db: typeof prisma;
+    models: { User: User };
+  }
+}
+
+export default defineAdmin({
+  adapter: prismaAdapter({ prisma }),
+  auth: { /* ... */ },
+  resources: [
+    resource("User", { columns: ["id", "email", "role"] }),
+  ],
+});
+```
+
+`prismaAdapter` accepts:
+
+| Option | Type | Description |
+|---|---|---|
+| `prisma` | `PrismaClient` | Your existing Prisma Client instance. |
+| `dmmf` | `PrismaDmmf?` | Optional pre-loaded DMMF; otherwise read from `@prisma/client`. |
+
+The model reference is the **PascalCase model name** from
+`schema.prisma` (`"User"`, not `"user"`). The adapter looks up the
+delegate as `prisma.<modelLower>` at runtime.
+
+Soft delete is configured per resource:
+`resource("User", { delete: { softDelete: "deletedAt" } })`.
+
+## What works
+
+- Typed columns from every scalar field (introspected from DMMF).
+- Filters on any scalar column.
+- Search across user-listed `search: [...]` columns using `contains` /
+  `mode: "insensitive"` (Postgres). MySQL and SQLite ignore
+  `mode: "insensitive"` — searches there are case-sensitive.
+- Pagination via offset.
+- Soft delete + restore when `delete.softDelete` is set.
+- `Int` and `BigInt` primary keys are coerced from the URL string.
+
+## What requires a custom column
+
+Relation columns, JSON sub-keys, and computed fields aren't
+auto-introspected. Use a `render: (row) => ...` custom column to
+display them, or implement a thin custom adapter for full control.

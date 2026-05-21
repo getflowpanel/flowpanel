@@ -1,0 +1,71 @@
+---
+title: Eject
+description: Take a resource (or dashboard or layout) out of the config layer and own its source.
+---
+
+When config props and theme slots aren't enough, **L3: eject** writes
+a typed scaffold into your repo. From that moment on, the ejected
+piece is yours — flowpanel stops generating it, and your edits stick.
+
+Three targets are supported (per invariant I-6): `resource`,
+`dashboard`, and `layout`. There is no fourth.
+
+## Eject a resource
+
+```bash
+$ pnpm flowpanel eject resource users
+→ wrote 5 files to app/admin/users/
+```
+
+The scaffold mirrors what the framework would have rendered for that
+resource: list page, detail page, edit page, create page, and the
+server actions module. Every file is stamped at the top with the
+flowpanel version it was generated from, so you can spot drift later:
+
+```
+// flowpanel: ejected @ 1.0.0 — this file is yours
+```
+
+The `resource(...)` entry in `flowpanel.config.ts` is commented out
+automatically, so the framework stops rendering its default page tree
+for that resource.
+
+## Eject a dashboard
+
+```bash
+$ pnpm flowpanel eject dashboard "/monitoring"
+```
+
+Generates a `page.tsx` for that dashboard path. The matching
+`dashboard({ path: "/monitoring", ... })` entry in your config is
+commented out.
+
+## Eject the layout
+
+```bash
+$ pnpm flowpanel eject layout
+```
+
+Drops a `layout.tsx` under your admin tree. Next.js's nested layouts
+take over from flowpanel's default `AdminShell` once present — this
+target doesn't touch your config.
+
+## What stays in flowpanel
+
+Ejecting one piece doesn't affect the others. Resources you didn't
+eject keep flowing through the config layer; the same goes for
+dashboards.
+
+## Reversing an eject
+
+There's no automatic re-injection. Delete the scaffold and uncomment
+the entry in `flowpanel.config.ts` to put a piece back under the
+config layer. The cost is your customizations — they live in the
+ejected files only.
+
+## When _not_ to eject
+
+If you're ejecting because a small thing doesn't work — the table
+needs a custom cell, the drawer needs an extra field — try **L1**
+(column renderer) or **L2** (theme slot) first. Eject is the last
+escape hatch, not the first.

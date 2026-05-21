@@ -1,0 +1,96 @@
+---
+title: Configuration
+description: The shape of flowpanel.config.ts and the options it accepts.
+---
+
+The flowpanel config is a single `defineAdmin({...})` call that returns
+a `ResolvedAdminConfig`. Everything the admin renders, every behavior
+it allows, every connection it makes — all of it lives here.
+
+## Shape
+
+```ts
+import { defineAdmin, resource } from "flowpanel";
+import { drizzleAdapter } from "flowpanel/drizzle";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+import { getSession } from "@/server/lib/auth";
+
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: {
+    session: getSession,
+    role: (s) => (s as { user?: { role?: string } } | null)?.user?.role ?? "guest",
+    requireRole: "admin",
+  },
+  resources: [
+    resource(schema.users, { columns: ["email", "role"] }),
+  ],
+});
+```
+
+## Top-level options
+
+| Option | Type | Description |
+|---|---|---|
+| `adapter` | `Adapter` | Data source plug-in. `drizzleAdapter`, `prismaAdapter`, or your own. |
+| `auth` | `AuthConfig` | Session loader + role function (required). |
+| `resources` | `ResourceConfig[]?` | The list of CRUD surfaces to expose. |
+| `dashboards` | `DashboardConfig[]?` | Custom dashboard pages at `/admin/<path>`. |
+| `queues` | `QueueConfig[]?` | BullMQ queues to surface in the admin nav. |
+| `theme` | `ThemeConfig?` | Brand, accent, CSS vars, and `theme.components` slot overrides. |
+| `shell` | `ShellConfig \| ShellMode?` | `"sidebar"` (default), `"tabs"`, or `"bare"`. |
+| `labels` | `LabelsConfig?` | i18n strings for the built-in chrome. |
+| `realtime` | `RealtimeConfig?` | `{ driver: "memory" }` for dev, Redis for prod. |
+| `audit` | `AuditConfig?` | Mutation audit log sink + retention. |
+| `rateLimit` | `RateLimitConfig?` | Per-user or per-IP throttling. |
+| `commandPalette` | `CommandPaletteConfig?` | Extra `⌘K` entries. |
+| `scope` | `(ctx) => Scope?` | Multi-tenant query scoping. |
+| `hooks` | `{ onError? }?` | Request lifecycle hooks. |
+
+The route mount point is fixed: `app/admin/[[...slug]]/page.tsx` for
+the UI and `app/api/flowpanel/[...route]/route.ts` for actions. To
+embed the admin under a different URL, mount `Flowpanel(config)` at
+that path and adjust the API base via your project's routing.
+
+Full type signatures live on the **Reference / defineAdmin** page.
+
+## Typing your `ctx.db`
+
+Augment `FlowpanelTypes["db"]` once with `typeof db` and every
+`WidgetContext` (the `ctx` passed to widget queries and row-action
+`run` callbacks) gets the typed client automatically — no per-callsite
+annotations.
+
+```ts
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+```
+
+Prisma users can also augment `models` to recover row inference for
+`resource("User", ...)`:
+
+```ts
+import type { User, Post } from "@prisma/client";
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    db: typeof prisma;
+    models: { User: User; Post: Post };
+  }
+}
+```
+
+## Reload behavior
+
+In development, edits to `flowpanel.config.ts` hot-reload like any
+other TypeScript module. In production, the config is bundled into the
+route handler at build time — no runtime config parsing.

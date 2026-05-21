@@ -1,0 +1,68 @@
+---
+title: Project structure
+description: Where flowpanel lives inside a Next.js project, and what each file does.
+---
+
+After `flowpanel init`, your project has a handful of new files. All
+of them are tiny.
+
+```text
+your-app/
+├── flowpanel.config.ts                     # the entire admin, declarative
+├── app/
+│   ├── admin/
+│   │   └── [[...slug]]/
+│   │       └── page.tsx                    # one RSC catch-all page
+│   └── api/
+│       └── flowpanel/
+│           ├── [...route]/route.ts         # drawer + bulk-action handler
+│           └── stream/route.ts             # SSE channel for realtime
+├── styles/
+│   └── admin.css                           # bundled admin stylesheet
+└── flowpanel/
+    └── migrations/
+        └── 0001_init.sql                   # audit + tracking tables
+```
+
+## flowpanel.config.ts
+
+Single source of truth. Defines which resources are visible in the
+admin, which columns they expose, which filters and actions they have,
+and which theme components (if any) override the defaults.
+
+This file is **typed against your schema**. Adding `columns: ["pwd"]`
+to a resource whose row type doesn't have a `pwd` field is a TypeScript
+error at build time (Drizzle infers via `Table["$inferSelect"]`; Prisma
+infers via the augmented `FlowpanelTypes["models"]` registry).
+
+## app/admin/[[...slug]]/page.tsx
+
+The page mount. It's a two-line RSC catch-all that hands every
+`/admin/...` URL to `Flowpanel(config)`. You don't write per-resource
+pages, layouts, or client components — they're rendered from your
+config at request time.
+
+## app/api/flowpanel/[...route]/route.ts
+
+The API mount. `handlers(config)` returns `{ GET, POST }` for the
+drawer fetch and per-row action submissions. Server Actions (create /
+update / delete on the auto-form pages) don't route through here — they
+call directly into React components.
+
+## app/api/flowpanel/stream/route.ts
+
+The Server-Sent Events endpoint. Subscribed components (e.g.
+`<TableWidget realtime="resource.users" />`) reconnect through this
+route. Set `realtime: { driver: "memory" }` for dev and switch to the
+Redis driver for prod — same config switch, no code change.
+
+## Nothing else
+
+There are no scaffolded admin pages. No vendor folders. No copy of your
+schema in JSON. flowpanel introspects your ORM at runtime (DMMF for
+Prisma, table objects for Drizzle) and resolves everything else from
+there.
+
+If you outgrow this — say, one resource needs a fully custom drawer —
+the [`eject`](/docs/customization/eject) command writes a typed scaffold
+into your repo, and you own it from then on.

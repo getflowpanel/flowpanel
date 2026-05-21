@@ -1,0 +1,94 @@
+---
+title: CLI
+description: The flowpanel command-line interface.
+---
+
+flowpanel ships a small CLI invoked through your package manager. The
+shipped subcommands are `init`, `migrate`, `doctor`, `eject`, `dev`,
+and `new`.
+
+## flowpanel init
+
+Detect your stack (Next.js, Drizzle/Prisma, auth helper), pick the
+matching config template, and scaffold the wiring files. Both Drizzle
+and Prisma are supported in a single command; the CLI picks based on
+your installed dependencies (Drizzle wins if both are present).
+
+```bash
+$ pnpm flowpanel init
+→ Detected stack: Next.js 15 · TypeScript · Drizzle
+→ wrote flowpanel.config.ts
+→ wrote app/admin/[[...slug]]/page.tsx
+→ wrote app/api/flowpanel/[...route]/route.ts
+→ wrote app/api/flowpanel/stream/route.ts
+→ wrote styles/admin.css
+→ wrote flowpanel/migrations/0001_init.sql
+```
+
+Re-running `init` is safe: existing files are preserved unless you
+confirm overwrite (interactive) or pass `--yes` (CI mode, skips files
+that exist).
+
+## flowpanel migrate
+
+Apply SQL migrations from `flowpanel/migrations/`. The CLI dynamically
+imports your `flowpanel.config.ts` (via `jiti`) so it can reach the
+adapter's `db` instance and run the migration there.
+
+```bash
+$ pnpm flowpanel migrate
+→ 0001_init applied
+```
+
+Use `--dry-run` to preview the file list without applying anything.
+The CLI tracks applied IDs in `_flowpanel_migrations`.
+
+## flowpanel doctor
+
+Diagnose common problems: missing peer deps, mismatched Node version,
+config / schema drift.
+
+```bash
+$ pnpm flowpanel doctor
+```
+
+Exit code is non-zero when any check fails — wire it into CI to catch
+drift on every PR.
+
+## flowpanel eject
+
+Eject one of three targets — `resource`, `dashboard`, or `layout` —
+into your repo. See [Customization / Eject](/docs/customization/eject).
+
+```bash
+$ pnpm flowpanel eject resource users
+$ pnpm flowpanel eject dashboard "/monitoring"
+$ pnpm flowpanel eject layout
+```
+
+Pass `--force` to overwrite existing files.
+
+## flowpanel dev
+
+Wrapper around `next dev` that also spawns `bull-board` when a
+`scripts/board-server.ts` file is present and `REDIS_URL` is set.
+
+```bash
+$ pnpm flowpanel dev --port 3000
+```
+
+Pass `--no-board` to skip the queue dashboard even when Redis is up.
+
+## flowpanel new
+
+Append a `resource(...)` entry to your existing
+`flowpanel.config.ts` without re-running `init`.
+
+```bash
+$ pnpm flowpanel new posts
+→ Added resource "posts" to flowpanel.config.ts
+```
+
+Flags: `--table <expr>` overrides the first argument (default
+`schema.<resource>`); `--kind drizzle|prisma` toggles the template
+(default `drizzle`).

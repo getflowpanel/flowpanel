@@ -1,0 +1,58 @@
+name: site-quality
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/site/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "biome.json"
+      - ".github/workflows/site-quality.yml"
+  pull_request:
+    paths:
+      - "apps/site/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "biome.json"
+      - ".github/workflows/site-quality.yml"
+
+env:
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+jobs:
+  quality:
+    name: typecheck · lint · boundaries · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @flowpanel/site typecheck
+
+      - name: Lint (Biome)
+        run: pnpm --filter @flowpanel/site lint
+
+      - name: Import boundaries (FSD-light)
+        run: pnpm --filter @flowpanel/site boundaries
+
+      - name: Circular imports (madge)
+        run: pnpm dlx madge --circular --extensions ts,tsx apps/site/src/
+
+      - name: Build
+        run: pnpm --filter @flowpanel/site build

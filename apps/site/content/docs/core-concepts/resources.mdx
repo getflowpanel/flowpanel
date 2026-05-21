@@ -1,0 +1,108 @@
+---
+title: Resources
+description: How resource() turns one table or model into a CRUD page.
+---
+
+A resource is one entry in your config that maps to one CRUD page in
+the admin. The shape is intentionally small — most resources need only
+a list of columns, sometimes a couple of filters.
+
+## Minimal (Drizzle)
+
+```ts
+resource(schema.users, {
+  columns: ["id", "email", "role", "createdAt"],
+})
+```
+
+The first argument is the Drizzle table; the second is the resource
+options object. The row type is inferred from `table.$inferSelect`, so
+`columns: ["pwd"]` against a `users` table without a `pwd` field is a
+TypeScript error at the call site.
+
+## Minimal (Prisma)
+
+```ts
+resource("User", {
+  columns: ["id", "email", "role", "createdAt"],
+})
+```
+
+Prisma's adapter takes the **PascalCase** model name as a string. The
+delegate is resolved at runtime as `prisma.user`. To get the same
+end-to-end row inference Drizzle gets for free, augment
+`FlowpanelTypes["models"]`:
+
+```ts
+import type { User, Post } from "@prisma/client";
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    models: { User: User; Post: Post };
+  }
+}
+```
+
+Without the augmentation, columns still type-check against `string`,
+so a typo like `columns: ["emial"]` is still caught — but the row
+type inside `render: (row) => ...` is `Record<string, unknown>`.
+
+## With filters and actions
+
+```ts
+resource(schema.orders, {
+  columns: ["id", "status", "total", "createdAt"],
+  filters: [
+    {
+      field: "status",
+      type: "select",
+      options: [
+        { label: "Pending", value: "pending" },
+        { label: "Paid", value: "paid" },
+      ],
+    },
+    { field: "createdAt", type: "daterange" },
+  ],
+  actions: [
+    {
+      key: "refund",
+      label: "Refund",
+      confirm: "Refund this order?",
+      run: async (row, _input, ctx) => {
+        await refund(row.id, ctx.db);
+        return { ok: true, refresh: true };
+      },
+    },
+  ],
+})
+```
+
+`filters` becomes typed query controls in the table header.
+Row-level `actions` appear in the row's overflow menu and run
+server-side; `bulkActions` apply across selected rows.
+
+## Default labels and `humanize`
+
+If you omit `label` on a column or field, FlowPanel humanizes the raw
+identifier — `createdAt` becomes "Created at", `apiKey` becomes "API
+key", common initialisms (`ID`, `URL`, `API`, ...) stay uppercase. The
+helper is exposed as `humanize(name)` and `resolveFieldLabel(label,
+field)` from `@flowpanel/react` if you want to use the same convention
+inside a custom renderer.
+
+## Inferring the row type
+
+`resource<Ref>(ref, options)` resolves the row type via `InferRow<Ref>`:
+
+- Drizzle table → `ref["$inferSelect"]`.
+- Prisma model name → `FlowpanelTypes["models"][Ref]` if augmented,
+  else `Record<string, unknown>`.
+- Anything else → `Record<string, unknown>` (loose but safe).
+
+This makes typos in `columns: [...]`, `filters[...].field`,
+`defaultSort.field`, and `search: [...]` compile-time errors against
+your real schema.
+
+## Excluding a resource
+
+If a table exists in your schema but you don't want it in the admin,
+just don't list it. There's no opt-out — there's only opt-in.

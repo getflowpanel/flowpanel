@@ -1,0 +1,66 @@
+---
+title: Drizzle
+description: Wire flowpanel to a Drizzle ORM 0.30+ project.
+---
+
+`flowpanel/drizzle` is the first-party Drizzle adapter. It reads your
+Drizzle schema (the TypeScript file, not a separate format), types
+every resource against your tables, and uses your `db` instance at
+runtime.
+
+## Install
+
+The adapter ships with the umbrella `flowpanel` package — nothing
+extra to install.
+
+## Use
+
+```ts
+import { defineAdmin, resource } from "flowpanel";
+import { drizzleAdapter } from "flowpanel/drizzle";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: { /* ... */ },
+  resources: [
+    resource(schema.users, { columns: ["id", "email", "role"] }),
+  ],
+});
+```
+
+`drizzleAdapter` accepts:
+
+| Option | Type | Description |
+|---|---|---|
+| `db` | `Drizzle DB instance` | Your existing `db` (PG, MySQL, or SQLite). |
+| `schema` | `Schema object` | The `import * as schema` you pass to `drizzle()`. |
+
+Soft delete is configured per resource via
+`resource(table, { delete: { softDelete: "deletedAt" } })`, not on the
+adapter — the same flag works for both adapters.
+
+## What works
+
+- Typed columns from any column on the table (`$inferSelect`).
+- Filters on any column — text, select, daterange, numeric range,
+  boolean, tag.
+- Search across user-listed `search: [...]` columns using `ILIKE` /
+  `LIKE` per dialect.
+- Pagination via offset.
+- Soft delete + restore when `delete.softDelete` is set.
+
+## Caveats
+
+The adapter's automatic column types are scalar columns from
+`getTableColumns(table)`. Relation columns (resolved via Drizzle's
+`relations()` helper) are not auto-introspected into list columns —
+use a `render: (row) => ...` custom column when you need to display a
+joined value.

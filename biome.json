@@ -51,7 +51,9 @@
       "!**/playwright-report",
       "!.superpowers",
       "!.turbo",
-      "!**/.next"
+      "!**/.next",
+      "!**/.source",
+      "!**/next-env.d.ts"
     ]
   }
 }

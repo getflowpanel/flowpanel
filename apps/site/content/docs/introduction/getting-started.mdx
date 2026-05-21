@@ -1,0 +1,128 @@
+---
+title: Getting started
+description: From zero to a working /admin route in under a minute.
+---
+
+flowpanel turns a single typed config into a complete `/admin` route for
+your Next.js app. This guide walks you from a fresh install to a working
+dashboard.
+
+> **Requirements.** Next.js 15+ (App Router), React 19, Node 18.17+, and
+> either Drizzle 0.30+ or Prisma 5+. The Pages router is not supported.
+
+## Install
+
+Add the package to your existing Next.js project. flowpanel detects your
+ORM automatically — there's nothing to configure at install time.
+
+```bash
+pnpm add flowpanel
+```
+
+## Initialize
+
+Run `flowpanel init` from your project root. The CLI inspects your
+package.json, picks Drizzle or Prisma, and writes the wiring files.
+
+```bash
+$ pnpm flowpanel init
+→ Detected stack: Next.js 15 · TypeScript · Drizzle
+→ wrote flowpanel.config.ts
+→ wrote app/admin/[[...slug]]/page.tsx
+→ wrote app/api/flowpanel/[...route]/route.ts
+→ wrote app/api/flowpanel/stream/route.ts
+```
+
+The generated config _is_ the entire admin panel. Every resource you
+list becomes a typed CRUD page; everything you don't list stays out.
+
+## The config file
+
+Open `flowpanel.config.ts`. You'll see something like this (Drizzle
+shown; the Prisma variant is shape-identical save the adapter import):
+
+```ts
+import { defineAdmin, resource } from "flowpanel";
+import { drizzleAdapter } from "flowpanel/drizzle";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+import { getSession } from "@/server/lib/auth";
+
+declare module "@flowpanel/core" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: {
+    session: getSession,
+    role: (s) => (s as { user?: { role?: string } } | null)?.user?.role ?? "guest",
+    requireRole: "admin",
+  },
+  realtime: { driver: "memory" },
+  resources: [
+    resource(schema.users, {
+      columns: ["email", "role", "createdAt"],
+    }),
+    resource(schema.orders, {
+      columns: ["id", "status", "total"],
+      filters: [{ field: "status", type: "select" }],
+    }),
+  ],
+});
+```
+
+Each `resource()` call describes one table you'll manage in the admin.
+The first argument is the Drizzle table (or, for Prisma, the model name
+as a string — e.g. `resource("User", { ... })`). Columns, filters, and
+actions are type-checked against the row shape inferred from your
+schema.
+
+The `declare module` block binds `typeof db` into `WidgetContext`, so
+`ctx.db` in dashboards and actions is your real, typed client.
+
+## Mount the route
+
+`flowpanel init` already wrote two files:
+
+```ts
+// app/admin/[[...slug]]/page.tsx
+import { Flowpanel } from "flowpanel/next";
+import config from "@/flowpanel.config";
+
+export default Flowpanel(config);
+```
+
+```ts
+// app/api/flowpanel/[...route]/route.ts
+import { handlers } from "flowpanel/next";
+import config from "@/flowpanel.config";
+
+export const { GET, POST } = handlers(config);
+export const runtime = "nodejs";
+```
+
+The page renders every `/admin/...` URL via a single catch-all RSC. The
+API route handles the drawer fetch and bulk-action submissions. A third
+file, `app/api/flowpanel/stream/route.ts`, mounts the SSE channel for
+realtime — generated automatically by `init`.
+
+## Run
+
+Start your dev server and open `localhost:3000/admin`.
+
+```bash
+pnpm dev
+```
+
+You'll see a typed dashboard with one page per resource, full CRUD,
+pagination, and filters — driven entirely by the config you just wrote.
+
+## Next steps
+
+- Tweak rendering and behavior in **Configuration**
+- See how **Adapters** connect flowpanel to your data
+- Replace any component via the **Theme slots** layer
+- Eject a resource into source code when you outgrow the config layer

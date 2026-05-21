@@ -3,7 +3,11 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", ".source/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
     },
     "test:unit": {
       "outputs": [".vitest-cache/**"]
@@ -20,6 +24,7 @@
       "dependsOn": ["build"],
       "outputs": ["playwright-report/**"]
     },
-    "typecheck": { "dependsOn": ["^build"] }
+    "typecheck": { "dependsOn": ["^build"] },
+    "lint": { "outputs": [] }
   }
 }
