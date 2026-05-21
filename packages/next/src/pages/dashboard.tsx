@@ -6,9 +6,14 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { DashboardDateRange, WidgetErrorBoundary } from "@flowpanel/next/client";
+import {
+  DashboardActionsBar,
+  DashboardDateRange,
+  WidgetErrorBoundary,
+} from "@flowpanel/next/client";
 import { Section, SkeletonCard } from "@flowpanel/react";
 import { Suspense } from "react";
+import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action.js";
 import { resolveDateRange } from "../runtime/date-range.js";
 import { renderWidget } from "../runtime/render-widget.js";
 
@@ -35,6 +40,18 @@ function parsePreset(value: string | null): DateRangePreset | undefined {
   return (PRESETS as readonly string[]).includes(value) ? (value as DateRangePreset) : undefined;
 }
 
+/**
+ * Whether the default `DashboardActionsBar` should render. Extracted as a
+ * pure predicate so the conditional has a unit test independent of the
+ * async server component shell.
+ */
+export function shouldRenderActionsBar(
+  actionsCount: number,
+  hideActionsBar: boolean | undefined,
+): boolean {
+  return actionsCount > 0 && !hideActionsBar;
+}
+
 export async function DashboardPage({
   config,
   dashboard,
@@ -57,15 +74,23 @@ export async function DashboardPage({
     req,
   };
 
+  const actions = (dashboard.actions ?? []).map(serializeDashboardAction);
+  const encodedPath = encodeDashboardPath(dashboard.path);
+
   return (
     <div className="space-y-8 p-6">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold text-fp-text-1">{dashboard.label}</h1>
-        <DashboardDateRange
-          {...((urlPreset ?? dashboard.dateRange?.preset)
-            ? { preset: (urlPreset ?? dashboard.dateRange?.preset) as DateRangePreset }
-            : {})}
-        />
+        <div className="flex items-center gap-3">
+          {shouldRenderActionsBar(actions.length, dashboard.hideActionsBar) ? (
+            <DashboardActionsBar encodedPath={encodedPath} actions={actions} />
+          ) : null}
+          <DashboardDateRange
+            {...((urlPreset ?? dashboard.dateRange?.preset)
+              ? { preset: (urlPreset ?? dashboard.dateRange?.preset) as DateRangePreset }
+              : {})}
+          />
+        </div>
       </header>
       {dashboard.sections.map((sec, idx) => (
         <Section
