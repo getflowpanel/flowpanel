@@ -7,6 +7,42 @@ export type PublisherOptions =
   | { driver: "memory" }
   | { driver: "redis"; url: string; keyPrefix?: string };
 
+/**
+ * Build an SSE realtime publisher. `flowpanel/next` calls this internally
+ * to fan out resource-mutation events (`publishResource(name, ...)`) to
+ * every subscribed browser, but consumer code can use it directly for
+ * custom channels (`publish("scraper:tick", { ... })`).
+ *
+ * Two drivers:
+ *
+ * - `"memory"` (default) — events live in the current Node process.
+ *   Single-instance only; use for `next dev` or single-container deploys.
+ * - `"redis"` — events fan out via Redis pub/sub. Required for any
+ *   deployment with more than one Next.js instance. `keyPrefix` defaults
+ *   to `"flowpanel"`.
+ *
+ * @example Single-instance (dev)
+ * ```ts
+ * const pub = createPublisher({ driver: "memory" });
+ * ```
+ *
+ * @example Production multi-instance
+ * ```ts
+ * const pub = createPublisher({
+ *   driver: "redis",
+ *   url: process.env.REDIS_URL!,
+ *   keyPrefix: "fp",
+ * });
+ *
+ * export default defineAdmin({
+ *   // …
+ *   realtime: { publisher: pub },
+ * });
+ * ```
+ *
+ * See `apps/site/content/docs/core-concepts/realtime-multi-instance.mdx`
+ * for the ops checklist.
+ */
 export function createPublisher(opts: PublisherOptions): Publisher {
   if (opts.driver === "memory") return createMemoryPublisher();
   return createRedisPublisher(opts);
@@ -77,7 +113,9 @@ function createRedisPublisher(opts: Extract<PublisherOptions, { driver: "redis" 
         } catch {
           payload = raw;
         }
-        handlers.get(channel)?.forEach((h) => h(payload));
+        handlers.get(channel)?.forEach((h) => {
+          h(payload);
+        });
       });
     }
   }
@@ -86,6 +124,7 @@ function createRedisPublisher(opts: Extract<PublisherOptions, { driver: "redis" 
     async publish(channel, payload) {
       await load();
       const body = payload === undefined ? "" : JSON.stringify(payload);
+      // biome-ignore lint/style/noNonNullAssertion: load() initializes `pub` before any publish runs.
       await pub!.publish(channel, body);
     },
     subscribe(channel, handler) {

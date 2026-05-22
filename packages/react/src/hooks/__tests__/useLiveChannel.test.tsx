@@ -1,5 +1,5 @@
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, cleanup } from "@testing-library/react";
 import { useLiveChannel } from "../useLiveChannel.js";
 
 const instances: MockEventSource[] = [];

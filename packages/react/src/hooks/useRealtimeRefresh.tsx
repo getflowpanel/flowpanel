@@ -2,6 +2,8 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
+import { useRealtimeBus } from "../realtime/hooks.js";
+
 /**
  * Widget-side realtime spec. Mirrors the public widget option:
  *
@@ -22,6 +24,9 @@ export interface UseRealtimeRefreshOptions {
   endpoint?: string;
 }
 
+/** Stable no-op for the bus-path subscription (provider owns the refresh). */
+const NOOP = (): void => undefined;
+
 function normalizeChannels(channels: RealtimeChannels): string[] {
   if (!channels) return [];
   const arr = Array.isArray(channels) ? channels.filter(Boolean) : [channels];
@@ -35,10 +40,13 @@ function normalizeChannels(channels: RealtimeChannels): string[] {
  * `router.refresh()` on any event (debounced). Returns a `ReactNode` that
  * the caller MUST render so the underlying subscriber mounts.
  *
- * Implementation note: a single `useEffect` opens one `EventSource` per
- * (deduped) channel and the cleanup closes every one. The dependency key
- * is a stable joined string rather than the raw array — a fresh
- * `[a, b]` literal each render must NOT churn subscriptions.
+ * Routing:
+ * - If a `<RealtimeProvider>` is mounted in the tree (default in
+ *   `FlowpanelGlobals`), the hook registers against the shared bus and
+ *   adds zero new `EventSource` instances. This is the production path.
+ * - If no provider is found, the hook falls back to opening one
+ *   `EventSource` per channel directly. Strictly a backwards-compat shim
+ *   for hosts that mount widgets outside `FlowpanelGlobals`.
  *
  * @example
  * const live = useRealtimeRefresh(options.realtime);
@@ -51,6 +59,7 @@ export function useRealtimeRefresh(
   const router = useRouter();
   const debounceMs = opts.debounceMs ?? 200;
   const endpoint = opts.endpoint ?? "/api/flowpanel/stream";
+  const bus = useRealtimeBus();
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stable callback held in a ref so the SSE effect doesn't re-run when
@@ -79,31 +88,38 @@ export function useRealtimeRefresh(
   React.useEffect(() => {
     if (key === "") return;
     const chs = key.split("|");
+
+    // Shared-bus path. One EventSource for the whole dashboard, no matter
+    // how many widgets ask for realtime. The provider owns a single
+    // coalesced `router.refresh()` for all widgets, so this subscription
+    // only REGISTERS the channels (no-op callback) — firing a per-widget
+    // refresh here too would multiply one event into N route refreshes.
+    if (bus) {
+      return bus.subscribe(chs, NOOP);
+    }
+
+    // Legacy path: per-channel EventSource. Retained so widgets mounted
+    // outside FlowpanelGlobals (or in older host integrations) continue
+    // to receive events. Will eventually be removed once all known hosts
+    // mount the provider.
     const sources: EventSource[] = [];
     for (const ch of chs) {
       const url = `${endpoint}?channel=${encodeURIComponent(ch)}`;
       const es = new EventSource(url);
       es.onmessage = () => handleRef.current();
-      // Let the browser handle auto-reconnect on transient errors instead
-      // of tearing down and recreating EventSource ourselves; recreating
-      // here is what produced the connection leak in the first place.
-      es.onerror = () => {
-        // intentionally empty — browser-level retry handles it.
-      };
+      es.onerror = () => undefined;
       sources.push(es);
     }
     return () => {
       for (const es of sources) es.close();
     };
-    // `key` is a stable joined string; `endpoint` is captured by closure
-    // but is also stable across renders for any real caller.
-  }, [key, endpoint]);
+  }, [key, endpoint, bus]);
 
   if (list.length === 0) return null;
-  // Render nothing — the effect above owns every subscription. We still
-  // return a fragment so callers can do `{useRealtimeRefresh(...)}` and
-  // get a renderable node back rather than `null` they'd have to guard.
-  return <></>;
+  // Render nothing — the effect above owns every subscription. `null` is a
+  // valid ReactNode, so callers can still do `{useRealtimeRefresh(...)}`
+  // and embed the result directly without guarding.
+  return null;
 }
 
 /**

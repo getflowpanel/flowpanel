@@ -1,9 +1,4 @@
-import type {
-  Adapter,
-  ResolvedAdminConfig,
-  WidgetConfig,
-  WidgetContext,
-} from "@flowpanel/core";
+import type { Adapter, ResolvedAdminConfig, WidgetConfig, WidgetContext } from "@flowpanel/core";
 import { RealtimeRefresh, TableWidget } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";

@@ -1,5 +1,5 @@
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, cleanup } from "@testing-library/react";
 
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -28,21 +28,20 @@ class MockEventSource {
   onopen: null | (() => void) = null;
   readyState: number = MockEventSource.CONNECTING;
   constructor(public url: string) {
-    const self = this;
     instances.push({
       url,
       open: () => {
-        self.readyState = MockEventSource.OPEN;
-        self.onopen?.();
+        this.readyState = MockEventSource.OPEN;
+        this.onopen?.();
       },
-      message: (d) => self.onmessage?.({ data: d }),
-      error: () => self.onerror?.(),
+      message: (d) => this.onmessage?.({ data: d }),
+      error: () => this.onerror?.(),
       close: () => {
-        self.readyState = MockEventSource.CLOSED;
+        this.readyState = MockEventSource.CLOSED;
       },
-      onopen: self.onopen,
-      onmessage: self.onmessage,
-      onerror: self.onerror,
+      onopen: this.onopen,
+      onmessage: this.onmessage,
+      onerror: this.onerror,
     });
   }
   close(): void {

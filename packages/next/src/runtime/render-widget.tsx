@@ -13,8 +13,10 @@ import {
   TableWidget as TableWidgetRenderer,
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
-import { prerenderResourceCells } from "./prerender-cells.js";
 import { ServerCard } from "./_server-card.js";
+import { prerenderResourceCells } from "./prerender-cells.js";
+import { buildRequestContext } from "./request-setup.js";
+import { scopeBinding } from "./scope-binding.js";
 
 /**
  * Render a widget on the server.
@@ -47,9 +49,7 @@ export async function renderWidget(
             {...(widget.options.tone ? { tone: widget.options.tone } : {})}
             {...(widget.options.drilldown ? { drilldown: widget.options.drilldown } : {})}
           />
-          {widget.options.realtime ? (
-            <RealtimeRefresh channels={widget.options.realtime} />
-          ) : null}
+          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
         </Fragment>
       );
     }
@@ -74,9 +74,7 @@ export async function renderWidget(
             {...(widget.options.label ? { label: widget.options.label } : {})}
             stats={stats}
           />
-          {widget.options.realtime ? (
-            <RealtimeRefresh channels={widget.options.realtime} />
-          ) : null}
+          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
         </Fragment>
       );
     }
@@ -103,9 +101,7 @@ export async function renderWidget(
       return (
         <Fragment>
           {framed}
-          {widget.options.realtime ? (
-            <RealtimeRefresh channels={widget.options.realtime} />
-          ) : null}
+          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
         </Fragment>
       );
     }
@@ -130,13 +126,12 @@ export async function renderWidget(
         const res = config.resourcesByName.get(widget.options.resource);
         if (res) {
           const softDelete = res.options.delete?.softDelete;
+          // The widget context has no resolved scope/role. Build a real
+          // RequestContext from the request so the target resource's tenant
+          // scope is enforced (a widget must not leak cross-tenant rows).
+          const reqCtxForList = await buildRequestContext({ req: ctx.req, config });
           const listCtx: ListQueryContext<unknown> = {
-            req: ctx.req,
-            session: ctx.session,
-            role: "",
-            scope: null,
-            ip: null,
-            userAgent: null,
+            ...reqCtxForList,
             db: ctx.db,
             dateRange: ctx.dateRange,
             searchParams: new URLSearchParams(),
@@ -147,6 +142,7 @@ export async function renderWidget(
             pageSize: widget.options.limit ?? 10,
             search: "",
             ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
+            ...scopeBinding(config, res, reqCtxForList),
           };
           const r = await config.adapter.list(res.ref, listCtx);
           rows = r.rows as Row[];
@@ -217,7 +213,12 @@ export async function renderWidget(
         const Renderer = chartsMod.ChartRenderer;
         return (
           <Fragment>
-    <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />
+            <Renderer
+              kind={widget.kind}
+              label={widget.label}
+              options={widget.options}
+              data={data}
+            />
             {widget.options.realtime ? (
               <RealtimeRefresh channels={widget.options.realtime} />
             ) : null}
