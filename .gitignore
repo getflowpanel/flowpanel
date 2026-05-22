@@ -1,7 +1,12 @@
 # Claude Code
 CLAUDE.md
 .claude/
-docs/superpowers/
+
+# Working notes (kept local, not in public tree)
+docs/
+.changeset/
+apps/site/content/docs/core-concepts/realtime-multi-instance.mdx
+packages/eslint-plugin/README.md
 
 # Dependencies
 node_modules/
