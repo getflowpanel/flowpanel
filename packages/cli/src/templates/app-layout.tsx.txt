@@ -1,0 +1,15 @@
+import type { Metadata } from "next";
+import "{{CSS_IMPORT}}";
+
+export const metadata: Metadata = {
+  title: "{{APP_NAME}} — Admin",
+  description: "Admin panel powered by FlowPanel",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-fp-bg-2 text-fp-text-1 antialiased">{children}</body>
+    </html>
+  );
+}

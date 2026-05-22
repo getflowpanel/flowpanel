@@ -78,6 +78,15 @@ export interface DataTableProps<Row> {
   onSelectionChange?: (ids: string[]) => void;
   /** When provided, the caller controls row-key extraction; defaults to String(row[rowKey]). */
   getRowKey?: (row: Row) => string;
+  /**
+   * Server-prerendered cell content, indexed `[rowIndex][colIndex]` against
+   * the `rows` array and the original `columns` array order. Used when the
+   * caller wants `ColumnDef.render(row, ctx) => ReactNode` to execute on the
+   * server (so the function never crosses the RSC → Client boundary). When
+   * the cell entry is `undefined`, the table falls back to `column.render`
+   * (if present) or to `String(row[col.field])`.
+   */
+  prerenderedCells?: (React.ReactNode | undefined)[][];
   columnVisibility?: Record<string, boolean>;
   columnWidths?: Record<string, number>;
   onColumnWidthsChange?: (widths: Record<string, number>) => void;
@@ -111,6 +120,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   selection,
   onSelectionChange,
   getRowKey,
+  prerenderedCells,
   columnVisibility,
   columnWidths,
   onColumnWidthsChange,
@@ -154,6 +164,15 @@ export function DataTable<Row extends Record<string, unknown>>({
     () => columns.filter((c) => !c.hidden && (columnVisibility?.[c.field] ?? true)),
     [columns, columnVisibility],
   );
+
+  // Map field -> original column index so we can look up `prerenderedCells`
+  // (which is indexed against the original `columns` order, not the
+  // reordered/visible-filtered list).
+  const colIndexByField = React.useMemo(() => {
+    const m = new Map<string, number>();
+    columns.forEach((c, i) => m.set(c.field, i));
+    return m;
+  }, [columns]);
 
   const { leftPins, rightPins } = React.useMemo(
     () => ({
@@ -477,6 +496,19 @@ export function DataTable<Row extends Record<string, unknown>>({
                   if (meta.side === "left") cssVars["--fp-col-pin-left"] = `${meta.offset}px`;
                   else if (meta.side === "right")
                     cssVars["--fp-col-pin-right"] = `${meta.offset}px`;
+                  const originalColIdx = colIndexByField.get(c.field);
+                  const prerendered =
+                    prerenderedCells && originalColIdx !== undefined
+                      ? prerenderedCells[idx]?.[originalColIdx]
+                      : undefined;
+                  let cellContent: React.ReactNode;
+                  if (prerendered !== undefined) {
+                    cellContent = prerendered;
+                  } else if (c.render) {
+                    cellContent = c.render(r);
+                  } else {
+                    cellContent = formatCell(r[c.field]);
+                  }
                   return (
                     <td
                       key={c.field}
@@ -494,7 +526,7 @@ export function DataTable<Row extends Record<string, unknown>>({
                         c.className,
                       )}
                     >
-                      {c.render ? c.render(r) : formatCell(r[c.field])}
+                      {cellContent}
                     </td>
                   );
                 })}

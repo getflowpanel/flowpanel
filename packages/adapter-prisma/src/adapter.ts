@@ -180,5 +180,35 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P> {
         data: { [softCol]: null },
       });
     },
+
+    // ── Migration bookkeeping (used by `flowpanel migrate`) ──────────────
+    // `prisma.$executeRawUnsafe` runs SQL as-is; `prisma.$executeRaw`
+    // template-tags template values as bound parameters natively.
+
+    async runMigrationSql(rawSql: string): Promise<void> {
+      const prisma = opts.prisma as any;
+      await prisma.$executeRawUnsafe(rawSql);
+    },
+
+    async listAppliedMigrations(): Promise<Set<string>> {
+      const prisma = opts.prisma as any;
+      await prisma.$executeRawUnsafe(
+        `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
+          id text PRIMARY KEY,
+          applied_at timestamptz NOT NULL DEFAULT now()
+        )`,
+      );
+      const rows = (await prisma.$queryRawUnsafe(`SELECT id FROM _flowpanel_migrations`)) as Array<{
+        id: string;
+      }>;
+      const ids = new Set<string>();
+      for (const r of rows) ids.add(r.id);
+      return ids;
+    },
+
+    async markMigrationApplied(id: string): Promise<void> {
+      const prisma = opts.prisma as any;
+      await prisma.$executeRaw`INSERT INTO _flowpanel_migrations (id) VALUES (${id})`;
+    },
   };
 }

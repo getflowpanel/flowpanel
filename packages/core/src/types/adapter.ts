@@ -35,4 +35,18 @@ export interface Adapter<DB = InferDB> {
   update(ref: unknown, ctx: MutationContext<unknown>): Promise<unknown>;
   delete(ref: unknown, ctx: MutationContext<unknown>): Promise<void>;
   restore?(ref: unknown, ctx: MutationContext<unknown>): Promise<void>;
+  /**
+   * Migration bookkeeping — used by `flowpanel migrate` to track which SQL
+   * files in `flowpanel/migrations/` have already been applied. Optional on
+   * the type so third-party adapters can ship without it, but both first-
+   * party adapters (`drizzleAdapter`, `prismaAdapter`) implement them.
+   *
+   * `runMigrationSql(sql)` executes the raw migration SQL as-is.
+   * `listAppliedMigrations()` ensures the `_flowpanel_migrations` table
+   * exists and returns the set of already-applied migration IDs.
+   * `markMigrationApplied(id)` records a single migration ID as applied.
+   */
+  runMigrationSql?(sql: string): Promise<void>;
+  listAppliedMigrations?(): Promise<Set<string>>;
+  markMigrationApplied?(id: string): Promise<void>;
 }

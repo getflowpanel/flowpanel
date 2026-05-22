@@ -64,6 +64,12 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
     if (resourcesByName.has(name)) {
       throw new Error(`Duplicate resource name: "${name}". Each resource name must be unique.`);
     }
+    if (r.options.rowClick === "drawer" && r.options.drawer === undefined) {
+      throw new Error(
+        `resource "${name}" sets rowClick: "drawer" but has no drawer config. ` +
+          `Add drawer: { fields: "*" } or change rowClick.`,
+      );
+    }
     resourcesByName.set(name, r);
   }
   const dashboardsByPath = new Map<string, DashboardConfig>();

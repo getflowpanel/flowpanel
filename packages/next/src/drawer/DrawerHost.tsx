@@ -129,7 +129,10 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
               </div>
             );
           }
-          const cols = w.columns.length > 0 ? w.columns : Object.keys(w.rows[0] ?? {});
+          const cols: { field: string; label?: string }[] =
+            w.columns.length > 0
+              ? w.columns
+              : Object.keys(w.rows[0] ?? {}).map((f) => ({ field: f }));
           return (
             <div
               key={key}
@@ -144,8 +147,8 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
                 <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
                   <tr>
                     {cols.map((c) => (
-                      <th key={c} scope="col" className="px-4 py-2 text-left font-medium">
-                        {c}
+                      <th key={c.field} scope="col" className="px-4 py-2 text-left font-medium">
+                        {c.label ?? humanize(c.field)}
                       </th>
                     ))}
                   </tr>
@@ -158,8 +161,8 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
                       className="border-t border-fp-border-1 text-fp-text-1"
                     >
                       {cols.map((c) => (
-                        <td key={c} className="px-4 py-2">
-                          {formatValue(r[c])}
+                        <td key={c.field} className="px-4 py-2">
+                          {formatValue(r[c.field])}
                         </td>
                       ))}
                     </tr>

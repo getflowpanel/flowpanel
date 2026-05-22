@@ -1,5 +1,7 @@
 import type {
+  ColumnDef,
   ListQueryContext,
+  RequestContext,
   ResolvedAdminConfig,
   WidgetConfig,
   WidgetContext,
@@ -74,9 +76,22 @@ export async function renderWidget(
       return <CustomWidgetRenderer Component={widget.Component} props={props} frame />;
     }
     case "table": {
-      let rows: unknown[] = [];
+      type Row = Record<string, unknown>;
+      let rows: Row[] = [];
+      // Resolved column metadata for the rendered table. Sourced from the
+      // resource's `columns` array when the widget targets a resource (so
+      // labels like "Created at" replace raw `createdAt` headers); falls
+      // back to `Object.keys(rows[0])` when there's no resource binding.
+      let columns: { field: string; label?: string }[] = [];
+      // Per-row, per-column server-prerendered ReactNode tree. Indexed
+      // `[rowIndex][colIndex]` against the resolved `columns` order. Only
+      // populated when at least one ColumnDef carries a `render` function —
+      // executing those functions server-side is the whole point of this
+      // payload, since function refs can't cross the RSC boundary.
+      let prerenderedCells: (ReactNode | undefined)[][] | undefined;
+
       if (widget.options.query) {
-        rows = await widget.options.query(ctx);
+        rows = (await widget.options.query(ctx)) as Row[];
       } else if (widget.options.resource) {
         const res = config.resourcesByName.get(widget.options.resource);
         if (res) {
@@ -100,16 +115,71 @@ export async function renderWidget(
             ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
           };
           const r = await config.adapter.list(res.ref, listCtx);
-          rows = r.rows;
+          rows = r.rows as Row[];
+
+          // When the widget didn't pass an explicit `columns` override,
+          // adopt the resource's column metadata (field + label + render).
+          if (!widget.options.columns || widget.options.columns.length === 0) {
+            const renderFns: ((row: Row) => ReactNode)[] = [];
+            const resolved: { field: string; label?: string }[] = [];
+            for (const c of res.options.columns as (string | ColumnDef<Row>)[]) {
+              if (typeof c === "string") {
+                resolved.push({ field: c });
+                renderFns.push(null as unknown as (row: Row) => ReactNode);
+                continue;
+              }
+              const col = c;
+              if (col.hidden) continue;
+              const field = String(col.field ?? "");
+              if (!field) continue;
+              resolved.push({ field, ...(col.label ? { label: col.label } : {}) });
+              if (col.render) {
+                const fn = col.render;
+                // The widget context has no role/scope/ip/userAgent — synth
+                // a best-effort RequestContext matching what the column
+                // renderer would have seen on the dedicated list page.
+                const reqCtx: RequestContext = {
+                  req: ctx.req,
+                  session: ctx.session,
+                  role: "",
+                  scope: null,
+                  ip: null,
+                  userAgent: null,
+                };
+                renderFns.push((row: Row) => fn(row, reqCtx));
+              } else {
+                renderFns.push(null as unknown as (row: Row) => ReactNode);
+              }
+            }
+            columns = resolved;
+            const hasAnyRenderer = renderFns.some((fn) => fn !== null);
+            if (hasAnyRenderer) {
+              prerenderedCells = rows.map((row) =>
+                renderFns.map((fn) => (fn ? fn(row) : undefined)),
+              );
+            }
+          }
         }
       }
-      const keys = widget.options.columns ?? (rows[0] ? Object.keys(rows[0] as object) : []);
+
+      // Apply explicit `widget.options.columns` override (or fall back to
+      // raw keys when neither resource nor override gave us anything).
+      if (widget.options.columns && widget.options.columns.length > 0) {
+        columns = widget.options.columns.map((k) => ({ field: k }));
+      } else if (columns.length === 0 && rows[0]) {
+        columns = Object.keys(rows[0]).map((k) => ({ field: k }));
+      }
+
       return (
         <TableWidgetRenderer
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={rows as Record<string, unknown>[]}
-          columns={keys.map((k) => ({ field: k, label: k }))}
+          rows={rows}
+          columns={columns.map((c) => ({
+            field: c.field,
+            ...(c.label ? { label: c.label } : {}),
+          }))}
           rowKey={"id"}
+          {...(prerenderedCells ? { prerenderedCells } : {})}
         />
       );
     }

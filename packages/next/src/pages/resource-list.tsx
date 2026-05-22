@@ -16,6 +16,7 @@ import {
   ResourceListSearch,
 } from "@flowpanel/next/client";
 import { Button, DataTable, type DataTableColumn, PageHeader } from "@flowpanel/react";
+import type { ReactNode } from "react";
 import { resourceNavName } from "../runtime/nav.js";
 import { parseListParams, resolveFilterSpecs } from "../runtime/parse-list-params.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
@@ -72,15 +73,27 @@ export async function ResourceListPage({
 
   const result = await runWithRequestContext(reqCtx, () => config.adapter.list(resource.ref, ctx));
 
+  // Build the wire-safe column metadata for `<DataTable>`. `ColumnDef.render`
+  // is intentionally NOT carried across the RSC boundary — function refs
+  // crash with "Functions cannot be passed directly to Client Components".
+  // Instead we run `render` server-side below to produce a ReactNode tree,
+  // and pass it as `prerenderedCells`.
+  const renderFns: ((row: Row) => ReactNode)[] = [];
   const columns: DataTableColumn<Row>[] = resource.options.columns.map((c) => {
     if (typeof c === "string" || typeof c === "number" || typeof c === "symbol") {
+      renderFns.push(null as unknown as (row: Row) => ReactNode);
       return { field: String(c), sortable: true };
     }
     const col = c as ColumnDef<Row>;
+    if (col.render) {
+      const fn = col.render;
+      renderFns.push((row: Row) => fn(row, reqCtx));
+    } else {
+      renderFns.push(null as unknown as (row: Row) => ReactNode);
+    }
     const out: DataTableColumn<Row> = {
       field: String(col.field ?? ""),
       ...(col.label ? { label: col.label } : {}),
-      ...(col.render ? { render: (row: Row) => col.render?.(row, reqCtx) } : {}),
       sortable: col.sortable ?? true,
       ...(col.width !== undefined ? { width: col.width } : {}),
       ...(col.align ? { align: col.align } : {}),
@@ -89,6 +102,14 @@ export async function ResourceListPage({
     };
     return out;
   });
+
+  // Eagerly invoke `render(row, ctx)` server-side for every row × column pair
+  // that has a renderer. Columns without a renderer get `undefined`, so the
+  // client `<DataTable>` falls back to its default `formatCell(row[field])`.
+  const hasAnyRenderer = renderFns.some((fn) => fn !== null);
+  const prerenderedCells: (ReactNode | undefined)[][] | undefined = hasAnyRenderer
+    ? (result.rows as Row[]).map((row) => renderFns.map((fn) => (fn ? fn(row) : undefined)))
+    : undefined;
 
   const rowKey = (resource.options.rowKey as string | undefined) ?? "id";
   const useDrawerRowClick = resource.options.rowClick === "drawer" && !!resource.options.drawer;
@@ -121,6 +142,7 @@ export async function ResourceListPage({
           pageSize={result.pageSize}
           rowKey={rowKey as keyof Row & string}
           {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
+          {...(prerenderedCells ? { prerenderedCells } : {})}
           emptyTitle={`No ${resource.options.plural ?? name}`}
         />
       ) : (
@@ -132,6 +154,7 @@ export async function ResourceListPage({
           pageSize={result.pageSize}
           rowKey={rowKey as keyof Row & string}
           {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
+          {...(prerenderedCells ? { prerenderedCells } : {})}
           emptyTitle={`No ${resource.options.plural ?? name}`}
         />
       )}

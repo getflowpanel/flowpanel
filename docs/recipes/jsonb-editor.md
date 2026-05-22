@@ -54,6 +54,13 @@ resource(prisma.webhook, {
 });
 ```
 
+`ColumnDef.render` runs **server-side** — its `ReactNode` return value is
+serialized and shipped to the client. The `render` function itself never
+crosses the RSC boundary. Any interactive piece (`useState`, `onClick`)
+has to live inside a `"use client"` component that the renderer mounts as
+a child. The pattern below does exactly that: `JsonPreview` is the
+"use client" boundary, and `render` only constructs the element tree.
+
 ```tsx
 // src/admin/JsonPreview.tsx
 "use client";

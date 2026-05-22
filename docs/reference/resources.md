@@ -60,6 +60,40 @@ columns: [
 There is no per-column `format` option. Use `render` if you need custom
 cell rendering.
 
+### `render` runs on the server
+
+`ColumnDef.render(row, ctx)` is invoked **server-side** before the table
+crosses the React Server Component → Client boundary. The resulting
+`ReactNode` tree is passed through as data; the function itself never
+ships to the client.
+
+That means `render` **cannot call React client hooks** (`useState`,
+`useEffect`, `useContext`, etc.) — those only work inside a
+`"use client"` component. The same restriction applies to event
+handlers attached inline (`onClick`, `onChange`).
+
+For interactive cells, return a `<Link>` (server-renderable) or wrap
+the dynamic part in a `"use client"` component that takes its data as
+plain props:
+
+```tsx
+// admin/StatusToggle.tsx
+"use client";
+export function StatusToggle({ id, status }: { id: string; status: string }) {
+  const [busy, setBusy] = useState(false);
+  // ...
+}
+
+// flowpanel.config.ts
+columns: [
+  "email",
+  {
+    field: "status",
+    render: (row) => <StatusToggle id={row.id} status={row.status} />,
+  },
+]
+```
+
 ### Default header / label humanization
 
 Column headers, drawer field labels, and auto-generated form labels are

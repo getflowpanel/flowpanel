@@ -10,15 +10,103 @@ interface MigrateOptions {
   dryRun?: boolean;
 }
 
-interface ExecutableDb {
-  execute: (
-    sql: string,
-    params?: unknown[],
-  ) => Promise<{ rows?: Array<{ id: string }> } | Array<{ id: string }>>;
+interface MigrationAdapter {
+  runMigrationSql?: (sql: string) => Promise<void>;
+  listAppliedMigrations?: () => Promise<Set<string>>;
+  markMigrationApplied?: (id: string) => Promise<void>;
+  kind?: string;
 }
 
 interface MaybeConfig {
-  adapter?: { db?: ExecutableDb };
+  adapter?: MigrationAdapter;
+}
+
+interface JitiOptions {
+  interopDefault?: boolean;
+  jsx?: boolean;
+  alias?: Record<string, string>;
+}
+
+interface JitiInstance {
+  import: (id: string) => Promise<unknown>;
+}
+
+interface JitiModule {
+  createJiti: (cwd: string, opts?: JitiOptions) => JitiInstance;
+}
+
+// Translate the user's tsconfig `compilerOptions.paths` into a Record jiti
+// understands. jiti v2 takes a flat `alias: Record<string, string>` where the
+// key may end in `/*` and the value points at an absolute on-disk path. We
+// pass through the most common shape — `"@/*": ["./*"]` — and resolve the
+// path relative to the project root. Skip silently if tsconfig is absent or
+// malformed; users without aliases shouldn't pay a parse-failure tax.
+// Strip JSONC comments without mangling string contents (Next.js scaffolds
+// emit `"src/**/*"` globs whose `/*` would otherwise be eaten by a naive
+// block-comment regex). The scanner tracks string state explicitly.
+function stripJsoncComments(src: string): string {
+  let out = "";
+  let i = 0;
+  let inString = false;
+  while (i < src.length) {
+    const ch = src[i];
+    const next = src[i + 1];
+    if (inString) {
+      out += ch;
+      if (ch === "\\" && i + 1 < src.length) {
+        out += next;
+        i += 2;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === "/" && next === "/") {
+      while (i < src.length && src[i] !== "\n") i++;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      i += 2;
+      while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
+async function readTsconfigAliases(cwd: string): Promise<Record<string, string>> {
+  const tsconfigPath = path.join(cwd, "tsconfig.json");
+  try {
+    const raw = await fs.readFile(tsconfigPath, "utf8");
+    const stripped = stripJsoncComments(raw).replace(/,(\s*[}\]])/g, "$1");
+    const parsed = JSON.parse(stripped) as {
+      compilerOptions?: { paths?: Record<string, string[]>; baseUrl?: string };
+    };
+    const paths = parsed.compilerOptions?.paths ?? {};
+    const baseUrl = parsed.compilerOptions?.baseUrl ?? ".";
+    const baseDir = path.resolve(cwd, baseUrl);
+    const out: Record<string, string> = {};
+    for (const [key, values] of Object.entries(paths)) {
+      const target = values?.[0];
+      if (!target) continue;
+      const cleanKey = key.replace(/\/\*$/, "");
+      const cleanTarget = target.replace(/\/\*$/, "");
+      out[cleanKey] = path.resolve(baseDir, cleanTarget);
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 export function migrateCommand(cli: Command): void {
@@ -52,49 +140,56 @@ export function migrateCommand(cli: Command): void {
         process.exit(1);
       }
 
-      // Dynamic import of the user's TS config via jiti.
+      // ── Step 1: bring up jiti. Only the "jiti not installed" case maps to
+      // the install hint; anything else (alias resolution failure, syntax
+      // error, missing dependency in the config) must surface verbatim.
+      let jiti: JitiInstance;
+      try {
+        const jitiMod = (await import("jiti")) as JitiModule;
+        const alias = await readTsconfigAliases(cwd);
+        jiti = jitiMod.createJiti(cwd, {
+          interopDefault: true,
+          jsx: true,
+          alias,
+        });
+      } catch (e) {
+        const code = (e as NodeJS.ErrnoException).code;
+        if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
+          log.err("flowpanel migrate needs `jiti` to load your TypeScript config. Install:");
+          log.dim("  pnpm add -D jiti");
+          process.exit(1);
+        }
+        throw e;
+      }
+
+      // ── Step 2: evaluate the user's flowpanel.config.ts. Errors here are
+      // user-actionable (bad alias, missing module, syntax error in the
+      // config). Surface the real message — the previous catch-all blamed
+      // jiti for every failure mode.
       let config: MaybeConfig;
       try {
-        const jitiMod = (await import("jiti")) as {
-          createJiti: (
-            cwd: string,
-            opts?: { interopDefault?: boolean },
-          ) => {
-            import: (p: string) => Promise<unknown>;
-          };
-        };
-        const jiti = jitiMod.createJiti(cwd, { interopDefault: true });
         const mod = (await jiti.import(cfgPath)) as { default?: MaybeConfig } | MaybeConfig;
         config = ((mod as { default?: MaybeConfig }).default ?? mod) as MaybeConfig;
-      } catch {
-        log.err(
-          "Unable to load flowpanel.config.ts. Install `jiti` in the project or run via `tsx`:",
-        );
-        log.dim("  pnpm add -D jiti");
+      } catch (e) {
+        log.err("Failed to load flowpanel.config.ts:");
+        log.err((e as Error).message);
         process.exit(1);
       }
 
-      const db = config.adapter?.db;
-      if (!db || typeof db.execute !== "function") {
+      const adapter = config.adapter;
+      if (
+        !adapter ||
+        typeof adapter.runMigrationSql !== "function" ||
+        typeof adapter.listAppliedMigrations !== "function" ||
+        typeof adapter.markMigrationApplied !== "function"
+      ) {
         log.err(
-          "Adapter db.execute() unavailable. Verify your adapter wiring (drizzleAdapter or prismaAdapter).",
+          "Adapter does not support `flowpanel migrate`. Use `drizzleAdapter` or `prismaAdapter` from a FlowPanel ≥ this version.",
         );
         process.exit(1);
       }
 
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
-          id text PRIMARY KEY,
-          applied_at timestamptz NOT NULL DEFAULT now()
-        )`,
-      );
-
-      const appliedRows = await db.execute(`SELECT id FROM _flowpanel_migrations`);
-      const applied = new Set<string>();
-      const rows =
-        (appliedRows as { rows?: Array<{ id: string }> }).rows ??
-        (appliedRows as Array<{ id: string }>);
-      for (const r of rows) applied.add(r.id);
+      const applied = await adapter.listAppliedMigrations!();
 
       let ran = 0;
       for (const f of files) {
@@ -104,8 +199,8 @@ export function migrateCommand(cli: Command): void {
           continue;
         }
         const sql = await fs.readFile(path.join(dir, f), "utf8");
-        await db.execute(sql);
-        await db.execute(`INSERT INTO _flowpanel_migrations (id) VALUES ($1)`, [id]);
+        await adapter.runMigrationSql!(sql);
+        await adapter.markMigrationApplied!(id);
         log.ok(`${id} applied`);
         ran++;
       }

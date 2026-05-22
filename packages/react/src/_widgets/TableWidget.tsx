@@ -9,6 +9,13 @@ export interface TableWidgetProps<Row extends Record<string, unknown>> {
   rowKey: keyof Row & string;
   emptyState?: React.ReactNode;
   onRowClick?: (row: Row) => void;
+  /**
+   * Server-prerendered cell content, same shape as `DataTable.prerenderedCells`.
+   * Allows dashboard tables backed by a resource with `ColumnDef.render` to
+   * surface those renderers (which executed server-side) without crossing the
+   * function-prop RSC boundary.
+   */
+  prerenderedCells?: (React.ReactNode | undefined)[][];
 }
 
 export function TableWidget<Row extends Record<string, unknown>>(props: TableWidgetProps<Row>) {
@@ -23,6 +30,7 @@ export function TableWidget<Row extends Record<string, unknown>>(props: TableWid
         page={1}
         pageSize={props.rows.length}
         {...(props.onRowClick ? { onRowClick: props.onRowClick } : {})}
+        {...(props.prerenderedCells ? { prerenderedCells: props.prerenderedCells } : {})}
         emptyTitle="No data"
       />
     </Card>

@@ -35,6 +35,42 @@ Other supported keys: `label`, `sortable`, `width`, `align`,
 Drizzle, or your augmented model type for Prisma. Autocomplete and
 type-checking work end-to-end.
 
+## `render` runs server-side
+
+`render(row, ctx)` is called on the server before the table reaches the
+client. FlowPanel ships the resulting `ReactNode` tree across the RSC
+boundary; the function itself never crosses. That means:
+
+- **No client hooks** inside `render` — `useState`, `useEffect`,
+  `useContext`, etc. only work inside a `"use client"` component.
+- **No inline event handlers** — `onClick`, `onChange`, etc. cannot be
+  attached directly inside `render`. Return an `<a>` / `<Link>` instead,
+  or wrap the interactive part in a `"use client"` child that takes its
+  data as plain props.
+
+```tsx
+// src/admin/RefundButton.tsx
+"use client";
+export function RefundButton({ orderId }: { orderId: string }) {
+  return <button onClick={() => fetch(`/api/refund/${orderId}`, { method: "POST" })}>
+    Refund
+  </button>;
+}
+
+// flowpanel.config.ts
+resource(schema.orders, {
+  columns: [
+    "id",
+    {
+      field: "status",
+      // Server-side: return the element tree. The interactivity lives in
+      // RefundButton (a "use client" component).
+      render: (row) => <RefundButton orderId={row.id} />,
+    },
+  ],
+});
+```
+
 ## Joined or computed values
 
 `ColumnDef.field` is `keyof Row & string`, so dotted relation paths

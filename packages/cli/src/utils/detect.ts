@@ -57,43 +57,112 @@ export async function detectStack(cwd: string): Promise<Stack> {
   };
 }
 
-async function firstMatch(cwd: string, candidates: string[]): Promise<string | null> {
+/**
+ * How the project maps `@/*` to filesystem paths in `tsconfig.json`.
+ * - `strip-src` — `paths: { "@/*": ["src/*"] }` (or `"./src/*"`). The `src/`
+ *   prefix is stripped when emitting an import alias (`src/db/x` → `@/db/x`).
+ * - `root` — `paths: { "@/*": ["./*"] }` (or `"*"`). The alias keeps the full
+ *   path (`src/db/x` → `@/src/db/x`).
+ * - `none` — no `@/*` alias, or unreadable tsconfig. Caller should fall back
+ *   to a relative path from the cwd-root config file.
+ */
+export type PathAliasMode = "strip-src" | "root" | "none";
+
+export async function detectPathAlias(cwd: string): Promise<PathAliasMode> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(path.join(cwd, "tsconfig.json"), "utf8");
+  } catch {
+    return "none";
+  }
+  // Tolerate trailing commas and `//` comments — Next.js scaffolds emit both.
+  const stripped = raw.replace(/\/\/[^\n]*/g, "").replace(/,(\s*[}\]])/g, "$1");
+  let parsed: { compilerOptions?: { paths?: Record<string, string[]> } };
+  try {
+    parsed = JSON.parse(stripped) as typeof parsed;
+  } catch {
+    return "none";
+  }
+  const targets = parsed.compilerOptions?.paths?.["@/*"];
+  if (!targets || targets.length === 0) return "none";
+  // Normalize: strip leading `./`.
+  const first = targets[0]?.replace(/^\.\//, "");
+  if (first === "src/*") return "strip-src";
+  if (first === "*" || first === "./*") return "root";
+  // Anything exotic — fall back to relative paths.
+  return "none";
+}
+
+/**
+ * Resolves a relative source path (`src/db/client.ts`) to the import string the
+ * scaffold should emit, given the project's tsconfig alias setup.
+ */
+export function aliasOf(relPath: string, mode: PathAliasMode): string {
+  const noExt = relPath.replace(/\.tsx?$/, "");
+  if (mode === "strip-src") return `@/${noExt.replace(/^src\//, "")}`;
+  if (mode === "root") return `@/${noExt}`;
+  // `mode === "none"`: fall back to a relative path from cwd root (where
+  // flowpanel.config.ts lives). Keep the `./` prefix to make it explicit.
+  return `./${noExt}`;
+}
+
+async function firstMatch(
+  cwd: string,
+  candidates: string[],
+  mode: PathAliasMode,
+): Promise<string | null> {
   for (const c of candidates) {
     if (await fileExists(path.join(cwd, c))) {
-      return `@/${c.replace(/\.ts$/, "").replace(/^src\//, "")}`;
+      return aliasOf(c, mode);
     }
   }
   return null;
 }
 
-export async function detectDbClient(cwd: string): Promise<string | null> {
-  return firstMatch(cwd, [
-    "src/server/lib/db.ts",
-    "src/lib/db.ts",
-    "server/lib/db.ts",
-    "lib/db.ts",
-    "src/db/index.ts",
-    "src/db.ts",
-  ]);
+export async function detectDbClient(cwd: string, mode?: PathAliasMode): Promise<string | null> {
+  return firstMatch(
+    cwd,
+    [
+      "src/server/lib/db.ts",
+      "src/lib/db.ts",
+      "server/lib/db.ts",
+      "lib/db.ts",
+      "src/db/client.ts",
+      "src/db/index.ts",
+      "src/db.ts",
+      "db/client.ts",
+      "db/index.ts",
+    ],
+    mode ?? (await detectPathAlias(cwd)),
+  );
 }
 
-export async function detectSchema(cwd: string): Promise<string | null> {
-  return firstMatch(cwd, [
-    "src/server/lib/db/schema.ts",
-    "src/lib/db/schema.ts",
-    "server/lib/db/schema.ts",
-    "lib/db/schema.ts",
-    "src/db/schema.ts",
-    "src/schema.ts",
-  ]);
+export async function detectSchema(cwd: string, mode?: PathAliasMode): Promise<string | null> {
+  return firstMatch(
+    cwd,
+    [
+      "src/server/lib/db/schema.ts",
+      "src/lib/db/schema.ts",
+      "server/lib/db/schema.ts",
+      "lib/db/schema.ts",
+      "src/db/schema.ts",
+      "src/schema.ts",
+      "db/schema.ts",
+    ],
+    mode ?? (await detectPathAlias(cwd)),
+  );
 }
 
-export async function detectAuth(cwd: string): Promise<string | null> {
-  return firstMatch(cwd, [
-    "src/server/lib/auth.ts",
-    "src/lib/auth.ts",
-    "server/lib/auth.ts",
-    "lib/auth.ts",
-    "src/auth.ts",
-  ]);
+export async function detectAuth(cwd: string, mode?: PathAliasMode): Promise<string | null> {
+  return firstMatch(
+    cwd,
+    [
+      "src/server/lib/auth.ts",
+      "src/lib/auth.ts",
+      "server/lib/auth.ts",
+      "lib/auth.ts",
+      "src/auth.ts",
+    ],
+    mode ?? (await detectPathAlias(cwd)),
+  );
 }

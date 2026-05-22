@@ -188,5 +188,38 @@ export function drizzleAdapter<DB>(opts: {
         .set({ [softCol]: null })
         .where(eq((cols as any)[pk], ctx.id));
     },
+
+    // ── Migration bookkeeping (used by `flowpanel migrate`) ──────────────
+    // We use drizzle's `sql` template tag for safe parameter binding.
+    // `db.execute(sql, params)` is NOT honored by drizzle — Postgres saw
+    // a literal `$1` and crashed with "there is no parameter $1".
+
+    async runMigrationSql(rawSql: string): Promise<void> {
+      const db = opts.db as any;
+      await db.execute(sql.raw(rawSql));
+    },
+
+    async listAppliedMigrations(): Promise<Set<string>> {
+      const db = opts.db as any;
+      await db.execute(
+        sql.raw(
+          `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
+            id text PRIMARY KEY,
+            applied_at timestamptz NOT NULL DEFAULT now()
+          )`,
+        ),
+      );
+      const result: unknown = await db.execute(sql.raw(`SELECT id FROM _flowpanel_migrations`));
+      const rows =
+        (result as { rows?: Array<{ id: string }> }).rows ?? (result as Array<{ id: string }>);
+      const ids = new Set<string>();
+      for (const r of rows) ids.add(r.id);
+      return ids;
+    },
+
+    async markMigrationApplied(id: string): Promise<void> {
+      const db = opts.db as any;
+      await db.execute(sql`INSERT INTO _flowpanel_migrations (id) VALUES (${id})`);
+    },
   };
 }

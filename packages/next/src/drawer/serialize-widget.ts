@@ -26,7 +26,14 @@ export type SerializedWidget =
       kind: "table";
       label?: string;
       rows: Record<string, unknown>[];
-      columns: string[];
+      /**
+       * Column descriptors. `field` is the row key; `label` is the optional
+       * humanized header. Replaces the previous `string[]` shape so dashboard
+       * drawer-tab tables can surface resource-configured labels instead of
+       * dumping raw schema names. Backward-compatible at the wire level
+       * because the consumer (`DrawerHost.tsx`) renders the new shape.
+       */
+      columns: { field: string; label?: string }[];
       span?: number;
     }
   | {
@@ -72,7 +79,7 @@ export async function serializeWidget(
       }
       case "table": {
         let rows: Record<string, unknown>[] = [];
-        let columns: string[] = [];
+        let columns: { field: string; label?: string }[] = [];
         if (w.options.query) {
           const raw = (await runWithRequestContext(reqCtx, () =>
             w.options.query!(widgetCtx),
@@ -100,17 +107,27 @@ export async function serializeWidget(
               config.adapter.list(target.ref, listCtx),
             );
             rows = r.rows as Record<string, unknown>[];
+            // Pull `{ field, label }` from the resource's ColumnDef so the
+            // drawer-tab table shows humanized headers instead of raw
+            // schema names. `render` is dropped — we serialize through a
+            // JSON `Response.json(payload)` boundary, so ReactNode trees
+            // can't survive.
             columns = (target.options.columns as unknown[])
-              .map((c) =>
-                typeof c === "string" ? c : String((c as { field?: string }).field ?? ""),
-              )
-              .filter(Boolean);
+              .map((c) => {
+                if (typeof c === "string") return { field: c };
+                const col = c as { field?: string; label?: string; hidden?: boolean };
+                if (col.hidden) return null;
+                const field = String(col.field ?? "");
+                if (!field) return null;
+                return col.label ? { field, label: col.label } : { field };
+              })
+              .filter((x): x is { field: string; label?: string } => x !== null);
           }
         }
         if (w.options.columns && w.options.columns.length > 0) {
-          columns = w.options.columns;
+          columns = w.options.columns.map((k) => ({ field: k }));
         } else if (columns.length === 0 && rows[0]) {
-          columns = Object.keys(rows[0]);
+          columns = Object.keys(rows[0]).map((k) => ({ field: k }));
         }
         return {
           kind: "table",
