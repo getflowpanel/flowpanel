@@ -14,8 +14,6 @@ export function Hero() {
         <p className="font-mono text-sm text-[var(--color-fg-muted)]">
           v{flowpanelVersion}
           <span className="mx-2 text-[var(--color-fg-subtle)]">·</span>
-          pre-1.0
-          <span className="mx-2 text-[var(--color-fg-subtle)]">·</span>
           <Link
             href="/changelog"
             className="underline-offset-4 transition-colors hover:text-[var(--color-fg)] hover:underline"
@@ -43,6 +41,15 @@ export function Hero() {
           <CodeBlock className="min-w-0 flex-1 max-w-[480px]">
             <PromptLine command="pnpm flowpanel init" />
           </CodeBlock>
+          <a
+            href={siteConfig.links.demo}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-fg)] px-4 py-3 font-mono text-sm text-[var(--color-bg)] transition-colors hover:opacity-90"
+          >
+            <span>Live demo</span>
+            <ArrowUpRight aria-hidden className="h-4 w-4" />
+          </a>
           <a
             href={siteConfig.links.github}
             target="_blank"

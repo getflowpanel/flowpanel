@@ -11,18 +11,22 @@ import { Node, Project } from "ts-morph";
  * If `options.table` is supplied it is used verbatim as the first argument
  * instead of the auto-generated `schema.<resourceName>`.
  *
+ * `options.filename` lets the caller pin the in-memory source extension — pass
+ * `flowpanel.config.tsx` when the host's config file uses sidecar JSX, so
+ * ts-morph parses JSX literals correctly.
+ *
  * Throws if a matching resource already exists.
  */
 export function editConfigToAddResource(
   source: string,
   resourceName: string,
-  options?: { table?: string; kind?: "drizzle" | "prisma" },
+  options?: { table?: string; kind?: "drizzle" | "prisma"; filename?: string },
 ): string {
   const project = new Project({
     useInMemoryFileSystem: true,
     compilerOptions: { allowJs: true, jsx: 4 /* Preserve */ },
   });
-  const sf = project.createSourceFile("flowpanel.config.ts", source);
+  const sf = project.createSourceFile(options?.filename ?? "flowpanel.config.ts", source);
 
   // ── Duplicate-check ──────────────────────────────────────────────────────
   sf.forEachDescendant((node) => {

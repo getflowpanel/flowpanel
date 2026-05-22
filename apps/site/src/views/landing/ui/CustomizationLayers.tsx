@@ -14,14 +14,15 @@ const LAYERS: ReadonlyArray<Layer> = [
     tag: "props",
     title: "Tweak with config",
     description: "Override a column renderer, add a row action, hide a field.",
-    code: <>{`columns: { status: { cell: (r) => r.status } }`}</>,
+    code: <>{`columns: [{ field: "status", render: (row) => row.status }]`}</>,
   },
   {
     level: "L2",
     tag: "theme",
     title: "Swap any of 10 slots",
-    description: "Replace the shell, table, drawer, or form with your own component.",
-    code: <>{`theme: { components: { Table: MyTable } }`}</>,
+    description:
+      "Replace MetricCard, Button, Badge, Avatar, StatusBadge, EmptyState, PageHeader, Pagination, ConfirmDialog, or SkeletonTable with your own component.",
+    code: <>{`theme: { components: { MetricCard: MyMetricCard } }`}</>,
   },
   {
     level: "L3",

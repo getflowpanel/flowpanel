@@ -71,8 +71,7 @@ export function SiteHeader({ variant = "marketing" }: SiteHeaderProps) {
             aria-label={`${siteConfig.name} on GitHub`}
           >
             <span className="hidden sm:inline">GitHub</span>
-            <Star aria-hidden className="h-3.5 w-3.5 fill-current text-[var(--color-fg-subtle)]" />
-            <span className="text-[var(--color-fg-subtle)]">1.2k</span>
+            <Star aria-hidden className="h-3.5 w-3.5 text-[var(--color-fg-subtle)]" />
           </a>
           <ThemeToggle />
         </nav>

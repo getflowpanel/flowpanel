@@ -9,6 +9,22 @@ import {
   copyResourceTemplates,
 } from "../eject/copyTargets.js";
 import { editConfigToCommentDashboard, editConfigToCommentResource } from "../eject/editConfig.js";
+import { fileExists } from "../utils/detect.js";
+
+/**
+ * Locate the user's flowpanel config. Tries `.ts` first, falls back to `.tsx`
+ * — the latter is legitimate when the config embeds sidecar JSX.
+ */
+async function findConfigFile(
+  cwd: string,
+): Promise<{ path: string; filename: "flowpanel.config.ts" | "flowpanel.config.tsx" }> {
+  for (const fname of ["flowpanel.config.ts", "flowpanel.config.tsx"] as const) {
+    const full = path.join(cwd, fname);
+    if (await fileExists(full)) return { path: full, filename: fname };
+  }
+  // Fall through to .ts so the caller's fs.readFile surfaces a helpful ENOENT.
+  return { path: path.join(cwd, "flowpanel.config.ts"), filename: "flowpanel.config.ts" };
+}
 
 export type EjectTarget = "resource" | "dashboard" | "layout";
 
@@ -26,7 +42,7 @@ export interface RunEjectOptions {
 }
 
 export async function runEject(opts: RunEjectOptions): Promise<void> {
-  const cfgPath = path.join(opts.cwd, "flowpanel.config.ts");
+  const cfg = await findConfigFile(opts.cwd);
 
   if (opts.target === "resource") {
     if (!opts.name) {
@@ -38,9 +54,9 @@ export async function runEject(opts: RunEjectOptions): Promise<void> {
       version: opts.version,
       ...(opts.force ? { force: true } : {}),
     });
-    const cfg = await fs.readFile(cfgPath, "utf8");
-    const updated = editConfigToCommentResource(cfg, opts.name);
-    await fs.writeFile(cfgPath, updated, "utf8");
+    const source = await fs.readFile(cfg.path, "utf8");
+    const updated = editConfigToCommentResource(source, opts.name, cfg.filename);
+    await fs.writeFile(cfg.path, updated, "utf8");
     return;
   }
 
@@ -56,9 +72,9 @@ export async function runEject(opts: RunEjectOptions): Promise<void> {
       version: opts.version,
       ...(opts.force ? { force: true } : {}),
     });
-    const cfg = await fs.readFile(cfgPath, "utf8");
-    const updated = editConfigToCommentDashboard(cfg, opts.name);
-    await fs.writeFile(cfgPath, updated, "utf8");
+    const source = await fs.readFile(cfg.path, "utf8");
+    const updated = editConfigToCommentDashboard(source, opts.name, cfg.filename);
+    await fs.writeFile(cfg.path, updated, "utf8");
     return;
   }
 

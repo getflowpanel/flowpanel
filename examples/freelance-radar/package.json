@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
+    "demo:reset": "tsx scripts/reset-demo.ts",
     "docker:up": "docker compose up -d --wait",
     "docker:down": "docker compose down",
     "flowpanel:board": "tsx scripts/board-server.ts"

@@ -22,6 +22,10 @@ export const siteConfig = {
     github: "https://github.com/Ch4m4/flowpanel",
     issues: "https://github.com/Ch4m4/flowpanel/issues",
     discussions: "https://github.com/Ch4m4/flowpanel/discussions",
+    // Public read-only instance of `examples/freelance-radar`. DNS lands
+    // here once the deployment is up. Until then the link 404s — owner
+    // is aware. See examples/freelance-radar/README.md.
+    demo: "https://demo.flowpanel.dev",
   },
 
   nav: {

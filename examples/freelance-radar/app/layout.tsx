@@ -13,9 +13,29 @@ export const metadata: Metadata = {
  * matching `shell: "tabs"` setting.
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const demoMode = process.env.DEMO_MODE === "true";
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-fp-bg-2 text-fp-text-1 antialiased">
+        {demoMode ? (
+          <div
+            role="status"
+            className="border-b border-fp-border-1 bg-fp-accent/10 px-6 py-2 text-center text-xs text-fp-text-1"
+          >
+            <span aria-hidden className="mr-1">
+              🧪
+            </span>
+            Public demo — data resets every hour. Actions are read-only.{" "}
+            <a
+              href="https://github.com/Ch4m4/flowpanel"
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-fp-accent"
+            >
+              View source on GitHub →
+            </a>
+          </div>
+        ) : null}
         <header className="border-b border-fp-border-1 bg-fp-bg-1">
           <div className="mx-auto flex h-12 max-w-7xl items-center gap-3 px-6">
             <span className="text-sm font-semibold text-fp-text-1">Acme&nbsp;Co</span>
@@ -24,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </span>
             <span className="text-sm text-fp-text-2">FreelanceRadar</span>
             <span className="ml-auto rounded-full border border-fp-border-1 px-2 py-0.5 text-xs text-fp-text-3">
-              Production
+              {demoMode ? "Demo" : "Production"}
             </span>
           </div>
         </header>

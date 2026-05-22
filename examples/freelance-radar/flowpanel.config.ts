@@ -15,6 +15,27 @@ declare module "@flowpanel/core" {
   }
 }
 
+/**
+ * DEMO_MODE — when `process.env.DEMO_MODE === "true"`, every write path is
+ * neutralized so a public instance survives Reddit traffic without vandalism.
+ * - Row actions get a `disabled` tooltip ("Read-only in public demo").
+ * - `create` / `update` / `delete` (incl. softDelete) are flagged `disabled`.
+ * - A banner in `app/layout.tsx` tells visitors what they're looking at.
+ * Data is restored periodically by `scripts/reset-demo.ts`.
+ */
+const DEMO_MODE = process.env.DEMO_MODE === "true";
+const demoLock = DEMO_MODE ? "Read-only — public demo" : false;
+const demoWriteOptions = DEMO_MODE
+  ? ({
+      create: { disabled: true },
+      update: { disabled: true },
+      delete: { disabled: true },
+    } as const)
+  : ({} as const);
+const userDeleteOptions = DEMO_MODE
+  ? ({ disabled: true } as const)
+  : ({ softDelete: "deletedAt" } as const);
+
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
   realtime: { driver: "memory" },
@@ -76,7 +97,8 @@ export default defineAdmin({
       ],
       defaultSort: { field: "createdAt", dir: "desc" },
       rowClick: "drawer",
-      delete: { softDelete: "deletedAt" },
+      delete: userDeleteOptions,
+      ...(DEMO_MODE ? { create: { disabled: true }, update: { disabled: true } } : {}),
       export: {
         formats: ["csv", "json"],
         fields: ["id", "email", "plan", "status", "createdAt"],
@@ -91,7 +113,11 @@ export default defineAdmin({
             label: "Disable user",
             variant: "destructive",
             confirm: "Disable this user? They'll lose access immediately.",
+            ...(demoLock ? { disabled: () => demoLock } : {}),
             run: async (row, _input, ctx) => {
+              if (DEMO_MODE) {
+                return { ok: false, error: "Demo mode — actions are disabled" };
+              }
               const u = row as { id: number; email?: string };
               await ctx.db
                 .update(schema.users)
@@ -111,6 +137,7 @@ export default defineAdmin({
       label: "Categories",
       columns: ["name", "slug", "parentId", "createdAt"],
       search: ["name", "slug"],
+      ...demoWriteOptions,
     }),
     resource(schema.jobs, {
       label: "Jobs",
@@ -133,6 +160,7 @@ export default defineAdmin({
         { field: "postedAt", type: "daterange", label: "Posted" },
       ],
       defaultSort: { field: "postedAt", dir: "desc" },
+      ...demoWriteOptions,
       export: {
         formats: ["csv"],
         fields: ["id", "title", "platform", "priceUsd", "postedAt"],
@@ -156,6 +184,7 @@ export default defineAdmin({
         { field: "amountRub", type: "numeric-range", label: "Amount (Rub)" },
       ],
       defaultSort: { field: "createdAt", dir: "desc" },
+      ...demoWriteOptions,
     }),
   ],
   queues: [

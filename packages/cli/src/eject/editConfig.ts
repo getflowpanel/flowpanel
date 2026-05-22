@@ -9,15 +9,23 @@ import { Node, Project } from "ts-morph";
  *
  * Adds a top-level `// ejected: app/admin/<name>` marker on a new line.
  *
+ * `filename` lets the caller pin the in-memory source extension — pass
+ * `flowpanel.config.tsx` when the host's config uses sidecar JSX, so ts-morph
+ * parses JSX literals correctly.
+ *
  * Throws if no matching call is found — the user passed a resource that
  * doesn't exist in this config.
  */
-export function editConfigToCommentResource(source: string, resourceName: string): string {
+export function editConfigToCommentResource(
+  source: string,
+  resourceName: string,
+  filename = "flowpanel.config.ts",
+): string {
   const project = new Project({
     useInMemoryFileSystem: true,
     compilerOptions: { allowJs: true, jsx: 4 /* Preserve */ },
   });
-  const sf = project.createSourceFile("flowpanel.config.ts", source);
+  const sf = project.createSourceFile(filename, source);
 
   let removed = false;
   sf.forEachDescendant((node) => {
@@ -65,14 +73,21 @@ export function editConfigToCommentResource(source: string, resourceName: string
  * Remove the `dashboard({ path: "<dashboardPath>", … })` call from a config.
  * Adds a top-level `// ejected: app/admin<dashboardPath>` marker comment.
  *
+ * `filename` lets the caller pin the in-memory source extension — pass
+ * `flowpanel.config.tsx` when the host's config uses sidecar JSX.
+ *
  * Throws if no matching call is found.
  */
-export function editConfigToCommentDashboard(source: string, dashboardPath: string): string {
+export function editConfigToCommentDashboard(
+  source: string,
+  dashboardPath: string,
+  filename = "flowpanel.config.ts",
+): string {
   const project = new Project({
     useInMemoryFileSystem: true,
     compilerOptions: { allowJs: true, jsx: 4 /* Preserve */ },
   });
-  const sf = project.createSourceFile("flowpanel.config.ts", source);
+  const sf = project.createSourceFile(filename, source);
 
   let removed = false;
   sf.forEachDescendant((node) => {

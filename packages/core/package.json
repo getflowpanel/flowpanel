@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/core",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Core logic for FlowPanel — types, defineAdmin, runtime helpers",
   "keywords": [
     "flowpanel",

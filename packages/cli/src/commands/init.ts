@@ -4,6 +4,7 @@ import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
 import {
+  detectAppDir,
   detectAuth,
   detectDbClient,
   detectPathAlias,
@@ -175,6 +176,12 @@ export function initCommand(cli: Command): void {
       // (`@/*` → `./*`) and `none` we put it at the project root.
       const cssRel = aliasMode === "strip-src" ? "src/styles/admin.css" : "styles/admin.css";
 
+      // Detect whether this project uses `app/` (repo root) or `src/app/`
+      // for its App Router root. Scaffold the admin page + API routes
+      // beneath whichever one is in use so the user doesn't have to move
+      // them after init.
+      const appDir = await detectAppDir(cwd);
+
       const files: Record<string, string> = {
         "flowpanel.config.ts": await tpl(configTemplate, {
           DB: db,
@@ -182,9 +189,9 @@ export function initCommand(cli: Command): void {
           AUTH: auth,
           APP_NAME: appName,
         }),
-        "app/admin/[[...slug]]/page.tsx": await tpl("admin-page.tsx.txt"),
-        "app/api/flowpanel/[...route]/route.ts": await tpl("api-route.ts.txt"),
-        "app/api/flowpanel/stream/route.ts": await tpl("sse-route.ts.txt"),
+        [`${appDir}/admin/[[...slug]]/page.tsx`]: await tpl("admin-page.tsx.txt"),
+        [`${appDir}/api/flowpanel/[...route]/route.ts`]: await tpl("api-route.ts.txt"),
+        [`${appDir}/api/flowpanel/stream/route.ts`]: await tpl("sse-route.ts.txt"),
         [cssRel]: await tpl(adminCssTemplate),
         "flowpanel/migrations/0001_init.sql": await tpl("migration.sql.txt"),
       };
@@ -207,7 +214,7 @@ export function initCommand(cli: Command): void {
       let layoutNote: "scaffolded" | "patched" | "kept" | "kept-has-css" = "scaffolded";
 
       if (!existingLayout) {
-        files["app/layout.tsx"] = await tpl("app-layout.tsx.txt", {
+        files[`${appDir}/layout.tsx`] = await tpl("app-layout.tsx.txt", {
           APP_NAME: appName,
           CSS_IMPORT: cssImportSpec,
         });
@@ -269,7 +276,9 @@ export function initCommand(cli: Command): void {
         "Next:",
         `  ${pc.cyan("pnpm flowpanel migrate")}  ${pc.dim("— create audit + tracking tables")}`,
         `  ${pc.cyan("pnpm dev")}               ${pc.dim("— start Next.js")}`,
-        `  Open ${pc.cyan("http://localhost:3000/admin")}`,
+        `  Open ${pc.cyan("http://localhost:3000/admin")}  ${pc.dim(
+          `— scaffolded under ${appDir}/`,
+        )}`,
       ];
       if (layoutNote === "kept-has-css") {
         outroLines.push(

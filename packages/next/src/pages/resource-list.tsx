@@ -15,7 +15,7 @@ import {
   ResourceListFilters,
   ResourceListSearch,
 } from "@flowpanel/next/client";
-import { Button, DataTable, type DataTableColumn, PageHeader } from "@flowpanel/react";
+import { Button, DataTable, type DataTableColumn, humanize, PageHeader } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { resourceNavName } from "../runtime/nav.js";
 import { parseListParams, resolveFilterSpecs } from "../runtime/parse-list-params.js";
@@ -113,11 +113,12 @@ export async function ResourceListPage({
 
   const rowKey = (resource.options.rowKey as string | undefined) ?? "id";
   const useDrawerRowClick = resource.options.rowClick === "drawer" && !!resource.options.drawer;
+  const displayPlural = resource.options.plural ?? resource.options.label ?? humanize(name);
 
   return (
     <>
       <PageHeader
-        title={resource.options.plural ?? resource.options.label ?? name}
+        title={displayPlural}
         {...(resource.options.create?.disabled
           ? {}
           : {
@@ -129,7 +130,7 @@ export async function ResourceListPage({
             })}
       />
       {resource.options.search && resource.options.search.length > 0 ? (
-        <ResourceListSearch placeholder={`Search ${name}…`} />
+        <ResourceListSearch placeholder={`Search ${displayPlural}…`} />
       ) : null}
       <ResourceListFilters filters={filterSpecs} />
       {useDrawerRowClick ? (
@@ -143,7 +144,7 @@ export async function ResourceListPage({
           rowKey={rowKey as keyof Row & string}
           {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
           {...(prerenderedCells ? { prerenderedCells } : {})}
-          emptyTitle={`No ${resource.options.plural ?? name}`}
+          emptyTitle={`No ${displayPlural}`}
         />
       ) : (
         <DataTableWithDrawerRows
@@ -155,7 +156,7 @@ export async function ResourceListPage({
           rowKey={rowKey as keyof Row & string}
           {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
           {...(prerenderedCells ? { prerenderedCells } : {})}
-          emptyTitle={`No ${resource.options.plural ?? name}`}
+          emptyTitle={`No ${displayPlural}`}
         />
       )}
     </>

@@ -280,10 +280,12 @@ function ActionButton({
   action,
   resource,
   id,
+  onActionSuccess,
 }: {
   action: SerializedDrawerAction;
   resource: string;
   id: string;
+  onActionSuccess: () => void;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -312,7 +314,10 @@ function ActionButton({
       if (result.redirect) {
         router.push(result.redirect);
       } else if (result.refresh !== false) {
+        // Invalidate the parent table (RSC) AND re-fetch the drawer's own
+        // GET so its body stops showing pre-action values.
         router.refresh();
+        onActionSuccess();
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Action failed");
@@ -363,6 +368,10 @@ export function DrawerHost() {
   const [payload, setPayload] = useState<DrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Bumped after each `refresh: true` action so the effect below re-runs
+  // and re-fetches the drawer's GET payload — otherwise the drawer body
+  // keeps displaying pre-action values until the user closes + reopens.
+  const [reloadKey, setReloadKey] = useState(0);
 
   const { resource, id } = state;
   const open = Boolean(resource && id);
@@ -398,7 +407,7 @@ export function DrawerHost() {
         setLoading(false);
       });
     return () => ctrl.abort();
-  }, [resource, id]);
+  }, [resource, id, reloadKey]);
 
   const width = payload?.width ?? "lg";
   const title = payload?.header ?? "";
@@ -434,7 +443,13 @@ export function DrawerHost() {
       {payload && payload.actions.length > 0 && resource && id ? (
         <DrawerFooter>
           {payload.actions.map((a) => (
-            <ActionButton key={a.key} action={a} resource={resource} id={id} />
+            <ActionButton
+              key={a.key}
+              action={a}
+              resource={resource}
+              id={id}
+              onActionSuccess={() => setReloadKey((k) => k + 1)}
+            />
           ))}
         </DrawerFooter>
       ) : null}

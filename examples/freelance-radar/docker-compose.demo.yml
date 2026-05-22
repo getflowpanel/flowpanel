@@ -1,0 +1,45 @@
+# Full demo dress rehearsal: app + Postgres in one network.
+# Usage:
+#   docker compose -f docker-compose.demo.yml up --build
+# Then open http://localhost:3000/admin.
+#
+# Caddy/Traefik labels are commented hints; uncomment when you front
+# this stack with a reverse proxy on a real host.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fp
+      POSTGRES_PASSWORD: fp
+      POSTGRES_DB: freelance_radar
+    volumes:
+      - freelance_radar_demo_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fp -d freelance_radar"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://fp:fp@postgres:5432/freelance_radar
+      DEMO_MODE: "true"
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    # labels:
+    #   caddy: demo.flowpanel.dev
+    #   caddy.reverse_proxy: "{{upstreams 3000}}"
+    #   traefik.enable: "true"
+    #   traefik.http.routers.demo.rule: "Host(`demo.flowpanel.dev`)"
+    #   traefik.http.services.demo.loadbalancer.server.port: "3000"
+
+volumes:
+  freelance_radar_demo_data:

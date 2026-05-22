@@ -166,3 +166,18 @@ export async function detectAuth(cwd: string, mode?: PathAliasMode): Promise<str
     mode ?? (await detectPathAlias(cwd)),
   );
 }
+
+/**
+ * Where the Next.js App Router root lives in this project.
+ * - `"app"` — `app/` at the repo root (default Next.js scaffold).
+ * - `"src/app"` — `src/app/` (also officially supported by Next.js).
+ *
+ * Resolution order: if `app/` exists at the root → `"app"`. Otherwise, if
+ * `src/app/` exists → `"src/app"`. Otherwise `"app"` (so a fresh project gets
+ * the standard scaffold).
+ */
+export async function detectAppDir(cwd: string): Promise<"app" | "src/app"> {
+  if (await fileExists(path.join(cwd, "app"))) return "app";
+  if (await fileExists(path.join(cwd, "src", "app"))) return "src/app";
+  return "app";
+}

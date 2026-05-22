@@ -1,5 +1,5 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import type { NavGroup } from "@flowpanel/react";
+import { humanize, type NavGroup } from "@flowpanel/react";
 
 /**
  * Extract the URL slug for a resource. Resolution order:
@@ -39,7 +39,7 @@ export function buildNav(config: ResolvedAdminConfig): NavGroup[] {
     .map((r: ResourceConfig) => {
       const name = resourceNavName(r);
       return {
-        label: r.options.plural ?? r.options.label ?? name,
+        label: r.options.plural ?? r.options.label ?? humanize(name),
         href: `/admin/${name}`,
       };
     });
