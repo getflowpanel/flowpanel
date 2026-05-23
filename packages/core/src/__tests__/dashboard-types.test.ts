@@ -4,9 +4,11 @@ import type {
   CommandGroup,
   CommandPaletteConfig,
   CustomWidget,
+  DashboardAction,
   DashboardConfig,
   DrawerConfig,
   DrawerTab,
+  FieldDef,
   MetricWidget,
   ResolvedDateRange,
   SectionConfig,
@@ -64,6 +66,24 @@ describe("M2 public types", () => {
   it("CommandPaletteConfig has optional groups", () => {
     expectTypeOf<CommandPaletteConfig>().toHaveProperty("groups");
     expectTypeOf<CommandGroup>().toHaveProperty("label").toEqualTypeOf<string>();
+  });
+
+  it("DashboardAction.form accepts literal field names without collapsing to never", () => {
+    // Regression: when `form` was `FieldDef<unknown>[]`, `FieldDef.name`'s
+    // `keyof Row & string` constraint with `Row = unknown` collapsed to
+    // `never`, making any literal `name` unassignable. Widening the row to
+    // `Record<string, unknown>` restores `name: string`, so consumers can
+    // supply arbitrary literal field names for the action form schema.
+    const action: DashboardAction = {
+      key: "trigger",
+      label: "Trigger",
+      form: [
+        { name: "queue", type: "select", options: [{ label: "Hot", value: "hot" }] },
+        { name: "force", type: "boolean" },
+      ],
+      run: async () => ({ ok: true }),
+    };
+    expectTypeOf(action.form).toEqualTypeOf<FieldDef<Record<string, unknown>>[] | undefined>();
   });
 
   it("DrawerConfig supports tabs with widgets OR resource OR fields", () => {

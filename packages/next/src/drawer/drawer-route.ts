@@ -1,3 +1,6 @@
+// LOC-OK: GET drawer payload + POST drawer action share the same DrawerRouteCtx
+// shape and serializeAction helper; splitting forces cross-file coupling that
+// reads worse than the 320-line dual-handler module.
 import type {
   ActionResult,
   DrawerAction,
@@ -8,11 +11,14 @@ import type {
   ResolvedAdminConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
+import { checkRequireRole, runWithRequestContext } from "@flowpanel/core";
+import { buildAuditEvent, guardResourceAccess, maybeEmitAudit } from "../runtime/action-helpers.js";
 import { applyActionResult } from "../runtime/apply-action-result.js";
+import { buildHref } from "../runtime/href.js";
 import { bindPublisher, publish } from "../runtime/publish.js";
-import { requireAuthorized } from "../runtime/require-authorized.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
+import { requireAuthorized } from "../runtime/require-authorized.js";
+import { scopeBinding } from "../runtime/scope-binding.js";
 import { parseActionBody } from "./parse-action-body.js";
 import { type SerializedWidget, serializeWidget } from "./serialize-widget.js";
 
@@ -106,6 +112,21 @@ async function serializeTab(
       columns: [],
     };
   }
+  // Role-gate the related resource the same way its own list page would.
+  // The viewer lacking the role for the TARGET resource gets an empty tab
+  // rather than a leak (and the GET stays a clean 200 with no rows).
+  try {
+    checkRequireRole(target.options.requireRole, reqCtx.role, reqCtx.session);
+  } catch {
+    return {
+      kind: "resource",
+      key: tab.key,
+      label: tab.label,
+      resource: tab.resource,
+      rows: [],
+      columns: [],
+    };
+  }
   const filter = typeof tab.filter === "function" ? tab.filter(row) : {};
   const softDelete = target.options.delete?.softDelete;
   const listCtx: ListQueryContext<unknown> = {
@@ -121,6 +142,7 @@ async function serializeTab(
     pageSize: 20,
     search: "",
     ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
+    ...scopeBinding(config, target, reqCtx),
   };
   const result = await runWithRequestContext(reqCtx, () =>
     config.adapter.list(target.ref, listCtx),
@@ -179,6 +201,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
       searchParams: new URLSearchParams(),
       signal: new AbortController().signal,
       id,
+      ...scopeBinding(config, resource, reqCtx),
     };
     const row = (await runWithRequestContext(reqCtx, () =>
       config.adapter.get(resource.ref, itemCtx),
@@ -238,12 +261,8 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
     }
 
     const reqCtx = await buildRequestContext({ req, config });
-    try {
-      requireAuthorized(config, resource, reqCtx);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "forbidden";
-      return Response.json({ ok: false, error: msg }, { status: 403 });
-    }
+    const resourceGuard = guardResourceAccess(config, resource, reqCtx);
+    if (resourceGuard) return resourceGuard;
 
     const itemCtx: ItemQueryContext = {
       ...reqCtx,
@@ -252,6 +271,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
       searchParams: new URLSearchParams(),
       signal: new AbortController().signal,
       id,
+      ...scopeBinding(config, resource, reqCtx),
     };
     const row = (await runWithRequestContext(reqCtx, () =>
       config.adapter.get(resource.ref, itemCtx),
@@ -274,10 +294,25 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
       const result = (await runWithRequestContext(reqCtx, () =>
         action.run(row, input, actionCtx),
       )) as ActionResult;
+
+      // Auto-emit audit on success. Mirrors `rowActionRoute` so drawer
+      // actions don't silently skip the audit trail when row actions emit.
+      // `resource.options.audit === false` opts out per-resource.
+      await maybeEmitAudit(
+        result,
+        config.audit,
+        resource.options.audit,
+        buildAuditEvent(reqCtx, {
+          action: `${resourceName}.drawer.${actionKey}`,
+          resource: resourceName,
+          targetId: id,
+        }),
+      );
+
       if (result.ok) {
         await applyActionResult(result, {
           resourceName,
-          pathname: `/admin/${resourceName}`,
+          pathname: buildHref(config, resourceName),
         });
       }
       return Response.json(result);

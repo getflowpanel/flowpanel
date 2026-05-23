@@ -23,6 +23,13 @@ export interface DrawerTabWidgets {
   widgets: WidgetConfig[];
 }
 
+// NOTE: a fourth `DrawerTabCustom` variant — drop-in user React component as
+// a drawer tab — is planned for 1.0.x but not shipped in 1.0.0 because the
+// RSC-boundary component-reference plumbing deserves a focused round (see
+// `docs/spec/1.x-roadmap-to-10-of-10.md` item 0.6). Until then, custom
+// per-row viewers (e.g. AI-log prompt/response side-by-side) can be wired
+// via `resource.options.detail.tabs[].render` on the detail page.
+
 export type DrawerTab = DrawerTabFields | DrawerTabResource | DrawerTabWidgets;
 
 export interface DrawerFieldFormSpec {

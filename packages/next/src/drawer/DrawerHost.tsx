@@ -1,4 +1,6 @@
 "use client";
+// LOC-OK: drawer shell — fields / resource / widgets / statgroup tab views plus
+// open/close + action state in one cohesive host; splitting scatters that state.
 import {
   ConfirmDialog,
   Drawer,
@@ -10,6 +12,7 @@ import {
   KVRow,
   MetricCard,
   type NumericFormat,
+  RealtimeRefresh,
   Tabs,
   TabsContent,
   TabsList,
@@ -20,29 +23,9 @@ import {
   useToast,
 } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { formatFieldValue } from "../runtime/format-field-value.js";
 import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route.js";
-
-const dateFmt = new Intl.DateTimeFormat("en-CA", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
-const formatDate = (d: Date) => dateFmt.format(d).replace(",", "");
-
-function formatValue(v: unknown): string {
-  if (v === null || v === undefined) return "—";
-  if (v instanceof Date) return formatDate(v);
-  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
-    const d = new Date(v);
-    if (!isNaN(d.getTime())) return formatDate(d);
-  }
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-}
 
 function resolveFieldEntries(
   row: Record<string, unknown>,
@@ -57,7 +40,7 @@ function FieldsView({ row, fields }: { row: Record<string, unknown>; fields: "*"
   return (
     <KV>
       {entries.map(([k, v]) => (
-        <KVRow key={k} label={humanize(k)} value={formatValue(v)} />
+        <KVRow key={k} label={humanize(k)} value={formatFieldValue(v)} />
       ))}
     </KV>
   );
@@ -89,7 +72,7 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
             >
               {cols.map((c) => (
                 <td key={c} className="px-4 py-2">
-                  {formatValue(r[c])}
+                  {formatFieldValue(r[c])}
                 </td>
               ))}
             </tr>
@@ -107,26 +90,28 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {tab.widgets.map((w, i) => {
-        // biome-ignore lint/suspicious/noArrayIndexKey: stable order in server-resolved payload
         const key = i;
         if (w.kind === "metric") {
           return (
-            <MetricCard
-              key={key}
-              label={w.label}
-              value={w.value}
-              {...(w.format ? { format: w.format as NumericFormat } : {})}
-              {...(w.sublabel ? { sublabel: w.sublabel } : {})}
-              {...(w.tone ? { tone: w.tone as Tone } : {})}
-            />
+            <Fragment key={key}>
+              <MetricCard
+                label={w.label}
+                value={w.value}
+                {...(w.format ? { format: w.format as NumericFormat } : {})}
+                {...(w.sublabel ? { sublabel: w.sublabel } : {})}
+                {...(w.tone ? { tone: w.tone as Tone } : {})}
+              />
+              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
+            </Fragment>
           );
         }
         if (w.kind === "table") {
           if (w.rows.length === 0) {
             return (
-              <div key={key} className="py-6 text-sm text-fp-text-3 md:col-span-2">
-                No data.
-              </div>
+              <Fragment key={key}>
+                <div className="py-6 text-sm text-fp-text-3 md:col-span-2">No data.</div>
+                {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
+              </Fragment>
             );
           }
           const cols: { field: string; label?: string }[] =
@@ -134,80 +119,80 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
               ? w.columns
               : Object.keys(w.rows[0] ?? {}).map((f) => ({ field: f }));
           return (
-            <div
-              key={key}
-              className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1 md:col-span-2"
-            >
-              {w.label ? (
-                <div className="border-b border-fp-border-1 bg-fp-bg-2 px-4 py-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
-                  {w.label}
-                </div>
-              ) : null}
-              <table className="w-full text-sm">
-                <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
-                  <tr>
-                    {cols.map((c) => (
-                      <th key={c.field} scope="col" className="px-4 py-2 text-left font-medium">
-                        {c.label ?? humanize(c.field)}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {w.rows.map((r, idx) => (
-                    <tr
-                      // biome-ignore lint/suspicious/noArrayIndexKey: server-resolved list without stable id
-                      key={idx}
-                      className="border-t border-fp-border-1 text-fp-text-1"
-                    >
+            <Fragment key={key}>
+              <div className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1 md:col-span-2">
+                {w.label ? (
+                  <div className="border-b border-fp-border-1 bg-fp-bg-2 px-4 py-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
+                    {w.label}
+                  </div>
+                ) : null}
+                <table className="w-full text-sm">
+                  <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
+                    <tr>
                       {cols.map((c) => (
-                        <td key={c.field} className="px-4 py-2">
-                          {formatValue(r[c.field])}
-                        </td>
+                        <th key={c.field} scope="col" className="px-4 py-2 text-left font-medium">
+                          {c.label ?? humanize(c.field)}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {w.rows.map((r, idx) => (
+                      <tr
+                        // biome-ignore lint/suspicious/noArrayIndexKey: server-resolved list without stable id
+                        key={idx}
+                        className="border-t border-fp-border-1 text-fp-text-1"
+                      >
+                        {cols.map((c) => (
+                          <td key={c.field} className="px-4 py-2">
+                            {formatFieldValue(r[c.field])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
+            </Fragment>
           );
         }
         if (w.kind === "statGroup") {
           return (
-            <div
-              key={key}
-              className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 md:col-span-2"
-            >
-              {w.label ? (
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
-                  {w.label}
-                </div>
-              ) : null}
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {w.stats.map((s, j) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: stable order inside widget
-                  <div key={j}>
-                    <div className="text-xs text-fp-text-3">{s.label}</div>
-                    <div className="text-lg font-semibold text-fp-text-1 tabular-nums">
-                      {formatValue(s.value)}
-                    </div>
+            <Fragment key={key}>
+              <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 md:col-span-2">
+                {w.label ? (
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
+                    {w.label}
                   </div>
-                ))}
+                ) : null}
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  {w.stats.map((s, j) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: stable order inside widget
+                    <div key={j}>
+                      <div className="text-xs text-fp-text-3">{s.label}</div>
+                      <div className="text-lg font-semibold text-fp-text-1 tabular-nums">
+                        {formatFieldValue(s.value)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
+            </Fragment>
           );
         }
         if (w.kind === "chart") {
           return (
-            <div
-              key={key}
-              className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2"
-            >
-              <div className="font-medium text-fp-text-2">{w.label}</div>
-              <div className="mt-1 text-xs">
-                Chart visualization lives on dashboards. Data points: {w.dataPoints}.
+            <Fragment key={key}>
+              <div className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2">
+                <div className="font-medium text-fp-text-2">{w.label}</div>
+                <div className="mt-1 text-xs">
+                  Chart visualization lives on dashboards. Data points: {w.dataPoints}.
+                </div>
               </div>
-            </div>
+              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
+            </Fragment>
           );
         }
         // unsupported
@@ -376,6 +361,7 @@ export function DrawerHost() {
   const { resource, id } = state;
   const open = Boolean(resource && id);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey intentionally forces re-fetch on reload
   useEffect(() => {
     if (!resource || !id) {
       setPayload(null);
