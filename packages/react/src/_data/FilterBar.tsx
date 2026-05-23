@@ -30,7 +30,7 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
   return (
     <div
       className={`flex flex-wrap items-end gap-3 ${className ?? ""}`}
-      role="group"
+      role="toolbar"
       aria-label="Filters"
     >
       {filters.map((f) => {
@@ -57,6 +57,8 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
             return <BooleanFilter key={f.field} {...common} />;
           case "tag":
             return <TagFilter key={f.field} {...common} />;
+          default:
+            return null;
         }
       })}
       {hasAny && onClear ? (

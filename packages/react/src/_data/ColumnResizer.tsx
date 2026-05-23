@@ -38,15 +38,31 @@ export function ColumnResizer({ onResize, onResizeEnd, className }: ColumnResize
     onResizeEnd();
   };
 
+  // Keyboard resize: nudge the column width with the arrow keys. Each keydown
+  // commits immediately (onResize then onResizeEnd) so successive presses
+  // accumulate against the freshly-committed width rather than a stale base.
+  const KEY_STEP_PX = 8;
+  const onKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    e.stopPropagation();
+    onResize(e.key === "ArrowLeft" ? -KEY_STEP_PX : KEY_STEP_PX);
+    onResizeEnd();
+  };
+
   return (
+    // biome-ignore lint/a11y/useSemanticElements: focusable draggable resize handle inside a <th>; <hr> cannot carry pointer-drag behavior and the role="separator" lookup is relied on by callers and tests.
     <span
+      // biome-ignore lint/a11y/useAriaPropsForRole: a discrete resize nudge handle, not a min/max-bounded splitter — no numeric aria-valuenow is tracked, so aria-orientation alone describes it.
       role="separator"
       aria-orientation="vertical"
       aria-label="Resize column"
+      tabIndex={0}
       className={`absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none select-none bg-transparent transition-colors hover:bg-fp-accent/30 ${className ?? ""}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onKeyDown={onKeyDown}
       onClick={(e) => e.stopPropagation()}
     />
   );
