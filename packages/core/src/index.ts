@@ -20,6 +20,7 @@ export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope.js";
 export type {
   ActionResult,
   BulkAction,
+  DashboardAction,
   RowAction,
 } from "./types/action.js";
 export type {
@@ -27,9 +28,6 @@ export type {
   ColumnMeta,
   ResourceIntrospection,
 } from "./types/adapter.js";
-export type { QueueConfig, QueueOptions } from "./types/queue.js";
-export type { RealtimeConfig } from "./types/realtime.js";
-export type { FlowpanelTypes, InferDB, InferRow } from "./types/registry.js";
 export type {
   CommandGroup,
   CommandItem,
@@ -47,13 +45,6 @@ export type {
   ShellMode,
   ThemeConfig,
 } from "./types/config.js";
-export {
-  DEFAULT_LABELS,
-  formatLabel,
-  mergeLabels,
-  type LabelsConfig,
-  type ResolvedLabels,
-} from "./types/labels.js";
 export type {
   ActionContext,
   ItemQueryContext,
@@ -69,6 +60,7 @@ export type {
   PageConfig,
   ResolvedDateRange,
   SectionConfig,
+  UrlParamSpec,
 } from "./types/dashboard.js";
 export type {
   DrawerAction,
@@ -89,6 +81,16 @@ export {
   FlowpanelRateLimitError,
   FlowpanelValidationError,
 } from "./types/error.js";
+export {
+  DEFAULT_LABELS,
+  formatLabel,
+  type LabelsConfig,
+  mergeLabels,
+  type ResolvedLabels,
+} from "./types/labels.js";
+export type { QueueConfig, QueueOptions } from "./types/queue.js";
+export type { RealtimeConfig } from "./types/realtime.js";
+export type { FlowpanelTypes, InferDB, InferRow } from "./types/registry.js";
 export type {
   ColumnDef,
   DetailTab,

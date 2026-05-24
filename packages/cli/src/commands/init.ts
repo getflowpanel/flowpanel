@@ -1,3 +1,5 @@
+// LOC-OK: init command — one cohesive scaffolding flow (detect adapter, write
+// config + route + layout, print next steps); splitting fragments the wizard.
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as p from "@clack/prompts";
@@ -212,6 +214,7 @@ export function initCommand(cli: Command): void {
       // no alias we emit a relative path from `app/layout.tsx`.
       const cssImportSpec = aliasMode === "none" ? "../styles/admin.css" : "@/styles/admin.css";
       let layoutNote: "scaffolded" | "patched" | "kept" | "kept-has-css" = "scaffolded";
+      let keptLayoutPath = "";
 
       if (!existingLayout) {
         files[`${appDir}/layout.tsx`] = await tpl("app-layout.tsx.txt", {
@@ -267,6 +270,7 @@ export function initCommand(cli: Command): void {
           layoutNote = "kept";
         } else {
           layoutNote = "kept-has-css";
+          keptLayoutPath = existingLayout;
         }
       }
 
@@ -283,7 +287,7 @@ export function initCommand(cli: Command): void {
       if (layoutNote === "kept-has-css") {
         outroLines.push(
           "",
-          `  ${pc.yellow("!")} Your ${pc.cyan(existingLayout!)} already imports a CSS bundle.`,
+          `  ${pc.yellow("!")} Your ${pc.cyan(keptLayoutPath)} already imports a CSS bundle.`,
           `    Add ${pc.cyan(`import "${cssImportSpec}";`)} to it (or import the FlowPanel`,
           `    stylesheet from your existing global CSS file) so the admin renders styled.`,
         );

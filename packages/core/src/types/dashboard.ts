@@ -1,8 +1,33 @@
 import type { ComponentType } from "react";
+import type { z } from "zod";
 import type { DashboardAction } from "./action.js";
+import type { Session } from "./session.js";
 import type { WidgetConfig } from "./widget.js";
 
 export type DateRangePreset = "today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD";
+
+/**
+ * Declaration of a single URL search param a dashboard reads. Pairs a Zod
+ * schema (validating the *raw string* value from the query string) with a
+ * fallback applied when the param is absent or fails validation.
+ *
+ * The schema MUST accept a string input — use `z.coerce.number()`,
+ * `z.enum([...])`, etc. The client hook `useDashboardParam` and any
+ * server-side param parsing both validate against this schema, so a single
+ * declaration drives both ends.
+ *
+ * @example
+ * urlParams: {
+ *   range: { schema: z.enum(["24h", "7d", "30d"]), default: "24h" },
+ *   page:  { schema: z.coerce.number().int().min(1), default: 1 },
+ * }
+ */
+export interface UrlParamSpec<T = unknown> {
+  /** Zod schema validating the raw string value pulled from the query string. */
+  schema: z.ZodType<T>;
+  /** Value used when the param is missing or fails validation. */
+  default: T;
+}
 
 export interface DateRangeConfig {
   preset?: DateRangePreset;
@@ -44,6 +69,22 @@ export interface DashboardConfig {
    * mounted; only the header bar is suppressed.
    */
   hideActionsBar?: boolean;
+  /**
+   * Declared URL search params this dashboard reads, keyed by param name.
+   * Optional: a dashboard that doesn't declare any still works (widgets
+   * read `req.url` directly). Declaring them unlocks type-safe
+   * `useDashboardParam(key, schema, fallback)` on the client — the schema
+   * and fallback live in one place instead of being re-typed at each call
+   * site. See `UrlParamSpec`.
+   */
+  urlParams?: Record<string, UrlParamSpec>;
+  /**
+   * Restrict access to this dashboard. Enforced (via `checkRequireRole`)
+   * before the dashboard renders. Mirrors `ResourceConfig`/`QueueConfig`:
+   * a single role, a list (any match passes), or a predicate over the
+   * session. Throws `FlowpanelAccessError` (→ 403) when the viewer fails.
+   */
+  requireRole?: string | string[] | ((session: Session | null) => boolean);
 }
 
 /**
@@ -70,4 +111,11 @@ export interface PageConfig {
   component?: ComponentType<Record<string, never>>;
   /** External href used when `component` is not provided. */
   href?: string;
+  /**
+   * Restrict access to this page. Enforced (via `checkRequireRole`) before
+   * the page renders. Mirrors `ResourceConfig`/`QueueConfig`: a single role,
+   * a list (any match passes), or a predicate over the session. Throws
+   * `FlowpanelAccessError` (→ 403) when the viewer fails.
+   */
+  requireRole?: string | string[] | ((session: Session | null) => boolean);
 }

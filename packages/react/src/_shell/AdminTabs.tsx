@@ -29,6 +29,7 @@ export function AdminTabs({
   const items = groups.flatMap((g) => g.items);
   const activeRef = useRef<HTMLAnchorElement | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentPath is the intentional trigger — the active tab is scrolled into view whenever the route changes.
   useEffect(() => {
     const el = activeRef.current;
     if (!el) return;
@@ -39,7 +40,7 @@ export function AdminTabs({
   }, [currentPath]);
 
   return (
-    <div role="navigation" aria-label="Admin" className="border-b border-fp-border-1 bg-fp-bg-1">
+    <nav aria-label="Admin" className="border-b border-fp-border-1 bg-fp-bg-1">
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-6">
         {brandName ? (
           <div className="flex-shrink-0 py-3 text-sm font-semibold text-fp-text-1">{brandName}</div>
@@ -68,6 +69,6 @@ export function AdminTabs({
           })}
         </ul>
       </div>
-    </div>
+    </nav>
   );
 }

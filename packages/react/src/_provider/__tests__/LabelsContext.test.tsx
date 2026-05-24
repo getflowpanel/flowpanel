@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
+import { DEFAULT_LABELS, formatLabel } from "@flowpanel/core";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { DEFAULT_LABELS, formatLabel } from "@flowpanel/core";
 import { LabelsProvider, useLabels } from "../LabelsContext.js";
 
 afterEach(() => cleanup());

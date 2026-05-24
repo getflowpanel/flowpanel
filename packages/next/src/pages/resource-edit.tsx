@@ -3,6 +3,7 @@ import { checkRequireRole, runWithRequestContext } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { makeFormAction } from "../actions/resource-actions.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
+import { scopeBinding } from "../runtime/scope-binding.js";
 import { NotFound } from "./not-found.js";
 import { pickSchema } from "./resource-create.js";
 
@@ -29,6 +30,7 @@ export async function ResourceEditPage({ config, resource, name, id, req }: Reso
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,
     id,
+    ...scopeBinding(config, resource, reqCtx),
   };
   const row = (await runWithRequestContext(reqCtx, () =>
     config.adapter.get(resource.ref, ctx),

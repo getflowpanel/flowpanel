@@ -5,19 +5,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check for `: any` in public index.ts files
+      - name: Check for `any` in public index.ts files
         run: |
           set -e
+          # Catch `: any` / `:any` type annotations and `as any` casts.
+          # \bany\b avoids matching identifiers like `anyOf` or `Company`.
+          pattern=':[[:space:]]*any\b|\bas[[:space:]]+any\b'
           found=0
           for idx in packages/*/src/index.ts; do
-            if grep -qn ": any" "$idx" 2>/dev/null; then
-              echo "❌ $idx contains \`: any\` in public exports"
-              grep -n ": any" "$idx"
+            if grep -qnE "$pattern" "$idx" 2>/dev/null; then
+              echo "❌ $idx contains \`any\` in public exports"
+              grep -nE "$pattern" "$idx"
               found=1
             fi
           done
           if [ "$found" = "1" ]; then exit 1; fi
-          echo "✔ No \`: any\` in public exports"
+          echo "✔ No \`any\` in public exports"
 
   no-inline-styles:
     runs-on: ubuntu-latest
@@ -25,9 +28,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check for style={{ in packages/react
         run: |
-          if grep -rqn "style={{" packages/react/src 2>/dev/null; then
+          # Catch both `style={{` and `style={ {` (whitespace before inner brace).
+          pattern='style=\{[[:space:]]*\{'
+          if grep -rqnE "$pattern" packages/react/src 2>/dev/null; then
             echo "❌ inline styles found — use Tailwind classes + design tokens"
-            grep -rn "style={{" packages/react/src
+            grep -rnE "$pattern" packages/react/src
             exit 1
           fi
           echo "✔ No inline styles found"
@@ -61,8 +66,12 @@ jobs:
 
   file-size-check:
     runs-on: ubuntu-latest
-    # TODO: flip to blocking after splitting DataTable.tsx, drawer-route.ts, DrawerHost.tsx
-    # (each currently exceeds the 250-line threshold).
+    # The script prints offenders + remediation but doesn't fail CI yet
+    # while we work through the existing legitimately-large files
+    # (DataTable.tsx, drawer-route.ts, DrawerHost.tsx). New oversized
+    # files MUST carry a `// LOC-OK: <reason>` directive — flipping the
+    # script to a hard fail will land in the same PR that resolves the
+    # last unsplit offender.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -73,3 +82,18 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm tsx scripts/check-file-sizes.ts
+
+  bundle-size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build flowpanel umbrella
+        run: pnpm --filter flowpanel build
+      - name: Check bundle sizes against .size-limit.json budgets
+        run: pnpm --filter flowpanel exec size-limit

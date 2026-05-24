@@ -1,6 +1,7 @@
 "use client";
-import * as React from "react";
+import type * as React from "react";
 import { useComponents } from "../_provider/ComponentsContext.js";
+
 export { DefaultPageHeader, type PageHeaderProps } from "./PageHeaderDefault.js";
 
 /** Renders whatever override the user registered via theme.components.PageHeader,

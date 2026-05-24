@@ -16,6 +16,7 @@ export function DefaultAvatar({ src, alt, fallback, size = "md", className }: Av
   const initials = (fallback ?? "").trim().slice(0, 2).toUpperCase() || "?";
   if (src) {
     return (
+      // biome-ignore lint/performance/noImgElement: @flowpanel/react is framework-agnostic — a plain <img> avoids coupling to next/image.
       <img
         src={src}
         alt={alt ?? ""}

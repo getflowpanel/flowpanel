@@ -1,19 +1,19 @@
 // tsd type tests for @flowpanel/core public surface.
 // These run against the built dist/index.d.ts — the actual contract.
 
-import { expectAssignable, expectError, expectType } from "tsd";
 import {
-  type AdminConfig,
   type Adapter,
+  type AdminConfig,
   defineAdmin,
   type LabelsConfig,
+  metric,
   type RealtimeConfig,
   type ResolvedAdminConfig,
   type ResourceConfig,
-  metric,
   resource,
   table,
 } from "@flowpanel/core";
+import { expectAssignable, expectError, expectType } from "tsd";
 
 // ── defineAdmin returns ResolvedAdminConfig ──────────────────────────────
 declare const minimalConfig: AdminConfig;

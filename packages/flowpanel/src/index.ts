@@ -8,113 +8,39 @@
 //   - flowpanel/auth                         — withClerk / withNextAuth / withLucia presets
 // See `package.json#exports` for the full subpath surface.
 
-// ── Builders ────────────────────────────────────────────────────────────────
-export {
-  custom,
-  dashboard,
-  defineAdmin,
-  metric,
-  page,
-  queue,
-  resource,
-  statGroup,
-  table,
-} from "@flowpanel/core";
-
-// ── Runtime helpers ─────────────────────────────────────────────────────────
-export {
-  assertResourceScope,
-  checkRequireRole,
-  createPublisher,
-  createRateLimiter,
-  emitAudit,
-  getRequestContext,
-  runWithRequestContext,
-  tryGetRequestContext,
-} from "@flowpanel/core";
-
-// ── Errors ──────────────────────────────────────────────────────────────────
-export {
-  FlowpanelAccessError,
-  FlowpanelAuthError,
-  FlowpanelConflictError,
-  FlowpanelError,
-  FlowpanelNotFoundError,
-  FlowpanelRateLimitError,
-  FlowpanelValidationError,
-} from "@flowpanel/core";
-
-// ── Labels (i18n) ───────────────────────────────────────────────────────────
-export { DEFAULT_LABELS, formatLabel, mergeLabels } from "@flowpanel/core";
-
 // ── Types — config ──────────────────────────────────────────────────────────
+// ── Types — DSL ────────────────────────────────────────────────────────────
+// ── Types — dashboard + widgets ────────────────────────────────────────────
+// ── Types — drawer ─────────────────────────────────────────────────────────
+// ── Types — adapter + runtime contexts ────────────────────────────────────
+// ── Types — registry + queue + realtime + labels + palette + session ──────
 export type {
+  ActionContext,
+  ActionResult,
+  Adapter,
   AdminConfig,
+  AreaChartOptions,
+  AreaChartWidget,
   AuditConfig,
   AuditEvent,
   AuthConfig,
-  FlowpanelComponentSlots,
-  RateLimitConfig,
-  ResolvedAdminConfig,
-  ShellConfig,
-  ShellMode,
-  ThemeConfig,
-} from "@flowpanel/core";
-
-// ── Types — DSL ────────────────────────────────────────────────────────────
-export type {
-  ActionResult,
-  BulkAction,
-  ColumnDef,
-  DetailTab,
-  FieldDef,
-  FieldType,
-  FilterDef,
-  FilterType,
-  ListResult,
-  ResourceConfig,
-  ResourceOptions,
-  RowAction,
-  SelectOption,
-} from "@flowpanel/core";
-
-// ── Types — dashboard + widgets ────────────────────────────────────────────
-export type {
-  AreaChartOptions,
-  AreaChartWidget,
   BarChartOptions,
   BarChartWidget,
+  BulkAction,
   ChartBucket,
   ChartOptionsBase,
+  ColumnDef,
+  ColumnMeta,
+  CommandGroup,
+  CommandItem,
+  CommandPaletteConfig,
   CustomOptions,
   CustomWidget,
+  DashboardAction,
   DashboardConfig,
   DateRangeConfig,
   DateRangePreset,
-  LineChartOptions,
-  LineChartWidget,
-  MetricDelta,
-  MetricOptions,
-  MetricWidget,
-  NumericFormat,
-  PageConfig,
-  PieChartOptions,
-  PieChartWidget,
-  ResolvedDateRange,
-  SectionConfig,
-  Span,
-  StatGroupOptions,
-  StatGroupWidget,
-  StatItem,
-  TableWidget,
-  TableWidgetOptions,
-  Tone,
-  WidgetConfig,
-  WidgetContext,
-} from "@flowpanel/core";
-
-// ── Types — drawer ─────────────────────────────────────────────────────────
-export type {
+  DetailTab,
   DrawerAction,
   DrawerConfig,
   DrawerFieldFormSpec,
@@ -123,41 +49,95 @@ export type {
   DrawerTabResource,
   DrawerTabWidgets,
   DrawerWidth,
-} from "@flowpanel/core";
-
-// ── Types — adapter + runtime contexts ────────────────────────────────────
-export type {
-  Adapter,
-  ActionContext,
-  ColumnMeta,
-  ItemQueryContext,
-  ListQueryContext,
-  MutationContext,
-  QueryContext,
-  Publisher,
-  PublisherOptions,
-  RateLimiter,
-  RateLimitOptions,
-  RequestContext,
-  RequireRole,
-  ResourceIntrospection,
-  ScopeCheckInput,
-} from "@flowpanel/core";
-
-// ── Types — registry + queue + realtime + labels + palette + session ──────
-export type {
-  CommandGroup,
-  CommandItem,
-  CommandPaletteConfig,
+  FieldDef,
+  FieldType,
+  FilterDef,
+  FilterType,
+  FlowpanelComponentSlots,
   FlowpanelTypes,
   InferDB,
   InferRow,
+  ItemQueryContext,
   LabelsConfig,
+  LineChartOptions,
+  LineChartWidget,
+  ListQueryContext,
+  ListResult,
+  MetricDelta,
+  MetricOptions,
+  MetricWidget,
+  MutationContext,
+  NumericFormat,
+  PageConfig,
+  PieChartOptions,
+  PieChartWidget,
+  Publisher,
+  PublisherOptions,
+  QueryContext,
   QueueConfig,
   QueueOptions,
+  RateLimitConfig,
+  RateLimiter,
+  RateLimitOptions,
   RealtimeConfig,
+  RequestContext,
+  RequireRole,
+  ResolvedAdminConfig,
+  ResolvedDateRange,
   ResolvedLabels,
+  ResourceConfig,
+  ResourceIntrospection,
+  ResourceOptions,
+  RowAction,
   Scope,
+  ScopeCheckInput,
   ScopeContext,
+  SectionConfig,
+  SelectOption,
   Session,
+  ShellConfig,
+  ShellMode,
+  Span,
+  StatGroupOptions,
+  StatGroupWidget,
+  StatItem,
+  TableWidget,
+  TableWidgetOptions,
+  ThemeConfig,
+  Tone,
+  WidgetConfig,
+  WidgetContext,
+} from "@flowpanel/core";
+// ── Builders ────────────────────────────────────────────────────────────────
+// ── Runtime helpers ─────────────────────────────────────────────────────────
+// ── Errors ──────────────────────────────────────────────────────────────────
+// ── Labels (i18n) ───────────────────────────────────────────────────────────
+export {
+  assertResourceScope,
+  checkRequireRole,
+  createPublisher,
+  createRateLimiter,
+  custom,
+  DEFAULT_LABELS,
+  dashboard,
+  defineAdmin,
+  emitAudit,
+  FlowpanelAccessError,
+  FlowpanelAuthError,
+  FlowpanelConflictError,
+  FlowpanelError,
+  FlowpanelNotFoundError,
+  FlowpanelRateLimitError,
+  FlowpanelValidationError,
+  formatLabel,
+  getRequestContext,
+  mergeLabels,
+  metric,
+  page,
+  queue,
+  resource,
+  runWithRequestContext,
+  statGroup,
+  table,
+  tryGetRequestContext,
 } from "@flowpanel/core";

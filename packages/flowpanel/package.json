@@ -68,11 +68,11 @@
     "@flowpanel/react": "workspace:*"
   },
   "peerDependencies": {
-    "next": "^15.0.0",
+    "next": "^15.0.0 || ^16.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^3.0.0 || ^4.0.0",
-    "zod": "^3.23.0"
+    "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "drizzle-orm": {
@@ -93,6 +93,6 @@
     "typescript": "catalog:"
   },
   "optionalDependencies": {
-    "ioredis": "^5.10.1"
+    "ioredis": "^5.10.0"
   }
 }

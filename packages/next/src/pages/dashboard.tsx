@@ -107,6 +107,8 @@ export async function DashboardPage({
               widget={w}
               ctx={ctx}
               config={config}
+              dashboardPath={dashboard.path}
+              widgetIndex={`s${idx}.w${wIdx}`}
             />
           ))}
         </Section>
@@ -119,13 +121,22 @@ function WidgetSlot({
   widget,
   ctx,
   config,
+  dashboardPath,
+  widgetIndex,
 }: {
   widget: WidgetConfig;
   ctx: WidgetContext;
   config: ResolvedAdminConfig;
+  dashboardPath: string;
+  /**
+   * Stable position tag, e.g. `"s0.w2"`. Falls in as Sentry tag /
+   * a11y label when a widget config has no explicit id. Stable across
+   * renders because the section + widget ordering is fixed.
+   */
+  widgetIndex: string;
 }) {
   return (
-    <WidgetErrorBoundary>
+    <WidgetErrorBoundary widgetId={widgetIndex} dashboardId={dashboardPath}>
       <Suspense fallback={<SkeletonCard />}>
         <WidgetAsync widget={widget} ctx={ctx} config={config} />
       </Suspense>

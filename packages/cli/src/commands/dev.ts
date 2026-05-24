@@ -1,6 +1,6 @@
+import { type ChildProcess, spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { spawn, type ChildProcess } from "node:child_process";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
@@ -59,8 +59,9 @@ export function devCommand(cli: Command): void {
 
       // Wait for any child to exit; propagate code.
       next.on("exit", (code) => shutdown(code ?? 0));
-      if (wantBoard && children[1]) {
-        children[1]!.on("exit", (code) => shutdown(code ?? 0));
+      const board = children[1];
+      if (wantBoard && board) {
+        board.on("exit", (code) => shutdown(code ?? 0));
       }
     });
 }

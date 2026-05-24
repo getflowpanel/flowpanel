@@ -1,9 +1,9 @@
+import type { Server } from "node:http";
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter as BullBoardMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
 import type { Queue } from "bullmq";
 import express from "express";
-import type { Server } from "node:http";
 
 export interface StartBoardServerOptions {
   queues: Record<string, Queue>;

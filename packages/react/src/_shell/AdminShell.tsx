@@ -36,6 +36,7 @@ export function AdminShell({
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
   // Close mobile drawer when route changes (navigation completes).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentPath is the intentional trigger — the effect re-runs to dismiss the drawer whenever the route changes.
   React.useEffect(() => {
     setMobileNavOpen(false);
   }, [currentPath]);

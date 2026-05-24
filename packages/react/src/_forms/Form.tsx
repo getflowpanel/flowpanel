@@ -7,9 +7,12 @@ import {
   type SubmissionResult,
   useForm,
 } from "@conform-to/react";
-import { parseWithZod } from "@conform-to/zod";
+// `/v4` subpath — `@conform-to/zod` root entry imports `ZodPipeline` which
+// Zod 4 renamed to `ZodPipe`. Until conform-to ships a Zod-version-agnostic
+// root, lock to the v4 path. Drops Zod 3 support (peer is `^4.0.0`).
+import { parseWithZod } from "@conform-to/zod/v4";
 import * as React from "react";
-import type { z } from "zod";
+import type { $ZodType, output as zOutput } from "zod/v4/core";
 import { cn } from "../lib/cn.js";
 
 export interface FormActionResult {
@@ -39,16 +42,16 @@ export function useFormContext(): FormContextValue {
   return ctx;
 }
 
-export interface FormProps<S extends z.ZodTypeAny> {
+export interface FormProps<S extends $ZodType> {
   action: (state: FormActionResult | null, formData: FormData) => Promise<FormActionResult>;
   schema: S;
-  defaultValues?: Partial<z.infer<S>>;
+  defaultValues?: Partial<zOutput<S>>;
   children: React.ReactNode;
   className?: string;
   id?: string;
 }
 
-export function Form<S extends z.ZodTypeAny>({
+export function Form<S extends $ZodType>({
   action,
   schema,
   defaultValues,
@@ -83,9 +86,15 @@ export function Form<S extends z.ZodTypeAny>({
   const [lastResult, formAction] = React.useActionState(serverAction, null);
 
   type UseFormOpts = Parameters<typeof useForm<Record<string, unknown>>>[0];
+  // `parseWithZod` from `@conform-to/zod/v4` returns `Submission<input<S>, …>`
+  // (generic over the schema's input). `useForm<Record<string, unknown>>` wants
+  // `Submission<Record<string, unknown>, …>`. The runtime payload is identical
+  // — just widen the type so the validator slot accepts our return.
+  const onValidate: NonNullable<UseFormOpts["onValidate"]> = ({ formData }) =>
+    parseWithZod(formData, { schema }) as ReturnType<NonNullable<UseFormOpts["onValidate"]>>;
   const formOpts: UseFormOpts = {
     lastResult: lastResult ?? undefined,
-    onValidate: ({ formData }) => parseWithZod(formData, { schema }),
+    onValidate,
     shouldValidate: "onBlur",
     shouldRevalidate: "onInput",
     ...(defaultValues

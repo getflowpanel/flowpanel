@@ -1,9 +1,9 @@
 "use client";
-import { forwardRef, type ForwardRefExoticComponent, type RefAttributes } from "react";
+import { type ForwardRefExoticComponent, forwardRef, type RefAttributes } from "react";
 import { useComponents } from "../_provider/ComponentsContext.js";
 import type { ButtonProps } from "./buttonDefault.js";
 
-export { DefaultButton, buttonVariants, type ButtonProps } from "./buttonDefault.js";
+export { type ButtonProps, buttonVariants, DefaultButton } from "./buttonDefault.js";
 
 /**
  * Renders whatever override the user registered via theme.components.Button,

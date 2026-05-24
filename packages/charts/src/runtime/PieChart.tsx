@@ -33,7 +33,7 @@ export function PieChart({ data, options }: { data: unknown[]; options: PieChart
         >
           {(data as object[]).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: chart slices are identified only by index.
-            <Cell key={i} fill={SLICE_COLORS[i % SLICE_COLORS.length]} />
+            <Cell key={i} fill={SLICE_COLORS[i % SLICE_COLORS.length] ?? "#000000"} />
           ))}
         </Pie>
       </RcPie>

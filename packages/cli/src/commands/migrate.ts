@@ -177,11 +177,16 @@ export function migrateCommand(cli: Command): void {
       }
 
       const adapter = config.adapter;
+      // Bind to the adapter so third-party adapters whose migration methods
+      // reference `this` keep working (the shipped drizzle/prisma adapters use
+      // closures, but the public Adapter contract must not silently require it).
+      const runMigrationSql = adapter?.runMigrationSql?.bind(adapter);
+      const listAppliedMigrations = adapter?.listAppliedMigrations?.bind(adapter);
+      const markMigrationApplied = adapter?.markMigrationApplied?.bind(adapter);
       if (
-        !adapter ||
-        typeof adapter.runMigrationSql !== "function" ||
-        typeof adapter.listAppliedMigrations !== "function" ||
-        typeof adapter.markMigrationApplied !== "function"
+        typeof runMigrationSql !== "function" ||
+        typeof listAppliedMigrations !== "function" ||
+        typeof markMigrationApplied !== "function"
       ) {
         log.err(
           "Adapter does not support `flowpanel migrate`. Use `drizzleAdapter` or `prismaAdapter` from a FlowPanel ≥ this version.",
@@ -189,7 +194,7 @@ export function migrateCommand(cli: Command): void {
         process.exit(1);
       }
 
-      const applied = await adapter.listAppliedMigrations!();
+      const applied = await listAppliedMigrations();
 
       let ran = 0;
       for (const f of files) {
@@ -199,8 +204,8 @@ export function migrateCommand(cli: Command): void {
           continue;
         }
         const sql = await fs.readFile(path.join(dir, f), "utf8");
-        await adapter.runMigrationSql!(sql);
-        await adapter.markMigrationApplied!(id);
+        await runMigrationSql(sql);
+        await markMigrationApplied(id);
         log.ok(`${id} applied`);
         ran++;
       }

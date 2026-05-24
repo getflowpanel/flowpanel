@@ -10,16 +10,37 @@ import { ResourceCreatePage } from "./pages/resource-create.js";
 import { ResourceDetailPage } from "./pages/resource-detail.js";
 import { ResourceEditPage } from "./pages/resource-edit.js";
 import { ResourceListPage } from "./pages/resource-list.js";
+import { UserPage } from "./pages/user-page.js";
 import { matchDashboard } from "./runtime/dashboard-routing.js";
 import { buildNav, resourceNavName } from "./runtime/nav.js";
+import { matchPage } from "./runtime/page-routing.js";
 import { bindPublisher } from "./runtime/publish.js";
 import { buildRequestContext } from "./runtime/request-setup.js";
 
-type PageParams = { slug?: string[] };
+type PageParams = Record<string, string | string[] | undefined>;
 type PageProps = {
   params: Promise<PageParams>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+/**
+ * Read the catch-all segments from Next's `params` regardless of what the
+ * host project named its catch-all bucket. We probe `slug` and `rest` first
+ * (the two conventional names), then fall back to the first `string[]`
+ * value in `params`.
+ *
+ * @internal — exported for tests.
+ */
+export function resolveCatchAllSegments(params: PageParams): string[] {
+  const slug = params.slug;
+  if (Array.isArray(slug)) return slug;
+  const rest = params.rest;
+  if (Array.isArray(rest)) return rest;
+  for (const v of Object.values(params)) {
+    if (Array.isArray(v)) return v;
+  }
+  return [];
+}
 
 export interface FlowpanelOptions {
   /**
@@ -53,10 +74,28 @@ function resolveShell(
   return { mode, ...(brandName !== undefined ? { brandName } : {}) };
 }
 
+/**
+ * Mount the admin UI as a Next.js page component. Place inside an
+ * optional catch-all route — typically `app/admin/[[...slug]]/page.tsx`,
+ * but the catch-all bucket name is flexible: `slug`, `rest`, or any
+ * other identifier you choose. The first `string[]` param value is
+ * treated as the URL segments (preference: `slug` → `rest` → first array).
+ *
+ * @example
+ * ```ts
+ * // app/admin/[[...slug]]/page.tsx
+ * import { Flowpanel } from "@flowpanel/next";
+ * import { config } from "@/flowpanel.config";
+ * export default Flowpanel(config);
+ *
+ * // app/admin/[[...rest]]/page.tsx — also works, no config change needed.
+ * export default Flowpanel(config);
+ * ```
+ */
 export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = {}) {
   bindPublisher(config);
   return async function FlowpanelPage({ params, searchParams }: PageProps) {
-    const { slug = [] } = await params;
+    const slug = resolveCatchAllSegments(await params);
     const spRaw = await searchParams;
     const sp = new URLSearchParams();
     for (const [k, v] of Object.entries(spRaw)) {
@@ -72,8 +111,8 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
       g.items.map((it) => ({ label: it.label, href: it.href })),
     );
     const slugPath = `/${slug.join("/")}`;
-    const currentPath = `/admin${slugPath === "/" ? "" : slugPath}`;
-    const url = new URL(`http://localhost/admin${slugPath}`);
+    const currentPath = slugPath === "/" ? config.basePath || "/" : `${config.basePath}${slugPath}`;
+    const url = new URL(`http://localhost${config.basePath}${slugPath}`);
     for (const [k, v] of sp.entries()) url.searchParams.append(k, v);
     const req = new Request(url);
 
@@ -106,7 +145,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
         <AdminShell
           variant={shell.mode}
           navGroups={navGroups}
-          currentPath={slug.length === 0 ? "/admin" : currentPath}
+          currentPath={slug.length === 0 ? config.basePath || "/" : currentPath}
           {...(shell.brandName !== undefined ? { brandName: shell.brandName } : {})}
         >
           {content}
@@ -150,6 +189,10 @@ async function renderContent(
   const dash = matchDashboard(slug, config);
   if (dash) {
     const session = await config.auth.session();
+    if (dash.requireRole !== undefined) {
+      const role = config.auth.role(session);
+      checkRequireRole(dash.requireRole, role, session);
+    }
     return (
       <DashboardPage
         config={config}
@@ -161,9 +204,22 @@ async function renderContent(
     );
   }
 
+  // User pages registered via `defineAdmin({ pages: [...] })` come next,
+  // after dashboards but before the resource fallthrough — so `/x` resolves
+  // to a `page({ path: "/x", component })` rather than being treated as a
+  // missing resource named "x".
+  const userPage = matchPage(slug, config);
+  if (userPage) {
+    if (userPage.requireRole !== undefined) {
+      const reqCtx = await buildRequestContext({ req, config });
+      checkRequireRole(userPage.requireRole, reqCtx.role, reqCtx.session);
+    }
+    return <UserPage page={userPage} />;
+  }
+
   if (slug.length === 0) {
     const first = config.resources?.[0];
-    if (!first) return <NotFound />;
+    if (!first) return <NotFound config={config} />;
     return <ResourceListPage config={config} resource={first} searchParams={sp} req={req} />;
   }
 
@@ -177,13 +233,13 @@ async function renderContent(
       }
       return <QueuePage queue={q} />;
     }
-    return <NotFound />;
+    return <NotFound config={config} />;
   }
 
   const resourceName = slug[0];
-  if (!resourceName) return <NotFound />;
+  if (!resourceName) return <NotFound config={config} />;
   const resource = config.resourcesByName.get(resourceName);
-  if (!resource) return <NotFound />;
+  if (!resource) return <NotFound config={config} />;
   const name = resourceNavName(resource);
 
   if (slug.length === 1) {
@@ -191,7 +247,7 @@ async function renderContent(
   }
 
   const second = slug[1];
-  if (!second) return <NotFound />;
+  if (!second) return <NotFound config={config} />;
   if (slug.length === 2 && second === "new") {
     return <ResourceCreatePage config={config} resource={resource} name={name} req={req} />;
   }
@@ -205,5 +261,5 @@ async function renderContent(
       <ResourceEditPage config={config} resource={resource} name={name} id={second} req={req} />
     );
   }
-  return <NotFound />;
+  return <NotFound config={config} />;
 }

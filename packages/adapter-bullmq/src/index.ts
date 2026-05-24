@@ -1,2 +1,2 @@
-export { bullmqAdapter, type BullMQAdapter, type BullMQAdapterOptions } from "./adapter.js";
-export { startBoardServer, type StartBoardServerOptions } from "./board.js";
+export { type BullMQAdapter, type BullMQAdapterOptions, bullmqAdapter } from "./adapter.js";
+export { type StartBoardServerOptions, startBoardServer } from "./board.js";
