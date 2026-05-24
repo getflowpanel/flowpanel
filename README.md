@@ -10,6 +10,12 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
 
+## Community
+
+- **Questions & ideas** — [GitHub Discussions](https://github.com/getflowpanel/flowpanel/discussions)
+- **Bugs & features** — [open an issue](https://github.com/getflowpanel/flowpanel/issues)
+- **Discord** — coming soon
+
 ## Install
 
 ```bash
@@ -92,7 +98,7 @@ on row click; soft-deleted rows are filtered out automatically.
   bull-board iframe at `/admin/queues/scraper`.
 - **Filters, sort, pagination, column resize, column pin, bulk select.**
   All URL-synced for shareable links.
-- **Three customization tiers** (spec §8): props → `theme.components`
+- **Three customization tiers**: props → `theme.components`
   overrides (10 slots: Button, Badge, Avatar, StatusBadge, EmptyState,
   MetricCard, PageHeader, Pagination, ConfirmDialog, SkeletonTable) → eject (`flowpanel eject resource users`).
 - **First-class auth** — `withClerk`, `withNextAuth`, `withLucia` from
@@ -131,7 +137,7 @@ The runtime stops rendering the resource; your code does. `flowpanel.config.ts`
 is auto-edited to comment out the matching `resource(...)` entry.
 
 Three eject targets, no fourth: `resource`, `dashboard`, `layout`. See
-[ADR 0003](docs/adr/0003-eject-three-targets.md) for the rationale.
+the [eject guide](https://flowpanel.dev/docs) for the rationale.
 
 ## Compared to
 
@@ -158,11 +164,9 @@ Pick FlowPanel if your app is a Next.js 15 App Router project that needs a CRUD 
 
 **<https://flowpanel.dev>** — full reference, recipes, and getting-started guide.
 
-In-repo: [Public-API invariants](docs/invariants.md) · [ADRs](docs/adr/) · [Spec](docs/spec/flowpanel-v1.0.md)
-
 ## Contributing
 
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md). All commits signed (DCO).
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ## License
 

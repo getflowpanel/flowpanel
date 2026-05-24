@@ -2,11 +2,9 @@
 CLAUDE.md
 .claude/
 
-# Working notes (kept local, not in public tree)
-docs/
-.changeset/
-apps/site/content/docs/core-concepts/realtime-multi-instance.mdx
-packages/eslint-plugin/README.md
+# Local-only internal notes (invariants, ADRs, specs) — never committed.
+# Anchored to repo root so it does NOT match apps/site/content/docs/.
+/docs/
 
 # Dependencies
 node_modules/

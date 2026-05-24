@@ -5,10 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before opening, please skim
-        [`docs/spec/flowpanel-v1.0.md`](https://github.com/Ch4m4/flowpanel/blob/main/docs/spec/flowpanel-v1.0.md)
-        section 30 ("Out of scope") — your feature may be deliberately
-        deferred to 1.1+.
+        Before opening, please skim the [documentation](https://flowpanel.dev/docs)
+        and browse [GitHub Discussions](https://github.com/getflowpanel/flowpanel/discussions)
+        — your feature may already be planned, deferred, or under discussion.
 
   - type: textarea
     id: problem
@@ -39,7 +38,7 @@ body:
     attributes:
       label: Scope check
       options:
-        - label: I checked [the out-of-scope list](https://github.com/Ch4m4/flowpanel/blob/main/docs/spec/flowpanel-v1.0.md) — this isn't already deferred.
+        - label: I checked the [documentation](https://flowpanel.dev/docs) and [Discussions](https://github.com/getflowpanel/flowpanel/discussions) — this isn't already planned or deferred.
           required: true
         - label: I'm willing to send a PR if the design is approved.
           required: false

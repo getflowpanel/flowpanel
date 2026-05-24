@@ -14,8 +14,7 @@
 - [ ] Touches `packages/*/src/index.ts` or a builder signature
 - [ ] Pure internal change (no public surface)
 
-<!-- If public, list the symbols added / changed / removed and the
-     invariant from docs/invariants.md or ADR you're acting under. -->
+<!-- If public, list the symbols added / changed / removed. -->
 
 ## Tests
 
@@ -33,7 +32,6 @@
 
 ## Checklist
 
-- [ ] DCO sign-off (`git commit -s`)
 - [ ] `pnpm -r typecheck` passes locally
 - [ ] `pnpm -r test:unit` passes locally
 - [ ] No new `any` in public types
