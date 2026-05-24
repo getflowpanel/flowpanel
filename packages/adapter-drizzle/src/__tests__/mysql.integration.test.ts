@@ -1,9 +1,9 @@
+import { execSync } from "node:child_process";
 import type { ListQueryContext } from "@flowpanel/core";
 import { MySqlContainer, type StartedMySqlContainer } from "@testcontainers/mysql";
 import { boolean, int, mysqlTable, varchar } from "drizzle-orm/mysql-core";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import * as mysql from "mysql2/promise";
-import { execSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { drizzleAdapter } from "../index.js";
 

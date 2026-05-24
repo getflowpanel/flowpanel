@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { introspect } from "../introspect.js";
 import type { PrismaDmmf } from "../introspect.js";
+import { introspect } from "../introspect.js";
 
 const testDmmf: PrismaDmmf = {
   datamodel: {

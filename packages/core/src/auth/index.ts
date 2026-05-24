@@ -10,6 +10,6 @@
 // module load. The SDK loads lazily inside `session()`, so consumers who
 // don't use a given provider pay zero bundle cost.
 
-export { withClerk, type ClerkAuthOptions } from "./clerk.js";
-export { withLucia, type LuciaAuthOptions, type LuciaLike } from "./lucia.js";
-export { withNextAuth, type NextAuthOptions } from "./nextauth.js";
+export { type ClerkAuthOptions, withClerk } from "./clerk.js";
+export { type LuciaAuthOptions, type LuciaLike, withLucia } from "./lucia.js";
+export { type NextAuthOptions, withNextAuth } from "./nextauth.js";

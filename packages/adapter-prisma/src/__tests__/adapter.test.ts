@@ -115,6 +115,32 @@ describe("prismaAdapter", () => {
     );
   });
 
+  it("list translates __null__ sentinel to where[field] = null", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.findMany.mockResolvedValue([]);
+    _delegate.count.mockResolvedValue(0);
+
+    const adapter = prismaAdapter({ prisma: { user: delegate }, dmmf: testDmmf });
+    await adapter.list("User", { ...baseCtx, filters: { name: "__null__" } });
+
+    expect(_delegate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ name: null }) }),
+    );
+  });
+
+  it("list translates __notnull__ sentinel to where[field] = { not: null }", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.findMany.mockResolvedValue([]);
+    _delegate.count.mockResolvedValue(0);
+
+    const adapter = prismaAdapter({ prisma: { user: delegate }, dmmf: testDmmf });
+    await adapter.list("User", { ...baseCtx, filters: { name: "__notnull__" } });
+
+    expect(_delegate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ name: { not: null } }) }),
+    );
+  });
+
   it("get returns row or null", async () => {
     const { user: delegate, _delegate } = makeMockPrisma();
     _delegate.findUnique.mockResolvedValueOnce({ id: 1 });

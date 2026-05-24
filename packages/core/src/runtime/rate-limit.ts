@@ -46,8 +46,8 @@ function createRedisLimiter(opts: Extract<RateLimitOptions, { driver: "redis" }>
   let client: InstanceType<RedisCtor> | null = null;
   const prefix = opts.keyPrefix ?? "fp:rl:";
 
-  async function load(): Promise<void> {
-    if (client) return;
+  async function load(): Promise<InstanceType<RedisCtor>> {
+    if (client) return client;
     // Specifier held in a variable so TypeScript does not statically
     // resolve `ioredis` — it is an optional peer dep and may be absent.
     const specifier = "ioredis";
@@ -62,14 +62,15 @@ function createRedisLimiter(opts: Extract<RateLimitOptions, { driver: "redis" }>
     }
     const Ctor: RedisCtor = "default" in mod ? mod.default : mod;
     client = new Ctor(opts.url);
+    return client;
   }
 
   return {
     async check(key) {
-      await load();
+      const redis = await load();
       const full = prefix + key;
-      const count = await client!.incr(full);
-      if (count === 1) await client!.pexpire(full, opts.windowMs);
+      const count = await redis.incr(full);
+      if (count === 1) await redis.pexpire(full, opts.windowMs);
       return count <= opts.limit;
     },
   };

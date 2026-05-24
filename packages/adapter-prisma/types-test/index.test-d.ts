@@ -1,7 +1,7 @@
 // tsd type tests for @flowpanel/adapter-prisma public surface.
 
-import { expectAssignable } from "tsd";
 import { prismaAdapter } from "@flowpanel/adapter-prisma";
+import { expectAssignable } from "tsd";
 
 declare const prisma: object;
 

@@ -25,6 +25,31 @@ export interface ColumnDef<Row> {
   hidden?: boolean;
   pinnable?: boolean;
   tone?: (row: Row) => "ok" | "warn" | "err" | null;
+  /**
+   * Foreign-key resolution. When set, the cell renders the looked-up label
+   * (e.g. `user.email`) as a link to the target resource's drawer / detail
+   * page instead of the raw foreign-key value (a uuid).
+   *
+   * Server-batched in `prerender-cells.ts` — one `SELECT id, <labelField>
+   * FROM <target> WHERE id IN (allIdsOnPage)` per FK column per page.
+   *
+   * @example
+   * ```ts
+   * { field: "userId", reference: { resource: "users", labelField: "email" } }
+   * ```
+   */
+  reference?: { resource: string; labelField: string };
+  /**
+   * When `true`, the cell becomes editable in-place: double-click to enter
+   * edit mode, Enter or blur to save, Esc to cancel. The save POSTs to
+   * `/api/flowpanel/<resource>/<id>/update` with `{ field, value }` and
+   * reuses the resource's `update` Zod schema for validation.
+   *
+   * Editable cells skip the FK / array / json renderer dispatch so the
+   * input shows the raw value (you can't inline-edit an FK target's label
+   * — you edit the FK's id).
+   */
+  editable?: boolean;
 }
 
 export type FilterType =
@@ -40,7 +65,35 @@ export interface FilterDef<Row> {
   field: keyof Row & string;
   label?: string;
   type: FilterType;
-  options?: SelectOption[] | ((ctx: QueryContext) => Promise<SelectOption[]>);
+  /**
+   * Select / multiselect options.
+   *
+   * - `string[]` (sugar) — `["a", "b"]` is shorthand for
+   *   `[{label:"a",value:"a"},{label:"b",value:"b"}]`. Best when label
+   *   and value match (most enums).
+   * - `SelectOption[]` — explicit shape when label and value differ
+   *   (e.g. `[{label:"Free tier", value:"free"}]`).
+   * - `(ctx) => Promise<SelectOption[]>` — server-fetched options. Runs
+   *   on every list render; cache via `unstable_cache` if the source is
+   *   slow.
+   */
+  options?:
+    | ReadonlyArray<string>
+    | SelectOption[]
+    | ((ctx: QueryContext) => Promise<SelectOption[]>);
+  /**
+   * Default filter value applied when the user has not picked one.
+   *
+   * Two string values are reserved sentinels that every adapter must
+   * translate at the SQL/ORM level:
+   *
+   * - `"__null__"`     → `WHERE <field> IS NULL`
+   * - `"__notnull__"`  → `WHERE <field> IS NOT NULL`
+   *
+   * Use them in `options` (e.g. `{ label: "Unmapped only", value: "__null__" }`)
+   * to express nullability filters in a select. Passing them as raw equality
+   * (`WHERE field = '__null__'`) would always match zero rows.
+   */
   defaultValue?: unknown;
   hidden?: boolean;
 }
@@ -149,10 +202,56 @@ export interface ResourceOptions<Row> {
 
   audit?: boolean;
   realtime?: boolean | string;
+  /**
+   * Saved filter / sort presets surfaced as a dropdown above the list. The
+   * dropdown reads from this static list plus any user-defined views
+   * persisted in `localStorage` (keyed by resource name).
+   *
+   * Each view is a snapshot of filters + sort + search — applied verbatim
+   * to the URL when selected. Static views are read-only; user-defined
+   * views are editable from the dropdown UI.
+   *
+   * @example
+   * ```ts
+   * views: [
+   *   { name: "Active high-budget", filters: { isActive: true, budgetMin: { gte: 50000 } } },
+   *   { name: "Stale (>30d)", filters: { isActive: false }, sort: { field: "scrapedAt", dir: "desc" } },
+   * ]
+   * ```
+   */
+  views?: Array<{
+    name: string;
+    description?: string;
+    filters?: Record<string, unknown>;
+    sort?: { field: keyof Row & string; dir: "asc" | "desc" };
+    search?: string;
+  }>;
+  /**
+   * Override the empty-state shown when the list is empty (no filters
+   * applied — i.e. genuinely "no rows yet" rather than "no matches").
+   * Both fields are optional; either alone renders sensibly.
+   *
+   * @example
+   * ```ts
+   * empty: {
+   *   icon: "📭",
+   *   title: "No orders yet",
+   *   description: "Scrapers will populate this list when they run.",
+   *   action: { label: "Run scraper now", href: "/admin/scraper_runs/new" },
+   * }
+   * ```
+   */
+  empty?: {
+    icon?: string;
+    title?: string;
+    description?: string;
+    action?: { label: string; href: string };
+  };
 }
 
 export interface ResourceConfig {
   __kind: "resource";
   ref: unknown;
+  // biome-ignore lint/suspicious/noExplicitAny: heterogeneous resource registry — the row type is intentionally erased so a `ResourceConfig` accepts any concrete `ResourceOptions<Row>`.
   options: ResourceOptions<any>;
 }
