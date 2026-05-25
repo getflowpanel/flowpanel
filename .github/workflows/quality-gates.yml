@@ -1,10 +1,18 @@
 name: quality-gates
 on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   no-any-in-public-api:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Check for `any` in public index.ts files
         run: |
           set -e
@@ -25,7 +33,7 @@ jobs:
   no-inline-styles:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Check for style={{ in packages/react
         run: |
           # Catch both `style={{` and `style={ {` (whitespace before inner brace).
@@ -40,7 +48,7 @@ jobs:
   no-hardcoded-rgba-white:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Check for rgba(255,255,255 / rgba(0,0,0 in .ts/.tsx files
         run: |
           if grep -rnE "rgba\(\s*255,\s*255,\s*255|rgba\(\s*0,\s*0,\s*0" \
@@ -55,45 +63,34 @@ jobs:
   import-boundaries:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: ./.github/actions/setup
       - run: pnpm tsx scripts/check-import-boundaries.ts
 
   file-size-check:
     runs-on: ubuntu-latest
-    # The script prints offenders + remediation but doesn't fail CI yet
-    # while we work through the existing legitimately-large files
-    # (DataTable.tsx, drawer-route.ts, DrawerHost.tsx). New oversized
-    # files MUST carry a `// LOC-OK: <reason>` directive — flipping the
-    # script to a hard fail will land in the same PR that resolves the
-    # last unsplit offender.
-    continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: ./.github/actions/setup
       - run: pnpm tsx scripts/check-file-sizes.ts
 
   bundle-size:
     runs-on: ubuntu-latest
+    # size-limit-action posts a per-PR delta comment; needs write on PRs.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: ./.github/actions/setup
       - name: Build flowpanel umbrella
         run: pnpm --filter flowpanel build
       - name: Check bundle sizes against .size-limit.json budgets
-        run: pnpm --filter flowpanel exec size-limit
+        uses: andresz1/size-limit-action@e7493a72a44b113341c0cf6186ab49c17c4b65c1 # v1.6.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          package_manager: pnpm
+          directory: packages/flowpanel
+          # Build is already done above; only run the size-limit check.
+          build_script: build
+          skip_step: build

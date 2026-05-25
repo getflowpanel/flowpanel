@@ -23,7 +23,9 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./styles/admin.css"
   },
   "engines": {
     "node": ">=20"
@@ -53,7 +55,6 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-popover": "^1.1.0",
     "@radix-ui/react-select": "^2.1.0",
-    "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",

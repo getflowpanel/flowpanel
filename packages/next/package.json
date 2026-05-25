@@ -25,7 +25,9 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*",

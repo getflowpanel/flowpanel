@@ -39,16 +39,16 @@ expectAssignable<{ kind: "table" }>(
   table({ resource: "users", realtime: ["resource.users", "audit.users"] }),
 );
 
-// ── LabelsConfig nesting + function-typed slot (I-12) ────────────────────
+// ── LabelsConfig nesting + string-template slot (I-12) ───────────────────
 const validLabels: LabelsConfig = {
   actions: { save: "Сохранить" },
-  bulkBar: { selected: (n: number) => `${n} выбрано` },
+  bulkBar: { selected: "{n} выбрано" },
   pagination: { previous: "Назад" },
 };
 expectType<LabelsConfig>(validLabels);
 
-// bulkBar.selected must be a function (not a string)
-expectError<LabelsConfig>({ bulkBar: { selected: "string-not-fn" } });
+// bulkBar.selected is a string template using {n}
+expectAssignable<LabelsConfig>({ bulkBar: { selected: "{n} selected" } });
 
 // ── RealtimeConfig is a discriminated union ──────────────────────────────
 expectAssignable<RealtimeConfig>({ driver: "memory" });

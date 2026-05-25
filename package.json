@@ -5,18 +5,27 @@
   "scripts": {
     "build": "turbo run build",
     "test:unit": "turbo run test:unit",
-    "test:integration": "turbo run test:integration",
-    "test:chaos": "turbo run test:chaos",
     "test:e2e": "turbo run test:e2e",
+    "test:types": "turbo run test:types",
     "lint": "biome check .",
     "format": "biome check --write .",
+    "lint:spell": "cspell \"**/*.{md,mdx,ts,tsx}\" --no-progress",
+    "lint:deps": "sherif",
+    "knip": "knip",
     "typecheck": "turbo run typecheck",
-    "prepare": "husky",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "turbo run build && changeset publish"
+    "release": "turbo run build && changeset publish",
+    "prepare": "lefthook install"
+  },
+  "sherif": {
+    "ignorePackage": [
+      "./examples/*",
+      "./apps/*"
+    ]
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
     "@axe-core/playwright": "^4.11.1",
     "@biomejs/biome": "^2.4.11",
     "@changesets/cli": "^2.30.0",
@@ -24,9 +33,13 @@
     "@size-limit/preset-small-lib": "^12.0.1",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "3.2.4",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
+    "cspell": "^8.15.0",
+    "knip": "^5.30.0",
+    "lefthook": "^1.8.0",
+    "madge": "^8.0.0",
     "pixelmatch": "^7.1.0",
+    "publint": "^0.3.5",
+    "sherif": "^1.0.0",
     "size-limit": "^12.0.1",
     "tsx": "^4.19.0",
     "turbo": "^2.0.0",

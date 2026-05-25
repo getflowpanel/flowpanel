@@ -1,0 +1,54 @@
+name: semantic-pr
+
+# Validates that PR titles follow Conventional Commits, since squash-merge
+# uses the PR title as the commit message that feeds changesets/release.
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@0723387faaf9b38adef4775cd42cfd5155ed6017 # v5.5.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            chore
+            refactor
+            test
+            ci
+            build
+            perf
+          scopes: |
+            core
+            next
+            react
+            charts
+            cli
+            client
+            eslint-plugin
+            adapter-drizzle
+            adapter-prisma
+            adapter-bullmq
+            flowpanel
+            site
+            e2e
+            deps
+            release
+          requireScope: false

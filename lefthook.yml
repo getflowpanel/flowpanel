@@ -1,0 +1,23 @@
+# FlowPanel git hooks (lefthook). Replaces husky + lint-staged.
+#
+# pre-commit  — fast, staged-file-scoped formatting + lint with safe fixes.
+#               Biome re-stages what it rewrites so the fixed output is what
+#               actually gets committed.
+# pre-push    — typecheck only the workspace packages touched since HEAD,
+#               via turbo's `...[HEAD]` change detector. Skipped work is cached.
+#
+# Bypass in emergencies with `git commit --no-verify` / `git push --no-verify`;
+# CI is the real gate.
+
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{ts,tsx,js,mjs,cjs,json,jsonc,css}"
+      run: pnpm exec biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+
+pre-push:
+  commands:
+    typecheck:
+      run: pnpm turbo run typecheck --filter=...[HEAD]

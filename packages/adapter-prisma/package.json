@@ -28,7 +28,9 @@
     "typecheck": "tsc --noEmit",
     "pretest:unit": "prisma generate --schema=prisma/schema.prisma",
     "test:unit": "vitest run",
-    "test:types": "tsd"
+    "test:types": "tsd",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack . --profile esm-only"
   },
   "tsd": {
     "directory": "types-test",

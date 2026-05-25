@@ -4,13 +4,22 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*"
@@ -19,9 +28,9 @@
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "@testing-library/react": "^16.0.0",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "catalog:",
-    "happy-dom": "^15.0.0",
+    "happy-dom": "^15.11.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tsup": "catalog:",
