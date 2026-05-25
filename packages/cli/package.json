@@ -11,7 +11,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ch4m4/flowpanel",
+    "url": "https://github.com/getflowpanel/flowpanel",
     "directory": "packages/cli"
   },
   "sideEffects": false,
@@ -30,10 +30,8 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
-    "@flowpanel/core": "workspace:*",
     "commander": "^12.0.0",
     "jiti": "^2.4.2",
-    "kleur": "^4.1.5",
     "picocolors": "^1.1.1",
     "ts-morph": "^28.0.0"
   },
@@ -43,9 +41,9 @@
     "README.md"
   ],
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "tsup": "^8.0.0",
-    "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
+    "@types/node": "catalog:",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

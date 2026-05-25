@@ -20,21 +20,37 @@ export interface ResourceIntrospection {
   primaryKey: string;
 }
 
-export interface Adapter<DB = InferDB> {
+/**
+ * Adapter contract.
+ *
+ * - `DB` is the concrete driver handle (`NodePgDatabase`, `PrismaClient`, …).
+ * - `Ref` is the *shape* of the per-resource reference each method accepts —
+ *   a Drizzle `Table` for `drizzleAdapter`, a model-name `string` for
+ *   `prismaAdapter`. Threading it through the methods lets adapter authors
+ *   work with their native types inside the implementation rather than
+ *   re-casting `unknown` on every line.
+ *
+ * Method return values stay `unknown` (or `ListResult<unknown>`) because the
+ * runtime adapter cannot promise a caller-picked row shape — callers in
+ * `@flowpanel/next` narrow the result with `as Record<string, unknown>` at
+ * the dispatch boundary. The win is for adapter IMPLEMENTERS: they get a
+ * properly typed `ref` parameter and no longer need wall-to-wall `as any`.
+ */
+export interface Adapter<DB = InferDB, Ref = unknown> {
   kind: "drizzle" | "prisma";
   db: DB;
-  introspect(ref: unknown): ResourceIntrospection;
-  inferSchema(ref: unknown): {
+  introspect(ref: Ref): ResourceIntrospection;
+  inferSchema(ref: Ref): {
     create: z.ZodTypeAny;
     update: z.ZodTypeAny;
     select: z.ZodTypeAny;
   };
-  list(ref: unknown, ctx: ListQueryContext<unknown>): Promise<ListResult<unknown>>;
-  get(ref: unknown, ctx: ItemQueryContext): Promise<unknown | null>;
-  create(ref: unknown, ctx: MutationContext<unknown>): Promise<unknown>;
-  update(ref: unknown, ctx: MutationContext<unknown>): Promise<unknown>;
-  delete(ref: unknown, ctx: MutationContext<unknown>): Promise<void>;
-  restore?(ref: unknown, ctx: MutationContext<unknown>): Promise<void>;
+  list(ref: Ref, ctx: ListQueryContext<unknown>): Promise<ListResult<unknown>>;
+  get(ref: Ref, ctx: ItemQueryContext): Promise<unknown | null>;
+  create(ref: Ref, ctx: MutationContext<unknown>): Promise<unknown>;
+  update(ref: Ref, ctx: MutationContext<unknown>): Promise<unknown>;
+  delete(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
+  restore?(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
   /**
    * Migration bookkeeping — used by `flowpanel migrate` to track which SQL
    * files in `flowpanel/migrations/` have already been applied. Optional on

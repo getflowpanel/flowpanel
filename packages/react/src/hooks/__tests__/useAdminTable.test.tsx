@@ -26,7 +26,7 @@ describe("useAdminTable", () => {
     const { result } = renderHook(() => useAdminTable());
     act(() => result.current.setFilter("plan", "free"));
     expect(pushMock).toHaveBeenCalledTimes(1);
-    const url = pushMock.mock.calls[0][0] as string;
+    const url = pushMock.mock.calls[0]![0] as string;
     expect(url).toMatch(/\/admin\/users/);
     expect(url).toContain("f_plan=free");
     expect(url).not.toContain("page=2"); // reset
@@ -35,14 +35,14 @@ describe("useAdminTable", () => {
   it("setFilter with null removes the key", () => {
     const { result } = renderHook(() => useAdminTable());
     act(() => result.current.setFilter("plan", null));
-    const url = pushMock.mock.calls[0][0] as string;
+    const url = pushMock.mock.calls[0]![0] as string;
     expect(url).not.toContain("f_plan");
   });
 
   it("clearFilters removes all f_* keys but preserves page/sort", () => {
     const { result } = renderHook(() => useAdminTable());
     act(() => result.current.clearFilters());
-    const url = pushMock.mock.calls[0][0] as string;
+    const url = pushMock.mock.calls[0]![0] as string;
     expect(url).not.toContain("f_");
     expect(url).toContain("page=2");
     expect(url).toContain("sort=name%3Aasc");
@@ -51,14 +51,14 @@ describe("useAdminTable", () => {
   it("setSort writes sort param, clearing when null", () => {
     const { result } = renderHook(() => useAdminTable());
     act(() => result.current.setSort({ field: "email", dir: "desc" }));
-    expect(pushMock.mock.calls[0][0]).toContain("sort=email%3Adesc");
+    expect(pushMock.mock.calls[0]![0]).toContain("sort=email%3Adesc");
     act(() => result.current.setSort(null));
-    expect(pushMock.mock.calls[1][0]).not.toContain("sort=");
+    expect(pushMock.mock.calls[1]![0]).not.toContain("sort=");
   });
 
   it("setPage writes page param", () => {
     const { result } = renderHook(() => useAdminTable());
     act(() => result.current.setPage(5));
-    expect(pushMock.mock.calls[0][0]).toContain("page=5");
+    expect(pushMock.mock.calls[0]![0]).toContain("page=5");
   });
 });

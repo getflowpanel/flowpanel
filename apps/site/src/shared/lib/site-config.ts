@@ -10,18 +10,18 @@ export const siteConfig = {
   ogImage: "/og.png",
 
   repo: {
-    owner: "Ch4m4",
+    owner: "getflowpanel",
     name: "flowpanel",
-    url: "https://github.com/Ch4m4/flowpanel",
+    url: "https://github.com/getflowpanel/flowpanel",
     // Branch + path where docs live, used for "Edit this page on GitHub".
     docsPath: "apps/site/content/docs",
     branch: "main",
   },
 
   links: {
-    github: "https://github.com/Ch4m4/flowpanel",
-    issues: "https://github.com/Ch4m4/flowpanel/issues",
-    discussions: "https://github.com/Ch4m4/flowpanel/discussions",
+    github: "https://github.com/getflowpanel/flowpanel",
+    issues: "https://github.com/getflowpanel/flowpanel/issues",
+    discussions: "https://github.com/getflowpanel/flowpanel/discussions",
     // Public read-only instance of `examples/freelance-radar`. DNS lands
     // here once the deployment is up. Until then the link 404s — owner
     // is aware. See examples/freelance-radar/README.md.

@@ -192,7 +192,7 @@ describe("prismaAdapter", () => {
 
     expect(_delegate.delete).not.toHaveBeenCalled();
     expect(_delegate.update).toHaveBeenCalledOnce();
-    const callArgs = _delegate.update.mock.calls[0][0];
+    const callArgs = _delegate.update.mock.calls[0]![0];
     expect(callArgs.where).toEqual({ id: 1 });
     const deletedAtTime = callArgs.data.deletedAt.getTime();
     expect(deletedAtTime).toBeGreaterThanOrEqual(before);

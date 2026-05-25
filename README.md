@@ -2,9 +2,13 @@
 
 > One typed config → full admin panel for your Next.js app. Drizzle or Prisma. Realtime. Queues. Eject when you outgrow it.
 
-[![npm](https://img.shields.io/npm/v/flowpanel.svg)](https://www.npmjs.com/package/flowpanel)
+[![npm](https://img.shields.io/npm/v/flowpanel.svg?color=blue)](https://www.npmjs.com/package/flowpanel)
+[![Downloads](https://img.shields.io/npm/dm/flowpanel.svg?color=blue)](https://www.npmjs.com/package/flowpanel)
+[![Bundle size](https://img.shields.io/bundlephobia/minzip/flowpanel.svg)](https://bundlephobia.com/package/flowpanel)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![CI](https://github.com/Ch4m4/flowpanel/actions/workflows/ci.yml/badge.svg)](https://github.com/Ch4m4/flowpanel/actions/workflows/ci.yml)
+[![CI](https://github.com/getflowpanel/flowpanel/actions/workflows/ci.yml/badge.svg)](https://github.com/getflowpanel/flowpanel/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
 
 ## Install
 
@@ -128,6 +132,20 @@ is auto-edited to comment out the matching `resource(...)` entry.
 
 Three eject targets, no fourth: `resource`, `dashboard`, `layout`. See
 [ADR 0003](docs/adr/0003-eject-three-targets.md) for the rationale.
+
+## Compared to
+
+|                  | FlowPanel                             | [Refine](https://refine.dev)          | [AdminJS](https://adminjs.co)              | [react-admin](https://marmelab.com/react-admin/) | [Forest Admin](https://www.forestadmin.com) |
+| ---------------- | ------------------------------------- | ------------------------------------- | ------------------------------------------ | ------------------------------------------------ | ------------------------------------------- |
+| Stack target     | Next.js 15 App Router                 | React (Next.js, Remix, Vite, CRA)     | Node backend (Express, Hapi, Nest, Fastify)| React (any bundler)                              | SaaS — connects to your DB/API              |
+| UI               | Bundled (shadcn/ui) + eject to source | Headless; adapters for MUI/AntD/Mantine/Chakra | Bundled React design system          | Bundled Material UI; headless `ra-core` available| Hosted web app                              |
+| Data layer       | Drizzle, Prisma adapters              | 15+ providers (REST, GraphQL, Supabase, Hasura, …) | Prisma, Sequelize, TypeORM, Mongoose, MikroORM | 50+ adapters (REST, GraphQL, Supabase, Hasura, …) | Direct DB connectors + REST/GraphQL APIs    |
+| Realtime         | SSE built in (memory / Redis)         | Live Provider (bring your own, e.g. Ably) | Not built in                            | Enterprise Edition feature                       | Yes, hosted                                 |
+| Auth             | `withClerk`, `withNextAuth`, `withLucia`, custom 4-field config | Auth Provider pattern (Okta, Azure AD, Cognito, …) | RBAC built in                | 10+ adapters (Auth0, Cognito, Keycloak, Entra, …)| Built in (roles, SSO/SAML on Control plan)  |
+| License          | MIT                                   | MIT                                   | MIT                                        | MIT core; paid Enterprise Edition (from €145/mo) | Proprietary SaaS (from $60/user/mo)         |
+| Self-host        | Yes                                   | Yes                                   | Yes                                        | Yes                                              | On-premise add-on                           |
+
+Pick FlowPanel if your app is a Next.js 15 App Router project that needs a CRUD admin layer over a Drizzle or Prisma schema. If your stack is React-without-Next or you want to swap the UI kit, look at Refine. If your data lives in MongoDB or you're already on an Express/Nest backend, AdminJS has the deepest support there. If you want Material UI and 50+ data-provider adapters, react-admin is the longest-running option. If you want a hosted product that connects to your existing DB without writing code, Forest.
 
 ## Stack
 

@@ -50,6 +50,9 @@
     "dist",
     "README.md"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit"
@@ -86,8 +89,8 @@
     }
   },
   "devDependencies": {
-    "tsup": "^8.0.0",
-    "typescript": "^5.5.0"
+    "tsup": "catalog:",
+    "typescript": "catalog:"
   },
   "optionalDependencies": {
     "ioredis": "^5.10.1"

@@ -10,10 +10,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ch4m4/flowpanel",
+    "url": "https://github.com/getflowpanel/flowpanel",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/Ch4m4/flowpanel",
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -76,14 +76,14 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/react": "^19.2.14",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
     "expect-type": "^0.20.0",
     "react": "^19.2.5",
-    "tsd": "^0.33.0",
-    "tsup": "^8.0.0",
-    "typescript": "^5.4.0",
-    "vitest": "^1.6.0",
+    "tsd": "catalog:",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
     "zod": "^3.23.0"
   }
 }

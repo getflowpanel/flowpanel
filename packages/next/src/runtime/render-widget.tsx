@@ -13,6 +13,7 @@ import {
   TableWidget as TableWidgetRenderer,
 } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { prerenderResourceCells } from "./prerender-cells.js";
 
 /**
  * Render a widget on the server.
@@ -120,44 +121,25 @@ export async function renderWidget(
           // When the widget didn't pass an explicit `columns` override,
           // adopt the resource's column metadata (field + label + render).
           if (!widget.options.columns || widget.options.columns.length === 0) {
-            const renderFns: ((row: Row) => ReactNode)[] = [];
-            const resolved: { field: string; label?: string }[] = [];
-            for (const c of res.options.columns as (string | ColumnDef<Row>)[]) {
-              if (typeof c === "string") {
-                resolved.push({ field: c });
-                renderFns.push(null as unknown as (row: Row) => ReactNode);
-                continue;
-              }
-              const col = c;
-              if (col.hidden) continue;
-              const field = String(col.field ?? "");
-              if (!field) continue;
-              resolved.push({ field, ...(col.label ? { label: col.label } : {}) });
-              if (col.render) {
-                const fn = col.render;
-                // The widget context has no role/scope/ip/userAgent — synth
-                // a best-effort RequestContext matching what the column
-                // renderer would have seen on the dedicated list page.
-                const reqCtx: RequestContext = {
-                  req: ctx.req,
-                  session: ctx.session,
-                  role: "",
-                  scope: null,
-                  ip: null,
-                  userAgent: null,
-                };
-                renderFns.push((row: Row) => fn(row, reqCtx));
-              } else {
-                renderFns.push(null as unknown as (row: Row) => ReactNode);
-              }
-            }
-            columns = resolved;
-            const hasAnyRenderer = renderFns.some((fn) => fn !== null);
-            if (hasAnyRenderer) {
-              prerenderedCells = rows.map((row) =>
-                renderFns.map((fn) => (fn ? fn(row) : undefined)),
-              );
-            }
+            // The widget context has no role/scope/ip/userAgent — synth
+            // a best-effort RequestContext matching what the column
+            // renderer would have seen on the dedicated list page.
+            const reqCtx: RequestContext = {
+              req: ctx.req,
+              session: ctx.session,
+              role: "",
+              scope: null,
+              ip: null,
+              userAgent: null,
+            };
+            const prerendered = prerenderResourceCells<Row>(
+              res.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>>,
+              rows,
+              reqCtx,
+              { dropHidden: true },
+            );
+            columns = prerendered.columns;
+            prerenderedCells = prerendered.prerenderedCells;
           }
         }
       }

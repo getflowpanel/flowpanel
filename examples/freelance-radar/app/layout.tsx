@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </span>
             Public demo — data resets every hour. Actions are read-only.{" "}
             <a
-              href="https://github.com/Ch4m4/flowpanel"
+              href="https://github.com/getflowpanel/flowpanel"
               target="_blank"
               rel="noreferrer"
               className="underline underline-offset-2 hover:text-fp-accent"

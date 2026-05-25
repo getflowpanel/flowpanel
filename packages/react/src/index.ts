@@ -3,8 +3,6 @@
 // Atoms
 export { Avatar, DefaultAvatar, type AvatarProps } from "./_atoms/Avatar.js";
 export { Badge, DefaultBadge, type BadgeProps, type BadgeTone } from "./_atoms/Badge.js";
-export { CopyButton, type CopyButtonProps } from "./_atoms/CopyButton.js";
-export { Kbd } from "./_atoms/Kbd.js";
 export { LiveIndicator, type LiveIndicatorProps } from "./_atoms/LiveIndicator.js";
 export { Mono } from "./_atoms/Mono.js";
 export { Sparkline, type SparklineProps } from "./_atoms/Sparkline.js";
@@ -46,7 +44,6 @@ export {
   ReferencePicker,
   type ReferencePickerProps,
 } from "./_data/ReferencePicker.js";
-export { TagInput, type TagInputProps } from "./_data/TagInput.js";
 export {
   BooleanFilter,
   type BooleanFilterProps,
