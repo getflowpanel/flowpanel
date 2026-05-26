@@ -7,7 +7,7 @@ path is clear.
 ## Local setup
 
 ```bash
-git clone https://github.com/Ch4m4/flowpanel
+git clone https://github.com/getflowpanel/flowpanel
 cd flowpanel
 pnpm install
 pnpm -r typecheck
@@ -81,8 +81,25 @@ Touching `packages/*/src/index.ts` or any builder signature
 2. If your change conflicts with an invariant: stop, propose an ADR in
    [`docs/adr/`](../docs/adr/) before writing code.
 3. If your change adds a new public symbol: include a tsd test in
-   `packages/<pkg>/types-test/` and update `docs/reference/`.
+   `packages/<pkg>/types-test/` and update
+   `apps/site/content/docs/reference/`.
 4. Always include a changeset.
+
+## Repo layout
+
+The published docs site (<https://flowpanel.dev>) renders from
+`apps/site/content/docs/` — that's the canonical user-facing surface.
+The in-repo `docs/` keeps only what's internal: `invariants.md`,
+`adr/`, `spec/`.
+
+`packages/react/src/` uses underscore-prefixed folders (`_atoms/`,
+`_data/`, `_shell/`, `_widgets/`, `_provider/`, `_feedback/`,
+`_forms/`, `_layout/`) to group internal building blocks by role.
+The prefix is a *convention*, not a privacy boundary — every folder's
+contents are still publicly exported through `index.ts`. The pattern
+exists so a contributor reading the tree knows immediately which
+files implement a primitive (atoms, feedback) vs which orchestrate a
+surface (shell, widgets, data tables).
 
 ## Asking questions
 

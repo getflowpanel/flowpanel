@@ -1,0 +1,16 @@
+@import "@flowpanel/react/styles/admin.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--fp-font-sans);
+  background: hsl(var(--fp-bg-2));
+  color: hsl(var(--fp-text-1));
+}
