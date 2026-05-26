@@ -3,7 +3,14 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "jsx": "preserve"
+    "jsx": "preserve",
+    // The server entry imports the client entry via the `@flowpanel/next/client`
+    // subpath (kept external so the "use client" boundary survives bundling).
+    // Map it to source so DTS generation resolves the types without racing the
+    // not-yet-emitted dist/client.d.ts on a clean build.
+    "paths": {
+      "@flowpanel/next/client": ["./src/client.ts"]
+    }
   },
   "include": ["src/**/*"]
 }
