@@ -23,8 +23,11 @@ services:
 
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # Build context is the monorepo root so the demo builds from workspace
+      # source (no npm publish required). Run from this directory:
+      #   docker compose -f docker-compose.demo.yml up --build
+      context: ../..
+      dockerfile: examples/freelance-radar/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
