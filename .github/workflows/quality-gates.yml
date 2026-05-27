@@ -76,24 +76,17 @@ jobs:
 
   bundle-size:
     runs-on: ubuntu-latest
-    # size-limit-action posts a per-PR delta comment; needs write on PRs.
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup
-      - name: Build flowpanel umbrella
+      - name: Build flowpanel umbrella + deps
         # `flowpanel...` builds the umbrella AND its workspace deps in topo
         # order — building it alone races the not-yet-built @flowpanel/* .d.ts
         # on a cold CI checkout.
         run: pnpm --filter "flowpanel..." build
       - name: Check bundle sizes against .size-limit.json budgets
-        uses: andresz1/size-limit-action@e7493a72a44b113341c0cf6186ab49c17c4b65c1 # v1.6.1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          package_manager: pnpm
-          directory: packages/flowpanel
-          # Build is already done above; only run the size-limit check.
-          build_script: build
-          skip_step: build
+        # Run size-limit directly. The andresz1/size-limit-action wrapper
+        # shells out to npm, which chokes on pnpm `workspace:*` deps
+        # (EUNSUPPORTEDPROTOCOL). We lose the per-PR delta comment but keep
+        # a working hard gate.
+        run: pnpm --filter flowpanel exec size-limit
