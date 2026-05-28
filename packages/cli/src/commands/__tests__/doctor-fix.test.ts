@@ -1,8 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runDoctorChecks } from "../doctor.js";
+
+// Each check writes template files and runs the full doctor pass (the last
+// test runs it twice); 5s is tight on slow CI runners.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 let tmp: string;
 
