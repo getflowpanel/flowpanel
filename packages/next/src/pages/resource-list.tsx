@@ -216,6 +216,12 @@ export async function ResourceListPage({
         {...(serializedActions.length > 0 ? { rowActions: serializedActions } : {})}
         {...(serializedBulkActions.length > 0 ? { bulkActions: serializedBulkActions } : {})}
         {...(useDrawerRowClick ? { openDrawerOnRowClick: true } : {})}
+        {...(resource.options.realtime
+          ? {
+              realtime:
+                resource.options.realtime === true ? `resource.${name}` : resource.options.realtime,
+            }
+          : {})}
         emptyTitle={resource.options.empty?.title ?? `No ${displayPlural}`}
         {...(resource.options.empty?.description
           ? { emptyDescription: resource.options.empty.description }

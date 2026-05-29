@@ -107,8 +107,9 @@ deploy that lands on instance B.**
 Almost always a publisher misconfiguration. The mutation route on
 instance A is fanning out in-memory only because either:
 
-1. `realtime: { publisher: ... }` is missing in `defineAdmin`, OR
-2. `createPublisher({ driver: "memory" })` was hardcoded, OR
+1. `realtime` is unset (or `{ driver: "memory" }`) in `defineAdmin` — it
+   defaults to the in-memory driver, which can't cross instances, OR
+2. `realtime.url` points at a Redis that instance B can't reach, OR
 3. `REDIS_URL` env was set on A but not on B during a partial rollout.
 
 `flowpanel doctor` (1.0.x) reports the active publisher driver and

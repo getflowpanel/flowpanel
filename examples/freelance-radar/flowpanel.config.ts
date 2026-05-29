@@ -97,6 +97,7 @@ export default defineAdmin({
       ],
       defaultSort: { field: "createdAt", dir: "desc" },
       rowClick: "drawer",
+      realtime: true,
       delete: userDeleteOptions,
       ...(DEMO_MODE ? { create: { disabled: true }, update: { disabled: true } } : {}),
       export: {

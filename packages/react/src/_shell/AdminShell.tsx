@@ -68,6 +68,9 @@ export function AdminShell({
 
   return (
     <div className="flex h-screen flex-col bg-fp-bg-2 text-fp-text-1 antialiased font-sans md:flex-row">
+      {/* Skip link must be the first focusable element so keyboard users can
+          jump past the nav. Kept out of <main> for that reason. */}
+      {skipLink}
       {/* Mobile top bar: visible below md, hidden md+. */}
       <div className="flex shrink-0 items-center gap-2 border-b border-fp-border-1 bg-fp-bg-1 px-3 py-2 md:hidden">
         <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
@@ -103,7 +106,6 @@ export function AdminShell({
         />
       </div>
       <main id="main" className="flex-1 overflow-auto">
-        {skipLink}
         <div className="mx-auto max-w-7xl px-6 py-6">{children}</div>
       </main>
     </div>

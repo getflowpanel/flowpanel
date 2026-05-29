@@ -51,8 +51,11 @@ test.describe("M3 realtime", () => {
       await expect(confirm).toBeVisible();
       await confirm.getByRole("button", { name: /disable user/i }).click();
 
-      // Tab B should drop to rowsBefore - 1 within 2s.
-      await expect(tabB.locator("tbody tr")).toHaveCount(rowsBefore - 1, { timeout: 2_000 });
+      // Tab B should drop to rowsBefore - 1 once the SSE event lands and the
+      // debounced router.refresh re-fetches. Budget is generous (5s) because
+      // e2e runs against the Next *dev* server, where router.refresh is far
+      // slower than a production build; the propagation itself is sub-second.
+      await expect(tabB.locator("tbody tr")).toHaveCount(rowsBefore - 1, { timeout: 5_000 });
 
       // Bonus: the target email should no longer appear in tab B.
       await expect(tabB.getByText(targetEmail)).toHaveCount(0);

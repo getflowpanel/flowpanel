@@ -3,6 +3,8 @@ import {
   DataTable,
   type DataTableColumn,
   type DataTableSort,
+  type RealtimeChannels,
+  RealtimeRefresh,
   useAdminDrawer,
   useAdminTable,
 } from "@flowpanel/react";
@@ -64,6 +66,12 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
    * `ResourceListPage` from `resource.options.rowClick === "drawer"`.
    */
   openDrawerOnRowClick?: boolean;
+  /**
+   * SSE channel(s) to subscribe to for live refresh. Set in `ResourceListPage`
+   * from `resource.options.realtime` (`true` → `resource.<name>`). When an
+   * event arrives the list re-fetches via `router.refresh()`.
+   */
+  realtime?: RealtimeChannels;
 }
 
 export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
@@ -81,6 +89,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
     rowActions,
     bulkActions,
     openDrawerOnRowClick,
+    realtime,
     ...rest
   } = props;
   const { open } = useAdminDrawer();
@@ -96,6 +105,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
 
   return (
     <>
+      {realtime ? <RealtimeRefresh channels={realtime} /> : null}
       {hasBulkActions ? (
         <BulkActionsBar
           resource={resource}
