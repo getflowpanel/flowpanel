@@ -200,30 +200,20 @@ export async function renderWidget(
     case "lineChart":
     case "pieChart": {
       // Lazy-loaded from @flowpanel/charts to avoid pulling Recharts into the
-      // main bundle. The package is introduced in Phase 3; until then, fall
-      // back to a placeholder.
+      // main bundle. ONLY the dynamic import is guarded here — a missing
+      // package is a distinct, recoverable condition with its own message.
+      // The data query and render run AFTER, so a failing `widget.query` (e.g.
+      // a DB error) propagates to WidgetErrorBoundary like every other widget
+      // — showing "Widget failed" with the real error logged, instead of a
+      // misleading "install charts" message.
+      let chartsMod: {
+        // biome-ignore lint/suspicious/noExplicitAny: cross-package dynamic import
+        ChartRenderer: (props: any) => ReactNode;
+      };
       try {
-        const chartsMod: {
-          // biome-ignore lint/suspicious/noExplicitAny: cross-package dynamic import
-          ChartRenderer: (props: any) => ReactNode;
-        } =
-          // biome-ignore lint/suspicious/noExplicitAny: dynamic import surface not typed in Phase 2
+        chartsMod =
+          // biome-ignore lint/suspicious/noExplicitAny: dynamic import surface not typed
           (await import("@flowpanel/charts/runtime" as any)) as any;
-        const data = await widget.query(ctx);
-        const Renderer = chartsMod.ChartRenderer;
-        return (
-          <Fragment>
-            <Renderer
-              kind={widget.kind}
-              label={widget.label}
-              options={widget.options}
-              data={data}
-            />
-            {widget.options.realtime ? (
-              <RealtimeRefresh channels={widget.options.realtime} />
-            ) : null}
-          </Fragment>
-        );
       } catch (e) {
         console.error("[flowpanel/charts] dynamic import failed:", e);
         return (
@@ -232,6 +222,14 @@ export async function renderWidget(
           </div>
         );
       }
+      const data = await widget.query(ctx);
+      const Renderer = chartsMod.ChartRenderer;
+      return (
+        <Fragment>
+          <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />
+          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
+        </Fragment>
+      );
     }
   }
 }

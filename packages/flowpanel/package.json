@@ -1,8 +1,14 @@
 {
   "name": "flowpanel",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Config-first admin panel framework for Next.js 15",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/getflowpanel/flowpanel",
+    "directory": "packages/flowpanel"
+  },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "exports": {
     ".": {

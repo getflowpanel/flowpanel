@@ -1,7 +1,7 @@
 {
   "name": "with-clerk",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "FlowPanel + Clerk auth integration — minimal showcase of withClerk({ requireRole: 'admin' })",
   "scripts": {
     "dev": "next dev",

@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/eslint-plugin",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "ESLint rules for FlowPanel admin configs",
   "keywords": [
     "flowpanel",

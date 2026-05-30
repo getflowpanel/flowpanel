@@ -1,8 +1,14 @@
 {
   "name": "@flowpanel/charts",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Recharts-backed chart widgets for FlowPanel dashboards",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/getflowpanel/flowpanel",
+    "directory": "packages/charts"
+  },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "exports": {
     ".": {

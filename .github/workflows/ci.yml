@@ -18,7 +18,7 @@ env:
 jobs:
   # ── Build + typecheck + lint + unit tests + publish/type gates ────────────
   check:
-    name: Build & unit tests
+    name: Build, test & quality gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -43,6 +43,49 @@ jobs:
 
       - name: Type tests (tsd)
         run: pnpm -r test:types
+
+      # ── Quality gates (folded in from the old quality-gates workflow so they
+      #    run on the already-installed/built tree and gate via ci-success) ───
+      - name: No `any` in public index.ts exports
+        run: |
+          pattern=':[[:space:]]*any\b|\bas[[:space:]]+any\b'
+          found=0
+          for idx in packages/*/src/index.ts; do
+            if grep -qnE "$pattern" "$idx" 2>/dev/null; then
+              echo "❌ $idx contains \`any\` in public exports"
+              grep -nE "$pattern" "$idx"
+              found=1
+            fi
+          done
+          if [ "$found" = "1" ]; then exit 1; fi
+          echo "✔ No \`any\` in public exports"
+
+      - name: No inline styles in packages/react
+        run: |
+          if grep -rqnE 'style=\{[[:space:]]*\{' packages/react/src 2>/dev/null; then
+            echo "❌ inline styles found — use Tailwind classes + design tokens"
+            grep -rnE 'style=\{[[:space:]]*\{' packages/react/src
+            exit 1
+          fi
+          echo "✔ No inline styles found"
+
+      - name: No hardcoded rgba in packages/react
+        run: |
+          if grep -rnE "rgba\(\s*255,\s*255,\s*255|rgba\(\s*0,\s*0,\s*0" --include="*.ts" --include="*.tsx" packages/react/src 2>/dev/null | grep -q .; then
+            echo "❌ hardcoded rgba found — use design tokens"
+            grep -rnE "rgba\(\s*255,\s*255,\s*255|rgba\(\s*0,\s*0,\s*0" --include="*.ts" --include="*.tsx" packages/react/src
+            exit 1
+          fi
+          echo "✔ No hardcoded rgba found"
+
+      - name: Import boundaries
+        run: pnpm tsx scripts/check-import-boundaries.ts
+
+      - name: File-size budget
+        run: pnpm tsx scripts/check-file-sizes.ts
+
+      - name: Bundle-size budgets (.size-limit.json)
+        run: pnpm --filter flowpanel exec size-limit
 
       - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:

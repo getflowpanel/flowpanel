@@ -1,8 +1,14 @@
 {
   "name": "@flowpanel/adapter-bullmq",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "BullMQ queue UIs for FlowPanel via bull-board",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/getflowpanel/flowpanel",
+    "directory": "packages/adapter-bullmq"
+  },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

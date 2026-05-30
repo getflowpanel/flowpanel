@@ -1,6 +1,19 @@
 {
   "name": "@flowpanel/next",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Next.js 15 integration for FlowPanel — App Router pages, route handlers, server actions, drawers, and SSE",
+  "keywords": [
+    "flowpanel",
+    "admin",
+    "nextjs"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/getflowpanel/flowpanel",
+    "directory": "packages/next"
+  },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
