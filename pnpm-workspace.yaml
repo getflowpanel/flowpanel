@@ -3,6 +3,13 @@ packages:
   - "examples/*"
   - "apps/*"
 
+# Allow these native deps to run their install/build scripts (pnpm v10 blocks
+# them by default). `better-sqlite3` compiles a native addon that the
+# adapter-drizzle SQLite integration tests load; without this the test suite
+# fails to locate the bindings file.
+onlyBuiltDependencies:
+  - better-sqlite3
+
 catalog:
   typescript: ^5.7.0
   vitest: ^3.0.0

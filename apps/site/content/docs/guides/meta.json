@@ -1,0 +1,4 @@
+{
+  "title": "Guides",
+  "pages": ["auth-with-clerk", "multi-tenant-scope", "realtime-with-redis"]
+}

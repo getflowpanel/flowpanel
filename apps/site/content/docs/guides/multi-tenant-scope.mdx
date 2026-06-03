@@ -1,0 +1,88 @@
+---
+title: Multi-tenant scoping
+description: Restrict every query to one tenant with a global scope plus a per-resource predicate — leak-proof and fail-closed.
+---
+
+flowpanel scopes a multi-tenant admin in two layers:
+
+1. A **global `scope`** function resolves the current tenant from the request
+   (e.g. `companyId` from the session).
+2. Each **resource declares a `scope` predicate** that AND-s the tenant
+   condition into every read and by-id mutation.
+
+The split is deliberate: the global function names the tenant once; each
+resource maps that tenant onto its own column. The same captured condition
+guards `list`, `get`, `update`, and `delete`, so a scoped resource can never
+leak a row from another tenant.
+
+## 1. Resolve the tenant globally
+
+The global `scope` receives `{ req, session }` and returns a plain object
+(or `null` to disable scoping for this request):
+
+```ts
+import { defineAdmin } from "flowpanel";
+
+export default defineAdmin({
+  // …adapter, auth…
+  scope: ({ session }) => {
+    const companyId = (session as { companyId?: string } | null)?.companyId;
+    return companyId ? { companyId } : null;
+  },
+  resources: [
+    /* … */
+  ],
+});
+```
+
+## 2. Map the tenant onto each resource
+
+The returned object is handed to every resource's `scope` predicate. The
+predicate AND-s the tenant condition into the adapter's native query.
+
+For **Drizzle**, call `.where(...)` on the query builder:
+
+```ts
+import { resource } from "flowpanel";
+import { eq } from "drizzle-orm";
+import * as schema from "@/db/schema";
+
+resource(schema.invoices, {
+  columns: ["number", "total", "status"],
+  scope: (s, query) =>
+    query.where(eq(schema.invoices.companyId, (s as { companyId: string }).companyId)),
+});
+```
+
+For **Prisma**, merge the tenant key into the `where` object:
+
+```ts
+resource("Invoice", {
+  columns: ["number", "total", "status"],
+  scope: (s, where) => ({
+    ...(where as object),
+    companyId: (s as { companyId: string }).companyId,
+  }),
+});
+```
+
+## Fail-closed enforcement
+
+When a global `scope` is active, **every resource must either declare a
+`scope` predicate or opt out explicitly**:
+
+```ts
+resource(schema.auditLog, {
+  columns: ["action", "at"],
+  // This table is global on purpose — opt out of tenant scoping.
+  scope: "bypass",
+});
+```
+
+If a resource is missing both, the runtime refuses to run an unscoped query
+and throws rather than risk a cross-tenant leak. This is intentional: it's
+safer to surface a configuration error than to silently return another
+tenant's rows.
+
+See [Resources](/docs/core-concepts/resources) for the full resource option
+reference.

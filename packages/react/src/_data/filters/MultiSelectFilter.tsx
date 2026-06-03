@@ -25,6 +25,7 @@ export function MultiSelectFilter({
   options,
   placeholder = "Any",
 }: MultiSelectFilterProps) {
+  const id = React.useId();
   const selected = React.useMemo(() => (value ? value.split(",").filter(Boolean) : []), [value]);
   const toggle = (v: string) => {
     const next = selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v];
@@ -49,9 +50,11 @@ export function MultiSelectFilter({
           {options.map((o) => (
             <label
               key={o.value}
+              htmlFor={`${id}-${o.value}`}
               className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-fp-bg-2"
             >
               <Checkbox
+                id={`${id}-${o.value}`}
                 checked={selected.includes(o.value)}
                 onCheckedChange={() => toggle(o.value)}
               />

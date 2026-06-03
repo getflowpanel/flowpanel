@@ -14,10 +14,13 @@ import {
 } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
+import { actorIdFromSession } from "../runtime/action-helpers.js";
+import { buildHref } from "../runtime/href.js";
 import { resourceNavName } from "../runtime/nav.js";
 import { bindPublisher, publishResource } from "../runtime/publish.js";
-import { requireAuthorized } from "../runtime/require-authorized.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
+import { requireAuthorized } from "../runtime/require-authorized.js";
+import { scopeBinding } from "../runtime/scope-binding.js";
 
 interface Schemas {
   create: z.ZodTypeAny;
@@ -59,15 +62,8 @@ export interface ResourceActions {
   delete: (id: string) => Promise<void>;
 }
 
-function actorIdFromSession(session: RequestContext["session"]): string | null {
-  if (!session || typeof session !== "object") return null;
-  const user = (session as { user?: unknown }).user;
-  if (user && typeof user === "object" && "id" in user) {
-    const id = (user as { id?: unknown }).id;
-    return id === undefined || id === null ? null : String(id);
-  }
-  return null;
-}
+// `actorIdFromSession` lives in ../runtime/action-helpers.js — shared across
+// every action handler so audit `actorId` extraction is uniform.
 
 export function makeActions(
   config: ResolvedAdminConfig,
@@ -97,7 +93,7 @@ export function makeActions(
 
   return {
     async create(input) {
-      const req = new Request(`http://localhost/admin/${name}/new`);
+      const req = new Request(`http://localhost${buildHref(config, name, "new")}`);
       const reqCtx = await buildRequestContext({ req, config });
       requireAuthorized(config, resource, reqCtx);
 
@@ -108,6 +104,7 @@ export function makeActions(
         ...reqCtx,
         db: config.adapter.db,
         input: parsed.data as Partial<Record<string, unknown>>,
+        ...scopeBinding(config, resource, reqCtx),
       };
       const row = (await runWithRequestContext(reqCtx, () =>
         config.adapter.create(resource.ref, mctx),
@@ -121,12 +118,12 @@ export function makeActions(
         action: "create",
         ...(rowId !== undefined && rowId !== null ? { id: String(rowId) } : {}),
       });
-      revalidatePath(`/admin/${name}`);
+      revalidatePath(buildHref(config, name));
       return row;
     },
 
     async update(id, input) {
-      const req = new Request(`http://localhost/admin/${name}/${id}/edit`);
+      const req = new Request(`http://localhost${buildHref(config, name, id, "edit")}`);
       const reqCtx = await buildRequestContext({ req, config });
       requireAuthorized(config, resource, reqCtx);
 
@@ -138,6 +135,7 @@ export function makeActions(
         db: config.adapter.db,
         input: parsed.data as Partial<Record<string, unknown>>,
         id,
+        ...scopeBinding(config, resource, reqCtx),
       };
       const row = await runWithRequestContext(reqCtx, () =>
         config.adapter.update(resource.ref, mctx),
@@ -145,13 +143,13 @@ export function makeActions(
       if (!row) throw new FlowpanelNotFoundError();
       await baseAudit(`${name}.update`, reqCtx, { targetId: id });
       await publishResource(name, { action: "update", id });
-      revalidatePath(`/admin/${name}`);
-      revalidatePath(`/admin/${name}/${id}`);
+      revalidatePath(buildHref(config, name));
+      revalidatePath(buildHref(config, name, id));
       return row;
     },
 
     async delete(id) {
-      const req = new Request(`http://localhost/admin/${name}/${id}`);
+      const req = new Request(`http://localhost${buildHref(config, name, id)}`);
       const reqCtx = await buildRequestContext({ req, config });
       requireAuthorized(config, resource, reqCtx);
 
@@ -162,11 +160,12 @@ export function makeActions(
         input: {},
         id,
         ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
+        ...scopeBinding(config, resource, reqCtx),
       };
       await runWithRequestContext(reqCtx, () => config.adapter.delete(resource.ref, mctx));
       await baseAudit(`${name}.delete`, reqCtx, { targetId: id });
       await publishResource(name, { action: "delete", id });
-      revalidatePath(`/admin/${name}`);
+      revalidatePath(buildHref(config, name));
     },
   };
 }

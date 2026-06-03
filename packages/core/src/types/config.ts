@@ -31,9 +31,8 @@ export interface AuthConfig {
  *
  * Per invariant I-11, slot keys are append-only across minor versions.
  */
-export interface FlowpanelComponentSlots {
-  // empty — `@flowpanel/react` augments with the shipped 10 slots
-}
+// biome-ignore lint/suspicious/noEmptyInterface: must stay an interface — @flowpanel/react and consumers augment it via `declare module` merging (I-11); a `type` alias cannot be merged into.
+export interface FlowpanelComponentSlots {}
 
 export interface ThemeConfig {
   brand?: { name?: string; logo?: string; href?: string };
@@ -103,6 +102,16 @@ export interface AdminConfig {
   audit?: AuditConfig;
   realtime?: RealtimeConfig;
   rateLimit?: RateLimitConfig;
+  /**
+   * URL prefix under which the admin is mounted. Defaults to `"/admin"`.
+   * Override when the consumer's app already uses `/admin` for something
+   * else, or when admins live under a route group like `/internal/admin`.
+   *
+   * Must start with `/` and must NOT end with `/`. Internal hrefs and
+   * `revalidatePath` calls all flow through `buildHref(config, …segments)`
+   * so the prefix is honored consistently.
+   */
+  basePath?: string;
   hooks?: {
     onError?: (err: Error, ctx: RequestContext) => void | Promise<void>;
   };
@@ -112,5 +121,8 @@ export interface ResolvedAdminConfig extends AdminConfig {
   readonly __resolved: true;
   readonly resourcesByName: Map<string, ResourceConfig>;
   readonly dashboardsByPath: Map<string, DashboardConfig>;
+  readonly pagesByPath: Map<string, PageConfig>;
   readonly queuesByKey: Map<string, QueueConfig>;
+  /** Normalized `basePath` — leading slash, no trailing slash. Defaults to `/admin`. */
+  readonly basePath: string;
 }

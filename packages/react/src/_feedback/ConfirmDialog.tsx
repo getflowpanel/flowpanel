@@ -1,7 +1,8 @@
 "use client";
-import * as React from "react";
+import type * as React from "react";
 import { useComponents } from "../_provider/ComponentsContext.js";
-export { DefaultConfirmDialog, type ConfirmDialogProps } from "./ConfirmDialogDefault.js";
+
+export { type ConfirmDialogProps, DefaultConfirmDialog } from "./ConfirmDialogDefault.js";
 
 /** Renders whatever override the user registered via theme.components.ConfirmDialog,
  *  falling back to DefaultConfirmDialog. */

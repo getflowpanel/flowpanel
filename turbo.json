@@ -12,13 +12,8 @@
     "test:unit": {
       "outputs": [".vitest-cache/**"]
     },
-    "test:integration": {
-      "dependsOn": ["build"],
-      "outputs": []
-    },
-    "test:chaos": {
-      "dependsOn": ["build"],
-      "outputs": []
+    "test:types": {
+      "dependsOn": ["build"]
     },
     "test:e2e": {
       "dependsOn": ["build"],

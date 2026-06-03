@@ -1,6 +1,19 @@
 {
   "name": "@flowpanel/next",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Next.js 15 integration for FlowPanel — App Router pages, route handlers, server actions, drawers, and SSE",
+  "keywords": [
+    "flowpanel",
+    "admin",
+    "nextjs"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/getflowpanel/flowpanel",
+    "directory": "packages/next"
+  },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -25,17 +38,21 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*",
-    "@flowpanel/react": "workspace:*"
+    "@flowpanel/react": "workspace:*",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.3.0"
   },
   "peerDependencies": {
-    "next": "^15.0.0",
+    "next": "^15.0.0 || ^16.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zod": "^3.23.0"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/react": "catalog:",
@@ -45,6 +62,6 @@
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "zod": "^3.23.0"
+    "zod": "^4.0.0"
   }
 }

@@ -1,5 +1,4 @@
 "use client";
-import * as React from "react";
 // Import from the dedicated /labels subpath, not "@flowpanel/core" — the
 // main entry pulls node:async_hooks via runtime/request-context, which
 // breaks client-side webpack bundles.
@@ -9,6 +8,7 @@ import {
   mergeLabels,
   type ResolvedLabels,
 } from "@flowpanel/core/labels";
+import * as React from "react";
 
 const Ctx = React.createContext<ResolvedLabels>(DEFAULT_LABELS);
 

@@ -2,10 +2,12 @@ import type { ColumnMeta, ResourceIntrospection } from "@flowpanel/core";
 import { getTableColumns, getTableName } from "drizzle-orm";
 
 export function introspect(table: unknown): ResourceIntrospection {
+  // biome-ignore lint/suspicious/noExplicitAny: drizzle Table internals are not publicly typed; the value is a runtime Drizzle table guarded by getTableColumns.
   const cols = getTableColumns(table as any);
   const columns: ColumnMeta[] = [];
   let primaryKey = "id";
 
+  // biome-ignore lint/suspicious/noExplicitAny: drizzle column objects are not publicly typed; raw is read via runtime-guarded property access.
   for (const [name, raw] of Object.entries<any>(cols)) {
     const meta: ColumnMeta = {
       name,
@@ -19,9 +21,11 @@ export function introspect(table: unknown): ResourceIntrospection {
     columns.push(meta);
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: drizzle Table internals are not publicly typed; the value is a runtime Drizzle table guarded by getTableName.
   return { name: getTableName(table as any), columns, primaryKey };
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: drizzle column internals are not publicly typed; col.dataType / col.columnType are read via runtime-guarded String() coercion.
 function mapType(col: any): ColumnMeta["type"] {
   const dt = String(col.dataType ?? "").toLowerCase();
   const ct = String(col.columnType ?? "").toLowerCase();

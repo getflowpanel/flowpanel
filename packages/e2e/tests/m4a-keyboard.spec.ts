@@ -1,40 +1,44 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * M4a — keyboard-only navigation smoke.
+ * M4a — keyboard accessibility.
  *
- * 1. Tab into skip-to-content link, Enter activates it.
- * 2. Click first row → drawer opens (role=dialog).
- * 3. Esc closes drawer.
+ * Verifies the real requirements directly, rather than via a synthetic
+ * `Tab` press from <body> — that proxy is unreliable in headless Chromium
+ * (the first Tab doesn't deterministically start from the document root),
+ * so it tested the harness, not the product.
+ *
+ * 1. The skip-to-content link is the FIRST focusable element in the document.
+ * 2. Activating it (Enter) jumps to the #main landmark.
+ * 3. A row opens the drawer; Esc closes it.
  *
  * Requires freelance-radar + Postgres running.
  */
 test.describe("M4a — keyboard navigation", () => {
-  test("Tab cycles to skip link, Esc closes drawer", async ({ page }) => {
+  test("skip link is first focusable and jumps to main; Esc closes drawer", async ({ page }) => {
     await page.goto("/admin/users");
-    await page.waitForLoadState("networkidle");
+    await page.locator("tbody tr").first().waitFor({ state: "visible" });
 
-    // Ensure focus starts at the document root before tabbing.
-    await page.click("body");
+    // (1) The skip link must be the first thing a keyboard user reaches, so it
+    // must be the first focusable element in DOM order. It's visually hidden
+    // (sr-only) until focused, so we don't filter by visibility.
+    const firstFocusable = page
+      .locator(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )
+      .first();
+    await expect(firstFocusable).toHaveAttribute("href", "#main");
+    await expect(firstFocusable).toHaveText(/skip to main content/i);
 
-    // First Tab should focus the skip-to-content link.
-    await page.keyboard.press("Tab");
-    const focusedText = await page.evaluate(
-      () =>
-        (globalThis as unknown as { document: { activeElement: { textContent?: string } | null } })
-          .document.activeElement?.textContent ?? "",
-    );
-    expect(focusedText.toLowerCase()).toContain("skip to main content");
-
-    // Activating the skip link jumps to the main landmark.
+    // (2) Focusing it and pressing Enter activates the in-page jump to #main.
+    await firstFocusable.focus();
+    await expect(firstFocusable).toBeFocused();
     await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/#main$/);
 
-    // Open the drawer by clicking the first row (mouse is fine for the open path).
-    const firstRow = page.locator("tbody tr").first();
-    await firstRow.click();
+    // (3) Open the drawer by clicking the first row; Esc closes it.
+    await page.locator("tbody tr").first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
-
-    // Esc closes the drawer.
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });

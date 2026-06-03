@@ -12,7 +12,8 @@
       "@flowpanel/adapter-bullmq",
       "@flowpanel/cli",
       "@flowpanel/charts",
-      "@flowpanel/adapter-prisma"
+      "@flowpanel/adapter-prisma",
+      "@flowpanel/eslint-plugin"
     ]
   ],
   "linked": [],

@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { DefaultBadge, type BadgeTone } from "./BadgeDefault.js";
+import { type BadgeTone, DefaultBadge } from "./BadgeDefault.js";
 
 /**
  * Logical status tone resolved from a raw status string. `info` is additive

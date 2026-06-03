@@ -1,0 +1,28 @@
+# Build context hygiene — keep the image build fast and correct.
+# node_modules MUST be excluded: the Dockerfile reinstalls deps in-image,
+# and a stray local copy would clobber it via `COPY . .`.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+
+.git
+.github
+.changeset
+docs
+
+# Test / tooling artifacts
+**/coverage
+**/playwright-report
+**/test-results
+**/.vitest-cache
+
+# Local env + editor + OS
+**/.env
+**/.env.*
+!**/.env.example
+.vscode
+.idea
+**/.DS_Store
+**/*.log

@@ -1,4 +1,4 @@
-import type { ColumnDef, RequestContext } from "@flowpanel/core";
+import type { ColumnDef, ColumnMeta, RequestContext } from "@flowpanel/core";
 import type { ReactNode } from "react";
 
 /**
@@ -6,6 +6,11 @@ import type { ReactNode } from "react";
  * every prop a `DataTable` / `TableWidget` consumer needs, but never the
  * `render` function — function refs can't cross the RSC → Client boundary, so
  * any `ColumnDef.render` gets executed server-side into `prerenderedCells`.
+ *
+ * `type` propagates adapter introspection (`ColumnMeta.type`) to the client
+ * so the renderer can dispatch (`array` → chips, `json` → popover,
+ * `reference` → link); the client falls back to plain `formatCell` when
+ * type is absent.
  */
 export interface PrerenderedColumn<Row> {
   field: keyof Row & string;
@@ -15,6 +20,9 @@ export interface PrerenderedColumn<Row> {
   align?: "left" | "center" | "right";
   className?: string;
   hidden?: boolean;
+  type?: ColumnMeta["type"];
+  /** Mirrors `ColumnDef.editable`. When true, the cell renders as `<InlineEditCell>`. */
+  editable?: boolean;
 }
 
 export interface PrerenderResult<Row> {
@@ -41,6 +49,12 @@ export interface PrerenderOptions {
    * (no sort UI).
    */
   defaultSortable?: boolean;
+  /**
+   * Adapter introspection keyed by column name. Used to forward
+   * `ColumnMeta.type` (array / json / reference / …) to the client so
+   * `DataTable` can dispatch to specialized cell renderers.
+   */
+  metaByField?: ReadonlyMap<string, ColumnMeta>;
 }
 
 /**
@@ -55,7 +69,7 @@ export function prerenderResourceCells<Row>(
   reqCtx: RequestContext,
   options: PrerenderOptions = {},
 ): PrerenderResult<Row> {
-  const { dropHidden = false, defaultSortable } = options;
+  const { dropHidden = false, defaultSortable, metaByField } = options;
   const columns: PrerenderedColumn<Row>[] = [];
   const renderFns: (((row: Row) => ReactNode) | null)[] = [];
 
@@ -64,6 +78,8 @@ export function prerenderResourceCells<Row>(
       const field = String(c) as keyof Row & string;
       const col: PrerenderedColumn<Row> = { field };
       if (defaultSortable !== undefined) col.sortable = defaultSortable;
+      const meta = metaByField?.get(field);
+      if (meta) col.type = meta.type;
       columns.push(col);
       renderFns.push(null);
       continue;
@@ -80,6 +96,14 @@ export function prerenderResourceCells<Row>(
     if (def.align) out.align = def.align;
     if (def.className) out.className = def.className;
     if (def.hidden !== undefined) out.hidden = def.hidden;
+    if (def.editable === true) out.editable = true;
+    // Reference column override beats raw introspection (`reference` is
+    // explicit user intent); otherwise propagate the adapter's type.
+    if (def.reference) out.type = "reference";
+    else {
+      const meta = metaByField?.get(field);
+      if (meta) out.type = meta.type;
+    }
     columns.push(out);
     if (def.render) {
       const fn = def.render;

@@ -1,7 +1,7 @@
 // tsd type tests for @flowpanel/adapter-drizzle public surface.
 
-import { expectAssignable } from "tsd";
 import { drizzleAdapter } from "@flowpanel/adapter-drizzle";
+import { expectAssignable } from "tsd";
 
 // Adapter factory returns an Adapter whose kind narrows to "drizzle".
 declare const db: object;

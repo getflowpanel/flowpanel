@@ -1,5 +1,5 @@
 # @flowpanel/client
 
-## 1.0.0
+## 0.1.0
 
-Initial public release. See [flowpanel CHANGELOG](https://github.com/getflowpanel/flowpanel/blob/main/CHANGELOG.md) for details.
+First public release. Client-only React hooks (e.g. `useAdminMutation`) for wiring custom FlowPanel UIs to the server actions and realtime stream.

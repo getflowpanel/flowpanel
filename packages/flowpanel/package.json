@@ -1,8 +1,14 @@
 {
   "name": "flowpanel",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Config-first admin panel framework for Next.js 15",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/getflowpanel/flowpanel",
+    "directory": "packages/flowpanel"
+  },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "exports": {
     ".": {
@@ -55,7 +61,9 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
     "@flowpanel/adapter-bullmq": "workspace:*",
@@ -68,11 +76,11 @@
     "@flowpanel/react": "workspace:*"
   },
   "peerDependencies": {
-    "next": "^15.0.0",
+    "next": "^15.0.0 || ^16.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^3.0.0 || ^4.0.0",
-    "zod": "^3.23.0"
+    "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "drizzle-orm": {
@@ -93,6 +101,6 @@
     "typescript": "catalog:"
   },
   "optionalDependencies": {
-    "ioredis": "^5.10.1"
+    "ioredis": "^5.10.0"
   }
 }

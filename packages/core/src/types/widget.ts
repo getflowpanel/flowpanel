@@ -60,6 +60,13 @@ export interface TableWidget {
 export interface CustomOptions {
   span?: Span;
   realtime?: string | string[];
+  /**
+   * Whether to wrap the rendered custom widget in the default `ServerCard`
+   * frame (rounded border + padding). Defaults to `true`. Pass `false` when
+   * the widget owns its own outer layout (e.g. a grid of inner cards) and
+   * the outer frame would visibly nest one card inside another.
+   */
+  frame?: boolean;
 }
 
 export interface CustomWidget<P = unknown> {
@@ -80,6 +87,7 @@ export interface StatGroupOptions {
   label?: string;
   stats: StatItem[];
   span?: Span;
+  realtime?: string | string[];
 }
 
 export interface StatGroupWidget {

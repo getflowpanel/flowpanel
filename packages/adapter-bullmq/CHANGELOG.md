@@ -1,5 +1,5 @@
 # @flowpanel/adapter-bullmq
 
-## 1.0.0
+## 0.1.0
 
-Initial public release. See [flowpanel CHANGELOG](https://github.com/getflowpanel/flowpanel/blob/main/CHANGELOG.md) for details.
+First public release. BullMQ queue dashboards for FlowPanel, backed by bull-board.

@@ -1,104 +1,29 @@
 "use client";
+// LOC-OK: table render orchestrator — coordinates the column-layout, selection,
+// keyboard and drawer sub-hooks; splitting scatters tightly-coupled table state.
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useLabels } from "../_provider/LabelsContext.js";
 import { useLiveChannel } from "../hooks/useLiveChannel.js";
+import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import { cn } from "../lib/cn.js";
-import { resolveFieldLabel } from "../lib/humanize.js";
-import { Skeleton } from "../ui/skeleton.js";
-import { ColumnPinMenu } from "./ColumnPinMenu.js";
-import { ColumnResizer } from "./ColumnResizer.js";
+import { CsvExportButton } from "./csv-export.js";
+import { DataTableHeader } from "./DataTableHeader.js";
+import { DataTableRow } from "./DataTableRow.js";
+import { DataTableSkeleton } from "./DataTableSkeleton.js";
+import { type DataTableDensity, DensityToggle } from "./DensityToggle.js";
+import type { DataTableColumn, DataTableProps } from "./data-table-types.js";
+import { MobileCardList } from "./MobileCardList.js";
 import { Pagination } from "./Pagination.js";
+import { useColumnLayout } from "./useColumnLayout.js";
+import { useDataTableKeyboard } from "./useDataTableKeyboard.js";
+import { useDataTableSelection } from "./useDataTableSelection.js";
 
-const dateFmt = new Intl.DateTimeFormat("en-CA", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
-
-function formatCell(v: unknown): React.ReactNode {
-  if (v === null || v === undefined) return "";
-  if (v instanceof Date) return dateFmt.format(v).replace(",", "");
-  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
-    const d = new Date(v);
-    if (!Number.isNaN(d.getTime())) return dateFmt.format(d).replace(",", "");
-  }
-  if (typeof v === "boolean") return v ? "Yes" : "No";
-  return String(v);
-}
-
-const ALIGN_CLASS = {
-  left: "text-left",
-  center: "text-center",
-  right: "text-right",
-} as const;
-
-function widthToCss(w: number | string | undefined): string | undefined {
-  if (w === undefined) return undefined;
-  return typeof w === "number" ? `${w}px` : w;
-}
-
-export interface DataTableColumn<Row> {
-  field: keyof Row & string;
-  label?: string;
-  render?: (row: Row) => React.ReactNode;
-  sortable?: boolean;
-  width?: number | string;
-  align?: "left" | "center" | "right";
-  hidden?: boolean;
-  className?: string;
-}
-
-export interface DataTableSort<Row> {
-  field: keyof Row & string;
-  dir: "asc" | "desc";
-}
-
-export interface DataTableProps<Row> {
-  columns: DataTableColumn<Row>[];
-  rows: Row[];
-  total: number;
-  page: number;
-  pageSize: number;
-  rowKey: keyof Row & string;
-  sort?: DataTableSort<Row> | null;
-  density?: "comfortable" | "compact";
-  loading?: boolean;
-  onRowClick?: (row: Row) => void;
-  onSortChange?: (sort: DataTableSort<Row>) => void;
-  onPageChange?: (page: number) => void;
-  emptyTitle?: string;
-  emptyDescription?: string;
-  emptyAction?: React.ReactNode;
-  className?: string;
-  selection?: string[];
-  onSelectionChange?: (ids: string[]) => void;
-  /** When provided, the caller controls row-key extraction; defaults to String(row[rowKey]). */
-  getRowKey?: (row: Row) => string;
-  /**
-   * Server-prerendered cell content, indexed `[rowIndex][colIndex]` against
-   * the `rows` array and the original `columns` array order. Used when the
-   * caller wants `ColumnDef.render(row, ctx) => ReactNode` to execute on the
-   * server (so the function never crosses the RSC → Client boundary). When
-   * the cell entry is `undefined`, the table falls back to `column.render`
-   * (if present) or to `String(row[col.field])`.
-   */
-  prerenderedCells?: (React.ReactNode | undefined)[][];
-  columnVisibility?: Record<string, boolean>;
-  columnWidths?: Record<string, number>;
-  onColumnWidthsChange?: (widths: Record<string, number>) => void;
-  pinnedColumns?: { left?: string[]; right?: string[] };
-  onPinnedColumnsChange?: (pinned: { left?: string[]; right?: string[] }) => void;
-  /**
-   * Subscribe to an SSE channel and trigger `router.refresh()` on events.
-   * Pass a string for the channel or an object with `debounceMs` (default 200).
-   * Requires Next.js router context.
-   */
-  realtime?: string | { channel: string; debounceMs?: number };
-}
+export type {
+  DataTableColumn,
+  DataTableProps,
+  DataTableSort,
+} from "./data-table-types.js";
 
 export function DataTable<Row extends Record<string, unknown>>({
   columns,
@@ -116,6 +41,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   emptyTitle,
   emptyDescription,
   emptyAction,
+  emptyIcon,
   className,
   selection,
   onSelectionChange,
@@ -127,20 +53,39 @@ export function DataTable<Row extends Record<string, unknown>>({
   pinnedColumns,
   onPinnedColumnsChange,
   realtime,
+  rowEndCell,
+  rowEndCellLabel = "Actions",
+  onEditRow,
+  onDeleteRow,
+  onFocusSearch,
+  onShowShortcuts,
+  inlineEditResource,
+  mobileLayout = "card",
+  exportable = false,
+  showDensityToggle = false,
 }: DataTableProps<Row>) {
   const router = useRouter();
   const labels = useLabels();
   const effectiveEmptyTitle = emptyTitle ?? labels.noResults;
-  const [liveWidths, setLiveWidths] = React.useState<Record<string, number>>(columnWidths ?? {});
-  React.useEffect(() => {
-    setLiveWidths(columnWidths ?? {});
-  }, [columnWidths]);
-  const resizingRef = React.useRef<{ field: string; base: number } | null>(null);
-  const liveWidthsRef = React.useRef(liveWidths);
-  React.useEffect(() => {
-    liveWidthsRef.current = liveWidths;
-  }, [liveWidths]);
-  const effectiveWidths = liveWidths;
+
+  const layout = useColumnLayout<Row>({
+    columns,
+    ...(columnVisibility ? { columnVisibility } : {}),
+    ...(columnWidths ? { columnWidths } : {}),
+    ...(pinnedColumns ? { pinnedColumns } : {}),
+  });
+  const {
+    orderedVisible,
+    colIndexByField,
+    leftPins,
+    rightPins,
+    pinMeta,
+    effectiveWidths,
+    setLiveWidths,
+    liveWidthsRef,
+    resizingRef,
+  } = layout;
+
   const realtimeCfg =
     typeof realtime === "string" ? { channel: realtime, debounceMs: 200 } : realtime;
   const realtimeChannel = realtimeCfg?.channel ?? "";
@@ -160,122 +105,48 @@ export function DataTable<Row extends Record<string, unknown>>({
   );
   useLiveChannel(realtimeChannel, handleLiveEvent);
 
-  const visible = React.useMemo(
-    () => columns.filter((c) => !c.hidden && (columnVisibility?.[c.field] ?? true)),
-    [columns, columnVisibility],
-  );
+  // Mobile / desktop picker. Hook must run unconditionally (before the
+  // early returns below), so it lives here at the top level. Server snapshot
+  // is `false` (desktop) so the initial paint matches every server-rendered
+  // consumer; on the client, `useSyncExternalStore` wires the real
+  // `matchMedia` listener and switches to the card list when the viewport
+  // narrows. Critically, only ONE layout is mounted at a time — testing-
+  // library queries don't see doubled DOM content, and React's
+  // reconciliation cost stays flat.
+  const isMobile = useMediaQuery("(max-width: 639px)");
 
-  // Map field -> original column index so we can look up `prerenderedCells`
-  // (which is indexed against the original `columns` order, not the
-  // reordered/visible-filtered list).
-  const colIndexByField = React.useMemo(() => {
-    const m = new Map<string, number>();
-    columns.forEach((c, i) => m.set(c.field, i));
-    return m;
-  }, [columns]);
-
-  const { leftPins, rightPins } = React.useMemo(
-    () => ({
-      leftPins: pinnedColumns?.left ?? [],
-      rightPins: pinnedColumns?.right ?? [],
-    }),
-    [pinnedColumns],
-  );
-
-  const orderedVisible = React.useMemo(() => {
-    const leftSet = new Set(leftPins);
-    const rightSet = new Set(rightPins);
-    const left: typeof visible = [];
-    const middle: typeof visible = [];
-    const right: typeof visible = [];
-    for (const c of visible) {
-      if (leftSet.has(c.field)) left.push(c);
-      else if (rightSet.has(c.field)) right.push(c);
-      else middle.push(c);
-    }
-    left.sort((a, b) => leftPins.indexOf(a.field) - leftPins.indexOf(b.field));
-    right.sort((a, b) => rightPins.indexOf(a.field) - rightPins.indexOf(b.field));
-    return [...left, ...middle, ...right];
-  }, [visible, leftPins, rightPins]);
-
-  const pinMeta = React.useMemo(() => {
-    const map = new Map<string, { side: "left" | "right" | "none"; offset: number }>();
-    let leftOffset = 0;
-    for (const c of orderedVisible) {
-      if (leftPins.includes(c.field)) {
-        map.set(c.field, { side: "left", offset: leftOffset });
-        const w = liveWidths[c.field] ?? (typeof c.width === "number" ? c.width : 120);
-        leftOffset += w;
-      }
-    }
-    let rightOffset = 0;
-    for (const c of [...orderedVisible].reverse()) {
-      if (rightPins.includes(c.field)) {
-        map.set(c.field, { side: "right", offset: rightOffset });
-        const w = liveWidths[c.field] ?? (typeof c.width === "number" ? c.width : 120);
-        rightOffset += w;
-      }
-    }
-    for (const c of orderedVisible) {
-      if (!map.has(c.field)) map.set(c.field, { side: "none", offset: 0 });
-    }
-    return map;
-  }, [orderedVisible, leftPins, rightPins, liveWidths]);
-
-  const rowPadding = density === "compact" ? "py-1.5" : "py-3";
-  const [cursor, setCursor] = React.useState<number>(-1);
-  const tbodyRef = React.useRef<HTMLTableSectionElement>(null);
-
-  const selectionEnabled = onSelectionChange !== undefined;
-  const keyOf = React.useCallback(
-    (row: Row) => (getRowKey ? getRowKey(row) : String(row[rowKey])),
-    [getRowKey, rowKey],
-  );
-  const selectionSet = React.useMemo(() => new Set(selection ?? []), [selection]);
-  const allOnPageSelected = rows.length > 0 && rows.every((r) => selectionSet.has(keyOf(r)));
-
-  const toggleRow = (id: string) => {
-    if (!onSelectionChange) return;
-    const next = new Set(selectionSet);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    onSelectionChange(Array.from(next));
-  };
-  const toggleAll = () => {
-    if (!onSelectionChange) return;
-    if (allOnPageSelected) {
-      const remaining = Array.from(selectionSet).filter((id) => !rows.some((r) => keyOf(r) === id));
-      onSelectionChange(remaining);
-    } else {
-      const union = new Set(selectionSet);
-      for (const r of rows) union.add(keyOf(r));
-      onSelectionChange(Array.from(union));
-    }
-  };
-
-  // Reset cursor when the row set changes (new page, filter, etc).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rows identity change is the trigger.
+  // Density: controlled via `density`; when `showDensityToggle` is set we own
+  // an internal override seeded from the prop, so the toggle is interactive
+  // without forcing the host to manage state.
+  const [densityOverride, setDensityOverride] = React.useState<DataTableDensity | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: density is intentionally a dependency so a changed controlled prop clears the local override.
   React.useEffect(() => {
-    setCursor(-1);
-  }, [rows]);
+    setDensityOverride(null);
+  }, [density]);
+  const effectiveDensity = densityOverride ?? density;
+  const rowPadding = effectiveDensity === "compact" ? "py-1.5" : "py-3";
+  const cellText = effectiveDensity === "compact" ? "text-xs" : "";
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTableSectionElement>) => {
-    if (rows.length === 0) return;
-    if (e.key === "j" || e.key === "ArrowDown") {
-      e.preventDefault();
-      setCursor((c) => Math.min(rows.length - 1, c < 0 ? 0 : c + 1));
-    } else if (e.key === "k" || e.key === "ArrowUp") {
-      e.preventDefault();
-      setCursor((c) => Math.max(0, c - 1));
-    } else if (e.key === "Enter") {
-      if (cursor >= 0) {
-        const row = rows[cursor];
-        if (row !== undefined) onRowClick?.(row);
-      }
-    } else if (e.key === "Escape") {
-      setCursor(-1);
-    }
-  };
+  const selectionApi = useDataTableSelection<Row>({
+    rows,
+    rowKey,
+    ...(selection ? { selection } : {}),
+    ...(onSelectionChange ? { onSelectionChange } : {}),
+    ...(getRowKey ? { getRowKey } : {}),
+  });
+  const { selectionEnabled, keyOf, selectionSet, allOnPageSelected, toggleRow, toggleAll } =
+    selectionApi;
+
+  const tbodyRef = React.useRef<HTMLTableSectionElement>(null);
+  const keyboard = useDataTableKeyboard<Row>({
+    rows,
+    ...(onRowClick ? { onRowClick } : {}),
+    ...(onEditRow ? { onEditRow } : {}),
+    ...(onDeleteRow ? { onDeleteRow } : {}),
+    ...(onFocusSearch ? { onFocusSearch } : {}),
+    ...(onShowShortcuts ? { onShowShortcuts } : {}),
+  });
+  const { cursor, handleKeyDown } = keyboard;
 
   const handleHeaderClick = (c: DataTableColumn<Row>) => {
     if (!c.sortable) return;
@@ -286,59 +157,53 @@ export function DataTable<Row extends Record<string, unknown>>({
 
   const frame = "rounded-fp border border-fp-border-1 bg-fp-bg-1 overflow-hidden";
 
+  const showToolbar = exportable || showDensityToggle;
+  const toolbar = showToolbar ? (
+    <div className="flex items-center justify-end gap-1 border-b border-fp-border-1 bg-fp-bg-1 px-2 py-1.5">
+      {showDensityToggle ? (
+        <DensityToggle density={effectiveDensity} onChange={setDensityOverride} />
+      ) : null}
+      {exportable ? (
+        <CsvExportButton
+          columns={orderedVisible}
+          rows={rows}
+          label={labels.actions.export}
+          tableLabel={inlineEditResource ?? emptyTitle ?? "export"}
+        />
+      ) : null}
+    </div>
+  ) : null;
+
   if (loading) {
-    const skeletonRows = Array.from({ length: Math.min(pageSize, 5) });
     return (
       <div className={cn(frame, className)} aria-busy="true">
-        <table className="w-full text-sm">
-          <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
-            <tr>
-              {selectionEnabled ? (
-                <th scope="col" className="w-10 px-4 py-2" aria-hidden="true" />
-              ) : null}
-              {orderedVisible.map((c) => {
-                const wCss = widthToCss(c.width);
-                return (
-                  <th
-                    key={c.field}
-                    scope="col"
-                    {...(wCss !== undefined
-                      ? { style: { "--fp-col-w": wCss } as React.CSSProperties }
-                      : {})}
-                    className={cn(
-                      "px-4 py-2 font-medium",
-                      ALIGN_CLASS[c.align ?? "left"],
-                      wCss !== undefined && "w-[var(--fp-col-w)]",
-                    )}
-                  >
-                    {resolveFieldLabel(c.label, c.field)}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {skeletonRows.map((_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders have no stable identity.
-              <tr key={`skeleton-${i}`} className="border-t border-fp-border-1">
-                {selectionEnabled ? <td className={cn("px-4", rowPadding)} /> : null}
-                {orderedVisible.map((c) => (
-                  <td key={c.field} className={cn("px-4", rowPadding)}>
-                    <Skeleton className="h-4 w-24" />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {toolbar}
+        <DataTableSkeleton
+          orderedVisible={orderedVisible}
+          pageSize={pageSize}
+          rowPadding={rowPadding}
+          selectionEnabled={selectionEnabled}
+          rowEndCell={rowEndCell}
+          rowEndCellLabel={rowEndCellLabel}
+        />
       </div>
     );
   }
 
   if (rows.length === 0) {
+    // Same empty state on desktop + mobile — the card view's own empty
+    // path produces identical layout, so we don't bother rendering both.
     return (
       <div className={cn(frame, className)}>
         <div className="flex flex-col items-center justify-center py-16 text-center">
+          {emptyIcon ? (
+            <div
+              className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-2 text-2xl text-fp-text-2"
+              aria-hidden="true"
+            >
+              {emptyIcon}
+            </div>
+          ) : null}
           <div className="text-base font-medium text-fp-text-1">{effectiveEmptyTitle}</div>
           {emptyDescription ? (
             <div className="mt-1 text-sm text-fp-text-3">{emptyDescription}</div>
@@ -349,109 +214,52 @@ export function DataTable<Row extends Record<string, unknown>>({
     );
   }
 
+  const showMobileCardView = mobileLayout === "card" && isMobile;
+
+  if (showMobileCardView) {
+    return (
+      <MobileCardList
+        columns={orderedVisible}
+        rows={rows}
+        rowKey={rowKey}
+        {...(getRowKey ? { getRowKey } : {})}
+        {...(prerenderedCells ? { prerenderedCells } : {})}
+        {...(onRowClick ? { onRowClick } : {})}
+        {...(selection ? { selection } : {})}
+        {...(onSelectionChange ? { onSelectionChange } : {})}
+        {...(rowEndCell ? { rowEndCell } : {})}
+        {...(emptyTitle ? { emptyTitle } : {})}
+        {...(emptyDescription ? { emptyDescription } : {})}
+        {...(emptyAction ? { emptyAction } : {})}
+        {...(emptyIcon ? { emptyIcon } : {})}
+        {...(className ? { className } : {})}
+      />
+    );
+  }
+
   return (
     <div className={cn(frame, className)}>
+      {toolbar}
       <table className="w-full text-sm">
-        <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
-          <tr>
-            {selectionEnabled ? (
-              <th scope="col" className="w-10 px-4 py-2">
-                <input
-                  type="checkbox"
-                  checked={allOnPageSelected}
-                  aria-label={
-                    allOnPageSelected
-                      ? "Deselect all rows on this page"
-                      : "Select all rows on this page"
-                  }
-                  onChange={toggleAll}
-                  className="h-4 w-4 accent-fp-accent"
-                />
-              </th>
-            ) : null}
-            {orderedVisible.map((c) => {
-              const active = sort?.field === c.field;
-              const ariaSort: React.AriaAttributes["aria-sort"] = active
-                ? sort?.dir === "asc"
-                  ? "ascending"
-                  : "descending"
-                : "none";
-              const width = effectiveWidths[c.field] ?? c.width;
-              const wCss = widthToCss(width);
-              const meta = pinMeta.get(c.field) ?? { side: "none" as const, offset: 0 };
-              const cssVars: Record<string, string> = {};
-              if (wCss !== undefined) cssVars["--fp-col-w"] = wCss;
-              if (meta.side === "left") cssVars["--fp-col-pin-left"] = `${meta.offset}px`;
-              else if (meta.side === "right") cssVars["--fp-col-pin-right"] = `${meta.offset}px`;
-              const currentPin: "left" | "right" | null =
-                meta.side === "left" ? "left" : meta.side === "right" ? "right" : null;
-              return (
-                <th
-                  key={c.field}
-                  scope="col"
-                  aria-sort={c.sortable ? ariaSort : undefined}
-                  {...(Object.keys(cssVars).length > 0
-                    ? { style: cssVars as React.CSSProperties }
-                    : {})}
-                  className={cn(
-                    "px-4 py-2 font-medium select-none",
-                    ALIGN_CLASS[c.align ?? "left"],
-                    wCss !== undefined && "w-[var(--fp-col-w)]",
-                    meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-2 z-[2]",
-                    meta.side === "right" &&
-                      "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-2 z-[2]",
-                    meta.side === "none" && "relative",
-                    c.sortable && "cursor-pointer hover:text-fp-text-1",
-                    c.className,
-                  )}
-                  onClick={() => handleHeaderClick(c)}
-                >
-                  {resolveFieldLabel(c.label, c.field)}
-                  {active ? (
-                    <span aria-hidden className="ml-1">
-                      {sort?.dir === "asc" ? "↑" : "↓"}
-                    </span>
-                  ) : null}
-                  {onPinnedColumnsChange ? (
-                    <ColumnPinMenu
-                      field={c.field}
-                      currentPin={currentPin}
-                      onPin={(side) => {
-                        const nextLeft = leftPins.filter((f) => f !== c.field);
-                        const nextRight = rightPins.filter((f) => f !== c.field);
-                        if (side === "left") nextLeft.push(c.field);
-                        if (side === "right") nextRight.push(c.field);
-                        onPinnedColumnsChange({ left: nextLeft, right: nextRight });
-                      }}
-                    />
-                  ) : null}
-                  {onColumnWidthsChange ? (
-                    <ColumnResizer
-                      onResize={(delta) => {
-                        const currentBase =
-                          resizingRef.current?.field === c.field
-                            ? resizingRef.current.base
-                            : (effectiveWidths[c.field] ??
-                              (typeof c.width === "number" ? c.width : 120));
-                        if (resizingRef.current?.field !== c.field) {
-                          resizingRef.current = { field: c.field, base: currentBase };
-                        }
-                        setLiveWidths((w) => ({
-                          ...w,
-                          [c.field]: Math.max(40, currentBase + delta),
-                        }));
-                      }}
-                      onResizeEnd={() => {
-                        resizingRef.current = null;
-                        onColumnWidthsChange?.(liveWidthsRef.current);
-                      }}
-                    />
-                  ) : null}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
+        <DataTableHeader
+          orderedVisible={orderedVisible}
+          sort={sort}
+          pinMeta={pinMeta}
+          effectiveWidths={effectiveWidths}
+          leftPins={leftPins}
+          rightPins={rightPins}
+          selectionEnabled={selectionEnabled}
+          allOnPageSelected={allOnPageSelected}
+          onToggleAll={toggleAll}
+          onHeaderClick={handleHeaderClick}
+          {...(onColumnWidthsChange ? { onColumnWidthsChange } : {})}
+          {...(onPinnedColumnsChange ? { onPinnedColumnsChange } : {})}
+          resizingRef={resizingRef}
+          liveWidthsRef={liveWidthsRef}
+          setLiveWidths={setLiveWidths}
+          rowEndCell={rowEndCell}
+          rowEndCellLabel={rowEndCellLabel}
+        />
         {/* tbody is focusable to host keyboard navigation (j/k/Enter/Esc); a11y rule disabled in biome.json override. */}
         <tbody
           ref={tbodyRef}
@@ -459,80 +267,28 @@ export function DataTable<Row extends Record<string, unknown>>({
           tabIndex={0}
           className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-accent focus-visible:ring-inset"
         >
-          {rows.map((r, idx) => {
-            const key = keyOf(r);
-            const active = idx === cursor;
-            const isSelected = selectionEnabled && selectionSet.has(key);
-            return (
-              <tr
-                key={key}
-                aria-rowindex={idx + 1}
-                aria-selected={selectionEnabled ? isSelected : undefined}
-                onClick={() => onRowClick?.(r)}
-                className={cn(
-                  "border-t border-fp-border-1 text-fp-text-1 transition-colors",
-                  onRowClick && "cursor-pointer hover:bg-fp-bg-2",
-                  active && "bg-fp-bg-2",
-                )}
-              >
-                {selectionEnabled ? (
-                  <td className={cn("px-4", rowPadding)}>
-                    <input
-                      type="checkbox"
-                      checked={selectionSet.has(key)}
-                      aria-label={`Select row ${key}`}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        toggleRow(key);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-4 w-4 accent-fp-accent"
-                    />
-                  </td>
-                ) : null}
-                {orderedVisible.map((c) => {
-                  const meta = pinMeta.get(c.field) ?? { side: "none" as const, offset: 0 };
-                  const cssVars: Record<string, string> = {};
-                  if (meta.side === "left") cssVars["--fp-col-pin-left"] = `${meta.offset}px`;
-                  else if (meta.side === "right")
-                    cssVars["--fp-col-pin-right"] = `${meta.offset}px`;
-                  const originalColIdx = colIndexByField.get(c.field);
-                  const prerendered =
-                    prerenderedCells && originalColIdx !== undefined
-                      ? prerenderedCells[idx]?.[originalColIdx]
-                      : undefined;
-                  let cellContent: React.ReactNode;
-                  if (prerendered !== undefined) {
-                    cellContent = prerendered;
-                  } else if (c.render) {
-                    cellContent = c.render(r);
-                  } else {
-                    cellContent = formatCell(r[c.field]);
-                  }
-                  return (
-                    <td
-                      key={c.field}
-                      {...(Object.keys(cssVars).length > 0
-                        ? { style: cssVars as React.CSSProperties }
-                        : {})}
-                      className={cn(
-                        "px-4",
-                        rowPadding,
-                        ALIGN_CLASS[c.align ?? "left"],
-                        meta.side === "left" &&
-                          "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-1 z-[1]",
-                        meta.side === "right" &&
-                          "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-1 z-[1]",
-                        c.className,
-                      )}
-                    >
-                      {cellContent}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
+          {rows.map((r, idx) => (
+            <DataTableRow<Row>
+              key={keyOf(r)}
+              row={r}
+              rowIndex={idx}
+              rowKeyValue={keyOf(r)}
+              rowKey={rowKey}
+              active={idx === cursor}
+              orderedVisible={orderedVisible}
+              pinMeta={pinMeta}
+              colIndexByField={colIndexByField}
+              {...(prerenderedCells ? { prerenderedCells } : {})}
+              rowPadding={rowPadding}
+              cellText={cellText}
+              selectionEnabled={selectionEnabled}
+              selectionSet={selectionSet}
+              {...(inlineEditResource ? { inlineEditResource } : {})}
+              {...(onRowClick ? { onRowClick } : {})}
+              onToggleRow={toggleRow}
+              {...(rowEndCell ? { rowEndCell } : {})}
+            />
+          ))}
         </tbody>
       </table>
       <Pagination

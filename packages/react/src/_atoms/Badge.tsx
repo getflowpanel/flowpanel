@@ -1,7 +1,8 @@
 "use client";
-import * as React from "react";
+import type * as React from "react";
 import { useComponents } from "../_provider/ComponentsContext.js";
-export { DefaultBadge, type BadgeProps, type BadgeTone } from "./BadgeDefault.js";
+
+export { type BadgeProps, type BadgeTone, DefaultBadge } from "./BadgeDefault.js";
 
 /** Renders whatever override the user registered via theme.components.Badge,
  *  falling back to DefaultBadge. */

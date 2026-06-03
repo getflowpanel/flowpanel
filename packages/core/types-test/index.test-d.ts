@@ -1,19 +1,19 @@
 // tsd type tests for @flowpanel/core public surface.
 // These run against the built dist/index.d.ts — the actual contract.
 
-import { expectAssignable, expectError, expectType } from "tsd";
 import {
-  type AdminConfig,
   type Adapter,
+  type AdminConfig,
   defineAdmin,
   type LabelsConfig,
+  metric,
   type RealtimeConfig,
   type ResolvedAdminConfig,
   type ResourceConfig,
-  metric,
   resource,
   table,
 } from "@flowpanel/core";
+import { expectAssignable, expectError, expectType } from "tsd";
 
 // ── defineAdmin returns ResolvedAdminConfig ──────────────────────────────
 declare const minimalConfig: AdminConfig;
@@ -39,16 +39,16 @@ expectAssignable<{ kind: "table" }>(
   table({ resource: "users", realtime: ["resource.users", "audit.users"] }),
 );
 
-// ── LabelsConfig nesting + function-typed slot (I-12) ────────────────────
+// ── LabelsConfig nesting + string-template slot (I-12) ───────────────────
 const validLabels: LabelsConfig = {
   actions: { save: "Сохранить" },
-  bulkBar: { selected: (n: number) => `${n} выбрано` },
+  bulkBar: { selected: "{n} выбрано" },
   pagination: { previous: "Назад" },
 };
 expectType<LabelsConfig>(validLabels);
 
-// bulkBar.selected must be a function (not a string)
-expectError<LabelsConfig>({ bulkBar: { selected: "string-not-fn" } });
+// bulkBar.selected is a string template using {n}
+expectAssignable<LabelsConfig>({ bulkBar: { selected: "{n} selected" } });
 
 // ── RealtimeConfig is a discriminated union ──────────────────────────────
 expectAssignable<RealtimeConfig>({ driver: "memory" });

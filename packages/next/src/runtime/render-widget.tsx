@@ -7,13 +7,16 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import {
-  CustomWidget as CustomWidgetRenderer,
   MetricCard,
+  RealtimeRefresh,
   StatGroupCard,
   TableWidget as TableWidgetRenderer,
 } from "@flowpanel/react";
-import type { ReactNode } from "react";
+import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
+import { ServerCard } from "./_server-card.js";
 import { prerenderResourceCells } from "./prerender-cells.js";
+import { buildRequestContext } from "./request-setup.js";
+import { scopeBinding } from "./scope-binding.js";
 
 /**
  * Render a widget on the server.
@@ -35,16 +38,19 @@ export async function renderWidget(
       ]);
       const sparkline = widget.options.sparkline ? await widget.options.sparkline(ctx) : undefined;
       return (
-        <MetricCard
-          label={widget.label}
-          value={value}
-          {...(widget.options.format ? { format: widget.options.format } : {})}
-          {...(widget.options.sublabel ? { sublabel: widget.options.sublabel } : {})}
-          delta={delta}
-          {...(sparkline ? { sparkline } : {})}
-          {...(widget.options.tone ? { tone: widget.options.tone } : {})}
-          {...(widget.options.drilldown ? { drilldown: widget.options.drilldown } : {})}
-        />
+        <Fragment>
+          <MetricCard
+            label={widget.label}
+            value={value}
+            {...(widget.options.format ? { format: widget.options.format } : {})}
+            {...(widget.options.sublabel ? { sublabel: widget.options.sublabel } : {})}
+            delta={delta}
+            {...(sparkline ? { sparkline } : {})}
+            {...(widget.options.tone ? { tone: widget.options.tone } : {})}
+            {...(widget.options.drilldown ? { drilldown: widget.options.drilldown } : {})}
+          />
+          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
+        </Fragment>
       );
     }
     case "statGroup": {
@@ -63,18 +69,41 @@ export async function renderWidget(
         }),
       );
       return (
-        <StatGroupCard
-          {...(widget.options.label ? { label: widget.options.label } : {})}
-          stats={stats}
-        />
+        <Fragment>
+          <StatGroupCard
+            {...(widget.options.label ? { label: widget.options.label } : {})}
+            stats={stats}
+          />
+          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
+        </Fragment>
       );
     }
     case "custom": {
+      // Render the user-authored Component server-side, here, in the same RSC
+      // context where the dashboard config was authored. We deliberately do
+      // NOT delegate to a component imported from `@flowpanel/react` — that
+      // package is bundled with `"use client"`, so passing `Component` (a
+      // function) into it would fail RSC serialization with:
+      //   "Functions cannot be passed directly to Client Components".
+      // By invoking the Component here, only its rendered JSX (a plain,
+      // serializable React tree) ever crosses into any client boundary.
       const props =
         typeof widget.props === "function"
           ? await (widget.props as (c: WidgetContext) => Promise<unknown>)(ctx)
           : widget.props;
-      return <CustomWidgetRenderer Component={widget.Component} props={props} frame />;
+      const Component = widget.Component as ComponentType<unknown>;
+      const inner = createElement(Component, props as Record<string, unknown>);
+      // When `frame: false` is passed, skip the ServerCard wrapper. This is
+      // for widgets that own their outer layout (e.g. a grid of inner cards)
+      // — wrapping them in the default frame would visibly nest a card
+      // inside another card.
+      const framed = widget.options.frame === false ? inner : <ServerCard>{inner}</ServerCard>;
+      return (
+        <Fragment>
+          {framed}
+          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
+        </Fragment>
+      );
     }
     case "table": {
       type Row = Record<string, unknown>;
@@ -97,13 +126,12 @@ export async function renderWidget(
         const res = config.resourcesByName.get(widget.options.resource);
         if (res) {
           const softDelete = res.options.delete?.softDelete;
+          // The widget context has no resolved scope/role. Build a real
+          // RequestContext from the request so the target resource's tenant
+          // scope is enforced (a widget must not leak cross-tenant rows).
+          const reqCtxForList = await buildRequestContext({ req: ctx.req, config });
           const listCtx: ListQueryContext<unknown> = {
-            req: ctx.req,
-            session: ctx.session,
-            role: "",
-            scope: null,
-            ip: null,
-            userAgent: null,
+            ...reqCtxForList,
             db: ctx.db,
             dateRange: ctx.dateRange,
             searchParams: new URLSearchParams(),
@@ -114,6 +142,7 @@ export async function renderWidget(
             pageSize: widget.options.limit ?? 10,
             search: "",
             ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
+            ...scopeBinding(config, res, reqCtxForList),
           };
           const r = await config.adapter.list(res.ref, listCtx);
           rows = r.rows as Row[];
@@ -162,6 +191,7 @@ export async function renderWidget(
           }))}
           rowKey={"id"}
           {...(prerenderedCells ? { prerenderedCells } : {})}
+          {...(widget.options.realtime ? { realtime: widget.options.realtime } : {})}
         />
       );
     }
@@ -170,20 +200,20 @@ export async function renderWidget(
     case "lineChart":
     case "pieChart": {
       // Lazy-loaded from @flowpanel/charts to avoid pulling Recharts into the
-      // main bundle. The package is introduced in Phase 3; until then, fall
-      // back to a placeholder.
+      // main bundle. ONLY the dynamic import is guarded here — a missing
+      // package is a distinct, recoverable condition with its own message.
+      // The data query and render run AFTER, so a failing `widget.query` (e.g.
+      // a DB error) propagates to WidgetErrorBoundary like every other widget
+      // — showing "Widget failed" with the real error logged, instead of a
+      // misleading "install charts" message.
+      let chartsMod: {
+        // biome-ignore lint/suspicious/noExplicitAny: cross-package dynamic import
+        ChartRenderer: (props: any) => ReactNode;
+      };
       try {
-        const chartsMod: {
-          // biome-ignore lint/suspicious/noExplicitAny: cross-package dynamic import
-          ChartRenderer: (props: any) => ReactNode;
-        } =
-          // biome-ignore lint/suspicious/noExplicitAny: dynamic import surface not typed in Phase 2
+        chartsMod =
+          // biome-ignore lint/suspicious/noExplicitAny: dynamic import surface not typed
           (await import("@flowpanel/charts/runtime" as any)) as any;
-        const data = await widget.query(ctx);
-        const Renderer = chartsMod.ChartRenderer;
-        return (
-          <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />
-        );
       } catch (e) {
         console.error("[flowpanel/charts] dynamic import failed:", e);
         return (
@@ -192,6 +222,14 @@ export async function renderWidget(
           </div>
         );
       }
+      const data = await widget.query(ctx);
+      const Renderer = chartsMod.ChartRenderer;
+      return (
+        <Fragment>
+          <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />
+          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
+        </Fragment>
+      );
     }
   }
 }

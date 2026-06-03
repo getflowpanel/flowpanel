@@ -126,7 +126,7 @@ function replaceCallInArray(call: import("ts-morph").CallExpression): void {
   if (parent && Node.isArrayLiteralExpression(parent)) {
     // Locate the index in the array and remove the element.
     const elements = parent.getElements();
-    const idx = elements.findIndex((el) => el === call);
+    const idx = elements.indexOf(call);
     if (idx >= 0) {
       parent.removeElement(idx);
     }

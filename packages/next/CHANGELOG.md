@@ -1,5 +1,5 @@
 # @flowpanel/next
 
-## 1.0.0
+## 0.1.0
 
-Initial public release. See [flowpanel CHANGELOG](https://github.com/getflowpanel/flowpanel/blob/main/CHANGELOG.md) for details.
+First public release. The Next.js App Router integration: the admin page component, API route handlers, server-rendered list/detail/dashboard pages, drawers, server actions (row / bulk / dashboard / inline), and SSE realtime.

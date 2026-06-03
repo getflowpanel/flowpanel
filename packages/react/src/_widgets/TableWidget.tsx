@@ -1,6 +1,8 @@
 import type * as React from "react";
 import { DataTable, type DataTableColumn } from "../_data/DataTable.js";
 import { Card, CardHeader } from "../_layout/Card.js";
+import type { RealtimeChannels } from "../hooks/useRealtimeRefresh.js";
+import { RealtimeRefresh } from "../hooks/useRealtimeRefresh.js";
 
 export interface TableWidgetProps<Row extends Record<string, unknown>> {
   label?: string;
@@ -16,6 +18,12 @@ export interface TableWidgetProps<Row extends Record<string, unknown>> {
    * function-prop RSC boundary.
    */
   prerenderedCells?: (React.ReactNode | undefined)[][];
+  /**
+   * SSE channel(s) to subscribe to. On any event the wrapping route is
+   * refreshed (debounced ~200ms) so the server re-runs the widget query.
+   * Pass a string for a single channel or an array for multiple.
+   */
+  realtime?: RealtimeChannels;
 }
 
 export function TableWidget<Row extends Record<string, unknown>>(props: TableWidgetProps<Row>) {
@@ -33,6 +41,7 @@ export function TableWidget<Row extends Record<string, unknown>>(props: TableWid
         {...(props.prerenderedCells ? { prerenderedCells: props.prerenderedCells } : {})}
         emptyTitle="No data"
       />
+      {props.realtime ? <RealtimeRefresh channels={props.realtime} /> : null}
     </Card>
   );
 }

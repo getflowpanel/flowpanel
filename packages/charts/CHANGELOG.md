@@ -1,5 +1,5 @@
 # @flowpanel/charts
 
-## 1.0.0
+## 0.1.0
 
-Initial public release. See [flowpanel CHANGELOG](https://github.com/getflowpanel/flowpanel/blob/main/CHANGELOG.md) for details.
+First public release. Recharts-backed chart widgets (area, bar, line, pie) for FlowPanel dashboards, loaded lazily.

@@ -18,9 +18,8 @@
  *     }
  *   }
  */
-export interface FlowpanelTypes {
-  // empty — consumers augment
-}
+// biome-ignore lint/suspicious/noEmptyInterface: must stay an interface — consumers augment it via `declare module` merging to wire db/models (I-12); a `type` alias cannot be merged into.
+export interface FlowpanelTypes {}
 
 /** Resolves to `FlowpanelTypes["db"]` if the user augmented, else `unknown`. */
 export type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;

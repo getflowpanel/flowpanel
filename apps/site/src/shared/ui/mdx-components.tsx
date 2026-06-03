@@ -1,3 +1,4 @@
+import { Popup, PopupContent, PopupTrigger } from "fumadocs-twoslash/ui";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
 import { AdapterTab, AdapterTabs } from "@/shared/ui/adapter-tabs";
@@ -16,6 +17,10 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     ...(defaultMdxComponents as MDXComponents),
     AdapterTabs,
     AdapterTab,
+    // Twoslash hover popups — rendered for ` ```ts twoslash ` blocks.
+    Popup,
+    PopupContent,
+    PopupTrigger,
     ...components,
   };
 }

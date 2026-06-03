@@ -37,4 +37,20 @@ describe("emitAudit", () => {
       process.env.NODE_ENV = original;
     }
   });
+
+  it("logs sink errors in dev (non-production)", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const sink = vi.fn().mockRejectedValue(new Error("boom"));
+      await expect(emitAudit({ enabled: true, sink }, ev)).resolves.toBeUndefined();
+      expect(errSpy).toHaveBeenCalled();
+      // Confirm the formatted message reaches console.error verbatim.
+      expect(errSpy.mock.calls[0]?.[0]).toMatch(/audit sink error/);
+    } finally {
+      errSpy.mockRestore();
+      process.env.NODE_ENV = original;
+    }
+  });
 });

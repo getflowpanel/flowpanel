@@ -15,6 +15,22 @@ export interface QueryContext<Db = unknown> extends RequestContext {
   dateRange: { from: Date; to: Date };
   searchParams: URLSearchParams;
   signal: AbortSignal;
+  /**
+   * Pre-bound tenant-scope predicate. The runtime captures the request's
+   * `scope` value and the resource's `scope: (scope, query) => query`
+   * function into a single closure, then hands the adapter this `applyScope`.
+   * The adapter calls it with its own query representation (a drizzle query
+   * builder / a prisma `where` object) so the scope condition is AND-ed into
+   * every read and by-id mutation. Absent when the resource opts out with
+   * `scope: "bypass"` or declares no scope.
+   */
+  applyScope?: (query: unknown) => unknown;
+  /**
+   * `true` when global `scope` is active AND the resource declares a function
+   * `scope`. Adapters MUST fail-closed: if `scopeRequired` is `true` but
+   * `applyScope` is missing, throw rather than run an unscoped query.
+   */
+  scopeRequired?: boolean;
 }
 
 export interface ListQueryContext<Row, Db = unknown> extends QueryContext<Db> {
@@ -45,6 +61,19 @@ export interface MutationContext<Row, Db = unknown> extends RequestContext {
    * Passed by the runtime when `resource.options.delete.softDelete` is configured.
    */
   softDelete?: { column: string };
+  /**
+   * Pre-bound tenant-scope predicate (see `QueryContext.applyScope`). For
+   * by-id mutations (`update` / `delete`) the adapter AND-s the captured
+   * scope condition into the WHERE so a mutation can't touch an out-of-scope
+   * row. Absent when the resource opts out (`scope: "bypass"`) or declares no
+   * scope.
+   */
+  applyScope?: (query: unknown) => unknown;
+  /**
+   * `true` when global `scope` is active AND the resource declares a function
+   * `scope`. Adapters MUST fail-closed (see `QueryContext.scopeRequired`).
+   */
+  scopeRequired?: boolean;
 }
 
 export interface ActionContext<Db = InferDB> extends RequestContext {

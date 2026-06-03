@@ -48,7 +48,12 @@ export interface Adapter<DB = InferDB, Ref = unknown> {
   list(ref: Ref, ctx: ListQueryContext<unknown>): Promise<ListResult<unknown>>;
   get(ref: Ref, ctx: ItemQueryContext): Promise<unknown | null>;
   create(ref: Ref, ctx: MutationContext<unknown>): Promise<unknown>;
-  update(ref: Ref, ctx: MutationContext<unknown>): Promise<unknown>;
+  /**
+   * Returns the updated row, or `null` when no row matched (e.g. an
+   * out-of-scope id under tenant scope, or a by-id update that hit 0 rows).
+   * Callers surface a not-found from the `null`.
+   */
+  update(ref: Ref, ctx: MutationContext<unknown>): Promise<unknown | null>;
   delete(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
   restore?(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
   /**

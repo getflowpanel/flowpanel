@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/adapter-drizzle",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Drizzle ORM adapter for FlowPanel",
   "keywords": [
     "flowpanel",
@@ -27,7 +27,9 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "test:types": "tsd"
+    "test:types": "tsd",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack . --profile esm-only"
   },
   "tsd": {
     "directory": "types-test",
@@ -49,7 +51,7 @@
   },
   "peerDependencies": {
     "drizzle-orm": ">=0.36.0 <1.0.0",
-    "zod": "^3.23.0"
+    "zod": "^4.0.0"
   },
   "files": [
     "dist",
@@ -76,6 +78,6 @@
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "zod": "^3.23.0"
+    "zod": "^4.0.0"
   }
 }

@@ -1,0 +1,2 @@
+# Keep this directory in git so the Docker image build can COPY it.
+# Static assets (favicon, og-image, robots.txt) go here.

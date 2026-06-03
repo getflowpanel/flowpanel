@@ -2,9 +2,9 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { ComponentsProvider, useComponents } from "../ComponentsContext.js";
 import { DefaultEmptyState } from "../../_feedback/EmptyState.js";
 import { DefaultMetricCard } from "../../_widgets/MetricCard.js";
+import { ComponentsProvider, useComponents } from "../ComponentsContext.js";
 
 afterEach(() => cleanup());
 

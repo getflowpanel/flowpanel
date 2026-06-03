@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "CLI for FlowPanel — init, migrate, doctor",
   "keywords": [
     "flowpanel",
@@ -26,7 +26,9 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack ."
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",

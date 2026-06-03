@@ -14,7 +14,7 @@ pnpm -r typecheck
 pnpm -r test:unit
 ```
 
-Node ≥ 20, pnpm ≥ 9. The repo is a workspace monorepo (`packages/*`,
+Node ≥ 22 (see `.nvmrc`), pnpm 10. The repo is a workspace monorepo (`packages/*`,
 `examples/*`). Most development happens against a single package's tests
 (`pnpm --filter @flowpanel/core test:unit`).
 
@@ -30,16 +30,15 @@ Node ≥ 20, pnpm ≥ 9. The repo is a workspace monorepo (`packages/*`,
    one user-visible sentence. The CI gate `changeset-required.yml`
    enforces this on PRs that touch package source.
 5. **Open the PR.** Fill out the template. If you touched
-   `packages/*/src/index.ts`, cite the relevant invariant from
-   `docs/invariants.md` or open an ADR in `docs/adr/`.
-6. **Sign your commits** — `git commit -s`. The DCO (Developer
-   Certificate of Origin) sign-off is enforced. Unsigned commits will
-   block the merge.
+   `packages/*/src/index.ts`, describe the public-surface impact in the
+   PR (symbols added / changed / removed) and include a tsd type-test.
+6. **License.** By contributing you agree that your contributions are
+   licensed under the project's [MIT license](../LICENSE).
 
 ## Coding standards
 
 - TypeScript `strict` + `exactOptionalPropertyTypes` everywhere in
-  package source. See [ADR 0004](../docs/adr/0004-exact-optional-property-types.md).
+  package source.
 - Files > 300 LOC need a split justification in the PR.
 - No `any` in public types. Internal `any` needs an inline comment
   explaining why.
@@ -74,23 +73,29 @@ For pre-release lines (alpha, beta), the maintainer uses
 
 ## Public-API discipline
 
-Touching `packages/*/src/index.ts` or any builder signature
-(`defineAdmin`, `resource`, `dashboard`, `metric`, `table`, etc.) means:
+Every export from `packages/*/src/index.ts` is a public contract, so the
+bar for changes there is high. Internal architecture notes (invariants,
+ADRs) are maintained privately by the maintainer; you don't need access
+to them to contribute. When you touch `packages/*/src/index.ts` or any
+builder signature (`defineAdmin`, `resource`, `dashboard`, `metric`,
+`table`, etc.):
 
-1. Read [`docs/invariants.md`](../docs/invariants.md).
-2. If your change conflicts with an invariant: stop, propose an ADR in
-   [`docs/adr/`](../docs/adr/) before writing code.
-3. If your change adds a new public symbol: include a tsd test in
-   `packages/<pkg>/types-test/` and update
+1. Add a changeset (`pnpm changeset`).
+2. Include a tsd type-test in `packages/<pkg>/types-test/` for any new or
+   changed public symbol, and update
    `apps/site/content/docs/reference/`.
-4. Always include a changeset.
+3. Describe the public-surface impact in the PR — list the symbols
+   added / changed / removed.
+
+The maintainer will flag any conflict with an internal invariant during
+review and, if needed, ask for the design to be reworked.
 
 ## Repo layout
 
 The published docs site (<https://flowpanel.dev>) renders from
 `apps/site/content/docs/` — that's the canonical user-facing surface.
-The in-repo `docs/` keeps only what's internal: `invariants.md`,
-`adr/`, `spec/`.
+Internal architecture notes (invariants, ADRs, specs) are maintained
+privately by the maintainer and are not part of this repository.
 
 `packages/react/src/` uses underscore-prefixed folders (`_atoms/`,
 `_data/`, `_shell/`, `_widgets/`, `_provider/`, `_feedback/`,

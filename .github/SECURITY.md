@@ -16,7 +16,7 @@ minor's release.
 **Do not open a public GitHub issue for security reports.**
 
 Preferred channel: open a private security advisory on GitHub at
-https://github.com/Ch4m4/flowpanel/security/advisories/new.
+https://github.com/getflowpanel/flowpanel/security/advisories/new.
 
 Alternative: email the maintainer (see the `flowpanel` package.json
 `author` field for contact).

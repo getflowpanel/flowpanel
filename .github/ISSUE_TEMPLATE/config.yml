@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & ideas
+    url: https://github.com/getflowpanel/flowpanel/discussions
+    about: Ask a question, share an idea, or discuss a use case.
+  - name: Security report
+    url: https://github.com/getflowpanel/flowpanel/security/advisories/new
+    about: Report a vulnerability privately. Do not open a public issue.

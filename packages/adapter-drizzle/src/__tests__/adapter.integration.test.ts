@@ -1,9 +1,9 @@
+import { execSync } from "node:child_process";
 import type { ListQueryContext } from "@flowpanel/core";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { execSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { drizzleAdapter } from "../index.js";
 
@@ -107,6 +107,26 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
   it("list search across text columns", async () => {
     const r = await adapter.list(users, ctx({ db, search: "User 7" }));
     expect(r.rows.some((row: any) => row.id === "u7")).toBe(true);
+  });
+
+  it("list filter __null__ sentinel translates to IS NULL", async () => {
+    // Insert two rows with NULL name alongside the 25 seeded non-null rows.
+    await client`INSERT INTO users (id, email, name) VALUES ('null1', 'null1@e.co', NULL)`;
+    await client`INSERT INTO users (id, email, name) VALUES ('null2', 'null2@e.co', NULL)`;
+
+    const r = await adapter.list(users, ctx({ db, filters: { name: "__null__" }, pageSize: 50 }));
+    expect(r.total).toBe(2);
+    expect(r.rows.map((row: any) => row.id).sort()).toEqual(["null1", "null2"]);
+
+    const inv = await adapter.list(
+      users,
+      ctx({ db, filters: { name: "__notnull__" }, pageSize: 50 }),
+    );
+    expect(inv.total).toBe(25);
+    expect(inv.rows.every((row: any) => row.name !== null)).toBe(true);
+
+    // Cleanup so subsequent tests see the original 25-row state.
+    await client`DELETE FROM users WHERE id IN ('null1', 'null2')`;
   });
 
   it("get returns a row or null", async () => {

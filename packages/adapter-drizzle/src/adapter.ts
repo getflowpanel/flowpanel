@@ -1,3 +1,5 @@
+// LOC-OK: drizzle adapter — list/get/create/update/delete plus filter, sort and
+// dialect handling form one cohesive query builder; splitting fragments it.
 import type {
   Adapter,
   ItemQueryContext,
@@ -5,14 +7,17 @@ import type {
   ListResult,
   MutationContext,
 } from "@flowpanel/core";
+import { FlowpanelAccessError } from "@flowpanel/core";
 import {
-  and,
   type AnyColumn,
+  and,
   asc,
   desc,
   eq,
   getTableColumns,
   ilike,
+  isNotNull,
+  isNull,
   like,
   or,
   type SQL,
@@ -97,12 +102,59 @@ export function drizzleAdapter<DB>(opts: {
     return entry?.[0] ?? "id";
   }
 
+  /**
+   * Capture the SQL condition(s) a resource's tenant `scope` predicate would
+   * apply. The user's predicate is shaped `(scope, query) => query.where(cond)`
+   * — we hand it a *probe* standing in for the query builder, record every
+   * `cond` passed to `.where(...)`, and return them so the caller can AND them
+   * into its real WHERE. This keeps scope leak-proof: the same captured
+   * condition guards `list`, `get`, `update`, and `delete`.
+   *
+   * Fail-closed: when `ctx.scopeRequired` is set but `ctx.applyScope` is
+   * missing, throw rather than run an unscoped query for a scope-required
+   * resource.
+   */
+  function captureScopeClauses(ctx: {
+    applyScope?: (q: unknown) => unknown;
+    scopeRequired?: boolean;
+  }): SQL[] {
+    if (!ctx.applyScope) {
+      if (ctx.scopeRequired) {
+        throw new FlowpanelAccessError(
+          "scope required but not bound: a scope predicate is declared and global scope " +
+            "is active, but the adapter received no applyScope. Refusing to run an unscoped query.",
+        );
+      }
+      return [];
+    }
+    const captured: SQL[] = [];
+    const probe = {
+      where(cond: SQL) {
+        captured.push(cond);
+        return probe;
+      },
+    };
+    ctx.applyScope(probe);
+    return captured;
+  }
+
   function buildWhere(cols: ColumnsRecord, ctx: ListQueryContext<unknown>): SQL | undefined {
     const clauses: SQL[] = [];
     for (const [k, v] of Object.entries(ctx.filters)) {
       if (v === undefined || v === null || v === "") continue;
       const col = cols[k];
-      if (col) clauses.push(eq(col, v));
+      if (!col) continue;
+      // Reserved sentinels for IS NULL / IS NOT NULL filters. See
+      // `FilterDef` JSDoc in `@flowpanel/core` types/resource.ts.
+      if (v === "__null__") {
+        clauses.push(isNull(col));
+        continue;
+      }
+      if (v === "__notnull__") {
+        clauses.push(isNotNull(col));
+        continue;
+      }
+      clauses.push(eq(col, v));
     }
     if (ctx.search) {
       const textCols = Object.values(cols).filter((c) => {
@@ -128,6 +180,9 @@ export function drizzleAdapter<DB>(opts: {
       const col = cols[softCol];
       if (col) clauses.push(sql`${col} IS NULL`);
     }
+    // Tenant scope: AND the captured scope condition(s) with the filters so
+    // the single `and(...clauses)` covers both. Fail-closed inside the helper.
+    for (const c of captureScopeClauses(ctx)) clauses.push(c);
     return clauses.length ? and(...clauses) : undefined;
   }
 
@@ -177,12 +232,15 @@ export function drizzleAdapter<DB>(opts: {
       const pk = pkFor(cols);
       const pkCol = cols[pk];
       if (!pkCol) return null;
+      // AND the tenant scope into the by-id WHERE so a `get` of an
+      // out-of-scope id returns null instead of leaking the row.
+      const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
       const rows = (await (
         db.select().from(ref) as unknown as {
           where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
         }
       )
-        .where(eq(pkCol, ctx.id))
+        .where(where)
         .limit(1)) as unknown[];
       return rows[0] ?? null;
     },
@@ -225,18 +283,21 @@ export function drizzleAdapter<DB>(opts: {
       const pkCol = cols[pk];
       if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
       const input = ctx.input as Record<string, unknown>;
+      // AND the tenant scope into the by-id WHERE so an update of an
+      // out-of-scope id affects 0 rows (returns undefined).
+      const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
       if (dialect === "mysql" || dialect === "sqlite") {
-        await db.update(ref).set(input).where(eq(pkCol, ctx.id));
+        await db.update(ref).set(input).where(where);
         const rows = (await (
           db.select().from(ref) as unknown as {
             where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
           }
         )
-          .where(eq(pkCol, ctx.id))
+          .where(where)
           .limit(1)) as unknown[];
         return rows[0];
       }
-      const rows = await db.update(ref).set(input).where(eq(pkCol, ctx.id)).returning();
+      const rows = await db.update(ref).set(input).where(where).returning();
       return rows[0];
     },
 
@@ -247,14 +308,17 @@ export function drizzleAdapter<DB>(opts: {
       if (!ctx.id) throw new Error("delete requires ctx.id");
       const pkCol = cols[pk];
       if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
+      // AND the tenant scope into the by-id WHERE so a delete of an
+      // out-of-scope id affects 0 rows.
+      const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
       const softCol = ctx.softDelete?.column;
       if (softCol && cols[softCol]) {
         await db
           .update(ref)
           .set({ [softCol]: new Date() })
-          .where(eq(pkCol, ctx.id));
+          .where(where);
       } else {
-        await db.delete(ref).where(eq(pkCol, ctx.id));
+        await db.delete(ref).where(where);
       }
     },
 
@@ -267,10 +331,14 @@ export function drizzleAdapter<DB>(opts: {
       if (!ctx.id) throw new Error("restore requires ctx.id");
       const pkCol = cols[pk];
       if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
+      // AND the tenant scope into the by-id WHERE so a restore of an
+      // out-of-scope id affects 0 rows (mirrors `delete`). `captureScopeClauses`
+      // fail-closes when scopeRequired && !applyScope.
+      const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
       await db
         .update(ref)
         .set({ [softCol]: null })
-        .where(eq(pkCol, ctx.id));
+        .where(where);
     },
 
     // ── Migration bookkeeping (used by `flowpanel migrate`) ──────────────

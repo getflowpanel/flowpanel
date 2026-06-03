@@ -11,7 +11,7 @@ vi.mock("../runtime/publish.js", () => ({
 }));
 
 import type { Adapter } from "@flowpanel/core";
-import { defineAdmin, resource } from "@flowpanel/core";
+import { dashboard, defineAdmin, resource } from "@flowpanel/core";
 import { handlers } from "../handlers.js";
 
 const fakeAdapter: Adapter = {
@@ -50,8 +50,36 @@ function mkConfig() {
               },
             ],
           },
+          actions: [
+            {
+              key: "reset-cap",
+              label: "Reset cap",
+              run: async () => ({ ok: true, message: "cap reset" }),
+            },
+          ],
+          bulkActions: [
+            {
+              key: "verify",
+              label: "Verify",
+              run: async (ids) => ({ ok: true, message: `verified ${ids.length}` }),
+            },
+          ],
         },
       ),
+    ],
+    dashboards: [
+      dashboard({
+        path: "/pipeline",
+        label: "Pipeline",
+        sections: [],
+        actions: [
+          {
+            key: "trigger-scraper",
+            label: "Trigger",
+            run: async () => ({ ok: true, message: "scrape queued" }),
+          },
+        ],
+      }),
     ],
   });
 }
@@ -101,6 +129,67 @@ describe("handlers() catch-all dispatcher — contract with DrawerHost", () => {
     const req = new Request("http://localhost/api/flowpanel/drawer/ghost/u1");
     const res = await GET(req, { params: paramsFor("drawer", "ghost", "u1") });
     expect(res.status).toBe(404);
+  });
+
+  it("POST <resource>/<id>/actions/<key> runs the row action", async () => {
+    const { POST } = handlers(mkConfig());
+    const req = new Request("http://localhost/api/flowpanel/users/u1/actions/reset-cap", {
+      method: "POST",
+    });
+    const res = await POST(req, { params: paramsFor("users", "u1", "actions", "reset-cap") });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; message?: string };
+    expect(body.ok).toBe(true);
+    expect(body.message).toBe("cap reset");
+  });
+
+  it("POST <resource>/<id>/actions/<key> returns 404 for unknown row action", async () => {
+    const { POST } = handlers(mkConfig());
+    const req = new Request("http://localhost/api/flowpanel/users/u1/actions/ghost", {
+      method: "POST",
+    });
+    const res = await POST(req, { params: paramsFor("users", "u1", "actions", "ghost") });
+    expect(res.status).toBe(404);
+  });
+
+  it("POST <resource>/bulk-actions/<key> runs the bulk action against the ids", async () => {
+    const { POST } = handlers(mkConfig());
+    const req = new Request("http://localhost/api/flowpanel/users/bulk-actions/verify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: ["u1", "u2", "u3"] }),
+    });
+    const res = await POST(req, { params: paramsFor("users", "bulk-actions", "verify") });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; message?: string };
+    expect(body.ok).toBe(true);
+    expect(body.message).toBe("verified 3");
+  });
+
+  it("POST <resource>/bulk-actions/<key> returns 404 for unknown bulk action", async () => {
+    const { POST } = handlers(mkConfig());
+    const req = new Request("http://localhost/api/flowpanel/users/bulk-actions/ghost", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: ["u1"] }),
+    });
+    const res = await POST(req, { params: paramsFor("users", "bulk-actions", "ghost") });
+    expect(res.status).toBe(404);
+  });
+
+  it("POST dashboards/<encoded-path>/actions/<key> runs the dashboard action", async () => {
+    const { POST } = handlers(mkConfig());
+    const req = new Request(
+      "http://localhost/api/flowpanel/dashboards/pipeline/actions/trigger-scraper",
+      { method: "POST" },
+    );
+    const res = await POST(req, {
+      params: paramsFor("dashboards", "pipeline", "actions", "trigger-scraper"),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; message?: string };
+    expect(body.ok).toBe(true);
+    expect(body.message).toBe("scrape queued");
   });
 
   it("POST drawer/<r>/<id>/actions/<key> returns 404 for unknown action", async () => {

@@ -11,7 +11,7 @@ const SearchIcon = ({ className }: { className?: string }) => (
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    aria-hidden
+    aria-hidden="true"
   >
     <circle cx="11" cy="11" r="8" />
     <path d="m21 21-4.3-4.3" />
@@ -27,7 +27,7 @@ const XIcon = ({ className }: { className?: string }) => (
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    aria-hidden
+    aria-hidden="true"
   >
     <path d="M18 6 6 18M6 6l12 12" />
   </svg>

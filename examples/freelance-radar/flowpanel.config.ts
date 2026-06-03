@@ -3,9 +3,9 @@ import { dashboard, defineAdmin, metric, queue, resource, table } from "flowpane
 import { areaChart } from "flowpanel/charts";
 import { drizzleAdapter } from "flowpanel/drizzle";
 import { headers } from "next/headers";
+import { PriorityMetricCard } from "@/src/admin/PriorityMetricCard";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
-import { PriorityMetricCard } from "@/src/admin/PriorityMetricCard";
 import { type AdminSession, getSession } from "@/src/lib/auth";
 import { queuesMap } from "@/src/lib/queues";
 
@@ -97,6 +97,7 @@ export default defineAdmin({
       ],
       defaultSort: { field: "createdAt", dir: "desc" },
       rowClick: "drawer",
+      realtime: true,
       delete: userDeleteOptions,
       ...(DEMO_MODE ? { create: { disabled: true }, update: { disabled: true } } : {}),
       export: {

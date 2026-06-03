@@ -1,11 +1,11 @@
 import { Command } from "commander";
+import pkg from "../package.json" with { type: "json" };
 import { devCommand } from "./commands/dev.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { ejectCommand } from "./commands/eject.js";
 import { initCommand } from "./commands/init.js";
 import { migrateCommand } from "./commands/migrate.js";
 import { newCommand } from "./commands/new.js";
-import pkg from "../package.json" with { type: "json" };
 
 const cli = new Command()
   .name("flowpanel")

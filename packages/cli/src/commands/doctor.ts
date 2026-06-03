@@ -4,9 +4,9 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
 import { hasMarker } from "../eject/marker.js";
-import { loadTemplate } from "../utils/template.js";
 import { detectStack, fileExists } from "../utils/detect.js";
 import { log } from "../utils/log.js";
+import { loadTemplate } from "../utils/template.js";
 
 export async function checkEjectMarker(cwd: string, resourceName: string): Promise<string | null> {
   const candidate = path.join(cwd, "app/admin", resourceName, "page.tsx");
@@ -104,6 +104,42 @@ export async function runDoctorChecks(
     // covered by migration.sql.txt fix above (mkdir recursive), but keep the check
   );
 
+  // ── Single @flowpanel/core instance ───────────────────────────────────────
+  // Multiple instances mean a peer mismatch is forcing pnpm to keep both
+  // around; resource builders from one instance won't type-check against
+  // `defineAdmin` from the other (see ADR / dogfood notes).
+  try {
+    const coreCount = await countCoreInstances(cwd);
+    add(
+      "Single @flowpanel/core instance",
+      coreCount <= 1,
+      coreCount > 1
+        ? `Found ${coreCount} @flowpanel/core copies in node_modules. ` +
+            `Pin peers via pnpm.peerDependencyRules.allowedVersions or align peer ranges.`
+        : undefined,
+    );
+  } catch {
+    // pnpm layout missing — skip silently.
+  }
+
+  // ── Destructive actions without confirm ───────────────────────────────────
+  // Static scan of flowpanel.config.ts (and ./src/admin/*.ts) for
+  // `variant: "destructive"` clauses missing a sibling `confirm:`. Best-effort
+  // text match — false positives possible on multi-line configs, but the hint
+  // is cheap and the cost of a misclick on destructive ops is high.
+  try {
+    const missingConfirm = await findDestructiveWithoutConfirm(cwd);
+    add(
+      "Destructive actions have confirm",
+      missingConfirm.length === 0,
+      missingConfirm.length > 0
+        ? `Destructive actions without confirm:\n    ${missingConfirm.join("\n    ")}`
+        : undefined,
+    );
+  } catch {
+    // config file unreadable — skip.
+  }
+
   try {
     execSync("pnpm exec tsc --noEmit", { cwd, stdio: "ignore" });
     add("tsc --noEmit", true);
@@ -152,6 +188,57 @@ export async function runDoctorChecks(
   }
 
   return { checks, bad };
+}
+
+/**
+ * Counts how many `@flowpanel/core` package directories pnpm has installed.
+ * In a healthy project there's exactly one — multi-instance setups mean a
+ * peer mismatch forced pnpm to keep parallel copies.
+ */
+async function countCoreInstances(cwd: string): Promise<number> {
+  const pnpmDir = path.join(cwd, "node_modules", ".pnpm");
+  let entries: string[];
+  try {
+    entries = await fs.readdir(pnpmDir);
+  } catch {
+    return 0; // Not a pnpm project — skip.
+  }
+  return entries.filter((name) => name.startsWith("@flowpanel+core@")).length;
+}
+
+/**
+ * Best-effort static scan of admin config files for destructive actions
+ * that lack a `confirm`. Returns relative paths + line numbers where a
+ * miss was detected. Tolerant of false positives — the goal is a nudge.
+ */
+async function findDestructiveWithoutConfirm(cwd: string): Promise<string[]> {
+  const candidates = [
+    "flowpanel.config.ts",
+    "src/admin/flowpanel.config.ts",
+    "src/flowpanel.config.ts",
+  ];
+  const misses: string[] = [];
+  for (const rel of candidates) {
+    const abs = path.join(cwd, rel);
+    let src: string;
+    try {
+      src = await fs.readFile(abs, "utf8");
+    } catch {
+      continue;
+    }
+    const lines = src.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line?.includes(`variant: "destructive"`)) continue;
+      // Look ahead up to 10 lines for a sibling `confirm:`. Crude but
+      // empirically catches the common config shape.
+      const slice = lines.slice(i, Math.min(i + 10, lines.length)).join("\n");
+      if (!slice.includes("confirm:")) {
+        misses.push(`${rel}:${i + 1}`);
+      }
+    }
+  }
+  return misses;
 }
 
 export function doctorCommand(cli: Command): void {

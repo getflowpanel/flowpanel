@@ -1,80 +1,43 @@
-# Multi-stage production build for the freelance-radar public demo.
+# syntax=docker/dockerfile:1
+# Monorepo-context build of the freelance-radar public demo.
+# Builds straight from workspace source — NO npm publish required.
 #
-# Assumes `flowpanel@1.0.0` (and adapter packages) are published to npm.
-# The shipped package.json uses `workspace:*` so the demo can develop
-# alongside the monorepo. The `prep` stage rewrites those to caret pins
-# before install, which keeps this Dockerfile usable as a standalone copy.
+# Build from the REPO ROOT (not this directory):
+#   docker build -f examples/freelance-radar/Dockerfile -t freelance-radar .
 #
-# Build from this directory:
-#   docker build -t freelance-radar .
-# Run:
-#   docker run --rm -p 3000:3000 \
-#     -e DATABASE_URL=postgres://... -e DEMO_MODE=true \
-#     freelance-radar
+# Coolify: Base Directory "/", Dockerfile "examples/freelance-radar/Dockerfile",
+# port 3000. Needs a Postgres reachable via DATABASE_URL at runtime; on boot the
+# container applies the schema and (re-runnably) seeds, then serves.
 
-# -----------------------------------------------------------------------------
-# Base — pnpm via corepack
-# -----------------------------------------------------------------------------
-FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
-WORKDIR /app
+FROM node:22-alpine AS build
+RUN apk add --no-cache libc6-compat
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+WORKDIR /repo
 
-# -----------------------------------------------------------------------------
-# Prep — rewrite workspace:* to ^1.0.0 so deps resolve from the npm registry
-# -----------------------------------------------------------------------------
-FROM base AS prep
-COPY package.json ./
-RUN node -e "const p=require('./package.json'); \
-  for (const k of ['dependencies','devDependencies']) { \
-    if (!p[k]) continue; \
-    for (const dep of Object.keys(p[k])) { \
-      if (p[k][dep] === 'workspace:*') p[k][dep] = '^1.0.0'; \
-    } \
-  } \
-  require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
-
-# -----------------------------------------------------------------------------
-# Deps — install with the rewritten manifest
-# -----------------------------------------------------------------------------
-FROM base AS deps
-COPY --from=prep /app/package.json ./
-RUN pnpm install --no-frozen-lockfile
-
-# -----------------------------------------------------------------------------
-# Build — produce the Next.js standalone output
-# -----------------------------------------------------------------------------
-FROM base AS build
-ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=prep /app/package.json ./
-COPY --from=deps /app/node_modules ./node_modules
+# Full workspace source. node_modules / .next / dist excluded via the root
+# .dockerignore, so the in-image install below is authoritative.
 COPY . .
-# Re-apply the rewritten package.json (COPY . . overwrote it).
-COPY --from=prep /app/package.json ./
-RUN pnpm exec next build
+RUN pnpm install --frozen-lockfile
 
-# -----------------------------------------------------------------------------
-# Runner — production image
-# -----------------------------------------------------------------------------
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
+# Build the framework packages the demo imports, then the demo app itself.
+# A placeholder DATABASE_URL keeps `next build` happy without a live DB
+# (every admin route is server-rendered on demand, not statically generated).
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL=postgres://placeholder:placeholder@localhost:5432/placeholder
+# Build the demo and every workspace package it (transitively) depends on,
+# in topological order. The `...` suffix pulls in the flowpanel umbrella and
+# all @flowpanel/* packages it re-exports (core, react, next, charts, client,
+# adapter-drizzle, adapter-prisma, adapter-bullmq) so DTS never races a
+# missing sibling on a clean build.
+RUN pnpm --filter "freelance-radar..." build
+
+WORKDIR /repo/examples/freelance-radar
+ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
-USER nextjs
-
-COPY --from=build --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=build --chown=nextjs:nodejs /app/public ./public
-COPY --from=build --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=build --chown=nextjs:nodejs /app/package.json ./
-COPY --from=build --chown=nextjs:nodejs /app/next.config.ts ./
-COPY --from=build --chown=nextjs:nodejs /app/flowpanel.config.ts ./
-COPY --from=build --chown=nextjs:nodejs /app/src ./src
-COPY --from=build --chown=nextjs:nodejs /app/scripts ./scripts
-COPY --from=build --chown=nextjs:nodejs /app/drizzle ./drizzle
-COPY --from=build --chown=nextjs:nodejs /app/tsconfig.json ./
-
 EXPOSE 3000
-CMD ["node_modules/.bin/next", "start"]
+
+# On boot: apply the Drizzle schema, then seed (the seed TRUNCATEs before
+# inserting, so restarts are safe), then serve. DATABASE_URL is injected at
+# runtime (compose / Coolify), overriding the build-time placeholder.
+CMD ["sh", "-c", "pnpm db:push && pnpm db:seed && pnpm start"]

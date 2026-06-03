@@ -1,7 +1,7 @@
 "use client";
 import type { ColumnMeta } from "@flowpanel/core";
 import type * as React from "react";
-import type { z } from "zod";
+import type { $ZodType, output as zOutput } from "zod/v4/core";
 import { Field } from "./Field.js";
 import { Form, type FormActionResult } from "./Form.js";
 import { FormError } from "./FormError.js";
@@ -30,7 +30,7 @@ function humanize(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export interface AutoFormProps<S extends z.ZodTypeAny> {
+export interface AutoFormProps<S extends $ZodType> {
   action: (state: FormActionResult | null, formData: FormData) => Promise<FormActionResult>;
   schema: S;
   columns: ColumnMeta[];
@@ -40,7 +40,7 @@ export interface AutoFormProps<S extends z.ZodTypeAny> {
   className?: string;
 }
 
-export function AutoForm<S extends z.ZodTypeAny>({
+export function AutoForm<S extends $ZodType>({
   action,
   schema,
   columns,
@@ -54,7 +54,7 @@ export function AutoForm<S extends z.ZodTypeAny>({
     <Form
       action={action}
       schema={schema}
-      {...(defaultValues ? { defaultValues: defaultValues as Partial<z.infer<S>> } : {})}
+      {...(defaultValues ? { defaultValues: defaultValues as Partial<zOutput<S>> } : {})}
       {...(className ? { className } : {})}
     >
       {fields.map((c) => (

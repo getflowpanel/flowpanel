@@ -18,9 +18,11 @@ export function TextFilter({
   placeholder,
   debounceMs = 300,
 }: TextFilterProps) {
+  const id = React.useId();
   const [local, setLocal] = React.useState(value ?? "");
   React.useEffect(() => setLocal(value ?? ""), [value]);
   const committed = React.useRef(value ?? "");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — only `local` should re-arm the debounce; onChange/debounceMs are read fresh inside the timer.
   React.useEffect(() => {
     const t = setTimeout(() => {
       if (local !== committed.current) {
@@ -29,12 +31,12 @@ export function TextFilter({
       }
     }, debounceMs);
     return () => clearTimeout(t);
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — local triggers
   }, [local]);
   return (
-    <label className="flex flex-col gap-1">
+    <label htmlFor={id} className="flex flex-col gap-1">
       {label ? <span className="text-xs text-fp-text-3">{label}</span> : null}
       <Input
+        id={id}
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         placeholder={placeholder ?? "Search…"}

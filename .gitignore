@@ -1,7 +1,10 @@
 # Claude Code
 CLAUDE.md
 .claude/
-docs/superpowers/
+
+# Local-only internal notes (invariants, ADRs, specs) — never committed.
+# Anchored to repo root so it does NOT match apps/site/content/docs/.
+/docs/
 
 # Dependencies
 node_modules/

@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Core logic for FlowPanel — types, defineAdmin, runtime helpers",
   "keywords": [
     "flowpanel",
@@ -17,21 +17,46 @@
   "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "labels": [
+        "./dist/labels.d.ts"
+      ],
+      "auth": [
+        "./dist/auth.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./labels": {
-      "types": "./dist/labels.d.ts",
-      "import": "./dist/labels.mjs",
-      "require": "./dist/labels.cjs"
+      "import": {
+        "types": "./dist/labels.d.ts",
+        "default": "./dist/labels.mjs"
+      },
+      "require": {
+        "types": "./dist/labels.d.cts",
+        "default": "./dist/labels.cjs"
+      }
     },
     "./auth": {
-      "types": "./dist/auth.d.ts",
-      "import": "./dist/auth.mjs",
-      "require": "./dist/auth.cjs"
+      "import": {
+        "types": "./dist/auth.d.ts",
+        "default": "./dist/auth.mjs"
+      },
+      "require": {
+        "types": "./dist/auth.d.cts",
+        "default": "./dist/auth.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -39,7 +64,9 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "test:types": "tsd"
+    "test:types": "tsd",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack ."
   },
   "tsd": {
     "directory": "types-test",
@@ -64,8 +91,8 @@
     "README.md"
   ],
   "peerDependencies": {
-    "ioredis": "^5.10.1",
-    "zod": "^3.23.0"
+    "ioredis": "^5.10.0",
+    "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "ioredis": {
@@ -79,11 +106,11 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "expect-type": "^0.20.0",
-    "react": "^19.2.5",
+    "react": "^19.0.0",
     "tsd": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "zod": "^3.23.0"
+    "zod": "^4.0.0"
   }
 }

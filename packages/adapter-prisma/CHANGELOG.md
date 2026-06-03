@@ -1,5 +1,5 @@
 # @flowpanel/adapter-prisma
 
-## 1.0.0
+## 0.1.0
 
-Initial public release. See [flowpanel CHANGELOG](https://github.com/getflowpanel/flowpanel/blob/main/CHANGELOG.md) for details.
+First public release. Prisma ORM adapter for FlowPanel, with schema introspection, scoped queries, and soft-delete.

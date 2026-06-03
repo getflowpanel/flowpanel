@@ -1,8 +1,21 @@
 import type { BulkAction } from "./types/action.js";
 import type { AdminConfig, ResolvedAdminConfig } from "./types/config.js";
-import type { DashboardConfig } from "./types/dashboard.js";
+import type { DashboardConfig, PageConfig } from "./types/dashboard.js";
 import type { QueueConfig } from "./types/queue.js";
 import type { ResourceConfig } from "./types/resource.js";
+
+/**
+ * Normalize a page's `path` to the form used as the `pagesByPath` Map key
+ * and emitted by `/${slug.join("/")}` at the runtime layer. Ensures a
+ * leading slash and strips any trailing slash. Empty input → "/".
+ */
+function normalizeRoutePath(raw: string): string {
+  let p = raw.trim();
+  if (p === "" || p === "/") return "/";
+  if (!p.startsWith("/")) p = `/${p}`;
+  if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
+  return p;
+}
 
 function resolveResourceName(ref: unknown, options: { name?: string }): string {
   if (options.name) return options.name;
@@ -74,10 +87,26 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
   }
   const dashboardsByPath = new Map<string, DashboardConfig>();
   for (const d of config.dashboards ?? []) {
-    if (dashboardsByPath.has(d.path)) {
+    // Key by the canonical route form. `matchDashboard` and
+    // `decodeDashboardPath` both resolve via `/${slug.join("/")}`, so a
+    // non-canonical `path` like "pipeline" must be stored as "/pipeline" to be
+    // reachable — and so it collides correctly with a same-path page below.
+    const path = normalizeRoutePath(d.path);
+    if (dashboardsByPath.has(path)) {
       throw new Error(`Duplicate dashboard path: "${d.path}".`);
     }
-    dashboardsByPath.set(d.path, d);
+    dashboardsByPath.set(path, d);
+  }
+  const pagesByPath = new Map<string, PageConfig>();
+  for (const p of config.pages ?? []) {
+    const path = normalizeRoutePath(p.path);
+    if (pagesByPath.has(path)) {
+      throw new Error(`Duplicate page path: "${p.path}".`);
+    }
+    if (dashboardsByPath.has(path)) {
+      throw new Error(`Page path "${p.path}" collides with a dashboard at the same path.`);
+    }
+    pagesByPath.set(path, p);
   }
   const queuesByKey = new Map<string, QueueConfig>();
   for (const q of config.queues ?? []) {
@@ -87,12 +116,22 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
     if (queuesByKey.has(key)) throw new Error(`duplicate queue key: ${key}`);
     queuesByKey.set(key, q);
   }
+  // Normalize basePath: must start with `/`, must not end with `/`. We
+  // accept `""` as a shorthand for "no prefix" (admin mounted at the root)
+  // by storing it as the empty string; consumers join with `${basePath}/...`.
+  const rawBasePath = config.basePath ?? "/admin";
+  let basePath = rawBasePath.trim();
+  if (basePath !== "" && !basePath.startsWith("/")) basePath = `/${basePath}`;
+  if (basePath.endsWith("/")) basePath = basePath.slice(0, -1);
+
   return {
     ...config,
     resources,
     __resolved: true,
     resourcesByName,
     dashboardsByPath,
+    pagesByPath,
     queuesByKey,
+    basePath,
   };
 }

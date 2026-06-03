@@ -1,5 +1,5 @@
-import { describe, it, expectTypeOf } from "vitest";
-import type { WidgetContext, Adapter, InferDB } from "../index.js";
+import { describe, expectTypeOf, it } from "vitest";
+import type { Adapter, InferDB, WidgetContext } from "../index.js";
 
 type MyDB = { query: (sql: string) => Promise<unknown> };
 

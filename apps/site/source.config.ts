@@ -1,9 +1,11 @@
+import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
 import {
   defineCollections,
   defineConfig,
   defineDocs,
   frontmatterSchema,
 } from "fumadocs-mdx/config";
+import { transformerTwoslash } from "fumadocs-twoslash";
 import { z } from "zod";
 
 /**
@@ -69,6 +71,16 @@ export const changelog = defineCollections({
 
 export default defineConfig({
   mdxOptions: {
-    // Highlighting handled by Fumadocs UI defaults (shiki).
+    // Highlighting handled by Fumadocs UI defaults (shiki). Code blocks
+    // tagged ` ```ts twoslash ` are type-checked at build time and gain
+    // inline type/hover popups — see `apps/site/ARCHITECTURE.md`.
+    rehypeCodeOptions: {
+      // Preserve Fumadocs' default transformers (notation highlight / diff /
+      // focus / word) — a bare `transformers` array would otherwise replace
+      // them via the shallow merge in `fumadocs-core`'s rehype-code plugin.
+      // Spread the full defaults so required fields like `themes` are kept.
+      ...rehypeCodeDefaultOptions,
+      transformers: [...(rehypeCodeDefaultOptions.transformers ?? []), transformerTwoslash()],
+    },
   },
 });

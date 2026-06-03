@@ -1,5 +1,5 @@
 # @flowpanel/react
 
-## 1.0.0
+## 0.1.0
 
-Initial public release. See [flowpanel CHANGELOG](https://github.com/getflowpanel/flowpanel/blob/main/CHANGELOG.md) for details.
+First public release. UI primitives for FlowPanel — shadcn-style components on Radix + Tailwind v4 with design tokens: the admin shell, data table, forms, feedback, and dashboard widgets.

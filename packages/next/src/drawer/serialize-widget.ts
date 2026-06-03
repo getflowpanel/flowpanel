@@ -6,6 +6,7 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
+import { scopeBinding } from "../runtime/scope-binding.js";
 
 /**
  * Wire-safe shape of a drawer widget. Mirrors `WidgetConfig` but strips
@@ -21,6 +22,7 @@ export type SerializedWidget =
       sublabel?: string;
       tone?: string;
       span?: number;
+      realtime?: string | string[];
     }
   | {
       kind: "table";
@@ -35,12 +37,14 @@ export type SerializedWidget =
        */
       columns: { field: string; label?: string }[];
       span?: number;
+      realtime?: string | string[];
     }
   | {
       kind: "statGroup";
       label?: string;
       stats: { label: string; value: unknown; format?: string; tone?: string }[];
       span?: number;
+      realtime?: string | string[];
     }
   | {
       kind: "chart";
@@ -48,6 +52,7 @@ export type SerializedWidget =
       label: string;
       dataPoints: number;
       span?: number;
+      realtime?: string | string[];
     }
   | { kind: "unsupported"; label?: string; reason: string; span?: number };
 
@@ -75,15 +80,15 @@ export async function serializeWidget(
           ...(w.options.sublabel ? { sublabel: w.options.sublabel } : {}),
           ...(w.options.tone ? { tone: w.options.tone } : {}),
           ...(w.options.span ? { span: w.options.span } : {}),
+          ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
         };
       }
       case "table": {
         let rows: Record<string, unknown>[] = [];
         let columns: { field: string; label?: string }[] = [];
-        if (w.options.query) {
-          const raw = (await runWithRequestContext(reqCtx, () =>
-            w.options.query!(widgetCtx),
-          )) as unknown[];
+        const queryFn = w.options.query;
+        if (queryFn) {
+          const raw = (await runWithRequestContext(reqCtx, () => queryFn(widgetCtx))) as unknown[];
           rows = raw as Record<string, unknown>[];
         } else if (w.options.resource) {
           const target = config.resourcesByName.get(w.options.resource);
@@ -102,6 +107,7 @@ export async function serializeWidget(
               pageSize: w.options.limit ?? 10,
               search: "",
               ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
+              ...scopeBinding(config, target, reqCtx),
             };
             const r = await runWithRequestContext(reqCtx, () =>
               config.adapter.list(target.ref, listCtx),
@@ -135,6 +141,7 @@ export async function serializeWidget(
           rows,
           columns,
           ...(w.options.span ? { span: w.options.span } : {}),
+          ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
         };
       }
       case "statGroup": {
@@ -156,6 +163,7 @@ export async function serializeWidget(
           ...(w.options.label ? { label: w.options.label } : {}),
           stats,
           ...(w.options.span ? { span: w.options.span } : {}),
+          ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
         };
       }
       case "areaChart":
@@ -178,6 +186,7 @@ export async function serializeWidget(
           label: w.label,
           dataPoints: data.length,
           ...(w.options.span ? { span: w.options.span } : {}),
+          ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
         };
       }
       default:

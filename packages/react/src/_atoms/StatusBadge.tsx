@@ -1,6 +1,7 @@
 "use client";
-import * as React from "react";
+import type * as React from "react";
 import { useComponents } from "../_provider/ComponentsContext.js";
+
 export {
   DefaultStatusBadge,
   type StatusBadgeProps,

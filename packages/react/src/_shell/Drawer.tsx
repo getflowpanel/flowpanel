@@ -6,13 +6,16 @@ import { cn } from "../lib/cn.js";
 
 export type DrawerWidth = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 
+// `<640px` always falls back to full width so mobile users see a fullscreen
+// sheet instead of a too-narrow side panel; above that, the configured
+// `width` applies.
 const WIDTH_CLASS: Record<DrawerWidth, string> = {
-  sm: "w-[360px]",
-  md: "w-[480px]",
-  lg: "w-[640px]",
-  xl: "w-[820px]",
-  "2xl": "w-[960px]",
-  full: "w-[min(100vw,1200px)]",
+  sm: "w-full sm:w-[360px]",
+  md: "w-full sm:w-[480px]",
+  lg: "w-full sm:w-[640px]",
+  xl: "w-full sm:w-[820px]",
+  "2xl": "w-full sm:w-[960px]",
+  full: "w-full sm:w-[min(100vw,1200px)]",
 };
 
 export interface DrawerProps {

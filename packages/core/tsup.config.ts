@@ -1,13 +1,21 @@
 import { defineConfig } from "tsup";
 
-export default defineConfig({
-  entry: { index: "src/index.ts", labels: "src/labels.ts", auth: "src/auth/index.ts" },
-  format: ["esm", "cjs"],
-  // Emit consistent `.mjs` + `.cjs` so package.json's import/require
-  // exports match file-system reality (tsup's default `.js` + `.mjs`
-  // was mismatched with the historical `.cjs`/`.js` package.json entries).
-  outExtension: ({ format }) => ({ js: format === "esm" ? ".mjs" : ".cjs" }),
+// Split into separate builds per entry so tsup's DTS bundler doesn't extract
+// shared types into a `config-XXX.d.ts` chunk. The chunk breaks
+// `declare module "@flowpanel/core" { interface FlowpanelTypes { db } }`
+// augmentation: TS treats the interface inside the internal chunk as a
+// different declaration site than `dist/index.d.ts`, so user augmentation
+// silently drops and `ctx.db` stays `unknown`. With per-entry builds, each
+// `.d.ts` declares its own types inline.
+const common = {
+  format: ["esm", "cjs"] as const,
+  outExtension: ({ format }: { format: string }) => ({ js: format === "esm" ? ".mjs" : ".cjs" }),
   dts: true,
-  clean: true,
   splitting: false,
-});
+};
+
+export default defineConfig([
+  { entry: { index: "src/index.ts" }, clean: true, ...common },
+  { entry: { labels: "src/labels.ts" }, clean: false, ...common },
+  { entry: { auth: "src/auth/index.ts" }, clean: false, ...common },
+]);

@@ -13,7 +13,9 @@ test.describe("M4a — axe a11y", () => {
   for (const route of ["/admin", "/admin/users", "/admin/monitoring"]) {
     test(`${route} has 0 wcag2aa violations`, async ({ page }) => {
       await page.goto(route);
-      await page.waitForLoadState("networkidle");
+      // Wait for the main landmark to render — NOT networkidle, which never
+      // settles on pages holding a live SSE (realtime) connection.
+      await page.locator("main").first().waitFor({ state: "visible" });
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
       expect(results.violations).toEqual([]);
     });

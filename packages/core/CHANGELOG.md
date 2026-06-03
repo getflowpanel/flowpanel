@@ -1,5 +1,5 @@
 # @flowpanel/core
 
-## 1.0.0
+## 0.1.0
 
-Initial public release. See [flowpanel CHANGELOG](https://github.com/getflowpanel/flowpanel/blob/main/CHANGELOG.md) for details.
+First public release. Core types and runtime for FlowPanel: `defineAdmin`, the `resource` / `dashboard` / widget builders, and the runtime for tenant scope, role gates, audit, and rate limiting.

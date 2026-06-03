@@ -22,9 +22,8 @@ export function BulkBar({ selection, actions, onClear }: BulkBarProps) {
   const labels = useLabels();
   if (selection.length === 0) return null;
   return (
-    <div
+    <section
       data-state={selection.length > 0 ? "open" : "closed"}
-      role="region"
       aria-label={formatLabel(labels.bulkBar.selected, { n: selection.length })}
       className={cn(
         "fp-bulkbar",
@@ -48,6 +47,6 @@ export function BulkBar({ selection, actions, onClear }: BulkBarProps) {
       <Button variant="ghost" size="sm" onClick={onClear} aria-label="Clear selection">
         {labels.bulkBar.clear}
       </Button>
-    </div>
+    </section>
   );
 }

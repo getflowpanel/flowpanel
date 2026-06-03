@@ -1,8 +1,14 @@
 {
   "name": "@flowpanel/adapter-bullmq",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "BullMQ queue UIs for FlowPanel via bull-board",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/getflowpanel/flowpanel",
+    "directory": "packages/adapter-bullmq"
+  },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,7 +28,9 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "lint:publish": "publint --strict",
+    "lint:attw": "attw --pack . --profile esm-only"
   },
   "peerDependencies": {
     "bullmq": "^5.0.0"

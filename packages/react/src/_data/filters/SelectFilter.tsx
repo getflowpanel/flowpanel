@@ -1,4 +1,5 @@
 "use client";
+import * as React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select.js";
 
 export interface SelectFilterOption {
@@ -24,11 +25,12 @@ export function SelectFilter({
   options,
   placeholder = "All",
 }: SelectFilterProps) {
+  const id = React.useId();
   return (
-    <label className="flex flex-col gap-1">
+    <label htmlFor={id} className="flex flex-col gap-1">
       {label ? <span className="text-xs text-fp-text-3">{label}</span> : null}
       <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
-        <SelectTrigger className="h-8 w-40">
+        <SelectTrigger id={id} className="h-8 w-40">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>

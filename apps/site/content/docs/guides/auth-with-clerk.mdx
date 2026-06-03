@@ -1,0 +1,97 @@
+---
+title: Authenticate with Clerk
+description: Gate your admin behind Clerk in three edits — middleware, provider, and one line of config.
+---
+
+flowpanel ships first-class Clerk support via `withClerk` from `flowpanel/auth`.
+The SDK loads lazily, so no Clerk code is bundled unless you actually use it.
+This guide gates an admin behind Clerk, restricted to users with the `admin`
+role.
+
+## 1. Install Clerk
+
+```bash
+pnpm add @clerk/nextjs
+```
+
+Add your keys to `.env.local`:
+
+```bash
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_…
+CLERK_SECRET_KEY=sk_test_…
+```
+
+## 2. Add the middleware
+
+Clerk's middleware populates the `auth()` helper that `withClerk` reads on the
+server. Create `middleware.ts` at your project root:
+
+```ts
+import { clerkMiddleware } from "@clerk/nextjs/server";
+
+export default clerkMiddleware();
+
+export const config = {
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+  ],
+};
+```
+
+## 3. Wrap the app in `ClerkProvider`
+
+In `app/layout.tsx`:
+
+```tsx
+import { ClerkProvider } from "@clerk/nextjs";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClerkProvider>
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    </ClerkProvider>
+  );
+}
+```
+
+## 4. Wire `withClerk` into the config
+
+This is the only auth change in `flowpanel.config.ts`:
+
+```ts
+import { defineAdmin, resource } from "flowpanel";
+import { withClerk } from "flowpanel/auth";
+
+export default defineAdmin({
+  // …adapter, resources…
+  auth: withClerk({ requireRole: "admin" }),
+});
+```
+
+That's the whole integration. By default `withClerk` reads the role from
+`sessionClaims.publicMetadata.role` and treats a missing role as `"guest"`.
+Set `publicMetadata.role = "admin"` on a user in the Clerk dashboard to grant
+access.
+
+## Options
+
+`withClerk` accepts a few overrides:
+
+```ts
+withClerk({
+  // A single role, an array, or a custom predicate.
+  requireRole: ["admin", "owner"],
+  // Where to send unauthenticated users.
+  signInUrl: "/sign-in",
+  // Where to send authenticated users who lack the role.
+  forbiddenUrl: "/",
+  // Override how the role is extracted from the session.
+  role: (s) => (s?.publicMetadata as { role?: string })?.role ?? "guest",
+});
+```
+
+A complete runnable version lives in
+[`examples/with-clerk`](https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk).

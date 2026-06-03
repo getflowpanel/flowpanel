@@ -1,0 +1,54 @@
+name: Dogfood
+
+# Verifies that the `examples/with-clerk` showcase typechecks + builds
+# against every change to the framework packages. with-clerk exercises
+# every Phase-0 feature: row actions, bulk actions, FK column rendering,
+# JSON/array cells, detail-page tabs. A regression that breaks any of
+# them turns this workflow red automatically — no manual smoke testing
+# every release.
+#
+# `freelance-radar` (an external real-world consumer) is too heavyweight
+# to wire into CI directly; this fixture covers the same surfaces with a
+# 200-LOC config.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  with-clerk:
+    name: with-clerk example
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: ./.github/actions/setup
+
+      - name: Build framework packages
+        # Use turbo (not `pnpm -r`) so `^build` is a hard barrier — a package
+        # only builds after its workspace deps fully complete. `pnpm -r`
+        # raced the not-yet-flushed @flowpanel/core/labels .d.ts on cold CI.
+        run: pnpm turbo run build --filter="@flowpanel/*" --filter=flowpanel
+
+      - name: Typecheck example
+        run: pnpm --filter with-clerk typecheck
+
+      - name: Build example
+        env:
+          # Build runs without a database — Drizzle is only used at runtime
+          # via the lazy `db` proxy.
+          DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
+          # Clerk runs in build mode without a key — set placeholders so
+          # the env validator doesn't reject the build.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
+          CLERK_SECRET_KEY: sk_test_placeholder
+        run: pnpm --filter with-clerk build

@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # Keep pinned GitHub Actions SHAs fresh.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+
+  # npm/pnpm dependencies across the workspace.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 10
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
