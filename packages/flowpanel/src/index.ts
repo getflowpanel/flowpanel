@@ -1,4 +1,4 @@
-// `flowpanel` is the umbrella package. It re-exports the typed config DSL,
+// `@flowpanel/kit` is the umbrella package. It re-exports the typed config DSL,
 // runtime helpers, and types from @flowpanel/core. Adapters, the Next.js
 // bridge, the React UI, and chart builders live behind subpaths:
 //   - flowpanel/drizzle, flowpanel/prisma   — adapter helpers

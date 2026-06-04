@@ -4,7 +4,7 @@ UI primitives for FlowPanel — shadcn-style components built on Radix UI + Tail
 
 [![npm](https://img.shields.io/npm/v/@flowpanel/react.svg)](https://www.npmjs.com/package/@flowpanel/react)
 
-> Most users import from **`flowpanel/react`** (umbrella subpath). Depend on `@flowpanel/react` directly only when building your own FlowPanel-shaped UI library.
+> Most users import from **`@flowpanel/kit/react`** (umbrella subpath). Depend on `@flowpanel/react` directly only when building your own FlowPanel-shaped UI library.
 
 ## Components
 

@@ -5,8 +5,8 @@
  * runtime no longer renders /admin{{path}} — your code does.
  *
  * Building blocks available:
- *   import { metric, areaChart, table, statGroup } from "flowpanel";
- *   import { MetricCard, StatGroupCard, TableWidget } from "flowpanel/react";
+ *   import { metric, areaChart, table, statGroup } from "@flowpanel/kit";
+ *   import { MetricCard, StatGroupCard, TableWidget } from "@flowpanel/kit/react";
  *
  * Customize freely; FlowPanel will not touch this file again.
  */

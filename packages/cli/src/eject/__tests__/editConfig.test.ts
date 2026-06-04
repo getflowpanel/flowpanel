@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { editConfigToCommentResource } from "../editConfig.js";
 
-const before = `import { defineAdmin, resource } from "flowpanel";
+const before = `import { defineAdmin, resource } from "@flowpanel/kit";
 import * as schema from "./db/schema";
 
 export default defineAdmin({
@@ -26,7 +26,7 @@ describe("editConfigToCommentResource", () => {
   });
 
   it('matches by prisma-style string "users"', () => {
-    const prismaSrc = `import { defineAdmin, resource } from "flowpanel";
+    const prismaSrc = `import { defineAdmin, resource } from "@flowpanel/kit";
 export default defineAdmin({
   resources: [
     resource<unknown>("users", { columns: ["email"] }),

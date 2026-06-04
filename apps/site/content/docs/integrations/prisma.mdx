@@ -3,7 +3,7 @@ title: Prisma
 description: Wire flowpanel to a Prisma 5+ project.
 ---
 
-`flowpanel/prisma` is the first-party Prisma adapter. It loads
+`@flowpanel/kit/prisma` is the first-party Prisma adapter. It loads
 DMMF from `@prisma/client`, introspects your models, and resolves each
 resource's delegate (`prisma.user`, `prisma.order`, …) at runtime.
 
@@ -16,8 +16,8 @@ extra to install. You need a generated Prisma Client: run
 ## Use
 
 ```ts
-import { defineAdmin, resource } from "flowpanel";
-import { prismaAdapter } from "flowpanel/prisma";
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { prismaAdapter } from "@flowpanel/kit/prisma";
 import { prisma } from "@/lib/prisma";
 import type { User } from "@prisma/client";
 

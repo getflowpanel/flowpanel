@@ -3,7 +3,7 @@ title: Drizzle
 description: Wire flowpanel to a Drizzle ORM 0.30+ project.
 ---
 
-`flowpanel/drizzle` is the first-party Drizzle adapter. It reads your
+`@flowpanel/kit/drizzle` is the first-party Drizzle adapter. It reads your
 Drizzle schema (the TypeScript file, not a separate format), types
 every resource against your tables, and uses your `db` instance at
 runtime.
@@ -16,8 +16,8 @@ extra to install.
 ## Use
 
 ```ts
-import { defineAdmin, resource } from "flowpanel";
-import { drizzleAdapter } from "flowpanel/drizzle";
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { db } from "@/server/lib/db";
 import * as schema from "@/server/lib/db/schema";
 

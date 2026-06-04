@@ -18,7 +18,7 @@ Opt a resource into live updates with `realtime: true`. Lists for that
 resource refresh automatically when a row is created, updated, or deleted:
 
 ```ts
-import { resource } from "flowpanel";
+import { resource } from "@flowpanel/kit";
 import * as schema from "@/db/schema";
 
 resource(schema.orders, {
@@ -33,7 +33,7 @@ resource(schema.orders, {
 `redis` and pass your connection URL:
 
 ```ts
-import { defineAdmin } from "flowpanel";
+import { defineAdmin } from "@flowpanel/kit";
 
 export default defineAdmin({
   // …adapter, auth, resources…
@@ -62,7 +62,7 @@ For dashboards or background jobs, push your own resource event from a
 Server Action or route handler:
 
 ```ts
-import { publishResource } from "flowpanel/next";
+import { publishResource } from "@flowpanel/kit/next";
 
 await db.update(schema.orders).set({ status: "shipped" }).where(/* … */);
 await publishResource("orders", { action: "update", id: orderId });

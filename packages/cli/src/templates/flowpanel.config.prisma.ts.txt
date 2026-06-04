@@ -1,5 +1,5 @@
-import { defineAdmin, resource } from "flowpanel";
-import { prismaAdapter } from "flowpanel/prisma";
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { prismaAdapter } from "@flowpanel/kit/prisma";
 import { prisma } from "{{DB}}";
 import { getSession } from "{{AUTH}}";
 

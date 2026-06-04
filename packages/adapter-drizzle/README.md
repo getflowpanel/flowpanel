@@ -4,12 +4,12 @@ Drizzle ORM adapter for FlowPanel.
 
 [![npm](https://img.shields.io/npm/v/@flowpanel/adapter-drizzle.svg)](https://www.npmjs.com/package/@flowpanel/adapter-drizzle)
 
-> Most users import from **`flowpanel/drizzle`** (umbrella subpath).
+> Most users import from **`@flowpanel/kit/drizzle`** (umbrella subpath).
 
 ## Use
 
 ```ts
-import { drizzleAdapter } from "flowpanel/drizzle";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { db } from "@/db/client";
 import * as schema from "@/db/schema";
 

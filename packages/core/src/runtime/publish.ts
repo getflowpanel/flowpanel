@@ -8,7 +8,7 @@ export type PublisherOptions =
   | { driver: "redis"; url: string; keyPrefix?: string };
 
 /**
- * Build an SSE realtime publisher. `flowpanel/next` calls this internally
+ * Build an SSE realtime publisher. `@flowpanel/kit/next` calls this internally
  * to fan out resource-mutation events (`publishResource(name, ...)`) to
  * every subscribed browser, but consumer code can use it directly for
  * custom channels (`publish("scraper:tick", { ... })`).

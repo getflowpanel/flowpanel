@@ -8,7 +8,7 @@
 ## Install
 
 ```bash
-pnpm add flowpanel
+pnpm add @flowpanel/kit
 pnpm flowpanel init
 pnpm flowpanel dev
 ```
@@ -20,16 +20,16 @@ Visit `http://localhost:3000/admin`. Done.
 - **Type-safe end-to-end.** `ctx.db` typed everywhere via one `declare module` augmentation.
 - **Three customization tiers.** L1 props (90%) → L2 `theme.components` overrides (10 slots) → L3 `flowpanel eject` for full ownership.
 - **Batteries included.** CRUD lists, drawers, dashboards, BullMQ queues, realtime SSE, soft-delete, audit, scope, rate-limit.
-- **Two ORMs first-class.** Drizzle (Postgres / MySQL / SQLite) and Prisma — `flowpanel/drizzle` and `flowpanel/prisma`.
-- **Auth helpers.** `withClerk`, `withNextAuth`, `withLucia` from `flowpanel/auth`.
+- **Two ORMs first-class.** Drizzle (Postgres / MySQL / SQLite) and Prisma — `@flowpanel/kit/drizzle` and `@flowpanel/kit/prisma`.
+- **Auth helpers.** `withClerk`, `withNextAuth`, `withLucia` from `@flowpanel/kit/auth`.
 
 ## 12-line config
 
 ```ts
 // flowpanel.config.ts
-import { defineAdmin, resource } from "flowpanel";
-import { drizzleAdapter } from "flowpanel/drizzle";
-import { withClerk } from "flowpanel/auth";
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { withClerk } from "@flowpanel/kit/auth";
 import { db } from "@/db/client";
 import * as schema from "@/db/schema";
 

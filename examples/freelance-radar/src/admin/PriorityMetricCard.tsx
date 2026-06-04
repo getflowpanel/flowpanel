@@ -1,5 +1,5 @@
 "use client";
-import { DefaultMetricCard, type MetricCardProps } from "flowpanel/react";
+import { DefaultMetricCard, type MetricCardProps } from "@flowpanel/kit/react";
 
 /**
  * Showcase override for FlowPanel's MetricCard slot.

@@ -60,11 +60,11 @@ The lookup maps are precomputed so request-time routing is O(1).
 share a path, or two queues share a key.
 
 You hand the resolved config to `Flowpanel(config)` (page) and
-`handlers(config)` (API). Both come from `flowpanel/next`:
+`handlers(config)` (API). Both come from `@flowpanel/kit/next`:
 
 ```ts
 // app/admin/[[...slug]]/page.tsx
-import { Flowpanel } from "flowpanel/next";
+import { Flowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
 export default Flowpanel(config);
@@ -72,7 +72,7 @@ export default Flowpanel(config);
 
 ```ts
 // app/api/flowpanel/[...route]/route.ts
-import { handlers } from "flowpanel/next";
+import { handlers } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
 export const { GET, POST } = handlers(config);
@@ -109,4 +109,4 @@ See **Core concepts / Resources** for the human-friendly overview of
 The companion builders are `dashboard`, `page`, `queue`, `metric`,
 `table`, `statGroup`, `custom`, and the chart builders
 (`areaChart`, `barChart`, `lineChart`, `pieChart` from
-`flowpanel/charts`).
+`@flowpanel/kit/charts`).

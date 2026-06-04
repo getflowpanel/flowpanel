@@ -1,7 +1,7 @@
+import { dashboard, defineAdmin, metric, resource, table } from "@flowpanel/kit";
+import { withClerk } from "@flowpanel/kit/auth";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { eq, inArray, sql } from "drizzle-orm";
-import { dashboard, defineAdmin, metric, resource, table } from "flowpanel";
-import { withClerk } from "flowpanel/auth";
-import { drizzleAdapter } from "flowpanel/drizzle";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 

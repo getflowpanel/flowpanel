@@ -4,12 +4,12 @@ Prisma ORM adapter for FlowPanel — runtime DMMF introspection, no codegen.
 
 [![npm](https://img.shields.io/npm/v/@flowpanel/adapter-prisma.svg)](https://www.npmjs.com/package/@flowpanel/adapter-prisma)
 
-> Most users import from **`flowpanel/prisma`** (umbrella subpath).
+> Most users import from **`@flowpanel/kit/prisma`** (umbrella subpath).
 
 ## Use
 
 ```ts
-import { prismaAdapter } from "flowpanel/prisma";
+import { prismaAdapter } from "@flowpanel/kit/prisma";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

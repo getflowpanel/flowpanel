@@ -19,7 +19,7 @@
 ## Install
 
 ```bash
-pnpm add flowpanel
+pnpm add @flowpanel/kit
 pnpm flowpanel init
 pnpm flowpanel dev
 ```
@@ -32,9 +32,9 @@ Visit `http://localhost:3000/admin`. Done.
 
 ```ts
 // flowpanel.config.ts
-import { defineAdmin, resource, dashboard, metric, table } from "flowpanel";
-import { drizzleAdapter } from "flowpanel/drizzle";
-import { withClerk } from "flowpanel/auth";
+import { defineAdmin, resource, dashboard, metric, table } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { withClerk } from "@flowpanel/kit/auth";
 import { db } from "@/db/client";
 import * as schema from "@/db/schema";
 
@@ -102,7 +102,7 @@ on row click; soft-deleted rows are filtered out automatically.
   overrides (10 slots: Button, Badge, Avatar, StatusBadge, EmptyState,
   MetricCard, PageHeader, Pagination, ConfirmDialog, SkeletonTable) → eject (`flowpanel eject resource users`).
 - **First-class auth** — `withClerk`, `withNextAuth`, `withLucia` from
-  `flowpanel/auth`. Or write your own 4-field `AuthConfig`.
+  `@flowpanel/kit/auth`. Or write your own 4-field `AuthConfig`.
 - **i18n** — `labels` config localizes built-in chrome (BulkBar,
   pagination, drawer, confirm, palette).
 - **A11y** — WCAG 2.2 AA. Focus traps, aria-live, skip-to-content,

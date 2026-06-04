@@ -4,14 +4,14 @@ BullMQ queue adapter for FlowPanel — wraps `bull-board` with proper auth + the
 
 [![npm](https://img.shields.io/npm/v/@flowpanel/adapter-bullmq.svg)](https://www.npmjs.com/package/@flowpanel/adapter-bullmq)
 
-> Most users import from **`flowpanel/bullmq`** (umbrella subpath).
+> Most users import from **`@flowpanel/kit/bullmq`** (umbrella subpath).
 
 ## Use
 
 Register queues in `flowpanel.config.ts`:
 
 ```ts
-import { queue } from "flowpanel";
+import { queue } from "@flowpanel/kit";
 import { Queue } from "bullmq";
 
 const scraperQueue = new Queue("scraper", { connection: { host: "localhost", port: 6379 } });

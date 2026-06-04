@@ -12,8 +12,8 @@ calls; what's behind that interface is up to you.
 
 | Package | Connects to |
 |---|---|
-| `flowpanel/drizzle` | Drizzle ORM + its schema. Reads `$inferSelect` for row types. |
-| `flowpanel/prisma` | Prisma Client + DMMF. Looks up `prisma[<modelLower>]` at runtime. |
+| `@flowpanel/kit/drizzle` | Drizzle ORM + its schema. Reads `$inferSelect` for row types. |
+| `@flowpanel/kit/prisma` | Prisma Client + DMMF. Looks up `prisma[<modelLower>]` at runtime. |
 
 Pick one with the adapter toggle in the sidebar to see the matching
 example. The choice persists per browser via a cookie.
@@ -22,8 +22,8 @@ example. The choice persists per browser via a cookie.
   <AdapterTab adapter="drizzle">
 
 ```ts
-import { defineAdmin, resource } from "flowpanel";
-import { drizzleAdapter } from "flowpanel/drizzle";
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { db } from "@/server/lib/db";
 import * as schema from "@/server/lib/db/schema";
 
@@ -40,8 +40,8 @@ export default defineAdmin({
   <AdapterTab adapter="prisma">
 
 ```ts
-import { defineAdmin, resource } from "flowpanel";
-import { prismaAdapter } from "flowpanel/prisma";
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { prismaAdapter } from "@flowpanel/kit/prisma";
 import { prisma } from "@/lib/prisma";
 
 export default defineAdmin({

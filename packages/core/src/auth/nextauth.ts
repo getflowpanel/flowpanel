@@ -23,8 +23,8 @@ export interface NextAuthOptions {
  * First-class NextAuth (Auth.js v5) integration.
  *
  * @example
- * import { defineAdmin } from "flowpanel";
- * import { withNextAuth } from "flowpanel/auth";
+ * import { defineAdmin } from "@flowpanel/kit";
+ * import { withNextAuth } from "@flowpanel/kit/auth";
  * import { auth } from "@/auth";   // your NextAuth() instance
  *
  * export default defineAdmin({

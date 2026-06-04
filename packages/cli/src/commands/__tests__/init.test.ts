@@ -17,7 +17,7 @@ describe("init templates (resolution)", () => {
 
   it("api-route template is static and valid", async () => {
     const out = await tpl("api-route.ts.txt");
-    expect(out).toContain('from "flowpanel/next"');
+    expect(out).toContain('from "@flowpanel/kit/next"');
     expect(out).toContain("export const { GET, POST } = handlers(config)");
     expect(out).toContain('runtime = "nodejs"');
   });

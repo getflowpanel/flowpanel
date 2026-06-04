@@ -85,7 +85,7 @@ jobs:
         run: pnpm tsx scripts/check-file-sizes.ts
 
       - name: Bundle-size budgets (.size-limit.json)
-        run: pnpm --filter flowpanel exec size-limit
+        run: pnpm --filter @flowpanel/kit exec size-limit
 
       - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:

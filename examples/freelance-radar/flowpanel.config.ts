@@ -1,7 +1,7 @@
+import { dashboard, defineAdmin, metric, queue, resource, table } from "@flowpanel/kit";
+import { areaChart } from "@flowpanel/kit/charts";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { eq, gte, sql } from "drizzle-orm";
-import { dashboard, defineAdmin, metric, queue, resource, table } from "flowpanel";
-import { areaChart } from "flowpanel/charts";
-import { drizzleAdapter } from "flowpanel/drizzle";
 import { headers } from "next/headers";
 import { PriorityMetricCard } from "@/src/admin/PriorityMetricCard";
 import { db } from "@/src/db/client";

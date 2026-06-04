@@ -21,7 +21,7 @@
     "@flowpanel/core": "workspace:*",
     "bullmq": "^5.0.0",
     "drizzle-orm": "^0.36.0",
-    "flowpanel": "workspace:*",
+    "@flowpanel/kit": "workspace:*",
     "next": "^15.0.0",
     "pg": "^8.13.0",
     "react": "^19.0.0",
