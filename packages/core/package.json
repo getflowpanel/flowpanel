@@ -106,7 +106,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "expect-type": "^0.20.0",
-    "react": "^19.0.0",
+    "react": "^19.2.7",
     "tsd": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
