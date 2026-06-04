@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { editConfigToAddResource } from "../../eject/addResource.js";
 
-const BASE_CONFIG = `import { defineAdmin, resource } from "flowpanel";
+const BASE_CONFIG = `import { defineAdmin, resource } from "@flowpanel/kit";
 import * as schema from "./db/schema";
 export default defineAdmin({
   resources: [
@@ -10,7 +10,7 @@ export default defineAdmin({
 });
 `;
 
-const CONFIG_NO_RESOURCES = `import { defineAdmin } from "flowpanel";
+const CONFIG_NO_RESOURCES = `import { defineAdmin } from "@flowpanel/kit";
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
 });

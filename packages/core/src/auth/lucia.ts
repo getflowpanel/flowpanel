@@ -28,8 +28,8 @@ export interface LuciaAuthOptions {
  * First-class Lucia (v3+) integration.
  *
  * @example
- * import { defineAdmin } from "flowpanel";
- * import { withLucia } from "flowpanel/auth";
+ * import { defineAdmin } from "@flowpanel/kit";
+ * import { withLucia } from "@flowpanel/kit/auth";
  * import { lucia } from "@/auth/lucia";
  *
  * export default defineAdmin({

@@ -37,7 +37,7 @@ jobs:
         # Use turbo (not `pnpm -r`) so `^build` is a hard barrier — a package
         # only builds after its workspace deps fully complete. `pnpm -r`
         # raced the not-yet-flushed @flowpanel/core/labels .d.ts on cold CI.
-        run: pnpm turbo run build --filter="@flowpanel/*" --filter=flowpanel
+        run: pnpm turbo run build --filter="@flowpanel/*"
 
       - name: Typecheck example
         run: pnpm --filter with-clerk typecheck

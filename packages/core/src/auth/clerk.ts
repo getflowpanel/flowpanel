@@ -19,8 +19,8 @@ export interface ClerkAuthOptions {
  * First-class Clerk integration.
  *
  * @example
- * import { defineAdmin } from "flowpanel";
- * import { withClerk } from "flowpanel/auth";
+ * import { defineAdmin } from "@flowpanel/kit";
+ * import { withClerk } from "@flowpanel/kit/auth";
  *
  * export default defineAdmin({
  *   auth: withClerk({ requireRole: "admin" }),

@@ -401,12 +401,12 @@ this changes**, including inline filenames and import paths.
 <AdapterTabs>
   <AdapterTab adapter="prisma">
     ```ts title="flowpanel.config.ts"
-    import { prismaAdapter } from "flowpanel/prisma";
+    import { prismaAdapter } from "@flowpanel/kit/prisma";
     ```
   </AdapterTab>
   <AdapterTab adapter="drizzle">
     ```ts title="flowpanel.config.ts"
-    import { drizzleAdapter } from "flowpanel/drizzle";
+    import { drizzleAdapter } from "@flowpanel/kit/drizzle";
     ```
   </AdapterTab>
 </AdapterTabs>
@@ -662,7 +662,7 @@ to play nicely with the existing repo:
    inside the monorepo now.
 7. **`packages/cli`** ships the `flowpanel` bin; no change needed, but
    the site's "ready to ship" CTA copy assumes the user already ran
-   `pnpm add flowpanel` — keep that consistent with the README install
+   `pnpm add @flowpanel/kit` — keep that consistent with the README install
    block.
 
 ### Changelog source

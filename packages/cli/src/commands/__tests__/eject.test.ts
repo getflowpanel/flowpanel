@@ -9,7 +9,7 @@ beforeEach(async () => {
   tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-eject-run-"));
   await fs.writeFile(
     path.join(tmp, "flowpanel.config.ts"),
-    `import { dashboard, defineAdmin, resource } from "flowpanel";
+    `import { dashboard, defineAdmin, resource } from "@flowpanel/kit";
 import * as schema from "./db/schema";
 export default defineAdmin({
   resources: [

@@ -96,7 +96,7 @@ export async function runEject(opts: RunEjectOptions): Promise<void> {
 async function readPackageVersion(cwd: string): Promise<string> {
   try {
     const pkg = JSON.parse(
-      await fs.readFile(path.join(cwd, "node_modules/flowpanel/package.json"), "utf8"),
+      await fs.readFile(path.join(cwd, "node_modules/@flowpanel/kit/package.json"), "utf8"),
     );
     if (typeof pkg?.version === "string") return pkg.version;
   } catch {

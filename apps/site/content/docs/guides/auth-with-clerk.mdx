@@ -3,7 +3,7 @@ title: Authenticate with Clerk
 description: Gate your admin behind Clerk in three edits — middleware, provider, and one line of config.
 ---
 
-flowpanel ships first-class Clerk support via `withClerk` from `flowpanel/auth`.
+flowpanel ships first-class Clerk support via `withClerk` from `@flowpanel/kit/auth`.
 The SDK loads lazily, so no Clerk code is bundled unless you actually use it.
 This guide gates an admin behind Clerk, restricted to users with the `admin`
 role.
@@ -62,8 +62,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 This is the only auth change in `flowpanel.config.ts`:
 
 ```ts
-import { defineAdmin, resource } from "flowpanel";
-import { withClerk } from "flowpanel/auth";
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { withClerk } from "@flowpanel/kit/auth";
 
 export default defineAdmin({
   // …adapter, resources…

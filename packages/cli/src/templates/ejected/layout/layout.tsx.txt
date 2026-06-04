@@ -5,7 +5,7 @@
  * admin chrome — sidebar, header, providers, skip-link.
  *
  * The simplest path forward: keep using FlowPanel's primitives via
- * `<AdminShell>` from "flowpanel/react", and customize the wrapping
+ * `<AdminShell>` from "@flowpanel/kit/react", and customize the wrapping
  * tree (e.g., add your own analytics provider, custom header bar above
  * the shell, etc.).
  *
@@ -13,7 +13,7 @@
  * read the source of `<AdminShell>` in @flowpanel/react and inline the
  * pieces you want to own.
  */
-import { AdminShell, FlowpanelGlobals } from "flowpanel/react";
+import { AdminShell, FlowpanelGlobals } from "@flowpanel/kit/react";
 import config from "@/flowpanel.config";
 import type { ReactNode } from "react";
 

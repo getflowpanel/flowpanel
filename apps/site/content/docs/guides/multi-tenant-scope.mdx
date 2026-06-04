@@ -21,7 +21,7 @@ The global `scope` receives `{ req, session }` and returns a plain object
 (or `null` to disable scoping for this request):
 
 ```ts
-import { defineAdmin } from "flowpanel";
+import { defineAdmin } from "@flowpanel/kit";
 
 export default defineAdmin({
   // …adapter, auth…
@@ -43,7 +43,7 @@ predicate AND-s the tenant condition into the adapter's native query.
 For **Drizzle**, call `.where(...)` on the query builder:
 
 ```ts
-import { resource } from "flowpanel";
+import { resource } from "@flowpanel/kit";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 

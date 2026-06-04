@@ -1,5 +1,5 @@
-import { defineAdmin, resource } from "flowpanel";
-import { drizzleAdapter } from "flowpanel/drizzle";
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { db } from "{{DB}}";
 import * as schema from "{{SCHEMA}}";
 import { getSession } from "{{AUTH}}";

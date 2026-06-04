@@ -3,7 +3,7 @@ import type { AuditConfig, AuditEvent } from "../types/config.js";
 /**
  * Forward an audit event to the configured `AuditConfig.sink`, swallowing
  * sink errors so audit failure never breaks the underlying user action.
- * `flowpanel/next` auto-emits on CRUD mutations, row actions, bulk actions,
+ * `@flowpanel/kit/next` auto-emits on CRUD mutations, row actions, bulk actions,
  * inline edits, and drawer actions; call this directly from custom server
  * code that should also be auditable.
  *

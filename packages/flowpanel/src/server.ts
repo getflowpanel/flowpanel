@@ -21,7 +21,7 @@ function getPublisher(): Publisher {
  * Publish an event to an SSE channel.
  *
  * @example
- *   import { publish } from "flowpanel/server";
+ *   import { publish } from "@flowpanel/kit/server";
  *   scraperQueue.on("completed", async () => {
  *     await publish("scraperRuns");
  *   });

@@ -1,5 +1,5 @@
 {
-  "name": "flowpanel",
+  "name": "@flowpanel/kit",
   "version": "0.1.0",
   "description": "Config-first admin panel framework for Next.js 15",
   "license": "MIT",
