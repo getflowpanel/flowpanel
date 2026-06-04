@@ -101,6 +101,6 @@
     "typescript": "catalog:"
   },
   "optionalDependencies": {
-    "ioredis": "^5.11.1"
+    "ioredis": "^5.10.0"
   }
 }
