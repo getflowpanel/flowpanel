@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Keep pinned GitHub Actions SHAs fresh.
+  # GitHub Actions SHAs — one grouped PR.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -12,15 +12,24 @@ updates:
     commit-message:
       prefix: "ci"
 
-  # npm/pnpm dependencies across the workspace.
+  # All npm/pnpm deps (prod + dev) batched into ONE PR. Major versions are
+  # excluded on purpose — bump Next.js / React / etc. deliberately, not via
+  # automated PRs.
   - package-ecosystem: npm
     directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     groups:
-      dev-dependencies:
-        dependency-type: development
+      all-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
     commit-message:
       prefix: "chore"
-      prefix-development: "chore"
