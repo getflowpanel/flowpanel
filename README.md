@@ -2,13 +2,26 @@
 
 > One typed config → full admin panel for your Next.js app. Drizzle or Prisma. Realtime. Queues. Eject when you outgrow it.
 
-[![npm](https://img.shields.io/npm/v/flowpanel.svg?color=blue)](https://www.npmjs.com/package/flowpanel)
-[![Downloads](https://img.shields.io/npm/dm/flowpanel.svg?color=blue)](https://www.npmjs.com/package/flowpanel)
-[![Bundle size](https://img.shields.io/bundlephobia/minzip/flowpanel.svg)](https://bundlephobia.com/package/flowpanel)
+[![npm](https://img.shields.io/npm/v/%40flowpanel%2Fkit.svg?color=blue)](https://www.npmjs.com/package/@flowpanel/kit)
+[![Downloads](https://img.shields.io/npm/dm/%40flowpanel%2Fkit.svg?color=blue)](https://www.npmjs.com/package/@flowpanel/kit)
+[![Bundle size](https://img.shields.io/bundlephobia/minzip/%40flowpanel%2Fkit.svg)](https://bundlephobia.com/package/@flowpanel/kit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/getflowpanel/flowpanel/actions/workflows/ci.yml/badge.svg)](https://github.com/getflowpanel/flowpanel/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="apps/site/public/admin-jobs-dark.png" />
+    <img alt="The FlowPanel admin — a Jobs list with search, filters, typed columns and resolved relations, generated from one config" src="apps/site/public/admin-jobs-light.png" width="900" />
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://flowpanel.tech">Website</a> ·
+  <a href="https://flowpanel.tech/docs">Docs</a> ·
+  <a href="https://flowpanel.tech/changelog">Changelog</a>
+</p>
 
 ## Community
 
@@ -19,14 +32,13 @@
 ## Install
 
 ```bash
-pnpm add @flowpanel/kit
-pnpm flowpanel init
+pnpm dlx @flowpanel/cli init
 pnpm flowpanel dev
 ```
 
 Visit `http://localhost:3000/admin`. Done.
 
-`flowpanel init` detects your stack (Next.js, Drizzle/Prisma, auth) and scaffolds the config + 6 wiring files. `flowpanel dev` starts Next.js (and bull-board if `REDIS_URL` is set).
+`flowpanel init` detects your stack (Next.js, Drizzle/Prisma, auth), installs `@flowpanel/kit` + `@flowpanel/cli`, and scaffolds the config + 6 wiring files. `flowpanel dev` starts Next.js (and bull-board if `REDIS_URL` is set).
 
 ## Use
 
@@ -137,7 +149,7 @@ The runtime stops rendering the resource; your code does. `flowpanel.config.ts`
 is auto-edited to comment out the matching `resource(...)` entry.
 
 Three eject targets, no fourth: `resource`, `dashboard`, `layout`. See
-the [eject guide](https://flowpanel.dev/docs) for the rationale.
+the [eject guide](https://flowpanel.tech/docs) for the rationale.
 
 ## Compared to
 
@@ -162,7 +174,7 @@ Pick FlowPanel if your app is a Next.js 15 App Router project that needs a CRUD 
 
 ## Documentation
 
-**<https://flowpanel.dev>** — full reference, recipes, and getting-started guide.
+**<https://flowpanel.tech>** — full reference, recipes, and getting-started guide.
 
 ## Contributing
 

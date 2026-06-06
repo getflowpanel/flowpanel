@@ -6,7 +6,7 @@ Next.js 15 App Router app. It exercises every M3/M4 feature: realtime,
 queues, soft-delete, drawer actions, `theme.components` overrides, and
 Russian `labels`.
 
-A public read-only instance lives at <https://demo.flowpanel.dev>.
+A public read-only instance lives at <https://demo.flowpanel.tech>.
 
 ## Run the demo locally (60 seconds)
 
@@ -15,7 +15,7 @@ A public read-only instance lives at <https://demo.flowpanel.dev>.
 ```bash
 pnpm docker:up         # Postgres 16 (port 54329)
 pnpm db:push           # apply Drizzle schema
-pnpm db:seed           # 4 users, 3 jobs, payments
+pnpm db:seed           # 6 users, 3 categories, 3 jobs, 4 payments, 5 AI-cost rows
 pnpm dev               # Next.js on :3000
 ```
 
@@ -40,7 +40,8 @@ REDIS_URL=redis://localhost:6379 pnpm dev               # admin sees the queues
 | `src/admin/PriorityMetricCard.tsx`                         | `theme.components.MetricCard` override (rings the default body)     |
 | `src/db/schema.ts`                                         | Drizzle schema — enums, FKs, soft-delete column                     |
 | `src/lib/queues.ts`                                        | 3 BullMQ queues, gated on `REDIS_URL`                               |
-| `scripts/seed.ts`                                          | 4 users, 3 jobs, payments                                           |
+| `scripts/seed-data.ts`                                     | Shared seed rows — imported by both `seed.ts` and `reset-demo.ts`   |
+| `scripts/seed.ts`                                          | Local-dev entry: connects + calls `seedDatabase`                    |
 | `scripts/board-server.ts`                                  | bull-board Express server (run via `pnpm flowpanel:board`)          |
 
 ## What you can click through
@@ -48,8 +49,10 @@ REDIS_URL=redis://localhost:6379 pnpm dev               # admin sees the queues
 1. `/admin` — Overview dashboard. Metrics + signups area chart + recent users table (live via SSE).
 2. `/admin/users` — DataTable with filter bar (Plan, Status, Joined daterange), search, sort, column resize, column pin, bulk select, soft-delete.
 3. Click any user row → drawer opens via `GET /api/flowpanel/drawer/users/<id>`. Click **"Disable user"** → confirm dialog → `POST /api/flowpanel/drawer/users/<id>/actions/disable` → soft-deletes in DB and publishes `resource.users` over SSE → tab B's list refreshes within ~200ms.
-4. `/admin/monitoring` — Queue health metrics (zero when no Redis) + live jobs table.
-5. ⌘K palette — "Open Overview".
+4. `/admin/payments` — money formatted as ₽ (stored in kopecks) and the `userId` FK rendered as the user's email (via `reference`).
+5. `/admin/ai_costs` — AI usage by provider; cost formatted as $ (stored in cents).
+6. `/admin/monitoring` — Queue health metrics (zero when no Redis) + AI-cost-by-provider bar chart + live jobs table.
+7. ⌘K palette — "Open Overview".
 
 ## Stop everything
 
@@ -73,7 +76,7 @@ write path:
 
 | File                                 | Role                                                        |
 | ------------------------------------ | ----------------------------------------------------------- |
-| `Dockerfile`                         | Multi-stage production build. Assumes `flowpanel@1.0.0` from npm — workspace deps are rewritten to `^1.0.0` in the `prep` stage. |
+| `Dockerfile`                         | Multi-stage production build straight from workspace source — no npm publish required. Build from the **repo root**: `docker build -f examples/freelance-radar/Dockerfile .` (it `COPY . .` then `pnpm --filter "freelance-radar..." build`). |
 | `.env.example`                       | Placeholders only — never commit real `.env`.               |
 | `docker-compose.demo.yml`            | Full dress rehearsal: app + Postgres in one network.        |
 | `scripts/reset-demo.ts`              | Idempotent TRUNCATE + reseed. Run from cron.                |
@@ -123,7 +126,7 @@ can run a Node app + Postgres works.
 1. Run schema once: `pnpm db:push` against the production `DATABASE_URL`.
 2. Seed: `pnpm db:seed` (one-off).
 3. Wire the cron: hourly `pnpm exec tsx scripts/reset-demo.ts`.
-4. Point `demo.flowpanel.dev` DNS at the deployment.
+4. Point `demo.flowpanel.tech` DNS at the deployment.
 
 ## Stack
 
@@ -131,4 +134,4 @@ can run a Node app + Postgres works.
 - **Drizzle ORM** (node-postgres)
 - **PostgreSQL 16** via Docker
 - Optional: **Redis 7** for realtime + queues
-- `flowpanel`, `@flowpanel/adapter-drizzle`, `@flowpanel/adapter-bullmq`
+- `@flowpanel/kit` (umbrella) via `@flowpanel/kit`, `/drizzle`, `/charts`

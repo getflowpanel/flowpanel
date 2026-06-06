@@ -9,7 +9,7 @@ The DSL (`defineAdmin` + `resource` + `dashboard` + builders), Drizzle and
 Prisma adapters, the Next.js bridge (`Flowpanel(config)` + `handlers()` +
 `stream()`), the React UI (DataTable, drawer, dashboard widgets, ⌘K
 palette, theme.components, eject), the CLI (`init`, `migrate`, `doctor`,
-`eject`, `dev`, `new`), and the public docs at flowpanel.dev.
+`eject`, `dev`, `new`), and the public docs at flowpanel.tech.
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the launch notes.
 

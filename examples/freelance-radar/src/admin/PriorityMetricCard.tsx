@@ -13,7 +13,7 @@ import { DefaultMetricCard, type MetricCardProps } from "@flowpanel/kit/react";
  */
 export function PriorityMetricCard(props: MetricCardProps) {
   return (
-    <div className="rounded-fp ring-1 ring-amber-500/40 p-0.5">
+    <div className="rounded-fp p-0.5 ring-1 ring-[hsl(var(--fp-accent)/0.3)]">
       <DefaultMetricCard {...props} />
     </div>
   );

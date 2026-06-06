@@ -9,7 +9,7 @@ dashboard.
 
 > **Just want to click around?** A public read-only instance of the
 > `freelance-radar` example is live at
-> [demo.flowpanel.dev](https://demo.flowpanel.dev) — no install required.
+> [demo.flowpanel.tech](https://demo.flowpanel.tech) — no install required.
 >
 > Prefer the source? **[Open the `with-clerk` example in StackBlitz](https://stackblitz.com/github/getflowpanel/flowpanel/tree/main/examples/with-clerk)**
 > to edit a full flowpanel config in your browser.
@@ -17,23 +17,24 @@ dashboard.
 > **Requirements.** Next.js 15+ (App Router), React 19, Node 20+, and
 > either Drizzle 0.30+ or Prisma 5+. The Pages router is not supported.
 
-## Install
-
-Add the package to your existing Next.js project. flowpanel detects your
-ORM automatically — there's nothing to configure at install time.
-
-```bash
-pnpm add @flowpanel/kit
-```
-
 ## Initialize
 
-Run `flowpanel init` from your project root. The CLI inspects your
-package.json, picks Drizzle or Prisma, and writes the wiring files.
+One command installs the packages and scaffolds the `/admin` route. Run
+it from your project root:
 
 ```bash
-$ pnpm flowpanel init
+pnpm dlx @flowpanel/cli init
+```
+
+The CLI inspects your `package.json`, picks Drizzle or Prisma, installs
+`@flowpanel/kit` (the runtime) and `@flowpanel/cli` (so later
+`pnpm flowpanel` commands resolve a local binary), and writes the wiring
+files.
+
+```bash
+$ pnpm dlx @flowpanel/cli init
 → Detected stack: Next.js 15 · TypeScript · Drizzle
+→ installed @flowpanel/kit, @flowpanel/cli
 → wrote flowpanel.config.ts
 → wrote app/admin/[[...slug]]/page.tsx
 → wrote app/api/flowpanel/[...route]/route.ts

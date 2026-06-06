@@ -1,4 +1,4 @@
-# flowpanel
+# @flowpanel/kit
 
 ## 0.1.0
 

@@ -17,7 +17,7 @@ Tiny — `@flowpanel/kit/client` is ≤ 25 KB brotli-compressed.
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

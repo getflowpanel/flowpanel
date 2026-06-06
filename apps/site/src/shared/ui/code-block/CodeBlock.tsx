@@ -10,7 +10,7 @@ interface CodeBlockProps {
  *
  * Renders a soft, low-contrast surface for terminal commands and short
  * inline-style snippets — the same look used across the landing for the
- * "$ pnpm flowpanel init" lines and the per-layer config examples.
+ * "$ pnpm dlx @flowpanel/cli init" lines and the per-layer config examples.
  *
  * For MDX-driven prose, use the Fumadocs code block (handles syntax
  * highlighting); this primitive is the marketing/landing surface.

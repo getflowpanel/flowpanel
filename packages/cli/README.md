@@ -2,9 +2,9 @@
 
 The `flowpanel` CLI — scaffold, develop, ship.
 
-[![npm](https://img.shields.io/npm/v/@flowpanel/cli.svg)](https://www.npmjs.com/package/@flowpanel/cli)
+[![npm](https://img.shields.io/npm/v/%40flowpanel%2Fcli.svg)](https://www.npmjs.com/package/@flowpanel/cli)
 
-> Bundled inside the `flowpanel` umbrella package. Run via `pnpm flowpanel <command>` or `pnpm dlx flowpanel <command>`.
+> Bootstrap with `pnpm dlx @flowpanel/cli init` — it installs `@flowpanel/kit` plus this CLI as a devDependency, so every later command runs as `pnpm flowpanel <command>`.
 
 ## Commands
 
@@ -40,7 +40,7 @@ Each ejected file is stamped with `// flowpanel: ejected @ <semver> — this fil
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

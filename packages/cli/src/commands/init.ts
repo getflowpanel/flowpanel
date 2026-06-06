@@ -1,5 +1,6 @@
 // LOC-OK: init command — one cohesive scaffolding flow (detect adapter, write
 // config + route + layout, print next steps); splitting fragments the wizard.
+import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as p from "@clack/prompts";
@@ -46,6 +47,43 @@ function patchLayoutWithCssImport(src: string, importSpec: string): string | nul
   // the user where to add the FlowPanel import.
   if (/import\s+["'][^"']+\.css["']/.test(src)) return null;
   return `import "${importSpec}";\n${src}`;
+}
+
+/**
+ * The packages a scaffolded project needs: the runtime library (`@flowpanel/kit`,
+ * which the generated `flowpanel.config.ts` and route handlers import) and the
+ * CLI itself as a devDependency, so post-init `pnpm flowpanel <cmd>` (migrate,
+ * dev, doctor, eject) resolve a local binary.
+ */
+const REQUIRED_DEPS: ReadonlyArray<{ pkg: string; dev: boolean }> = [
+  { pkg: "@flowpanel/kit", dev: false },
+  { pkg: "@flowpanel/cli", dev: true },
+];
+
+/** Names already present in the host's package.json (deps + devDeps). */
+async function readInstalledDeps(cwd: string): Promise<Set<string>> {
+  try {
+    const pkg = JSON.parse(await fs.readFile(path.join(cwd, "package.json"), "utf8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    return new Set([
+      ...Object.keys(pkg.dependencies ?? {}),
+      ...Object.keys(pkg.devDependencies ?? {}),
+    ]);
+  } catch {
+    return new Set();
+  }
+}
+
+/** Runs `pnpm add [-D] <pkg>` in `cwd`; resolves the exit code (1 on spawn error). */
+function pnpmAdd(pkg: string, dev: boolean, cwd: string): Promise<number> {
+  return new Promise((resolve) => {
+    const args = dev ? ["add", "-D", pkg] : ["add", pkg];
+    const child = spawn("pnpm", args, { cwd, stdio: "ignore", env: process.env });
+    child.on("exit", (code) => resolve(code ?? 1));
+    child.on("error", () => resolve(1));
+  });
 }
 
 export function initCommand(cli: Command): void {
@@ -275,6 +313,33 @@ export function initCommand(cli: Command): void {
       }
 
       spinner.stop(`${written} written, ${skipped} skipped`);
+
+      // Install the runtime library + CLI so the project works without a
+      // separate `pnpm add` step. Skips anything already in package.json, so
+      // re-running init (or projects that pre-installed) costs nothing.
+      const installed = await readInstalledDeps(cwd);
+      const missing = REQUIRED_DEPS.filter((d) => !installed.has(d.pkg));
+      if (missing.length > 0) {
+        const names = missing.map((d) => d.pkg).join(", ");
+        const depSpinner = p.spinner();
+        depSpinner.start(`Installing ${names}`);
+        let installOk = true;
+        for (const { pkg, dev } of missing) {
+          if ((await pnpmAdd(pkg, dev, cwd)) !== 0) {
+            installOk = false;
+            break;
+          }
+        }
+        if (installOk) {
+          depSpinner.stop(`Installed ${names}`);
+        } else {
+          depSpinner.stop("Dependency install failed");
+          p.note(
+            missing.map((d) => `pnpm add ${d.dev ? "-D " : ""}${d.pkg}`).join("\n"),
+            "Run manually",
+          );
+        }
+      }
 
       const outroLines = [
         "Next:",

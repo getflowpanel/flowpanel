@@ -1,8 +1,9 @@
 import { dashboard, defineAdmin, metric, queue, resource, table } from "@flowpanel/kit";
-import { areaChart } from "@flowpanel/kit/charts";
+import { areaChart, barChart } from "@flowpanel/kit/charts";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { eq, gte, sql } from "drizzle-orm";
 import { headers } from "next/headers";
+import { createElement } from "react";
 import { PriorityMetricCard } from "@/src/admin/PriorityMetricCard";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
@@ -36,14 +37,63 @@ const userDeleteOptions = DEMO_MODE
   ? ({ disabled: true } as const)
   : ({ softDelete: "deletedAt" } as const);
 
+// --- Cell formatters (run server-side; no client hooks/handlers) ---------
+const rub = new Intl.NumberFormat("ru-RU", {
+  style: "currency",
+  currency: "RUB",
+  maximumFractionDigits: 0,
+});
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+const dateTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
+
+/** Kopecks → ₽ (amounts are stored as integer kopecks). */
+const formatRub = (kopecks: number | null | undefined) =>
+  kopecks == null ? "—" : rub.format(kopecks / 100);
+/** Cents → $ (AI costs are stored as integer cents). */
+const formatUsdCents = (cents: number | null | undefined) =>
+  cents == null ? "—" : usd.format(cents / 100);
+/** Human-readable timestamp, or an em dash for null. */
+const formatDate = (value: Date | string | null | undefined) =>
+  value == null ? "—" : dateTime.format(new Date(value));
+
+/** Tone-mapped pill for an enum status (server-side; inline styles so it
+ *  renders regardless of the host's Tailwind content globs). */
+const NEUTRAL_TONE = { bg: "rgba(113,113,122,0.18)", fg: "rgb(161,161,170)" };
+const STATUS_TONES: Record<string, { bg: string; fg: string }> = {
+  succeeded: { bg: "rgba(16,185,129,0.15)", fg: "rgb(52,211,153)" },
+  pending: { bg: "rgba(245,158,11,0.16)", fg: "rgb(251,191,36)" },
+  refunded: NEUTRAL_TONE,
+  canceled: { bg: "rgba(244,63,94,0.15)", fg: "rgb(251,113,133)" },
+};
+const statusBadge = (status: string | null | undefined) => {
+  if (!status) return "—";
+  const tone = STATUS_TONES[status] ?? NEUTRAL_TONE;
+  return createElement(
+    "span",
+    {
+      style: {
+        display: "inline-flex",
+        alignItems: "center",
+        borderRadius: "999px",
+        padding: "2px 8px",
+        fontSize: "12px",
+        fontWeight: 500,
+        textTransform: "capitalize",
+        background: tone.bg,
+        color: tone.fg,
+      },
+    },
+    status,
+  );
+};
+
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
   realtime: { driver: "memory" },
   auth: {
     session: async () => {
       const h = await headers();
-      const url = h.get("x-url") ?? "http://localhost/";
-      const s = await getSession(new Request(url, { headers: h }));
+      const s = await getSession(new Request("http://flowpanel.local/", { headers: h }));
       return s ? { ...s } : null;
     },
     role: (s) => (s as AdminSession | null)?.role ?? "guest",
@@ -69,7 +119,12 @@ export default defineAdmin({
   resources: [
     resource(schema.users, {
       label: "Users",
-      columns: ["email", "plan", "status", "createdAt"],
+      columns: [
+        "email",
+        "plan",
+        "status",
+        { field: "createdAt", label: "Joined", render: (u) => formatDate(u.createdAt) },
+      ],
       search: ["email", "telegramId"],
       filters: [
         {
@@ -142,7 +197,18 @@ export default defineAdmin({
     }),
     resource(schema.jobs, {
       label: "Jobs",
-      columns: ["title", "platform", "priceUsd", "postedAt", "archived"],
+      columns: [
+        "title",
+        "platform",
+        {
+          field: "categoryId",
+          label: "Category",
+          reference: { resource: "categories", labelField: "name" },
+        },
+        "priceUsd",
+        { field: "postedAt", label: "Posted", render: (j) => formatDate(j.postedAt) },
+        "archived",
+      ],
       search: ["title", "description"],
       filters: [
         {
@@ -169,7 +235,21 @@ export default defineAdmin({
     }),
     resource(schema.payments, {
       label: "Payments",
-      columns: ["userId", "amountRub", "status", "createdAt"],
+      columns: [
+        {
+          field: "userId",
+          label: "User",
+          reference: { resource: "users", labelField: "email" },
+        },
+        {
+          field: "amountRub",
+          label: "Amount",
+          align: "right",
+          render: (p) => formatRub(p.amountRub),
+        },
+        { field: "status", label: "Status", render: (p) => statusBadge(p.status) },
+        { field: "createdAt", label: "Created", render: (p) => formatDate(p.createdAt) },
+      ],
       filters: [
         {
           field: "status",
@@ -183,6 +263,42 @@ export default defineAdmin({
           ],
         },
         { field: "amountRub", type: "numeric-range", label: "Amount (Rub)" },
+      ],
+      defaultSort: { field: "createdAt", dir: "desc" },
+      ...demoWriteOptions,
+    }),
+    resource(schema.aiCosts, {
+      label: "AI costs",
+      columns: [
+        {
+          field: "userId",
+          label: "User",
+          reference: { resource: "users", labelField: "email" },
+        },
+        "provider",
+        "model",
+        { field: "tokensIn", label: "Tokens in", align: "right" },
+        { field: "tokensOut", label: "Tokens out", align: "right" },
+        {
+          field: "costUsd",
+          label: "Cost",
+          align: "right",
+          render: (c) => formatUsdCents(c.costUsd),
+        },
+        { field: "createdAt", label: "Created", render: (c) => formatDate(c.createdAt) },
+      ],
+      filters: [
+        {
+          field: "provider",
+          type: "select",
+          label: "Provider",
+          options: [
+            { label: "OpenAI", value: "openai" },
+            { label: "Anthropic", value: "anthropic" },
+            { label: "Gemini", value: "gemini" },
+          ],
+        },
+        { field: "createdAt", type: "daterange", label: "Date" },
       ],
       defaultSort: { field: "createdAt", dir: "desc" },
       ...demoWriteOptions,
@@ -298,6 +414,28 @@ export default defineAdmin({
               const counts = await queuesMap.billing.getJobCounts("failed");
               return Number(counts.failed ?? 0);
             }),
+          ],
+        },
+        {
+          label: "AI spend",
+          columns: 1,
+          widgets: [
+            barChart(
+              "AI cost by provider",
+              async ({ db }) => {
+                const rows = await db
+                  .select({
+                    provider: schema.aiCosts.provider,
+                    // cents → dollars so the currency formatter shows $.
+                    cost: sql<number>`sum(${schema.aiCosts.costUsd})::float / 100`,
+                  })
+                  .from(schema.aiCosts)
+                  .groupBy(schema.aiCosts.provider)
+                  .orderBy(sql`sum(${schema.aiCosts.costUsd}) desc`);
+                return rows as unknown[];
+              },
+              { x: "provider", y: "cost", format: "currency", height: 220 },
+            ),
           ],
         },
         {

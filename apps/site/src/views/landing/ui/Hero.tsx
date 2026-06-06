@@ -1,64 +1,70 @@
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { siteConfig } from "@/shared/lib/site-config";
-import { flowpanelVersion } from "@/shared/lib/version";
-import { CodeBlock, PromptLine } from "@/shared/ui/code-block";
+import { CopyButton } from "@/shared/ui/copy-button";
+import { InlineCode } from "@/shared/ui/inline-code";
+import { MediaFrame } from "@/shared/ui/media-frame";
+import { TrustBar } from "./TrustBar";
+
+const INSTALL_CMD = "pnpm dlx @flowpanel/cli init";
 
 export function Hero() {
   return (
     <section
       aria-labelledby="hero-title"
-      className="border-b border-[var(--color-border)] py-28 md:py-40"
+      className="border-b border-[var(--color-border)] pt-24 pb-20 md:pt-28 md:pb-28"
     >
       <div className="mx-auto max-w-[1120px] px-6">
-        <p className="font-mono text-sm text-[var(--color-fg-muted)]">
-          v{flowpanelVersion}
-          <span className="mx-2 text-[var(--color-fg-subtle)]">·</span>
-          <Link
-            href="/changelog"
-            className="underline-offset-4 transition-colors hover:text-[var(--color-fg)] hover:underline"
-          >
-            changelog
-          </Link>
-        </p>
-
         <h1
           id="hero-title"
-          className="mt-8 max-w-[18ch] text-balance text-5xl font-semibold leading-[1.04] tracking-tight md:text-7xl"
+          className="max-w-[16ch] text-balance text-5xl font-semibold leading-[1.05] tracking-[-0.02em] md:text-7xl"
         >
           The admin panel you don&apos;t have to build.
         </h1>
 
-        <p className="mt-8 max-w-[58ch] text-lg leading-relaxed text-[var(--color-fg-muted)] md:text-xl">
-          One config file becomes a typed{" "}
-          <code className="rounded bg-[var(--color-bg-subtle)] px-1.5 py-0.5 font-mono text-[0.85em] text-[var(--color-fg)]">
-            /admin
-          </code>{" "}
-          route for your Next.js app. Drizzle or Prisma. MIT.
+        <p className="mt-6 max-w-[58ch] text-lg leading-relaxed text-[var(--color-fg-muted)] md:text-xl">
+          One typed config becomes a full <InlineCode>/admin</InlineCode> route for your Next.js app
+          — CRUD, dashboards, queues, realtime. Drizzle or Prisma. Eject when you outgrow it.
         </p>
 
-        <div className="mt-10 flex flex-wrap items-stretch gap-3">
-          <CodeBlock className="min-w-0 flex-1 max-w-[480px]">
-            <PromptLine command="pnpm flowpanel init" />
-          </CodeBlock>
-          <a
-            href={siteConfig.links.demo}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-fg)] px-4 py-3 font-mono text-sm text-[var(--color-bg)] transition-colors hover:opacity-90"
+        <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch">
+          <div className="flex w-full items-center justify-between gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-4 py-3 font-mono text-sm sm:min-w-0 sm:max-w-[460px] sm:flex-1">
+            <span className="truncate text-[var(--color-fg)]">
+              <span className="text-[var(--color-fg-subtle)]">$ </span>
+              {INSTALL_CMD}
+            </span>
+            <CopyButton text={INSTALL_CMD} />
+          </div>
+          <Link
+            href="/docs"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 py-3 font-mono text-sm font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)] sm:justify-start"
           >
-            <span>Live demo</span>
+            <span>Read the docs</span>
             <ArrowUpRight aria-hidden className="h-4 w-4" />
-          </a>
+          </Link>
           <a
             href={siteConfig.links.github}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 font-mono text-sm text-[var(--color-fg)] transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-bg-subtle)]"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 font-mono text-sm text-[var(--color-fg)] transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-bg-subtle)] sm:justify-start"
           >
             <span>GitHub</span>
             <ArrowUpRight aria-hidden className="h-4 w-4" />
           </a>
+        </div>
+
+        <TrustBar />
+
+        <div className="mt-14 md:mt-16">
+          <MediaFrame
+            srcDark="/admin-jobs-dark.png"
+            srcLight="/admin-jobs-light.png"
+            alt="FlowPanel admin — the Jobs list with search, filters, typed columns and resolved relations"
+            width={2880}
+            height={1240}
+            url="localhost:3000/admin"
+            priority
+          />
         </div>
       </div>
     </section>

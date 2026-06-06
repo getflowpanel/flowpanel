@@ -3,7 +3,7 @@
   "commit": false,
   "fixed": [
     [
-      "flowpanel",
+      "@flowpanel/kit",
       "@flowpanel/core",
       "@flowpanel/next",
       "@flowpanel/react",

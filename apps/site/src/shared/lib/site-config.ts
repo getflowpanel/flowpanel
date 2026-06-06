@@ -6,7 +6,7 @@
 export const siteConfig = {
   name: "flowpanel",
   description: "The admin panel you don't have to build.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://flowpanel.dev",
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://flowpanel.tech",
   ogImage: "/og.png",
 
   repo: {
@@ -25,7 +25,7 @@ export const siteConfig = {
     // Public read-only instance of `examples/freelance-radar`. DNS lands
     // here once the deployment is up. Until then the link 404s — owner
     // is aware. See examples/freelance-radar/README.md.
-    demo: "https://demo.flowpanel.dev",
+    demo: "https://demo.flowpanel.tech",
   },
 
   nav: {

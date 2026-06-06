@@ -4,7 +4,7 @@ Core types, builders, and runtime for FlowPanel.
 
 [![npm](https://img.shields.io/npm/v/@flowpanel/core.svg)](https://www.npmjs.com/package/@flowpanel/core)
 
-> Most users should depend on **`flowpanel`** (the umbrella package) — it re-exports everything from `@flowpanel/core` and the other workspace packages. Depend on `@flowpanel/core` directly only when publishing your own FlowPanel adapter or extension.
+> Most users should depend on **`@flowpanel/kit`** (the umbrella package) — it re-exports everything from `@flowpanel/core` and the other workspace packages. Depend on `@flowpanel/core` directly only when publishing your own FlowPanel adapter or extension.
 
 ## What's here
 
@@ -21,7 +21,7 @@ Core types, builders, and runtime for FlowPanel.
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

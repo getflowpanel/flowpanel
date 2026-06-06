@@ -112,5 +112,7 @@ instance A is fanning out in-memory only because either:
 2. `realtime.url` points at a Redis that instance B can't reach, OR
 3. `REDIS_URL` env was set on A but not on B during a partial rollout.
 
-`flowpanel doctor` (1.0.x) reports the active publisher driver and
-catches case 1 and 2 — case 3 needs a CI gate on env parity.
+`flowpanel doctor` won't catch these — it checks your deps, config, and
+the wiring files, not the runtime `realtime` settings. Confirm the
+driver and that `REDIS_URL` is set on every instance yourself; a CI gate
+on env parity is the only reliable guard against case 3.

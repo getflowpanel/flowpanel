@@ -49,7 +49,7 @@ export const dynamic = "force-dynamic";
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

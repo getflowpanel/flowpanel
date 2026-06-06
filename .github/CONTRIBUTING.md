@@ -92,7 +92,7 @@ review and, if needed, ask for the design to be reworked.
 
 ## Repo layout
 
-The published docs site (<https://flowpanel.dev>) renders from
+The published docs site (<https://flowpanel.tech>) renders from
 `apps/site/content/docs/` — that's the canonical user-facing surface.
 Internal architecture notes (invariants, ADRs, specs) are maintained
 privately by the maintainer and are not part of this repository.

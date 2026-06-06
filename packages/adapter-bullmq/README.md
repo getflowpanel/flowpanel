@@ -49,7 +49,7 @@ Run with `pnpm flowpanel dev` (which auto-starts the board if `REDIS_URL` is set
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

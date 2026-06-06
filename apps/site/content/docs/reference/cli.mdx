@@ -3,20 +3,24 @@ title: CLI
 description: The flowpanel command-line interface.
 ---
 
-flowpanel ships a small CLI invoked through your package manager. The
-shipped subcommands are `init`, `migrate`, `doctor`, `eject`, `dev`,
-and `new`.
+flowpanel ships a small CLI in the `@flowpanel/cli` package. Bootstrap a
+project with `pnpm dlx @flowpanel/cli init` — no install needed up front.
+`init` adds `@flowpanel/cli` as a devDependency, so every later command
+runs as `pnpm flowpanel <command>`. The shipped subcommands are `init`,
+`migrate`, `doctor`, `eject`, `dev`, and `new`.
 
 ## flowpanel init
 
 Detect your stack (Next.js, Drizzle/Prisma, auth helper), pick the
-matching config template, and scaffold the wiring files. Both Drizzle
-and Prisma are supported in a single command; the CLI picks based on
-your installed dependencies (Drizzle wins if both are present).
+matching config template, install `@flowpanel/kit` + `@flowpanel/cli`,
+and scaffold the wiring files. Both Drizzle and Prisma are supported in a
+single command; the CLI picks based on your installed dependencies
+(Drizzle wins if both are present).
 
 ```bash
-$ pnpm flowpanel init
+$ pnpm dlx @flowpanel/cli init
 → Detected stack: Next.js 15 · TypeScript · Drizzle
+→ installed @flowpanel/kit, @flowpanel/cli
 → wrote flowpanel.config.ts
 → wrote app/admin/[[...slug]]/page.tsx
 → wrote app/api/flowpanel/[...route]/route.ts

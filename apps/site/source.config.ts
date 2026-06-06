@@ -9,24 +9,14 @@ import { transformerTwoslash } from "fumadocs-twoslash";
 import { z } from "zod";
 
 /**
- * Docs collection — file-based, type-safe frontmatter.
- *
- * `adapter` controls how code samples render on the page:
- *   - "both"          → page can use <AdapterTabs>; default
- *   - "prisma-only"   → only Prisma snippets, no tabs
- *   - "drizzle-only"  → only Drizzle snippets, no tabs
+ * Docs collection — file-based MDX with type-safe `title` / `description`
+ * frontmatter (fumadocs' base schema). Drizzle/Prisma code samples switch
+ * via the cookie-driven <AdapterTabs> component, not per-page frontmatter.
  */
 export const docs = defineDocs({
   dir: "content/docs",
   docs: {
-    schema: frontmatterSchema.extend({
-      adapter: z.enum(["both", "prisma-only", "drizzle-only"]).default("both"),
-      since: z
-        .string()
-        .regex(/^\d+\.\d+\.\d+$/, "expected semver like 0.7.2")
-        .optional(),
-      draft: z.boolean().default(false),
-    }),
+    schema: frontmatterSchema,
   },
 });
 

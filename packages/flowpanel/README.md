@@ -2,14 +2,13 @@
 
 > One typed config → full admin panel for your Next.js app. Drizzle or Prisma. Realtime. Queues. Eject when you outgrow it.
 
-[![npm](https://img.shields.io/npm/v/flowpanel.svg)](https://www.npmjs.com/package/flowpanel)
+[![npm](https://img.shields.io/npm/v/%40flowpanel%2Fkit.svg)](https://www.npmjs.com/package/@flowpanel/kit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/getflowpanel/flowpanel/blob/main/LICENSE)
 
 ## Install
 
 ```bash
-pnpm add @flowpanel/kit
-pnpm flowpanel init
+pnpm dlx @flowpanel/cli init
 pnpm flowpanel dev
 ```
 
@@ -72,7 +71,7 @@ flowpanel/server       Server-only utilities
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

@@ -35,7 +35,7 @@ dashboard({
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

@@ -41,7 +41,7 @@ The full `Adapter` contract from `@flowpanel/core`:
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

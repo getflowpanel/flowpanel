@@ -48,6 +48,7 @@ Thumbs.db
 # Tooling (internal)
 .claude/
 .superpowers/
+AGENTS.md
 
 # Logs
 *.log

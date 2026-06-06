@@ -29,7 +29,7 @@ import "@flowpanel/react/styles/admin.css";
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

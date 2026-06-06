@@ -37,7 +37,7 @@ export default defineAdmin({
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 
