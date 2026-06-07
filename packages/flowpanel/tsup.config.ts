@@ -10,6 +10,7 @@ export default defineConfig({
     bullmq: "src/bullmq.ts",
     server: "src/server.ts",
     charts: "src/charts.ts",
+    "charts-runtime": "src/charts-runtime.ts",
     prisma: "src/prisma.ts",
     auth: "src/auth.ts",
   },

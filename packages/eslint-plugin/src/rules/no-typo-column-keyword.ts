@@ -10,14 +10,7 @@ const TYPOS: Record<string, string> = {
   isactive: "isActive",
 };
 
-/**
- * Heuristic check for common camelCase typos inside `columns: [...]` entries.
- * The full "did you mean" against the resource's row type needs type info from
- * the parser services and is tracked separately. This rule covers the most
- * frequent lowercase-vs-camelCase mistakes.
- *
- * Autofixable for entries that exactly match a known typo (case-insensitive).
- */
+/** Heuristic check for common camelCase typos inside `columns: [...]` entries. */
 const rule = createRule<[], MessageId>({
   name: "no-typo-column-keyword",
   meta: {
@@ -46,12 +39,10 @@ const rule = createRule<[], MessageId>({
     };
 
     function checkColumnEntry(entry: TSESTree.Expression | TSESTree.SpreadElement): void {
-      // Bare string entry: `"userid"`.
       if (entry.type === AST_NODE_TYPES.Literal && typeof entry.value === "string") {
         reportIfTypo(entry, entry.value);
         return;
       }
-      // Object form: `{ key: "userid", ... }` or `{ name: "userid", ... }`.
       if (entry.type === AST_NODE_TYPES.ObjectExpression) {
         for (const prop of entry.properties) {
           if (prop.type !== AST_NODE_TYPES.Property) continue;

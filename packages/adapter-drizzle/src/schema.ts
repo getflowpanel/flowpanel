@@ -1,10 +1,6 @@
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import type { z } from "zod";
 
-// Cast through `unknown` to flatten the deeply-instantiated generic returned
-// by `drizzle-zod@^0.5` under Zod 4 (TS2589 "type instantiation is excessively
-// deep"). The schemas are validated at runtime, not at the call site, so the
-// loose `z.ZodTypeAny` is the contract callers see.
 export function inferSchema(table: unknown): {
   create: z.ZodTypeAny;
   update: z.ZodTypeAny;

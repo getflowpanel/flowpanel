@@ -18,16 +18,7 @@ export interface UseAdminMutation<Args extends unknown[]> {
   reset: () => void;
 }
 
-/**
- * Client hook wrapping a Server Action that returns an `ActionResult`.
- *
- * @example
- *   const update = useAdminMutation(admin.users.update, {
- *     onSuccess: (r) => toast(r.message ?? "Saved"),
- *     onError: (e) => toast.error(e),
- *   });
- *   <button onClick={() => update.run(user.id, { role: "admin" })}>Promote</button>
- */
+/** Client hook wrapping a Server Action that returns an `ActionResult`. */
 export function useAdminMutation<Args extends unknown[]>(
   action: (...args: Args) => Promise<ActionResult>,
   options: UseAdminMutationOptions = {},

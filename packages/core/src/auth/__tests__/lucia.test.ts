@@ -43,4 +43,16 @@ describe("withLucia", () => {
     });
     expect(cfg.role({ role: "anything" })).toBe("owner");
   });
+
+  it("default userId extractor reads the top-level Lucia user id", () => {
+    const cfg = withLucia({ lucia: fakeLucia() });
+    expect(cfg.userId?.({ id: "u1" })).toBe("u1");
+    expect(cfg.userId?.({ id: 42 })).toBe("42"); // string-coerced (custom adapters may use numeric ids)
+    expect(cfg.userId?.(null)).toBeNull();
+  });
+
+  it("custom userId override replaces default", () => {
+    const cfg = withLucia({ lucia: fakeLucia(), userId: () => "fixed" });
+    expect(cfg.userId?.({ id: "u1" })).toBe("fixed");
+  });
 });

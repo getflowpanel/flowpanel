@@ -3,18 +3,7 @@ import { createRule } from "../create-rule.js";
 
 type MessageId = "serverImport";
 
-/**
- * Files marked with `"use client"` cannot import server-only modules. Common
- * mistakes:
- *
- * - importing `@/db/...` (the database client) into a client component
- * - importing anything under a `/server/` segment
- * - importing a module suffixed `server-only`
- *
- * The fix is to move the call to a server action, route handler, or RSC.
- *
- * Not autofixable.
- */
+/** Files marked with `"use client"` cannot import server-only modules. */
 const rule = createRule<[], MessageId>({
   name: "no-server-import-in-client",
   meta: {
@@ -56,7 +45,6 @@ function hasUseClientDirective(program: TSESTree.Program): boolean {
     const expr = stmt.expression;
     if (expr.type !== AST_NODE_TYPES.Literal) break;
     if (expr.value === "use client") return true;
-    // Stop at the first non-directive statement.
     if (typeof expr.value !== "string") break;
   }
   return false;
@@ -65,9 +53,7 @@ function hasUseClientDirective(program: TSESTree.Program): boolean {
 function isServerOnlySource(source: string): boolean {
   if (source === "server-only") return true;
   if (source.endsWith("/server-only")) return true;
-  // `@/db`, `@/db/...`, `~/db/...`, `src/db/...`
   if (/(^|\/)db(\/|$)/.test(source) && /^[@~]?[/.]?/.test(source)) {
-    // Restrict to alias or relative-style imports so `lodash` etc. don't match.
     if (
       source.startsWith("@/") ||
       source.startsWith("~/") ||
@@ -84,7 +70,6 @@ function isServerOnlySource(source: string): boolean {
       }
     }
   }
-  // Any path segment named `server`: `*/server/...` or `*/server`.
   if (/\/server(\/|$)/.test(source)) return true;
   return false;
 }

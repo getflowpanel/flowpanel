@@ -3,6 +3,7 @@ export { queue } from "./builders/queue.js";
 export { resource } from "./builders/resource.js";
 export { custom, metric, statGroup, table } from "./builders/widget.js";
 export { defineAdmin } from "./define-admin.js";
+export { humanize, resolveFieldLabel } from "./humanize.js";
 export { emitAudit } from "./runtime/audit.js";
 export { checkRequireRole, type RequireRole } from "./runtime/auth.js";
 export { createPublisher, type Publisher, type PublisherOptions } from "./runtime/publish.js";
@@ -47,12 +48,16 @@ export type {
 } from "./types/config.js";
 export type {
   ActionContext,
+  FilterInValue,
+  FilterRangeValue,
   ItemQueryContext,
   ListQueryContext,
   MutationContext,
   QueryContext,
   RequestContext,
+  StructuredFilterValue,
 } from "./types/context.js";
+export { isFilterInValue, isFilterRangeValue } from "./types/context.js";
 export type {
   DashboardConfig,
   DateRangeConfig,
@@ -60,7 +65,6 @@ export type {
   PageConfig,
   ResolvedDateRange,
   SectionConfig,
-  UrlParamSpec,
 } from "./types/dashboard.js";
 export type {
   DrawerAction,
@@ -90,9 +94,17 @@ export {
 } from "./types/labels.js";
 export type { QueueConfig, QueueOptions } from "./types/queue.js";
 export type { RealtimeConfig } from "./types/realtime.js";
-export type { FlowpanelTypes, InferDB, InferRow } from "./types/registry.js";
+export type {
+  FlowpanelResources,
+  FlowpanelTypes,
+  InferDB,
+  InferRow,
+  ReferenceSpec,
+  ResourceName,
+} from "./types/registry.js";
 export type {
   ColumnDef,
+  ColumnFormat,
   DetailTab,
   FieldDef,
   FieldType,

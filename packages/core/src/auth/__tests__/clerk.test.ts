@@ -31,6 +31,18 @@ describe("withClerk", () => {
     expect(cfg.role(null)).toBe("owner");
   });
 
+  it("default userId extractor reads the top-level Clerk id", () => {
+    const cfg = withClerk();
+    expect(cfg.userId?.({ id: "user_123" })).toBe("user_123");
+    expect(cfg.userId?.(null)).toBeNull();
+    expect(cfg.userId?.({})).toBeNull();
+  });
+
+  it("custom userId override replaces default", () => {
+    const cfg = withClerk({ userId: () => "fixed" });
+    expect(cfg.userId?.({ id: "user_123" })).toBe("fixed");
+  });
+
   it("session() throws a clear error when @clerk/nextjs is not installed", async () => {
     const cfg = withClerk();
     // The dynamic import will resolve to null (module not found in this env);

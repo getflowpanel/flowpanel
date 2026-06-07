@@ -15,46 +15,61 @@ export type RateLimitConfig = RateLimitOptions & {
 };
 
 export interface AuthConfig {
+  /** Reads the current session. Called on every request and page render. */
   session: () => Promise<Session | null>;
+  /** Maps a session to a role string, which every `requireRole` gate compares against. */
   role: (session: Session | null) => string;
+  /** Admin-wide gate. Blocks every route and page before anything else runs. */
   requireRole?: string | string[] | ((s: Session | null) => boolean);
+  /** Where to send an unauthenticated visitor. Without it they get an inline notice. */
   signInUrl?: string;
+  /** Where to send a signed-in visitor who lacks the role. */
   forbiddenUrl?: string;
+  /** Extracts the actor id for audit rows and per-user rate limiting. */
+  userId?: (session: Session | null) => string | null;
 }
 
-/**
- * Slot registry for L2 component overrides registered via
- * `theme.components`. Empty in `@flowpanel/core`; `@flowpanel/react`
- * augments it with the 10 shipped slot signatures (`MetricCard`,
- * `Button`, …). Consumers can augment further to register their own
- * slot keys.
- *
- * Per invariant I-11, slot keys are append-only across minor versions.
- */
+/** Slot registry for L2 component overrides registered via `theme.components`. */
 // biome-ignore lint/suspicious/noEmptyInterface: must stay an interface — @flowpanel/react and consumers augment it via `declare module` merging (I-11); a `type` alias cannot be merged into.
 export interface FlowpanelComponentSlots {}
 
 export interface ThemeConfig {
+  /** Product name, logo and home link shown in the shell header. */
   brand?: { name?: string; logo?: string; href?: string };
+  /** Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. */
   accent?: string;
+  /** Initial color scheme. `"auto"` follows the operating system. */
   mode?: "light" | "dark" | "auto";
+  /** Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. */
   cssVars?: Record<string, string>;
+  /** Replace built-in components. See the theme-slots guide. */
   components?: Partial<FlowpanelComponentSlots>;
-  nav?: { groups?: Array<{ label: string; items: string[] }> };
-  user?: (s: Session | null) => {
-    name?: string;
-    email?: string;
-    avatar?: string;
-    items?: Array<{ label: string; href?: string; variant?: "default" | "destructive" }>;
-    signOut?: string;
-  };
+  /**
+   * What the account menu shows for the current session. Return `undefined` to
+   * render no menu at all — the usual choice when there is no session.
+   */
+  user?: (s: Session | null) =>
+    | {
+        name?: string;
+        email?: string;
+        avatar?: string;
+        items?: Array<{ label: string; href?: string; variant?: "default" | "destructive" }>;
+        signOut?: string;
+      }
+    | undefined;
 }
 
+/** One record handed to `AuditConfig.sink`. */
 export interface AuditEvent {
+  /** Who acted, from `AuthConfig.userId`. Null when unresolvable. */
   actorId: string | null;
+  /** What ran, e.g. `"orders.action.refund"` or `"orders.inline-update"`. */
   action: string;
+  /** Resource name the action targeted. */
   resource?: string;
+  /** Id of the affected row. Bulk actions carry the first ten, comma-joined. */
   targetId?: string;
+  /** Before/after values, for mutations that can compute them. */
   diff?: { before: unknown; after: unknown };
   ip?: string;
   userAgent?: string;
@@ -62,23 +77,15 @@ export interface AuditEvent {
 }
 
 export interface AuditConfig {
+  /** Turn auditing on. Individual resources can opt out with `audit: false`. */
   enabled?: boolean;
+  /** Where events go — your table, your log pipeline, anywhere. */
   sink?: (event: AuditEvent) => Promise<void>;
+  /** Advisory retention window for your own sink, e.g. `"90d"`. */
   retention?: string;
 }
 
-/**
- * How FlowPanel renders surrounding chrome around the content area.
- *
- * - `sidebar` — full app shell with left sidebar nav + brand. The default;
- *   suited to standalone admins where FlowPanel owns the whole route.
- * - `tabs` — horizontal tab strip above content. Bare layout otherwise; suited
- *   to admins embedded under a host app's existing header.
- * - `bare` — no shell at all. Only the page content is rendered. The host
- *   app's `app/layout.tsx` (or a wrapper component) supplies all chrome.
- *   Globals (toasts, drawer host, command palette, realtime) still mount,
- *   so feature parity is preserved.
- */
+/** How FlowPanel renders surrounding chrome around the content area. */
 export type ShellMode = "sidebar" | "tabs" | "bare";
 
 export interface ShellConfig {
@@ -88,30 +95,39 @@ export interface ShellConfig {
 }
 
 export interface AdminConfig {
+  /** Database binding — `drizzleAdapter`, `prismaAdapter`, or your own. */
   adapter: Adapter;
+  /** How the admin reads sessions and roles. */
   auth: AuthConfig;
+  /** Tenant scope resolved per request, then applied to every query. */
   scope?: (ctx: ScopeContext) => Promise<Scope> | Scope;
+  /** Branding, color scheme, design tokens and component overrides. */
   theme?: ThemeConfig;
+  /** Chrome around the content area — sidebar, tabs, or none. */
   shell?: ShellConfig | ShellMode;
+  /** Override built-in UI strings. */
   labels?: LabelsConfig;
+  /** Tables the admin manages. */
   resources?: ResourceConfig[];
+  /** Widget dashboards. */
   dashboards?: DashboardConfig[];
+  /** Custom pages rendered inside the shell. */
   pages?: PageConfig[];
+  /** BullMQ queues surfaced in the admin. */
   queues?: QueueConfig[];
+  /** What ⌘K offers. */
   commandPalette?: CommandPaletteConfig;
+  /** Audit trail for every mutation. */
   audit?: AuditConfig;
+  /** Cross-instance realtime transport. Redis in production. */
   realtime?: RealtimeConfig;
+  /** Throttle requests per user or per IP. */
   rateLimit?: RateLimitConfig;
-  /**
-   * URL prefix under which the admin is mounted. Defaults to `"/admin"`.
-   * Override when the consumer's app already uses `/admin` for something
-   * else, or when admins live under a route group like `/internal/admin`.
-   *
-   * Must start with `/` and must NOT end with `/`. Internal hrefs and
-   * `revalidatePath` calls all flow through `buildHref(config, …segments)`
-   * so the prefix is honored consistently.
-   */
+  /** Put the whole admin in read-only mode. */
+  readOnly?: boolean;
+  /** URL prefix under which the admin is mounted. */
   basePath?: string;
+  /** Cross-cutting callbacks. */
   hooks?: {
     onError?: (err: Error, ctx: RequestContext) => void | Promise<void>;
   };

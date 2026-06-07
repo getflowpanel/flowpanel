@@ -33,4 +33,16 @@ describe("withNextAuth", () => {
     expect(cfg.signInUrl).toBe("/login");
     expect(cfg.forbiddenUrl).toBe("/forbidden");
   });
+
+  it("default userId extractor reads session.user.id", () => {
+    const cfg = withNextAuth({ auth: async () => null });
+    expect(cfg.userId?.({ user: { id: "u1" } })).toBe("u1");
+    expect(cfg.userId?.({ user: {} })).toBeNull();
+    expect(cfg.userId?.(null)).toBeNull();
+  });
+
+  it("custom userId override replaces default", () => {
+    const cfg = withNextAuth({ auth: async () => null, userId: () => "fixed" });
+    expect(cfg.userId?.({ user: { id: "u1" } })).toBe("fixed");
+  });
 });

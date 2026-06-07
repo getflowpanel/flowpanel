@@ -3,14 +3,6 @@ import { createRule } from "../create-rule.js";
 
 type MessageId = "needsConfirm";
 
-/**
- * An entry in `actions: [...]` or `bulkActions: [...]` with
- * `variant: "destructive"` and no sibling `confirm:` property is almost
- * certainly a mistake. Destructive operations must be guarded by an explicit
- * confirmation message so the user can't lose data on a stray click.
- *
- * Not autofixable — the user must supply the confirm message themselves.
- */
 const rule = createRule<[], MessageId>({
   name: "audit-row-action-needs-confirm",
   meta: {

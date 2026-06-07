@@ -266,6 +266,37 @@ describe("prismaAdapter tenant scope enforcement", () => {
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
   });
 
+  it("create merges the resolved scope into insert data, overriding client input", async () => {
+    const { item, _d } = makeMock();
+    _d.create.mockResolvedValue({ id: "new1", companyId: "c1", name: "New" });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+
+    // Attacker-controlled input hand-crafts a row for a DIFFERENT tenant.
+    await adapter.create("Item", {
+      input: { name: "New", companyId: "c2" },
+      db: undefined,
+      applyScope: applyScopeC1,
+    } as never);
+
+    expect(_d.create).toHaveBeenCalledWith({
+      data: { name: "New", companyId: "c1" },
+    });
+  });
+
+  it("FAIL-CLOSED: create throws when scopeRequired && no applyScope", async () => {
+    const { item, _d } = makeMock();
+    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+
+    await expect(
+      adapter.create("Item", {
+        input: { name: "New" },
+        db: undefined,
+        scopeRequired: true,
+      } as never),
+    ).rejects.toBeInstanceOf(FlowpanelAccessError);
+    expect(_d.create).not.toHaveBeenCalled();
+  });
+
   it("no scope (unscoped) keeps findUnique / update / delete fast paths", async () => {
     const { item, _d } = makeMock();
     _d.findUnique.mockResolvedValue({ id: "i1" });

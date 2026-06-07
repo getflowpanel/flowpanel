@@ -67,6 +67,39 @@ describe("defineAdmin", () => {
     expect(config.resourcesByName.has("payments")).toBe(true);
   });
 
+  it("readOnly strips every write affordance from resources", () => {
+    const ref = { __name: "users" };
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      readOnly: true,
+      resources: [
+        resource(ref, {
+          columns: ["email", { field: "name", editable: true }],
+          create: { fields: [{ name: "email" }] },
+          import: { formats: ["csv"] },
+          delete: { softDelete: "deletedAt" },
+          actions: [{ key: "ping", label: "Ping", run: async () => ({ ok: true }) }],
+          drawer: {
+            actions: [{ key: "disable", label: "Disable", run: async () => ({ ok: true }) }],
+          },
+        }),
+      ],
+    });
+    const opts = config.resourcesByName.get("users")?.options;
+    expect(opts?.create?.disabled).toBe(true);
+    expect(opts?.update?.disabled).toBe(true);
+    expect(opts?.delete?.disabled).toBe(true);
+    expect(opts?.actions).toEqual([]);
+    expect(opts?.bulkActions).toEqual([]);
+    expect(opts?.drawer?.actions).toEqual([]);
+    // import (a bulk create) is removed entirely — no toolbar Import button.
+    expect(opts?.import).toBeUndefined();
+    // editable column made static; the create.fields config is preserved.
+    expect((opts?.columns[1] as { editable?: boolean }).editable).toBe(false);
+    expect(opts?.create?.fields).toHaveLength(1);
+  });
+
   it("throws if name cannot be resolved", () => {
     expect(() => {
       defineAdmin({

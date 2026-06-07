@@ -3,18 +3,6 @@ import { createRule } from "../create-rule.js";
 
 type MessageId = "duplicate";
 
-/**
- * Within a single `defineAdmin({ resources: [...] })` call, every `resource()`
- * entry must resolve to a unique name. This rule only catches the case where
- * the name is supplied explicitly via `opts.name` (a string literal) — names
- * inferred from the ref at runtime are out of scope here and covered by the
- * runtime validator.
- *
- * Reports each duplicate occurrence (both / all sites) so the user can fix
- * either one.
- *
- * Not autofixable.
- */
 const rule = createRule<[], MessageId>({
   name: "require-unique-resource-names",
   meta: {
@@ -91,7 +79,6 @@ function isResourceCall(node: TSESTree.CallExpression): boolean {
 }
 
 function extractResourceName(call: TSESTree.CallExpression): string | null {
-  // Look at the second argument's `name` literal.
   const opts = call.arguments[1];
   if (!opts || opts.type !== AST_NODE_TYPES.ObjectExpression) return null;
   const nameProp = findPropertyByName(opts, "name");

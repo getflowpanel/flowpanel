@@ -9,11 +9,7 @@ export interface BullMQAdapter {
   queues: Record<string, Queue>;
 }
 
-/**
- * Wrap a set of BullMQ Queue instances into a FlowPanel BullMQ adapter.
- * Pair with `queue(adapter.queues.<key>, { label, boardUrl })` per queue in
- * your admin config.
- */
+/** Wrap a set of BullMQ Queue instances into a FlowPanel BullMQ adapter. */
 export function bullmqAdapter(queues: Record<string, Queue>): BullMQAdapter {
   return { kind: "bullmq", queues };
 }

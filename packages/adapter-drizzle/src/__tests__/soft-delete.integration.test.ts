@@ -144,4 +144,45 @@ describe.skipIf(!dockerAvailable)("Drizzle adapter soft-delete", () => {
       adapter.restore?.(users, baseCtx({ id: "1", input: {} }) as never),
     ).rejects.toThrow(/softDelete/);
   });
+
+  it("list WITH softDelete ctx AND includeDeleted returns all rows (skips the IS NULL filter)", async () => {
+    await db.insert(users).values([
+      { id: "1", email: "a@x.com" },
+      { id: "2", email: "b@x.com", deletedAt: new Date() },
+    ]);
+    const r = await adapter.list(
+      users,
+      baseCtx({
+        filters: {},
+        sort: null,
+        page: 1,
+        pageSize: 10,
+        search: "",
+        softDelete: { column: "deletedAt" },
+        includeDeleted: true,
+      }) as never,
+    );
+    expect(r.total).toBe(2);
+  });
+
+  it("list WITH softDelete ctx and includeDeleted:false still filters (fail-safe default)", async () => {
+    await db.insert(users).values([
+      { id: "1", email: "a@x.com" },
+      { id: "2", email: "b@x.com", deletedAt: new Date() },
+    ]);
+    const r = await adapter.list(
+      users,
+      baseCtx({
+        filters: {},
+        sort: null,
+        page: 1,
+        pageSize: 10,
+        search: "",
+        softDelete: { column: "deletedAt" },
+        includeDeleted: false,
+      }) as never,
+    );
+    expect(r.total).toBe(1);
+    expect((r.rows[0] as { id: string } | undefined)?.id).toBe("1");
+  });
 });

@@ -9,7 +9,6 @@ export {
 } from "@flowpanel/core";
 export type { Publisher };
 
-// Singleton in-memory publisher for M1. Redis-backed publisher lands in M3.
 let publisher: Publisher | null = null;
 
 function getPublisher(): Publisher {
@@ -17,15 +16,7 @@ function getPublisher(): Publisher {
   return publisher;
 }
 
-/**
- * Publish an event to an SSE channel.
- *
- * @example
- *   import { publish } from "@flowpanel/kit/server";
- *   scraperQueue.on("completed", async () => {
- *     await publish("scraperRuns");
- *   });
- */
+/** Publish an event to an SSE channel. */
 export async function publish(channel: string, payload?: unknown): Promise<void> {
   return getPublisher().publish(channel, payload);
 }

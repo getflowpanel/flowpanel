@@ -1,5 +1,4 @@
 // LOC-OK: prisma adapter — list/get/create/update/delete plus filter, sort and
-// scope handling form one cohesive query layer (mirrors adapter-drizzle).
 import { createRequire } from "node:module";
 import type {
   Adapter,
@@ -8,7 +7,7 @@ import type {
   ListResult,
   MutationContext,
 } from "@flowpanel/core";
-import { FlowpanelAccessError } from "@flowpanel/core";
+import { FlowpanelAccessError, isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
 import type { PrismaDmmf } from "./introspect.js";
 import { introspect } from "./introspect.js";
 import { inferSchema } from "./schema.js";
@@ -20,12 +19,7 @@ export interface PrismaAdapterOptions<P = unknown> {
   dmmf?: PrismaDmmf;
 }
 
-/**
- * Subset of the Prisma model delegate methods we invoke. Generated delegates
- * (`prisma.user`, `prisma.post`, …) carry far richer types per model, but the
- * adapter operates dynamically by model name, so we narrow to the call shapes
- * we actually need at runtime.
- */
+/** Subset of the Prisma model delegate methods we invoke. */
 interface PrismaDelegate {
   findMany: (args: {
     where?: Record<string, unknown>;
@@ -49,20 +43,7 @@ interface PrismaDelegate {
   deleteMany: (args: { where: Record<string, unknown> }) => Promise<{ count: number }>;
 }
 
-/**
- * Apply a resource's tenant `scope` predicate to a prisma `where` object,
- * with fail-closed enforcement. The pre-bound `ctx.applyScope` merges the
- * tenant keys into the passed `where` and returns it (the spec contract is
- * `scope: (s, where) => ({ ...where, companyId: s.companyId })`).
- *
- * The user predicate MUST spread the incoming `where`. A predicate that
- * returns only `{ companyId: s.companyId }` (dropping `...where`) would
- * discard the search, filter, and soft-delete clauses already accumulated
- * here — silently widening list results past those constraints.
- *
- * When `ctx.scopeRequired` is set but `ctx.applyScope` is missing, throw
- * rather than run an unscoped query for a scope-required resource.
- */
+/** Apply a resource's tenant `scope` predicate to a plain object, with fail-closed enforcement. */
 function applyScopeToWhere(
   where: Record<string, unknown>,
   ctx: { applyScope?: (q: unknown) => unknown; scopeRequired?: boolean },
@@ -147,13 +128,10 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const delegate = getDelegate(prisma, modelName);
       const dmmf = getDmmf();
 
-      // Build where clause
       const where: Record<string, unknown> = {};
 
       for (const [k, v] of Object.entries(ctx.filters ?? {})) {
         if (v === undefined || v === null || v === "") continue;
-        // Reserved sentinels for IS NULL / IS NOT NULL filters. See
-        // `FilterDef` JSDoc in `@flowpanel/core` types/resource.ts.
         if (v === "__null__") {
           where[k] = null;
           continue;
@@ -162,34 +140,40 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
           where[k] = { not: null };
           continue;
         }
+        if (isFilterRangeValue(v)) {
+          const cond: Record<string, unknown> = {};
+          if (v.gte !== undefined) cond.gte = v.gte;
+          if (v.lte !== undefined) cond.lte = v.lte;
+          if (Object.keys(cond).length > 0) where[k] = cond;
+          continue;
+        }
+        if (isFilterInValue(v)) {
+          if (v.values.length > 0) where[k] = { in: v.values };
+          continue;
+        }
         where[k] = v;
       }
 
-      // Search: OR across all string (non-enum) columns
-      if (ctx.search) {
+      if (ctx.search && ctx.searchFields?.length) {
         const intro = introspect(modelName, dmmf);
-        const textCols = intro.columns.filter((c) => c.type === "string" && !c.enumValues);
+        const textColSet = new Set(
+          intro.columns.filter((c) => c.type === "string" && !c.enumValues).map((c) => c.name),
+        );
+        const textCols = ctx.searchFields.filter((f) => textColSet.has(f));
         if (textCols.length > 0) {
-          // NOTE: `mode: "insensitive"` is honored by Postgres only.
-          // Prisma silently ignores it on MySQL/SQLite (the LIKE comparison
-          // will be case-sensitive there). Document this in the user-facing
-          // 1.0 release notes; revisit per-dialect behavior in 1.1.
-          where.OR = textCols.map((c) => ({
-            [c.name]: { contains: ctx.search, mode: "insensitive" },
+          where.OR = textCols.map((name) => ({
+            [name]: { contains: ctx.search, mode: "insensitive" },
           }));
         }
       }
 
-      // Soft-delete exclusion
       const softCol = ctx.softDelete?.column;
-      if (softCol) {
+      if (softCol && !ctx.includeDeleted) {
         where[softCol] = null;
       }
 
-      // Tenant scope: merge the scope predicate's keys into `where` (fail-closed).
       const scopedWhere = applyScopeToWhere(where, ctx);
 
-      // Order by
       const orderBy = ctx.sort ? { [ctx.sort.field]: ctx.sort.dir } : undefined;
 
       const skip = (ctx.page - 1) * ctx.pageSize;
@@ -211,9 +195,6 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     async get(modelName, ctx: ItemQueryContext) {
       const delegate = getDelegate(prisma, modelName);
       const id = coerceId(ctx.id, modelName, getDmmf());
-      // Fail-closed scope check + merge. When a scope is bound we use
-      // `findFirst` so the tenant keys (non-unique) are honored — a `get`
-      // of an out-of-scope id then returns null instead of the row.
       const baseWhere = applyScopeToWhere({ id }, ctx);
       const result = ctx.applyScope
         ? await delegate.findFirst({ where: baseWhere })
@@ -223,7 +204,8 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
     async create(modelName, ctx: MutationContext<unknown>) {
       const delegate = getDelegate(prisma, modelName);
-      return delegate.create({ data: ctx.input });
+      const data = applyScopeToWhere((ctx.input as Record<string, unknown>) ?? {}, ctx);
+      return delegate.create({ data });
     },
 
     async update(modelName, ctx: MutationContext<unknown>) {
@@ -231,10 +213,6 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const delegate = getDelegate(prisma, modelName);
       const id = coerceId(ctx.id, modelName, getDmmf());
       const baseWhere = applyScopeToWhere({ id }, ctx);
-      // With a bound scope, `updateMany` honors the (non-unique) tenant keys:
-      // an out-of-scope id matches 0 rows. We then re-read the row scoped to
-      // return it (mirrors the `update` return shape); a 0-row update yields
-      // null so callers (e.g. resource-actions) surface a not-found.
       if (ctx.applyScope) {
         const res = await delegate.updateMany({ where: baseWhere, data: ctx.input });
         if (res.count === 0) return null;
@@ -250,8 +228,6 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const id = coerceId(ctx.id, modelName, getDmmf());
       const baseWhere = applyScopeToWhere({ id }, ctx);
       const softCol = ctx.softDelete?.column;
-      // With a bound scope, the `*Many` variants honor the (non-unique)
-      // tenant keys so an out-of-scope id affects 0 rows.
       if (softCol) {
         if (ctx.applyScope) {
           await delegate.updateMany({ where: baseWhere, data: { [softCol]: new Date() } });
@@ -272,8 +248,6 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       if (!ctx.id) throw new Error("prismaAdapter: restore requires ctx.id");
       const delegate = getDelegate(prisma, modelName);
       const id = coerceId(ctx.id, modelName, getDmmf());
-      // With a bound scope, `updateMany` honors the (non-unique) tenant keys
-      // so a restore of an out-of-scope id affects 0 rows (mirrors `delete`).
       const baseWhere = applyScopeToWhere({ id }, ctx);
       if (ctx.applyScope) {
         await delegate.updateMany({ where: baseWhere, data: { [softCol]: null } });
@@ -281,10 +255,6 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         await delegate.update({ where: baseWhere, data: { [softCol]: null } });
       }
     },
-
-    // ── Migration bookkeeping (used by `flowpanel migrate`) ──────────────
-    // `prisma.$executeRawUnsafe` runs SQL as-is; `prisma.$executeRaw`
-    // template-tags template values as bound parameters natively.
 
     async runMigrationSql(rawSql: string): Promise<void> {
       await prisma.$executeRawUnsafe(rawSql);

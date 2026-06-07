@@ -115,6 +115,37 @@ describe("prismaAdapter", () => {
     );
   });
 
+  it("list search restricts OR to the declared searchFields only", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.findMany.mockResolvedValue([]);
+    _delegate.count.mockResolvedValue(0);
+
+    const adapter = prismaAdapter({ prisma: { user: delegate }, dmmf: testDmmf });
+    await adapter.list("User", { ...baseCtx, search: "alice", searchFields: ["name"] });
+
+    expect(_delegate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ name: { contains: "alice", mode: "insensitive" } }],
+        }),
+      }),
+    );
+  });
+
+  it("FAIL-CLOSED: list search has no effect when searchFields is undeclared", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.findMany.mockResolvedValue([]);
+    _delegate.count.mockResolvedValue(0);
+
+    const adapter = prismaAdapter({ prisma: { user: delegate }, dmmf: testDmmf });
+    // A hand-crafted `?search=` on a resource with no declared search fields
+    // must not become a data oracle across every string column.
+    await adapter.list("User", { ...baseCtx, search: "alice" });
+
+    const where = _delegate.findMany.mock.calls[0]![0].where;
+    expect(where.OR).toBeUndefined();
+  });
+
   it("list translates __null__ sentinel to where[field] = null", async () => {
     const { user: delegate, _delegate } = makeMockPrisma();
     _delegate.findMany.mockResolvedValue([]);
@@ -232,6 +263,39 @@ describe("prismaAdapter", () => {
 
     const adapter = prismaAdapter({ prisma: { user: delegate }, dmmf: testDmmf });
     await adapter.list("User", { ...baseCtx, softDelete: { column: "deletedAt" } });
+
+    expect(_delegate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ deletedAt: null }) }),
+    );
+  });
+
+  it("list with softDelete + includeDeleted:true skips the where[col]=null exclusion", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.findMany.mockResolvedValue([]);
+    _delegate.count.mockResolvedValue(0);
+
+    const adapter = prismaAdapter({ prisma: { user: delegate }, dmmf: testDmmf });
+    await adapter.list("User", {
+      ...baseCtx,
+      softDelete: { column: "deletedAt" },
+      includeDeleted: true,
+    });
+
+    const where = _delegate.findMany.mock.calls[0]![0].where;
+    expect(where).not.toHaveProperty("deletedAt");
+  });
+
+  it("list with softDelete + includeDeleted:false (fail-safe default) still excludes", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.findMany.mockResolvedValue([]);
+    _delegate.count.mockResolvedValue(0);
+
+    const adapter = prismaAdapter({ prisma: { user: delegate }, dmmf: testDmmf });
+    await adapter.list("User", {
+      ...baseCtx,
+      softDelete: { column: "deletedAt" },
+      includeDeleted: false,
+    });
 
     expect(_delegate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ deletedAt: null }) }),

@@ -1,19 +1,3 @@
-// `@flowpanel/kit` is the umbrella package. It re-exports the typed config DSL,
-// runtime helpers, and types from @flowpanel/core. Adapters, the Next.js
-// bridge, the React UI, and chart builders live behind subpaths:
-//   - flowpanel/drizzle, flowpanel/prisma   — adapter helpers
-//   - flowpanel/next                         — Flowpanel(config), handlers(), stream()
-//   - flowpanel/charts                       — areaChart / barChart / lineChart / pieChart
-//   - flowpanel/client                       — client-side hooks (useLiveChannel, etc.)
-//   - flowpanel/auth                         — withClerk / withNextAuth / withLucia presets
-// See `package.json#exports` for the full subpath surface.
-
-// ── Types — config ──────────────────────────────────────────────────────────
-// ── Types — DSL ────────────────────────────────────────────────────────────
-// ── Types — dashboard + widgets ────────────────────────────────────────────
-// ── Types — drawer ─────────────────────────────────────────────────────────
-// ── Types — adapter + runtime contexts ────────────────────────────────────
-// ── Types — registry + queue + realtime + labels + palette + session ──────
 export type {
   ActionContext,
   ActionResult,
@@ -30,6 +14,7 @@ export type {
   ChartBucket,
   ChartOptionsBase,
   ColumnDef,
+  ColumnFormat,
   ColumnMeta,
   CommandGroup,
   CommandItem,
@@ -54,6 +39,7 @@ export type {
   FilterDef,
   FilterType,
   FlowpanelComponentSlots,
+  FlowpanelResources,
   FlowpanelTypes,
   InferDB,
   InferRow,
@@ -80,6 +66,7 @@ export type {
   RateLimiter,
   RateLimitOptions,
   RealtimeConfig,
+  ReferenceSpec,
   RequestContext,
   RequireRole,
   ResolvedAdminConfig,
@@ -87,6 +74,7 @@ export type {
   ResolvedLabels,
   ResourceConfig,
   ResourceIntrospection,
+  ResourceName,
   ResourceOptions,
   RowAction,
   Scope,
@@ -108,10 +96,6 @@ export type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-// ── Builders ────────────────────────────────────────────────────────────────
-// ── Runtime helpers ─────────────────────────────────────────────────────────
-// ── Errors ──────────────────────────────────────────────────────────────────
-// ── Labels (i18n) ───────────────────────────────────────────────────────────
 export {
   assertResourceScope,
   checkRequireRole,

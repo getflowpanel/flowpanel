@@ -1,6 +1,5 @@
 import type { ColumnMeta, ResourceIntrospection } from "@flowpanel/core";
 
-// Minimal DMMF types we need — avoids hard dep on @prisma/client at compile time
 export interface PrismaDmmfField {
   name: string;
   kind: "scalar" | "object" | "enum" | "unsupported";
@@ -42,7 +41,6 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
   let primaryKey = "id";
 
   for (const field of model.fields) {
-    // Skip relation fields
     if (field.kind === "object") continue;
 
     const meta: ColumnMeta = {

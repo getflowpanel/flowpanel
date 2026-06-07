@@ -8,32 +8,16 @@ export interface ClerkAuthOptions {
   signInUrl?: string;
   /** URL to redirect users without the required role. */
   forbiddenUrl?: string;
-  /**
-   * Extract the role from the Clerk session. Defaults to
-   * `sessionClaims.publicMetadata.role || "guest"`.
-   */
+  /** Extract the role from the Clerk session. */
   role?: (s: Session | null) => string;
+  /** Extract the actor id for the audit trail / per-user rate limiting. */
+  userId?: (s: Session | null) => string | null;
 }
 
-/**
- * First-class Clerk integration.
- *
- * @example
- * import { defineAdmin } from "@flowpanel/kit";
- * import { withClerk } from "@flowpanel/kit/auth";
- *
- * export default defineAdmin({
- *   auth: withClerk({ requireRole: "admin" }),
- *   // ...
- * });
- *
- * Requires `@clerk/nextjs` as a peer dependency. The SDK loads lazily — if
- * `withClerk` is not used, no Clerk code is bundled.
- */
+/** First-class Clerk integration. */
 export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
   return {
     async session(): Promise<Session | null> {
-      // Lazy specifier: TypeScript does not statically resolve the import.
       const specifier = "@clerk/nextjs/server";
       const mod = (await import(specifier).catch(() => null)) as {
         auth: () => Promise<{ userId: string | null; sessionClaims?: Record<string, unknown> }>;
@@ -51,6 +35,12 @@ export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
         const claims = (s?.publicMetadata ?? {}) as Record<string, unknown>;
         const r = claims.role;
         return typeof r === "string" ? r : "guest";
+      }),
+    userId:
+      opts.userId ??
+      ((s: Session | null): string | null => {
+        const id = (s as { id?: unknown } | null)?.id;
+        return typeof id === "string" ? id : null;
       }),
     ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),

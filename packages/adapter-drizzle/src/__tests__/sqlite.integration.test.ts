@@ -75,9 +75,22 @@ describe("drizzleAdapter SQLite CRUD", () => {
     expect((r.rows[0] as any).id).toBe("u5");
   });
 
-  it("list search across text columns", async () => {
-    const r = await adapter.list(users, ctx({ db, search: "User 7" }));
+  it("list search matches within declared searchFields", async () => {
+    const r = await adapter.list(users, ctx({ db, search: "User 7", searchFields: ["name"] }));
     expect(r.rows.some((row: any) => row.id === "u7")).toBe(true);
+  });
+
+  it("list search does NOT match columns outside searchFields", async () => {
+    // "u5@e.co" only appears in `email`; searchFields only declares `name`.
+    const r = await adapter.list(users, ctx({ db, search: "u5@e.co", searchFields: ["name"] }));
+    expect(r.total).toBe(0);
+  });
+
+  it("FAIL-CLOSED: search has no effect when searchFields is undeclared", async () => {
+    // A hand-crafted `?search=` on a resource with no declared search fields
+    // must not become a data oracle across every text column.
+    const r = await adapter.list(users, ctx({ db, search: "User 7" }));
+    expect(r.total).toBe(25);
   });
 
   it("list sort ascending", async () => {
@@ -169,5 +182,49 @@ describe("drizzleAdapter SQLite CRUD", () => {
     } as any);
 
     expect(await adapter.get(users, { ...ctx({ db }), id: "del1" } as any)).toBeNull();
+  });
+});
+
+// Regression: sqlite is NOT a non-RETURNING dialect (better-sqlite3 and
+// libsql both support `.returning()`), so `create` must accept an
+// auto-generated primary key instead of demanding an explicit one.
+describe("drizzleAdapter SQLite auto-generated primary key", () => {
+  const posts = sqliteTable("posts", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    title: text("title").notNull(),
+  });
+
+  let autoDb: ReturnType<typeof drizzle>;
+  let autoSqlite: InstanceType<typeof Database>;
+
+  beforeAll(() => {
+    autoSqlite = new Database(":memory:");
+    autoDb = drizzle(autoSqlite);
+    autoSqlite.exec(`
+      CREATE TABLE posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL
+      )
+    `);
+  });
+
+  afterAll(() => {
+    autoSqlite?.close();
+  });
+
+  it("create succeeds without an explicit primary key and returns the generated id", async () => {
+    const adapter = drizzleAdapter({ db: null as any, schema: { posts }, dialect: "sqlite" });
+    const created: any = await adapter.create(posts, {
+      req: new Request("http://localhost/admin/posts"),
+      session: null,
+      role: "admin",
+      scope: null,
+      ip: null,
+      userAgent: null,
+      db: autoDb,
+      input: { title: "Auto PK" },
+    } as any);
+    expect(created).toMatchObject({ title: "Auto PK" });
+    expect(created.id).toBeTypeOf("number");
   });
 });

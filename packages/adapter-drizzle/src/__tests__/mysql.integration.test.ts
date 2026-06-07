@@ -1,6 +1,8 @@
 import { execSync } from "node:child_process";
-import type { ListQueryContext } from "@flowpanel/core";
+import type { ListQueryContext, MutationContext } from "@flowpanel/core";
+import { FlowpanelAccessError } from "@flowpanel/core";
 import { MySqlContainer, type StartedMySqlContainer } from "@testcontainers/mysql";
+import { eq } from "drizzle-orm";
 import { boolean, int, mysqlTable, varchar } from "drizzle-orm/mysql-core";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import * as mysql from "mysql2/promise";
@@ -27,6 +29,21 @@ const users = mysqlTable("users", {
   age: int("age"),
 });
 
+// Regression fixture: an auto-increment PK, so `create` without an explicit
+// id reaches the "no RETURNING" guard instead of failing the INSERT itself
+// (unlike `users.id`, which has no server-side default at all).
+const autoPosts = mysqlTable("auto_posts", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+});
+
+// Tenant-scoped fixture for the create-scope-transaction tests below.
+const items = mysqlTable("items", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+});
+
 let container: StartedMySqlContainer;
 let db: MySql2Database;
 let pool: mysql.Pool;
@@ -43,6 +60,19 @@ beforeAll(async () => {
       name VARCHAR(255),
       active BOOLEAN NOT NULL DEFAULT TRUE,
       age INT
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auto_posts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS items (
+      id VARCHAR(36) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      company_id VARCHAR(36) NOT NULL
     )
   `);
   for (let i = 0; i < 25; i++) {
@@ -96,9 +126,37 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter MySQL CRUD", () => {
     expect((r.rows[0] as any).id).toBe("u5");
   });
 
-  it("list search across varchar columns", async () => {
-    const r = await adapter.list(users, ctx({ db, search: "User 7" }));
+  it("list search matches within declared searchFields", async () => {
+    const r = await adapter.list(users, ctx({ db, search: "User 7", searchFields: ["name"] }));
     expect(r.rows.some((row: any) => row.id === "u7")).toBe(true);
+  });
+
+  it("FAIL-CLOSED: search has no effect when searchFields is undeclared", async () => {
+    const r = await adapter.list(users, ctx({ db, search: "User 7" }));
+    expect(r.total).toBe(25);
+  });
+
+  it("create still requires an explicit primary key on mysql (no RETURNING)", async () => {
+    // `autoPosts.id` has a server-side default (AUTO_INCREMENT) — the INSERT
+    // itself succeeds, so this exercises our own read-back guard rather than
+    // a NOT NULL violation from the database.
+    const autoAdapter = drizzleAdapter({
+      db: null as any,
+      schema: { autoPosts },
+      dialect: "mysql",
+    });
+    await expect(
+      autoAdapter.create(autoPosts, {
+        req: ctx().req,
+        session: null,
+        role: "admin",
+        scope: null,
+        ip: null,
+        userAgent: null,
+        db,
+        input: { title: "No explicit id" },
+      } as any),
+    ).rejects.toThrow(/explicit primary key/);
   });
 
   it("list sort ascending", async () => {
@@ -192,3 +250,83 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter MySQL CRUD", () => {
     expect(await adapter.get(users, { ...ctx({ db }), id: "del1" } as any)).toBeNull();
   });
 });
+
+describe.skipIf(!dockerAvailable)(
+  "drizzleAdapter create scope — real transaction rollback (mysql)",
+  () => {
+    const itemsAdapter = drizzleAdapter({ db: null as any, schema: { items }, dialect: "mysql" });
+
+    const applyScopeC1 = (q: unknown): unknown =>
+      (q as { where: (c: unknown) => unknown }).where(eq(items.companyId, "c1"));
+
+    function mutCtx(
+      input: Record<string, unknown>,
+      overrides: Partial<MutationContext<unknown>> = {},
+    ): MutationContext<unknown> {
+      return {
+        req: new Request("http://localhost/admin/items"),
+        session: null,
+        role: "admin",
+        scope: { companyId: "c1" },
+        ip: null,
+        userAgent: null,
+        db,
+        input,
+        ...overrides,
+      } as MutationContext<unknown>;
+    }
+
+    it("in-scope create succeeds", async () => {
+      const row: any = await itemsAdapter.create(
+        items,
+        mutCtx({ id: "ok1", name: "OK", companyId: "c1" }, { applyScope: applyScopeC1 }),
+      );
+      expect(row).toMatchObject({ id: "ok1", companyId: "c1" });
+    });
+
+    it("SECURITY: cross-tenant create is atomically rolled back — no partial state", async () => {
+      const [countBefore] = (await pool.query("SELECT COUNT(*) as c FROM items")) as unknown as [
+        { c: number }[],
+        unknown,
+      ];
+      const before = countBefore[0]?.c;
+
+      await expect(
+        itemsAdapter.create(
+          items,
+          mutCtx(
+            { id: "hacked1", name: "Cross-tenant", companyId: "c2" },
+            { applyScope: applyScopeC1 },
+          ),
+        ),
+      ).rejects.toBeInstanceOf(FlowpanelAccessError);
+
+      const [rows] = (await pool.query("SELECT id FROM items WHERE id = ?", [
+        "hacked1",
+      ])) as unknown as [unknown[], unknown];
+      expect(rows).toHaveLength(0);
+
+      // No partial state: the row count is exactly what it was before the
+      // rejected attempt — a real ROLLBACK, not an insert followed by a
+      // best-effort compensating delete.
+      const [countAfter] = (await pool.query("SELECT COUNT(*) as c FROM items")) as unknown as [
+        { c: number }[],
+        unknown,
+      ];
+      expect(countAfter[0]?.c).toBe(before);
+    });
+
+    it("FAIL-CLOSED: create throws when scopeRequired && no applyScope, before writing anything", async () => {
+      await expect(
+        itemsAdapter.create(
+          items,
+          mutCtx({ id: "shouldnotexist", name: "X", companyId: "c1" }, { scopeRequired: true }),
+        ),
+      ).rejects.toBeInstanceOf(FlowpanelAccessError);
+      const [rows] = (await pool.query("SELECT id FROM items WHERE id = ?", [
+        "shouldnotexist",
+      ])) as unknown as [unknown[], unknown];
+      expect(rows).toHaveLength(0);
+    });
+  },
+);

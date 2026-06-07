@@ -3,14 +3,6 @@ import { createRule } from "../create-rule.js";
 
 type MessageId = "preferShorthand";
 
-/**
- * `options: [{ label: "x", value: "x" }, ...]` inside a `filters: [...]` array
- * is verbose when label === value for every entry. The shorthand
- * `options: ["x", "y"]` is normalized to the same shape at runtime, so it is
- * preferred.
- *
- * Autofixable.
- */
 const rule = createRule<[], MessageId>({
   name: "prefer-shorthand-filter",
   meta: {
@@ -60,7 +52,6 @@ const rule = createRule<[], MessageId>({
               allMatch = false;
               break;
             }
-            // Reject objects with extra keys — we can't lossy-fix them.
             if (el.properties.length !== 2) {
               allMatch = false;
               break;

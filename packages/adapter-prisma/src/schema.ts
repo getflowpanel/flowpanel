@@ -44,7 +44,6 @@ export function inferSchema(
 
   const scalarFields = model.fields.filter((f) => f.kind !== "object");
 
-  // create: required fields required, optional optional — but omit id field
   const createShape: Record<string, z.ZodTypeAny> = {};
   const updateShape: Record<string, z.ZodTypeAny> = {};
   const selectShape: Record<string, z.ZodTypeAny> = {};

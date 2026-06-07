@@ -43,6 +43,10 @@
       "types": "./dist/charts.d.ts",
       "import": "./dist/charts.js"
     },
+    "./charts/runtime": {
+      "types": "./dist/charts-runtime.d.ts",
+      "import": "./dist/charts-runtime.js"
+    },
     "./prisma": {
       "types": "./dist/prisma.d.ts",
       "import": "./dist/prisma.js"
@@ -50,7 +54,8 @@
     "./auth": {
       "types": "./dist/auth.d.ts",
       "import": "./dist/auth.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -76,7 +81,11 @@
     "@flowpanel/react": "workspace:*"
   },
   "peerDependencies": {
-    "next": "^15.0.0 || ^16.0.0",
+    "@prisma/client": ">=5.0.0 <7.0.0",
+    "bullmq": "^5.0.0",
+    "drizzle-orm": ">=0.36.0 <1.0.0",
+    "ioredis": "^5.10.0",
+    "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^3.0.0 || ^4.0.0",
@@ -99,8 +108,5 @@
   "devDependencies": {
     "tsup": "catalog:",
     "typescript": "catalog:"
-  },
-  "optionalDependencies": {
-    "ioredis": "^5.10.0"
   }
 }

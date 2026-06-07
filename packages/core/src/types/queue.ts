@@ -1,4 +1,5 @@
 export interface QueueOptions {
+  /** Nav entry and page title for this queue. */
   label: string;
   /** Full URL (e.g., http://localhost:3001/scraper) to the bull-board UI. */
   boardUrl: string;

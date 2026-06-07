@@ -4,11 +4,6 @@ import type { DashboardConfig, PageConfig } from "./types/dashboard.js";
 import type { QueueConfig } from "./types/queue.js";
 import type { ResourceConfig } from "./types/resource.js";
 
-/**
- * Normalize a page's `path` to the form used as the `pagesByPath` Map key
- * and emitted by `/${slug.join("/")}` at the runtime layer. Ensures a
- * leading slash and strips any trailing slash. Empty input → "/".
- */
 function normalizeRoutePath(raw: string): string {
   let p = raw.trim();
   if (p === "" || p === "/") return "/";
@@ -23,7 +18,6 @@ function resolveResourceName(ref: unknown, options: { name?: string }): string {
     const r = ref as { __name?: unknown; _?: { name?: unknown } };
     if (typeof r.__name === "string") return r.__name;
     if (r._ && typeof r._ === "object" && typeof r._.name === "string") return r._.name;
-    // Drizzle: table name lives on Symbol(drizzle:Name).
     for (const sym of Object.getOwnPropertySymbols(ref)) {
       if (sym.description === "drizzle:Name") {
         const v = (ref as Record<symbol, unknown>)[sym];
@@ -37,12 +31,6 @@ function resolveResourceName(ref: unknown, options: { name?: string }): string {
   );
 }
 
-/**
- * Sentinel BulkAction injected by `defineAdmin` when a resource has `delete`
- * enabled and no explicit `bulkActions`. The actual delete execution is wired
- * at the runtime layer (@flowpanel/next) in Phase 4; this `run` is a no-op
- * guard so the shape is a valid BulkAction.
- */
 const defaultDeleteBulk: BulkAction<unknown> = {
   key: "delete",
   label: "Delete",
@@ -54,17 +42,29 @@ const defaultDeleteBulk: BulkAction<unknown> = {
   }),
 };
 
-/**
- * Resolve a FlowPanel admin configuration.
- *
- * Pure: `config` and every nested `ResourceConfig` / `ResourceConfig.options`
- * is treated as immutable. For each resource where `delete` is enabled
- * (i.e. not `delete: { disabled: true }`) and `bulkActions` is `undefined`,
- * a CLONED resource with `bulkActions: [defaultDeleteBulk]` is produced.
- * Opt out with `bulkActions: []` or `delete: { disabled: true }`.
- */
+function readOnlyResource(r: ResourceConfig): ResourceConfig {
+  const { import: _import, ...options } = r.options;
+  return {
+    ...r,
+    options: {
+      ...options,
+      create: { ...r.options.create, disabled: true },
+      update: { ...r.options.update, disabled: true },
+      delete: { ...r.options.delete, disabled: true },
+      actions: [],
+      bulkActions: [],
+      ...(r.options.drawer ? { drawer: { ...r.options.drawer, actions: [] } } : {}),
+      columns: r.options.columns.map((c) =>
+        typeof c === "object" && c.editable ? { ...c, editable: false } : c,
+      ),
+    },
+  };
+}
+
+/** Resolve a FlowPanel admin configuration. */
 export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
   const resources = (config.resources ?? []).map((r) => {
+    if (config.readOnly) return readOnlyResource(r);
     const deleteDisabled = r.options.delete?.disabled === true;
     if (!deleteDisabled && r.options.bulkActions === undefined) {
       return { ...r, options: { ...r.options, bulkActions: [defaultDeleteBulk] } };
@@ -87,10 +87,6 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
   }
   const dashboardsByPath = new Map<string, DashboardConfig>();
   for (const d of config.dashboards ?? []) {
-    // Key by the canonical route form. `matchDashboard` and
-    // `decodeDashboardPath` both resolve via `/${slug.join("/")}`, so a
-    // non-canonical `path` like "pipeline" must be stored as "/pipeline" to be
-    // reachable — and so it collides correctly with a same-path page below.
     const path = normalizeRoutePath(d.path);
     if (dashboardsByPath.has(path)) {
       throw new Error(`Duplicate dashboard path: "${d.path}".`);
@@ -116,9 +112,6 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
     if (queuesByKey.has(key)) throw new Error(`duplicate queue key: ${key}`);
     queuesByKey.set(key, q);
   }
-  // Normalize basePath: must start with `/`, must not end with `/`. We
-  // accept `""` as a shorthand for "no prefix" (admin mounted at the root)
-  // by storing it as the empty string; consumers join with `${basePath}/...`.
   const rawBasePath = config.basePath ?? "/admin";
   let basePath = rawBasePath.trim();
   if (basePath !== "" && !basePath.startsWith("/")) basePath = `/${basePath}`;
