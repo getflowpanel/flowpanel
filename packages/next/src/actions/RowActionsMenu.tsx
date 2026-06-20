@@ -11,30 +11,11 @@ import {
 } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import type { ActionInputIssue } from "../runtime/action-helpers.js";
+import { ActionFormDialog } from "./ActionFormDialog.js";
+import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field.js";
 import type { SerializedRowAction } from "./row-action.js";
 
-/**
- * Trailing per-row menu rendered in the last cell of a resource list table
- * when `resource.options.actions` is non-empty.
- *
- * Actions with `placement: "inline"` render as outlined buttons; the rest go
- * into a kebab dropdown. On click:
- *
- * 1. If `action.confirm` is set → show the AlertDialog confirm.
- * 2. POST `/api/flowpanel/<resource>/<id>/actions/<key>`.
- * 3. Surface the `ActionResult`:
- *    - `ok: true` + `message` → success toast (falls back to "<label> ran")
- *    - `ok: true` + `download` → browser download via `triggerDownload`
- *    - `ok: true` + `redirect` → navigate via `router.push`
- *    - `ok: false` → error toast with the message
- * 4. `router.refresh()` so the list re-renders with the new server state
- *    (unless we navigated away).
- *
- * `hidden` and `disabled` are enforced server-side (see `rowActionRoute`);
- * we don't pre-filter on the client. A hand-crafted POST hitting a hidden
- * row gets a 404 — same as a stale UI state would. Per-row client-side
- * disable will land alongside the `prerender-cells` per-row action map.
- */
 export interface RowActionsMenuProps {
   resource: string;
   id: string;
@@ -48,13 +29,14 @@ type ServerResult =
       redirect?: string;
       download?: { filename: string; data: string; mime?: string };
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; issues?: ActionInputIssue[] };
 
 export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
   const router = useRouter();
   const toast = useToast();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedRowAction | null>(null);
+  const [formAction, setFormAction] = React.useState<SerializedRowAction | null>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   const menuActions = actions.filter((a) => a.placement !== "inline");
@@ -62,19 +44,25 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
 
   if (menuActions.length === 0 && inlineActions.length === 0) return null;
 
-  async function execute(action: SerializedRowAction): Promise<void> {
+  /** Runs the action. */
+  async function execute(
+    action: SerializedRowAction,
+    input: Record<string, unknown> = {},
+  ): Promise<ActionFormFieldErrors | null> {
     setPending(action.key);
     try {
       const res = await fetch(`/api/flowpanel/${resource}/${id}/actions/${action.key}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: "{}",
+        body: JSON.stringify(input),
       });
       const result = (await res.json()) as ServerResult;
 
       if (!result.ok) {
+        const fieldErrors = mapActionIssuesToFieldErrors(result.issues);
+        if (fieldErrors) return fieldErrors;
         toast.error(result.error || `${action.label} failed`);
-        return;
+        return null;
       }
 
       toast.success(result.message ?? `${action.label} ran`);
@@ -87,8 +75,10 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
       } else {
         router.refresh();
       }
+      return null;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Network error");
+      return null;
     } finally {
       setPending(null);
     }
@@ -96,6 +86,10 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
 
   function onActionClick(action: SerializedRowAction): void {
     setMenuOpen(false);
+    if (action.hasForm) {
+      setFormAction(action);
+      return;
+    }
     if (action.confirm) {
       setConfirming(action);
       return;
@@ -108,8 +102,6 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
       role="toolbar"
       aria-label="Row actions"
       className="flex items-center justify-end gap-1"
-      // Prevent row-click handlers (drawer open) from firing when the user
-      // is interacting with the action menu.
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
@@ -132,7 +124,7 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
             <button
               type="button"
               aria-label="Row actions"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-fp-sm text-fp-text-3 hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-border-3"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-fp-sm text-fp-text-3 hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-accent"
               disabled={pending !== null}
             >
               <KebabIcon />
@@ -144,7 +136,7 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
                 key={a.key}
                 disabled={pending === a.key}
                 onSelect={() => onActionClick(a)}
-                className={a.variant === "destructive" ? "text-fp-danger" : undefined}
+                className={a.variant === "destructive" ? "text-fp-err" : undefined}
               >
                 {a.label}
               </DropdownMenuItem>
@@ -169,6 +161,24 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
             const action = confirming;
             setConfirming(null);
             await execute(action);
+          }}
+        />
+      ) : null}
+
+      {formAction ? (
+        <ActionFormDialog
+          title={formAction.confirm?.title ?? formAction.label}
+          {...(formAction.confirm?.description
+            ? { description: formAction.confirm.description }
+            : {})}
+          submitLabel={formAction.confirm?.confirmLabel ?? formAction.label}
+          {...(formAction.variant === "destructive" ? { variant: "destructive" as const } : {})}
+          fields={formAction.form ?? []}
+          onCancel={() => setFormAction(null)}
+          onSubmit={async (input) => {
+            const fieldErrors = await execute(formAction, input);
+            if (!fieldErrors) setFormAction(null);
+            return fieldErrors;
           }}
         />
       ) : null}

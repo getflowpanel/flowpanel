@@ -15,9 +15,9 @@ export { inlineUpdateRoute } from "./actions/inline-update.js";
 export {
   type FormActionResult,
   makeActions,
-  makeFormAction,
   type ResourceActions,
 } from "./actions/resource-actions.js";
+export { resourceCreateRoute, resourceUpdateRoute } from "./actions/resource-form.js";
 export {
   rowActionRoute,
   type SerializedRowAction,

@@ -320,4 +320,23 @@ describe("serializeBulkAction", () => {
     });
     expect(wire.confirm).toEqual({ title: "Are you sure?" });
   });
+
+  it("serializes form field descriptors so BulkActionsBar can render them", () => {
+    const wire = serializeBulkAction({
+      key: "archive",
+      label: "Archive",
+      form: [{ name: "reason", type: "textarea", required: true }],
+      run: async () => ({ ok: true }),
+    });
+    expect(wire.form).toEqual([{ name: "reason", type: "textarea", required: true }]);
+  });
+
+  it("omits `form` from the wire shape when there's no form", () => {
+    const wire = serializeBulkAction({
+      key: "k",
+      label: "L",
+      run: async () => ({ ok: true }),
+    });
+    expect("form" in wire).toBe(false);
+  });
 });

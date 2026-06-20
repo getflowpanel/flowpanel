@@ -1,4 +1,4 @@
-import type { FilterDef, FilterType } from "@flowpanel/core";
+import type { FilterDef, FilterInValue, FilterRangeValue, FilterType } from "@flowpanel/core";
 
 export interface ListParams {
   page: number;
@@ -7,18 +7,7 @@ export interface ListParams {
   filters: Record<string, unknown>;
 }
 
-/**
- * Parse list URL params into the shape the adapter list query expects.
- *
- * When `allowedFields` is supplied (the set of fields the resource declares
- * as filterable/sortable — see `declaredFieldSet`), filter keys and the sort
- * field are validated against it: unknown filter keys are dropped and an
- * unknown sort field is ignored (falls back to `defaultSort` / null). This
- * closes the unvalidated-filter/sort data-oracle — a hand-crafted
- * `?f_passwordHash=…` or `?sort=ssn:asc` can't probe undeclared columns.
- * Omitting `allowedFields` preserves the prior permissive behavior (used by
- * call sites that don't have a declared-field set, and by the unit tests).
- */
+/** Parse list URL params into the shape the adapter list query expects. */
 export function parseListParams(
   sp: URLSearchParams,
   defaultSort?: { field: string; dir: "asc" | "desc" },
@@ -32,7 +21,6 @@ export function parseListParams(
     ? (() => {
         const [field, dir] = sortRaw.split(":");
         if (!field || (dir !== "asc" && dir !== "desc")) return null;
-        // Ignore a sort on an undeclared field.
         if (allowedFields && !allowedFields.has(field)) return null;
         return { field, dir };
       })()
@@ -44,7 +32,6 @@ export function parseListParams(
   for (const [k, v] of sp.entries()) {
     if (!k.startsWith("f_")) continue;
     const field = k.slice(2);
-    // Drop filters on undeclared fields.
     if (allowedFields && !allowedFields.has(field)) continue;
     filters[field] = v;
   }
@@ -52,13 +39,7 @@ export function parseListParams(
   return { page, search, sort, filters };
 }
 
-/**
- * Build the allowlist of fields a resource exposes for filtering / sorting.
- * Union of declared column fields (`options.columns`), declared filter fields
- * (`options.filters`), declared search fields (`options.search`), and the
- * default-sort field — every field the resource author opted in to. Anything
- * outside this set is rejected by `parseListParams`.
- */
+/** Build the allowlist of fields a resource exposes for filtering / sorting. */
 export function declaredFieldSet(options: {
   columns?: unknown[] | undefined;
   filters?: unknown[] | undefined;
@@ -109,7 +90,6 @@ export async function resolveFilterSpecs<Row>(
       options = resolved.map((o) => ({ label: o.label, value: String(o.value) }));
     } else if (Array.isArray(def.options)) {
       options = def.options.map((o) => {
-        // String shorthand: `["a", "b"]` → `[{label:"a",value:"a"}, …]`.
         if (typeof o === "string") return { label: o, value: o };
         return { label: o.label, value: String(o.value) };
       });
@@ -120,6 +100,95 @@ export async function resolveFilterSpecs<Row>(
       ...(def.label ? { label: def.label } : {}),
       ...(options ? { options } : {}),
     });
+  }
+  return out;
+}
+
+/** `FilterDef.defaultValue` sentinels — always pass through untouched, for every filter type. */
+const FILTER_NULL_SENTINELS = new Set(["__null__", "__notnull__"]);
+
+/** Strict `YYYY-MM-DD` — what `<input type="date">` (`DateRangeFilter`) emits. */
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Parse one side of a `numeric-range` value; `undefined` if empty or not a finite number. */
+function decodeNumericBound(raw: string): number | undefined {
+  if (raw === "" || !Number.isFinite(Number(raw))) return undefined;
+  return Number(raw);
+}
+
+/** Parse one side of a `daterange` value; `undefined` if empty or not a valid `YYYY-MM-DD`. */
+function decodeDateBound(raw: string, endOfDay: boolean): Date | undefined {
+  if (!DATE_ONLY_RE.test(raw)) return undefined;
+  const d = new Date(`${raw}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+/** Coerce/validate/decode a single filter value against its resolved `FilterDef`. */
+function sanitizeFilterValue(value: string, spec: ResolvedFilterSpec | undefined): unknown {
+  if (FILTER_NULL_SENTINELS.has(value)) return value;
+  if (!spec) return value;
+
+  switch (spec.type) {
+    case "select": {
+      if (!spec.options) return value;
+      const allowed = new Set(spec.options.map((o) => o.value));
+      return allowed.has(value) ? value : undefined;
+    }
+    case "multiselect": {
+      const parts = value
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
+      const kept = spec.options
+        ? (() => {
+            const allowed = new Set(spec.options?.map((o) => o.value));
+            return parts.filter((v) => allowed.has(v));
+          })()
+        : parts;
+      return kept.length > 0 ? ({ op: "in", values: kept } satisfies FilterInValue) : undefined;
+    }
+    case "boolean":
+      return value === "true" || value === "false" ? value : undefined;
+    case "numeric-range": {
+      const [minRaw = "", maxRaw = ""] = value.split(":");
+      const gte = decodeNumericBound(minRaw);
+      const lte = decodeNumericBound(maxRaw);
+      if (gte === undefined && lte === undefined) return undefined;
+      return {
+        op: "range",
+        ...(gte !== undefined ? { gte } : {}),
+        ...(lte !== undefined ? { lte } : {}),
+      } satisfies FilterRangeValue;
+    }
+    case "daterange": {
+      const [fromRaw = "", toRaw = ""] = value.split(":");
+      const gte = decodeDateBound(fromRaw, false);
+      const lte = decodeDateBound(toRaw, true);
+      if (gte === undefined && lte === undefined) return undefined;
+      return {
+        op: "range",
+        ...(gte !== undefined ? { gte } : {}),
+        ...(lte !== undefined ? { lte } : {}),
+      } satisfies FilterRangeValue;
+    }
+    default:
+      return value;
+  }
+}
+
+export function sanitizeFilterValues(
+  filters: Record<string, unknown>,
+  specs: ReadonlyArray<ResolvedFilterSpec>,
+): Record<string, unknown> {
+  const byField = new Map(specs.map((s) => [s.field, s]));
+  const out: Record<string, unknown> = {};
+  for (const [field, raw] of Object.entries(filters)) {
+    if (typeof raw !== "string") {
+      out[field] = raw;
+      continue;
+    }
+    const kept = sanitizeFilterValue(raw, byField.get(field));
+    if (kept !== undefined) out[field] = kept;
   }
   return out;
 }

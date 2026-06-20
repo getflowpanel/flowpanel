@@ -1,15 +1,9 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { humanize, type NavGroup } from "@flowpanel/react";
+import { humanize } from "@flowpanel/core";
+import type { NavGroup } from "@flowpanel/react";
 import { buildHref } from "./href.js";
 
-/**
- * Extract the URL slug for a resource. Resolution order:
- *   1. `options.name` (explicit user override)
- *   2. `ref.__name` (test fixture / generic shape)
- *   3. `ref._.name` (older Drizzle / common adapters)
- *   4. Drizzle 0.30+ stores the table name under `Symbol(drizzle:BaseName)`
- *   5. fallback: "resource" (last resort — should not happen in practice)
- */
+/** Extract the URL slug for a resource. */
 export function resourceNavName(resource: { ref: unknown; options: { name?: string } }): string {
   if (resource.options.name) return resource.options.name;
   const ref = resource.ref as { __name?: unknown; _?: { name?: unknown } } | null | undefined;
@@ -35,9 +29,6 @@ export function buildNav(config: ResolvedAdminConfig): NavGroup[] {
   }));
   if (dashboardItems.length) groups.push({ label: "Dashboards", items: dashboardItems });
 
-  // Pages — both in-shell (`component`) and external (`href`) entries
-  // appear in nav. In-shell entries link to `<basePath><path>`; external
-  // entries link to the user-supplied `href` verbatim.
   const pageItems = [...config.pagesByPath.values()].map((p) => ({
     label: p.label,
     href:

@@ -1,4 +1,16 @@
+import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdminConfig {
+  return {
+    auth: {
+      session: async () => ({ user: { id: "u1", role: "admin" } }),
+      role: () => "admin",
+    },
+    resourcesByName: new Map(),
+    ...overrides,
+  } as ResolvedAdminConfig;
+}
 
 type Handler = (payload: unknown) => void;
 const listeners = new Map<string, Set<Handler>>();
@@ -49,7 +61,7 @@ describe("stream() — SSE broker", () => {
   });
 
   it("returns text/event-stream headers with no-cache + X-Accel-Buffering", async () => {
-    const h = stream({ realtime: { driver: "memory" } } as never);
+    const h = stream(makeConfig({ realtime: { driver: "memory" } }));
     const req = new Request("http://localhost/stream");
     const res = await h(req);
     expect(res.headers.get("content-type")).toBe("text/event-stream");
@@ -58,7 +70,7 @@ describe("stream() — SSE broker", () => {
   });
 
   it("emits a 'ready' SSE event on connect", async () => {
-    const h = stream({} as never);
+    const h = stream(makeConfig());
     const req = new Request("http://localhost/stream");
     const res = await h(req);
     const reader = res.body!.getReader();
@@ -69,7 +81,7 @@ describe("stream() — SSE broker", () => {
   });
 
   it("subscribes to each ?channel and forwards JSON events", async () => {
-    const h = stream({} as never);
+    const h = stream(makeConfig());
     const req = new Request("http://localhost/stream?channel=resource.users&channel=custom");
     const res = await h(req);
     const reader = res.body!.getReader();
@@ -91,7 +103,7 @@ describe("stream() — SSE broker", () => {
 
   it("sends a heartbeat comment at the configured interval", async () => {
     vi.useFakeTimers();
-    const h = stream({} as never);
+    const h = stream(makeConfig());
     const req = new Request("http://localhost/stream");
     const res = await h(req);
     const reader = res.body!.getReader();
@@ -105,7 +117,7 @@ describe("stream() — SSE broker", () => {
   });
 
   it("disposers fire when the request is aborted (disposer removes listener)", async () => {
-    const h = stream({} as never);
+    const h = stream(makeConfig());
     const ctrl = new AbortController();
     const req = new Request("http://localhost/stream?channel=foo", { signal: ctrl.signal });
     const res = await h(req);
@@ -120,7 +132,7 @@ describe("stream() — SSE broker", () => {
   });
 
   it("emits empty payload for undefined events", async () => {
-    const h = stream({} as never);
+    const h = stream(makeConfig());
     const req = new Request("http://localhost/stream?channel=x");
     const res = await h(req);
     const reader = res.body!.getReader();

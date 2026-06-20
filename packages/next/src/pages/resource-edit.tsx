@@ -1,11 +1,11 @@
 import type { ItemQueryContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { checkRequireRole, runWithRequestContext } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
-import { makeFormAction } from "../actions/resource-actions.js";
+import { buildHref } from "../runtime/href.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
+import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
 import { NotFound } from "./not-found.js";
-import { pickSchema } from "./resource-create.js";
 
 export interface ResourceEditPageProps {
   config: ResolvedAdminConfig;
@@ -38,8 +38,9 @@ export async function ResourceEditPage({ config, resource, name, id, req }: Reso
   if (!row) return <NotFound />;
 
   const intro = config.adapter.introspect(resource.ref);
-  const schema = pickSchema(config, resource, "update");
-  const action = makeFormAction(config, resource, "update", id);
+  const action = `/api/flowpanel/${name}/${id}/edit`;
+  const declared = declaredFormFields(resource, "update");
+  const fields = declared ? await resolveFormFields(config, declared, reqCtx, row) : undefined;
 
   return (
     <>
@@ -47,10 +48,11 @@ export async function ResourceEditPage({ config, resource, name, id, req }: Reso
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
-          schema={schema}
           columns={intro.columns}
           defaultValues={row}
+          {...(fields ? { fields } : {})}
           submitLabel="Save"
+          redirectTo={buildHref(config, name, id)}
         />
       </div>
     </>

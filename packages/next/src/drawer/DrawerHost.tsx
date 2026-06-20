@@ -1,6 +1,6 @@
 "use client";
 // LOC-OK: drawer shell — fields / resource / widgets / statgroup tab views plus
-// open/close + action state in one cohesive host; splitting scatters that state.
+import type { ColumnFormat } from "@flowpanel/core";
 import {
   ConfirmDialog,
   Drawer,
@@ -13,6 +13,7 @@ import {
   MetricCard,
   type NumericFormat,
   RealtimeRefresh,
+  renderFormatCell,
   Tabs,
   TabsContent,
   TabsList,
@@ -24,8 +25,24 @@ import {
 } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
+import { ActionFormDialog } from "../actions/ActionFormDialog.js";
+import {
+  type ActionFormField,
+  type ActionFormFieldErrors,
+  mapActionIssuesToFieldErrors,
+} from "../actions/action-form-field.js";
+import type { ActionInputIssue } from "../runtime/action-helpers.js";
 import { formatFieldValue } from "../runtime/format-field-value.js";
 import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route.js";
+
+function toActionFormFields(form: SerializedDrawerAction["form"]): ActionFormField[] {
+  if (!form) return [];
+  return form.map((f) => ({
+    name: f.name,
+    ...(f.type ? { type: f.type } : {}),
+    ...(f.options ? { options: f.options.map((o) => ({ label: o, value: o })) } : {}),
+  }));
+}
 
 function resolveFieldEntries(
   row: Record<string, unknown>,
@@ -35,12 +52,37 @@ function resolveFieldEntries(
   return fields.map((k) => [k, row[k]]);
 }
 
-function FieldsView({ row, fields }: { row: Record<string, unknown>; fields: "*" | string[] }) {
+function FieldsView({
+  row,
+  fields,
+  prerendered,
+  labels,
+  formats,
+}: {
+  row: Record<string, unknown>;
+  fields: "*" | string[];
+  prerendered: Record<string, string>;
+  labels: Record<string, string>;
+  formats: Record<string, ColumnFormat>;
+}) {
   const entries = resolveFieldEntries(row, fields);
   return (
     <KV>
       {entries.map(([k, v]) => (
-        <KVRow key={k} label={humanize(k)} value={formatFieldValue(v)} />
+        <KVRow
+          key={k}
+          label={labels[k] ?? humanize(k)}
+          value={
+            prerendered[k] !== undefined ? (
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: server-prerendered from the resource's own column render
+              <span dangerouslySetInnerHTML={{ __html: prerendered[k] }} />
+            ) : formats[k] !== undefined ? (
+              renderFormatCell(formats[k], v)
+            ) : (
+              formatFieldValue(v)
+            )
+          }
+        />
       ))}
     </KV>
   );
@@ -195,7 +237,6 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
             </Fragment>
           );
         }
-        // unsupported
         return (
           <div
             key={key}
@@ -213,7 +254,15 @@ function DrawerBody({ payload }: { payload: DrawerPayload }) {
   const { state, open } = useAdminDrawer();
   const tabs = payload.tabs;
   if (!tabs || tabs.length === 0) {
-    return <FieldsView row={payload.row} fields={payload.fields} />;
+    return (
+      <FieldsView
+        row={payload.row}
+        fields={payload.fields}
+        prerendered={payload.prerendered}
+        labels={payload.labels}
+        formats={payload.formats}
+      />
+    );
   }
   const firstKey = tabs[0]?.key ?? "";
   const activeTab = state.tab ?? firstKey;
@@ -236,7 +285,13 @@ function DrawerBody({ payload }: { payload: DrawerPayload }) {
       {tabs.map((t) => (
         <TabsContent key={t.key} value={t.key} className="mt-4">
           {t.kind === "fields" ? (
-            <FieldsView row={payload.row} fields={t.fields} />
+            <FieldsView
+              row={payload.row}
+              fields={t.fields}
+              prerendered={payload.prerendered}
+              labels={payload.labels}
+              formats={payload.formats}
+            />
           ) : t.kind === "resource" ? (
             <ResourceTabView tab={t} />
           ) : t.kind === "widgets" ? (
@@ -256,6 +311,7 @@ interface DrawerActionResult {
   ok: boolean;
   message?: string;
   error?: string;
+  issues?: ActionInputIssue[];
   refresh?: boolean | string | string[];
   redirect?: string;
   download?: { filename: string; data: string; mime?: string };
@@ -276,43 +332,56 @@ function ActionButton({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const hasForm = Boolean(action.form && action.form.length > 0);
 
-  async function runAction() {
+  /** Runs the action. */
+  async function runAction(
+    input: Record<string, unknown> = {},
+  ): Promise<ActionFormFieldErrors | null> {
     setPending(true);
     try {
       const res = await fetch(
         `/api/flowpanel/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(
           id,
         )}/actions/${encodeURIComponent(action.key)}`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(input),
+        },
       );
       const result = (await res.json().catch(() => ({
         ok: false,
         error: res.statusText,
       }))) as DrawerActionResult;
       if (!res.ok || result.ok === false) {
+        const fieldErrors = mapActionIssuesToFieldErrors(result.issues);
+        if (fieldErrors) return fieldErrors;
         toast.error(result.error ?? `Error ${res.status}`);
-        return;
+        return null;
       }
       if (result.message) toast.success(result.message);
       if (result.download) triggerDownload(result.download);
       if (result.redirect) {
         router.push(result.redirect);
       } else if (result.refresh !== false) {
-        // Invalidate the parent table (RSC) AND re-fetch the drawer's own
-        // GET so its body stops showing pre-action values.
         router.refresh();
         onActionSuccess();
       }
+      return null;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Action failed");
+      return null;
     } finally {
       setPending(false);
     }
   }
 
   function onClick() {
-    if (action.confirm) {
+    if (hasForm) {
+      setFormOpen(true);
+    } else if (action.confirm) {
       setConfirmOpen(true);
     } else {
       void runAction();
@@ -334,14 +403,30 @@ function ActionButton({
       >
         {pending ? "…" : action.label}
       </button>
-      {action.confirm ? (
+      {formOpen ? (
+        <ActionFormDialog
+          title={action.confirm ?? action.label}
+          submitLabel={action.label}
+          {...(action.variant === "destructive" ? { variant: "destructive" as const } : {})}
+          fields={toActionFormFields(action.form)}
+          onCancel={() => setFormOpen(false)}
+          onSubmit={async (input) => {
+            const fieldErrors = await runAction(input);
+            if (!fieldErrors) setFormOpen(false);
+            return fieldErrors;
+          }}
+        />
+      ) : null}
+      {!hasForm && action.confirm ? (
         <ConfirmDialog
           open={confirmOpen}
           onOpenChange={setConfirmOpen}
           title={action.confirm}
           confirmLabel={action.label}
           {...(action.variant === "destructive" ? { variant: "destructive" as const } : {})}
-          onConfirm={runAction}
+          onConfirm={() => {
+            void runAction();
+          }}
         />
       ) : null}
     </>
@@ -353,9 +438,6 @@ export function DrawerHost() {
   const [payload, setPayload] = useState<DrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // Bumped after each `refresh: true` action so the effect below re-runs
-  // and re-fetches the drawer's GET payload — otherwise the drawer body
-  // keeps displaying pre-action values until the user closes + reopens.
   const [reloadKey, setReloadKey] = useState(0);
 
   const { resource, id } = state;

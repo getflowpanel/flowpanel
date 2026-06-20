@@ -1,5 +1,11 @@
-import type { Adapter, ResolvedAdminConfig, WidgetConfig, WidgetContext } from "@flowpanel/core";
-import { RealtimeRefresh, TableWidget } from "@flowpanel/react";
+import type {
+  Adapter,
+  ResolvedAdminConfig,
+  ResourceConfig,
+  WidgetConfig,
+  WidgetContext,
+} from "@flowpanel/core";
+import { MetricCard, RealtimeRefresh, TableWidget } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ServerCard } from "../runtime/_server-card.js";
@@ -63,6 +69,77 @@ function findRealtimeChannels(tree: ReactNode): unknown {
   if (el.type === TableWidget && el.props.realtime !== undefined) return el.props.realtime;
   return findRealtimeChannels(el.props.children);
 }
+
+/**
+ * Walks a rendered tree and returns the props of the first element whose
+ * `type` matches `target`, or `undefined` if none is found. Shared across
+ * the describe blocks below (unlike the near-identical helpers scoped
+ * inside individual `describe` callbacks further down this file).
+ */
+function findElementByType(tree: ReactNode, target: unknown): Record<string, unknown> | undefined {
+  if (tree === null || tree === undefined || typeof tree !== "object") return undefined;
+  if (Array.isArray(tree)) {
+    for (const c of tree) {
+      const found = findElementByType(c, target);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (!isValidElement(tree)) return undefined;
+  const el = tree as ReactElement<Record<string, unknown> & { children?: ReactNode }>;
+  if (el.type === target) return el.props;
+  return findElementByType(el.props.children, target);
+}
+
+describe("renderWidget — metric icon", () => {
+  it("passes options.icon through to MetricCard", async () => {
+    const widget: WidgetConfig = {
+      kind: "metric",
+      label: "Orders today",
+      query: async () => 12,
+      options: { icon: "📦" },
+    } as never;
+    const node = await renderWidget(widget, ctx, cfg);
+    const props = findElementByType(node, MetricCard);
+    expect(props?.icon).toBe("📦");
+  });
+
+  it("omits the icon prop when options.icon is unset", async () => {
+    const widget: WidgetConfig = {
+      kind: "metric",
+      label: "Orders today",
+      query: async () => 12,
+      options: {},
+    } as never;
+    const node = await renderWidget(widget, ctx, cfg);
+    const props = findElementByType(node, MetricCard);
+    expect(props?.icon).toBeUndefined();
+  });
+});
+
+describe("renderWidget — table emptyState", () => {
+  it("passes options.emptyState through to TableWidget", async () => {
+    const empty = "No orders yet" as unknown as ReactNode;
+    const widget: WidgetConfig = {
+      kind: "table",
+      options: { query: async () => [], emptyState: empty },
+    } as never;
+    const node = await renderWidget(widget, ctx, cfg);
+    expect(isValidElement(node)).toBe(true);
+    const el = node as ReactElement<{ emptyState?: ReactNode }>;
+    expect(el.props.emptyState).toBe(empty);
+  });
+
+  it("omits emptyState when unset", async () => {
+    const widget: WidgetConfig = {
+      kind: "table",
+      options: { query: async () => [] },
+    } as never;
+    const node = await renderWidget(widget, ctx, cfg);
+    const el = node as ReactElement<{ emptyState?: ReactNode }>;
+    expect(el.props.emptyState).toBeUndefined();
+  });
+});
 
 describe("renderWidget — realtime wiring", () => {
   it("metric widget mounts a RealtimeRefresh subscriber when options.realtime is set", async () => {
@@ -240,5 +317,100 @@ describe("renderWidget — custom widgets server-render", () => {
     }
 
     expect(hasComponentProp(node)).toBe(false);
+  });
+});
+
+describe("renderWidget — table widget row projection", () => {
+  it("drops an undeclared column from a resource-bound table widget's rows", async () => {
+    // The adapter's raw row carries `passwordHash`, which the `users`
+    // resource never declares as a column — a dashboard table binding to
+    // `resource: "users"` must not leak it to the client.
+    const boundAdapter: Adapter = {
+      kind: "drizzle",
+      db: {},
+      introspect: () => ({ name: "users", columns: [], primaryKey: "id" }),
+      inferSchema: () => ({}) as never,
+      list: async () => ({
+        rows: [{ id: "1", name: "Ann", passwordHash: "secret" }],
+        total: 1,
+        page: 1,
+        pageSize: 10,
+      }),
+      get: async () => null,
+      create: async () => ({}),
+      update: async () => ({}),
+      delete: async () => undefined,
+    };
+    const usersResource: ResourceConfig = {
+      __kind: "resource",
+      ref: { __name: "users" },
+      options: { columns: ["id", "name"] },
+    } as never;
+    const boundCfg: ResolvedAdminConfig = {
+      adapter: boundAdapter,
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [usersResource],
+      resourcesByName: new Map([["users", usersResource]]),
+      dashboardsByPath: new Map(),
+      __resolved: true,
+    } as never;
+    const widget: WidgetConfig = {
+      kind: "table",
+      options: { resource: "users" },
+    } as never;
+
+    const node = await renderWidget(widget, ctx, boundCfg);
+    expect(isValidElement(node)).toBe(true);
+    const el = node as ReactElement<{ rows: Record<string, unknown>[] }>;
+    expect(el.type).toBe(TableWidget);
+    expect(el.props.rows).toEqual([{ id: "1", name: "Ann" }]);
+    expect(el.props.rows[0]).not.toHaveProperty("passwordHash");
+  });
+
+  it("widens the projection with an explicit widget.options.columns override not on the resource", async () => {
+    // The widget author explicitly asked for `note` even though it's not a
+    // resource `columns` entry — that's a legitimate declaration for THIS
+    // widget instance, so it must survive projection. `passwordHash` still
+    // must not.
+    const boundAdapter: Adapter = {
+      kind: "drizzle",
+      db: {},
+      introspect: () => ({ name: "users", columns: [], primaryKey: "id" }),
+      inferSchema: () => ({}) as never,
+      list: async () => ({
+        rows: [{ id: "1", name: "Ann", note: "vip", passwordHash: "secret" }],
+        total: 1,
+        page: 1,
+        pageSize: 10,
+      }),
+      get: async () => null,
+      create: async () => ({}),
+      update: async () => ({}),
+      delete: async () => undefined,
+    };
+    const usersResource: ResourceConfig = {
+      __kind: "resource",
+      ref: { __name: "users" },
+      options: { columns: ["id", "name"] },
+    } as never;
+    const boundCfg: ResolvedAdminConfig = {
+      adapter: boundAdapter,
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [usersResource],
+      resourcesByName: new Map([["users", usersResource]]),
+      dashboardsByPath: new Map(),
+      __resolved: true,
+    } as never;
+    const widget: WidgetConfig = {
+      kind: "table",
+      options: { resource: "users", columns: ["note"] },
+    } as never;
+
+    const node = await renderWidget(widget, ctx, boundCfg);
+    const el = node as ReactElement<{ rows: Record<string, unknown>[] }>;
+    // `name` stays too — it's still a declared column on the `users`
+    // resource even though this particular widget doesn't render it.
+    expect(el.props.rows).toEqual([{ id: "1", name: "Ann", note: "vip" }]);
+    expect(el.props.rows[0]).not.toHaveProperty("passwordHash");
   });
 });

@@ -14,6 +14,7 @@ import type * as React from "react";
 import { formatFieldValue } from "../runtime/format-field-value.js";
 import { buildHref } from "../runtime/href.js";
 import { prerenderResourceCells } from "../runtime/prerender-cells.js";
+import { projectRow } from "../runtime/project-row.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
 import { NotFound } from "./not-found.js";
@@ -66,8 +67,6 @@ export async function ResourceDetailPage({
   );
 
   const tabs = resource.options.detail?.tabs;
-  // No `detail.tabs` → preserve the original "all fields in a single KV"
-  // rendering so existing detail pages don't change shape.
   const hasTabs = Array.isArray(tabs) && tabs.length > 0;
 
   return (
@@ -84,7 +83,7 @@ export async function ResourceDetailPage({
       ) : (
         <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
           <KV>
-            {Object.entries(row).map(([k, v]) => (
+            {Object.entries(projectRow(resource, row)).map(([k, v]) => (
               <KVRow key={k} label={k} value={formatFieldValue(v)} />
             ))}
           </KV>
@@ -94,21 +93,7 @@ export async function ResourceDetailPage({
   );
 }
 
-/**
- * Server-prerender each `DetailTab` into a React node. The client only
- * receives a serialized `{ key, label, content }[]` payload — function refs
- * (`render`, `hidden`, `filter`) stay on the server.
- *
- * Tab kinds:
- *
- * - **fields**: render KV pairs for the listed fields (or all when `"*"`).
- * - **resource**: fetch a related resource list via `adapter.list` and
- *   render a read-only `<DataTable>` (no row click / no actions).
- * - **render**: invoke the user's render callback server-side.
- *
- * The order in the result matches the declaration order. `hidden` filters
- * are applied server-side so the client never sees a tab it can't show.
- */
+/** Server-prerender each `DetailTab` into a React node. */
 async function renderTabs<Row extends Record<string, unknown>>(
   config: ResolvedAdminConfig,
   reqCtx: Awaited<ReturnType<typeof buildRequestContext>>,
@@ -142,9 +127,6 @@ async function renderTab<Row extends Record<string, unknown>>(
     if (!target) {
       return <div className="text-fp-text-3">Unknown resource: {tab.resource}</div>;
     }
-    // Role-gate the related resource the same way its own list page would —
-    // a tab must not surface rows the viewer can't read. Throws
-    // FlowpanelAccessError, handled by the page boundary.
     checkRequireRole(target.options.requireRole, reqCtx.role, reqCtx.session);
     const filterValues = tab.filter ? tab.filter(row) : {};
     const listCtx: ListQueryContext<unknown> = {
@@ -176,10 +158,11 @@ async function renderTab<Row extends Record<string, unknown>>(
       return <div className="px-2 py-6 text-sm text-fp-text-3">No related rows</div>;
     }
     const rowKey = (target.options.rowKey as string | undefined) ?? "id";
+    const clientRows = (list.rows as Row[]).map((r) => projectRow(target, r));
     return (
       <DataTable
         columns={columns}
-        rows={list.rows as Row[]}
+        rows={clientRows}
         total={list.total}
         page={list.page}
         pageSize={list.pageSize}
@@ -190,7 +173,6 @@ async function renderTab<Row extends Record<string, unknown>>(
     );
   }
 
-  // `fields` mode (default): render selected fields as KV.
   const selected = tab.fields;
   const fieldList = selectFields(row, selected);
   return (

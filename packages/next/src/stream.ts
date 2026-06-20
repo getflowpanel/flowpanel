@@ -1,10 +1,33 @@
-import type { ResolvedAdminConfig } from "@flowpanel/core";
+import type { ResolvedAdminConfig, ResourceConfig, Session } from "@flowpanel/core";
+import { checkRequireRole } from "@flowpanel/core";
 import { bindPublisher, subscribe } from "./runtime/publish.js";
 
 const HEARTBEAT_MS = 15_000;
 
+const MAX_CHANNELS = 25;
+const CHANNEL_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
+
 export interface StreamOptions {
   heartbeatMs?: number;
+}
+
+/** Whether `session`/the caller's role may subscribe to `channel`. */
+function channelAllowed(
+  channel: string,
+  config: ResolvedAdminConfig,
+  session: Session | null,
+): boolean {
+  if (!CHANNEL_PATTERN.test(channel)) return false;
+  const resourceName = channel.startsWith("resource.") ? channel.slice("resource.".length) : null;
+  if (resourceName === null) return true;
+  const resource: ResourceConfig | undefined = config.resourcesByName.get(resourceName);
+  if (!resource || resource.options.requireRole === undefined) return true;
+  try {
+    checkRequireRole(resource.options.requireRole, config.auth.role(session), session);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function stream(
@@ -15,8 +38,20 @@ export function stream(
 
   return async function streamGET(req: Request): Promise<Response> {
     bindPublisher(config);
+
+    const session = await config.auth.session();
+    const role = config.auth.role(session);
+    try {
+      checkRequireRole(config.auth.requireRole, role, session);
+    } catch {
+      return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+
     const url = new URL(req.url);
-    const channels = url.searchParams.getAll("channel");
+    const requestedChannels = url.searchParams.getAll("channel");
+    const channels = requestedChannels
+      .filter((ch) => channelAllowed(ch, config, session))
+      .slice(0, MAX_CHANNELS);
     const encoder = new TextEncoder();
 
     let disposers: Array<() => void> = [];
@@ -45,10 +80,8 @@ export function stream(
           }
         }
 
-        // Ready handshake
         safeEnqueue("event: ready\ndata: {}\n\n");
 
-        // Subscribe per channel
         for (const ch of channels) {
           const dispose = subscribe(ch, (payload) => {
             const data = payload === undefined ? "" : JSON.stringify(payload);
@@ -57,20 +90,16 @@ export function stream(
           disposers.push(dispose);
         }
 
-        // Heartbeat (SSE comment line; proxies/nginx need it to keep the conn open)
         heartbeat = setInterval(() => {
           safeEnqueue(": keep-alive\n\n");
         }, heartbeatMs);
 
-        // Abort handling
         if (req.signal) {
           req.signal.addEventListener("abort", () => {
             cleanup();
             try {
               controller.close();
-            } catch {
-              // already closed
-            }
+            } catch {}
           });
         }
       },

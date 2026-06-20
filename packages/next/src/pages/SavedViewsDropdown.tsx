@@ -1,22 +1,24 @@
 "use client";
 import {
   Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Input,
   useToast,
 } from "@flowpanel/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
-/**
- * Wire-safe shape of a saved view passed from the server. The runtime
- * filters/sort/search are normalized to URL params client-side via
- * `applyView`.
- */
+/** Wire-safe shape of a saved view passed from the server. */
 export interface SavedView {
   name: string;
   description?: string;
@@ -27,16 +29,6 @@ export interface SavedView {
   source: "static" | "user";
 }
 
-/**
- * Dropdown rendered above the resource list when `resource.options.views`
- * is non-empty OR the user has saved at least one ad-hoc view. Picking a
- * view rewrites the URL with the snapshot's params; "Save current view"
- * captures the current URL state into `localStorage`.
- *
- * Static views (from config) are read-only and always listed first.
- * User-saved views live in `localStorage` under
- * `flowpanel:views:<resourceName>` and are mutable.
- */
 export interface SavedViewsDropdownProps {
   resource: string;
   staticViews: ReadonlyArray<Omit<SavedView, "source">>;
@@ -61,13 +53,10 @@ function persistUserViews(resource: string, views: ReadonlyArray<Omit<SavedView,
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(`${LS_PREFIX}:${resource}`, JSON.stringify(views));
-  } catch {
-    // localStorage may be unavailable (private mode, quota) — silently no-op.
-  }
+  } catch {}
 }
 
 function searchParamsToViewKey(params: URLSearchParams): string {
-  // Stable string key for matching the current URL against a view.
   const entries = Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b));
   return new URLSearchParams(entries).toString();
 }
@@ -93,8 +82,9 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
 
   const [userViews, setUserViews] = React.useState<Array<Omit<SavedView, "source">>>([]);
   const [open, setOpen] = React.useState(false);
+  const [nameOpen, setNameOpen] = React.useState(false);
+  const [draftName, setDraftName] = React.useState("");
 
-  // Lazy-load user views on mount (not in SSR — localStorage doesn't exist).
   React.useEffect(() => {
     setUserViews(loadUserViews(resource));
   }, [resource]);
@@ -123,9 +113,14 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
   }
 
   function saveCurrent(): void {
-    const name = window.prompt("Name this view");
+    setOpen(false);
+    setDraftName("");
+    setNameOpen(true);
+  }
+
+  function commitSave(): void {
+    const name = draftName.trim();
     if (!name) return;
-    // Snapshot current URL state into a new view.
     const view: Omit<SavedView, "source"> = {
       name,
       filters: Object.fromEntries(
@@ -146,7 +141,7 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
     const next = [...userViews, view];
     setUserViews(next);
     persistUserViews(resource, next);
-    setOpen(false);
+    setNameOpen(false);
     toast.success(`Saved view "${name}"`);
   }
 
@@ -157,63 +152,94 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
     toast.success(`Deleted view "${name}"`);
   }
 
+  const nameDialog = (
+    <Dialog open={nameOpen} onOpenChange={setNameOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Save view</DialogTitle>
+        </DialogHeader>
+        <Input
+          autoFocus
+          placeholder="Name this view"
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitSave();
+          }}
+        />
+        <DialogFooter>
+          <Button size="sm" variant="outline" onClick={() => setNameOpen(false)}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={commitSave} disabled={!draftName.trim()}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (allViews.length === 0) {
-    // Bare "Save current" button when no views exist yet — keeps the page
-    // clean for resources that haven't started using views.
     return (
-      <Button size="sm" variant="outline" onClick={saveCurrent}>
-        Save view…
-      </Button>
+      <>
+        <Button size="sm" variant="outline" onClick={saveCurrent}>
+          Save view…
+        </Button>
+        {nameDialog}
+      </>
     );
   }
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" variant="outline">
-          View: {activeView?.name ?? "All"}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Views</DropdownMenuLabel>
-        {staticViews.length > 0
-          ? staticViews.map((v) => (
-              <DropdownMenuItem key={`static:${v.name}`} onSelect={() => applyView(v)}>
-                {v.name}
-                {activeView?.name === v.name ? <span className="ml-auto text-xs">✓</span> : null}
-              </DropdownMenuItem>
-            ))
-          : null}
-        {userViews.length > 0 ? (
-          <>
-            {staticViews.length > 0 ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuLabel className="text-xs text-fp-text-3">Yours</DropdownMenuLabel>
-            {userViews.map((v) => (
-              <DropdownMenuItem
-                key={`user:${v.name}`}
-                onSelect={() => applyView(v)}
-                className="flex items-center justify-between gap-2"
-              >
-                <span>{v.name}</span>
-                <button
-                  type="button"
-                  className="text-xs text-fp-text-3 hover:text-fp-danger"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteView(v.name);
-                  }}
-                  aria-label={`Delete view ${v.name}`}
+    <>
+      {nameDialog}
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline">
+            View: {activeView?.name ?? "All"}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Views</DropdownMenuLabel>
+          {staticViews.length > 0
+            ? staticViews.map((v) => (
+                <DropdownMenuItem key={`static:${v.name}`} onSelect={() => applyView(v)}>
+                  {v.name}
+                  {activeView?.name === v.name ? <span className="ml-auto text-xs">✓</span> : null}
+                </DropdownMenuItem>
+              ))
+            : null}
+          {userViews.length > 0 ? (
+            <>
+              {staticViews.length > 0 ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuLabel className="text-xs text-fp-text-3">Yours</DropdownMenuLabel>
+              {userViews.map((v) => (
+                <DropdownMenuItem
+                  key={`user:${v.name}`}
+                  onSelect={() => applyView(v)}
+                  className="flex items-center justify-between gap-2"
                 >
-                  ✕
-                </button>
-              </DropdownMenuItem>
-            ))}
-          </>
-        ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={saveCurrent}>Save current view…</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+                  <span>{v.name}</span>
+                  <button
+                    type="button"
+                    className="text-xs text-fp-text-3 hover:text-fp-err"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteView(v.name);
+                    }}
+                    aria-label={`Delete view ${v.name}`}
+                  >
+                    ✕
+                  </button>
+                </DropdownMenuItem>
+              ))}
+            </>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={saveCurrent}>Save current view…</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }
 

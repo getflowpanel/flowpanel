@@ -1,4 +1,3 @@
-"use server";
 import type {
   AuditEvent,
   MutationContext,
@@ -8,53 +7,29 @@ import type {
 } from "@flowpanel/core";
 import {
   emitAudit,
+  FlowpanelAccessError,
   FlowpanelNotFoundError,
   FlowpanelValidationError,
   runWithRequestContext,
 } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
-import type { z } from "zod";
 import { actorIdFromSession } from "../runtime/action-helpers.js";
+import { buildServerRequest } from "../runtime/build-server-request.js";
 import { buildHref } from "../runtime/href.js";
 import { resourceNavName } from "../runtime/nav.js";
 import { bindPublisher, publishResource } from "../runtime/publish.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 import { requireAuthorized } from "../runtime/require-authorized.js";
+import { declaredFormFields } from "../runtime/resolve-form-fields.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
-
-interface Schemas {
-  create: z.ZodTypeAny;
-  update: z.ZodTypeAny;
-}
-
-function isSchemaPair(s: unknown): s is { create?: z.ZodTypeAny; update?: z.ZodTypeAny } {
-  return typeof s === "object" && s !== null && ("create" in s || "update" in s);
-}
-
-function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig): Schemas {
-  const userSchema = resource.options.schema;
-  if (userSchema) {
-    if (isSchemaPair(userSchema)) {
-      const inferred = config.adapter.inferSchema(resource.ref);
-      return {
-        create: userSchema.create ?? inferred.create,
-        update: userSchema.update ?? inferred.update,
-      };
-    }
-    return { create: userSchema, update: userSchema };
-  }
-  const inferred = config.adapter.inferSchema(resource.ref);
-  return { create: inferred.create, update: inferred.update };
-}
-
-function zodFieldErrors(err: z.ZodError): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const issue of err.issues) {
-    const key = issue.path.map(String).join(".");
-    if (key && !(key in out)) out[key] = issue.message;
-  }
-  return out;
-}
+import {
+  applyFieldDefaults,
+  friendlyFieldErrors,
+  runFieldValidators,
+  schemasFor,
+  stripNonWritableFields,
+  throwIfStrippedRequired,
+} from "./field-pipeline.js";
 
 export interface ResourceActions {
   create: (input: unknown) => Promise<unknown>;
@@ -62,16 +37,27 @@ export interface ResourceActions {
   delete: (id: string) => Promise<void>;
 }
 
-// `actorIdFromSession` lives in ../runtime/action-helpers.js — shared across
-// every action handler so audit `actorId` extraction is uniform.
+export interface MakeActionsOptions {
+  /** Reuse a caller-built `RequestContext` instead of building one per call. */
+  reqCtx?: RequestContext;
+}
 
 export function makeActions(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
+  opts: MakeActionsOptions = {},
 ): ResourceActions {
   bindPublisher(config);
   const name = resourceNavName(resource);
   const schemas = schemasFor(config, resource);
+
+  async function ctxFor(path: string): Promise<RequestContext> {
+    if (opts.reqCtx) return opts.reqCtx;
+    return buildRequestContext({
+      req: await buildServerRequest(`http://localhost${path}`),
+      config,
+    });
+  }
 
   async function baseAudit(
     action: string,
@@ -93,12 +79,21 @@ export function makeActions(
 
   return {
     async create(input) {
-      const req = new Request(`http://localhost${buildHref(config, name, "new")}`);
-      const reqCtx = await buildRequestContext({ req, config });
+      const reqCtx = await ctxFor(buildHref(config, name, "new"));
       requireAuthorized(config, resource, reqCtx);
+      if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
 
-      const parsed = schemas.create.safeParse(input);
-      if (!parsed.success) throw new FlowpanelValidationError(zodFieldErrors(parsed.error));
+      const fields = declaredFormFields(resource, "create");
+      const { safe, stripped } = stripNonWritableFields(fields, input, reqCtx);
+      const withDefaults = await applyFieldDefaults(config, fields, safe, reqCtx);
+      const parsed = schemas.create.safeParse(withDefaults);
+      if (!parsed.success) {
+        const fieldErrors = friendlyFieldErrors(fields, withDefaults, parsed.error);
+        throwIfStrippedRequired(stripped, fieldErrors);
+        throw new FlowpanelValidationError(fieldErrors);
+      }
+      const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);
+      if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
@@ -123,12 +118,20 @@ export function makeActions(
     },
 
     async update(id, input) {
-      const req = new Request(`http://localhost${buildHref(config, name, id, "edit")}`);
-      const reqCtx = await buildRequestContext({ req, config });
+      const reqCtx = await ctxFor(buildHref(config, name, id, "edit"));
       requireAuthorized(config, resource, reqCtx);
+      if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
 
-      const parsed = schemas.update.safeParse(input);
-      if (!parsed.success) throw new FlowpanelValidationError(zodFieldErrors(parsed.error));
+      const fields = declaredFormFields(resource, "update");
+      const { safe, stripped } = stripNonWritableFields(fields, input, reqCtx);
+      const parsed = schemas.update.safeParse(safe);
+      if (!parsed.success) {
+        const fieldErrors = friendlyFieldErrors(fields, safe, parsed.error);
+        throwIfStrippedRequired(stripped, fieldErrors);
+        throw new FlowpanelValidationError(fieldErrors);
+      }
+      const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);
+      if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
@@ -149,9 +152,9 @@ export function makeActions(
     },
 
     async delete(id) {
-      const req = new Request(`http://localhost${buildHref(config, name, id)}`);
-      const reqCtx = await buildRequestContext({ req, config });
+      const reqCtx = await ctxFor(buildHref(config, name, id));
       requireAuthorized(config, resource, reqCtx);
+      if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
 
       const softDelete = resource.options.delete?.softDelete;
       const mctx: MutationContext<Record<string, unknown>> = {
@@ -174,56 +177,4 @@ export interface FormActionResult {
   ok: boolean;
   error?: string;
   fieldErrors?: Record<string, string>;
-}
-
-/**
- * Returns a bound form action suitable for `<AutoForm action={...}>`.
- * Returns { ok: true } or { ok: false, error, fieldErrors }.
- */
-export function makeFormAction(
-  config: ResolvedAdminConfig,
-  resource: ResourceConfig,
-  kind: "create" | "update",
-  id?: string,
-): (prev: FormActionResult | null, fd: FormData) => Promise<FormActionResult> {
-  return async function formAction(
-    _prev: FormActionResult | null,
-    fd: FormData,
-  ): Promise<FormActionResult> {
-    "use server";
-    const raw = Object.fromEntries(fd.entries());
-    const input = coerceFormData(raw);
-    const actions = makeActions(config, resource);
-    try {
-      if (kind === "create") {
-        await actions.create(input);
-      } else if (id) {
-        await actions.update(id, input);
-      }
-      return { ok: true };
-    } catch (e) {
-      const err = e as {
-        code?: string;
-        fieldErrors?: Record<string, string>;
-        safeMessage?: string;
-      };
-      if (err?.code === "validation" && err?.fieldErrors) {
-        return {
-          ok: false,
-          ...(err.safeMessage ? { error: err.safeMessage } : {}),
-          fieldErrors: err.fieldErrors,
-        };
-      }
-      return { ok: false, error: err?.safeMessage ?? "Action failed" };
-    }
-  };
-}
-
-function coerceFormData(raw: Record<string, FormDataEntryValue>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (v === "") out[k] = null;
-    else out[k] = v;
-  }
-  return out;
 }

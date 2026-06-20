@@ -11,6 +11,15 @@ vi.mock("../runtime/publish.js", () => ({
   bindPublisher: vi.fn(),
 }));
 
+// `makeActions`'s no-`reqCtx` fallback path builds its request via
+// `buildServerRequest`, which reads `next/headers` — unavailable outside a
+// real Next.js request scope. Every test below calls `makeActions(config,
+// resource)` without a `reqCtx`, so it needs this mocked.
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({ getAll: () => [] }),
+}));
+
 import { makeActions } from "../actions/resource-actions.js";
 import { publishResource } from "../runtime/publish.js";
 

@@ -392,4 +392,36 @@ describe("serializeRowAction", () => {
     });
     expect(withoutForm.hasForm).toBe(false);
   });
+
+  it("serializes form field descriptors so RowActionsMenu can render them", () => {
+    const wire = serializeRowAction({
+      key: "note",
+      label: "Note",
+      form: [
+        { name: "status", label: "Status", type: "text", required: true },
+        { name: "priority", type: "select", options: ["low", "high"] },
+      ],
+      run: async () => ({ ok: true }),
+    });
+    expect(wire.form).toEqual([
+      { name: "status", label: "Status", type: "text", required: true },
+      {
+        name: "priority",
+        type: "select",
+        options: [
+          { label: "low", value: "low" },
+          { label: "high", value: "high" },
+        ],
+      },
+    ]);
+  });
+
+  it("omits `form` from the wire shape when there's no form", () => {
+    const wire = serializeRowAction({
+      key: "k",
+      label: "L",
+      run: async () => ({ ok: true }),
+    });
+    expect("form" in wire).toBe(false);
+  });
 });

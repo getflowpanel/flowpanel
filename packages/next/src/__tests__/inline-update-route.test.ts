@@ -22,6 +22,8 @@ function makeConfig(opts: {
   session?: unknown;
   updateSchema?: z.ZodTypeAny;
   capturedInput?: { value?: unknown };
+  updateDisabled?: boolean;
+  updateFields?: unknown[];
 }) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -61,6 +63,14 @@ function makeConfig(opts: {
         "name", // string column entry should be skipped by editable check
       ],
       ...(opts.resourceAudit === false ? { audit: false } : {}),
+      ...(opts.updateDisabled || opts.updateFields
+        ? {
+            update: {
+              ...(opts.updateDisabled ? { disabled: true } : {}),
+              ...(opts.updateFields ? { fields: opts.updateFields } : {}),
+            },
+          }
+        : {}),
     },
   } as never;
 
@@ -293,6 +303,44 @@ describe("inlineUpdateRoute", () => {
     const res = await handler(req, { params: paramsFor("users", "u1") });
     expect(res.status).toBe(200);
     expect(captured.value).toBe(42);
+  });
+
+  it("returns 403 when update is disabled (cell write must respect update.disabled)", async () => {
+    const handler = inlineUpdateRoute(makeConfig({ updateDisabled: true }));
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ field: "email", value: "new@x.com" }),
+    });
+    const res = await handler(req, { params: paramsFor("users", "u1") });
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/disabled/);
+  });
+
+  it("returns 403 when the field is role-gated and the session lacks the role", async () => {
+    const handler = inlineUpdateRoute(
+      makeConfig({ role: "admin", updateFields: [{ name: "email", requireRole: "superadmin" }] }),
+    );
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ field: "email", value: "new@x.com" }),
+    });
+    const res = await handler(req, { params: paramsFor("users", "u1") });
+    expect(res.status).toBe(403);
+  });
+
+  it("allows a role-gated field when the session has the role", async () => {
+    const handler = inlineUpdateRoute(
+      makeConfig({ role: "admin", updateFields: [{ name: "email", requireRole: "admin" }] }),
+    );
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ field: "email", value: "new@x.com" }),
+    });
+    const res = await handler(req, { params: paramsFor("users", "u1") });
+    expect(res.status).toBe(200);
   });
 
   it("skips value validation when inferSchema has no usable update schema", async () => {

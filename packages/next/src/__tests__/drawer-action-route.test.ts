@@ -111,9 +111,10 @@ describe("drawerActionRoute", () => {
     expect(publishResource).toHaveBeenCalledWith("jobs", { action: "update" });
   });
 
-  it("propagates errors as { ok: false, error }", async () => {
+  it("returns { ok: false, error } on a thrown action WITHOUT leaking the raw message", async () => {
     const run = vi.fn(async () => {
-      throw new Error("boom");
+      // A raw error (e.g. a DB constraint) must never reach the client verbatim.
+      throw new Error("boom: column users.ssn violates constraint");
     });
     const config = makeConfig({ key: "approve", label: "A", run } as DrawerAction);
     const handler = drawerActionRoute(config);
@@ -124,7 +125,9 @@ describe("drawerActionRoute", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.ok).toBe(false);
-    expect(body.error).toContain("boom");
+    expect(body.error).toBe("internal error");
+    expect(body.error).not.toContain("boom");
+    expect(body.error).not.toContain("ssn");
   });
 
   it("emits audit on successful drawer action with the drawer namespace", async () => {
@@ -146,6 +149,52 @@ describe("drawerActionRoute", () => {
         targetId: "1",
       }),
     );
+  });
+
+  it("rejects input that violates the declared form before running the action", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      key: "reject",
+      label: "Reject",
+      form: [{ name: "reason", type: "text", required: true }],
+      run,
+    } as DrawerAction);
+    const handler = drawerActionRoute(config);
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "jobs", id: "1", action: "reject" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.issues).toEqual([{ path: ["reason"], message: "reason is required" }]);
+    // The guard must run *before* the handler — otherwise a hand-crafted POST
+    // reaches user code with input the form would have rejected.
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("runs the action when the declared form is satisfied", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      key: "reject",
+      label: "Reject",
+      form: [{ name: "reason", type: "text", required: true }],
+      run,
+    } as DrawerAction);
+    const handler = drawerActionRoute(config);
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: "duplicate" }),
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "jobs", id: "1", action: "reject" }),
+    });
+    expect(res.status).toBe(200);
+    expect(run).toHaveBeenCalledWith(expect.anything(), { reason: "duplicate" }, expect.anything());
   });
 
   it("returns download payload as JSON (client-side trigger applies)", async () => {

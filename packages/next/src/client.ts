@@ -1,6 +1,3 @@
-// Client-only entry. All exports are bundled into dist/client.js with a
-// top-level "use client" directive (see tsup.config.ts). The server-side
-// `DashboardPage` imports these via `@flowpanel/next/client`.
 export {
   DashboardActionsBar,
   type DashboardActionsBarProps,
@@ -10,6 +7,7 @@ export { DataTableWithDrawerRows } from "./drawer/DataTableWithDrawerRows.js";
 export { DrawerHost } from "./drawer/DrawerHost.js";
 export { DetailTabsClient, type DetailTabsClientProps } from "./pages/DetailTabsClient.js";
 export { DashboardDateRange } from "./pages/dashboard-date-range.js";
+export { ResourceListDeletedToggle } from "./pages/resource-list-deleted-toggle.js";
 export {
   ResourceListFilters,
   type ResourceListFiltersProps,

@@ -8,11 +8,7 @@ import type {
 import { runWithRequestContext } from "@flowpanel/core";
 import { scopeBinding } from "../runtime/scope-binding.js";
 
-/**
- * Wire-safe shape of a drawer widget. Mirrors `WidgetConfig` but strips
- * non-serializable bits (function refs, React component refs) so the payload
- * can cross the route boundary.
- */
+/** Wire-safe shape of a drawer widget. */
 export type SerializedWidget =
   | {
       kind: "metric";
@@ -28,13 +24,7 @@ export type SerializedWidget =
       kind: "table";
       label?: string;
       rows: Record<string, unknown>[];
-      /**
-       * Column descriptors. `field` is the row key; `label` is the optional
-       * humanized header. Replaces the previous `string[]` shape so dashboard
-       * drawer-tab tables can surface resource-configured labels instead of
-       * dumping raw schema names. Backward-compatible at the wire level
-       * because the consumer (`DrawerHost.tsx`) renders the new shape.
-       */
+      /** Column descriptors. */
       columns: { field: string; label?: string }[];
       span?: number;
       realtime?: string | string[];
@@ -56,11 +46,6 @@ export type SerializedWidget =
     }
   | { kind: "unsupported"; label?: string; reason: string; span?: number };
 
-/**
- * Runs the widget's query (under the request context) and returns a
- * serialization-safe representation. Errors are caught and surfaced as
- * `{ kind: "unsupported" }` so a single bad widget doesn't fail the whole tab.
- */
 export async function serializeWidget(
   w: WidgetConfig,
   config: ResolvedAdminConfig,
@@ -113,11 +98,6 @@ export async function serializeWidget(
               config.adapter.list(target.ref, listCtx),
             );
             rows = r.rows as Record<string, unknown>[];
-            // Pull `{ field, label }` from the resource's ColumnDef so the
-            // drawer-tab table shows humanized headers instead of raw
-            // schema names. `render` is dropped — we serialize through a
-            // JSON `Response.json(payload)` boundary, so ReactNode trees
-            // can't survive.
             columns = (target.options.columns as unknown[])
               .map((c) => {
                 if (typeof c === "string") return { field: c };
@@ -190,8 +170,6 @@ export async function serializeWidget(
         };
       }
       default:
-        // custom widgets — React component refs can't serialize through a
-        // fetch boundary. Surface a clear message rather than a blank tile.
         return {
           kind: "unsupported",
           reason: "custom widgets are not supported in drawer tabs",

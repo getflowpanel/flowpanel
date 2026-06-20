@@ -11,10 +11,10 @@ import {
   DashboardDateRange,
   WidgetErrorBoundary,
 } from "@flowpanel/next/client";
-import { Section, SkeletonCard } from "@flowpanel/react";
+import { RealtimeRefresh, Section, SkeletonCard, spanClass } from "@flowpanel/react";
 import { Suspense } from "react";
 import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action.js";
-import { resolveDateRange } from "../runtime/date-range.js";
+import { type DateRangeInput, resolveDateRange } from "../runtime/date-range.js";
 import { renderWidget } from "../runtime/render-widget.js";
 
 export interface DashboardPageProps {
@@ -40,16 +40,30 @@ function parsePreset(value: string | null): DateRangePreset | undefined {
   return (PRESETS as readonly string[]).includes(value) ? (value as DateRangePreset) : undefined;
 }
 
-/**
- * Whether the default `DashboardActionsBar` should render. Extracted as a
- * pure predicate so the conditional has a unit test independent of the
- * async server component shell.
- */
+/** Whether the default `DashboardActionsBar` should render. */
 export function shouldRenderActionsBar(
   actionsCount: number,
   hideActionsBar: boolean | undefined,
 ): boolean {
   return actionsCount > 0 && !hideActionsBar;
+}
+
+export function resolveDashboardDateRangeInput(
+  dashboardDateRange: DashboardConfig["dateRange"],
+  searchParams: URLSearchParams,
+): DateRangeInput {
+  const urlPreset = parsePreset(searchParams.get("preset"));
+  const urlFrom = searchParams.get("from");
+  const urlTo = searchParams.get("to");
+  const effectivePreset = urlPreset ?? dashboardDateRange?.preset;
+  const defaultRange = dashboardDateRange?.default;
+  const useDefaultRange = !effectivePreset && !urlFrom && !urlTo && defaultRange !== undefined;
+  return {
+    ...(effectivePreset ? { preset: effectivePreset } : {}),
+    ...(urlFrom ? { from: urlFrom } : {}),
+    ...(urlTo ? { to: urlTo } : {}),
+    ...(useDefaultRange && defaultRange ? { from: defaultRange.from, to: defaultRange.to } : {}),
+  };
 }
 
 export async function DashboardPage({
@@ -59,14 +73,9 @@ export async function DashboardPage({
   req,
   session,
 }: DashboardPageProps) {
-  const urlPreset = parsePreset(searchParams.get("preset"));
-  const dateRange = resolveDateRange({
-    ...((urlPreset ?? dashboard.dateRange?.preset)
-      ? { preset: (urlPreset ?? dashboard.dateRange?.preset) as DateRangePreset }
-      : {}),
-    ...(searchParams.get("from") ? { from: searchParams.get("from") as string } : {}),
-    ...(searchParams.get("to") ? { to: searchParams.get("to") as string } : {}),
-  });
+  const dateRangeInput = resolveDashboardDateRangeInput(dashboard.dateRange, searchParams);
+  const effectivePreset = dateRangeInput.preset;
+  const dateRange = resolveDateRange(dateRangeInput);
   const ctx: WidgetContext = {
     db: (config.adapter as { db: unknown }).db,
     session,
@@ -78,18 +87,15 @@ export async function DashboardPage({
   const encodedPath = encodeDashboardPath(dashboard.path);
 
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-8">
+      {dashboard.realtime ? <RealtimeRefresh channels={dashboard.realtime} /> : null}
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold text-fp-text-1">{dashboard.label}</h1>
         <div className="flex items-center gap-3">
           {shouldRenderActionsBar(actions.length, dashboard.hideActionsBar) ? (
             <DashboardActionsBar encodedPath={encodedPath} actions={actions} />
           ) : null}
-          <DashboardDateRange
-            {...((urlPreset ?? dashboard.dateRange?.preset)
-              ? { preset: (urlPreset ?? dashboard.dateRange?.preset) as DateRangePreset }
-              : {})}
-          />
+          <DashboardDateRange {...(effectivePreset ? { preset: effectivePreset } : {})} />
         </div>
       </header>
       {dashboard.sections.map((sec, idx) => (
@@ -128,20 +134,23 @@ function WidgetSlot({
   ctx: WidgetContext;
   config: ResolvedAdminConfig;
   dashboardPath: string;
-  /**
-   * Stable position tag, e.g. `"s0.w2"`. Falls in as Sentry tag /
-   * a11y label when a widget config has no explicit id. Stable across
-   * renders because the section + widget ordering is fixed.
-   */
   widgetIndex: string;
 }) {
+  const className = widgetSpanClassName(widget);
   return (
-    <WidgetErrorBoundary widgetId={widgetIndex} dashboardId={dashboardPath}>
-      <Suspense fallback={<SkeletonCard />}>
-        <WidgetAsync widget={widget} ctx={ctx} config={config} />
-      </Suspense>
-    </WidgetErrorBoundary>
+    <div {...(className ? { className } : {})}>
+      <WidgetErrorBoundary widgetId={widgetIndex} dashboardId={dashboardPath}>
+        <Suspense fallback={<SkeletonCard />}>
+          <WidgetAsync widget={widget} ctx={ctx} config={config} />
+        </Suspense>
+      </WidgetErrorBoundary>
+    </div>
   );
+}
+
+export function widgetSpanClassName(widget: WidgetConfig): string | undefined {
+  const span = widget.options.span;
+  return span ? spanClass[span] : undefined;
 }
 
 async function WidgetAsync({

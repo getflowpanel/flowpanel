@@ -2,6 +2,7 @@
 import {
   DataTable,
   type DataTableColumn,
+  type DataTableDensity,
   type DataTableSort,
   type RealtimeChannels,
   RealtimeRefresh,
@@ -12,23 +13,11 @@ import type { ReactNode } from "react";
 import * as React from "react";
 import { BulkActionsBar } from "../actions/BulkActionsBar.js";
 import type { SerializedBulkAction } from "../actions/bulk-action.js";
+import { RestoreButton } from "../actions/RestoreButton.js";
 import { RowActionsMenu } from "../actions/RowActionsMenu.js";
 import type { SerializedRowAction } from "../actions/row-action.js";
 
-/**
- * Thin wrapper around `<DataTable>` that wires two server-driven behaviors:
- *
- * - **Drawer rows.** When `openDrawerOnRowClick` is set, clicking a row opens
- *   the URL-synced drawer via `useAdminDrawer().open({ resource, id })`.
- *
- * - **Trailing row actions.** When `rowActions` is non-empty, a sticky-right
- *   menu cell is rendered via `DataTable.rowEndCell`. The menu's wrapper
- *   stops `onClick` propagation so triggering an action never opens the
- *   drawer behind it.
- *
- * `resource` is always required — it's the URL segment for both the drawer
- * GET and the per-action POST.
- */
+/** Thin wrapper around `<DataTable>` that wires two server-driven behaviors: */
 export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown>> {
   resource: string;
   columns: DataTableColumn<Row>[];
@@ -38,39 +27,28 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   pageSize: number;
   rowKey: keyof Row & string;
   sort?: DataTableSort<Row> | null;
+  /** Initial row density from `resource.options.density`. Forwarded to `DataTable`. */
+  density?: DataTableDensity;
+  /** Export affordance, forwarded verbatim from `resource.options.export`. */
+  exportable?: boolean | { formats?: ("csv" | "json")[]; fields?: string[] };
+  /** Show the import button (from `resource.options.import`). */
+  importable?: { resource: string; formats: ("csv" | "json")[] };
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: ReactNode;
   emptyIcon?: ReactNode;
-  /**
-   * Server-prerendered cell content (see DataTable.prerenderedCells). Passed
-   * through unchanged. ReactNode values are valid props in the RSC payload
-   * even though function-valued props would not be — this is why
-   * `ColumnDef.render` is executed server-side in `ResourceListPage`.
-   */
+  /** Server-prerendered cell content (see DataTable.prerenderedCells). */
   prerenderedCells?: (ReactNode | undefined)[][];
-  /**
-   * Wire-safe shape of `resource.options.actions`. When set + non-empty, the
-   * table renders a trailing menu cell per row that POSTs to
-   * `/api/flowpanel/<resource>/<id>/actions/<key>`.
-   */
+  /** Wire-safe shape of `resource.options.actions`. */
   rowActions?: SerializedRowAction[];
-  /**
-   * Wire-safe shape of `resource.options.bulkActions`. When set + non-empty,
-   * the table renders a checkbox column and a floating `<BulkActionsBar>`
-   * above it once one or more rows are selected.
-   */
+  /** Per-row override of `rowActions`, keyed by row id. */
+  rowActionsById?: Record<string, SerializedRowAction[]>;
+  /** Wire-safe shape of `resource.options.bulkActions`. */
   bulkActions?: SerializedBulkAction[];
-  /**
-   * Open the URL-synced drawer when a row is clicked. Set in
-   * `ResourceListPage` from `resource.options.rowClick === "drawer"`.
-   */
+  deletedRowKeys?: string[];
+  /** Open the URL-synced drawer when a row is clicked. */
   openDrawerOnRowClick?: boolean;
-  /**
-   * SSE channel(s) to subscribe to for live refresh. Set in `ResourceListPage`
-   * from `resource.options.realtime` (`true` → `resource.<name>`). When an
-   * event arrives the list re-fetches via `router.refresh()`.
-   */
+  /** SSE channel(s) to subscribe to for live refresh. */
   realtime?: RealtimeChannels;
 }
 
@@ -87,7 +65,9 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
     emptyIcon,
     prerenderedCells,
     rowActions,
+    rowActionsById,
     bulkActions,
+    deletedRowKeys,
     openDrawerOnRowClick,
     realtime,
     ...rest
@@ -97,10 +77,9 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
 
   const hasRowActions = rowActions && rowActions.length > 0;
   const hasBulkActions = bulkActions && bulkActions.length > 0;
+  const deletedRowKeySet = deletedRowKeys && deletedRowKeys.length > 0 ? deletedRowKeys : undefined;
+  const hasRestore = !!deletedRowKeySet;
 
-  // Selection lives in local state. URL-persisting `?selected=...` is the
-  // Phase 1 polish; for now the list is "click to select on this page" and
-  // resets on navigation (which is the most common bulk flow anyway).
   const [selection, setSelection] = React.useState<string[]>([]);
 
   return (
@@ -136,17 +115,27 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
               },
             }
           : {})}
-        {...(hasRowActions
+        {...(hasRowActions || hasRestore
           ? {
               rowEndCell: (row: Row) => {
                 const id = row[rowKey];
                 if (id === undefined || id === null) return null;
+                const idStr = String(id);
+                const acts = hasRowActions
+                  ? (rowActionsById?.[idStr] ?? (rowActions as SerializedRowAction[]))
+                  : [];
+                const isDeleted = deletedRowKeySet?.includes(idStr) ?? false;
+                if (!isDeleted) {
+                  if (acts.length === 0) return null;
+                  return <RowActionsMenu resource={resource} id={idStr} actions={acts} />;
+                }
                 return (
-                  <RowActionsMenu
-                    resource={resource}
-                    id={String(id)}
-                    actions={rowActions as SerializedRowAction[]}
-                  />
+                  <div className="flex items-center justify-end gap-1">
+                    <RestoreButton resource={resource} id={idStr} />
+                    {acts.length > 0 ? (
+                      <RowActionsMenu resource={resource} id={idStr} actions={acts} />
+                    ) : null}
+                  </div>
                 );
               },
             }

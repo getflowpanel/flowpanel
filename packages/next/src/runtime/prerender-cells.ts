@@ -1,17 +1,7 @@
-import type { ColumnDef, ColumnMeta, RequestContext } from "@flowpanel/core";
+import type { ColumnDef, ColumnFormat, ColumnMeta, RequestContext } from "@flowpanel/core";
 import type { ReactNode } from "react";
 
-/**
- * Wire-safe column metadata derived from a resource's `ColumnDef[]`. Carries
- * every prop a `DataTable` / `TableWidget` consumer needs, but never the
- * `render` function — function refs can't cross the RSC → Client boundary, so
- * any `ColumnDef.render` gets executed server-side into `prerenderedCells`.
- *
- * `type` propagates adapter introspection (`ColumnMeta.type`) to the client
- * so the renderer can dispatch (`array` → chips, `json` → popover,
- * `reference` → link); the client falls back to plain `formatCell` when
- * type is absent.
- */
+/** Wire-safe column metadata derived from a resource's `ColumnDef[]`. */
 export interface PrerenderedColumn<Row> {
   field: keyof Row & string;
   label?: string;
@@ -23,46 +13,26 @@ export interface PrerenderedColumn<Row> {
   type?: ColumnMeta["type"];
   /** Mirrors `ColumnDef.editable`. When true, the cell renders as `<InlineEditCell>`. */
   editable?: boolean;
+  /** Mirrors `ColumnDef.format`. Plain data, so it crosses to the client verbatim. */
+  format?: ColumnFormat;
 }
 
 export interface PrerenderResult<Row> {
   /** Column metadata stripped of `render`. Indexed identically to `prerenderedCells[i]`. */
   columns: PrerenderedColumn<Row>[];
-  /**
-   * Server-prerendered cell content, `[rowIndex][colIndex]` against `columns`.
-   * `undefined` cells let `DataTable` fall back to `c.render` → `formatCell`.
-   * The whole array is `undefined` when no column declares a `render` fn.
-   */
+  /** Server-prerendered cell content, `[rowIndex][colIndex]` against `columns`. */
   prerenderedCells: (ReactNode | undefined)[][] | undefined;
 }
 
 export interface PrerenderOptions {
-  /**
-   * Drop columns whose `hidden` flag is truthy. The dedicated list page keeps
-   * them (so DataTable can flip them on at runtime via `columnVisibility`),
-   * but the dashboard table widget wants them gone for good.
-   */
+  /** Drop columns whose `hidden` flag is truthy. */
   dropHidden?: boolean;
-  /**
-   * Default value for `sortable` when a `ColumnDef` doesn't set it. The
-   * resource list defaults to `true`; the widget table wants `undefined`
-   * (no sort UI).
-   */
+  /** Default value for `sortable` when a `ColumnDef` doesn't set it. */
   defaultSortable?: boolean;
-  /**
-   * Adapter introspection keyed by column name. Used to forward
-   * `ColumnMeta.type` (array / json / reference / …) to the client so
-   * `DataTable` can dispatch to specialized cell renderers.
-   */
+  /** Adapter introspection keyed by column name. */
   metaByField?: ReadonlyMap<string, ColumnMeta>;
 }
 
-/**
- * Walk a resource's `columns` definition once, producing both the wire-safe
- * column metadata and the pre-invoked render output for every row × column
- * pair. Shared by `ResourceListPage` and the dashboard `table` widget; before
- * the extraction the two had drifted implementations of the same loop.
- */
 export function prerenderResourceCells<Row>(
   columnDefs: ReadonlyArray<keyof Row | ColumnDef<Row>>,
   rows: ReadonlyArray<Row>,
@@ -97,8 +67,7 @@ export function prerenderResourceCells<Row>(
     if (def.className) out.className = def.className;
     if (def.hidden !== undefined) out.hidden = def.hidden;
     if (def.editable === true) out.editable = true;
-    // Reference column override beats raw introspection (`reference` is
-    // explicit user intent); otherwise propagate the adapter's type.
+    if (def.format !== undefined) out.format = def.format;
     if (def.reference) out.type = "reference";
     else {
       const meta = metaByField?.get(field);

@@ -1,5 +1,6 @@
 import type { AdminConfig, RateLimiter, RequestContext, Scope, Session } from "@flowpanel/core";
 import { checkRequireRole, createRateLimiter, FlowpanelRateLimitError } from "@flowpanel/core";
+import { actorIdFromSession } from "./action-helpers.js";
 
 export interface BuildRequestCtxArgs {
   req: Request;
@@ -27,9 +28,8 @@ function rateLimitKey(
 ): string {
   const per = config.rateLimit?.per ?? "user";
   if (per === "ip") return `ip:${reqCtx.ip ?? "unknown"}`;
-  const s = reqCtx.session as { user?: { id?: unknown } } | null;
-  const uid = s?.user?.id;
-  if (uid !== undefined && uid !== null && uid !== "") return `user:${String(uid)}`;
+  const uid = actorIdFromSession(reqCtx.session, config.auth.userId);
+  if (uid !== null) return `user:${uid}`;
   return `ip:${reqCtx.ip ?? "unknown"}`;
 }
 

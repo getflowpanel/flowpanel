@@ -1,33 +1,15 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { checkRequireRole } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
-import type { z } from "zod";
-import { makeFormAction } from "../actions/resource-actions.js";
+import { buildHref } from "../runtime/href.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
+import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields.js";
 
 export interface ResourceCreatePageProps {
   config: ResolvedAdminConfig;
   resource: ResourceConfig;
   name: string;
   req: Request;
-}
-
-function pickSchema(
-  config: ResolvedAdminConfig,
-  resource: ResourceConfig,
-  kind: "create" | "update",
-): z.ZodTypeAny {
-  const userSchema = resource.options.schema;
-  if (userSchema) {
-    if (typeof userSchema === "object" && kind in userSchema) {
-      const picked = (userSchema as { create?: z.ZodTypeAny; update?: z.ZodTypeAny })[kind];
-      if (picked) return picked;
-    }
-    if (typeof userSchema === "object" && !("create" in userSchema) && !("update" in userSchema)) {
-      return userSchema as z.ZodTypeAny;
-    }
-  }
-  return config.adapter.inferSchema(resource.ref)[kind];
 }
 
 export async function ResourceCreatePage({ config, resource, name, req }: ResourceCreatePageProps) {
@@ -39,17 +21,22 @@ export async function ResourceCreatePage({ config, resource, name, req }: Resour
   }
 
   const intro = config.adapter.introspect(resource.ref);
-  const schema = pickSchema(config, resource, "create");
-  const action = makeFormAction(config, resource, "create");
+  const action = `/api/flowpanel/${name}/create`;
+  const declared = declaredFormFields(resource, "create");
+  const fields = declared ? await resolveFormFields(config, declared, reqCtx) : undefined;
 
   return (
     <>
       <PageHeader title={`New ${resource.options.label ?? name}`} />
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
-        <AutoForm action={action} schema={schema} columns={intro.columns} submitLabel="Create" />
+        <AutoForm
+          action={action}
+          columns={intro.columns}
+          {...(fields ? { fields } : {})}
+          submitLabel="Create"
+          redirectTo={buildHref(config, name)}
+        />
       </div>
     </>
   );
 }
-
-export { pickSchema };
