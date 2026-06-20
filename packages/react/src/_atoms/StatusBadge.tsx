@@ -8,8 +8,6 @@ export {
   type StatusBadgeTone,
 } from "./StatusBadgeDefault.js";
 
-/** Renders whatever override the user registered via theme.components.StatusBadge,
- *  falling back to DefaultStatusBadge. */
 export function StatusBadge(
   props: import("./StatusBadgeDefault.js").StatusBadgeProps,
 ): React.JSX.Element {

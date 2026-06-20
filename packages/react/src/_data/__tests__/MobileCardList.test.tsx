@@ -68,6 +68,54 @@ describe("MobileCardList", () => {
     expect(onRowClick).toHaveBeenCalledTimes(3);
   });
 
+  it("looks up prerenderedCells by ORIGINAL column index even when columns are reordered/filtered", () => {
+    // Original order: name=0, email=1. DataTable hands MobileCardList a
+    // reordered/visible subset (email first) but the server-rendered cells in
+    // `prerenderedCells` are still indexed against the original order.
+    const colIndexByField = new Map<string, number>([
+      ["name", 0],
+      ["email", 1],
+    ]);
+    // Only the email cell (original index 1) is prerendered; name is left to
+    // the default renderer so we can tell the two slots apart.
+    const prerenderedCells = [
+      [undefined, <span key="e0">PRE-email-Alice</span>],
+      [undefined, <span key="e1">PRE-email-Bob</span>],
+    ];
+
+    render(
+      <MobileCardList
+        columns={[{ field: "email" }, { field: "name" }]}
+        colIndexByField={colIndexByField}
+        prerenderedCells={prerenderedCells}
+        rows={rows}
+        rowKey="id"
+      />,
+    );
+
+    // Correct mapping: email slot shows its prerender, name slot shows raw value.
+    expect(screen.getByText("PRE-email-Alice")).toBeTruthy();
+    expect(screen.getByText("Alice")).toBeTruthy();
+    // Bug regression: if the lookup used the reordered subset index, the email
+    // cell would fall through to the raw value and the name slot would steal
+    // email's prerender.
+    expect(screen.queryByText("a@b.co")).toBeNull();
+  });
+
+  it("renders array columns through ArrayCell on mobile instead of String()-coercing", () => {
+    render(
+      <MobileCardList
+        columns={[{ field: "name" }, { field: "tags", type: "array" }]}
+        rows={[{ id: "1", name: "Alice", tags: ["x", "y"] }]}
+        rowKey="id"
+      />,
+    );
+    // ArrayCell exposes the items via aria-label; the old default branch would
+    // have emitted the literal "x,y" string node instead.
+    expect(screen.getByLabelText(/2 items: x, y/)).toBeTruthy();
+    expect(screen.queryByText("x,y")).toBeNull();
+  });
+
   it("does not propagate row click when interacting with the row-end actions area", () => {
     const onRowClick = vi.fn();
     const onActionClick = vi.fn();

@@ -31,10 +31,22 @@ export function ChartRenderer({ kind, label, options, data }: ChartRendererProps
       body = <PieChart data={data} options={options as never} />;
       break;
   }
-  return (
+  const card = (
     <Card>
       <CardHeader>{label}</CardHeader>
       <div className="p-3">{body}</div>
     </Card>
   );
+  if (options.drilldown) {
+    return (
+      <a
+        href={options.drilldown}
+        className="block hover:opacity-90 transition-opacity"
+        {...(label ? { "aria-label": label } : {})}
+      >
+        {card}
+      </a>
+    );
+  }
+  return card;
 }

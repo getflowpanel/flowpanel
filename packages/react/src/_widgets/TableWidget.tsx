@@ -11,18 +11,9 @@ export interface TableWidgetProps<Row extends Record<string, unknown>> {
   rowKey: keyof Row & string;
   emptyState?: React.ReactNode;
   onRowClick?: (row: Row) => void;
-  /**
-   * Server-prerendered cell content, same shape as `DataTable.prerenderedCells`.
-   * Allows dashboard tables backed by a resource with `ColumnDef.render` to
-   * surface those renderers (which executed server-side) without crossing the
-   * function-prop RSC boundary.
-   */
+  /** Server-prerendered cell content, same shape as `DataTable.prerenderedCells`. */
   prerenderedCells?: (React.ReactNode | undefined)[][];
-  /**
-   * SSE channel(s) to subscribe to. On any event the wrapping route is
-   * refreshed (debounced ~200ms) so the server re-runs the widget query.
-   * Pass a string for a single channel or an array for multiple.
-   */
+  /** SSE channel(s) to subscribe to. */
   realtime?: RealtimeChannels;
 }
 

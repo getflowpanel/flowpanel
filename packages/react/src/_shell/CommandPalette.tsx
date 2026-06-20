@@ -22,12 +22,7 @@ export interface CommandPaletteProps {
   itemsLoading?: boolean;
 }
 
-/**
- * ⌘K command palette built on `cmdk`. Rendered as a centered overlay with a
- * search input and grouped list. Keyboard-only navigation (↑↓/Enter/Esc) is
- * provided by cmdk out of the box. The dialog has `label="Command palette"`
- * for screen readers.
- */
+/** ⌘K command palette built on `cmdk`. */
 export function CommandPalette({
   open,
   onOpenChange,

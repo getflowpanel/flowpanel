@@ -1,21 +1,13 @@
 "use client";
 import * as React from "react";
 import { cn } from "../lib/cn.js";
+import { Checkbox } from "../ui/checkbox.js";
 import type { DataTableColumn } from "./data-table-types.js";
+import { renderDefaultCell } from "./render-default-cell.js";
 
-/**
- * Card-style row renderer used on <640px viewports when the consumer opts
- * into the mobile layout (`mobileLayout: "card"`, the default). Each row
- * becomes a self-contained card; the first visible column is rendered
- * larger as the title, and remaining columns stack as label/value rows
- * below.
- *
- * The selection checkbox and `rowEndCell` (row action menu) get top-row
- * positioning so they're always reachable with a thumb. Tap on the card
- * body triggers `onRowClick`.
- */
 export interface MobileCardListProps<Row> {
   columns: DataTableColumn<Row>[];
+  colIndexByField?: Map<string, number>;
   rows: Row[];
   rowKey: keyof Row & string;
   getRowKey?: (row: Row) => string;
@@ -33,6 +25,7 @@ export interface MobileCardListProps<Row> {
 
 export function MobileCardList<Row extends Record<string, unknown>>({
   columns,
+  colIndexByField,
   rows,
   rowKey,
   getRowKey,
@@ -48,13 +41,14 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   className,
 }: MobileCardListProps<Row>) {
   const visible = React.useMemo(() => columns.filter((c) => !c.hidden), [columns]);
-  const colIndexByField = React.useMemo(() => {
+  const colIndex = React.useMemo(() => {
+    if (colIndexByField) return colIndexByField;
     const m = new Map<string, number>();
     columns.forEach((c, i) => {
       m.set(c.field, i);
     });
     return m;
-  }, [columns]);
+  }, [colIndexByField, columns]);
 
   const selectionEnabled = onSelectionChange !== undefined;
   const selectionSet = React.useMemo(() => new Set(selection ?? []), [selection]);
@@ -97,9 +91,6 @@ export function MobileCardList<Row extends Record<string, unknown>>({
         const key = keyOf(r);
         const isSelected = selectionEnabled && selectionSet.has(key);
 
-        // The card wrapper is a `<div role="button">` rather than a real
-        // `<button>` so it can legally host the row-actions kebab (also a
-        // `<button>`) — nested native buttons fail React's HTML validation.
         const interactive = Boolean(onRowClick);
         const onKeyDown = interactive
           ? (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -137,11 +128,9 @@ export function MobileCardList<Row extends Record<string, unknown>>({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-start gap-2">
                   {selectionEnabled ? (
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={isSelected}
-                      onChange={(e) => {
-                        e.stopPropagation();
+                      onCheckedChange={() => {
                         const next = new Set(selectionSet);
                         if (next.has(key)) next.delete(key);
                         else next.add(key);
@@ -149,13 +138,13 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                       }}
                       onClick={(e) => e.stopPropagation()}
                       aria-label={`Select row ${key}`}
-                      className="mt-1 h-5 w-5 shrink-0 accent-fp-accent"
+                      className="mt-1 h-5 w-5 shrink-0"
                     />
                   ) : null}
                   <div className="min-w-0 flex-1">
                     {titleCol ? (
                       <div className="truncate text-base font-medium text-fp-text-1">
-                        {renderCell(titleCol, r, idx, prerenderedCells, colIndexByField)}
+                        {renderCell(titleCol, r, idx, prerenderedCells, colIndex)}
                       </div>
                     ) : null}
                     {restCols.length > 0 ? (
@@ -164,7 +153,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                           <React.Fragment key={c.field}>
                             <dt className="text-fp-text-3">{c.label ?? c.field}</dt>
                             <dd className="min-w-0 truncate text-fp-text-1">
-                              {renderCell(c, r, idx, prerenderedCells, colIndexByField)}
+                              {renderCell(c, r, idx, prerenderedCells, colIndex)}
                             </dd>
                           </React.Fragment>
                         ))}
@@ -173,10 +162,6 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                   </div>
                 </div>
                 {rowEndCell ? (
-                  // The handlers only stop propagation so clicks on the
-                  // row-actions menu don't trigger the card's onRowClick.
-                  // This wrapper isn't itself a control — role="presentation"
-                  // tells a11y tooling its interactivity is non-semantic.
                   // biome-ignore lint/a11y/noStaticElementInteractions: stop-propagation guard around an interactive child, not a control itself.
                   <div
                     role="presentation"
@@ -210,8 +195,5 @@ function renderCell<Row extends Record<string, unknown>>(
       : undefined;
   if (pre !== undefined) return pre;
   if (c.render) return c.render(r);
-  const v = r[c.field];
-  if (v === null || v === undefined) return <span className="text-fp-text-3">—</span>;
-  if (typeof v === "boolean") return v ? "Yes" : "No";
-  return String(v);
+  return renderDefaultCell(c, r);
 }

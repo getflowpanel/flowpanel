@@ -1,17 +1,6 @@
 "use client";
 import { cn } from "../lib/cn.js";
 
-/**
- * Renders an array (typically `jsonb<string[]>`) as a row of pill chips with
- * a "+N more" overflow indicator. The full list is reachable on hover via
- * the native `title` attribute — keeps the cell compact and avoids
- * blowing up row height. Clicking on the "+N more" chip toggles inline
- * expansion if the consumer wires `expandable`.
- *
- * `max` controls how many entries to inline before collapsing into the "+N
- * more" affordance. Defaults to 3 — a sane fit for the table row height
- * grid without horizontal scroll.
- */
 export interface ArrayCellProps {
   value: ReadonlyArray<unknown> | null | undefined;
   /** Max chips inlined before "+N more". Default 3. */

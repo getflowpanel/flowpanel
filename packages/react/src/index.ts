@@ -1,7 +1,4 @@
-// Lib
-
 export type { FlowpanelComponentSlots } from "@flowpanel/core";
-// Atoms
 export { Avatar, type AvatarProps, DefaultAvatar } from "./_atoms/Avatar.js";
 export { Badge, type BadgeProps, type BadgeTone, DefaultBadge } from "./_atoms/Badge.js";
 export { LiveIndicator, type LiveIndicatorProps } from "./_atoms/LiveIndicator.js";
@@ -68,7 +65,6 @@ export { TextFilter, type TextFilterProps } from "./_data/filters/TextFilter.js"
 export { InlineEditCell, type InlineEditCellProps } from "./_data/InlineEditCell.js";
 export { JsonCell, type JsonCellProps } from "./_data/JsonCell.js";
 export { JsonEditor, type JsonEditorProps } from "./_data/JsonEditor.js";
-// Data mini
 export { KV, KVRow } from "./_data/KV.js";
 export { MobileCardList, type MobileCardListProps } from "./_data/MobileCardList.js";
 export { DefaultPagination, Pagination, type PaginationProps } from "./_data/Pagination.js";
@@ -78,7 +74,7 @@ export {
   ReferencePicker,
   type ReferencePickerProps,
 } from "./_data/ReferencePicker.js";
-// Feedback
+export { renderFormatCell } from "./_data/render-format.js";
 export {
   ConfirmDialog,
   type ConfirmDialogProps,
@@ -111,12 +107,11 @@ export {
 } from "./_forms/AsyncSelect.js";
 export { AutoForm, type AutoFormProps } from "./_forms/AutoForm.js";
 export { Field as FormField, type FieldProps as FormFieldProps } from "./_forms/Field.js";
-// Forms
 export { Form, type FormActionResult, type FormProps, useFormContext } from "./_forms/Form.js";
 export { FormError } from "./_forms/FormError.js";
 export { FormSection, type FormSectionProps } from "./_forms/FormSection.js";
 export { FormSubmit } from "./_forms/FormSubmit.js";
-// Layout
+export type { ResolvedField } from "./_forms/field-types.js";
 export {
   Card,
   CardContent,
@@ -131,17 +126,24 @@ export {
   SectionLabel,
   type SectionLabelProps,
   type SectionProps,
+  spanClass,
 } from "./_layout/Section.js";
 export { ComponentsProvider, useComponents } from "./_provider/ComponentsContext.js";
 export { LabelsProvider, useLabels } from "./_provider/LabelsContext.js";
+export {
+  AccountMenu,
+  type AccountMenuItem,
+  type AccountMenuProps,
+  type AccountMenuUser,
+} from "./_shell/AccountMenu.js";
 export { AdminNav, type NavEntry, type NavGroup } from "./_shell/AdminNav.js";
-// Shell
 export {
   AdminShell,
   type AdminShellProps,
   type AdminShellVariant,
 } from "./_shell/AdminShell.js";
 export { AdminTabs } from "./_shell/AdminTabs.js";
+export { Brand, type BrandProps, type ShellBrand } from "./_shell/Brand.js";
 export {
   type BreadcrumbItem,
   Breadcrumbs,
@@ -170,14 +172,12 @@ export {
   type ShortcutsCheatsheetProps,
 } from "./_shell/ShortcutsCheatsheet.js";
 export { ThemeScript, type ThemeScriptProps } from "./_shell/ThemeScript.js";
-// Widgets
 export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget.js";
 export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard.js";
 export { DefaultMetricCard } from "./_widgets/MetricCardDefault.js";
 export { StatGroupCard, type StatGroupCardProps } from "./_widgets/StatGroupCard.js";
 export { TableWidget, type TableWidgetProps } from "./_widgets/TableWidget.js";
 export { DevToolsPanel, type DevToolsPanelProps } from "./devtools/DevToolsPanel.js";
-// Hooks
 export { type AdminCommand, useAdminCommand } from "./hooks/useAdminCommand.js";
 export {
   type AdminDrawer,
@@ -234,7 +234,6 @@ export {
   useRealtimeStatus,
 } from "./realtime/hooks.js";
 export { RealtimeProvider } from "./realtime/RealtimeProvider.js";
-// UI primitives
 export { Button, type ButtonProps, buttonVariants, DefaultButton } from "./ui/button.js";
 export { Checkbox } from "./ui/checkbox.js";
 export {

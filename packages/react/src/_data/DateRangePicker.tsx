@@ -4,9 +4,6 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Calendar } from "lucide-react";
 import { cn } from "../lib/cn.js";
 
-// NOTE: Custom calendar range selection is deferred to M4 polish; for M2 the
-// 7 presets cover the spec's dashboard examples.
-
 export interface DateRangePickerProps {
   value: { preset?: DateRangePreset; from?: Date; to?: Date };
   onChange: (next: { preset?: DateRangePreset; from?: Date; to?: Date }) => void;

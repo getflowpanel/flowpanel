@@ -2,40 +2,33 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Menu } from "lucide-react";
 import * as React from "react";
+import { AccountMenu, type AccountMenuUser } from "./AccountMenu.js";
 import { AdminNav, type NavGroup } from "./AdminNav.js";
 import { AdminTabs } from "./AdminTabs.js";
+import { Brand, type ShellBrand } from "./Brand.js";
 
 export type AdminShellVariant = "sidebar" | "tabs";
 
 export interface AdminShellProps {
   variant?: AdminShellVariant;
-  brandName?: string;
+  brand?: ShellBrand;
+  user?: AccountMenuUser;
   navGroups: NavGroup[];
   currentPath: string;
   children: React.ReactNode;
 }
 
-/**
- * Pure visual chrome around FlowPanel content. Two variants:
- *
- * - `sidebar` (default) — full-height left sidebar + content area. Suited to
- *   standalone admins where FlowPanel owns the whole page.
- * - `tabs` — horizontal tab strip above content. Suited to embedded admins
- *   where the host app already provides a header.
- *
- * Context providers (theme components, labels, toasts) live in
- * `<FlowpanelGlobals>` so `bare` mode (no shell at all) still has them.
- */
+/** Pure visual chrome around FlowPanel content. */
 export function AdminShell({
   variant = "sidebar",
-  brandName,
+  brand,
+  user,
   navGroups,
   currentPath,
   children,
 }: AdminShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
-  // Close mobile drawer when route changes (navigation completes).
   // biome-ignore lint/correctness/useExhaustiveDependencies: currentPath is the intentional trigger — the effect re-runs to dismiss the drawer whenever the route changes.
   React.useEffect(() => {
     setMobileNavOpen(false);
@@ -57,7 +50,8 @@ export function AdminShell({
         <AdminTabs
           groups={navGroups}
           currentPath={currentPath}
-          {...(brandName !== undefined ? { brandName } : {})}
+          {...(brand !== undefined ? { brand } : {})}
+          {...(user !== undefined ? { user } : {})}
         />
         <main id="main" className="mx-auto max-w-7xl px-6 py-6">
           {children}
@@ -68,10 +62,7 @@ export function AdminShell({
 
   return (
     <div className="flex h-screen flex-col bg-fp-bg-2 text-fp-text-1 antialiased font-sans md:flex-row">
-      {/* Skip link must be the first focusable element so keyboard users can
-          jump past the nav. Kept out of <main> for that reason. */}
       {skipLink}
-      {/* Mobile top bar: visible below md, hidden md+. */}
       <div className="flex shrink-0 items-center gap-2 border-b border-fp-border-1 bg-fp-bg-1 px-3 py-2 md:hidden">
         <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <DialogPrimitive.Trigger
@@ -80,7 +71,8 @@ export function AdminShell({
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </DialogPrimitive.Trigger>
-          <span className="text-sm font-semibold text-fp-text-1">{brandName ?? "Admin"}</span>
+          <Brand brand={brand} className="min-w-0 flex-1" />
+          {user ? <AccountMenu user={user} align="end" className="w-auto" /> : null}
           <DialogPrimitive.Portal>
             <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-[fp-fade-in_var(--fp-duration)_var(--fp-ease-out)] data-[state=closed]:animate-[fp-fade-out_var(--fp-duration)_var(--fp-ease-out)]" />
             <DialogPrimitive.Content
@@ -91,18 +83,19 @@ export function AdminShell({
               <AdminNav
                 groups={navGroups}
                 currentPath={currentPath}
-                {...(brandName !== undefined ? { brandName } : {})}
+                {...(brand !== undefined ? { brand } : {})}
+                {...(user !== undefined ? { user } : {})}
               />
             </DialogPrimitive.Content>
           </DialogPrimitive.Portal>
         </DialogPrimitive.Root>
       </div>
-      {/* Desktop inline sidebar: hidden below md, shown md+. */}
       <div className="hidden md:block md:h-full">
         <AdminNav
           groups={navGroups}
           currentPath={currentPath}
-          {...(brandName !== undefined ? { brandName } : {})}
+          {...(brand !== undefined ? { brand } : {})}
+          {...(user !== undefined ? { user } : {})}
         />
       </div>
       <main id="main" className="flex-1 overflow-auto">

@@ -31,6 +31,7 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
     "lint:publish": "publint --strict",
     "lint:attw": "attw --pack . --profile esm-only"
   },
@@ -47,6 +48,7 @@
     "react": "^19.0.0",
     "recharts": "^3.0.0",
     "tsup": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

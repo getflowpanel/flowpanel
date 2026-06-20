@@ -8,7 +8,7 @@ export function FormError() {
     <div
       role="alert"
       aria-live="assertive"
-      className="rounded-fp-sm border border-fp-err/30 bg-fp-err/10 px-3 py-2 text-sm text-fp-err"
+      className="rounded-fp-sm border border-fp-err/30 bg-fp-err/10 px-3 py-2 text-sm text-fp-err-text"
     >
       {form.errors[0]}
     </div>

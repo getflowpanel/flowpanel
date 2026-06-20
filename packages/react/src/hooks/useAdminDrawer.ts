@@ -20,10 +20,7 @@ export interface AdminDrawer {
   close: () => void;
 }
 
-/**
- * Reads `?drawer=<resource>:<id>` and `?tab=<key>` from the URL.
- * Writes via `useUrlState` — router.push keeps the page interactive.
- */
+/** Reads `?drawer=<resource>:<id>` and `?tab=<key>` from the URL. */
 export function useAdminDrawer(): AdminDrawer {
   const url = useUrlState();
 

@@ -16,12 +16,17 @@ export interface MetricCardProps {
 
 /** Pure renderer — no context dependency. Used as the registry default. */
 export function DefaultMetricCard(props: MetricCardProps) {
-  const { label, value, format, sublabel, delta, tone = "default", drilldown } = props;
+  const { label, value, format, sublabel, delta, tone = "default", drilldown, icon } = props;
   const display = typeof value === "number" ? formatNumber(value, format) : value;
   const body = (
     <>
       <CardHeader className="flex items-center justify-between">
         <span className="text-xs text-fp-text-2 uppercase tracking-wide">{label}</span>
+        {icon ? (
+          <span className="text-fp-text-3" aria-hidden>
+            {icon}
+          </span>
+        ) : null}
       </CardHeader>
       <CardContent className="pt-0">
         <div className="text-2xl font-semibold text-fp-text-1 tabular-nums">{display}</div>
@@ -29,7 +34,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
         {delta ? (
           <div
             className={`text-xs mt-1 tabular-nums ${
-              delta.value >= 0 ? "text-fp-ok" : "text-fp-err"
+              delta.value >= 0 ? "text-fp-ok-text" : "text-fp-err-text"
             }`}
           >
             {delta.value >= 0 ? "▲" : "▼"} {Math.abs(delta.value * 100).toFixed(1)}% · {delta.vs}

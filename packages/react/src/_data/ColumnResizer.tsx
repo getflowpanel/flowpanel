@@ -7,10 +7,7 @@ export interface ColumnResizerProps {
   className?: string;
 }
 
-/**
- * Internal drag handle rendered at the right edge of a resizable <th>.
- * Uses Pointer Events with pointer capture for smooth resize.
- */
+/** Internal drag handle rendered at the right edge of a resizable <th>. */
 export function ColumnResizer({ onResize, onResizeEnd, className }: ColumnResizerProps) {
   const startX = React.useRef<number | null>(null);
 
@@ -32,15 +29,10 @@ export function ColumnResizer({ onResize, onResizeEnd, className }: ColumnResize
     startX.current = null;
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // Pointer may already be released
-    }
+    } catch {}
     onResizeEnd();
   };
 
-  // Keyboard resize: nudge the column width with the arrow keys. Each keydown
-  // commits immediately (onResize then onResizeEnd) so successive presses
-  // accumulate against the freshly-committed width rather than a stale base.
   const KEY_STEP_PX = 8;
   const onKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;

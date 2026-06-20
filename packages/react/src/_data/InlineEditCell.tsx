@@ -5,26 +5,7 @@ import { LocalTime } from "../_atoms/LocalTime.js";
 import { useToast } from "../_feedback/Toast.js";
 import { cn } from "../lib/cn.js";
 
-/**
- * Editable table cell. Renders the value as plain text by default;
- * double-clicking swaps the cell into an input bound to local state.
- *
- * - **Enter / blur** — POST `/api/flowpanel/<resource>/<id>/update` with
- *   `{ field, value }`. On success: optimistic value sticks until the
- *   next `router.refresh()` lands the server value. On failure: revert
- *   to the original value, surface the error as a toast.
- * - **Esc** — cancel, revert to original.
- *
- * The input type is inferred from `valueType`:
- *
- * - `"number"` → `<input type="number">` parsed as a number
- * - `"date"` → `<input type="datetime-local">` parsed via `Date(value)`
- * - Default → plain text input
- *
- * Enum-typed columns fall back to plain text in this v1; rendering a
- * `<Select>` requires the column to also carry its option list, which
- * lands alongside per-column metadata propagation in Phase 1.x.
- */
+/** Editable table cell. */
 export interface InlineEditCellProps {
   resource: string;
   id: string;
@@ -52,22 +33,15 @@ export function InlineEditCell({
   const [pending, setPending] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Sync draft if the server value changes while we're idle.
   React.useEffect(() => {
     if (!editing) setDraft(valueToInputString(value, valueType));
   }, [value, valueType, editing]);
 
-  // Focus the input when the cell enters edit mode (replaces autoFocus,
-  // which the a11y lint forbids). The input only mounts while editing, so
-  // this fires on every edit activation.
   React.useEffect(() => {
     if (editing) inputRef.current?.focus();
   }, [editing]);
 
   async function save() {
-    // Guard against double-fire: pressing Enter sets `pending`, which
-    // disables the focused input, triggering a native blur → `onBlur={save}`.
-    // Without this the cell would POST twice for a single edit.
     if (pending) return;
     const parsed = inputStringToValue(draft, valueType);
     const original = valueToInputString(value, valueType);
@@ -109,8 +83,7 @@ export function InlineEditCell({
       <button
         type="button"
         onDoubleClick={() => setEditing(true)}
-        // Single-click ignored — that's reserved for row-click handlers.
-        // Double-click matches the spreadsheet convention.
+        onClick={(e) => e.stopPropagation()}
         className={cn(
           "w-full cursor-text text-left text-fp-text-1 hover:bg-fp-bg-2 hover:px-1 hover:py-0.5 hover:-mx-1 hover:-my-0.5 rounded-fp-sm",
           className,
@@ -138,7 +111,6 @@ export function InlineEditCell({
           e.preventDefault();
           cancel();
         }
-        // Stop event so DataTable's j/k/Enter handlers don't interfere.
         e.stopPropagation();
       }}
       onClick={(e) => e.stopPropagation()}
@@ -166,12 +138,6 @@ function valueToInputString(v: unknown, t: InlineEditCellProps["valueType"]): st
   if (t === "date") {
     const d = v instanceof Date ? v : new Date(String(v));
     if (Number.isNaN(d.getTime())) return "";
-    // A `datetime-local` input shows and emits wall-clock time in the VIEWER's
-    // zone, so seed it with LOCAL date/time components — not `toISOString()`,
-    // which would shift the displayed value by the UTC offset and let a no-op
-    // edit silently rewrite the instant. `new Date(localString)` on save then
-    // re-interprets these components in the same local zone (see
-    // `inputStringToValue`), making the round-trip lossless.
     return localDateTimeString(d);
   }
   return String(v);
@@ -201,12 +167,6 @@ function formatDisplay(v: unknown, t: InlineEditCellProps["valueType"]): React.R
   if (t === "date") {
     const d = v instanceof Date ? v : new Date(String(v));
     if (!Number.isNaN(d.getTime())) {
-      // Render through `LocalTime` so the read-only display of an editable
-      // date matches the viewer-timezone formatting used by non-editable date
-      // cells (`renderCellValue` → `LocalTime`). `LocalTime` is SSR-safe: it
-      // formats in `fallbackTimeZone` until mount, then flips to the viewer's
-      // own zone, so an inline-editable date never diverges from the rest of
-      // the table.
       return <LocalTime date={d} />;
     }
   }

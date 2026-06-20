@@ -6,9 +6,6 @@ import { cn } from "../lib/cn.js";
 
 export type DrawerWidth = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 
-// `<640px` always falls back to full width so mobile users see a fullscreen
-// sheet instead of a too-narrow side panel; above that, the configured
-// `width` applies.
 const WIDTH_CLASS: Record<DrawerWidth, string> = {
   sm: "w-full sm:w-[360px]",
   md: "w-full sm:w-[480px]",
@@ -28,11 +25,7 @@ export interface DrawerProps {
   className?: string;
 }
 
-/**
- * Side-variant drawer built on Radix Dialog. Radix provides focus-trap,
- * ESC handling, overlay-click-to-close, and scroll lock out of the box.
- * Animations honor `prefers-reduced-motion` via `--fp-duration` in admin.css.
- */
+/** Side-variant drawer built on Radix Dialog. */
 export function Drawer({
   open,
   onOpenChange,
@@ -62,8 +55,6 @@ export function Drawer({
             className,
           )}
         >
-          {/* Radix requires a Title for a11y; hide visually when no header is
-              provided so the drawer still has an accessible name. */}
           {title ? (
             <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>
           ) : (

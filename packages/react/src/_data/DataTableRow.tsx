@@ -1,11 +1,11 @@
 "use client";
 import type * as React from "react";
 import { cn } from "../lib/cn.js";
-import { ArrayCell } from "./ArrayCell.js";
+import { Checkbox } from "../ui/checkbox.js";
 import type { DataTableColumn } from "./data-table-types.js";
-import { ALIGN_CLASS, renderCellValue } from "./format-cell.js";
+import { ALIGN_CLASS } from "./format-cell.js";
 import { InlineEditCell } from "./InlineEditCell.js";
-import { JsonCell } from "./JsonCell.js";
+import { renderDefaultCell } from "./render-default-cell.js";
 import type { PinMeta } from "./useColumnLayout.js";
 
 function renderCellContent<Row extends Record<string, unknown>>(
@@ -16,9 +16,6 @@ function renderCellContent<Row extends Record<string, unknown>>(
   inlineEditResource: string | undefined,
 ): React.ReactNode {
   if (c.editable && inlineEditResource) {
-    // Inline-edit wins over prerendered / specialized renderers — the user
-    // opted in via `editable: true` and expects the cell to behave like a
-    // spreadsheet input, not a chip / link / popover.
     const rowId = String(r[rowKey] ?? "");
     return (
       <InlineEditCell
@@ -32,12 +29,7 @@ function renderCellContent<Row extends Record<string, unknown>>(
   }
   if (prerendered !== undefined) return prerendered;
   if (c.render) return c.render(r);
-  if (c.type === "array") {
-    const v = r[c.field];
-    return <ArrayCell value={Array.isArray(v) ? (v as ReadonlyArray<unknown>) : null} />;
-  }
-  if (c.type === "json") return <JsonCell value={r[c.field]} />;
-  return renderCellValue(r[c.field]);
+  return renderDefaultCell(c, r);
 }
 
 export interface DataTableRowProps<Row extends Record<string, unknown>> {
@@ -93,16 +85,11 @@ export function DataTableRow<Row extends Record<string, unknown>>({
     >
       {selectionEnabled ? (
         <td className={cn("px-4", rowPadding)}>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={selectionSet.has(rowKeyValue)}
             aria-label={`Select row ${rowKeyValue}`}
-            onChange={(e) => {
-              e.stopPropagation();
-              onToggleRow(rowKeyValue);
-            }}
+            onCheckedChange={() => onToggleRow(rowKeyValue)}
             onClick={(e) => e.stopPropagation()}
-            className="h-4 w-4 accent-fp-accent"
           />
         </td>
       ) : null}

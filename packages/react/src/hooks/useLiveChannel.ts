@@ -12,16 +12,7 @@ export interface UseLiveChannelOptions {
   enabled?: boolean;
 }
 
-/**
- * Subscribe to an SSE channel served by @flowpanel/next stream().
- *
- * Opens one EventSource per channel; on error, reconnects with exponential
- * backoff (500ms * 2^attempt, capped by `reconnectMaxMs`). When `channel` is
- * falsy or `enabled: false`, the hook is inert and returns "idle".
- *
- * @example
- * const status = useLiveChannel("resource.users", () => router.refresh());
- */
+/** Subscribe to an SSE channel served by @flowpanel/next stream(). */
 export function useLiveChannel(
   channel: string,
   onMessage: (payload: unknown) => void,

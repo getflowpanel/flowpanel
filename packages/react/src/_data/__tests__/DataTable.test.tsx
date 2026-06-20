@@ -154,8 +154,8 @@ describe("DataTable", () => {
       />,
     );
     const tbody = container.querySelector("tbody")!;
+    // Focusing the table puts the cursor on row 0, so one `j` reaches row 1.
     tbody.focus();
-    fireEvent.keyDown(tbody, { key: "j" });
     fireEvent.keyDown(tbody, { key: "j" });
     fireEvent.keyDown(tbody, { key: "Enter" });
     expect(onRowClick).toHaveBeenCalledWith(rows[1]);

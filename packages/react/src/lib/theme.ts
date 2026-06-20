@@ -1,16 +1,4 @@
-/**
- * FlowPanel theme runtime — dark/light mode persistence.
- *
- * The `dark` class is applied to `<html>` and `admin.css` swaps the design
- * tokens under that selector. User choice (from the ⌘K toggle or any custom
- * UI) is persisted in `localStorage["fp-theme"]`. When `mode: "auto"` is the
- * configured default, `prefers-color-scheme` decides the initial render but
- * an explicit user choice always overrides.
- *
- * To avoid FOUC under SSR, `ThemeScript` (rendered by `<FlowpanelGlobals>`)
- * injects a tiny inline script that runs `applyTheme()` synchronously before
- * React hydrates.
- */
+/** FlowPanel theme runtime — dark/light mode persistence. */
 
 export type ThemeMode = "light" | "dark" | "auto";
 export type ThemeChoice = "light" | "dark";
@@ -44,9 +32,7 @@ export function writeStoredTheme(value: ThemeChoice): void {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(THEME_STORAGE_KEY, value);
     }
-  } catch {
-    // ignore — quota/private-mode/SSR
-  }
+  } catch {}
 }
 
 /** Toggle html.classList based on resolved theme. */
@@ -57,10 +43,7 @@ export function applyThemeClass(choice: ThemeChoice): void {
   else root.classList.remove("dark");
 }
 
-/**
- * Toggle dark mode, persist the choice, and apply the class. Returns the new
- * choice so callers can update local state if needed.
- */
+/** Toggle dark mode, persist the choice, and apply the class. */
 export function toggleTheme(): ThemeChoice {
   const currentlyDark =
     typeof document !== "undefined" && document.documentElement.classList.contains("dark");
@@ -70,11 +53,7 @@ export function toggleTheme(): ThemeChoice {
   return next;
 }
 
-/**
- * Inline script body that runs before React hydration. Reads storage + system
- * preference and applies the `dark` class so the first paint matches.
- */
+/** Inline script body that runs before React hydration. */
 export function buildThemeInitScript(defaultMode: ThemeMode = "auto"): string {
-  // Keep this string self-contained — it runs without bundler / module scope.
   return `(function(){try{var s=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var m=${JSON.stringify(defaultMode)};var sys=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;var d=s==='dark'||s==='light'?s==='dark':(m==='dark'||(m==='auto'&&sys));var r=document.documentElement;if(d)r.classList.add('dark');else r.classList.remove('dark');}catch(e){}})();`;
 }

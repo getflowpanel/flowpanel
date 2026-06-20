@@ -1,3 +1,4 @@
+import type { Span } from "@flowpanel/core";
 import type * as React from "react";
 import { cn } from "../lib/cn.js";
 
@@ -39,6 +40,16 @@ const colClass: Record<number, string> = {
   4: "grid-cols-2 md:grid-cols-4",
   6: "grid-cols-2 md:grid-cols-3 lg:grid-cols-6",
   12: "grid-cols-12",
+};
+
+export const spanClass: Record<Span, string> = {
+  1: "col-span-1",
+  2: "col-span-2",
+  3: "col-span-3",
+  4: "col-span-4",
+  6: "col-span-6",
+  8: "col-span-8",
+  12: "col-span-12",
 };
 
 export function Section({ label, description, columns = 1, className, children }: SectionProps) {

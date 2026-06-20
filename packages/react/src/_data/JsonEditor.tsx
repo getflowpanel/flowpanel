@@ -19,7 +19,6 @@ export function JsonEditor<T = unknown>({
   const [text, setText] = React.useState(() => safeStringify(value));
   const [error, setError] = React.useState<string | null>(null);
 
-  // Re-sync when the value prop changes externally (but not after our own edits).
   const lastEmitted = React.useRef<string>(text);
   React.useEffect(() => {
     const next = safeStringify(value);

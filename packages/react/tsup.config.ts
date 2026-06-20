@@ -1,12 +1,23 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts" },
+  // One output module per source module, not a single bundled barrel. With a
+  // lone `src/index.ts` entry tsup emits one non-splittable chunk, and the
+  // module-scope side effects in here (every `createContext(…)`) stop esbuild
+  // proving the unused half dead — so an app importing only `<DataTable>`
+  // still paid for the whole package. Mirroring the source tree lets the
+  // consumer's bundler drop whole files. See invariant I-7.
+  entry: ["src/**/*.ts", "src/**/*.tsx", "!src/**/__tests__/**", "!src/**/*.test.*"],
   format: ["esm"],
   outExtension: () => ({ js: ".mjs" }),
   dts: true,
   clean: true,
-  splitting: false,
+  // Code splitting is what makes the barrel tree-shakeable. Without it tsup
+  // emits one non-splittable chunk, and module-scope side effects (every
+  // `createContext(…)` in here) block esbuild from proving the unused half
+  // dead — so an app importing only `<DataTable>` still paid for the whole
+  // package. See invariant I-7 for why that matters.
+  splitting: true,
   // Externalize @flowpanel/core AND its subpaths — esbuild/dts don't treat a
   // subpath as covered by its parent, so without `/labels` the DTS bundler
   // tries to resolve @flowpanel/core/labels against core's built dist and

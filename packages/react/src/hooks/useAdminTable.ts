@@ -19,10 +19,7 @@ export interface UseAdminTable {
   clearFilters: () => void;
 }
 
-/**
- * Reads and mutates the admin list URL state: `?page=`, `?sort=field:dir`,
- * `?f_<field>=value`. Mutations reset page.
- */
+/** Reads and mutates the admin list URL state: `?page=`, `?sort=field:dir`, `?f_<field>=value`. */
 export function useAdminTable(): UseAdminTable {
   const router = useRouter();
   const pathname = usePathname();

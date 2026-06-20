@@ -25,6 +25,7 @@ export function ColumnPinMenu({ field, currentPin, onPin }: ColumnPinMenuProps) 
           size="sm"
           aria-label={`Column options for ${field}`}
           className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+          onClick={(e) => e.stopPropagation()}
         >
           ⋮
         </Button>

@@ -2,6 +2,7 @@
 import type * as React from "react";
 import { cn } from "../lib/cn.js";
 import { resolveFieldLabel } from "../lib/humanize.js";
+import { Checkbox } from "../ui/checkbox.js";
 import { ColumnPinMenu } from "./ColumnPinMenu.js";
 import { ColumnResizer } from "./ColumnResizer.js";
 import type { DataTableColumn, DataTableSort } from "./data-table-types.js";
@@ -52,16 +53,14 @@ export function DataTableHeader<Row>({
       <tr>
         {selectionEnabled ? (
           <th scope="col" className="w-10 px-4 py-2">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={allOnPageSelected}
               aria-label={
                 allOnPageSelected
                   ? "Deselect all rows on this page"
                   : "Select all rows on this page"
               }
-              onChange={onToggleAll}
-              className="h-4 w-4 accent-fp-accent"
+              onCheckedChange={() => onToggleAll()}
             />
           </th>
         ) : null}

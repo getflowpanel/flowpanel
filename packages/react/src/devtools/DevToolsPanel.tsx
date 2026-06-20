@@ -6,25 +6,7 @@ import type { RealtimeStatus } from "../realtime/context.js";
 import { useRealtimeStats } from "../realtime/hooks.js";
 import { formatTime, LOG_LIMIT, useStatusLog } from "./useStatusLog.js";
 
-/**
- * Dev-only floating panel for debugging a FlowPanel dashboard.
- *
- * Primary pain it targets: the realtime "freeze" (several SSE connections
- * contending for the browser's per-origin slot cap). The panel surfaces the
- * live state of the shared realtime bus — current status plus a rolling log
- * of status transitions — so a developer can see at a glance whether the
- * single `EventSource` is healthy, reconnecting, or stuck.
- *
- * Rendering. Mounts via `createPortal` into `document.body` so it never
- * depends on the dashboard layout / `_shell` and always sits on top.
- *
- * Dev gate. Renders `null` under `process.env.NODE_ENV === "production"`,
- * so a host can mount `<DevToolsPanel />` unconditionally and ship it.
- *
- * Styling. Uses FlowPanel design-token utility classes (`fp-*`), which map
- * to CSS custom properties declared on `:root`, so they resolve even though
- * the portal target (`document.body`) lives outside the dashboard subtree.
- */
+/** Dev-only floating panel for debugging a FlowPanel dashboard. */
 
 const STATUS_DOT_CLASS: Record<RealtimeStatus, string> = {
   idle: "bg-fp-text-3",
@@ -83,13 +65,7 @@ export interface DevToolsPanelProps {
   defaultOpen?: boolean;
 }
 
-/**
- * Floating "fp" button (bottom-right) that toggles the DevTools panel.
- *
- * @example
- * // In a dev layout — safe to leave mounted; null in production.
- * <DevToolsPanel />
- */
+/** Floating "fp" button (bottom-right) that toggles the DevTools panel. */
 export function DevToolsPanel({
   defaultOpen = false,
 }: DevToolsPanelProps): React.JSX.Element | null {
@@ -98,8 +74,6 @@ export function DevToolsPanel({
   const { status, log } = useStatusLog();
   const { channels, eventCount } = useRealtimeStats();
 
-  // Portal target only exists on the client; gate the first render so SSR
-  // and hydration agree (server renders nothing).
   React.useEffect(() => setMounted(true), []);
 
   if (process.env.NODE_ENV === "production") return null;

@@ -1,10 +1,7 @@
-/**
- * Numeric format helpers mirrored from @flowpanel/core widget types.
- * Kept in sync with `NumericFormat` / `Tone` in core/src/types/widget.ts.
- */
+/** Numeric format helpers mirrored from @flowpanel/core widget types. */
 
 export type NumericFormat = "number" | "currency" | "percent" | "bytes" | "duration";
-export type Tone = "default" | "accent" | "success" | "warning" | "danger" | "muted";
+export type Tone = "default" | "accent" | "ok" | "warn" | "err" | "info" | "muted";
 
 export function formatNumber(
   v: number,

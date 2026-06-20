@@ -17,6 +17,7 @@ export interface AsyncSelectProps {
   emptyText?: string;
   debounceMs?: number;
   className?: string;
+  initialLabel?: string | null;
 }
 
 export function AsyncSelect({
@@ -27,21 +28,31 @@ export function AsyncSelect({
   emptyText = "No options",
   debounceMs = 200,
   className,
+  initialLabel = null,
 }: AsyncSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [opts, setOpts] = React.useState<AsyncSelectOption[]>([]);
-  const [label, setLabel] = React.useState<string | null>(null);
+  const [label, setLabel] = React.useState<string | null>(initialLabel);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    setLoading(true);
+    setError(false);
     const t = setTimeout(async () => {
       try {
         const r = await loadOptions(query);
-        if (!cancelled) setOpts(r);
+        if (cancelled) return;
+        setOpts(r);
+        setLoading(false);
       } catch {
-        if (!cancelled) setOpts([]);
+        if (cancelled) return;
+        setOpts([]);
+        setError(true);
+        setLoading(false);
       }
     }, debounceMs);
     return () => {
@@ -74,23 +85,35 @@ export function AsyncSelect({
             className="h-9 w-full border-b border-fp-border-1 bg-transparent px-3 text-sm outline-none placeholder:text-fp-text-3"
           />
           <CommandList className="max-h-60 overflow-auto p-1">
-            <CommandEmpty className="px-3 py-4 text-center text-sm text-fp-text-3">
-              {emptyText}
-            </CommandEmpty>
-            {opts.map((o) => (
-              <CommandItem
-                key={o.value}
-                value={o.label}
-                onSelect={() => {
-                  onChange(o.value);
-                  setLabel(o.label);
-                  setOpen(false);
-                }}
-                className="cursor-pointer rounded-sm px-2 py-1.5 text-sm aria-selected:bg-fp-bg-2"
-              >
-                {o.label}
-              </CommandItem>
-            ))}
+            {loading ? (
+              <div role="status" className="px-3 py-4 text-center text-sm text-fp-text-3">
+                Searching…
+              </div>
+            ) : error ? (
+              <div role="alert" className="px-3 py-4 text-center text-sm text-fp-err-text">
+                Couldn't load options — please try again.
+              </div>
+            ) : (
+              <CommandEmpty className="px-3 py-4 text-center text-sm text-fp-text-3">
+                {emptyText}
+              </CommandEmpty>
+            )}
+            {!loading && !error
+              ? opts.map((o) => (
+                  <CommandItem
+                    key={o.value}
+                    value={o.label}
+                    onSelect={() => {
+                      onChange(o.value);
+                      setLabel(o.label);
+                      setOpen(false);
+                    }}
+                    className="cursor-pointer rounded-sm px-2 py-1.5 text-sm aria-selected:bg-fp-bg-2"
+                  >
+                    {o.label}
+                  </CommandItem>
+                ))
+              : null}
           </CommandList>
         </Command>
       </PopoverContent>

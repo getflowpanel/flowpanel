@@ -2,29 +2,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog.js";
 
-/**
- * Modal cheatsheet listing every shortcut bound on the page. Opened by `?`
- * from anywhere outside an input. The list is data-driven via the
- * `shortcuts` prop so consumers can append page-specific bindings (e.g.
- * `g d` for "go to dashboard") without forking the component.
- *
- * @example
- * ```tsx
- * <ShortcutsCheatsheet
- *   open={open}
- *   onOpenChange={setOpen}
- *   shortcuts={[
- *     { group: "Navigation", keys: ["j", "↓"], description: "Move down a row" },
- *     { group: "Navigation", keys: ["k", "↑"], description: "Move up a row" },
- *     { group: "Row", keys: ["Enter"], description: "Open drawer" },
- *     { group: "Row", keys: ["e"], description: "Edit" },
- *     { group: "Row", keys: ["d"], description: "Delete" },
- *     { group: "Search", keys: ["/"], description: "Focus search" },
- *     { group: "Help", keys: ["?"], description: "Show this cheatsheet" },
- *   ]}
- * />
- * ```
- */
+/** Modal cheatsheet listing every shortcut bound on the page. */
 export interface ShortcutSpec {
   /** Group label rendered as a section heading. */
   group: string;
@@ -90,11 +68,7 @@ export function ShortcutsCheatsheet({ open, onOpenChange, shortcuts }: Shortcuts
   );
 }
 
-/**
- * The default shortcut list bundled with the resource list page. Consumers
- * pass it to `<ShortcutsCheatsheet shortcuts={DEFAULT_SHORTCUTS}>` or extend
- * via `[...DEFAULT_SHORTCUTS, ...custom]`.
- */
+/** The default shortcut list bundled with the resource list page. */
 export const DEFAULT_SHORTCUTS: ReadonlyArray<ShortcutSpec> = [
   { group: "Navigation", keys: ["j", "↓"], description: "Move down a row" },
   { group: "Navigation", keys: ["k", "↑"], description: "Move up a row" },

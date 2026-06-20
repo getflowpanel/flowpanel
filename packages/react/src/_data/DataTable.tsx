@@ -1,18 +1,18 @@
 "use client";
 // LOC-OK: table render orchestrator — coordinates the column-layout, selection,
-// keyboard and drawer sub-hooks; splitting scatters tightly-coupled table state.
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useLabels } from "../_provider/LabelsContext.js";
 import { useLiveChannel } from "../hooks/useLiveChannel.js";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import { cn } from "../lib/cn.js";
-import { CsvExportButton } from "./csv-export.js";
+import { ExportButton } from "./csv-export.js";
 import { DataTableHeader } from "./DataTableHeader.js";
 import { DataTableRow } from "./DataTableRow.js";
 import { DataTableSkeleton } from "./DataTableSkeleton.js";
 import { type DataTableDensity, DensityToggle } from "./DensityToggle.js";
 import type { DataTableColumn, DataTableProps } from "./data-table-types.js";
+import { ImportButton } from "./ImportButton.js";
 import { MobileCardList } from "./MobileCardList.js";
 import { Pagination } from "./Pagination.js";
 import { useColumnLayout } from "./useColumnLayout.js";
@@ -62,6 +62,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   inlineEditResource,
   mobileLayout = "card",
   exportable = false,
+  importable,
   showDensityToggle = false,
 }: DataTableProps<Row>) {
   const router = useRouter();
@@ -105,19 +106,8 @@ export function DataTable<Row extends Record<string, unknown>>({
   );
   useLiveChannel(realtimeChannel, handleLiveEvent);
 
-  // Mobile / desktop picker. Hook must run unconditionally (before the
-  // early returns below), so it lives here at the top level. Server snapshot
-  // is `false` (desktop) so the initial paint matches every server-rendered
-  // consumer; on the client, `useSyncExternalStore` wires the real
-  // `matchMedia` listener and switches to the card list when the viewport
-  // narrows. Critically, only ONE layout is mounted at a time — testing-
-  // library queries don't see doubled DOM content, and React's
-  // reconciliation cost stays flat.
   const isMobile = useMediaQuery("(max-width: 639px)");
 
-  // Density: controlled via `density`; when `showDensityToggle` is set we own
-  // an internal override seeded from the prop, so the toggle is interactive
-  // without forcing the host to manage state.
   const [densityOverride, setDensityOverride] = React.useState<DataTableDensity | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: density is intentionally a dependency so a changed controlled prop clears the local override.
   React.useEffect(() => {
@@ -146,7 +136,7 @@ export function DataTable<Row extends Record<string, unknown>>({
     ...(onFocusSearch ? { onFocusSearch } : {}),
     ...(onShowShortcuts ? { onShowShortcuts } : {}),
   });
-  const { cursor, handleKeyDown } = keyboard;
+  const { cursor, setCursor, handleKeyDown } = keyboard;
 
   const handleHeaderClick = (c: DataTableColumn<Row>) => {
     if (!c.sortable) return;
@@ -157,16 +147,43 @@ export function DataTable<Row extends Record<string, unknown>>({
 
   const frame = "rounded-fp border border-fp-border-1 bg-fp-bg-1 overflow-hidden";
 
-  const showToolbar = exportable || showDensityToggle;
+  const exportConfig =
+    exportable === true
+      ? { formats: ["csv"] as ("csv" | "json")[] }
+      : exportable
+        ? {
+            formats: exportable.formats ?? (["csv"] as ("csv" | "json")[]),
+            ...(exportable.fields ? { fields: exportable.fields } : {}),
+          }
+        : null;
+  const exportColumns = exportConfig?.fields
+    ? (() => {
+        const byField = new Map(columns.map((c) => [c.field, c] as const));
+        return exportConfig.fields.map(
+          (field) =>
+            byField.get(field as keyof Row & string) ?? { field: field as keyof Row & string },
+        );
+      })()
+    : orderedVisible;
+
+  const showToolbar = Boolean(exportConfig) || Boolean(importable) || showDensityToggle;
   const toolbar = showToolbar ? (
     <div className="flex items-center justify-end gap-1 border-b border-fp-border-1 bg-fp-bg-1 px-2 py-1.5">
       {showDensityToggle ? (
         <DensityToggle density={effectiveDensity} onChange={setDensityOverride} />
       ) : null}
-      {exportable ? (
-        <CsvExportButton
-          columns={orderedVisible}
+      {importable ? (
+        <ImportButton
+          resource={importable.resource}
+          formats={importable.formats}
+          label={labels.actions.import}
+        />
+      ) : null}
+      {exportConfig ? (
+        <ExportButton
+          columns={exportColumns}
           rows={rows}
+          formats={exportConfig.formats}
           label={labels.actions.export}
           tableLabel={inlineEditResource ?? emptyTitle ?? "export"}
         />
@@ -191,8 +208,6 @@ export function DataTable<Row extends Record<string, unknown>>({
   }
 
   if (rows.length === 0) {
-    // Same empty state on desktop + mobile — the card view's own empty
-    // path produces identical layout, so we don't bother rendering both.
     return (
       <div className={cn(frame, className)}>
         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -218,22 +233,33 @@ export function DataTable<Row extends Record<string, unknown>>({
 
   if (showMobileCardView) {
     return (
-      <MobileCardList
-        columns={orderedVisible}
-        rows={rows}
-        rowKey={rowKey}
-        {...(getRowKey ? { getRowKey } : {})}
-        {...(prerenderedCells ? { prerenderedCells } : {})}
-        {...(onRowClick ? { onRowClick } : {})}
-        {...(selection ? { selection } : {})}
-        {...(onSelectionChange ? { onSelectionChange } : {})}
-        {...(rowEndCell ? { rowEndCell } : {})}
-        {...(emptyTitle ? { emptyTitle } : {})}
-        {...(emptyDescription ? { emptyDescription } : {})}
-        {...(emptyAction ? { emptyAction } : {})}
-        {...(emptyIcon ? { emptyIcon } : {})}
-        {...(className ? { className } : {})}
-      />
+      <div className={cn(frame, className)}>
+        {toolbar}
+        <div className="p-2">
+          <MobileCardList
+            columns={orderedVisible}
+            colIndexByField={colIndexByField}
+            rows={rows}
+            rowKey={rowKey}
+            {...(getRowKey ? { getRowKey } : {})}
+            {...(prerenderedCells ? { prerenderedCells } : {})}
+            {...(onRowClick ? { onRowClick } : {})}
+            {...(selection ? { selection } : {})}
+            {...(onSelectionChange ? { onSelectionChange } : {})}
+            {...(rowEndCell ? { rowEndCell } : {})}
+            {...(emptyTitle ? { emptyTitle } : {})}
+            {...(emptyDescription ? { emptyDescription } : {})}
+            {...(emptyAction ? { emptyAction } : {})}
+            {...(emptyIcon ? { emptyIcon } : {})}
+          />
+        </div>
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          {...(onPageChange ? { onChange: onPageChange } : {})}
+        />
+      </div>
     );
   }
 
@@ -260,11 +286,14 @@ export function DataTable<Row extends Record<string, unknown>>({
           rowEndCell={rowEndCell}
           rowEndCellLabel={rowEndCellLabel}
         />
-        {/* tbody is focusable to host keyboard navigation (j/k/Enter/Esc); a11y rule disabled in biome.json override. */}
         <tbody
           ref={tbodyRef}
           onKeyDown={handleKeyDown}
+          // Land the cursor on the first row, so Enter opens something the moment
+          // the table is tabbed to rather than only after an arrow press.
+          onFocus={() => setCursor((c) => (c < 0 ? 0 : c))}
           tabIndex={0}
+          aria-label="Rows. Arrow keys or j and k move, Enter opens."
           className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-accent focus-visible:ring-inset"
         >
           {rows.map((r, idx) => (

@@ -8,7 +8,7 @@ describe("AdminNav", () => {
   it("renders nav groups and items", () => {
     render(
       <AdminNav
-        brandName="Admin"
+        brand={{ name: "Admin" }}
         currentPath="/admin/users"
         groups={[
           { label: "People", items: [{ label: "Users", href: "/admin/users" }] },

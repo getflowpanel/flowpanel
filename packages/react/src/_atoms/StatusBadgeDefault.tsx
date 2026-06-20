@@ -1,11 +1,8 @@
 import type * as React from "react";
 import { type BadgeTone, DefaultBadge } from "./BadgeDefault.js";
 
-/**
- * Logical status tone resolved from a raw status string. `info` is additive
- * relative to StatusDot's 4-tone palette — maps to Badge's `muted` tone.
- */
-export type StatusBadgeTone = "ok" | "warn" | "err" | "info" | "muted";
+/** The status badge accepts the single {@link BadgeTone}/`Tone` vocabulary. */
+export type StatusBadgeTone = BadgeTone;
 
 export interface StatusBadgeProps {
   status: string;
@@ -13,7 +10,7 @@ export interface StatusBadgeProps {
   className?: string;
 }
 
-const TONE_MAP: Record<string, StatusBadgeTone> = {
+const TONE_MAP: Record<string, BadgeTone> = {
   active: "ok",
   enabled: "ok",
   success: "ok",
@@ -35,20 +32,12 @@ const TONE_MAP: Record<string, StatusBadgeTone> = {
   archived: "muted",
 };
 
-const TONE_BADGE: Record<StatusBadgeTone, BadgeTone> = {
-  ok: "ok",
-  warn: "warn",
-  err: "err",
-  info: "muted",
-  muted: "muted",
-};
-
 /** Pure renderer — no context dependency. Used as the registry default. */
 export function DefaultStatusBadge({ status, tone, className }: StatusBadgeProps) {
   const resolved = tone ?? TONE_MAP[status.toLowerCase()] ?? "muted";
   const extra: React.HTMLAttributes<HTMLSpanElement> = className ? { className } : {};
   return (
-    <DefaultBadge tone={TONE_BADGE[resolved]} {...extra}>
+    <DefaultBadge tone={resolved} {...extra}>
       {status}
     </DefaultBadge>
   );

@@ -4,13 +4,6 @@ export interface DownloadPayload {
   mime?: string;
 }
 
-/**
- * Client-only: converts an ActionResult.download payload into a browser file
- * download by creating an object-URL, clicking a temporary anchor, and revoking.
- *
- * Must be called from within an event handler or effect. Throws if `document`
- * is undefined (server-side — guard before invoking).
- */
 export function triggerDownload(payload: DownloadPayload): void {
   if (typeof document === "undefined") {
     throw new Error("triggerDownload is client-only");
