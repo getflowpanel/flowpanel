@@ -1,0 +1,64 @@
+@import "@flowpanel/react/styles/admin.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--fp-font-sans);
+  background: hsl(var(--fp-bg-2));
+  color: hsl(var(--fp-text-1));
+}
+
+/* Live-feed row entrance: a new row slides down from the top with an accent bar
+   flashing along its leading edge, settling to transparent.
+   Two deliberate choices here, both driven by measured WCAG AA failures that
+   axe caught while sampling a row mid-animation:
+   - the highlight is an inset shadow, not a background tint. Washing the row
+     in ~10% accent put that tint *behind the text* and dropped the muted
+     timestamp to 4.25:1 and the price delta to 4.49:1, under the required 4.5.
+   - the row no longer fades in. A partially transparent glyph is literally a
+     lower-contrast glyph (the muted timestamp measured 4.37:1 mid-fade against
+     its own 5.06:1 when opaque), and WCAG grants no exemption for transient
+     states. The slide plus the edge bar read just as clearly as arrival. */
+@keyframes feed-row-enter {
+  0% {
+    transform: translateY(-16px);
+    box-shadow: inset 3px 0 0 0 hsl(var(--fp-accent));
+  }
+  60% {
+    box-shadow: inset 3px 0 0 0 hsl(var(--fp-accent));
+  }
+  100% {
+    transform: translateY(0);
+    box-shadow: inset 3px 0 0 0 transparent;
+  }
+}
+.feed-row-enter {
+  animation: feed-row-enter 600ms var(--fp-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+@media (prefers-reduced-motion: reduce) {
+  .feed-row-enter {
+    animation: none;
+  }
+}
+
+/* The feed mutates every ~2s; without this the browser's scroll anchoring
+   nudges the page on each row change, flickering everything below it. */
+.no-scroll-anchor {
+  overflow-anchor: none;
+}
+
+/* Charts are presentational — never paint a focus box on the recharts surface
+   (belt-and-suspenders with the runtime's accessibilityLayer={false}). */
+.recharts-wrapper :focus,
+.recharts-wrapper :focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible {
+  outline: none;
+}

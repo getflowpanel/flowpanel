@@ -36,5 +36,5 @@ Without `role=admin`, FlowPanel will redirect to `forbiddenUrl` (or `/`).
 
 ## Port
 
-Postgres is exposed on `54330` so it doesn't collide with `freelance-radar`'s
+Postgres is exposed on `54330` so it doesn't collide with `ai-scraper`'s
 `54329` if you run both.
