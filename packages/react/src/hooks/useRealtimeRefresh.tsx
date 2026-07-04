@@ -8,9 +8,9 @@ import { useRealtimeBus } from "../realtime/hooks.js";
 export type RealtimeChannels = string | string[] | undefined;
 
 export interface UseRealtimeRefreshOptions {
-  /** Debounce window, ms. Defaults to 200ms (matches DataTable). */
+  /** Debounce window, ms. Defaults to 200ms (matches DataTable). Only applies in standalone mode (no RealtimeProvider ancestor); under a provider, the provider's refreshDebounceMs governs the refresh. */
   debounceMs?: number;
-  /** Override the SSE endpoint. Default: /api/flowpanel/stream. */
+  /** Override the SSE endpoint. Default: /api/flowpanel/stream. Only applies in standalone mode (no RealtimeProvider ancestor); under a provider, the provider owns the endpoint. */
   endpoint?: string;
 }
 
@@ -72,7 +72,6 @@ export function useRealtimeRefresh(
     };
   }, [key, endpoint, bus]);
 
-  if (list.length === 0) return null;
   return null;
 }
 

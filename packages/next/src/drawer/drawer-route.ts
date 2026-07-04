@@ -14,6 +14,7 @@ import type {
 import { checkRequireRole, runWithRequestContext } from "@flowpanel/core";
 import { createElement, Fragment, type ReactNode } from "react";
 import {
+  actorIdFromSession,
   buildAuditEvent,
   maybeEmitAudit,
   safeErrorMessage,
@@ -335,6 +336,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
       const actionCtx = {
         ...reqCtx,
         db: config.adapter.db,
+        actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
         publish: async (channel: string, payload?: unknown) => {
           await publish(channel, payload);
         },

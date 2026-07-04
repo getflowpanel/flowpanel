@@ -72,6 +72,17 @@ describe("useLiveChannel", () => {
     expect(handler).toHaveBeenCalledWith({ hi: 1 });
   });
 
+  it("unwraps a channel envelope and delivers only the payload", () => {
+    const handler = vi.fn();
+    render(<Harness channel="x" onMessage={handler} />);
+    act(() => instances[0]!.open());
+    act(() => {
+      instances[0]!.message(JSON.stringify({ channel: "x", payload: { hi: 1 } }));
+    });
+    expect(handler).toHaveBeenCalledWith({ hi: 1 });
+    expect(handler).not.toHaveBeenCalledWith({ channel: "x", payload: { hi: 1 } });
+  });
+
   it("treats empty data as undefined payload", () => {
     const handler = vi.fn();
     render(<Harness channel="x" onMessage={handler} />);
@@ -96,5 +107,95 @@ describe("useLiveChannel", () => {
     const { getByTestId } = render(<Harness channel="" onMessage={() => undefined} />);
     expect(instances).toHaveLength(0);
     expect(getByTestId("status").textContent).toBe("idle");
+  });
+
+  describe("connection pooling", () => {
+    let SubA: React.FC<{ onMessage: (p: unknown) => void }>;
+    let SubB: React.FC<{ onMessage: (p: unknown) => void }>;
+    let Pooled: React.FC<{
+      showA: boolean;
+      showB: boolean;
+      onA: (p: unknown) => void;
+      onB: (p: unknown) => void;
+    }>;
+
+    beforeEach(() => {
+      SubA = ({ onMessage }) => {
+        const status = useLiveChannel("shared", onMessage);
+        return <div data-testid="status-a">{status}</div>;
+      };
+      SubB = ({ onMessage }) => {
+        const status = useLiveChannel("shared", onMessage);
+        return <div data-testid="status-b">{status}</div>;
+      };
+      Pooled = ({ showA, showB, onA, onB }) => (
+        <>
+          {showA && <SubA onMessage={onA} />}
+          {showB && <SubB onMessage={onB} />}
+        </>
+      );
+    });
+
+    it("shares a single EventSource across two hook instances on the same channel", () => {
+      render(<Pooled showA showB onA={() => undefined} onB={() => undefined} />);
+      expect(instances).toHaveLength(1);
+    });
+
+    it("keeps the shared source open when only one of two subscribers unmounts", () => {
+      const { rerender } = render(
+        <Pooled showA showB onA={() => undefined} onB={() => undefined} />,
+      );
+      expect(instances).toHaveLength(1);
+      rerender(<Pooled showA showB={false} onA={() => undefined} onB={() => undefined} />);
+      expect(instances[0]!.readyState).not.toBe(MockEventSource.CLOSED);
+    });
+
+    it("closes the shared source once the last subscriber unmounts", () => {
+      const { rerender } = render(
+        <Pooled showA showB onA={() => undefined} onB={() => undefined} />,
+      );
+      rerender(<Pooled showA={false} showB={false} onA={() => undefined} onB={() => undefined} />);
+      expect(instances[0]!.readyState).toBe(MockEventSource.CLOSED);
+    });
+
+    it("delivers each message once to every subscriber's own callback", () => {
+      const handlerA = vi.fn();
+      const handlerB = vi.fn();
+      render(<Pooled showA showB onA={handlerA} onB={handlerB} />);
+      act(() => instances[0]!.open());
+      act(() => {
+        instances[0]!.message(JSON.stringify({ hi: 1 }));
+      });
+      expect(handlerA).toHaveBeenCalledTimes(1);
+      expect(handlerA).toHaveBeenCalledWith({ hi: 1 });
+      expect(handlerB).toHaveBeenCalledTimes(1);
+      expect(handlerB).toHaveBeenCalledWith({ hi: 1 });
+    });
+
+    it("shows a hook joining an already-live entry as 'live' immediately, not 'idle'", () => {
+      const { getByTestId, rerender } = render(
+        <Pooled showA showB={false} onA={() => undefined} onB={() => undefined} />,
+      );
+      act(() => instances[0]!.open());
+      expect(getByTestId("status-a").textContent).toBe("live");
+      rerender(<Pooled showA showB onA={() => undefined} onB={() => undefined} />);
+      expect(getByTestId("status-b").textContent).toBe("live");
+      expect(instances).toHaveLength(1);
+    });
+
+    it("isolates one listener's throw so the other still gets the payload exactly once", () => {
+      const handlerA = vi.fn(() => {
+        throw new Error("boom");
+      });
+      const handlerB = vi.fn();
+      render(<Pooled showA showB onA={handlerA} onB={handlerB} />);
+      act(() => instances[0]!.open());
+      act(() => {
+        instances[0]!.message(JSON.stringify({ hi: 1 }));
+      });
+      expect(handlerA).toHaveBeenCalledTimes(1);
+      expect(handlerB).toHaveBeenCalledTimes(1);
+      expect(handlerB).toHaveBeenCalledWith({ hi: 1 });
+    });
   });
 });

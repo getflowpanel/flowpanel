@@ -13,6 +13,7 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
   RowAction,
+  Session,
 } from "@flowpanel/core";
 import { rowActionRoute, serializeRowAction } from "../actions/row-action.js";
 import { publishResource } from "../runtime/publish.js";
@@ -25,6 +26,8 @@ function makeConfig(opts: {
   resourceAudit?: boolean | undefined;
   role?: string;
   rowNotFound?: boolean;
+  session?: Session | null;
+  userId?: (session: Session | null) => string | null;
 }) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -53,7 +56,11 @@ function makeConfig(opts: {
 
   const config: ResolvedAdminConfig = {
     adapter,
-    auth: { session: async () => null, role: () => opts.role ?? "admin" },
+    auth: {
+      session: async () => opts.session ?? null,
+      role: () => opts.role ?? "admin",
+      ...(opts.userId ? { userId: opts.userId } : {}),
+    },
     ...(opts.audit ? { audit: opts.audit } : {}),
     resources: [resource],
     resourcesByName: new Map([["users", resource]]),
@@ -322,6 +329,43 @@ describe("rowActionRoute", () => {
       { id: "u1", status: "active" },
       expect.objectContaining({ status: "looks good" }),
       expect.anything(),
+    );
+  });
+
+  it("passes ctx.actorId derived from the session to run", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      session: { id: "u1" } as unknown as Session,
+      action: { key: "ping", label: "Ping", run },
+    });
+    const handler = rowActionRoute(config);
+    const req = new Request("http://localhost/x", { method: "POST" });
+    await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "ping" }),
+    });
+    expect(run).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ actorId: "u1" }),
+    );
+  });
+
+  it("honors config.auth.userId when set", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      session: { customId: "c1" } as unknown as Session,
+      userId: (session) => (session as unknown as { customId?: string } | null)?.customId ?? null,
+      action: { key: "ping", label: "Ping", run },
+    });
+    const handler = rowActionRoute(config);
+    const req = new Request("http://localhost/x", { method: "POST" });
+    await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "ping" }),
+    });
+    expect(run).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ actorId: "c1" }),
     );
   });
 });

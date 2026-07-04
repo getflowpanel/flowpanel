@@ -101,6 +101,8 @@ export interface MutationContext<Row, Db = unknown> extends RequestContext {
 export interface ActionContext<Db = InferDB> extends RequestContext {
   /** Your database client, exactly as handed to the adapter. */
   db: Db;
+  /** Caller identity — same derivation the audit trail uses (`auth.userId`, then `session.id`, then `session.user.id`). */
+  actorId: string | null;
   /** Push a realtime message to every connected admin. */
   publish: (channel: string, payload?: unknown) => Promise<void>;
 }

@@ -13,6 +13,7 @@ import type {
   BulkAction,
   ResolvedAdminConfig,
   ResourceConfig,
+  Session,
 } from "@flowpanel/core";
 import { bulkActionRoute, serializeBulkAction } from "../actions/bulk-action.js";
 import { publishResource } from "../runtime/publish.js";
@@ -24,6 +25,7 @@ function makeConfig(opts: {
   audit?: AuditConfig | undefined;
   resourceAudit?: boolean | undefined;
   role?: string;
+  session?: Session | null;
 }) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -49,7 +51,7 @@ function makeConfig(opts: {
 
   const config: ResolvedAdminConfig = {
     adapter,
-    auth: { session: async () => null, role: () => opts.role ?? "admin" },
+    auth: { session: async () => opts.session ?? null, role: () => opts.role ?? "admin" },
     ...(opts.audit ? { audit: opts.audit } : {}),
     resources: [resource],
     resourcesByName: new Map([["items", resource]]),
@@ -155,7 +157,7 @@ describe("bulkActionRoute", () => {
     expect(run).toHaveBeenCalledWith(
       ["a", "b", "c"],
       { note: "k" },
-      expect.objectContaining({ session: null }),
+      expect.objectContaining({ session: null, actorId: null }),
     );
     expect(publishResource).toHaveBeenCalledWith("items", { action: "update" });
     expect(sink).toHaveBeenCalledWith(
@@ -219,6 +221,23 @@ describe("bulkActionRoute", () => {
     expect(body.ok).toBe(false);
     expect(body.error).not.toContain("db down");
     expect(body.error).toBe("internal error");
+  });
+
+  it("passes ctx.actorId derived from the session to run", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      session: { id: "u1" } as unknown as Session,
+      action: { key: "verify", label: "V", run },
+    });
+    const handler = bulkActionRoute(config);
+    await handler(jsonReq({ ids: ["a"] }), {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(run).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ actorId: "u1" }),
+    );
   });
 
   it("returns 422 when ids exceeds the bulk cap, before running", async () => {

@@ -7,6 +7,7 @@ import type {
 import { runWithRequestContext } from "@flowpanel/core";
 import { parseActionBody } from "../drawer/parse-action-body.js";
 import {
+  actorIdFromSession,
   buildAuditEvent,
   computeShallowDiff,
   isAuditActive,
@@ -124,6 +125,7 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
         const actionCtx = {
           ...reqCtx,
           db: config.adapter.db,
+          actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
           publish: async (channel: string, payload?: unknown) => {
             await publish(channel, payload);
           },

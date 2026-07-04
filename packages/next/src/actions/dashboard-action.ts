@@ -2,6 +2,7 @@ import type { ActionResult, DashboardAction, ResolvedAdminConfig } from "@flowpa
 import { runWithRequestContext } from "@flowpanel/core";
 import { parseActionBody } from "../drawer/parse-action-body.js";
 import {
+  actorIdFromSession,
   buildAuditEvent,
   maybeEmitAudit,
   safeErrorMessage,
@@ -119,6 +120,7 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
         const actionCtx = {
           ...reqCtx,
           db: config.adapter.db,
+          actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
           publish: async (channel: string, payload?: unknown) => {
             await publish(channel, payload);
           },

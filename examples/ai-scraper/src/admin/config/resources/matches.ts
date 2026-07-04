@@ -1,11 +1,7 @@
 import { resource } from "@flowpanel/kit";
 import { eq } from "drizzle-orm";
 import * as schema from "@/src/db/schema";
-import type { AdminSession } from "@/src/lib/auth";
 import { badge, confidenceCell, formatDate } from "../format";
-
-/** Who clicked — the session identity, recorded in the review audit column. */
-const reviewer = (session: unknown) => (session as AdminSession | null)?.user.id ?? "unknown";
 
 export const matches = resource(schema.matches, {
   label: "Review queue",
@@ -74,7 +70,11 @@ export const matches = resource(schema.matches, {
       run: async (row, _input, ctx) => {
         await ctx.db
           .update(schema.matches)
-          .set({ status: "confirmed", reviewedAt: new Date(), reviewedBy: reviewer(ctx.session) })
+          .set({
+            status: "confirmed",
+            reviewedAt: new Date(),
+            reviewedBy: ctx.actorId ?? "unknown",
+          })
           .where(eq(schema.matches.id, row.id));
         return { ok: true, message: "Match confirmed", refresh: true };
       },
@@ -91,7 +91,7 @@ export const matches = resource(schema.matches, {
       run: async (row, _input, ctx) => {
         await ctx.db
           .update(schema.matches)
-          .set({ status: "rejected", reviewedAt: new Date(), reviewedBy: reviewer(ctx.session) })
+          .set({ status: "rejected", reviewedAt: new Date(), reviewedBy: ctx.actorId ?? "unknown" })
           .where(eq(schema.matches.id, row.id));
         return { ok: true, message: "Match rejected", refresh: true };
       },

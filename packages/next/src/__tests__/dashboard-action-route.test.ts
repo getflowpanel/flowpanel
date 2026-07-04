@@ -13,6 +13,7 @@ import type {
   DashboardAction,
   DashboardConfig,
   ResolvedAdminConfig,
+  Session,
 } from "@flowpanel/core";
 import {
   dashboardActionRoute,
@@ -25,6 +26,7 @@ function makeConfig(opts: {
   dashboard?: DashboardConfig;
   audit?: AuditConfig | undefined;
   role?: string;
+  session?: Session | null;
 }) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -43,7 +45,7 @@ function makeConfig(opts: {
 
   const config: ResolvedAdminConfig = {
     adapter,
-    auth: { session: async () => null, role: () => opts.role ?? "admin" },
+    auth: { session: async () => opts.session ?? null, role: () => opts.role ?? "admin" },
     ...(opts.audit ? { audit: opts.audit } : {}),
     resources: [],
     resourcesByName: new Map(),
@@ -154,6 +156,23 @@ describe("dashboardActionRoute", () => {
         targetId: "/pipeline",
       }),
     );
+  });
+
+  it("passes ctx.actorId derived from the session to run", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const dashboard: DashboardConfig = {
+      path: "/pipeline",
+      label: "Pipeline",
+      sections: [],
+      actions: [{ key: "trigger-scraper", label: "Trigger", run } as DashboardAction],
+    };
+    const config = makeConfig({ dashboard, session: { id: "u1" } as unknown as Session });
+    const handler = dashboardActionRoute(config);
+    const req = new Request("http://localhost/x", { method: "POST" });
+    await handler(req, {
+      params: Promise.resolve({ dashboard: "pipeline", action: "trigger-scraper" }),
+    });
+    expect(run).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ actorId: "u1" }));
   });
 
   it("returns 500 with a generic message (not the raw error) when action.run throws", async () => {

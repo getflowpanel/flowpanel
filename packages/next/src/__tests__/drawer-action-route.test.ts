@@ -13,13 +13,14 @@ import type {
   DrawerAction,
   ResolvedAdminConfig,
   ResourceConfig,
+  Session,
 } from "@flowpanel/core";
 import { drawerActionRoute } from "../drawer/drawer-route.js";
 import { publishResource } from "../runtime/publish.js";
 
 function makeConfig(
   action: DrawerAction,
-  opts: { audit?: AuditConfig; resourceAudit?: boolean } = {},
+  opts: { audit?: AuditConfig; resourceAudit?: boolean; session?: Session | null } = {},
 ) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -43,7 +44,7 @@ function makeConfig(
   } as never;
   const config: ResolvedAdminConfig = {
     adapter,
-    auth: { session: async () => null, role: () => "admin" },
+    auth: { session: async () => opts.session ?? null, role: () => "admin" },
     ...(opts.audit ? { audit: opts.audit } : {}),
     resources: [resource],
     resourcesByName: new Map([["jobs", resource]]),
@@ -109,6 +110,23 @@ describe("drawerActionRoute", () => {
       expect.objectContaining({ session: null }),
     );
     expect(publishResource).toHaveBeenCalledWith("jobs", { action: "update" });
+  });
+
+  it("passes ctx.actorId derived from the session to run", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({ key: "approve", label: "Approve", run } as DrawerAction, {
+      session: { id: "u1" } as unknown as Session,
+    });
+    const handler = drawerActionRoute(config);
+    const req = new Request("http://localhost/x", { method: "POST" });
+    await handler(req, {
+      params: Promise.resolve({ resource: "jobs", id: "1", action: "approve" }),
+    });
+    expect(run).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ actorId: "u1" }),
+    );
   });
 
   it("returns { ok: false, error } on a thrown action WITHOUT leaking the raw message", async () => {

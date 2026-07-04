@@ -84,8 +84,8 @@ export function stream(
 
         for (const ch of channels) {
           const dispose = subscribe(ch, (payload) => {
-            const data = payload === undefined ? "" : JSON.stringify(payload);
-            safeEnqueue(`event: message\ndata: ${data}\n\n`);
+            const envelope = payload === undefined ? { channel: ch } : { channel: ch, payload };
+            safeEnqueue(`event: message\ndata: ${JSON.stringify(envelope)}\n\n`);
           });
           disposers.push(dispose);
         }

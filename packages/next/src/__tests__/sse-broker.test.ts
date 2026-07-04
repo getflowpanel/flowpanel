@@ -91,13 +91,31 @@ describe("stream() — SSE broker", () => {
     emit("resource.users", { action: "update", id: "7" });
     const [second] = await readChunks(reader, { count: 1 });
     expect(second).toMatch(/event: message/);
-    expect(second).toMatch(/data: \{"action":"update","id":"7"\}/);
+    expect(second).toMatch(
+      /data: \{"channel":"resource.users","payload":\{"action":"update","id":"7"\}\}/,
+    );
 
     // And the second channel
     emit("custom", { kind: "other" });
     const [third] = await readChunks(reader, { count: 1 });
     expect(third).toMatch(/event: message/);
-    expect(third).toMatch(/data: \{"kind":"other"\}/);
+    expect(third).toMatch(/data: \{"channel":"custom","payload":\{"kind":"other"\}\}/);
+    await reader.cancel();
+  });
+
+  it("frames each message as {channel, payload}", async () => {
+    const h = stream(makeConfig());
+    const req = new Request("http://localhost/stream?channel=resource.users&channel=custom");
+    const res = await h(req);
+    const reader = res.body!.getReader();
+    await readChunks(reader, { count: 1 }); // ready
+
+    emit("resource.users", { action: "update", id: "1" });
+    const [msg] = await readChunks(reader, { count: 1 });
+    expect(msg).toBe(
+      'event: message\ndata: {"channel":"resource.users","payload":{"action":"update","id":"1"}}\n\n',
+    );
+
     await reader.cancel();
   });
 
@@ -131,7 +149,7 @@ describe("stream() — SSE broker", () => {
     await reader.cancel().catch(() => undefined);
   });
 
-  it("emits empty payload for undefined events", async () => {
+  it("omits the payload key for undefined events", async () => {
     const h = stream(makeConfig());
     const req = new Request("http://localhost/stream?channel=x");
     const res = await h(req);
@@ -140,7 +158,7 @@ describe("stream() — SSE broker", () => {
     emit("x", undefined);
     const { value } = await reader.read();
     const text = new TextDecoder().decode(value);
-    expect(text).toMatch(/event: message\ndata: \n\n/);
+    expect(text).toMatch(/event: message\ndata: \{"channel":"x"\}\n\n/);
     await reader.cancel();
   });
 });

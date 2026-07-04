@@ -38,6 +38,10 @@ interface BusState {
   refreshTimer: ReturnType<typeof setTimeout> | null;
   /** An event arrived while the tab was hidden — refresh once on return. */
   pendingWhileHidden: boolean;
+  /** Consecutive reconnect attempts since the last successful open. */
+  attempt: number;
+  /** Pending reconnect scheduled via setTimeout after a CLOSED socket. */
+  reconnectTimer: ReturnType<typeof setTimeout> | null;
 }
 
 /** Mounts a single shared EventSource for all descendant `useRealtimeRefresh(...)` calls. */
@@ -69,6 +73,8 @@ function RealtimeProviderInner({
       statsListeners: new Set(),
       refreshTimer: null,
       pendingWhileHidden: false,
+      attempt: 0,
+      reconnectTimer: null,
     };
   }
 
@@ -140,6 +146,7 @@ function RealtimeProviderInner({
 
     let openedBefore = false;
     es.onopen = () => {
+      state.attempt = 0;
       setStatus("live");
       if (!openedBefore) {
         openedBefore = true;
@@ -151,20 +158,33 @@ function RealtimeProviderInner({
     es.onmessage = (ev) => {
       setStatus("live");
       state.eventCount += 1;
+      let channel: string | undefined;
       let payload: unknown;
       try {
-        payload = ev.data ? JSON.parse(ev.data as string) : undefined;
-      } catch {
-        payload = undefined;
+        const parsed = ev.data ? JSON.parse(ev.data as string) : undefined;
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          typeof (parsed as { channel?: unknown }).channel === "string"
+        ) {
+          channel = (parsed as { channel: string }).channel;
+          payload = (parsed as { payload?: unknown }).payload;
+        }
+      } catch {}
+      // Malformed frame (not a `{channel: string, ...}` envelope): drop it —
+      // no dispatch and no refresh. A well-formed envelope always refreshes,
+      // even for a channel with no local subscriber (see ADR 0014).
+      if (channel === undefined) {
+        notifyStats();
+        return;
       }
-      const allCallbacks: Callback[] = [];
-      for (const set of state.callbacks.values()) {
-        for (const cb of set) allCallbacks.push(cb);
-      }
-      for (const cb of allCallbacks) {
-        try {
-          cb(payload);
-        } catch {}
+      const set = state.callbacks.get(channel);
+      if (set) {
+        for (const cb of Array.from(set)) {
+          try {
+            cb(payload);
+          } catch {}
+        }
       }
       if (state.isHidden) state.pendingWhileHidden = true;
       else scheduleRefresh();
@@ -172,7 +192,29 @@ function RealtimeProviderInner({
     };
 
     es.onerror = () => {
-      setStatus(es.readyState === EventSource.CLOSED ? "offline" : "reconnecting");
+      // A stale source (already superseded by a newer open()) firing its
+      // trailing onerror must be a full no-op: it must not flip status away
+      // from "live", bump the attempt counter, or clobber the current
+      // reconnect timer — only the active `state.source` drives the bus.
+      if (state.source !== es) {
+        es.close();
+        return;
+      }
+      if (es.readyState !== EventSource.CLOSED) {
+        setStatus("reconnecting");
+        return;
+      }
+      setStatus("reconnecting");
+      es.close();
+      state.source = null;
+      state.activeSig = "";
+      const delay = Math.min(30_000, 500 * 2 ** Math.min(state.attempt, 6));
+      state.attempt += 1;
+      if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = setTimeout(() => {
+        state.reconnectTimer = null;
+        openSource();
+      }, delay);
     };
   }, [endpoint, setStatus, notifyStats, scheduleRefresh]);
 
@@ -283,6 +325,10 @@ function RealtimeProviderInner({
       if (state.refreshTimer) {
         clearTimeout(state.refreshTimer);
         state.refreshTimer = null;
+      }
+      if (state.reconnectTimer) {
+        clearTimeout(state.reconnectTimer);
+        state.reconnectTimer = null;
       }
       if (state.source) {
         state.source.close();
