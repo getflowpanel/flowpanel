@@ -68,4 +68,67 @@ describe("runDoctorChecks --fix", () => {
     expect(apiAfter!.ok).toBe(true);
     expect(sseAfter!.ok).toBe(true);
   });
+
+  it("writes a resolvable config import (no bare @/flowpanel.config with no alias)", async () => {
+    // No tsconfig.json in this fixture → aliasMode "none" → `@/flowpanel.config`
+    // would not resolve. The fix must emit a relative path instead.
+    await runDoctorChecks(tmp, true);
+    const apiContent = await fs.readFile(
+      path.join(tmp, "app/api/flowpanel/[...route]/route.ts"),
+      "utf8",
+    );
+    expect(apiContent).toContain('import config from "../../../../flowpanel.config";');
+    const adminContent = await fs.readFile(
+      path.join(tmp, "app/admin/[[...slug]]/page.tsx"),
+      "utf8",
+    );
+    expect(adminContent).toContain('import config from "../../../flowpanel.config";');
+  });
+
+  it("on a src/app project, fixes land under src/app/ (not a shadowing root app/)", async () => {
+    const srcTmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-doctor-fix-srcapp-"));
+    try {
+      await seedPkg(srcTmp);
+      await fs.mkdir(path.join(srcTmp, "src/app"), { recursive: true });
+      await fs.writeFile(
+        path.join(srcTmp, "src/app/layout.tsx"),
+        "export default function Layout() { return null; }\n",
+      );
+
+      const { checks } = await runDoctorChecks(srcTmp, true);
+      const apiCheck = checks.find((c) => c.name === "API route");
+      const adminCheck = checks.find((c) => c.name === "Catch-all admin page");
+      expect(apiCheck!.ok).toBe(true);
+      expect(adminCheck!.ok).toBe(true);
+
+      expect(
+        await fs.access(path.join(srcTmp, "src/app/api/flowpanel/[...route]/route.ts")).then(
+          () => true,
+          () => false,
+        ),
+      ).toBe(true);
+      expect(
+        await fs.access(path.join(srcTmp, "src/app/admin/[[...slug]]/page.tsx")).then(
+          () => true,
+          () => false,
+        ),
+      ).toBe(true);
+
+      // Must not create a shadowing root-level app/ directory.
+      expect(
+        await fs.access(path.join(srcTmp, "app")).then(
+          () => true,
+          () => false,
+        ),
+      ).toBe(false);
+
+      const apiContent = await fs.readFile(
+        path.join(srcTmp, "src/app/api/flowpanel/[...route]/route.ts"),
+        "utf8",
+      );
+      expect(apiContent).toContain('import config from "../../../../../flowpanel.config";');
+    } finally {
+      await fs.rm(srcTmp, { recursive: true, force: true });
+    }
+  });
 });

@@ -1,0 +1,141 @@
+---
+title: Create & edit forms
+description: Drive the create / edit form with explicit field specs.
+---
+
+By default the create / edit form is generated from your schema — one input per
+column. To control it, hand `create.fields` (and/or `update.fields`) a list of
+**field specs**. Each spec is type-checked against your row's keys.
+
+```ts
+resource(schema.products, {
+  columns: ["sku", "title", "category"],
+  create: {
+    fields: [
+      { name: "sku", label: "SKU", required: true, placeholder: "SKU-12345" },
+      { name: "title", label: "Product", required: true },
+      { name: "category", type: "select", options: ["Electronics", "Phones", "Fashion"] },
+      {
+        name: "userId",
+        label: "Customer",
+        type: "reference",
+        reference: { resource: "users", labelField: "email" },
+        required: true,
+      },
+      { name: "priceCents", label: "Price (cents)", type: "number" },
+    ],
+  },
+})
+```
+
+`update.fields` works the same way; omit it to reuse `create.fields`, or omit
+both to fall back to schema introspection.
+
+## Field types
+
+`type` selects the control. The full set: `text`, `email`, `password`, `url`,
+`number`, `date`, `datetime`, `time`, `color`, `textarea`, `markdown`, `select`,
+`multiselect`, `radio`, `reference`, `boolean` / `switch` / `checkbox`, `tags`,
+`json`, and `hidden`. Omit `type` for a plain text input.
+
+## More field options
+
+Beyond `type` and `options`, a field spec accepts:
+
+- **`label`** / **`help`** / **`placeholder`** — the visible label, helper text under the input, and input placeholder.
+- **`readOnly`** / **`hidden`** — `true`, or a `(values) => boolean` predicate. Predicates run server-side: at render time they see the row being edited (create forms see `{}`), on submit they see the submitted values. `readOnly` fields are also stripped from the write, so a hand-crafted POST can't set them.
+- **`group`** + **`span`** — layout: `group` renders consecutive fields sharing the label under one section heading; `span` (`1`, `2`, `3`, `4`, `6`, or `12`) sets the field's width on the form's 12-column grid (fields stack full-width on mobile and default to full width). Pair two `span: 6` fields to put them on one row.
+- **`validate`** — a Zod schema, or `(value, values) => string | null` for a custom rule (return an error message, or `null` when valid).
+- **`defaultValue`** — a value, or `(ctx) => Promise<value>` for a server-computed default. Prefills the create form, and is applied server-side for keys the create input omits — so a `hidden` or role-gated field still receives it.
+
+## Choices
+
+`select`, `multiselect`, and `radio` read their choices from `options`:
+
+```ts
+{ name: "plan", type: "select", options: ["free", "pro", "business"] }      // string shorthand
+{ name: "plan", type: "select", options: [{ label: "Pro tier", value: "pro" }] }  // explicit
+{ name: "owner", type: "select", options: async (ctx) => fetchOwners(ctx) }  // server-resolved
+```
+
+Async resolvers run on the server — the resolved choices are what reach the
+browser, so a `db` handle never crosses the client boundary.
+
+## Relation fields
+
+A `reference` field renders a **searchable picker**, not a preloaded dropdown —
+it scales to a target resource with any number of rows:
+
+```ts
+{
+  name: "userId",
+  label: "Customer",
+  type: "reference",
+  reference: { resource: "users", labelField: "email" },
+}
+```
+
+As the operator types, the picker debounces and queries
+`GET /api/flowpanel/<resource>/reference/<field>?q=<text>` server-side. That
+query reuses the target resource's normal `list` path — same tenant `scope`,
+same role checks, same search-field allowlist mechanism as a real list page —
+with `search` bound to exactly the declared `labelField`, never an arbitrary
+client-supplied column. An empty query (the picker's first open) returns a
+first page sorted by `labelField`, so there's always something to scroll
+before typing.
+
+On an edit form, the field's *current* value is resolved separately —
+server-side, as a single lookup by id — so the picker's trigger shows the
+real label immediately, without waiting on a search round-trip.
+
+The `resource` and `labelField` strings are type-checked once you augment
+[`FlowpanelResources`](/docs/core-concepts/configuration#typing-cross-resource-references).
+The same `reference` shape renders a read-only FK link in list cells — see
+[Column renderers](/docs/customization/column-renderers).
+
+## Validation
+
+Every field carries `required`, and submission is validated **server-side**
+against the resource schema (or your `schema` override) — the authoritative
+check. `validate` rules run after it, also server-side, and their messages key
+to the field. `required` also drives the browser's native validation for
+instant feedback. Field-level errors render under each input.
+
+## Role-gated fields
+
+Give a field a `requireRole` and it's dropped from the form for anyone who
+doesn't satisfy it — and its value is stripped from the write server-side, so a
+hand-crafted POST can't set a field the user can't see:
+
+```ts
+create: {
+  fields: [
+    { name: "title", required: true },
+    { name: "internalNote", requireRole: "admin" }, // only admins see / set it
+  ],
+}
+```
+
+`requireRole` takes the same `string | string[] | (session) => boolean` shape as
+[resource-level `requireRole`](/docs/core-concepts/resources#access-control).
+
+## How submission works
+
+The generated create page posts to `POST /api/flowpanel/<resource>/create`;
+the edit page posts to `POST /api/flowpanel/<resource>/<id>/edit`. Both are
+plain route handlers — a `<form>` submit, not a Next.js Server Action — that
+run the same validation, field-level RBAC, defaults, audit, and publish
+pipeline as every other write in FlowPanel. On success the create page
+redirects to the resource list; the edit page redirects back to the row.
+
+If you build a custom form with the `<Form>` / `<AutoForm>` primitives
+exported from `@flowpanel/react` (for a `page()` or `custom()` component),
+`action` takes the same shape: a URL string the form POSTs its `FormData` to.
+The route is expected to answer with JSON:
+
+```ts
+{ ok: true } | { ok: false, error?: string, fieldErrors?: Record<string, string> }
+```
+
+`fieldErrors` keys map to field `name`s and render under the matching input.
+An optional `redirectTo` prop navigates there client-side on success.

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 /**
  * M2.5 smokes — filter narrow, bulk select, drawer open, drawer action.
  *
- * These tests target an admin panel wired against the freelance-radar shape
+ * These tests target an admin panel wired against the ai-scraper shape
  * (users resource with Plan/Status filters, rowClick: "drawer", drawer
  * actions: [{ key: "disable", ... }], delete.softDelete).
  *
@@ -12,8 +12,8 @@ import { expect, test } from "@playwright/test";
  * NOTE: The in-repo e2e harness (`packages/e2e/app`) is the legacy M1
  * FlowPanelUI mock harness — it does NOT expose `/admin/users` with the
  * M2.5 DataTable/FilterBar/Drawer pipeline. These smokes are written
- * against the freelance-radar example shape and are intended to run
- * against a future harness (M3) that spins up freelance-radar + Postgres.
+ * against the ai-scraper example shape and are intended to run
+ * against a future harness (M3) that spins up ai-scraper + Postgres.
  * Phase 8 server-side coverage (unit + action executor integration tests)
  * already proves the end-to-end flow.
  */

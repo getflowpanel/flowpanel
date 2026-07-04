@@ -90,8 +90,47 @@ withClerk({
   forbiddenUrl: "/",
   // Override how the role is extracted from the session.
   role: (s) => (s?.publicMetadata as { role?: string })?.role ?? "guest",
+  // Override how the actor id is extracted from the session.
+  userId: (s) => (s as { id?: string } | null)?.id ?? null,
 });
 ```
 
 A complete runnable version lives in
 [`examples/with-clerk`](https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk).
+
+## The `userId` identity contract
+
+Every `AuthConfig` (not just `withClerk`) accepts a `userId` extractor
+alongside `role`:
+
+```ts
+interface AuthConfig {
+  session: () => Promise<Session | null>;
+  role: (session: Session | null) => string;
+  userId?: (session: Session | null) => string | null;
+  // ...requireRole, signInUrl, forbiddenUrl
+}
+```
+
+`userId` is what tags every audit log row (`AuditEvent.actorId`) and, when
+`rateLimit: { per: "user" }` is set, what keys the per-user throttle bucket.
+When you don't set it, FlowPanel falls back to `session.id`, then
+`session.user.id`.
+
+That default already matches every shipped preset — `withClerk` sets it to
+the top-level Clerk `id`, `withLucia` sets it to the top-level Lucia user
+`id`, and `withNextAuth` sets it to `session.user.id`. Set `userId`
+explicitly only when you write a custom `AuthConfig` (i.e. you don't use one
+of the three presets) and your session shape puts the id somewhere else —
+for example, nested under a custom claims object.
+
+```ts
+export default defineAdmin({
+  auth: {
+    session: getSession,
+    role: (s) => s?.claims?.role ?? "guest",
+    userId: (s) => s?.claims?.sub ?? null,
+  },
+  // ...
+});
+```

@@ -1,66 +1,159 @@
 ---
 title: defineAdmin
-description: The full type signature of the config entry point.
+description: The config entry point and every option it accepts.
 ---
 
-`defineAdmin` is the only required call in your config. It takes one
-options object, validates uniqueness (resource names, dashboard paths,
-queue keys), wires the default bulk-delete action when applicable, and
-returns a `ResolvedAdminConfig` that the Next.js bridge consumes.
+`defineAdmin` is the only required call in your config. It takes one options
+object, validates uniqueness (resource names, dashboard paths, queue keys),
+wires the default bulk-delete action when applicable, and returns a
+`ResolvedAdminConfig` that the Next.js bridge consumes.
 
 Per invariant I-1, `defineAdmin` is **pure** — no I/O, no module-level
-mutation. It can be imported from anywhere (a Next.js page, a script,
-a test) without side effects.
+mutation. It can be imported from anywhere (a Next.js page, a script, a test)
+without side effects.
 
 ```ts
 export function defineAdmin(config: AdminConfig): ResolvedAdminConfig;
 ```
 
+Every property table below is generated from the package's own `.d.ts`, so it
+cannot drift from the code that ships.
+
 ## AdminConfig
 
+`adapter` and `auth` are required. Everything else is optional, with sensible
+defaults: no resources rendered, sidebar shell, English labels, no audit sink,
+no realtime, no throttling.
+
+<AutoTypeTable path="../../packages/core/src/types/config.ts" name="AdminConfig" />
+
+## AuthConfig
+
+The only part of FlowPanel that knows about your auth provider. `session` and
+`role` run on every request and every page render, so keep them cheap — cache
+inside your own session helper if they hit the network.
+
+<AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuthConfig" />
+
+See [Auth with Clerk](/docs/guides/auth-with-clerk) for the shipped presets.
+
+## ThemeConfig
+
+<AutoTypeTable path="../../packages/core/src/types/config.ts" name="ThemeConfig" />
+
+`components` is typed as `Partial<FlowpanelComponentSlots>` — see
+[Theme slots](/docs/customization/theme-slots) for the ten shipped slots and how
+to register your own.
+
+`accent` and `cssVars` are emitted as `:root` custom properties, so they reach
+dialogs and drawers too — those portal to `document.body` and would miss a
+wrapper element. Every `--fp-*` token is overridable:
+
 ```ts
-interface AdminConfig {
-  adapter: Adapter;
-  auth: AuthConfig;
-  scope?: (ctx: ScopeContext) => Promise<Scope> | Scope;
-  theme?: ThemeConfig;
-  shell?: ShellConfig | ShellMode;
-  labels?: LabelsConfig;
-  resources?: ResourceConfig[];
-  dashboards?: DashboardConfig[];
-  pages?: PageConfig[];
-  queues?: QueueConfig[];
-  commandPalette?: CommandPaletteConfig;
-  audit?: AuditConfig;
-  realtime?: RealtimeConfig;
-  rateLimit?: RateLimitConfig;
-  hooks?: {
-    onError?: (err: Error, ctx: RequestContext) => void | Promise<void>;
-  };
+theme: {
+  brand: { name: "Acme", logo: "/logo.svg", href: "/" },
+  accent: "262 83% 58%",
+  cssVars: { "--fp-radius": "0.25rem" },
 }
 ```
 
-`adapter` and `auth` are required. Everything else is optional with
-sensible defaults: no resources rendered, sidebar shell, English
-labels, no realtime, no rate limit, no audit sink.
+Colors are HSL triplets, not `hsl(...)` calls, because the tokens are consumed
+as `hsl(var(--fp-accent))`. Writing the wrapper form anyway is fine — it is
+unwrapped for you.
+
+`user` populates the account menu at the foot of the sidebar (or the right end
+of the tab strip). Return nothing from it and no menu renders:
+
+```ts
+theme: {
+  user: (session) => ({
+    name: session?.user?.name,
+    email: session?.user?.email,
+    avatar: session?.user?.image,
+    items: [{ label: "Settings", href: "/settings" }],
+    signOut: "/api/auth/signout",
+  }),
+}
+```
+
+## ShellConfig
+
+Pass a bare string when you only need the mode: `shell: "tabs"` is shorthand for
+`shell: { mode: "tabs" }`.
+
+<AutoTypeTable path="../../packages/core/src/types/config.ts" name="ShellConfig" />
+
+`ShellMode` is `"sidebar" | "tabs" | "bare"`:
+
+- `"sidebar"` — full app shell with left nav and brand. The default, for
+  standalone admins where FlowPanel owns the whole route.
+- `"tabs"` — horizontal tab strip above the content, for admins embedded under
+  a host app's existing header.
+- `"bare"` — no chrome at all; your `app/layout.tsx` supplies it. Globals
+  (toasts, drawer host, command palette, realtime) still mount.
+
+## AuditConfig
+
+<AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditConfig" />
+
+### AuditEvent
+
+What your `sink` receives. FlowPanel never writes audit rows itself — where they
+land is entirely yours.
+
+<AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditEvent" />
+
+## RateLimitConfig
+
+`RateLimitConfig` is `RateLimitOptions` plus `per` (`"user"` or `"ip"`,
+defaulting to `"user"`) and `enabled`.
+
+```ts
+type RateLimitOptions =
+  | { driver: "memory"; limit: number; windowMs: number }
+  | { driver: "redis"; url: string; limit: number; windowMs: number; keyPrefix?: string };
+```
+
+The memory driver counts per process — use the Redis driver whenever you run
+more than one instance. A caller over the limit gets `429` from every API route.
+
+## RealtimeConfig
+
+An alias of `PublisherOptions`. Without it, realtime falls back to an in-process
+bus that only reaches the instance that published — fine locally, wrong in
+production. See [Realtime in production](/docs/core-concepts/realtime-multi-instance).
+
+## LabelsConfig
+
+Every user-facing string in the built-in chrome, so you can translate the admin
+without ejecting.
+
+<AutoTypeTable path="../../packages/core/src/types/labels.ts" name="LabelsConfig" />
+
+## CommandPaletteConfig
+
+<AutoTypeTable path="../../packages/core/src/types/command.ts" name="CommandPaletteConfig" />
+
+### CommandGroup
+
+<AutoTypeTable path="../../packages/core/src/types/command.ts" name="CommandGroup" />
+
+### CommandItem
+
+<AutoTypeTable path="../../packages/core/src/types/command.ts" name="CommandItem" />
 
 ## ResolvedAdminConfig
 
-```ts
-interface ResolvedAdminConfig extends AdminConfig {
-  readonly __resolved: true;
-  readonly resourcesByName: Map<string, ResourceConfig>;
-  readonly dashboardsByPath: Map<string, DashboardConfig>;
-  readonly queuesByKey: Map<string, QueueConfig>;
-}
-```
+What `defineAdmin` returns. The lookup maps are precomputed so request-time
+routing is O(1).
 
-The lookup maps are precomputed so request-time routing is O(1).
-`defineAdmin` throws if two resources share a name, two dashboards
+<AutoTypeTable path="../../packages/core/src/types/config.ts" name="ResolvedAdminConfig" />
+
+`defineAdmin` throws if two resources share a name, two dashboards or pages
 share a path, or two queues share a key.
 
-You hand the resolved config to `Flowpanel(config)` (page) and
-`handlers(config)` (API). Both come from `@flowpanel/kit/next`:
+You hand the resolved config to `Flowpanel(config)` for the page and
+`handlers(config)` for the API. Both come from `@flowpanel/kit/next`:
 
 ```ts
 // app/admin/[[...slug]]/page.tsx
@@ -78,35 +171,8 @@ import config from "@/flowpanel.config";
 export const { GET, POST } = handlers(config);
 ```
 
-## ShellMode
-
-The shell wrapper around the content area:
-
-```ts
-type ShellMode = "sidebar" | "tabs" | "bare";
-```
-
-- `"sidebar"` — full app shell with left sidebar nav + brand. Default;
-  for standalone admins where FlowPanel owns the whole route.
-- `"tabs"` — horizontal tab strip above content. For admins embedded
-  under a host app's existing header.
-- `"bare"` — no shell at all. The host app's `app/layout.tsx` (or a
-  wrapper component) supplies all chrome. Globals (toasts, drawer
-  host, command palette, realtime) still mount.
-
 ## Default bulk delete
 
-When a resource has `delete` enabled (i.e. **not**
-`delete: { disabled: true }`) and no explicit `bulkActions`,
-`defineAdmin` injects a default `delete` bulk action. Opt out with
-`bulkActions: []` or `delete: { disabled: true }`.
-
-## Resource and other builders
-
-See **Core concepts / Resources** for the human-friendly overview of
-`resource(ref, options)`, and the source types in
-`packages/core/src/types/resource.ts` for the canonical definition.
-The companion builders are `dashboard`, `page`, `queue`, `metric`,
-`table`, `statGroup`, `custom`, and the chart builders
-(`areaChart`, `barChart`, `lineChart`, `pieChart` from
-`@flowpanel/kit/charts`).
+When a resource has delete enabled (i.e. **not** `delete: { disabled: true }`)
+and declares no `bulkActions`, `defineAdmin` injects a default `delete` bulk
+action. Opt out with `bulkActions: []` or `delete: { disabled: true }`.

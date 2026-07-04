@@ -50,14 +50,16 @@ export default defineAdmin({
 | `realtime` | `RealtimeConfig?` | `{ driver: "memory" }` for dev, Redis for prod. |
 | `audit` | `AuditConfig?` | Mutation audit log sink + retention. |
 | `rateLimit` | `RateLimitConfig?` | Per-user or per-IP throttling. |
+| `readOnly` | `boolean?` | Put the whole admin in read-only mode — disables every write form, drops actions, blocks mutations server-side. Great for a public demo or viewer role. |
+| `basePath` | `string?` | URL prefix the admin mounts under. Defaults to `/admin`; must start with `/` and not end with `/`. |
 | `commandPalette` | `CommandPaletteConfig?` | Extra `⌘K` entries. |
 | `scope` | `(ctx) => Scope?` | Multi-tenant query scoping. |
 | `hooks` | `{ onError? }?` | Request lifecycle hooks. |
 
-The route mount point is fixed: `app/admin/[[...slug]]/page.tsx` for
-the UI and `app/api/flowpanel/[...route]/route.ts` for actions. To
-embed the admin under a different URL, mount `Flowpanel(config)` at
-that path and adjust the API base via your project's routing.
+By default the admin mounts at `/admin`. Set `basePath` to relocate the
+whole thing — internal links and `revalidatePath` calls all flow through it,
+so `basePath: "/internal/admin"` just works (put the route files at
+`app/internal/admin/[[...slug]]/page.tsx` and the matching API route).
 
 Full type signatures live on the **Reference / defineAdmin** page.
 
@@ -88,6 +90,28 @@ declare module "@flowpanel/core" {
   }
 }
 ```
+
+## Typing cross-resource references
+
+Augment `FlowpanelResources` with each resource name → row type, and every
+cross-resource string is checked at compile time — `ColumnDef.reference`
+(`resource` **and** `labelField`), drawer / detail-tab `resource`, and widget
+`resource`. A typo errors with a "Did you mean?" suggestion.
+
+```ts
+declare module "@flowpanel/core" {
+  interface FlowpanelResources {
+    users: typeof schema.users.$inferSelect;
+    posts: typeof schema.posts.$inferSelect;
+  }
+}
+
+// elsewhere — checked against the registry:
+{ field: "userId", reference: { resource: "users", labelField: "email" } }
+```
+
+It's opt-in: leave `FlowpanelResources` empty and those fields stay plain
+`string`, so nothing breaks for apps that don't augment it.
 
 ## Reload behavior
 

@@ -12,7 +12,7 @@ import { expect, test } from "@playwright/test";
  * 2. Activating it (Enter) jumps to the #main landmark.
  * 3. A row opens the drawer; Esc closes it.
  *
- * Requires freelance-radar + Postgres running.
+ * Requires ai-scraper + Postgres running.
  */
 test.describe("M4a — keyboard navigation", () => {
   test("skip link is first focusable and jumps to main; Esc closes drawer", async ({ page }) => {

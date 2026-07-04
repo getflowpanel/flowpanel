@@ -7,12 +7,12 @@ flowpanel turns a single typed config into a complete `/admin` route for
 your Next.js app. This guide walks you from a fresh install to a working
 dashboard.
 
-> **Just want to click around?** A public read-only instance of the
-> `freelance-radar` example is live at
-> [demo.flowpanel.tech](https://demo.flowpanel.tech) — no install required.
+> **Want to see it running first?** Clone the repo and start the
+> `ai-scraper` example — Postgres in Docker, seeded, on `:3000`:
 >
-> Prefer the source? **[Open the `with-clerk` example in StackBlitz](https://stackblitz.com/github/getflowpanel/flowpanel/tree/main/examples/with-clerk)**
-> to edit a full flowpanel config in your browser.
+> ```bash
+> git clone https://github.com/getflowpanel/flowpanel && cd flowpanel/examples/ai-scraper && pnpm install && pnpm docker:up && pnpm db:push && pnpm db:seed && pnpm dev
+> ```
 
 > **Requirements.** Next.js 15+ (App Router), React 19, Node 20+, and
 > either Drizzle 0.30+ or Prisma 5+. The Pages router is not supported.
@@ -31,15 +31,27 @@ The CLI inspects your `package.json`, picks Drizzle or Prisma, installs
 `pnpm flowpanel` commands resolve a local binary), and writes the wiring
 files.
 
-```bash
-$ pnpm dlx @flowpanel/cli init
-→ Detected stack: Next.js 15 · TypeScript · Drizzle
-→ installed @flowpanel/kit, @flowpanel/cli
-→ wrote flowpanel.config.ts
-→ wrote app/admin/[[...slug]]/page.tsx
-→ wrote app/api/flowpanel/[...route]/route.ts
-→ wrote app/api/flowpanel/stream/route.ts
+It asks where your db client, schema and `getSession` live, defaulting to
+whatever it found, then reports every file it touched:
+
 ```
+◇  Detected stack ──────────────────────────────────╮
+│  Next.js 15.5.0 · TypeScript · Drizzle · Tailwind 4  │
+├──────────────────────────────────────────────────╯
+◇  7 written
+◇  Wrote ─────────────────────────────────────────────────╮
+│  flowpanel.config.ts                                    │
+│  src/app/admin/[[...slug]]/page.tsx                     │
+│  src/app/api/flowpanel/[...route]/route.ts              │
+│  src/app/api/flowpanel/stream/route.ts                  │
+│  src/styles/admin.css                                   │
+│  flowpanel/migrations/0001_init.sql                     │
+│  src/app/layout.tsx (added the admin stylesheet import) │
+├─────────────────────────────────────────────────────────╯
+```
+
+Pass `--yes` to take the detected defaults without being asked; it warns
+about any path it had to guess.
 
 The generated config _is_ the entire admin panel. Every resource you
 list becomes a typed CRUD page; everything you don't list stays out.
@@ -130,7 +142,9 @@ pagination, and filters — driven entirely by the config you just wrote.
 
 ## Next steps
 
-- Tweak rendering and behavior in **Configuration**
-- See how **Adapters** connect flowpanel to your data
-- Replace any component via the **Theme slots** layer
-- Eject a resource into source code when you outgrow the config layer
+- Shape lists & cells with [Column renderers](/docs/customization/column-renderers)
+- Build create / edit [Forms](/docs/customization/forms) — selects, relation pickers, validation
+- Bulk [Import & export](/docs/customization/import-export) CSV / JSON
+- Tune the admin in [Configuration](/docs/core-concepts/configuration)
+- Replace any component via [Theme slots](/docs/customization/theme-slots)
+- [Eject](/docs/customization/eject) a resource into source when you outgrow the config layer

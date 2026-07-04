@@ -26,7 +26,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <AdminShell
         navGroups={[]}
         currentPath="/admin"
-        brandName={config.theme?.brand?.name}
+        brand={config.theme?.brand}
       >
         {children}
       </AdminShell>

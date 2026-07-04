@@ -9,12 +9,9 @@ import {
   copyResourceTemplates,
 } from "../eject/copyTargets.js";
 import { editConfigToCommentDashboard, editConfigToCommentResource } from "../eject/editConfig.js";
-import { fileExists } from "../utils/detect.js";
+import { detectAppDir, fileExists } from "../utils/detect.js";
 
-/**
- * Locate the user's flowpanel config. Tries `.ts` first, falls back to `.tsx`
- * — the latter is legitimate when the config embeds sidecar JSX.
- */
+/** Locate the user's flowpanel config. */
 async function findConfigFile(
   cwd: string,
 ): Promise<{ path: string; filename: "flowpanel.config.ts" | "flowpanel.config.tsx" }> {
@@ -22,7 +19,6 @@ async function findConfigFile(
     const full = path.join(cwd, fname);
     if (await fileExists(full)) return { path: full, filename: fname };
   }
-  // Fall through to .ts so the caller's fs.readFile surfaces a helpful ENOENT.
   return { path: path.join(cwd, "flowpanel.config.ts"), filename: "flowpanel.config.ts" };
 }
 
@@ -31,11 +27,6 @@ export type EjectTarget = "resource" | "dashboard" | "layout";
 export interface RunEjectOptions {
   cwd: string;
   target: EjectTarget;
-  /**
-   * For `resource`: the resource name (e.g. "users").
-   * For `dashboard`: the dashboard path (e.g. "/" or "/monitoring").
-   * For `layout`: ignored.
-   */
   name: string;
   version: string;
   force?: boolean;
@@ -43,6 +34,7 @@ export interface RunEjectOptions {
 
 export async function runEject(opts: RunEjectOptions): Promise<void> {
   const cfg = await findConfigFile(opts.cwd);
+  const appDir = await detectAppDir(opts.cwd);
 
   if (opts.target === "resource") {
     if (!opts.name) {
@@ -55,7 +47,7 @@ export async function runEject(opts: RunEjectOptions): Promise<void> {
       ...(opts.force ? { force: true } : {}),
     });
     const source = await fs.readFile(cfg.path, "utf8");
-    const updated = editConfigToCommentResource(source, opts.name, cfg.filename);
+    const updated = editConfigToCommentResource(source, opts.name, cfg.filename, appDir);
     await fs.writeFile(cfg.path, updated, "utf8");
     return;
   }
@@ -73,15 +65,12 @@ export async function runEject(opts: RunEjectOptions): Promise<void> {
       ...(opts.force ? { force: true } : {}),
     });
     const source = await fs.readFile(cfg.path, "utf8");
-    const updated = editConfigToCommentDashboard(source, opts.name, cfg.filename);
+    const updated = editConfigToCommentDashboard(source, opts.name, cfg.filename, appDir);
     await fs.writeFile(cfg.path, updated, "utf8");
     return;
   }
 
   if (opts.target === "layout") {
-    // Layout eject does NOT touch flowpanel.config.ts — there's no config-level
-    // toggle. Next.js's app/admin/layout.tsx automatically wraps the admin tree
-    // when present, overriding FlowPanel's default shell.
     await copyLayoutTemplate({
       cwd: opts.cwd,
       version: opts.version,

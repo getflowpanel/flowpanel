@@ -1,4 +1,16 @@
 {
   "title": "Reference",
-  "pages": ["define-config", "cli"]
+  "pages": [
+    "define-config",
+    "resources",
+    "actions",
+    "drawer",
+    "widgets",
+    "contexts",
+    "next-runtime",
+    "adapters",
+    "scope-realtime",
+    "errors",
+    "cli"
+  ]
 }

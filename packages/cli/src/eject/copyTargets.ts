@@ -1,14 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { detectAppDir } from "../utils/detect.js";
 import { stampMarker } from "./marker.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
-/**
- * Resolve the templates root in both dev (running from src/) and prod
- * (running from dist/). Mirrors `utils/template.ts`'s strategy.
- */
+/** Resolve the templates root in both dev (running from src/) and prod (running from dist/). */
 async function resolveTemplatesRoot(): Promise<string> {
   const candidates = [
     path.join(HERE, "..", "templates", "ejected"),
@@ -81,7 +79,8 @@ async function writeStamped(
 
 export async function copyResourceTemplates(opts: CopyResourceOptions): Promise<string[]> {
   const templatesRoot = await resolveTemplatesRoot();
-  const targetDir = path.join(opts.cwd, "app/admin", opts.resourceName);
+  const appDir = await detectAppDir(opts.cwd);
+  const targetDir = path.join(opts.cwd, appDir, "admin", opts.resourceName);
   const written: string[] = [];
 
   for (const [srcRel, destRel] of RESOURCE_LAYOUT) {
@@ -99,14 +98,12 @@ export async function copyResourceTemplates(opts: CopyResourceOptions): Promise<
   return written;
 }
 
-/**
- * Eject a dashboard. Writes a single `app/admin/<path>/page.tsx` (root
- * dashboard at `path: "/"` lands at `app/admin/page.tsx`).
- */
+/** Eject a dashboard. */
 export async function copyDashboardTemplate(opts: CopyDashboardOptions): Promise<string[]> {
   const templatesRoot = await resolveTemplatesRoot();
+  const appDir = await detectAppDir(opts.cwd);
   const normalized = opts.dashboardPath === "/" ? "" : opts.dashboardPath.replace(/^\//, "");
-  const dest = path.join(opts.cwd, "app/admin", normalized, "page.tsx");
+  const dest = path.join(opts.cwd, appDir, "admin", normalized, "page.tsx");
 
   await writeStamped(
     path.join(templatesRoot, "dashboard/page.tsx.txt"),
@@ -119,13 +116,11 @@ export async function copyDashboardTemplate(opts: CopyDashboardOptions): Promise
   return [dest];
 }
 
-/**
- * Eject the admin layout. Writes `app/admin/layout.tsx` that wraps
- * children in `<AdminShell>` from @flowpanel/react.
- */
+/** Eject the admin layout. */
 export async function copyLayoutTemplate(opts: CopyLayoutOptions): Promise<string[]> {
   const templatesRoot = await resolveTemplatesRoot();
-  const dest = path.join(opts.cwd, "app/admin", "layout.tsx");
+  const appDir = await detectAppDir(opts.cwd);
+  const dest = path.join(opts.cwd, appDir, "admin", "layout.tsx");
 
   await writeStamped(
     path.join(templatesRoot, "layout/layout.tsx.txt"),

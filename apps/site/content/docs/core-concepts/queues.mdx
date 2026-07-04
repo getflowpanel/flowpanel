@@ -1,0 +1,133 @@
+---
+title: Queues
+description: Surface BullMQ queues inside the admin, without exposing bull-board.
+---
+
+FlowPanel does not reimplement a queue UI. It registers your BullMQ queues as
+nav entries and embeds [bull-board](https://github.com/felixmosh/bull-board) —
+which means the interesting part is not the page, it is keeping that board from
+being reachable by anyone who finds the port.
+
+```ts
+import { defineAdmin, queue } from "@flowpanel/kit";
+import { emailQueue, scrapeQueue } from "@/lib/queues";
+
+export default defineAdmin({
+  adapter,
+  auth,
+  queues: [
+    queue(emailQueue, {
+      label: "Email",
+      boardUrl: `http://localhost:3001/queues/email?token=${process.env.BOARD_TOKEN}`,
+      requireRole: "admin",
+    }),
+    queue(scrapeQueue, { label: "Scraping", boardUrl: "…" }),
+  ],
+});
+```
+
+## queue()
+
+```ts
+export function queue(ref: unknown, options: QueueOptions): QueueConfig;
+```
+
+`ref` is your BullMQ `Queue` instance.
+
+<AutoTypeTable path="../../packages/core/src/types/queue.ts" name="QueueOptions" />
+
+`queue()` returns a `QueueConfig`:
+
+<AutoTypeTable path="../../packages/core/src/types/queue.ts" name="QueueConfig" />
+
+`key` defaults to the queue's own name and is what appears in the URL
+(`/<basePath>/queues/<key>`). `defineAdmin` throws if two queues resolve to the
+same key.
+
+## The board runs outside the admin
+
+`boardUrl` is embedded in an `<iframe>`. That board is a **separate HTTP
+server on its own port**, so none of FlowPanel's gates apply to it — not
+`auth.requireRole`, not the queue's `requireRole`. Those protect the admin page;
+they cannot protect a port they do not sit in front of.
+
+So the board requires its own shared secret:
+
+```ts
+import { startBoardServer } from "@flowpanel/kit/bullmq";
+import { queuesByName } from "@/lib/queues";
+
+const token = process.env.BOARD_TOKEN;
+if (!token) throw new Error("BOARD_TOKEN is required");
+
+startBoardServer({
+  queues: queuesByName,
+  port: 3001,
+  bindHost: "127.0.0.1",
+  auth: { token },
+});
+```
+
+`auth.token` is **required** — there is no unauthenticated mode. The token is
+compared in constant time, and requests without it get `401`.
+
+```ts
+interface StartBoardServerOptions {
+  queues: Record<string, Queue>;
+  /** Default 3001. */
+  port?: number;
+  /** Path the Express app is mounted at. Default '/'. */
+  basePath?: string;
+  /** Host interface to bind. */
+  bindHost?: string;
+  /** Required shared secret. */
+  auth: { token: string };
+}
+```
+
+Two things worth doing in production:
+
+- **Bind to loopback** (`bindHost: "127.0.0.1"`) and reverse-proxy the board
+  behind the same auth as the rest of your app, rather than exposing the port.
+- **Keep the token out of the page.** A `boardUrl` with `?token=` in it puts the
+  secret in the iframe's URL, which is fine locally and not fine on a shared
+  deployment. Prefer a proxy path that injects the header server-side.
+
+## bullmqAdapter
+
+For reading queue state from your own code — a dashboard widget counting failed
+jobs, say — wrap the same instances:
+
+```ts
+import { bullmqAdapter } from "@flowpanel/kit/bullmq";
+
+const queues = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
+```
+
+```ts
+interface BullMQAdapter {
+  kind: "bullmq";
+  queues: Record<string, Queue>;
+}
+```
+
+It is a thin wrapper — you keep using the BullMQ API directly:
+
+```ts
+metric("Failed jobs", async () => emailQueue.getJobCountByTypes("failed"), {
+  tone: "err",
+  drilldown: "/admin/queues/email",
+});
+```
+
+## Requirements
+
+`bullmq` and `ioredis` are optional peer dependencies. Install them only if you
+use queues:
+
+```bash
+pnpm add bullmq ioredis
+```
+
+A queue page with an unreachable `boardUrl` renders an empty iframe — the admin
+itself keeps working.

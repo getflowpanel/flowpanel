@@ -1,4 +1,12 @@
 {
   "title": "Core concepts",
-  "pages": ["configuration", "adapters", "resources"]
+  "pages": [
+    "configuration",
+    "adapters",
+    "resources",
+    "dashboards",
+    "permissions",
+    "queues",
+    "realtime-multi-instance"
+  ]
 }

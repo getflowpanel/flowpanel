@@ -1,0 +1,184 @@
+---
+title: Next.js runtime
+description: The two mount points, the routes they serve, and the realtime helpers.
+---
+
+`@flowpanel/kit/next` is the bridge between your config and Next.js. It has two
+mount points and a handful of helpers for when you write routes of your own.
+
+## Flowpanel
+
+Returns the page component for the admin's catch-all route.
+
+```ts
+export function Flowpanel(
+  config: ResolvedAdminConfig,
+  opts?: FlowpanelOptions,
+): (props: { params: Promise<{ slug?: string[] }> }) => Promise<ReactNode>;
+```
+
+```ts
+// app/admin/[[...slug]]/page.tsx
+import { Flowpanel } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
+export default Flowpanel(config);
+```
+
+<AutoTypeTable path="../../packages/next/src/flowpanel-page.tsx" name="FlowpanelOptions" />
+
+`FlowpanelContent` is the same renderer without the shell, for embedding the
+admin inside chrome you already have.
+
+## handlers
+
+Returns the `GET` and `POST` handlers for the API catch-all. Every write route
+in the admin lives behind these.
+
+```ts
+export function handlers(config: ResolvedAdminConfig): {
+  GET: (req: Request, ctx: { params: Promise<{ route?: string[] }> }) => Promise<Response>;
+  POST: (req: Request, ctx: { params: Promise<{ route?: string[] }> }) => Promise<Response>;
+};
+```
+
+```ts
+// app/api/flowpanel/[...route]/route.ts
+import { handlers } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
+export const { GET, POST } = handlers(config);
+```
+
+### The routes it mounts
+
+All paths are relative to `/api/flowpanel`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/drawer/<resource>/<id>` | Drawer payload for one row |
+| `GET` | `/<resource>/reference/<field>` | Options for a reference picker |
+| `POST` | `/<resource>/create` | Create form submit |
+| `POST` | `/<resource>/<id>/edit` | Edit form submit |
+| `POST` | `/<resource>/<id>/update` | Inline cell edit |
+| `POST` | `/<resource>/<id>/restore` | Undo a soft delete |
+| `POST` | `/<resource>/import` | CSV / JSON import |
+| `POST` | `/<resource>/<id>/actions/<action>` | Row action |
+| `POST` | `/<resource>/bulk-actions/<action>` | Bulk action |
+| `POST` | `/drawer/<resource>/<id>/actions/<action>` | Drawer action |
+| `POST` | `/dashboards/<path>/actions/<action>` | Dashboard action |
+
+Every one of them runs the same guard pipeline before its own work: the
+admin-wide role gate and rate limit, the resource gate, global read-only for
+writes, then the action's `requireRole`. See
+[Roles & permissions](/docs/core-concepts/permissions).
+
+## stream
+
+The SSE endpoint backing realtime. Mount it on its own route.
+
+```ts
+export function stream(
+  config: ResolvedAdminConfig,
+  opts?: { heartbeatMs?: number },
+): (req: Request) => Promise<Response>;
+```
+
+```ts
+// app/api/flowpanel/stream/route.ts
+import { stream } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
+export const GET = stream(config);
+```
+
+It requires auth like every other route — an unauthenticated client gets `401`
+rather than an open pipe.
+
+## Realtime helpers
+
+```ts
+function publish(channel: string, payload?: unknown): Promise<void>;
+function publishResource(
+  name: string,
+  event: { action: "create" | "update" | "delete"; id?: string },
+): Promise<void>;
+function subscribe(channel: string, handler: (payload: unknown) => void): () => void;
+function bindPublisher(config: ResolvedAdminConfig): void;
+```
+
+`publishResource(name, event)` publishes to `resource.<name>` — the channel a
+resource subscribes to when it sets `realtime: true`. Use it from a worker or a
+webhook to make lists refresh:
+
+```ts
+import { publishResource } from "@flowpanel/kit/next";
+
+await publishResource("orders", { action: "update", id: order.id });
+```
+
+Inside an action, prefer `ctx.publish` — it is the same publisher, already bound.
+
+`bindPublisher` is called for you by `handlers` and `Flowpanel`. You only need it
+when publishing from code that never goes through either, such as a standalone
+worker process.
+
+## makeActions
+
+The create / update / delete pipeline that the form routes use, available
+directly for scripts and custom routes. It applies the resource's schema, field
+rules, scope and audit — the same path the UI takes.
+
+```ts
+function makeActions(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  opts?: MakeActionsOptions,
+): ResourceActions;
+```
+
+<AutoTypeTable path="../../packages/next/src/actions/resource-actions.ts" name="ResourceActions" />
+
+<AutoTypeTable path="../../packages/next/src/actions/resource-actions.ts" name="MakeActionsOptions" />
+
+The create and edit form routes answer with a `FormActionResult`:
+
+<AutoTypeTable path="../../packages/next/src/actions/resource-actions.ts" name="FormActionResult" />
+
+Pass `reqCtx` when you already built one, so the caller's session and scope carry
+through instead of being resolved a second time.
+
+## buildRequestContext
+
+Builds the `RequestContext` every gate and query reads. It enforces
+`auth.requireRole` and the rate limit, so it **throws** —
+`FlowpanelAccessError` or `FlowpanelRateLimitError`. Catch it if you are writing
+your own route:
+
+```ts
+import { buildRequestContext } from "@flowpanel/kit/next";
+
+let reqCtx;
+try {
+  reqCtx = await buildRequestContext({ req, config });
+} catch (err) {
+  // FlowpanelError carries the right status
+  return Response.json({ ok: false, error: err.safeMessage }, { status: err.status });
+}
+```
+
+## Navigation
+
+```ts
+function buildNav(config: ResolvedAdminConfig): NavGroup[];
+function resourceNavName(resource: ResourceConfig): string;
+```
+
+`buildNav` produces the same entries the sidebar and tab strip render, grouped
+as Dashboards, Pages, Resources and Queues. Useful when you build your own
+chrome around a `"bare"` shell.
+
+It filters on `hidden` only — **not** on `requireRole`. A resource gated to a
+role still appears in the nav for everyone; clicking it returns 403 rather than
+the list. Set `hidden: true` as well when the entry itself should not be
+advertised.

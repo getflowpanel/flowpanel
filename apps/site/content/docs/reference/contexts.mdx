@@ -1,0 +1,97 @@
+---
+title: Contexts
+description: What your queries, mutations and actions receive at runtime.
+---
+
+Every function you hand FlowPanel — a widget query, a field's `defaultValue`, an
+action's `run`, an adapter method — receives a context object. They all extend
+`RequestContext`, so `session`, `role` and `scope` are always available.
+
+## RequestContext
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="RequestContext" />
+
+`req` is built from the real incoming headers even during a server render, so
+cookie- and header-based auth works identically in pages and API routes.
+
+## QueryContext
+
+Base context for reads. Widget queries and `options` resolvers receive this.
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="QueryContext" />
+
+## ListQueryContext
+
+What an adapter's `list` receives — everything needed to build one page of rows.
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="ListQueryContext" />
+
+`searchFields` is an allowlist taken verbatim from `resource.options.search`. An
+adapter must never search columns outside it: that list is what keeps the search
+box from becoming a way to probe columns the operator cannot otherwise see.
+
+## ItemQueryContext
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="ItemQueryContext" />
+
+## MutationContext
+
+What an adapter's `create`, `update`, `delete` and `restore` receive.
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="MutationContext" />
+
+## ActionContext
+
+What every action's `run` receives.
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="ActionContext" />
+
+## Filter values
+
+Most filters arrive in `ctx.filters` as plain scalars. Two kinds arrive
+structured, and ship with runtime guards so you can narrow `unknown` safely.
+
+### FilterRangeValue
+
+Produced by `daterange` and `numeric-range` filters.
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="FilterRangeValue" />
+
+### FilterInValue
+
+Produced by `multiselect` filters — match any of `values`.
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="FilterInValue" />
+
+### Narrowing them
+
+```ts
+import { isFilterInValue, isFilterRangeValue } from "@flowpanel/kit";
+
+for (const [field, value] of Object.entries(ctx.filters)) {
+  if (isFilterRangeValue(value)) {
+    // value.gte / value.lte
+  } else if (isFilterInValue(value)) {
+    // value.values
+  } else {
+    // a scalar
+  }
+}
+```
+
+## Request-scoped access
+
+When you cannot thread a context through — a helper several calls deep, say —
+read it from AsyncLocalStorage instead of reaching for a global.
+
+```ts
+import { getRequestContext, tryGetRequestContext } from "@flowpanel/kit";
+
+const ctx = getRequestContext();      // throws outside a request
+const maybe = tryGetRequestContext(); // null outside a request
+```
+
+`runWithRequestContext(ctx, fn)` establishes the scope; FlowPanel already wraps
+every adapter call and every action `run` in it. This is the one piece of
+ambient state the framework keeps, and invariant I-10 confines it to
+AsyncLocalStorage precisely so it stays request-scoped rather than global.

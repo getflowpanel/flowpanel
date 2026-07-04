@@ -42,4 +42,10 @@ export default defineAdmin({
   it("throws when the resource is not found", () => {
     expect(() => editConfigToCommentResource(before, "ghost")).toThrow(/ghost/);
   });
+
+  it("points the comment at src/app when appDir is 'src/app'", () => {
+    const out = editConfigToCommentResource(before, "users", "flowpanel.config.ts", "src/app");
+    expect(out).toContain("// ejected: src/app/admin/users");
+    expect(out).not.toContain("// ejected: app/admin/users");
+  });
 });

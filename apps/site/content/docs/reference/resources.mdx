@@ -1,0 +1,121 @@
+---
+title: resource()
+description: Every option on a resource, its columns, fields and filters.
+---
+
+```ts
+export function resource<Ref>(ref: Ref, options: ResourceOptions<Row>): ResourceConfig;
+```
+
+`ref` is whatever your adapter understands — a Drizzle table object, or a
+Prisma model delegate. `Row` is inferred from it, so `columns`, `search`,
+`filters` and `defaultSort` only accept real column names.
+
+```ts
+import { resource } from "@flowpanel/kit";
+import { orders } from "@/db/schema";
+
+export const ordersResource = resource(orders, {
+  label: "Order",
+  plural: "Orders",
+  columns: ["id", "customerEmail", { field: "total", format: "money" }, "status"],
+  search: ["customerEmail"],
+  filters: ["status", { field: "createdAt", type: "daterange" }],
+  defaultSort: { field: "createdAt", dir: "desc" },
+});
+```
+
+## ResourceOptions
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceOptions" />
+
+## ColumnDef
+
+An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ColumnDef" />
+
+### ColumnFormat
+
+Declarative cell rendering — reach for this before writing a `render` function.
+
+```ts
+type ColumnFormat =
+  | "badge"
+  | "money"
+  | "number"
+  | { kind: "badge"; tones?: Record<string, Tone> }
+  | { kind: "money"; currency?: string; scale?: number };
+```
+
+`Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
+The object form of `badge` maps each cell value to a tone:
+
+```ts
+{ field: "status", format: { kind: "badge", tones: { paid: "ok", failed: "err" } } }
+```
+
+## FieldDef
+
+An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
+`form`. Every rule here is enforced on the server, not just in the UI.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FieldDef" />
+
+### FieldType
+
+```ts
+type FieldType =
+  | "text" | "textarea" | "number" | "email" | "password" | "url"
+  | "date" | "datetime" | "time"
+  | "boolean" | "switch" | "checkbox"
+  | "select" | "multiselect" | "radio"
+  | "json" | "markdown" | "tags" | "reference" | "hidden" | "color";
+```
+
+Omit it and FlowPanel infers the control from the column's `ColumnMeta.type`.
+
+## FilterDef
+
+An entry in `filters`. A bare string infers the control from the column type.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FilterDef" />
+
+### FilterType
+
+```ts
+type FilterType =
+  | "text" | "select" | "multiselect"
+  | "daterange" | "numeric-range" | "boolean" | "tag";
+```
+
+`daterange` and `numeric-range` reach your adapter as a `FilterRangeValue`;
+`multiselect` as a `FilterInValue`. Both are documented under
+[Contexts](/docs/reference/contexts#filter-values).
+
+## DetailTab
+
+A tab on the full-page detail view at `/<basePath>/<resource>/<id>`.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="DetailTab" />
+
+## SelectOption
+
+```ts
+type SelectOption = { label: string; value: string | number | boolean };
+```
+
+Wherever `options` is accepted, you may pass `string[]`, `SelectOption[]`, or a
+function resolved per request.
+
+## ListResult
+
+What a `list` returns, from the adapter through to the pagination control.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ListResult" />
+
+## ResourceConfig
+
+What `resource()` returns. You pass it to `defineAdmin`; you rarely read it.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceConfig" />

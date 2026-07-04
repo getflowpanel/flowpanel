@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 /**
  * M2 smoke — validates dashboards, drawers, and the command palette against
- * the freelance-radar example. Prereqs mirror m1-smoke.spec.ts (docker DB +
+ * the ai-scraper example. Prereqs mirror m1-smoke.spec.ts (docker DB +
  * db:push + db:seed — see playwright.config.ts header).
  */
 

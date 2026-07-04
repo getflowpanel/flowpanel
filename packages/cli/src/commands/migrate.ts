@@ -35,15 +35,6 @@ interface JitiModule {
   createJiti: (cwd: string, opts?: JitiOptions) => JitiInstance;
 }
 
-// Translate the user's tsconfig `compilerOptions.paths` into a Record jiti
-// understands. jiti v2 takes a flat `alias: Record<string, string>` where the
-// key may end in `/*` and the value points at an absolute on-disk path. We
-// pass through the most common shape — `"@/*": ["./*"]` — and resolve the
-// path relative to the project root. Skip silently if tsconfig is absent or
-// malformed; users without aliases shouldn't pay a parse-failure tax.
-// Strip JSONC comments without mangling string contents (Next.js scaffolds
-// emit `"src/**/*"` globs whose `/*` would otherwise be eaten by a naive
-// block-comment regex). The scanner tracks string state explicitly.
 function stripJsoncComments(src: string): string {
   let out = "";
   let i = 0;
@@ -140,9 +131,6 @@ export function migrateCommand(cli: Command): void {
         process.exit(1);
       }
 
-      // ── Step 1: bring up jiti. Only the "jiti not installed" case maps to
-      // the install hint; anything else (alias resolution failure, syntax
-      // error, missing dependency in the config) must surface verbatim.
       let jiti: JitiInstance;
       try {
         const jitiMod = (await import("jiti")) as JitiModule;
@@ -162,10 +150,6 @@ export function migrateCommand(cli: Command): void {
         throw e;
       }
 
-      // ── Step 2: evaluate the user's flowpanel.config.ts. Errors here are
-      // user-actionable (bad alias, missing module, syntax error in the
-      // config). Surface the real message — the previous catch-all blamed
-      // jiti for every failure mode.
       let config: MaybeConfig;
       try {
         const mod = (await jiti.import(cfgPath)) as { default?: MaybeConfig } | MaybeConfig;
@@ -177,9 +161,6 @@ export function migrateCommand(cli: Command): void {
       }
 
       const adapter = config.adapter;
-      // Bind to the adapter so third-party adapters whose migration methods
-      // reference `this` keep working (the shipped drizzle/prisma adapters use
-      // closures, but the public Adapter contract must not silently require it).
       const runMigrationSql = adapter?.runMigrationSql?.bind(adapter);
       const listAppliedMigrations = adapter?.listAppliedMigrations?.bind(adapter);
       const markMigrationApplied = adapter?.markMigrationApplied?.bind(adapter);

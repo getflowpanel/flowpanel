@@ -1,0 +1,226 @@
+---
+title: Dashboards & widgets
+description: dashboard(), page(), and the widget builders — metric, table, statGroup, custom.
+---
+
+A dashboard is a route (`dashboard({ path, ... })`) that composes **sections**
+of **widgets** over an optional date range. A page (`page({ path, ... })`) is
+a route that renders your own React component instead — use it when nothing
+built-in fits (a report, a settings screen, a custom analytics view).
+
+Both are registered on `AdminConfig.dashboards` / `AdminConfig.pages`; see
+[defineAdmin](/docs/reference/define-config).
+
+## `dashboard(config)`
+
+```ts
+import { dashboard, metric, table, statGroup } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+
+dashboard({
+  path: "/",
+  label: "Overview",
+  dateRange: { preset: "last7d" },
+  sections: [
+    {
+      label: "Traffic",
+      columns: 3,
+      widgets: [
+        metric("Signups", async ({ db, dateRange }) =>
+          db.$count(schema.users, gte(schema.users.createdAt, dateRange.from)),
+        ),
+        metric("Active users", async ({ db }) => db.$count(schema.users)),
+        table({ resource: "users", limit: 10, realtime: "resource.users" }),
+      ],
+    },
+    {
+      label: "Plan mix",
+      widgets: [
+        statGroup({
+          stats: [
+            { label: "Free", value: async ({ db }) => db.$count(schema.users, eq(schema.users.plan, "free")) },
+            { label: "Pro", value: async ({ db }) => db.$count(schema.users, eq(schema.users.plan, "pro")) },
+          ],
+        }),
+      ],
+    },
+  ],
+});
+```
+
+| Option | Type | Notes |
+|---|---|---|
+| `path` | `string` | Route under `<basePath>`, e.g. `/` or `/pipeline`. |
+| `label` | `string` | Nav entry label and page heading. |
+| `sections` | `SectionConfig[]` | Each has `widgets: WidgetConfig[]`, plus optional `label`, `description`, `columns` (`1\|2\|3\|4\|6\|12`, grid column count for that section). |
+| `dateRange.preset` | `DateRangePreset` | `"today" \| "yesterday" \| "last7d" \| "last30d" \| "MTD" \| "QTD" \| "YTD"`. Seeds `ctx.dateRange` for every widget query and the header date picker; overridable per-request via the `?preset=` URL param. |
+| `dateRange.default` | `{ from: Date; to: Date }` | Literal fallback range, lowest priority — applies only when the dashboard has no `preset` and the request carries neither `?preset=` nor `?from=`/`?to=`. |
+| `realtime` | `string \| string[]` | SSE channel(s) the whole dashboard subscribes to, independent of any widget. Equivalent in effect to putting the same channel on any one widget's own `realtime` option — use this when no single widget is the natural owner of the subscription. |
+| `actions` | `DashboardAction[]` | Buttons in the page header. Each posts to `/api/flowpanel/dashboards/<encoded-path>/actions/<key>` and runs server-side — see the worked example below. |
+| `hideActionsBar` | `boolean` | Suppress the default action-button bar while keeping the action endpoints mounted (for a `custom()` widget that renders its own trigger UI). |
+| `requireRole` | `string \| string[] \| ((session) => boolean)` | Enforced before the dashboard renders; a failing viewer gets `FlowpanelAccessError` (403). |
+
+Every widget's `options` also accepts `span` (`1\|2\|3\|4\|6\|8\|12`) to widen
+that one widget's grid cell beyond the section's uniform `columns` width.
+
+### Dashboard actions
+
+```ts
+dashboard({
+  path: "/pipeline",
+  label: "Pipeline",
+  sections: [/* ... */],
+  actions: [
+    {
+      key: "trigger-scraper",
+      label: "Run scraper now",
+      variant: "default",
+      confirm: "Trigger an out-of-band scrape?",
+      requireRole: "admin",
+      run: async (_input, ctx) => {
+        await ctx.publish("scrape:trigger");
+        return { ok: true, message: "Scrape queued" };
+      },
+    },
+  ],
+});
+```
+
+`run`'s `ctx` is an `ActionContext` — `RequestContext` (`session`, `role`,
+`scope`, …) plus `db` and `publish(channel, payload)`. `form` (a `FieldDef[]`,
+the same shape resources use) renders a confirm dialog with inputs before
+`run` executes, when set.
+
+## `page(config)`
+
+```ts
+import { page } from "@flowpanel/kit";
+import { RevenueReport } from "./revenue-report";
+
+page({
+  path: "/reports/revenue",
+  label: "Revenue",
+  component: RevenueReport,
+  requireRole: ["admin", "finance"],
+});
+```
+
+Two flavors, mutually exclusive: pass `component` (a server or client React
+component) to render it inside FlowPanel's own shell at `<basePath><path>`,
+or pass `href` for a nav entry that links to an arbitrary external URL — a
+route you own outside FlowPanel's catch-all, with its own chrome. `component`
+wins if both are set. `requireRole` works exactly as it does on `dashboard()`.
+
+## Widgets and `WidgetContext`
+
+Every widget's `query` / `props` / stat `value` function that takes a
+context receives the same `WidgetContext`:
+
+```ts
+interface WidgetContext<DB = InferDB> {
+  db: DB;
+  session: Session | null;
+  dateRange: ResolvedDateRange; // { from: Date; to: Date; preset }
+  req: Request;
+}
+```
+
+`db` is your adapter's `db` instance (typed via `FlowpanelTypes["db"]` when
+augmented, same as everywhere else). `dateRange` is the dashboard's resolved
+range for the current request (see `dateRange.preset` above). There is no
+`scope`/`role` on `WidgetContext` — a widget isn't bound to one resource's
+tenant scope; a `table({ resource: ... })` widget resolves its own request
+context internally so the target resource's scope is still enforced on the
+underlying query.
+
+### `metric(label, query, options?)`
+
+```ts
+metric(
+  "Active users",
+  async ({ db, dateRange }) => {
+    const [{ c }] = await db
+      .select({ c: sql<number>`count(*)` })
+      .from(schema.users)
+      .where(gte(schema.users.lastSeenAt, dateRange.from));
+    return Number(c);
+  },
+  {
+    format: "number",
+    tone: "ok",
+    sublabel: "since range start",
+    delta: async ({ db }) => ({ value: 0.12, vs: "prior period" }),
+    drilldown: "/admin/users",
+    realtime: "resource.users",
+  },
+)
+```
+
+`query` returns a `number` (auto-formatted per `options.format`, default
+`"number"`; also `"currency" | "percent" | "bytes" | "duration"`) or a
+pre-formatted `string`. Wired options: `format`, `sublabel`, `delta`,
+`sparkline`, `tone`, `drilldown` (wraps the card in a link), `icon`
+(rendered next to the label — any string, e.g. an emoji), `realtime`,
+`span`.
+
+### `table(options)`
+
+```ts
+// Bound to a resource — inherits its columns, labels, and column renderers.
+table({ resource: "users", limit: 10, realtime: "resource.users" })
+
+// Ad-hoc query — pass columns explicitly.
+table({
+  label: "Top errors",
+  query: async ({ db }) => db.select().from(schema.errors).limit(5),
+  columns: ["message", "count"],
+})
+```
+
+With `resource` set, rows come from that resource's own `list` (scoped,
+soft-delete aware) and columns default to the resource's configured
+`columns` (including custom `render`, executed server-side). With `query`
+set instead, you get raw rows and must pass `columns` (an array of field
+names) yourself. `limit` caps rows (default 10, only applies to the
+`resource` path). `realtime` triggers a refetch of the widget on matching
+events. `emptyState` (a `ReactNode`) replaces the default "No data" copy
+when there are zero rows.
+
+### `statGroup(options)`
+
+```ts
+statGroup({
+  label: "Plan mix",
+  stats: [
+    { label: "Free", value: async ({ db }) => db.$count(schema.users, eq(schema.users.plan, "free")) },
+    { label: "Pro", value: async ({ db }) => db.$count(schema.users, eq(schema.users.plan, "pro")) },
+    { label: "Team", value: 12 },
+  ],
+  realtime: "resource.users",
+})
+```
+
+Each `StatItem.value` is either a literal or a `(ctx) => Promise<unknown>`
+resolver. `format` and `tone` per-stat are honored the same way `metric()`
+honors them.
+
+### `custom(Component, props, options?)`
+
+```ts
+custom(
+  PipelineFlow,
+  async ({ db }) => ({ nodes: await db.select().from(schema.pipelines) }),
+  { frame: false, realtime: "resource.pipelines" },
+)
+```
+
+`Component` renders server-side in the same RSC context the dashboard config
+was authored in. `props` is a literal or a `(ctx) => Promise<Props>`
+resolver. `frame` (default `true`) wraps the widget in the default card
+frame; pass `false` when the component owns its own outer layout.
+
+## Chart widgets
+
+`areaChart`, `barChart`, `lineChart`, `pieChart` are separate builders
+shipped from `@flowpanel/kit/charts` (lazy-loaded, not bundled into the main
+admin JS). See [Charts](/docs/customization/charts) for their options.

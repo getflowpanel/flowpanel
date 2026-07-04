@@ -1,0 +1,152 @@
+---
+title: Roles & permissions
+description: Every gate FlowPanel enforces, and where each one runs.
+---
+
+FlowPanel has one rule about permissions: **a gate that only hides UI is not a
+gate.** Every check on this page runs on the server, before the query or the
+mutation, and each has its own route-level test.
+
+## One role, five places to require it
+
+`AuthConfig.role` turns a session into a single role string. Every gate compares
+against that string, and they all accept the same `RequireRole` shape:
+
+```ts
+type RequireRole =
+  | string                              // exactly this role
+  | string[]                            // any of these roles
+  | ((session: Session | null) => boolean)  // your own predicate
+  | undefined;                          // no gate
+```
+
+The gates nest, outermost first. A request must clear every one that applies.
+
+### 1. Admin-wide — `auth.requireRole`
+
+Blocks the entire admin: every page, every API route. It runs inside the request
+prologue, before routing, so nothing downstream can accidentally skip it.
+
+```ts
+defineAdmin({
+  auth: {
+    session: getSession,
+    role: (s) => s?.user?.role ?? "anonymous",
+    requireRole: ["admin", "support"],
+    signInUrl: "/sign-in",
+    forbiddenUrl: "/",
+  },
+  // …
+});
+```
+
+Without `signInUrl` / `forbiddenUrl` the visitor gets an inline panel instead of
+a redirect. API routes always answer `403` regardless.
+
+### 2. Per surface — `requireRole` on a resource, dashboard, page or queue
+
+```ts
+resource(auditLog, { columns: ["id", "action"], requireRole: "admin" });
+dashboard({ path: "/finance", label: "Finance", requireRole: "finance", sections: [] });
+page({ path: "/ops", label: "Ops", component: Ops, requireRole: "admin" });
+queue(emailQueue, { label: "Email", boardUrl: "…", requireRole: "admin" });
+```
+
+A resource gate covers its list, detail, drawer, every action and every write
+route — not just the nav entry.
+
+### 3. Per action — `requireRole` on a row, bulk or dashboard action
+
+```ts
+actions: [
+  { key: "refund", label: "Refund", requireRole: "admin", run: refund },
+]
+```
+
+Checked after the resource gate and before any input is even parsed.
+
+### 4. Per field — `FieldDef.requireRole`
+
+The finest gate, and the one worth understanding properly.
+
+```ts
+update: {
+  fields: [
+    { name: "title" },
+    { name: "internalNotes", requireRole: "admin" },
+  ],
+},
+```
+
+For an operator without the role, the field is not rendered — and if they post
+it anyway, the value is **stripped from the write** rather than rejected. The
+request succeeds, minus the field they were not allowed to touch.
+
+One exception keeps that from becoming a silent trap: if a stripped field was
+required, the write fails with `403` instead of writing a half-record.
+
+`readOnly` fields are stripped by the same pass, for the same reason.
+
+### 5. Row-level — `hidden` on an action
+
+```ts
+{ key: "cancel", label: "Cancel", hidden: (row) => row.status !== "pending", run: cancel }
+```
+
+Evaluated server-side for every row on the page. A hidden action is not merely
+absent from the menu — its route answers `404` for that row.
+
+## Tenant scope
+
+Roles say *what kind of thing* you may do. Scope says *which rows* you may do it
+to. It is resolved once per request and applied by the adapter to every query:
+
+```ts
+defineAdmin({
+  scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
+  // …
+});
+```
+
+Every resource must then either use the scope or opt out explicitly with
+`scope: "bypass"` — a resource that forgets throws at startup rather than
+quietly serving another tenant's rows. See
+[Multi-tenant scope](/docs/guides/multi-tenant-scope).
+
+Scope covers `create` too: a row that would land outside the caller's scope is
+rejected, not just filtered out of reads.
+
+## Global read-only
+
+```ts
+defineAdmin({ readOnly: true, /* … */ });
+```
+
+Every write route answers `403` — create, update, inline edit, delete, restore,
+import, and every row, bulk and drawer action. Reads keep working, so the drawer
+and reference pickers still open.
+
+Useful for a production admin you want observable but frozen, or for a
+maintenance window.
+
+## What crosses to the client
+
+Permissions decide what runs; projection decides what leaves the server. Rows are
+projected through the resource's **declared** columns and fields before
+serialization, so an adapter that returns more than you declared does not leak
+it. The search box is bound to the same allowlist — `resource.options.search` is
+the only set of columns a search may touch.
+
+## Testing your gates
+
+The gates are enforced in the route layer, so the cheapest test is an HTTP one:
+
+```ts
+const res = await POST(
+  new Request("http://x/api/flowpanel/orders/1/actions/refund", { method: "POST" }),
+  { params: Promise.resolve({ resource: "orders", id: "1", action: "refund" }) },
+);
+expect(res.status).toBe(403);
+```
+
+If a gate only ever gets exercised through the UI, it is not covered.

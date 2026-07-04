@@ -19,9 +19,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // Boots the freelance-radar example. Requires Postgres reachable at
-    // DATABASE_URL (see examples/freelance-radar/docker-compose.yml).
-    command: "pnpm --filter freelance-radar dev",
+    // Boots the ai-scraper example. Requires Postgres reachable at
+    // DATABASE_URL (see examples/ai-scraper/docker-compose.yml).
+    command: "pnpm --filter ai-scraper dev",
     url: `${BASE_URL}/admin`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

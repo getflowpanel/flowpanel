@@ -1,0 +1,93 @@
+---
+title: Errors
+description: The error hierarchy, its status codes, and what reaches the operator.
+---
+
+Throw one of these from an action, an adapter, or a custom route and FlowPanel
+turns it into the right HTTP status with a message that is safe to show. Throw
+anything else and the caller gets a generic `500` — the detail is logged, never
+sent.
+
+That split is the point of the hierarchy: `safeMessage` is the part you have
+decided an operator may read.
+
+## FlowpanelError
+
+The base class. Every other error extends it.
+
+```ts
+class FlowpanelError extends Error {
+  readonly code: string;
+  readonly safeMessage: string;
+  readonly status: number;
+
+  constructor(code: string, safeMessage: string, status?: number);
+  toJSON(): { code: string; message: string };
+}
+```
+
+| Property | Meaning |
+| --- | --- |
+| `code` | Stable machine-readable tag, e.g. `"validation"`. |
+| `safeMessage` | Shown to the operator verbatim. Keep internals out of it. |
+| `status` | HTTP status the route responds with. Defaults to `500`. |
+
+Construct it directly for a case the subclasses do not cover:
+
+```ts
+throw new FlowpanelError("payment_required", "Upgrade to run this action", 402);
+```
+
+## The subclasses
+
+| Class | `code` | Status | Default message |
+| --- | --- | --- | --- |
+| `FlowpanelValidationError` | `validation` | 400 | Validation failed |
+| `FlowpanelAuthError` | `auth` | 401 | Authentication required |
+| `FlowpanelAccessError` | `access` | 403 | Forbidden |
+| `FlowpanelNotFoundError` | `not_found` | 404 | Not found |
+| `FlowpanelConflictError` | `conflict` | 409 | Conflict |
+| `FlowpanelRateLimitError` | `rate_limit` | 429 | Rate limit exceeded |
+
+Each takes an optional message overriding the default.
+
+### FlowpanelValidationError
+
+The one subclass with extra state: `fieldErrors`, keyed by field name. Forms
+render the entries against the matching inputs instead of showing one banner.
+
+```ts
+import { FlowpanelValidationError } from "@flowpanel/kit";
+
+throw new FlowpanelValidationError({
+  email: "That address is already registered",
+});
+```
+
+## On the page render path
+
+`FlowpanelAuthError` and `FlowpanelAccessError` thrown while rendering a page are
+caught by the shell, not surfaced as a crash:
+
+- `auth.signInUrl` is set → redirect there.
+- `auth.forbiddenUrl` is set and the visitor is signed in → redirect there.
+- Neither → an inline "Sign in required" or "Access denied" panel.
+
+Other errors propagate to your Next.js error boundary.
+
+## Returning versus throwing
+
+Inside an action's `run` you have both options:
+
+```ts
+run: async (row, input, ctx) => {
+  if (row.status === "refunded") {
+    return { ok: false, error: "Already refunded" };   // 200 with a failure body
+  }
+  throw new FlowpanelConflictError("Order is locked"); // 409
+}
+```
+
+Return `{ ok: false }` for an outcome the operator caused and can fix — the UI
+shows the message next to the action. Throw when the request itself was not
+valid, and you want the status code to say so.

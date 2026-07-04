@@ -102,3 +102,56 @@ describe("runEject — invalid", () => {
     ).rejects.toThrow(/Unknown eject target/);
   });
 });
+
+describe("runEject — src/app project", () => {
+  let srcTmp: string;
+  beforeEach(async () => {
+    srcTmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-eject-srcapp-"));
+    await fs.mkdir(path.join(srcTmp, "src/app"), { recursive: true });
+    await fs.writeFile(
+      path.join(srcTmp, "flowpanel.config.ts"),
+      `import { dashboard, defineAdmin, resource } from "@flowpanel/kit";
+import * as schema from "./db/schema";
+export default defineAdmin({
+  resources: [
+    resource(schema.users, { columns: ["email"] }),
+    resource(schema.jobs, { columns: ["title"] }),
+  ],
+  dashboards: [
+    dashboard({ path: "/", label: "Overview", sections: [] }),
+    dashboard({ path: "/monitoring", label: "Monitoring", sections: [] }),
+  ],
+});
+`,
+    );
+  });
+  afterEach(async () => {
+    await fs.rm(srcTmp, { recursive: true, force: true });
+  });
+
+  it("ejects a resource under src/app/admin/, not a shadowing root app/", async () => {
+    await runEject({ cwd: srcTmp, target: "resource", name: "users", version: "1.0.0" });
+    const page = await fs.readFile(path.join(srcTmp, "src/app/admin/users/page.tsx"), "utf8");
+    expect(page).toMatch(/ejected @ 1\.0\.0/);
+    const cfg = await fs.readFile(path.join(srcTmp, "flowpanel.config.ts"), "utf8");
+    expect(cfg).toContain("// ejected: src/app/admin/users");
+    await expect(fs.access(path.join(srcTmp, "app"))).rejects.toThrow();
+  });
+
+  it("ejects a dashboard under src/app/admin/", async () => {
+    await runEject({ cwd: srcTmp, target: "dashboard", name: "/monitoring", version: "1.0.0" });
+    const page = await fs.readFile(path.join(srcTmp, "src/app/admin/monitoring/page.tsx"), "utf8");
+    expect(page).toMatch(/ejected @ 1\.0\.0/);
+    const cfg = await fs.readFile(path.join(srcTmp, "flowpanel.config.ts"), "utf8");
+    expect(cfg).toContain("// ejected: src/app/admin/monitoring");
+    await expect(fs.access(path.join(srcTmp, "app"))).rejects.toThrow();
+  });
+
+  it("ejects the layout under src/app/admin/", async () => {
+    await runEject({ cwd: srcTmp, target: "layout", name: "", version: "1.0.0" });
+    const layout = await fs.readFile(path.join(srcTmp, "src/app/admin/layout.tsx"), "utf8");
+    expect(layout).toMatch(/ejected @ 1\.0\.0/);
+    expect(layout).toMatch(/AdminShell/);
+    await expect(fs.access(path.join(srcTmp, "app"))).rejects.toThrow();
+  });
+});

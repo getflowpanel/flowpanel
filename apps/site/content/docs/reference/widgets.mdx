@@ -1,0 +1,165 @@
+---
+title: Widgets
+description: Every widget builder and the options it accepts.
+---
+
+Widgets are the contents of a dashboard section, and of a drawer's widget tab.
+Each builder returns a `WidgetConfig`; every `query` runs on the server with a
+`WidgetContext`.
+
+```ts
+import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
+import { areaChart } from "@flowpanel/kit/charts";
+
+export const overview = dashboard({
+  path: "/",
+  label: "Overview",
+  dateRange: { preset: "last30d" },
+  sections: [
+    {
+      label: "Revenue",
+      widgets: [
+        metric("MRR", async ({ db, dateRange }) => mrr(db, dateRange), {
+          format: "currency",
+          span: 3,
+          drilldown: "/admin/invoices",
+        }),
+        areaChart("Revenue over time", async ({ db }) => revenueSeries(db), {
+          x: "day",
+          y: ["subscriptions", "one-off"],
+          stacked: true,
+          span: 9,
+        }),
+      ],
+    },
+  ],
+});
+```
+
+## WidgetContext
+
+What every widget `query` receives.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="WidgetContext" />
+
+## Shared option types
+
+`Span` is `1 | 2 | 3 | 4 | 6 | 8 | 12` — the widget's width in the section's
+12-column grid.
+
+`NumericFormat` is `"number" | "currency" | "percent" | "bytes" | "duration"`.
+
+`Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
+
+Every widget accepts `realtime`, a channel name or list. When one fires, that
+widget re-runs its query — the rest of the dashboard stays put.
+
+## metric
+
+```ts
+metric(label: string, query: (ctx) => Promise<number | string>, options?: MetricOptions)
+```
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricOptions" />
+
+### MetricDelta
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricDelta" />
+
+## table
+
+```ts
+table(options: TableWidgetOptions)
+```
+
+Point it at a registered `resource` to reuse that resource's columns, or supply
+your own `query` and `columns`.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="TableWidgetOptions" />
+
+## statGroup
+
+```ts
+statGroup(options: StatGroupOptions)
+```
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="StatGroupOptions" />
+
+### StatItem
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="StatItem" />
+
+## custom
+
+```ts
+custom<P>(Component: ComponentType<P>, props: P | ((ctx) => Promise<P>), options?: CustomOptions)
+```
+
+Renders your own component in the grid. `props` may be a value or a function
+resolved on the server per request, which is how you feed it query results.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="CustomOptions" />
+
+## Charts
+
+Chart builders live in `@flowpanel/kit/charts`, which is a separate entry point
+so the recharts bundle never loads for admins that use no charts.
+
+```ts
+import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts";
+```
+
+Each takes `(label, query, options)`, where `query` returns an array of rows.
+
+### ChartOptionsBase
+
+Shared by area, bar and line charts.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="ChartOptionsBase" />
+
+`ChartBucket` is `"minute" | "hour" | "day" | "week" | "month" | "year" | "auto"`.
+
+### areaChart
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="AreaChartOptions" />
+
+### barChart
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="BarChartOptions" />
+
+### lineChart
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="LineChartOptions" />
+
+### pieChart
+
+Pie charts take `category` / `value` instead of `x` / `y`.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="PieChartOptions" />
+
+## Dashboards
+
+```ts
+dashboard(options: DashboardConfig)
+page(options: PageConfig)
+```
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DashboardConfig" />
+
+### SectionConfig
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="SectionConfig" />
+
+### DateRangeConfig
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DateRangeConfig" />
+
+`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD"`.
+
+### ResolvedDateRange
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="ResolvedDateRange" />
+
+### PageConfig
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="PageConfig" />

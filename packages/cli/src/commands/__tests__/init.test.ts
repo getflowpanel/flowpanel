@@ -15,17 +15,26 @@ describe("init templates (resolution)", () => {
     expect(out).toContain('brand: { name: "Acme" }');
   });
 
-  it("api-route template is static and valid", async () => {
-    const out = await tpl("api-route.ts.txt");
+  it("api-route template substitutes CONFIG_IMPORT", async () => {
+    const out = await tpl("api-route.ts.txt", { CONFIG_IMPORT: "../../../../flowpanel.config" });
     expect(out).toContain('from "@flowpanel/kit/next"');
+    expect(out).toContain('import config from "../../../../flowpanel.config"');
     expect(out).toContain("export const { GET, POST } = handlers(config)");
     expect(out).toContain('runtime = "nodejs"');
   });
 
-  it("sse-route template is static and valid", async () => {
-    const out = await tpl("sse-route.ts.txt");
+  it("sse-route template substitutes CONFIG_IMPORT", async () => {
+    const out = await tpl("sse-route.ts.txt", { CONFIG_IMPORT: "@/flowpanel.config" });
+    expect(out).toContain('import config from "@/flowpanel.config"');
     expect(out).toContain("export const GET = stream(config)");
     expect(out).toContain('dynamic = "force-dynamic"');
+  });
+
+  it("admin-page template substitutes CONFIG_IMPORT", async () => {
+    const out = await tpl("admin-page.tsx.txt", { CONFIG_IMPORT: "../../../flowpanel.config" });
+    expect(out).toContain('from "@flowpanel/kit/next"');
+    expect(out).toContain('import config from "../../../flowpanel.config"');
+    expect(out).toContain("export default Flowpanel(config)");
   });
 
   it("app-layout template substitutes APP_NAME + CSS_IMPORT", async () => {

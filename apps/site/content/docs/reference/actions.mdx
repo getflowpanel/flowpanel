@@ -1,0 +1,106 @@
+---
+title: Actions
+description: Row, bulk, dashboard and drawer actions — every option and what they return.
+---
+
+An action is a server-side function the operator triggers from the UI. FlowPanel
+gives you four places to put one, all sharing the same result type and the same
+guard pipeline: the admin-wide role gate, the resource gate, then the action's
+own `requireRole` — before `run` is ever called.
+
+Actions never become Server Actions. They are POST routes under
+`/api/flowpanel/…`, mounted by `handlers(config)`.
+
+## RowAction
+
+Offered on a single row, inline or in the row menu.
+
+```ts
+import { resource } from "@flowpanel/kit";
+
+resource(orders, {
+  columns: ["id", "status"],
+  actions: [
+    {
+      key: "refund",
+      label: "Refund",
+      variant: "destructive",
+      confirm: { title: "Refund this order?", confirmLabel: "Refund" },
+      requireRole: "admin",
+      disabled: (row) => (row.status === "refunded" ? "Already refunded" : false),
+      form: [{ name: "reason", label: "Reason", required: true }],
+      run: async (row, input, ctx) => {
+        await refund(ctx.db, row.id, (input as { reason: string }).reason);
+        return { ok: true, message: `Refunded ${row.id}`, refresh: true };
+      },
+    },
+  ],
+});
+```
+
+<AutoTypeTable path="../../packages/core/src/types/action.ts" name="RowAction" />
+
+`hidden` runs server-side for every row on the page, and the row's action list
+is filtered before it reaches the client — a hidden action is not merely
+invisible, its route returns `404` for that row.
+
+## BulkAction
+
+Applied to the operator's selection. `run` receives the ids, capped at 1000 per
+request.
+
+<AutoTypeTable path="../../packages/core/src/types/action.ts" name="BulkAction" />
+
+When a resource has delete enabled and declares no `bulkActions`, `defineAdmin`
+adds a default delete action. Opt out with `bulkActions: []`.
+
+## DashboardAction
+
+Rendered in a dashboard's page header. It gets no row — only the form input.
+
+<AutoTypeTable path="../../packages/core/src/types/action.ts" name="DashboardAction" />
+
+Set `hideActionsBar: true` on the dashboard to suppress the bar these render in.
+
+## DrawerAction
+
+Rendered in the drawer footer for the open row. Its `form` uses the lighter
+`DrawerFieldFormSpec` rather than `FieldDef`.
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerAction" />
+
+### DrawerFieldFormSpec
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerFieldFormSpec" />
+
+## ActionResult
+
+What every `run` returns. The success shape drives what the operator sees next.
+
+<AutoTypeTable path="../../packages/core/src/types/action.ts" name="ActionResult" />
+
+Returning `{ ok: false, error }` is the way to fail a run cleanly — the message
+reaches the operator verbatim, so keep internals out of it. Throwing works too:
+a `FlowpanelError` maps to its own status, anything else becomes a generic
+`500` with the detail logged rather than sent.
+
+## ActionContext
+
+The last argument to every `run`.
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="ActionContext" />
+
+`ctx.db` is your own client — the adapter hands it through untouched, so you
+write ordinary queries. `ctx.publish` pushes a realtime message to every
+connected admin; widgets and lists that name the channel in `realtime` refresh.
+
+## Validation
+
+An action with a `form` is validated server-side before `run`:
+
+1. `required` fields must be present.
+2. Each field's `validate` runs — a Zod schema or a function returning a message.
+3. Only then does `run` receive `input`.
+
+A failure returns `422` with an `issues` array. The client renders them against
+the matching inputs.

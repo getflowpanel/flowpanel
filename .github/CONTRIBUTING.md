@@ -54,7 +54,7 @@ Five layers, in order of cost:
 1. **Unit** (`vitest`) — public functions and components. Always run.
 2. **Integration** (`testcontainers`) — adapter behaviors against real
    databases. Skip gracefully when Docker is absent (`describe.skipIf`).
-3. **E2E** (Playwright) — `examples/freelance-radar` flows.
+3. **E2E** (Playwright) — `examples/ai-scraper` flows.
    `packages/e2e/` boots the example via `webServer`.
 4. **Type tests** (`tsd`) — public API shapes. Run via `pnpm -r test:types`.
 5. **A11y** (Axe via Playwright) — 0 wcag2aa violations.

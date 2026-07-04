@@ -1,0 +1,71 @@
+---
+title: Adapter contract
+description: What FlowPanel needs from a database layer, method by method.
+---
+
+The adapter is the only part of FlowPanel that talks to your database.
+Implement this interface to support an ORM that has no shipped adapter — nothing
+else in the framework issues a query.
+
+Shipped adapters: [`drizzleAdapter`](/docs/integrations/drizzle) and
+[`prismaAdapter`](/docs/integrations/prisma).
+
+## Adapter
+
+<AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="Adapter" />
+
+`Ref` is whatever you accept in `resource(ref, …)` — a Drizzle table object, a
+Prisma delegate, or your own descriptor. `DB` is the client you expose as
+`ctx.db` everywhere.
+
+The last three methods are optional and only power `flowpanel migrate`. An
+adapter without `restore` makes the admin hide the restore button rather than
+fail at runtime.
+
+## ResourceIntrospection
+
+Returned by `introspect`. This is what lets a resource declare `columns: ["id",
+"email"]` and get working controls, filters and validation for free.
+
+<AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="ResourceIntrospection" />
+
+## ColumnMeta
+
+<AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="ColumnMeta" />
+
+`type` decides the default form control and filter kind:
+
+| `ColumnMeta.type` | Default field | Default filter |
+| --- | --- | --- |
+| `string` | `text` | `text` |
+| `number` | `number` | `numeric-range` |
+| `boolean` | `switch` | `boolean` |
+| `date` | `datetime` | `daterange` |
+| `enum` | `select` (from `enumValues`) | `select` |
+| `json` | `json` | — |
+| `array` | `tags` | `tag` |
+| `reference` | `reference` (from `references`) | `select` |
+
+## What an implementation must honor
+
+The interface is small, but three of its obligations are load-bearing. Get them
+wrong and the admin is still functional — just unsafe.
+
+**Tenant scope.** When `ctx.scopeRequired` is true, every method must constrain
+its query with `ctx.applyScope`. `create` included: writing a row outside the
+caller's scope is as much a leak as reading one.
+
+**The search allowlist.** `list` may only search columns in `ctx.searchFields`.
+Searching every text column turns the search box into a way to confirm values in
+columns the operator was never shown.
+
+**Soft delete.** When `ctx.softDelete` is set, `list` and `get` must exclude
+stamped rows unless `ctx.includeDeleted` is set, and `delete` must stamp the
+column rather than remove the row.
+
+## Declared columns are the boundary
+
+FlowPanel projects every row through the resource's declared surface before it
+crosses to the client. An adapter that returns extra columns is not a leak by
+itself — but the projection is what makes that safe, so do not bypass it in
+custom routes of your own.

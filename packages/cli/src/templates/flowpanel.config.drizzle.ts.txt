@@ -24,7 +24,7 @@ export default defineAdmin({
 
   theme: {
     brand: { name: "{{APP_NAME}}" },
-    accent: "hsl(220 90% 56%)",
+    accent: "220 90% 50%",
     mode: "auto",
   },
 

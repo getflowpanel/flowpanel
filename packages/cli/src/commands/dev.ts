@@ -24,7 +24,6 @@ export function devCommand(cli: Command): void {
       process.on("SIGINT", () => shutdown(0));
       process.on("SIGTERM", () => shutdown(0));
 
-      // 1. Always spawn `next dev`.
       p.intro(pc.bgCyan(pc.black(" FlowPanel dev ")));
       const next = spawn("pnpm", ["exec", "next", "dev", "--port", opts.port], {
         cwd,
@@ -34,7 +33,6 @@ export function devCommand(cli: Command): void {
       pipeWithPrefix(next, pc.cyan("[next] "));
       children.push(next);
 
-      // 2. Maybe spawn bull-board.
       const wantBoard =
         opts.board !== false &&
         !!process.env.REDIS_URL &&
@@ -49,7 +47,6 @@ export function devCommand(cli: Command): void {
         pipeWithPrefix(board, pc.magenta("[board] "));
         children.push(board);
       } else if (process.env.REDIS_URL && opts.board !== false) {
-        // REDIS_URL set, but no board script — log a hint but don't fail.
         process.stdout.write(
           pc.dim(
             "[flowpanel] REDIS_URL set but scripts/board-server.ts not found — board skipped\n",
@@ -57,7 +54,6 @@ export function devCommand(cli: Command): void {
         );
       }
 
-      // Wait for any child to exit; propagate code.
       next.on("exit", (code) => shutdown(code ?? 0));
       const board = children[1];
       if (wantBoard && board) {

@@ -80,6 +80,38 @@ resource(schema.orders, {
 Row-level `actions` appear in the row's overflow menu and run
 server-side; `bulkActions` apply across selected rows.
 
+## Table density
+
+Set `density: "compact"` for a tighter row height on high-volume tables
+(the default is `"comfortable"`):
+
+```ts
+resource(schema.events, {
+  columns: ["id", "type", "createdAt"],
+  density: "compact",
+})
+```
+
+## Import & export
+
+Add **Export** (CSV / JSON) and **Import** buttons to the list toolbar with the
+`export` and `import` options — see
+[Import & export](/docs/customization/import-export).
+
+## Access control
+
+Gate a whole resource behind a role with `requireRole` — a `string`,
+`string[]`, or `(session) => boolean`. A user who doesn't satisfy it can't
+reach the resource. For per-field gating inside the form, see
+[role-gated fields](/docs/customization/forms#role-gated-fields).
+
+```ts
+resource(schema.invoices, {
+  columns: ["id", "amount", "status"],
+  requireRole: "admin",
+})
+```
+
 ## Default labels and `humanize`
 
 If you omit `label` on a column or field, FlowPanel humanizes the raw

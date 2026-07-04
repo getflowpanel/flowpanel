@@ -1,6 +1,7 @@
 import { Popup, PopupContent, PopupTrigger } from "fumadocs-twoslash/ui";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
+import { AutoTypeTable } from "@/shared/lib/type-table";
 import { AdapterTab, AdapterTabs } from "@/shared/ui/adapter-tabs";
 
 /**
@@ -17,6 +18,8 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     ...(defaultMdxComponents as MDXComponents),
     AdapterTabs,
     AdapterTab,
+    // Property tables generated from the packages' own TypeScript declarations.
+    AutoTypeTable,
     // Twoslash hover popups — rendered for ` ```ts twoslash ` blocks.
     Popup,
     PopupContent,

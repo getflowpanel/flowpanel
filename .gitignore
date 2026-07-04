@@ -49,6 +49,8 @@ Thumbs.db
 .claude/
 .superpowers/
 AGENTS.md
+# Design-audit scratch output (design-is skill) — local only, never shipped
+DESIGN-IS-*/
 
 # Logs
 *.log

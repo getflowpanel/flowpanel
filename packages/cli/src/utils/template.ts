@@ -13,16 +13,12 @@ async function resolveTemplatesDir(): Promise<string> {
     try {
       await fs.access(dir);
       return dir;
-    } catch {
-      // keep looking
-    }
+    } catch {}
   }
   throw new Error(`FlowPanel CLI templates not found. Tried: ${candidates.join(", ")}`);
 }
 
-/**
- * Substitutes {{KEY}} placeholders with `vars[KEY]`. Missing keys → empty string.
- */
+/** Substitutes {{KEY}} placeholders with `vars[KEY]`. */
 export function renderTemplate(source: string, vars: Record<string, string>): string {
   return source.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) => vars[k] ?? "");
 }

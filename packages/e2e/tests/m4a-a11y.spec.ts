@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 /**
  * M4a — axe-core a11y smoke.
  *
- * Runs against the freelance-radar dev server (boots via Playwright webServer).
+ * Runs against the ai-scraper dev server (boots via Playwright webServer).
  * Requires the example's Postgres to be reachable; on CI, brought up via docker-compose.
  *
  * Tags: wcag2a, wcag2aa — the spec §23 contract.

@@ -1,13 +1,13 @@
 import { defineConfig } from "@playwright/test";
 
 /**
- * M1 smoke tests against the freelance-radar example.
+ * M1 smoke tests against the ai-scraper example.
  *
  * Prereqs before `pnpm exec playwright test`:
- *   cd examples/freelance-radar
+ *   cd examples/ai-scraper
  *   docker compose up -d --wait
- *   DATABASE_URL=postgresql://fp:fp@localhost:54329/freelance_radar pnpm db:push
- *   DATABASE_URL=... pnpm db:seed     # optional — seeds 3 users/categories/jobs
+ *   DATABASE_URL=postgresql://fp:fp@localhost:54329/ai_scraper pnpm db:push
+ *   DATABASE_URL=... pnpm db:seed     # required — seeds customers, products, scrapers, …
  *
  * Playwright boots the dev server itself via webServer.
  */
@@ -21,13 +21,12 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "pnpm --filter freelance-radar dev",
+    command: "pnpm --filter ai-scraper dev",
     port: 3000,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
     env: {
-      DATABASE_URL:
-        process.env.DATABASE_URL ?? "postgresql://fp:fp@localhost:54329/freelance_radar",
+      DATABASE_URL: process.env.DATABASE_URL ?? "postgresql://fp:fp@localhost:54329/ai_scraper",
     },
   },
 });

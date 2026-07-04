@@ -4,12 +4,21 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
 import { hasMarker } from "../eject/marker.js";
-import { detectStack, fileExists } from "../utils/detect.js";
+import {
+  configImportFor,
+  detectAppDir,
+  detectPackageManager,
+  detectPathAlias,
+  detectStack,
+  fileExists,
+  pmCommands,
+} from "../utils/detect.js";
 import { log } from "../utils/log.js";
-import { loadTemplate } from "../utils/template.js";
+import { tpl } from "../utils/template.js";
 
 export async function checkEjectMarker(cwd: string, resourceName: string): Promise<string | null> {
-  const candidate = path.join(cwd, "app/admin", resourceName, "page.tsx");
+  const appDir = await detectAppDir(cwd);
+  const candidate = path.join(cwd, appDir, "admin", resourceName, "page.tsx");
   try {
     const src = await fs.readFile(candidate, "utf8");
     if (!hasMarker(src)) {
@@ -33,17 +42,51 @@ export interface Check {
   fix?: () => Promise<string>;
 }
 
-/** Auto-fixable file checks: dest → template name */
-const FIXABLE_FILES: ReadonlyArray<readonly [relDest: string, templateName: string]> = [
-  ["app/api/flowpanel/[...route]/route.ts", "api-route.ts.txt"],
-  ["app/api/flowpanel/stream/route.ts", "sse-route.ts.txt"],
-  ["flowpanel/migrations/0001_init.sql", "migration.sql.txt"],
-  ["app/admin/[[...slug]]/page.tsx", "admin-page.tsx.txt"],
+const FIXABLE_FILES: ReadonlyArray<{
+  relToAppDir: string | null;
+  templateName: string;
+  label: string;
+  needsConfigImport: boolean;
+}> = [
+  {
+    relToAppDir: "api/flowpanel/[...route]/route.ts",
+    templateName: "api-route.ts.txt",
+    label: "API route",
+    needsConfigImport: true,
+  },
+  {
+    relToAppDir: "api/flowpanel/stream/route.ts",
+    templateName: "sse-route.ts.txt",
+    label: "SSE route",
+    needsConfigImport: true,
+  },
+  {
+    relToAppDir: null,
+    templateName: "migration.sql.txt",
+    label: "Seed migration (flowpanel/migrations)",
+    needsConfigImport: false,
+  },
+  {
+    relToAppDir: "admin/[[...slug]]/page.tsx",
+    templateName: "admin-page.tsx.txt",
+    label: "Catch-all admin page",
+    needsConfigImport: true,
+  },
 ];
 
-async function makeFix(cwd: string, relDest: string, templateName: string): Promise<string> {
+/** `relToAppDir === null` files (currently just the seed migration) live at a fixed repo-root path. */
+const MIGRATION_REL_DEST = "flowpanel/migrations/0001_init.sql";
+
+async function makeFix(
+  cwd: string,
+  relDest: string,
+  templateName: string,
+  configImport: string | null,
+): Promise<string> {
   const dest = path.join(cwd, relDest);
-  const content = await loadTemplate(templateName);
+  const content = configImport
+    ? await tpl(templateName, { CONFIG_IMPORT: configImport })
+    : await tpl(templateName);
   await fs.mkdir(path.dirname(dest), { recursive: true });
   await fs.writeFile(dest, content, "utf8");
   return dest;
@@ -54,6 +97,10 @@ export async function runDoctorChecks(
   fix: boolean,
 ): Promise<{ checks: Check[]; bad: number }> {
   const stack = await detectStack(cwd);
+  const pm = await detectPackageManager(cwd);
+  const pmc = pmCommands(pm);
+  const appDir = await detectAppDir(cwd);
+  const aliasMode = await detectPathAlias(cwd);
   const checks: Check[] = [];
 
   const add = (name: string, ok: boolean, hint?: string, fixFn?: () => Promise<string>): void => {
@@ -65,68 +112,46 @@ export async function runDoctorChecks(
   add(
     "Next.js ≥ 15",
     !!stack.nextjsMajor && stack.nextjsMajor >= 15,
-    "Upgrade: pnpm add next@latest react@latest react-dom@latest",
+    `Upgrade: ${pmc.addDisplay("next@latest react@latest react-dom@latest", false)}`,
   );
-  add("TypeScript installed", stack.typescript, "Install: pnpm add -D typescript");
-  add("ORM adapter (Drizzle)", stack.drizzle, "Install: pnpm add drizzle-orm");
+  add("TypeScript installed", stack.typescript, `Install: ${pmc.addDisplay("typescript", true)}`);
+  add("ORM adapter (Drizzle)", stack.drizzle, `Install: ${pmc.addDisplay("drizzle-orm", false)}`);
   add(
     "flowpanel.config.ts",
     await fileExists(path.join(cwd, "flowpanel.config.ts")),
     "Run: flowpanel init",
-    // not auto-fixable — requires user input
   );
 
-  // Auto-fixable file checks
-  for (const [relDest, templateName] of FIXABLE_FILES) {
+  for (const { relToAppDir, templateName, label, needsConfigImport } of FIXABLE_FILES) {
+    const relDest = relToAppDir === null ? MIGRATION_REL_DEST : `${appDir}/${relToAppDir}`;
     const dest = path.join(cwd, relDest);
     const exists = await fileExists(dest);
-    const label =
-      relDest === "app/api/flowpanel/[...route]/route.ts"
-        ? "API route"
-        : relDest === "app/api/flowpanel/stream/route.ts"
-          ? "SSE route"
-          : relDest === "flowpanel/migrations/0001_init.sql"
-            ? "flowpanel/migrations directory"
-            : "Catch-all admin page";
+    const configImport = needsConfigImport
+      ? configImportFor(path.dirname(relDest), aliasMode)
+      : null;
 
     add(
       label,
       exists,
       "Run: flowpanel doctor --fix",
-      exists ? undefined : async () => makeFix(cwd, relDest, templateName),
+      exists ? undefined : async () => makeFix(cwd, relDest, templateName, configImport),
     );
   }
 
-  add(
-    "flowpanel/migrations directory",
-    await fileExists(path.join(cwd, "flowpanel", "migrations")),
-    "Run: flowpanel doctor --fix",
-    // covered by migration.sql.txt fix above (mkdir recursive), but keep the check
-  );
-
-  // ── Single @flowpanel/core instance ───────────────────────────────────────
-  // Multiple instances mean a peer mismatch is forcing pnpm to keep both
-  // around; resource builders from one instance won't type-check against
-  // `defineAdmin` from the other (see ADR / dogfood notes).
   try {
     const coreCount = await countCoreInstances(cwd);
-    add(
-      "Single @flowpanel/core instance",
-      coreCount <= 1,
-      coreCount > 1
-        ? `Found ${coreCount} @flowpanel/core copies in node_modules. ` +
-            `Pin peers via pnpm.peerDependencyRules.allowedVersions or align peer ranges.`
-        : undefined,
-    );
-  } catch {
-    // pnpm layout missing — skip silently.
-  }
+    if (coreCount !== null) {
+      add(
+        "Single @flowpanel/core instance",
+        coreCount <= 1,
+        coreCount > 1
+          ? `Found ${coreCount} @flowpanel/core copies in node_modules. ` +
+              `Pin peers via pnpm.peerDependencyRules.allowedVersions or align peer ranges.`
+          : undefined,
+      );
+    }
+  } catch {}
 
-  // ── Destructive actions without confirm ───────────────────────────────────
-  // Static scan of flowpanel.config.ts (and ./src/admin/*.ts) for
-  // `variant: "destructive"` clauses missing a sibling `confirm:`. Best-effort
-  // text match — false positives possible on multi-line configs, but the hint
-  // is cheap and the cost of a misclick on destructive ops is high.
   try {
     const missingConfirm = await findDestructiveWithoutConfirm(cwd);
     add(
@@ -136,41 +161,23 @@ export async function runDoctorChecks(
         ? `Destructive actions without confirm:\n    ${missingConfirm.join("\n    ")}`
         : undefined,
     );
-  } catch {
-    // config file unreadable — skip.
-  }
+  } catch {}
 
+  const tscCmd = `${pmc.exec} tsc --noEmit`;
   try {
-    execSync("pnpm exec tsc --noEmit", { cwd, stdio: "ignore" });
+    execSync(tscCmd, { cwd, stdio: "ignore" });
     add("tsc --noEmit", true);
   } catch {
-    add("tsc --noEmit", false, "TypeScript errors in project. Run: pnpm exec tsc --noEmit");
+    add("tsc --noEmit", false, `TypeScript errors in project. Run: ${tscCmd}`);
   }
 
-  // Apply fixes before computing bad count
   if (fix) {
     for (const check of checks) {
       if (!check.ok && check.fix) {
         try {
           const written = await check.fix();
           process.stdout.write(pc.green(`  ✔ fixed: ${written}\n`));
-          // Re-evaluate
-          const relDest = FIXABLE_FILES.find(([, t]) => {
-            const label =
-              check.name === "API route"
-                ? "api-route.ts.txt"
-                : check.name === "SSE route"
-                  ? "sse-route.ts.txt"
-                  : check.name === "Catch-all admin page"
-                    ? "admin-page.tsx.txt"
-                    : "migration.sql.txt";
-            return t === label;
-          })?.[0];
-          if (relDest) {
-            check.ok = await fileExists(path.join(cwd, relDest));
-          } else {
-            check.ok = true;
-          }
+          check.ok = await fileExists(written);
         } catch (e: unknown) {
           process.stderr.write(
             pc.red(
@@ -191,26 +198,21 @@ export async function runDoctorChecks(
 }
 
 /**
- * Counts how many `@flowpanel/core` package directories pnpm has installed.
- * In a healthy project there's exactly one — multi-instance setups mean a
- * peer mismatch forced pnpm to keep parallel copies.
+ * Counts `@flowpanel/core` copies in pnpm's store. `null` means the layout this
+ * reads does not exist, so the check is skipped rather than reported as passing.
  */
-async function countCoreInstances(cwd: string): Promise<number> {
+async function countCoreInstances(cwd: string): Promise<number | null> {
   const pnpmDir = path.join(cwd, "node_modules", ".pnpm");
   let entries: string[];
   try {
     entries = await fs.readdir(pnpmDir);
   } catch {
-    return 0; // Not a pnpm project — skip.
+    return null;
   }
   return entries.filter((name) => name.startsWith("@flowpanel+core@")).length;
 }
 
-/**
- * Best-effort static scan of admin config files for destructive actions
- * that lack a `confirm`. Returns relative paths + line numbers where a
- * miss was detected. Tolerant of false positives — the goal is a nudge.
- */
+/** Best-effort static scan of admin config files for destructive actions that lack a `confirm`. */
 async function findDestructiveWithoutConfirm(cwd: string): Promise<string[]> {
   const candidates = [
     "flowpanel.config.ts",
@@ -230,8 +232,6 @@ async function findDestructiveWithoutConfirm(cwd: string): Promise<string[]> {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line?.includes(`variant: "destructive"`)) continue;
-      // Look ahead up to 10 lines for a sibling `confirm:`. Crude but
-      // empirically catches the common config shape.
       const slice = lines.slice(i, Math.min(i + 10, lines.length)).join("\n");
       if (!slice.includes("confirm:")) {
         misses.push(`${rel}:${i + 1}`);

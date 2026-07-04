@@ -57,13 +57,23 @@ fans out via Redis instead of an in-process EventEmitter.
 ## What flows over Redis
 
 flowpanel never publishes row contents over Redis. Channels carry just
-**resource name + action**:
+**resource name + action** — the payload for a resource mutation is
+`{ action: "create" | "update" | "delete", id? }`.
+
+The logical channel name — `resource.<name>` for resource mutations
+(automatic; see below), or whatever string you pass to `publish(channel, …)`
+for a custom event — is what `<DataTable realtime="...">` and `subscribe()`
+callers use. `keyPrefix` only namespaces the string actually sent over the
+Redis wire; it never changes the name application code sees:
 
 ```
-fp:resource:orders → { action: "update", id: "ord_…" }
-fp:resource:users  → { action: "create", id: "usr_…" }
-fp:custom:scraper-pipeline → arbitrary user payload via ctx.publish
+flowpanel:resource.orders → { action: "update", id: "ord_…" }
+flowpanel:resource.users  → { action: "create", id: "usr_…" }
+flowpanel:scraper:tick    → arbitrary payload via publish("scraper:tick", …)
 ```
+
+(With `keyPrefix: "fp"` those become `fp:resource.orders`, `fp:resource.users`,
+`fp:scraper:tick` — same logical channels, different wire prefix.)
 
 Browsers subscribed to a list get the channel ping, then
 `router.refresh()` re-fetches the (RSC-streamed) updated rows over

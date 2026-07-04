@@ -3,11 +3,47 @@ title: Column renderers
 description: Override how a single field renders in the table or drawer.
 ---
 
-The lightest customization layer is **L1: props**. Hand a `render`
-function to any column and you control what that cell looks like —
-without touching the rest of the page.
+The lightest customization layer is **L1: props**. The most common cells —
+status badges, money, formatted numbers — need no code at all: set `format`
+and FlowPanel renders a themed cell. Reach for `render` only when you need
+something bespoke.
 
-## A status badge
+## Built-in formatters
+
+`format` covers the cells you'd otherwise hand-roll:
+
+```ts
+resource(schema.orders, {
+  columns: [
+    "id",
+    { field: "status", format: "badge" }, // themed status pill
+    { field: "totalCents", format: { kind: "money", scale: 100 } }, // "$12.34"
+    { field: "items", format: "number" }, // "1,234"
+  ],
+})
+```
+
+- **`"badge"`** renders the value as a status pill. The tone is resolved
+  automatically (`active` / `success` → green, `failed` / `canceled` → red,
+  `pending` → amber). Override per value for domain enums:
+
+  ```ts
+  { field: "plan", format: { kind: "badge", tones: { pro: "ok", trial: "warn" } } }
+  ```
+
+  The pill is theme-aware (it uses your `--fp-ok` / `--fp-warn` tokens) and
+  swappable via the `StatusBadge`
+  [theme slot](/docs/customization/theme-slots).
+- **`"money"`** formats a number as currency (defaults to USD `$`). Bare
+  `format: "money"` works for whole-unit amounts; pass `{ kind: "money", scale: 100 }`
+  when the value is stored in integer cents, or `{ currency: "EUR" }` to change
+  the currency.
+- **`"number"`** renders a thousands-separated integer.
+
+## A custom cell with `render`
+
+When `format` isn't enough, hand a `render` function to the column and you
+control the cell completely (`render` wins if a column sets both):
 
 ```ts
 resource(schema.orders, {
@@ -27,9 +63,14 @@ resource(schema.orders, {
 ```
 
 The column object accepts `field` (the row key to read from — typed
-against `keyof Row`) and `render` (a function returning a `ReactNode`).
-Other supported keys: `label`, `sortable`, `width`, `align`,
-`className`, `hidden`, `pinnable`, `tone`.
+against `keyof Row`) and either `format` (a declarative formatter) or
+`render` (a function returning a `ReactNode`). Other supported keys:
+`label`, `sortable`, `width`, `align`, `className`, `hidden`,
+`editable`, `reference`.
+
+A `reference` column renders the foreign key's looked-up label as a link to the
+target resource. To configure that same relation as an editable form control,
+see [Create & edit forms](/docs/customization/forms#relation-fields).
 
 `row` is the **typed** record — `schema.orders.$inferSelect` for
 Drizzle, or your augmented model type for Prisma. Autocomplete and

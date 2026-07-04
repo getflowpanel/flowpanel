@@ -9,19 +9,36 @@ import { expect, test } from "@playwright/test";
  *     which soft-deletes the user (sets deletedAt) and returns
  *     { refresh: true }.
  *   - Server runs publishResource("resource.users", { action: "update" }).
- *   - Tab B's <DataTable realtime="resource.users"> receives the SSE event
- *     via useLiveChannel → router.refresh (debounced ~200ms).
+ *   - Tab B's `<RealtimeRefresh channels="resource.users">` (the shared bus
+ *     mounted by `FlowpanelGlobals`) receives the SSE event and calls
+ *     router.refresh (debounced ~400ms).
  *   - Tab B's list (filtered to deletedAt IS NULL) re-fetches; the
  *     disabled user is no longer rendered.
  *
  * Budget: 2s from action confirm to tab B reflecting the deletion.
  *
- * Requires freelance-radar + Postgres running; config default
+ * Requires ai-scraper + Postgres running; config default
  * realtime.driver is "memory" (in-process publisher).
+ *
+ * Row-count assertion note: the primary signal here is that the disabled
+ * user's row disappears from tab B, NOT that `tbody tr` shrinks by one.
+ * The seed data (`examples/ai-scraper/scripts/seed-data.ts`) ships far more
+ * active users than the list's default page size (20), so page 1 always
+ * renders a FULL page — soft-deleting one row makes the next active user
+ * (beyond the previous page boundary) slide into view, backfilling the
+ * count right back to the same number. A `toHaveCount(rowsBefore - 1)`
+ * assertion against this dataset can never pass, independent of whether
+ * realtime propagation works — confirmed by instrumenting the SSE bus
+ * end-to-end: the event arrives and `router.refresh()` fires within
+ * budget, yet page-1's row count is invariant because pagination backfills
+ * the vacated slot. Asserting on the target row's disappearance is the
+ * dataset-size-agnostic way to prove propagation actually happened.
  */
 
 test.describe("M3 realtime", () => {
-  test("cross-tab: soft-delete in tab A removes row in tab B within 2s", async ({ browser }) => {
+  test("cross-tab: soft-delete in tab A removes the row from tab B within 2s", async ({
+    browser,
+  }) => {
     const ctx = await browser.newContext();
     try {
       const tabA = await ctx.newPage();
@@ -51,14 +68,17 @@ test.describe("M3 realtime", () => {
       await expect(confirm).toBeVisible();
       await confirm.getByRole("button", { name: /disable user/i }).click();
 
-      // Tab B should drop to rowsBefore - 1 once the SSE event lands and the
-      // debounced router.refresh re-fetches. Budget is generous (5s) because
-      // e2e runs against the Next *dev* server, where router.refresh is far
-      // slower than a production build; the propagation itself is sub-second.
-      await expect(tabB.locator("tbody tr")).toHaveCount(rowsBefore - 1, { timeout: 5_000 });
-
-      // Bonus: the target email should no longer appear in tab B.
-      await expect(tabB.getByText(targetEmail)).toHaveCount(0);
+      // Primary assertion: the disabled user's row is gone from tab B's
+      // <tbody> once the SSE event lands and the debounced router.refresh
+      // re-fetches. Scoped to <tbody> (not the whole page) so an unrelated
+      // element elsewhere carrying the same text can't produce a false
+      // pass. Budget is generous (5s) because e2e runs against the Next
+      // *dev* server, where router.refresh is far slower than a production
+      // build; the propagation itself is sub-second (SSE bus instrumentation
+      // showed the event landing and the refresh firing within ~1s).
+      await expect(tabB.locator("tbody").getByText(targetEmail)).toHaveCount(0, {
+        timeout: 5_000,
+      });
     } finally {
       await ctx.close();
     }

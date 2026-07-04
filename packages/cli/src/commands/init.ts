@@ -1,5 +1,4 @@
 // LOC-OK: init command — one cohesive scaffolding flow (detect adapter, write
-// config + route + layout, print next steps); splitting fragments the wizard.
 import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -7,13 +6,16 @@ import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
 import {
+  configImportFor,
   detectAppDir,
   detectAuth,
   detectDbClient,
+  detectPackageManager,
   detectPathAlias,
   detectSchema,
   detectStack,
   fileExists,
+  pmCommands,
 } from "../utils/detect.js";
 import { tpl } from "../utils/template.js";
 
@@ -21,11 +23,6 @@ interface InitOptions {
   yes?: boolean;
 }
 
-/**
- * Returns the path (relative to `cwd`) of an existing `app/layout.tsx`, or
- * `null` if the project does not have one yet. Checks both `app/` (root) and
- * `src/app/` — Next.js supports either as the App Router root.
- */
 async function findAppLayout(cwd: string): Promise<string | null> {
   for (const rel of ["app/layout.tsx", "src/app/layout.tsx"]) {
     if (await fileExists(path.join(cwd, rel))) return rel;
@@ -35,26 +32,13 @@ async function findAppLayout(cwd: string): Promise<string | null> {
 
 const ADMIN_CSS_IMPORT_RE = /["']@\/styles\/admin\.css["']|["']\.{1,2}\/.*styles\/admin\.css["']/;
 
-/**
- * Inserts `import "<spec>";` at the top of an existing layout file. Returns
- * the patched source if a change is needed, or `null` if the file already
- * imports the admin stylesheet.
- */
+/** Inserts `import "<spec>";` at the top of an existing layout file. */
 function patchLayoutWithCssImport(src: string, importSpec: string): string | null {
   if (ADMIN_CSS_IMPORT_RE.test(src)) return null;
-  // If the file already imports another CSS bundle (e.g. globals.css), the
-  // host owns its own theme — leave the file alone and let the outro tell
-  // the user where to add the FlowPanel import.
   if (/import\s+["'][^"']+\.css["']/.test(src)) return null;
   return `import "${importSpec}";\n${src}`;
 }
 
-/**
- * The packages a scaffolded project needs: the runtime library (`@flowpanel/kit`,
- * which the generated `flowpanel.config.ts` and route handlers import) and the
- * CLI itself as a devDependency, so post-init `pnpm flowpanel <cmd>` (migrate,
- * dev, doctor, eject) resolve a local binary.
- */
 const REQUIRED_DEPS: ReadonlyArray<{ pkg: string; dev: boolean }> = [
   { pkg: "@flowpanel/kit", dev: false },
   { pkg: "@flowpanel/cli", dev: true },
@@ -76,14 +60,39 @@ async function readInstalledDeps(cwd: string): Promise<Set<string>> {
   }
 }
 
-/** Runs `pnpm add [-D] <pkg>` in `cwd`; resolves the exit code (1 on spawn error). */
-function pnpmAdd(pkg: string, dev: boolean, cwd: string): Promise<number> {
+/**
+ * Spawns the detected package manager's `add` in `cwd`. Output is captured rather
+ * than discarded: when an install fails the reason is almost always one line of
+ * the manager's own stderr, and swallowing it leaves the user with nothing to act on.
+ */
+function runInstall(
+  bin: string,
+  args: string[],
+  cwd: string,
+): Promise<{ code: number; output: string }> {
   return new Promise((resolve) => {
-    const args = dev ? ["add", "-D", pkg] : ["add", pkg];
-    const child = spawn("pnpm", args, { cwd, stdio: "ignore", env: process.env });
-    child.on("exit", (code) => resolve(code ?? 1));
-    child.on("error", () => resolve(1));
+    const cmd = process.platform === "win32" ? `${bin}.cmd` : bin;
+    const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], env: process.env });
+    let output = "";
+    child.stdout?.on("data", (d: Buffer) => {
+      output += d.toString();
+    });
+    child.stderr?.on("data", (d: Buffer) => {
+      output += d.toString();
+    });
+    child.on("exit", (code) => resolve({ code: code ?? 1, output }));
+    child.on("error", (e) => resolve({ code: 1, output: e.message }));
   });
+}
+
+/** The last few meaningful lines of a failed install, which is where the cause lives. */
+function installFailureReason(output: string): string | null {
+  const lines = output
+    .split("\n")
+    .map((l) => l.replace(/\s+$/, ""))
+    .filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return null;
+  return lines.slice(-8).join("\n");
 }
 
 export function initCommand(cli: Command): void {
@@ -95,6 +104,8 @@ export function initCommand(cli: Command): void {
       p.intro(pc.bgCyan(pc.black(" FlowPanel init ")));
 
       const cwd = process.cwd();
+      const pm = await detectPackageManager(cwd);
+      const pmc = pmCommands(pm);
       const stack = await detectStack(cwd);
 
       if (!stack.nextjs) {
@@ -110,7 +121,6 @@ export function initCommand(cli: Command): void {
         process.exit(1);
       }
 
-      // Drizzle wins if both are installed (rare, but possible during migration).
       const orm: "drizzle" | "prisma" = stack.drizzle ? "drizzle" : "prisma";
 
       const parts = [
@@ -122,8 +132,6 @@ export function initCommand(cli: Command): void {
       ].filter(Boolean) as string[];
       p.note(parts.join(" · "), "Detected stack");
 
-      // If Tailwind is absent the scaffold will render unstyled. Warn loudly
-      // and offer to bail so the user installs it before continuing.
       if (!stack.tailwind && !opts.yes) {
         const proceed = await p.confirm({
           message:
@@ -137,19 +145,35 @@ export function initCommand(cli: Command): void {
       }
 
       const aliasMode = await detectPathAlias(cwd);
+      const detected = {
+        db: await detectDbClient(cwd, aliasMode),
+        schema: await detectSchema(cwd, aliasMode),
+        auth: await detectAuth(cwd, aliasMode),
+      };
       const defaults = {
-        db:
-          (await detectDbClient(cwd, aliasMode)) ??
-          (orm === "prisma" ? "@/lib/prisma" : "@/server/lib/db"),
-        schema: (await detectSchema(cwd, aliasMode)) ?? "@/server/lib/db/schema",
-        auth: (await detectAuth(cwd, aliasMode)) ?? "@/server/lib/auth",
+        db: detected.db ?? (orm === "prisma" ? "@/lib/prisma" : "@/server/lib/db"),
+        schema: detected.schema ?? "@/server/lib/db/schema",
+        auth: detected.auth ?? "@/server/lib/auth",
         appName: path.basename(cwd),
       };
+      const guessed = [
+        detected.db === null ? `db client   ${defaults.db}` : null,
+        orm === "drizzle" && detected.schema === null ? `schema      ${defaults.schema}` : null,
+        detected.auth === null ? `getSession  ${defaults.auth}` : null,
+      ].filter(Boolean) as string[];
 
       let db = defaults.db;
       let schemaPath = defaults.schema;
       let auth = defaults.auth;
       let appName = defaults.appName;
+
+      if (opts.yes && guessed.length > 0) {
+        p.log.warn(
+          `Nothing matched these in your project, so the config imports a guess:\n  ${guessed.join(
+            "\n  ",
+          )}\nEdit flowpanel.config.ts, or re-run without --yes to be asked.`,
+        );
+      }
 
       if (!opts.yes) {
         const appNameAns = await p.text({
@@ -201,26 +225,16 @@ export function initCommand(cli: Command): void {
       const configTemplate =
         orm === "prisma" ? "flowpanel.config.prisma.ts.txt" : "flowpanel.config.drizzle.ts.txt";
 
-      // Tailwind branch:
-      //   v4 (or unknown — assume modern install): admin.css uses `@theme {}`
-      //     and registers utilities directly. No tailwind.config.ts needed.
-      //   v3: admin.css can't use `@theme`; ship the v3 token sheet and a
-      //     hand-mirrored `tailwind.config.ts` so utilities like `bg-fp-bg-1`
-      //     resolve. Mirrors `examples/freelance-radar/tailwind.config.ts`.
       const isV3 = stack.tailwindMajor === 3;
       const adminCssTemplate = isV3 ? "admin.css.v3.txt" : "admin.css.txt";
 
-      // Where the admin stylesheet lands depends on the project's path
-      // alias. For `strip-src` projects (`@/*` → `src/*`) we drop it under
-      // `src/styles/` so `@/styles/admin.css` resolves correctly. For `root`
-      // (`@/*` → `./*`) and `none` we put it at the project root.
       const cssRel = aliasMode === "strip-src" ? "src/styles/admin.css" : "styles/admin.css";
 
-      // Detect whether this project uses `app/` (repo root) or `src/app/`
-      // for its App Router root. Scaffold the admin page + API routes
-      // beneath whichever one is in use so the user doesn't have to move
-      // them after init.
       const appDir = await detectAppDir(cwd);
+
+      const adminPageDir = `${appDir}/admin/[[...slug]]`;
+      const apiRouteDir = `${appDir}/api/flowpanel/[...route]`;
+      const sseRouteDir = `${appDir}/api/flowpanel/stream`;
 
       const files: Record<string, string> = {
         "flowpanel.config.ts": await tpl(configTemplate, {
@@ -229,9 +243,15 @@ export function initCommand(cli: Command): void {
           AUTH: auth,
           APP_NAME: appName,
         }),
-        [`${appDir}/admin/[[...slug]]/page.tsx`]: await tpl("admin-page.tsx.txt"),
-        [`${appDir}/api/flowpanel/[...route]/route.ts`]: await tpl("api-route.ts.txt"),
-        [`${appDir}/api/flowpanel/stream/route.ts`]: await tpl("sse-route.ts.txt"),
+        [`${adminPageDir}/page.tsx`]: await tpl("admin-page.tsx.txt", {
+          CONFIG_IMPORT: configImportFor(adminPageDir, aliasMode),
+        }),
+        [`${apiRouteDir}/route.ts`]: await tpl("api-route.ts.txt", {
+          CONFIG_IMPORT: configImportFor(apiRouteDir, aliasMode),
+        }),
+        [`${sseRouteDir}/route.ts`]: await tpl("sse-route.ts.txt", {
+          CONFIG_IMPORT: configImportFor(sseRouteDir, aliasMode),
+        }),
         [cssRel]: await tpl(adminCssTemplate),
         "flowpanel/migrations/0001_init.sql": await tpl("migration.sql.txt"),
       };
@@ -240,16 +260,7 @@ export function initCommand(cli: Command): void {
         files["tailwind.config.ts"] = await tpl("tailwind.config.v3.ts.txt");
       }
 
-      // Layout handling: prefer the existing one (root or src/app). If none
-      // exists, scaffold a minimal layout that imports styles/admin.css. If a
-      // layout exists but does not yet import any CSS bundle, prepend the
-      // FlowPanel import; otherwise we leave it untouched and the outro
-      // points the user at the right import.
       const existingLayout = await findAppLayout(cwd);
-      // For both `strip-src` (CSS at `src/styles/admin.css`, alias `@/*` →
-      // `src/*`) and `root` (CSS at `styles/admin.css`, alias `@/*` → `./*`)
-      // the user-facing import string is the same `@/styles/admin.css`. With
-      // no alias we emit a relative path from `app/layout.tsx`.
       const cssImportSpec = aliasMode === "none" ? "../styles/admin.css" : "@/styles/admin.css";
       let layoutNote: "scaffolded" | "patched" | "kept" | "kept-has-css" = "scaffolded";
       let keptLayoutPath = "";
@@ -263,7 +274,7 @@ export function initCommand(cli: Command): void {
 
       const spinner = p.spinner();
       spinner.start("Writing files");
-      let written = 0;
+      const writtenPaths: string[] = [];
       let skipped = 0;
 
       for (const [rel, content] of Object.entries(files)) {
@@ -288,21 +299,16 @@ export function initCommand(cli: Command): void {
         }
         await fs.mkdir(path.dirname(full), { recursive: true });
         await fs.writeFile(full, content, "utf8");
-        written++;
+        writtenPaths.push(rel);
       }
 
-      // Patch the host's existing layout, if any, to add the admin CSS import.
       if (existingLayout) {
         const layoutFull = path.join(cwd, existingLayout);
         const src = await fs.readFile(layoutFull, "utf8");
-        // When the existing layout sits under `src/app/`, the CSS import
-        // needs to be relative-from-src-app or use the alias unchanged. The
-        // `@/styles/admin.css` alias works for both `strip-src` and `root`
-        // (and `none` already uses a relative path).
         const patched = patchLayoutWithCssImport(src, cssImportSpec);
         if (patched) {
           await fs.writeFile(layoutFull, patched, "utf8");
-          written++;
+          writtenPaths.push(`${existingLayout} (added the admin stylesheet import)`);
           layoutNote = "patched";
         } else if (ADMIN_CSS_IMPORT_RE.test(src)) {
           layoutNote = "kept";
@@ -312,43 +318,59 @@ export function initCommand(cli: Command): void {
         }
       }
 
-      spinner.stop(`${written} written, ${skipped} skipped`);
+      spinner.stop(
+        skipped > 0
+          ? `${writtenPaths.length} written, ${skipped} skipped (already present)`
+          : `${writtenPaths.length} written`,
+      );
+      if (writtenPaths.length > 0) p.note(writtenPaths.join("\n"), "Wrote");
 
-      // Install the runtime library + CLI so the project works without a
-      // separate `pnpm add` step. Skips anything already in package.json, so
-      // re-running init (or projects that pre-installed) costs nothing.
       const installed = await readInstalledDeps(cwd);
       const missing = REQUIRED_DEPS.filter((d) => !installed.has(d.pkg));
+      let depsOk = true;
       if (missing.length > 0) {
         const names = missing.map((d) => d.pkg).join(", ");
         const depSpinner = p.spinner();
-        depSpinner.start(`Installing ${names}`);
+        depSpinner.start(`Installing ${names} with ${pm}`);
         let installOk = true;
+        let failureOutput = "";
         for (const { pkg, dev } of missing) {
-          if ((await pnpmAdd(pkg, dev, cwd)) !== 0) {
+          const result = await runInstall(pm, pmc.add(pkg, dev), cwd);
+          if (result.code !== 0) {
             installOk = false;
+            failureOutput = result.output;
             break;
           }
         }
         if (installOk) {
           depSpinner.stop(`Installed ${names}`);
         } else {
+          depsOk = false;
           depSpinner.stop("Dependency install failed");
+          const reason = installFailureReason(failureOutput);
+          if (reason) p.note(reason, `${pm} said`);
           p.note(
-            missing.map((d) => `pnpm add ${d.dev ? "-D " : ""}${d.pkg}`).join("\n"),
-            "Run manually",
+            missing.map((d) => pmc.addDisplay(d.pkg, d.dev)).join("\n"),
+            "Install these manually, then run the steps below",
           );
         }
       }
 
       const outroLines = [
         "Next:",
-        `  ${pc.cyan("pnpm flowpanel migrate")}  ${pc.dim("— create audit + tracking tables")}`,
-        `  ${pc.cyan("pnpm dev")}               ${pc.dim("— start Next.js")}`,
+        `  ${pc.cyan(`${pmc.exec} flowpanel migrate`)}  ${pc.dim("— create audit + tracking tables")}`,
+        `  ${pc.cyan(`${pmc.run} dev`)}  ${pc.dim("— start Next.js")}`,
         `  Open ${pc.cyan("http://localhost:3000/admin")}  ${pc.dim(
           `— scaffolded under ${appDir}/`,
         )}`,
       ];
+      if (!depsOk) {
+        outroLines.unshift(
+          `${pc.yellow("⚠ init incomplete")} — install the dependencies above first, then:`,
+          "",
+        );
+        process.exitCode = 1;
+      }
       if (layoutNote === "kept-has-css") {
         outroLines.push(
           "",

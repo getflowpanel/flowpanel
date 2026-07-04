@@ -46,3 +46,35 @@ describe("editConfigToAddResource", () => {
     expect(out).toContain('resource(schema.purchases, { columns: ["id"] })');
   });
 });
+
+const CONFIG_COMMENTED = `import { defineAdmin, resource } from "@flowpanel/kit";
+import * as schema from "./db/schema";
+export default defineAdmin({
+  resources: [
+    // resource(schema.users, {
+    //   label: "Users",
+    // }),
+  ],
+});
+`;
+
+describe("editConfigToAddResource formatting", () => {
+  it("keeps the commented example the scaffold leaves behind", () => {
+    const out = editConfigToAddResource(CONFIG_COMMENTED, "posts");
+    expect(out).toContain('//   label: "Users",');
+    expect(out).toContain('    resource(schema.posts, { columns: ["id"] }),\n  ],');
+  });
+
+  it("indents a second entry to match the first", () => {
+    const out = editConfigToAddResource(BASE_CONFIG, "orders");
+    expect(out).toContain(
+      '    resource(schema.users, { columns: ["email"] }),\n    resource(schema.orders, { columns: ["id"] }),',
+    );
+  });
+
+  it("leaves everything outside the resources array byte-identical", () => {
+    const out = editConfigToAddResource(BASE_CONFIG, "orders");
+    expect(out.startsWith('import { defineAdmin, resource } from "@flowpanel/kit";\n')).toBe(true);
+    expect(out.endsWith("});\n")).toBe(true);
+  });
+});

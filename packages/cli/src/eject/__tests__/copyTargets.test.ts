@@ -2,7 +2,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { copyResourceTemplates } from "../copyTargets.js";
+import {
+  copyDashboardTemplate,
+  copyLayoutTemplate,
+  copyResourceTemplates,
+} from "../copyTargets.js";
 
 let tmp: string;
 beforeEach(async () => {
@@ -50,5 +54,37 @@ describe("copyResourceTemplates", () => {
     const out = await fs.readFile(path.join(tmp, "app/admin/users/page.tsx"), "utf8");
     expect(out).toContain("flowpanel: ejected");
     expect(out).not.toContain("// existing");
+  });
+});
+
+describe("copyTargets on a src/app project", () => {
+  it("copyResourceTemplates writes under src/app/admin/<name>/, not a shadowing root app/", async () => {
+    await fs.mkdir(path.join(tmp, "src/app"), { recursive: true });
+    const written = await copyResourceTemplates({
+      cwd: tmp,
+      resourceName: "users",
+      version: "1.0.0-beta.0",
+    });
+    expect(written).toHaveLength(5);
+    await fs.access(path.join(tmp, "src/app/admin/users/page.tsx"));
+    await expect(fs.access(path.join(tmp, "app"))).rejects.toThrow();
+  });
+
+  it("copyDashboardTemplate writes under src/app/admin/", async () => {
+    await fs.mkdir(path.join(tmp, "src/app"), { recursive: true });
+    const written = await copyDashboardTemplate({
+      cwd: tmp,
+      dashboardPath: "/monitoring",
+      version: "1.0.0",
+    });
+    expect(written).toEqual([path.join(tmp, "src/app/admin/monitoring/page.tsx")]);
+    await expect(fs.access(path.join(tmp, "app"))).rejects.toThrow();
+  });
+
+  it("copyLayoutTemplate writes under src/app/admin/", async () => {
+    await fs.mkdir(path.join(tmp, "src/app"), { recursive: true });
+    const written = await copyLayoutTemplate({ cwd: tmp, version: "1.0.0" });
+    expect(written).toEqual([path.join(tmp, "src/app/admin/layout.tsx")]);
+    await expect(fs.access(path.join(tmp, "app"))).rejects.toThrow();
   });
 });

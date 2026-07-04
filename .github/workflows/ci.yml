@@ -84,6 +84,9 @@ jobs:
       - name: File-size budget
         run: pnpm tsx scripts/check-file-sizes.ts
 
+      - name: Docs match the packages
+        run: pnpm tsx scripts/check-docs.ts
+
       - name: Bundle-size budgets (.size-limit.json)
         run: pnpm --filter @flowpanel/kit exec size-limit
 
@@ -92,10 +95,10 @@ jobs:
           path: packages/*/dist
           key: dist-${{ github.sha }}
 
-  # ── E2E tests against freelance-radar ────────────────────────────────────
-  # Boots the actual freelance-radar example with a real Postgres service,
+  # ── E2E tests against ai-scraper ────────────────────────────────────
+  # Boots the actual ai-scraper example with a real Postgres service,
   # runs db:push + seed, then runs Playwright (config in packages/e2e/
-  # spawns `pnpm --filter freelance-radar dev` as its webServer).
+  # spawns `pnpm --filter ai-scraper dev` as its webServer).
   e2e:
     name: E2E tests
     runs-on: ubuntu-latest
@@ -105,7 +108,7 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: freelance_radar
+          POSTGRES_DB: ai_scraper
           POSTGRES_USER: fp
           POSTGRES_PASSWORD: fp
         ports: ["54329:5432"]
@@ -115,7 +118,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://fp:fp@localhost:54329/freelance_radar
+      DATABASE_URL: postgres://fp:fp@localhost:54329/ai_scraper
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -150,15 +153,15 @@ jobs:
         working-directory: packages/e2e
         run: pnpm exec playwright install-deps chromium
 
-      - name: Apply Drizzle schema to freelance-radar DB
-        working-directory: examples/freelance-radar
+      - name: Apply Drizzle schema to ai-scraper DB
+        working-directory: examples/ai-scraper
         run: pnpm db:push
 
-      - name: Seed freelance-radar DB
-        working-directory: examples/freelance-radar
+      - name: Seed ai-scraper DB
+        working-directory: examples/ai-scraper
         run: pnpm db:seed
 
-      - name: Run Playwright (boots freelance-radar via webServer)
+      - name: Run Playwright (boots ai-scraper via webServer)
         working-directory: packages/e2e
         run: pnpm exec playwright test
 

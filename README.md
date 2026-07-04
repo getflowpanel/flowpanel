@@ -102,8 +102,9 @@ on row click; soft-deleted rows are filtered out automatically.
   `lineChart()`, `pieChart()`, `statGroup()`, `custom()`.
 - **Drawer + detail pages** for every resource. URL-synced
   (`?drawer=users:abc123`), focus-trapped, ESC-closable.
-- **Server Actions** with optimistic updates. Soft-delete + restore.
-  Bulk actions. Confirm dialogs. CSV/JSON export.
+- **Row/bulk/drawer/dashboard actions** run server-side via generated POST
+  routes, with optimistic updates on the client. Soft-delete + restore.
+  Confirm dialogs. CSV/JSON import + export.
 - **Realtime via SSE.** Memory driver for dev, Redis pub/sub for prod —
   a one-field config switch.
 - **BullMQ queues** — `queue(myQueue, { label: "Scraper" })` mounts a

@@ -201,7 +201,7 @@ apps/site/
 │   │   ├── integrations/
 │   │   └── reference/
 │   ├── blog/2026-05-launch.mdx
-│   ├── examples/freelance-radar.mdx
+│   ├── examples/ai-scraper.mdx
 │   └── changelog.mdx
 │
 ├── public/
