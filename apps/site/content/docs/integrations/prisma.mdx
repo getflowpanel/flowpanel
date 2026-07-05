@@ -24,7 +24,9 @@ import type { User } from "@prisma/client";
 declare module "@flowpanel/core" {
   interface FlowpanelTypes {
     db: typeof prisma;
-    models: { User: User };
+  }
+  interface FlowpanelResources {
+    User: User;
   }
 }
 

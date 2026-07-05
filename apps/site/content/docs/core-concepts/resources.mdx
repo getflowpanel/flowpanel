@@ -31,13 +31,14 @@ resource("User", {
 Prisma's adapter takes the **PascalCase** model name as a string. The
 delegate is resolved at runtime as `prisma.user`. To get the same
 end-to-end row inference Drizzle gets for free, augment
-`FlowpanelTypes["models"]`:
+`FlowpanelResources`:
 
 ```ts
 import type { User, Post } from "@prisma/client";
 declare module "@flowpanel/core" {
-  interface FlowpanelTypes {
-    models: { User: User; Post: Post };
+  interface FlowpanelResources {
+    User: User;
+    Post: Post;
   }
 }
 ```
@@ -126,8 +127,8 @@ inside a custom renderer.
 `resource<Ref>(ref, options)` resolves the row type via `InferRow<Ref>`:
 
 - Drizzle table → `ref["$inferSelect"]`.
-- Prisma model name → `FlowpanelTypes["models"][Ref]` if augmented,
-  else `Record<string, unknown>`.
+- Prisma model name (or any string ref) → `FlowpanelResources[Ref]` if
+  augmented, else `Record<string, unknown>`.
 - Anything else → `Record<string, unknown>` (loose but safe).
 
 This makes typos in `columns: [...]`, `filters[...].field`,

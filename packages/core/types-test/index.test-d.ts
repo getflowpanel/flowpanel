@@ -5,6 +5,7 @@ import {
   type Adapter,
   type AdminConfig,
   defineAdmin,
+  type InferRow,
   type LabelsConfig,
   metric,
   type RealtimeConfig,
@@ -14,6 +15,12 @@ import {
   table,
 } from "@flowpanel/core";
 import { expectAssignable, expectError, expectType } from "tsd";
+
+declare module "@flowpanel/core" {
+  interface FlowpanelResources {
+    users: { id: number; email: string };
+  }
+}
 
 // ── defineAdmin returns ResolvedAdminConfig ──────────────────────────────
 declare const minimalConfig: AdminConfig;
@@ -28,6 +35,10 @@ declare const ref: unknown;
 const r = resource(ref, { columns: ["id"] });
 expectAssignable<ResourceConfig>(r);
 expectAssignable<{ __kind: "resource" }>(r);
+
+// ── InferRow<Ref> resolves string refs from augmented FlowpanelResources ──
+expectType<{ id: number; email: string }>({} as InferRow<"users">);
+expectType<Record<string, unknown>>({} as InferRow<"unknown_resource">);
 
 // ── metric builder produces a kind: "metric" widget ──────────────────────
 const m = metric("Users", async () => 0);

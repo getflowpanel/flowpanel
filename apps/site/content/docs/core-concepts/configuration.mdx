@@ -78,15 +78,18 @@ declare module "@flowpanel/core" {
 }
 ```
 
-Prisma users can also augment `models` to recover row inference for
-`resource("User", ...)`:
+Prisma users can also augment `FlowpanelResources` to recover row
+inference for `resource("User", ...)`:
 
 ```ts
 import type { User, Post } from "@prisma/client";
 declare module "@flowpanel/core" {
   interface FlowpanelTypes {
     db: typeof prisma;
-    models: { User: User; Post: Post };
+  }
+  interface FlowpanelResources {
+    User: User;
+    Post: Post;
   }
 }
 ```

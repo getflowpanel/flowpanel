@@ -33,7 +33,7 @@ and which theme components (if any) override the defaults.
 This file is **typed against your schema**. Adding `columns: ["pwd"]`
 to a resource whose row type doesn't have a `pwd` field is a TypeScript
 error at build time (Drizzle infers via `Table["$inferSelect"]`; Prisma
-infers via the augmented `FlowpanelTypes["models"]` registry).
+infers via the augmented `FlowpanelResources` registry).
 
 ## app/admin/[[...slug]]/page.tsx
 
