@@ -60,11 +60,9 @@ function Stat({ label, value }: { label: string; value: string }) {
  */
 export function LiveStats({ initial }: { initial: LiveStatsT }) {
   const [stats, setStats] = useState<LiveStatsT>(initial);
-  // The realtime bus broadcasts every message to every subscriber, so pick
-  // out our own payloads by their `kind` tag and ignore the rest.
   const status = useLiveChannel(LIVE_CHANNEL, (payload) => {
     const p = payload as LivePayload | undefined;
-    if (p?.kind === "live") setStats(p.stats);
+    if (p?.stats) setStats(p.stats);
   });
   const live = status === "live";
 

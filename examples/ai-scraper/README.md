@@ -102,24 +102,24 @@ listings, AI matches, run history). "Liveness" is a separate, in-memory layer:
    (`src/lib/live-feed.ts`).
 2. Every ~2s the ticker advances an imaginary crawler fleet, emits a
    price-change event, and calls
-   `publish("live", { kind: "live", event, recent, stats })` — exported from
+   `publish("live", { recent, stats })` — exported from
    `@flowpanel/kit/next`. **Nothing is written to Postgres.** State is a bounded
    in-memory ring buffer, so it never grows unbounded.
 3. The SSE stream (`app/api/flowpanel/stream`) forwards that payload to the
    browser.
 4. The `LiveStats` / `LiveFeed` client widgets read it over a **dedicated
-   EventSource** (`src/admin/useLiveChannel.ts`) — **no refetch, no DB
-   round-trip.** Initial values are server-rendered (from the same in-memory
-   state) so the panel is never empty on first paint.
+   EventSource** (`useLiveChannel`, imported from `@flowpanel/kit/react`) —
+   **no refetch, no DB round-trip.** Initial values are server-rendered (from
+   the same in-memory state) so the panel is never empty on first paint.
 
 Two implementation notes worth copying:
 
 - The widgets use a dedicated EventSource rather than the shared realtime bus on
   purpose: the bus calls `router.refresh()` on every message (to revalidate RSC
   data), which would re-render the whole dashboard ~every 2s. The price feed only
-  needs to update its own widgets, so it bypasses the bus. Payloads still carry a
-  `kind` tag so a subscriber ignores anything that isn't theirs. See
-  `src/lib/live-types.ts`.
+  needs to update its own widgets, so it bypasses the bus. The stream envelope
+  routes by channel (ADR 0014), so a subscriber only ever sees its own channel's
+  payloads — no application-level tagging needed. See `src/lib/live-types.ts`.
 - The ticker lives in one long-running process. A public live demo therefore
   needs a **persistent Node host** (Railway / Coolify / Fly via the Dockerfile),
   **not** serverless functions — those sleep between requests and freeze the
@@ -180,7 +180,7 @@ can run a Node app + Postgres works.
 | Build command     | `pnpm build`                                             |
 | Database          | Vercel Postgres / Neon / Supabase (any managed Postgres) |
 | Env vars          | `DATABASE_URL`, `DEMO_MODE=true`                         |
-| Reset cron        | Vercel Cron Job hitting an API route that runs the reset, or an external scheduler invoking `pnpm exec tsx scripts/reset-demo.ts` |
+| Reset cron        | Vercel Cron Job hitting an API route that runs the reset, or an external scheduler invoking `pnpm demo:reset` |
 
 #### Railway
 
@@ -189,7 +189,7 @@ can run a Node app + Postgres works.
 | Service           | Deploy from this directory via the Dockerfile.                   |
 | Database          | Railway Postgres plugin — Railway injects `DATABASE_URL`.        |
 | Env vars          | `DEMO_MODE=true`                                                 |
-| Reset cron        | Railway Scheduled Command: `pnpm exec tsx scripts/reset-demo.ts` |
+| Reset cron        | Railway Scheduled Command: `pnpm demo:reset` |
 
 #### Coolify
 
@@ -198,13 +198,13 @@ can run a Node app + Postgres works.
 | Application type  | Dockerfile (point at `examples/ai-scraper/Dockerfile`).         |
 | Database          | Coolify-managed Postgres service in the same project.            |
 | Env vars          | `DATABASE_URL`, `DEMO_MODE=true`                                 |
-| Reset cron        | Coolify Scheduled Task running `pnpm exec tsx scripts/reset-demo.ts` |
+| Reset cron        | Coolify Scheduled Task running `pnpm demo:reset` |
 
 ### After deploy
 
 1. Run schema once: `pnpm db:push` against the production `DATABASE_URL`.
 2. Seed: `pnpm db:seed` (one-off).
-3. Wire the cron: hourly `pnpm exec tsx scripts/reset-demo.ts`.
+3. Wire the cron: hourly `pnpm demo:reset`.
 4. Point the demo hostname's DNS at the deployment, then link it from
    `apps/site` and `docs/introduction/getting-started.mdx`.
 
@@ -213,5 +213,6 @@ can run a Node app + Postgres works.
 - **Next.js 15** App Router
 - **Drizzle ORM** (node-postgres) — money stored as integer USD cents
 - **PostgreSQL 16** via Docker
+- **Tailwind 4** (`@theme`/`@source`, no config file)
 - Optional: **Redis 7** for realtime + queues
 - **`@flowpanel/kit`** — the umbrella package; the demo imports the DSL from `@flowpanel/kit` and pulls adapters/runtime from its `/next`, `/react`, `/drizzle`, and `/charts` entry points

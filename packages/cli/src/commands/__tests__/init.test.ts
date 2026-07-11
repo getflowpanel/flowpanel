@@ -67,4 +67,28 @@ describe("init templates (resolution)", () => {
     expect(out).toContain("--fp-bg-1");
     expect(out).toContain("--fp-radius:");
   });
+
+  it("admin.css (v4) declares @source entries for the @flowpanel packages at the styles/ depth", async () => {
+    // styles/admin.css → app root is one level up.
+    const out = await tpl("admin.css.txt", { SOURCE_UP: "../" });
+    expect(out).toContain('@source "../node_modules/@flowpanel/react/dist";');
+    expect(out).toContain('@source "../node_modules/@flowpanel/next/dist";');
+    expect(out).toContain('@source "../node_modules/@flowpanel/charts/dist";');
+    expect(out).toContain('@source "../node_modules/flowpanel/dist";');
+  });
+
+  it("admin.css (v4) @source depth adjusts for the src/styles/ scaffold layout", async () => {
+    // src/styles/admin.css (strip-src aliasMode) → app root is two levels up.
+    const out = await tpl("admin.css.txt", { SOURCE_UP: "../../" });
+    expect(out).toContain('@source "../../node_modules/@flowpanel/react/dist";');
+    expect(out).toContain('@source "../../node_modules/flowpanel/dist";');
+  });
+
+  it("tailwind v3 config template scans the @flowpanel packages' dist output", async () => {
+    const out = await tpl("tailwind.config.v3.ts.txt");
+    expect(out).toContain('"./node_modules/@flowpanel/react/dist/**/*.{js,mjs}"');
+    expect(out).toContain('"./node_modules/@flowpanel/next/dist/**/*.{js,mjs}"');
+    expect(out).toContain('"./node_modules/@flowpanel/charts/dist/**/*.{js,mjs}"');
+    expect(out).toContain('"./node_modules/flowpanel/dist/**/*.{js,mjs}"');
+  });
 });

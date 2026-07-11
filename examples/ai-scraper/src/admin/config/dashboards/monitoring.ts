@@ -2,7 +2,7 @@ import { dashboard, metric, table } from "@flowpanel/kit";
 import { barChart } from "@flowpanel/kit/charts";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import * as schema from "@/src/db/schema";
-import { countInRange } from "./metrics";
+import { countInRange } from "../metrics";
 
 export const monitoring = dashboard({
   path: "/monitoring",

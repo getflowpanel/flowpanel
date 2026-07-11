@@ -32,14 +32,8 @@ export interface LiveStats {
   history: number[];
 }
 
-/**
- * One tick's payload on the `live` channel. A `kind` tag is required because
- * the realtime bus broadcasts every message to every subscriber (one SSE
- * connection for all channels), so widgets must recognise their own payloads
- * and ignore others (e.g. `resource.*` mutation events).
- */
+/** One tick's payload on the `live` channel. */
 export interface LivePayload {
-  kind: "live";
   recent: FeedEvent[];
   stats: LiveStats;
 }

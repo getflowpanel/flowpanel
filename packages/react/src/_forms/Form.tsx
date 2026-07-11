@@ -52,7 +52,7 @@ export interface FormProps<S extends $ZodType> {
   children: React.ReactNode;
   className?: string;
   id?: string;
-  /** row or list. */
+  /** Where to navigate after a successful submit (e.g. back to the list, or to the created row). */
   redirectTo?: string;
 }
 
@@ -127,7 +127,7 @@ export function Form<S extends $ZodType>({
   );
 }
 
-/** Turn the JSON `{ ok, error?, fieldErrors? */
+/** Turn the JSON `{ ok, error?, fieldErrors? }` response into a conform SubmissionResult. */
 export function buildSubmissionReply(
   submission: { reply: (options?: ReplyShapeOptions) => SubmissionResult<string[]> },
   res: FormActionResult,

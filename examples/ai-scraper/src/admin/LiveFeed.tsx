@@ -16,11 +16,9 @@ const money = (cents: number) => usd.format(cents / 100);
  */
 export function LiveFeed({ recent }: { recent: FeedEvent[] }) {
   const [events, setEvents] = useState<FeedEvent[]>(recent);
-  // The realtime bus broadcasts every message to every subscriber, so pick
-  // out our own payloads by their `kind` tag and ignore the rest.
   const status = useLiveChannel(LIVE_CHANNEL, (payload) => {
     const p = payload as LivePayload | undefined;
-    if (p?.kind === "live") setEvents(p.recent);
+    if (p?.recent) setEvents(p.recent);
   });
   const live = status === "live";
 

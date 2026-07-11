@@ -7,7 +7,7 @@ export interface ApplyActionResultOptions {
   pathname?: string;
 }
 
-/** Applies the side effects encoded in a successful `ActionResult`: */
+/** Applies side effects from successful actions: publishes updates and revalidates the cache. */
 export async function applyActionResult(
   result: ActionResult,
   opts: ApplyActionResultOptions,

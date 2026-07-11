@@ -196,7 +196,6 @@ export function startLiveFeed(): void {
   state.timer = setInterval(() => {
     advance(state, Date.now());
     const payload: LivePayload = {
-      kind: "live",
       recent: state.events,
       stats: snapshot(state),
     };

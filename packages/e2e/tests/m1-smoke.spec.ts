@@ -7,11 +7,12 @@ import { expect, test } from "@playwright/test";
  *  3. Create flow: form → submit → new row appears.
  *  4. Edit flow: row → edit → save → change is visible.
  *
- * Runs against examples/ai-scraper; assumes db:push + db:seed have
- * been applied (see playwright.config.ts header). `/admin` itself is the
- * Overview dashboard (covered by m2), so list assertions target
- * /admin/users ("Customers") and the create/edit flows target
- * /admin/products ("Catalog") — the one resource with declared form fields.
+ * Runs against examples/ai-scraper; requires ai-scraper + Postgres running
+ * (db:push + db:seed applied — see playwright.config.ts webServer comment).
+ * `/admin` itself is the Overview dashboard (covered by m2-smoke), so list
+ * assertions target /admin/users ("Customers") and the create/edit flows
+ * target /admin/products ("Catalog") — the one resource with declared form
+ * fields.
  */
 
 test("admin renders customers list from config", async ({ page }) => {

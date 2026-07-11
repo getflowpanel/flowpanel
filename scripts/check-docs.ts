@@ -162,9 +162,31 @@ for (const file of docFiles) {
   }
 }
 
+const allowlist = new Set(
+  readFileSync(join(ROOT, "scripts/docs-coverage-allowlist.txt"), "utf8")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#")),
+);
+const docsCorpus = docFiles.map((f) => readFileSync(f, "utf8")).join("\n");
+let coveredCount = 0;
+for (const [pkg, names] of exportsByPackage) {
+  if (pkg === "@flowpanel/kit") continue;
+  for (const name of names) {
+    if (allowlist.has(name)) continue;
+    if (!new RegExp(`\\b${name}\\b`).test(docsCorpus)) {
+      problems.push(`${pkg}: export "${name}" appears in no docs page`);
+    } else {
+      coveredCount++;
+    }
+  }
+}
+
 if (problems.length > 0) {
   console.error(`✗ ${problems.length} docs problem(s):\n`);
   for (const p of problems) console.error(`  ${p}`);
   process.exit(1);
 }
-console.log(`✔ docs verified — ${docFiles.length} pages, imports, links and type blocks agree`);
+console.log(
+  `✔ docs verified — ${docFiles.length} pages, imports, links and type blocks agree, ${coveredCount} exports documented`,
+);

@@ -11,7 +11,7 @@ import {
   type StatusListener,
 } from "./context.js";
 
-// LOC-OK: one cohesive EventSource lifecycle — openSource / scheduleReopen /
+// LOC-OK: one cohesive EventSource lifecycle.
 
 interface BusState {
   /** Channel → number of active subscribers. */

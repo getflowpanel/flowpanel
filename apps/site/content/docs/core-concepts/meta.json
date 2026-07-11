@@ -2,6 +2,7 @@
   "title": "Core concepts",
   "pages": [
     "configuration",
+    "styling",
     "adapters",
     "resources",
     "dashboards",

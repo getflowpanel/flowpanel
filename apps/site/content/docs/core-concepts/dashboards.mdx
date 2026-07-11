@@ -87,7 +87,7 @@ dashboard({
 ```
 
 `run`'s `ctx` is an `ActionContext` — `RequestContext` (`session`, `role`,
-`scope`, …) plus `db` and `publish(channel, payload)`. `form` (a `FieldDef[]`,
+`scope`, …) plus `db`, `actorId`, and `publish(channel, payload)`. `form` (a `FieldDef[]`,
 the same shape resources use) renders a confirm dialog with inputs before
 `run` executes, when set.
 

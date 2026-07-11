@@ -123,6 +123,81 @@ Inside an action, prefer `ctx.publish` — it is the same publisher, already bou
 when publishing from code that never goes through either, such as a standalone
 worker process.
 
+## Route handlers
+
+`handlers(config)` wires the table below to the routes listed earlier in
+[The routes it mounts](#the-routes-it-mounts). Each factory takes
+`ResolvedAdminConfig` and returns a Next.js `GET`/`POST` handler; mount one
+directly only when you need it on a path of your own, or wrapped with extra
+logic `handlers` doesn't give you a seam for.
+
+**`resourceCreateRoute`** / **`resourceUpdateRoute`** — the create and edit
+form submit handlers, behind `POST /<resource>/create` and
+`POST /<resource>/<id>/edit`. Both parse `FormData`, coerce it against the
+adapter's introspected columns, and run it through `makeActions`.
+
+**`rowActionRoute`** — runs a resource's row action, behind
+`POST /<resource>/<id>/actions/<action>`.
+
+**`bulkActionRoute`** — runs a resource's bulk action over a set of selected
+ids, behind `POST /<resource>/bulk-actions/<action>`.
+
+**`dashboardActionRoute`** — runs a dashboard action, behind
+`POST /dashboards/<path>/actions/<action>`. The `<path>` segment is the
+dashboard's path run through `encodeDashboardPath`.
+
+**`drawerActionRoute`** — runs a drawer action, behind
+`POST /drawer/<resource>/<id>/actions/<action>`.
+
+**`drawerRoute`** — the drawer payload handler, behind
+`GET /drawer/<resource>/<id>`. Resolves the row, its tabs, and its actions
+into the `DrawerPayload` the client drawer renders.
+
+**`inlineUpdateRoute`** — the single-cell edit handler, behind
+`POST /<resource>/<id>/update`. Only accepts a field declared `editable: true`
+on the resource's columns.
+
+### Serialization pairs
+
+Every action route serializes its config-side action object into a wire-safe
+shape before it reaches the client — dropping server-only fields like
+handler functions.
+
+| Config type | Serializer | Wire type |
+| --- | --- | --- |
+| `RowAction` | `serializeRowAction` | `SerializedRowAction` |
+| `BulkAction` | `serializeBulkAction` | `SerializedBulkAction` |
+| `DashboardAction` | `serializeDashboardAction` | `SerializedDashboardAction` |
+| Drawer action | — (inline in `drawerRoute`) | `SerializedDrawerAction` |
+| Drawer tab | — (inline in `drawerRoute`) | `SerializedDrawerTab` |
+
+`SerializedDashboardAction.form` is a `SerializedDashboardActionField[]` —
+each entry is the wire-safe shape of one action form field (name, label,
+type, options, …), nested inside the action rather than serialized on its
+own.
+
+## applyActionResult
+
+Applies the side effects of a successful `ActionResult`: publishes to the
+channels its `refresh` names (or `publishResource` when `refresh: true` and a
+`resourceName` is given), then `revalidatePath`s the given `pathname` unless
+`refresh` is explicitly `false`. Every action route calls this after a
+successful mutation — call it yourself only from a custom route.
+
+<AutoTypeTable path="../../packages/next/src/runtime/apply-action-result.ts" name="ApplyActionResultOptions" />
+
+## Dashboard path encoding
+
+```ts
+function encodeDashboardPath(path: string): string;
+function decodeDashboardPath(encoded: string): string;
+```
+
+A dashboard's `path` (e.g. `/reports/revenue`) isn't a valid single URL
+segment, so `dashboardActionRoute`'s `<dashboard>` param is the path run
+through `encodeDashboardPath`. Use the same pair when linking to or parsing a
+dashboard action route by hand.
+
 ## makeActions
 
 The create / update / delete pipeline that the form routes use, available

@@ -1,7 +1,11 @@
+/* This demo consumes workspace:* builds, so it scans workspace sources for
+   utilities; a real app scans the node_modules dist output of @flowpanel
+   packages, as scaffolded by create-flowpanel. */
+@import "tailwindcss";
 @import "@flowpanel/react/styles/admin.css";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@source "../../../packages/react/src";
+@source "../../../packages/next/src";
+@source "../../../packages/charts/src";
 
 html,
 body {

@@ -5,7 +5,7 @@ import { LiveFeed } from "@/src/admin/LiveFeed";
 import { LiveStats } from "@/src/admin/LiveStats";
 import * as schema from "@/src/db/schema";
 import { getLiveStats, getRecentEvents } from "@/src/lib/live-feed";
-import { countInRange } from "./metrics";
+import { countInRange } from "../metrics";
 
 export const overview = dashboard({
   path: "/",

@@ -1,0 +1,227 @@
+---
+title: Styling & Tailwind
+description: The --fp-* token set, Tailwind v3 vs v4 setup, theming, and peer-dependency ranges.
+---
+
+FlowPanel ships its own stylesheet, `admin.css`, rather than a component
+library that reaches into your Tailwind config. Every component in
+`@flowpanel/react` is built from a fixed set of CSS custom properties and
+`fp-*` utility classes, so re-theming the whole admin is a matter of
+overriding tokens — no per-component overrides needed.
+
+## How styling works
+
+`admin.css` defines 30+ `--fp-*` custom properties as HSL triplets —
+backgrounds, text, borders, the accent color, status tones, radius,
+spacing unit, font stacks, and motion durations/easings:
+
+```css
+:root {
+  --fp-bg-1: 0 0% 100%;
+  --fp-text-1: 220 10% 15%;
+  --fp-accent: 220 90% 50%;
+  --fp-ok: 142 70% 45%;
+  --fp-warn: 38 92% 50%;
+  --fp-err: 0 84% 60%;
+  --fp-radius: 0.5rem;
+  /* ... */
+}
+```
+
+A `.dark` block overrides the same properties for dark mode. On Tailwind
+v4, a `@theme` block at the bottom of the file maps each token into
+Tailwind's theme, so utilities like `bg-fp-bg-1`, `text-fp-text-1`,
+`border-fp-border-1`, and `rounded-fp` exist as first-class Tailwind
+classes:
+
+```css
+@theme {
+  --color-fp-bg-1: hsl(var(--fp-bg-1));
+  --color-fp-accent: hsl(var(--fp-accent));
+  --radius-fp: var(--fp-radius);
+  /* ... */
+}
+```
+
+See `packages/react/src/styles/admin.css` for the full token list. Every
+shipped component consumes only these `fp-*` utilities — no hardcoded
+hex values — which is what makes the [Theming](#theming) section below
+work: change the custom properties and every component follows.
+
+## Tailwind v4 setup
+
+This is what `flowpanel init` scaffolds when it detects Tailwind v4. The
+generated `admin.css` opens with `@source` directives pointing at the
+compiled output of every FlowPanel package, so Tailwind's v4 scanner
+picks up the `fp-*` classes used inside their `dist` bundles (Tailwind
+never sees the JSX source — only the built code that ships to
+`node_modules`):
+
+```css
+@source "../node_modules/@flowpanel/react/dist";
+@source "../node_modules/@flowpanel/next/dist";
+@source "../node_modules/@flowpanel/charts/dist";
+@source "../node_modules/flowpanel/dist";
+
+:root {
+  --fp-bg-1: 0 0% 100%;
+  /* ...design tokens... */
+}
+
+@theme {
+  --color-fp-bg-1: hsl(var(--fp-bg-1));
+  /* ...theme map... */
+}
+```
+
+The `../` prefix depends on where the CLI puts the file — `styles/admin.css`
+at the project root needs one `../` back to `node_modules`, while
+`src/styles/admin.css` needs two. `flowpanel init` computes the right
+depth for your layout automatically.
+
+`admin.css` doesn't itself declare `@import "tailwindcss"` — it's a
+second stylesheet alongside your app's own Tailwind entry (the
+`globals.css` that `create-next-app --tailwind` already wrote), imported
+directly in your root layout:
+
+```ts
+import "@/styles/admin.css";
+```
+
+`flowpanel init` writes that import into `app/layout.tsx` for you (or
+patches an existing layout if one is already there). See the
+[CLI reference](/docs/reference/cli) for the full `init` output.
+
+## Tailwind v3 setup
+
+Tailwind v3 doesn't understand `@theme` — that block is v4-only syntax
+and is silently ignored on v3. Instead, `flowpanel init` writes a
+`tailwind.config.ts` that mirrors the same token map into
+`theme.extend`, and the v3 variant of `admin.css` carries the classic
+`@tailwind base/components/utilities` directives plus the raw
+`--fp-*` custom properties (no `@source`, no `@theme`):
+
+```ts
+const fpColor = (name: string) => `hsl(var(--fp-${name}) / <alpha-value>)`;
+
+export default {
+  content: [
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+    "./node_modules/@flowpanel/react/dist/**/*.{js,mjs}",
+    "./node_modules/@flowpanel/next/dist/**/*.{js,mjs}",
+    "./node_modules/@flowpanel/charts/dist/**/*.{js,mjs}",
+    "./node_modules/flowpanel/dist/**/*.{js,mjs}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        "fp-bg-1": fpColor("bg-1"),
+        "fp-accent": fpColor("accent"),
+        // ...one entry per --fp-* color token
+      },
+      borderRadius: {
+        fp: "var(--fp-radius)",
+        "fp-sm": "var(--fp-radius-sm)",
+        "fp-lg": "var(--fp-radius-lg)",
+      },
+      fontFamily: {
+        sans: "var(--fp-font-sans)",
+        mono: "var(--fp-font-mono)",
+      },
+    },
+  },
+} satisfies Config;
+```
+
+The `content` globs must include each FlowPanel package's `dist` — same
+reasoning as v4's `@source`: Tailwind's class scanner needs to see the
+compiled output, not just your own `app/` and `src/` trees. `init` only
+writes `tailwind.config.ts` when one doesn't already exist; if you have
+one, add these globs and the `theme.extend` entries by hand.
+
+These two templates — `admin.css` (v3 variant) and `tailwind.config.ts`
+— are generated verbatim by the CLI and are the canonical source for
+the full token mirror; treat what `flowpanel init` writes to your
+project as authoritative over hand-copying from this page.
+
+## Theming
+
+`theme` on `defineAdmin` overrides the token set without touching CSS
+files directly:
+
+```ts
+export default defineAdmin({
+  // ...
+  theme: {
+    brand: { name: "Acme", logo: "/logo.svg", href: "/" },
+    accent: "262 83% 58%",
+    mode: "auto",
+    cssVars: { "--fp-radius": "0.25rem" },
+  },
+});
+```
+
+- **`accent`** is an HSL triplet (`"262 83% 58%"`), not an `hsl(...)`
+  wrapper — the tokens are consumed as `hsl(var(--fp-accent))` internally.
+  A wrapped value is unwrapped for you if you write it anyway.
+- **`mode`** is `"light" | "dark" | "auto"` — `"auto"` follows the OS
+  color scheme. Pairs with `<ThemeScript>` and `useTheme()` for
+  persisted user overrides; see
+  [Theme slots → Dark mode and persistence](/docs/customization/theme-slots#dark-mode-and-persistence).
+- **`cssVars`** overrides any `--fp-*` token directly, e.g. tightening
+  the corner radius admin-wide.
+- **`accent`** and **`cssVars`** are emitted on `:root`, so they reach
+  dialogs and drawers too — those portal to `document.body` and would
+  miss a scoped wrapper element.
+
+The full `ThemeConfig` property table (including `brand`, `components`,
+and `user`) lives on
+[defineAdmin → ThemeConfig](/docs/reference/define-config#themeconfig).
+
+### Dark-mode token pairs
+
+The `.dark` class in `admin.css` overrides backgrounds, text, borders,
+and the four badge `-text` tokens — the base tone tokens (`--fp-ok`,
+`--fp-warn`, `--fp-err`, `--fp-accent`) keep the same value in both
+modes; only the `-text` variants change, and not uniformly.
+`--fp-ok-text` and `--fp-warn-text` already clear WCAG AA on dark
+surfaces at their base tone's own lightness, so dark mode carries them
+through unchanged. `--fp-err-text` and `--fp-accent-badge-text` needed
+raising to 68% lightness — reusing the base tone's lightness as-is in
+dark mode would only clear 3.84:1 and 2.64:1 respectively, both under
+the 4.5:1 bar.
+
+### Why the badge `-text` tokens exist
+
+Alongside the base tone tokens (`--fp-ok`, `--fp-warn`, `--fp-err`,
+`--fp-accent` — used for solid fills like `StatusDot` and chart series),
+`admin.css` defines dedicated `-text` variants: `--fp-ok-text`,
+`--fp-warn-text`, `--fp-err-text`, `--fp-accent-badge-text`. They exist
+because a badge renders its tone as text on a `/10`-opacity tint of the
+*same* color (`bg-fp-ok/10 text-fp-ok-text`), and the base tone's
+lightness — tuned to look right as a solid fill — fails WCAG AA's
+4.5:1 contrast ratio on that tinted background. The `-text` tokens carry
+the same hue and saturation but a lightness lowered (in light mode) or
+raised (in dark mode) until the worst-case background — row hover/active
+surfaces, slightly grayer than the base background — clears 4.5:1. The
+base tone tokens are left untouched so solid fills keep their original,
+more saturated look.
+
+## Peer-dependency matrix
+
+Each package pins its own peer ranges; install what a package's
+peer-dependency table below lists (npm/pnpm will already prompt you if
+something's missing).
+
+| Package | react | react-dom | next | tailwindcss | zod | other peers |
+|---|---|---|---|---|---|---|
+| `@flowpanel/react` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | — |
+| `@flowpanel/next` | `^19.0.0` | `^19.0.0` | `^15.0.0` | — | `^4.0.0` | — |
+| `flowpanel` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | `drizzle-orm` `>=0.36.0 <1.0.0` (optional), `@prisma/client` `>=5.0.0 <7.0.0` (optional), `bullmq` `^5.0.0` (optional), `ioredis` `^5.10.0` (optional) |
+| `@flowpanel/charts` | `^19.0.0` | — | — | — | — | `recharts` `^2.15.0 \|\| ^3.0.0` |
+| `@flowpanel/client` | `^19.0.0` | — | — | — | — | — |
+
+`flowpanel`'s data-layer peers (`drizzle-orm`, `@prisma/client`,
+`bullmq`, `ioredis`) are all optional — install only the ones your
+adapter and queue driver need.

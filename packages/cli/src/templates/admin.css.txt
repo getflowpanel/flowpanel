@@ -1,4 +1,16 @@
 /* FlowPanel design tokens — 30 CSS custom properties + motion + theme map */
+
+/* @source paths are relative to this file, not the app root — this file can
+   land at `styles/admin.css` or `src/styles/admin.css` depending on scaffold
+   layout, so `init` fills in {{SOURCE_UP}} with the right number of `../`
+   segments back to the app root where node_modules lives. Without these,
+   Tailwind v4 never scans the @flowpanel packages, so utility classes used
+   inside their components (e.g. `bg-fp-bg-1`) are never emitted. */
+@source "{{SOURCE_UP}}node_modules/@flowpanel/react/dist";
+@source "{{SOURCE_UP}}node_modules/@flowpanel/next/dist";
+@source "{{SOURCE_UP}}node_modules/@flowpanel/charts/dist";
+@source "{{SOURCE_UP}}node_modules/flowpanel/dist";
+
 :root {
   /* Color (HSL triplets) */
   --fp-bg-1: 0 0% 100%;
@@ -6,14 +18,32 @@
   --fp-bg-3: 220 14% 92%;
   --fp-text-1: 220 10% 15%;
   --fp-text-2: 220 10% 40%;
-  --fp-text-3: 220 10% 60%;
+  /* 45% (not 60%) so muted text on --fp-bg-1/2 clears WCAG AA 4.5:1. */
+  --fp-text-3: 220 10% 45%;
   --fp-border-1: 220 13% 91%;
   --fp-border-2: 220 13% 86%;
-  --fp-accent: 220 90% 56%;
+  /* 50% (not 56%) so accent-text (#f5f8ff) on accent clears WCAG AA 4.5:1. */
+  --fp-accent: 220 90% 50%;
   --fp-accent-text: 220 100% 98%;
   --fp-ok: 142 70% 45%;
   --fp-warn: 38 92% 50%;
   --fp-err: 0 84% 60%;
+
+  /* Dedicated badge-text tokens: same hue/saturation as the base tone, lightness
+     lowered so full-strength text on the tone's own `/10` tinted background
+     (e.g. `bg-fp-ok/10 text-fp-ok-text`) clears WCAG AA 4.5:1. The base
+     --fp-ok/--fp-warn/--fp-err/--fp-accent tokens stay untouched — they still
+     drive solid fills (StatusDot, chart series, buttons). Worst case measured
+     against --fp-bg-2 (badges also render on row-hover/active surfaces, which
+     tint slightly grayer than --fp-bg-1 and lower the ratio further):
+     ok 142 70% 27%   → 4.86:1 on bg-2 tint (5.30:1 on bg-1 tint)
+     warn 38 92% 28%  → 5.11:1 on bg-2 tint (5.57:1 on bg-1 tint)
+     err 0 84% 42%    → 4.87:1 on bg-2 tint (5.32:1 on bg-1 tint)
+     accent 220 90% 46% → 5.04:1 on bg-2 tint (5.50:1 on bg-1 tint) */
+  --fp-ok-text: 142 70% 27%;
+  --fp-warn-text: 38 92% 28%;
+  --fp-err-text: 0 84% 42%;
+  --fp-accent-badge-text: 220 90% 46%;
 
   /* Radius */
   --fp-radius-sm: 0.25rem;
@@ -46,6 +76,19 @@
   --fp-text-3: 220 10% 60%;
   --fp-border-1: 220 13% 22%;
   --fp-border-2: 220 13% 28%;
+
+  /* Badge-text tokens re-checked against the dark surfaces above (worst case
+     is --fp-bg-2, same as light). --fp-ok/--fp-warn at their original
+     lightness already clear 4.5:1 in dark mode, so ok/warn carry the base
+     tone through unchanged here — only err and accent needed re-lightening:
+     ok 142 70% 45% (base, unchanged) → 5.82:1 on bg-2 tint (6.54:1 on bg-1 tint)
+     warn 38 92% 50% (base, unchanged) → 6.26:1 on bg-2 tint (7.04:1 on bg-1 tint)
+     err 0 84% 68%    → 4.84:1 on bg-2 tint (5.39:1 on bg-1 tint), base failed at 3.84:1
+     accent 220 90% 68% → 5.07:1 on bg-2 tint (5.64:1 on bg-1 tint), base failed at 2.64:1 */
+  --fp-ok-text: 142 70% 45%;
+  --fp-warn-text: 38 92% 50%;
+  --fp-err-text: 0 84% 68%;
+  --fp-accent-badge-text: 220 90% 68%;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -70,6 +113,10 @@
   --color-fp-ok: hsl(var(--fp-ok));
   --color-fp-warn: hsl(var(--fp-warn));
   --color-fp-err: hsl(var(--fp-err));
+  --color-fp-ok-text: hsl(var(--fp-ok-text));
+  --color-fp-warn-text: hsl(var(--fp-warn-text));
+  --color-fp-err-text: hsl(var(--fp-err-text));
+  --color-fp-accent-badge-text: hsl(var(--fp-accent-badge-text));
   --radius-fp: var(--fp-radius);
   --radius-fp-sm: var(--fp-radius-sm);
   --radius-fp-lg: var(--fp-radius-lg);

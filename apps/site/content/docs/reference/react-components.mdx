@@ -1,0 +1,267 @@
+---
+title: React components
+description: The full @flowpanel/react export surface, grouped by what it's for.
+---
+
+`@flowpanel/react` is the component library the admin renders with. Most of it
+is consumed indirectly — resources, widgets and forms compile down to these
+components — but every export is public and safe to use directly when you
+build a custom slot, page, or `"bare"`-shell chrome around FlowPanel.
+
+```ts
+import { DataTable, AutoForm, useAdminTable } from "@flowpanel/react";
+```
+
+## Shell
+
+Chrome, navigation and the pieces a custom layout composes around admin
+content.
+
+| Export | Purpose |
+| --- | --- |
+| `AdminShell` | Pure visual chrome — sidebar or tab-strip variant — around admin content. |
+| `AdminNav` | Renders `NavGroup[]` (Dashboards, Pages, Resources, Queues) as the sidebar/tab nav. |
+| `AdminTabs` | Tab-strip variant of the nav, used when `AdminShellVariant` is `"tabs"`. |
+| `AccountMenu` | User menu (avatar, name, sign-out) shown in the shell header. |
+| `Brand` | Renders a `ShellBrand` (logo/name) in the shell header. |
+| `Breadcrumbs` | Breadcrumb trail from a `BreadcrumbItem[]`. |
+| `CommandPalette` | The ⌘K command palette, built on `cmdk`. |
+| `Drawer`, `DrawerHeader`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. |
+| `DetailShell` | Chrome around a resource detail page. |
+| `FlowpanelGlobals` | Mounts cross-cutting globals (toast host, theme script, shortcuts) once per admin. |
+| `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. |
+| `ShortcutsCheatsheet`, `DEFAULT_SHORTCUTS` | The `?`-triggered keyboard shortcuts overlay and the shortcut list it ships with. |
+| `ThemeScript` | Inline script that applies the stored theme class before hydration, avoiding a flash. |
+| `ComponentsProvider`, `useComponents` | Provider/reader for the `FlowpanelComponentSlots` override map. |
+| `LabelsProvider`, `useLabels` | Provider/reader for label overrides (pluralization, field labels). |
+
+<AutoTypeTable path="../../packages/react/src/_shell/AdminShell.tsx" name="AdminShellProps" />
+
+<AutoTypeTable path="../../packages/react/src/_shell/Drawer.tsx" name="DrawerProps" />
+
+<AutoTypeTable path="../../packages/react/src/_shell/CommandPalette.tsx" name="CommandPaletteProps" />
+
+## Data table & filters
+
+`DataTable` and the controls that surround it — column menus, filter inputs,
+cell renderers.
+
+| Export | Purpose |
+| --- | --- |
+| `DataTable` | The resource list table: sorting, pagination, selection, inline edit, realtime refresh. |
+| `BulkBar` | Floating action bar shown when `DataTable` rows are selected. |
+| `ColumnPinMenu` | Per-column menu for pinning left/right. |
+| `ColumnVisibilityMenu` | Toolbar menu for showing/hiding columns. |
+| `DensityToggle` | Toggles `DataTableDensity` (row spacing) in the toolbar. |
+| `FilterBar` | Renders a `FilterBarSpec[]` as the filter row above the table. |
+| `BooleanFilter`, `DateRangeFilter`, `MultiSelectFilter`, `NumericRangeFilter`, `SelectFilter`, `TagFilter`, `TextFilter` | One filter control per `ColumnMeta.type`, each driven by `FilterBar`. |
+| `DateRangePicker` | Standalone from/to date range control. |
+| `Pagination`, `DefaultPagination` | Page controls under the table and their default renderer. |
+| `ArrayCell`, `JsonCell`, `ReferenceCell` | Read-only cell renderers for array, JSON, and reference columns. |
+| `InlineEditCell` | Editable cell used when a column declares `editable: true`. |
+| `JsonEditor` | Structured editor for a JSON column, used by `InlineEditCell` and forms. |
+| `ReferencePicker` | Search-and-select control for picking a referenced row. |
+| `MobileCardList` | Card layout `DataTable` switches to under the mobile breakpoint. |
+| `KV`, `KVRow` | Key/value list layout, used by card and drawer field views. |
+| `renderFormatCell` | Renders a declarative `ColumnFormat` value — the function `DataTable` cells call internally. |
+
+<AutoTypeTable path="../../packages/react/src/_data/data-table-types.ts" name="DataTableProps" />
+
+## Forms
+
+`AutoForm` compiles a resource's declared fields into inputs; `Form` and
+`Field` are the lower-level primitives it's built from, for hand-written
+forms.
+
+| Export | Purpose |
+| --- | --- |
+| `AutoForm` | Renders a resource's create/update fields from `ResolvedField[]` or `ColumnMeta[]`. |
+| `Form` | Conform + Zod form wrapper — POSTs to a route and surfaces field errors. |
+| `useFormContext` | Reads the current `Form`'s conform metadata; throws outside a `Form`. |
+| `FormField` (`Field`) | One labeled input, switched on `FieldControlType`. |
+| `FormError` | Renders the form-level error from `useFormContext`. |
+| `FormSection` | Labeled fieldset grouping for `AutoForm`/`Form` fields. |
+| `FormSubmit` | Submit button that reflects the form's pending state. |
+| `AsyncSelect` | Debounced async-search select, used by reference fields. |
+| `ResolvedField` (type) | The server-resolved field shape `AutoForm` consumes — see `field-types.ts`. |
+
+<AutoTypeTable path="../../packages/react/src/_forms/AutoForm.tsx" name="AutoFormProps" />
+
+<AutoTypeTable path="../../packages/react/src/_forms/Form.tsx" name="FormProps" />
+
+<AutoTypeTable path="../../packages/react/src/_forms/Field.tsx" name="FieldProps" />
+
+`Field` is exported as `FormFieldProps` to avoid colliding with DOM's global
+`FieldProps`-shaped expectations in consuming apps — same interface either way.
+
+## Feedback
+
+Empty, error, loading and toast states.
+
+| Export | Purpose |
+| --- | --- |
+| `EmptyState`, `DefaultEmptyState` | "Nothing here" placeholder and its default renderer. |
+| `ErrorState` | Inline error placeholder with an optional retry action. |
+| `ErrorCard` | Error display for a caught `Error`, with an optional retry callback. |
+| `HealthBanner` | Toned banner (e.g. degraded queue, stale data) shown above content. |
+| `ConfirmDialog`, `DefaultConfirmDialog` | Confirmation modal for destructive actions and its default renderer. |
+| `SkeletonCard`, `SkeletonTable`, `DefaultSkeletonTable` | Loading placeholders for a card and a table, and the table's default renderer. |
+| `ResourceListSkeleton`, `ResourceDetailSkeleton`, `DashboardSkeleton` | Page-level loading skeletons for the three page kinds. |
+| `Toast`, `ToastProvider`, `useToast` | Toast host provider and the hook to fire toasts from anywhere under it. |
+
+## Widgets
+
+Dashboard widget renderers — the components a `widget()` builder's config
+resolves into.
+
+| Export | Purpose |
+| --- | --- |
+| `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. |
+| `StatGroupCard` | Renders a `statGroup()` widget. |
+| `TableWidget` | Renders a `table()` widget, reusing `DataTable`. |
+| `CustomWidget` | Wraps a `custom()` widget's component with the shared widget frame. |
+
+### Layout primitives
+
+Shared by widgets and by hand-built pages.
+
+| Export | Purpose |
+| --- | --- |
+| `Card`, `CardHeader`, `CardContent`, `CardDescription` | Generic card shell and its section slots. |
+| `MetricGrid` | Responsive grid for laying out `MetricCard`s. |
+| `Section`, `SectionLabel`, `Divider`, `spanClass` | Section wrapper with a label/description, a divider rule, and the `Span` → CSS class map dashboards use for widget width. |
+
+## Atoms
+
+Small, single-purpose display components.
+
+| Export | Purpose |
+| --- | --- |
+| `Avatar`, `DefaultAvatar` | User/entity avatar and its default renderer. |
+| `Badge`, `DefaultBadge` | Toned inline badge and its default renderer. |
+| `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. |
+| `StatusDot` | Small toned dot, e.g. for realtime/queue status. |
+| `LiveIndicator` | Realtime connection status indicator (see `LiveStatus`). |
+| `LocalTime` | Absolute timestamp rendered in the viewer's timezone. |
+| `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
+| `Sparkline` | Minimal inline trend line for a numeric series. |
+| `Mono` | Monospace inline text, for IDs and code-like values. |
+
+## Hooks
+
+Client hooks for building custom admin UI. All are `"use client"`.
+
+**`useLiveChannel(channel, onMessage, options?)`** — subscribes to one SSE
+channel served by `stream()`. Connection pooling: hook instances that share
+the same `endpoint` + `channel` reuse one `EventSource`, refcounted, rather
+than opening one per instance.
+
+```tsx
+const status = useLiveChannel("resource.orders", (payload) => {
+  console.log("order event", payload);
+});
+```
+
+**`useAdminTable()`** — reads and writes the list URL state (`?page=`,
+`?q=`, `?sort=field:dir`, `?f_<field>=value`) that `DataTable` and `FilterBar`
+render from.
+
+```tsx
+const { page, sort, setPage, setSort } = useAdminTable();
+```
+
+**`useUrlState()`** — general-purpose typed reader/writer for the current
+route's search params; `useAdminTable` and `useAdminDrawer` are both built on
+it.
+
+**`useTheme(options?)`** — reads the resolved light/dark/auto theme and
+returns a stable `toggle`/`setTheme` that persists to `localStorage`.
+
+```tsx
+const { theme, toggle } = useTheme();
+```
+
+**`useToast()`** — fires a toast from anywhere under `ToastProvider` /
+`FlowpanelGlobals`.
+
+```tsx
+const toast = useToast();
+toast.success("Saved");
+```
+
+**`useOptimisticAction(serverValue, applyPatch)`** — thin wrapper over
+`React.useOptimistic` + `useTransition` for an optimistic value with a pending
+flag. It is the current inline-edit primitive; the 1.x spec plans a dedicated
+debounce layer on top of it for rapid successive edits (typing into an
+inline-edit cell), not yet built.
+
+**`useAdminCommand()`** — controls the ⌘K command palette's open state and
+binds the `⌘K`/`Ctrl+K` shortcut.
+
+**`useAdminDrawer()`** — reads/writes `?drawer=<resource>:<id>` and `?tab=`,
+the URL state a drawer's open/closed state and active tab live in.
+
+**`useDashboardParam(key, schema, fallback)`** — type-safe reader/writer for
+one dashboard URL search param, validated against a Zod schema.
+
+## Realtime
+
+Realtime status flows through a shared bus so many components can subscribe
+without opening one `EventSource` each.
+
+**`RealtimeProvider`** — mounts one shared `EventSource` for every descendant
+`useRealtimeRefresh` call. It routes incoming envelopes (`{ channel, payload
+}`) to the subscribers of that channel, coalesces the resulting
+`router.refresh()`, and reconnects with backoff on error. Mount it once near
+the root of a `"bare"`-shell layout; `Flowpanel`/`AdminShell` mount it for you
+otherwise.
+
+**`useRealtimeRefresh(channels, options?)`** — subscribes a component to one
+or more channels and triggers a debounced `router.refresh()` on any event.
+Under a `RealtimeProvider` ancestor it joins the shared bus; standalone (no
+provider), `debounceMs` and `endpoint` apply directly and it opens its own
+`EventSource` per channel.
+
+```tsx
+useRealtimeRefresh("resource.orders");
+```
+
+**`DevToolsPanel`** — floating "fp" panel showing realtime status, the
+active-channel list and event count. Development-only: it renders `null` when
+`NODE_ENV === "production"`. Mount it once, in development builds:
+
+```tsx
+{process.env.NODE_ENV !== "production" && <DevToolsPanel />}
+```
+
+<AutoTypeTable path="../../packages/react/src/devtools/DevToolsPanel.tsx" name="DevToolsPanelProps" />
+
+Lower-level bus access: `useRealtimeBus` (the raw `RealtimeBus`, or `null`
+outside a provider), `useRealtimeStatus`, `useRealtimeStats`
+(`{ channels, eventCount }`).
+
+## Theme utilities
+
+Non-React helpers behind `useTheme` and `ThemeScript`, for code that needs the
+theme outside a component.
+
+| Export | Purpose |
+| --- | --- |
+| `resolveTheme`, `readStoredTheme`, `writeStoredTheme`, `THEME_STORAGE_KEY` | Resolve the effective theme from storage + system preference, and read/write the stored choice. |
+| `applyThemeClass`, `toggleTheme` | Apply a theme class to `<html>`, and flip the stored choice. |
+| `buildThemeInitScript` | Builds the inline script string `ThemeScript` renders. |
+
+`cn` (class name merge), `formatNumber`, `humanize`, `resolveFieldLabel`, and
+`triggerDownload` are general-purpose utilities exported alongside these for
+the same reason: components elsewhere in the package, and custom slots, both
+need them.
+
+## UI primitives
+
+`Dialog`, `Popover`, `Select`, `DropdownMenu`, `Sheet`, `Tooltip`, `Tabs*`,
+plus `Button`, `Checkbox`, `Input`, `Label`, `Skeleton`, and `Switch`, are
+shadcn-derived primitives re-exported so custom slots and pages can be built
+in the same visual language as the rest of the admin. Each follows its
+upstream shadcn/Radix API as-is — FlowPanel does not wrap or change their
+props — so shadcn's own docs apply directly. `buttonVariants` and
+`DefaultButton` are FlowPanel additions alongside `Button`.

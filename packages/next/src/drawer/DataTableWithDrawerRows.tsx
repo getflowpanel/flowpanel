@@ -17,7 +17,7 @@ import { RestoreButton } from "../actions/RestoreButton.js";
 import { RowActionsMenu } from "../actions/RowActionsMenu.js";
 import type { SerializedRowAction } from "../actions/row-action.js";
 
-/** Thin wrapper around `<DataTable>` that wires two server-driven behaviors: */
+/** Thin wrapper around `<DataTable>` that wires realtime refresh and row-click drawer interaction. */
 export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown>> {
   resource: string;
   columns: DataTableColumn<Row>[];

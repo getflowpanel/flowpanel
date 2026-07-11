@@ -58,7 +58,10 @@ fans out via Redis instead of an in-process EventEmitter.
 
 flowpanel never publishes row contents over Redis. Channels carry just
 **resource name + action** — the payload for a resource mutation is
-`{ action: "create" | "update" | "delete", id? }`.
+`{ action: "create" | "update" | "delete", id? }`. On the wire (both the
+Redis pub/sub message and the SSE frame the browser receives) that payload
+is wrapped in a `{channel, payload}` envelope, so a subscriber can route on
+`channel` without inspecting payload shape (ADR 0014).
 
 The logical channel name — `resource.<name>` for resource mutations
 (automatic; see below), or whatever string you pass to `publish(channel, …)`
@@ -67,9 +70,9 @@ callers use. `keyPrefix` only namespaces the string actually sent over the
 Redis wire; it never changes the name application code sees:
 
 ```
-flowpanel:resource.orders → { action: "update", id: "ord_…" }
-flowpanel:resource.users  → { action: "create", id: "usr_…" }
-flowpanel:scraper:tick    → arbitrary payload via publish("scraper:tick", …)
+flowpanel:resource.orders → {"channel":"resource.orders","payload":{"action":"update","id":"ord_…"}}
+flowpanel:resource.users  → {"channel":"resource.users","payload":{"action":"create","id":"usr_…"}}
+flowpanel:scraper:tick    → {"channel":"scraper:tick","payload":<arbitrary payload via publish("scraper:tick", …)>}
 ```
 
 (With `keyPrefix: "fp"` those become `fp:resource.orders`, `fp:resource.users`,

@@ -229,6 +229,11 @@ export function initCommand(cli: Command): void {
       const adminCssTemplate = isV3 ? "admin.css.v3.txt" : "admin.css.txt";
 
       const cssRel = aliasMode === "strip-src" ? "src/styles/admin.css" : "styles/admin.css";
+      // admin.css.txt's `@source` paths are relative to the CSS file itself,
+      // which lands one level deeper on strip-src (`src/styles/`) than on
+      // root/none (`styles/`) — compute the right number of `../` segments
+      // back to the app root instead of hardcoding a single depth.
+      const cssSourceUp = `${"../".repeat(cssRel.split("/").length - 1)}`;
 
       const appDir = await detectAppDir(cwd);
 
@@ -252,7 +257,7 @@ export function initCommand(cli: Command): void {
         [`${sseRouteDir}/route.ts`]: await tpl("sse-route.ts.txt", {
           CONFIG_IMPORT: configImportFor(sseRouteDir, aliasMode),
         }),
-        [cssRel]: await tpl(adminCssTemplate),
+        [cssRel]: await tpl(adminCssTemplate, { SOURCE_UP: cssSourceUp }),
         "flowpanel/migrations/0001_init.sql": await tpl("migration.sql.txt"),
       };
 

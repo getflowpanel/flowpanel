@@ -1,0 +1,54 @@
+---
+title: Client hooks
+description: useAdminMutation — the client-side wrapper for a Server Action that returns an ActionResult.
+---
+
+`@flowpanel/client` is a small, standalone package: a client hook for wrapping
+a Server Action in pending/error state. It depends only on `@flowpanel/core`
+(for `ActionResult`) and React — nothing from `@flowpanel/react` or
+`@flowpanel/next` — for building custom mutation UI that doesn't otherwise
+pull in the component library.
+
+```ts
+import { useAdminMutation } from "@flowpanel/client";
+```
+
+## useAdminMutation
+
+```ts
+function useAdminMutation<Args extends unknown[]>(
+  action: (...args: Args) => Promise<ActionResult>,
+  options?: UseAdminMutationOptions,
+): UseAdminMutation<Args>;
+```
+
+Wraps a Server Action that returns an `ActionResult`. `run` calls the action,
+tracks `pending` while it's in flight, and captures the error message —
+whether the action resolved `{ ok: false, error }` or threw — into `error`.
+
+```tsx
+"use client";
+import { useAdminMutation } from "@flowpanel/client";
+import { archiveOrder } from "./actions";
+
+export function ArchiveButton({ id }: { id: string }) {
+  const { run, pending, error } = useAdminMutation(archiveOrder);
+  return (
+    <>
+      <button onClick={() => run(id)} disabled={pending}>
+        Archive
+      </button>
+      {error ? <p role="alert">{error}</p> : null}
+    </>
+  );
+}
+```
+
+<AutoTypeTable path="../../packages/client/src/mutation.ts" name="UseAdminMutationOptions" />
+
+`optimistic` is declared but not yet wired — `useAdminMutation`'s
+implementation only reads `onSuccess`/`onError`; setting `optimistic` today
+has no effect. For an optimistic value ahead of the round trip, use
+[`useOptimisticAction`](/docs/reference/react-components#hooks) from
+`@flowpanel/react` instead. `rollbackOn` is currently fixed to `"error"` — a
+failed or thrown action always rolls back; there is no `"never"` option.

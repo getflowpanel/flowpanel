@@ -69,3 +69,30 @@ FlowPanel projects every row through the resource's declared surface before it
 crosses to the client. An adapter that returns extra columns is not a leak by
 itself — but the projection is what makes that safe, so do not bypass it in
 custom routes of your own.
+
+## Adapter options
+
+Each shipped adapter takes its own options shape.
+
+<AutoTypeTable path="../../packages/adapter-drizzle/src/adapter.ts" name="DrizzleAdapterOptions" />
+
+<AutoTypeTable path="../../packages/adapter-prisma/src/adapter.ts" name="PrismaAdapterOptions" />
+
+<AutoTypeTable path="../../packages/adapter-bullmq/src/adapter.ts" name="BullMQAdapterOptions" />
+
+## Export helpers
+
+`@flowpanel/adapter-drizzle` also exports `toCsv` and `toJson` — standalone
+row serializers, not wired into any route by default.
+
+```ts
+function toCsv<Row extends Record<string, unknown>>(rows: Row[], fields: string[]): string;
+function toJson<Row extends Record<string, unknown>>(rows: Row[], fields: string[]): string;
+```
+
+Both project each row down to `fields` before serializing, the same
+declared-columns discipline as the rest of the framework. `toCsv` quotes
+values containing a comma, quote, or newline and stringifies `Date`s to ISO
+and objects to JSON; `toJson` returns a JSON string of the projected rows.
+Use them from a custom export route when `DataTable`'s built-in `exportable`
+option — which downloads only the rows currently on screen — isn't enough.

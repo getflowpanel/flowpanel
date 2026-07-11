@@ -11,7 +11,14 @@ import type { Config } from "tailwindcss";
 const fpColor = (name: string) => `hsl(var(--fp-${name}) / <alpha-value>)`;
 
 export default {
-  content: ["./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+    "./node_modules/@flowpanel/react/dist/**/*.{js,mjs}",
+    "./node_modules/@flowpanel/next/dist/**/*.{js,mjs}",
+    "./node_modules/@flowpanel/charts/dist/**/*.{js,mjs}",
+    "./node_modules/flowpanel/dist/**/*.{js,mjs}",
+  ],
   theme: {
     extend: {
       colors: {
@@ -28,6 +35,10 @@ export default {
         "fp-ok": fpColor("ok"),
         "fp-warn": fpColor("warn"),
         "fp-err": fpColor("err"),
+        "fp-ok-text": fpColor("ok-text"),
+        "fp-warn-text": fpColor("warn-text"),
+        "fp-err-text": fpColor("err-text"),
+        "fp-accent-badge-text": fpColor("accent-badge-text"),
       },
       borderRadius: {
         fp: "var(--fp-radius)",
