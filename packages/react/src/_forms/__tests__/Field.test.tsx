@@ -10,13 +10,31 @@ import { FormSubmit } from "../FormSubmit.js";
 
 afterEach(cleanup);
 
-const baseFields = {
+const baseFieldsTyped = {
+  text: { id: "f-text", name: "text", value: "", errors: [] as string[] },
   meta: { id: "f-meta", name: "meta", value: '{"a":1}', errors: [] as string[] },
   tags: { id: "f-tags", name: "tags", value: "red,blue", errors: [] as string[] },
+  select: { id: "f-select", name: "select", value: "", errors: [] as string[] },
   ownerId: { id: "f-ownerId", name: "ownerId", value: "", errors: [] as string[] },
-} as never;
+  flag: { id: "f-flag", name: "flag", value: "", errors: [] as string[] },
+};
+type FieldName = keyof typeof baseFieldsTyped;
+const baseFields = baseFieldsTyped as never;
 
 const ctx = { fields: baseFields, form: {} as never } as never;
+
+function ctxWithError(name: FieldName) {
+  return {
+    fields: {
+      ...baseFieldsTyped,
+      [name]: { ...baseFieldsTyped[name], errors: ["Invalid"] },
+    },
+    form: {} as never,
+  } as never;
+}
+
+const OPTIONS = [{ label: "Alex Admin", value: "4" }];
+const SELECT_OPTIONS = [{ label: "A", value: "a" }];
 
 describe("Field — json/tags dispatch", () => {
   it("renders JsonEditor for type=json", () => {
@@ -37,6 +55,176 @@ describe("Field — json/tags dispatch", () => {
     );
     expect(screen.getByText("red")).toBeTruthy();
     expect(screen.getByText("blue")).toBeTruthy();
+  });
+});
+
+describe("Field — aria-required reaches the interactive control", () => {
+  const cases: Array<{
+    type: string;
+    fieldName: FieldName;
+    extra?: Record<string, unknown>;
+    getControl: () => HTMLElement;
+  }> = [
+    { type: "text", fieldName: "text", getControl: () => screen.getByRole("textbox") },
+    { type: "textarea", fieldName: "text", getControl: () => screen.getByRole("textbox") },
+    {
+      type: "select",
+      fieldName: "select",
+      extra: { options: SELECT_OPTIONS },
+      getControl: () => screen.getByRole("combobox"),
+    },
+    { type: "json", fieldName: "meta", getControl: () => screen.getByRole("textbox") },
+    { type: "tags", fieldName: "tags", getControl: () => screen.getByRole("textbox") },
+    {
+      type: "multiselect",
+      fieldName: "select",
+      extra: { options: SELECT_OPTIONS },
+      getControl: () => screen.getByRole("group"),
+    },
+    {
+      type: "reference",
+      fieldName: "ownerId",
+      extra: { options: OPTIONS },
+      getControl: () => screen.getByRole("combobox"),
+    },
+    {
+      type: "radio",
+      fieldName: "select",
+      extra: { options: SELECT_OPTIONS },
+      getControl: () => screen.getByRole("group"),
+    },
+    { type: "checkbox", fieldName: "flag", getControl: () => screen.getByRole("checkbox") },
+  ];
+
+  it.each(cases)("type=$type", ({ type, fieldName, extra, getControl }) => {
+    render(
+      <FormContext.Provider value={ctx}>
+        <Field name={fieldName} type={type as never} required {...(extra ?? {})} />
+      </FormContext.Provider>,
+    );
+    expect(getControl().getAttribute("aria-required")).toBe("true");
+  });
+});
+
+describe("Field — aria-invalid/aria-describedby reach the previously-skipped types", () => {
+  const cases: Array<{
+    type: string;
+    fieldName: FieldName;
+    extra?: Record<string, unknown>;
+    getControl: () => HTMLElement;
+  }> = [
+    { type: "json", fieldName: "meta", getControl: () => screen.getByRole("textbox") },
+    { type: "tags", fieldName: "tags", getControl: () => screen.getByRole("textbox") },
+    {
+      type: "multiselect",
+      fieldName: "select",
+      extra: { options: SELECT_OPTIONS },
+      getControl: () => screen.getByRole("group"),
+    },
+    {
+      type: "reference",
+      fieldName: "ownerId",
+      extra: { options: OPTIONS },
+      getControl: () => screen.getByRole("combobox"),
+    },
+    {
+      type: "radio",
+      fieldName: "select",
+      extra: { options: SELECT_OPTIONS },
+      getControl: () => screen.getByRole("group"),
+    },
+  ];
+
+  it.each(cases)("type=$type", ({ type, fieldName, extra, getControl }) => {
+    render(
+      <FormContext.Provider value={ctxWithError(fieldName)}>
+        <Field name={fieldName} type={type as never} {...(extra ?? {})} />
+      </FormContext.Provider>,
+    );
+    const el = getControl();
+    expect(el.getAttribute("aria-invalid")).toBe("true");
+    expect(el.getAttribute("aria-describedby")).toBe(`f-${fieldName}-error`);
+  });
+});
+
+describe("Field — label association does not point at a hidden input", () => {
+  it.each([
+    { type: "json", fieldName: "meta" as const, getControl: () => screen.getByRole("textbox") },
+    { type: "tags", fieldName: "tags" as const, getControl: () => screen.getByRole("textbox") },
+    {
+      type: "reference",
+      fieldName: "ownerId" as const,
+      extra: { options: OPTIONS },
+      getControl: () => screen.getByRole("combobox"),
+    },
+  ])("type=$type: visible control owns field.id, no hidden input keeps it", ({
+    type,
+    fieldName,
+    extra,
+    getControl,
+  }: {
+    type: string;
+    fieldName: FieldName;
+    extra?: Record<string, unknown>;
+    getControl: () => HTMLElement;
+  }) => {
+    const { container } = render(
+      <FormContext.Provider value={ctx}>
+        <Field name={fieldName} label="My Label" type={type as never} {...(extra ?? {})} />
+      </FormContext.Provider>,
+    );
+    const label = container.querySelector("label");
+    const control = getControl();
+    expect(label?.getAttribute("for")).toBe(control.id);
+    expect(control.id).toBeTruthy();
+    const hiddenInput = container.querySelector('input[type="hidden"]');
+    expect(hiddenInput?.hasAttribute("id")).toBe(false);
+    // `getByLabelText` matches via `<label for>` OR `aria-label` independently — it
+    // doesn't compute the real accessible name, so it would resolve the control here
+    // even with a competing `aria-label` still set (verified: this line alone does
+    // NOT catch that regression). The discriminating check is that no `aria-label`
+    // survives on a control that already has a `<label>` — per the accname spec,
+    // `aria-label` wins over `<label for>`, so if both were present the announced
+    // name would be the placeholder, not "My Label".
+    expect(screen.getByLabelText("My Label")).toBe(control);
+    expect(control.hasAttribute("aria-label")).toBe(false);
+  });
+
+  it("type=reference without a `label` prop: the combobox keeps an accessible name (aria-label fallback), not zero", () => {
+    render(
+      <FormContext.Provider value={ctx}>
+        <Field name="ownerId" type="reference" options={OPTIONS} placeholder="Pick a customer" />
+      </FormContext.Provider>,
+    );
+    const control = screen.getByRole("combobox");
+    expect(control.getAttribute("aria-label")).toBe("Pick a customer");
+  });
+
+  it.each([
+    {
+      type: "multiselect",
+      fieldName: "select" as const,
+      extra: { options: SELECT_OPTIONS },
+    },
+    {
+      type: "radio",
+      fieldName: "select" as const,
+      extra: { options: SELECT_OPTIONS },
+    },
+  ])("type=$type: group carries role=group + aria-labelledby to the label", ({
+    type,
+    fieldName,
+    extra,
+  }) => {
+    const { container } = render(
+      <FormContext.Provider value={ctx}>
+        <Field name={fieldName} label="My Label" type={type as never} {...extra} />
+      </FormContext.Provider>,
+    );
+    const group = screen.getByRole("group");
+    const label = container.querySelector("label");
+    expect(label?.id).toBeTruthy();
+    expect(group.getAttribute("aria-labelledby")).toBe(label?.id);
   });
 });
 

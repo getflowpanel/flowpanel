@@ -180,6 +180,10 @@ export interface PieChartOptions {
   realtime?: string | string[];
   /** Pin specific slices to a color, keyed by category value. */
   colors?: Record<string, string>;
+  /** How slice values are rendered in the tooltip and legend. */
+  format?: NumericFormat;
+  /** `false` omits the `<Tooltip>` entirely. */
+  tooltip?: "default" | "compact" | false;
 }
 
 export interface AreaChartWidget {

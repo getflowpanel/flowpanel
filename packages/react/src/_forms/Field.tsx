@@ -79,19 +79,22 @@ export function Field({
   const hasErrors = Boolean(field.errors && field.errors.length > 0);
   const describedBy = hasErrors ? errId : help ? helpId : undefined;
   const aria: AriaProps = {
+    ...(required ? { "aria-required": true as const } : {}),
     ...(hasErrors ? { "aria-invalid": true as const } : {}),
     ...(describedBy ? { "aria-describedby": describedBy } : {}),
   };
 
   const inlineLabel = type === "boolean" || type === "switch" || type === "checkbox";
+  const isGroupType = type === "radio" || type === "multiselect";
+  const groupLabelId = isGroupType && label ? `${field.id}-label` : undefined;
 
   let control: React.ReactNode;
   if (type === "hidden") {
     return <input {...getInputProps(field, { type: "hidden" })} />;
   } else if (type === "json") {
-    control = <JsonField field={field} readOnly={readOnly} />;
+    control = <JsonField field={field} readOnly={readOnly} aria={aria} />;
   } else if (type === "tags") {
-    control = <TagsField field={field} readOnly={readOnly} />;
+    control = <TagsField field={field} readOnly={readOnly} aria={aria} />;
   } else if (type === "textarea" || type === "markdown") {
     control = (
       <TextareaField
@@ -119,12 +122,21 @@ export function Field({
         field={field}
         readOnly={readOnly}
         {...(label ? { label } : {})}
+        {...(groupLabelId ? { labelId: groupLabelId } : {})}
         options={options}
+        aria={aria}
       />
     );
   } else if (type === "radio") {
     control = (
-      <RadioField field={field} readOnly={readOnly} options={options} rawValue={rawValue} />
+      <RadioField
+        field={field}
+        readOnly={readOnly}
+        options={options}
+        rawValue={rawValue}
+        aria={aria}
+        {...(groupLabelId ? { labelId: groupLabelId } : {})}
+      />
     );
   } else if (type === "reference") {
     control = (
@@ -134,6 +146,8 @@ export function Field({
         options={options}
         {...(placeholder ? { placeholder } : {})}
         {...(referenceSearchUrl ? { searchUrl: referenceSearchUrl } : {})}
+        aria={aria}
+        hasLabel={Boolean(label)}
       />
     );
   } else if (inlineLabel) {
@@ -152,7 +166,7 @@ export function Field({
   }
 
   const labelNode = label ? (
-    <Label htmlFor={field.id}>
+    <Label {...(groupLabelId ? { id: groupLabelId } : { htmlFor: field.id })}>
       {label}
       {required ? <span className="ml-0.5 text-fp-err-text">*</span> : null}
     </Label>

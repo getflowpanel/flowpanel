@@ -2,17 +2,19 @@
 import type { PieChartOptions } from "@flowpanel/core";
 import { Cell, Legend, Pie, PieChart as RcPie, ResponsiveContainer, Tooltip } from "recharts";
 import {
+  buildTooltipProps,
   CHART_SURFACE_PROPS,
   chartColor,
   STATIC_SERIES_PROPS,
-  TOOLTIP_CONTENT_STYLE,
 } from "./chart-theme.js";
 
 export function PieChart({ data, options }: { data: unknown[]; options: PieChartOptions }) {
   return (
     <ResponsiveContainer width="100%" height={options.height ?? 240}>
       <RcPie {...CHART_SURFACE_PROPS}>
-        <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
+        {options.tooltip !== false ? (
+          <Tooltip {...buildTooltipProps(options.format, options.tooltip)} />
+        ) : null}
         {options.showLegend ? <Legend /> : null}
         <Pie
           data={data as object[]}

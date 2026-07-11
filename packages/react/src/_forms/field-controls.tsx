@@ -18,6 +18,7 @@ import type { FieldControlType } from "./Field.js";
 export interface AriaProps {
   "aria-invalid"?: true;
   "aria-describedby"?: string;
+  "aria-required"?: true;
 }
 
 /** Wrap a composite control in a disabled `<fieldset>` so every native input inside goes inert. */
@@ -79,9 +80,10 @@ function useStringControl(field: FieldMetadata<unknown>) {
 interface HiddenControlProps {
   field: FieldMetadata<unknown>;
   readOnly: boolean;
+  aria: AriaProps;
 }
 
-export function JsonField({ field, readOnly }: HiddenControlProps) {
+export function JsonField({ field, readOnly, aria }: HiddenControlProps) {
   const control = useStringControl(field);
   const parsed = React.useMemo<unknown>(() => {
     if (!control.value) return {};
@@ -93,9 +95,14 @@ export function JsonField({ field, readOnly }: HiddenControlProps) {
   }, [control.value]);
   return (
     <>
-      <input type="hidden" name={field.name} id={field.id} defaultValue={control.value} />
+      <input type="hidden" name={field.name} defaultValue={control.value} />
       <InertWhenReadOnly readOnly={readOnly}>
-        <JsonEditor value={parsed} onChange={(v) => control.change(JSON.stringify(v))} />
+        <JsonEditor
+          id={field.id}
+          value={parsed}
+          onChange={(v) => control.change(JSON.stringify(v))}
+          {...aria}
+        />
       </InertWhenReadOnly>
     </>
   );
@@ -109,14 +116,19 @@ function splitCsv(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
-export function TagsField({ field, readOnly }: HiddenControlProps) {
+export function TagsField({ field, readOnly, aria }: HiddenControlProps) {
   const control = useStringControl(field);
   const list = React.useMemo(() => splitCsv(control.value), [control.value]);
   return (
     <>
-      <input type="hidden" name={field.name} id={field.id} defaultValue={control.value} />
+      <input type="hidden" name={field.name} defaultValue={control.value} />
       <InertWhenReadOnly readOnly={readOnly}>
-        <TagInput value={list} onChange={(next) => control.change(next.join(","))} />
+        <TagInput
+          id={field.id}
+          value={list}
+          onChange={(next) => control.change(next.join(","))}
+          {...aria}
+        />
       </InertWhenReadOnly>
     </>
   );
@@ -124,18 +136,27 @@ export function TagsField({ field, readOnly }: HiddenControlProps) {
 
 interface MultiSelectFieldProps extends HiddenControlProps {
   label?: string;
+  labelId?: string;
   options: { label: string; value: string }[];
 }
 
-export function MultiSelectField({ field, readOnly, label, options }: MultiSelectFieldProps) {
+export function MultiSelectField({
+  field,
+  readOnly,
+  label,
+  labelId,
+  options,
+  aria,
+}: MultiSelectFieldProps) {
   const control = useStringControl(field);
   const list = React.useMemo(() => splitCsv(control.value), [control.value]);
   return (
     <>
-      <input type="hidden" name={field.name} id={field.id} defaultValue={control.value} />
+      <input type="hidden" name={field.name} defaultValue={control.value} />
       <fieldset
         {...(readOnly ? { disabled: true } : {})}
-        aria-label={label ?? field.name}
+        {...(labelId ? { "aria-labelledby": labelId } : { "aria-label": label ?? field.name })}
+        {...aria}
         className="m-0 flex min-w-0 flex-wrap gap-2 rounded-fp border border-fp-border-1 bg-fp-bg-1 p-2"
       >
         {options.map((o) => {
@@ -172,6 +193,8 @@ interface ReferenceFieldProps extends HiddenControlProps {
   placeholder?: string;
   /** See `FieldProps.referenceSearchUrl`. */
   searchUrl?: string;
+  /** Whether `Field` rendered a `<label>` targeting this control's id. */
+  hasLabel: boolean;
 }
 
 export function ReferenceField({
@@ -180,6 +203,8 @@ export function ReferenceField({
   options,
   placeholder,
   searchUrl,
+  aria,
+  hasLabel,
 }: ReferenceFieldProps) {
   const control = useStringControl(field);
   const initialLabel = options.find((o) => o.value === control.value)?.label ?? null;
@@ -197,14 +222,17 @@ export function ReferenceField({
   );
   return (
     <>
-      <input type="hidden" name={field.name} id={field.id} defaultValue={control.value} />
+      <input type="hidden" name={field.name} defaultValue={control.value} />
       <InertWhenReadOnly readOnly={readOnly}>
         <AsyncSelect
+          id={field.id}
+          hasLabel={hasLabel}
           value={control.value || null}
           onChange={(v) => control.change(v ?? "")}
           loadOptions={loadOptions}
           initialLabel={initialLabel}
           placeholder={placeholder ?? "Search…"}
+          {...aria}
         />
       </InertWhenReadOnly>
     </>
@@ -324,13 +352,19 @@ interface RadioFieldProps {
   options: { label: string; value: string }[];
   /** See `SelectFieldProps.rawValue`. */
   rawValue: unknown;
+  aria: AriaProps;
+  labelId?: string;
 }
 
 /** `radio` — see `ScalarField`'s doc comment. */
-export function RadioField({ field, readOnly, options, rawValue }: RadioFieldProps) {
+export function RadioField({ field, readOnly, options, rawValue, aria, labelId }: RadioFieldProps) {
   const control = useStringControl(field);
   return (
-    <div className="flex flex-col gap-1.5">
+    <fieldset
+      {...(labelId ? { "aria-labelledby": labelId } : {})}
+      {...aria}
+      className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
+    >
       {readOnly && rawValue != null && rawValue !== "" ? (
         <input type="hidden" name={field.name} value={String(rawValue)} />
       ) : null}
@@ -347,7 +381,7 @@ export function RadioField({ field, readOnly, options, rawValue }: RadioFieldPro
           {o.label}
         </label>
       ))}
-    </div>
+    </fieldset>
   );
 }
 

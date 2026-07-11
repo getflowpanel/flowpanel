@@ -8,9 +8,23 @@ export interface TagInputProps {
   placeholder?: string;
   max?: number;
   className?: string;
+  id?: string;
+  "aria-invalid"?: true;
+  "aria-describedby"?: string;
+  "aria-required"?: true;
 }
 
-export function TagInput({ value, onChange, placeholder = "Add…", max, className }: TagInputProps) {
+export function TagInput({
+  value,
+  onChange,
+  placeholder = "Add…",
+  max,
+  className,
+  id,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": describedBy,
+  "aria-required": ariaRequired,
+}: TagInputProps) {
   const [draft, setDraft] = React.useState("");
 
   const push = () => {
@@ -46,6 +60,7 @@ export function TagInput({ value, onChange, placeholder = "Add…", max, classNa
         </span>
       ))}
       <Input
+        id={id}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
@@ -58,6 +73,9 @@ export function TagInput({ value, onChange, placeholder = "Add…", max, classNa
         }}
         onBlur={push}
         placeholder={value.length === 0 ? placeholder : undefined}
+        aria-invalid={ariaInvalid}
+        {...(describedBy ? { "aria-describedby": describedBy } : {})}
+        {...(ariaRequired ? { "aria-required": true as const } : {})}
         className="h-7 flex-1 min-w-[80px] border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
       />
     </div>

@@ -18,6 +18,12 @@ export interface AsyncSelectProps {
   debounceMs?: number;
   className?: string;
   initialLabel?: string | null;
+  id?: string;
+  /** Set when a `<label>` is already wired to `id` — suppresses the `aria-label` fallback below. */
+  hasLabel?: boolean;
+  "aria-invalid"?: true;
+  "aria-describedby"?: string;
+  "aria-required"?: true;
 }
 
 export function AsyncSelect({
@@ -29,6 +35,11 @@ export function AsyncSelect({
   debounceMs = 200,
   className,
   initialLabel = null,
+  id,
+  hasLabel = false,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": describedBy,
+  "aria-required": ariaRequired,
 }: AsyncSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -65,10 +76,14 @@ export function AsyncSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           variant="ghost"
           role="combobox"
           aria-expanded={open}
-          aria-label={placeholder}
+          {...(hasLabel ? {} : { "aria-label": placeholder })}
+          aria-invalid={ariaInvalid}
+          {...(describedBy ? { "aria-describedby": describedBy } : {})}
+          {...(ariaRequired ? { "aria-required": true as const } : {})}
           className={`w-full justify-between border border-fp-border-1 ${className ?? ""}`}
         >
           <span className={label || value ? "text-fp-text-1" : "text-fp-text-3"}>

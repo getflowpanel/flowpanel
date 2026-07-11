@@ -73,6 +73,10 @@ Per component:
   value to any CSS color, e.g.
   `{ success: "hsl(142 70% 45%)", failed: "hsl(0 84% 60%)" }`. Unlisted
   categories fall back to the built-in multi-hue palette by order.
+  `format` and `tooltip` work the same as the cartesian charts and apply
+  to the slice tooltip value (the legend shows category names only, so
+  `format` has nothing to reformat there); pie has no axis-label row to
+  drop, so `"compact"` just tightens the tooltip padding.
 
 `drilldown` wraps the whole chart card in a link when the widget is rendered
 through the dashboard widget layer (`ChartRenderer`, used by the server

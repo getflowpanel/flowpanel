@@ -7,6 +7,10 @@ export interface JsonEditorProps<T = unknown> {
   rows?: number;
   className?: string;
   placeholder?: string;
+  id?: string;
+  "aria-invalid"?: true;
+  "aria-describedby"?: string;
+  "aria-required"?: true;
 }
 
 export function JsonEditor<T = unknown>({
@@ -15,6 +19,10 @@ export function JsonEditor<T = unknown>({
   rows = 8,
   className,
   placeholder,
+  id,
+  "aria-invalid": externalInvalid,
+  "aria-describedby": describedBy,
+  "aria-required": ariaRequired,
 }: JsonEditorProps<T>) {
   const [text, setText] = React.useState(() => safeStringify(value));
   const [error, setError] = React.useState<string | null>(null);
@@ -44,12 +52,15 @@ export function JsonEditor<T = unknown>({
   return (
     <div className={className}>
       <textarea
+        id={id}
         value={text}
         rows={rows}
         spellCheck={false}
         placeholder={placeholder ?? "{}"}
         onChange={handleChange}
-        aria-invalid={error !== null}
+        aria-invalid={error !== null || externalInvalid === true}
+        {...(describedBy ? { "aria-describedby": describedBy } : {})}
+        {...(ariaRequired ? { "aria-required": true as const } : {})}
         className="w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 p-3 font-mono text-xs text-fp-text-1 focus:outline-none focus:ring-2 focus:ring-fp-accent data-[invalid=true]:border-red-500"
       />
       {error ? (
