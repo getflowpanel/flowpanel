@@ -23,6 +23,7 @@ function makeConfig(opts: {
   restoreThrows?: boolean;
   session?: unknown;
   capturedCtx?: { value?: unknown };
+  userId?: (session: unknown) => string | null;
 }) {
   const softDelete = opts.softDelete === undefined ? "deletedAt" : opts.softDelete;
   const restoreImpl = async (_ref: unknown, ctx: unknown) => {
@@ -65,6 +66,7 @@ function makeConfig(opts: {
     auth: {
       session: async () => (opts.session === undefined ? null : opts.session),
       role: () => opts.role ?? "admin",
+      ...(opts.userId ? { userId: opts.userId } : {}),
     },
     ...(opts.audit ? { audit: opts.audit } : {}),
     ...(opts.readOnly ? { readOnly: true } : {}),
@@ -185,6 +187,24 @@ describe("restoreRoute", () => {
     expect(ev.diff.after.deletedAt).toBeNull();
     expect(ev.ip).toBe("9.9.9.9");
     expect(ev.userAgent).toBe("vitest");
+  });
+
+  it("uses config.auth.userId to derive the audit event's actorId when configured", async () => {
+    const sink = vi.fn(async (_ev: unknown) => {});
+    const handler = restoreRoute(
+      makeConfig({
+        audit: { enabled: true, sink },
+        session: { id: "session-top-id", custom: { uid: "extractor-actor" } },
+        userId: (s) => (s as { custom?: { uid?: string } })?.custom?.uid ?? null,
+      }),
+    );
+    const req = new Request("http://localhost/x", { method: "POST" });
+    const res = await handler(req, { params: paramsFor("users", "u1") });
+    expect(res.status).toBe(200);
+
+    expect(sink).toHaveBeenCalledTimes(1);
+    const ev = sink.mock.calls[0]?.[0] as { actorId: string | null };
+    expect(ev.actorId).toBe("extractor-actor");
   });
 
   it("does NOT emit audit when resource.options.audit === false", async () => {

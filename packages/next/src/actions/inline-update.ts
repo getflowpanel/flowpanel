@@ -125,12 +125,16 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
         { ok: true },
         config.audit,
         resource.options.audit,
-        buildAuditEvent(reqCtx, {
-          action: `${resourceName}.inline-update`,
-          resource: resourceName,
-          targetId: id,
-          diff: { before: { [field]: existing[field] }, after: { [field]: nextValue } },
-        }),
+        buildAuditEvent(
+          reqCtx,
+          {
+            action: `${resourceName}.inline-update`,
+            resource: resourceName,
+            targetId: id,
+            diff: { before: { [field]: existing[field] }, after: { [field]: nextValue } },
+          },
+          config.auth.userId,
+        ),
       );
 
       await applyActionResult(

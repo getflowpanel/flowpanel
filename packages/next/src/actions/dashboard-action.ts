@@ -135,11 +135,15 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
             result,
             config.audit,
             undefined, // dashboards have no per-resource audit opt-out
-            buildAuditEvent(reqCtx, {
-              action: `dashboard.action.${actionKey}`,
-              resource: "dashboard",
-              targetId: dashboardPath,
-            }),
+            buildAuditEvent(
+              reqCtx,
+              {
+                action: `dashboard.action.${actionKey}`,
+                resource: "dashboard",
+                targetId: dashboardPath,
+              },
+              config.auth.userId,
+            ),
           );
 
           if (result.ok) {

@@ -2,9 +2,7 @@
 import type { ActionResult } from "@flowpanel/core";
 import { useCallback, useState } from "react";
 
-export interface UseAdminMutationOptions<Prev = unknown> {
-  /** Produce the optimistic next state from the previous state and the call args. */
-  optimistic?: (prev: Prev | null, ...args: unknown[]) => Prev;
+export interface UseAdminMutationOptions {
   /** Rollback strategy when the action returns { ok: false } or throws. Defaults to "error". */
   rollbackOn?: "error";
   onSuccess?: (result: Extract<ActionResult, { ok: true }>) => void;

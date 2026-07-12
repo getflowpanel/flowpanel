@@ -171,9 +171,8 @@ function RealtimeProviderInner({
           payload = (parsed as { payload?: unknown }).payload;
         }
       } catch {}
-      // Malformed frame (not a `{channel: string, ...}` envelope): drop it —
-      // no dispatch and no refresh. A well-formed envelope always refreshes,
-      // even for a channel with no local subscriber (see ADR 0014).
+      // Malformed frame (not a `{channel: string, ...}` envelope): drop it, no
+      // dispatch/refresh. A well-formed envelope always refreshes (ADR 0014).
       if (channel === undefined) {
         notifyStats();
         return;
@@ -192,19 +191,14 @@ function RealtimeProviderInner({
     };
 
     es.onerror = () => {
-      // A stale source (already superseded by a newer open()) firing its
-      // trailing onerror must be a full no-op: it must not flip status away
-      // from "live", bump the attempt counter, or clobber the current
-      // reconnect timer — only the active `state.source` drives the bus.
+      // A stale source (superseded by a newer open()) firing onerror is a full
+      // no-op: don't touch status, attempt count, or the timer — only state.source drives it.
       if (state.source !== es) {
         es.close();
         return;
       }
-      if (es.readyState !== EventSource.CLOSED) {
-        setStatus("reconnecting");
-        return;
-      }
       setStatus("reconnecting");
+      if (es.readyState !== EventSource.CLOSED) return;
       es.close();
       state.source = null;
       state.activeSig = "";

@@ -58,7 +58,7 @@ export default defineAdmin({
   shell: { mode: "tabs", brand: false },
   theme: {
     components: { MetricCard: PriorityMetricCard },
-    accent: "217 91% 60%",
+    accent: "217 91% 50%",
     user: (s) => {
       const session = s as AdminSession | null;
       if (!session) return undefined;

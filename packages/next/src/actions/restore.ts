@@ -68,15 +68,19 @@ export function restoreRoute(config: ResolvedAdminConfig) {
         { ok: true },
         config.audit,
         resource.options.audit,
-        buildAuditEvent(reqCtx, {
-          action: `${resourceName}.restore`,
-          resource: resourceName,
-          targetId: id,
-          diff: {
-            before: { [softDeleteColumn]: existing[softDeleteColumn] },
-            after: { [softDeleteColumn]: null },
+        buildAuditEvent(
+          reqCtx,
+          {
+            action: `${resourceName}.restore`,
+            resource: resourceName,
+            targetId: id,
+            diff: {
+              before: { [softDeleteColumn]: existing[softDeleteColumn] },
+              after: { [softDeleteColumn]: null },
+            },
           },
-        }),
+          config.auth.userId,
+        ),
       );
 
       await applyActionResult(

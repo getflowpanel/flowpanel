@@ -161,11 +161,15 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
             result,
             config.audit,
             resource.options.audit,
-            buildAuditEvent(reqCtx, {
-              action: `${resourceName}.bulk.${actionKey}`,
-              resource: resourceName,
-              targetId,
-            }),
+            buildAuditEvent(
+              reqCtx,
+              {
+                action: `${resourceName}.bulk.${actionKey}`,
+                resource: resourceName,
+                targetId,
+              },
+              config.auth.userId,
+            ),
           );
 
           if (result.ok) {

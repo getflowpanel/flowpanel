@@ -30,8 +30,9 @@ test("keyboard nav: j moves cursor, Enter opens the row drawer", async ({ page }
   await page.keyboard.press("j");
   await page.keyboard.press("Enter");
   // users sets rowClick: "drawer", so Enter mirrors a row click — the
-  // URL-synced drawer opens as ?drawer=users:<id>.
-  await expect(page).toHaveURL(/drawer=users:/);
+  // URL-synced drawer opens as ?drawer=users:<id> (browsers percent-encode
+  // the ":" to %3A in the address bar).
+  await expect(page).toHaveURL(/drawer=users(?::|%3A)/);
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 
@@ -40,12 +41,14 @@ test("create flow: new catalog product", async ({ page }) => {
   // sku, title (label "Product"), category, ourPriceCents, and userId are
   // NOT NULL — fill them all. "Customer" is a reference picker (combobox),
   // so pick the first seeded user instead of typing.
-  await page.getByLabel("SKU").fill(`E2E-${Date.now()}`);
+  await page.getByLabel("SKU").fill(`SKU-${Date.now()}`);
   await page.getByLabel("Product").fill("E2E test product");
   await page.getByLabel("Category").selectOption("Electronics");
   await page.getByLabel(/our price/i).fill("1999");
-  await page.getByRole("combobox", { name: "Search…" }).click();
-  await page.getByRole("option").first().click();
+  await page.getByRole("combobox", { name: "Customer" }).click();
+  // Scope to the open listbox — the page's Category <select> also carries
+  // (inert, closed) role="option" elements that a bare getByRole would match.
+  await page.getByRole("listbox").getByRole("option").first().click();
   // A successful create stays on the form (no redirect) — wait for the
   // server-action round-trip before leaving the page.
   await Promise.all([
@@ -61,7 +64,7 @@ test("edit flow: update existing product", async ({ page }) => {
   // Rows open a drawer whose URL carries the row id (?drawer=products:<id>);
   // newest-first sort makes row 1 the product created above.
   await page.locator("tbody tr").first().click();
-  await expect(page).toHaveURL(/drawer=products:/);
+  await expect(page).toHaveURL(/drawer=products(?::|%3A)/);
   const id = new URL(page.url()).searchParams.get("drawer")?.split(":")[1];
   await page.goto(`/admin/products/${id}/edit`);
   await page.getByLabel("Product").fill("E2E edited product");

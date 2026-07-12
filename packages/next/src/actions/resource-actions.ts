@@ -65,7 +65,7 @@ export function makeActions(
     partial: Partial<AuditEvent>,
   ): Promise<void> {
     if (resource.options.audit === false) return;
-    const actorId = actorIdFromSession(reqCtx.session);
+    const actorId = actorIdFromSession(reqCtx.session, config.auth.userId);
     await emitAudit(config.audit, {
       actorId,
       action,

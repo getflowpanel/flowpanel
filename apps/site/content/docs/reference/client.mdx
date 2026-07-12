@@ -46,9 +46,7 @@ export function ArchiveButton({ id }: { id: string }) {
 
 <AutoTypeTable path="../../packages/client/src/mutation.ts" name="UseAdminMutationOptions" />
 
-`optimistic` is declared but not yet wired — `useAdminMutation`'s
-implementation only reads `onSuccess`/`onError`; setting `optimistic` today
-has no effect. For an optimistic value ahead of the round trip, use
+For an optimistic value ahead of the round trip, use
 [`useOptimisticAction`](/docs/reference/react-components#hooks) from
 `@flowpanel/react` instead. `rollbackOn` is currently fixed to `"error"` — a
 failed or thrown action always rolls back; there is no `"never"` option.

@@ -153,12 +153,16 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
             result,
             config.audit,
             resource.options.audit,
-            buildAuditEvent(reqCtx, {
-              action: `${resourceName}.action.${actionKey}`,
-              resource: resourceName,
-              targetId: id,
-              ...(diff !== undefined ? { diff } : {}),
-            }),
+            buildAuditEvent(
+              reqCtx,
+              {
+                action: `${resourceName}.action.${actionKey}`,
+                resource: resourceName,
+                targetId: id,
+                ...(diff !== undefined ? { diff } : {}),
+              },
+              config.auth.userId,
+            ),
           );
 
           if (result.ok) {

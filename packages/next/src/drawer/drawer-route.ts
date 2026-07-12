@@ -351,11 +351,15 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
           result,
           config.audit,
           resource.options.audit,
-          buildAuditEvent(reqCtx, {
-            action: `${resourceName}.drawer.${actionKey}`,
-            resource: resourceName,
-            targetId: id,
-          }),
+          buildAuditEvent(
+            reqCtx,
+            {
+              action: `${resourceName}.drawer.${actionKey}`,
+              resource: resourceName,
+              targetId: id,
+            },
+            config.auth.userId,
+          ),
         );
 
         if (result.ok) {
