@@ -257,3 +257,8 @@ It filters on `hidden` only — **not** on `requireRole`. A resource gated to a
 role still appears in the nav for everyone; clicking it returns 403 rather than
 the list. Set `hidden: true` as well when the entry itself should not be
 advertised.
+
+`resourceNavName` is `@flowpanel/core`'s `resolveResourceName` — the same
+resolver `defineAdmin` uses to key `resourcesByName` and derive the
+`resource.<name>` SSE channel. It throws if a ref's name can't be resolved,
+never a silent fallback.

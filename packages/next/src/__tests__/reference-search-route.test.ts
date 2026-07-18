@@ -89,6 +89,18 @@ function makeConfig(opts: FixtureOpts) {
   return { config, list };
 }
 
+/** Turn on admin-wide scope and set each resource's own `scope` declaration. */
+function withGlobalScope(
+  config: ResolvedAdminConfig,
+  scopes: { source?: unknown; target?: unknown },
+): void {
+  (config as { scope?: unknown }).scope = () => ({ tenantId: "t1" });
+  const source = config.resourcesByName.get("orders") as ResourceConfig;
+  (source.options as { scope?: unknown }).scope = scopes.source;
+  const target = config.resourcesByName.get("users");
+  if (target) (target.options as { scope?: unknown }).scope = scopes.target;
+}
+
 function paramsFor(resource: string, field: string) {
   return Promise.resolve({ resource, field });
 }
@@ -132,16 +144,26 @@ describe("referenceSearchRoute", () => {
     expect(res.status).toBe(403);
   });
 
-  it("degrades to an empty result (not an error) when the session lacks the TARGET resource's role", async () => {
+  it("answers 403 — never ok:true — when the session lacks the TARGET resource's role", async () => {
     const { config, list } = makeConfig({ role: "staff", targetRequireRole: "admin" });
     const handler = referenceSearchRoute(config);
     const res = await handler(reqFor("orders", "ownerId"), {
       params: paramsFor("orders", "ownerId"),
     });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; options: unknown[] };
-    expect(body.ok).toBe(true);
-    expect(body.options).toEqual([]);
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { ok: boolean };
+    expect(body.ok).toBe(false);
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("answers 403 when global scope is active and the target declares no scope", async () => {
+    const { config, list } = makeConfig({});
+    withGlobalScope(config, { source: "bypass" });
+    const handler = referenceSearchRoute(config);
+    const res = await handler(reqFor("orders", "ownerId"), {
+      params: paramsFor("orders", "ownerId"),
+    });
+    expect(res.status).toBe(403);
     expect(list).not.toHaveBeenCalled();
   });
 
@@ -198,14 +220,26 @@ describe("referenceSearchRoute", () => {
     expect(body.error).not.toMatch(/db exploded/);
   });
 
-  it("returns an empty result when the target resource isn't registered", async () => {
+  it("answers 404 — never ok:true — when the target resource isn't registered", async () => {
     const { config } = makeConfig({ registerTarget: false });
     const handler = referenceSearchRoute(config);
     const res = await handler(reqFor("orders", "ownerId", "x"), {
       params: paramsFor("orders", "ownerId"),
     });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { options: unknown[] };
-    expect(body.options).toEqual([]);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { ok: boolean };
+    expect(body.ok).toBe(false);
+  });
+
+  it("binds the target's scope predicate to the request's scope value", async () => {
+    const scopeCapture: { applyScope?: unknown; scopeRequired?: unknown }[] = [];
+    const scopePredicate = vi.fn((scope: unknown, query: unknown) => ({ scope, query }));
+    const { config } = makeConfig({ scopeCapture });
+    withGlobalScope(config, { source: "bypass", target: scopePredicate });
+    const handler = referenceSearchRoute(config);
+    await handler(reqFor("orders", "ownerId", ""), { params: paramsFor("orders", "ownerId") });
+    expect(scopeCapture[0]?.scopeRequired).toBe(true);
+    (scopeCapture[0]?.applyScope as (q: unknown) => unknown)("q");
+    expect(scopePredicate).toHaveBeenCalledWith({ tenantId: "t1" }, "q");
   });
 });

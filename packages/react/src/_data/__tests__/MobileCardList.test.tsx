@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { LabelsProvider } from "../../_provider/LabelsContext.js";
 import { MobileCardList } from "../MobileCardList.js";
 
 afterEach(() => cleanup());
@@ -141,5 +142,38 @@ describe("MobileCardList", () => {
     fireEvent.click(kebab);
     expect(onActionClick).toHaveBeenCalledTimes(1);
     expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it("shows the field's label, not its raw name, for non-title columns", () => {
+    render(
+      <MobileCardList
+        columns={[{ field: "name" }, { field: "createdAt", label: "Created" }]}
+        rows={[{ id: "1", name: "Alice", createdAt: "2026-01-01" }]}
+        rowKey="id"
+      />,
+    );
+    expect(screen.getByText("Created")).toBeTruthy();
+    expect(screen.queryByText("createdAt")).toBeNull();
+  });
+
+  it("humanizes an unlabeled field instead of showing the raw camelCase name", () => {
+    render(
+      <MobileCardList
+        columns={[{ field: "name" }, { field: "createdAt" }]}
+        rows={[{ id: "1", name: "Alice", createdAt: "2026-01-01" }]}
+        rowKey="id"
+      />,
+    );
+    expect(screen.getByText("Created at")).toBeTruthy();
+    expect(screen.queryByText("createdAt")).toBeNull();
+  });
+
+  it("renders localized empty title via LabelsProvider when emptyTitle prop omitted", () => {
+    render(
+      <LabelsProvider value={{ noResults: "Ничего не найдено" }}>
+        <MobileCardList columns={[{ field: "name" }]} rows={[]} rowKey="id" />
+      </LabelsProvider>,
+    );
+    expect(screen.getByText("Ничего не найдено")).toBeTruthy();
   });
 });

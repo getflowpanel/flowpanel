@@ -1,5 +1,7 @@
 "use client";
+import { ChevronDown } from "lucide-react";
 import * as React from "react";
+import { cn } from "../../lib/cn.js";
 import { Button } from "../../ui/button.js";
 import { Checkbox } from "../../ui/checkbox.js";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover.js";
@@ -39,11 +41,19 @@ export function MultiSelectFilter({
         : `${selected.length} selected`;
   return (
     <div className="flex flex-col gap-1">
-      {label ? <span className="text-xs text-fp-text-3">{label}</span> : null}
+      {label ? <span className="text-xs font-medium text-fp-text-3">{label}</span> : null}
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-40 justify-between">
-            {buttonText}
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-9 w-44 justify-between font-normal",
+              selected.length === 0 && "text-fp-text-2",
+            )}
+          >
+            <span className="truncate">{buttonText}</span>
+            <ChevronDown aria-hidden className="h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-48 p-1">
@@ -51,7 +61,7 @@ export function MultiSelectFilter({
             <label
               key={o.value}
               htmlFor={`${id}-${o.value}`}
-              className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-fp-bg-2"
+              className="flex cursor-pointer items-center gap-2 rounded-fp-sm px-2 py-1.5 transition-colors hover:bg-fp-bg-3/70"
             >
               <Checkbox
                 id={`${id}-${o.value}`}

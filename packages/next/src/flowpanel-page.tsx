@@ -203,13 +203,7 @@ export async function renderContent(
       checkRequireRole(dash.requireRole, reqCtx.role, reqCtx.session);
     }
     return (
-      <DashboardPage
-        config={config}
-        dashboard={dash}
-        searchParams={sp}
-        req={req}
-        session={reqCtx.session}
-      />
+      <DashboardPage config={config} dashboard={dash} searchParams={sp} req={req} reqCtx={reqCtx} />
     );
   }
 

@@ -1,6 +1,7 @@
 import type {
   Adapter,
   FieldDef,
+  ListQueryContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
@@ -97,51 +98,67 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
   ];
 
   function configWith(opts: {
-    getResult?: Record<string, unknown> | null;
+    rows?: Record<string, unknown>[];
     requireRole?: string;
     registerTarget?: boolean;
+    targetScope?: unknown;
+    globalScope?: boolean;
   }) {
-    const get = vi.fn(async () =>
-      opts.getResult === undefined ? { id: "u42", email: "owner@x.com" } : opts.getResult,
-    );
-    const list = vi.fn(async () => ({ rows: [], total: 0, page: 1, pageSize: 20 }));
+    const rows = opts.rows ?? [{ id: "u42", email: "owner@x.com" }];
+    const list = vi.fn(async (_ref: unknown, _ctx: ListQueryContext<unknown>) => ({
+      rows,
+      total: rows.length,
+      page: 1,
+      pageSize: 20,
+    }));
     const adapter = {
       kind: "drizzle",
       db: {},
       introspect: () => ({ name: "users", columns: [], primaryKey: "id" }),
-      get,
       list,
     } as unknown as Adapter;
     const target: ResourceConfig = {
       __kind: "resource",
       ref: { __name: "users" },
-      options: { columns: [], ...(opts.requireRole ? { requireRole: opts.requireRole } : {}) },
+      options: {
+        columns: [],
+        ...(opts.requireRole ? { requireRole: opts.requireRole } : {}),
+        ...(opts.targetScope ? { scope: opts.targetScope } : {}),
+      },
     } as never;
     const resourcesByName = new Map(opts.registerTarget === false ? [] : [["users", target]]);
     return {
-      config: { adapter, resourcesByName } as unknown as ResolvedAdminConfig,
-      get,
+      config: {
+        adapter,
+        resourcesByName,
+        ...(opts.globalScope ? { scope: () => ({ tenantId: "t1" }) } : {}),
+      } as unknown as ResolvedAdminConfig,
       list,
     };
   }
 
-  it("resolves ONLY the current value's label via adapter.get — never adapter.list", async () => {
-    const { config: cfg, get, list } = configWith({});
+  it("resolves ONLY the current value by primary key — never a preloaded page of options", async () => {
+    const { config: cfg, list } = configWith({});
     const resolved = await resolveFormFields(cfg, fields, ctx("admin"), { ownerId: "u42" });
     expect(resolved[0]?.options).toEqual([{ value: "u42", label: "owner@x.com" }]);
-    expect(get).toHaveBeenCalledTimes(1);
+    expect(list).toHaveBeenCalledTimes(1);
+    const listCtx = list.mock.calls[0]?.[1] as {
+      filters: Record<string, unknown>;
+      pageSize: number;
+    };
+    expect(listCtx.filters).toEqual({ id: "u42" });
+    expect(listCtx.pageSize).toBe(1);
+  });
+
+  it("returns no options on a create form (no current value) without querying at all", async () => {
+    const { config: cfg, list } = configWith({});
+    const resolved = await resolveFormFields(cfg, fields, ctx("admin"));
+    expect(resolved[0]?.options).toEqual([]);
     expect(list).not.toHaveBeenCalled();
   });
 
-  it("returns no options on a create form (no current value) without calling adapter.get", async () => {
-    const { config: cfg, get } = configWith({});
-    const resolved = await resolveFormFields(cfg, fields, ctx("admin"));
-    expect(resolved[0]?.options).toEqual([]);
-    expect(get).not.toHaveBeenCalled();
-  });
-
   it("returns no options when the referenced row no longer exists", async () => {
-    const { config: cfg } = configWith({ getResult: null });
+    const { config: cfg } = configWith({ rows: [] });
     const resolved = await resolveFormFields(cfg, fields, ctx("admin"), { ownerId: "u42" });
     expect(resolved[0]?.options).toEqual([]);
   });
@@ -153,10 +170,37 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
   });
 
   it("returns no options when the viewer's role can't read the target resource", async () => {
-    const { config: cfg, get } = configWith({ requireRole: "superadmin" });
+    const { config: cfg, list } = configWith({ requireRole: "superadmin" });
     const resolved = await resolveFormFields(cfg, fields, ctx("staff"), { ownerId: "u42" });
     expect(resolved[0]?.options).toEqual([]);
-    expect(get).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("returns no options when global scope is active and the target declares no scope", async () => {
+    const { config: cfg, list } = configWith({ globalScope: true });
+    const resolved = await resolveFormFields(cfg, fields, ctx("admin"), { ownerId: "u42" });
+    expect(resolved[0]?.options).toEqual([]);
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("binds the target's scope predicate to the request's scope value", async () => {
+    const scopeCalls: unknown[][] = [];
+    const { config: cfg, list } = configWith({
+      globalScope: true,
+      targetScope: (scope: unknown, query: unknown) => {
+        scopeCalls.push([scope, query]);
+        return query;
+      },
+    });
+    const scoped = { ...ctx("admin"), scope: { tenantId: "t1" } } as RequestContext;
+    await resolveFormFields(cfg, fields, scoped, { ownerId: "u42" });
+    const listCtx = list.mock.calls[0]?.[1] as {
+      applyScope?: (q: unknown) => unknown;
+      scopeRequired?: boolean;
+    };
+    expect(listCtx.scopeRequired).toBe(true);
+    listCtx.applyScope?.("q");
+    expect(scopeCalls).toEqual([[{ tenantId: "t1" }, "q"]]);
   });
 
   it("includes the label when the viewer's role satisfies the target's requireRole", async () => {

@@ -40,6 +40,12 @@ describe("applyActionResult", () => {
     expect(publish).toHaveBeenNthCalledWith(2, "alerts");
   });
 
+  it("publishes to exactly that channel when refresh is a bare string", async () => {
+    await applyActionResult({ ok: true, refresh: "scraperRuns" }, {});
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith("scraperRuns");
+  });
+
   it("calls revalidatePath when pathname given and refresh is not explicitly false", async () => {
     await applyActionResult({ ok: true }, { pathname: "/admin/users" });
     expect(revalidatePath).toHaveBeenCalledWith("/admin/users");

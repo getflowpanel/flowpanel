@@ -4,6 +4,7 @@ export { resource } from "./builders/resource.js";
 export { custom, metric, statGroup, table } from "./builders/widget.js";
 export { defineAdmin } from "./define-admin.js";
 export { humanize, resolveFieldLabel } from "./humanize.js";
+export { resolveResourceName } from "./resource-name.js";
 export { emitAudit } from "./runtime/audit.js";
 export { checkRequireRole, type RequireRole } from "./runtime/auth.js";
 export { createPublisher, type Publisher, type PublisherOptions } from "./runtime/publish.js";

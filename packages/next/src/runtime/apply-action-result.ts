@@ -17,8 +17,10 @@ export async function applyActionResult(
 
   if (refresh === true && opts.resourceName) {
     await publishResource(opts.resourceName, { action: "update" });
-  } else if (Array.isArray(refresh)) {
-    for (const ch of refresh) await publish(ch);
+  } else {
+    const channels =
+      typeof refresh === "string" ? [refresh] : Array.isArray(refresh) ? refresh : [];
+    for (const ch of channels) await publish(ch);
   }
 
   if (refresh !== false && opts.pathname) {

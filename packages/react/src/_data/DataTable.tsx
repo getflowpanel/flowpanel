@@ -145,7 +145,7 @@ export function DataTable<Row extends Record<string, unknown>>({
     onSortChange?.({ field: c.field, dir: nextDir });
   };
 
-  const frame = "rounded-fp border border-fp-border-1 bg-fp-bg-1 overflow-hidden";
+  const frame = "rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-sm overflow-hidden";
 
   const exportConfig =
     exportable === true
@@ -213,7 +213,7 @@ export function DataTable<Row extends Record<string, unknown>>({
         <div className="flex flex-col items-center justify-center py-16 text-center">
           {emptyIcon ? (
             <div
-              className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-2 text-2xl text-fp-text-2"
+              className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-3/60 text-2xl text-fp-text-2"
               aria-hidden="true"
             >
               {emptyIcon}
@@ -294,7 +294,7 @@ export function DataTable<Row extends Record<string, unknown>>({
           onFocus={() => setCursor((c) => (c < 0 ? 0 : c))}
           tabIndex={0}
           aria-label="Rows. Arrow keys or j and k move, Enter opens."
-          className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-accent focus-visible:ring-inset"
+          className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 focus-visible:ring-inset"
         >
           {rows.map((r, idx) => (
             <DataTableRow<Row>

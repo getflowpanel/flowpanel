@@ -7,9 +7,7 @@ export async function emitAudit(cfg: AuditConfig | undefined, event: AuditEvent)
   try {
     await cfg.sink(event);
   } catch (err) {
-    if (process.env.NODE_ENV !== "production") {
-      // eslint-disable-next-line no-console
-      console.error("[flowpanel] audit sink error:", err);
-    }
+    // A hole in the audit trail matters most in production — never swallow this silently.
+    console.error("[flowpanel] audit sink error:", err);
   }
 }

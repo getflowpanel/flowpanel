@@ -109,7 +109,7 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
       async (reqCtx) => {
         const input = await parseActionBody(req);
 
-        const inputIssues = validateActionInput(action.form, input);
+        const inputIssues = await validateActionInput(action.form, input);
         if (inputIssues) {
           return Response.json(
             { ok: false, error: "validation failed", issues: inputIssues },

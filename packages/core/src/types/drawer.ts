@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { ActionResult } from "./action.js";
 import type { ActionContext } from "./context.js";
 import type { InferDB, ResourceName } from "./registry.js";
 import type { WidgetConfig } from "./widget.js";
@@ -69,7 +70,7 @@ export interface DrawerAction<Row = unknown> {
     row: Row,
     formData: Record<string, unknown>,
     ctx: ActionContext<InferDB>,
-  ) => Promise<{ ok: boolean; message?: string; refresh?: boolean | string | string[] }>;
+  ) => Promise<ActionResult>;
 }
 
 /** Side panel opened for a single row. */

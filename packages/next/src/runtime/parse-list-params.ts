@@ -7,13 +7,23 @@ export interface ListParams {
   filters: Record<string, unknown>;
 }
 
+/** Highest page number `?page=` may request — beyond this it's abuse, not real pagination. */
+const MAX_PAGE = 100_000;
+
+/** Clamp `?page=` to a positive integer no larger than `MAX_PAGE`; non-finite/garbage → 1. */
+function parsePage(raw: string | null): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(Math.max(Math.trunc(n), 1), MAX_PAGE);
+}
+
 /** Parse list URL params into the shape the adapter list query expects. */
 export function parseListParams(
   sp: URLSearchParams,
   defaultSort?: { field: string; dir: "asc" | "desc" },
   allowedFields?: ReadonlySet<string>,
 ): ListParams {
-  const page = Math.max(1, Number(sp.get("page") ?? 1) || 1);
+  const page = parsePage(sp.get("page"));
   const search = sp.get("q") ?? "";
 
   const sortRaw = sp.get("sort");

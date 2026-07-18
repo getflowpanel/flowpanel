@@ -32,11 +32,17 @@ function declarations(theme: ThemeConfig): string[] {
 /**
  * Emits `theme.accent` and `theme.cssVars` as `:root` overrides. Root scope, not a
  * wrapper element, because dialogs and drawers portal to `document.body` and would
- * otherwise fall back to the defaults.
+ * otherwise fall back to the defaults. `theme.accentDark` goes out as a
+ * `:root.dark` rule — higher specificity than both, so it wins exactly when the
+ * dark class is on `<html>`.
  */
 export function ThemeVars({ theme }: { theme: ThemeConfig | undefined }) {
   if (!theme) return null;
   const decls = declarations(theme);
-  if (decls.length === 0) return null;
-  return <style>{`:root{${decls.join(";")}}`}</style>;
+  const dark = theme.accentDark
+    ? `:root.dark{--fp-accent:${normalizeAccent(theme.accentDark).replace(UNSAFE, "")}}`
+    : "";
+  if (decls.length === 0 && !dark) return null;
+  const root = decls.length > 0 ? `:root{${decls.join(";")}}` : "";
+  return <style>{`${root}${dark}`}</style>;
 }

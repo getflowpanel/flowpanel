@@ -116,7 +116,7 @@ async function renderTabs<Row extends Record<string, unknown>>(
 async function renderTab<Row extends Record<string, unknown>>(
   config: ResolvedAdminConfig,
   reqCtx: Awaited<ReturnType<typeof buildRequestContext>>,
-  _resource: ResourceConfig,
+  resource: ResourceConfig,
   row: Row,
   tab: DetailTab<Row>,
 ): Promise<React.ReactNode> {
@@ -174,12 +174,17 @@ async function renderTab<Row extends Record<string, unknown>>(
   }
 
   const selected = tab.fields;
-  const fieldList = selectFields(row, selected);
+  const projectedRow = selected === undefined || selected === "*" ? projectRow(resource, row) : row;
+  const fieldList = selectFields(projectedRow, selected);
   return (
     <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
       <KV>
         {fieldList.map(({ name, label }) => (
-          <KVRow key={name} label={label} value={formatFieldValue(row[name as keyof Row])} />
+          <KVRow
+            key={name}
+            label={label}
+            value={formatFieldValue(projectedRow[name as keyof Row])}
+          />
         ))}
       </KV>
     </div>

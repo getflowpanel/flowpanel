@@ -198,6 +198,7 @@ export {
   type UseLiveChannelOptions,
   useLiveChannel,
 } from "./hooks/useLiveChannel.js";
+export { useMediaQuery } from "./hooks/useMediaQuery.js";
 export { useOptimisticAction } from "./hooks/useOptimisticAction.js";
 export {
   type RealtimeChannels,

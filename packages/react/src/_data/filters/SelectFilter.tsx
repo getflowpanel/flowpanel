@@ -28,9 +28,9 @@ export function SelectFilter({
   const id = React.useId();
   return (
     <label htmlFor={id} className="flex flex-col gap-1">
-      {label ? <span className="text-xs text-fp-text-3">{label}</span> : null}
+      {label ? <span className="text-xs font-medium text-fp-text-3">{label}</span> : null}
       <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
-        <SelectTrigger id={id} className="h-8 w-40">
+        <SelectTrigger id={id} className="h-9 w-44">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>

@@ -51,12 +51,20 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
   ): Promise<ActionFormFieldErrors | null> {
     setPending(action.key);
     try {
-      const res = await fetch(`/api/flowpanel/${resource}/${id}/actions/${action.key}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      const result = (await res.json()) as ServerResult;
+      const res = await fetch(
+        `/api/flowpanel/${encodeURIComponent(resource)}/${encodeURIComponent(
+          id,
+        )}/actions/${encodeURIComponent(action.key)}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(input),
+        },
+      );
+      const result = (await res.json().catch(() => ({
+        ok: false,
+        error: res.statusText,
+      }))) as ServerResult;
 
       if (!result.ok) {
         const fieldErrors = mapActionIssuesToFieldErrors(result.issues);

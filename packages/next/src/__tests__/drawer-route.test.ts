@@ -1,6 +1,6 @@
-import type { Adapter } from "@flowpanel/core";
+import type { Adapter, ListQueryContext } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { drawerRoute } from "../drawer/drawer-route.js";
 
 const fakeAdapter: Adapter = {
@@ -278,5 +278,153 @@ describe("drawerRoute (tabs)", () => {
     };
     expect(body.tabs[0]?.rows).toEqual([{ id: "p1", userId: "abc", amount: 10 }]);
     expect(body.tabs[0]?.rows[0]).not.toHaveProperty("cardNumber");
+  });
+});
+
+describe("drawerRoute (tabs) — cross-resource authorization", () => {
+  function mkConfigWith(opts: {
+    role?: string;
+    targetRequireRole?: string;
+    targetScope?: unknown;
+    globalScope?: boolean;
+    widgetTab?: boolean;
+    list?: Adapter["list"];
+  }) {
+    const list =
+      opts.list ??
+      (async () => ({
+        rows: [{ id: "p1", userId: "abc", amount: 10, cardNumber: "4111111111111111" }],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      }));
+    const tab = opts.widgetTab
+      ? {
+          key: "activity",
+          label: "Activity",
+          widgets: [{ kind: "table", options: { resource: "payments" } }],
+        }
+      : {
+          key: "payments",
+          label: "Payments",
+          resource: "payments",
+          filter: (row: unknown) => ({ userId: (row as { id: string }).id }),
+        };
+    return defineAdmin({
+      adapter: { ...fakeAdapter, list },
+      auth: { session: async () => null, role: () => opts.role ?? "admin" },
+      ...(opts.globalScope ? { scope: () => ({ tenantId: "t1" }) } : {}),
+      resources: [
+        resource({ __name: "users" }, {
+          columns: ["id", "email"],
+          ...(opts.globalScope ? { scope: "bypass" } : {}),
+          drawer: { tabs: [tab] },
+        } as never),
+        resource({ __name: "payments" }, {
+          columns: ["id", "userId", "amount"],
+          ...(opts.targetRequireRole ? { requireRole: opts.targetRequireRole } : {}),
+          ...(opts.targetScope ? { scope: opts.targetScope } : {}),
+        } as never),
+      ],
+    });
+  }
+
+  async function tabsOf(config: ReturnType<typeof mkConfigWith>) {
+    const res = await drawerRoute(config)(mkReq(), {
+      params: Promise.resolve({ resource: "users", id: "abc" }),
+    });
+    const body = (await res.json()) as {
+      tabs: {
+        kind: string;
+        rows?: Record<string, unknown>[];
+        columns?: string[];
+        widgets?: { kind: string; rows?: Record<string, unknown>[] }[];
+      }[];
+    };
+    return body.tabs;
+  }
+
+  it("a 'resource' tab does not read a role-gated target the viewer cannot access", async () => {
+    const list = vi.fn(async (_ref: unknown, _ctx: ListQueryContext<unknown>) => ({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    }));
+    const tabs = await tabsOf(
+      mkConfigWith({ role: "staff", targetRequireRole: "superadmin", list }),
+    );
+    expect(tabs[0]).toMatchObject({ kind: "resource", rows: [], columns: [] });
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("a 'resource' tab does not read a target that declares no scope while global scope is active", async () => {
+    const list = vi.fn(async (_ref: unknown, _ctx: ListQueryContext<unknown>) => ({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    }));
+    const tabs = await tabsOf(mkConfigWith({ globalScope: true, list }));
+    expect(tabs[0]).toMatchObject({ kind: "resource", rows: [], columns: [] });
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("a 'resource' tab binds the target's scope predicate to the request's scope value", async () => {
+    const scopeCalls: unknown[][] = [];
+    const list = vi.fn(async (_ref: unknown, _ctx: ListQueryContext<unknown>) => ({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    }));
+    await tabsOf(
+      mkConfigWith({
+        globalScope: true,
+        list,
+        targetScope: (scope: unknown, query: unknown) => {
+          scopeCalls.push([scope, query]);
+          return query;
+        },
+      }),
+    );
+    const listCtx = list.mock.calls[0]?.[1] as {
+      applyScope?: (q: unknown) => unknown;
+      scopeRequired?: boolean;
+    };
+    expect(listCtx.scopeRequired).toBe(true);
+    listCtx.applyScope?.("q");
+    expect(scopeCalls).toEqual([[{ tenantId: "t1" }, "q"]]);
+  });
+
+  it("a widget tab's table does not read a role-gated target the viewer cannot access", async () => {
+    const list = vi.fn(async (_ref: unknown, _ctx: ListQueryContext<unknown>) => ({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    }));
+    const tabs = await tabsOf(
+      mkConfigWith({ role: "staff", targetRequireRole: "superadmin", widgetTab: true, list }),
+    );
+    expect(tabs[0]?.widgets?.[0]).toMatchObject({ kind: "table", rows: [] });
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("a widget tab's table does not read a target that declares no scope while global scope is active", async () => {
+    const list = vi.fn(async (_ref: unknown, _ctx: ListQueryContext<unknown>) => ({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    }));
+    const tabs = await tabsOf(mkConfigWith({ globalScope: true, widgetTab: true, list }));
+    expect(tabs[0]?.widgets?.[0]).toMatchObject({ kind: "table", rows: [] });
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("a widget tab's table ships only the target's declared columns", async () => {
+    const tabs = await tabsOf(mkConfigWith({ widgetTab: true }));
+    expect(tabs[0]?.widgets?.[0]?.rows).toEqual([{ id: "p1", userId: "abc", amount: 10 }]);
   });
 });

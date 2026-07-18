@@ -16,7 +16,7 @@ import type {
   Session,
 } from "@flowpanel/core";
 import { drawerActionRoute } from "../drawer/drawer-route.js";
-import { publishResource } from "../runtime/publish.js";
+import { publish, publishResource } from "../runtime/publish.js";
 
 function makeConfig(
   action: DrawerAction,
@@ -57,6 +57,7 @@ function makeConfig(
 describe("drawerActionRoute", () => {
   beforeEach(() => {
     vi.mocked(publishResource).mockReset();
+    vi.mocked(publish).mockReset();
   });
 
   it("returns 404 when resource is unknown", async () => {
@@ -110,6 +111,20 @@ describe("drawerActionRoute", () => {
       expect.objectContaining({ session: null }),
     );
     expect(publishResource).toHaveBeenCalledWith("jobs", { action: "update" });
+  });
+
+  it("publishes to exactly that channel when the action returns a bare-string refresh", async () => {
+    const run = vi.fn(async () => ({ ok: true as const, refresh: "jobs.stats" }));
+    const config = makeConfig({ key: "approve", label: "Approve", run } as DrawerAction);
+    const handler = drawerActionRoute(config);
+    const req = new Request("http://localhost/x", { method: "POST" });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "jobs", id: "1", action: "approve" }),
+    });
+    expect(res.status).toBe(200);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith("jobs.stats");
+    expect(publishResource).not.toHaveBeenCalled();
   });
 
   it("passes ctx.actorId derived from the session to run", async () => {
@@ -191,6 +206,36 @@ describe("drawerActionRoute", () => {
     expect(body.issues).toEqual([{ path: ["reason"], message: "reason is required" }]);
     // The guard must run *before* the handler — otherwise a hand-crafted POST
     // reaches user code with input the form would have rejected.
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("runs a function-form field validator and returns its message as a field error", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      key: "reject",
+      label: "Reject",
+      form: [
+        {
+          name: "reason",
+          type: "text",
+          validate: (value: unknown) =>
+            value === "duplicate" ? "already flagged as duplicate" : null,
+        },
+      ],
+      run,
+    } as DrawerAction);
+    const handler = drawerActionRoute(config);
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: "duplicate" }),
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "jobs", id: "1", action: "reject" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.issues).toEqual([{ path: ["reason"], message: "already flagged as duplicate" }]);
     expect(run).not.toHaveBeenCalled();
   });
 

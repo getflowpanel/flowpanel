@@ -67,6 +67,17 @@ describe("defineAdmin", () => {
     expect(config.resourcesByName.has("payments")).toBe(true);
   });
 
+  it("derives name from Drizzle's Symbol(drizzle:BaseName)", () => {
+    const baseNameSym = Symbol("drizzle:BaseName");
+    const ref = { [baseNameSym]: "invoices" };
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource(ref as unknown as Record<string, never>, { columns: [] })],
+    });
+    expect(config.resourcesByName.has("invoices")).toBe(true);
+  });
+
   it("readOnly strips every write affordance from resources", () => {
     const ref = { __name: "users" };
     const config = defineAdmin({

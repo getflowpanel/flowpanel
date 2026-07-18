@@ -131,7 +131,7 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
           );
         }
 
-        const inputIssues = validateActionInput(
+        const inputIssues = await validateActionInput(
           action.form as Parameters<typeof validateActionInput>[0],
           body.input,
         );

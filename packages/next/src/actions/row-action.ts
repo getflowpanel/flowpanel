@@ -111,7 +111,7 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
 
         const input = await parseActionBody(req);
 
-        const inputIssues = validateActionInput(
+        const inputIssues = await validateActionInput(
           action.form as Parameters<typeof validateActionInput>[0],
           input,
         );

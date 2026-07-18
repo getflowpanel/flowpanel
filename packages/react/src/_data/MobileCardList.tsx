@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
+import { useLabels } from "../_provider/LabelsContext.js";
 import { cn } from "../lib/cn.js";
+import { resolveFieldLabel } from "../lib/humanize.js";
 import { Checkbox } from "../ui/checkbox.js";
 import type { DataTableColumn } from "./data-table-types.js";
 import { renderDefaultCell } from "./render-default-cell.js";
@@ -40,6 +42,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   emptyIcon,
   className,
 }: MobileCardListProps<Row>) {
+  const labels = useLabels();
   const visible = React.useMemo(() => columns.filter((c) => !c.hidden), [columns]);
   const colIndex = React.useMemo(() => {
     if (colIndexByField) return colIndexByField;
@@ -74,7 +77,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
             {emptyIcon}
           </div>
         ) : null}
-        <div className="text-base font-medium text-fp-text-1">{emptyTitle ?? "No results"}</div>
+        <div className="text-base font-medium text-fp-text-1">{emptyTitle ?? labels.noResults}</div>
         {emptyDescription ? (
           <div className="mt-1 text-sm text-fp-text-3">{emptyDescription}</div>
         ) : null}
@@ -151,7 +154,9 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                       <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-sm">
                         {restCols.map((c) => (
                           <React.Fragment key={c.field}>
-                            <dt className="text-fp-text-3">{c.label ?? c.field}</dt>
+                            <dt className="text-fp-text-3">
+                              {resolveFieldLabel(c.label, c.field)}
+                            </dt>
                             <dd className="min-w-0 truncate text-fp-text-1">
                               {renderCell(c, r, idx, prerenderedCells, colIndex)}
                             </dd>

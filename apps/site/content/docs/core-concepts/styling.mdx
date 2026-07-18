@@ -51,17 +51,17 @@ work: change the custom properties and every component follows.
 ## Tailwind v4 setup
 
 This is what `flowpanel init` scaffolds when it detects Tailwind v4. The
-generated `admin.css` opens with `@source` directives pointing at the
-compiled output of every FlowPanel package, so Tailwind's v4 scanner
-picks up the `fp-*` classes used inside their `dist` bundles (Tailwind
-never sees the JSX source — only the built code that ships to
-`node_modules`):
+generated `admin.css` is a self-contained Tailwind entry: it imports
+Tailwind itself, then points `@source` at the compiled output of the
+FlowPanel packages so the v4 scanner picks up the `fp-*` classes used
+inside their `dist` bundles (Tailwind never sees the JSX source — only
+the built code that ships to `node_modules`):
 
 ```css
-@source "../node_modules/@flowpanel/react/dist";
-@source "../node_modules/@flowpanel/next/dist";
-@source "../node_modules/@flowpanel/charts/dist";
-@source "../node_modules/flowpanel/dist";
+@import "tailwindcss";
+
+@source "../node_modules/@flowpanel/*/dist";
+@source "../node_modules/.pnpm/node_modules/@flowpanel/*/dist";
 
 :root {
   --fp-bg-1: 0 0% 100%;
@@ -74,15 +74,20 @@ never sees the JSX source — only the built code that ships to
 }
 ```
 
+The second `@source` covers pnpm: only `@flowpanel/kit` is a direct
+dependency of your app, so the packages that actually carry the class
+strings live in pnpm's virtual store rather than at the root of
+`node_modules`. Paths that don't exist are ignored, so both lines are
+safe under npm, yarn and bun too.
+
 The `../` prefix depends on where the CLI puts the file — `styles/admin.css`
 at the project root needs one `../` back to `node_modules`, while
 `src/styles/admin.css` needs two. `flowpanel init` computes the right
 depth for your layout automatically.
 
-`admin.css` doesn't itself declare `@import "tailwindcss"` — it's a
-second stylesheet alongside your app's own Tailwind entry (the
-`globals.css` that `create-next-app --tailwind` already wrote), imported
-directly in your root layout:
+`admin.css` is imported directly in your root layout, alongside whatever
+Tailwind entry your app already has (the `globals.css` that
+`create-next-app --tailwind` writes):
 
 ```ts
 import "@/styles/admin.css";
@@ -108,10 +113,8 @@ export default {
   content: [
     "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
-    "./node_modules/@flowpanel/react/dist/**/*.{js,mjs}",
-    "./node_modules/@flowpanel/next/dist/**/*.{js,mjs}",
-    "./node_modules/@flowpanel/charts/dist/**/*.{js,mjs}",
-    "./node_modules/flowpanel/dist/**/*.{js,mjs}",
+    "./node_modules/@flowpanel/*/dist/**/*.{js,mjs}",
+    "./node_modules/.pnpm/node_modules/@flowpanel/*/dist/**/*.{js,mjs}",
   ],
   theme: {
     extend: {
@@ -134,9 +137,10 @@ export default {
 } satisfies Config;
 ```
 
-The `content` globs must include each FlowPanel package's `dist` — same
-reasoning as v4's `@source`: Tailwind's class scanner needs to see the
-compiled output, not just your own `app/` and `src/` trees. `init` only
+The `content` globs must include the FlowPanel packages' `dist` — same
+reasoning as v4's `@source`, including the pnpm virtual-store line:
+Tailwind's class scanner needs to see the compiled output, not just your
+own `app/` and `src/` trees. `init` only
 writes `tailwind.config.ts` when one doesn't already exist; if you have
 one, add these globs and the `theme.extend` entries by hand.
 

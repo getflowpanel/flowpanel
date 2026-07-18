@@ -11,8 +11,8 @@ export type ActionResult =
       ok: true;
       /** Toast shown to the operator. */
       message?: string;
-      /** Revalidate after the action. `true` refreshes the current resource. */
-      refresh?: boolean | string[];
+      /** Revalidate after the action. `true` refreshes the current resource; a string publishes that one channel. */
+      refresh?: boolean | string | string[];
       /** Send the operator to this path once the action succeeds. */
       redirect?: string;
       /** Hand the operator a generated file. */

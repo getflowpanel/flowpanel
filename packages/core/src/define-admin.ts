@@ -1,3 +1,4 @@
+import { resolveResourceName } from "./resource-name.js";
 import type { BulkAction } from "./types/action.js";
 import type { AdminConfig, ResolvedAdminConfig } from "./types/config.js";
 import type { DashboardConfig, PageConfig } from "./types/dashboard.js";
@@ -10,25 +11,6 @@ function normalizeRoutePath(raw: string): string {
   if (!p.startsWith("/")) p = `/${p}`;
   if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
   return p;
-}
-
-function resolveResourceName(ref: unknown, options: { name?: string }): string {
-  if (options.name) return options.name;
-  if (ref && typeof ref === "object") {
-    const r = ref as { __name?: unknown; _?: { name?: unknown } };
-    if (typeof r.__name === "string") return r.__name;
-    if (r._ && typeof r._ === "object" && typeof r._.name === "string") return r._.name;
-    for (const sym of Object.getOwnPropertySymbols(ref)) {
-      if (sym.description === "drizzle:Name") {
-        const v = (ref as Record<symbol, unknown>)[sym];
-        if (typeof v === "string") return v;
-      }
-    }
-  }
-  throw new Error(
-    "Unable to resolve resource name. Pass options.name explicitly, " +
-      "or ensure the adapter ref exposes __name or _.name.",
-  );
 }
 
 const defaultDeleteBulk: BulkAction<unknown> = {
@@ -73,7 +55,7 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
   });
   const resourcesByName = new Map<string, ResourceConfig>();
   for (const r of resources) {
-    const name = resolveResourceName(r.ref, r.options);
+    const name = resolveResourceName(r);
     if (resourcesByName.has(name)) {
       throw new Error(`Duplicate resource name: "${name}". Each resource name must be unique.`);
     }

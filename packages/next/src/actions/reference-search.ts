@@ -1,8 +1,7 @@
-import type { ListQueryContext, ResolvedAdminConfig } from "@flowpanel/core";
-import { checkRequireRole, runWithRequestContext } from "@flowpanel/core";
+import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { roleAllows } from "../runtime/action-helpers.js";
+import { readRelatedRows } from "../runtime/require-authorized.js";
 import { declaredFormFields } from "../runtime/resolve-form-fields.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
 import { withGuards } from "../runtime/with-guards.js";
 
 const REFERENCE_SEARCH_LIMIT = 20;
@@ -32,37 +31,22 @@ export function referenceSearchRoute(config: ResolvedAdminConfig) {
 
       const target = config.resourcesByName.get(ref.resource);
       if (!target) {
-        return Response.json({ ok: true, options: [] });
-      }
-      if (target.options.requireRole !== undefined) {
-        try {
-          checkRequireRole(target.options.requireRole, reqCtx.role, reqCtx.session);
-        } catch {
-          return Response.json({ ok: true, options: [] });
-        }
+        return Response.json({ ok: false, error: "reference target not found" }, { status: 404 });
       }
 
-      const search = new URL(req.url).searchParams.get("q") ?? "";
       const pk = config.adapter.introspect(target.ref).primaryKey;
-      const listCtx: ListQueryContext<unknown> = {
-        ...reqCtx,
-        db: config.adapter.db,
-        dateRange: { from: new Date(0), to: new Date() },
-        searchParams: new URLSearchParams(),
-        signal: new AbortController().signal,
-        filters: {},
-        sort: { field: ref.labelField, dir: "asc" } as ListQueryContext<unknown>["sort"],
-        page: 1,
+      const rows = await readRelatedRows(config, target, reqCtx, {
+        sort: { field: ref.labelField, dir: "asc" },
         pageSize: REFERENCE_SEARCH_LIMIT,
-        search,
+        search: new URL(req.url).searchParams.get("q") ?? "",
         searchFields: [ref.labelField],
-        ...scopeBinding(config, target, reqCtx),
-      };
+        extraFields: [pk, ref.labelField],
+      });
+      if (!rows) {
+        return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
+      }
 
-      const result = await runWithRequestContext(reqCtx, () =>
-        config.adapter.list(target.ref, listCtx),
-      );
-      const options = (result.rows as Record<string, unknown>[]).map((row) => ({
+      const options = rows.map((row) => ({
         value: String(row[pk]),
         label: String(row[ref.labelField] ?? row[pk]),
       }));

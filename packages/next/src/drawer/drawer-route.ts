@@ -6,12 +6,11 @@ import type {
   DrawerConfig,
   DrawerTab,
   ItemQueryContext,
-  ListQueryContext,
   RequestContext,
   ResolvedAdminConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { checkRequireRole, runWithRequestContext } from "@flowpanel/core";
+import { runWithRequestContext } from "@flowpanel/core";
 import { createElement, Fragment, type ReactNode } from "react";
 import {
   actorIdFromSession,
@@ -24,6 +23,7 @@ import { applyActionResult } from "../runtime/apply-action-result.js";
 import { buildHref } from "../runtime/href.js";
 import { projectRow } from "../runtime/project-row.js";
 import { bindPublisher, publish } from "../runtime/publish.js";
+import { readRelatedRows } from "../runtime/require-authorized.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
 import { withGuards } from "../runtime/with-guards.js";
 import { parseActionBody } from "./parse-action-body.js";
@@ -160,12 +160,18 @@ async function serializeTab(
     };
     const widgets: SerializedWidget[] = [];
     for (const w of tab.widgets) {
-      widgets.push(await serializeWidget(w, config, reqCtx, widgetCtx, req));
+      widgets.push(await serializeWidget(w, config, reqCtx, widgetCtx));
     }
     return { kind: "widgets", key: tab.key, label: tab.label, widgets };
   }
   const target = config.resourcesByName.get(tab.resource);
-  if (!target) {
+  const rows = target
+    ? await readRelatedRows(config, target, reqCtx, {
+        filters: typeof tab.filter === "function" ? tab.filter(row) : {},
+        pageSize: 20,
+      })
+    : null;
+  if (!target || !rows) {
     return {
       kind: "resource",
       key: tab.key,
@@ -175,38 +181,6 @@ async function serializeTab(
       columns: [],
     };
   }
-  try {
-    checkRequireRole(target.options.requireRole, reqCtx.role, reqCtx.session);
-  } catch {
-    return {
-      kind: "resource",
-      key: tab.key,
-      label: tab.label,
-      resource: tab.resource,
-      rows: [],
-      columns: [],
-    };
-  }
-  const filter = typeof tab.filter === "function" ? tab.filter(row) : {};
-  const softDelete = target.options.delete?.softDelete;
-  const listCtx: ListQueryContext<unknown> = {
-    ...reqCtx,
-    req,
-    db: config.adapter.db,
-    dateRange: { from: new Date(0), to: new Date() },
-    searchParams: new URLSearchParams(),
-    signal: new AbortController().signal,
-    filters: filter,
-    sort: null,
-    page: 1,
-    pageSize: 20,
-    search: "",
-    ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
-    ...scopeBinding(config, target, reqCtx),
-  };
-  const result = await runWithRequestContext(reqCtx, () =>
-    config.adapter.list(target.ref, listCtx),
-  );
   const columns = (target.options.columns as unknown[]).map((c) => {
     if (typeof c === "string") return c;
     const col = c as { field?: string };
@@ -217,7 +191,7 @@ async function serializeTab(
     key: tab.key,
     label: tab.label,
     resource: tab.resource,
-    rows: (result.rows as Record<string, unknown>[]).map((r) => projectRow(target, r)),
+    rows,
     columns: columns.filter((c) => c),
   };
 }

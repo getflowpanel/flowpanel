@@ -17,14 +17,14 @@ export function NumericRangeFilter({ label, value, onChange, step }: NumericRang
   };
   return (
     <div className="flex flex-col gap-1">
-      {label ? <span className="text-xs text-fp-text-3">{label}</span> : null}
+      {label ? <span className="text-xs font-medium text-fp-text-3">{label}</span> : null}
       <div className="flex items-center gap-1">
         <Input
           type="number"
           value={min ?? ""}
           step={step}
           onChange={(e) => emit(e.target.value, max ?? "")}
-          className="h-8 w-24"
+          className="h-9 w-24"
           aria-label="Min"
           placeholder="min"
         />
@@ -34,7 +34,7 @@ export function NumericRangeFilter({ label, value, onChange, step }: NumericRang
           value={max ?? ""}
           step={step}
           onChange={(e) => emit(min ?? "", e.target.value)}
-          className="h-8 w-24"
+          className="h-9 w-24"
           aria-label="Max"
           placeholder="max"
         />

@@ -20,15 +20,15 @@ describe("resourceNavName — Drizzle Symbol(BaseName) fallback", () => {
     expect(resourceNavName({ ref, options: {} })).toBe("shipments");
   });
 
-  it("ignores non-string Symbol(drizzle:BaseName) values", () => {
+  it("throws on non-string Symbol(drizzle:BaseName) values, not a 'resource' fallback", () => {
     const ref: Record<string | symbol, unknown> = {};
     const sym = Symbol("drizzle:BaseName");
     (ref as Record<symbol, unknown>)[sym] = 42;
-    expect(resourceNavName({ ref, options: {} })).toBe("resource");
+    expect(() => resourceNavName({ ref, options: {} })).toThrow(/name/i);
   });
 
-  it("returns the 'resource' fallback when ref is null", () => {
-    expect(resourceNavName({ ref: null, options: {} })).toBe("resource");
+  it("throws when ref is null, not a 'resource' fallback", () => {
+    expect(() => resourceNavName({ ref: null, options: {} })).toThrow(/name/i);
   });
 });
 

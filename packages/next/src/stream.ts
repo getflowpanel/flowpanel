@@ -49,9 +49,11 @@ export function stream(
 
     const url = new URL(req.url);
     const requestedChannels = url.searchParams.getAll("channel");
+    // Cap before the per-channel role check so a huge repeated ?channel= list can't force
+    // MAX_CHANNELS-unbounded role checks.
     const channels = requestedChannels
-      .filter((ch) => channelAllowed(ch, config, session))
-      .slice(0, MAX_CHANNELS);
+      .slice(0, MAX_CHANNELS)
+      .filter((ch) => channelAllowed(ch, config, session));
     const encoder = new TextEncoder();
 
     let disposers: Array<() => void> = [];
@@ -71,13 +73,28 @@ export function stream(
 
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
+        function closeController(): void {
+          try {
+            controller.close();
+          } catch {}
+        }
+
         function safeEnqueue(chunk: string): void {
           if (closed) return;
           try {
             controller.enqueue(encoder.encode(chunk));
           } catch {
             cleanup();
+            closeController();
           }
+        }
+
+        // Disconnected during `await config.auth.session()`, before the abort listener below
+        // could attach — bail out now or the heartbeat/subscriptions leak for good.
+        if (req.signal?.aborted) {
+          cleanup();
+          closeController();
+          return;
         }
 
         safeEnqueue("event: ready\ndata: {}\n\n");
@@ -97,9 +114,7 @@ export function stream(
         if (req.signal) {
           req.signal.addEventListener("abort", () => {
             cleanup();
-            try {
-              controller.close();
-            } catch {}
+            closeController();
           });
         }
       },

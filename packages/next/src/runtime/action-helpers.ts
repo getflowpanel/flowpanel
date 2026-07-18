@@ -157,11 +157,21 @@ export interface ActionInputIssue {
   message: string;
 }
 
-/** Validate a client-supplied action `input` against the action's declared `form` (a `FieldDef[]`). */
+function isPromiseLike(v: unknown): v is PromiseLike<string | null> {
+  return (
+    typeof v === "object" && v !== null && typeof (v as { then?: unknown }).then === "function"
+  );
+}
+
+/**
+ * Validate a client-supplied action `input` against the action's declared `form` (a `FieldDef[]`).
+ * Returns a plain result unless a function-form `validate` is itself async, in which case it
+ * returns a `Promise` — callers with only sync validators can skip `await` and still get it right.
+ */
 export function validateActionInput(
   form: FieldDef<Record<string, unknown>>[] | undefined,
   input: unknown,
-): ActionInputIssue[] | null {
+): ActionInputIssue[] | null | Promise<ActionInputIssue[] | null> {
   if (!form || form.length === 0) return null;
 
   const values =
@@ -171,6 +181,8 @@ export function validateActionInput(
   }
 
   const issues: ActionInputIssue[] = [];
+  const pending: { name: string; result: PromiseLike<string | null> }[] = [];
+
   for (const field of form) {
     const value = values[field.name];
 
@@ -178,12 +190,16 @@ export function validateActionInput(
       issues.push({ path: [field.name], message: `${field.name} is required` });
       continue;
     }
+    if (field.validate === undefined || value === undefined) continue;
 
-    const isZodSchema =
-      field.validate !== undefined &&
-      typeof field.validate === "object" &&
-      typeof (field.validate as { safeParse?: unknown }).safeParse === "function";
-    if (isZodSchema && value !== undefined) {
+    if (typeof field.validate === "function") {
+      const result = field.validate(value, values);
+      if (isPromiseLike(result)) {
+        pending.push({ name: field.name, result });
+      } else if (result) {
+        issues.push({ path: [field.name], message: result });
+      }
+    } else if (typeof (field.validate as { safeParse?: unknown }).safeParse === "function") {
       const result = (field.validate as z.ZodTypeAny).safeParse(value);
       if (!result.success) {
         for (const issue of result.error.issues) {
@@ -194,5 +210,13 @@ export function validateActionInput(
     }
   }
 
-  return issues.length > 0 ? issues : null;
+  if (pending.length === 0) return issues.length > 0 ? issues : null;
+
+  return (async () => {
+    for (const { name, result } of pending) {
+      const msg = await result;
+      if (msg) issues.push({ path: [name], message: msg });
+    }
+    return issues.length > 0 ? issues : null;
+  })();
 }

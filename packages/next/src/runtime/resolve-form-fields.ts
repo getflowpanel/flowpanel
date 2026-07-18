@@ -1,16 +1,15 @@
 import type {
   FieldDef,
-  ItemQueryContext,
   QueryContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
   SelectOption,
 } from "@flowpanel/core";
-import { checkRequireRole, humanize, runWithRequestContext } from "@flowpanel/core";
+import { humanize, runWithRequestContext } from "@flowpanel/core";
 import type { ResolvedField } from "@flowpanel/react";
 import { roleAllows } from "./action-helpers.js";
-import { scopeBinding } from "./scope-binding.js";
+import { readRelatedRows } from "./require-authorized.js";
 
 /** The declared field specs for a form mode. */
 export function declaredFormFields(
@@ -47,26 +46,13 @@ async function resolveReferenceCurrentOption(
   if (currentValue === null || currentValue === undefined || currentValue === "") return [];
   const target = config.resourcesByName.get(ref.resource);
   if (!target) return [];
-  if (target.options.requireRole !== undefined) {
-    try {
-      checkRequireRole(target.options.requireRole, reqCtx.role, reqCtx.session);
-    } catch {
-      return [];
-    }
-  }
   const pk = config.adapter.introspect(target.ref).primaryKey;
-  const itemCtx: ItemQueryContext = {
-    ...reqCtx,
-    db: config.adapter.db,
-    dateRange: { from: new Date(0), to: new Date() },
-    searchParams: new URLSearchParams(),
-    signal: new AbortController().signal,
-    id: String(currentValue),
-    ...scopeBinding(config, target, reqCtx),
-  };
-  const row = (await runWithRequestContext(reqCtx, () =>
-    config.adapter.get(target.ref, itemCtx),
-  )) as Record<string, unknown> | null;
+  const rows = await readRelatedRows(config, target, reqCtx, {
+    filters: { [pk]: String(currentValue) },
+    pageSize: 1,
+    extraFields: [pk, ref.labelField],
+  });
+  const row = rows?.[0];
   if (!row) return [];
   return [{ value: String(row[pk]), label: String(row[ref.labelField] ?? row[pk]) }];
 }

@@ -1,12 +1,12 @@
 import type {
-  ListQueryContext,
   RequestContext,
   ResolvedAdminConfig,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { scopeBinding } from "../runtime/scope-binding.js";
+import { safeErrorMessage } from "../runtime/action-helpers.js";
+import { readRelatedRows } from "../runtime/require-authorized.js";
 
 /** Wire-safe shape of a drawer widget. */
 export type SerializedWidget =
@@ -51,7 +51,6 @@ export async function serializeWidget(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
   widgetCtx: WidgetContext,
-  req: Request,
 ): Promise<SerializedWidget> {
   try {
     switch (w.kind) {
@@ -77,27 +76,14 @@ export async function serializeWidget(
           rows = raw as Record<string, unknown>[];
         } else if (w.options.resource) {
           const target = config.resourcesByName.get(w.options.resource);
-          if (target) {
-            const softDelete = target.options.delete?.softDelete;
-            const listCtx: ListQueryContext<unknown> = {
-              ...reqCtx,
-              req,
-              db: config.adapter.db,
-              dateRange: { from: new Date(0), to: new Date() },
-              searchParams: new URLSearchParams(),
-              signal: new AbortController().signal,
-              filters: {},
-              sort: null,
-              page: 1,
-              pageSize: w.options.limit ?? 10,
-              search: "",
-              ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
-              ...scopeBinding(config, target, reqCtx),
-            };
-            const r = await runWithRequestContext(reqCtx, () =>
-              config.adapter.list(target.ref, listCtx),
-            );
-            rows = r.rows as Record<string, unknown>[];
+          const related = target
+            ? await readRelatedRows(config, target, reqCtx, {
+                pageSize: w.options.limit ?? 10,
+                extraFields: w.options.columns ?? [],
+              })
+            : null;
+          if (target && related) {
+            rows = related;
             columns = (target.options.columns as unknown[])
               .map((c) => {
                 if (typeof c === "string") return { field: c };
@@ -178,7 +164,7 @@ export async function serializeWidget(
   } catch (err) {
     return {
       kind: "unsupported",
-      reason: err instanceof Error ? err.message : "widget query failed",
+      reason: safeErrorMessage(err, "widget query failed"),
     };
   }
 }

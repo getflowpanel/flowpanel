@@ -84,11 +84,18 @@ export function InlineEditCell({
         type="button"
         onDoubleClick={() => setEditing(true)}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            setEditing(true);
+          }
+        }}
         className={cn(
-          "w-full cursor-text text-left text-fp-text-1 hover:bg-fp-bg-2 hover:px-1 hover:py-0.5 hover:-mx-1 hover:-my-0.5 rounded-fp-sm",
+          "w-full cursor-text rounded-fp-sm text-left text-fp-text-1 transition-colors hover:-mx-1 hover:-my-0.5 hover:bg-fp-bg-3/60 hover:px-1 hover:py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
           className,
         )}
-        aria-label={`Double-click to edit ${field}`}
+        aria-label={`Edit ${field} — press Enter or double-click`}
       >
         {display ? display(value) : formatDisplay(value, valueType)}
       </button>

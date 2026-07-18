@@ -4,8 +4,8 @@ import type { Config } from "tailwindcss";
  * FlowPanel design tokens are CSS custom properties defined in
  * `@flowpanel/react/styles/admin.css` (`--fp-bg-1`, `--fp-text-1`, …).
  * We mirror them into Tailwind v3's `theme.extend` so utilities like
- * `bg-fp-bg-1`, `text-fp-text-1`, `border-fp-border-1`, `rounded-fp`
- * emit CSS in this app.
+ * `bg-fp-bg-1`, `text-fp-text-1`, `border-fp-border-1`, `rounded-fp`,
+ * `shadow-fp-sm` emit CSS in this app.
  */
 const fpColor = (name: string) => `hsl(var(--fp-${name}) / <alpha-value>)`;
 
@@ -29,18 +29,45 @@ export default {
         "fp-border-2": fpColor("border-2"),
         "fp-accent": fpColor("accent"),
         "fp-accent-text": fpColor("accent-text"),
+        "fp-focus": fpColor("ring"),
+        "fp-overlay": fpColor("overlay"),
         "fp-ok": fpColor("ok"),
         "fp-warn": fpColor("warn"),
         "fp-err": fpColor("err"),
+        "fp-ok-text": fpColor("ok-text"),
+        "fp-warn-text": fpColor("warn-text"),
+        "fp-err-text": fpColor("err-text"),
+        "fp-accent-badge-text": fpColor("accent-badge-text"),
+        "fp-chart-1": fpColor("chart-1"),
+        "fp-chart-2": fpColor("chart-2"),
+        "fp-chart-3": fpColor("chart-3"),
+        "fp-chart-4": fpColor("chart-4"),
+        "fp-chart-5": fpColor("chart-5"),
+        "fp-chart-6": fpColor("chart-6"),
+        "fp-chart-7": fpColor("chart-7"),
       },
       borderRadius: {
         fp: "var(--fp-radius)",
         "fp-sm": "var(--fp-radius-sm)",
         "fp-lg": "var(--fp-radius-lg)",
+        "fp-xl": "var(--fp-radius-xl)",
+      },
+      boxShadow: {
+        "fp-xs": "var(--fp-shadow-xs)",
+        "fp-sm": "var(--fp-shadow-sm)",
+        "fp-md": "var(--fp-shadow-md)",
+        "fp-lg": "var(--fp-shadow-lg)",
       },
       fontFamily: {
         sans: "var(--fp-font-sans)",
         mono: "var(--fp-font-mono)",
+        "fp-sans": "var(--fp-font-sans)",
+        "fp-mono": "var(--fp-font-mono)",
+      },
+      transitionTimingFunction: {
+        "fp-out": "var(--fp-ease-out)",
+        "fp-in-out": "var(--fp-ease-in-out)",
+        "fp-spring": "var(--fp-ease-spring)",
       },
     },
   },

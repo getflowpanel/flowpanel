@@ -26,21 +26,23 @@ describe("emitAudit", () => {
     await expect(emitAudit({ enabled: true }, ev)).resolves.toBeUndefined();
   });
 
-  it("swallows sink errors in production", async () => {
-    const original = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
-    try {
-      const sink = vi.fn().mockRejectedValue(new Error("boom"));
-      await expect(emitAudit({ enabled: true, sink }, ev)).resolves.toBeUndefined();
-      expect(sink).toHaveBeenCalled();
-    } finally {
-      process.env.NODE_ENV = original;
+  it("never throws when the sink rejects, in production or dev", async () => {
+    for (const env of ["production", "development"]) {
+      const original = process.env.NODE_ENV;
+      process.env.NODE_ENV = env;
+      try {
+        const sink = vi.fn().mockRejectedValue(new Error("boom"));
+        await expect(emitAudit({ enabled: true, sink }, ev)).resolves.toBeUndefined();
+        expect(sink).toHaveBeenCalled();
+      } finally {
+        process.env.NODE_ENV = original;
+      }
     }
   });
 
-  it("logs sink errors in dev (non-production)", async () => {
+  it("reports sink errors even in production — a hole in the audit trail must be visible", async () => {
     const original = process.env.NODE_ENV;
-    process.env.NODE_ENV = "development";
+    process.env.NODE_ENV = "production";
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const sink = vi.fn().mockRejectedValue(new Error("boom"));

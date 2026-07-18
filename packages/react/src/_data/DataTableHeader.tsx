@@ -1,4 +1,5 @@
 "use client";
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import type * as React from "react";
 import { cn } from "../lib/cn.js";
 import { resolveFieldLabel } from "../lib/humanize.js";
@@ -49,8 +50,8 @@ export function DataTableHeader<Row>({
   rowEndCellLabel,
 }: DataTableHeaderProps<Row>) {
   return (
-    <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
-      <tr>
+    <thead className="text-fp-text-3 text-[11px] uppercase tracking-wider">
+      <tr className="border-b border-fp-border-1">
         {selectionEnabled ? (
           <th scope="col" className="w-10 px-4 py-2">
             <Checkbox
@@ -89,23 +90,41 @@ export function DataTableHeader<Row>({
                 ? { style: cssVars as React.CSSProperties }
                 : {})}
               className={cn(
-                "px-4 py-2 font-medium select-none",
+                "group px-4 py-2.5 font-medium select-none",
                 ALIGN_CLASS[c.align ?? "left"],
                 wCss !== undefined && "w-[var(--fp-col-w)]",
-                meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-2 z-[2]",
-                meta.side === "right" && "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-2 z-[2]",
+                meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-1 z-[2]",
+                meta.side === "right" && "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-1 z-[2]",
                 meta.side === "none" && "relative",
-                c.sortable && "cursor-pointer hover:text-fp-text-1",
                 c.className,
               )}
-              onClick={() => onHeaderClick(c)}
             >
-              {resolveFieldLabel(c.label, c.field)}
-              {active ? (
-                <span aria-hidden className="ml-1">
-                  {sort?.dir === "asc" ? "↑" : "↓"}
-                </span>
-              ) : null}
+              {c.sortable ? (
+                <button
+                  type="button"
+                  onClick={() => onHeaderClick(c)}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-fp-sm uppercase tracking-wider transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+                    active && "text-fp-text-1",
+                  )}
+                >
+                  {resolveFieldLabel(c.label, c.field)}
+                  {active ? (
+                    sort?.dir === "asc" ? (
+                      <ArrowUp aria-hidden className="h-3 w-3 text-fp-accent" />
+                    ) : (
+                      <ArrowDown aria-hidden className="h-3 w-3 text-fp-accent" />
+                    )
+                  ) : (
+                    <ChevronsUpDown
+                      aria-hidden
+                      className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60"
+                    />
+                  )}
+                </button>
+              ) : (
+                resolveFieldLabel(c.label, c.field)
+              )}
               {onPinnedColumnsChange ? (
                 <ColumnPinMenu
                   field={c.field}

@@ -204,6 +204,15 @@ the URL state a drawer's open/closed state and active tab live in.
 **`useDashboardParam(key, schema, fallback)`** — type-safe reader/writer for
 one dashboard URL search param, validated against a Zod schema.
 
+**`useMediaQuery(query)`** — subscribes to a CSS media query via
+`useSyncExternalStore`, with a server snapshot of `false` so SSR and first
+paint agree. `DataTable` uses `useMediaQuery("(max-width: 639px)")` for its
+card/table breakpoint; use the same query to match it in custom UI.
+
+```tsx
+const isMobile = useMediaQuery("(max-width: 639px)");
+```
+
 ## Realtime
 
 Realtime status flows through a shared bus so many components can subscribe

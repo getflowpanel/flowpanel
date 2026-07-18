@@ -28,6 +28,17 @@ describe("resourceNavName", () => {
   it("falls back to Drizzle-style ref._.name", () => {
     expect(resourceNavName({ ref: { _: { name: "orders" } }, options: {} })).toBe("orders");
   });
+  it("falls back to Drizzle's Symbol(drizzle:Name)", () => {
+    const nameSym = Symbol("drizzle:Name");
+    expect(resourceNavName({ ref: { [nameSym]: "payments" }, options: {} })).toBe("payments");
+  });
+  it("falls back to Drizzle's Symbol(drizzle:BaseName)", () => {
+    const baseNameSym = Symbol("drizzle:BaseName");
+    expect(resourceNavName({ ref: { [baseNameSym]: "invoices" }, options: {} })).toBe("invoices");
+  });
+  it("throws instead of silently returning a literal fallback", () => {
+    expect(() => resourceNavName({ ref: {}, options: {} })).toThrow(/name/i);
+  });
 });
 
 describe("buildNav", () => {

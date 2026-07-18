@@ -1,5 +1,7 @@
 import type {
   Adapter,
+  ListQueryContext,
+  RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
   WidgetConfig,
@@ -7,7 +9,7 @@ import type {
 } from "@flowpanel/core";
 import { MetricCard, RealtimeRefresh, TableWidget } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ServerCard } from "../runtime/_server-card.js";
 import { renderWidget } from "../runtime/render-widget.js";
 
@@ -42,6 +44,15 @@ const ctx: WidgetContext = {
   session: null,
   dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
   req: new Request("http://localhost/"),
+};
+
+const reqCtx: RequestContext = {
+  req: new Request("http://localhost/"),
+  session: null,
+  role: "admin",
+  scope: null,
+  ip: null,
+  userAgent: null,
 };
 
 /**
@@ -99,7 +110,7 @@ describe("renderWidget — metric icon", () => {
       query: async () => 12,
       options: { icon: "📦" },
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
     const props = findElementByType(node, MetricCard);
     expect(props?.icon).toBe("📦");
   });
@@ -111,7 +122,7 @@ describe("renderWidget — metric icon", () => {
       query: async () => 12,
       options: {},
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
     const props = findElementByType(node, MetricCard);
     expect(props?.icon).toBeUndefined();
   });
@@ -124,7 +135,7 @@ describe("renderWidget — table emptyState", () => {
       kind: "table",
       options: { query: async () => [], emptyState: empty },
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
     expect(isValidElement(node)).toBe(true);
     const el = node as ReactElement<{ emptyState?: ReactNode }>;
     expect(el.props.emptyState).toBe(empty);
@@ -135,7 +146,7 @@ describe("renderWidget — table emptyState", () => {
       kind: "table",
       options: { query: async () => [] },
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
     const el = node as ReactElement<{ emptyState?: ReactNode }>;
     expect(el.props.emptyState).toBeUndefined();
   });
@@ -149,7 +160,7 @@ describe("renderWidget — realtime wiring", () => {
       query: async () => 12,
       options: { realtime: "resource.orders" },
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
     expect(findRealtimeChannels(node)).toBe("resource.orders");
   });
 
@@ -160,7 +171,7 @@ describe("renderWidget — realtime wiring", () => {
       query: async () => 12,
       options: {},
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
     expect(findRealtimeChannels(node)).toBeUndefined();
   });
 
@@ -172,7 +183,7 @@ describe("renderWidget — realtime wiring", () => {
         realtime: "resource.users",
       },
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
     expect(findRealtimeChannels(node)).toBe("resource.users");
   });
 
@@ -184,7 +195,7 @@ describe("renderWidget — realtime wiring", () => {
       props: {},
       options: { realtime: ["resource.a", "resource.b"] },
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
     expect(findRealtimeChannels(node)).toEqual(["resource.a", "resource.b"]);
   });
 
@@ -193,7 +204,7 @@ describe("renderWidget — realtime wiring", () => {
       kind: "statGroup",
       options: { stats: [{ label: "x", value: 1 }], realtime: "resource.kpi" },
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
     expect(findRealtimeChannels(node)).toBe("resource.kpi");
   });
 });
@@ -243,7 +254,7 @@ describe("renderWidget — custom widgets server-render", () => {
       props: { n: 42 },
       options: {},
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
 
     // The user's Component element must appear directly as a child of the
     // ServerCard — NOT routed through any wrapper that takes it as a prop
@@ -261,7 +272,7 @@ describe("renderWidget — custom widgets server-render", () => {
       props: async () => ({ label: "hello" }),
       options: {},
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
 
     // Locate the Component element and assert the resolved props landed
     // on it (not the resolver function itself).
@@ -278,7 +289,7 @@ describe("renderWidget — custom widgets server-render", () => {
       props: {},
       options: { frame: false },
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
 
     // No ServerCard in the tree — the user's Component appears as a direct
     // child of the returned Fragment.
@@ -305,7 +316,7 @@ describe("renderWidget — custom widgets server-render", () => {
       props: {},
       options: {},
     } as never;
-    const node = await renderWidget(widget, ctx, cfg);
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
 
     function hasComponentProp(tree: ReactNode): boolean {
       if (tree === null || tree === undefined || typeof tree !== "object") return false;
@@ -359,7 +370,7 @@ describe("renderWidget — table widget row projection", () => {
       options: { resource: "users" },
     } as never;
 
-    const node = await renderWidget(widget, ctx, boundCfg);
+    const node = await renderWidget(widget, ctx, boundCfg, reqCtx);
     expect(isValidElement(node)).toBe(true);
     const el = node as ReactElement<{ rows: Record<string, unknown>[] }>;
     expect(el.type).toBe(TableWidget);
@@ -406,11 +417,106 @@ describe("renderWidget — table widget row projection", () => {
       options: { resource: "users", columns: ["note"] },
     } as never;
 
-    const node = await renderWidget(widget, ctx, boundCfg);
+    const node = await renderWidget(widget, ctx, boundCfg, reqCtx);
     const el = node as ReactElement<{ rows: Record<string, unknown>[] }>;
     // `name` stays too — it's still a declared column on the `users`
     // resource even though this particular widget doesn't render it.
     expect(el.props.rows).toEqual([{ id: "1", name: "Ann", note: "vip" }]);
     expect(el.props.rows[0]).not.toHaveProperty("passwordHash");
+  });
+});
+
+describe("renderWidget — cross-resource authorization", () => {
+  function boundConfig(
+    resourceOptions: Record<string, unknown>,
+    globalScope?: unknown,
+  ): { cfg: ResolvedAdminConfig; list: ReturnType<typeof vi.fn> } {
+    const list = vi.fn(async (_ref: unknown, _ctx: ListQueryContext<unknown>) => ({
+      rows: [{ id: "1", name: "Ann" }],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    }));
+    const usersResource: ResourceConfig = {
+      __kind: "resource",
+      ref: { __name: "users" },
+      options: { columns: ["id", "name"], ...resourceOptions },
+    } as never;
+    const cfg: ResolvedAdminConfig = {
+      adapter: { ...fakeAdapter, list },
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [usersResource],
+      resourcesByName: new Map([["users", usersResource]]),
+      dashboardsByPath: new Map(),
+      ...(globalScope ? { scope: globalScope } : {}),
+      __resolved: true,
+    } as never;
+    return { cfg, list };
+  }
+
+  const tableWidget: WidgetConfig = {
+    kind: "table",
+    options: { resource: "users" },
+  } as never;
+
+  it("does not read a role-gated target the viewer cannot access", async () => {
+    const { cfg, list } = boundConfig({ requireRole: "superadmin" });
+    const staffCtx: RequestContext = { ...reqCtx, role: "staff" };
+    const node = await renderWidget(tableWidget, ctx, cfg, staffCtx);
+    const el = node as ReactElement<{ rows: Record<string, unknown>[] }>;
+    expect(el.props.rows).toEqual([]);
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("does not read a target that declares no scope while global scope is active", async () => {
+    const { cfg, list } = boundConfig({}, () => ({ tenantId: "t1" }));
+    const node = await renderWidget(tableWidget, ctx, cfg, reqCtx);
+    const el = node as ReactElement<{ rows: Record<string, unknown>[] }>;
+    expect(el.props.rows).toEqual([]);
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("binds the target's scope predicate to the request's scope value", async () => {
+    const scopePredicate = vi.fn((scope: unknown, query: unknown) => ({ scope, query }));
+    const { cfg, list } = boundConfig({ scope: scopePredicate }, () => ({ tenantId: "t1" }));
+    const scoped: RequestContext = { ...reqCtx, scope: { tenantId: "t1" } };
+    await renderWidget(tableWidget, ctx, cfg, scoped);
+    const listCtx = list.mock.calls[0]?.[1] as {
+      applyScope?: (q: unknown) => unknown;
+      scopeRequired?: boolean;
+    };
+    expect(listCtx.scopeRequired).toBe(true);
+    listCtx.applyScope?.("q");
+    expect(scopePredicate).toHaveBeenCalledWith({ tenantId: "t1" }, "q");
+  });
+
+  it("hands column render callbacks the caller's real role, never a blank one", async () => {
+    const seenRoles: string[] = [];
+    const usersResource: ResourceConfig = {
+      __kind: "resource",
+      ref: { __name: "users" },
+      options: {
+        columns: [
+          {
+            field: "name",
+            render: (_row: unknown, c: RequestContext) => {
+              seenRoles.push(c.role);
+              return null;
+            },
+          },
+        ],
+      },
+    } as never;
+    const cfg: ResolvedAdminConfig = {
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [usersResource],
+      resourcesByName: new Map([["users", usersResource]]),
+      dashboardsByPath: new Map(),
+      __resolved: true,
+    } as never;
+
+    await renderWidget(tableWidget, ctx, cfg, reqCtx);
+    expect(seenRoles).toEqual(["admin"]);
   });
 });

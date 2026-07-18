@@ -40,6 +40,13 @@ describe("ThemeVars", () => {
     );
   });
 
+  it("writes accentDark as a :root.dark rule that outranks both defaults and :root", () => {
+    expect(styleText({ accent: "10 90% 50%", accentDark: "hsl(10 90% 68%)" })).toBe(
+      ":root{--fp-accent:10 90% 50%}:root.dark{--fp-accent:10 90% 68%}",
+    );
+    expect(styleText({ accentDark: "10 90% 68%" })).toBe(":root.dark{--fp-accent:10 90% 68%}");
+  });
+
   it("refuses names and values that could break out of the rule", () => {
     expect(styleText({ cssVars: { "--fp-x': red }; body { display: none": "1" } })).toBeNull();
     expect(styleText({ cssVars: { "--fp-radius": "1rem} body{display:none" } })).toBe(

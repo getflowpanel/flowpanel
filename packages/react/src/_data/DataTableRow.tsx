@@ -79,8 +79,9 @@ export function DataTableRow<Row extends Record<string, unknown>>({
       onClick={() => onRowClick?.(row)}
       className={cn(
         "border-t border-fp-border-1 text-fp-text-1 transition-colors",
-        onRowClick && "cursor-pointer hover:bg-fp-bg-2",
-        active && "bg-fp-bg-2",
+        onRowClick && "cursor-pointer hover:bg-fp-bg-2/70",
+        isSelected && "bg-fp-accent/5",
+        active && "bg-fp-accent/5 outline outline-2 -outline-offset-2 outline-fp-focus/60",
       )}
     >
       {selectionEnabled ? (
@@ -113,6 +114,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
               rowPadding,
               cellText,
               ALIGN_CLASS[c.align ?? "left"],
+              c.align === "right" && "tabular-nums",
               meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-1 z-[1]",
               meta.side === "right" && "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-1 z-[1]",
               c.className,

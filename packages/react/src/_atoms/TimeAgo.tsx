@@ -21,6 +21,7 @@ export function TimeAgo({ date, locale, tickMs = 60_000 }: TimeAgoProps) {
   const target = React.useMemo(() => (typeof date === "string" ? new Date(date) : date), [date]);
   const [, setTick] = React.useState(0);
   React.useEffect(() => {
+    setTick((t) => t + 1);
     const id = setInterval(() => setTick((t) => t + 1), tickMs);
     return () => clearInterval(id);
   }, [tickMs]);
@@ -35,7 +36,11 @@ export function TimeAgo({ date, locale, tickMs = 60_000 }: TimeAgoProps) {
   for (const [unit, ms] of UNITS) {
     if (abs >= ms || unit === "second") {
       return (
-        <time dateTime={target.toISOString()} title={target.toLocaleString()}>
+        <time
+          suppressHydrationWarning
+          dateTime={target.toISOString()}
+          title={target.toLocaleString()}
+        >
           {rtf.format(Math.round(diff / ms), unit)}
         </time>
       );

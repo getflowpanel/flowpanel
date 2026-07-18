@@ -27,12 +27,13 @@ export function BulkBar({ selection, actions, onClear }: BulkBarProps) {
       aria-label={formatLabel(labels.bulkBar.selected, { n: selection.length })}
       className={cn(
         "fp-bulkbar",
-        "sticky bottom-4 z-30 mx-auto mt-3 flex w-fit items-center gap-3 rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 shadow-lg",
+        "sticky bottom-4 z-30 mx-auto mt-3 flex w-fit items-center gap-3 rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 py-2 pl-4 pr-2 shadow-fp-lg",
       )}
     >
-      <span className="text-sm text-fp-text-2">
+      <span className="text-sm font-medium tabular-nums text-fp-text-1">
         {formatLabel(labels.bulkBar.selected, { n: selection.length })}
       </span>
+      <span aria-hidden className="h-5 w-px bg-fp-border-1" />
       {actions.map((a) => (
         <Button
           key={a.key}

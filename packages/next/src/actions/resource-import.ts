@@ -12,6 +12,35 @@ function pick(row: Record<string, unknown>, keys: string[]): Record<string, unkn
   return out;
 }
 
+class BodyTooLargeError extends Error {}
+
+/** Reads `req`'s body, aborting once `maxBytes` is exceeded — chunked requests have no
+ *  `content-length` to pre-check, so the cap has to be enforced while streaming. */
+async function readBodyCapped(req: Request, maxBytes: number): Promise<string> {
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new BodyTooLargeError();
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.byteLength;
+  }
+  return new TextDecoder().decode(out);
+}
+
 /** Per-row failure message. */
 function rowErrorMessage(err: unknown): string {
   if (err instanceof FlowpanelValidationError) {
@@ -49,14 +78,24 @@ export function importRoute(config: ResolvedAdminConfig) {
     }
 
     return withGuards(config, req, { resource }, async (reqCtx) => {
-      const contentLength = Number(req.headers.get("content-length") ?? 0);
-      if (contentLength > MAX_IMPORT_REQUEST_BYTES) {
+      const declaredLength = req.headers.get("content-length");
+      if (declaredLength !== null && Number(declaredLength) > MAX_IMPORT_REQUEST_BYTES) {
         return Response.json({ ok: false, error: "file too large" }, { status: 413 });
+      }
+
+      let raw: string;
+      try {
+        raw = await readBodyCapped(req, MAX_IMPORT_REQUEST_BYTES);
+      } catch (e) {
+        if (e instanceof BodyTooLargeError) {
+          return Response.json({ ok: false, error: "file too large" }, { status: 413 });
+        }
+        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
       }
 
       let body: { format?: unknown; content?: unknown };
       try {
-        body = await req.json();
+        body = JSON.parse(raw);
       } catch {
         return Response.json({ ok: false, error: "bad request" }, { status: 400 });
       }
@@ -94,13 +133,13 @@ export function importRoute(config: ResolvedAdminConfig) {
       let imported = 0;
       const failed: { row: number; error: string }[] = [];
       for (let i = 0; i < rows.length; i++) {
-        const raw = rows[i];
-        if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        const rawRow = rows[i];
+        if (!rawRow || typeof rawRow !== "object" || Array.isArray(rawRow)) {
           failed.push({ row: i + 1, error: "row is not an object" });
           continue;
         }
         try {
-          const picked = allowed ? pick(raw, allowed) : raw;
+          const picked = allowed ? pick(rawRow, allowed) : rawRow;
           const { values, fieldErrors } = coerceRowByColumns(columns, picked);
           if (Object.keys(fieldErrors).length > 0) throw new FlowpanelValidationError(fieldErrors);
           await actions.create(values);

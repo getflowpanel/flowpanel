@@ -9,6 +9,10 @@ declare module "@flowpanel/core" {
   interface FlowpanelTypes {
     db: typeof db;
   }
+  interface FlowpanelResources {
+    users: typeof schema.users.$inferSelect;
+    posts: typeof schema.posts.$inferSelect;
+  }
 }
 
 /**

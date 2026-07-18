@@ -1,8 +1,8 @@
 import type {
   DashboardConfig,
   DateRangePreset,
+  RequestContext,
   ResolvedAdminConfig,
-  Session,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
@@ -22,7 +22,7 @@ export interface DashboardPageProps {
   dashboard: DashboardConfig;
   searchParams: URLSearchParams;
   req: Request;
-  session: Session | null;
+  reqCtx: RequestContext;
 }
 
 const PRESETS: readonly DateRangePreset[] = [
@@ -71,14 +71,14 @@ export async function DashboardPage({
   dashboard,
   searchParams,
   req,
-  session,
+  reqCtx,
 }: DashboardPageProps) {
   const dateRangeInput = resolveDashboardDateRangeInput(dashboard.dateRange, searchParams);
   const effectivePreset = dateRangeInput.preset;
   const dateRange = resolveDateRange(dateRangeInput);
   const ctx: WidgetContext = {
     db: (config.adapter as { db: unknown }).db,
-    session,
+    session: reqCtx.session,
     dateRange,
     req,
   };
@@ -113,6 +113,7 @@ export async function DashboardPage({
               widget={w}
               ctx={ctx}
               config={config}
+              reqCtx={reqCtx}
               dashboardPath={dashboard.path}
               widgetIndex={`s${idx}.w${wIdx}`}
             />
@@ -127,12 +128,14 @@ function WidgetSlot({
   widget,
   ctx,
   config,
+  reqCtx,
   dashboardPath,
   widgetIndex,
 }: {
   widget: WidgetConfig;
   ctx: WidgetContext;
   config: ResolvedAdminConfig;
+  reqCtx: RequestContext;
   dashboardPath: string;
   widgetIndex: string;
 }) {
@@ -141,7 +144,7 @@ function WidgetSlot({
     <div {...(className ? { className } : {})}>
       <WidgetErrorBoundary widgetId={widgetIndex} dashboardId={dashboardPath}>
         <Suspense fallback={<SkeletonCard />}>
-          <WidgetAsync widget={widget} ctx={ctx} config={config} />
+          <WidgetAsync widget={widget} ctx={ctx} config={config} reqCtx={reqCtx} />
         </Suspense>
       </WidgetErrorBoundary>
     </div>
@@ -157,10 +160,12 @@ async function WidgetAsync({
   widget,
   ctx,
   config,
+  reqCtx,
 }: {
   widget: WidgetConfig;
   ctx: WidgetContext;
   config: ResolvedAdminConfig;
+  reqCtx: RequestContext;
 }) {
-  return <>{await renderWidget(widget, ctx, config)}</>;
+  return <>{await renderWidget(widget, ctx, config, reqCtx)}</>;
 }

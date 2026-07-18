@@ -120,4 +120,42 @@ describe("ResourceDetailPage — row projection", () => {
     expect(dataTables[0]?.rows).toEqual([{ id: "p1", userId: "1", amount: 10 }]);
     expect(dataTables[0]?.rows[0]).not.toHaveProperty("cardNumber");
   });
+
+  it("detail tab with fields: '*' (no tab.resource) drops undeclared fields", async () => {
+    const adapter = mkAdapter(
+      { id: "1", email: "a@b.co", passwordHash: "secret", internalFlag: true },
+      [],
+    );
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            detail: {
+              tabs: [{ key: "overview", label: "Overview", fields: "*" }],
+            },
+          },
+        ),
+      ],
+    });
+    const resourceCfg = config.resourcesByName.get("users");
+    if (!resourceCfg) throw new Error("users resource not registered");
+
+    const node = await ResourceDetailPage({
+      config,
+      resource: resourceCfg,
+      name: "users",
+      id: "1",
+      req: new Request("http://localhost/admin/users/1"),
+    });
+
+    const rows = findAllElements(node, KVRow);
+    const labels = rows.map((r) => r.label);
+    expect(labels.sort()).toEqual(["email", "id"]);
+    expect(labels).not.toContain("passwordHash");
+    expect(labels).not.toContain("internalFlag");
+  });
 });

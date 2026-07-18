@@ -305,6 +305,37 @@ describe("rowActionRoute", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("runs a function-form field validator and returns its message as a field error", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      action: {
+        key: "note",
+        label: "Note",
+        form: [
+          {
+            name: "status",
+            type: "text",
+            validate: async (value) => (value === "banned" ? "status cannot be banned" : null),
+          },
+        ],
+        run,
+      },
+    });
+    const handler = rowActionRoute(config);
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "banned" }),
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "note" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.issues).toEqual([{ path: ["status"], message: "status cannot be banned" }]);
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("passes input through to run when the form validation succeeds", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig({

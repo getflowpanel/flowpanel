@@ -59,6 +59,28 @@ function post(body: unknown, headers: Record<string, string> = {}): Request {
   });
 }
 
+/** A streamed body with no declared length, like a chunked-transfer-encoding upload. */
+function postChunked(totalBytes: number, chunkSize = 64 * 1024): Request {
+  let sent = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (sent >= totalBytes) {
+        controller.close();
+        return;
+      }
+      const size = Math.min(chunkSize, totalBytes - sent);
+      controller.enqueue(new Uint8Array(size).fill(97));
+      sent += size;
+    },
+  });
+  return new Request("http://localhost/api/flowpanel/users/import", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+}
+
 const params = { params: Promise.resolve({ resource: "users" }) };
 
 describe("importRoute", () => {
@@ -68,6 +90,14 @@ describe("importRoute", () => {
       { format: "json", content: "[]" },
       { "content-length": String(50 * 1024 * 1024) },
     );
+    const res = await importRoute(config)(req, params);
+    expect(res.status).toBe(413);
+  });
+
+  it("rejects an oversized chunked body (no Content-Length) while streaming it", async () => {
+    const { config } = makeConfig();
+    expect(postChunked(1).headers.get("content-length")).toBeNull();
+    const req = postChunked(11 * 1024 * 1024); // over MAX_IMPORT_REQUEST_BYTES (10 MB)
     const res = await importRoute(config)(req, params);
     expect(res.status).toBe(413);
   });

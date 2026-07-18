@@ -38,6 +38,12 @@ export interface ThemeConfig {
   brand?: { name?: string; logo?: string; href?: string };
   /** Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. */
   accent?: string;
+  /**
+   * Dark-mode accent override, same format as `accent`. Custom accents tuned
+   * for light surfaces usually fail WCAG contrast on dark ones — pass a
+   * re-lightened triplet here to keep both schemes accessible.
+   */
+  accentDark?: string;
   /** Initial color scheme. `"auto"` follows the operating system. */
   mode?: "light" | "dark" | "auto";
   /** Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. */

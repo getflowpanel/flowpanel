@@ -49,6 +49,27 @@ describe("parseListParams", () => {
     const r = parseListParams(new URLSearchParams("?sort=email:desc"), undefined, allowed);
     expect(r.sort).toEqual({ field: "email", dir: "desc" });
   });
+
+  it("clamps an absurdly large ?page= instead of passing it through", () => {
+    const r = parseListParams(new URLSearchParams("?page=1e12"));
+    expect(r.page).toBeLessThanOrEqual(100_000);
+    expect(Number.isInteger(r.page)).toBe(true);
+  });
+
+  it("truncates a fractional ?page= to an integer", () => {
+    const r = parseListParams(new URLSearchParams("?page=1.9"));
+    expect(r.page).toBe(1);
+  });
+
+  it("floors non-finite ?page= (Infinity, NaN) to 1", () => {
+    expect(parseListParams(new URLSearchParams("?page=Infinity")).page).toBe(1);
+    expect(parseListParams(new URLSearchParams("?page=not-a-number")).page).toBe(1);
+  });
+
+  it("floors a negative or zero ?page= to 1", () => {
+    expect(parseListParams(new URLSearchParams("?page=-5")).page).toBe(1);
+    expect(parseListParams(new URLSearchParams("?page=0")).page).toBe(1);
+  });
 });
 
 describe("declaredFieldSet", () => {
