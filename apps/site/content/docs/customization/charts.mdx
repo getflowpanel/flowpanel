@@ -126,8 +126,12 @@ ticking (or StrictMode's double-mount) never leaves bars frozen mid-animation.
 
 Axes, grid, tooltip and series colors read the admin theme tokens
 (`--fp-border-1`, `--fp-text-3`, `--fp-bg-1`, `--fp-accent`,
-`--fp-radius`), so charts follow light/dark mode and any custom theme
-automatically — no configuration needed. A single-series cartesian chart's
-stroke and fill use your accent color; a multi-series chart, and pie slices,
-use the built-in multi-hue palette (overridable per-slice on `PieChart` via
-`colors`).
+`--fp-radius-lg`, `--fp-shadow-md`), so charts follow light/dark mode and
+any custom theme automatically — no configuration needed. A single-series
+cartesian chart's stroke and gradient fill use your accent color; a
+multi-series chart, and pie slices, use the categorical palette tokens
+`--fp-chart-1` … `--fp-chart-7`, which carry separate light- and dark-mode
+values in `admin.css` and are overridable like any other token (or
+per-slice on `PieChart` via `colors`). A chart whose query returns zero
+rows renders a token-styled "No data yet" state instead of an empty axis
+frame.

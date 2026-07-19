@@ -1,4 +1,3 @@
-// LOC-OK: prisma adapter — list/get/create/update/delete plus filter, sort and
 import { createRequire } from "node:module";
 import type {
   Adapter,
@@ -68,6 +67,13 @@ interface PrismaClientLike {
   [delegateName: string]: unknown;
 }
 
+// Prisma exposes no datasource provider at runtime, so this DDL uses only the
+// subset of types and defaults postgres, mysql and sqlite all accept.
+export const MIGRATIONS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
+  id varchar(255) NOT NULL PRIMARY KEY,
+  applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`;
+
 function loadDmmf(): PrismaDmmf {
   try {
     const { Prisma } = require("@prisma/client");
@@ -92,9 +98,11 @@ function getDelegate(prisma: PrismaClientLike, modelName: string): PrismaDelegat
   return delegate as PrismaDelegate;
 }
 
-function coerceId(id: string, modelName: string, dmmf: PrismaDmmf): string | number {
+/** `{ [<the model's @id field>]: <id coerced to that field's type> }`. */
+function pkWhere(id: string, modelName: string, dmmf: PrismaDmmf): Record<string, unknown> {
   const model = dmmf.datamodel.models.find((m) => m.name === modelName);
   const pkField = model?.fields.find((f) => f.isId);
+  const name = pkField?.name ?? "id";
   if (pkField && (pkField.type === "Int" || pkField.type === "BigInt")) {
     const n = parseInt(id, 10);
     if (Number.isNaN(n)) {
@@ -102,9 +110,9 @@ function coerceId(id: string, modelName: string, dmmf: PrismaDmmf): string | num
         `prismaAdapter: cannot coerce id "${id}" to ${pkField.type} for model "${modelName}"`,
       );
     }
-    return n;
+    return { [name]: n };
   }
-  return id;
+  return { [name]: id };
 }
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
@@ -194,8 +202,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
     async get(modelName, ctx: ItemQueryContext) {
       const delegate = getDelegate(prisma, modelName);
-      const id = coerceId(ctx.id, modelName, getDmmf());
-      const baseWhere = applyScopeToWhere({ id }, ctx);
+      const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       const result = ctx.applyScope
         ? await delegate.findFirst({ where: baseWhere })
         : await delegate.findUnique({ where: baseWhere });
@@ -211,8 +218,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     async update(modelName, ctx: MutationContext<unknown>) {
       if (!ctx.id) throw new Error("prismaAdapter: update requires ctx.id");
       const delegate = getDelegate(prisma, modelName);
-      const id = coerceId(ctx.id, modelName, getDmmf());
-      const baseWhere = applyScopeToWhere({ id }, ctx);
+      const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       if (ctx.applyScope) {
         const res = await delegate.updateMany({ where: baseWhere, data: ctx.input });
         if (res.count === 0) return null;
@@ -225,8 +231,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     async delete(modelName, ctx: MutationContext<unknown>): Promise<void> {
       if (!ctx.id) throw new Error("prismaAdapter: delete requires ctx.id");
       const delegate = getDelegate(prisma, modelName);
-      const id = coerceId(ctx.id, modelName, getDmmf());
-      const baseWhere = applyScopeToWhere({ id }, ctx);
+      const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       const softCol = ctx.softDelete?.column;
       if (softCol) {
         if (ctx.applyScope) {
@@ -247,8 +252,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         throw new Error("prismaAdapter: restore requires ctx.softDelete to be configured");
       if (!ctx.id) throw new Error("prismaAdapter: restore requires ctx.id");
       const delegate = getDelegate(prisma, modelName);
-      const id = coerceId(ctx.id, modelName, getDmmf());
-      const baseWhere = applyScopeToWhere({ id }, ctx);
+      const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       if (ctx.applyScope) {
         await delegate.updateMany({ where: baseWhere, data: { [softCol]: null } });
       } else {
@@ -261,12 +265,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     },
 
     async listAppliedMigrations(): Promise<Set<string>> {
-      await prisma.$executeRawUnsafe(
-        `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
-          id text PRIMARY KEY,
-          applied_at timestamptz NOT NULL DEFAULT now()
-        )`,
-      );
+      await prisma.$executeRawUnsafe(MIGRATIONS_TABLE_DDL);
       const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id FROM _flowpanel_migrations`,
       );

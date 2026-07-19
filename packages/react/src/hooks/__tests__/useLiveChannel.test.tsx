@@ -22,7 +22,13 @@ class MockEventSource {
   message(data: string): void {
     this.onmessage?.({ data });
   }
+  /** Transient error — the browser keeps retrying on its own (socket not CLOSED). */
   error(): void {
+    this.onerror?.({} as Event);
+  }
+  /** Permanent failure — socket CLOSED, the browser will not retry. */
+  fail(): void {
+    this.readyState = MockEventSource.CLOSED;
     this.onerror?.({} as Event);
   }
   close(): void {
@@ -30,15 +36,15 @@ class MockEventSource {
   }
 }
 
-let Harness: React.FC<{ channel: string; onMessage: (p: unknown) => void }>;
+let Harness: React.FC<{ channel: string; onMessage: (p: unknown) => void; enabled?: boolean }>;
 
 describe("useLiveChannel", () => {
   beforeEach(() => {
     instances.length = 0;
     vi.useFakeTimers();
     (globalThis as never as { EventSource: unknown }).EventSource = MockEventSource;
-    Harness = ({ channel, onMessage }) => {
-      const status = useLiveChannel(channel, onMessage);
+    Harness = ({ channel, onMessage, enabled }) => {
+      const status = useLiveChannel(channel, onMessage, enabled === undefined ? {} : { enabled });
       return <div data-testid="status">{status}</div>;
     };
   });
@@ -91,16 +97,97 @@ describe("useLiveChannel", () => {
     expect(handler).toHaveBeenCalledWith(undefined);
   });
 
-  it("reconnects with exponential backoff on error", async () => {
+  it("reconnects with exponential backoff once the socket is CLOSED", async () => {
     const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
     act(() => instances[0]!.open());
-    act(() => instances[0]!.error());
+    act(() => instances[0]!.fail());
     expect(getByTestId("status").textContent).toBe("reconnecting");
     // First backoff: 500ms * 2^1 = 1000ms
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
     expect(instances).toHaveLength(2);
+  });
+
+  it("leaves a transient error to the browser instead of escalating the backoff", async () => {
+    const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
+    act(() => instances[0]!.open());
+    act(() => instances[0]!.error());
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    // The socket is still OPEN — the browser owns this retry, we must not open a second one.
+    expect(instances).toHaveLength(1);
+    act(() => instances[0]!.open());
+    expect(getByTestId("status").textContent).toBe("live");
+  });
+
+  it("ignores a superseded source's error and keeps the live one open", async () => {
+    const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
+    const stale = instances[0]!;
+    act(() => stale.open());
+    act(() => stale.fail());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(instances).toHaveLength(2);
+    const current = instances[1]!;
+    act(() => current.open());
+    expect(getByTestId("status").textContent).toBe("live");
+
+    act(() => stale.fail());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(current.readyState).not.toBe(MockEventSource.CLOSED);
+    expect(getByTestId("status").textContent).toBe("live");
+    expect(instances).toHaveLength(2);
+  });
+
+  it("does not double-connect when two errors arrive before the reconnect timer fires", async () => {
+    render(<Harness channel="x" onMessage={() => undefined} />);
+    act(() => instances[0]!.open());
+    act(() => {
+      instances[0]!.fail();
+      instances[0]!.fail();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(instances).toHaveLength(2);
+  });
+
+  it("reports offline after 6 consecutive failed attempts, not before", async () => {
+    const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
+    act(() => instances[0]!.open());
+    for (let i = 0; i < 5; i += 1) {
+      act(() => instances[i]!.fail());
+      expect(getByTestId("status").textContent).toBe("reconnecting");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(31_000);
+      });
+    }
+    act(() => instances[5]!.fail());
+    expect(getByTestId("status").textContent).toBe("offline");
+    // Still retrying — offline is a report, not a surrender.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+    expect(instances).toHaveLength(7);
+    expect(getByTestId("status").textContent).toBe("offline");
+    act(() => instances[6]!.open());
+    expect(getByTestId("status").textContent).toBe("live");
+  });
+
+  it("reports idle, not offline, when the subscription is torn down", () => {
+    const { getByTestId, rerender } = render(
+      <Harness channel="x" onMessage={() => undefined} enabled />,
+    );
+    act(() => instances[0]!.open());
+    expect(getByTestId("status").textContent).toBe("live");
+    rerender(<Harness channel="x" onMessage={() => undefined} enabled={false} />);
+    expect(getByTestId("status").textContent).toBe("idle");
   });
 
   it("is idle when channel is empty", () => {

@@ -25,6 +25,8 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   total: number;
   page: number;
   pageSize: number;
+  /** Sizes offered by the pager; the server clamps `?perPage=` to this set. */
+  pageSizeOptions?: number[];
   rowKey: keyof Row & string;
   sort?: DataTableSort<Row> | null;
   /** Initial row density from `resource.options.density`. Forwarded to `DataTable`. */
@@ -104,6 +106,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
         {...(prerenderedCells ? { prerenderedCells } : {})}
         onSortChange={(s) => table.setSort(s as { field: string; dir: "asc" | "desc" })}
         onPageChange={(p) => table.setPage(p)}
+        onPageSizeChange={(n) => table.setPageSize(n)}
         inlineEditResource={resource}
         {...(hasBulkActions ? { selection, onSelectionChange: setSelection } : {})}
         {...(openDrawerOnRowClick

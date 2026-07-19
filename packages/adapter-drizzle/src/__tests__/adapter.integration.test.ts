@@ -257,3 +257,23 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     expect(await adapter.get(users, { ...ctx({ db }), id: "new1" } as any)).toBeNull();
   });
 });
+
+describe.skipIf(!dockerAvailable)("drizzleAdapter migrations (pg)", () => {
+  it("creates its bookkeeping table and round-trips applied ids", async () => {
+    const adapter = drizzleAdapter({ db, schema: { users } });
+
+    expect(await adapter.listAppliedMigrations?.()).toEqual(new Set());
+
+    await adapter.markMigrationApplied?.("0001_init");
+    await adapter.markMigrationApplied?.("0002_posts");
+
+    expect(await adapter.listAppliedMigrations?.()).toEqual(new Set(["0001_init", "0002_posts"]));
+  });
+
+  it("executes raw migration SQL", async () => {
+    const adapter = drizzleAdapter({ db, schema: { users } });
+    await adapter.runMigrationSql?.(`CREATE TABLE probe_mig (id text PRIMARY KEY)`);
+    const rows = await client`SELECT id FROM probe_mig`;
+    expect(rows).toHaveLength(0);
+  });
+});

@@ -182,7 +182,7 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
   if (allViews.length === 0) {
     return (
       <>
-        <Button size="sm" variant="outline" onClick={saveCurrent}>
+        <Button variant="outline" onClick={saveCurrent} className="rounded-full">
           Save view…
         </Button>
         {nameDialog}
@@ -195,7 +195,7 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
       {nameDialog}
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline">
+          <Button variant="outline" className="rounded-full">
             View: {activeView?.name ?? "All"}
           </Button>
         </DropdownMenuTrigger>

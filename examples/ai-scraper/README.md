@@ -27,7 +27,7 @@ limiting, and a `theme.components` override.
 ```bash
 pnpm docker:up         # Postgres 16 (port 54329)
 pnpm db:push           # apply Drizzle schema
-pnpm db:seed           # 90 customers, 37 scrapers, ~120 runs, 45 catalog SKUs, ~135 listings + AI matches, invoices, AI usage
+pnpm db:seed           # 90 customers, 37 scrapers, 111 runs, 45 catalog SKUs, 135 listings + AI matches, invoices, AI usage
 pnpm dev               # Next.js on :3000
 ```
 
@@ -45,7 +45,12 @@ pnpm dev                                      # admin sees the queues
 
 `BOARD_TOKEN` is required: the board server is a separate process on its own
 port, so FlowPanel's `requireRole` cannot protect it — the token is what does.
-Both commands read the same variable, which is how the admin's iframe gets in.
+Both commands read the same variable, which is how the admin's iframe gets in;
+without it the config throws on boot rather than rendering a `?token=` frame.
+
+The iframe's origin comes from `BOARD_URL` (default `http://localhost:$BOARD_PORT`,
+`3001`). A deployment **must** set it to an address the visitor's browser can
+reach — the default points at whoever is looking at the page.
 
 ## What's wired
 
@@ -56,14 +61,15 @@ Both commands read the same variable, which is how the admin's iframe gets in.
 | `app/api/flowpanel/[...route]/route.ts`                    | All admin API routes via `handlers(config)` (drawer GET + actions)  |
 | `app/api/flowpanel/stream/route.ts`                        | SSE realtime channel                                                |
 | `src/admin/PriorityMetricCard.tsx`                         | `theme.components.MetricCard` override (rings the default body)     |
-| `src/admin/LiveStats.tsx` / `LiveFeed.tsx` / `LiveDot.tsx` | `custom()` client widgets — read the `live` SSE payload over a dedicated EventSource (`useLiveChannel`) and render throughput + a price-change feed |
+| `src/admin/LiveStats.tsx` / `LiveFeed.tsx`                 | `custom()` client widgets — read the `live` SSE payload over a dedicated EventSource (`useLiveChannel`) and render throughput + a price-change feed |
+| `src/admin/LiveDot.tsx`                                    | Connection indicator rendered inside `LiveFeed` — not a widget of its own    |
 | `src/lib/live-feed.ts`                                      | In-memory ticker → `publish("live", …)` every ~2s (price-change events). No DB writes |
 | `src/lib/live-types.ts`                                     | Client-safe shared types/channel for the live feed (no server imports) |
 | `instrumentation.ts`                                        | Next startup hook — starts the ticker once per server boot         |
 | `src/lib/catalog.ts`                                        | Canonical product sample (+ marketplaces / sellers), shared by the seed and the live feed |
 | `src/db/schema.ts`                                          | Drizzle schema — enums, FK chains (`scrapers → runs → listings`, `matches → listings`/`products`), soft-delete column |
 | `src/lib/billing.ts`                                       | Stripe refund stub (wired into the invoice **Refund** action)      |
-| `src/lib/runner.ts`                                        | Scrape re-enqueue stub (wired into the run **Retry** action)       |
+| `src/lib/runner.ts`                                        | Adds a job to the `scrape` queue (wired into the run **Retry** action); a no-op without `REDIS_URL` |
 | `src/lib/queues.ts`                                        | 3 BullMQ queues (scrape / extract / billing), gated on `REDIS_URL` |
 | `scripts/seed-data.ts`                                     | Shared seed rows — imported by both `seed.ts` and `reset-demo.ts`   |
 | `scripts/board-server.ts`                                  | bull-board Express server (run via `pnpm flowpanel:board`)          |
@@ -79,14 +85,14 @@ Both commands read the same variable, which is how the admin's iframe gets in.
    → $328`), both updating every ~2s over SSE with **zero DB writes**. Then an
    **AI quality** section (a "Match status" donut + a "Confidence by model" bar
    chart) and a customer-growth area chart.
-2. `/admin/users` (**Customers**) — DataTable with filter bar (Plan, Status, Joined daterange), search, sort, column resize, column pin, bulk select, soft-delete. The toolbar's **Import** (CSV / JSON) and **Export** buttons bulk-load and download customers.
+2. `/admin/users` (**Customers**) — DataTable with filter bar (Plan, Status, Joined daterange), search, sort, column resize, column pin, bulk select, soft-delete. The toolbar's **Import** (CSV / JSON) and **Export** buttons bulk-load and download customers. **New** opens a `FieldDef` form — Plan and Status as selects, grouped into Account / Subscription — and never exposes the soft-delete column.
 3. Click any customer row → tabbed drawer: **Profile** (account fields) + **Scrapers** + **Invoices** (both pulled live from their resources, filtered to that user). Click **"Disable user"** → confirm dialog → soft-deletes in DB and publishes `resource.users` over SSE → other tabs refresh within ~200ms.
 4. `/admin/scrapers` — **double-click a Name** to inline-edit it; select rows to **Pause / Resume** in bulk; filter by Status / Schedule; `userId` FK rendered as the customer's email. Click a row → drawer (**Detail** + **Recent runs** + **Listings** tabs).
-5. `/admin/runs` — multiselect Status filter + Started daterange; duration formatted (`1.4 s`); the **Retry** row action appears only on failed runs (re-enqueues via the stub, resets the run to queued). Click a row → drawer (**Detail** + **Listings** + **AI usage** tabs — the scraper → run → listing FK chain).
+5. `/admin/runs` — multiselect Status filter + Started daterange; duration formatted (`1.4 s`); the **Retry** row action appears only on failed runs (pushes a `scrape` job onto BullMQ when `REDIS_URL` is set, then resets the run to queued). Click a row → drawer (**Detail** + **Listings** + **AI usage** tabs — the scraper → run → listing FK chain).
 6. `/admin/products` (**Catalog**) — the customer's own SKUs: SKU, our price, owning customer FK. Click **New** (or a row's edit) for a `FieldDef`-driven form: a `select` Category, a searchable **Customer reference picker** resolved live from the users table, and an **admin-only `Our price` field** (`requireRole: "admin"`) — field-level RBAC enforced server-side, so `support` staff never see or can write it. Filter by Category; search by SKU / title / brand. Click a row → drawer (**Detail** + **Matches** — the competitor listings matched to this SKU).
 7. `/admin/listings` — competitor offers across marketplaces, rendered with declarative `format` cells: site badge, `$` price, In/Low/Out-of-stock badges, ★ rating, formatted review counts. The high-volume table uses `density: "compact"` for tighter rows. Filter by Site / Stock / Price; `create` disabled (machine-generated). Click a row → drawer (**Detail** + **Match**).
 8. `/admin/matches` (**Review queue**) — the AI human-in-the-loop core: every match shows a toned **confidence %**, model badge, and status. **Confirm / Reject** row actions appear only on `needs_review` rows (write the decision + reviewer). Saved **views** (Needs review / Auto-confirmed / Rejected) one-click the backlog; default sort is lowest-confidence first. Click a row → drawer (**Detail** + **Listing** + **Catalog SKU**).
-9. `/admin/invoices` — amount formatted as `$` (stored in integer cents), status badges, `userId` FK. The **Refund** row action appears only on paid invoices (calls the Stripe stub, then flips status). Click a row → drawer (**Detail** + **Customer**).
+9. `/admin/invoices` — amount formatted as `$` (stored in integer cents), status badges, `userId` FK. The **Refund** row action appears only on paid invoices (calls the Stripe stub, then flips status) — `create` and `update` are both disabled, so an action is the only way to write a billing row. Click a row → drawer (**Detail** + **Customer**).
 10. `/admin/ai_usage` — LLM spend by provider / model / **task** (match vs extract); cost formatted as `$`; filter by Provider / Task / Date; `create` disabled (machine-generated).
 11. `/admin/monitoring` — **Crawl health** metrics (Runs / Failed runs / Listings found — DB-derived and range-aware, so they read true even without Redis) + an **AI cost by task** bar chart + a live runs table.
 12. Every successful mutation is forwarded to the `audit` sink (see your dev console); each IP is capped at 240 req/min by `rateLimit`.
@@ -155,7 +161,7 @@ bulk / drawer actions, and turns off inline-edit — and blocks every write
 
 | File                                 | Role                                                        |
 | ------------------------------------ | ----------------------------------------------------------- |
-| `Dockerfile`                         | Multi-stage production build straight from workspace source — no npm publish required. Build from the **repo root**: `docker build -f examples/ai-scraper/Dockerfile .` (it `COPY . .` then `pnpm --filter "ai-scraper..." build`). |
+| `Dockerfile`                         | Single-stage production build straight from workspace source — no npm publish required. The image keeps the workspace so `db:push` / `db:seed` can run on boot. Build from the **repo root**: `docker build -f examples/ai-scraper/Dockerfile .` (it `COPY . .` then `pnpm --filter "ai-scraper..." build`). |
 | `.env.example`                       | Placeholders only — never commit real `.env`.               |
 | `docker-compose.demo.yml`            | Full dress rehearsal: app + Postgres in one network.        |
 | `scripts/reset-demo.ts`              | Idempotent TRUNCATE + reseed. Run from cron.                |
@@ -174,12 +180,17 @@ can run a Node app + Postgres works.
 
 #### Vercel
 
+Serverless functions sleep between requests, so the live ticker cannot run
+there — deploy with `DEMO_LIVE=off` and the dashboard's Live section renders its
+server-rendered snapshot without pretending to update. Everything else works. For
+a live feed, use one of the persistent Node hosts below.
+
 | Setting           | Value                                                    |
 | ----------------- | -------------------------------------------------------- |
 | Root directory    | `examples/ai-scraper`                                    |
 | Build command     | `pnpm build`                                             |
 | Database          | Vercel Postgres / Neon / Supabase (any managed Postgres) |
-| Env vars          | `DATABASE_URL`, `DEMO_MODE=true`                         |
+| Env vars          | `DATABASE_URL`, `DEMO_MODE=true`, `DEMO_LIVE=off`        |
 | Reset cron        | Vercel Cron Job hitting an API route that runs the reset, or an external scheduler invoking `pnpm demo:reset` |
 
 #### Railway

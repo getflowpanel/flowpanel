@@ -7,6 +7,7 @@ import {
   getTextareaProps,
   useInputControl,
 } from "@conform-to/react";
+import { ChevronDown } from "lucide-react";
 import * as React from "react";
 import { JsonEditor } from "../_data/JsonEditor.js";
 import { TagInput } from "../_data/TagInput.js";
@@ -38,7 +39,14 @@ function InertWhenReadOnly({
 }
 
 const CONTROL_CLASS =
-  "w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-fp-accent";
+  "w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-sm shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25";
+
+/**
+ * A native `<select>` — the form posts to a route, so the control has to
+ * submit itself — dressed to match `ui/select`'s trigger: the platform
+ * chevron is dropped for the kit's own, drawn by the wrapper below.
+ */
+const SELECT_CLASS = `${CONTROL_CLASS} h-9 appearance-none py-0 pr-9 text-fp-text-1 disabled:cursor-not-allowed disabled:opacity-50`;
 
 type ScalarInputType =
   | "text"
@@ -108,17 +116,24 @@ export function JsonField({ field, readOnly, aria }: HiddenControlProps) {
   );
 }
 
-function splitCsv(value: string | undefined): string[] {
+/** Lossless list encoding for the single hidden-input value tags/multiselect submit — a bare comma-join can't survive a comma inside an item. */
+function encodeList(list: string[]): string {
+  return JSON.stringify(list);
+}
+
+function decodeList(value: string | undefined): string[] {
   if (!value) return [];
-  return value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 export function TagsField({ field, readOnly, aria }: HiddenControlProps) {
   const control = useStringControl(field);
-  const list = React.useMemo(() => splitCsv(control.value), [control.value]);
+  const list = React.useMemo(() => decodeList(control.value), [control.value]);
   return (
     <>
       <input type="hidden" name={field.name} defaultValue={control.value} />
@@ -126,7 +141,7 @@ export function TagsField({ field, readOnly, aria }: HiddenControlProps) {
         <TagInput
           id={field.id}
           value={list}
-          onChange={(next) => control.change(next.join(","))}
+          onChange={(next) => control.change(encodeList(next))}
           {...aria}
         />
       </InertWhenReadOnly>
@@ -149,7 +164,7 @@ export function MultiSelectField({
   aria,
 }: MultiSelectFieldProps) {
   const control = useStringControl(field);
-  const list = React.useMemo(() => splitCsv(control.value), [control.value]);
+  const list = React.useMemo(() => decodeList(control.value), [control.value]);
   return (
     <>
       <input type="hidden" name={field.name} defaultValue={control.value} />
@@ -175,7 +190,7 @@ export function MultiSelectField({
                   const set = new Set(list);
                   if (next === true) set.add(o.value);
                   else set.delete(o.value);
-                  control.change(Array.from(set).join(","));
+                  control.change(encodeList(Array.from(set)));
                 }}
                 className="h-3.5 w-3.5"
               />
@@ -327,21 +342,27 @@ export function SelectField({
       {readOnly ? (
         <input type="hidden" name={field.name} value={rawValue == null ? "" : String(rawValue)} />
       ) : null}
-      <select
-        {...getSelectProps(field, { value: false })}
-        value={control.value ?? ""}
-        onChange={(e) => control.change(e.target.value)}
-        {...(readOnly ? { disabled: true } : {})}
-        {...aria}
-        className={CONTROL_CLASS}
-      >
-        <option value="">{placeholder ?? "Select…"}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <div className="relative">
+        <select
+          {...getSelectProps(field, { value: false })}
+          value={control.value ?? ""}
+          onChange={(e) => control.change(e.target.value)}
+          {...(readOnly ? { disabled: true } : {})}
+          {...aria}
+          className={SELECT_CLASS}
+        >
+          <option value="">{placeholder ?? "Select…"}</option>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fp-text-2 opacity-50"
+        />
+      </div>
     </>
   );
 }

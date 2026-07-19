@@ -22,9 +22,9 @@ export function ResourceListDeletedToggle() {
   return (
     <Button
       variant={active ? "default" : "outline"}
-      size="sm"
       onClick={toggle}
       aria-pressed={active}
+      className="rounded-full"
     >
       {active ? "Hide deleted" : "Show deleted"}
     </Button>

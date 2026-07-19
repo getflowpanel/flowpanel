@@ -26,7 +26,7 @@ export function ArrayCell({ value, max = 3, className }: ArrayCellProps) {
         <span
           // biome-ignore lint/suspicious/noArrayIndexKey: chip slot identity is positional within the cell.
           key={i}
-          className="inline-flex max-w-[10rem] truncate rounded-full bg-fp-bg-2 px-2 py-0.5 text-xs text-fp-text-2"
+          className="inline-flex max-w-[10rem] truncate rounded-full border border-fp-border-1 bg-fp-bg-3/50 px-2 py-0.5 text-xs text-fp-text-2"
         >
           {formatChipValue(v)}
         </span>
@@ -34,7 +34,7 @@ export function ArrayCell({ value, max = 3, className }: ArrayCellProps) {
       {overflow > 0 ? (
         <span
           role="img"
-          className="inline-flex rounded-full bg-fp-bg-3 px-2 py-0.5 text-xs text-fp-text-3"
+          className="inline-flex rounded-full border border-fp-border-1 bg-fp-bg-3/50 px-2 py-0.5 text-xs font-medium text-fp-text-2"
           aria-label={`${overflow} more`}
         >
           +{overflow}

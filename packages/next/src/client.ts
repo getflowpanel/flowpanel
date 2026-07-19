@@ -5,6 +5,7 @@ export {
 export { CommandHost, type CommandHostProps } from "./command/CommandHost.js";
 export { DataTableWithDrawerRows } from "./drawer/DataTableWithDrawerRows.js";
 export { DrawerHost } from "./drawer/DrawerHost.js";
+export { CreateDrawer, type CreateDrawerProps } from "./pages/CreateDrawer.js";
 export { DetailTabsClient, type DetailTabsClientProps } from "./pages/DetailTabsClient.js";
 export { DashboardDateRange } from "./pages/dashboard-date-range.js";
 export { ResourceListDeletedToggle } from "./pages/resource-list-deleted-toggle.js";

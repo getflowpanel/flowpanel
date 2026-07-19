@@ -1,28 +1,33 @@
 "use client";
 import type { PieChartOptions } from "@flowpanel/core";
 import { Cell, Legend, Pie, PieChart as RcPie, ResponsiveContainer, Tooltip } from "recharts";
+import { ChartEmptyState } from "./ChartEmptyState.js";
 import {
   buildTooltipProps,
   CHART_SURFACE_PROPS,
   chartColor,
+  LEGEND_PROPS,
   STATIC_SERIES_PROPS,
 } from "./chart-theme.js";
 
 export function PieChart({ data, options }: { data: unknown[]; options: PieChartOptions }) {
+  const height = options.height ?? 240;
+  if (data.length === 0) return <ChartEmptyState height={height} />;
   return (
-    <ResponsiveContainer width="100%" height={options.height ?? 240}>
+    <ResponsiveContainer width="100%" height={height}>
       <RcPie {...CHART_SURFACE_PROPS}>
         {options.tooltip !== false ? (
           <Tooltip {...buildTooltipProps(options.format, options.tooltip)} />
         ) : null}
-        {options.showLegend ? <Legend /> : null}
+        {options.showLegend ? <Legend {...LEGEND_PROPS} /> : null}
         <Pie
           data={data as object[]}
           dataKey={options.value}
           nameKey={options.category}
-          {...(options.donut ? { innerRadius: 60 } : {})}
+          {...(options.donut ? { innerRadius: 60, paddingAngle: 2, cornerRadius: 3 } : {})}
           outerRadius={90}
           stroke="hsl(var(--fp-bg-1))"
+          strokeWidth={2}
           {...STATIC_SERIES_PROPS}
         >
           {(data as Record<string, unknown>[]).map((row, i) => {

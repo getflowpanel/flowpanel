@@ -1,7 +1,57 @@
-import { resource } from "@flowpanel/kit";
+import { type FieldDef, type InferRow, resource } from "@flowpanel/kit";
 import { eq } from "drizzle-orm";
 import * as schema from "@/src/db/schema";
 import { badge, formatDate } from "../format";
+
+const PLANS = [
+  { label: "Free", value: "free" },
+  { label: "Starter", value: "starter" },
+  { label: "Pro", value: "pro" },
+  { label: "Business", value: "business" },
+];
+
+const STATUSES = [
+  { label: "Active", value: "active" },
+  { label: "Trialing", value: "trialing" },
+  { label: "Past due", value: "past_due" },
+  { label: "Canceled", value: "canceled" },
+];
+
+// Explicit specs, so the form never introspects `deletedAt` (soft-delete is the
+// "Disable user" action's job) or renders an enum column as free text.
+const fields: FieldDef<InferRow<typeof schema.users>>[] = [
+  {
+    name: "email",
+    label: "Email",
+    type: "email",
+    required: true,
+    placeholder: "ops@customer.com",
+    validate: (v) => (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v)) ? null : "Not an email address"),
+    span: 6,
+    group: "Account",
+  },
+  { name: "name", label: "Name", placeholder: "Jane Doe", span: 6, group: "Account" },
+  { name: "company", label: "Company", placeholder: "Northwind Labs", group: "Account" },
+  {
+    name: "plan",
+    label: "Plan",
+    type: "select",
+    options: PLANS,
+    defaultValue: "free",
+    span: 6,
+    group: "Subscription",
+  },
+  {
+    name: "status",
+    label: "Status",
+    type: "select",
+    options: STATUSES,
+    defaultValue: "trialing",
+    help: "Trialing until the first invoice is paid.",
+    span: 6,
+    group: "Subscription",
+  },
+];
 
 export const users = resource(schema.users, {
   label: "Customers",
@@ -15,31 +65,13 @@ export const users = resource(schema.users, {
   ],
   search: ["email", "name", "company"],
   filters: [
-    {
-      field: "plan",
-      type: "select",
-      label: "Plan",
-      options: [
-        { label: "Free", value: "free" },
-        { label: "Starter", value: "starter" },
-        { label: "Pro", value: "pro" },
-        { label: "Business", value: "business" },
-      ],
-    },
-    {
-      field: "status",
-      type: "select",
-      label: "Status",
-      options: [
-        { label: "Active", value: "active" },
-        { label: "Trialing", value: "trialing" },
-        { label: "Past due", value: "past_due" },
-        { label: "Canceled", value: "canceled" },
-      ],
-    },
+    { field: "plan", type: "select", label: "Plan", options: PLANS },
+    { field: "status", type: "select", label: "Status", options: STATUSES },
     { field: "createdAt", type: "daterange", label: "Joined" },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
+  create: { fields },
+  update: { fields },
   delete: { softDelete: "deletedAt" },
   rowClick: "drawer",
   realtime: true,

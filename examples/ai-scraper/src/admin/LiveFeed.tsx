@@ -33,14 +33,9 @@ export function LiveFeed({ recent }: { recent: FeedEvent[] }) {
         <h3 className="text-sm font-semibold text-fp-text-1">Live activity</h3>
         <LiveDot live={live} />
       </div>
-      {/* Scrollable but has no focusable descendants (rows are plain spans/divs),
-          so a keyboard-only user couldn't reach or scroll it — WCAG 2.1.1. Making
-          the container itself a tab stop fixes that; the label gives it a name
-          once focus lands here, since there's nothing else to announce it. */}
       <ul
-        // Standard fix for axe's scrollable-region-focusable (WCAG 2.1.1): a
-        // scrollable container with no focusable descendant must itself be a tab
-        // stop, or a keyboard user can never reach/scroll it.
+        // Scrollable with no focusable descendant, so the container itself must
+        // be a tab stop or a keyboard user can never scroll it (WCAG 2.1.1).
         // biome-ignore lint/a11y/noNoninteractiveTabindex: intentional, see above.
         tabIndex={0}
         aria-label="Live activity feed, scrollable"

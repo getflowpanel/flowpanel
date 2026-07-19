@@ -2,10 +2,12 @@
 // LOC-OK: table render orchestrator — coordinates the column-layout, selection,
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { LiveIndicator } from "../_atoms/LiveIndicator.js";
 import { useLabels } from "../_provider/LabelsContext.js";
 import { useLiveChannel } from "../hooks/useLiveChannel.js";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import { cn } from "../lib/cn.js";
+import { useRealtimeBus, useRealtimeStatus } from "../realtime/hooks.js";
 import { ExportButton } from "./csv-export.js";
 import { DataTableHeader } from "./DataTableHeader.js";
 import { DataTableRow } from "./DataTableRow.js";
@@ -25,6 +27,9 @@ export type {
   DataTableSort,
 } from "./data-table-types.js";
 
+/** Bus-path subscription callback — the provider runs the refresh. */
+const NOOP = (): void => undefined;
+
 export function DataTable<Row extends Record<string, unknown>>({
   columns,
   rows,
@@ -38,6 +43,8 @@ export function DataTable<Row extends Record<string, unknown>>({
   onRowClick,
   onSortChange,
   onPageChange,
+  pageSizeOptions,
+  onPageSizeChange,
   emptyTitle,
   emptyDescription,
   emptyAction,
@@ -104,7 +111,16 @@ export function DataTable<Row extends Record<string, unknown>>({
     },
     [],
   );
-  useLiveChannel(realtimeChannel, handleLiveEvent);
+  const bus = useRealtimeBus();
+  const busStatus = useRealtimeStatus();
+  // Under a provider the bus carries the channel and owns the coalesced refresh; a second
+  // EventSource here would double both the connection and the refresh.
+  React.useEffect(() => {
+    if (!bus || realtimeChannel === "") return;
+    return bus.subscribe([realtimeChannel], NOOP);
+  }, [bus, realtimeChannel]);
+  const poolStatus = useLiveChannel(realtimeChannel, handleLiveEvent, { enabled: !bus });
+  const liveStatus = bus ? busStatus : poolStatus;
 
   const isMobile = useMediaQuery("(max-width: 639px)");
 
@@ -166,9 +182,16 @@ export function DataTable<Row extends Record<string, unknown>>({
       })()
     : orderedVisible;
 
-  const showToolbar = Boolean(exportConfig) || Boolean(importable) || showDensityToggle;
+  const showToolbar =
+    Boolean(exportConfig) || Boolean(importable) || showDensityToggle || Boolean(realtimeCfg);
   const toolbar = showToolbar ? (
-    <div className="flex items-center justify-end gap-1 border-b border-fp-border-1 bg-fp-bg-1 px-2 py-1.5">
+    <div className="flex items-center justify-end gap-1 border-b border-fp-border-1 bg-fp-bg-1 px-3 py-1.5">
+      {/* The row count was only readable at the very bottom of the page, while
+          the left half of this bar sat empty. */}
+      <span className="mr-auto text-xs tabular-nums text-fp-text-3">
+        {total.toLocaleString()} {total === 1 ? "result" : "results"}
+      </span>
+      {realtimeCfg ? <LiveIndicator status={liveStatus} /> : null}
       {showDensityToggle ? (
         <DensityToggle density={effectiveDensity} onChange={setDensityOverride} />
       ) : null}
@@ -258,6 +281,8 @@ export function DataTable<Row extends Record<string, unknown>>({
           pageSize={pageSize}
           total={total}
           {...(onPageChange ? { onChange: onPageChange } : {})}
+          {...(pageSizeOptions ? { pageSizeOptions } : {})}
+          {...(onPageSizeChange ? { onPageSizeChange } : {})}
         />
       </div>
     );
@@ -313,7 +338,14 @@ export function DataTable<Row extends Record<string, unknown>>({
               selectionEnabled={selectionEnabled}
               selectionSet={selectionSet}
               {...(inlineEditResource ? { inlineEditResource } : {})}
-              {...(onRowClick ? { onRowClick } : {})}
+              {...(onRowClick
+                ? {
+                    onRowClick: (row: Row) => {
+                      setCursor(idx);
+                      onRowClick(row);
+                    },
+                  }
+                : {})}
               onToggleRow={toggleRow}
               {...(rowEndCell ? { rowEndCell } : {})}
             />
@@ -325,6 +357,8 @@ export function DataTable<Row extends Record<string, unknown>>({
         pageSize={pageSize}
         total={total}
         {...(onPageChange ? { onChange: onPageChange } : {})}
+        {...(pageSizeOptions ? { pageSizeOptions } : {})}
+        {...(onPageSizeChange ? { onPageSizeChange } : {})}
       />
     </div>
   );

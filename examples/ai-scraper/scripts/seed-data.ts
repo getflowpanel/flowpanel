@@ -1,13 +1,6 @@
 /**
- * Shared seed logic for the ScrapeAI demo.
- *
- * Both `scripts/seed.ts` (local dev) and `scripts/reset-demo.ts` (public
- * demo cron) import `seedDatabase` so the two never drift. The function is
- * idempotent: it TRUNCATEs every table (RESTART IDENTITY CASCADE) before
- * re-inserting, so it is safe to call on every boot / cron tick.
- *
- * Data is generated deterministically (no Math.random) so reseeds — and the
- * hourly demo reset — always produce the same realistic-looking state.
+ * Idempotent (TRUNCATE + re-insert) and deterministic (no Math.random), so the
+ * hourly demo reset always lands on the same state.
  */
 import { sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -26,6 +19,12 @@ type Match = (typeof schema.matchStatus.enumValues)[number];
 
 const HOUR = 3600_000;
 const DAY = 86400_000;
+/** Every generated row picks from a fixed table by `index % length`. */
+const cycle = <T>(xs: readonly T[], i: number): T => {
+  const v = xs[i % xs.length];
+  if (v === undefined) throw new Error("seed: cycle over an empty table");
+  return v;
+};
 const days = (n: number) => new Date(Date.now() - n * DAY);
 const hours = (n: number) => new Date(Date.now() - n * HOUR);
 /**
@@ -554,7 +553,7 @@ export async function seedDatabase(db: Db): Promise<void> {
   const runValues: (typeof schema.runs.$inferInsert)[] = [];
   const runOwner: number[] = []; // parallel: user index that owns each run
   SCRAPERS.forEach(([u, , , , status], i) => {
-    const count = [3, 4, 2, 3][i % 4];
+    const count = cycle([3, 4, 2, 3], i);
     for (let k = 0; k < count; k++) {
       const seq = i * 7 + k;
       const state = runStateFor(seq, status);
@@ -586,7 +585,7 @@ export async function seedDatabase(db: Db): Promise<void> {
         durationMs,
         startedAt,
         finishedAt: live || durationMs == null ? null : new Date(startedAt.getTime() + durationMs),
-        error: state === "failed" ? RUN_ERRORS[seq % RUN_ERRORS.length] : null,
+        error: state === "failed" ? cycle(RUN_ERRORS, seq) : null,
       });
       runOwner.push(u);
     }
@@ -661,7 +660,7 @@ export async function seedDatabase(db: Db): Promise<void> {
         seller: SELLERS[(i + k) % SELLERS.length] ?? null,
         rating: p.rating,
         reviews: Math.round(p.reviews * (0.6 + ((i + k) % 8) / 10)),
-        stock: (["in_stock", "in_stock", "low_stock", "out_of_stock"] as const)[(i + k) % 4],
+        stock: cycle(["in_stock", "in_stock", "low_stock", "out_of_stock"] as const, i + k),
         url: `https://${site}.com/dp/B0${10000 + i}`,
         scrapedAt,
       });
@@ -714,7 +713,7 @@ export async function seedDatabase(db: Db): Promise<void> {
       productId,
       confidence: Number(conf.toFixed(2)),
       status,
-      model: MATCH_MODELS[li % MATCH_MODELS.length],
+      model: cycle(MATCH_MODELS, li),
       matchedAt,
       reviewedAt: reviewed ? new Date(matchedAt.getTime() + (4 + (li % 8)) * HOUR) : null,
       reviewedBy: reviewed ? (REVIEWERS[li % REVIEWERS.length] ?? null) : null,
@@ -771,11 +770,13 @@ export async function seedDatabase(db: Db): Promise<void> {
   const aiValues: (typeof schema.aiUsage.$inferInsert)[] = [];
   runRows.forEach((run, j) => {
     if (j % 2 === 1) return; // roughly half the runs invoke the LLM extractor
-    const call = AI_CALLS[j % AI_CALLS.length];
+    const call = cycle(AI_CALLS, j);
+    const owner = runOwner[j];
+    if (owner === undefined) throw new Error(`seed: missing run owner #${j}`);
     const scale = 1 + (j % 4) * 0.25;
     const ranAt = runValues[j]?.startedAt;
     aiValues.push({
-      userId: uid(runOwner[j]),
+      userId: uid(owner),
       runId: run.id,
       provider: call.provider,
       model: call.model,

@@ -9,9 +9,8 @@ export interface HealthBannerProps {
 
 const TONE_CLASS: Record<HealthBannerProps["tone"], string> = {
   info: "border-fp-border-1 bg-fp-bg-2 text-fp-text-1",
-  warn: "border-yellow-300 bg-yellow-50 text-yellow-900 dark:border-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-100",
-  error:
-    "border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-950/40 dark:text-red-100",
+  warn: "border-fp-warn/30 bg-fp-warn/10 text-fp-warn-text",
+  error: "border-fp-err/30 bg-fp-err/10 text-fp-err-text",
 };
 
 export function HealthBanner({ tone, title, description, action }: HealthBannerProps) {

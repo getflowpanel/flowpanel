@@ -6,8 +6,8 @@ import { badge, formatDate, money } from "../format";
 
 export const invoices = resource(schema.invoices, {
   label: "Invoices",
-  // Out of the top nav — reached via the Customers drawer's Invoices tab.
-  hidden: true,
+  // Issued by the billing pipeline, so both forms are disabled below — Refund
+  // is the only sanctioned write.
   columns: [
     {
       field: "userId",
@@ -34,6 +34,8 @@ export const invoices = resource(schema.invoices, {
     { field: "amountCents", type: "numeric-range", label: "Amount (cents)" },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
+  create: { disabled: true },
+  update: { disabled: true },
   actions: [
     {
       key: "refund",

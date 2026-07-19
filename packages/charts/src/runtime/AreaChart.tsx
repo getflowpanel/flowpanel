@@ -1,5 +1,6 @@
 "use client";
 import type { AreaChartOptions } from "@flowpanel/core";
+import { useId } from "react";
 import {
   Area,
   CartesianGrid,
@@ -10,13 +11,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { ChartEmptyState } from "./ChartEmptyState.js";
 import {
+  ACTIVE_DOT_PROPS,
+  AXIS_STYLE_PROPS,
   AXIS_TICK_PROPS,
   buildTooltipProps,
   buildValueTickFormatter,
   CHART_SURFACE_PROPS,
   chartColor,
   chartColorAlpha,
+  GRID_PROPS,
   LEGEND_PROPS,
   LINE_TOOLTIP_CURSOR,
   STATIC_SERIES_PROPS,
@@ -24,6 +29,9 @@ import {
 import { buildTickFormatter } from "./format-tick.js";
 
 export function AreaChart({ data, options }: { data: unknown[]; options: AreaChartOptions }) {
+  const gradientId = useId();
+  const height = options.height ?? 240;
+  if (data.length === 0) return <ChartEmptyState height={height} />;
   const ys = Array.isArray(options.y) ? options.y : [options.y];
   const multiSeries = ys.length > 1;
   const tickFormatter = buildTickFormatter(
@@ -32,20 +40,30 @@ export function AreaChart({ data, options }: { data: unknown[]; options: AreaCha
     options.bucket,
   );
   const valueTickFormatter = buildValueTickFormatter(options.format);
+  const seriesColor = (i: number) => (multiSeries ? chartColor(i) : "hsl(var(--fp-accent))");
+  const seriesFade = (i: number, a: number) =>
+    multiSeries ? chartColorAlpha(i, a) : `hsl(var(--fp-accent) / ${a})`;
   return (
-    <ResponsiveContainer width="100%" height={options.height ?? 240}>
+    <ResponsiveContainer width="100%" height={height}>
       <RcArea {...CHART_SURFACE_PROPS} data={data as object[]}>
-        <CartesianGrid stroke="hsl(var(--fp-border-1))" strokeDasharray="3 3" />
+        <defs>
+          {ys.map((y, i) => (
+            <linearGradient key={y} id={`${gradientId}-${i}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={seriesFade(i, 0.28)} />
+              <stop offset="100%" stopColor={seriesFade(i, 0.02)} />
+            </linearGradient>
+          ))}
+        </defs>
+        <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey={options.x}
-          stroke="hsl(var(--fp-text-3))"
-          fontSize={12}
+          {...AXIS_STYLE_PROPS}
           tickFormatter={tickFormatter}
           {...AXIS_TICK_PROPS}
         />
         <YAxis
-          stroke="hsl(var(--fp-text-3))"
-          fontSize={12}
+          {...AXIS_STYLE_PROPS}
+          width={40}
           {...(valueTickFormatter ? { tickFormatter: valueTickFormatter } : {})}
         />
         {options.tooltip !== false ? (
@@ -61,9 +79,10 @@ export function AreaChart({ data, options }: { data: unknown[]; options: AreaCha
             type={options.smooth ? "monotone" : "linear"}
             dataKey={y}
             {...(options.stacked ? { stackId: "a" } : {})}
-            stroke={multiSeries ? chartColor(i) : "hsl(var(--fp-accent))"}
-            fill={multiSeries ? chartColorAlpha(i, 0.2) : "hsl(var(--fp-accent) / 0.2)"}
+            stroke={seriesColor(i)}
+            fill={`url(#${gradientId}-${i})`}
             strokeWidth={2}
+            activeDot={{ ...ACTIVE_DOT_PROPS, fill: seriesColor(i) }}
             {...STATIC_SERIES_PROPS}
           />
         ))}

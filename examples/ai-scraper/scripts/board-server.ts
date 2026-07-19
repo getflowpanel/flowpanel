@@ -1,4 +1,4 @@
-import { startBoardServer } from "@flowpanel/adapter-bullmq";
+import { startBoardServer } from "@flowpanel/adapter-bullmq/board";
 import { liveQueues, queuesByName } from "../src/lib/queues.js";
 
 const port = Number(process.env.BOARD_PORT ?? 3001);

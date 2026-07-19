@@ -5,6 +5,7 @@ import { cn } from "../../lib/cn.js";
 import { Button } from "../../ui/button.js";
 import { Checkbox } from "../../ui/checkbox.js";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover.js";
+import { BARE_CONTROL, FilterField } from "./FilterField.js";
 
 export interface MultiSelectFilterOption {
   label: string;
@@ -40,15 +41,15 @@ export function MultiSelectFilter({
         ? (options.find((o) => o.value === selected[0])?.label ?? selected[0])
         : `${selected.length} selected`;
   return (
-    <div className="flex flex-col gap-1">
-      {label ? <span className="text-xs font-medium text-fp-text-3">{label}</span> : null}
+    <FilterField label={label} active={selected.length > 0}>
       <Popover>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             size="sm"
             className={cn(
-              "h-9 w-44 justify-between font-normal",
+              BARE_CONTROL,
+              "w-auto justify-start font-normal",
               selected.length === 0 && "text-fp-text-2",
             )}
           >
@@ -73,6 +74,6 @@ export function MultiSelectFilter({
           ))}
         </PopoverContent>
       </Popover>
-    </div>
+    </FilterField>
   );
 }

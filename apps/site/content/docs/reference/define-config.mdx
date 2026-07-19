@@ -47,12 +47,15 @@ to register your own.
 
 `accent` and `cssVars` are emitted as `:root` custom properties, so they reach
 dialogs and drawers too — those portal to `document.body` and would miss a
-wrapper element. Every `--fp-*` token is overridable:
+wrapper element. `accentDark` goes out as a `:root.dark` rule and wins exactly
+when dark mode is active — set it whenever a custom `accent` is tuned for
+light surfaces. Every `--fp-*` token is overridable:
 
 ```ts
 theme: {
   brand: { name: "Acme", logo: "/logo.svg", href: "/" },
   accent: "262 83% 58%",
+  accentDark: "262 90% 72%",
   cssVars: { "--fp-radius": "0.25rem" },
 }
 ```

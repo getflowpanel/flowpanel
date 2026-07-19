@@ -35,6 +35,10 @@
       "types": "./dist/bullmq.d.ts",
       "import": "./dist/bullmq.js"
     },
+    "./bullmq/board": {
+      "types": "./dist/bullmq-board.d.ts",
+      "import": "./dist/bullmq-board.js"
+    },
     "./server": {
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js"
@@ -81,8 +85,11 @@
     "@flowpanel/react": "workspace:*"
   },
   "peerDependencies": {
+    "@bull-board/api": "^6.0.0",
+    "@bull-board/express": "^6.0.0",
     "@prisma/client": ">=5.0.0 <7.0.0",
     "bullmq": "^5.0.0",
+    "express": "^4.19.0",
     "drizzle-orm": ">=0.36.0 <1.0.0",
     "ioredis": "^5.10.0",
     "next": "^15.0.0",
@@ -92,6 +99,15 @@
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@bull-board/api": {
+      "optional": true
+    },
+    "@bull-board/express": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    },
     "drizzle-orm": {
       "optional": true
     },

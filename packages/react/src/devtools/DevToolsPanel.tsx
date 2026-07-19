@@ -85,7 +85,7 @@ export function DevToolsPanel({
         <div
           role="dialog"
           aria-label="FlowPanel DevTools"
-          className="mb-2 max-h-[70vh] w-80 overflow-auto rounded-fp border border-fp-border-1 bg-fp-bg-1 shadow-lg"
+          className="mb-2 max-h-[70vh] w-80 overflow-auto rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-md"
         >
           <div className="flex items-center justify-between px-3 py-2.5">
             <strong className="text-xs">FlowPanel DevTools</strong>
@@ -147,7 +147,7 @@ export function DevToolsPanel({
         onClick={() => setOpen((v) => !v)}
         aria-label="Toggle FlowPanel DevTools"
         aria-expanded={open}
-        className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-full border border-fp-border-1 bg-fp-bg-1 px-3 py-1.5 text-xs font-semibold text-fp-text-1 shadow-lg"
+        className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-full border border-fp-border-1 bg-fp-bg-1 px-3 py-1.5 text-xs font-semibold text-fp-text-1 shadow-fp-md"
       >
         <StatusDot status={status} />
         fp

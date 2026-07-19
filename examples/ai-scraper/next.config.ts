@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@flowpanel/core", "@flowpanel/react", "@flowpanel/adapter-drizzle"],
+  transpilePackages: ["@flowpanel/kit", "@flowpanel/core", "@flowpanel/react"],
   serverExternalPackages: ["drizzle-orm", "pg"],
 };
 

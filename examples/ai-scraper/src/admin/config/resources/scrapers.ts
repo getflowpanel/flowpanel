@@ -1,9 +1,72 @@
-import { type BulkAction, resource } from "@flowpanel/kit";
+import { type BulkAction, type FieldDef, resource } from "@flowpanel/kit";
 import { inArray } from "drizzle-orm";
 import * as schema from "@/src/db/schema";
 import { badge, formatDate } from "../format";
 
 type Scraper = typeof schema.scrapers.$inferSelect;
+
+const STATUSES = [
+  { label: "Active", value: "active" },
+  { label: "Paused", value: "paused" },
+  { label: "Error", value: "error" },
+];
+
+const SCHEDULES = [
+  { label: "Manual", value: "manual" },
+  { label: "Hourly", value: "hourly" },
+  { label: "Daily", value: "daily" },
+  { label: "Weekly", value: "weekly" },
+];
+
+// Explicit specs: enum columns render as selects, and `userId` as a searchable
+// picker over the users table rather than a raw integer input.
+const fields: FieldDef<Scraper>[] = [
+  {
+    name: "name",
+    label: "Name",
+    required: true,
+    placeholder: "Amazon BSR — Electronics",
+    span: 6,
+    group: "Target",
+  },
+  {
+    name: "targetUrl",
+    label: "Target URL",
+    type: "url",
+    required: true,
+    placeholder: "https://www.amazon.com/Best-Sellers/zgbs",
+    validate: (v) => (/^https?:\/\/\S+$/.test(String(v)) ? null : "Must be an http(s) URL"),
+    span: 6,
+    group: "Target",
+  },
+  {
+    name: "userId",
+    label: "Customer",
+    type: "reference",
+    reference: { resource: "users", labelField: "email" },
+    required: true,
+    group: "Target",
+  },
+  {
+    name: "schedule",
+    label: "Schedule",
+    type: "select",
+    options: SCHEDULES,
+    defaultValue: "daily",
+    span: 6,
+    group: "Run policy",
+  },
+  {
+    name: "status",
+    label: "Status",
+    type: "select",
+    options: STATUSES,
+    defaultValue: "active",
+    help: "Paused scrapers keep their schedule but never run.",
+    span: 6,
+    group: "Run policy",
+  },
+];
 
 /** Pause/resume are the same bulk write with a different status + verb. */
 const setStatus =
@@ -16,8 +79,6 @@ const setStatus =
 
 export const scrapers = resource(schema.scrapers, {
   label: "Scrapers",
-  // Out of the top nav — reached via the Customers drawer and Run/Listing references.
-  hidden: true,
   columns: [
     { field: "name", label: "Name", editable: true },
     {
@@ -32,29 +93,12 @@ export const scrapers = resource(schema.scrapers, {
   ],
   search: ["name", "targetUrl"],
   filters: [
-    {
-      field: "status",
-      type: "select",
-      label: "Status",
-      options: [
-        { label: "Active", value: "active" },
-        { label: "Paused", value: "paused" },
-        { label: "Error", value: "error" },
-      ],
-    },
-    {
-      field: "schedule",
-      type: "select",
-      label: "Schedule",
-      options: [
-        { label: "Manual", value: "manual" },
-        { label: "Hourly", value: "hourly" },
-        { label: "Daily", value: "daily" },
-        { label: "Weekly", value: "weekly" },
-      ],
-    },
+    { field: "status", type: "select", label: "Status", options: STATUSES },
+    { field: "schedule", type: "select", label: "Schedule", options: SCHEDULES },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
+  create: { fields },
+  update: { fields },
   bulkActions: [
     {
       key: "pause",

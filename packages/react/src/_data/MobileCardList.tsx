@@ -109,7 +109,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
             className={cn(
               "rounded-fp border border-fp-border-1 bg-fp-bg-1 transition-colors",
               interactive && "active:bg-fp-bg-2",
-              isSelected && "ring-2 ring-fp-accent",
+              isSelected && "ring-2 ring-fp-focus/40",
             )}
           >
             <div
@@ -125,7 +125,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
               className={cn(
                 "w-full px-4 py-3 text-left",
                 interactive &&
-                  "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-accent",
+                  "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
               )}
             >
               <div className="flex items-start justify-between gap-2">

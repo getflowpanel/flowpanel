@@ -549,10 +549,12 @@ describe("RealtimeProvider", () => {
     expect(instances[1]!.url).not.toContain("channel=b");
   });
 
-  it("falls back to legacy per-channel EventSource when no provider is mounted", () => {
+  it("falls back to the pooled multiplexed EventSource when no provider is mounted", () => {
     render(<RealtimeRefresh channels={["a", "b"]} />);
-    // Legacy path is synchronous (no provider debounce).
-    expect(instances).toHaveLength(2);
+    // Pool path is synchronous (no provider debounce) and multiplexes too.
+    expect(instances).toHaveLength(1);
+    expect(instances[0]!.url).toContain("channel=a");
+    expect(instances[0]!.url).toContain("channel=b");
   });
 
   // Status hook drives the `<LiveIndicator>`. We track the value through a

@@ -19,7 +19,9 @@ export default defineAdmin({
 });
 ```
 
-`dialect` is auto-inferred from the schema. Pass it explicitly to disambiguate:
+`dialect` is inferred from the first drizzle table in `schema` (`pgTable` → `pg`,
+`mysqlTable` → `mysql`, `sqliteTable` → `sqlite`). If `schema` carries no table,
+construction throws — pass the dialect explicitly instead:
 
 ```ts
 drizzleAdapter({ db, schema, dialect: "mysql" })   // "pg" | "mysql" | "sqlite"

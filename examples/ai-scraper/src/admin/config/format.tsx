@@ -11,8 +11,8 @@ const STATUS_TONES: Record<string, Tone> = {
   pro: "ok",
   business: "ok",
   paused: "warn", // scrapers.status
-  queued: "warn", // runs.status
-  running: "warn",
+  queued: "muted", // runs.status — nothing is happening yet
+  running: "info", // …and this one is, so it must not look the same
   open: "warn", // invoices.status
   paid: "ok",
   void: "err",

@@ -10,7 +10,7 @@ export interface EmptyStateProps {
 export function DefaultEmptyState({ title, description, action }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="text-base font-medium text-fp-text-1">{title}</div>
+      <div className="text-base font-semibold text-fp-text-1">{title}</div>
       {description ? <div className="mt-1 text-sm text-fp-text-3">{description}</div> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>

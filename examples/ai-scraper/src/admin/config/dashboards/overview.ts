@@ -1,6 +1,6 @@
 import { custom, dashboard, metric } from "@flowpanel/kit";
 import { areaChart, barChart, pieChart } from "@flowpanel/kit/charts";
-import { and, gte, lte, sql } from "drizzle-orm";
+import { and, gte, lt, lte, sql } from "drizzle-orm";
 import { LiveFeed } from "@/src/admin/LiveFeed";
 import { LiveStats } from "@/src/admin/LiveStats";
 import * as schema from "@/src/db/schema";
@@ -93,10 +93,15 @@ export const overview = dashboard({
       label: "Growth",
       columns: 1,
       widgets: [
-        // Cumulative signups (running sum) — a smooth growth curve at any volume.
         areaChart(
           "Customer growth",
-          async ({ db }) => {
+          async ({ db, dateRange }) => {
+            // The running sum starts from everyone who signed up before the
+            // range, so narrowing it zooms the curve instead of resetting it.
+            const [prior] = await db
+              .select({ c: sql<number>`count(*)::int` })
+              .from(schema.users)
+              .where(lt(schema.users.createdAt, dateRange.from));
             const daily = await db
               .select({
                 // Pre-format to a compact "Jun 7" label — format-tick only
@@ -105,14 +110,19 @@ export const overview = dashboard({
                 c: sql<number>`count(*)::int`,
               })
               .from(schema.users)
+              .where(
+                and(
+                  gte(schema.users.createdAt, dateRange.from),
+                  lte(schema.users.createdAt, dateRange.to),
+                ),
+              )
               .groupBy(sql`date_trunc('day', ${schema.users.createdAt})`)
               .orderBy(sql`date_trunc('day', ${schema.users.createdAt})`);
-            let total = 0;
-            const cumulative = daily.map((d) => {
+            let total = Number(prior?.c ?? 0);
+            return daily.map((d) => {
               total += Number(d.c);
               return { day: d.day, count: total };
             });
-            return cumulative.slice(-30);
           },
           { x: "day", y: "count", smooth: true, height: 220 },
         ),

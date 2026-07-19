@@ -27,6 +27,11 @@ export interface AccountMenuProps {
   user: AccountMenuUser;
   align?: "start" | "end";
   className?: string;
+  /**
+   * Collapse to the avatar below the `sm` breakpoint. Set by the tab-strip
+   * shell, where the name would otherwise eat the width the tabs scroll in.
+   */
+  compact?: boolean;
 }
 
 function initials(user: AccountMenuUser): string {
@@ -57,7 +62,7 @@ function Avatar({ user }: { user: AccountMenuUser }) {
 }
 
 /** Account dropdown driven by `theme.user`. */
-export function AccountMenu({ user, align = "start", className }: AccountMenuProps) {
+export function AccountMenu({ user, align = "start", className, compact }: AccountMenuProps) {
   const label = user.name ?? user.email ?? "Account";
   const items = user.items ?? [];
   return (
@@ -65,13 +70,16 @@ export function AccountMenu({ user, align = "start", className }: AccountMenuPro
       <DropdownMenuTrigger
         aria-label="Account menu"
         className={cn(
-          "flex w-full items-center gap-2 rounded-fp-sm px-2 py-1.5 text-left text-sm text-fp-text-1 hover:bg-fp-bg-2 focus:outline-none focus:ring-2 focus:ring-fp-accent",
+          "flex w-full items-center gap-2 rounded-fp-sm px-2 py-1.5 text-left text-sm text-fp-text-1 hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
           className,
         )}
       >
         <Avatar user={user} />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
-        <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-fp-text-3" aria-hidden="true" />
+        <span className={cn("min-w-0 flex-1 truncate", compact && "hidden sm:block")}>{label}</span>
+        <ChevronsUpDown
+          className={cn("h-3.5 w-3.5 shrink-0 text-fp-text-3", compact && "hidden sm:block")}
+          aria-hidden="true"
+        />
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="min-w-56">
         {user.name && user.email ? (
@@ -87,7 +95,10 @@ export function AccountMenu({ user, align = "start", className }: AccountMenuPro
           <DropdownMenuItem
             key={item.label}
             asChild={item.href !== undefined}
-            className={cn(item.variant === "destructive" && "text-fp-err focus:text-fp-err")}
+            className={cn(
+              item.variant === "destructive" &&
+                "text-fp-err-text focus:bg-fp-err/10 focus:text-fp-err-text",
+            )}
           >
             {item.href !== undefined ? (
               <a href={item.href}>{item.label}</a>

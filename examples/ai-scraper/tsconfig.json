@@ -20,6 +20,14 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["app/**/*", "src/**/*", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "scripts"]
+  "include": [
+    "app/**/*",
+    "src/**/*",
+    "scripts/**/*",
+    "instrumentation.ts",
+    "next.config.ts",
+    "drizzle.config.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
 }

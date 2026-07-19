@@ -29,12 +29,13 @@ export default defineAdmin({
 });
 ```
 
-Mount bull-board on a separate port via `startBoardServer`. `auth.token` is
-**required** — `startBoardServer` throws without it:
+Mount bull-board on a separate port via `startBoardServer`, exported from the
+`/board` subpath so that the adapter entry stays free of Express. `auth.token`
+is **required** — `startBoardServer` throws without it:
 
 ```ts
 // scripts/board-server.ts
-import { startBoardServer } from "@flowpanel/adapter-bullmq";
+import { startBoardServer } from "@flowpanel/adapter-bullmq/board";
 import { queues } from "@/lib/queues";
 
 startBoardServer({ queues, port: 3001, auth: { token: process.env.BOARD_TOKEN! } });
@@ -74,6 +75,9 @@ Run with `pnpm flowpanel dev` (which auto-starts the board if `REDIS_URL` is set
 
 - `bullmq >= 5`
 - `ioredis` (transitively via bullmq)
+- `express >= 4.19`, `@bull-board/api >= 6`, `@bull-board/express >= 6` —
+  optional, install them only if you import `@flowpanel/adapter-bullmq/board`
+  (or `@flowpanel/kit/bullmq/board`)
 
 ## Documentation
 

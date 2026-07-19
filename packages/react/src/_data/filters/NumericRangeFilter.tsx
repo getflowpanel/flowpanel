@@ -1,5 +1,7 @@
 "use client";
+import { cn } from "../../lib/cn.js";
 import { Input } from "../../ui/input.js";
+import { BARE_CONTROL, FilterField } from "./FilterField.js";
 
 export interface NumericRangeFilterProps {
   field: string;
@@ -16,29 +18,28 @@ export function NumericRangeFilter({ label, value, onChange, step }: NumericRang
     onChange(combined === ":" ? null : combined);
   };
   return (
-    <div className="flex flex-col gap-1">
-      {label ? <span className="text-xs font-medium text-fp-text-3">{label}</span> : null}
-      <div className="flex items-center gap-1">
-        <Input
-          type="number"
-          value={min ?? ""}
-          step={step}
-          onChange={(e) => emit(e.target.value, max ?? "")}
-          className="h-9 w-24"
-          aria-label="Min"
-          placeholder="min"
-        />
-        <span className="text-fp-text-3">—</span>
-        <Input
-          type="number"
-          value={max ?? ""}
-          step={step}
-          onChange={(e) => emit(min ?? "", e.target.value)}
-          className="h-9 w-24"
-          aria-label="Max"
-          placeholder="max"
-        />
-      </div>
-    </div>
+    <FilterField label={label} active={Boolean(value)}>
+      <Input
+        type="number"
+        value={min ?? ""}
+        step={step}
+        onChange={(e) => emit(e.target.value, max ?? "")}
+        className={cn(BARE_CONTROL, "w-16")}
+        aria-label="Min"
+        placeholder="min"
+      />
+      <span aria-hidden className="px-0.5 text-fp-text-3">
+        –
+      </span>
+      <Input
+        type="number"
+        value={max ?? ""}
+        step={step}
+        onChange={(e) => emit(min ?? "", e.target.value)}
+        className={cn(BARE_CONTROL, "w-16")}
+        aria-label="Max"
+        placeholder="max"
+      />
+    </FilterField>
   );
 }

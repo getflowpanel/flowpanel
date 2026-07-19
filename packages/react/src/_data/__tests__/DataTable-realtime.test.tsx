@@ -13,6 +13,7 @@ const instances: Array<{
   open: () => void;
   message: (d: string) => void;
   error: () => void;
+  fail: () => void;
   close: () => void;
   onopen: null | (() => void);
   onmessage: null | ((e: { data: string }) => void);
@@ -36,6 +37,10 @@ class MockEventSource {
       },
       message: (d) => this.onmessage?.({ data: d }),
       error: () => this.onerror?.(),
+      fail: () => {
+        this.readyState = MockEventSource.CLOSED;
+        this.onerror?.();
+      },
       close: () => {
         this.readyState = MockEventSource.CLOSED;
       },
@@ -49,7 +54,29 @@ class MockEventSource {
   }
 }
 
+import { RealtimeProvider } from "../../realtime/RealtimeProvider.js";
 import { DataTable } from "../DataTable.js";
+
+const COLUMNS = [{ field: "name" as const }];
+const ROWS = [{ id: "1", name: "a" }];
+
+function Table({ debounceMs }: { debounceMs?: number }) {
+  return (
+    <DataTable
+      columns={COLUMNS}
+      rows={ROWS}
+      rowKey="id"
+      total={1}
+      page={1}
+      pageSize={10}
+      realtime={
+        debounceMs === undefined
+          ? "resource.users"
+          : { channel: "resource.users", debounceMs: debounceMs }
+      }
+    />
+  );
+}
 
 describe("DataTable realtime", () => {
   beforeEach(() => {
@@ -118,5 +145,61 @@ describe("DataTable realtime", () => {
       />,
     );
     expect(instances).toHaveLength(0);
+  });
+
+  it("surfaces the connection status", () => {
+    const { getByRole } = render(<Table />);
+    expect(getByRole("status").getAttribute("aria-label")).toBe("Connecting…");
+    act(() => instances[0]!.open());
+    expect(getByRole("status").getAttribute("aria-label")).toBe("Live");
+    act(() => instances[0]!.fail());
+    expect(getByRole("status").getAttribute("aria-label")).toBe("Reconnecting…");
+  });
+
+  describe("under a RealtimeProvider", () => {
+    const flushReopen = async () => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60);
+      });
+    };
+
+    it("joins the bus instead of opening a second EventSource", async () => {
+      render(
+        <RealtimeProvider>
+          <Table />
+        </RealtimeProvider>,
+      );
+      await flushReopen();
+      expect(instances).toHaveLength(1);
+      expect(instances[0]?.url).toContain("channel=resource.users");
+    });
+
+    it("refreshes once per event — the provider owns the refresh", async () => {
+      render(
+        <RealtimeProvider>
+          <Table debounceMs={100} />
+        </RealtimeProvider>,
+      );
+      await flushReopen();
+      act(() => instances[0]!.open());
+      act(() =>
+        instances[0]!.message(JSON.stringify({ channel: "resource.users", payload: { id: "1" } })),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+      });
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows the bus status", async () => {
+      const { getByRole } = render(
+        <RealtimeProvider>
+          <Table />
+        </RealtimeProvider>,
+      );
+      await flushReopen();
+      act(() => instances[0]!.open());
+      expect(getByRole("status").getAttribute("aria-label")).toBe("Live");
+    });
   });
 });

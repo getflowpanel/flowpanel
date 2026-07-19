@@ -10,6 +10,14 @@ export type RealtimeStatus = "idle" | "connecting" | "live" | "reconnecting" | "
 
 export type StatusListener = (status: RealtimeStatus) => void;
 
+/** Consecutive failed attempts before a connection is reported as `offline` (~30s of backoff). */
+export const OFFLINE_AFTER_ATTEMPTS = 6;
+
+/** Status to surface while retrying: `offline` once the failures stop being plausibly transient. */
+export function statusForAttempt(attempt: number): RealtimeStatus {
+  return attempt >= OFFLINE_AFTER_ATTEMPTS ? "offline" : "reconnecting";
+}
+
 export interface RealtimeBus {
   /** Subscribe to one or more channels. Returns an unsubscribe. */
   subscribe(channels: string[], cb: Callback): () => void;

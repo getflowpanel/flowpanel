@@ -9,10 +9,13 @@ export interface TableSort {
 
 export interface UseAdminTable {
   page: number;
+  /** `?perPage=`, or null when the resource's configured size applies. */
+  pageSize: number | null;
   search: string;
   sort: TableSort | null;
   filters: Record<string, string>;
   setPage: (p: number) => void;
+  setPageSize: (n: number | null) => void;
   setSearch: (q: string) => void;
   setSort: (s: TableSort | null) => void;
   setFilter: (field: string, value: string | null) => void;
@@ -26,6 +29,7 @@ export function useAdminTable(): UseAdminTable {
   const sp = useSearchParams();
 
   const page = Number(sp.get("page") ?? "1") || 1;
+  const pageSize = Number(sp.get("perPage")) || null;
   const search = sp.get("q") ?? "";
   const sortRaw = sp.get("sort");
   const sort: TableSort | null = sortRaw
@@ -49,10 +53,18 @@ export function useAdminTable(): UseAdminTable {
 
   return {
     page,
+    pageSize,
     search,
     sort,
     filters,
     setPage: (p: number) => push((q) => q.set("page", String(p))),
+    // Resizing the page invalidates the offset, so drop back to the first page.
+    setPageSize: (n: number | null) =>
+      push((q) => {
+        if (n == null) q.delete("perPage");
+        else q.set("perPage", String(n));
+        q.delete("page");
+      }),
     setSearch: (val: string) =>
       push((q) => {
         if (val === "") q.delete("q");

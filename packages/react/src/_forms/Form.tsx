@@ -77,7 +77,10 @@ export function Form<S extends $ZodType>({
       setIsSubmitting(true);
       try {
         const response = await fetch(action, { method: "POST", body: formData });
-        res = (await response.json()) as FormActionResult;
+        const body = (await response.json()) as Partial<FormActionResult>;
+        // A non-2xx response is always a failure, regardless of what the body
+        // claims — `ok` must be assigned after the spread to win over it.
+        res = { ...body, ok: response.ok ? (body.ok ?? true) : false };
       } catch {
         res = { ok: false, error: "Network error — please try again." };
       } finally {
@@ -127,18 +130,23 @@ export function Form<S extends $ZodType>({
   );
 }
 
+/** Shown when a failed submit's JSON body carries neither `error` nor `fieldErrors`. */
+const GENERIC_FAILURE_MESSAGE = "Something went wrong — please try again.";
+
 /** Turn the JSON `{ ok, error?, fieldErrors? }` response into a conform SubmissionResult. */
 export function buildSubmissionReply(
   submission: { reply: (options?: ReplyShapeOptions) => SubmissionResult<string[]> },
   res: FormActionResult,
 ): SubmissionResult<string[]> {
   if (!res.ok) {
+    const hasFieldErrors = Boolean(res.fieldErrors && Object.keys(res.fieldErrors).length > 0);
+    const message = res.error ?? (hasFieldErrors ? undefined : GENERIC_FAILURE_MESSAGE);
     return submission.reply({
-      ...(res.error ? { formErrors: [res.error] } : {}),
-      ...(res.fieldErrors
+      ...(message ? { formErrors: [message] } : {}),
+      ...(hasFieldErrors
         ? {
             fieldErrors: Object.fromEntries(
-              Object.entries(res.fieldErrors).map(([k, v]) => [k, [v]]),
+              Object.entries(res.fieldErrors as Record<string, string>).map(([k, v]) => [k, [v]]),
             ),
           }
         : {}),

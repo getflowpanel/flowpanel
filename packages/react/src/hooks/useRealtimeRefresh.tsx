@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 
 import { useRealtimeBus } from "../realtime/hooks.js";
+import { acquireLiveChannels } from "./useLiveChannel.js";
 
 /** Widget-side realtime spec. */
 export type RealtimeChannels = string | string[] | undefined;
@@ -59,17 +60,7 @@ export function useRealtimeRefresh(
       return bus.subscribe(chs, NOOP);
     }
 
-    const sources: EventSource[] = [];
-    for (const ch of chs) {
-      const url = `${endpoint}?channel=${encodeURIComponent(ch)}`;
-      const es = new EventSource(url);
-      es.onmessage = () => handleRef.current();
-      es.onerror = () => undefined;
-      sources.push(es);
-    }
-    return () => {
-      for (const es of sources) es.close();
-    };
+    return acquireLiveChannels(endpoint, chs, () => handleRef.current());
   }, [key, endpoint, bus]);
 
   return null;

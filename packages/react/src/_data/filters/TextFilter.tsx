@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
+import { cn } from "../../lib/cn.js";
 import { Input } from "../../ui/input.js";
+import { BARE_CONTROL, FilterField } from "./FilterField.js";
 
 export interface TextFilterProps {
   field: string;
@@ -33,15 +35,14 @@ export function TextFilter({
     return () => clearTimeout(t);
   }, [local]);
   return (
-    <label htmlFor={id} className="flex flex-col gap-1">
-      {label ? <span className="text-xs font-medium text-fp-text-3">{label}</span> : null}
+    <FilterField label={label} htmlFor={id} active={Boolean(value)}>
       <Input
         id={id}
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         placeholder={placeholder ?? "Search…"}
-        className="h-9 w-44"
+        className={cn(BARE_CONTROL, "w-36")}
       />
-    </label>
+    </FilterField>
   );
 }

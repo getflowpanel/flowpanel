@@ -1,6 +1,5 @@
 "use client";
 import type { FilterType } from "@flowpanel/core";
-import { Button } from "../ui/button.js";
 import { BooleanFilter } from "./filters/BooleanFilter.js";
 import { DateRangeFilter } from "./filters/DateRangeFilter.js";
 import { MultiSelectFilter } from "./filters/MultiSelectFilter.js";
@@ -29,7 +28,7 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
   const hasAny = Object.keys(values).length > 0;
   return (
     <div
-      className={`flex flex-wrap items-end gap-3 ${className ?? ""}`}
+      className={`flex flex-wrap items-center gap-2 ${className ?? ""}`}
       role="toolbar"
       aria-label="Filters"
     >
@@ -62,9 +61,15 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
         }
       })}
       {hasAny && onClear ? (
-        <Button variant="ghost" size="sm" onClick={onClear} aria-label="Clear filters">
-          Clear
-        </Button>
+        // A text link, not a button: resetting is a quiet escape hatch and
+        // should not compete with the filters themselves for attention.
+        <button
+          type="button"
+          onClick={onClear}
+          className="fp-press ml-1 rounded-fp-sm px-1 text-sm text-fp-text-2 underline underline-offset-4 transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+        >
+          Clear filters
+        </button>
       ) : null}
     </div>
   );

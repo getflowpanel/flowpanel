@@ -13,13 +13,14 @@ import {
   runWithRequestContext,
 } from "@flowpanel/core";
 import {
+  CreateDrawer,
   DataTableWithDrawerRows,
   ResourceListDeletedToggle,
   ResourceListFilters,
   ResourceListSearch,
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
-import { Button, PageHeader, ReferenceCell } from "@flowpanel/react";
+import { AutoForm, Button, PageHeader, ReferenceCell } from "@flowpanel/react";
 import type * as React from "react";
 import { serializeBulkAction } from "../actions/bulk-action.js";
 import { type SerializedRowAction, serializeRowAction } from "../actions/row-action.js";
@@ -34,6 +35,7 @@ import {
 import { prerenderResourceCells } from "../runtime/prerender-cells.js";
 import { projectRow } from "../runtime/project-row.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
+import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields.js";
 import { resolveReferences } from "../runtime/resolve-references.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
 
@@ -45,6 +47,11 @@ export interface ResourceListPageProps {
 }
 
 type Row = Record<string, unknown>;
+
+/** The sizes the pager may offer, with the resource's own always among them. */
+function pageSizeChoices(configured: number): number[] {
+  return [...new Set([10, 20, 50, 100, configured])].sort((a, b) => a - b);
+}
 
 export async function ResourceListPage({
   config,
@@ -60,7 +67,14 @@ export async function ResourceListPage({
   });
 
   const name = resourceNavName(resource);
-  const pageSize = resource.options.pageSize ?? 20;
+  const configuredPageSize = resource.options.pageSize ?? 20;
+  // `?perPage=` is attacker-controlled, so it is matched against the offered
+  // options rather than parsed — an arbitrary size is an unbounded query.
+  const pageSizeOptions = pageSizeChoices(configuredPageSize);
+  const requestedPageSize = Number(searchParams.get("perPage"));
+  const pageSize = pageSizeOptions.includes(requestedPageSize)
+    ? requestedPageSize
+    : configuredPageSize;
   const defaultSortRaw = resource.options.defaultSort;
   const defaultSort: { field: string; dir: "asc" | "desc" } | undefined = defaultSortRaw
     ? { field: defaultSortRaw.field as string, dir: defaultSortRaw.dir }
@@ -194,6 +208,17 @@ export async function ResourceListPage({
 
   const clientRows = (result.rows as Row[]).map((row) => projectRow(resource, row));
 
+  // Resolved here rather than behind a fetch: the create form is the same
+  // server-rendered `AutoForm` the standalone /new page uses, handed to a client
+  // drawer as children. No drawer-payload protocol, no second round trip.
+  const createDeclared = resource.options.create?.disabled
+    ? undefined
+    : declaredFormFields(resource, "create");
+  const createFields = createDeclared
+    ? await resolveFormFields(config, createDeclared, reqCtx)
+    : undefined;
+  const createLabel = resource.options.label ?? humanize(name);
+
   return (
     <>
       <PageHeader
@@ -202,16 +227,23 @@ export async function ResourceListPage({
           ? {}
           : {
               actions: (
-                <Button asChild>
-                  <a href={buildHref(config, name, "new")}>Add new</a>
-                </Button>
+                <CreateDrawer label="Add new" title={`New ${createLabel}`}>
+                  <AutoForm
+                    action={`/api/flowpanel/${name}/create`}
+                    columns={config.adapter.introspect(resource.ref).columns}
+                    {...(createFields ? { fields: createFields } : {})}
+                    submitLabel="Create"
+                    redirectTo={buildHref(config, name)}
+                  />
+                </CreateDrawer>
               ),
             })}
       />
-      {resource.options.search && resource.options.search.length > 0 ? (
-        <ResourceListSearch placeholder={`Search ${displayPlural}…`} />
-      ) : null}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Search sits in the filter row, not above it — one band of chrome. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {resource.options.search && resource.options.search.length > 0 ? (
+          <ResourceListSearch placeholder={`Search ${displayPlural}…`} />
+        ) : null}
         <div className="flex-1">
           <ResourceListFilters filters={filterSpecs} />
         </div>
@@ -232,6 +264,7 @@ export async function ResourceListPage({
         total={result.total}
         page={result.page}
         pageSize={result.pageSize}
+        pageSizeOptions={pageSizeOptions}
         rowKey={rowKey as keyof Row & string}
         {...(resource.options.density ? { density: resource.options.density } : {})}
         {...(resource.options.export ? { exportable: resource.options.export } : {})}

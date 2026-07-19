@@ -8,6 +8,7 @@ export default defineConfig({
     react: "src/react.ts",
     client: "src/client.ts",
     bullmq: "src/bullmq.ts",
+    "bullmq-board": "src/bullmq-board.ts",
     server: "src/server.ts",
     charts: "src/charts.ts",
     "charts-runtime": "src/charts-runtime.ts",
@@ -31,5 +32,6 @@ export default defineConfig({
     "recharts",
     "@flowpanel/charts",
     "@flowpanel/charts/runtime",
+    "@flowpanel/adapter-bullmq/board",
   ],
 });

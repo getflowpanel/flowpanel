@@ -56,6 +56,9 @@ export interface FieldProps {
   referenceSearchUrl?: string;
 }
 
+/** Stable identity for the unset case — a fresh `[]` literal default would re-trigger every memo keyed on `options` (`loadOptions`, `AsyncSelect`'s debounce effect) on every render. */
+const EMPTY_OPTIONS: { label: string; value: string }[] = [];
+
 export function Field({
   name,
   label,
@@ -63,7 +66,7 @@ export function Field({
   placeholder,
   type = "text",
   required,
-  options = [],
+  options = EMPTY_OPTIONS,
   autoComplete,
   readOnly = false,
   referenceSearchUrl,
@@ -77,7 +80,7 @@ export function Field({
   const errId = `${field.id}-error`;
   const helpId = `${field.id}-help`;
   const hasErrors = Boolean(field.errors && field.errors.length > 0);
-  const describedBy = hasErrors ? errId : help ? helpId : undefined;
+  const describedBy = [help ? helpId : null, hasErrors ? errId : null].filter(Boolean).join(" ");
   const aria: AriaProps = {
     ...(required ? { "aria-required": true as const } : {}),
     ...(hasErrors ? { "aria-invalid": true as const } : {}),
@@ -185,14 +188,14 @@ export function Field({
           {control}
         </>
       )}
-      {help && !hasErrors ? (
+      {help ? (
         <p id={helpId} className="text-xs text-fp-text-3">
           {help}
         </p>
       ) : null}
       {hasErrors ? (
         <p id={errId} className="text-xs text-fp-err-text" role="alert">
-          {field.errors?.[0]}
+          {field.errors?.join(", ")}
         </p>
       ) : null}
     </div>

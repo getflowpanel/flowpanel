@@ -154,7 +154,7 @@ describe("PageHeader wrapper", () => {
 describe("Pagination wrapper", () => {
   it("renders default", () => {
     render(<Pagination page={1} pageSize={10} total={100} />);
-    expect(screen.getByText(/100 total/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Page 10" })).toBeTruthy();
   });
   it("renders override when registered", () => {
     function Custom(props: PaginationProps) {

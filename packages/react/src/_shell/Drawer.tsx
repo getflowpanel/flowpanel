@@ -38,19 +38,11 @@ export function Drawer({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
-          className={cn(
-            "fixed inset-0 z-50 bg-black/50",
-            "data-[state=open]:animate-[fp-fade-in_var(--fp-duration)_var(--fp-ease-out)]",
-            "data-[state=closed]:animate-[fp-fade-out_var(--fp-duration)_var(--fp-ease-out)]",
-          )}
-        />
+        <DialogPrimitive.Overlay className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/70" />
         <DialogPrimitive.Content
           className={cn(
-            "fixed right-0 top-0 z-50 flex h-dvh max-w-full flex-col border-l border-fp-border-1 bg-fp-bg-1 shadow-xl",
+            "fp-anim-sheet-right fixed right-0 top-0 z-50 flex h-dvh max-w-full flex-col border-l border-fp-border-1 bg-fp-bg-1 shadow-fp-lg",
             WIDTH_CLASS[width],
-            "data-[state=open]:animate-[fp-slide-in-right_var(--fp-duration)_var(--fp-ease-out)]",
-            "data-[state=closed]:animate-[fp-slide-out-right_var(--fp-duration)_var(--fp-ease-out)]",
             "focus:outline-none",
             className,
           )}
@@ -66,7 +58,7 @@ export function Drawer({
           {children}
           <DialogPrimitive.Close
             aria-label="Close drawer"
-            className="absolute right-4 top-4 rounded-fp-sm p-1 text-fp-text-2 opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-fp-accent focus:ring-offset-2"
+            className="absolute right-4 top-4 rounded-fp-sm p-1 text-fp-text-3 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
           >
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>

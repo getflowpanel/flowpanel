@@ -9,6 +9,7 @@ import {
   type RealtimeProviderProps,
   type RealtimeStatus,
   type StatusListener,
+  statusForAttempt,
 } from "./context.js";
 
 // LOC-OK: one cohesive EventSource lifecycle.
@@ -138,7 +139,7 @@ function RealtimeProviderInner({
     for (const ch of channels) params.append("channel", ch);
     const url = `${endpoint}?${params.toString()}`;
 
-    setStatus("connecting");
+    setStatus(state.attempt === 0 ? "connecting" : statusForAttempt(state.attempt));
     const es = new EventSource(url);
     state.source = es;
     state.activeSig = sig;
@@ -197,13 +198,16 @@ function RealtimeProviderInner({
         es.close();
         return;
       }
-      setStatus("reconnecting");
-      if (es.readyState !== EventSource.CLOSED) return;
+      if (es.readyState !== EventSource.CLOSED) {
+        setStatus(statusForAttempt(state.attempt));
+        return;
+      }
       es.close();
       state.source = null;
       state.activeSig = "";
       const delay = Math.min(30_000, 500 * 2 ** Math.min(state.attempt, 6));
       state.attempt += 1;
+      setStatus(statusForAttempt(state.attempt));
       if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
       state.reconnectTimer = setTimeout(() => {
         state.reconnectTimer = null;

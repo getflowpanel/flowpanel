@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@flowpanel/adapter-bullmq": "workspace:*",
-    "@flowpanel/charts": "workspace:*",
     "@flowpanel/core": "workspace:*",
     "bullmq": "^5.0.0",
     "drizzle-orm": "^0.36.0",

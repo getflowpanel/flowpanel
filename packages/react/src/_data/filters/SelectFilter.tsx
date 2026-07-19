@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
+import { cn } from "../../lib/cn.js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select.js";
+import { BARE_CONTROL, FilterField } from "./FilterField.js";
 
 export interface SelectFilterOption {
   label: string;
@@ -27,10 +29,9 @@ export function SelectFilter({
 }: SelectFilterProps) {
   const id = React.useId();
   return (
-    <label htmlFor={id} className="flex flex-col gap-1">
-      {label ? <span className="text-xs font-medium text-fp-text-3">{label}</span> : null}
+    <FilterField label={label} htmlFor={id} active={Boolean(value)}>
       <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
-        <SelectTrigger id={id} className="h-9 w-44">
+        <SelectTrigger id={id} className={cn(BARE_CONTROL, "w-auto justify-start")}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -42,6 +43,6 @@ export function SelectFilter({
           ))}
         </SelectContent>
       </Select>
-    </label>
+    </FilterField>
   );
 }

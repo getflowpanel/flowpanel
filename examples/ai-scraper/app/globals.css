@@ -19,17 +19,8 @@ body {
   color: hsl(var(--fp-text-1));
 }
 
-/* Live-feed row entrance: a new row slides down from the top with an accent bar
-   flashing along its leading edge, settling to transparent.
-   Two deliberate choices here, both driven by measured WCAG AA failures that
-   axe caught while sampling a row mid-animation:
-   - the highlight is an inset shadow, not a background tint. Washing the row
-     in ~10% accent put that tint *behind the text* and dropped the muted
-     timestamp to 4.25:1 and the price delta to 4.49:1, under the required 4.5.
-   - the row no longer fades in. A partially transparent glyph is literally a
-     lower-contrast glyph (the muted timestamp measured 4.37:1 mid-fade against
-     its own 5.06:1 when opaque), and WCAG grants no exemption for transient
-     states. The slide plus the edge bar read just as clearly as arrival. */
+/* No fade and no background tint on purpose: both measured under WCAG AA 4.5:1
+   on the muted timestamp mid-animation. An inset edge bar does not. */
 @keyframes feed-row-enter {
   0% {
     transform: translateY(-16px);

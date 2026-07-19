@@ -30,7 +30,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-1 shadow-lg"
+          className="rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-1 shadow-fp-md"
           align="end"
         >
           {PRESETS.map((p) => (

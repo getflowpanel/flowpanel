@@ -54,7 +54,7 @@ they cannot protect a port they do not sit in front of.
 So the board requires its own shared secret:
 
 ```ts
-import { startBoardServer } from "@flowpanel/kit/bullmq";
+import { startBoardServer } from "@flowpanel/kit/bullmq/board";
 import { queuesByName } from "@/lib/queues";
 
 const token = process.env.BOARD_TOKEN;

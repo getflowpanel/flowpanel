@@ -1,4 +1,5 @@
-// LOC-OK: drizzle adapter — list/get/create/update/delete plus filter, sort and
+// LOC-OK: one adapter contract implementation — the dialect branches inside
+// list/create/update only make sense read together.
 import type {
   Adapter,
   ItemQueryContext,
@@ -26,7 +27,9 @@ import {
   sql,
   type Table,
 } from "drizzle-orm";
+import { type DrizzleDialect, resolveDialect } from "./dialect.js";
 import { introspect } from "./introspect.js";
+import { type MigrationDb, migrationsTableDdl, runRaw, selectMigrationIds } from "./migrations.js";
 import { inferSchema } from "./schema.js";
 
 interface DrizzleLikeDb {
@@ -51,7 +54,6 @@ interface DrizzleLikeDb {
     };
   };
   delete: (ref: Table) => { where: (w: SQL) => Promise<unknown> };
-  execute: (q: SQL) => Promise<unknown>;
   transaction: <T>(fn: (tx: DrizzleLikeDb) => Promise<T>) => Promise<T>;
 }
 
@@ -69,15 +71,12 @@ type ColumnsRecord = Record<string, DrizzleColumnLike>;
 export interface DrizzleAdapterOptions<DB = unknown> {
   db: DB;
   schema: Record<string, unknown>;
-  dialect?: "pg" | "mysql" | "sqlite";
+  /** Inferred from `schema` when omitted. */
+  dialect?: DrizzleDialect;
 }
 
-export function drizzleAdapter<DB>(opts: {
-  db: DB;
-  schema: Record<string, unknown>;
-  dialect?: "pg" | "mysql" | "sqlite";
-}): Adapter<DB, Table> {
-  const dialect = opts.dialect ?? "pg";
+export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB, Table> {
+  const dialect = resolveDialect(opts);
   const likeOp = dialect === "pg" ? ilike : like;
 
   function getDb(ctx: { db?: unknown }): DrizzleLikeDb {
@@ -371,31 +370,26 @@ export function drizzleAdapter<DB>(opts: {
     },
 
     async runMigrationSql(rawSql: string): Promise<void> {
-      const db = opts.db as DrizzleLikeDb;
-      await db.execute(sql.raw(rawSql));
+      await runRaw(opts.db as MigrationDb, dialect, sql.raw(rawSql));
     },
 
     async listAppliedMigrations(): Promise<Set<string>> {
-      const db = opts.db as DrizzleLikeDb;
-      await db.execute(
-        sql.raw(
-          `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
-            id text PRIMARY KEY,
-            applied_at timestamptz NOT NULL DEFAULT now()
-          )`,
-        ),
+      const db = opts.db as MigrationDb;
+      await runRaw(db, dialect, sql.raw(migrationsTableDdl(dialect)));
+      const ids = await selectMigrationIds(
+        db,
+        dialect,
+        sql.raw(`SELECT id FROM _flowpanel_migrations`),
       );
-      const result: unknown = await db.execute(sql.raw(`SELECT id FROM _flowpanel_migrations`));
-      const rows =
-        (result as { rows?: Array<{ id: string }> }).rows ?? (result as Array<{ id: string }>);
-      const ids = new Set<string>();
-      for (const r of rows) ids.add(r.id);
-      return ids;
+      return new Set(ids);
     },
 
     async markMigrationApplied(id: string): Promise<void> {
-      const db = opts.db as DrizzleLikeDb;
-      await db.execute(sql`INSERT INTO _flowpanel_migrations (id) VALUES (${id})`);
+      await runRaw(
+        opts.db as MigrationDb,
+        dialect,
+        sql`INSERT INTO _flowpanel_migrations (id) VALUES (${id})`,
+      );
     },
   };
 }

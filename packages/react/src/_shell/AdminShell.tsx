@@ -45,7 +45,7 @@ export function AdminShell({
 
   if (variant === "tabs") {
     return (
-      <div className="min-h-screen bg-fp-bg-2 text-fp-text-1 antialiased font-sans">
+      <div className="min-h-screen bg-fp-bg-2 font-fp-sans text-fp-text-1 antialiased">
         {skipLink}
         <AdminTabs
           groups={navGroups}
@@ -61,23 +61,23 @@ export function AdminShell({
   }
 
   return (
-    <div className="flex h-screen flex-col bg-fp-bg-2 text-fp-text-1 antialiased font-sans md:flex-row">
+    <div className="flex h-screen flex-col bg-fp-bg-2 font-fp-sans text-fp-text-1 antialiased md:flex-row">
       {skipLink}
       <div className="flex shrink-0 items-center gap-2 border-b border-fp-border-1 bg-fp-bg-1 px-3 py-2 md:hidden">
         <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <DialogPrimitive.Trigger
             aria-label="Open navigation"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-fp-sm text-fp-text-2 hover:bg-fp-bg-2 focus:outline-none focus:ring-2 focus:ring-fp-accent"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-fp-sm text-fp-text-2 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </DialogPrimitive.Trigger>
           <Brand brand={brand} className="min-w-0 flex-1" />
           {user ? <AccountMenu user={user} align="end" className="w-auto" /> : null}
           <DialogPrimitive.Portal>
-            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-[fp-fade-in_var(--fp-duration)_var(--fp-ease-out)] data-[state=closed]:animate-[fp-fade-out_var(--fp-duration)_var(--fp-ease-out)]" />
+            <DialogPrimitive.Overlay className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/60 backdrop-blur-[2px]" />
             <DialogPrimitive.Content
               aria-describedby={undefined}
-              className="fixed left-0 top-0 z-50 flex h-dvh w-[min(80vw,288px)] flex-col bg-fp-bg-1 shadow-xl focus:outline-none data-[state=open]:animate-[fp-fade-in_var(--fp-duration)_var(--fp-ease-out)] data-[state=closed]:animate-[fp-fade-out_var(--fp-duration)_var(--fp-ease-out)]"
+              className="fp-anim-sheet-left fixed left-0 top-0 z-50 flex h-dvh w-[min(80vw,288px)] flex-col border-r border-fp-border-1 bg-fp-bg-1 shadow-fp-lg focus:outline-none"
             >
               <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
               <AdminNav

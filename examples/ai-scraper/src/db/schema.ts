@@ -1,18 +1,6 @@
 /**
- * Drizzle schema for ScrapeAI — a competitive price & product intelligence SaaS.
- *
- * Customers upload their catalog (`products`); the platform crawls marketplaces
- * via scheduled `scrapers`, recording competitor offers as `listings`. An AI
- * pipeline links each listing to a catalog product as a `match` with a
- * confidence score; low-confidence matches wait in a human review queue. This
- * is the company's internal ops admin over that data.
- *
- * Covers the hard cases FlowPanel must handle end-to-end:
- *   - enums (`planTier`, `runStatus`, `matchStatus`, `aiTask`, …)
- *   - two-level FK chains (`runs → scrapers → users`; `matches → listings → runs`)
- *   - one-to-many (`users → products`, `runs → listings`, `products → matches`)
- *   - nullable FK (`aiUsage.runId`, `listings.runId`)
- *   - timestamps + integer money (cents) + float confidence for format pressure
+ * ScrapeAI: customers upload a catalog (`products`), scheduled `scrapers` crawl
+ * marketplaces into `listings`, and the AI links the two as scored `matches`.
  */
 
 import { relations } from "drizzle-orm";
@@ -159,7 +147,7 @@ export const products = pgTable(
   },
   (t) => ({
     userIdx: index("products_user_idx").on(t.userId),
-    skuIdx: uniqueIndex("products_sku_idx").on(t.sku),
+    skuIdx: uniqueIndex("products_sku_idx").on(t.userId, t.sku),
     categoryIdx: index("products_category_idx").on(t.category),
   }),
 );

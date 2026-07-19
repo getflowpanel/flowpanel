@@ -54,8 +54,8 @@ cell renderers.
 | `ColumnVisibilityMenu` | Toolbar menu for showing/hiding columns. |
 | `DensityToggle` | Toggles `DataTableDensity` (row spacing) in the toolbar. |
 | `FilterBar` | Renders a `FilterBarSpec[]` as the filter row above the table. |
-| `BooleanFilter`, `DateRangeFilter`, `MultiSelectFilter`, `NumericRangeFilter`, `SelectFilter`, `TagFilter`, `TextFilter` | One filter control per `ColumnMeta.type`, each driven by `FilterBar`. |
-| `DateRangePicker` | Standalone from/to date range control. |
+| `BooleanFilter`, `DateRangeFilter`, `MultiSelectFilter`, `NumericRangeFilter`, `SelectFilter`, `TagFilter`, `TextFilter` | One filter control per `ColumnMeta.type`, each driven by `FilterBar`. `DateRangeFilter` opens a two-month range calendar with presets. |
+| `DateRangePicker` | Standalone preset dropdown (Today, Last 7 days, MTD, …) for dashboards. |
 | `Pagination`, `DefaultPagination` | Page controls under the table and their default renderer. |
 | `ArrayCell`, `JsonCell`, `ReferenceCell` | Read-only cell renderers for array, JSON, and reference columns. |
 | `InlineEditCell` | Editable cell used when a column declares `editable: true`. |
@@ -154,7 +154,10 @@ Client hooks for building custom admin UI. All are `"use client"`.
 **`useLiveChannel(channel, onMessage, options?)`** — subscribes to one SSE
 channel served by `stream()`. Connection pooling: hook instances that share
 the same `endpoint` + `channel` reuse one `EventSource`, refcounted, rather
-than opening one per instance.
+than opening one per instance. The returned `LiveStatus` runs `idle` →
+`connecting` → `live`, drops to `reconnecting` while a retry is pending, and
+reaches `offline` after six consecutive failed attempts (~30s); it returns to
+`idle` when the subscription is torn down. Retries continue while `offline`.
 
 ```tsx
 const status = useLiveChannel("resource.orders", (payload) => {
@@ -228,8 +231,9 @@ otherwise.
 **`useRealtimeRefresh(channels, options?)`** — subscribes a component to one
 or more channels and triggers a debounced `router.refresh()` on any event.
 Under a `RealtimeProvider` ancestor it joins the shared bus; standalone (no
-provider), `debounceMs` and `endpoint` apply directly and it opens its own
-`EventSource` per channel.
+provider), `debounceMs` and `endpoint` apply directly and it opens one pooled
+`EventSource` carrying its whole channel set, shared with every other
+standalone subscriber of the same set.
 
 ```tsx
 useRealtimeRefresh("resource.orders");

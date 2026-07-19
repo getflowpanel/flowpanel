@@ -150,9 +150,6 @@ importers:
       '@flowpanel/adapter-bullmq':
         specifier: workspace:*
         version: link:../../packages/adapter-bullmq
-      '@flowpanel/charts':
-        specifier: workspace:*
-        version: link:../../packages/charts
       '@flowpanel/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -281,25 +278,25 @@ importers:
 
   packages/adapter-bullmq:
     dependencies:
+      '@flowpanel/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
       '@bull-board/api':
         specifier: ^6.0.0
         version: 6.21.3(@bull-board/ui@6.21.3)
       '@bull-board/express':
         specifier: ^6.0.0
         version: 6.21.3
-      '@flowpanel/core':
-        specifier: workspace:*
-        version: link:../core
-      express:
-        specifier: ^4.19.0
-        version: 4.22.1
-    devDependencies:
       '@types/express':
         specifier: ^4.17.0
         version: 4.17.25
       bullmq:
         specifier: ^5.0.0
         version: 5.76.1
+      express:
+        specifier: ^4.19.0
+        version: 4.22.1
       tsup:
         specifier: 'catalog:'
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
@@ -574,6 +571,12 @@ importers:
 
   packages/flowpanel:
     dependencies:
+      '@bull-board/api':
+        specifier: ^6.0.0
+        version: 6.21.3(@bull-board/ui@6.21.3)
+      '@bull-board/express':
+        specifier: ^6.0.0
+        version: 6.21.3
       '@flowpanel/adapter-bullmq':
         specifier: workspace:*
         version: link:../adapter-bullmq
@@ -607,6 +610,9 @@ importers:
       drizzle-orm:
         specifier: '>=0.36.0 <1.0.0'
         version: 0.45.2(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.9.0)(mysql2@3.22.2(@types/node@24.12.2))(pg@8.20.0)(postgres@3.4.9)(prisma@5.22.0)
+      express:
+        specifier: ^4.19.0
+        version: 4.22.1
       ioredis:
         specifier: ^5.10.0
         version: 5.10.1

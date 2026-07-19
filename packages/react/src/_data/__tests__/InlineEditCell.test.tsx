@@ -24,14 +24,27 @@ describe("InlineEditCell", () => {
         <InlineEditCell resource="users" id="1" field="name" value="Alice" />
       </div>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /double-click to edit name/i }));
+    fireEvent.click(screen.getByRole("button", { name: /edit name/i }));
     expect(onRowClick).not.toHaveBeenCalled();
   });
 
   it("double-click still enters edit mode", () => {
     render(<InlineEditCell resource="users" id="1" field="name" value="Alice" />);
-    const cell = screen.getByRole("button", { name: /double-click to edit name/i });
+    const cell = screen.getByRole("button", { name: /edit name/i });
     fireEvent.doubleClick(cell);
     expect(screen.getByDisplayValue("Alice")).toBeTruthy();
+  });
+
+  it("Enter on the focused cell enters edit mode without bubbling to the row", () => {
+    const onRowKeyDown = vi.fn();
+    render(
+      // biome-ignore lint/a11y/noStaticElementInteractions: test harness stands in for the keyboard-navigable <tbody>.
+      <div onKeyDown={onRowKeyDown}>
+        <InlineEditCell resource="users" id="1" field="name" value="Alice" />
+      </div>,
+    );
+    fireEvent.keyDown(screen.getByRole("button", { name: /edit name/i }), { key: "Enter" });
+    expect(screen.getByDisplayValue("Alice")).toBeTruthy();
+    expect(onRowKeyDown).not.toHaveBeenCalled();
   });
 });

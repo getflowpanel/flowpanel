@@ -51,7 +51,7 @@ describe("DataTable mobile card view", () => {
         onPageChange={onPageChange}
       />,
     );
-    expect(screen.getByText(/30 total/)).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Pagination" })).toBeTruthy();
     const next = screen.getByRole("button", { name: "Next page" });
     fireEvent.click(next);
     expect(onPageChange).toHaveBeenCalledWith(2);

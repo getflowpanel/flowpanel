@@ -41,12 +41,12 @@ export function TagInput({
 
   return (
     <div
-      className={`flex flex-wrap items-center gap-1.5 rounded-fp border border-fp-border-1 bg-fp-bg-1 p-1.5 focus-within:ring-2 focus-within:ring-fp-accent ${className ?? ""}`}
+      className={`flex flex-wrap items-center gap-1.5 rounded-fp border border-fp-border-1 bg-fp-bg-1 p-1.5 shadow-fp-xs transition-colors focus-within:border-fp-focus focus-within:ring-2 focus-within:ring-fp-focus/25 ${className ?? ""}`}
     >
       {value.map((t) => (
         <span
           key={t}
-          className="inline-flex items-center gap-1 rounded-sm bg-fp-bg-2 px-2 py-0.5 text-xs text-fp-text-1"
+          className="inline-flex items-center gap-1 rounded-fp-sm bg-fp-bg-2 px-2 py-0.5 text-xs text-fp-text-1"
         >
           {t}
           <button

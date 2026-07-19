@@ -1,18 +1,4 @@
-/**
- * Reset the public demo database back to a known-good seed state.
- *
- * Designed to run from cron on the host (Railway scheduled command, fly
- * machines, GitHub Actions cron, Coolify scheduled task, …):
- *
- *   DATABASE_URL=postgres://... pnpm exec tsx scripts/reset-demo.ts
- *
- * Idempotent: TRUNCATE … RESTART IDENTITY CASCADE before reseed, so the
- * resulting state matches the one shipped in `scripts/seed.ts`. Both share
- * `scripts/seed-data.ts`, so they can never drift. Safe to invoke as often
- * as you like — recommended cadence is every 30–60 min.
- *
- * Exits non-zero on any failure so the cron platform can alert.
- */
+/** Cron entry point for the public demo. Exits non-zero so the platform alerts. */
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "../src/db/schema";

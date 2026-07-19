@@ -1,26 +1,6 @@
 /**
- * In-memory live activity feed for the ScrapeAI demo.
- *
- * The database holds the durable snapshot (customers, scrapers, run history,
- * the product catalog). "Liveness" is a separate, ephemeral layer: a single
- * server-side ticker advances an imaginary fleet of crawlers and publishes a
- * payload to the `live` SSE channel every ~2s. Nothing is written to Postgres,
- * so the demo stays live without bloating the database or growing unbounded.
- *
- * Numbers are kept mutually consistent so they read as real: `listingsPerMin`
- * (crawl throughput) follows a gentle mean-reverting walk around a slowly
- * drifting centre — not random noise — and `priceChangesToday` accumulates at
- * roughly one detected change per ~6 listings crawled, seeded each day from a
- * time-of-day baseline.
- *
- * Client widgets (`src/admin/LiveFeed.tsx`, `LiveStats.tsx`) subscribe with
- * FlowPanel's `useLiveChannel` hook (a dedicated EventSource per widget) —
- * deliberately NOT through the shared realtime-bus provider, whose
- * every-message `router.refresh()` would re-render the whole dashboard on
- * each tick.
- *
- * Started once on server boot from `instrumentation.ts`. A `globalThis` guard
- * keeps `next dev` hot-reloads from spawning duplicate tickers.
+ * Liveness as an ephemeral layer over durable data: one server-side ticker
+ * publishes to the `live` SSE channel every ~2s and never writes to Postgres.
  */
 import { publish } from "@flowpanel/kit/next";
 import { CATALOG, SITES } from "./catalog";

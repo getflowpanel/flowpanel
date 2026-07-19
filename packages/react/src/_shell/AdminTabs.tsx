@@ -21,6 +21,7 @@ export function AdminTabs({
   const hasBrand = Boolean(brand?.name ?? brand?.logo);
   const items = groups.flatMap((g) => g.items);
   const activeRef = useRef<HTMLAnchorElement | null>(null);
+  const stripRef = useRef<HTMLUListElement | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: currentPath is the intentional trigger — the active tab is scrolled into view whenever the route changes.
   useEffect(() => {
@@ -29,13 +30,35 @@ export function AdminTabs({
     el.scrollIntoView({ inline: "center", block: "nearest" });
   }, [currentPath]);
 
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    const sync = () => {
+      const start = el.scrollLeft > 1;
+      const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      el.dataset.overflow = start && end ? "both" : start ? "start" : end ? "end" : "none";
+    };
+    sync();
+    el.addEventListener("scroll", sync, { passive: true });
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", sync);
+      ro.disconnect();
+    };
+  }, []);
+
   return (
-    <nav aria-label="Admin" className="border-b border-fp-border-1 bg-fp-bg-1">
-      <div className="mx-auto flex max-w-7xl items-center gap-6 px-6">
-        {hasBrand ? <Brand brand={brand} className="flex-shrink-0 py-3" /> : null}
+    <nav
+      aria-label="Admin"
+      className="sticky top-0 z-40 border-b border-fp-border-1 bg-fp-bg-1/85 backdrop-blur-md"
+    >
+      <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
+        {hasBrand ? <Brand brand={brand} className="hidden flex-shrink-0 py-3 sm:flex" /> : null}
         <ul
+          ref={stripRef}
           className={cn(
-            "fp-scrollbar-hide flex flex-1 items-center gap-1 overflow-x-auto",
+            "fp-scroll-fade-x fp-scrollbar-hide flex flex-1 items-center gap-1 overflow-x-auto",
             !hasBrand && "-ml-3",
           )}
         >
@@ -54,7 +77,10 @@ export function AdminTabs({
                 >
                   {it.label}
                   {active ? (
-                    <span aria-hidden className="absolute inset-x-3 bottom-0 h-0.5 bg-fp-accent" />
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-fp-accent"
+                    />
                   ) : null}
                 </Link>
               </li>
@@ -63,7 +89,7 @@ export function AdminTabs({
         </ul>
         {user ? (
           <div className="flex-shrink-0 py-1.5">
-            <AccountMenu user={user} align="end" className="w-auto" />
+            <AccountMenu user={user} align="end" className="w-auto" compact />
           </div>
         ) : null}
       </div>

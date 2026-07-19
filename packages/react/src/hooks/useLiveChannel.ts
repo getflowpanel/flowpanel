@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
 
+import { statusForAttempt } from "../realtime/context.js";
+
 export type LiveStatus = "idle" | "connecting" | "live" | "reconnecting" | "offline";
 
 export interface UseLiveChannelOptions {
@@ -16,13 +18,16 @@ export interface UseLiveChannelOptions {
   enabled?: boolean;
 }
 
+type Listener = (payload: unknown) => void;
+
 interface PoolEntry {
   source: EventSource | null;
   refs: number;
   attempt: number;
   timer: ReturnType<typeof setTimeout> | null;
   status: LiveStatus;
-  listeners: Set<(payload: unknown) => void>;
+  /** Channel → callbacks. One entry can carry several channels on one EventSource. */
+  listeners: Map<string, Set<Listener>>;
   statusListeners: Set<(s: LiveStatus) => void>;
 }
 
@@ -30,100 +35,160 @@ interface PoolEntry {
 // cross-request global state) does not apply.
 const pool = new Map<string, PoolEntry>();
 
-function keyOf(endpoint: string, channel: string): string {
-  return `${endpoint}\n${channel}`;
+function keyOf(endpoint: string, channels: string[]): string {
+  return `${endpoint}\n${channels.join("|")}`;
 }
 
 function setEntryStatus(entry: PoolEntry, status: LiveStatus): void {
+  if (entry.status === status) return;
   entry.status = status;
   entry.statusListeners.forEach((fn) => {
     fn(status);
   });
 }
 
-function connectEntry(key: string, endpoint: string, channel: string, maxMs: number): void {
+function dispatch(entry: PoolEntry, channel: string | undefined, value: unknown): void {
+  const targets: Set<Listener>[] = [];
+  if (channel === undefined) {
+    targets.push(...entry.listeners.values());
+  } else {
+    const set = entry.listeners.get(channel);
+    if (set) targets.push(set);
+  }
+  for (const set of targets) {
+    for (const fn of Array.from(set)) {
+      try {
+        fn(value);
+      } catch {
+        // one listener's error must not block delivery to the others.
+      }
+    }
+  }
+}
+
+function connectEntry(key: string, endpoint: string, channels: string[], maxMs: number): void {
   const entry = pool.get(key);
   if (!entry) return;
-  const url = `${endpoint}?channel=${encodeURIComponent(channel)}`;
-  const es = new EventSource(url);
+  const params = new URLSearchParams();
+  for (const ch of channels) params.append("channel", ch);
+  const es = new EventSource(`${endpoint}?${params.toString()}`);
   entry.source = es;
-  setEntryStatus(entry, entry.attempt === 0 ? "connecting" : "reconnecting");
+  setEntryStatus(entry, entry.attempt === 0 ? "connecting" : statusForAttempt(entry.attempt));
 
   es.onopen = () => {
     entry.attempt = 0;
     setEntryStatus(entry, "live");
   };
   es.onmessage = (ev) => {
+    let channel: string | undefined;
     let value: unknown;
     try {
       const parsed = ev.data === "" ? undefined : JSON.parse(ev.data);
-      value =
+      if (
         parsed &&
         typeof parsed === "object" &&
         typeof (parsed as { channel?: unknown }).channel === "string"
-          ? (parsed as { payload?: unknown }).payload
-          : parsed;
+      ) {
+        channel = (parsed as { channel: string }).channel;
+        value = (parsed as { payload?: unknown }).payload;
+      } else {
+        value = parsed;
+      }
     } catch {
       value = ev.data;
     }
-    entry.listeners.forEach((fn) => {
-      try {
-        fn(value);
-      } catch {
-        // one listener's error must not block delivery to the others.
-      }
-    });
+    dispatch(entry, channel, value);
   };
   es.onerror = () => {
-    entry.source?.close();
+    // A superseded source firing onerror is a no-op — only entry.source drives the lifecycle.
+    if (entry.source !== es) {
+      es.close();
+      return;
+    }
+    if (es.readyState !== EventSource.CLOSED) {
+      setEntryStatus(entry, statusForAttempt(entry.attempt));
+      return;
+    }
+    es.close();
     entry.source = null;
-    setEntryStatus(entry, "reconnecting");
     entry.attempt += 1;
+    setEntryStatus(entry, statusForAttempt(entry.attempt));
     const delay = Math.min(maxMs, 500 * 2 ** Math.min(entry.attempt, 6));
-    entry.timer = setTimeout(() => connectEntry(key, endpoint, channel, maxMs), delay);
+    if (entry.timer) clearTimeout(entry.timer);
+    entry.timer = setTimeout(() => {
+      entry.timer = null;
+      connectEntry(key, endpoint, channels, maxMs);
+    }, delay);
   };
 }
 
 function acquire(
   endpoint: string,
-  channel: string,
+  channels: string[],
   maxMs: number,
-  onMessage: (payload: unknown) => void,
+  onMessage: Listener,
   onStatus: (s: LiveStatus) => void,
 ): () => void {
-  const key = keyOf(endpoint, channel);
+  const key = keyOf(endpoint, channels);
   const existing = pool.get(key);
-  const entry: PoolEntry =
-    existing ??
-    (() => {
-      const created: PoolEntry = {
-        source: null,
-        refs: 0,
-        attempt: 0,
-        timer: null,
-        status: "idle",
-        listeners: new Set(),
-        statusListeners: new Set(),
-      };
-      pool.set(key, created);
-      connectEntry(key, endpoint, channel, maxMs);
-      return created;
-    })();
+  const entry: PoolEntry = existing ?? {
+    source: null,
+    refs: 0,
+    attempt: 0,
+    timer: null,
+    status: "idle",
+    listeners: new Map(),
+    statusListeners: new Set(),
+  };
+  if (!existing) {
+    pool.set(key, entry);
+    connectEntry(key, endpoint, channels, maxMs);
+  }
   entry.refs += 1;
-  entry.listeners.add(onMessage);
+  for (const ch of channels) {
+    let set = entry.listeners.get(ch);
+    if (!set) {
+      set = new Set();
+      entry.listeners.set(ch, set);
+    }
+    set.add(onMessage);
+  }
   entry.statusListeners.add(onStatus);
   onStatus(entry.status);
 
   return () => {
-    entry.listeners.delete(onMessage);
+    for (const ch of channels) {
+      const set = entry.listeners.get(ch);
+      if (!set) continue;
+      set.delete(onMessage);
+      if (set.size === 0) entry.listeners.delete(ch);
+    }
     entry.statusListeners.delete(onStatus);
     entry.refs -= 1;
     if (entry.refs <= 0) {
       entry.source?.close();
+      entry.source = null;
       if (entry.timer) clearTimeout(entry.timer);
+      entry.timer = null;
       pool.delete(key);
     }
   };
+}
+
+/**
+ * Subscribe to one or more SSE channels through the shared pool: subscribers of the same
+ * endpoint + channel set share a single multiplexed EventSource. Not part of the public API.
+ */
+export function acquireLiveChannels(
+  endpoint: string,
+  channels: string[],
+  onMessage: Listener,
+  onStatus: (s: LiveStatus) => void = () => undefined,
+  maxMs = 30_000,
+): () => void {
+  const list = Array.from(new Set(channels.filter(Boolean))).sort();
+  if (list.length === 0) return () => undefined;
+  return acquire(endpoint, list, maxMs, onMessage, onStatus);
 }
 
 /** Subscribe to an SSE channel served by @flowpanel/next stream(). */
@@ -143,7 +208,7 @@ export function useLiveChannel(
 
   const [status, setStatus] = React.useState<LiveStatus>(() => {
     if (!enabled) return "idle";
-    return pool.get(keyOf(endpoint, channel))?.status ?? "idle";
+    return pool.get(keyOf(endpoint, [channel]))?.status ?? "idle";
   });
 
   React.useEffect(() => {
@@ -152,10 +217,10 @@ export function useLiveChannel(
       return;
     }
     const handleMessage = (payload: unknown) => cbRef.current(payload);
-    const release = acquire(endpoint, channel, maxMs, handleMessage, setStatus);
+    const release = acquire(endpoint, [channel], maxMs, handleMessage, setStatus);
     return () => {
       release();
-      setStatus("offline");
+      setStatus("idle");
     };
   }, [channel, enabled, endpoint, maxMs]);
 

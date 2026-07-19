@@ -49,6 +49,12 @@ export function AsyncSelect({
   const [error, setError] = React.useState(false);
 
   React.useEffect(() => {
+    // Adopt a label resolved after mount, but never `null` — that also fires
+    // for a just-picked remote option absent from the preloaded `options` list.
+    if (initialLabel !== null) setLabel(initialLabel);
+  }, [initialLabel]);
+
+  React.useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
@@ -123,7 +129,7 @@ export function AsyncSelect({
                       setLabel(o.label);
                       setOpen(false);
                     }}
-                    className="cursor-pointer rounded-sm px-2 py-1.5 text-sm aria-selected:bg-fp-bg-2"
+                    className="cursor-pointer rounded-fp-sm px-2 py-1.5 text-sm aria-selected:bg-fp-bg-2"
                   >
                     {o.label}
                   </CommandItem>

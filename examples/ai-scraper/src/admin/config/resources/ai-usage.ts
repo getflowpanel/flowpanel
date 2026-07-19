@@ -4,8 +4,6 @@ import { formatDate, money } from "../format";
 
 export const aiUsage = resource(schema.aiUsage, {
   label: "AI usage",
-  // Out of the top nav — aggregate on Monitoring, per-call rows via the Runs drawer.
-  hidden: true,
   columns: [
     {
       field: "userId",

@@ -9,15 +9,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <Toaster
         position="bottom-right"
-        richColors
         closeButton
         toastOptions={{
           classNames: {
-            toast: "bg-fp-bg-1 border border-fp-border-1 text-fp-text-1 rounded-fp shadow-md",
+            toast: "!bg-fp-bg-1 !border-fp-border-1 !text-fp-text-1 !rounded-fp-lg !shadow-fp-lg",
             title: "text-sm font-medium",
-            description: "text-sm text-fp-text-3",
-            success: "!border-fp-border-1",
-            error: "!border-fp-border-1",
+            description: "!text-fp-text-3 text-sm",
+            success: "[&_[data-icon]]:!text-fp-ok",
+            error: "[&_[data-icon]]:!text-fp-err",
+            warning: "[&_[data-icon]]:!text-fp-warn",
+            info: "[&_[data-icon]]:!text-fp-accent",
+            closeButton: "!bg-fp-bg-1 !border-fp-border-1 !text-fp-text-2 hover:!bg-fp-bg-2",
           },
         }}
       />

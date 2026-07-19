@@ -330,3 +330,26 @@ describe.skipIf(!dockerAvailable)(
     });
   },
 );
+
+describe.skipIf(!dockerAvailable)("drizzleAdapter migrations (mysql)", () => {
+  it("creates its bookkeeping table and round-trips applied ids", async () => {
+    const adapter = drizzleAdapter({ db, schema: { users } });
+
+    expect(await adapter.listAppliedMigrations?.()).toEqual(new Set());
+
+    await adapter.markMigrationApplied?.("0001_init");
+    await adapter.markMigrationApplied?.("0002_posts");
+
+    expect(await adapter.listAppliedMigrations?.()).toEqual(new Set(["0001_init", "0002_posts"]));
+  });
+
+  it("executes raw migration SQL", async () => {
+    const adapter = drizzleAdapter({ db, schema: { users } });
+    await adapter.runMigrationSql?.(`CREATE TABLE probe_mig (id VARCHAR(36) PRIMARY KEY)`);
+    const [rows] = (await pool.query("SELECT id FROM probe_mig")) as unknown as [
+      unknown[],
+      unknown,
+    ];
+    expect(rows).toHaveLength(0);
+  });
+});

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { Field } from "../Field.js";
 import { buildSubmissionReply, Form, FormActionDispatchContext } from "../Form.js";
+import { FormError } from "../FormError.js";
 import { FormSubmit } from "../FormSubmit.js";
 
 // `Form` calls `useRouter()` unconditionally (for `redirectTo` navigation on a
@@ -134,6 +135,16 @@ describe("buildSubmissionReply", () => {
     expect(result.status).toBe("success");
     expect(result.initialValue?.sku).toBe("SKU-1");
   });
+
+  // Regression test: a failed response whose body has neither `error` nor
+  // `fieldErrors` used to produce an entirely empty reply — Save appeared to
+  // do nothing at all.
+  it("falls back to a generic message when a failed reply carries no error at all", () => {
+    const submission = submissionFor({ sku: "SKU-1" });
+    const result = buildSubmissionReply(submission, { ok: false });
+    expect(result.status).toBe("error");
+    expect(result.error?.[""]).toEqual(["Something went wrong — please try again."]);
+  });
 });
 
 describe("Form — rejected submit through the real useActionState/useForm path", () => {
@@ -249,5 +260,42 @@ describe("Form — rejected submit through the real useActionState/useForm path"
     // this would now be a stale, detached reference and re-querying the DOM
     // would return a DIFFERENT `<input>` element.
     expect(screen.getByLabelText("SKU")).toBe(sku);
+  });
+});
+
+describe("Form — a non-2xx response with an empty JSON body still surfaces a message", () => {
+  // Regression test for the reported failure mode: `Form` never checked
+  // `response.ok`, so a non-2xx response whose body has no `error` key left
+  // `buildSubmissionReply` with nothing to say — Save silently did nothing.
+  it("shows the generic fallback instead of staying silent", async () => {
+    fetchMock.mockResolvedValue({ ok: false, json: async () => ({}) });
+
+    let dispatch: ((fd: FormData) => void) | null = null;
+    render(
+      <Form
+        action="/api/flowpanel/products/create"
+        schema={z.object({ sku: z.unknown().optional() })}
+      >
+        <ActionCapture
+          onReady={(fn) => {
+            dispatch = fn;
+          }}
+        />
+        <Field name="sku" label="SKU" />
+        <FormError />
+        <FormSubmit>Create</FormSubmit>
+      </Form>,
+    );
+
+    const fd = new FormData();
+    fd.set("sku", "SKU-1");
+    await act(async () => {
+      React.startTransition(() => {
+        dispatch?.(fd);
+      });
+    });
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toBe("Something went wrong — please try again.");
   });
 });

@@ -163,7 +163,7 @@ function ActionFormFieldInput({ field, value, error, onChange }: ActionFormField
           {...(field.placeholder ? { placeholder: field.placeholder } : {})}
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-fp-accent"
+          className="w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-sm shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25"
           {...aria}
         />
         {errorNode ?? (field.help ? <p className="text-xs text-fp-text-3">{field.help}</p> : null)}
@@ -181,7 +181,7 @@ function ActionFormFieldInput({ field, value, error, onChange }: ActionFormField
           required={required}
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-fp-accent"
+          className="w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-sm shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25"
           {...aria}
         >
           <option value="">{field.placeholder ?? "Select…"}</option>

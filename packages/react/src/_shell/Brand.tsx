@@ -32,7 +32,7 @@ export function Brand({ brand, fallback = "Admin", className }: BrandProps) {
     return (
       <a
         href={brand.href}
-        className={`${classes} rounded-fp-sm hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-fp-accent`}
+        className={`${classes} rounded-fp-sm hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40`}
       >
         {inner}
       </a>

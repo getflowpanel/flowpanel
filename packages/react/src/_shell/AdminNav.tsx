@@ -45,10 +45,10 @@ export function AdminNav({
                     <Link
                       href={it.href}
                       className={cn(
-                        "block rounded-fp-sm px-2 py-1.5 text-sm transition-colors",
+                        "block rounded-fp px-2.5 py-1.5 text-sm transition-colors",
                         active
-                          ? "bg-fp-bg-2 text-fp-text-1 font-medium"
-                          : "text-fp-text-2 hover:bg-fp-bg-2",
+                          ? "bg-fp-accent/10 font-medium text-fp-accent-badge-text"
+                          : "text-fp-text-2 hover:bg-fp-bg-3/60 hover:text-fp-text-1",
                       )}
                       aria-current={active ? "page" : undefined}
                     >

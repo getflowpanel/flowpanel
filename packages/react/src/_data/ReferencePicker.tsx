@@ -89,7 +89,7 @@ export function ReferencePicker({
                   setSelectedLabel(r.label);
                   setOpen(false);
                 }}
-                className="cursor-pointer rounded-sm px-2 py-1.5 text-sm aria-selected:bg-fp-bg-2"
+                className="cursor-pointer rounded-fp-sm px-2 py-1.5 text-sm aria-selected:bg-fp-bg-2"
               >
                 {r.label}
               </CommandItem>

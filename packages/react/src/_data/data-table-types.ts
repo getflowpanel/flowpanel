@@ -37,6 +37,9 @@ export interface DataTableProps<Row> {
   onRowClick?: (row: Row) => void;
   onSortChange?: (sort: DataTableSort<Row>) => void;
   onPageChange?: (page: number) => void;
+  /** Offered by the pager as `n / page`; needs `onPageSizeChange` to render. */
+  pageSizeOptions?: number[];
+  onPageSizeChange?: (size: number) => void;
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: React.ReactNode;

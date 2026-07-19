@@ -13,7 +13,7 @@ afterEach(cleanup);
 const baseFieldsTyped = {
   text: { id: "f-text", name: "text", value: "", errors: [] as string[] },
   meta: { id: "f-meta", name: "meta", value: '{"a":1}', errors: [] as string[] },
-  tags: { id: "f-tags", name: "tags", value: "red,blue", errors: [] as string[] },
+  tags: { id: "f-tags", name: "tags", value: '["red","blue"]', errors: [] as string[] },
   select: { id: "f-select", name: "select", value: "", errors: [] as string[] },
   ownerId: { id: "f-ownerId", name: "ownerId", value: "", errors: [] as string[] },
   flag: { id: "f-flag", name: "flag", value: "", errors: [] as string[] },
@@ -55,6 +55,66 @@ describe("Field — json/tags dispatch", () => {
     );
     expect(screen.getByText("red")).toBeTruthy();
     expect(screen.getByText("blue")).toBeTruthy();
+  });
+});
+
+describe("Field — tags/multiselect lossless list encoding", () => {
+  // Regression test: the old bare comma-join couldn't tell "one tag containing
+  // a comma" from "two tags" apart, and re-decoding trimmed padded values.
+  it("a tag containing a comma renders as one chip, not two", () => {
+    const value = JSON.stringify(["a,b"]);
+    render(
+      <FormContext.Provider
+        value={
+          {
+            fields: { tags: { id: "f-tags", name: "tags", value, errors: [] } },
+            form: {} as never,
+          } as never
+        }
+      >
+        <Field name="tags" type="tags" />
+      </FormContext.Provider>,
+    );
+    expect(screen.getByText("a,b")).toBeTruthy();
+    expect(screen.queryByText("a")).toBeNull();
+  });
+
+  it("removing one tag does not trim another tag's padding", () => {
+    const value = JSON.stringify(["  padded  ", "x"]);
+    const { container } = render(
+      <FormContext.Provider
+        value={
+          {
+            fields: { tags: { id: "f-tags", name: "tags", value, errors: [] } },
+            form: {} as never,
+          } as never
+        }
+      >
+        <Field name="tags" type="tags" />
+      </FormContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove x" }));
+    const hidden = container.querySelector('input[type="hidden"][name="tags"]') as HTMLInputElement;
+    expect(hidden.value).toBe(JSON.stringify(["  padded  "]));
+  });
+
+  it("multiselect: an option value containing a comma survives selecting a second option", () => {
+    const options = [
+      { label: "A, Inc.", value: "a,inc" },
+      { label: "B", value: "b" },
+    ];
+    const { container } = render(
+      <FormContext.Provider value={ctx}>
+        <Field name="select" type="multiselect" options={options} label="Pick" />
+      </FormContext.Provider>,
+    );
+    const checkboxes = screen.getAllByRole("checkbox");
+    fireEvent.click(checkboxes[0]!);
+    fireEvent.click(checkboxes[1]!);
+    const hidden = container.querySelector(
+      'input[type="hidden"][name="select"]',
+    ) as HTMLInputElement;
+    expect(JSON.parse(hidden.value)).toEqual(["a,inc", "b"]);
   });
 });
 
@@ -144,6 +204,37 @@ describe("Field — aria-invalid/aria-describedby reach the previously-skipped t
     const el = getControl();
     expect(el.getAttribute("aria-invalid")).toBe("true");
     expect(el.getAttribute("aria-describedby")).toBe(`f-${fieldName}-error`);
+  });
+});
+
+describe("Field — help text survives a validation error and every server message renders", () => {
+  it("keeps the help text mounted, described-by both help and error ids", () => {
+    render(
+      <FormContext.Provider value={ctxWithError("text")}>
+        <Field name="text" type="text" help="Use your legal name" />
+      </FormContext.Provider>,
+    );
+    expect(screen.getByText("Use your legal name")).toBeTruthy();
+    const control = screen.getByRole("textbox");
+    expect(control.getAttribute("aria-describedby")).toBe("f-text-help f-text-error");
+  });
+
+  it("renders every zod error message for the field, not just the first", () => {
+    const ctxTwoErrors = {
+      fields: {
+        ...baseFieldsTyped,
+        text: { ...baseFieldsTyped.text, errors: ["Too short", "Must be alphanumeric"] },
+      },
+      form: {} as never,
+    } as never;
+    render(
+      <FormContext.Provider value={ctxTwoErrors}>
+        <Field name="text" type="text" />
+      </FormContext.Provider>,
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("Too short");
+    expect(alert.textContent).toContain("Must be alphanumeric");
   });
 });
 
@@ -380,5 +471,51 @@ describe("Field — reference control search endpoint", () => {
     fireEvent.click(screen.getByRole("combobox"));
     await screen.findByText("Local Only");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Field — an unrelated re-render mid-search does not restart the debounce", () => {
+  // Regression test: `options = []` as `Field`'s default parameter used to be a
+  // fresh array literal on every call, so a parent re-render (conform re-renders
+  // the whole form on every keystroke elsewhere) rebuilt `loadOptions` and reset
+  // `AsyncSelect`'s debounce timer — the reference search could be starved
+  // indefinitely while the popover stayed open.
+  it("fires the search once, on schedule, even after Field re-renders without new options", async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({ options: [{ label: "Match", value: "m1" }] }),
+      });
+
+      function Harness({ tick }: { tick: number }) {
+        return (
+          <FormContext.Provider value={ctx}>
+            <div data-tick={tick} />
+            <Field
+              name="ownerId"
+              type="reference"
+              referenceSearchUrl="/api/flowpanel/orders/reference/ownerId"
+            />
+          </FormContext.Provider>
+        );
+      }
+
+      const { rerender } = render(<Harness tick={0} />);
+      fireEvent.click(screen.getByRole("combobox"));
+      fireEvent.change(screen.getByPlaceholderText("Search…"), { target: { value: "a" } });
+
+      // Halfway through the 200ms debounce, force Field to re-render — the same
+      // shape of update conform's onInput revalidation causes on every keystroke.
+      await vi.advanceTimersByTimeAsync(100);
+      rerender(<Harness tick={1} />);
+      await vi.advanceTimersByTimeAsync(150);
+
+      // The original timer (due at 200ms) must have fired by 250ms elapsed —
+      // it must not have been reset to 300ms by the re-render.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

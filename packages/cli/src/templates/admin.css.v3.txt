@@ -33,6 +33,9 @@
   --fp-ok: 142 70% 45%;
   --fp-warn: 38 92% 50%;
   --fp-err: 0 84% 60%;
+  /* Neutral-informational tone. Cyan rather than blue so an `info` badge
+     never collides with a blue --fp-accent sitting in the next column. */
+  --fp-info: 199 89% 48%;
 
   /* Dedicated badge-text tokens: same hue/saturation as the base tone,
      lightness lowered so full-strength text on the tone's own `/10` tinted
@@ -43,6 +46,7 @@
   --fp-ok-text: 142 70% 27%;
   --fp-warn-text: 38 92% 28%;
   --fp-err-text: 0 84% 42%;
+  --fp-info-text: 199 89% 30%;
   --fp-accent-badge-text: 220 90% 46%;
 
   /* Categorical chart palette — consumed by @flowpanel/charts as
@@ -114,6 +118,7 @@
   --fp-ok-text: 142 70% 45%;
   --fp-warn-text: 38 92% 50%;
   --fp-err-text: 0 84% 68%;
+  --fp-info-text: 199 89% 60%;
   --fp-accent-badge-text: 217 91% 68%;
 
   --fp-chart-1: 213 94% 68%;
@@ -174,24 +179,30 @@
   }
 }
 
+/* Centred dialogs animate `scale`, never `transform`. Tailwind centres them
+   with the standalone `translate` property, and a `transform: translate(…)`
+   in a keyframe does not replace it — the two compose, so the panel spends the
+   whole animation at -100%/-100% and snaps back when it ends. `translate`,
+   `rotate` and `scale` are independent properties, so scaling here leaves the
+   centring alone. Travel stays small: a wide jump reads as a snap. */
 @keyframes fp-dialog-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.96);
+    scale: 0.97;
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    scale: 1;
   }
 }
 @keyframes fp-dialog-out {
   from {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    scale: 1;
   }
   to {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.98);
+    scale: 0.98;
   }
 }
 
@@ -238,10 +249,12 @@
 
 /* Scrim behind dialogs, sheets, drawers. */
 .fp-anim-overlay[data-state="open"] {
-  animation: fp-fade-in var(--fp-duration) var(--fp-ease-out);
+  animation: fp-fade-in var(--fp-duration-slow) var(--fp-ease-out);
+  will-change: opacity;
 }
 .fp-anim-overlay[data-state="closed"] {
-  animation: fp-fade-out var(--fp-duration-fast) var(--fp-ease-in-out) forwards;
+  animation: fp-fade-out var(--fp-duration) var(--fp-ease-in-out) forwards;
+  will-change: opacity;
 }
 
 /* Dropdowns, popovers, selects, tooltips — scale from the trigger edge. */
@@ -262,14 +275,26 @@
 .fp-anim-pop[data-state="closed"] {
   animation: fp-pop-out var(--fp-duration-fast) var(--fp-ease-in-out) forwards;
 }
+/* Radix keeps content mounted until the exit animation reports `animationend`.
+   Inside Popover's portal that animation never starts, so the panel stays in
+   the DOM — invisible in places, but still painting and still swallowing the
+   clicks underneath it. Opting Popover out of the exit lets Presence see no
+   animation and unmount at once. Select/Dropdown/Dialog are unaffected. */
+.fp-anim-pop.fp-anim-no-exit[data-state="closed"] {
+  animation: none;
+}
 
 /* Centered dialogs — keyframes carry the centering translate because the
    animation's `transform` overrides the utility-composed one. */
+/* `will-change` names exactly what the keyframes touch, so the panel gets its
+   own layer and is composited instead of repainting against the scrim. */
 .fp-anim-dialog[data-state="open"] {
-  animation: fp-dialog-in var(--fp-duration) var(--fp-ease-out);
+  animation: fp-dialog-in var(--fp-duration-slow) var(--fp-ease-out);
+  will-change: scale, opacity;
 }
 .fp-anim-dialog[data-state="closed"] {
-  animation: fp-dialog-out var(--fp-duration-fast) var(--fp-ease-in-out) forwards;
+  animation: fp-dialog-out var(--fp-duration) var(--fp-ease-in-out) forwards;
+  will-change: scale, opacity;
 }
 
 /* Edge-anchored sheets and drawers. */
@@ -348,6 +373,29 @@
 }
 .fp-scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Fades the clipped edges of a horizontal scroller so cut-off tabs read as
+   "there is more" instead of as a rendering glitch. The side is driven by
+   data-overflow, set from the scroll position, so a strip that fits — or one
+   scrolled hard against an end — keeps that edge crisp. */
+.fp-scroll-fade-x {
+  --fp-scroll-fade: 1.5rem;
+}
+.fp-scroll-fade-x[data-overflow="start"] {
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fp-scroll-fade));
+}
+.fp-scroll-fade-x[data-overflow="end"] {
+  mask-image: linear-gradient(to left, transparent 0, #000 var(--fp-scroll-fade));
+}
+.fp-scroll-fade-x[data-overflow="both"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--fp-scroll-fade),
+    #000 calc(100% - var(--fp-scroll-fade)),
+    transparent 100%
+  );
 }
 
 /* Reduce-motion: the duration tokens above already collapse to 0ms; the
