@@ -14,7 +14,7 @@
  * pieces you want to own.
  */
 import { AdminShell, FlowpanelGlobals } from "@flowpanel/kit/react";
-import config from "@/flowpanel.config";
+import config from "{{CONFIG_IMPORT}}";
 import type { ReactNode } from "react";
 
 export default function Layout({ children }: { children: ReactNode }) {

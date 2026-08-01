@@ -32,6 +32,8 @@ export function InlineEditCell({
   const [draft, setDraft] = React.useState<string>(() => valueToInputString(value, valueType));
   const [pending, setPending] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const wasEditing = React.useRef(false);
 
   React.useEffect(() => {
     if (!editing) setDraft(valueToInputString(value, valueType));
@@ -39,6 +41,8 @@ export function InlineEditCell({
 
   React.useEffect(() => {
     if (editing) inputRef.current?.focus();
+    else if (wasEditing.current) triggerRef.current?.focus();
+    wasEditing.current = editing;
   }, [editing]);
 
   async function save() {
@@ -81,9 +85,13 @@ export function InlineEditCell({
   if (!editing) {
     return (
       <button
+        ref={triggerRef}
         type="button"
         onDoubleClick={() => setEditing(true)}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -95,7 +103,7 @@ export function InlineEditCell({
           "w-full cursor-text rounded-fp-sm text-left text-fp-text-1 transition-colors hover:-mx-1 hover:-my-0.5 hover:bg-fp-bg-3/60 hover:px-1 hover:py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
           className,
         )}
-        aria-label={`Edit ${field} — press Enter or double-click`}
+        aria-label={`Edit ${field}`}
       >
         {display ? display(value) : formatDisplay(value, valueType)}
       </button>

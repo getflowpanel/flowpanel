@@ -11,15 +11,15 @@ import {
 import { editConfigToCommentDashboard, editConfigToCommentResource } from "../eject/editConfig.js";
 import { detectAppDir, fileExists } from "../utils/detect.js";
 
-/** Locate the user's flowpanel config. */
+/** Locate the user's flowpanel config, or `null` when the project has none yet. */
 async function findConfigFile(
   cwd: string,
-): Promise<{ path: string; filename: "flowpanel.config.ts" | "flowpanel.config.tsx" }> {
+): Promise<{ path: string; filename: "flowpanel.config.ts" | "flowpanel.config.tsx" } | null> {
   for (const fname of ["flowpanel.config.ts", "flowpanel.config.tsx"] as const) {
     const full = path.join(cwd, fname);
     if (await fileExists(full)) return { path: full, filename: fname };
   }
-  return { path: path.join(cwd, "flowpanel.config.ts"), filename: "flowpanel.config.ts" };
+  return null;
 }
 
 export type EjectTarget = "resource" | "dashboard" | "layout";
@@ -33,7 +33,14 @@ export interface RunEjectOptions {
 }
 
 export async function runEject(opts: RunEjectOptions): Promise<void> {
+  // Resolved before anything is written: copyResourceTemplates has no rollback,
+  // so a missing config after the copy would leave five orphaned files behind.
   const cfg = await findConfigFile(opts.cwd);
+  if (!cfg) {
+    throw new Error(
+      "flowpanel.config.ts not found. Run `flowpanel init` first — eject rewrites the config to hand rendering over to your files.",
+    );
+  }
   const appDir = await detectAppDir(opts.cwd);
 
   if (opts.target === "resource") {

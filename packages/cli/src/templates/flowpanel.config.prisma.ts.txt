@@ -1,11 +1,19 @@
-import { defineAdmin, resource } from "@flowpanel/kit";
+import { defineAdmin } from "@flowpanel/kit";
 import { prismaAdapter } from "@flowpanel/kit/prisma";
 import { prisma } from "{{DB}}";
 import { getSession } from "{{AUTH}}";
 
-declare module "@flowpanel/core" {
+// Augment "@flowpanel/kit": it is the package you installed, and the
+// interfaces below merge into the same declarations "@flowpanel/core" owns.
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof prisma;
+  }
+  // resource name -> row type. A Prisma resource is a bare model-name string,
+  // so this map is the only thing that gives it a row type: without an entry
+  // here, columns and filters fall back to unchecked strings.
+  interface FlowpanelResources {
+    // User: import("@prisma/client").User;
   }
 }
 
@@ -30,6 +38,7 @@ export default defineAdmin({
   resources: [
     // Prisma resources are referenced by model name (string). The adapter
     // resolves `prisma.<lowercased>` at runtime and uses DMMF for introspection.
+    // Add `resource` to the "@flowpanel/kit" import above, then:
     // resource("User", {
     //   label: "Users",
     //   columns: ["email", "name", "createdAt"],

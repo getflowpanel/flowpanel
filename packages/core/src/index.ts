@@ -27,6 +27,7 @@ export type {
 } from "./types/action.js";
 export type {
   Adapter,
+  AdapterKind,
   ColumnMeta,
   ResourceIntrospection,
 } from "./types/adapter.js";
@@ -71,6 +72,7 @@ export type {
   DrawerAction,
   DrawerConfig,
   DrawerFieldFormSpec,
+  DrawerFieldList,
   DrawerTab,
   DrawerTabFields,
   DrawerTabResource,
@@ -134,6 +136,7 @@ export type {
   NumericFormat,
   PieChartOptions,
   PieChartWidget,
+  RowKey,
   Span,
   StatGroupOptions,
   StatGroupWidget,

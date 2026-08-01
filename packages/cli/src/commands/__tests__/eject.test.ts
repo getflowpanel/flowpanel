@@ -103,6 +103,37 @@ describe("runEject — invalid", () => {
   });
 });
 
+describe("runEject — before init", () => {
+  let bare: string;
+  beforeEach(async () => {
+    bare = await fs.mkdtemp(path.join(os.tmpdir(), "fp-eject-bare-"));
+  });
+  afterEach(async () => {
+    await fs.rm(bare, { recursive: true, force: true });
+  });
+
+  it("fails with an actionable message instead of a raw ENOENT", async () => {
+    await expect(
+      runEject({ cwd: bare, target: "resource", name: "users", version: "1.0.0" }),
+    ).rejects.toThrow(/flowpanel\.config\.ts not found\. Run `flowpanel init` first/);
+  });
+
+  it("leaves no half-ejected files behind (copyResourceTemplates has no rollback)", async () => {
+    await expect(
+      runEject({ cwd: bare, target: "resource", name: "users", version: "1.0.0" }),
+    ).rejects.toThrow();
+    await expect(fs.access(path.join(bare, "app/admin/users"))).rejects.toThrow();
+    expect(await fs.readdir(bare)).toEqual([]);
+  });
+
+  it("checks before ejecting a dashboard too", async () => {
+    await expect(
+      runEject({ cwd: bare, target: "dashboard", name: "/", version: "1.0.0" }),
+    ).rejects.toThrow(/flowpanel\.config\.ts not found/);
+    expect(await fs.readdir(bare)).toEqual([]);
+  });
+});
+
 describe("runEject — src/app project", () => {
   let srcTmp: string;
   beforeEach(async () => {

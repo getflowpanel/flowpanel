@@ -2,17 +2,21 @@ import type { z } from "zod";
 import type { ActionResult } from "./action.js";
 import type { ActionContext } from "./context.js";
 import type { InferDB, ResourceName } from "./registry.js";
-import type { WidgetConfig } from "./widget.js";
+import type { FieldDef } from "./resource.js";
+import type { CustomWidget, WidgetConfig } from "./widget.js";
 
 export type DrawerWidth = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 
+/** Fields of a drawer view: row keys, explicit field defs, or `"*"` for all. */
+export type DrawerFieldList<Row> = (keyof Row | FieldDef<Row>)[] | "*";
+
 /** Drawer tab showing the row's own fields as a key/value list. */
-export interface DrawerTabFields {
+export interface DrawerTabFields<Row = Record<string, unknown>> {
   /** Stable identifier for the tab. */
   key: string;
   label: string;
   /** Fields to show. `"*"` shows every declared column. */
-  fields: "*" | string[];
+  fields: DrawerFieldList<Row>;
 }
 
 /** Drawer tab listing rows of a related resource. */
@@ -29,10 +33,16 @@ export interface DrawerTabResource<Row = unknown> {
 export interface DrawerTabWidgets {
   key: string;
   label: string;
-  widgets: WidgetConfig[];
+  /** `custom()` widgets are not renderable here — the drawer serializes over the wire. */
+  widgets: Exclude<WidgetConfig, CustomWidget>[];
 }
 
-export type DrawerTab<Row = unknown> = DrawerTabFields | DrawerTabResource<Row> | DrawerTabWidgets;
+// Row defaults to an index signature, not `unknown`: `keyof unknown` is `never`,
+// which would collapse `fields` on a bare `DrawerTab` (see DashboardAction.form).
+export type DrawerTab<Row = Record<string, unknown>> =
+  | DrawerTabFields<Row>
+  | DrawerTabResource<Row>
+  | DrawerTabWidgets;
 
 /** Input field of a `DrawerAction.form`. */
 export interface DrawerFieldFormSpec {
@@ -51,7 +61,7 @@ export interface DrawerFieldFormSpec {
 }
 
 /** Button rendered in the drawer footer for the open row. */
-export interface DrawerAction<Row = unknown> {
+export interface DrawerAction<Row = Record<string, unknown>> {
   /** Stable identifier, used in the action's URL. */
   key: string;
   label: string;
@@ -74,13 +84,13 @@ export interface DrawerAction<Row = unknown> {
 }
 
 /** Side panel opened for a single row. */
-export interface DrawerConfig<Row = unknown> {
+export interface DrawerConfig<Row = Record<string, unknown>> {
   /** Panel width. Defaults to `"lg"`. */
   width?: DrawerWidth;
   /** Panel title. Defaults to the row's key. */
   header?: (row: Row) => string;
   /** Fields shown when no `tabs` are declared. `"*"` shows every column. */
-  fields?: "*" | string[];
+  fields?: DrawerFieldList<Row>;
   /** Tabs to render instead of a flat field list. */
   tabs?: DrawerTab<Row>[];
   /** Buttons rendered in the panel footer. */

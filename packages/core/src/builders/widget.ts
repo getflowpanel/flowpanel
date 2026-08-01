@@ -26,8 +26,8 @@ export function metric(
 }
 
 /** A list-of-rows widget on a dashboard. */
-export function table(options: TableWidgetOptions): TableWidget {
-  return { kind: "table", options };
+export function table<R = unknown>(options: TableWidgetOptions<R>): TableWidget {
+  return { kind: "table", options: options as TableWidgetOptions };
 }
 
 /** Drop a fully-custom React component into a dashboard section. */

@@ -239,6 +239,64 @@ describe("drawerActionRoute", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("awaits an async function-form field validator, rejecting and not running the action", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      key: "reject",
+      label: "Reject",
+      form: [
+        {
+          name: "reason",
+          type: "text",
+          validate: async (value: unknown) =>
+            value === "duplicate" ? "already flagged as duplicate" : null,
+        },
+      ],
+      run,
+    } as DrawerAction);
+    const handler = drawerActionRoute(config);
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: "duplicate" }),
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "jobs", id: "1", action: "reject" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.issues).toEqual([{ path: ["reason"], message: "already flagged as duplicate" }]);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("runs the action when an async function-form field validator resolves null", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      key: "reject",
+      label: "Reject",
+      form: [
+        {
+          name: "reason",
+          type: "text",
+          validate: async (value: unknown) =>
+            value === "duplicate" ? "already flagged as duplicate" : null,
+        },
+      ],
+      run,
+    } as DrawerAction);
+    const handler = drawerActionRoute(config);
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: "fine" }),
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "jobs", id: "1", action: "reject" }),
+    });
+    expect(res.status).toBe(200);
+    expect(run).toHaveBeenCalledWith(expect.anything(), { reason: "fine" }, expect.anything());
+  });
+
   it("runs the action when the declared form is satisfied", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig({

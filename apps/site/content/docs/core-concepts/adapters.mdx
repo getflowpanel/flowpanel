@@ -66,7 +66,9 @@ If you don't use Drizzle or Prisma, implement the `Adapter` interface
 directly. It's documented in `packages/core/src/types/adapter.ts` —
 six async methods (`list`, `get`, `create`, `update`, `delete`,
 `restore`), two sync introspection helpers (`introspect`,
-`inferSchema`), and a `kind` discriminant.
+`inferSchema`), and a `kind` label. `kind` is an open union —
+`"drizzle"` and `"prisma"` autocomplete, and your own adapter names
+itself whatever it likes.
 
 ## Why two adapters
 

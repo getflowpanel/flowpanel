@@ -88,3 +88,48 @@ describe("copyTargets on a src/app project", () => {
     await expect(fs.access(path.join(tmp, "app"))).rejects.toThrow();
   });
 });
+
+describe("copyLayoutTemplate config import", () => {
+  async function tsconfig(paths: Record<string, string[]>): Promise<void> {
+    await fs.writeFile(
+      path.join(tmp, "tsconfig.json"),
+      JSON.stringify({ compilerOptions: { paths } }),
+    );
+  }
+
+  it('uses "@/flowpanel.config" when @/* maps to the project root', async () => {
+    await fs.mkdir(path.join(tmp, "app"), { recursive: true });
+    await tsconfig({ "@/*": ["./*"] });
+    await copyLayoutTemplate({ cwd: tmp, version: "1.0.0" });
+    const layout = await fs.readFile(path.join(tmp, "app/admin/layout.tsx"), "utf8");
+    expect(layout).toContain('from "@/flowpanel.config"');
+  });
+
+  it("uses a relative path on the create-next-app default (@/* -> src/*)", async () => {
+    await fs.mkdir(path.join(tmp, "src/app"), { recursive: true });
+    await tsconfig({ "@/*": ["./src/*"] });
+    await copyLayoutTemplate({ cwd: tmp, version: "1.0.0" });
+    const layout = await fs.readFile(path.join(tmp, "src/app/admin/layout.tsx"), "utf8");
+    // "@/flowpanel.config" would resolve to src/flowpanel.config — the wrong file.
+    expect(layout).toContain('from "../../../flowpanel.config"');
+    expect(layout).not.toContain('"@/flowpanel.config"');
+  });
+
+  it("leaves no unsubstituted placeholder", async () => {
+    await fs.mkdir(path.join(tmp, "app"), { recursive: true });
+    await copyLayoutTemplate({ cwd: tmp, version: "1.0.0" });
+    const layout = await fs.readFile(path.join(tmp, "app/admin/layout.tsx"), "utf8");
+    expect(layout).not.toContain("{{");
+  });
+});
+
+describe("ejected resource templates", () => {
+  it("point at @flowpanel/kit/react, the package a scaffold installs", async () => {
+    await copyResourceTemplates({ cwd: tmp, resourceName: "users", version: "1.0.0" });
+    for (const rel of ["app/admin/users/page.tsx", "app/admin/users/new/page.tsx"]) {
+      const src = await fs.readFile(path.join(tmp, rel), "utf8");
+      expect(src).toContain("@flowpanel/kit/react");
+      expect(src).not.toMatch(/from "@flowpanel\/react"/);
+    }
+  });
+});

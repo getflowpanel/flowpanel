@@ -1,8 +1,12 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { FlowpanelValidationError } from "@flowpanel/core";
+import { revalidatePath } from "next/cache";
 import { safeErrorMessage } from "../runtime/action-helpers.js";
 import { coerceRowByColumns } from "../runtime/coerce-values.js";
+import { buildHref } from "../runtime/href.js";
+import { resourceNavName } from "../runtime/nav.js";
 import { parseImport } from "../runtime/parse-import.js";
+import { publishResource } from "../runtime/publish.js";
 import { withGuards } from "../runtime/with-guards.js";
 import { makeActions } from "./resource-actions.js";
 
@@ -129,7 +133,7 @@ export function importRoute(config: ResolvedAdminConfig) {
 
       const allowed = importOpt.fields as string[] | undefined;
       const { columns } = config.adapter.introspect(resource.ref);
-      const actions = makeActions(config, resource, { reqCtx });
+      const actions = makeActions(config, resource, { reqCtx, publish: false });
       let imported = 0;
       const failed: { row: number; error: string }[] = [];
       for (let i = 0; i < rows.length; i++) {
@@ -147,6 +151,11 @@ export function importRoute(config: ResolvedAdminConfig) {
         } catch (e) {
           failed.push({ row: i + 1, error: rowErrorMessage(e) });
         }
+      }
+      if (imported > 0) {
+        const name = resourceNavName(resource);
+        await publishResource(name, { action: "create" });
+        revalidatePath(buildHref(config, name));
       }
       return Response.json({ ok: true, imported, failed });
     });

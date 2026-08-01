@@ -35,7 +35,6 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
       {filters.map((f) => {
         const v = values[f.field] ?? null;
         const common = {
-          field: f.field,
           value: v,
           onChange: (nv: string | null) => onChange(f.field, nv),
           ...(f.label ? { label: f.label } : {}),

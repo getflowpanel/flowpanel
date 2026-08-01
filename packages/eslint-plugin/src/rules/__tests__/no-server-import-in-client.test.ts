@@ -34,6 +34,30 @@ ruleTester().run("no-server-import-in-client", rule, {
         export const x2 = 1;
       `,
     },
+    {
+      name: "next/server is a package entry point, not an app server module",
+      code: `
+        "use client";
+        import { NextResponse } from "next/server";
+        export const x = 1;
+      `,
+    },
+    {
+      name: "type-only import of a server module is erased before bundling",
+      code: `
+        "use client";
+        import type { Db } from "@/db";
+        export const x: Db | null = null;
+      `,
+    },
+    {
+      name: "type-only import from an app server path",
+      code: `
+        "use client";
+        import type { Handler } from "@/lib/server/auth";
+        export const x: Handler | null = null;
+      `,
+    },
   ],
   invalid: [
     {

@@ -17,6 +17,17 @@ pnpm add -D @flowpanel/eslint-plugin
 // eslint.config.ts
 import flowpanel from "@flowpanel/eslint-plugin";
 
+export default [flowpanel.configs.recommended];
+```
+
+`configs.recommended` registers the plugin under the `flowpanel` namespace and
+turns on every rule at the severity listed below. To pick rules by hand
+instead:
+
+```ts
+// eslint.config.ts
+import flowpanel from "@flowpanel/eslint-plugin";
+
 export default [
   {
     plugins: { flowpanel },
@@ -39,7 +50,7 @@ export default [
 | `audit-row-action-needs-confirm` | problem | no |
 | `no-server-import-in-client` | problem | no |
 | `require-unique-resource-names` | problem | no |
-| `no-typo-column-keyword` | problem | yes |
+| `no-typo-column-keyword` | problem | no |
 
 ### `prefer-shorthand-filter`
 
@@ -96,15 +107,22 @@ In a file that starts with `"use client"`, importing a server-only module
 ships server code to the browser. The rule flags:
 
 - `server-only` and `*/server-only`
-- any path containing a `/server/` (or terminal `/server`) segment
+- an app-local path containing a `/server/` (or terminal `/server`) segment
 - `@/db`, `@/db/...` (and the `~/db`, `src/db`, `./db` variants)
+
+Only alias and relative specifiers (`@/`, `~/`, `./`, `../`, `src/`) count as
+app-local, so package entry points such as `next/server` are not flagged.
+`import type` is skipped — it is erased before bundling.
 
 ### `require-unique-resource-names`
 
 Within a single `defineAdmin({ resources: [...] })` call, every `resource()`
-entry must resolve to a unique name. This rule looks at `opts.name` when it is
-a string literal; names inferred from the ref at runtime are handled by the
-runtime validator.
+entry must resolve to a unique name. The name comes from `opts.name` when it
+is a string literal, otherwise from a string ref (`resource("User", …)`, the
+Prisma form). Bare identifiers — the decomposed `resources: [users, scrapers]`
+layout — resolve through their `const x = resource(…)` declaration when it is
+in the same file; otherwise the identifier itself must be unique. Names that
+can only be inferred from the ref at runtime are left to the runtime validator.
 
 ### `no-typo-column-keyword`
 
@@ -112,6 +130,9 @@ Heuristic check for common camelCase typos in `columns: [...]` (string form
 or object form with `key`/`name`). v1 only catches a short list of known
 typos: `userid`, `createdat`, `updatedat`, `isactive`. Full schema-aware
 validation is tracked separately.
+
+Not autofixable: `columns` is not FlowPanel-exclusive and a lowercase column
+name can be deliberate, so `eslint --fix` must not rewrite it.
 
 ## License
 

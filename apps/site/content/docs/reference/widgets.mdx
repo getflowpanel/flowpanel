@@ -69,11 +69,17 @@ metric(label: string, query: (ctx) => Promise<number | string>, options?: Metric
 ## table
 
 ```ts
-table(options: TableWidgetOptions)
+table<R>(options: TableWidgetOptions<R>)
 ```
 
 Point it at a registered `resource` to reuse that resource's columns, or supply
 your own `query` and `columns`.
+
+`R` is inferred from `query`, so `columns` is checked against the row that query
+returns — a misspelled column is a compile error. `columns` is `RowKey<R>[]`,
+which is `keyof R & string` once `R` is known and plain `string` while it is
+not: without a `query` there is no row type to check against, and any column
+string is accepted.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="TableWidgetOptions" />
 
@@ -110,6 +116,9 @@ import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts"
 ```
 
 Each takes `(label, query, options)`, where `query` returns an array of rows.
+The row type is inferred from `query`, so `x` / `y` (and `category` / `value` on
+a pie) must name keys of that row — a typo is a compile error. A `query` typed
+as `unknown[]` leaves them as plain strings.
 
 ### ChartOptionsBase
 

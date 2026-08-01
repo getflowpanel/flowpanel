@@ -5,7 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { BARE_CONTROL, FilterField } from "./FilterField.js";
 
 export interface BooleanFilterProps {
-  field: string;
   label?: string;
   value: string | null;
   onChange: (value: string | null) => void;

@@ -4,6 +4,7 @@ import type { AdminConfig, ResolvedAdminConfig } from "./types/config.js";
 import type { DashboardConfig, PageConfig } from "./types/dashboard.js";
 import type { QueueConfig } from "./types/queue.js";
 import type { ResourceConfig } from "./types/resource.js";
+import { validateResourceRefs } from "./validate-resource-refs.js";
 
 function normalizeRoutePath(raw: string): string {
   let p = raw.trim();
@@ -94,6 +95,8 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
     if (queuesByKey.has(key)) throw new Error(`duplicate queue key: ${key}`);
     queuesByKey.set(key, q);
   }
+  validateResourceRefs(resourcesByName, config.dashboards ?? []);
+
   const rawBasePath = config.basePath ?? "/admin";
   let basePath = rawBasePath.trim();
   if (basePath !== "" && !basePath.startsWith("/")) basePath = `/${basePath}`;

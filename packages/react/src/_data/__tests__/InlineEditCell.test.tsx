@@ -13,9 +13,8 @@ afterEach(cleanup);
 
 describe("InlineEditCell", () => {
   it("stops single-click propagation so a wrapping row-click handler doesn't fire", () => {
-    // Regression: the runtime always wires a drawer row-click handler on
-    // the <tr>. Without stopPropagation the first click of a double-click
-    // opens the drawer before edit mode is ever reachable.
+    // The runtime always wires a drawer row-click handler on the <tr>;
+    // without stopPropagation activating the cell also opens the drawer.
     const onRowClick = vi.fn();
     render(
       // biome-ignore lint/a11y/noStaticElementInteractions: test harness stands in for DataTableRow's <tr onClick>.
@@ -26,6 +25,28 @@ describe("InlineEditCell", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /edit name/i }));
     expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it("click enters edit mode, so button activation from any input device works", () => {
+    render(<InlineEditCell resource="users" id="1" field="name" value="Alice" />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit name" }));
+    expect(screen.getByDisplayValue("Alice")).toBeTruthy();
+  });
+
+  it("names the cell after the action, not the pointer gesture", () => {
+    render(<InlineEditCell resource="users" id="1" field="name" value="Alice" />);
+    expect(screen.getByRole("button", { name: "Edit name" })).toBeTruthy();
+  });
+
+  it("returns focus to the cell when editing is cancelled", () => {
+    render(<InlineEditCell resource="users" id="1" field="name" value="Alice" />);
+    const cell = screen.getByRole("button", { name: "Edit name" });
+    cell.focus();
+    fireEvent.click(cell);
+    const input = screen.getByDisplayValue("Alice");
+    expect(document.activeElement).toBe(input);
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit name" }));
   });
 
   it("double-click still enters edit mode", () => {

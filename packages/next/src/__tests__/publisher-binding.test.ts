@@ -76,6 +76,25 @@ describe("bindPublisher", () => {
     expect(createPublisher).toHaveBeenCalledTimes(1);
   });
 
+  it("warns once when publish() runs before bindPublisher in this process", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await publish("resource.users", { action: "update" });
+    await publish("resource.users", { action: "update" });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatch(/bindPublisher/);
+    warn.mockRestore();
+  });
+
+  it("does not warn when bindPublisher ran first", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    bindPublisher(fakeConfig(undefined));
+    await publish("resource.users", { action: "update" });
+
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("a subscriber registered before a cross-bundle bind still receives published events", async () => {
     const cfgFromStreamBundle = fakeConfig({ driver: "memory" });
     const cfgFromCatchAllBundle = fakeConfig({ driver: "memory" });

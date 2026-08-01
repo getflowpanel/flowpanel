@@ -4,6 +4,7 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
 import { hasMarker } from "../eject/marker.js";
+import { findDestructiveWithoutConfirm } from "../utils/config-scan.js";
 import {
   configImportFor,
   detectAppDir,
@@ -115,7 +116,12 @@ export async function runDoctorChecks(
     `Upgrade: ${pmc.addDisplay("next@latest react@latest react-dom@latest", false)}`,
   );
   add("TypeScript installed", stack.typescript, `Install: ${pmc.addDisplay("typescript", true)}`);
-  add("ORM adapter (Drizzle)", stack.drizzle, `Install: ${pmc.addDisplay("drizzle-orm", false)}`);
+  const orm = stack.drizzle ? "Drizzle" : stack.prisma ? "Prisma" : null;
+  add(
+    orm === null ? "ORM adapter (Drizzle or Prisma)" : `ORM adapter (${orm})`,
+    orm !== null,
+    `Install one: ${pmc.addDisplay("drizzle-orm", false)} or ${pmc.addDisplay("@prisma/client", false)}`,
+  );
   add(
     "flowpanel.config.ts",
     await fileExists(path.join(cwd, "flowpanel.config.ts")),
@@ -210,35 +216,6 @@ async function countCoreInstances(cwd: string): Promise<number | null> {
     return null;
   }
   return entries.filter((name) => name.startsWith("@flowpanel+core@")).length;
-}
-
-/** Best-effort static scan of admin config files for destructive actions that lack a `confirm`. */
-async function findDestructiveWithoutConfirm(cwd: string): Promise<string[]> {
-  const candidates = [
-    "flowpanel.config.ts",
-    "src/admin/flowpanel.config.ts",
-    "src/flowpanel.config.ts",
-  ];
-  const misses: string[] = [];
-  for (const rel of candidates) {
-    const abs = path.join(cwd, rel);
-    let src: string;
-    try {
-      src = await fs.readFile(abs, "utf8");
-    } catch {
-      continue;
-    }
-    const lines = src.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line?.includes(`variant: "destructive"`)) continue;
-      const slice = lines.slice(i, Math.min(i + 10, lines.length)).join("\n");
-      if (!slice.includes("confirm:")) {
-        misses.push(`${rel}:${i + 1}`);
-      }
-    }
-  }
-  return misses;
 }
 
 export function doctorCommand(cli: Command): void {

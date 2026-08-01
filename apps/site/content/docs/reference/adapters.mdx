@@ -18,6 +18,10 @@ Shipped adapters: [`drizzleAdapter`](/docs/integrations/drizzle) and
 Prisma delegate, or your own descriptor. `DB` is the client you expose as
 `ctx.db` everywhere.
 
+`kind` is `AdapterKind` — `"drizzle" | "prisma" | (string & {})`. The shipped
+kinds autocomplete; a third-party adapter picks its own label. Nothing in
+FlowPanel branches on it.
+
 The last three methods are optional and only power `flowpanel migrate`. An
 adapter without `restore` makes the admin hide the restore button rather than
 fail at runtime.

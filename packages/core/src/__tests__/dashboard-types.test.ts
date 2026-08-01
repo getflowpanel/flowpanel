@@ -7,6 +7,7 @@ import type {
   DashboardAction,
   DashboardConfig,
   DrawerConfig,
+  DrawerFieldList,
   DrawerTab,
   FieldDef,
   MetricWidget,
@@ -88,16 +89,32 @@ describe("M2 public types", () => {
 
   it("DrawerConfig supports tabs with widgets OR resource OR fields", () => {
     expectTypeOf<DrawerTab>().toMatchTypeOf<
-      | { key: string; label: string; fields: "*" | string[] }
+      | { key: string; label: string; fields: DrawerFieldList<Record<string, unknown>> }
       | {
           key: string;
           label: string;
           resource: string;
-          filter?: (row: unknown) => Record<string, unknown>;
+          filter?: (row: Record<string, unknown>) => Record<string, unknown>;
         }
-      | { key: string; label: string; widgets: WidgetConfig[] }
+      | { key: string; label: string; widgets: Exclude<WidgetConfig, CustomWidget>[] }
     >();
     expectTypeOf<DrawerConfig>().toHaveProperty("width");
     expectTypeOf<DrawerConfig>().toHaveProperty("tabs");
+  });
+
+  it("drawer field lists are keyed to the row, like detail tabs", () => {
+    type Row = { id: number; email: string };
+    expectTypeOf<DrawerConfig<Row>["fields"]>().toEqualTypeOf<
+      (keyof Row | FieldDef<Row>)[] | "*" | undefined
+    >();
+    expectTypeOf<Extract<DrawerTab<Row>, { fields: unknown }>["fields"]>().toEqualTypeOf<
+      (keyof Row | FieldDef<Row>)[] | "*"
+    >();
+  });
+
+  it("drawer widget tabs reject custom() widgets", () => {
+    type WidgetTab = Extract<DrawerTab, { widgets: unknown }>;
+    expectTypeOf<CustomWidget>().not.toMatchTypeOf<WidgetTab["widgets"][number]>();
+    expectTypeOf<MetricWidget>().toMatchTypeOf<WidgetTab["widgets"][number]>();
   });
 });

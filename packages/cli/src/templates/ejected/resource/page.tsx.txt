@@ -6,7 +6,7 @@
  * freely; FlowPanel will not touch this file again.
  *
  * Building blocks available:
- *   - import { DataTable, FilterBar, BulkBar } from "@flowpanel/react";
+ *   - import { DataTable, FilterBar, BulkBar } from "@flowpanel/kit/react";
  *   - your adapter (drizzle/prisma) directly via your db client
  *
  * This is a starting stub — replace with your real list UI.

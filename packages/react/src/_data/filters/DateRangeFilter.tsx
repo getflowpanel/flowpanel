@@ -17,7 +17,6 @@ import {
 import { FilterField } from "./FilterField.js";
 
 export interface DateRangeFilterProps {
-  field: string;
   label?: string;
   value: string | null;
   onChange: (value: string | null) => void;

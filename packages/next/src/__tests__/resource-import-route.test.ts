@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("../runtime/publish.js", () => ({
@@ -8,8 +8,10 @@ vi.mock("../runtime/publish.js", () => ({
 }));
 
 import type { Adapter, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { importRoute } from "../actions/resource-import.js";
+import { publishResource } from "../runtime/publish.js";
 
 const createSchema = z.object({ email: z.string().email() });
 
@@ -84,6 +86,11 @@ function postChunked(totalBytes: number, chunkSize = 64 * 1024): Request {
 const params = { params: Promise.resolve({ resource: "users" }) };
 
 describe("importRoute", () => {
+  beforeEach(() => {
+    vi.mocked(publishResource).mockReset();
+    vi.mocked(revalidatePath).mockReset();
+  });
+
   it("rejects an oversized request by Content-Length before reading the body", async () => {
     const { config } = makeConfig();
     const req = post(
@@ -131,5 +138,46 @@ describe("importRoute", () => {
     expect(body.imported).toBe(3);
     expect(body.failed).toEqual([]);
     expect(created).toHaveLength(3);
+  });
+
+  it("publishes and revalidates exactly once for a multi-row import, not once per row", async () => {
+    const { config } = makeConfig();
+    const rows = [{ email: "a@b.com" }, { email: "b@b.com" }, { email: "c@b.com" }];
+    const res = await importRoute(config)(
+      post({ format: "json", content: JSON.stringify(rows) }),
+      params,
+    );
+    const body = (await res.json()) as { imported: number };
+    expect(body.imported).toBe(3);
+    expect(publishResource).toHaveBeenCalledTimes(1);
+    expect(publishResource).toHaveBeenCalledWith("users", { action: "create" });
+    expect(revalidatePath).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not publish or revalidate when every row fails", async () => {
+    const { config } = makeConfig();
+    const rows = [{ email: "not-an-email" }];
+    const res = await importRoute(config)(
+      post({ format: "json", content: JSON.stringify(rows) }),
+      params,
+    );
+    const body = (await res.json()) as { imported: number };
+    expect(body.imported).toBe(0);
+    expect(publishResource).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("publishes and revalidates exactly once when some rows fail and some succeed", async () => {
+    const { config } = makeConfig();
+    const rows = [{ email: "a@b.com" }, { email: "not-an-email" }, { email: "c@b.com" }];
+    const res = await importRoute(config)(
+      post({ format: "json", content: JSON.stringify(rows) }),
+      params,
+    );
+    const body = (await res.json()) as { imported: number; failed: unknown[] };
+    expect(body.imported).toBe(2);
+    expect(body.failed).toHaveLength(1);
+    expect(publishResource).toHaveBeenCalledTimes(1);
+    expect(revalidatePath).toHaveBeenCalledTimes(1);
   });
 });

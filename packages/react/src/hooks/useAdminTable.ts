@@ -28,7 +28,8 @@ export function useAdminTable(): UseAdminTable {
   const pathname = usePathname();
   const sp = useSearchParams();
 
-  const page = Number(sp.get("page") ?? "1") || 1;
+  const pageRaw = Number(sp.get("page") ?? "1");
+  const page = Number.isFinite(pageRaw) ? Math.max(1, Math.trunc(pageRaw)) : 1;
   const pageSize = Number(sp.get("perPage")) || null;
   const search = sp.get("q") ?? "";
   const sortRaw = sp.get("sort");
@@ -41,14 +42,64 @@ export function useAdminTable(): UseAdminTable {
   const filters: Record<string, string> = {};
   for (const [k, v] of sp.entries()) if (k.startsWith("f_")) filters[k.slice(2)] = v;
 
-  const push = React.useCallback(
+  // Replace, not push: list state changes on every keystroke of a filter, and a
+  // history stack of them means Back walks the filters instead of leaving.
+  const navigate = React.useCallback(
     (mutate: (p: URLSearchParams) => void) => {
       const next = new URLSearchParams(sp.toString());
       mutate(next);
       const q = next.toString();
-      router.push(q ? `${pathname}?${q}` : pathname);
+      router.replace(q ? `${pathname}?${q}` : pathname);
     },
     [router, pathname, sp],
+  );
+
+  const setPage = React.useCallback(
+    (p: number) => navigate((q) => q.set("page", String(p))),
+    [navigate],
+  );
+  // Resizing the page invalidates the offset, so drop back to the first page.
+  const setPageSize = React.useCallback(
+    (n: number | null) =>
+      navigate((q) => {
+        if (n == null) q.delete("perPage");
+        else q.set("perPage", String(n));
+        q.delete("page");
+      }),
+    [navigate],
+  );
+  const setSearch = React.useCallback(
+    (val: string) =>
+      navigate((q) => {
+        if (val === "") q.delete("q");
+        else q.set("q", val);
+        q.delete("page");
+      }),
+    [navigate],
+  );
+  const setSort = React.useCallback(
+    (s: TableSort | null) =>
+      navigate((q) => {
+        if (!s) q.delete("sort");
+        else q.set("sort", `${s.field}:${s.dir}`);
+      }),
+    [navigate],
+  );
+  const setFilter = React.useCallback(
+    (field: string, value: string | null) =>
+      navigate((q) => {
+        if (value == null || value === "") q.delete(`f_${field}`);
+        else q.set(`f_${field}`, value);
+        q.delete("page");
+      }),
+    [navigate],
+  );
+  const clearFilters = React.useCallback(
+    () =>
+      navigate((q) => {
+        for (const k of Array.from(q.keys())) if (k.startsWith("f_")) q.delete(k);
+      }),
+    [navigate],
   );
 
   return {
@@ -57,34 +108,11 @@ export function useAdminTable(): UseAdminTable {
     search,
     sort,
     filters,
-    setPage: (p: number) => push((q) => q.set("page", String(p))),
-    // Resizing the page invalidates the offset, so drop back to the first page.
-    setPageSize: (n: number | null) =>
-      push((q) => {
-        if (n == null) q.delete("perPage");
-        else q.set("perPage", String(n));
-        q.delete("page");
-      }),
-    setSearch: (val: string) =>
-      push((q) => {
-        if (val === "") q.delete("q");
-        else q.set("q", val);
-        q.delete("page");
-      }),
-    setSort: (s: TableSort | null) =>
-      push((q) => {
-        if (!s) q.delete("sort");
-        else q.set("sort", `${s.field}:${s.dir}`);
-      }),
-    setFilter: (field: string, value: string | null) =>
-      push((q) => {
-        if (value == null || value === "") q.delete(`f_${field}`);
-        else q.set(`f_${field}`, value);
-        q.delete("page");
-      }),
-    clearFilters: () =>
-      push((q) => {
-        for (const k of Array.from(q.keys())) if (k.startsWith("f_")) q.delete(k);
-      }),
+    setPage,
+    setPageSize,
+    setSearch,
+    setSort,
+    setFilter,
+    clearFilters,
   };
 }

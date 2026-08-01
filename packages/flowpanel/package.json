@@ -71,6 +71,7 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
     "lint:publish": "publint --strict",
     "lint:attw": "attw --pack . --profile esm-only"
   },
@@ -123,6 +124,7 @@
   },
   "devDependencies": {
     "tsup": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

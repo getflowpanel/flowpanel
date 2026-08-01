@@ -25,6 +25,8 @@ const rule = createRule<[], MessageId>({
 
         for (const stmt of program.body) {
           if (stmt.type !== AST_NODE_TYPES.ImportDeclaration) continue;
+          // `import type` is erased before bundling, so nothing reaches the browser.
+          if (stmt.importKind === "type") continue;
           const source = stmt.source.value;
           if (typeof source !== "string") continue;
           if (!isServerOnlySource(source)) continue;
@@ -50,28 +52,33 @@ function hasUseClientDirective(program: TSESTree.Program): boolean {
   return false;
 }
 
+/** Alias or relative specifiers — the only ones that can name the app's own modules. */
+function isAppLocal(source: string): boolean {
+  return (
+    source.startsWith("@/") ||
+    source.startsWith("~/") ||
+    source.startsWith("./") ||
+    source.startsWith("../") ||
+    source.startsWith("src/")
+  );
+}
+
 function isServerOnlySource(source: string): boolean {
   if (source === "server-only") return true;
   if (source.endsWith("/server-only")) return true;
-  if (/(^|\/)db(\/|$)/.test(source) && /^[@~]?[/.]?/.test(source)) {
+  if (!isAppLocal(source)) return false;
+  if (/(^|\/)db(\/|$)/.test(source)) {
     if (
-      source.startsWith("@/") ||
-      source.startsWith("~/") ||
-      source.startsWith("./") ||
-      source.startsWith("../") ||
-      source.startsWith("src/")
+      source === `${source.split("/")[0]}/db` ||
+      source.includes("/db/") ||
+      source.endsWith("/db")
     ) {
-      if (
-        source === `${source.split("/")[0]}/db` ||
-        source.includes("/db/") ||
-        source.endsWith("/db")
-      ) {
-        return true;
-      }
+      return true;
     }
   }
-  if (/\/server(\/|$)/.test(source)) return true;
-  return false;
+  // Scoped to app-local paths: `next/server` is a package entry point, not a
+  // server-only module of the app.
+  return /\/server(\/|$)/.test(source);
 }
 
 export default rule;

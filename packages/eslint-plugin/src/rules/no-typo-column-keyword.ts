@@ -15,7 +15,6 @@ const rule = createRule<[], MessageId>({
   name: "no-typo-column-keyword",
   meta: {
     type: "problem",
-    fixable: "code",
     docs: {
       description: "Catch common camelCase typos in `columns: [...]` (e.g. `userid` → `userId`).",
     },
@@ -59,14 +58,9 @@ const rule = createRule<[], MessageId>({
       const suggested = TYPOS[raw.toLowerCase()];
       if (!suggested) return;
       if (raw === suggested) return;
-      context.report({
-        node,
-        messageId: "typo",
-        data: { actual: raw, suggested },
-        fix(fixer) {
-          return fixer.replaceText(node, JSON.stringify(suggested));
-        },
-      });
+      // No autofix: `columns` is not FlowPanel-exclusive and a lowercase column
+      // can be intentional, so `eslint --fix` must not rewrite it silently.
+      context.report({ node, messageId: "typo", data: { actual: raw, suggested } });
     }
   },
 });

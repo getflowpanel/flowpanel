@@ -47,6 +47,10 @@ labels come from the matching column's `label`, and any column with a `render`
 function is rendered with it — so a status badge looks the same in the drawer as
 in the table.
 
+`fields` is `DrawerFieldList<Row>` — the same shape as `detail.fields`:
+`(keyof Row | FieldDef<Row>)[] | "*"`. A key your row does not have is a compile
+error, not an empty row in the panel.
+
 ## Tabs
 
 `DrawerTab` is a union of three shapes, discriminated by which key you set.
@@ -71,6 +75,10 @@ not read comes back empty rather than failing the whole panel.
 Dashboard widgets, scoped to the open row.
 
 <AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerTabWidgets" />
+
+`custom()` widgets are rejected here at compile time. The drawer payload is
+serialized over the wire, and a React component cannot cross it — use a widget
+tab of metrics/charts/tables, or a `detail` tab, which renders on the server.
 
 ## Actions
 

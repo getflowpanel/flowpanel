@@ -1,9 +1,9 @@
 // LOC-OK: GET drawer payload + POST drawer action share the same DrawerRouteCtx
 import type {
-  ActionResult,
   ColumnFormat,
   DrawerAction,
   DrawerConfig,
+  DrawerFieldList,
   DrawerTab,
   ItemQueryContext,
   RequestContext,
@@ -131,6 +131,14 @@ async function prerenderRowFields(
   return out;
 }
 
+/** Flatten a declared drawer field list to the wire shape. */
+function serializeFields(fields: DrawerFieldList<Record<string, unknown>>): "*" | string[] {
+  if (fields === "*") return "*";
+  return fields
+    .map((f) => (typeof f === "object" && f !== null ? f.name : String(f)))
+    .filter((f) => f !== "");
+}
+
 function serializeAction(a: DrawerAction): SerializedDrawerAction {
   const out: SerializedDrawerAction = { key: a.key, label: a.label };
   if (a.variant !== undefined) out.variant = a.variant;
@@ -149,7 +157,7 @@ async function serializeTab(
   req: Request,
 ): Promise<SerializedDrawerTab> {
   if ("fields" in tab) {
-    return { kind: "fields", key: tab.key, label: tab.label, fields: tab.fields };
+    return { kind: "fields", key: tab.key, label: tab.label, fields: serializeFields(tab.fields) };
   }
   if ("widgets" in tab) {
     const widgetCtx: WidgetContext = {
@@ -248,7 +256,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
         row: projectRow(resource, row),
         header,
         width: drawer.width ?? "lg",
-        fields: drawer.fields ?? "*",
+        fields: serializeFields(drawer.fields ?? "*"),
         tabs,
         actions: (drawer.actions ?? []).map(serializeAction),
         prerendered: await prerenderRowFields(columns, row, reqCtx),
@@ -296,7 +304,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
 
       const input = await parseActionBody(req);
 
-      const inputIssues = validateActionInput(
+      const inputIssues = await validateActionInput(
         action.form as Parameters<typeof validateActionInput>[0],
         input,
       );
@@ -317,9 +325,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
       };
 
       try {
-        const result = (await runWithRequestContext(reqCtx, () =>
-          action.run(row, input, actionCtx),
-        )) as ActionResult;
+        const result = await runWithRequestContext(reqCtx, () => action.run(row, input, actionCtx));
 
         await maybeEmitAudit(
           result,

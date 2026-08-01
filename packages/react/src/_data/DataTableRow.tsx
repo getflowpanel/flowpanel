@@ -75,7 +75,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   return (
     <tr
       aria-rowindex={rowIndex + 1}
-      aria-selected={selectionEnabled ? isSelected : undefined}
+      aria-current={active ? "true" : undefined}
       onClick={() => onRowClick?.(row)}
       className={cn(
         "border-t border-fp-border-1 text-fp-text-1 transition-colors",

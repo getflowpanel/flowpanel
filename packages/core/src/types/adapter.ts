@@ -30,9 +30,12 @@ export interface ResourceIntrospection {
  * What FlowPanel needs from a database layer. Implement it to support an ORM
  * that has no shipped adapter — nothing else in the framework talks to the DB.
  */
+/** Adapter identity. The shipped kinds autocomplete; third-party kinds are free-form. */
+export type AdapterKind = "drizzle" | "prisma" | (string & {});
+
 export interface Adapter<DB = InferDB, Ref = unknown> {
-  /** Which ORM this adapter wraps. */
-  kind: "drizzle" | "prisma";
+  /** Which ORM this adapter wraps. Shipped adapters use `"drizzle"` / `"prisma"`. */
+  kind: AdapterKind;
   /** The client handed to every `ctx.db`. */
   db: DB;
   /** Describe a table: its columns, types and primary key. */

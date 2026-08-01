@@ -13,7 +13,6 @@ export interface MultiSelectFilterOption {
 }
 
 export interface MultiSelectFilterProps {
-  field: string;
   label?: string;
   value: string | null;
   onChange: (value: string | null) => void;

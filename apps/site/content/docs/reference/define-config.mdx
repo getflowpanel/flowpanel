@@ -155,6 +155,13 @@ routing is O(1).
 `defineAdmin` throws if two resources share a name, two dashboards or pages
 share a path, or two queues share a key.
 
+It also throws when a config points at a resource name nothing resolves to —
+`reference.resource` on a column or field, a drawer or detail tab's `resource`,
+or a `table()` widget's `resource`. The names it checks against are the
+*resolved* ones, so a Drizzle table declared as `pgTable("ai_usage", …)` is
+`"ai_usage"` even when the exported variable is `aiUsage`. The error names the
+config path and suggests the near match.
+
 You hand the resolved config to `Flowpanel(config)` for the page and
 `handlers(config)` for the API. Both come from `@flowpanel/kit/next`:
 

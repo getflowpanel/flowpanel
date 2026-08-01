@@ -638,6 +638,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.4(@types/debug@4.1.13)(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@29.0.2)(lightningcss@1.32.0)
 
   packages/next:
     dependencies:

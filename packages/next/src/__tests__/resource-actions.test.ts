@@ -17,6 +17,7 @@ vi.mock("next/headers", () => ({
 }));
 
 import type { Adapter, AuditConfig, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { makeActions } from "../actions/resource-actions.js";
 import { publishResource } from "../runtime/publish.js";
@@ -87,6 +88,7 @@ function makeConfig(opts: {
 describe("makeActions.create", () => {
   beforeEach(() => {
     vi.mocked(publishResource).mockReset();
+    vi.mocked(revalidatePath).mockReset();
   });
 
   it("creates the row, emits audit with target id, and publishes", async () => {
@@ -142,11 +144,28 @@ describe("makeActions.create", () => {
     await actions.create({ email: "a@b.com" });
     expect(publishResource).toHaveBeenCalledWith("users", { action: "create" });
   });
+
+  it("publishes exactly once for a single create with the default options", async () => {
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource);
+    await actions.create({ email: "a@b.com" });
+    expect(publishResource).toHaveBeenCalledTimes(1);
+    expect(revalidatePath).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips publish + revalidate when `publish: false` is passed", async () => {
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource, { publish: false });
+    await actions.create({ email: "a@b.com" });
+    expect(publishResource).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
 });
 
 describe("makeActions.update", () => {
   beforeEach(() => {
     vi.mocked(publishResource).mockReset();
+    vi.mocked(revalidatePath).mockReset();
   });
 
   it("updates the row, emits audit with targetId, and publishes", async () => {
@@ -174,11 +193,20 @@ describe("makeActions.update", () => {
       code: "validation",
     });
   });
+
+  it("skips publish + revalidate when `publish: false` is passed", async () => {
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource, { publish: false });
+    await actions.update("u1", { email: "new@b.com" });
+    expect(publishResource).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
 });
 
 describe("makeActions.delete", () => {
   beforeEach(() => {
     vi.mocked(publishResource).mockReset();
+    vi.mocked(revalidatePath).mockReset();
   });
 
   it("deletes the row, emits audit, and publishes", async () => {
@@ -188,6 +216,14 @@ describe("makeActions.delete", () => {
     await actions.delete("u1");
     expect(publishResource).toHaveBeenCalledWith("users", { action: "delete", id: "u1" });
     expect(sink).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips publish + revalidate when `publish: false` is passed", async () => {
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource, { publish: false });
+    await actions.delete("u1");
+    expect(publishResource).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("threads softDelete column through to adapter.delete", async () => {

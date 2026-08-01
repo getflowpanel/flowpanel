@@ -4,7 +4,6 @@ import { Input } from "../../ui/input.js";
 import { BARE_CONTROL, FilterField } from "./FilterField.js";
 
 export interface NumericRangeFilterProps {
-  field: string;
   label?: string;
   value: string | null;
   onChange: (value: string | null) => void;

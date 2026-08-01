@@ -11,7 +11,6 @@ describe("SelectFilter", () => {
     const onChange = vi.fn();
     const { rerender } = render(
       <SelectFilter
-        field="plan"
         value={null}
         onChange={onChange}
         options={[
@@ -28,7 +27,6 @@ describe("SelectFilter", () => {
 
     rerender(
       <SelectFilter
-        field="plan"
         value="pro"
         onChange={onChange}
         options={[
@@ -45,12 +43,7 @@ describe("SelectFilter", () => {
     // component and verify the Select value prop reflects '__all__' when value is null.
     const onChange = vi.fn();
     render(
-      <SelectFilter
-        field="plan"
-        value={null}
-        onChange={onChange}
-        options={[{ label: "Pro", value: "pro" }]}
-      />,
+      <SelectFilter value={null} onChange={onChange} options={[{ label: "Pro", value: "pro" }]} />,
     );
     // Placeholder is visible when value is null
     expect(screen.getByText("All")).toBeTruthy();

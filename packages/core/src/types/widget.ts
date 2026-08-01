@@ -53,15 +53,18 @@ export interface MetricWidget {
   options: MetricOptions;
 }
 
-export interface TableWidgetOptions {
+/** Keys of a widget's query row — any string while the row type is unknown. */
+export type RowKey<R> = unknown extends R ? string : keyof R & string;
+
+export interface TableWidgetOptions<R = unknown> {
   /** Card heading. */
   label?: string;
   /** Registered resource to pull rows and columns from. */
   resource?: ResourceName;
   /** Supply rows yourself instead of reading a resource. */
-  query?: (ctx: WidgetContext) => Promise<unknown[]>;
+  query?: (ctx: WidgetContext) => Promise<R[]>;
   /** Columns to show. Defaults to the resource's own list columns. */
-  columns?: string[];
+  columns?: RowKey<R>[];
   /** Row cap. Defaults to 5. */
   limit?: number;
   /** Rendered in place of the table body when there are zero rows. */
@@ -122,11 +125,11 @@ export interface StatGroupWidget {
 export type ChartBucket = "minute" | "hour" | "day" | "week" | "month" | "year" | "auto";
 
 /** Charts are defined in @flowpanel/charts but their config lives in core. */
-export interface ChartOptionsBase {
+export interface ChartOptionsBase<R = unknown> {
   /** Row key plotted on the x-axis. */
-  x: string;
+  x: RowKey<R>;
   /** Row key(s) plotted on the y-axis. An array draws one series per key. */
-  y: string | string[];
+  y: RowKey<R> | RowKey<R>[];
   /** Chart height in px. Defaults to 240. */
   height?: number;
   /** How y-values are rendered in ticks and tooltips. */
@@ -143,29 +146,29 @@ export interface ChartOptionsBase {
   bucket?: ChartBucket;
 }
 
-export interface AreaChartOptions extends ChartOptionsBase {
+export interface AreaChartOptions<R = unknown> extends ChartOptionsBase<R> {
   /** Stack multiple series instead of overlaying them. */
   stacked?: boolean;
   /** Draw curved rather than straight segments. */
   smooth?: boolean;
 }
-export interface BarChartOptions extends ChartOptionsBase {
+export interface BarChartOptions<R = unknown> extends ChartOptionsBase<R> {
   /** Stack multiple series instead of grouping them side by side. */
   stacked?: boolean;
   /** Lay bars out horizontally. */
   horizontal?: boolean;
 }
-export interface LineChartOptions extends ChartOptionsBase {
+export interface LineChartOptions<R = unknown> extends ChartOptionsBase<R> {
   /** Draw curved rather than straight segments. */
   smooth?: boolean;
   /** Show a dot at every data point. */
   markers?: boolean;
 }
-export interface PieChartOptions {
+export interface PieChartOptions<R = unknown> {
   /** Row key naming each slice. */
-  category: string;
+  category: RowKey<R>;
   /** Row key holding each slice's magnitude. */
-  value: string;
+  value: RowKey<R>;
   /** Cut a hole in the middle. */
   donut?: boolean;
   /** Show the slice legend. Defaults to `true`. */

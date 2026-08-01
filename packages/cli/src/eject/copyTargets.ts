@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { detectAppDir } from "../utils/detect.js";
+import { configImportFor, detectAppDir, detectPathAlias } from "../utils/detect.js";
 import { stampMarker } from "./marker.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -121,11 +121,12 @@ export async function copyLayoutTemplate(opts: CopyLayoutOptions): Promise<strin
   const templatesRoot = await resolveTemplatesRoot();
   const appDir = await detectAppDir(opts.cwd);
   const dest = path.join(opts.cwd, appDir, "admin", "layout.tsx");
+  const aliasMode = await detectPathAlias(opts.cwd);
 
   await writeStamped(
     path.join(templatesRoot, "layout/layout.tsx.txt"),
     dest,
-    {},
+    { CONFIG_IMPORT: configImportFor(`${appDir}/admin`, aliasMode) },
     opts.version,
     opts.force ?? false,
     opts.cwd,

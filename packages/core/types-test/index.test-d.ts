@@ -3,11 +3,17 @@
 
 import {
   type Adapter,
+  type AdapterKind,
   type AdminConfig,
+  type BarChartOptions,
+  custom,
+  type DrawerConfig,
+  type DrawerTabWidgets,
   defineAdmin,
   type InferRow,
   type LabelsConfig,
   metric,
+  type PieChartOptions,
   type RealtimeConfig,
   type ResolvedAdminConfig,
   type ResourceConfig,
@@ -26,9 +32,13 @@ declare module "@flowpanel/core" {
 declare const minimalConfig: AdminConfig;
 expectType<ResolvedAdminConfig>(defineAdmin(minimalConfig));
 
-// ── Adapter.kind is the discriminant union (I-2) ─────────────────────────
+// ── Adapter.kind is an open literal union (I-2, ADR 0016) ────────────────
 declare const adapter: Adapter;
-expectAssignable<"drizzle" | "prisma">(adapter.kind);
+expectAssignable<string>(adapter.kind);
+expectAssignable<AdapterKind>("drizzle");
+expectAssignable<AdapterKind>("prisma");
+// third-party adapters may name themselves
+expectAssignable<AdapterKind>("mikro-orm");
 
 // ── resource builder: produces ResourceConfig with __kind discriminant ───
 declare const ref: unknown;
@@ -72,3 +82,39 @@ expectAssignable<RealtimeConfig>({
 
 // driver: "redis" requires url
 expectError<RealtimeConfig>({ driver: "redis" });
+
+// ── drawer field lists are keyed to the row, like detail tabs ────────────
+type User = { id: number; email: string };
+expectAssignable<DrawerConfig<User>>({ fields: ["email"] });
+expectAssignable<DrawerConfig<User>>({ fields: "*" });
+expectAssignable<DrawerConfig<User>>({ tabs: [{ key: "p", label: "Profile", fields: ["email"] }] });
+expectError<DrawerConfig<User>>({ fields: ["emial"] });
+expectError<DrawerConfig<User>>({ tabs: [{ key: "p", label: "Profile", fields: ["emial"] }] });
+
+// ── drawer widget tabs reject custom() widgets ───────────────────────────
+expectAssignable<DrawerTabWidgets>({
+  key: "w",
+  label: "Activity",
+  widgets: [metric("Users", async () => 0)],
+});
+expectError<DrawerTabWidgets>({
+  key: "w",
+  label: "Activity",
+  widgets: [custom(() => null, {})],
+});
+
+// ── table columns and chart axes follow the query row ────────────────────
+expectAssignable<{ kind: "table" }>(
+  table({ query: async () => [{ id: 1, email: "a@b.c" }], columns: ["email"] }),
+);
+expectError(table({ query: async () => [{ id: 1, email: "a@b.c" }], columns: ["emial"] }));
+// no query means no row type to check against — any column string is allowed
+expectAssignable<{ kind: "table" }>(table({ resource: "users", columns: ["anything"] }));
+
+expectAssignable<BarChartOptions<{ model: string; cost: number }>>({ x: "model", y: "cost" });
+expectError<BarChartOptions<{ model: string; cost: number }>>({ x: "modle", y: "cost" });
+expectError<BarChartOptions<{ model: string; cost: number }>>({ x: "model", y: ["cst"] });
+expectError<PieChartOptions<{ status: string; count: number }>>({
+  category: "staus",
+  value: "count",
+});

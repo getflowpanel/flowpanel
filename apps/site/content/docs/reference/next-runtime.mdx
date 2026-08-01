@@ -123,6 +123,12 @@ Inside an action, prefer `ctx.publish` — it is the same publisher, already bou
 when publishing from code that never goes through either, such as a standalone
 worker process.
 
+Publishing before `bindPublisher` has run in that process falls back to an
+in-memory publisher, which no other process can see — a Redis-configured
+deployment loses the event. FlowPanel logs one `console.warn` the first time this
+happens instead of degrading quietly, so a worker that "publishes but nothing
+refreshes" says so in its own logs.
+
 ## Route handlers
 
 `handlers(config)` wires the table below to the routes listed earlier in

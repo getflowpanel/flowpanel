@@ -40,6 +40,8 @@ export interface ResourceActions {
 export interface MakeActionsOptions {
   /** Reuse a caller-built `RequestContext` instead of building one per call. */
   reqCtx?: RequestContext;
+  /** Publish + revalidate per call. Default `true`; set `false` to batch-notify once yourself. */
+  publish?: boolean;
 }
 
 export function makeActions(
@@ -109,11 +111,13 @@ export function makeActions(
       await baseAudit(`${name}.create`, reqCtx, {
         ...(rowId !== undefined && rowId !== null ? { targetId: String(rowId) } : {}),
       });
-      await publishResource(name, {
-        action: "create",
-        ...(rowId !== undefined && rowId !== null ? { id: String(rowId) } : {}),
-      });
-      revalidatePath(buildHref(config, name));
+      if (opts.publish !== false) {
+        await publishResource(name, {
+          action: "create",
+          ...(rowId !== undefined && rowId !== null ? { id: String(rowId) } : {}),
+        });
+        revalidatePath(buildHref(config, name));
+      }
       return row;
     },
 
@@ -145,9 +149,11 @@ export function makeActions(
       );
       if (!row) throw new FlowpanelNotFoundError();
       await baseAudit(`${name}.update`, reqCtx, { targetId: id });
-      await publishResource(name, { action: "update", id });
-      revalidatePath(buildHref(config, name));
-      revalidatePath(buildHref(config, name, id));
+      if (opts.publish !== false) {
+        await publishResource(name, { action: "update", id });
+        revalidatePath(buildHref(config, name));
+        revalidatePath(buildHref(config, name, id));
+      }
       return row;
     },
 
@@ -167,8 +173,10 @@ export function makeActions(
       };
       await runWithRequestContext(reqCtx, () => config.adapter.delete(resource.ref, mctx));
       await baseAudit(`${name}.delete`, reqCtx, { targetId: id });
-      await publishResource(name, { action: "delete", id });
-      revalidatePath(buildHref(config, name));
+      if (opts.publish !== false) {
+        await publishResource(name, { action: "delete", id });
+        revalidatePath(buildHref(config, name));
+      }
     },
   };
 }

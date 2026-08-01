@@ -233,6 +233,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   if (rows.length === 0) {
     return (
       <div className={cn(frame, className)}>
+        {toolbar}
         <div className="flex flex-col items-center justify-center py-16 text-center">
           {emptyIcon ? (
             <div
