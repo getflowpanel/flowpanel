@@ -51,32 +51,52 @@ export default defineAdmin({
 ```
 
 That's the whole switch. Every existing `resource.realtime: true`,
-`table({ realtime: true })`, and `publishResource(name, …)` call now
-fans out via Redis instead of an in-process EventEmitter.
+`table({ realtime: "resource.orders" })`, and `publishResource(name, …)`
+call now fans out via Redis instead of an in-process EventEmitter. (A
+resource's `realtime` is `boolean | string`; a widget's is
+`string | string[]` — a widget names the channels it listens to, so
+`true` is not a value it accepts.)
 
 ## What flows over Redis
 
 flowpanel never publishes row contents over Redis. Channels carry just
 **resource name + action** — the payload for a resource mutation is
-`{ action: "create" | "update" | "delete", id? }`. On the wire (both the
-Redis pub/sub message and the SSE frame the browser receives) that payload
-is wrapped in a `{channel, payload}` envelope, so a subscriber can route on
-`channel` without inspecting payload shape (ADR 0014).
+`{ action: "create" | "update" | "delete", id? }`.
+
+The Redis message body is that payload **bare**, `JSON.stringify`-ed and
+nothing else. The routing information lives in the Redis channel name, so
+there is no envelope to add:
+
+```
+flowpanel:resource.orders → {"action":"update","id":"ord_…"}
+flowpanel:resource.users  → {"action":"create","id":"usr_…"}
+flowpanel:scraper:tick    → <arbitrary payload via publish("scraper:tick", …)>
+```
+
+A `publish(channel)` with no payload sends an **empty string**, which the
+subscriber reads back as `undefined`.
+
+The `{channel, payload}` envelope is added one layer later, when the SSE
+route serializes an event for the browser (ADR 0014 scopes it to the SSE
+frame). One EventSource multiplexes many channels, so the frame has to say
+which one it belongs to; a Redis subscription already knows.
+
+<Callout type="warn">
+If you write an external publisher — a Python worker, a Go service, a
+`redis-cli PUBLISH` — send the **bare payload**. Wrapping it in
+`{channel, payload}` yourself double-wraps it: the browser then receives
+`{"channel":"resource.orders","payload":{"channel":"resource.orders","payload":{…}}}`
+and every consumer reading `payload.action` sees `undefined`.
+</Callout>
 
 The logical channel name — `resource.<name>` for resource mutations
 (automatic; see below), or whatever string you pass to `publish(channel, …)`
 for a custom event — is what `<DataTable realtime="...">` and `subscribe()`
 callers use. `keyPrefix` only namespaces the string actually sent over the
-Redis wire; it never changes the name application code sees:
-
-```
-flowpanel:resource.orders → {"channel":"resource.orders","payload":{"action":"update","id":"ord_…"}}
-flowpanel:resource.users  → {"channel":"resource.users","payload":{"action":"create","id":"usr_…"}}
-flowpanel:scraper:tick    → {"channel":"scraper:tick","payload":<arbitrary payload via publish("scraper:tick", …)>}
-```
-
-(With `keyPrefix: "fp"` those become `fp:resource.orders`, `fp:resource.users`,
-`fp:scraper:tick` — same logical channels, different wire prefix.)
+Redis wire; it never changes the name application code sees. With
+`keyPrefix: "fp"` the three lines above become `fp:resource.orders`,
+`fp:resource.users`, `fp:scraper:tick` — same logical channels, different
+wire prefix.
 
 Browsers subscribed to a list get the channel ping, then
 `router.refresh()` re-fetches the (RSC-streamed) updated rows over

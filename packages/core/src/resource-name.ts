@@ -5,6 +5,7 @@ export function resolveResourceName(resource: {
 }): string {
   if (resource.options.name) return resource.options.name;
   const ref = resource.ref;
+  if (typeof ref === "string" && ref !== "") return ref;
   if (ref && typeof ref === "object") {
     const r = ref as { __name?: unknown; _?: { name?: unknown } };
     if (typeof r.__name === "string") return r.__name;

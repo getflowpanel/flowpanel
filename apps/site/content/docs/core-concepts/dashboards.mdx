@@ -52,7 +52,7 @@ dashboard({
 |---|---|---|
 | `path` | `string` | Route under `<basePath>`, e.g. `/` or `/pipeline`. |
 | `label` | `string` | Nav entry label and page heading. |
-| `sections` | `SectionConfig[]` | Each has `widgets: WidgetConfig[]`, plus optional `label`, `description`, `columns` (`1\|2\|3\|4\|6\|12`, grid column count for that section). |
+| `sections` | `SectionConfig[]` | Each has `widgets: WidgetConfig[]`, plus optional `label`, `description`, `columns` (`1\|2\|3\|4\|6\|12`, grid column count for that section — defaults to 1, so a section that should sit side by side must say so). |
 | `dateRange.preset` | `DateRangePreset` | `"today" \| "yesterday" \| "last7d" \| "last30d" \| "MTD" \| "QTD" \| "YTD"`. Seeds `ctx.dateRange` for every widget query and the header date picker; overridable per-request via the `?preset=` URL param. |
 | `dateRange.default` | `{ from: Date; to: Date }` | Literal fallback range, lowest priority — applies only when the dashboard has no `preset` and the request carries neither `?preset=` nor `?from=`/`?to=`. |
 | `realtime` | `string \| string[]` | SSE channel(s) the whole dashboard subscribes to, independent of any widget. Equivalent in effect to putting the same channel on any one widget's own `realtime` option — use this when no single widget is the natural owner of the subscription. |
@@ -160,8 +160,9 @@ metric(
 `"number"`; also `"currency" | "percent" | "bytes" | "duration"`) or a
 pre-formatted `string`. Wired options: `format`, `sublabel`, `delta`,
 `sparkline`, `tone`, `drilldown` (wraps the card in a link), `icon`
-(rendered next to the label — any string, e.g. an emoji), `realtime`,
-`span`.
+(rendered next to the label verbatim — any string, e.g. an emoji; there is
+no icon-name lookup, so `"Users"` renders as the word "Users"),
+`realtime`, `span`.
 
 ### `table(options)`
 

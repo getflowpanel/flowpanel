@@ -48,5 +48,7 @@ export function ArchiveButton({ id }: { id: string }) {
 
 For an optimistic value ahead of the round trip, use
 [`useOptimisticAction`](/docs/reference/react-components#hooks) from
-`@flowpanel/react` instead. `rollbackOn` is currently fixed to `"error"` — a
-failed or thrown action always rolls back; there is no `"never"` option.
+`@flowpanel/react` instead: `useAdminMutation` holds no optimistic state of
+its own, only `pending` and `error`. `rollbackOn` accepts the single literal
+`"error"` and the hook never reads it — it is a placeholder for a rollback
+strategy that does not exist yet, and setting it changes nothing.

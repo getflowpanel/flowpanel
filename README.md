@@ -50,7 +50,7 @@ import { withClerk } from "@flowpanel/kit/auth";
 import { db } from "@/db/client";
 import * as schema from "@/db/schema";
 
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
   }
@@ -125,7 +125,7 @@ on row click; soft-deleted rows are filtered out automatically.
 
 | Package                          | Purpose                                                                |
 | -------------------------------- | ---------------------------------------------------------------------- |
-| [`flowpanel`](packages/flowpanel) | Umbrella package — re-exports the others via subpaths                  |
+| [`@flowpanel/kit`](packages/flowpanel) | Umbrella package — re-exports the others via subpaths             |
 | [`@flowpanel/core`](packages/core) | `defineAdmin`, builders, types, runtime helpers                       |
 | [`@flowpanel/next`](packages/next) | Next.js App Router bridge — page + API + SSE handlers                 |
 | [`@flowpanel/react`](packages/react) | UI primitives — `<AdminShell>`, `<DataTable>`, `<Drawer>`, hooks    |
@@ -135,8 +135,9 @@ on row click; soft-deleted rows are filtered out automatically.
 | [`@flowpanel/adapter-drizzle`](packages/adapter-drizzle) | Drizzle adapter (Postgres, MySQL, SQLite)        |
 | [`@flowpanel/adapter-prisma`](packages/adapter-prisma) | Prisma adapter — DMMF runtime introspection        |
 | [`@flowpanel/adapter-bullmq`](packages/adapter-bullmq) | BullMQ queue adapter + bull-board server          |
+| [`@flowpanel/eslint-plugin`](packages/eslint-plugin) | ESLint rules for FlowPanel admin configs           |
 
-All ten ship together at the same version (1.0+).
+All eleven ship together at the same version (`0.1.0` today — pre-1.0).
 
 ## Eject when you outgrow it
 
@@ -145,7 +146,8 @@ pnpm flowpanel eject resource users
 ```
 
 5-file scaffold lands at `app/admin/users/{page,new,[id],[id]/edit,actions}.tsx`,
-each stamped with the marker `// flowpanel: ejected @ 1.0.0 — this file is yours`.
+each stamped with `// flowpanel: ejected @ <version> — this file is yours`,
+where the version is the `@flowpanel/kit` you have installed.
 The runtime stops rendering the resource; your code does. `flowpanel.config.ts`
 is auto-edited to comment out the matching `resource(...)` entry.
 
@@ -169,7 +171,7 @@ Pick FlowPanel if your app is a Next.js 15 App Router project that needs a CRUD 
 ## Stack
 
 - Next.js 15 + React 19 (App Router only)
-- Drizzle 0.30+ or Prisma 5+/6 (pick one per project)
+- Drizzle `>=0.36` or Prisma 5 / 6 (pick one per project)
 - Postgres, MySQL, SQLite (any combination, dialect-aware)
 - Optional: ioredis (realtime), bullmq (queues), @prisma/client
 

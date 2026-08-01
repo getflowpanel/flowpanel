@@ -173,9 +173,13 @@ render from.
 const { page, sort, setPage, setSort } = useAdminTable();
 ```
 
+Every setter navigates with `router.replace`, not `push`: filters change on
+each keystroke, and pushing would turn Back into a walk through the filter
+history instead of a way out of the list.
+
 **`useUrlState()`** — general-purpose typed reader/writer for the current
-route's search params; `useAdminTable` and `useAdminDrawer` are both built on
-it.
+route's search params. `useAdminDrawer` is built on it; `useAdminTable` is
+not — it reads `next/navigation` directly.
 
 **`useTheme(options?)`** — reads the resolved light/dark/auto theme and
 returns a stable `toggle`/`setTheme` that persists to `localStorage`.
@@ -194,9 +198,8 @@ toast.success("Saved");
 
 **`useOptimisticAction(serverValue, applyPatch)`** — thin wrapper over
 `React.useOptimistic` + `useTransition` for an optimistic value with a pending
-flag. It is the current inline-edit primitive; the 1.x spec plans a dedicated
-debounce layer on top of it for rapid successive edits (typing into an
-inline-edit cell), not yet built.
+flag. It is offered for your own components; nothing shipped uses it —
+`InlineEditCell` keeps its draft in plain `useState`.
 
 **`useAdminCommand()`** — controls the ⌘K command palette's open state and
 binds the `⌘K`/`Ctrl+K` shortcut.

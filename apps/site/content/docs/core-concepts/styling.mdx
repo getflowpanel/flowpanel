@@ -240,10 +240,10 @@ something's missing).
 |---|---|---|---|---|---|---|
 | `@flowpanel/react` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | — |
 | `@flowpanel/next` | `^19.0.0` | `^19.0.0` | `^15.0.0` | — | `^4.0.0` | — |
-| `flowpanel` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | `drizzle-orm` `>=0.36.0 <1.0.0` (optional), `@prisma/client` `>=5.0.0 <7.0.0` (optional), `bullmq` `^5.0.0` (optional), `ioredis` `^5.10.0` (optional) |
+| `@flowpanel/kit` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | `drizzle-orm` `>=0.36.0 <1.0.0` (optional), `@prisma/client` `>=5.0.0 <7.0.0` (optional), `bullmq` `^5.0.0` (optional), `ioredis` `^5.10.0` (optional), `@bull-board/api` + `@bull-board/express` `^6.0.0` and `express` `^4.19.0` (optional, for `@flowpanel/kit/bullmq/board`) |
 | `@flowpanel/charts` | `^19.0.0` | — | — | — | — | `recharts` `^2.15.0 \|\| ^3.0.0` |
 | `@flowpanel/client` | `^19.0.0` | — | — | — | — | — |
 
-`flowpanel`'s data-layer peers (`drizzle-orm`, `@prisma/client`,
-`bullmq`, `ioredis`) are all optional — install only the ones your
-adapter and queue driver need.
+`@flowpanel/kit`'s data-layer peers (`drizzle-orm`, `@prisma/client`,
+`bullmq`, `ioredis`) and its bull-board peers are all optional — install
+only the ones your adapter and queue driver need.

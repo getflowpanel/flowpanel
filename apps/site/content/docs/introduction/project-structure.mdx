@@ -24,6 +24,11 @@ your-app/
         └── 0001_init.sql                   # audit + tracking tables
 ```
 
+Two more files depend on what `init` finds: it scaffolds
+`app/layout.tsx` when the project has none (otherwise it adds the
+`admin.css` import to the existing one), and on Tailwind v3 it writes
+`tailwind.config.ts` unless one already exists.
+
 ## flowpanel.config.ts
 
 Single source of truth. Defines which resources are visible in the
@@ -44,10 +49,13 @@ config at request time.
 
 ## app/api/flowpanel/[...route]/route.ts
 
-The API mount. `handlers(config)` returns `{ GET, POST }` for the
-drawer fetch and per-row action submissions. Server Actions (create /
-update / delete on the auto-form pages) don't route through here — they
-call directly into React components.
+The API mount. `handlers(config)` returns `{ GET, POST }` for the drawer
+fetch, the reference-picker search, and every write: create, edit, inline
+update, restore, import, and row / bulk / drawer / dashboard actions all
+POST here. FlowPanel never binds a Next.js Server Action — the generated
+POST route is the only action transport, which is what keeps the role
+gates, audit and `ActionResult` handling in one place. See
+[Actions](/docs/reference/actions).
 
 ## app/api/flowpanel/stream/route.ts
 

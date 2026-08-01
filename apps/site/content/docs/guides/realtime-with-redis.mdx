@@ -58,8 +58,9 @@ so Redis is the notification channel, not the source of truth.
 
 ## 3. Publish custom events (optional)
 
-For dashboards or background jobs, push your own resource event from a
-Server Action or route handler:
+For dashboards or background jobs, push your own resource event from a route
+handler or a worker. Inside a FlowPanel action, prefer `ctx.publish` — it is
+the same publisher, already bound.
 
 ```ts
 import { publishResource } from "@flowpanel/kit/next";
@@ -68,8 +69,14 @@ await db.update(schema.orders).set({ status: "shipped" }).where(/* … */);
 await publishResource("orders", { action: "update", id: orderId });
 ```
 
-Any list or widget subscribed to `orders` refreshes the moment the event
-lands.
+`publishResource("orders", …)` publishes to the channel `resource.orders` —
+that `resource.` prefix is what a resource's `realtime: true` subscribes to,
+and what a widget's `realtime` option has to name in full.
+
+In a process that never runs `handlers()` or `Flowpanel()` — a standalone
+worker, a cron — call `bindPublisher(config)` once at startup. Without it the
+publish falls back to an in-memory publisher no other process can see; it
+logs one warning and the event reaches nobody.
 
 ## When the `memory` driver is enough
 

@@ -21,7 +21,7 @@ import { prismaAdapter } from "@flowpanel/kit/prisma";
 import { prisma } from "@/lib/prisma";
 import type { User } from "@prisma/client";
 
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof prisma;
   }

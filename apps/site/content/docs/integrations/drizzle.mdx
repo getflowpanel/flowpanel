@@ -1,6 +1,6 @@
 ---
 title: Drizzle
-description: Wire flowpanel to a Drizzle ORM 0.30+ project.
+description: Wire flowpanel to a Drizzle ORM >=0.36 project.
 ---
 
 `@flowpanel/kit/drizzle` is the first-party Drizzle adapter. It reads your
@@ -21,7 +21,7 @@ import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { db } from "@/server/lib/db";
 import * as schema from "@/server/lib/db/schema";
 
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
   }
@@ -42,6 +42,9 @@ export default defineAdmin({
 |---|---|---|
 | `db` | `Drizzle DB instance` | Your existing `db` (PG, MySQL, or SQLite). |
 | `schema` | `Schema object` | The `import * as schema` you pass to `drizzle()`. |
+| `dialect` | `"pg" \| "mysql" \| "sqlite"?` | Inferred from the first table in `schema`. Pass it explicitly when inference throws — it only can when `schema` holds no Drizzle table. |
+
+The peer range is `drizzle-orm >=0.36.0 <1.0.0`.
 
 Soft delete is configured per resource via
 `resource(table, { delete: { softDelete: "deletedAt" } })`, not on the

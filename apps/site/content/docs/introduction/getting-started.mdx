@@ -8,14 +8,26 @@ your Next.js app. This guide walks you from a fresh install to a working
 dashboard.
 
 > **Want to see it running first?** Clone the repo and start the
-> `ai-scraper` example — Postgres in Docker, seeded, on `:3000`:
+> `ai-scraper` example — Postgres in Docker, seeded, on `:3000`. The
+> packages' `dist/` is gitignored and the example imports it, so build the
+> workspace before starting the app:
 >
 > ```bash
-> git clone https://github.com/getflowpanel/flowpanel && cd flowpanel/examples/ai-scraper && pnpm install && pnpm docker:up && pnpm db:push && pnpm db:seed && pnpm dev
+> git clone https://github.com/getflowpanel/flowpanel && cd flowpanel
+> pnpm install
+> pnpm --filter "./packages/*" build
+> cd examples/ai-scraper && pnpm docker:up && pnpm db:push && pnpm db:seed && pnpm dev
 > ```
+>
+> Docker Desktop has to be running (`docker info` should succeed).
+> `DATABASE_URL` defaults to the compose Postgres, so no `.env` is needed
+> for the local run.
 
-> **Requirements.** Next.js 15+ (App Router), React 19, Node 20+, and
-> either Drizzle 0.30+ or Prisma 5+. The Pages router is not supported.
+> **Requirements.** Next.js 15+ (App Router), React 19, Node 20+,
+> Tailwind v3 or v4, and either Drizzle `>=0.36` or Prisma 5 / 6. The
+> Pages router is not supported. `init` stops if it finds no Tailwind in
+> `package.json` — the prompt to continue anyway defaults to No, because
+> the scaffolded stylesheet is a Tailwind entry point.
 
 ## Initialize
 
@@ -58,19 +70,22 @@ list becomes a typed CRUD page; everything you don't list stays out.
 
 ## The config file
 
-Open `flowpanel.config.ts`. You'll see something like this (Drizzle
+Open `flowpanel.config.ts`. This is what `init` generates (Drizzle
 shown; the Prisma variant is shape-identical save the adapter import):
 
 ```ts
-import { defineAdmin, resource } from "@flowpanel/kit";
+import { defineAdmin } from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { db } from "@/server/lib/db";
 import * as schema from "@/server/lib/db/schema";
 import { getSession } from "@/server/lib/auth";
 
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
+  }
+  interface FlowpanelResources {
+    // users: typeof schema.users.$inferSelect;
   }
 }
 
@@ -82,6 +97,22 @@ export default defineAdmin({
     requireRole: "admin",
   },
   realtime: { driver: "memory" },
+  theme: { brand: { name: "your-app" }, accent: "220 90% 50%", mode: "auto" },
+  resources: [
+    // Add `resource` to the "@flowpanel/kit" import above, then:
+    // resource(schema.users, { label: "Users", columns: ["email", "name", "createdAt"] }),
+  ],
+});
+```
+
+**The generated `resources` array is empty** — every entry is commented
+out, because the CLI cannot know which of your tables belong in an admin.
+Add at least one before you run the app, or `/admin` renders with no
+resources in the nav:
+
+```ts
+import { defineAdmin, resource } from "@flowpanel/kit";
+// …
   resources: [
     resource(schema.users, {
       columns: ["email", "role", "createdAt"],
@@ -91,16 +122,30 @@ export default defineAdmin({
       filters: [{ field: "status", type: "select" }],
     }),
   ],
-});
 ```
 
 Each `resource()` call describes one table you'll manage in the admin.
-The first argument is the Drizzle table (or, for Prisma, the model name
-as a string — e.g. `resource("User", { ... })`). Columns, filters, and
-actions are type-checked against the row shape inferred from your
-schema.
+The first argument is the Drizzle table, or — for Prisma — the model name
+as a string, e.g. `resource("User", { … })`. Prisma model names are
+PascalCase and the name is also the URL slug, so `resource("User", …)`
+lives at `/admin/User`; pass `name: "users"` in the options to choose the
+slug yourself.
 
-The `declare module` block binds `typeof db` into `WidgetContext`, so
+Columns, filters and actions are type-checked against the row shape
+**when FlowPanel can infer one**. A Drizzle table ref infers it from
+`$inferSelect` automatically. A Prisma string ref has no row type to
+infer, so those fields stay plain `string` until you fill in the
+`FlowpanelResources` entry the template leaves commented:
+
+```ts
+declare module "@flowpanel/kit" {
+  interface FlowpanelResources {
+    User: import("@prisma/client").User;
+  }
+}
+```
+
+The `FlowpanelTypes` block binds `typeof db` into `WidgetContext`, so
 `ctx.db` in dashboards and actions is your real, typed client.
 
 ## Mount the route
@@ -131,14 +176,25 @@ realtime — generated automatically by `init`.
 
 ## Run
 
-Start your dev server and open `localhost:3000/admin`.
+`init` also wrote `flowpanel/migrations/0001_init.sql`, which creates the
+migration-tracking table and `flowpanel_audit_log`. Apply it once, then
+start the dev server:
 
 ```bash
+pnpm flowpanel migrate
 pnpm dev
 ```
 
-You'll see a typed dashboard with one page per resource, full CRUD,
-pagination, and filters — driven entirely by the config you just wrote.
+Open `localhost:3000/admin`. Each resource you listed gets its own page
+with CRUD, pagination and filters, driven entirely by the config you just
+wrote. If the nav is empty, the `resources` array still holds only the
+commented-out template entry.
+
+The migration's SQL is Postgres-flavoured — adjust it by hand for MySQL
+or SQLite. And `flowpanel_audit_log` is only a table: FlowPanel writes
+**nothing** to it until you point `audit.sink` at it, so a fresh install
+leaves it empty forever. See
+[Configuration](/docs/core-concepts/configuration).
 
 ## Next steps
 

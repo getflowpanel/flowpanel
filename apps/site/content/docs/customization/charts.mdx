@@ -6,7 +6,7 @@ description: Render FlowPanel-themed charts from your own client-side data.
 Dashboard charts are normally declared with the server builders
 (`areaChart`, `barChart`, `lineChart`, `pieChart` from
 `@flowpanel/kit/charts` — see
-[Resource and other builders](/docs/reference/define-config#resource-and-other-builders)):
+[Widgets → Charts](/docs/reference/widgets#charts)):
 FlowPanel runs the query and renders the widget for you. When the data
 doesn't come from a resource query — values held in React state, a
 third-party API response, numbers you computed on the client — use the
@@ -73,7 +73,8 @@ Per component:
 - **`LineChart`** — `smooth`, `markers` (dots on data points, off by default).
 - **`BarChart`** — `stacked`, `horizontal` (flip to horizontal bars).
 - **`PieChart`** — `category` and `value` (row keys, instead of `x`/`y`),
-  `donut`, `showLegend`, `height`, and `colors`: a map from category
+  `donut`, `showLegend` (off unless you set it — the slice legend is
+  opt-in), `height`, and `colors`: a map from category
   value to any CSS color, e.g.
   `{ success: "hsl(142 70% 45%)", failed: "hsl(0 84% 60%)" }`. Unlisted
   categories fall back to the built-in multi-hue palette by order.

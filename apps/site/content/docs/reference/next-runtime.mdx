@@ -92,8 +92,33 @@ import config from "@/flowpanel.config";
 export const GET = stream(config);
 ```
 
-It requires auth like every other route — an unauthenticated client gets `401`
-rather than an open pipe.
+### What the stream checks
+
+<Callout type="warn">
+`stream` enforces `auth.requireRole` and nothing else. **If you do not set
+`auth.requireRole`, the stream never looks at the session** and any anonymous
+visitor who can reach the route gets an open pipe. Set `auth.requireRole` (a
+role name, a list, or a predicate such as `(s) => s !== null`) if the SSE route
+is reachable from the public internet.
+</Callout>
+
+When `auth.requireRole` *is* set and the caller's role fails it, the route
+answers `403` with `{ ok: false, error: "Forbidden" }` — not `401`, and not an
+open pipe. There is no separate "authenticated" check: a `requireRole`
+predicate is the only thing that can reject a session.
+
+Beyond that gate, `stream` bounds what one connection may ask for:
+
+| Limit | Value | Behavior when exceeded |
+| --- | --- | --- |
+| Channels per connection | 25 | Extra `?channel=` values are dropped, not rejected |
+| Channel name charset | `/^[A-Za-z0-9_.:-]{1,128}$/` | Non-matching names are silently ignored |
+| Per-resource role gate | `resource.<name>` channels | Dropped when the resource's own `requireRole` fails |
+| Heartbeat | 15s (`heartbeatMs`) | A `: keep-alive` comment keeps proxies from closing the response |
+
+Dropping rather than rejecting is deliberate: one bad channel in a batch must
+not kill a subscription to the other 24. A channel your client asked for but
+never receives events on is the symptom of hitting one of the first three rows.
 
 ## Realtime helpers
 

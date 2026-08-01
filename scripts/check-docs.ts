@@ -1,10 +1,12 @@
 /**
  * Fails when the docs claim something the packages do not back up:
  * unknown import specifiers, symbols that are not exported, broken internal
- * links, or a hand-copied interface whose members drifted from the source.
+ * links (including their #anchor fragments), a hand-copied interface whose
+ * members drifted from the source, or an <AutoTypeTable>-documented default
+ * that no longer matches the option's runtime fallback.
  *
- * Property tables rendered by <AutoTypeTable> are generated from the .d.ts and
- * cannot drift, so they need no checking — this covers the prose around them.
+ * The property rows <AutoTypeTable> renders are generated from the .d.ts and
+ * cannot drift on their own — this covers the prose and JSDoc around them.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -96,6 +98,23 @@ for (const file of walk(PACKAGES, ".ts")) {
   }
 }
 
+/** Every package source file, cached once, so consumer defaults can be searched cheaply. */
+const sourceTextByFile = new Map(
+  [...walk(PACKAGES, ".ts"), ...walk(PACKAGES, ".tsx")].map((f) => [f, readFileSync(f, "utf8")]),
+);
+
+/** Strips a single layer of backticks or double quotes, repeatedly (handles `"nested"`). */
+function unquote(raw: string): string {
+  let v = raw;
+  while ((v.startsWith("`") && v.endsWith("`")) || (v.startsWith('"') && v.endsWith('"'))) {
+    v = v.slice(1, -1);
+  }
+  return v;
+}
+
+/** A literal default value, as written in either a JSDoc comment or a `?? ` fallback. */
+const DEFAULT_LITERAL = '(`[^`]+`|"[^"]+"|-?\\d+(?:\\.\\d+)?|true|false)';
+
 function topLevelMembers(body: string): Set<string> {
   const out = new Set<string>();
   let depth = 0;
@@ -111,15 +130,32 @@ function topLevelMembers(body: string): Set<string> {
   return out;
 }
 
+function pagePathOf(file: string): string {
+  return `/docs/${relative(DOCS, file)
+    .replace(/\.mdx$/, "")
+    .replace(/\/index$/, "")}`;
+}
+
+/** Approximates the slugger the docs renderer uses for heading ids (github-slugger). */
+function slugify(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/[^a-z0-9 _-]/g, "")
+    .trim()
+    .replace(/ +/g, "-");
+}
+
 const docFiles = walk(DOCS, ".mdx");
-const pages = new Set(
-  docFiles.map(
-    (f) =>
-      `/docs/${relative(DOCS, f)
-        .replace(/\.mdx$/, "")
-        .replace(/\/index$/, "")}`,
-  ),
-);
+const pages = new Set(docFiles.map(pagePathOf));
+
+/** Heading slugs per page, so a link's `#anchor` can be checked like the rest of it. */
+const headingsByPage = new Map<string, Set<string>>();
+for (const file of docFiles) {
+  const body = readFileSync(file, "utf8").replace(/```[\s\S]*?```/g, "");
+  const slugs = new Set<string>();
+  for (const m of body.matchAll(/^#{1,6}[ \t]+(.+)$/gm)) slugs.add(slugify(m[1]));
+  headingsByPage.set(pagePathOf(file), slugs);
+}
 
 for (const file of docFiles) {
   const text = readFileSync(file, "utf8");
@@ -143,9 +179,16 @@ for (const file of docFiles) {
     }
   }
 
-  for (const m of text.matchAll(/\]\((\/docs\/[^)#\s]*)(?:#[^)\s]*)?\)/g)) {
+  for (const m of text.matchAll(/\]\((\/docs\/[^)#\s]*)(#[^)\s]*)?\)/g)) {
     const target = m[1].replace(/\/$/, "");
-    if (!pages.has(target)) report(file, `links to ${m[1]}, which is not a docs page`);
+    if (!pages.has(target)) {
+      report(file, `links to ${m[1]}, which is not a docs page`);
+      continue;
+    }
+    const anchor = m[2]?.slice(1);
+    if (anchor && !headingsByPage.get(target)?.has(anchor)) {
+      report(file, `links to ${target}#${anchor}, which has no matching heading on that page`);
+    }
   }
 
   // A fenced block that restates an exported interface must match its members.
@@ -158,6 +201,39 @@ for (const file of docFiles) {
     const ghosts = [...documented].filter((k) => !actual.has(k));
     if (ghosts.length > 0) {
       report(file, `${m[1]} documents members that do not exist: ${ghosts.join(", ")}`);
+    }
+  }
+
+  // <AutoTypeTable> renders an interface's own JSDoc, so a "Defaults to X" comment is a
+  // promise about runtime behavior. Only compared where the consumer reads it off something
+  // literally named `options` — the one access shape common enough across widget/resource/
+  // adapter option bags to compare safely without misattributing an unrelated same-named field.
+  for (const m of text.matchAll(/<AutoTypeTable[^>]*\bname="([^"]+)"/g)) {
+    const body = declarations.get(m[1]);
+    if (!body) continue;
+    for (const dm of body.matchAll(
+      /\/\*\*\s*(.*?)\s*\*\/\s*\n\s*(?:readonly\s+)?([A-Za-z_]\w*)\??\s*[:(<]/gs,
+    )) {
+      const literal = new RegExp(`Defaults to ${DEFAULT_LITERAL}\\.?`).exec(dm[1]);
+      if (!literal) continue;
+      const member = dm[2];
+      const docValue = unquote(literal[1]);
+      const consumerRe = new RegExp(
+        `\\boptions\\??\\.${member}\\s*\\?\\?\\s*${DEFAULT_LITERAL}`,
+        "g",
+      );
+      for (const [srcFile, srcText] of sourceTextByFile) {
+        for (const cm of srcText.matchAll(consumerRe)) {
+          const runtimeValue = unquote(cm[1]);
+          if (runtimeValue === docValue) continue;
+          const line = srcText.slice(0, cm.index).split("\n").length;
+          report(
+            file,
+            `<AutoTypeTable name="${m[1]}"> says ${member} defaults to ${docValue}, but ` +
+              `${relative(ROOT, srcFile)}:${line} defaults it to ${runtimeValue}`,
+          );
+        }
+      }
     }
   }
 }

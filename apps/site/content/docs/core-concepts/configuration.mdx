@@ -16,7 +16,7 @@ import { db } from "@/server/lib/db";
 import * as schema from "@/server/lib/db/schema";
 import { getSession } from "@/server/lib/auth";
 
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
   }
@@ -43,23 +43,34 @@ export default defineAdmin({
 | `auth` | `AuthConfig` | Session loader + role function (required). |
 | `resources` | `ResourceConfig[]?` | The list of CRUD surfaces to expose. |
 | `dashboards` | `DashboardConfig[]?` | Custom dashboard pages at `/admin/<path>`. |
+| `pages` | `PageConfig[]?` | Your own React components (or external links) rendered inside the admin shell. |
 | `queues` | `QueueConfig[]?` | BullMQ queues to surface in the admin nav. |
 | `theme` | `ThemeConfig?` | Brand, accent, CSS vars, and `theme.components` slot overrides. |
 | `shell` | `ShellConfig \| ShellMode?` | `"sidebar"` (default), `"tabs"`, or `"bare"`. |
 | `labels` | `LabelsConfig?` | i18n strings for the built-in chrome. |
 | `realtime` | `RealtimeConfig?` | `{ driver: "memory" }` for dev, Redis for prod. |
-| `audit` | `AuditConfig?` | Mutation audit log sink + retention. |
+| `audit` | `AuditConfig?` | Mutation audit log sink + retention. Nothing is recorded until you set `sink`. |
 | `rateLimit` | `RateLimitConfig?` | Per-user or per-IP throttling. |
 | `readOnly` | `boolean?` | Put the whole admin in read-only mode — disables every write form, drops actions, blocks mutations server-side. Great for a public demo or viewer role. |
-| `basePath` | `string?` | URL prefix the admin mounts under. Defaults to `/admin`; must start with `/` and not end with `/`. |
+| `basePath` | `string?` | URL prefix the admin's **pages** mount under. Defaults to `/admin`. A missing leading `/` is added and a trailing one stripped, so `"internal/admin/"` and `"/internal/admin"` are the same. |
 | `commandPalette` | `CommandPaletteConfig?` | Extra `⌘K` entries. |
 | `scope` | `(ctx) => Scope?` | Multi-tenant query scoping. |
 | `hooks` | `{ onError? }?` | Request lifecycle hooks. |
 
-By default the admin mounts at `/admin`. Set `basePath` to relocate the
-whole thing — internal links and `revalidatePath` calls all flow through it,
-so `basePath: "/internal/admin"` just works (put the route files at
-`app/internal/admin/[[...slug]]/page.tsx` and the matching API route).
+By default the admin's pages mount at `/admin`. Set `basePath` to relocate
+them — nav links, redirects and `revalidatePath` calls all flow through
+`buildHref`, so `basePath: "/internal/admin"` works once you move the page
+file to `app/internal/admin/[[...slug]]/page.tsx`.
+
+<Callout type="warn">
+`basePath` moves the **pages only**. Leave the API routes exactly where
+`init` put them — `app/api/flowpanel/[...route]/route.ts` and
+`app/api/flowpanel/stream/route.ts`. The browser-side callers build their
+URLs from a hardcoded `/api/flowpanel` prefix (drawer fetch, inline edit,
+import, restore, reference search, and every row / bulk / dashboard
+action), so moving the API route breaks all of them with 404s while the
+pages still render.
+</Callout>
 
 Full type signatures live on the **Reference / defineAdmin** page.
 
@@ -71,7 +82,7 @@ Augment `FlowpanelTypes["db"]` once with `typeof db` and every
 annotations.
 
 ```ts
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
   }
@@ -83,7 +94,7 @@ inference for `resource("User", ...)`:
 
 ```ts
 import type { User, Post } from "@prisma/client";
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof prisma;
   }
@@ -102,7 +113,7 @@ cross-resource string is checked at compile time — `ColumnDef.reference`
 `resource`. A typo errors with a "Did you mean?" suggestion.
 
 ```ts
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelResources {
     users: typeof schema.users.$inferSelect;
     posts: typeof schema.posts.$inferSelect;

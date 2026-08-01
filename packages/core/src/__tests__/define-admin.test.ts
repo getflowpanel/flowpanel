@@ -78,6 +78,47 @@ describe("defineAdmin", () => {
     expect(config.resourcesByName.has("invoices")).toBe(true);
   });
 
+  it("indexes a Prisma-style string ref under the model name", () => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource("User", { columns: ["email"] })],
+    });
+    expect(config.resourcesByName.has("User")).toBe(true);
+    expect(config.resourcesByName.get("User")?.ref).toBe("User");
+  });
+
+  it("honours options.name over a string ref", () => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource("User", { name: "customers", columns: [] })],
+    });
+    expect(config.resourcesByName.has("customers")).toBe(true);
+    expect(config.resourcesByName.has("User")).toBe(false);
+    expect(config.resourcesByName.get("customers")?.ref).toBe("User");
+  });
+
+  it("rejects duplicate string refs", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [resource("User", { columns: [] }), resource("User", { columns: [] })],
+      }),
+    ).toThrow(/Duplicate resource name: "User"/);
+  });
+
+  it("throws on an empty string ref", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [resource("", { columns: [] })],
+      }),
+    ).toThrow(/name/i);
+  });
+
   it("readOnly strips every write affordance from resources", () => {
     const ref = { __name: "users" };
     const config = defineAdmin({

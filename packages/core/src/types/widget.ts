@@ -26,7 +26,7 @@ export interface MetricDelta {
 }
 
 export interface MetricOptions {
-  /** Lucide icon name, or an icon-font ligature the host app registered. */
+  /** Rendered as-is next to the label. Any string — an emoji, a ligature. No icon-name lookup exists. */
   icon?: string;
   /** How the number is rendered. */
   format?: NumericFormat;
@@ -65,7 +65,7 @@ export interface TableWidgetOptions<R = unknown> {
   query?: (ctx: WidgetContext) => Promise<R[]>;
   /** Columns to show. Defaults to the resource's own list columns. */
   columns?: RowKey<R>[];
-  /** Row cap. Defaults to 5. */
+  /** Row cap. Defaults to 10. Applies to the `resource` path only. */
   limit?: number;
   /** Rendered in place of the table body when there are zero rows. */
   emptyState?: ReactNode;
@@ -171,7 +171,7 @@ export interface PieChartOptions<R = unknown> {
   value: RowKey<R>;
   /** Cut a hole in the middle. */
   donut?: boolean;
-  /** Show the slice legend. Defaults to `true`. */
+  /** Show the slice legend. Defaults to `false`. */
   showLegend?: boolean;
   /** Chart height in px. */
   height?: number;

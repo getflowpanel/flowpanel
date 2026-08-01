@@ -169,7 +169,7 @@ export interface ResourceOptions<Row> {
   label?: string;
   /** Plural label shown in the nav and list title. */
   plural?: string;
-  /** Lucide icon name for the nav entry. */
+  /** Not rendered: nav entries carry a label and an href only. */
   icon?: string;
   /** Keep the resource out of the navigation — its routes still work. */
   hidden?: boolean;

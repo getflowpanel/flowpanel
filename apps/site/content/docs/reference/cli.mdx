@@ -49,12 +49,27 @@ The CLI tracks applied IDs in `_flowpanel_migrations`.
 
 ## flowpanel doctor
 
-Diagnose common problems: missing peer deps, mismatched Node version,
-config / schema drift.
+Run the wiring checks, in this order:
+
+- Next.js ≥ 15, and TypeScript installed
+- an ORM the adapters support — Drizzle or Prisma
+- `flowpanel.config.ts` exists
+- the four generated files exist: the API route, the SSE route, the seed
+  migration, and the catch-all admin page
+- only one `@flowpanel/core` copy in `node_modules/.pnpm` (skipped on
+  layouts without that directory rather than reported as passing)
+- no destructive row/bulk action declared without a `confirm`
+- `tsc --noEmit` passes
 
 ```bash
 $ pnpm flowpanel doctor
+$ pnpm flowpanel doctor --fix
 ```
+
+`--fix` rewrites the four generated files from the same templates `init`
+uses, for whichever are missing; it prints each path it wrote and re-runs
+the check. The other failures have no auto-fix — they print a hint
+instead.
 
 Exit code is non-zero when any check fails — wire it into CI to catch
 drift on every PR.

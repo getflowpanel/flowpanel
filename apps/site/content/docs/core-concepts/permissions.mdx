@@ -10,7 +10,7 @@ mutation, and each has its own route-level test.
 ## One role, five places to require it
 
 `AuthConfig.role` turns a session into a single role string. Every gate compares
-against that string, and they all accept the same `RequireRole` shape:
+against that string:
 
 ```ts
 type RequireRole =
@@ -19,6 +19,11 @@ type RequireRole =
   | ((session: Session | null) => boolean)  // your own predicate
   | undefined;                          // no gate
 ```
+
+Not every gate takes the whole shape. `auth.requireRole`, a resource, a
+dashboard, a page and a `FieldDef` accept all four forms. **Actions and queues
+are `string | string[]` only** — no predicate. Pass a function there and
+TypeScript rejects it.
 
 The gates nest, outermost first. A request must clear every one that applies.
 
@@ -142,11 +147,19 @@ the only set of columns a search may touch.
 The gates are enforced in the route layer, so the cheapest test is an HTTP one:
 
 ```ts
+const { POST } = handlers(config);
+
 const res = await POST(
   new Request("http://x/api/flowpanel/orders/1/actions/refund", { method: "POST" }),
-  { params: Promise.resolve({ resource: "orders", id: "1", action: "refund" }) },
+  { params: Promise.resolve({ route: ["orders", "1", "actions", "refund"] }) },
 );
 expect(res.status).toBe(403);
 ```
+
+`handlers()` mounts one catch-all, so its `params` carry the URL segments as
+`route: string[]` — the same array Next.js hands
+`app/api/flowpanel/[...route]/route.ts`. Pass a `{ resource, id, action }`
+object instead and the router sees no segments and answers `404`, which looks
+like a passing test only if you assert on the wrong status.
 
 If a gate only ever gets exercised through the UI, it is not covered.

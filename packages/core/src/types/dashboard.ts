@@ -27,7 +27,7 @@ export interface SectionConfig {
   label?: string;
   /** Supporting copy under the heading. */
   description?: string;
-  /** Grid columns the widgets lay out across. Defaults to 12. */
+  /** Grid columns the widgets lay out across. Defaults to 1. */
   columns?: 1 | 2 | 3 | 4 | 6 | 12;
   widgets: WidgetConfig[];
 }
