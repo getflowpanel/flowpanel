@@ -3,7 +3,6 @@ import type {
   DetailTab,
   FieldDef,
   ItemQueryContext,
-  ListQueryContext,
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
@@ -16,8 +15,11 @@ import { buildHref } from "../runtime/href.js";
 import { prerenderResourceCells } from "../runtime/prerender-cells.js";
 import { projectRow } from "../runtime/project-row.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
+import { readRelatedRows } from "../runtime/require-authorized.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
 import { NotFound } from "./not-found.js";
+
+const RELATED_TAB_PAGE_SIZE = 25;
 
 export interface ResourceDetailPageProps {
   config: ResolvedAdminConfig;
@@ -127,45 +129,28 @@ async function renderTab<Row extends Record<string, unknown>>(
     if (!target) {
       return <div className="text-fp-text-3">Unknown resource: {tab.resource}</div>;
     }
-    checkRequireRole(target.options.requireRole, reqCtx.role, reqCtx.session);
-    const filterValues = tab.filter ? tab.filter(row) : {};
-    const listCtx: ListQueryContext<unknown> = {
-      ...reqCtx,
-      db: config.adapter.db,
-      dateRange: { from: new Date(0), to: new Date() },
-      searchParams: new URLSearchParams(),
-      signal: new AbortController().signal,
-      filters: filterValues,
-      sort: null,
-      page: 1,
-      pageSize: 25,
-      search: "",
-      ...scopeBinding(config, target, reqCtx),
-    };
-    const list = await runWithRequestContext(reqCtx, () =>
-      config.adapter.list(target.ref, listCtx),
-    );
+    const rows = (await readRelatedRows(config, target, reqCtx, {
+      filters: tab.filter ? tab.filter(row) : {},
+      pageSize: RELATED_TAB_PAGE_SIZE,
+    })) as Row[] | null;
+    if (!rows || rows.length === 0) {
+      return <div className="px-2 py-6 text-sm text-fp-text-3">No related rows</div>;
+    }
     const targetCols = target.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>>;
     const intro = config.adapter.introspect(target.ref);
     const metaByField = new Map(intro.columns.map((c) => [c.name, c]));
-    const { columns, prerenderedCells } = prerenderResourceCells<Row>(
-      targetCols,
-      list.rows as Row[],
-      reqCtx,
-      { defaultSortable: false, metaByField },
-    );
-    if (list.rows.length === 0) {
-      return <div className="px-2 py-6 text-sm text-fp-text-3">No related rows</div>;
-    }
+    const { columns, prerenderedCells } = prerenderResourceCells<Row>(targetCols, rows, reqCtx, {
+      defaultSortable: false,
+      metaByField,
+    });
     const rowKey = (target.options.rowKey as string | undefined) ?? "id";
-    const clientRows = (list.rows as Row[]).map((r) => projectRow(target, r));
     return (
       <DataTable
         columns={columns}
-        rows={clientRows}
-        total={list.total}
-        page={list.page}
-        pageSize={list.pageSize}
+        rows={rows}
+        total={rows.length}
+        page={1}
+        pageSize={RELATED_TAB_PAGE_SIZE}
         rowKey={rowKey as keyof Row & string}
         {...(prerenderedCells ? { prerenderedCells } : {})}
         emptyTitle="No related rows"

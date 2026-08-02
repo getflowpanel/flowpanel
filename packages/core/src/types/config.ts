@@ -27,6 +27,12 @@ export interface AuthConfig {
   forbiddenUrl?: string;
   /** Extracts the actor id for audit rows and per-user rate limiting. */
   userId?: (session: Session | null) => string | null;
+  /**
+   * Declares that this admin is meant to be reachable without any role gate —
+   * a deployment already fronted by a VPN or an authenticating proxy. Silences
+   * the development-only "no access control" warning and changes no runtime check.
+   */
+  allowUnauthenticated?: boolean;
 }
 
 /** Slot registry for L2 component overrides registered via `theme.components`. */

@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 
+import { backoffDelay, DEFAULT_RECONNECT_MAX_MS } from "../realtime/backoff.js";
 import { statusForAttempt } from "../realtime/context.js";
 
 export type LiveStatus = "idle" | "connecting" | "live" | "reconnecting" | "offline";
@@ -111,9 +112,9 @@ function connectEntry(key: string, endpoint: string, channels: string[], maxMs: 
     }
     es.close();
     entry.source = null;
+    const delay = backoffDelay(entry.attempt, maxMs);
     entry.attempt += 1;
     setEntryStatus(entry, statusForAttempt(entry.attempt));
-    const delay = Math.min(maxMs, 500 * 2 ** Math.min(entry.attempt, 6));
     if (entry.timer) clearTimeout(entry.timer);
     entry.timer = setTimeout(() => {
       entry.timer = null;
@@ -184,7 +185,7 @@ export function acquireLiveChannels(
   channels: string[],
   onMessage: Listener,
   onStatus: (s: LiveStatus) => void = () => undefined,
-  maxMs = 30_000,
+  maxMs = DEFAULT_RECONNECT_MAX_MS,
 ): () => void {
   const list = Array.from(new Set(channels.filter(Boolean))).sort();
   if (list.length === 0) return () => undefined;
@@ -204,7 +205,7 @@ export function useLiveChannel(
 
   const enabled = opts.enabled !== false && channel !== "";
   const endpoint = opts.endpoint ?? "/api/flowpanel/stream";
-  const maxMs = opts.reconnectMaxMs ?? 30_000;
+  const maxMs = opts.reconnectMaxMs ?? DEFAULT_RECONNECT_MAX_MS;
 
   const [status, setStatus] = React.useState<LiveStatus>(() => {
     if (!enabled) return "idle";

@@ -1,7 +1,7 @@
 /** One entry in the ⌘K palette. */
 export interface CommandItem {
   label: string;
-  /** Lucide icon name. */
+  /** Not rendered: palette entries show the label and the shortcut only. */
   icon?: string;
   /** Shortcut hint shown on the right, e.g. `"⌘J"`. Display only — bind it yourself. */
   shortcut?: string;

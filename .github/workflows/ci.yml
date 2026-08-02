@@ -23,6 +23,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0 # changeset status diffs against `main`
 
       - uses: ./.github/actions/setup
 
@@ -89,6 +91,9 @@ jobs:
 
       - name: Bundle-size budgets (.size-limit.json)
         run: pnpm --filter @flowpanel/kit exec size-limit
+
+      - name: Changesets name real workspace packages
+        run: pnpm exec changeset status
 
       - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:

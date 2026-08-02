@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
+import { backoffDelay, DEFAULT_RECONNECT_MAX_MS } from "./backoff.js";
 import {
   type Callback,
   type RealtimeBus,
@@ -205,7 +206,7 @@ function RealtimeProviderInner({
       es.close();
       state.source = null;
       state.activeSig = "";
-      const delay = Math.min(30_000, 500 * 2 ** Math.min(state.attempt, 6));
+      const delay = backoffDelay(state.attempt, DEFAULT_RECONNECT_MAX_MS);
       state.attempt += 1;
       setStatus(statusForAttempt(state.attempt));
       if (state.reconnectTimer) clearTimeout(state.reconnectTimer);

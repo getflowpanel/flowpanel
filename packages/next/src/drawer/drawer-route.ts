@@ -36,7 +36,6 @@ export interface SerializedDrawerAction {
   key: string;
   label: string;
   variant?: "default" | "destructive";
-  icon?: string;
   confirm?: string;
   form?: DrawerAction["form"];
   palette?: boolean;
@@ -142,7 +141,6 @@ function serializeFields(fields: DrawerFieldList<Record<string, unknown>>): "*" 
 function serializeAction(a: DrawerAction): SerializedDrawerAction {
   const out: SerializedDrawerAction = { key: a.key, label: a.label };
   if (a.variant !== undefined) out.variant = a.variant;
-  if (a.icon !== undefined) out.icon = a.icon;
   if (a.confirm !== undefined) out.confirm = a.confirm;
   if (a.form !== undefined) out.form = a.form;
   if (a.palette !== undefined) out.palette = a.palette;

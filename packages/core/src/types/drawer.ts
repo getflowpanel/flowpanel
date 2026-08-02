@@ -67,8 +67,6 @@ export interface DrawerAction<Row = Record<string, unknown>> {
   label: string;
   /** `"destructive"` styles the button as dangerous. */
   variant?: "default" | "destructive";
-  /** Lucide icon name. */
-  icon?: string;
   /** Ask for confirmation with this message before running. */
   confirm?: string;
   /** Inputs collected before `run`, passed to it as `formData`. */

@@ -35,6 +35,14 @@ inside your own session helper if they hit the network.
 
 <AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuthConfig" />
 
+`requireRole` is the admin-wide gate, and nothing else in FlowPanel demands a
+session: a config with no `requireRole` here, none on any resource, and no
+global `scope` serves every route and page to anonymous visitors. `defineAdmin`
+prints a warning about that in development. A deployment that is open on
+purpose — behind a VPN or an authenticating proxy — sets
+`allowUnauthenticated: true` to say so and silence the warning; it enforces
+nothing either way.
+
 See [Auth with Clerk](/docs/guides/auth-with-clerk) for the shipped presets.
 
 ## ThemeConfig

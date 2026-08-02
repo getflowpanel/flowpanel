@@ -14,7 +14,8 @@
     "version-packages": "changeset version",
     "release": "turbo run build && changeset publish",
     "prepare": "lefthook install || true",
-    "check:docs": "tsx scripts/check-docs.ts"
+    "check:docs": "tsx scripts/check-docs.ts",
+    "check:changesets": "changeset status"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",

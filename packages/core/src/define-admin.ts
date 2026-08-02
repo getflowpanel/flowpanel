@@ -5,6 +5,7 @@ import type { DashboardConfig, PageConfig } from "./types/dashboard.js";
 import type { QueueConfig } from "./types/queue.js";
 import type { ResourceConfig } from "./types/resource.js";
 import { validateResourceRefs } from "./validate-resource-refs.js";
+import { warnIfNoAccessControl } from "./warn-open-admin.js";
 
 function normalizeRoutePath(raw: string): string {
   let p = raw.trim();
@@ -96,6 +97,7 @@ export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
     queuesByKey.set(key, q);
   }
   validateResourceRefs(resourcesByName, config.dashboards ?? []);
+  warnIfNoAccessControl(config, resources);
 
   const rawBasePath = config.basePath ?? "/admin";
   let basePath = rawBasePath.trim();

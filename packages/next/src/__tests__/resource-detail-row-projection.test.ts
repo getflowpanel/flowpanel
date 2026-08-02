@@ -85,6 +85,7 @@ describe("ResourceDetailPage — row projection", () => {
     const adapter = mkAdapter(usersAdapterCalls, [
       { id: "p1", userId: "1", amount: 10, cardNumber: "4111111111111111" },
     ]);
+    const seenByRender: string[][] = [];
     const config = defineAdmin({
       adapter,
       auth: { session: async () => null, role: () => "admin" },
@@ -98,7 +99,22 @@ describe("ResourceDetailPage — row projection", () => {
             },
           },
         ),
-        resource({ __name: "payments" }, { columns: ["id", "userId", "amount"] }),
+        resource(
+          { __name: "payments" },
+          {
+            columns: [
+              "id",
+              "userId",
+              {
+                field: "amount",
+                render: (r: Record<string, unknown>) => {
+                  seenByRender.push(Object.keys(r).sort());
+                  return String(r.amount);
+                },
+              },
+            ],
+          },
+        ),
       ],
     });
     const resourceCfg = config.resourcesByName.get("users");
@@ -119,6 +135,44 @@ describe("ResourceDetailPage — row projection", () => {
     expect(dataTables).toHaveLength(1);
     expect(dataTables[0]?.rows).toEqual([{ id: "p1", userId: "1", amount: 10 }]);
     expect(dataTables[0]?.rows[0]).not.toHaveProperty("cardNumber");
+    // A server-side render(row) sees the same projected row the client gets.
+    expect(seenByRender).toEqual([["amount", "id", "userId"]]);
+  });
+
+  it("'resource' detail tab fails closed when the target has no scope under a global scope", async () => {
+    const adapter = mkAdapter({ id: "1", email: "a@b.co" }, [
+      { id: "p1", userId: "1", amount: 10 },
+    ]);
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => null, role: () => "admin" },
+      scope: () => ({ tenantId: "t1" }),
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            scope: "bypass",
+            detail: {
+              tabs: [{ key: "payments", label: "Payments", resource: "payments" }],
+            },
+          },
+        ),
+        resource({ __name: "payments" }, { columns: ["id", "userId", "amount"] }),
+      ],
+    });
+    const resourceCfg = config.resourcesByName.get("users");
+    if (!resourceCfg) throw new Error("users resource not registered");
+
+    const node = await ResourceDetailPage({
+      config,
+      resource: resourceCfg,
+      name: "users",
+      id: "1",
+      req: new Request("http://localhost/admin/users/1"),
+    });
+
+    expect(findAllElements(node, DataTable)).toHaveLength(0);
   });
 
   it("detail tab with fields: '*' (no tab.resource) drops undeclared fields", async () => {

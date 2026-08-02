@@ -102,9 +102,13 @@ describe("useLiveChannel", () => {
     act(() => instances[0]!.open());
     act(() => instances[0]!.fail());
     expect(getByTestId("status").textContent).toBe("reconnecting");
-    // First backoff: 500ms * 2^1 = 1000ms
+    // Shared schedule (realtime/backoff.ts): first retry at 500ms, not 1000ms.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(499);
+    });
+    expect(instances).toHaveLength(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
     });
     expect(instances).toHaveLength(2);
   });

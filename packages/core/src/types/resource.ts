@@ -138,8 +138,6 @@ export interface DetailTab<Row> {
   key: string;
   /** Tab label. */
   label: string;
-  /** Lucide icon name. */
-  icon?: string;
   /** Hide the tab for rows that should not show it. */
   hidden?: (row: Row) => boolean;
   /** Field list to render as a key/value view. `"*"` shows every column. */

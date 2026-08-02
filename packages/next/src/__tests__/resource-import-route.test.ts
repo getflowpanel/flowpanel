@@ -167,6 +167,21 @@ describe("importRoute", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
+  it("still reports the true counts when the post-import notify throws", async () => {
+    const { config } = makeConfig();
+    vi.mocked(publishResource).mockRejectedValueOnce(new Error("redis is down"));
+    const rows = [{ email: "a@b.com" }, { email: "not-an-email" }, { email: "c@b.com" }];
+    const res = await importRoute(config)(
+      post({ format: "json", content: JSON.stringify(rows) }),
+      params,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; imported: number; failed: unknown[] };
+    expect(body.ok).toBe(true);
+    expect(body.imported).toBe(2);
+    expect(body.failed).toHaveLength(1);
+  });
+
   it("publishes and revalidates exactly once when some rows fail and some succeed", async () => {
     const { config } = makeConfig();
     const rows = [{ email: "a@b.com" }, { email: "not-an-email" }, { email: "c@b.com" }];

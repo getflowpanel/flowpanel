@@ -95,11 +95,18 @@ export const GET = stream(config);
 ### What the stream checks
 
 <Callout type="warn">
-`stream` enforces `auth.requireRole` and nothing else. **If you do not set
-`auth.requireRole`, the stream never looks at the session** and any anonymous
-visitor who can reach the route gets an open pipe. Set `auth.requireRole` (a
-role name, a list, or a predicate such as `(s) => s !== null`) if the SSE route
-is reachable from the public internet.
+**No FlowPanel route requires a session — the stream is not a special case.**
+Every gate in the framework is a role check, and a role check with no
+requirement configured passes immediately. An admin with no `auth.requireRole`,
+no per-resource `requireRole` and no global `scope` therefore answers anonymous
+requests on *every* route above as well as this one: list, detail, create,
+update, delete, row/bulk/dashboard actions, import and drawer. Set
+`auth.requireRole` (a role name, a list, or a predicate such as
+`(s) => s !== null`) to gate the whole admin. `defineAdmin` warns about this in
+development; a deployment that is open on purpose — behind a VPN or an
+authenticating proxy — declares
+[`auth.allowUnauthenticated`](/docs/reference/define-config#authconfig) to
+silence the warning.
 </Callout>
 
 When `auth.requireRole` *is* set and the caller's role fails it, the route

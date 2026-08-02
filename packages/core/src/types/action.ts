@@ -31,7 +31,7 @@ export interface RowAction<Row> {
   /** Stable identifier, used in the action's URL. */
   key: string;
   label: string;
-  /** Lucide icon name. */
+  /** Not rendered: the built-in action buttons render the label only. */
   icon?: string;
   /** Button styling. `"destructive"` marks a dangerous action. */
   variant?: "default" | "destructive" | "success";
@@ -56,7 +56,7 @@ export interface BulkAction<Row> {
   /** Stable identifier, used in the action's URL. */
   key: string;
   label: string;
-  /** Lucide icon name. */
+  /** Not rendered: the built-in action buttons render the label only. */
   icon?: string;
   /** Button styling. `"destructive"` marks a dangerous action. */
   variant?: "default" | "destructive";
@@ -75,7 +75,7 @@ export interface DashboardAction {
   /** Stable identifier, used in the action's URL. */
   key: string;
   label: string;
-  /** Lucide icon name. */
+  /** Not rendered: the built-in action buttons render the label only. */
   icon?: string;
   /** Button styling. `"destructive"` marks a dangerous action. */
   variant?: "default" | "destructive" | "success";
