@@ -1,6 +1,7 @@
 "use client";
 import type * as React from "react";
-import { useComponents } from "../_provider/ComponentsContext.js";
+import { useComponent } from "../_provider/ComponentsContext.js";
+import { DefaultStatusBadge } from "./StatusBadgeDefault.js";
 
 export {
   DefaultStatusBadge,
@@ -11,6 +12,6 @@ export {
 export function StatusBadge(
   props: import("./StatusBadgeDefault.js").StatusBadgeProps,
 ): React.JSX.Element {
-  const Slot = useComponents().StatusBadge;
+  const Slot = useComponent("StatusBadge", DefaultStatusBadge);
   return <Slot {...props} />;
 }

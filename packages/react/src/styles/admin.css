@@ -328,8 +328,11 @@
 /* Press feedback for buttons and tappable chips — transform only, so it
    never shifts layout. Longhands, so the same class also drives the color
    transition without fighting Tailwind's transition utilities. */
+/* `box-shadow` is deliberately absent: Tailwind draws focus rings as box-shadow,
+   and transitioning it makes the ring fade in — slow feedback for a keyboard
+   affordance, and long enough to see the offset ring resolve to its colour. */
 .fp-press {
-  transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+  transition-property: color, background-color, border-color, opacity, transform;
   transition-duration: var(--fp-duration-fast);
   transition-timing-function: var(--fp-ease-out);
 }

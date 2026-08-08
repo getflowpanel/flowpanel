@@ -33,6 +33,8 @@ content.
 | `ShortcutsCheatsheet`, `DEFAULT_SHORTCUTS` | The `?`-triggered keyboard shortcuts overlay and the shortcut list it ships with. |
 | `ThemeScript` | Inline script that applies the stored theme class before hydration, avoiding a flash. |
 | `ComponentsProvider`, `useComponents` | Provider/reader for the `FlowpanelComponentSlots` override map. |
+| `useComponent` | Resolves a single slot — `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
+| `useComponentOverrides` | The raw override map from the nearest `ComponentsProvider`, without defaults filled in. |
 | `LabelsProvider`, `useLabels` | Provider/reader for label overrides (pluralization, field labels). |
 
 <AutoTypeTable path="../../packages/react/src/_shell/AdminShell.tsx" name="AdminShellProps" />

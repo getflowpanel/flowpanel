@@ -15,7 +15,7 @@ const toastApi = vi.hoisted(() => ({
   dismiss: vi.fn(),
 }));
 
-vi.mock("../../_feedback/Toast.js", () => ({
+vi.mock("../../_feedback/toast-api.js", () => ({
   useToast: () => toastApi,
 }));
 

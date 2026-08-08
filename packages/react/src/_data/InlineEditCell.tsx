@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { LocalTime } from "../_atoms/LocalTime.js";
-import { useToast } from "../_feedback/Toast.js";
+import { useToast } from "../_feedback/toast-api.js";
 import { cn } from "../lib/cn.js";
 
 /** Editable table cell. */

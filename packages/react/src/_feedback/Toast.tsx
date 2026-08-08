@@ -1,60 +1,46 @@
 "use client";
-import type { ReactNode } from "react";
-import { toast as sonnerToast, Toaster } from "sonner";
+import { lazy, type ReactNode, Suspense } from "react";
+import { type ToastApi, ToastContext } from "./toast-api.js";
+import { dispatchToast } from "./toast-bridge.js";
+
+const ToasterMount = lazy(() => import("./ToasterMount.js"));
+
+const API: ToastApi = {
+  success: (message, options) => {
+    dispatchToast((t) => {
+      t.success(message, options);
+    });
+  },
+  error: (message, options) => {
+    dispatchToast((t) => {
+      t.error(message, options);
+    });
+  },
+  info: (message, options) => {
+    dispatchToast((t) => {
+      t(message, options);
+    });
+  },
+  warning: (message, options) => {
+    dispatchToast((t) => {
+      t.warning(message, options);
+    });
+  },
+  dismiss: (id) => {
+    dispatchToast((t) => {
+      t.dismiss(id);
+    });
+  },
+};
 
 /** Mount once near the root of the admin shell. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   return (
-    <>
+    <ToastContext.Provider value={API}>
       {children}
-      <Toaster
-        position="bottom-right"
-        closeButton
-        toastOptions={{
-          classNames: {
-            toast: "!bg-fp-bg-1 !border-fp-border-1 !text-fp-text-1 !rounded-fp-lg !shadow-fp-lg",
-            title: "text-sm font-medium",
-            description: "!text-fp-text-3 text-sm",
-            success: "[&_[data-icon]]:!text-fp-ok",
-            error: "[&_[data-icon]]:!text-fp-err",
-            warning: "[&_[data-icon]]:!text-fp-warn",
-            info: "[&_[data-icon]]:!text-fp-accent",
-            closeButton: "!bg-fp-bg-1 !border-fp-border-1 !text-fp-text-2 hover:!bg-fp-bg-2",
-          },
-        }}
-      />
-    </>
+      <Suspense fallback={null}>
+        <ToasterMount />
+      </Suspense>
+    </ToastContext.Provider>
   );
 }
-
-export interface ToastApi {
-  success: (message: string, options?: { description?: string }) => void;
-  error: (message: string, options?: { description?: string }) => void;
-  info: (message: string, options?: { description?: string }) => void;
-  warning: (message: string, options?: { description?: string }) => void;
-  dismiss: (id?: string | number) => void;
-}
-
-/** Returns an imperative toast API. Callable from any client component. */
-export function useToast(): ToastApi {
-  return {
-    success: (message, options) => {
-      sonnerToast.success(message, options);
-    },
-    error: (message, options) => {
-      sonnerToast.error(message, options);
-    },
-    info: (message, options) => {
-      sonnerToast(message, options);
-    },
-    warning: (message, options) => {
-      sonnerToast.warning(message, options);
-    },
-    dismiss: (id) => {
-      sonnerToast.dismiss(id);
-    },
-  };
-}
-
-/** Direct toast handle — matches sonner's API surface for advanced callers. */
-export { sonnerToast as Toast };

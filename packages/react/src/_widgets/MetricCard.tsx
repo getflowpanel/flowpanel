@@ -1,6 +1,7 @@
 "use client";
 import type * as React from "react";
-import { useComponents } from "../_provider/ComponentsContext.js";
+import { useComponent } from "../_provider/ComponentsContext.js";
+import { DefaultMetricCard } from "./MetricCardDefault.js";
 
 export { DefaultMetricCard, type MetricCardProps } from "./MetricCardDefault.js";
 
@@ -8,6 +9,6 @@ export { DefaultMetricCard, type MetricCardProps } from "./MetricCardDefault.js"
 export function MetricCard(
   props: import("./MetricCardDefault.js").MetricCardProps,
 ): React.JSX.Element {
-  const Slot = useComponents().MetricCard;
+  const Slot = useComponent("MetricCard", DefaultMetricCard);
   return <Slot {...props} />;
 }

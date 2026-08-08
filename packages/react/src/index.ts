@@ -99,7 +99,9 @@ export {
   SkeletonTable,
   type SkeletonTableProps,
 } from "./_feedback/SkeletonTable.js";
-export { Toast, type ToastApi, ToastProvider, useToast } from "./_feedback/Toast.js";
+export { ToastProvider } from "./_feedback/Toast.js";
+export { type ToastApi, useToast } from "./_feedback/toast-api.js";
+export { Toast } from "./_feedback/toast-handle.js";
 export {
   AsyncSelect,
   type AsyncSelectOption,
@@ -128,8 +130,13 @@ export {
   type SectionProps,
   spanClass,
 } from "./_layout/Section.js";
-export { ComponentsProvider, useComponents } from "./_provider/ComponentsContext.js";
+export {
+  ComponentsProvider,
+  useComponent,
+  useComponentOverrides,
+} from "./_provider/ComponentsContext.js";
 export { LabelsProvider, useLabels } from "./_provider/LabelsContext.js";
+export { useComponents } from "./_provider/useComponents.js";
 export {
   AccountMenu,
   type AccountMenuItem,

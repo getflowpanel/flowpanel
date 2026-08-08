@@ -78,7 +78,11 @@ export function DataTableRow<Row extends Record<string, unknown>>({
       aria-current={active ? "true" : undefined}
       onClick={() => onRowClick?.(row)}
       className={cn(
-        "border-t border-fp-border-1 text-fp-text-1 transition-colors",
+        // Not `transition-colors`: that list includes `outline-color`, and the
+        // cursor outline flips from style:none to solid instantly while its
+        // colour interpolates from the inherited near-white — a white ring that
+        // fades to the accent on every cursor move.
+        "border-t border-fp-border-1 text-fp-text-1 transition-[background-color]",
         onRowClick && "cursor-pointer hover:bg-fp-bg-2/70",
         isSelected && "bg-fp-accent/5",
         active && "bg-fp-accent/5 outline outline-2 -outline-offset-2 outline-fp-focus/60",

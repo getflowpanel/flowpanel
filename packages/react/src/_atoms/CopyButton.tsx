@@ -1,7 +1,7 @@
 "use client";
 import { Check, Copy } from "lucide-react";
 import * as React from "react";
-import { useToast } from "../_feedback/Toast.js";
+import { useToast } from "../_feedback/toast-api.js";
 import { Button } from "../ui/button.js";
 
 export interface CopyButtonProps {
