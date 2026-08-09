@@ -10,7 +10,51 @@ import type {
 } from "@flowpanel/core";
 import { checkRequireRole, emitAudit } from "@flowpanel/core";
 import type { z } from "zod";
+import { parseActionBody } from "../drawer/parse-action-body.js";
 import { requireAuthorized } from "./require-authorized.js";
+
+/** Body of a POSTed action, or a flag that the JSON was malformed. */
+export type ActionInput =
+  | { ok: true; input: Record<string, unknown> }
+  | { ok: false; reason: "invalid-json" };
+
+/** Like `parseActionBody`, but a malformed JSON body is reported instead of swallowed. */
+export async function readActionInput(req: Request): Promise<ActionInput> {
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      const parsed = (await req.json()) as Record<string, unknown> | null;
+      return { ok: true, input: parsed ?? {} };
+    } catch {
+      return { ok: false, reason: "invalid-json" };
+    }
+  }
+  return { ok: true, input: await parseActionBody(req) };
+}
+
+export function invalidJsonResponse(): Response {
+  return Response.json({ ok: false, error: "invalid JSON body" }, { status: 400 });
+}
+
+/**
+ * 404 for an unknown route target. Development names what was asked for and
+ * what is registered; production stays terse so the response leaks nothing.
+ */
+export function notFoundResponse(
+  kind: "resource" | "action" | "dashboard",
+  requested: string,
+  registered: readonly string[],
+): Response {
+  const terse = `${kind} not found`;
+  if (process.env.NODE_ENV === "production") {
+    return Response.json({ ok: false, error: terse }, { status: 404 });
+  }
+  const known = registered.length > 0 ? registered.map((n) => `"${n}"`).join(", ") : "(none)";
+  return Response.json(
+    { ok: false, error: `${terse}: "${requested}". Registered ${kind}s: ${known}.` },
+    { status: 404 },
+  );
+}
 
 function idString(id: unknown): string | null {
   return id === undefined || id === null || id === "" ? null : String(id);

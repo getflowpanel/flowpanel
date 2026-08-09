@@ -1,3 +1,4 @@
+export { devAuth } from "./auth/dev.js";
 export { dashboard, page } from "./builders/dashboard.js";
 export { queue } from "./builders/queue.js";
 export { resource } from "./builders/resource.js";

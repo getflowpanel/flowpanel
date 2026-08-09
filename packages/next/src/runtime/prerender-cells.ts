@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 /** Wire-safe column metadata derived from a resource's `ColumnDef[]`. */
 export interface PrerenderedColumn<Row> {
+  /** Row property, or `__cell_<i>` for a field-less column whose `render` supplies the cell. */
   field: keyof Row & string;
   label?: string;
   sortable?: boolean;
@@ -33,6 +34,18 @@ export interface PrerenderOptions {
   metaByField?: ReadonlyMap<string, ColumnMeta>;
 }
 
+/** Synthetic column key for a field-less `render` column, stable across renders. */
+function syntheticColumnKey(index: number): string {
+  return `__cell_${index}`;
+}
+
+function warnFieldlessColumn(index: number): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.warn(
+    `[flowpanel] column #${index} declares neither \`field\` nor a \`render\`+\`label\` pair — skipped.`,
+  );
+}
+
 export function prerenderResourceCells<Row>(
   columnDefs: ReadonlyArray<keyof Row | ColumnDef<Row>>,
   rows: ReadonlyArray<Row>,
@@ -43,7 +56,7 @@ export function prerenderResourceCells<Row>(
   const columns: PrerenderedColumn<Row>[] = [];
   const renderFns: (((row: Row) => ReactNode) | null)[] = [];
 
-  for (const c of columnDefs) {
+  for (const [index, c] of columnDefs.entries()) {
     if (typeof c === "string" || typeof c === "number" || typeof c === "symbol") {
       const field = String(c) as keyof Row & string;
       const col: PrerenderedColumn<Row> = { field };
@@ -56,22 +69,30 @@ export function prerenderResourceCells<Row>(
     }
     const def = c as ColumnDef<Row>;
     if (dropHidden && def.hidden) continue;
-    const field = String(def.field ?? "") as keyof Row & string;
-    if (!field) continue;
-    const out: PrerenderedColumn<Row> = { field };
+    const field = String(def.field ?? "");
+    const fieldless = field === "";
+    if (fieldless && !(def.render && def.label)) {
+      warnFieldlessColumn(index);
+      continue;
+    }
+    const out: PrerenderedColumn<Row> = {
+      field: (fieldless ? syntheticColumnKey(index) : field) as keyof Row & string,
+    };
     if (def.label) out.label = def.label;
-    const sortable = def.sortable ?? defaultSortable;
+    const sortable = fieldless ? false : (def.sortable ?? defaultSortable);
     if (sortable !== undefined) out.sortable = sortable;
     if (def.width !== undefined) out.width = def.width;
     if (def.align) out.align = def.align;
     if (def.className) out.className = def.className;
     if (def.hidden !== undefined) out.hidden = def.hidden;
-    if (def.editable === true) out.editable = true;
-    if (def.format !== undefined) out.format = def.format;
-    if (def.reference) out.type = "reference";
-    else {
-      const meta = metaByField?.get(field);
-      if (meta) out.type = meta.type;
+    if (!fieldless) {
+      if (def.editable === true) out.editable = true;
+      if (def.format !== undefined) out.format = def.format;
+      if (def.reference) out.type = "reference";
+      else {
+        const meta = metaByField?.get(field);
+        if (meta) out.type = meta.type;
+      }
     }
     columns.push(out);
     if (def.render) {

@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CORE_INDEX = path.join(HERE, "../../../core/src/index.ts");
 const KIT_INDEX = path.join(HERE, "../index.ts");
+const KIT_NEXT_CLIENT = path.join(HERE, "../next-client.ts");
+const KIT_PACKAGE_JSON = path.join(HERE, "../../package.json");
+const KIT_TSUP_CONFIG = path.join(HERE, "../../tsup.config.ts");
 
 /** Names an entry barrel exposes: `export { a, type B } from …` plus local `export`ed declarations. */
 function exportedNames(file: string): Set<string> {
@@ -59,5 +62,27 @@ describe("@flowpanel/kit re-exports all of @flowpanel/core", () => {
     // does not re-export has no reachable import path at all.
     const missing = [...core].filter((name) => !kit.has(name)).sort();
     expect(missing).toEqual([]);
+  });
+});
+
+describe("@flowpanel/kit exposes a ./next/client subpath re-exporting @flowpanel/next/client", () => {
+  it("src/next-client.ts re-exports @flowpanel/next/client", () => {
+    const source = readFileSync(KIT_NEXT_CLIENT, "utf8");
+    expect(source).toContain('export * from "@flowpanel/next/client"');
+  });
+
+  it("package.json wires ./next/client to dist/next-client", () => {
+    const pkg = JSON.parse(readFileSync(KIT_PACKAGE_JSON, "utf8")) as {
+      exports: Record<string, { types?: string; import?: string }>;
+    };
+    expect(pkg.exports["./next/client"]).toEqual({
+      types: "./dist/next-client.d.ts",
+      import: "./dist/next-client.js",
+    });
+  });
+
+  it("tsup.config.ts builds the next-client entry from src/next-client.ts", () => {
+    const source = readFileSync(KIT_TSUP_CONFIG, "utf8");
+    expect(source).toMatch(/"next-client":\s*"src\/next-client\.ts"/);
   });
 });

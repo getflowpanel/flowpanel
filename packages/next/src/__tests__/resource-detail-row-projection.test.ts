@@ -75,7 +75,7 @@ describe("ResourceDetailPage — row projection", () => {
 
     const rows = findAllElements(node, KVRow);
     const labels = rows.map((r) => r.label);
-    expect(labels.sort()).toEqual(["email", "id"]);
+    expect(labels.sort()).toEqual(["Email", "ID"]);
     expect(labels).not.toContain("passwordHash");
     expect(labels).not.toContain("internalFlag");
   });
@@ -208,7 +208,7 @@ describe("ResourceDetailPage — row projection", () => {
 
     const rows = findAllElements(node, KVRow);
     const labels = rows.map((r) => r.label);
-    expect(labels.sort()).toEqual(["email", "id"]);
+    expect(labels.sort()).toEqual(["Email", "ID"]);
     expect(labels).not.toContain("passwordHash");
     expect(labels).not.toContain("internalFlag");
   });

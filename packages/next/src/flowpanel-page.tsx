@@ -18,6 +18,7 @@ import { ResourceDetailPage } from "./pages/resource-detail.js";
 import { ResourceEditPage } from "./pages/resource-edit.js";
 import { ResourceListPage } from "./pages/resource-list.js";
 import { UserPage } from "./pages/user-page.js";
+import { Welcome } from "./pages/welcome.js";
 import { buildServerRequest } from "./runtime/build-server-request.js";
 import { matchDashboard } from "./runtime/dashboard-routing.js";
 import { buildNav, resourceNavName } from "./runtime/nav.js";
@@ -217,6 +218,15 @@ export async function renderContent(
   }
 
   if (slug.length === 0) {
+    const isEmptyConfig =
+      config.resourcesByName.size === 0 &&
+      config.dashboardsByPath.size === 0 &&
+      config.pagesByPath.size === 0 &&
+      config.queuesByKey.size === 0;
+    if (isEmptyConfig) {
+      await buildRequestContext({ req, config });
+      return <Welcome />;
+    }
     const first = config.resources?.[0];
     if (!first) return <NotFound config={config} />;
     return <ResourceListPage config={config} resource={first} searchParams={sp} req={req} />;

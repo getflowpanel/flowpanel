@@ -36,13 +36,23 @@ function cellToCsvString(value: unknown): string {
   return String(value);
 }
 
+/** `__cell_<i>` columns are server-rendered cells — no row property stands behind them. */
+const SYNTHETIC_FIELD = /^__cell_\d+$/;
+
+function exportable<Row extends Record<string, unknown>>(
+  columns: DataTableColumn<Row>[],
+): DataTableColumn<Row>[] {
+  return columns.filter((c) => !SYNTHETIC_FIELD.test(c.field));
+}
+
 export function rowsToCsv<Row extends Record<string, unknown>>(
   columns: DataTableColumn<Row>[],
   rows: Row[],
 ): string {
-  const header = columns.map((c) => escapeCsvField(resolveFieldLabel(c.label, c.field)));
+  const cols = exportable(columns);
+  const header = cols.map((c) => escapeCsvField(resolveFieldLabel(c.label, c.field)));
   const body = rows.map((row) =>
-    columns.map((c) => escapeCsvField(cellToCsvString(row[c.field]))).join(","),
+    cols.map((c) => escapeCsvField(cellToCsvString(row[c.field]))).join(","),
   );
   return [header.join(","), ...body].join("\r\n");
 }
@@ -52,9 +62,10 @@ export function rowsToJson<Row extends Record<string, unknown>>(
   columns: DataTableColumn<Row>[],
   rows: Row[],
 ): string {
+  const cols = exportable(columns);
   const data = rows.map((row) => {
     const obj: Record<string, unknown> = {};
-    for (const c of columns) obj[c.field] = row[c.field] ?? null;
+    for (const c of cols) obj[c.field] = row[c.field] ?? null;
     return obj;
   });
   return JSON.stringify(data, null, 2);

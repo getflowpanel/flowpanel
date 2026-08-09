@@ -184,6 +184,37 @@ describe("useLiveChannel", () => {
     expect(getByTestId("status").textContent).toBe("live");
   });
 
+  it("promotes a reconnecting entry back to 'live' on a message from a fresh reconnect, resetting attempt", async () => {
+    const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
+    act(() => instances[0]!.open());
+    act(() => instances[0]!.fail());
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+    // attempt is now 1 (one hard failure). Let the scheduled reconnect open a
+    // second EventSource without opening it — the entry stays "reconnecting".
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(instances).toHaveLength(2);
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+
+    // A message arrives before onopen ever fires on this source.
+    act(() => {
+      instances[1]!.message(JSON.stringify({ hi: 1 }));
+    });
+    expect(getByTestId("status").textContent).toBe("live");
+
+    // Discriminates the fix: with attempt reset to 0 by the message above,
+    // the next failure schedules backoffDelay(0) = 500ms, so a third source
+    // exists once 500ms elapse. Without the reset, attempt is still 1 and
+    // backoffDelay(1) = 1000ms, so nothing would have opened by t=500ms.
+    act(() => instances[1]!.fail());
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(instances).toHaveLength(3);
+  });
+
   it("reports idle, not offline, when the subscription is torn down", () => {
     const { getByTestId, rerender } = render(
       <Harness channel="x" onMessage={() => undefined} enabled />,

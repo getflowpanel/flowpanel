@@ -148,7 +148,7 @@ describe("defineAdmin", () => {
     // import (a bulk create) is removed entirely — no toolbar Import button.
     expect(opts?.import).toBeUndefined();
     // editable column made static; the create.fields config is preserved.
-    expect((opts?.columns[1] as { editable?: boolean }).editable).toBe(false);
+    expect((opts?.columns?.[1] as { editable?: boolean }).editable).toBe(false);
     expect(opts?.create?.fields).toHaveLength(1);
   });
 

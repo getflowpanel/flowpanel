@@ -4,7 +4,9 @@ import { parseActionBody } from "../drawer/parse-action-body.js";
 import {
   actorIdFromSession,
   buildAuditEvent,
+  invalidJsonResponse,
   maybeEmitAudit,
+  notFoundResponse,
   safeErrorMessage,
   validateActionInput,
 } from "../runtime/action-helpers.js";
@@ -46,29 +48,33 @@ export function serializeBulkAction<Row>(a: BulkAction<Row>): SerializedBulkActi
   return out;
 }
 
+type BulkBody =
+  | { ok: true; ids: string[]; input: unknown }
+  | { ok: false; reason: "invalid-json" | "ids" };
+
 /** Parses the incoming request body for the array of selected IDs. */
-async function parseBulkBody(req: Request): Promise<{ ids: string[]; input: unknown } | null> {
+async function parseBulkBody(req: Request): Promise<BulkBody> {
   const contentType = req.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
     let payload: unknown;
     try {
       payload = await req.json();
     } catch {
-      return null;
+      return { ok: false, reason: "invalid-json" };
     }
-    if (!payload || typeof payload !== "object") return null;
+    if (!payload || typeof payload !== "object") return { ok: false, reason: "ids" };
     const obj = payload as { ids?: unknown; input?: unknown };
-    if (!Array.isArray(obj.ids)) return null;
+    if (!Array.isArray(obj.ids)) return { ok: false, reason: "ids" };
     const ids = obj.ids.filter((v): v is string => typeof v === "string");
-    if (ids.length === 0) return null;
-    return { ids, input: obj.input ?? {} };
+    if (ids.length === 0) return { ok: false, reason: "ids" };
+    return { ok: true, ids, input: obj.input ?? {} };
   }
   const cloned = req.clone();
   let form: FormData;
   try {
     form = await cloned.formData();
   } catch {
-    return null;
+    return { ok: false, reason: "ids" };
   }
   const raw = form.getAll("ids");
   const ids: string[] = [];
@@ -83,10 +89,10 @@ async function parseBulkBody(req: Request): Promise<{ ids: string[]; input: unkn
       );
     else if (v) ids.push(v);
   }
-  if (ids.length === 0) return null;
+  if (ids.length === 0) return { ok: false, reason: "ids" };
   const input = await parseActionBody(req);
   delete (input as Record<string, unknown>).ids;
-  return { ids, input };
+  return { ok: true, ids, input };
 }
 
 /** Hard cap on the number of ids a single bulk action may target. */
@@ -102,14 +108,18 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName, action: actionKey } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     const actions = resource.options.bulkActions as
       | BulkAction<Record<string, unknown>>[]
       | undefined;
     const action = actions?.find((a) => a.key === actionKey);
     if (!action) {
-      return Response.json({ ok: false, error: "action not found" }, { status: 404 });
+      return notFoundResponse(
+        "action",
+        actionKey,
+        (actions ?? []).map((a) => a.key),
+      );
     }
 
     return withGuards(
@@ -118,7 +128,8 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
       { resource, actionRequireRole: action.requireRole },
       async (reqCtx) => {
         const body = await parseBulkBody(req);
-        if (!body) {
+        if (!body.ok) {
+          if (body.reason === "invalid-json") return invalidJsonResponse();
           return Response.json(
             { ok: false, error: "ids must be a non-empty array of strings" },
             { status: 400 },

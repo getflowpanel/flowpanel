@@ -19,7 +19,7 @@ export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
   return {
     async session(): Promise<Session | null> {
       const specifier = "@clerk/nextjs/server";
-      const mod = (await import(specifier).catch(() => null)) as {
+      const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as {
         auth: () => Promise<{ userId: string | null; sessionClaims?: Record<string, unknown> }>;
       } | null;
       if (!mod) {

@@ -334,3 +334,56 @@ describe("drawerActionRoute", () => {
     expect(body.download?.filename).toBe("ok.csv");
   });
 });
+
+describe("drawerActionRoute — error quality", () => {
+  const okAction = { key: "approve", label: "A", run: async () => ({ ok: true }) } as DrawerAction;
+
+  function jsonReq(body: string): Request {
+    return new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+  }
+
+  it("answers 400 invalid JSON body for a malformed payload", async () => {
+    const res = await drawerActionRoute(makeConfig(okAction))(jsonReq("{ not json"), {
+      params: Promise.resolve({ resource: "jobs", id: "1", action: "approve" }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid JSON body");
+  });
+
+  it("names the requested resource and the registered ones in development", async () => {
+    const res = await drawerActionRoute(makeConfig(okAction))(jsonReq("{}"), {
+      params: Promise.resolve({ resource: "ghost", id: "1", action: "approve" }),
+    });
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe(
+      'resource not found: "ghost". Registered resources: "jobs".',
+    );
+  });
+
+  it("names the requested action and the drawer's own action keys in development", async () => {
+    const res = await drawerActionRoute(makeConfig(okAction))(jsonReq("{}"), {
+      params: Promise.resolve({ resource: "jobs", id: "1", action: "missing" }),
+    });
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe(
+      'action not found: "missing". Registered actions: "approve".',
+    );
+  });
+
+  it("stays terse in production", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const res = await drawerActionRoute(makeConfig(okAction))(jsonReq("{}"), {
+        params: Promise.resolve({ resource: "ghost", id: "1", action: "approve" }),
+      });
+      expect((await res.json()).error).toBe("resource not found");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+});

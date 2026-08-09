@@ -455,6 +455,7 @@ export function DrawerHost() {
     setError(null);
     fetch(`/api/flowpanel/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(id)}`, {
       signal: ctrl.signal,
+      cache: "no-store",
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -494,7 +495,7 @@ export function DrawerHost() {
           <h2 className="truncate text-lg font-semibold text-fp-text-1">{title || "Loading…"}</h2>
           {resource && id ? (
             <p className="text-xs text-fp-text-3">
-              {resource} · {id}
+              {payload?.resourceLabel ?? humanize(resource)} · {id}
             </p>
           ) : null}
         </div>

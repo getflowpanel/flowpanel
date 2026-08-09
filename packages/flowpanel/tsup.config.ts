@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     next: "src/next.ts",
+    "next-client": "src/next-client.ts",
     drizzle: "src/drizzle.ts",
     react: "src/react.ts",
     client: "src/client.ts",
@@ -33,5 +34,6 @@ export default defineConfig({
     "@flowpanel/charts",
     "@flowpanel/charts/runtime",
     "@flowpanel/adapter-bullmq/board",
+    "@flowpanel/next/client",
   ],
 });

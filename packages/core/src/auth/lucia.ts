@@ -28,7 +28,7 @@ export function withLucia(opts: LuciaAuthOptions): AuthConfig {
   return {
     async session(): Promise<Session | null> {
       const specifier = "next/headers";
-      const mod = (await import(specifier).catch(() => null)) as {
+      const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as {
         cookies: () => Promise<{ get: (name: string) => { value: string } | undefined }>;
       } | null;
       if (!mod) {

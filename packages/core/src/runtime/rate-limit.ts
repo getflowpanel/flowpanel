@@ -49,7 +49,7 @@ function createRedisLimiter(opts: Extract<RateLimitOptions, { driver: "redis" }>
   async function load(): Promise<InstanceType<RedisCtor>> {
     if (client) return client;
     const specifier = "ioredis";
-    const mod = (await import(specifier).catch(() => null)) as
+    const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as
       | { default: RedisCtor }
       | RedisCtor
       | null;

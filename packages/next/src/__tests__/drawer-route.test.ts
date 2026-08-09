@@ -69,6 +69,29 @@ describe("drawerRoute", () => {
     expect(res.status).toBe(404);
   });
 
+  it("names the requested resource and the registered ones in development", async () => {
+    const handler = drawerRoute(mkConfig());
+    const res = await handler(mkReq(), {
+      params: Promise.resolve({ resource: "unknown", id: "abc" }),
+    });
+    expect((await res.json()).error).toBe(
+      'resource not found: "unknown". Registered resources: "users", "posts".',
+    );
+  });
+
+  it("stays terse in production", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const res = await drawerRoute(mkConfig())(mkReq(), {
+        params: Promise.resolve({ resource: "unknown", id: "abc" }),
+      });
+      expect((await res.json()).error).toBe("resource not found");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
   it("400 when resource has no drawer config", async () => {
     const handler = drawerRoute(mkConfig());
     const res = await handler(mkReq(), {
@@ -107,6 +130,33 @@ describe("drawerRoute", () => {
     expect(body.actions).toHaveLength(1);
     expect(body.actions[0]?.key).toBe("resend-welcome");
     expect("run" in (body.actions[0] ?? {})).toBe(false);
+  });
+
+  it("ships the resource's display label, humanizing the registry name when none is set", async () => {
+    const handler = drawerRoute(mkConfig());
+    const res = await handler(mkReq(), {
+      params: Promise.resolve({ resource: "users", id: "abc" }),
+    });
+    const body = (await res.json()) as { resourceLabel: string };
+    expect(body.resourceLabel).toBe("Users");
+  });
+
+  it("prefers the resource's configured label over the registry name", async () => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "users" },
+          { label: "Customer", columns: ["id"], drawer: { fields: "*" } },
+        ),
+      ],
+    });
+    const res = await drawerRoute(config)(mkReq(), {
+      params: Promise.resolve({ resource: "users", id: "abc" }),
+    });
+    const body = (await res.json()) as { resourceLabel: string };
+    expect(body.resourceLabel).toBe("Customer");
   });
 
   it("projects payload.row to the declared surface — an undeclared column never reaches the wire", async () => {

@@ -1,12 +1,19 @@
 import type {
   ColumnDef,
+  ColumnFormat,
   DetailTab,
   FieldDef,
   ItemQueryContext,
+  RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { assertResourceScope, checkRequireRole, runWithRequestContext } from "@flowpanel/core";
+import {
+  assertResourceScope,
+  checkRequireRole,
+  resolveFieldLabel,
+  runWithRequestContext,
+} from "@flowpanel/core";
 import { DetailTabsClient } from "@flowpanel/next/client";
 import { Button, DataTable, KV, KVRow, PageHeader } from "@flowpanel/react";
 import type * as React from "react";
@@ -14,12 +21,46 @@ import { formatFieldValue } from "../runtime/format-field-value.js";
 import { buildHref } from "../runtime/href.js";
 import { prerenderResourceCells } from "../runtime/prerender-cells.js";
 import { projectRow } from "../runtime/project-row.js";
+import { renderColumnFormat } from "../runtime/render-column-format.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 import { readRelatedRows } from "../runtime/require-authorized.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
 import { NotFound } from "./not-found.js";
 
 const RELATED_TAB_PAGE_SIZE = 25;
+
+interface DetailCell {
+  label?: string;
+  format?: ColumnFormat;
+  node?: React.ReactNode;
+}
+
+/** Field → the list page's own label / render / format for that column. */
+function buildDetailCells<Row extends Record<string, unknown>>(
+  resource: ResourceConfig,
+  row: Row,
+  reqCtx: RequestContext,
+): Map<string, DetailCell> {
+  const out = new Map<string, DetailCell>();
+  const defs = resource.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>> | undefined;
+  if (!defs || defs.length === 0) return out;
+  const { columns, prerenderedCells } = prerenderResourceCells<Row>(defs, [row], reqCtx);
+  columns.forEach((c, i) => {
+    const cell: DetailCell = {};
+    if (c.label !== undefined) cell.label = c.label;
+    if (c.format !== undefined) cell.format = c.format;
+    const node = prerenderedCells?.[0]?.[i];
+    if (node !== undefined) cell.node = node;
+    out.set(c.field as string, cell);
+  });
+  return out;
+}
+
+function detailValue(value: unknown, cell: DetailCell | undefined): React.ReactNode {
+  if (cell?.node !== undefined) return cell.node;
+  if (cell?.format !== undefined) return renderColumnFormat(cell.format, value);
+  return formatFieldValue(value);
+}
 
 export interface ResourceDetailPageProps {
   config: ResolvedAdminConfig;
@@ -70,6 +111,7 @@ export async function ResourceDetailPage({
 
   const tabs = resource.options.detail?.tabs;
   const hasTabs = Array.isArray(tabs) && tabs.length > 0;
+  const cells = hasTabs ? null : buildDetailCells(resource, row, reqCtx);
 
   return (
     <>
@@ -86,7 +128,11 @@ export async function ResourceDetailPage({
         <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
           <KV>
             {Object.entries(projectRow(resource, row)).map(([k, v]) => (
-              <KVRow key={k} label={k} value={formatFieldValue(v)} />
+              <KVRow
+                key={k}
+                label={resolveFieldLabel(cells?.get(k)?.label, k)}
+                value={detailValue(v, cells?.get(k))}
+              />
             ))}
           </KV>
         </div>
@@ -161,14 +207,15 @@ async function renderTab<Row extends Record<string, unknown>>(
   const selected = tab.fields;
   const projectedRow = selected === undefined || selected === "*" ? projectRow(resource, row) : row;
   const fieldList = selectFields(projectedRow, selected);
+  const cells = buildDetailCells(resource, row, reqCtx);
   return (
     <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
       <KV>
         {fieldList.map(({ name, label }) => (
           <KVRow
             key={name}
-            label={label}
-            value={formatFieldValue(projectedRow[name as keyof Row])}
+            label={resolveFieldLabel(label ?? cells.get(name)?.label, name)}
+            value={detailValue(projectedRow[name as keyof Row], cells.get(name))}
           />
         ))}
       </KV>
@@ -179,15 +226,17 @@ async function renderTab<Row extends Record<string, unknown>>(
 function selectFields<Row extends Record<string, unknown>>(
   row: Row,
   fields: DetailTab<Row>["fields"],
-): Array<{ name: string; label: string }> {
+): Array<{ name: string; label?: string }> {
   if (fields === undefined || fields === "*") {
-    return Object.keys(row).map((k) => ({ name: k, label: k }));
+    return Object.keys(row).map((k) => ({ name: k }));
   }
   return fields.map((f) => {
     if (typeof f === "string" || typeof f === "number" || typeof f === "symbol") {
-      return { name: String(f), label: String(f) };
+      return { name: String(f) };
     }
     const def = f as FieldDef<Row>;
-    return { name: String(def.name), label: def.label ?? String(def.name) };
+    return def.label !== undefined
+      ? { name: String(def.name), label: def.label }
+      : { name: String(def.name) };
   });
 }

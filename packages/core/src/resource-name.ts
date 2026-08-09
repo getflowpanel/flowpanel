@@ -1,3 +1,12 @@
+function describeRef(ref: unknown): string {
+  if (ref === null) return "null";
+  if (ref === undefined) return "undefined";
+  if (typeof ref !== "object") return `${typeof ref} ${JSON.stringify(ref) ?? String(ref)}`;
+  const keys = Object.keys(ref as object);
+  const symbols = Object.getOwnPropertySymbols(ref as object).map((s) => String(s));
+  return `object with keys [${keys.join(", ")}] and symbols [${symbols.join(", ")}]`;
+}
+
 /** Single source of truth for a resource's name — see invariant I-5. */
 export function resolveResourceName(resource: {
   ref: unknown;
@@ -24,7 +33,8 @@ export function resolveResourceName(resource: {
     }
   }
   throw new Error(
-    "Unable to resolve resource name. Pass options.name explicitly, " +
-      "or ensure the adapter ref exposes __name or _.name.",
+    `Unable to resolve a resource name from this ref: ${describeRef(ref)}. ` +
+      "Pass options.name explicitly, or ensure the adapter ref exposes " +
+      "__name, _.name, Symbol(drizzle:Name) or Symbol(drizzle:BaseName).",
   );
 }

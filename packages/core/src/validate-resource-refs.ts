@@ -62,7 +62,7 @@ function resourceRefSites(resource: ResourceConfig): RefSite[] {
   return out;
 }
 
-function didYouMean(target: string, known: readonly string[]): string {
+export function didYouMean(target: string, known: readonly string[]): string {
   const squashed = target.toLowerCase().replace(/[_-]/g, "");
   const near = known.find((k) => k.toLowerCase().replace(/[_-]/g, "") === squashed);
   return near ? ` Did you mean "${near}"?` : "";

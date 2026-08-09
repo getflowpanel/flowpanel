@@ -1,10 +1,12 @@
 import type { ActionResult, DashboardAction, ResolvedAdminConfig } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { parseActionBody } from "../drawer/parse-action-body.js";
 import {
   actorIdFromSession,
   buildAuditEvent,
+  invalidJsonResponse,
   maybeEmitAudit,
+  notFoundResponse,
+  readActionInput,
   safeErrorMessage,
   validateActionInput,
 } from "../runtime/action-helpers.js";
@@ -95,11 +97,15 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
     const dashboardPath = decodeDashboardPath(encodedPath);
     const dashboard = config.dashboardsByPath.get(dashboardPath);
     if (!dashboard) {
-      return Response.json({ ok: false, error: "dashboard not found" }, { status: 404 });
+      return notFoundResponse("dashboard", dashboardPath, [...config.dashboardsByPath.keys()]);
     }
     const action = dashboard.actions?.find((a) => a.key === actionKey);
     if (!action) {
-      return Response.json({ ok: false, error: "action not found" }, { status: 404 });
+      return notFoundResponse(
+        "action",
+        actionKey,
+        (dashboard.actions ?? []).map((a) => a.key),
+      );
     }
 
     return withGuards(
@@ -107,7 +113,9 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
       req,
       { pageRequireRole: dashboard.requireRole, actionRequireRole: action.requireRole },
       async (reqCtx) => {
-        const input = await parseActionBody(req);
+        const body = await readActionInput(req);
+        if (!body.ok) return invalidJsonResponse();
+        const input = body.input;
 
         const inputIssues = await validateActionInput(action.form, input);
         if (inputIssues) {

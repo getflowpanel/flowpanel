@@ -8,13 +8,85 @@ import type {
 import {
   MetricCard,
   RealtimeRefresh,
+  ReferenceCell,
   StatGroupCard,
   TableWidget as TableWidgetRenderer,
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { ServerCard } from "./_server-card.js";
-import { prerenderResourceCells } from "./prerender-cells.js";
+import { buildHref } from "./href.js";
+import { type PrerenderedColumn, prerenderResourceCells } from "./prerender-cells.js";
 import { readRelatedRows } from "./require-authorized.js";
+import { resolveReferences } from "./resolve-references.js";
+
+type WidgetRow = Record<string, unknown>;
+
+/** Resource column defs, narrowed and reordered to an explicit widget column list. */
+function pickWidgetColumns(
+  declared: ReadonlyArray<string | ColumnDef<WidgetRow>>,
+  wanted: string[] | undefined,
+): ReadonlyArray<string | ColumnDef<WidgetRow>> {
+  if (!wanted || wanted.length === 0) return declared;
+  return wanted.map(
+    (field) =>
+      declared.find((c) => typeof c === "object" && c.field === field) ??
+      declared.find((c) => c === field) ??
+      field,
+  );
+}
+
+/** A dashboard table has no sort handler and no inline-edit target — strip both affordances. */
+function toWidgetColumn(c: PrerenderedColumn<WidgetRow>): PrerenderedColumn<WidgetRow> {
+  const out: PrerenderedColumn<WidgetRow> = { field: c.field };
+  if (c.label !== undefined) out.label = c.label;
+  if (c.width !== undefined) out.width = c.width;
+  if (c.align !== undefined) out.align = c.align;
+  if (c.className !== undefined) out.className = c.className;
+  if (c.type !== undefined) out.type = c.type;
+  if (c.format !== undefined) out.format = c.format;
+  return out;
+}
+
+/** Replace foreign-key cells with the referenced row's label, as the list page does. */
+async function withReferenceCells(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  defs: ReadonlyArray<string | ColumnDef<WidgetRow>>,
+  rows: WidgetRow[],
+  columns: PrerenderedColumn<WidgetRow>[],
+  prerenderedCells: (ReactNode | undefined)[][] | undefined,
+): Promise<(ReactNode | undefined)[][] | undefined> {
+  const fkLabels = await resolveReferences<WidgetRow>(config, reqCtx, defs, rows);
+  if (fkLabels.size === 0) return prerenderedCells;
+  const cells = prerenderedCells
+    ? prerenderedCells.map((r) => r.slice())
+    : rows.map(() => Array<ReactNode | undefined>(columns.length).fill(undefined));
+  const colIdxByField = new Map(columns.map((c, i) => [c.field, i]));
+  for (const def of defs) {
+    if (typeof def !== "object") continue;
+    const ref = def.reference;
+    const field = String(def.field ?? "");
+    if (!ref || !field) continue;
+    const labelMap = fkLabels.get(field);
+    const colIdx = colIdxByField.get(field);
+    if (!labelMap || colIdx === undefined) continue;
+    rows.forEach((row, rowIdx) => {
+      const rowCells = cells[rowIdx];
+      if (!rowCells) return;
+      const raw = row[field];
+      if (raw === null || raw === undefined) {
+        rowCells[colIdx] = <span className="text-fp-text-3">—</span>;
+        return;
+      }
+      const label = labelMap.get(String(raw));
+      if (label === undefined) return;
+      rowCells[colIdx] = (
+        <ReferenceCell label={String(label)} href={buildHref(config, ref.resource, String(raw))} />
+      );
+    });
+  }
+  return cells;
+}
 
 /** Render a widget on the server. */
 export async function renderWidget(
@@ -88,10 +160,12 @@ export async function renderWidget(
       );
     }
     case "table": {
-      type Row = Record<string, unknown>;
+      type Row = WidgetRow;
       let rows: Row[] = [];
-      let columns: { field: string; label?: string }[] = [];
+      let columns: PrerenderedColumn<Row>[] = [];
       let prerenderedCells: (ReactNode | undefined)[][] | undefined;
+
+      const explicit = widget.options.columns;
 
       if (widget.options.query) {
         rows = (await widget.options.query(ctx)) as Row[];
@@ -101,25 +175,36 @@ export async function renderWidget(
           const related = await readRelatedRows(config, res, reqCtx, {
             dateRange: ctx.dateRange,
             pageSize: widget.options.limit ?? 10,
-            extraFields: [...(widget.options.columns ?? []), "id"],
+            extraFields: [...(explicit ?? []), "id"],
           });
           rows = (related ?? []) as Row[];
 
-          if (related && (!widget.options.columns || widget.options.columns.length === 0)) {
-            const prerendered = prerenderResourceCells<Row>(
-              res.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>>,
-              rows,
-              reqCtx,
-              { dropHidden: true },
+          if (related) {
+            const defs = pickWidgetColumns(
+              res.options.columns as ReadonlyArray<string | ColumnDef<Row>>,
+              explicit,
             );
-            columns = prerendered.columns;
-            prerenderedCells = prerendered.prerenderedCells;
+            const intro = config.adapter.introspect(res.ref);
+            const metaByField = new Map(intro.columns.map((c) => [c.name, c]));
+            const prerendered = prerenderResourceCells<Row>(defs, rows, reqCtx, {
+              dropHidden: !explicit || explicit.length === 0,
+              metaByField,
+            });
+            columns = prerendered.columns.map(toWidgetColumn);
+            prerenderedCells = await withReferenceCells(
+              config,
+              reqCtx,
+              defs,
+              rows,
+              columns,
+              prerendered.prerenderedCells,
+            );
           }
         }
       }
 
-      if (widget.options.columns && widget.options.columns.length > 0) {
-        columns = widget.options.columns.map((k) => ({ field: k }));
+      if (columns.length === 0 && explicit && explicit.length > 0) {
+        columns = explicit.map((k) => ({ field: k }));
       } else if (columns.length === 0 && rows[0]) {
         columns = Object.keys(rows[0]).map((k) => ({ field: k }));
       }
@@ -128,10 +213,7 @@ export async function renderWidget(
         <TableWidgetRenderer
           {...(widget.options.label ? { label: widget.options.label } : {})}
           rows={rows}
-          columns={columns.map((c) => ({
-            field: c.field,
-            ...(c.label ? { label: c.label } : {}),
-          }))}
+          columns={columns}
           rowKey={"id"}
           {...(prerenderedCells ? { prerenderedCells } : {})}
           {...(widget.options.realtime ? { realtime: widget.options.realtime } : {})}

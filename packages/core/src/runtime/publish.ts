@@ -60,7 +60,7 @@ function createRedisPublisher(opts: Extract<PublisherOptions, { driver: "redis" 
   async function load() {
     if (!Redis) {
       const specifier = "ioredis";
-      const mod = (await import(specifier).catch(() => null)) as
+      const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as
         | { default: RedisCtor }
         | RedisCtor
         | null;

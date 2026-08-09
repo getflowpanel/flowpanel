@@ -5,13 +5,15 @@ import type {
   RowAction,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { parseActionBody } from "../drawer/parse-action-body.js";
 import {
   actorIdFromSession,
   buildAuditEvent,
   computeShallowDiff,
+  invalidJsonResponse,
   isAuditActive,
   maybeEmitAudit,
+  notFoundResponse,
+  readActionInput,
   safeErrorMessage,
   validateActionInput,
 } from "../runtime/action-helpers.js";
@@ -66,12 +68,16 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName, id, action: actionKey } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     const actions = resource.options.actions as RowAction<Record<string, unknown>>[] | undefined;
     const action = actions?.find((a) => a.key === actionKey);
     if (!action) {
-      return Response.json({ ok: false, error: "action not found" }, { status: 404 });
+      return notFoundResponse(
+        "action",
+        actionKey,
+        (actions ?? []).map((a) => a.key),
+      );
     }
 
     return withGuards(
@@ -109,7 +115,9 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
           }
         }
 
-        const input = await parseActionBody(req);
+        const body = await readActionInput(req);
+        if (!body.ok) return invalidJsonResponse();
+        const input = body.input;
 
         const inputIssues = await validateActionInput(
           action.form as Parameters<typeof validateActionInput>[0],

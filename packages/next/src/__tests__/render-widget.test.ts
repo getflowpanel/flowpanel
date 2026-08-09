@@ -426,6 +426,143 @@ describe("renderWidget — table widget row projection", () => {
   });
 });
 
+describe("renderWidget — resource table widget cell pipeline", () => {
+  function boundCfg(
+    resources: ResourceConfig[],
+    list: Adapter["list"],
+    scope?: unknown,
+  ): ResolvedAdminConfig {
+    return {
+      adapter: { ...fakeAdapter, list },
+      auth: { session: async () => null, role: () => "admin" },
+      resources,
+      resourcesByName: new Map(resources.map((r) => [(r.ref as { __name: string }).__name, r])),
+      dashboardsByPath: new Map(),
+      ...(scope ? { scope } : {}),
+      __resolved: true,
+    } as never;
+  }
+
+  const runs: ResourceConfig = {
+    __kind: "resource",
+    ref: { __name: "runs" },
+    options: {
+      columns: [
+        {
+          field: "scraperId",
+          label: "Scraper",
+          reference: { resource: "scrapers", labelField: "name" },
+        },
+        { field: "status", label: "Status", format: "badge" },
+        {
+          field: "durationMs",
+          label: "Duration",
+          render: (r: { durationMs: number }) => `${r.durationMs}ms`,
+        },
+        { field: "internal", hidden: true },
+      ],
+    },
+  } as never;
+
+  const scrapers: ResourceConfig = {
+    __kind: "resource",
+    ref: { __name: "scrapers" },
+    options: { columns: ["id", "name"] },
+  } as never;
+
+  const listByResource: Adapter["list"] = async (ref, _ctx) => {
+    if ((ref as { __name: string }).__name === "scrapers") {
+      return { rows: [{ id: "1", name: "Amazon crawler" }], total: 1, page: 1, pageSize: 10 };
+    }
+    return {
+      rows: [{ id: "r1", scraperId: "1", status: "running", durationMs: 4200, internal: "x" }],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    };
+  };
+
+  const widget: WidgetConfig = { kind: "table", options: { resource: "runs" } } as never;
+
+  it("carries column labels and formats to the table, and drops hidden columns", async () => {
+    const node = await renderWidget(
+      widget,
+      ctx,
+      boundCfg([runs, scrapers], listByResource),
+      reqCtx,
+    );
+    const el = node as ReactElement<{ columns: Record<string, unknown>[] }>;
+    expect(el.props.columns).toEqual([
+      { field: "scraperId", label: "Scraper", type: "reference" },
+      { field: "status", label: "Status", format: "badge" },
+      { field: "durationMs", label: "Duration" },
+    ]);
+  });
+
+  it("never offers a dashboard table column for sorting", async () => {
+    const node = await renderWidget(
+      widget,
+      ctx,
+      boundCfg([runs, scrapers], listByResource),
+      reqCtx,
+    );
+    const el = node as ReactElement<{ columns: Record<string, unknown>[] }>;
+    expect(el.props.columns.every((c) => c.sortable === undefined)).toBe(true);
+  });
+
+  it("prerenders the column's own render output", async () => {
+    const node = await renderWidget(
+      widget,
+      ctx,
+      boundCfg([runs, scrapers], listByResource),
+      reqCtx,
+    );
+    const el = node as ReactElement<{ prerenderedCells: (ReactNode | undefined)[][] }>;
+    expect(el.props.prerenderedCells[0]?.[2]).toBe("4200ms");
+  });
+
+  it("resolves a foreign key to its referenced label", async () => {
+    const node = await renderWidget(
+      widget,
+      ctx,
+      boundCfg([runs, scrapers], listByResource),
+      reqCtx,
+    );
+    const el = node as ReactElement<{ prerenderedCells: (ReactNode | undefined)[][] }>;
+    const cell = el.props.prerenderedCells[0]?.[0] as ReactElement<{
+      label: string;
+      href: string;
+    }>;
+    expect(isValidElement(cell)).toBe(true);
+    expect(cell.props.label).toBe("Amazon crawler");
+  });
+
+  it("keeps the resource's column metadata for an explicit widget column list", async () => {
+    const explicit: WidgetConfig = {
+      kind: "table",
+      options: { resource: "runs", columns: ["status"] },
+    } as never;
+    const node = await renderWidget(
+      explicit,
+      ctx,
+      boundCfg([runs, scrapers], listByResource),
+      reqCtx,
+    );
+    const el = node as ReactElement<{ columns: Record<string, unknown>[] }>;
+    expect(el.props.columns).toEqual([{ field: "status", label: "Status", format: "badge" }]);
+  });
+
+  it("leaves the query-path table's explicit columns alone", async () => {
+    const queryWidget: WidgetConfig = {
+      kind: "table",
+      options: { query: async () => [{ id: "1", status: "running" }], columns: ["status"] },
+    } as never;
+    const node = await renderWidget(queryWidget, ctx, cfg, reqCtx);
+    const el = node as ReactElement<{ columns: Record<string, unknown>[] }>;
+    expect(el.props.columns).toEqual([{ field: "status" }]);
+  });
+});
+
 describe("renderWidget — cross-resource authorization", () => {
   function boundConfig(
     resourceOptions: Record<string, unknown>,

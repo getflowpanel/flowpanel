@@ -45,6 +45,32 @@ describe("rowsToCsv formula-injection protection", () => {
   });
 });
 
+describe("field-less columns", () => {
+  it("keeps a synthetic `__cell_<i>` column out of the CSV entirely", () => {
+    const columns: DataTableColumn<Row>[] = [
+      { field: "name", label: "Name" },
+      { field: "__cell_1", label: "Actions" },
+    ];
+    const csv = rowsToCsv(columns, [{ name: "Alice" }]);
+    expect(csv.split("\r\n")).toEqual(["Name", "Alice"]);
+  });
+
+  it("keeps a synthetic `__cell_<i>` column out of the JSON entirely", () => {
+    const columns: DataTableColumn<Row>[] = [
+      { field: "name", label: "Name" },
+      { field: "__cell_0", label: "Actions" },
+    ];
+    const json = rowsToJson(columns, [{ name: "Alice" }]);
+    expect(JSON.parse(json)).toEqual([{ name: "Alice" }]);
+  });
+
+  it("exports a real field whose name merely starts with an underscore", () => {
+    const columns: DataTableColumn<Row>[] = [{ field: "__cell_kind", label: "Cell kind" }];
+    const json = rowsToJson(columns, [{ __cell_kind: "battery" }]);
+    expect(JSON.parse(json)).toEqual([{ __cell_kind: "battery" }]);
+  });
+});
+
 describe("rowsToJson", () => {
   it("emits one object per row, keyed by field, restricted to the given columns", () => {
     const columns: DataTableColumn<Row>[] = [{ field: "name", label: "Name" }];

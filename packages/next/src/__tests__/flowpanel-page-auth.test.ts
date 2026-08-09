@@ -3,6 +3,7 @@ import type {
   PageConfig,
   QueueConfig,
   ResolvedAdminConfig,
+  ResourceConfig,
 } from "@flowpanel/core";
 import { FlowpanelAccessError, FlowpanelAuthError } from "@flowpanel/core";
 import { EmptyState } from "@flowpanel/react";
@@ -22,8 +23,10 @@ vi.mock("next/navigation", () => ({
 
 import { handleRenderError, renderContent } from "../flowpanel-page.js";
 import { DashboardPage } from "../pages/dashboard.js";
+import { NotFound } from "../pages/not-found.js";
 import { QueuePage } from "../pages/queue-page.js";
 import { UserPage } from "../pages/user-page.js";
+import { Welcome } from "../pages/welcome.js";
 
 function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdminConfig {
   return {
@@ -246,5 +249,49 @@ describe("handleRenderError", () => {
     expect(redirectSpy).not.toHaveBeenCalled();
     expect(isValidElement(node) && node.type).toBe(EmptyState);
     expect(isValidElement(node) && (node.props as { title: string }).title).toBe("Access denied");
+  });
+});
+
+describe("renderContent — root slug on an empty config", () => {
+  it("renders Welcome, not NotFound, when there are zero resources/dashboards/pages/queues", async () => {
+    const config = makeConfig();
+    const node = await renderContent(
+      config,
+      [],
+      new URLSearchParams(),
+      new Request("http://localhost/admin"),
+    );
+    expect(isValidElement(node) && node.type).toBe(Welcome);
+    expect(isValidElement(node) && node.type).not.toBe(NotFound);
+  });
+
+  it("rejects Welcome on an empty config when admin-wide requireRole fails, same as sibling branches", async () => {
+    const config = makeConfig({
+      auth: {
+        session: async () => ({ user: { id: "u1", role: "viewer" } }),
+        role: () => "viewer",
+        requireRole: "admin",
+      },
+    } as never);
+
+    await expect(
+      renderContent(config, [], new URLSearchParams(), new Request("http://localhost/admin")),
+    ).rejects.toBeInstanceOf(FlowpanelAccessError);
+  });
+
+  it("still renders NotFound for an unknown slug once the config has at least one resource", async () => {
+    const resource: ResourceConfig = { __kind: "resource", ref: {}, options: { name: "users" } };
+    const config = makeConfig({
+      resources: [resource],
+      resourcesByName: new Map([["users", resource]]),
+    } as never);
+
+    const node = await renderContent(
+      config,
+      ["does-not-exist"],
+      new URLSearchParams(),
+      new Request("http://localhost/admin/does-not-exist"),
+    );
+    expect(isValidElement(node) && node.type).toBe(NotFound);
   });
 });

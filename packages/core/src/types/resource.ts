@@ -104,7 +104,13 @@ export interface FieldDef<Row> {
   help?: string;
   /** Placeholder text for empty inputs. */
   placeholder?: string;
-  /** Which control to render. Inferred from the column type when omitted. */
+  /**
+   * Which control to render. Omitted, a declared field renders as `"text"` —
+   * or `"reference"` when `reference` is set. The adapter's column type is
+   * consulted only by the fully generated form a resource gets when it declares
+   * no `create.fields` / `update.fields` at all, and only maps number, boolean,
+   * date and json; every other column type renders as text there too.
+   */
   type?: FieldType;
   /** Choices for `select` / `multiselect` / `radio`. A function resolves per request. */
   options?:
@@ -165,6 +171,12 @@ export interface ResourceOptions<Row> {
   name?: string;
   /** Singular label shown in headings and buttons. */
   label?: string;
+  /**
+   * Label for exactly one row, e.g. `"Customer"`. Used where a heading talks
+   * about a single record — the create page's title. Falls back to `label`,
+   * then to the resource name.
+   */
+  labelOne?: string;
   /** Plural label shown in the nav and list title. */
   plural?: string;
   /** Not rendered: nav entries carry a label and an href only. */
@@ -172,11 +184,15 @@ export interface ResourceOptions<Row> {
   /** Keep the resource out of the navigation — its routes still work. */
   hidden?: boolean;
 
-  /** Columns of the list table, in order. A bare string is a field name. */
-  columns: (keyof Row | ColumnDef<Row>)[];
+  /**
+   * Columns of the list table, in order. A bare string is a field name.
+   * Omitted, `defineAdmin` fills it with every column the adapter introspects,
+   * in introspection order.
+   */
+  columns?: (keyof Row | ColumnDef<Row>)[];
   /** Fields the search box queries. Without this, search is disabled. */
   search?: (keyof Row & string)[];
-  /** Filter controls above the list. A bare string infers the control from the column type. */
+  /** Filter controls above the list. A bare string always renders a text filter — declare a `FilterDef` for any other control. */
   filters?: (keyof Row | FilterDef<Row>)[];
   /** Sort applied when the URL carries none. */
   defaultSort?: { field: keyof Row & string; dir: "asc" | "desc" };

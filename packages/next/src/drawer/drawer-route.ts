@@ -10,12 +10,15 @@ import type {
   ResolvedAdminConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
+import { humanize, runWithRequestContext } from "@flowpanel/core";
 import { createElement, Fragment, type ReactNode } from "react";
 import {
   actorIdFromSession,
   buildAuditEvent,
+  invalidJsonResponse,
   maybeEmitAudit,
+  notFoundResponse,
+  readActionInput,
   safeErrorMessage,
   validateActionInput,
 } from "../runtime/action-helpers.js";
@@ -26,7 +29,6 @@ import { bindPublisher, publish } from "../runtime/publish.js";
 import { readRelatedRows } from "../runtime/require-authorized.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
 import { withGuards } from "../runtime/with-guards.js";
-import { parseActionBody } from "./parse-action-body.js";
 import { type SerializedWidget, serializeWidget } from "./serialize-widget.js";
 
 export type { SerializedWidget };
@@ -61,6 +63,8 @@ export type SerializedDrawerTab =
 export interface DrawerPayload {
   row: Record<string, unknown>;
   header: string;
+  /** The resource's display label, so the drawer never shows the raw registry name. */
+  resourceLabel: string;
   width: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
   fields: "*" | string[];
   tabs: SerializedDrawerTab[] | null;
@@ -213,7 +217,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName, id } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     const drawer: DrawerConfig | undefined = resource.options.drawer;
     if (!drawer) {
@@ -253,6 +257,8 @@ export function drawerRoute(config: ResolvedAdminConfig) {
       const payload: DrawerPayload = {
         row: projectRow(resource, row),
         header,
+        resourceLabel:
+          (resource.options.label as string | undefined) ?? humanize(String(resourceName)),
         width: drawer.width ?? "lg",
         fields: serializeFields(drawer.fields ?? "*"),
         tabs,
@@ -276,11 +282,16 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName, id, action: actionKey } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
-    const action = resource.options.drawer?.actions?.find((a) => a.key === actionKey);
+    const actions = resource.options.drawer?.actions;
+    const action = actions?.find((a) => a.key === actionKey);
     if (!action) {
-      return Response.json({ ok: false, error: "action not found" }, { status: 404 });
+      return notFoundResponse(
+        "action",
+        actionKey,
+        (actions ?? []).map((a) => a.key),
+      );
     }
 
     return withGuards(config, req, { resource }, async (reqCtx) => {
@@ -300,7 +311,9 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
         return Response.json({ ok: false, error: "not found" }, { status: 404 });
       }
 
-      const input = await parseActionBody(req);
+      const body = await readActionInput(req);
+      if (!body.ok) return invalidJsonResponse();
+      const input = body.input;
 
       const inputIssues = await validateActionInput(
         action.form as Parameters<typeof validateActionInput>[0],

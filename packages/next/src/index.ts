@@ -14,6 +14,7 @@ export {
 export { inlineUpdateRoute } from "./actions/inline-update.js";
 export {
   type FormActionResult,
+  type MakeActionsOptions,
   makeActions,
   type ResourceActions,
 } from "./actions/resource-actions.js";
@@ -30,6 +31,7 @@ export {
   drawerRoute,
   type SerializedDrawerAction,
   type SerializedDrawerTab,
+  type SerializedWidget,
 } from "./drawer/drawer-route.js";
 export { Flowpanel, FlowpanelContent, type FlowpanelOptions } from "./flowpanel-page.js";
 export { handlers } from "./handlers.js";
@@ -40,4 +42,4 @@ export {
 export { buildNav, resourceNavName } from "./runtime/nav.js";
 export { bindPublisher, publish, publishResource, subscribe } from "./runtime/publish.js";
 export { type BuildRequestCtxArgs, buildRequestContext } from "./runtime/request-setup.js";
-export { stream } from "./stream.js";
+export { type StreamOptions, stream } from "./stream.js";

@@ -81,6 +81,8 @@ function connectEntry(key: string, endpoint: string, channels: string[], maxMs: 
     setEntryStatus(entry, "live");
   };
   es.onmessage = (ev) => {
+    entry.attempt = 0;
+    setEntryStatus(entry, "live");
     let channel: string | undefined;
     let value: unknown;
     try {

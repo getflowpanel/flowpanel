@@ -111,6 +111,7 @@ export {
   DEFAULT_LABELS,
   dashboard,
   defineAdmin,
+  devAuth,
   emitAudit,
   FlowpanelAccessError,
   FlowpanelAuthError,

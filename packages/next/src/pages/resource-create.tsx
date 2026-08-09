@@ -27,7 +27,7 @@ export async function ResourceCreatePage({ config, resource, name, req }: Resour
 
   return (
     <>
-      <PageHeader title={`New ${resource.options.label ?? name}`} />
+      <PageHeader title={`New ${resource.options.labelOne ?? resource.options.label ?? name}`} />
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
