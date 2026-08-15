@@ -13,8 +13,8 @@
   },
   {
     "name": "flowpanel/charts (lazy)",
-    "path": "dist/charts.js",
-    "import": "{ areaChart, barChart, lineChart, pieChart }",
-    "limit": "60 KB"
+    "path": "dist/charts-runtime.js",
+    "import": "{ AreaChart, BarChart, PieChart }",
+    "limit": "10 KB"
   }
 ]

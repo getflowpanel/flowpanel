@@ -148,6 +148,35 @@ declare module "@flowpanel/kit" {
 The `FlowpanelTypes` block binds `typeof db` into `WidgetContext`, so
 `ctx.db` in dashboards and actions is your real, typed client.
 
+### If you don't have a session helper yet
+
+The template imports `getSession` from your app because that is what a real
+admin needs. To get to a rendered page before wiring auth, swap the whole
+`auth` block for `devAuth()`:
+
+```ts
+import { defineAdmin, devAuth } from "@flowpanel/kit";
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: devAuth(),           // every request is a signed-in "admin"
+  // …
+});
+```
+
+`devAuth(role = "admin")` returns an `AuthConfig` whose session is always
+`{ id: "dev" }` and whose `role()` always returns `role`. It is also exported
+from `@flowpanel/kit/auth` alongside `withClerk` / `withLucia` /
+`withNextAuth`.
+
+<Callout type="warn">
+`devAuth()` authenticates nobody. It sets no `requireRole`, so the admin still
+answers anonymous requests, and the "no access control" development warning
+still fires — deliberately, because that warning is the thing that stops this
+reaching production. Replace it with a real provider (see
+[Authenticate with Clerk](/docs/guides/auth-with-clerk)) before you deploy.
+</Callout>
+
 ## Mount the route
 
 `flowpanel init` already wrote two files:
@@ -187,8 +216,8 @@ pnpm dev
 
 Open `localhost:3000/admin`. Each resource you listed gets its own page
 with CRUD, pagination and filters, driven entirely by the config you just
-wrote. If the nav is empty, the `resources` array still holds only the
-commented-out template entry.
+wrote. With an empty `resources` array, `/admin` shows a welcome screen
+with a copy-paste snippet for your first resource instead of a nav.
 
 The migration's SQL is Postgres-flavoured — adjust it by hand for MySQL
 or SQLite. And `flowpanel_audit_log` is only a table: FlowPanel writes

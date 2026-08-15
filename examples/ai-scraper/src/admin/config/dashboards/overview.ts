@@ -4,6 +4,7 @@ import { and, gte, lt, lte, sql } from "drizzle-orm";
 import { LiveFeed } from "@/src/admin/LiveFeed";
 import { LiveStats } from "@/src/admin/LiveStats";
 import * as schema from "@/src/db/schema";
+import { modelLabel } from "@/src/lib/ai-models";
 import { getLiveStats, getRecentEvents } from "@/src/lib/live-feed";
 import { countInRange } from "../metrics";
 
@@ -83,7 +84,7 @@ export const overview = dashboard({
               )
               .groupBy(schema.matches.model)
               .orderBy(sql`avg(${schema.matches.confidence}) desc`);
-            return rows;
+            return rows.map((r) => ({ model: modelLabel(r.model), confidence: r.confidence }));
           },
           { x: "model", y: "confidence", height: 280 },
         ),

@@ -9,7 +9,7 @@ The `flowpanel` CLI — scaffold, develop, ship.
 ## Commands
 
 ```
-flowpanel init                 Detect stack, scaffold config + 6 files
+flowpanel init                 Detect stack, scaffold config + 5 files
 flowpanel dev                  Start `next dev` (and bull-board if REDIS_URL set)
 flowpanel new <resource>       Add a resource(...) entry to flowpanel.config.ts
                                --table <expr>   Override the schema table reference
@@ -33,6 +33,8 @@ app/api/flowpanel/stream/route.ts
 styles/admin.css
 flowpanel/migrations/0001_init.sql
 ```
+
+Plus, conditionally: `tailwind.config.ts` (Tailwind v3 projects only) and `app/layout.tsx` (only when your project has none yet).
 
 ## What `eject` does
 

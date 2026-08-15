@@ -9,6 +9,11 @@ project with `pnpm dlx @flowpanel/cli init` — no install needed up front.
 runs as `pnpm flowpanel <command>`. The shipped subcommands are `init`,
 `migrate`, `doctor`, `eject`, `dev`, and `new`.
 
+The CLI detects your package manager from the lockfile and uses it
+throughout — `init` installs with it, `dev` launches Next.js through its
+runner, and every "run this next" hint is printed in its syntax. The samples
+below use pnpm; substitute your own.
+
 ## flowpanel init
 
 Detect your stack (Next.js, Drizzle/Prisma, auth helper), pick the
@@ -17,17 +22,58 @@ and scaffold the wiring files. Both Drizzle and Prisma are supported in a
 single command; the CLI picks based on your installed dependencies
 (Drizzle wins if both are present).
 
-```bash
-$ pnpm dlx @flowpanel/cli init
-→ Detected stack: Next.js 15 · TypeScript · Drizzle
-→ installed @flowpanel/kit, @flowpanel/cli
-→ wrote flowpanel.config.ts
-→ wrote app/admin/[[...slug]]/page.tsx
-→ wrote app/api/flowpanel/[...route]/route.ts
-→ wrote app/api/flowpanel/stream/route.ts
-→ wrote styles/admin.css
-→ wrote flowpanel/migrations/0001_init.sql
+The stylesheet lands at `styles/admin.css`, or at `src/styles/admin.css` when
+the project keeps its source under `src/` — the CLI matches your layout rather
+than always writing to the repo root.
+
+```text
+◇  Detected stack ─────────────────────────────────────╮
+│  Next.js 15.5.0 · TypeScript · Drizzle · Tailwind 4  │
+├──────────────────────────────────────────────────────╯
+◇  7 written
+◇  Wrote ─────────────────────────────────────────────────╮
+│  flowpanel.config.ts                                    │
+│  app/admin/[[...slug]]/page.tsx                         │
+│  app/api/flowpanel/[...route]/route.ts                  │
+│  app/api/flowpanel/stream/route.ts                      │
+│  styles/admin.css                                       │
+│  flowpanel/migrations/0001_init.sql                     │
+│  app/layout.tsx (added the admin stylesheet import)     │
+├─────────────────────────────────────────────────────────╯
+◇  Installed @flowpanel/kit, @flowpanel/cli
 ```
+
+What varies:
+
+- **`src/`** — every `app/` path becomes `src/app/`, and `styles/admin.css`
+  becomes `src/styles/admin.css`, when the project uses a `src/` layout.
+- **`app/layout.tsx`** — scaffolded when the project has none; otherwise the
+  existing layout is patched with the stylesheet import. If that layout
+  already imports some other CSS bundle, `init` leaves it alone and prints
+  the import line for you to add.
+- **`tailwind.config.ts`** — written only on Tailwind v3, and only when the
+  file does not already exist. The v3 run also gets the `admin.css` v3
+  variant (`@tailwind` directives instead of `@import "tailwindcss"`).
+- **The install step** uses the package manager it detected — npm, pnpm, yarn
+  or bun — and is skipped for packages already in your `package.json`.
+- **The next-steps outro** is written in that manager's own vocabulary
+  (`pnpm exec flowpanel migrate` vs `npx flowpanel migrate`, and so on).
+
+### When `init` stops
+
+- **No Next.js in `package.json`** — aborts, exit `1`, with the install
+  command for your package manager.
+- **No Drizzle and no Prisma** — aborts, exit `1`, same treatment.
+- **No Tailwind** — interactive only: a confirm that defaults to **No**;
+  declining aborts with exit `1` and nothing written. Under `--yes` the run
+  continues.
+- **No TTY and no `--yes`** — `init` asks questions, so a non-interactive run
+  without `--yes` exits `1` immediately: *"init asks questions and this run
+  has no interactive terminal. Re-run with --yes to accept the detected
+  defaults."* Pass `--yes` in CI.
+- **A failed dependency install** does not roll back the files. It prints the
+  package manager's own last lines, the commands to run by hand, and sets
+  exit code `1` so the run is not mistaken for a success.
 
 Re-running `init` is safe: existing files are preserved unless you
 confirm overwrite (interactive) or pass `--yes` (CI mode, skips files
@@ -41,11 +87,14 @@ adapter's `db` instance and run the migration there.
 
 ```bash
 $ pnpm flowpanel migrate
-→ 0001_init applied
 ```
 
 Use `--dry-run` to preview the file list without applying anything.
 The CLI tracks applied IDs in `_flowpanel_migrations`.
+
+`jiti` is loaded on demand; when it is missing the command prints the install
+line for **your** package manager (`pnpm add -D jiti`, `npm install --save-dev
+jiti`, …) and exits `1`.
 
 ## flowpanel doctor
 
@@ -85,7 +134,9 @@ $ pnpm flowpanel eject dashboard "/monitoring"
 $ pnpm flowpanel eject layout
 ```
 
-Pass `--force` to overwrite existing files.
+It lists every file it wrote, then comments the matching config entry out
+(uncomment to revert). Pass `--force` to overwrite existing files; without it,
+an existing target aborts the run with exit `1`.
 
 ## flowpanel dev
 
@@ -96,7 +147,14 @@ Wrapper around `next dev` that also spawns `bull-board` when a
 $ pnpm flowpanel dev --port 3000
 ```
 
-Pass `--no-board` to skip the queue dashboard even when Redis is up.
+Both children are launched through the **detected** package manager's runner —
+`pnpm exec next dev`, `npx next dev`, `yarn next dev`, `bunx next dev` — so
+the local binaries resolve whichever manager installed them. Output is
+prefixed `[next]` / `[board]`, and either child exiting shuts the other down.
+
+Pass `--no-board` to skip the queue dashboard even when Redis is up. With
+`REDIS_URL` set but no `scripts/board-server.ts` on disk, the board is skipped
+with a one-line note rather than an error.
 
 ## flowpanel new
 
@@ -105,9 +163,25 @@ Append a `resource(...)` entry to your existing
 
 ```bash
 $ pnpm flowpanel new posts
-→ Added resource "posts" to flowpanel.config.ts
 ```
 
+```text
+└  Added resource "posts" to flowpanel.config.ts
+```
+
+It writes `resource(schema.posts, { columns: ["id"] })` into the `resources`
+array — creating the array when `defineAdmin` has none — and **adds `resource`
+to the existing `@flowpanel/kit` import** when the config does not already
+bind that name, so the file compiles as written. Existing comments in the
+array are preserved (the entry is spliced as text, not reprinted).
+
+Before writing, a Drizzle-kind run resolves the config's `import * as schema`
+line and checks that the module really exports `posts`. A miss aborts with
+exit `1` and lists what the schema does export; an unverifiable case (no
+`import * as schema`, an unresolvable specifier) warns and writes anyway.
+A resource that already exists aborts with exit `1`.
+
 Flags: `--table <expr>` overrides the first argument (default
-`schema.<resource>`); `--kind drizzle|prisma` toggles the template
-(default `drizzle`).
+`schema.<resource>`, and skips the schema check); `--kind drizzle|prisma`
+toggles the template (default `drizzle`; `prisma` writes
+`resource<unknown>("posts", …)`).

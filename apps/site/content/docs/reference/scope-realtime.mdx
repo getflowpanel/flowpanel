@@ -34,7 +34,9 @@ it into a predicate on `ctx.applyScope`.
 
 Once an admin declares a global `scope`, every resource must say what it does
 with it — use it, or opt out with `scope: "bypass"`. A resource that says
-nothing throws at startup rather than serving another tenant's rows.
+nothing throws `FlowpanelAccessError` when it is first queried, rather than
+serving another tenant's rows. That is a per-request failure, not a startup
+one: `defineAdmin` is pure and runs no such check.
 
 ```ts
 export function assertResourceScope(input: ScopeCheckInput): void;
@@ -64,11 +66,21 @@ function createPublisher(opts: PublisherOptions): Publisher;
 
 The memory driver only reaches the process that published, so a second instance
 never sees the message. That is fine locally and wrong in production — use the
-Redis driver whenever more than one instance serves the admin. `keyPrefix`
-namespaces channels when several admins share a Redis.
+Redis driver whenever more than one instance serves the admin. The Redis
+driver loads `ioredis` on first use and throws if it is not installed; it is an
+optional peer dependency.
 
-Messages are delivered to every subscriber of a channel, so tag your payloads by
-kind if you publish more than one shape on the same channel.
+`keyPrefix` namespaces channels when several admins share a Redis, and it
+defaults to `"flowpanel"` — the wire channel for `resource.orders` is
+`flowpanel:resource.orders` unless you set it. It never changes the logical
+channel name application code sees. The rate limiter has its own, unrelated
+default prefix: `"fp:rl:"`.
+
+Routing is by channel: one channel carries one payload shape, and the SSE layer
+adds the `{ channel, payload }` envelope on the way to the browser (ADR 0014),
+so a subscriber always knows which channel a message came from without
+inspecting it. Use a distinct channel per event kind rather than multiplexing
+shapes onto one.
 
 See [Realtime in production](/docs/core-concepts/realtime-multi-instance).
 

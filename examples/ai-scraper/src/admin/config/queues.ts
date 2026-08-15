@@ -17,7 +17,7 @@ function iframeBoardUrl(name: string): string {
       "BOARD_TOKEN is required whenever REDIS_URL is set — it is the only guard on the board's destructive job controls.",
     );
   }
-  return `${base}/queues/${name}?token=${encodeURIComponent(token)}`;
+  return `${base}/queue/${name}?token=${encodeURIComponent(token)}`;
 }
 
 export const queues = liveQueues.map((q) =>

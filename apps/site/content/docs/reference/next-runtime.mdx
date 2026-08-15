@@ -14,8 +14,21 @@ Returns the page component for the admin's catch-all route.
 export function Flowpanel(
   config: ResolvedAdminConfig,
   opts?: FlowpanelOptions,
-): (props: { params: Promise<{ slug?: string[] }> }) => Promise<ReactNode>;
+): (props: {
+  params: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) => Promise<ReactNode>;
 ```
+
+Both props are required — the returned component awaits `searchParams` as well
+as `params`, because filters, pagination, the drawer and the dashboard date
+range all live in the query string. Next.js passes both to a page component,
+so `export default Flowpanel(config)` satisfies it; a hand-written wrapper has
+to forward both.
+
+`params` is read structurally rather than by a fixed key: the first array-
+valued entry is taken as the catch-all segments, so the route folder may be
+`[[...slug]]`, `[...rest]`, or any other name.
 
 ```ts
 // app/admin/[[...slug]]/page.tsx
@@ -27,8 +40,10 @@ export default Flowpanel(config);
 
 <AutoTypeTable path="../../packages/next/src/flowpanel-page.tsx" name="FlowpanelOptions" />
 
-`FlowpanelContent` is the same renderer without the shell, for embedding the
-admin inside chrome you already have.
+`FlowpanelContent(config, opts?)` is the same renderer without the shell, for
+embedding the admin inside chrome you already have. Its second parameter is
+`Omit<FlowpanelOptions, "shell">` — `shell` is not yours to set there, because
+`FlowpanelContent` *is* `Flowpanel(config, { …opts, shell: "bare" })`.
 
 ## handlers
 
@@ -80,9 +95,12 @@ The SSE endpoint backing realtime. Mount it on its own route.
 ```ts
 export function stream(
   config: ResolvedAdminConfig,
-  opts?: { heartbeatMs?: number },
+  opts?: StreamOptions,
 ): (req: Request) => Promise<Response>;
 ```
+
+`StreamOptions` has one member — `heartbeatMs`, the interval between
+`: keep-alive` comments, defaulting to 15 s.
 
 ```ts
 // app/api/flowpanel/stream/route.ts
@@ -90,7 +108,13 @@ import { stream } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
 export const GET = stream(config);
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 ```
+
+`flowpanel init` scaffolds exactly that file, both route-segment exports
+included: an SSE response has to stay open and must never be statically
+rendered.
 
 ### What the stream checks
 
@@ -151,9 +175,18 @@ await publishResource("orders", { action: "update", id: order.id });
 
 Inside an action, prefer `ctx.publish` — it is the same publisher, already bound.
 
-`bindPublisher` is called for you by `handlers` and `Flowpanel`. You only need it
-when publishing from code that never goes through either, such as a standalone
-worker process.
+`bindPublisher` is called for you by `handlers`, `Flowpanel` and `stream`. You
+only need it when publishing from code that never goes through any of them —
+a standalone worker or cron, and your own route handlers, which on serverless
+are their own instances.
+
+The same three functions are re-exported from **`@flowpanel/kit/server`**,
+against the same process-wide store, so importing from either subpath in one
+process is equivalent: a `publish` sent through `/server` reaches a
+`subscribe` registered through `/next`. That subpath carries a smaller
+surface — `publish`, `publishResource`, `bindPublisher`, plus `emitAudit`,
+`requireRole`, and the request-context accessors — for server code that has no
+business importing the Next.js runtime wholesale.
 
 Publishing before `bindPublisher` has run in that process falls back to an
 in-memory publisher, which no other process can see — a Redis-configured
@@ -194,6 +227,13 @@ into the `DrawerPayload` the client drawer renders.
 **`inlineUpdateRoute`** — the single-cell edit handler, behind
 `POST /<resource>/<id>/update`. Only accepts a field declared `editable: true`
 on the resource's columns.
+
+Three of the routes in the table above have **no exported factory**: the
+reference-picker search (`GET /<resource>/reference/<field>`), the CSV / JSON
+import (`POST /<resource>/import`) and the soft-delete restore
+(`POST /<resource>/<id>/restore`) are handled inside `handlers()` and are not
+part of the package's export surface. Mount `handlers(config)` to get them;
+there is no supported way to mount one of the three on a path of your own.
 
 ### Serialization pairs
 
@@ -293,8 +333,14 @@ chrome around a `"bare"` shell.
 
 It filters on `hidden` only — **not** on `requireRole`. A resource gated to a
 role still appears in the nav for everyone; clicking it returns 403 rather than
-the list. Set `hidden: true` as well when the entry itself should not be
-advertised.
+the list. Set `hidden: true` on the resource as well when the entry itself
+should not be advertised.
+
+That escape hatch is **resources only**. `DashboardConfig`, `PageConfig` and
+`QueueConfig` have no `hidden` property and `buildNav` does not filter them,
+so a role-gated dashboard or queue is always listed. To keep one out of the
+nav, either build your own nav from `buildNav`'s output and filter it, or
+render it as a `page({ href })` link you place yourself.
 
 `resourceNavName` is `@flowpanel/core`'s `resolveResourceName` — the same
 resolver `defineAdmin` uses to key `resourcesByName` and derive the

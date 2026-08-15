@@ -3,6 +3,7 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
+import cliPkg from "../../package.json" with { type: "json" };
 import {
   copyDashboardTemplate,
   copyLayoutTemplate,
@@ -32,7 +33,8 @@ export interface RunEjectOptions {
   force?: boolean;
 }
 
-export async function runEject(opts: RunEjectOptions): Promise<void> {
+/** Written files, relative to `cwd`. */
+export async function runEject(opts: RunEjectOptions): Promise<string[]> {
   // Resolved before anything is written: copyResourceTemplates has no rollback,
   // so a missing config after the copy would leave five orphaned files behind.
   const cfg = await findConfigFile(opts.cwd);
@@ -47,7 +49,7 @@ export async function runEject(opts: RunEjectOptions): Promise<void> {
     if (!opts.name) {
       throw new Error("eject resource: <name> is required (e.g. `flowpanel eject resource users`)");
     }
-    await copyResourceTemplates({
+    const written = await copyResourceTemplates({
       cwd: opts.cwd,
       resourceName: opts.name,
       version: opts.version,
@@ -56,7 +58,7 @@ export async function runEject(opts: RunEjectOptions): Promise<void> {
     const source = await fs.readFile(cfg.path, "utf8");
     const updated = editConfigToCommentResource(source, opts.name, cfg.filename, appDir);
     await fs.writeFile(cfg.path, updated, "utf8");
-    return;
+    return relativize(opts.cwd, written);
   }
 
   if (opts.target === "dashboard") {
@@ -65,7 +67,7 @@ export async function runEject(opts: RunEjectOptions): Promise<void> {
         'eject dashboard: <path> is required (e.g. `flowpanel eject dashboard "/monitoring"`)',
       );
     }
-    await copyDashboardTemplate({
+    const written = await copyDashboardTemplate({
       cwd: opts.cwd,
       dashboardPath: opts.name,
       version: opts.version,
@@ -74,22 +76,27 @@ export async function runEject(opts: RunEjectOptions): Promise<void> {
     const source = await fs.readFile(cfg.path, "utf8");
     const updated = editConfigToCommentDashboard(source, opts.name, cfg.filename, appDir);
     await fs.writeFile(cfg.path, updated, "utf8");
-    return;
+    return relativize(opts.cwd, written);
   }
 
   if (opts.target === "layout") {
-    await copyLayoutTemplate({
+    const written = await copyLayoutTemplate({
       cwd: opts.cwd,
       version: opts.version,
       ...(opts.force ? { force: true } : {}),
     });
-    return;
+    return relativize(opts.cwd, written);
   }
 
   throw new Error(`Unknown eject target: ${String(opts.target)}`);
 }
 
-async function readPackageVersion(cwd: string): Promise<string> {
+function relativize(cwd: string, files: string[]): string[] {
+  return files.map((f) => path.relative(cwd, f));
+}
+
+/** The kit version the ejected files were cut from; the CLI's own when kit isn't installed. */
+export async function ejectVersion(cwd: string): Promise<string> {
   try {
     const pkg = JSON.parse(
       await fs.readFile(path.join(cwd, "node_modules/@flowpanel/kit/package.json"), "utf8"),
@@ -98,7 +105,7 @@ async function readPackageVersion(cwd: string): Promise<string> {
   } catch {
     /* fall through */
   }
-  return "1.0.0";
+  return cliPkg.version;
 }
 
 export function ejectCommand(cli: Command): void {
@@ -118,16 +125,17 @@ export function ejectCommand(cli: Command): void {
       }
 
       const cwd = process.cwd();
-      const version = await readPackageVersion(cwd);
+      const version = await ejectVersion(cwd);
 
       try {
-        await runEject({
+        const written = await runEject({
           cwd,
           target: target as EjectTarget,
           name: name ?? "",
           version,
           ...(options.force ? { force: true } : {}),
         });
+        if (written.length > 0) p.note(written.join("\n"), "Wrote");
         p.outro(pc.green(`Ejected ${target}${name ? ` ${name}` : ""}`));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);

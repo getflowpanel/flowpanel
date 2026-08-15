@@ -6,6 +6,7 @@ import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
 import {
+  aliasOf,
   configImportFor,
   detectAppDir,
   detectAuth,
@@ -15,6 +16,7 @@ import {
   detectSchema,
   detectStack,
   fileExists,
+  type PathAliasMode,
   pmCommands,
 } from "../utils/detect.js";
 import { tpl } from "../utils/template.js";
@@ -95,6 +97,21 @@ function installFailureReason(output: string): string | null {
   return lines.slice(-8).join("\n");
 }
 
+/**
+ * Import specifiers the generated config falls back to when nothing matched on
+ * disk. Without an `@/*` alias the guess has to be relative, or it cannot resolve.
+ */
+export function guessedPaths(
+  orm: "drizzle" | "prisma",
+  aliasMode: PathAliasMode,
+): { db: string; schema: string; auth: string } {
+  return {
+    db: aliasOf(orm === "prisma" ? "lib/prisma.ts" : "server/lib/db.ts", aliasMode),
+    schema: aliasOf("server/lib/db/schema.ts", aliasMode),
+    auth: aliasOf("server/lib/auth.ts", aliasMode),
+  };
+}
+
 export function initCommand(cli: Command): void {
   cli
     .command("init")
@@ -104,19 +121,27 @@ export function initCommand(cli: Command): void {
       p.intro(pc.bgCyan(pc.black(" FlowPanel init ")));
 
       const cwd = process.cwd();
+
+      if (!opts.yes && !process.stdin.isTTY) {
+        p.cancel(
+          "init asks questions and this run has no interactive terminal. Re-run with --yes to accept the detected defaults.",
+        );
+        process.exit(1);
+      }
+
       const pm = await detectPackageManager(cwd);
       const pmc = pmCommands(pm);
       const stack = await detectStack(cwd);
 
       if (!stack.nextjs) {
         p.cancel(
-          "Next.js not detected in package.json. Install it first: pnpm add next react react-dom",
+          `Next.js not detected in package.json. Install it first: ${pmc.addDisplay("next react react-dom", false)}`,
         );
         process.exit(1);
       }
       if (!stack.drizzle && !stack.prisma) {
         p.cancel(
-          "No ORM detected. Install one: pnpm add drizzle-orm  (or pnpm add @prisma/client prisma).",
+          `No ORM detected. Install one: ${pmc.addDisplay("drizzle-orm", false)}  (or ${pmc.addDisplay("@prisma/client prisma", false)}).`,
         );
         process.exit(1);
       }
@@ -139,8 +164,13 @@ export function initCommand(cli: Command): void {
           initialValue: false,
         });
         if (p.isCancel(proceed) || !proceed) {
-          p.cancel("Aborted. Install Tailwind first: pnpm add -D tailwindcss postcss autoprefixer");
-          process.exit(0);
+          p.cancel(
+            `Aborted — nothing was written. Install Tailwind first: ${pmc.addDisplay(
+              "tailwindcss postcss autoprefixer",
+              true,
+            )}`,
+          );
+          process.exit(1);
         }
       }
 
@@ -150,10 +180,11 @@ export function initCommand(cli: Command): void {
         schema: await detectSchema(cwd, aliasMode),
         auth: await detectAuth(cwd, aliasMode),
       };
+      const guesses = guessedPaths(orm, aliasMode);
       const defaults = {
-        db: detected.db ?? (orm === "prisma" ? "@/lib/prisma" : "@/server/lib/db"),
-        schema: detected.schema ?? "@/server/lib/db/schema",
-        auth: detected.auth ?? "@/server/lib/auth",
+        db: detected.db ?? guesses.db,
+        schema: detected.schema ?? guesses.schema,
+        auth: detected.auth ?? guesses.auth,
         appName: path.basename(cwd),
       };
       const guessed = [
@@ -181,8 +212,8 @@ export function initCommand(cli: Command): void {
           initialValue: defaults.appName,
         });
         if (p.isCancel(appNameAns)) {
-          p.cancel("Aborted.");
-          process.exit(0);
+          p.cancel("Aborted — nothing was written.");
+          process.exit(1);
         }
         appName = appNameAns;
 
@@ -194,8 +225,8 @@ export function initCommand(cli: Command): void {
           initialValue: defaults.db,
         });
         if (p.isCancel(dbAns)) {
-          p.cancel("Aborted.");
-          process.exit(0);
+          p.cancel("Aborted — nothing was written.");
+          process.exit(1);
         }
         db = dbAns;
 
@@ -205,8 +236,8 @@ export function initCommand(cli: Command): void {
             initialValue: defaults.schema,
           });
           if (p.isCancel(schemaAns)) {
-            p.cancel("Aborted.");
-            process.exit(0);
+            p.cancel("Aborted — nothing was written.");
+            process.exit(1);
           }
           schemaPath = schemaAns;
         }
@@ -216,8 +247,8 @@ export function initCommand(cli: Command): void {
           initialValue: defaults.auth,
         });
         if (p.isCancel(authAns)) {
-          p.cancel("Aborted.");
-          process.exit(0);
+          p.cancel("Aborted — nothing was written.");
+          process.exit(1);
         }
         auth = authAns;
       }

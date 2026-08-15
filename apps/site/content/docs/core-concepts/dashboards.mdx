@@ -15,6 +15,7 @@ Both are registered on `AdminConfig.dashboards` / `AdminConfig.pages`; see
 
 ```ts
 import { dashboard, metric, table, statGroup } from "@flowpanel/kit";
+import { eq, gte } from "drizzle-orm";
 import * as schema from "@/db/schema";
 
 dashboard({
@@ -59,6 +60,13 @@ dashboard({
 | `actions` | `DashboardAction[]` | Buttons in the page header. Each posts to `/api/flowpanel/dashboards/<encoded-path>/actions/<key>` and runs server-side — see the worked example below. |
 | `hideActionsBar` | `boolean` | Suppress the default action-button bar while keeping the action endpoints mounted (for a `custom()` widget that renders its own trigger UI). |
 | `requireRole` | `string \| string[] \| ((session) => boolean)` | Enforced before the dashboard renders; a failing viewer gets `FlowpanelAccessError` (403). |
+
+Resolution order for `ctx.dateRange` is: an explicit `?from=`+`?to=` pair,
+then `?preset=`, then `dateRange.preset`, then `dateRange.default`. With none
+of them the range is **not** unbounded — it resolves to `last7d`. A widget
+whose query filters on `dateRange.from` therefore shows the last seven days on
+a dashboard that never mentions dates; set `dateRange.preset` explicitly if
+you meant something else.
 
 Every widget's `options` also accepts `span` (`1\|2\|3\|4\|6\|8\|12`) to widen
 that one widget's grid cell beyond the section's uniform `columns` width.
@@ -136,6 +144,10 @@ underlying query.
 ### `metric(label, query, options?)`
 
 ```ts
+import { metric } from "@flowpanel/kit";
+import { gte, sql } from "drizzle-orm";
+import * as schema from "@/db/schema";
+
 metric(
   "Active users",
   async ({ db, dateRange }) => {
@@ -179,17 +191,38 @@ table({
 ```
 
 With `resource` set, rows come from that resource's own `list` (scoped,
-soft-delete aware) and columns default to the resource's configured
-`columns` (including custom `render`, executed server-side). With `query`
-set instead, you get raw rows and must pass `columns` (an array of field
-names) yourself. `limit` caps rows (default 10, only applies to the
-`resource` path). `realtime` triggers a refetch of the widget on matching
-events. `emptyState` (a `ReactNode`) replaces the default "No data" copy
-when there are zero rows.
+soft-delete aware) and the widget runs them through the **same column
+pipeline the list page uses**: the resource's `columns` supply labels,
+`format`, `reference` cells and server-executed `render` functions, so a
+badge or money cell looks identical in the widget and on the resource's own
+page. Pass `columns` to narrow that list to a subset (by field name);
+omit it and hidden columns are dropped.
+
+With `query` set instead you get raw rows and no pipeline. `columns` is
+optional there too — without it the widget falls back to
+`Object.keys(rows[0])`, i.e. every key of the first row, in insertion order.
+That is fine for a scratch query and wrong for anything whose row shape can
+change, so name the columns you actually want:
+
+```ts
+table({
+  label: "Top errors",
+  query: async ({ db }) => db.select().from(schema.errors).limit(5),
+  columns: ["message", "count"],
+})
+```
+
+`limit` caps rows (default 10, only applies to the `resource` path).
+`realtime` triggers a refetch of the widget on matching events. `emptyState`
+(a `ReactNode`) replaces the default "No data" copy when there are zero rows.
 
 ### `statGroup(options)`
 
 ```ts
+import { statGroup } from "@flowpanel/kit";
+import { eq } from "drizzle-orm";
+import * as schema from "@/db/schema";
+
 statGroup({
   label: "Plan mix",
   stats: [

@@ -44,16 +44,18 @@ test.describe("M2.5 smokes", () => {
 
   test("Drawer opens on row click and shows header", async ({ page }) => {
     await page.goto("/admin/users");
-    // Click the first data row (header row is index 0).
+    // Click the first data row (header row is index 0), on the email cell —
+    // company is the inline-edit showcase column and would start editing
+    // instead of opening the drawer if clicked.
     const firstRow = page.getByRole("row").nth(1);
-    await firstRow.click();
+    await firstRow.getByText(/@/).click();
     // Drawer surfaces as a role=dialog with the email as header.
     await expect(page.getByRole("dialog")).toBeVisible();
   });
 
   test("Drawer action 'Disable user' fires confirm + toast on confirm", async ({ page }) => {
     await page.goto("/admin/users");
-    await page.getByRole("row").nth(1).click();
+    await page.getByRole("row").nth(1).getByText(/@/).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     const disableBtn = page.getByRole("button", { name: /disable user/i });
     await disableBtn.click();

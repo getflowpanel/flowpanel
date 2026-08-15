@@ -2,6 +2,8 @@
 
 ESLint rules that catch the most common mistakes in FlowPanel admin configs.
 
+[![npm](https://img.shields.io/npm/v/@flowpanel/eslint-plugin.svg)](https://www.npmjs.com/package/@flowpanel/eslint-plugin)
+
 > Pre-1.0. The rule names are stable; the surface (options, message text) may
 > still shift before 1.0.
 
@@ -133,6 +135,10 @@ validation is tracked separately.
 
 Not autofixable: `columns` is not FlowPanel-exclusive and a lowercase column
 name can be deliberate, so `eslint --fix` must not rewrite it.
+
+## Documentation
+
+<https://flowpanel.tech/docs/reference/eslint-plugin>
 
 ## License
 

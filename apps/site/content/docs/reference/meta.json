@@ -6,13 +6,16 @@
     "actions",
     "drawer",
     "widgets",
+    "queues",
     "contexts",
+    "registry",
     "react-components",
     "next-runtime",
     "client",
     "adapters",
     "scope-realtime",
     "errors",
-    "cli"
+    "cli",
+    "eslint-plugin"
   ]
 }

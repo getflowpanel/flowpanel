@@ -40,21 +40,37 @@ throw new FlowpanelError("payment_required", "Upgrade to run this action", 402);
 
 ## The subclasses
 
-| Class | `code` | Status | Default message |
-| --- | --- | --- | --- |
-| `FlowpanelValidationError` | `validation` | 400 | Validation failed |
-| `FlowpanelAuthError` | `auth` | 401 | Authentication required |
-| `FlowpanelAccessError` | `access` | 403 | Forbidden |
-| `FlowpanelNotFoundError` | `not_found` | 404 | Not found |
-| `FlowpanelConflictError` | `conflict` | 409 | Conflict |
-| `FlowpanelRateLimitError` | `rate_limit` | 429 | Rate limit exceeded |
+| Class | `code` | Status | Default message | Raised by FlowPanel? |
+| --- | --- | --- | --- | --- |
+| `FlowpanelValidationError` | `validation` | 400 | Validation failed | yes |
+| `FlowpanelAuthError` | `auth` | 401 | Authentication required | no — yours to throw |
+| `FlowpanelAccessError` | `access` | 403 | Forbidden | yes |
+| `FlowpanelNotFoundError` | `not_found` | 404 | Not found | yes |
+| `FlowpanelConflictError` | `conflict` | 409 | Conflict | no — yours to throw |
+| `FlowpanelRateLimitError` | `rate_limit` | 429 | Rate limit exceeded | yes |
 
 Each takes an optional message overriding the default.
 
+The last column matters when you write a `hooks.onError` or a log filter.
+FlowPanel itself raises four of the six: `FlowpanelAccessError` for every role
+gate and for an unbound tenant scope, `FlowpanelRateLimitError` from the
+request prologue, `FlowpanelNotFoundError` and `FlowpanelValidationError` from
+the resource routes. `FlowpanelAuthError` and `FlowpanelConflictError` are
+never thrown by the framework — they exist so *your* code can reach for the
+right status. (The render path still catches `FlowpanelAuthError` if you throw
+one from a page — see below.)
+
 ### FlowpanelValidationError
 
-The one subclass with extra state: `fieldErrors`, keyed by field name. Forms
-render the entries against the matching inputs instead of showing one banner.
+The one subclass with extra state: `fieldErrors`, keyed by field name — and it
+is the **first** constructor argument, with the message second:
+
+```ts
+constructor(fieldErrors: Record<string, string>, message = "Validation failed");
+```
+
+Forms render the entries against the matching inputs instead of showing one
+banner.
 
 ```ts
 import { FlowpanelValidationError } from "@flowpanel/kit";
@@ -62,7 +78,28 @@ import { FlowpanelValidationError } from "@flowpanel/kit";
 throw new FlowpanelValidationError({
   email: "That address is already registered",
 });
+
+// with a banner message as well:
+throw new FlowpanelValidationError({ email: "Already registered" }, "Could not save");
 ```
+
+## Config-time errors are not in this hierarchy
+
+`defineAdmin` throws plain `Error`s, deliberately: they happen while your
+config module evaluates, long before there is a request to map a status onto.
+They carry no `code`, no `safeMessage` and no `status`, and no `hooks.onError`
+sees them — the process fails to boot instead.
+
+What they cover: duplicate resource names, dashboard paths and queue keys;
+duplicate action keys within one list; a resource or queue named after a
+reserved route segment (`dashboards`, `drawer`, `queues`); a column a resource
+points at that the adapter does not report; an omitted `columns` on a ref the
+adapter cannot introspect; an unresolvable cross-resource reference; and a
+`rowClick: "drawer"` with no drawer.
+
+Each names the config path at fault and, where it can, the near match. See
+[Troubleshooting](/docs/guides/troubleshooting#defineadmin-throws-when-the-app-boots)
+for the full table.
 
 ## On the page render path
 
@@ -91,3 +128,49 @@ run: async (row, input, ctx) => {
 Return `{ ok: false }` for an outcome the operator caused and can fix — the UI
 shows the message next to the action. Throw when the request itself was not
 valid, and you want the status code to say so.
+
+## Errors the routes produce themselves
+
+Some responses never pass through the hierarchy at all — the route answers
+directly, in the same `{ ok: false, error }` shape.
+
+### 400 — malformed request body
+
+A POST that declares `Content-Type: application/json` but carries a body that
+does not parse is rejected before anything else runs:
+
+```json
+{ "ok": false, "error": "invalid JSON body" }
+```
+
+That covers the row-, bulk-, dashboard- and drawer-action routes and the
+inline-cell update. A non-JSON content type is parsed as form data instead and
+never reaches this branch.
+
+### 404 — unknown resource, action or dashboard
+
+The message depends on `NODE_ENV`, on purpose. In **production** it is terse,
+so the response confirms nothing about what does exist:
+
+```json
+{ "ok": false, "error": "resource not found" }
+```
+
+Outside production it names what was requested and what is registered, which
+turns "why is my action 404-ing" into a one-look answer:
+
+```json
+{
+  "ok": false,
+  "error": "action not found: \"refnud\". Registered actions: \"refund\", \"cancel\"."
+}
+```
+
+`kind` is one of `resource`, `action` or `dashboard`.
+
+### 403 / 422 from the guard pipeline
+
+`403 This admin is read-only.` when `readOnly: true` blocks a write;
+`422 too many ids (max 1000)` when a bulk action exceeds its cap;
+`422 validation failed` with an `issues` array when an action `form` fails
+validation. See [Actions → Validation](/docs/reference/actions#validation).

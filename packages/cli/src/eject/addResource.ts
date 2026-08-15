@@ -1,4 +1,42 @@
-import { Node, Project } from "ts-morph";
+import { Node, Project, type SourceFile } from "ts-morph";
+
+/** A single text insertion, expressed against the original source offsets. */
+interface Insertion {
+  pos: number;
+  text: string;
+}
+
+/**
+ * Where to splice `resource` into the import that already brings in `defineAdmin`,
+ * or `null` when the name is imported already (or there is no such import to join).
+ */
+function resourceImportInsertion(sf: SourceFile): Insertion | null {
+  const imports = sf.getImportDeclarations();
+  for (const decl of imports) {
+    const bound = [
+      ...decl.getNamedImports().map((n) => (n.getAliasNode() ?? n.getNameNode()).getText()),
+      decl.getDefaultImport()?.getText(),
+      decl.getNamespaceImport()?.getText(),
+    ];
+    if (bound.includes("resource")) return null;
+  }
+
+  const host = imports.find((d) =>
+    d.getNamedImports().some((n) => n.getNameNode().getText() === "defineAdmin"),
+  );
+  if (!host) return null;
+
+  const named = host.getNamedImports();
+  const after = named.find((n) => n.getNameNode().getText() > "resource");
+  if (after) return { pos: after.getStart(), text: "resource, " };
+  const last = named.at(-1);
+  return last ? { pos: last.getEnd(), text: ", resource" } : null;
+}
+
+function applyInsertion(source: string, insertion: Insertion | null): string {
+  if (!insertion) return source;
+  return `${source.slice(0, insertion.pos)}${insertion.text}${source.slice(insertion.pos)}`;
+}
 
 /** Indentation of the line `pos` sits on. */
 function lineIndent(source: string, pos: number): string {
@@ -77,6 +115,7 @@ export function editConfigToAddResource(
   }
   const typeParam = kind === "prisma" ? "<unknown>" : "";
   const callText = `resource${typeParam}(${firstArg}, { columns: ["id"] })`;
+  const importInsertion = resourceImportInsertion(sf);
 
   let arrayRange: { start: number; end: number; elements: number[] } | null = null;
   let objectEnd: number | null = null;
@@ -104,7 +143,7 @@ export function editConfigToAddResource(
   });
 
   if (arrayRange) {
-    return spliceIntoArray(source, arrayRange, callText);
+    return applyInsertion(spliceIntoArray(source, arrayRange, callText), importInsertion);
   }
 
   if (objectEnd !== null) {
@@ -113,7 +152,10 @@ export function editConfigToAddResource(
     let trimmed = closeBrace;
     while (trimmed > 0 && /\s/.test(source[trimmed - 1] ?? "")) trimmed--;
     const separator = source[trimmed - 1] === "," ? "" : ",";
-    return `${source.slice(0, trimmed)}${separator}\n${closeIndent}  resources: [\n${closeIndent}    ${callText},\n${closeIndent}  ],\n${closeIndent}${source.slice(closeBrace)}`;
+    return applyInsertion(
+      `${source.slice(0, trimmed)}${separator}\n${closeIndent}  resources: [\n${closeIndent}    ${callText},\n${closeIndent}  ],\n${closeIndent}${source.slice(closeBrace)}`,
+      importInsertion,
+    );
   }
 
   throw new Error("new: could not find a defineAdmin({ ... }) call in flowpanel.config.ts");

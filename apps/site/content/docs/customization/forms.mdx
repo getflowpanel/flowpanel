@@ -31,6 +31,27 @@ resource(schema.products, {
 `update.fields` works the same way; omit it to reuse `create.fields`, or omit
 both to fall back to schema introspection.
 
+Every `name` is `keyof Row & string` — a form field writes a column, so there
+is no such thing as an ad-hoc input name here. `defineAdmin` re-checks the
+names against the adapter's introspection too, so a typo fails at config time
+even when the row type could not be inferred.
+
+## The create page's title
+
+The heading above a create form reads `New {labelOne ?? label ?? name}`, so a
+resource named `people` with `label: "Person"` gets **New Person** rather than
+**New people**. Set `labelOne` when the singular you want in that heading
+differs from `label`:
+
+```ts
+resource(schema.people, {
+  columns: ["id", "email"],
+  label: "Person",
+  labelOne: "Team member",  // heading reads "New Team member"
+  plural: "People",
+})
+```
+
 ## Field types
 
 `type` selects the control. The full set: `text`, `email`, `password`, `url`,
@@ -129,7 +150,7 @@ pipeline as every other write in FlowPanel. On success the create page
 redirects to the resource list; the edit page redirects back to the row.
 
 If you build a custom form with the `<Form>` / `<AutoForm>` primitives
-exported from `@flowpanel/react` (for a `page()` or `custom()` component),
+exported from `@flowpanel/kit/react` (for a `page()` or `custom()` component),
 `action` takes the same shape: a URL string the form POSTs its `FormData` to.
 The route is expected to answer with JSON:
 

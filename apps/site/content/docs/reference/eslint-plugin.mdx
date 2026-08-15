@@ -1,0 +1,148 @@
+---
+title: ESLint plugin
+description: Five rules that catch config mistakes the type system cannot.
+---
+
+`@flowpanel/eslint-plugin` is a separate, optional package. It catches the
+mistakes that survive type-checking: a client component importing server code,
+a destructive action with no confirm, two resources fighting over one name.
+
+<Callout type="warn">
+Pre-1.0. The rule *names* are stable; their options and message text may still
+change before 1.0.
+</Callout>
+
+## Install
+
+```bash
+pnpm add -D @flowpanel/eslint-plugin
+```
+
+It peers on `eslint >= 8`, and the shipped config is flat-config (ESLint 9)
+shaped.
+
+## Setup
+
+```ts title="eslint.config.ts"
+import flowpanel from "@flowpanel/eslint-plugin";
+
+export default [flowpanel.configs.recommended];
+```
+
+`configs.recommended` registers the plugin under the `flowpanel` namespace and
+turns on all five rules at the severities in the table below. To pick rules by
+hand instead:
+
+```ts title="eslint.config.ts"
+import flowpanel from "@flowpanel/eslint-plugin";
+
+export default [
+  {
+    plugins: { flowpanel },
+    rules: {
+      "flowpanel/prefer-shorthand-filter": "warn",
+      "flowpanel/audit-row-action-needs-confirm": "error",
+      "flowpanel/no-server-import-in-client": "error",
+      "flowpanel/require-unique-resource-names": "error",
+      "flowpanel/no-typo-column-keyword": "warn",
+    },
+  },
+];
+```
+
+The package's default export is the plugin object; `configs` and `rules` are
+also named exports.
+
+## The rules
+
+| Rule | Recommended | Type | Fixable |
+| --- | --- | --- | --- |
+| [`no-server-import-in-client`](#no-server-import-in-client) | `error` | problem | no |
+| [`audit-row-action-needs-confirm`](#audit-row-action-needs-confirm) | `error` | problem | no |
+| [`require-unique-resource-names`](#require-unique-resource-names) | `error` | problem | no |
+| [`prefer-shorthand-filter`](#prefer-shorthand-filter) | `warn` | suggestion | yes |
+| [`no-typo-column-keyword`](#no-typo-column-keyword) | `warn` | problem | no |
+
+### `no-server-import-in-client`
+
+In a file that opens with `"use client"`, importing a server-only module ships
+server code — and whatever secrets it closes over — to the browser. The rule
+flags:
+
+- `server-only` and any `*/server-only` specifier;
+- an app-local path containing a `/server/` segment, or ending in `/server`;
+- `@/db` and `@/db/…`, plus the `~/db`, `src/db` and `./db` variants.
+
+Only alias and relative specifiers (`@/`, `~/`, `./`, `../`, `src/`) count as
+app-local, so package entry points like `next/server` are left alone.
+`import type` is skipped — it is erased before bundling.
+
+### `audit-row-action-needs-confirm`
+
+An entry in `actions:` or `bulkActions:` with `variant: "destructive"` and no
+sibling `confirm:` is reported. You have to write the message, so there is no
+autofix.
+
+```ts
+// bad
+actions: [{ key: "delete", label: "Delete", variant: "destructive", run }];
+
+// good
+actions: [
+  {
+    key: "delete",
+    label: "Delete",
+    variant: "destructive",
+    confirm: "Are you sure?",
+    run,
+  },
+];
+```
+
+### `require-unique-resource-names`
+
+Within one `defineAdmin({ resources: [...] })` call, every `resource()` entry
+must resolve to a unique name — the same rule `defineAdmin` throws on at
+runtime, moved to lint time. The name comes from `opts.name` when it is a
+string literal, otherwise from a string ref (`resource("User", …)`).
+
+Bare identifiers — the decomposed `resources: [users, orders]` layout — are
+resolved through their `const x = resource(…)` declaration when it lives in
+the same file; otherwise the identifier itself has to be unique. A name that
+can only be known from the ref at runtime is left to the runtime validator.
+
+### `prefer-shorthand-filter`
+
+When every entry of an `options:` array inside `filters: [...]` has
+`label === value`, the array can be a plain string array — the runtime
+normalizes both to the same thing. Autofixable.
+
+```ts
+// bad
+filters: [
+  {
+    key: "status",
+    type: "select",
+    options: [
+      { label: "active", value: "active" },
+      { label: "archived", value: "archived" },
+    ],
+  },
+];
+
+// good
+filters: [{ key: "status", type: "select", options: ["active", "archived"] }];
+```
+
+### `no-typo-column-keyword`
+
+A heuristic check for the camelCase slips that a `Record<string, unknown>` row
+type will not catch — see
+[when column names are only `string`](/docs/core-concepts/resources#typos-and-column-validation).
+Today it knows a short list: `userid`, `createdat`, `updatedat`, `isactive`.
+
+Deliberately **not** autofixable: `columns` is not a FlowPanel-exclusive
+property name, and a lower-case column can be intentional, so
+`eslint --fix` must not rewrite it. Schema-aware validation is tracked
+separately; `defineAdmin`'s introspect-time check already covers the
+schema-aware half at config time.

@@ -1,6 +1,6 @@
 ---
 title: Multi-tenant scoping
-description: Restrict every query to one tenant with a global scope plus a per-resource predicate — leak-proof and fail-closed.
+description: Restrict every query to one tenant with a global scope plus a per-resource predicate — fail-closed by default.
 ---
 
 flowpanel scopes a multi-tenant admin in two layers:
@@ -12,8 +12,8 @@ flowpanel scopes a multi-tenant admin in two layers:
 
 The split is deliberate: the global function names the tenant once; each
 resource maps that tenant onto its own column. The same captured condition
-guards `list`, `get`, `update`, and `delete`, so a scoped resource can never
-leak a row from another tenant.
+guards `list`, `get`, `create`, `update`, and `delete`, so a scoped resource
+does not serve — or accept — a row from another tenant.
 
 ## 1. Resolve the tenant globally
 
@@ -40,17 +40,26 @@ export default defineAdmin({
 The returned object is handed to every resource's `scope` predicate. The
 predicate AND-s the tenant condition into the adapter's native query.
 
-For **Drizzle**, call `.where(...)` on the query builder:
+`ResourceOptions.scope` is typed `(scope: Scope, query: unknown) => unknown` —
+the second argument is deliberately `unknown`, because what arrives depends on
+the adapter. Narrow it yourself.
+
+For **Drizzle**, what you receive is a probe with a `.where(...)` method that
+records the conditions you apply:
 
 ```ts
 import { resource } from "@flowpanel/kit";
-import { eq } from "drizzle-orm";
+import { eq, type SQL } from "drizzle-orm";
 import * as schema from "@/db/schema";
+
+type ScopeProbe = { where: (cond: SQL) => ScopeProbe };
 
 resource(schema.invoices, {
   columns: ["number", "total", "status"],
   scope: (s, query) =>
-    query.where(eq(schema.invoices.companyId, (s as { companyId: string }).companyId)),
+    (query as ScopeProbe).where(
+      eq(schema.invoices.companyId, (s as { companyId: string }).companyId),
+    ),
 });
 ```
 
@@ -66,10 +75,17 @@ resource("Invoice", {
 });
 ```
 
+The Prisma predicate is applied to more than `where`: `create` runs the
+**input** object through the same function, so the tenant column is forced
+from the scope even when the form did not send it. A predicate that spreads
+its argument and sets a key (as above) therefore both filters reads and
+stamps writes.
+
 ## Fail-closed enforcement
 
 When a global `scope` is active, **every resource must either declare a
-`scope` predicate or opt out explicitly**:
+`scope` predicate or opt out explicitly** — for `list`, `get`, `create`,
+`update` and `delete` alike:
 
 ```ts
 resource(schema.auditLog, {
@@ -80,9 +96,31 @@ resource(schema.auditLog, {
 ```
 
 If a resource is missing both, the runtime refuses to run an unscoped query
-and throws rather than risk a cross-tenant leak. This is intentional: it's
-safer to surface a configuration error than to silently return another
-tenant's rows.
+and throws `FlowpanelAccessError` — per request, when that resource is first
+queried, not at startup. This is intentional: it's safer to surface a
+configuration error than to silently return another tenant's rows.
 
-See [Resources](/docs/core-concepts/resources) for the full resource option
-reference.
+### `create` is covered, with one caveat
+
+Both shipped adapters enforce scope on `create` as well as on reads — but by
+different mechanisms, and one of them is not atomic everywhere:
+
+- **Prisma** rewrites the create input through your predicate, so the tenant
+  column is set from the scope before the insert runs. A row outside the
+  caller's scope is never created.
+- **Drizzle on Postgres / MySQL** inserts inside a transaction, re-reads the
+  row against the captured scope clauses, and rolls back with
+  `FlowpanelAccessError` if it does not match.
+- **Drizzle on SQLite** has no transaction around it: the row is inserted,
+  checked, and — when it fails the check — **deleted again** before the error
+  is thrown. There is a brief window in which the out-of-scope row exists in
+  the table, and a crash between the insert and the compensating delete leaves
+  it behind. If that matters for your data, put the tenant column in the
+  create form's `defaultValue` (or a resource `schema` default) so the row is
+  in scope on the way in.
+
+So "a scoped resource cannot leak" holds for reads unconditionally, and for
+writes with that SQLite caveat.
+
+See [Scope & realtime](/docs/reference/scope-realtime#scope) for the scope
+contract and `assertResourceScope`.

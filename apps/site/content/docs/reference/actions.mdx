@@ -17,9 +17,10 @@ Offered on a single row, inline or in the row menu.
 
 ```ts
 import { resource } from "@flowpanel/kit";
+import { orders } from "@/db/schema";
 
 resource(orders, {
-  columns: ["id", "status"],
+  columns: ["id", "status", "refundNote"],
   actions: [
     {
       key: "refund",
@@ -28,15 +29,27 @@ resource(orders, {
       confirm: { title: "Refund this order?", confirmLabel: "Refund" },
       requireRole: "admin",
       disabled: (row) => (row.status === "refunded" ? "Already refunded" : false),
-      form: [{ name: "reason", label: "Reason", required: true }],
+      form: [{ name: "refundNote", label: "Reason", required: true }],
       run: async (row, input, ctx) => {
-        await refund(ctx.db, row.id, (input as { reason: string }).reason);
+        await refund(ctx.db, row.id, (input as { refundNote: string }).refundNote);
         return { ok: true, message: `Refunded ${row.id}`, refresh: true };
       },
     },
   ],
 });
 ```
+
+<Callout type="warn">
+An action's `form` is a `FieldDef<Row>[]`, and `FieldDef.name` is
+`keyof Row & string` — the **row's** columns, not an ad-hoc input name. The
+sample uses `refundNote` because that is a real column on `orders`; a
+`{ name: "reason" }` field on a table without a `reason` column does not
+compile. Action form fields must be real columns: collecting an input that
+has no column behind it is not supported.
+
+Either add the column, or drop `form` and collect the input in your own
+`"use client"` component that POSTs to the action route.
+</Callout>
 
 <AutoTypeTable path="../../packages/core/src/types/action.ts" name="RowAction" />
 
@@ -47,7 +60,9 @@ invisible, its route returns `404` for that row.
 ## BulkAction
 
 Applied to the operator's selection. `run` receives the ids, capped at 1000 per
-request.
+request — the cap is a **rejection, not a truncation**: over 1000 ids the route
+answers `422 too many ids (max 1000)` and `run` never executes, so nothing is
+half-applied. Page your own batches if you need more.
 
 <AutoTypeTable path="../../packages/core/src/types/action.ts" name="BulkAction" />
 

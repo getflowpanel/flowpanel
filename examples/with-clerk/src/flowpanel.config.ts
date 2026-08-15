@@ -5,7 +5,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
   }

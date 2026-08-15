@@ -6,6 +6,7 @@ import { badge, formatDate, formatDuration } from "../format";
 
 export const runs = resource(schema.runs, {
   label: "Runs",
+  labelOne: "Run",
   columns: [
     {
       field: "scraperId",
@@ -52,7 +53,14 @@ export const runs = resource(schema.runs, {
         await retryRun(row.id);
         await ctx.db
           .update(schema.runs)
-          .set({ status: "queued", error: null, finishedAt: null })
+          .set({
+            status: "queued",
+            error: null,
+            finishedAt: null,
+            durationMs: null,
+            pagesCrawled: 0,
+            itemsExtracted: 0,
+          })
           .where(eq(schema.runs.id, row.id));
         return { ok: true, message: "Run re-queued", refresh: true };
       },

@@ -20,11 +20,20 @@ declarative **cell formatters**, `FieldDef`-driven forms with a searchable
 references, saved **views**, area / bar / pie charts, audit logging, rate
 limiting, and a `theme.components` override.
 
-## Run the demo locally (60 seconds)
+## Run the demo locally (fresh clone)
 
 **Prereq:** Docker Desktop running (`docker info` should succeed).
 
+This example lives inside the FlowPanel monorepo and depends on
+`@flowpanel/kit`, which resolves from each package's (gitignored) `dist/` —
+so the workspace packages must be built once before `pnpm dev` works.
+
 ```bash
+git clone https://github.com/getflowpanel/flowpanel.git
+cd flowpanel
+pnpm install
+pnpm --filter "./packages/**" build   # builds @flowpanel/kit and friends into dist/
+cd examples/ai-scraper
 pnpm docker:up         # Postgres 16 (port 54329)
 pnpm db:push           # apply Drizzle schema
 pnpm db:seed           # 90 customers, 37 scrapers, 111 runs, 45 catalog SKUs, 135 listings + AI matches, invoices, AI usage
@@ -85,16 +94,16 @@ reach — the default points at whoever is looking at the page.
    → $328`), both updating every ~2s over SSE with **zero DB writes**. Then an
    **AI quality** section (a "Match status" donut + a "Confidence by model" bar
    chart) and a customer-growth area chart.
-2. `/admin/users` (**Customers**) — DataTable with filter bar (Plan, Status, Joined daterange), search, sort, column resize, column pin, bulk select, soft-delete. The toolbar's **Import** (CSV / JSON) and **Export** buttons bulk-load and download customers. **New** opens a `FieldDef` form — Plan and Status as selects, grouped into Account / Subscription — and never exposes the soft-delete column.
+2. `/admin/users` (**Customers**) — DataTable with filter bar (Plan, Status, Joined daterange), search, sort, column resize, column pin, bulk select, soft-delete. **Double-click Company** to inline-edit it. The toolbar's **Import** (CSV / JSON) and **Export** buttons bulk-load and download customers. **New** opens a `FieldDef` form — Plan and Status as selects, grouped into Account / Subscription — and never exposes the soft-delete column.
 3. Click any customer row → tabbed drawer: **Profile** (account fields) + **Scrapers** + **Invoices** (both pulled live from their resources, filtered to that user). Click **"Disable user"** → confirm dialog → soft-deletes in DB and publishes `resource.users` over SSE → other tabs refresh within ~200ms.
-4. `/admin/scrapers` — **double-click a Name** to inline-edit it; select rows to **Pause / Resume** in bulk; filter by Status / Schedule; `userId` FK rendered as the customer's email. Click a row → drawer (**Detail** + **Recent runs** + **Listings** tabs).
+4. `/admin/scrapers` — select rows to **Pause / Resume** in bulk; filter by Status / Schedule; `targetUrl` is a real link; `userId` FK rendered as the customer's email. Click a row → drawer (**Detail** + **Recent runs** + **Listings** tabs).
 5. `/admin/runs` — multiselect Status filter + Started daterange; duration formatted (`1.4 s`); the **Retry** row action appears only on failed runs (pushes a `scrape` job onto BullMQ when `REDIS_URL` is set, then resets the run to queued). Click a row → drawer (**Detail** + **Listings** + **AI usage** tabs — the scraper → run → listing FK chain).
 6. `/admin/products` (**Catalog**) — the customer's own SKUs: SKU, our price, owning customer FK. Click **New** (or a row's edit) for a `FieldDef`-driven form: a `select` Category, a searchable **Customer reference picker** resolved live from the users table, and an **admin-only `Our price` field** (`requireRole: "admin"`) — field-level RBAC enforced server-side, so `support` staff never see or can write it. Filter by Category; search by SKU / title / brand. Click a row → drawer (**Detail** + **Matches** — the competitor listings matched to this SKU).
 7. `/admin/listings` — competitor offers across marketplaces, rendered with declarative `format` cells: site badge, `$` price, In/Low/Out-of-stock badges, ★ rating, formatted review counts. The high-volume table uses `density: "compact"` for tighter rows. Filter by Site / Stock / Price; `create` disabled (machine-generated). Click a row → drawer (**Detail** + **Match**).
 8. `/admin/matches` (**Review queue**) — the AI human-in-the-loop core: every match shows a toned **confidence %**, model badge, and status. **Confirm / Reject** row actions appear only on `needs_review` rows (write the decision + reviewer). Saved **views** (Needs review / Auto-confirmed / Rejected) one-click the backlog; default sort is lowest-confidence first. Click a row → drawer (**Detail** + **Listing** + **Catalog SKU**).
 9. `/admin/invoices` — amount formatted as `$` (stored in integer cents), status badges, `userId` FK. The **Refund** row action appears only on paid invoices (calls the Stripe stub, then flips status) — `create` and `update` are both disabled, so an action is the only way to write a billing row. Click a row → drawer (**Detail** + **Customer**).
 10. `/admin/ai_usage` — LLM spend by provider / model / **task** (match vs extract); cost formatted as `$`; filter by Provider / Task / Date; `create` disabled (machine-generated).
-11. `/admin/monitoring` — **Crawl health** metrics (Runs / Failed runs / Listings found — DB-derived and range-aware, so they read true even without Redis) + an **AI cost by task** bar chart + a live runs table.
+11. `/admin/monitoring` — **Crawl health** metrics (Runs / Failed runs / Listings found — DB-derived and range-aware, so they read true even without Redis) + an **AI cost by model** bar chart + a live runs table.
 12. Every successful mutation is forwarded to the `audit` sink (see your dev console); each IP is capped at 240 req/min by `rateLimit`.
 13. ⌘K palette — "Open Overview".
 

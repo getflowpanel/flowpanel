@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { detectPackageManager, platformBin, pmCommands } from "../utils/detect.js";
 
 export function devCommand(cli: Command): void {
   cli
@@ -25,7 +26,9 @@ export function devCommand(cli: Command): void {
       process.on("SIGTERM", () => shutdown(0));
 
       p.intro(pc.bgCyan(pc.black(" FlowPanel dev ")));
-      const next = spawn("pnpm", ["exec", "next", "dev", "--port", opts.port], {
+      const pmc = pmCommands(await detectPackageManager(cwd));
+      const runner = platformBin(pmc.exec);
+      const next = spawn(runner, pmc.execArgs("next", ["dev", "--port", opts.port]), {
         cwd,
         stdio: ["ignore", "pipe", "pipe"],
         env: process.env,
@@ -39,7 +42,7 @@ export function devCommand(cli: Command): void {
         (await fileExists(path.join(cwd, "scripts/board-server.ts")));
 
       if (wantBoard) {
-        const board = spawn("pnpm", ["exec", "tsx", "scripts/board-server.ts"], {
+        const board = spawn(runner, pmc.execArgs("tsx", ["scripts/board-server.ts"]), {
           cwd,
           stdio: ["ignore", "pipe", "pipe"],
           env: process.env,
@@ -63,14 +66,23 @@ export function devCommand(cli: Command): void {
 }
 
 export function pipeWithPrefix(child: ChildProcess, prefix: string): void {
-  const onLine =
-    (stream: NodeJS.WritableStream) =>
-    (chunk: Buffer): void => {
+  const onLine = (stream: NodeJS.WritableStream) => {
+    // `pnpm exec <missing-bin>` opens the stream with a bare "undefined" line
+    // ahead of its real error. Only that opening line is dropped — everything
+    // after it, including a server's own `undefined`, is relayed.
+    let opened = false;
+    return (chunk: Buffer): void => {
       const text = chunk.toString();
       for (const line of text.split(/\r?\n/)) {
-        if (line.length > 0) stream.write(`${prefix}${line}\n`);
+        if (line.length === 0) continue;
+        if (!opened) {
+          opened = true;
+          if (line.trim() === "undefined") continue;
+        }
+        stream.write(`${prefix}${line}\n`);
       }
     };
+  };
   child.stdout?.on("data", onLine(process.stdout));
   child.stderr?.on("data", onLine(process.stderr));
 }

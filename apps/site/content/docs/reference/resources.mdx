@@ -4,12 +4,21 @@ description: Every option on a resource, its columns, fields and filters.
 ---
 
 ```ts
-export function resource<Ref>(ref: Ref, options: ResourceOptions<Row>): ResourceConfig;
+export function resource<Ref>(
+  ref: Ref,
+  options: ResourceOptions<InferRow<Ref>>,
+): ResourceConfig;
 ```
 
 `ref` is whatever your adapter understands — a Drizzle table object, or a
-Prisma model delegate. `Row` is inferred from it, so `columns`, `search`,
-`filters` and `defaultSort` only accept real column names.
+Prisma model name. The row type comes from
+[`InferRow<Ref>`](/docs/reference/registry#inferrow): a Drizzle table resolves
+through `$inferSelect`, a string ref through your `FlowpanelResources`
+augmentation, and anything else falls back to `Record<string, unknown>`. When
+it resolves to a real row type, `columns`, `search`, `filters` and
+`defaultSort` only accept real column names; when it falls back, they are
+plain `string` and the check moves to
+[`defineAdmin`'s introspect-time validation](/docs/core-concepts/resources#typos-and-column-validation).
 
 ```ts
 import { resource } from "@flowpanel/kit";
@@ -34,6 +43,11 @@ export const ordersResource = resource(orders, {
 An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ColumnDef" />
+
+`field` is optional so a column can render a value no row property holds — a
+join, something computed. Such a column must set both `render` and `label`,
+never sorts or filters, and is skipped by export; see
+[Joined or computed values](/docs/customization/column-renderers#joined-or-computed-values).
 
 ### ColumnFormat
 
@@ -73,11 +87,19 @@ type FieldType =
   | "json" | "markdown" | "tags" | "reference" | "hidden" | "color";
 ```
 
-Omit it and FlowPanel infers the control from the column's `ColumnMeta.type`.
+Omit it on a declared field and the control is `"text"` — or `"reference"`
+when the field sets `reference`. The adapter's `ColumnMeta.type` is consulted
+only by the fully generated form a resource gets when it declares **no**
+`create.fields` / `update.fields` at all, and even there it only maps
+`number`, `boolean`, `date` and `json`; every other column type renders as
+text. So `enum`, `array` and `reference` columns need an explicit `type` (plus
+`options` / `reference`) to get a richer control.
 
 ## FilterDef
 
-An entry in `filters`. A bare string infers the control from the column type.
+An entry in `filters`. A bare string is **always** a `text` filter — there is
+no inference from the column's type, so declare a `FilterDef` with an explicit
+`type` for a select, a date range, or anything else.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FilterDef" />
 

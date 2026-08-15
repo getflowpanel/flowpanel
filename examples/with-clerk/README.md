@@ -29,8 +29,17 @@ pnpm db:seed
 pnpm dev
 ```
 
-Then sign up in your local app (port 3000). In the Clerk dashboard, find your
-user and set `publicMetadata.role` to `"admin"`. Visit `/admin` — that's it.
+Then sign up in your local app (port 3000). In the Clerk dashboard:
+
+1. **Customize the session token** — Clerk session tokens don't carry
+   `publicMetadata` by default, and `withClerk` reads
+   `sessionClaims.publicMetadata.role`. Go to **Sessions → Customize session
+   token** and add:
+   ```json
+   { "publicMetadata": "{{user.public_metadata}}" }
+   ```
+2. Find your user and set `publicMetadata.role` to `"admin"`.
+3. Visit `/admin` — that's it.
 
 Without `role=admin`, FlowPanel will redirect to `forbiddenUrl` (or `/`).
 

@@ -20,12 +20,23 @@ const LAYERS: ReadonlyArray<Layer> = [
   },
   {
     title: "Take the source",
-    description: "One command writes a five-file scaffold into your repo. Every file is yours.",
+    description:
+      "One command writes a five-file scaffold into your repo, lists every file, and comments the config entry out. Every file is yours.",
     code: (
       <>
         <PromptLine command="pnpm flowpanel eject resource users" />
         {"\n"}
-        <OutputLine text="wrote 5 files to app/admin/users/" />
+        <OutputLine text="app/admin/users/page.tsx" />
+        {"\n"}
+        <OutputLine text="app/admin/users/new/page.tsx" />
+        {"\n"}
+        <OutputLine text="app/admin/users/[id]/page.tsx" />
+        {"\n"}
+        <OutputLine text="app/admin/users/[id]/edit/page.tsx" />
+        {"\n"}
+        <OutputLine text="app/admin/users/actions.ts" />
+        {"\n"}
+        <OutputLine text="Ejected resource users" />
       </>
     ),
   },

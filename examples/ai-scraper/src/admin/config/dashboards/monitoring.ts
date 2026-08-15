@@ -2,6 +2,7 @@ import { dashboard, metric, table } from "@flowpanel/kit";
 import { barChart } from "@flowpanel/kit/charts";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import * as schema from "@/src/db/schema";
+import { modelLabel } from "@/src/lib/ai-models";
 import { countInRange } from "../metrics";
 
 export const monitoring = dashboard({
@@ -48,11 +49,11 @@ export const monitoring = dashboard({
       widgets: [
         // cents → $ for the currency formatter.
         barChart(
-          "AI cost by task",
+          "AI cost by model",
           async ({ db, dateRange }) => {
             const rows = await db
               .select({
-                task: schema.aiUsage.task,
+                model: schema.aiUsage.model,
                 cost: sql<number>`sum(${schema.aiUsage.costCents})::float / 100`,
               })
               .from(schema.aiUsage)
@@ -62,11 +63,11 @@ export const monitoring = dashboard({
                   lte(schema.aiUsage.createdAt, dateRange.to),
                 ),
               )
-              .groupBy(schema.aiUsage.task)
+              .groupBy(schema.aiUsage.model)
               .orderBy(sql`sum(${schema.aiUsage.costCents}) desc`);
-            return rows;
+            return rows.map((r) => ({ model: modelLabel(r.model), cost: r.cost }));
           },
-          { x: "task", y: "cost", format: "currency", height: 220 },
+          { x: "model", y: "cost", format: "currency", height: 220 },
         ),
       ],
     },

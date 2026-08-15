@@ -16,8 +16,9 @@ without side effects.
 export function defineAdmin(config: AdminConfig): ResolvedAdminConfig;
 ```
 
-Every property table below is generated from the package's own `.d.ts`, so it
-cannot drift from the code that ships.
+Every property table below is generated at build time from the package's own
+TypeScript **source** — the same declarations the compiler reads — so a table
+cannot drift from the type it documents.
 
 ## AdminConfig
 
@@ -43,7 +44,21 @@ purpose — behind a VPN or an authenticating proxy — sets
 `allowUnauthenticated: true` to say so and silence the warning; it enforces
 nothing either way.
 
-See [Auth with Clerk](/docs/guides/auth-with-clerk) for the shipped presets.
+Four presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
+(`devAuth` is also on the package root):
+
+| Preset | Session source | Role read from |
+| --- | --- | --- |
+| `withClerk(opts?)` | Clerk's `auth()` helper, loaded lazily | `sessionClaims.publicMetadata.role` |
+| `withNextAuth(opts)` | the `auth()` / `getServerSession` you pass | `session.user.role` |
+| `withLucia(opts)` | the Lucia instance you pass | `user.role` |
+| `devAuth(role?)` | a fixed `{ id: "dev" }` | the `role` argument, default `"admin"` |
+
+`devAuth()` is for local development and examples only: it authenticates
+nobody, sets no `requireRole`, and leaves the "no access control" warning
+firing.
+
+See [Auth with Clerk](/docs/guides/auth-with-clerk) for the worked setup.
 
 ## ThemeConfig
 
@@ -194,3 +209,32 @@ export const { GET, POST } = handlers(config);
 When a resource has delete enabled (i.e. **not** `delete: { disabled: true }`)
 and declares no `bulkActions`, `defineAdmin` injects a default `delete` bulk
 action. Opt out with `bulkActions: []` or `delete: { disabled: true }`.
+
+`readOnly: true` short-circuits the whole rule: a read-only admin rewrites
+every resource to `bulkActions: []` (and empties `actions` and the drawer's
+actions, disables create/update/delete, drops `import`, and clears every
+column's `editable`), so no default delete is injected for any resource.
+
+## Reserved names
+
+`defineAdmin` also throws when a resource name or a queue key is one of
+`dashboards`, `drawer` or `queues`. Those are the first URL segments the
+admin's own routing claims — `handlers()` matches `drawer` and `dashboards`
+positionally, and the page router matches `queues` — so a resource named after
+one has its requests captured by the wrong route. The error names the option
+to change (`options.name` for a resource, `options.key` for a queue).
+
+## Behavior beyond validation
+
+`defineAdmin` does three things to your config on the way through, besides
+checking it:
+
+1. **Fills `columns`** from `adapter.introspect(ref)` for any resource that
+   omitted them, in introspection order. If the adapter cannot introspect the
+   ref, or reports zero columns, that throws.
+2. **Injects the default bulk delete** (above).
+3. **Normalizes `basePath`** and every dashboard / page `path` — a missing
+   leading `/` is added, a trailing one stripped.
+
+None of it is I/O, so invariant I-1 still holds: `introspect` is a synchronous
+read of a table object or DMMF, not a database round trip.

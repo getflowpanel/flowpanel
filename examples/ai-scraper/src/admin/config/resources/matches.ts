@@ -1,10 +1,12 @@
 import { resource } from "@flowpanel/kit";
 import { eq } from "drizzle-orm";
 import * as schema from "@/src/db/schema";
-import { badge, confidenceCell, formatDate } from "../format";
+import { MATCH_MODELS, modelLabel } from "@/src/lib/ai-models";
+import { badge, confidenceCell, formatDate, modelBadge } from "../format";
 
 export const matches = resource(schema.matches, {
   label: "Review queue",
+  labelOne: "Match",
   // Produced by the AI pipeline, so `create` is disabled below.
   columns: [
     {
@@ -23,7 +25,7 @@ export const matches = resource(schema.matches, {
       align: "right",
       render: (m) => confidenceCell(m.confidence),
     },
-    { field: "model", label: "Model", format: "badge" },
+    { field: "model", label: "Model", render: (m) => modelBadge(m.model) },
     { field: "status", label: "Status", format: badge },
     { field: "matchedAt", label: "Matched", render: (m) => formatDate(m.matchedAt) },
   ],
@@ -42,10 +44,7 @@ export const matches = resource(schema.matches, {
       field: "model",
       type: "select",
       label: "Model",
-      options: ["gpt-4o-mini", "claude-haiku-4-5", "gemini-2.0-flash"].map((m) => ({
-        label: m,
-        value: m,
-      })),
+      options: MATCH_MODELS.map((m) => ({ label: modelLabel(m), value: m })),
     },
     { field: "confidence", type: "numeric-range", label: "Confidence" },
   ],

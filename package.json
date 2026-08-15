@@ -5,7 +5,7 @@
   "scripts": {
     "build": "turbo run build",
     "test:unit": "turbo run test:unit",
-    "test:e2e": "turbo run test:e2e",
+    "test:e2e": "pnpm --filter @flowpanel/e2e test:e2e",
     "test:types": "turbo run test:types",
     "lint": "biome check .",
     "format": "biome check --write .",
@@ -15,7 +15,8 @@
     "release": "turbo run build && changeset publish",
     "prepare": "lefthook install || true",
     "check:docs": "tsx scripts/check-docs.ts",
-    "check:changesets": "changeset status"
+    "check:changesets": "changeset status",
+    "check:cycles": "madge --circular --extensions ts,tsx packages/*/src"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",

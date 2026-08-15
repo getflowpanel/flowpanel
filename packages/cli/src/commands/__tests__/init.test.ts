@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
 import { tpl } from "../../utils/template.js";
+import { guessedPaths } from "../init.js";
+
+describe("guessedPaths", () => {
+  it("uses the @/ alias when the project has one", () => {
+    expect(guessedPaths("drizzle", "strip-src")).toEqual({
+      db: "@/server/lib/db",
+      schema: "@/server/lib/db/schema",
+      auth: "@/server/lib/auth",
+    });
+    expect(guessedPaths("drizzle", "root").db).toBe("@/server/lib/db");
+  });
+
+  it("guesses relative specifiers when the project has no @/ alias", () => {
+    expect(guessedPaths("drizzle", "none")).toEqual({
+      db: "./server/lib/db",
+      schema: "./server/lib/db/schema",
+      auth: "./server/lib/auth",
+    });
+  });
+
+  it("points Prisma projects at the prisma client, alias or not", () => {
+    expect(guessedPaths("prisma", "strip-src").db).toBe("@/lib/prisma");
+    expect(guessedPaths("prisma", "none").db).toBe("./lib/prisma");
+  });
+});
 
 describe("init templates (resolution)", () => {
   it("substitutes DB/SCHEMA/AUTH/APP_NAME into config template", async () => {

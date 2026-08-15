@@ -47,8 +47,9 @@ export default defineAdmin({
 | `dmmf` | `PrismaDmmf?` | Optional pre-loaded DMMF; otherwise read from `@prisma/client`. |
 
 The model reference is the **PascalCase model name** from
-`schema.prisma` (`"User"`, not `"user"`). The adapter looks up the
-delegate as `prisma.<modelLower>` at runtime.
+`schema.prisma` (`"User"`, not `"user"`). At runtime the adapter lower-cases
+only the first letter to find the delegate — `"User"` → `prisma.user`,
+`"OrderItem"` → `prisma.orderItem`.
 
 Soft delete is configured per resource:
 `resource("User", { delete: { softDelete: "deletedAt" } })`.

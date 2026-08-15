@@ -2,7 +2,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runEject } from "../eject.js";
+import cliPkg from "../../../package.json" with { type: "json" };
+import { ejectVersion, runEject } from "../eject.js";
 
 let tmp: string;
 beforeEach(async () => {
@@ -35,8 +36,24 @@ describe("runEject — resource", () => {
     expect(page).toMatch(/ejected @ 1\.0\.0/);
     const cfg = await fs.readFile(path.join(tmp, "flowpanel.config.ts"), "utf8");
     expect(cfg).toContain("// ejected: app/admin/users");
-    expect(cfg).not.toMatch(/resource\(schema\.users,/);
-    expect(cfg).toMatch(/resource\(schema\.jobs,/);
+    expect(cfg).toContain('    // resource(schema.users, { columns: ["email"] }),');
+    expect(cfg).toMatch(/^\s*resource\(schema\.jobs,/m);
+  });
+
+  it("reports every file it wrote, relative to cwd", async () => {
+    const written = await runEject({
+      cwd: tmp,
+      target: "resource",
+      name: "users",
+      version: "1.0.0",
+    });
+    expect(written).toEqual([
+      "app/admin/users/page.tsx",
+      "app/admin/users/new/page.tsx",
+      "app/admin/users/[id]/page.tsx",
+      "app/admin/users/[id]/edit/page.tsx",
+      "app/admin/users/actions.ts",
+    ]);
   });
 
   it("requires a name for resource", async () => {
@@ -55,8 +72,8 @@ describe("runEject — dashboard", () => {
 
     const cfg = await fs.readFile(path.join(tmp, "flowpanel.config.ts"), "utf8");
     expect(cfg).toContain("// ejected: app/admin");
-    expect(cfg).not.toMatch(/path: "\/", label: "Overview"/);
-    expect(cfg).toMatch(/path: "\/monitoring"/);
+    expect(cfg).toContain('    // dashboard({ path: "/", label: "Overview", sections: [] }),');
+    expect(cfg).toMatch(/^\s*dashboard\(\{ path: "\/monitoring"/m);
   });
 
   it("ejects a sub-path dashboard (/monitoring → app/admin/monitoring/page.tsx)", async () => {
@@ -66,8 +83,10 @@ describe("runEject — dashboard", () => {
 
     const cfg = await fs.readFile(path.join(tmp, "flowpanel.config.ts"), "utf8");
     expect(cfg).toContain("// ejected: app/admin/monitoring");
-    expect(cfg).not.toMatch(/path: "\/monitoring"/);
-    expect(cfg).toMatch(/path: "\/", label: "Overview"/);
+    expect(cfg).toContain(
+      '    // dashboard({ path: "/monitoring", label: "Monitoring", sections: [] }),',
+    );
+    expect(cfg).toMatch(/^\s*dashboard\(\{ path: "\/", label: "Overview"/m);
   });
 
   it("requires a path for dashboard", async () => {
@@ -92,6 +111,22 @@ describe("runEject — layout", () => {
     // Layout eject does NOT touch flowpanel.config.ts.
     const cfg = await fs.readFile(path.join(tmp, "flowpanel.config.ts"), "utf8");
     expect(cfg).not.toMatch(/ejected: app\/admin\/layout/);
+  });
+});
+
+describe("ejectVersion", () => {
+  it("reads the installed kit version", async () => {
+    const kit = path.join(tmp, "node_modules/@flowpanel/kit");
+    await fs.mkdir(kit, { recursive: true });
+    await fs.writeFile(
+      path.join(kit, "package.json"),
+      JSON.stringify({ name: "@flowpanel/kit", version: "0.4.2" }),
+    );
+    expect(await ejectVersion(tmp)).toBe("0.4.2");
+  });
+
+  it("falls back to the CLI's own version when the kit is not installed", async () => {
+    expect(await ejectVersion(tmp)).toBe(cliPkg.version);
   });
 });
 

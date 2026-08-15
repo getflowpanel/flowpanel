@@ -5,8 +5,9 @@ description: How flowpanel reads and writes your data — Drizzle, Prisma, or yo
 
 An adapter is the plug between flowpanel's typed admin surface and your
 data layer. It exposes a small interface (`list`, `get`, `create`,
-`update`, `delete`, `introspect`, `inferSchema`) that the framework
-calls; what's behind that interface is up to you.
+`update`, `delete`, `introspect`, `inferSchema`, plus the `db` handle every
+context reads) that the framework calls; what's behind that interface is up
+to you.
 
 ## First-party adapters
 
@@ -56,19 +57,28 @@ export default defineAdmin({
   </AdapterTab>
 </AdapterTabs>
 
-`prismaAdapter` keys the delegate off the model name's lower-cased
-form (`prisma.user`, `prisma.order`), so pass the PascalCase model
-name from `schema.prisma`.
+`prismaAdapter` keys the delegate off the model name with only its
+**first letter** lower-cased — `"User"` → `prisma.user`, `"OrderItem"` →
+`prisma.orderItem` — so pass the PascalCase model name from
+`schema.prisma`.
 
 ## Custom adapters
 
 If you don't use Drizzle or Prisma, implement the `Adapter` interface
-directly. It's documented in `packages/core/src/types/adapter.ts` —
-six async methods (`list`, `get`, `create`, `update`, `delete`,
-`restore`), two sync introspection helpers (`introspect`,
-`inferSchema`), and a `kind` label. `kind` is an open union —
-`"drizzle"` and `"prisma"` autocomplete, and your own adapter names
-itself whatever it likes.
+directly — see the full contract on the
+[Adapter reference](/docs/reference/adapters). What it requires:
+
+- **Five async data methods**: `list`, `get`, `create`, `update`, `delete`.
+- **Two sync introspection helpers**: `introspect` and `inferSchema`.
+- **A `db` property** — the client handed to every `ctx.db`, and what
+  `FlowpanelTypes["db"]` types.
+- **A `kind` label** — an open union, so `"drizzle"` and `"prisma"`
+  autocomplete and your own adapter names itself whatever it likes.
+
+Everything else is optional: `restore` (without it the admin hides the
+restore button), and the three migration hooks `runMigrationSql`,
+`listAppliedMigrations` and `markMigrationApplied` that `flowpanel migrate`
+drives.
 
 ## Why two adapters
 

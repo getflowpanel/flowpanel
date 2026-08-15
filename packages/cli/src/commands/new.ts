@@ -58,6 +58,11 @@ function exportedNames(source: string): Set<string> {
   return names;
 }
 
+type SchemaCheck =
+  | { status: "ok" }
+  | { status: "missing"; message: string }
+  | { status: "unverified"; reason: string };
+
 /**
  * Checks the resource maps to a real table before writing it into the config —
  * otherwise `flowpanel new` happily produces a line that cannot compile.
@@ -66,19 +71,32 @@ async function checkSchemaExport(
   cwd: string,
   configSource: string,
   name: string,
-): Promise<string | null> {
+): Promise<SchemaCheck> {
   const importMatch = /import\s+\*\s+as\s+schema\s+from\s+["']([^"']+)["']/.exec(configSource);
-  if (!importMatch) return null;
-  const file = await resolveSchemaFile(cwd, importMatch[1] as string);
-  if (!file) return null;
+  if (!importMatch) {
+    return { status: "unverified", reason: "the config has no `import * as schema` line" };
+  }
+  const spec = importMatch[1] as string;
+  const file = await resolveSchemaFile(cwd, spec);
+  if (!file) {
+    return { status: "unverified", reason: `"${spec}" does not resolve to a file under ${cwd}` };
+  }
   const names = exportedNames(await fs.readFile(file, "utf8"));
-  if (names.size === 0 || names.has(name)) return null;
+  if (names.size === 0) {
+    return {
+      status: "unverified",
+      reason: `no exports could be read from ${path.relative(cwd, file)}`,
+    };
+  }
+  if (names.has(name)) return { status: "ok" };
   const available = [...names].sort().slice(0, 12).join(", ");
-  return (
-    `${path.relative(cwd, file)} has no export named "${name}".\n` +
-    (available ? `Exports there: ${available}\n` : "") +
-    `Pass the table expression yourself with --table if it lives elsewhere.`
-  );
+  return {
+    status: "missing",
+    message:
+      `${path.relative(cwd, file)} has no export named "${name}".\n` +
+      (available ? `Exports there: ${available}\n` : "") +
+      `Pass the table expression yourself with --table if it lives elsewhere.`,
+  };
 }
 
 export function newCommand(cli: Command): void {
@@ -101,10 +119,16 @@ export function newCommand(cli: Command): void {
       const kind = opts.kind === "prisma" ? "prisma" : "drizzle";
 
       if (kind === "drizzle" && opts.table === undefined) {
-        const problem = await checkSchemaExport(cwd, source, resource);
-        if (problem) {
-          p.cancel(problem);
+        const check = await checkSchemaExport(cwd, source, resource);
+        if (check.status === "missing") {
+          p.cancel(check.message);
           process.exit(1);
+        }
+        if (check.status === "unverified") {
+          p.log.warn(
+            `Could not verify that "${resource}" is a real table — ${check.reason}.\n` +
+              "Writing the entry anyway; check that it compiles.",
+          );
         }
       }
 

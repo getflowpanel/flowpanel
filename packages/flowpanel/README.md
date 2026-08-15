@@ -1,4 +1,4 @@
-# flowpanel
+# @flowpanel/kit
 
 > One typed config → full admin panel for your Next.js app. Drizzle or Prisma. Realtime. Queues. Eject when you outgrow it.
 
@@ -57,16 +57,19 @@ flowpanel eject     Take ownership of a resource / dashboard / layout
 ## Subpaths
 
 ```
-flowpanel              core builders (defineAdmin, resource, dashboard, ...)
-flowpanel/next         Next.js App Router integration
-flowpanel/react        React UI primitives (used internally and exposed)
-flowpanel/drizzle      Drizzle adapter
-flowpanel/prisma       Prisma adapter
-flowpanel/bullmq       BullMQ queue adapter
-flowpanel/charts       Charts (lazy-loaded)
-flowpanel/client       Client-only hooks
-flowpanel/auth         withClerk, withNextAuth, withLucia
-flowpanel/server       Server-only utilities
+@flowpanel/kit                 core builders (defineAdmin, resource, dashboard, ...)
+@flowpanel/kit/next            Next.js App Router integration
+@flowpanel/kit/next/client     Client components for the Next.js integration
+@flowpanel/kit/react           React UI primitives (used internally and exposed)
+@flowpanel/kit/drizzle         Drizzle adapter
+@flowpanel/kit/prisma          Prisma adapter
+@flowpanel/kit/bullmq          BullMQ queue adapter
+@flowpanel/kit/bullmq/board    startBoardServer (mounts bull-board, kept Express-free from the adapter entry)
+@flowpanel/kit/charts          Charts (lazy-loaded)
+@flowpanel/kit/charts/runtime  Chart renderers (used internally by the lazy-loaded charts)
+@flowpanel/kit/client          Client-only hooks
+@flowpanel/kit/auth            withClerk, withNextAuth, withLucia
+@flowpanel/kit/server          Server-only utilities
 ```
 
 ## Documentation

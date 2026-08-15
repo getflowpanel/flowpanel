@@ -71,10 +71,39 @@ export default defineAdmin({
 });
 ```
 
-That's the whole integration. By default `withClerk` reads the role from
-`sessionClaims.publicMetadata.role` and treats a missing role as `"guest"`.
-Set `publicMetadata.role = "admin"` on a user in the Clerk dashboard to grant
-access.
+By default `withClerk` reads the role from `sessionClaims.publicMetadata.role`
+and treats a missing role as `"guest"`. Set `publicMetadata.role = "admin"`
+on a user in the Clerk dashboard to grant access.
+
+## 5. Put `publicMetadata` in the session token
+
+This step is easy to miss and looks like a FlowPanel bug when you do:
+**Clerk does not include `publicMetadata` in session claims by default.**
+Without it `sessionClaims.publicMetadata` is `undefined`, the role resolves to
+`"guest"`, and every admin route answers 403 for a user you can see has
+`role: "admin"` in the dashboard.
+
+Fix it in the Clerk dashboard under **Sessions → Customize session token**, by
+adding the claim:
+
+```json
+{ "publicMetadata": "{{user.public_metadata}}" }
+```
+
+Sign out and back in (or wait for the token to refresh) so the new claim is
+minted.
+
+If you'd rather not enlarge the token, pass a `role` extractor that reads from
+wherever your claims actually carry it:
+
+```ts
+withClerk({
+  requireRole: "admin",
+  role: (s) => (s as { metadata?: { role?: string } } | null)?.metadata?.role ?? "guest",
+});
+```
+
+That's the whole integration.
 
 ## Options
 
@@ -108,7 +137,7 @@ interface AuthConfig {
   session: () => Promise<Session | null>;
   role: (session: Session | null) => string;
   userId?: (session: Session | null) => string | null;
-  // ...requireRole, signInUrl, forbiddenUrl
+  // ...requireRole, signInUrl, forbiddenUrl, allowUnauthenticated
 }
 ```
 

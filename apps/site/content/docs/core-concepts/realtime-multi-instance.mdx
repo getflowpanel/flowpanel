@@ -50,12 +50,34 @@ export default defineAdmin({
 });
 ```
 
-That's the whole switch. Every existing `resource.realtime: true`,
-`table({ realtime: "resource.orders" })`, and `publishResource(name, …)`
-call now fans out via Redis instead of an in-process EventEmitter. (A
-resource's `realtime` is `boolean | string`; a widget's is
-`string | string[]` — a widget names the channels it listens to, so
-`true` is not a value it accepts.)
+That switch covers every process that goes through `Flowpanel(config)` or
+`handlers(config)` — both call `bindPublisher(config)` for you, so every
+existing `resource.realtime: true`, `table({ realtime: "resource.orders" })`
+and `publishResource(name, …)` inside a request fans out via Redis instead of
+an in-process EventEmitter. (A resource's `realtime` is `boolean | string`;
+a widget's is `string | string[]` — a widget names the channels it listens
+to, so `true` is not a value it accepts.)
+
+A process that never renders the admin or serves its API — a worker, a cron, a
+one-off script — has never seen the config, so it has no publisher bound. Bind
+it once at startup:
+
+```ts
+import { bindPublisher, publishResource } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
+bindPublisher(config);
+
+await publishResource("orders", { action: "update", id: orderId });
+```
+
+Skip that and the publish falls back to an in-memory publisher, logs one
+warning, and reaches nobody.
+
+`@flowpanel/kit/server` re-exports the same `publish`, `publishResource` and
+`bindPublisher` bound to the same process-wide store, so importing from either
+subpath in the same process is equivalent — a `publish` sent through
+`/server` reaches a subscriber registered through `/next`.
 
 ## What flows over Redis
 
@@ -104,12 +126,17 @@ HTTPS — Redis is the **notify**, not the source of truth.
 
 ## Operational checklist
 
-- **Connection pooling.** ioredis defaults are fine on small admins
-  (under 1k concurrent SSE clients). At scale, share one publisher instance
-  across the whole Next.js process — don't recreate per request.
+- **Bind the publisher in workers.** The publisher is already a process-wide
+  singleton inside the Next.js server — `Flowpanel` and `handlers` bind it.
+  Any process that runs neither (worker, cron, seed script) has to call
+  `bindPublisher(config)` itself, or its publishes stay in-process.
+- **Install `ioredis`.** It is an optional peer dependency, so a kit install
+  does not pull it in. `createPublisher({ driver: "redis", … })` throws
+  `ioredis is not installed` on the first publish without it.
 - **TLS.** Production Redis providers (Upstash, AWS ElastiCache, Render)
-  use TLS. Pass `tls: {}` (object, not `true`) to ioredis options if your
-  URL doesn't already encode it as `rediss://…`.
+  use TLS. `PublisherOptions` is `{ driver, url, keyPrefix? }` and nothing
+  else — there is no place to pass ioredis options such as `tls`. Encode TLS
+  in the URL instead: `rediss://…`.
 - **HEAD requests / health checks.** SSE responses are long-lived;
   ALBs default to 60s idle timeout. Bump the proxy/LB idle timeout to
   at least 5 minutes, or accept that browsers auto-reconnect every
@@ -130,9 +157,13 @@ each event lands; common breakage:
 - nginx: set `proxy_buffering off;` for the `/api/flowpanel/stream` location.
 - Cloudflare: enable "Streaming responses" or disable proxying on the
   stream route via a Page Rule.
-- Vercel: free tier closes Functions at 10s; stream needs `runtime:
-  "nodejs"` + Pro tier (or self-host the stream route on a long-lived
-  server).
+- Serverless platforms cap function duration, and an SSE response is a
+  long-lived one. The stream route `flowpanel init` scaffolds already
+  declares what it needs — `export const runtime = "nodejs"` and
+  `export const dynamic = "force-dynamic"` — so keep both if you rewrite it.
+  Beyond that, check your platform's current max duration for the plan you
+  are on; where it is too short, host the stream route on a long-lived
+  server instead.
 
 **Symptom: Browser receives events on instance A but not after a
 deploy that lands on instance B.**
@@ -149,3 +180,7 @@ instance A is fanning out in-memory only because either:
 the wiring files, not the runtime `realtime` settings. Confirm the
 driver and that `REDIS_URL` is set on every instance yourself; a CI gate
 on env parity is the only reliable guard against case 3.
+
+For the step-by-step version of the switch — enabling `realtime` on a
+resource, installing `ioredis`, publishing your own events — see
+[Realtime with Redis](/docs/guides/realtime-with-redis).

@@ -74,12 +74,104 @@ pages still render.
 
 Full type signatures live on the **Reference / defineAdmin** page.
 
+## One resource per file
+
+The single-file config above is the shape `flowpanel init` writes and the
+shape every sample on this site uses, because a sample has to fit on screen.
+It is not the shape a real admin should keep: `resource()` returns a plain
+`ResourceConfig`, so a config of any size decomposes into one file per
+resource with no framework support required.
+
+```text
+src/admin/
+├── resources/
+│   ├── users.ts
+│   ├── orders.tsx        # .tsx — this one has a render column
+│   └── invoices.ts
+├── dashboards/
+│   └── overview.ts
+└── config.ts             # or keep flowpanel.config.ts at the root
+```
+
+Each file exports one builder call:
+
+```ts title="src/admin/resources/users.ts"
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/server/lib/db/schema";
+
+export const users = resource(schema.users, {
+  columns: ["email", "role", "createdAt"],
+  search: ["email"],
+  defaultSort: { field: "createdAt", dir: "desc" },
+});
+```
+
+```tsx title="src/admin/resources/orders.tsx"
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/server/lib/db/schema";
+import { OrderStatus } from "../OrderStatus";
+
+export const orders = resource(schema.orders, {
+  columns: [
+    "id",
+    { field: "status", render: (row) => <OrderStatus status={row.status} /> },
+    { field: "totalCents", format: { kind: "money", scale: 100 } },
+  ],
+});
+```
+
+The config file then reads as a manifest:
+
+```ts title="flowpanel.config.ts"
+import { defineAdmin } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+import { getSession } from "@/server/lib/auth";
+import { overview } from "@/admin/dashboards/overview";
+import { invoices } from "@/admin/resources/invoices";
+import { orders } from "@/admin/resources/orders";
+import { users } from "@/admin/resources/users";
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: {
+    session: getSession,
+    role: (s) => (s as { user?: { role?: string } } | null)?.user?.role ?? "guest",
+    requireRole: "admin",
+  },
+  dashboards: [overview],
+  resources: [users, orders, invoices],
+});
+```
+
+Three things worth knowing:
+
+- **A resource with a JSX `render` belongs in a `.tsx` file.** `flowpanel.config.ts`
+  can be renamed `flowpanel.config.tsx` — the CLI looks for both — but moving
+  the JSX out to its own module keeps the manifest plain TypeScript.
+- **`defineAdmin` is pure**, so importing a resource module has no side
+  effects and the config can be imported from a script or a test.
+- **Keep the module-augmentation block in one place** (the config file, or a
+  dedicated `flowpanel.d.ts`). `declare module "@flowpanel/kit"` merges
+  globally, so repeating it per resource file only invites conflicting
+  entries.
+
+`flowpanel new <resource>` appends to whichever `resources` array it finds in
+the config, so it fits the single-file layout; in a decomposed one, write the
+file yourself and add the import.
+
 ## Typing your `ctx.db`
 
-Augment `FlowpanelTypes["db"]` once with `typeof db` and every
-`WidgetContext` (the `ctx` passed to widget queries and row-action
-`run` callbacks) gets the typed client automatically — no per-callsite
-annotations.
+Augment `FlowpanelTypes["db"]` once with `typeof db` and both request contexts
+that default to it carry the typed client automatically — no per-callsite
+annotations. That is `WidgetContext` (every widget `query`, stat resolver and
+`custom()` props resolver) and `ActionContext` (every row / bulk / dashboard /
+drawer action `run`), plus the adapter's own `db`.
+
+The adapter-facing `QueryContext` family defaults its client to `unknown`
+instead, so a `FieldDef.options` or `defaultValue` resolver still narrows
+`ctx.db` itself. See [Type registry](/docs/reference/registry#inferdb).
 
 ```ts
 declare module "@flowpanel/kit" {
@@ -94,6 +186,8 @@ inference for `resource("User", ...)`:
 
 ```ts
 import type { User, Post } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof prisma;

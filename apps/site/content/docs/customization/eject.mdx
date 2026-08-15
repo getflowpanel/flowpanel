@@ -10,25 +10,75 @@ piece is yours — flowpanel stops generating it, and your edits stick.
 Three targets are supported (per invariant I-6): `resource`,
 `dashboard`, and `layout`. There is no fourth.
 
+## Before you eject
+
+`eject` rewrites `flowpanel.config.ts`, so the config has to exist first. In
+a project that never ran `flowpanel init` the command aborts before writing
+anything:
+
+```text
+▲  Failed: flowpanel.config.ts not found. Run `flowpanel init` first — eject
+   rewrites the config to hand rendering over to your files.
+```
+
+The config lookup happens **before** any file is copied, deliberately: the
+copy step has no rollback, so a missing config discovered later would leave
+orphaned files behind.
+
 ## Eject a resource
 
 ```bash
 $ pnpm flowpanel eject resource users
-→ wrote 5 files to app/admin/users/
 ```
 
-The scaffold mirrors what the framework would have rendered for that
-resource: list page, detail page, edit page, create page, and the
-server actions module. Every file is stamped at the top with the
+The command lists exactly what it wrote and ends with a one-line outro:
+
+```text
+◇  Wrote ─────────────────────────────╮
+│                                     │
+│  app/admin/users/page.tsx           │
+│  app/admin/users/new/page.tsx       │
+│  app/admin/users/[id]/page.tsx      │
+│  app/admin/users/[id]/edit/page.tsx │
+│  app/admin/users/actions.ts         │
+│                                     │
+├─────────────────────────────────────╯
+│
+└  Ejected resource users
+```
+
+Paths are relative to the project root, and `app/` is whatever
+`detectAppDir` found — a `src/app` project gets `src/app/admin/users/…`.
+
+Those five files are **starting stubs, not a copy of the rendered page**. Each
+one renders a heading and a "implement this here" line, with a comment block
+naming the building blocks (`DataTable`, `FilterBar`, `BulkBar` from
+`@flowpanel/kit/react`, your own db client) that the real implementation
+would reach for. Nothing in the scaffold queries your database yet — that part
+is the work eject hands you. Every file is stamped at the top with the
 flowpanel version it was generated from, so you can spot drift later:
 
 ```
 // flowpanel: ejected @ 0.1.0 — this file is yours
 ```
 
-The `resource(...)` entry in `flowpanel.config.ts` is commented out
-automatically, so the framework stops rendering its default page tree
-for that resource.
+The matching `resource(...)` entry in `flowpanel.config.ts` is **commented
+out** — line by line, in place, so uncommenting reverts the eject — and a
+breadcrumb is appended at the end of the file:
+
+```ts
+resources: [
+  // resource(schema.users, { columns: ["email", "role"] }),
+  resource(schema.orders, { columns: ["id", "status"] }),
+],
+
+// …
+
+// ejected: app/admin/users
+```
+
+(An entry that shares its line with other code gets a `/* … */` block comment
+instead, since a line comment would swallow its neighbours.)
 
 ## Eject a dashboard
 
@@ -36,9 +86,11 @@ for that resource.
 $ pnpm flowpanel eject dashboard "/monitoring"
 ```
 
-Generates a `page.tsx` for that dashboard path. The matching
-`dashboard({ path: "/monitoring", ... })` entry in your config is
-commented out.
+Generates a single `page.tsx` for that dashboard path
+(`app/admin/monitoring/page.tsx`; a `"/"` dashboard lands at
+`app/admin/page.tsx`). The matching
+`dashboard({ path: "/monitoring", ... })` entry in your config is commented
+out the same way, with an `// ejected: app/admin/monitoring` breadcrumb.
 
 ## Eject the layout
 
@@ -50,6 +102,23 @@ Drops a `layout.tsx` under your admin tree. Next.js's nested layouts
 take over from flowpanel's default `AdminShell` once present — this
 target doesn't touch your config.
 
+## Flags and failure modes
+
+- **`--force`** overwrites files that already exist. Without it, a target
+  that is already on disk aborts the run:
+  `Eject target already exists: app/admin/users/page.tsx (pass force: true to overwrite)`.
+  For a resource that means a partially written scaffold, since the copy has
+  no rollback — rerun with `--force` once you've decided.
+- **An unknown target** (`flowpanel eject widget`) exits `1` with
+  `Unknown target "widget". Use one of: resource, dashboard, layout`.
+- **A missing name** exits `1`: `resource` needs `<name>`, `dashboard` needs
+  a `<path>`.
+- **A name the config doesn't contain** exits `1` with
+  `eject: resource "users" not found in flowpanel.config.ts` — the config is
+  searched for a `resource()` call whose first argument ends in `.users`, is
+  the string `"users"`, or is the bare identifier `users`.
+- Every failure path calls `process.exit(1)`, so CI notices.
+
 ## What stays in flowpanel
 
 Ejecting one piece doesn't affect the others. Resources you didn't
@@ -58,10 +127,11 @@ dashboards.
 
 ## Reversing an eject
 
-There's no automatic re-injection. Delete the scaffold and uncomment
-the entry in `flowpanel.config.ts` to put a piece back under the
-config layer. The cost is your customizations — they live in the
-ejected files only.
+There's no automatic re-injection, but the config half is a two-second undo:
+**uncomment the entry** the CLI commented out (and drop the `// ejected:`
+breadcrumb). Delete the scaffold too, or Next.js's own file-based route keeps
+winning over FlowPanel's catch-all. The cost is your customizations — they
+live in the ejected files only.
 
 ## When _not_ to eject
 

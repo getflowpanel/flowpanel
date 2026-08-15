@@ -5,6 +5,7 @@
 import { sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../src/db/schema";
+import { MATCH_MODELS } from "../src/lib/ai-models";
 import { CATALOG, SELLERS, SITES } from "../src/lib/catalog";
 
 type Db = NodePgDatabase<typeof schema>;
@@ -17,6 +18,7 @@ type Invoice = (typeof schema.invoiceStatus.enumValues)[number];
 type Provider = (typeof schema.aiProvider.enumValues)[number];
 type Match = (typeof schema.matchStatus.enumValues)[number];
 
+const MINUTE = 60_000;
 const HOUR = 3600_000;
 const DAY = 86400_000;
 /** Every generated row picks from a fixed table by `index % length`. */
@@ -27,6 +29,7 @@ const cycle = <T>(xs: readonly T[], i: number): T => {
 };
 const days = (n: number) => new Date(Date.now() - n * DAY);
 const hours = (n: number) => new Date(Date.now() - n * HOUR);
+const minutes = (n: number) => new Date(Date.now() - n * MINUTE);
 /**
  * `n` days ago, but spread across the day by a deterministic per-row offset so
  * timestamps don't all land on the same minute (which reads as fake).
@@ -455,6 +458,34 @@ const SCRAPERS: [number, string, string, Schedule, Scraper, number][] = [
   [23, "DoneDeal.ie", "https://www.donedeal.ie", "daily", "active", 30],
 ];
 
+const RECENT_SCRAPER_TARGETS: [string, string, Schedule][] = [
+  ["Google Shopping — price index", "https://shopping.google.com", "daily"],
+  ["Temu — flash deals", "https://www.temu.com", "hourly"],
+  ["Shein — new arrivals", "https://www.shein.com", "daily"],
+];
+
+/** Guarantees the 10 most-recent joiners each get ≥1 scraper, even outside the hand-picked list. */
+function withRecentCoverage(
+  customers: typeof CUSTOMERS,
+  scrapers: typeof SCRAPERS,
+): typeof SCRAPERS {
+  const owners = new Set(scrapers.map(([u]) => u));
+  const recent = customers
+    .map((u, i) => ({ i, createdDays: u.createdDays }))
+    .sort((a, b) => a.createdDays - b.createdDays)
+    .slice(0, 10)
+    .map((x) => x.i)
+    .filter((i) => !owners.has(i));
+  const extra: typeof SCRAPERS = recent.map((i, k) => {
+    const [name, url, schedule] = cycle(RECENT_SCRAPER_TARGETS, k);
+    return [i, name, url, schedule, "active", 1 + (k % 4)];
+  });
+  return [...scrapers, ...extra];
+}
+
+/** SCRAPERS plus synthesized coverage for otherwise-scraperless recent joiners. */
+const ALL_SCRAPERS = withRecentCoverage(CUSTOMERS, SCRAPERS);
+
 const RUN_ERRORS = [
   "HTTP 429 Too Many Requests",
   "Selector .price not found",
@@ -463,13 +494,23 @@ const RUN_ERRORS = [
   "HTTP 503 Service Unavailable",
 ];
 
-function runStateFor(seq: number, scraperStatus: string): RunState {
-  if (scraperStatus === "error" && seq % 2 === 0) return "failed";
-  const r = seq % 10;
-  if (r === 0) return "failed";
-  if (r === 1) return "running";
-  if (r === 2) return "queued";
-  return "success";
+/** Only `maxRunning` runs total are seeded "running" — without a real worker
+ *  behind Redis, a "running" run never finishes, so the count must stay tiny. */
+const MAX_RUNNING = 2;
+function makeRunStateFor(maxRunning: number) {
+  let running = 0;
+  return (seq: number, scraperStatus: string): RunState => {
+    if (scraperStatus === "error" && seq % 2 === 0) return "failed";
+    const r = seq % 10;
+    if (r === 0) return "failed";
+    if (r === 1) {
+      if (running >= maxRunning) return "success";
+      running++;
+      return "running";
+    }
+    if (r === 2) return "queued";
+    return "success";
+  };
 }
 
 const AI_CALLS: {
@@ -479,24 +520,24 @@ const AI_CALLS: {
   tokensOut: number;
   costCents: number;
 }[] = [
-  { provider: "openai", model: "gpt-4o", tokensIn: 4200, tokensOut: 1100, costCents: 38 },
-  { provider: "openai", model: "gpt-4o-mini", tokensIn: 8800, tokensOut: 2400, costCents: 9 },
+  { provider: "openai", model: "gpt-5", tokensIn: 4200, tokensOut: 1100, costCents: 38 },
+  { provider: "openai", model: "gpt-5-mini", tokensIn: 8800, tokensOut: 2400, costCents: 9 },
   {
     provider: "anthropic",
-    model: "claude-3-5-sonnet",
+    model: "claude-opus-4-5",
     tokensIn: 5200,
     tokensOut: 1600,
     costCents: 31,
   },
   {
     provider: "anthropic",
-    model: "claude-3-5-haiku",
+    model: "claude-haiku-4-5",
     tokensIn: 9100,
     tokensOut: 2600,
     costCents: 7,
   },
-  { provider: "google", model: "gemini-1.5-pro", tokensIn: 6100, tokensOut: 1800, costCents: 22 },
-  { provider: "google", model: "gemini-1.5-flash", tokensIn: 12000, tokensOut: 3000, costCents: 4 },
+  { provider: "google", model: "gemini-2.5-pro", tokensIn: 6100, tokensOut: 1800, costCents: 22 },
+  { provider: "google", model: "gemini-2.5-flash", tokensIn: 12000, tokensOut: 3000, costCents: 4 },
 ];
 
 const PLAN_PRICE: Record<Plan, number> = { free: 0, starter: 1900, pro: 4900, business: 9900 };
@@ -532,7 +573,7 @@ export async function seedDatabase(db: Db): Promise<void> {
   const scraperRows = await db
     .insert(schema.scrapers)
     .values(
-      SCRAPERS.map(([u, name, url, schedule, status, lastRunH]) => ({
+      ALL_SCRAPERS.map(([u, name, url, schedule, status, lastRunH]) => ({
         userId: uid(u),
         name,
         targetUrl: url,
@@ -552,16 +593,21 @@ export async function seedDatabase(db: Db): Promise<void> {
   // --- Runs (2–3 per scraper, deterministic spread over the last 14 days) ---
   const runValues: (typeof schema.runs.$inferInsert)[] = [];
   const runOwner: number[] = []; // parallel: user index that owns each run
-  SCRAPERS.forEach(([u, , , , status], i) => {
+  const runStateFor = makeRunStateFor(MAX_RUNNING);
+  ALL_SCRAPERS.forEach(([u, , , , status], i) => {
     const count = cycle([3, 4, 2, 3], i);
     for (let k = 0; k < count; k++) {
       const seq = i * 7 + k;
       const state = runStateFor(seq, status);
       const live = state === "running" || state === "queued";
-      // Finished runs spread across the whole window (so the date-range picker
-      // differentiates presets); in-flight runs stay recent (a "running" job
-      // 70 days old would be nonsense).
-      const startedAt = live ? hours((seq * 7) % 20) : spreadAt(runValues.length);
+      // Finished runs spread across the whole window; "running" has no worker
+      // without Redis, so it must look freshly started, not stuck for hours.
+      const startedAt =
+        state === "running"
+          ? minutes(1 + (seq % 5))
+          : live
+            ? hours((seq * 7) % 20)
+            : spreadAt(runValues.length);
       const pages =
         state === "success"
           ? 20 + ((seq * 13) % 180)
@@ -620,7 +666,7 @@ export async function seedDatabase(db: Db): Promise<void> {
   // Each catalog product is found on 2–4 sites; price spreads around market.
   // Listings tie to the product's source scraper (by name) + a success run.
   const scraperIdByName = new Map<string, number>();
-  SCRAPERS.forEach(([, name], i) => {
+  ALL_SCRAPERS.forEach(([, name], i) => {
     scraperIdByName.set(name, sid(i));
   });
   const successRunByScraper = new Map<number, number>();
@@ -675,7 +721,6 @@ export async function seedDatabase(db: Db): Promise<void> {
   // --- Matches: the AI link from a listing to a catalog product, with a
   //     confidence score. Distribution ≈ 70% confirmed / 18% needs_review /
   //     12% rejected, tagged by model. needs_review rows wait for a human. ---
-  const MATCH_MODELS = ["gpt-4o-mini", "claude-haiku-4-5", "gemini-2.0-flash"] as const;
   const REVIEWERS = ["amelia.r", "ops-bot", "devon.k", null] as const;
   const matchValues: (typeof schema.matches.$inferInsert)[] = [];
   listingRows.forEach((listing, li) => {
@@ -729,7 +774,8 @@ export async function seedDatabase(db: Db): Promise<void> {
   CUSTOMERS.forEach((u, i) => {
     if (u.plan === "free") return;
     const amount = PLAN_PRICE[u.plan];
-    const cycleOffset = i % 30; // days since this customer's most recent bill
+    // Days since last bill, capped to tenure so no paying customer ends up with 0 invoices.
+    const cycleOffset = Math.min(i % 30, Math.max(0, u.createdDays - 1));
     const maxCycles = Math.min(4, Math.floor(u.createdDays / 30) + 1);
     for (let m = 0; m < maxCycles; m++) {
       const ageDays = cycleOffset + m * 30;
@@ -768,9 +814,10 @@ export async function seedDatabase(db: Db): Promise<void> {
 
   // --- AI usage (LLM extraction metering, tied to every other run) ---
   const aiValues: (typeof schema.aiUsage.$inferInsert)[] = [];
+  let callIdx = 0;
   runRows.forEach((run, j) => {
     if (j % 2 === 1) return; // roughly half the runs invoke the LLM extractor
-    const call = cycle(AI_CALLS, j);
+    const call = cycle(AI_CALLS, callIdx++);
     const owner = runOwner[j];
     if (owner === undefined) throw new Error(`seed: missing run owner #${j}`);
     const scale = 1 + (j % 4) * 0.25;

@@ -12,20 +12,32 @@ something bespoke.
 
 `format` covers the cells you'd otherwise hand-roll:
 
-```ts
-resource(schema.orders, {
+```ts title="src/admin/resources/orders.ts"
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+
+export const orders = resource(schema.orders, {
   columns: [
     "id",
     { field: "status", format: "badge" }, // themed status pill
     { field: "totalCents", format: { kind: "money", scale: 100 } }, // "$12.34"
     { field: "items", format: "number" }, // "1,234"
   ],
-})
+});
 ```
 
-- **`"badge"`** renders the value as a status pill. The tone is resolved
-  automatically (`active` / `success` → green, `failed` / `canceled` → red,
-  `pending` → amber). Override per value for domain enums:
+- **`"badge"`** renders the value as a status pill. Without a `tones` map the
+  tone comes from the value itself, lower-cased, through a fixed table:
+
+  | Tone | Values |
+  | --- | --- |
+  | `ok` | `active`, `enabled`, `success`, `succeeded`, `completed`, `healthy` |
+  | `warn` | `pending`, `waiting`, `warn`, `degraded`, `processing` |
+  | `err` | `failed`, `error`, `rejected`, `disabled`, `canceled` |
+  | `muted` | `inactive`, `draft`, `archived` |
+
+  Anything not in the table falls back to `muted` — so a domain enum of your
+  own renders grey until you map it:
 
   ```ts
   { field: "plan", format: { kind: "badge", tones: { pro: "ok", trial: "warn" } } }
@@ -35,18 +47,22 @@ resource(schema.orders, {
   swappable via the `StatusBadge`
   [theme slot](/docs/customization/theme-slots).
 - **`"money"`** formats a number as currency (defaults to USD `$`). Bare
-  `format: "money"` works for whole-unit amounts; pass `{ kind: "money", scale: 100 }`
-  when the value is stored in integer cents, or `{ currency: "EUR" }` to change
-  the currency.
+  `format: "money"` works for whole-unit amounts. The object form always
+  carries `kind`, so it is `{ kind: "money", scale: 100 }` when the value is
+  stored in integer cents and `{ kind: "money", currency: "EUR" }` to change
+  the currency — `{ currency: "EUR" }` on its own is a type error.
 - **`"number"`** renders a thousands-separated integer.
 
 ## A custom cell with `render`
 
 When `format` isn't enough, hand a `render` function to the column and you
-control the cell completely (`render` wins if a column sets both):
+control the cell completely:
 
-```ts
-resource(schema.orders, {
+```tsx title="src/admin/resources/orders.tsx"
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+
+export const orders = resource(schema.orders, {
   columns: [
     "id",
     {
@@ -59,8 +75,16 @@ resource(schema.orders, {
     },
     "total",
   ],
-})
+});
 ```
+
+Cell precedence, highest first:
+
+1. **`editable: true`** — the cell renders as an inline editor, so it wins
+   over both `render` and `format`.
+2. **`render`** — the server-prerendered node.
+3. **`format`** — the declarative formatter.
+4. The default renderer for the column's introspected type.
 
 The column object accepts `field` (the row key to read from — typed
 against `keyof Row`) and either `format` (a declarative formatter) or
@@ -76,6 +100,20 @@ see [Create & edit forms](/docs/customization/forms#relation-fields).
 Drizzle, or your augmented model type for Prisma. Autocomplete and
 type-checking work end-to-end.
 
+## Where a column definition applies
+
+One `columns` list drives every surface that shows the resource's rows, so a
+`render` or `format` you write once looks the same in all of them:
+
+- the **list table**,
+- the **detail page** at `/<basePath>/<resource>/<id>` — its key/value view
+  reuses each column's `label`, `render` and `format`,
+- the **drawer**, which pre-renders the same cells server-side,
+- a **`table({ resource })` dashboard widget**, and a **drawer resource tab**,
+  which read the target resource's own columns.
+
+A field-less `render` column (below) is the one exception on the export path.
+
 ## `render` runs server-side
 
 `render(row, ctx)` is called on the server before the table reaches the
@@ -89,17 +127,21 @@ boundary; the function itself never crosses. That means:
   or wrap the interactive part in a `"use client"` child that takes its
   data as plain props.
 
-```tsx
-// src/admin/RefundButton.tsx
+```tsx title="src/admin/RefundButton.tsx"
 "use client";
 export function RefundButton({ orderId }: { orderId: string }) {
   return <button onClick={() => fetch(`/api/refund/${orderId}`, { method: "POST" })}>
     Refund
   </button>;
 }
+```
 
-// flowpanel.config.ts
-resource(schema.orders, {
+```tsx title="src/admin/resources/orders.tsx"
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+import { RefundButton } from "../RefundButton";
+
+export const orders = resource(schema.orders, {
   columns: [
     "id",
     {
@@ -115,17 +157,35 @@ resource(schema.orders, {
 ## Joined or computed values
 
 `ColumnDef.field` is `keyof Row & string`, so dotted relation paths
-aren't supported as column identifiers. To display a value from a
-joined record, drop the `field` and provide a `render` that pulls from
-the row directly (Drizzle relation queries) or fans out via your own
-loader:
+aren't supported as column identifiers. For a value that has no column
+behind it — a joined record, something you compute from two fields —
+drop `field` and let `render` supply the whole cell:
 
-```ts
+```tsx
 {
   label: "Customer",
   render: (row) => row.customerEmail ?? "—",
 }
 ```
+
+A field-less column is a real column, with its own rules:
+
+- **`label` and `render` are both required.** A column with neither `field`
+  nor a `render`+`label` pair is dropped from the table, with a
+  `console.warn` in development naming its index.
+- **It can never sort or filter.** There is no row property to sort by, so
+  `sortable` is forced to `false` and the header never becomes a sort
+  control. It cannot appear in `filters` either.
+- **`editable`, `format` and `reference` are ignored on it** — all three key
+  off a row property.
+- **It is skipped by CSV / JSON export.** The table's Export button writes the
+  underlying row values, and there are none here; the column simply does not
+  appear in the file.
+- **Column validation skips it.** `defineAdmin`'s introspect-time check has no
+  column name to compare against, so it passes it over.
+
+Internally such a column is keyed `__cell_<index>`, which is what the export
+filter matches on. Don't rely on that key — it moves when you reorder columns.
 
 ## Default labels
 
@@ -133,7 +193,7 @@ If you omit `label`, FlowPanel humanizes the raw field name —
 `createdAt` becomes "Created at", `apiKey` becomes "API key", common
 initialisms (`ID`, `URL`, `API`, ...) stay uppercase. The same helper
 is exported as `humanize(name)` and `resolveFieldLabel(label, field)`
-from `@flowpanel/react`.
+from `@flowpanel/kit`.
 
 ## When to reach for theme slots
 

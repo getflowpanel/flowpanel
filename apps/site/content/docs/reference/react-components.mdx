@@ -9,8 +9,28 @@ components — but every export is public and safe to use directly when you
 build a custom slot, page, or `"bare"`-shell chrome around FlowPanel.
 
 ```ts
-import { DataTable, AutoForm, useAdminTable } from "@flowpanel/react";
+import { AutoForm, DataTable, useAdminTable } from "@flowpanel/kit/react";
 ```
+
+`@flowpanel/kit/react` is the specifier to reach for: `@flowpanel/kit` is what
+`flowpanel init` installs, and it re-exports this whole surface. The
+standalone `@flowpanel/react` package publishes the same exports and works
+identically — use it only when you depend on it directly rather than through
+the kit.
+
+Two neighbouring subpaths are worth knowing about, because their exports are
+*not* in the table below:
+
+- **`@flowpanel/kit/next/client`** — the client components the Next.js runtime
+  mounts around this library: `DrawerHost`, `CommandHost`,
+  `DashboardActionsBar`, `DataTableWithDrawerRows`, `CreateDrawer`,
+  `DetailTabsClient`, `SavedViewsDropdown`, `ResourceListSearch`,
+  `ResourceListFilters`, `ResourceListDeletedToggle`, `DashboardDateRange`,
+  `WidgetErrorBoundary`. Reach for it when you assemble a `"bare"`-shell
+  layout by hand.
+- **`@flowpanel/kit/client`** — the standalone `useAdminMutation` hook, which
+  pulls in no component library at all. See
+  [Client hooks](/docs/reference/client).
 
 ## Shell
 
@@ -80,7 +100,7 @@ forms.
 | `AutoForm` | Renders a resource's create/update fields from `ResolvedField[]` or `ColumnMeta[]`. |
 | `Form` | Conform + Zod form wrapper — POSTs to a route and surfaces field errors. |
 | `useFormContext` | Reads the current `Form`'s conform metadata; throws outside a `Form`. |
-| `FormField` (`Field`) | One labeled input, switched on `FieldControlType`. |
+| `FormField` | One labeled input, switched on its `type` prop (see below). |
 | `FormError` | Renders the form-level error from `useFormContext`. |
 | `FormSection` | Labeled fieldset grouping for `AutoForm`/`Form` fields. |
 | `FormSubmit` | Submit button that reflects the form's pending state. |
@@ -93,8 +113,28 @@ forms.
 
 <AutoTypeTable path="../../packages/react/src/_forms/Field.tsx" name="FieldProps" />
 
-`Field` is exported as `FormFieldProps` to avoid colliding with DOM's global
-`FieldProps`-shaped expectations in consuming apps — same interface either way.
+The component is declared internally as `Field` with a `FieldProps` interface,
+but the package **renames both on export**: the value is exported as
+`FormField` and the type as `FormFieldProps`. `Field` and `FieldProps` are not
+importable names — the prefix keeps them from colliding with the many other
+`Field` components a consuming app is likely to have. The interface is
+unchanged by the rename; the property table above is generated from it.
+
+`FormField`'s `type` prop accepts:
+
+```ts
+"text" | "email" | "password" | "url" | "number" | "date" | "datetime" |
+"datetime-local" | "time" | "color" | "search" | "textarea" | "markdown" |
+"json" | "tags" | "select" | "multiselect" | "radio" | "reference" |
+"boolean" | "switch" | "checkbox" | "hidden"
+```
+
+That union is internal — it has a name in the source (`FieldControlType`) but
+is not exported, so type it inline or read it off
+`ComponentProps<typeof FormField>["type"]`. It is a *superset* of the
+config-level `FieldType`: `datetime-local` and `search` exist only here, which
+is why a `ResolvedField` (typed `FieldType`) always assigns cleanly into it and
+not the other way round.
 
 ## Feedback
 
@@ -168,11 +208,12 @@ const status = useLiveChannel("resource.orders", (payload) => {
 ```
 
 **`useAdminTable()`** — reads and writes the list URL state (`?page=`,
-`?q=`, `?sort=field:dir`, `?f_<field>=value`) that `DataTable` and `FilterBar`
-render from.
+`?perPage=`, `?q=`, `?sort=field:dir`, `?f_<field>=value`) that `DataTable` and
+`FilterBar` render from. `pageSize` is `number | null`: `null` means no
+`?perPage=` is present and the resource's configured `pageSize` applies.
 
 ```tsx
-const { page, sort, setPage, setSort } = useAdminTable();
+const { page, pageSize, sort, setPage, setSort } = useAdminTable();
 ```
 
 Every setter navigates with `router.replace`, not `push`: filters change on
@@ -244,6 +285,15 @@ standalone subscriber of the same set.
 useRealtimeRefresh("resource.orders");
 ```
 
+**`RealtimeRefresh`** — the same thing as a component, for a server tree that
+has no client component to hang the hook on: `<RealtimeRefresh channels={…}
+debounceMs={…} />` renders nothing and subscribes its channels. This is what
+the dashboard widget renderer emits for a widget's `realtime` option.
+
+```tsx
+<RealtimeRefresh channels={["resource.orders", "scraper:tick"]} />
+```
+
 **`DevToolsPanel`** — floating "fp" panel showing realtime status, the
 active-channel list and event count. Development-only: it renders `null` when
 `NODE_ENV === "production"`. Mount it once, in development builds:
@@ -273,6 +323,33 @@ theme outside a component.
 `triggerDownload` are general-purpose utilities exported alongside these for
 the same reason: components elsewhere in the package, and custom slots, both
 need them.
+
+## Name collisions with `@flowpanel/kit`
+
+A handful of identifiers exist in both the config surface (`@flowpanel/kit`,
+re-exporting `@flowpanel/core`) and here. They are **different declarations**
+with the same name, so importing both into one module needs an alias.
+
+| Name | In `@flowpanel/kit` | In `@flowpanel/kit/react` |
+| --- | --- | --- |
+| `TableWidget` | The `table()` builder's return **type** (`{ kind: "table"; options }`). | The **component** that renders one. |
+| `CustomWidget` | The `custom()` builder's return **type**. | The **component** that wraps one. |
+| `Tone` | The config-level tone vocabulary used by `format: "badge"`, widget `tone`, … | The same vocabulary, re-declared next to `formatNumber`. |
+| `NumericFormat` | The widget/metric format union. | The same union, re-declared next to `formatNumber`. |
+| `DrawerWidth` | `DrawerConfig["width"]`, the config option. | `DrawerProps["width"]`, the component prop — an identical union, declared separately. |
+
+```ts
+import type { TableWidget } from "@flowpanel/kit";
+import { TableWidget as TableWidgetRenderer } from "@flowpanel/kit/react";
+```
+
+`FormActionResult` is a fourth collision, and the harmless kind: it is
+declared **twice with identical members** — once here (what `Form` reads back
+from the route it POSTs to) and once in `@flowpanel/kit/next` (what
+`makeActions`' form routes answer with). Both are
+`{ ok: boolean; error?: string; fieldErrors?: Record<string, string> }`, so
+either import satisfies the other. They are still two declarations: if one
+ever gains a member, they stop being interchangeable.
 
 ## UI primitives
 

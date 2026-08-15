@@ -10,15 +10,19 @@ being reachable by anyone who finds the port.
 
 ```ts
 import { defineAdmin, queue } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+import { getSession } from "@/server/lib/auth";
 import { emailQueue, scrapeQueue } from "@/lib/queues";
 
 export default defineAdmin({
-  adapter,
-  auth,
+  adapter: drizzleAdapter({ db, schema }),
+  auth: { session: getSession, role: () => "admin" },
   queues: [
     queue(emailQueue, {
       label: "Email",
-      boardUrl: `http://localhost:3001/queues/email?token=${process.env.BOARD_TOKEN}`,
+      boardUrl: `http://localhost:3001/queue/email?token=${process.env.BOARD_TOKEN}`,
       requireRole: "admin",
     }),
     queue(scrapeQueue, { label: "Scraping", boardUrl: "…" }),
@@ -40,9 +44,20 @@ export function queue(ref: unknown, options: QueueOptions): QueueConfig;
 
 <AutoTypeTable path="../../packages/core/src/types/queue.ts" name="QueueConfig" />
 
-`key` defaults to the queue's own name and is what appears in the URL
-(`/<basePath>/queues/<key>`). `defineAdmin` throws if two queues resolve to the
-same key.
+`key` defaults to the queue's own `.name` and is what appears in the URL —
+`<basePath>/queues/<key>`, i.e. `/admin/queues/email` at the default
+`basePath` (`basePath` carries its own leading slash, so there is none in
+front of it).
+
+`defineAdmin` throws when:
+
+- two queues resolve to the same key;
+- a queue's ref has no `.name` **and** `options.key` is unset — "queue()
+  requires options.key when the queue has no .name";
+- the resolved key is one of the reserved route segments `dashboards`,
+  `drawer` or `queues`, which FlowPanel's own routing claims first.
+
+Full property tables are on the [queue() reference](/docs/reference/queues).
 
 ## The board runs outside the admin
 
@@ -78,7 +93,7 @@ interface StartBoardServerOptions {
   port?: number;
   /** Path the Express app is mounted at. Default '/'. */
   basePath?: string;
-  /** Host interface to bind. */
+  /** Host interface to bind. Default '127.0.0.1'. */
   bindHost?: string;
   /** Required shared secret. */
   auth: { token: string };
@@ -87,8 +102,11 @@ interface StartBoardServerOptions {
 
 Two things worth doing in production:
 
-- **Bind to loopback** (`bindHost: "127.0.0.1"`) and reverse-proxy the board
-  behind the same auth as the rest of your app, rather than exposing the port.
+- **Stay on loopback.** `bindHost` already defaults to `"127.0.0.1"`, so the
+  board is unreachable from outside the host unless you widen it — the
+  explicit `bindHost: "127.0.0.1"` above only spells the default out. Reverse-
+  proxy the board behind the same auth as the rest of your app rather than
+  setting `bindHost: "0.0.0.0"`.
 - **Keep the token out of the page.** A `boardUrl` with `?token=` in it puts the
   secret in the iframe's URL, which is fine locally and not fine on a shared
   deployment. Prefer a proxy path that injects the header server-side.
@@ -100,8 +118,9 @@ jobs, say — wrap the same instances:
 
 ```ts
 import { bullmqAdapter } from "@flowpanel/kit/bullmq";
+import { emailQueue, scrapeQueue } from "@/lib/queues";
 
-const queues = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
+export const queues = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
 ```
 
 ```ts
@@ -111,14 +130,22 @@ interface BullMQAdapter {
 }
 ```
 
-It is a thin wrapper — you keep using the BullMQ API directly:
+It is a thin wrapper — the point is the single named map, so read through it
+rather than reaching for the raw handle again:
 
 ```ts
-metric("Failed jobs", async () => emailQueue.getJobCountByTypes("failed"), {
+import { metric } from "@flowpanel/kit";
+import { queues } from "@/lib/queue-adapter";
+
+metric("Failed jobs", async () => queues.queues.email.getJobCountByTypes("failed"), {
   tone: "err",
   drilldown: "/admin/queues/email",
 });
 ```
+
+(`queues.queues` reads oddly because `bullmqAdapter` returns
+`{ kind, queues }` — name the binding after the map, e.g.
+`const jobs = bullmqAdapter({ … })` then `jobs.queues.email`.)
 
 ## Requirements
 

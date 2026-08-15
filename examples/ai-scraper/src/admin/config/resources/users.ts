@@ -55,10 +55,11 @@ const fields: FieldDef<InferRow<typeof schema.users>>[] = [
 
 export const users = resource(schema.users, {
   label: "Customers",
+  labelOne: "Customer",
   columns: [
     "email",
     "name",
-    { field: "company", label: "Company", render: (u) => u.company ?? "—" },
+    { field: "company", label: "Company", editable: true },
     { field: "plan", label: "Plan", format: badge },
     { field: "status", label: "Status", format: badge },
     { field: "createdAt", label: "Joined", render: (u) => formatDate(u.createdAt) },

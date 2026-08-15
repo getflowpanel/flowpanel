@@ -70,6 +70,14 @@ Rows of a related resource, filtered by the open row.
 The related resource's own `requireRole` still applies. A tab the operator may
 not read comes back empty rather than failing the whole panel.
 
+<Callout type="warn">
+A resource tab shows the **first 20 rows** and nothing more. There is no
+pagination, no "load more", and no count of what was left out — the drawer
+route reads one page of 20 and serializes it. For a relation that can exceed
+that, link to the target resource's own list (filtered) instead of leaning on
+the tab.
+</Callout>
+
 ### DrawerTabWidgets
 
 Dashboard widgets, scoped to the open row.
@@ -79,6 +87,23 @@ Dashboard widgets, scoped to the open row.
 `custom()` widgets are rejected here at compile time. The drawer payload is
 serialized over the wire, and a React component cannot cross it — use a widget
 tab of metrics/charts/tables, or a `detail` tab, which renders on the server.
+
+Each widget in the tab is flattened to a `SerializedWidget` before it crosses:
+a discriminated union over `kind`, one variant per widget type.
+
+```ts
+type SerializedWidget =
+  | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
+  | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }
+  | { kind: "statGroup"; stats: { label: string; value: unknown; /* … */ }[]; /* … */ }
+  | { kind: "chart"; subkind: "area" | "bar" | "line" | "pie"; label: string; dataPoints: number; /* … */ }
+  | { kind: "unsupported"; label?: string; reason: string; span?: number };
+```
+
+The queries have already run by then — a metric carries its resolved `value`,
+a chart carries only how many points it produced. A widget whose query throws
+comes back as `{ kind: "unsupported", reason }` with a client-safe message, so
+one failing widget does not take the panel down with it.
 
 ## Actions
 

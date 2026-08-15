@@ -9,12 +9,13 @@ UI primitives for FlowPanel — shadcn-style components built on Radix UI + Tail
 ## Components
 
 - **Shell:** `AdminShell`, `AdminNav`, `PageHeader`, `Drawer`, `CommandPalette`, `Breadcrumbs`.
-- **Data:** `DataTable` (sort, filter, pagination, selection, column resize, column pin, realtime, soft-delete), `FilterBar`, `BulkBar`, `Pagination`, `JsonEditor`, `TagInput`, `ReferencePicker`.
+- **Data:** `DataTable` (sort, filter, pagination, selection, column resize, column pin, realtime, soft-delete), `FilterBar`, `BulkBar`, `Pagination`, `JsonEditor`, `ReferencePicker`.
 - **Widgets:** `MetricCard`, `StatGroupCard`, `TableWidget`, `CustomWidget`.
 - **Forms:** `Form`, `AutoForm`, `FormField`, `FormError`, `FormSubmit`.
-- **Atoms:** `Avatar`, `Badge`, `StatusBadge`, `Sparkline`, `LiveIndicator`, `TimeAgo`, `CopyButton`, `Kbd`, `Mono`.
+- **Atoms:** `Avatar`, `Badge`, `StatusBadge`, `Sparkline`, `LiveIndicator`, `TimeAgo`, `Mono`.
 - **Feedback:** `EmptyState`, `ErrorState`, `HealthBanner`, `ConfirmDialog`, `SkeletonTable`, `Toast`.
 - **Hooks:** `useAdminTable`, `useAdminDrawer`, `useAdminCommand`, `useLiveChannel`, `useUrlState`.
+- **Realtime:** `RealtimeProvider`, `useRealtimeBus`, `useRealtimeRefresh`, `useRealtimeStats`, `useRealtimeStatus`, `useOptimisticAction`.
 - **Theming:** `ComponentsProvider` + `useComponents` (10 overridable slots), `LabelsProvider` + `useLabels` (i18n).
 
 ## Styles
@@ -25,7 +26,7 @@ Import once in your root layout:
 import "@flowpanel/react/styles/admin.css";
 ```
 
-30 design tokens (color, radius, spacing, motion, type), light + dark, `prefers-reduced-motion` aware, Tailwind v4 `@theme` mapping.
+47 design tokens (color, radius, spacing, motion, type), light + dark, `prefers-reduced-motion` aware, Tailwind v4 `@theme` mapping.
 
 ## Documentation
 

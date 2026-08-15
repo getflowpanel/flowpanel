@@ -1,0 +1,232 @@
+---
+title: Troubleshooting
+description: Symptoms FlowPanel produces on purpose, what each one means, and the fix.
+---
+
+Most FlowPanel failures are loud and name their own cause. This page maps the
+symptom you see to the check that produced it.
+
+Start with `pnpm flowpanel doctor` — it covers the wiring half (missing files,
+version floors, a duplicated `@flowpanel/core`, `tsc --noEmit`) in one command.
+
+## The admin renders, but the nav is empty
+
+The `resources` array still holds only the commented-out template entry.
+`flowpanel init` cannot know which of your tables belong in an admin, so it
+writes none. Add at least one `resource()` — and remember to add `resource` to
+the `@flowpanel/kit` import, which the template also leaves out.
+
+`flowpanel new <table>` does both for you.
+
+## The admin renders unstyled
+
+`admin.css` is not reaching the page. Two causes:
+
+1. **The import is missing from your root layout.** `init` adds it, unless
+   your layout already imported some other CSS bundle — in that case it prints
+   the line and leaves the file alone. Add
+   `import "@/styles/admin.css";` (or the relative form, if your project has
+   no `@/*` alias).
+2. **Tailwind is not scanning the packages.** The `fp-*` utility classes live
+   in the packages' compiled `dist`, which Tailwind never sees unless you point
+   it there — the `@source` lines on v4, the `content` globs on v3. Both
+   include a `node_modules/.pnpm/...` line for pnpm's virtual store. See
+   [Styling](/docs/core-concepts/styling).
+
+## `defineAdmin` throws when the app boots
+
+These all fire while your config module evaluates, and each names the config
+path at fault.
+
+| Message starts with | Meaning |
+| --- | --- |
+| `resource "x" points at column "y" via …` | A `columns` / `filters` / `defaultSort.field` / form-field name the adapter does not report. The message suggests the near match and lists the known columns. |
+| `resource "x" omits options.columns, but the adapter could not introspect its ref` | You left `columns` out and there was nothing to fill it from. Declare them, or fix the ref. |
+| `resource "x" uses a name FlowPanel's routing reserves` | The name is `dashboards`, `drawer` or `queues`. Set `options.name` (or `options.key` on a queue). |
+| `Duplicate resource name` / `Duplicate dashboard path` / `Duplicate queue key` | Two entries collide on the key FlowPanel routes by. |
+| `queue() requires options.key when the queue has no .name` | The BullMQ ref carries no `.name`; name the key yourself. |
+| `Duplicate action key: "k" in resource "r" …` | Two actions in one list share a `key`. |
+| `resource "x" sets rowClick: "drawer" but has no drawer config` | Add `drawer: { fields: "*" }`, or drop `rowClick`. |
+
+A cross-resource reference that resolves to nothing (`ColumnDef.reference`, a
+drawer or detail tab's `resource`, a `table()` widget's `resource`) throws the
+same way, with a "did you mean" suggestion. The names it checks are the
+**resolved** ones — a table declared `pgTable("ai_usage", …)` is `"ai_usage"`,
+not `aiUsage`.
+
+## Column typos compile fine
+
+They do, when the row type is `Record<string, unknown>` — a Prisma string ref
+with no `FlowpanelResources` entry, or a ref FlowPanel cannot infer from. The
+keys are `string` there, so nothing is checked at compile time.
+
+Augment [`FlowpanelResources`](/docs/reference/registry#flowpanelresources) to
+move the check back into the editor. Either way `defineAdmin` catches it when
+the config evaluates.
+
+## Everything answers 403 after wiring Clerk
+
+`publicMetadata` is not in Clerk's session claims by default, so
+`sessionClaims.publicMetadata.role` is `undefined` and the role resolves to
+`"guest"` — for a user whose dashboard plainly shows `role: "admin"`. Add the
+claim under **Sessions → Customize session token**, then sign out and back in.
+Full steps in [Authenticate with Clerk](/docs/guides/auth-with-clerk).
+
+## The admin lets anonymous visitors in
+
+That is FlowPanel behaving as documented, and it warns about it in
+development:
+
+```text
+[flowpanel] This admin has no access control: auth.requireRole is unset, no
+resource sets requireRole, and there is no global scope. …
+```
+
+No FlowPanel route requires a *session*; every gate is a role check, and a
+role check with nothing configured passes. Set `auth.requireRole` — a role
+name, a list, or a predicate like `(s) => s !== null`. A deployment that is
+open on purpose declares `auth: { allowUnauthenticated: true }` to silence the
+warning; it changes no runtime check.
+
+## Realtime works locally but not in production
+
+Three causes, in order of likelihood:
+
+1. **`realtime` is unset or `{ driver: "memory" }`.** The memory driver only
+   reaches the process that published. With more than one instance the browser
+   is usually connected to a different one.
+2. **`ioredis` is not installed.** It is an optional peer, so a kit install
+   does not pull it in, and the first publish throws
+   `ioredis is not installed — required for realtime.driver='redis'`.
+3. **`REDIS_URL` is set on some instances and not others.** A partial rollout
+   leaves half the fleet on the memory driver.
+
+[Realtime in production](/docs/core-concepts/realtime-multi-instance) has the
+full checklist, including the proxy-buffering symptom (server sends events,
+browser receives nothing).
+
+## A worker publishes and nothing refreshes
+
+You will find this in the worker's own log:
+
+```text
+[flowpanel] publish() ran before bindPublisher(config) in this process, so it
+fell back to an in-memory publisher: subscribers on other processes will not
+receive it. …
+```
+
+`handlers()`, `Flowpanel()` and `stream()` bind the publisher for you. A
+worker, a cron, a seed script — and your own route handlers, which are their
+own instances on serverless — have to call `bindPublisher(config)` themselves,
+once at module scope. See
+[Realtime with Redis](/docs/guides/realtime-with-redis).
+
+## `getRequestContext() called outside of a request scope`
+
+Either the call really is outside a request — use `tryGetRequestContext()`,
+which returns `null` instead of throwing — or there are **two copies of
+`@flowpanel/core`** in `node_modules`. The request context lives in that
+package's `AsyncLocalStorage`; two copies mean two stores, and the one you
+read from was never written to. `flowpanel doctor` checks for exactly this.
+
+The same duplication makes `declare module "@flowpanel/kit"` appear not to
+apply, for the same reason.
+
+## Actions 404 after moving the admin
+
+`basePath` relocates the admin's **pages** only. The browser-side callers —
+drawer fetch, inline edit, import, restore, reference search, and every row /
+bulk / dashboard action — build their URLs from a hardcoded `/api/flowpanel`
+prefix. Leave `app/api/flowpanel/[...route]/route.ts` and
+`app/api/flowpanel/stream/route.ts` exactly where `init` put them.
+
+## A `404` that does not say what it wanted
+
+In production the route answers `{ "ok": false, "error": "resource not found" }`
+and nothing more, deliberately — the response must not confirm what exists.
+Outside production the same route names both sides:
+
+```json
+{ "ok": false, "error": "action not found: \"refnud\". Registered actions: \"refund\", \"cancel\"." }
+```
+
+So reproduce a mystery 404 with `NODE_ENV` unset rather than guessing at it.
+
+## `400 invalid JSON body`
+
+A POST that declares `Content-Type: application/json` and sends a body that
+does not parse. Usually a hand-rolled `fetch` that set the header but passed a
+`FormData` or a template string. Drop the header to have the body parsed as
+form data instead.
+
+## A bulk action returns 422 instead of running
+
+`{ "ok": false, "error": "too many ids (max 1000)" }` — the cap is a
+rejection, not a truncation, so nothing was applied. Page your selection into
+batches of 1000.
+
+## Prisma: "cannot read properties of undefined"
+
+The delegate did not resolve. `prismaAdapter` lower-cases **only the first
+letter** of the model name: `"User"` → `prisma.user`, `"OrderItem"` →
+`prisma.orderItem`. Pass the PascalCase name from `schema.prisma` — not
+`"user"`, not `"order_item"` — and run `prisma generate` first.
+
+## A drawer tab shows fewer rows than the table does
+
+A resource tab reads one page of **20 rows** and stops. There is no
+pagination and no count of what was left out. For a relation that can exceed
+that, link to the target resource's own filtered list instead.
+
+## A chart widget renders "Charts package not installed"
+
+The `@flowpanel/kit/charts` entry point loads `recharts` lazily, and `recharts`
+is an optional peer:
+
+```bash
+pnpm add recharts
+```
+
+## A column will not sort, or is missing from the export
+
+It has no `field`. A field-less `render` column is never sortable, never
+filterable, and is skipped by CSV / JSON export — there is no row property
+behind it to sort or serialize. Give it a `field` if it maps to a real column;
+otherwise that is the trade. See
+[Column renderers](/docs/customization/column-renderers#joined-or-computed-values).
+
+If the column does not render **at all**, it is missing `label` or `render`: a
+field-less column needs both, and one that lacks either is dropped with a
+development `console.warn` naming its index.
+
+## `flowpanel init` exits immediately in CI
+
+```text
+▲  init asks questions and this run has no interactive terminal. Re-run with
+   --yes to accept the detected defaults.
+```
+
+Pass `--yes`. It also exits `1` with no Next.js and no ORM in `package.json`,
+and — interactively — offers to abort when Tailwind is missing, defaulting to
+No.
+
+## An ejected page still renders FlowPanel's version
+
+Uncommenting the config entry puts the resource back under the config layer,
+but Next.js's file-based route still wins for any path the scaffold covers.
+Delete the ejected files as well. The reverse — an ejected route that renders
+nothing — usually means the config entry is still commented out while the
+scaffold was deleted; uncomment it.
+
+## Known limitations
+
+- **The account menu cannot hold a theme toggle.** `AccountMenuItem` is
+  `{ label, href?, variant? }` — links only, no `onClick`, so a menu entry
+  cannot run client code. The dark-mode toggle lives in the ⌘K palette
+  instead ("Toggle dark mode", unless `commandPalette.disableTheme` is set),
+  and `useTheme()` lets you put one anywhere in your own chrome.
+- **Action `form` fields must be real columns.** `FieldDef.name` is
+  `keyof Row & string`; collecting an input that has no column behind it is
+  not supported.
+- **`hidden` keeps only resources out of the nav.** Dashboards, pages and
+  queues have no such option, and `buildNav` does not filter on `requireRole`.

@@ -1,7 +1,7 @@
 import { type BulkAction, type FieldDef, resource } from "@flowpanel/kit";
 import { inArray } from "drizzle-orm";
 import * as schema from "@/src/db/schema";
-import { badge, formatDate } from "../format";
+import { badge, formatShortDate, urlCell } from "../format";
 
 type Scraper = typeof schema.scrapers.$inferSelect;
 
@@ -79,17 +79,18 @@ const setStatus =
 
 export const scrapers = resource(schema.scrapers, {
   label: "Scrapers",
+  labelOne: "Scraper",
   columns: [
-    { field: "name", label: "Name", editable: true },
+    "name",
     {
       field: "userId",
       label: "Customer",
       reference: { resource: "users", labelField: "email" },
     },
-    "targetUrl",
+    { field: "targetUrl", label: "Target URL", render: (s) => urlCell(s.targetUrl) },
     "schedule",
     { field: "status", label: "Status", format: badge },
-    { field: "lastRunAt", label: "Last run", render: (s) => formatDate(s.lastRunAt) },
+    { field: "lastRunAt", label: "Last run", render: (s) => formatShortDate(s.lastRunAt) },
   ],
   search: ["name", "targetUrl"],
   filters: [

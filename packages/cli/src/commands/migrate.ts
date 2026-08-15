@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
-import { fileExists } from "../utils/detect.js";
+import { detectPackageManager, fileExists, pmCommands } from "../utils/detect.js";
 import { log } from "../utils/log.js";
 
 interface MigrateOptions {
@@ -127,7 +127,7 @@ export function migrateCommand(cli: Command): void {
 
       const cfgPath = path.join(cwd, "flowpanel.config.ts");
       if (!(await fileExists(cfgPath))) {
-        log.err("flowpanel.config.ts not found. Run `pnpm dlx flowpanel init` first.");
+        log.err("flowpanel.config.ts not found. Run `pnpm dlx @flowpanel/cli init` first.");
         process.exit(1);
       }
 
@@ -143,8 +143,9 @@ export function migrateCommand(cli: Command): void {
       } catch (e) {
         const code = (e as NodeJS.ErrnoException).code;
         if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
+          const pmc = pmCommands(await detectPackageManager(cwd));
           log.err("flowpanel migrate needs `jiti` to load your TypeScript config. Install:");
-          log.dim("  pnpm add -D jiti");
+          log.dim(`  ${pmc.addDisplay("jiti", true)}`);
           process.exit(1);
         }
         throw e;

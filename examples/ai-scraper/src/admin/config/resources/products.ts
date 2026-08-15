@@ -60,6 +60,7 @@ const fields: FieldDef<InferRow<typeof schema.products>>[] = [
 
 export const products = resource(schema.products, {
   label: "Catalog",
+  labelOne: "Product",
   columns: [
     { field: "sku", label: "SKU" },
     { field: "title", label: "Product" },

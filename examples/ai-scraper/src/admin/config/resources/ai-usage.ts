@@ -1,5 +1,6 @@
 import { resource } from "@flowpanel/kit";
 import * as schema from "@/src/db/schema";
+import { modelLabel } from "@/src/lib/ai-models";
 import { formatDate, money } from "../format";
 
 export const aiUsage = resource(schema.aiUsage, {
@@ -11,7 +12,7 @@ export const aiUsage = resource(schema.aiUsage, {
       reference: { resource: "users", labelField: "email" },
     },
     "provider",
-    "model",
+    { field: "model", label: "Model", render: (c) => modelLabel(c.model) },
     { field: "task", label: "Task", format: "badge" },
     { field: "tokensIn", label: "Tokens in", align: "right", format: "number" },
     { field: "tokensOut", label: "Tokens out", align: "right", format: "number" },

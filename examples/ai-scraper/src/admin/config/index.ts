@@ -17,7 +17,7 @@ import { runs } from "./resources/runs";
 import { scrapers } from "./resources/scrapers";
 import { users } from "./resources/users";
 
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
   }
@@ -67,6 +67,7 @@ export default defineAdmin({
         name: session.user.name,
         email: session.email,
         items: [{ label: `Role: ${session.role}` }],
+        signOut: "#",
       };
     },
   },

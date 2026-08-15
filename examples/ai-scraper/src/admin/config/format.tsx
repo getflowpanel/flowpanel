@@ -1,5 +1,7 @@
 import type { ColumnFormat, Tone } from "@flowpanel/kit";
+import { StatusBadge } from "@flowpanel/kit/react";
 import type { CSSProperties } from "react";
+import { modelLabel } from "@/src/lib/ai-models";
 
 // Declarative column formatters (see ColumnDef.format) -------------------
 // The framework's `format: "badge"` auto-tones generic statuses (active →
@@ -31,11 +33,45 @@ export const money: ColumnFormat = { kind: "money", scale: 100 };
 
 // Cell renderers for the app-specific shapes the framework doesn't cover --
 const dateTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
+const shortDateTime = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+const monthYear = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
 const tabularNums: CSSProperties = { fontVariantNumeric: "tabular-nums" };
 
 /** Human-readable timestamp, or an em dash for null. */
 export const formatDate = (value: Date | string | null | undefined) =>
   value == null ? "—" : dateTime.format(new Date(value));
+
+/** One-line timestamp for narrow columns, e.g. "Aug 18, 4:32 PM". */
+export const formatShortDate = (value: Date | string | null | undefined) =>
+  value == null ? "—" : shortDateTime.format(new Date(value));
+
+/** Billing period as a month, e.g. "Aug 2026". */
+export const formatMonth = (value: Date | string | null | undefined) =>
+  value == null ? "—" : monthYear.format(new Date(value));
+
+/** External target URL as a real, new-tab link. */
+export const urlCell = (url: string | null | undefined) => {
+  if (!url) return "—";
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="truncate text-fp-text-1 underline decoration-fp-border-2 underline-offset-2 hover:decoration-fp-text-3"
+    >
+      {url}
+    </a>
+  );
+};
+
+/** AI model slug as a clean-named badge instead of a raw, capitalize-mangled enum. */
+export const modelBadge = (model: string | null | undefined) =>
+  model == null ? "—" : <StatusBadge status={modelLabel(model)} />;
 
 /** Milliseconds → "820 ms" / "1.4 s". */
 export const formatDuration = (ms: number | null | undefined) => {

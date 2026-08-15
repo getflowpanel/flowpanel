@@ -22,9 +22,12 @@ Prisma delegate, or your own descriptor. `DB` is the client you expose as
 kinds autocomplete; a third-party adapter picks its own label. Nothing in
 FlowPanel branches on it.
 
-The last three methods are optional and only power `flowpanel migrate`. An
-adapter without `restore` makes the admin hide the restore button rather than
-fail at runtime.
+`kind`, `db`, `introspect`, `inferSchema`, `list`, `get`, `create`, `update`
+and `delete` are required. `restore` is optional — an adapter without it makes
+the admin hide the restore button rather than fail at runtime. The last three
+(`runMigrationSql`, `listAppliedMigrations`, `markMigrationApplied`) are
+optional too and only power `flowpanel migrate`; without them that command has
+nothing to run against.
 
 ## ResourceIntrospection
 
@@ -37,18 +40,30 @@ Returned by `introspect`. This is what lets a resource declare `columns: ["id",
 
 <AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="ColumnMeta" />
 
-`type` decides the default form control and filter kind:
+`type` is consulted in exactly one place: the fully generated form a resource
+gets when it declares neither `create.fields` nor `update.fields`. The mapping
+is short, and everything not listed falls through to a text input:
 
-| `ColumnMeta.type` | Default field | Default filter |
-| --- | --- | --- |
-| `string` | `text` | `text` |
-| `number` | `number` | `numeric-range` |
-| `boolean` | `switch` | `boolean` |
-| `date` | `datetime` | `daterange` |
-| `enum` | `select` (from `enumValues`) | `select` |
-| `json` | `json` | — |
-| `array` | `tags` | `tag` |
-| `reference` | `reference` (from `references`) | `select` |
+| `ColumnMeta.type` | Generated form control |
+| --- | --- |
+| `number` | `number` |
+| `boolean` | `checkbox` |
+| `date` | `datetime-local` |
+| `json` | `json` |
+| `string`, `enum`, `array`, `reference` | `text` |
+
+Two things this table does **not** promise:
+
+- **There is no filter inference.** A bare string in `filters` always resolves
+  to a `text` filter regardless of the column's type — declare a `FilterDef`
+  with an explicit `type` for anything else.
+- **A declared field is not inferred either.** A `FieldDef` without `type`
+  renders as `"text"`, or `"reference"` when it sets `reference`. `enum`,
+  `array` and `reference` columns therefore need an explicit `FieldDef.type`
+  (plus `options` / `reference`) to get a richer control.
+
+`enumValues` and `references` are reported for your own use — nothing in the
+framework turns them into controls on their own.
 
 ## What an implementation must honor
 
@@ -88,9 +103,26 @@ Each shipped adapter takes its own options shape.
 options object — `bullmqAdapter({ email: emailQueue, scrape: scrapeQueue })`.
 `BullMQAdapterOptions` is exported for symmetry and nothing consumes it.
 
+## Also exported
+
+Each adapter package exposes the pieces its own `Adapter` is assembled from, so
+you can reuse one without adopting the whole adapter — a script that only needs
+column metadata, or a custom adapter that wants Drizzle's schema inference.
+
+| Package | Also exports |
+| --- | --- |
+| `@flowpanel/kit/drizzle` | `introspect`, `inferSchema`, `toCsv`, `toJson` |
+| `@flowpanel/kit/prisma` | `introspect`, `inferSchema`, `PrismaDmmf` (type) |
+| `@flowpanel/kit/bullmq` | `BullMQAdapter` (type) |
+
+`introspect(ref)` returns the same `ResourceIntrospection` the framework reads;
+`inferSchema(ref)` returns the `{ create, update, select }` Zod trio a resource
+falls back to when it declares no `schema`. `PrismaDmmf` is the shape
+`prismaAdapter`'s optional `dmmf` option accepts.
+
 ## Export helpers
 
-`@flowpanel/adapter-drizzle` also exports `toCsv` and `toJson` — standalone
+`@flowpanel/kit/drizzle` also exports `toCsv` and `toJson` — standalone
 row serializers, not wired into any route by default.
 
 ```ts

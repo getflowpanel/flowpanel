@@ -29,8 +29,14 @@ The gates nest, outermost first. A request must clear every one that applies.
 
 ### 1. Admin-wide — `auth.requireRole`
 
-Blocks the entire admin: every page, every API route. It runs inside the request
-prologue, before routing, so nothing downstream can accidentally skip it.
+Blocks the entire admin: every page, every API route. It runs in the request
+prologue — the first thing every route and every page render does, before any
+query or mutation — so nothing downstream can accidentally skip it.
+
+It is *not* middleware, though: the route is matched first, and on a page
+render the shell and nav render around the denied panel rather than in place
+of it. What the gate guarantees is that no data is read or written, not that
+the chrome disappears.
 
 ```ts
 defineAdmin({
@@ -114,12 +120,18 @@ defineAdmin({
 ```
 
 Every resource must then either use the scope or opt out explicitly with
-`scope: "bypass"` — a resource that forgets throws at startup rather than
-quietly serving another tenant's rows. See
+`scope: "bypass"`. A resource that forgets does not fail at startup —
+`defineAdmin` stays pure and does no such check. It fails **per request**, the
+first time that resource is queried: the adapter throws
+`FlowpanelAccessError` ("scope required but not bound … refusing to run an
+unscoped query"), which the route turns into a `403`. See
 [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 
 Scope covers `create` too: a row that would land outside the caller's scope is
-rejected, not just filtered out of reads.
+rejected, not just filtered out of reads. The Drizzle adapter enforces that
+after the insert — inside a transaction on Postgres/MySQL, with a
+compensating delete on SQLite — so read the guide before relying on it under
+SQLite.
 
 ## Global read-only
 
@@ -147,6 +159,9 @@ the only set of columns a search may touch.
 The gates are enforced in the route layer, so the cheapest test is an HTTP one:
 
 ```ts
+import { handlers } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
 const { POST } = handlers(config);
 
 const res = await POST(

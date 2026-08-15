@@ -11,6 +11,9 @@
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs" && process.env.DEMO_LIVE !== "off") {
+    const { bindPublisher } = await import("@flowpanel/kit/next");
+    const { default: config } = await import("@/src/admin/config");
+    bindPublisher(config);
     const { startLiveFeed } = await import("@/src/lib/live-feed");
     startLiveFeed();
   }

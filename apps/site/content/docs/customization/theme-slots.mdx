@@ -51,8 +51,9 @@ interface FlowpanelComponentSlots {
 }
 ```
 
-The interface is defined in `@flowpanel/core` and augmented by
-`@flowpanel/react` with the shipped 10. Your override for `Button`
+The interface is declared by `@flowpanel/core` and augmented by
+`@flowpanel/react` with the shipped 10 — both reachable as `@flowpanel/kit`
+and `@flowpanel/kit/react`. Your override for `Button`
 **should** be `forwardRef`-aware to avoid warnings from Radix UI when
 the Button is used with `asChild`.
 
@@ -90,7 +91,7 @@ FlowPanel ships a small theme runtime alongside the slot registry:
   and watches `prefers-color-scheme` while no explicit choice exists.
 
 ```tsx
-import { ThemeScript } from "@flowpanel/react";
+import { ThemeScript } from "@flowpanel/kit/react";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

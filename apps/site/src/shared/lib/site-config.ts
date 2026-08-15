@@ -22,7 +22,25 @@ export const siteConfig = {
     github: "https://github.com/getflowpanel/flowpanel",
     issues: "https://github.com/getflowpanel/flowpanel/issues",
     discussions: "https://github.com/getflowpanel/flowpanel/discussions",
+    // Hosted demo of examples/ai-scraper. Empty until one is deployed — the
+    // landing section falls back to the source links rather than linking nowhere.
+    demo: process.env.NEXT_PUBLIC_DEMO_URL ?? "",
   },
+
+  /** Runnable examples in the repo, surfaced from the landing page. */
+  examples: [
+    {
+      name: "ai-scraper",
+      summary:
+        "An AI scraping SaaS ops admin: resources, dashboards, BullMQ queues and realtime, on Drizzle + Postgres.",
+      url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper",
+    },
+    {
+      name: "with-clerk",
+      summary: "The same admin gated behind Clerk — middleware, provider, one line of config.",
+      url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk",
+    },
+  ],
 
   nav: {
     primary: [

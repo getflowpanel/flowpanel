@@ -121,6 +121,8 @@ export async function detectDbClient(cwd: string, mode?: PathAliasMode): Promise
       "src/db.ts",
       "db/client.ts",
       "db/index.ts",
+      "src/lib/prisma.ts",
+      "lib/prisma.ts",
     ],
     mode ?? (await detectPathAlias(cwd)),
   );
@@ -190,8 +192,15 @@ interface PmCommands {
   addDisplay(pkg: string, dev: boolean): string;
   /** Runs a project-local binary, e.g. `pnpm flowpanel` / `npx flowpanel`. */
   exec: string;
+  /** argv passed to `exec` to run a project-local binary with arguments. */
+  execArgs(bin: string, args: string[]): string[];
   /** Runs a package.json script, e.g. `pnpm dev` / `npm run dev`. */
   run: string;
+}
+
+/** The spawnable name of a package-manager binary: Windows needs the `.cmd` shim. */
+export function platformBin(bin: string): string {
+  return process.platform === "win32" ? `${bin}.cmd` : bin;
 }
 
 export function pmCommands(pm: PackageManager): PmCommands {
@@ -201,6 +210,7 @@ export function pmCommands(pm: PackageManager): PmCommands {
         add: (pkg, dev) => ["install", dev ? "--save-dev" : "--save", pkg],
         addDisplay: (pkg, dev) => `npm install ${dev ? "--save-dev " : ""}${pkg}`,
         exec: "npx",
+        execArgs: (bin, args) => [bin, ...args],
         run: "npm run",
       };
     case "yarn":
@@ -208,6 +218,7 @@ export function pmCommands(pm: PackageManager): PmCommands {
         add: (pkg, dev) => (dev ? ["add", "-D", pkg] : ["add", pkg]),
         addDisplay: (pkg, dev) => `yarn add ${dev ? "-D " : ""}${pkg}`,
         exec: "yarn",
+        execArgs: (bin, args) => [bin, ...args],
         run: "yarn",
       };
     case "bun":
@@ -215,6 +226,7 @@ export function pmCommands(pm: PackageManager): PmCommands {
         add: (pkg, dev) => (dev ? ["add", "-d", pkg] : ["add", pkg]),
         addDisplay: (pkg, dev) => `bun add ${dev ? "-d " : ""}${pkg}`,
         exec: "bunx",
+        execArgs: (bin, args) => [bin, ...args],
         run: "bun run",
       };
     default:
@@ -222,6 +234,7 @@ export function pmCommands(pm: PackageManager): PmCommands {
         add: (pkg, dev) => (dev ? ["add", "-D", pkg] : ["add", pkg]),
         addDisplay: (pkg, dev) => `pnpm add ${dev ? "-D " : ""}${pkg}`,
         exec: "pnpm",
+        execArgs: (bin, args) => ["exec", bin, ...args],
         run: "pnpm",
       };
   }

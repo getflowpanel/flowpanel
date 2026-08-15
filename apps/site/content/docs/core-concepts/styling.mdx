@@ -21,7 +21,7 @@ triplets:
 ```css
 :root {
   --fp-bg-1: 0 0% 100%;
-  --fp-text-1: 220 10% 15%;
+  --fp-text-1: 224 25% 11%;
   --fp-accent: 220 90% 50%;
   --fp-ok: 142 70% 45%;
   --fp-warn: 38 92% 50%;
@@ -46,10 +46,14 @@ classes:
 }
 ```
 
-See `packages/react/src/styles/admin.css` for the full token list. Every
-shipped component consumes only these `fp-*` utilities — no hardcoded
-hex values — which is what makes the [Theming](#theming) section below
-work: change the custom properties and every component follows.
+The full token list is the stylesheet itself. Two places to read it: the copy
+`flowpanel init` wrote into your project (`styles/admin.css`, or
+`src/styles/admin.css` under a `src/` layout), and the package's own source at
+`@flowpanel/react/styles/admin.css`, which is an exported subpath so your
+editor can resolve it. Every shipped component consumes only these `fp-*`
+utilities — no hardcoded hex values — which is what makes the
+[Theming](#theming) section below work: change the custom properties and every
+component follows.
 
 ## Tailwind v4 setup
 
@@ -92,13 +96,17 @@ depth for your layout automatically.
 Tailwind entry your app already has (the `globals.css` that
 `create-next-app --tailwind` writes):
 
-```ts
+```tsx title="app/layout.tsx"
 import "@/styles/admin.css";
 ```
 
-`flowpanel init` writes that import into `app/layout.tsx` for you (or
-patches an existing layout if one is already there). See the
-[CLI reference](/docs/reference/cli) for the full `init` output.
+The specifier depends on your `tsconfig.json`: `init` writes the `@/`-aliased
+form when the project has an `@/*` path alias, and a relative
+`../styles/admin.css` when it does not. `flowpanel init` writes that import
+into `app/layout.tsx` for you, or patches an existing layout — unless the
+layout already imports some other CSS bundle, in which case it prints the
+line for you to add by hand. See the [CLI reference](/docs/reference/cli) for
+the full `init` output.
 
 ## Tailwind v3 setup
 
@@ -240,10 +248,12 @@ something's missing).
 |---|---|---|---|---|---|---|
 | `@flowpanel/react` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | — |
 | `@flowpanel/next` | `^19.0.0` | `^19.0.0` | `^15.0.0` | — | `^4.0.0` | — |
-| `@flowpanel/kit` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | `drizzle-orm` `>=0.36.0 <1.0.0` (optional), `@prisma/client` `>=5.0.0 <7.0.0` (optional), `bullmq` `^5.0.0` (optional), `ioredis` `^5.10.0` (optional), `@bull-board/api` + `@bull-board/express` `^6.0.0` and `express` `^4.19.0` (optional, for `@flowpanel/kit/bullmq/board`) |
+| `@flowpanel/kit` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | `drizzle-orm` `>=0.36.0 <1.0.0` (optional), `@prisma/client` `>=5.0.0 <7.0.0` (optional), `bullmq` `^5.0.0` (optional), `ioredis` `^5.10.0` (optional), `recharts` `^2.15.0 \|\| ^3.0.0` (optional, for `@flowpanel/kit/charts`), `@bull-board/api` + `@bull-board/express` `^6.0.0` and `express` `^4.19.0` (optional, for `@flowpanel/kit/bullmq/board`) |
 | `@flowpanel/charts` | `^19.0.0` | — | — | — | — | `recharts` `^2.15.0 \|\| ^3.0.0` |
 | `@flowpanel/client` | `^19.0.0` | — | — | — | — | — |
 
 `@flowpanel/kit`'s data-layer peers (`drizzle-orm`, `@prisma/client`,
-`bullmq`, `ioredis`) and its bull-board peers are all optional — install
-only the ones your adapter and queue driver need.
+`bullmq`, `ioredis`), its charting peer (`recharts`) and its bull-board peers
+are all optional — install only the ones your adapter, queue driver and
+dashboards need. `ioredis` is the one people miss: it is what
+`realtime: { driver: "redis" }` loads at publish time.

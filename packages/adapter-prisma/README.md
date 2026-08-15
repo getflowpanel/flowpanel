@@ -17,7 +17,7 @@ const prisma = new PrismaClient();
 export default defineAdmin({
   adapter: prismaAdapter({ prisma }),
   resources: [
-    resource<unknown>("user", { columns: ["email", "role"] }),
+    resource("User", { columns: ["email", "role"] }),
   ],
 });
 ```

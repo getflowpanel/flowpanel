@@ -162,14 +162,7 @@ function createState(): LiveState {
   return state;
 }
 
-/**
- * Start the ticker once per process. Safe to call repeatedly.
- *
- * We don't bind the publisher here — the SSE stream route binds it to the
- * config's realtime driver on every connection, and `publish()` always reads
- * the current process-global publisher, so the ticker stays in sync. (This
- * also keeps `live-feed` free of a config import, avoiding a cycle.)
- */
+/** Start the ticker once per process. Safe to call repeatedly. */
 export function startLiveFeed(): void {
   const state = ensureState();
   if (state.timer) return;

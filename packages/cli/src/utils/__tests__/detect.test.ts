@@ -12,6 +12,7 @@ import {
   detectPathAlias,
   detectSchema,
   detectStack,
+  platformBin,
   pmCommands,
 } from "../detect.js";
 
@@ -87,6 +88,36 @@ describe("detectDbClient — new candidate paths", () => {
       await fs.writeFile(path.join(tmp, "src/db/client.ts"), "export const db = {};");
       // No tsconfig → mode `none` → relative fallback
       expect(await detectDbClient(tmp)).toBe("./src/db/client");
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("finds lib/prisma.ts (canonical Prisma layout)", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-prisma-root-"));
+    try {
+      await fs.mkdir(path.join(tmp, "lib"), { recursive: true });
+      await fs.writeFile(path.join(tmp, "lib/prisma.ts"), "export const prisma = {};");
+      await fs.writeFile(
+        path.join(tmp, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { paths: { "@/*": ["./*"] } } }),
+      );
+      expect(await detectDbClient(tmp)).toBe("@/lib/prisma");
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("finds src/lib/prisma.ts (Prisma under src/)", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-prisma-src-"));
+    try {
+      await fs.mkdir(path.join(tmp, "src/lib"), { recursive: true });
+      await fs.writeFile(path.join(tmp, "src/lib/prisma.ts"), "export const prisma = {};");
+      await fs.writeFile(
+        path.join(tmp, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { paths: { "@/*": ["src/*"] } } }),
+      );
+      expect(await detectDbClient(tmp)).toBe("@/lib/prisma");
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
     }
@@ -269,6 +300,27 @@ describe("pmCommands", () => {
     expect(pmCommands("npm")).toMatchObject({ exec: "npx", run: "npm run" });
     expect(pmCommands("yarn")).toMatchObject({ exec: "yarn", run: "yarn" });
     expect(pmCommands("bun")).toMatchObject({ exec: "bunx", run: "bun run" });
+  });
+
+  it("builds argv for a project-local binary per manager", () => {
+    const args = ["dev", "--port", "3000"];
+    expect(pmCommands("pnpm").execArgs("next", args)).toEqual([
+      "exec",
+      "next",
+      "dev",
+      "--port",
+      "3000",
+    ]);
+    expect(pmCommands("npm").execArgs("next", args)).toEqual(["next", "dev", "--port", "3000"]);
+    expect(pmCommands("yarn").execArgs("next", args)).toEqual(["next", "dev", "--port", "3000"]);
+    expect(pmCommands("bun").execArgs("next", args)).toEqual(["next", "dev", "--port", "3000"]);
+  });
+});
+
+describe("platformBin", () => {
+  it("returns the bare name off Windows and the .cmd shim on it", () => {
+    const expected = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+    expect(platformBin("pnpm")).toBe(expected);
   });
 });
 

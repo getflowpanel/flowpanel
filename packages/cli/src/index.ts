@@ -10,7 +10,8 @@ import { newCommand } from "./commands/new.js";
 const cli = new Command()
   .name("flowpanel")
   .description("Admin panels the fast way")
-  .version(pkg.version);
+  .version(pkg.version)
+  .showSuggestionAfterError();
 
 initCommand(cli);
 migrateCommand(cli);

@@ -10,8 +10,12 @@ a Server Action in pending/error state. It depends only on `@flowpanel/core`
 pull in the component library.
 
 ```ts
-import { useAdminMutation } from "@flowpanel/client";
+import { useAdminMutation } from "@flowpanel/kit/client";
 ```
+
+That subpath is the one to use from a kit install; the standalone
+`@flowpanel/client` package publishes the same export and works identically
+when you depend on it directly.
 
 ## useAdminMutation
 
@@ -28,27 +32,44 @@ whether the action resolved `{ ok: false, error }` or threw — into `error`.
 
 ```tsx
 "use client";
-import { useAdminMutation } from "@flowpanel/client";
+import { useAdminMutation } from "@flowpanel/kit/client";
 import { archiveOrder } from "./actions";
 
 export function ArchiveButton({ id }: { id: string }) {
-  const { run, pending, error } = useAdminMutation(archiveOrder);
+  const { run, pending, error, reset } = useAdminMutation(archiveOrder);
   return (
     <>
       <button onClick={() => run(id)} disabled={pending}>
         Archive
       </button>
-      {error ? <p role="alert">{error}</p> : null}
+      {error ? (
+        <p role="alert" onClick={reset}>
+          {error}
+        </p>
+      ) : null}
     </>
   );
 }
 ```
 
+### What the hook returns
+
+<AutoTypeTable path="../../packages/client/src/mutation.ts" name="UseAdminMutation" />
+
+`reset()` clears `error` back to `null` and `pending` back to `false` without
+calling the action — use it to dismiss a failure message, or when the
+component is reused for a different target.
+
+`run` never throws: an action that rejects is caught and surfaced as
+`{ ok: false, error }`, which is also what `run` resolves with.
+
+### Options
+
 <AutoTypeTable path="../../packages/client/src/mutation.ts" name="UseAdminMutationOptions" />
 
 For an optimistic value ahead of the round trip, use
 [`useOptimisticAction`](/docs/reference/react-components#hooks) from
-`@flowpanel/react` instead: `useAdminMutation` holds no optimistic state of
-its own, only `pending` and `error`. `rollbackOn` accepts the single literal
-`"error"` and the hook never reads it — it is a placeholder for a rollback
-strategy that does not exist yet, and setting it changes nothing.
+`@flowpanel/kit/react` instead: `useAdminMutation` holds no optimistic state
+of its own, only `pending` and `error`. `rollbackOn` accepts the single
+literal `"error"` and the hook never reads it — it is a placeholder for a
+rollback strategy that does not exist yet, and setting it changes nothing.

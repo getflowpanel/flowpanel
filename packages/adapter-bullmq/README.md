@@ -23,7 +23,7 @@ export default defineAdmin({
     queue(scraperQueue, {
       label: "Scraper",
       // `?token=` must match the `auth.token` passed to `startBoardServer` below.
-      boardUrl: "http://localhost:3001/queues/scraper?token=YOUR_SHARED_SECRET",
+      boardUrl: "http://localhost:3001/queue/scraper?token=YOUR_SHARED_SECRET",
     }),
   ],
 });

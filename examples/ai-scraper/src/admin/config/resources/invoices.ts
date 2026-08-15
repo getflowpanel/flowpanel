@@ -2,10 +2,11 @@ import { resource } from "@flowpanel/kit";
 import { eq } from "drizzle-orm";
 import * as schema from "@/src/db/schema";
 import { refundInvoice } from "@/src/lib/billing";
-import { badge, formatDate, money } from "../format";
+import { badge, formatDate, formatMonth, money } from "../format";
 
 export const invoices = resource(schema.invoices, {
   label: "Invoices",
+  labelOne: "Invoice",
   // Issued by the billing pipeline, so both forms are disabled below — Refund
   // is the only sanctioned write.
   columns: [
@@ -16,7 +17,7 @@ export const invoices = resource(schema.invoices, {
     },
     { field: "amountCents", label: "Amount", align: "right", format: money },
     { field: "status", label: "Status", format: badge },
-    { field: "periodStart", label: "Period", render: (i) => formatDate(i.periodStart) },
+    { field: "periodStart", label: "Period", render: (i) => formatMonth(i.periodStart) },
     { field: "createdAt", label: "Created", render: (i) => formatDate(i.createdAt) },
   ],
   filters: [
@@ -31,7 +32,6 @@ export const invoices = resource(schema.invoices, {
         { label: "Refunded", value: "refunded" },
       ],
     },
-    { field: "amountCents", type: "numeric-range", label: "Amount (cents)" },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
   create: { disabled: true },

@@ -154,9 +154,13 @@ Pie charts take `category` / `value` instead of `x` / `y`.
 ## Dashboards
 
 ```ts
-dashboard(options: DashboardConfig)
-page(options: PageConfig)
+dashboard(config: DashboardConfig): DashboardConfig
+page(config: PageConfig): PageConfig
 ```
+
+Both are identity functions — they exist so the object literal is checked
+against its type at the call site and reads as a builder alongside `resource()`
+and `queue()`.
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DashboardConfig" />
 
