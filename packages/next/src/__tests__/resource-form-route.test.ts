@@ -46,7 +46,7 @@ function makeConfig(opts: {
     }),
     inferSchema: () => ({ create: createSchema, update: updateSchema }) as never,
     list: async () => ({ rows: [], total: 0, page: 1, pageSize: 10 }),
-    get: async () => null,
+    get: async () => ({ id: "u1", email: "a@b.com", priceCents: null }),
     create: async (_ref, ctx) => {
       if (opts.createCaptured) opts.createCaptured.value = (ctx as { input: unknown }).input;
       return opts.createReturn === undefined
@@ -66,7 +66,7 @@ function makeConfig(opts: {
     __kind: "resource",
     ref: { __name: "users" },
     options: {
-      columns: [{ field: "id" }, { field: "email" }],
+      columns: [{ field: "id" }, { field: "email" }, { field: "priceCents" }],
       ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
       ...(opts.createDisabled ? { create: { disabled: true } } : {}),
       ...(opts.updateDisabled ? { update: { disabled: true } } : {}),
@@ -151,11 +151,11 @@ describe("resourceCreateRoute", () => {
     expect(captured.value).toEqual({ email: "a@b.com", priceCents: null });
   });
 
-  it("returns fieldErrors + status 400 on a validation failure", async () => {
+  it("returns fieldErrors + status 422 on a validation failure", async () => {
     const handler = resourceCreateRoute(makeConfig({}));
     const req = formRequest("http://localhost/x", { email: "not-an-email" });
     const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
     const body = (await res.json()) as { ok: boolean; fieldErrors?: Record<string, string> };
     expect(body.ok).toBe(false);
     expect(body.fieldErrors?.email).toBeDefined();
@@ -174,11 +174,11 @@ describe("resourceCreateRoute", () => {
     expect(captured.value).toEqual({ email: "a@b.com", priceCents: 1999 });
   });
 
-  it("returns fieldErrors + status 400 when a numeric field can't be coerced", async () => {
+  it("returns fieldErrors + status 422 when a numeric field can't be coerced", async () => {
     const handler = resourceCreateRoute(makeConfig({}));
     const req = formRequest("http://localhost/x", { email: "a@b.com", priceCents: "not-a-number" });
     const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
     const body = (await res.json()) as { ok: boolean; fieldErrors?: Record<string, string> };
     expect(body.ok).toBe(false);
     expect(body.fieldErrors?.priceCents).toMatch(/not a valid number/);
@@ -236,11 +236,11 @@ describe("resourceUpdateRoute", () => {
     expect(publishResource).toHaveBeenCalledWith("users", { action: "update", id: "u1" });
   });
 
-  it("returns fieldErrors + status 400 on a validation failure", async () => {
+  it("returns fieldErrors + status 422 on a validation failure", async () => {
     const handler = resourceUpdateRoute(makeConfig({}));
     const req = formRequest("http://localhost/x", { email: "not-an-email" });
     const res = await handler(req, { params: Promise.resolve({ resource: "users", id: "u1" }) });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
     const body = (await res.json()) as { ok: boolean; fieldErrors?: Record<string, string> };
     expect(body.ok).toBe(false);
     expect(body.fieldErrors?.email).toBeDefined();

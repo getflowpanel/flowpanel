@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as defineAdminModule from "../define-admin.js";
 import type { Adapter } from "../index.js";
 import { defineAdmin, resource, table } from "../index.js";
 
@@ -15,6 +16,230 @@ const fakeAdapter: Adapter = {
 };
 
 describe("defineAdmin", () => {
+  it("separates server render selections from the client exposure projection", () => {
+    const config = defineAdmin({
+      adapter: {
+        ...fakeAdapter,
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: ["id", "email", "status", "secret"].map((name) => ({
+            name,
+            type: "string" as const,
+            nullable: false,
+            unique: false,
+            primaryKey: name === "id",
+          })),
+        }),
+      },
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            rowKey: "id",
+            columns: ["email", { label: "Server summary", select: ["secret"], render: () => null }],
+            expose: ["status"],
+          },
+        ),
+      ],
+    });
+    const getCompiledAdmin = (
+      defineAdminModule as typeof defineAdminModule & {
+        getCompiledAdmin?: (value: unknown) => {
+          resourcesByName: Map<
+            string,
+            { clientProjection: readonly string[]; serverProjection: readonly string[] }
+          >;
+        };
+      }
+    ).getCompiledAdmin;
+
+    expect(getCompiledAdmin?.(config).resourcesByName.get("users")).toMatchObject({
+      clientProjection: ["email", "status", "id"],
+      serverProjection: ["email", "status", "id", "secret"],
+    });
+  });
+
+  it("removes sensitive and statically unreadable fields from every projection", () => {
+    const definition = {
+      adapter: {
+        ...fakeAdapter,
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: ["id", "email", "secret"].map((name) => ({
+            name,
+            type: "string" as const,
+            nullable: false,
+            unique: false,
+            primaryKey: name === "id",
+          })),
+        }),
+      },
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["email", "secret"],
+            fieldAccess: { secret: { sensitive: true } },
+          },
+        ),
+      ],
+    };
+    const config = defineAdmin(definition);
+    const getCompiledAdmin = (
+      defineAdminModule as typeof defineAdminModule & {
+        getCompiledAdmin?: (value: unknown) => {
+          resourcesByName: Map<
+            string,
+            { clientProjection: readonly string[]; serverProjection: readonly string[] }
+          >;
+        };
+      }
+    ).getCompiledAdmin;
+
+    expect(getCompiledAdmin?.(config).resourcesByName.get("users")).toMatchObject({
+      clientProjection: ["email", "id"],
+      serverProjection: ["email", "id"],
+    });
+  });
+
+  it("honors adapter-discovered readable and sensitive metadata", () => {
+    const config = defineAdmin({
+      adapter: {
+        ...fakeAdapter,
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: [
+            { name: "id", type: "string", nullable: false, unique: true, primaryKey: true },
+            {
+              name: "passwordHash",
+              type: "string",
+              nullable: false,
+              unique: false,
+              primaryKey: false,
+              sensitive: true,
+            },
+          ],
+        }),
+      },
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource({ __name: "users" }, {})],
+    });
+    const compiled = (
+      defineAdminModule as typeof defineAdminModule & {
+        getCompiledAdmin(value: unknown): {
+          resourcesByName: Map<string, { clientProjection: readonly string[] }>;
+        };
+      }
+    ).getCompiledAdmin(config);
+
+    expect(compiled.resourcesByName.get("users")?.clientProjection).toEqual(["id"]);
+  });
+
+  it("rejects ambiguous resource access aliases", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [
+          resource("users", {
+            columns: [],
+            requireRole: "operator",
+            access: { read: "operator" },
+          }),
+        ],
+      }),
+    ).toThrow(/cannot declare both access and requireRole/i);
+  });
+
+  it("rejects invalid canonical field and bulk-action policies", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [
+          resource("users", {
+            columns: ["email"],
+            fieldAccess: { missing: { write: true } } as any,
+          }),
+        ],
+      }),
+    ).toThrow(/fieldAccess declares unknown field "missing"/);
+
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [
+          resource("users", {
+            columns: ["secret"],
+            fieldAccess: { secret: { sensitive: true, read: "admin" } },
+          }),
+        ],
+      }),
+    ).toThrow(/sensitive field "secret".*cannot declare readable access/);
+
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [
+          resource("users", {
+            columns: ["email"],
+            bulkActions: [
+              {
+                key: "oversized",
+                label: "Oversized",
+                max: 10_001,
+                run: async () => ({ ok: true }),
+              },
+            ],
+          }),
+        ],
+      }),
+    ).toThrow(/max between 1 and 10000/);
+  });
+
+  it("compiles the same definition only once", () => {
+    let introspections = 0;
+    const adapter: Adapter = {
+      ...fakeAdapter,
+      introspect: () => {
+        introspections += 1;
+        return { name: "users", columns: [], primaryKey: "id" };
+      },
+    };
+    const definition = {
+      adapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource("users", { columns: [] })],
+    };
+
+    const first = defineAdmin(definition);
+    const second = defineAdmin(definition);
+
+    expect(second).toBe(first);
+    expect(introspections).toBe(1);
+  });
+
+  it("normalizes admin and API paths from one paths object", () => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      paths: { admin: "internal/admin/", api: "internal/flowpanel/" },
+    });
+
+    expect(config.paths).toEqual({
+      admin: "/internal/admin",
+      api: "/internal/flowpanel",
+    });
+    expect(config.basePath).toBe("/internal/admin");
+  });
+
   it("resolves a minimal config", () => {
     const config = defineAdmin({
       adapter: fakeAdapter,

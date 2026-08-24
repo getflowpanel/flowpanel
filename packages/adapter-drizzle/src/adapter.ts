@@ -57,6 +57,12 @@ interface DrizzleLikeDb {
   transaction: <T>(fn: (tx: DrizzleLikeDb) => Promise<T>) => Promise<T>;
 }
 
+interface ScopeContext {
+  boundScope?: { apply(query: unknown): unknown };
+  applyScope?: (query: unknown) => unknown;
+  scopeRequired?: boolean;
+}
+
 type DrizzleColumnLike = AnyColumn & {
   primary?: boolean;
   notNull?: boolean;
@@ -89,11 +95,9 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
   }
 
   /** Runs the tenant predicate against a probe to collect the conditions it applies. */
-  function captureScopeClauses(ctx: {
-    applyScope?: (q: unknown) => unknown;
-    scopeRequired?: boolean;
-  }): SQL[] {
-    if (!ctx.applyScope) {
+  function captureScopeClauses(ctx: ScopeContext): SQL[] {
+    const applyScope = ctx.boundScope?.apply ?? ctx.applyScope;
+    if (!applyScope) {
       if (ctx.scopeRequired) {
         throw new FlowpanelAccessError(
           "scope required but not bound: a scope predicate is declared and global scope " +
@@ -109,8 +113,31 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
         return probe;
       },
     };
-    ctx.applyScope(probe);
+    applyScope(probe);
+    if (ctx.scopeRequired && captured.length === 0) {
+      throw new FlowpanelAccessError(
+        "scope required but the bound Drizzle predicate added no where clause. " +
+          "Refusing to run an unscoped query.",
+      );
+    }
     return captured;
+  }
+
+  function projection(cols: ColumnsRecord, select: readonly string[] | undefined) {
+    if (select === undefined) return undefined;
+    if (select.length === 0) throw new Error("drizzleAdapter: select must contain a column");
+    if (select.length > 1024) throw new Error("drizzleAdapter: select exceeds 1024 columns");
+    const selected: ColumnsRecord = {};
+    for (const name of new Set(select)) {
+      const column = cols[name];
+      if (!column) throw new Error(`drizzleAdapter: select contains unknown column "${name}"`);
+      selected[name] = column;
+    }
+    return selected;
+  }
+
+  function selectFrom(db: DrizzleLikeDb, ref: Table, selected: ColumnsRecord | undefined) {
+    return (selected ? db.select(selected) : db.select()).from(ref);
   }
 
   /** mysql has no RETURNING, so the row is read back by its caller-supplied id. */
@@ -221,6 +248,15 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
   return {
     kind: "drizzle",
     db: opts.db,
+    capabilities: {
+      version: 2,
+      projections: true,
+      transactions: true,
+      atomicImport: true,
+      returningRows: true,
+      migrations: true,
+    },
+    transaction: (run) => (opts.db as DrizzleLikeDb).transaction((tx) => run(tx as unknown as DB)),
 
     introspect: (ref) => introspect(ref),
     inferSchema: (ref) => inferSchema(ref),
@@ -228,6 +264,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     async list(ref, ctx): Promise<ListResult<unknown>> {
       const cols = getTableColumns(ref) as ColumnsRecord;
       const db = getDb(ctx);
+      const selected = projection(cols, ctx.select);
       const where = buildWhere(cols, ctx);
       const sortField = ctx.sort?.field;
       const sortCol = sortField ? cols[sortField] : undefined;
@@ -237,7 +274,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
           : desc(sortCol)
         : undefined;
 
-      let q: unknown = db.select().from(ref);
+      let q: unknown = selectFrom(db, ref, selected);
       if (where) q = (q as { where: (w: SQL) => unknown }).where(where);
       if (orderBy) q = (q as { orderBy: (o: SQL | AnyColumn) => unknown }).orderBy(orderBy);
       const offset = (ctx.page - 1) * ctx.pageSize;
@@ -262,9 +299,10 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
       const pk = pkFor(cols);
       const pkCol = cols[pk];
       if (!pkCol) return null;
+      const selected = projection(cols, ctx.select);
       const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
       const rows = (await (
-        db.select().from(ref) as unknown as {
+        selectFrom(db, ref, selected) as unknown as {
           where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
         }
       )

@@ -76,6 +76,19 @@ describe("defineAdmin — reserved route segments", () => {
     });
     expect(config.resourcesByName.has("dashboard")).toBe(true);
   });
+
+  it("rejects resource route names that differ only by case", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: withColumns(["id"]),
+        auth,
+        resources: [
+          resource({ __name: "Customers" }, { columns: ["id"] }),
+          resource({ __name: "customers" }, { columns: ["id"] }),
+        ],
+      }),
+    ).toThrow(/route name collision.*Customers.*customers/i);
+  });
 });
 
 describe("defineAdmin — columns default to the introspection", () => {
@@ -171,18 +184,19 @@ describe("defineAdmin — introspect-time column validation", () => {
     ).toThrow(/points at column "nope" via columns\[1\]\.field/);
   });
 
-  it("skips a field-less render column", () => {
-    const config = defineAdmin({
-      adapter,
-      auth,
-      resources: [
-        resource(
-          { __name: "users" },
-          { columns: ["id", { label: "Actions", render: () => null }] },
-        ),
-      ],
-    });
-    expect(config.resourcesByName.size).toBe(1);
+  it("rejects a server-rendered column without an explicit field selection", () => {
+    expect(() =>
+      defineAdmin({
+        adapter,
+        auth,
+        resources: [
+          resource(
+            { __name: "users" },
+            { columns: ["id", { label: "Actions", render: () => null }] },
+          ),
+        ],
+      }),
+    ).toThrow(/columns\[1\].*field or select/i);
   });
 
   it("rejects an unknown defaultSort.field", () => {
@@ -408,5 +422,38 @@ describe("defineAdmin — message shape", () => {
     expect(() =>
       defineAdmin({ adapter: blind, auth, resources: [resource("", { columns: [] })] }),
     ).toThrow(/Unable to resolve a resource name from this ref: string ""/);
+  });
+});
+
+describe("defineAdmin — page route paths", () => {
+  it("requires the root route to be written explicitly as a slash", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: blind,
+        auth,
+        dashboards: [{ path: "", label: "Overview", sections: [] }],
+      }),
+    ).toThrow(/root route.*explicitly.*\//i);
+  });
+
+  it("rejects dot segments instead of normalizing them into another route", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: blind,
+        auth,
+        pages: [{ path: "/reports/../customers", label: "Unsafe" }],
+      }),
+    ).toThrow(/safe route path.*dot segments/i);
+  });
+
+  it("rejects a page route that collides with a resource route", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: withColumns(["id"]),
+        auth,
+        resources: [resource({ __name: "Customers" }, { columns: ["id"] })],
+        pages: [{ path: "/customers", label: "Customer report" }],
+      }),
+    ).toThrow(/route path collision.*resource.*Customers.*page.*customers/i);
   });
 });

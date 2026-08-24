@@ -10,8 +10,10 @@ import type {
 } from "@flowpanel/core";
 import {
   assertResourceScope,
+  authorizeOperation,
   checkRequireRole,
   resolveFieldLabel,
+  resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
 import { DetailTabsClient } from "@flowpanel/next/client";
@@ -20,7 +22,7 @@ import type * as React from "react";
 import { formatFieldValue } from "../runtime/format-field-value.js";
 import { buildHref } from "../runtime/href.js";
 import { prerenderResourceCells } from "../runtime/prerender-cells.js";
-import { projectRow } from "../runtime/project-row.js";
+import { projectAuthorizedRow } from "../runtime/project-row.js";
 import { renderColumnFormat } from "../runtime/render-column-format.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 import { readRelatedRows } from "../runtime/require-authorized.js";
@@ -68,6 +70,7 @@ export interface ResourceDetailPageProps {
   name: string;
   id: string;
   req: Request;
+  reqCtx?: RequestContext;
 }
 
 export async function ResourceDetailPage({
@@ -76,9 +79,14 @@ export async function ResourceDetailPage({
   name,
   id,
   req,
+  reqCtx: providedReqCtx,
 }: ResourceDetailPageProps) {
-  const reqCtx = await buildRequestContext({ req, config });
+  const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
   checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
+  await authorizeOperation(
+    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
+    reqCtx,
+  );
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
@@ -127,7 +135,7 @@ export async function ResourceDetailPage({
       ) : (
         <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
           <KV>
-            {Object.entries(projectRow(resource, row)).map(([k, v]) => (
+            {Object.entries(await projectAuthorizedRow(resource, row, reqCtx)).map(([k, v]) => (
               <KVRow
                 key={k}
                 label={resolveFieldLabel(cells?.get(k)?.label, k)}
@@ -205,7 +213,16 @@ async function renderTab<Row extends Record<string, unknown>>(
   }
 
   const selected = tab.fields;
-  const projectedRow = selected === undefined || selected === "*" ? projectRow(resource, row) : row;
+  const projectedRow = await projectAuthorizedRow(
+    resource,
+    row,
+    reqCtx,
+    Array.isArray(selected)
+      ? selected.map((entry) =>
+          typeof entry === "object" && entry !== null ? String(entry.name) : String(entry),
+        )
+      : undefined,
+  );
   const fieldList = selectFields(projectedRow, selected);
   const cells = buildDetailCells(resource, row, reqCtx);
   return (

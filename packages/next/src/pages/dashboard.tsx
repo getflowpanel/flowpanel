@@ -3,6 +3,7 @@ import type {
   DateRangePreset,
   RequestContext,
   ResolvedAdminConfig,
+  Span,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
@@ -11,9 +12,10 @@ import {
   DashboardDateRange,
   WidgetErrorBoundary,
 } from "@flowpanel/next/client";
-import { RealtimeRefresh, Section, SkeletonCard, spanClass } from "@flowpanel/react";
+import { RealtimeRefresh, Section, SkeletonCard } from "@flowpanel/react";
 import { Suspense } from "react";
 import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action.js";
+import { filterActionsByAccess } from "../runtime/action-helpers.js";
 import { type DateRangeInput, resolveDateRange } from "../runtime/date-range.js";
 import { renderWidget } from "../runtime/render-widget.js";
 
@@ -83,7 +85,9 @@ export async function DashboardPage({
     req,
   };
 
-  const actions = (dashboard.actions ?? []).map(serializeDashboardAction);
+  const actions = (await filterActionsByAccess(dashboard.actions, reqCtx)).map(
+    serializeDashboardAction,
+  );
   const encodedPath = encodeDashboardPath(dashboard.path);
 
   return (
@@ -153,8 +157,20 @@ function WidgetSlot({
 
 export function widgetSpanClassName(widget: WidgetConfig): string | undefined {
   const span = widget.options.span;
-  return span ? spanClass[span] : undefined;
+  return span ? widgetSpanClass[span] : undefined;
 }
+
+// Keep this server-side. The @flowpanel/react barrel is a client module, so
+// reading an exported object from it inside an RSC returns a client reference.
+const widgetSpanClass: Record<Span, string> = {
+  1: "col-span-12 sm:col-span-1",
+  2: "col-span-12 sm:col-span-2",
+  3: "col-span-12 sm:col-span-3",
+  4: "col-span-12 sm:col-span-4",
+  6: "col-span-12 sm:col-span-6",
+  8: "col-span-12 sm:col-span-8",
+  12: "col-span-12",
+};
 
 async function WidgetAsync({
   widget,

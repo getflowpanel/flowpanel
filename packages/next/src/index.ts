@@ -24,6 +24,14 @@ export {
   type SerializedRowAction,
   serializeRowAction,
 } from "./actions/row-action.js";
+export type {
+  ResourceController,
+  ResourceListOptions,
+} from "./controllers/resource-controller.js";
+export {
+  createFlowpanel,
+  type FlowpanelRuntime,
+} from "./create-flowpanel.js";
 export {
   type DrawerPayload,
   type DrawerRouteCtx,
@@ -34,12 +42,22 @@ export {
   type SerializedWidget,
 } from "./drawer/drawer-route.js";
 export { Flowpanel, FlowpanelContent, type FlowpanelOptions } from "./flowpanel-page.js";
-export { handlers } from "./handlers.js";
+export {
+  type FlowpanelHandlers,
+  handlers,
+  type RouteContext,
+  type RouteHandler,
+} from "./handlers.js";
 export {
   type ApplyActionResultOptions,
   applyActionResult,
 } from "./runtime/apply-action-result.js";
+export type {
+  FlowpanelRequest,
+  ResourceControllers,
+} from "./runtime/controller-factory.js";
 export { buildNav, resourceNavName } from "./runtime/nav.js";
 export { bindPublisher, publish, publishResource, subscribe } from "./runtime/publish.js";
 export { type BuildRequestCtxArgs, buildRequestContext } from "./runtime/request-setup.js";
 export { type StreamOptions, stream } from "./stream.js";
+export type { FlowpanelClientMetadata, WireValue } from "./wire/serialize.js";

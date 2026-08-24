@@ -5,9 +5,13 @@ export { resource } from "./builders/resource.js";
 export { custom, metric, statGroup, table } from "./builders/widget.js";
 export { defineAdmin } from "./define-admin.js";
 export { humanize, resolveFieldLabel } from "./humanize.js";
+export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access.js";
+export { evaluateUiCondition } from "./policy/conditions.js";
+export { assertWritableInput, filterReadableProjection } from "./policy/fields.js";
 export { resolveResourceName } from "./resource-name.js";
 export { emitAudit } from "./runtime/audit.js";
 export { checkRequireRole, type RequireRole } from "./runtime/auth.js";
+export { type MutationPipelineStage, runMutationPipeline } from "./runtime/operation-pipeline.js";
 export { createPublisher, type Publisher, type PublisherOptions } from "./runtime/publish.js";
 export {
   createRateLimiter,
@@ -19,19 +23,30 @@ export {
   runWithRequestContext,
   tryGetRequestContext,
 } from "./runtime/request-context.js";
+export { errorResult, reportUnexpectedError, resultResponse } from "./runtime/result.js";
 export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope.js";
+export { assertAdapterCapabilities } from "./testing/adapter-conformance.js";
 export type {
+  ActionInput,
   ActionResult,
   BulkAction,
   DashboardAction,
   RowAction,
 } from "./types/action.js";
+export { bulkAction, dashboardAction, rowAction } from "./types/action.js";
 export type {
   Adapter,
   AdapterKind,
   ColumnMeta,
   ResourceIntrospection,
 } from "./types/adapter.js";
+export {
+  type AdapterCapabilities,
+  type AdapterV2,
+  adapterCapabilities,
+  type BoundAdapterScope,
+  bindAdapterScope,
+} from "./types/adapter-v2.js";
 export type {
   CommandGroup,
   CommandItem,
@@ -39,18 +54,21 @@ export type {
 } from "./types/command.js";
 export type {
   AdminConfig,
+  AdminDefinition,
   AuditConfig,
   AuditEvent,
   AuthConfig,
   FlowpanelComponentSlots,
   RateLimitConfig,
   ResolvedAdminConfig,
+  SecurityConfig,
   ShellConfig,
   ShellMode,
   ThemeConfig,
 } from "./types/config.js";
 export type {
   ActionContext,
+  ErrorContext,
   FilterInValue,
   FilterRangeValue,
   ItemQueryContext,
@@ -85,10 +103,14 @@ export {
   FlowpanelAuthError,
   FlowpanelConflictError,
   FlowpanelError,
+  FlowpanelFieldAccessError,
   FlowpanelNotFoundError,
+  FlowpanelOperationDisabledError,
   FlowpanelRateLimitError,
+  FlowpanelUnknownFieldError,
   FlowpanelValidationError,
 } from "./types/error.js";
+export type { IconName } from "./types/icon.js";
 export {
   DEFAULT_LABELS,
   formatLabel,
@@ -96,6 +118,18 @@ export {
   mergeLabels,
   type ResolvedLabels,
 } from "./types/labels.js";
+export type { AdminPaths, AdminPathsInput } from "./types/paths.js";
+export type {
+  AccessContext,
+  AccessRule,
+  FieldAccess,
+  FieldAccessMap,
+  FieldWriteContext,
+  JsonValue,
+  ResourceAccess,
+  ResourceOperation,
+  UiCondition,
+} from "./types/policy.js";
 export type { QueueConfig, QueueOptions } from "./types/queue.js";
 export type { RealtimeConfig } from "./types/realtime.js";
 export type {
@@ -107,6 +141,7 @@ export type {
   ResourceName,
 } from "./types/registry.js";
 export type {
+  AnyResourceConfig,
   ColumnDef,
   ColumnFormat,
   DetailTab,
@@ -119,6 +154,15 @@ export type {
   ResourceOptions,
   SelectOption,
 } from "./types/resource.js";
+export {
+  FLOWPANEL_ERROR_STATUS,
+  type FlowpanelErrorCode,
+  type FlowpanelResult,
+  type FlowpanelResultError,
+  type FlowpanelResultMeta,
+  type FlowpanelWarning,
+  type FlowpanelWarningCode,
+} from "./types/result.js";
 export type { Scope, ScopeContext, Session } from "./types/session.js";
 export type {
   AreaChartOptions,
@@ -142,6 +186,7 @@ export type {
   StatGroupOptions,
   StatGroupWidget,
   StatItem,
+  StatValue,
   TableWidget,
   TableWidgetOptions,
   Tone,

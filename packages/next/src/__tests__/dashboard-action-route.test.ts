@@ -127,7 +127,14 @@ describe("dashboardActionRoute", () => {
       path: "/pipeline",
       label: "Pipeline",
       sections: [],
-      actions: [{ key: "trigger-scraper", label: "Trigger", run } as DashboardAction],
+      actions: [
+        {
+          key: "trigger-scraper",
+          label: "Trigger",
+          form: [{ name: "reason", type: "text" }],
+          run,
+        } as DashboardAction,
+      ],
     };
     const config = makeConfig({
       dashboard,
@@ -200,7 +207,7 @@ describe("dashboardActionRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).not.toContain("kaboom");
-    expect(body.error).toBe("internal error");
+    expect(body.error).toBe("Internal server error");
   });
 
   it("returns 422 with issues when input fails the action's required form field", async () => {

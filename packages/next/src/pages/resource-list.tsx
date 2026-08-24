@@ -2,14 +2,17 @@ import type {
   BulkAction,
   ColumnDef,
   ListQueryContext,
+  RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
   RowAction,
 } from "@flowpanel/core";
 import {
   assertResourceScope,
+  authorizeOperation,
   checkRequireRole,
   humanize,
+  resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
 import {
@@ -20,10 +23,10 @@ import {
   ResourceListSearch,
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
-import { AutoForm, Button, PageHeader, ReferenceCell } from "@flowpanel/react";
-import type * as React from "react";
+import { AutoForm, Button, FlowpanelIcon, PageHeader } from "@flowpanel/react";
 import { serializeBulkAction } from "../actions/bulk-action.js";
 import { type SerializedRowAction, serializeRowAction } from "../actions/row-action.js";
+import { filterActionsByAccess } from "../runtime/action-helpers.js";
 import { buildHref } from "../runtime/href.js";
 import { resourceNavName } from "../runtime/nav.js";
 import {
@@ -33,10 +36,12 @@ import {
   sanitizeFilterValues,
 } from "../runtime/parse-list-params.js";
 import { prerenderResourceCells } from "../runtime/prerender-cells.js";
-import { projectRow } from "../runtime/project-row.js";
+import { projectAuthorizedRow } from "../runtime/project-row.js";
+import { applyReferenceCells } from "../runtime/reference-cells.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
 import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields.js";
 import { resolveReferences } from "../runtime/resolve-references.js";
+import { singularLabel } from "../runtime/resource-title.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
 
 export interface ResourceListPageProps {
@@ -44,6 +49,7 @@ export interface ResourceListPageProps {
   resource: ResourceConfig;
   searchParams: URLSearchParams;
   req: Request;
+  reqCtx?: RequestContext;
 }
 
 type Row = Record<string, unknown>;
@@ -58,9 +64,14 @@ export async function ResourceListPage({
   resource,
   searchParams,
   req,
+  reqCtx: providedReqCtx,
 }: ResourceListPageProps) {
-  const reqCtx = await buildRequestContext({ req, config });
+  const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
   checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
+  await authorizeOperation(
+    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
+    reqCtx,
+  );
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
@@ -134,46 +145,14 @@ export async function ResourceListPage({
     { defaultSortable: true, metaByField },
   );
 
-  const cellsWithRefs: (React.ReactNode | undefined)[][] | undefined = prerenderedCells
-    ? prerenderedCells.map((row) => row.slice())
-    : fkLabels.size > 0
-      ? (result.rows as Row[]).map(() => Array(columns.length).fill(undefined) as React.ReactNode[])
-      : undefined;
-  if (cellsWithRefs && fkLabels.size > 0) {
-    const colIdxByField = new Map<string, number>();
-    columns.forEach((c, i) => {
-      colIdxByField.set(c.field as string, i);
-    });
-    const refMetaByField = new Map<string, { resource: string; labelField: string }>();
-    for (const c of columnDefs) {
-      if (typeof c === "string" || typeof c === "number" || typeof c === "symbol") continue;
-      const def = c as ColumnDef<Row>;
-      const ref = def.reference;
-      const field = String(def.field ?? "");
-      if (ref && field) refMetaByField.set(field, ref);
-    }
-    (result.rows as Row[]).forEach((row, rowIdx) => {
-      const rowCells = cellsWithRefs[rowIdx];
-      if (!rowCells) return;
-      for (const [field, labelMap] of fkLabels) {
-        const colIdx = colIdxByField.get(field);
-        if (colIdx === undefined) continue;
-        const ref = refMetaByField.get(field);
-        if (!ref) continue;
-        const raw = row[field as keyof Row];
-        if (raw === null || raw === undefined) {
-          rowCells[colIdx] = <span className="text-fp-text-3">—</span>;
-          continue;
-        }
-        const id = String(raw);
-        const label = labelMap.get(id);
-        if (label === undefined) continue; // leaves the raw-value fallback
-        rowCells[colIdx] = (
-          <ReferenceCell label={String(label)} href={buildHref(config, ref.resource, id)} />
-        );
-      }
-    });
-  }
+  const cellsWithRefs = applyReferenceCells(
+    config,
+    columnDefs,
+    columns,
+    result.rows as Row[],
+    prerenderedCells,
+    fkLabels,
+  );
 
   const rowKey = (resource.options.rowKey as string | undefined) ?? "id";
   const useDrawerRowClick = resource.options.rowClick === "drawer" && !!resource.options.drawer;
@@ -184,7 +163,10 @@ export async function ResourceListPage({
         .map((row) => String(row[rowKey]))
     : undefined;
 
-  const rawActions = resource.options.actions as RowAction<Row>[] | undefined;
+  const rawActions = await filterActionsByAccess(
+    resource.options.actions as RowAction<Row>[] | undefined,
+    reqCtx,
+  );
   const serializedActions = rawActions?.map(serializeRowAction) ?? [];
   let rowActionsById: Record<string, SerializedRowAction[]> | undefined;
   if (rawActions?.some((a) => a.hidden)) {
@@ -202,11 +184,16 @@ export async function ResourceListPage({
     );
     rowActionsById = Object.fromEntries(entries);
   }
-  const rawBulkActions = resource.options.bulkActions as BulkAction<Row>[] | undefined;
+  const rawBulkActions = await filterActionsByAccess(
+    resource.options.bulkActions as BulkAction<Row>[] | undefined,
+    reqCtx,
+  );
   const serializedBulkActions = rawBulkActions?.map(serializeBulkAction) ?? [];
   const displayPlural = resource.options.plural ?? resource.options.label ?? humanize(name);
 
-  const clientRows = (result.rows as Row[]).map((row) => projectRow(resource, row));
+  const clientRows = await Promise.all(
+    (result.rows as Row[]).map((row) => projectAuthorizedRow(resource, row, reqCtx)),
+  );
 
   // Resolved here rather than behind a fetch: the create form is the same
   // server-rendered `AutoForm` the standalone /new page uses, handed to a client
@@ -217,7 +204,7 @@ export async function ResourceListPage({
   const createFields = createDeclared
     ? await resolveFormFields(config, createDeclared, reqCtx)
     : undefined;
-  const createLabel = resource.options.label ?? humanize(name);
+  const createLabel = singularLabel(resource, name);
 
   return (
     <>
@@ -293,7 +280,11 @@ export async function ResourceListPage({
         {...(resource.options.empty?.description
           ? { emptyDescription: resource.options.empty.description }
           : {})}
-        {...(resource.options.empty?.icon ? { emptyIcon: resource.options.empty.icon } : {})}
+        {...(resource.options.empty?.icon
+          ? {
+              emptyIcon: <FlowpanelIcon name={resource.options.empty.icon} className="h-6 w-6" />,
+            }
+          : {})}
         {...(resource.options.empty?.action
           ? {
               emptyAction: (

@@ -25,6 +25,7 @@ function makeConfig(opts: {
   audit?: AuditConfig | undefined;
   resourceAudit?: boolean | undefined;
   role?: string;
+  rowNotFound?: boolean;
   session?: Session | null;
 }) {
   const adapter: Adapter = {
@@ -33,7 +34,7 @@ function makeConfig(opts: {
     introspect: () => ({ name: "items", columns: [], primaryKey: "id" }),
     inferSchema: () => ({}) as never,
     list: async () => ({ rows: [], total: 0, page: 1, pageSize: 10 }),
-    get: async () => ({}),
+    get: async () => (opts.rowNotFound ? null : {}),
     create: async () => ({}),
     update: async () => ({}),
     delete: async () => undefined,
@@ -107,6 +108,18 @@ describe("bulkActionRoute", () => {
     expect(res.status).toBe(400);
   });
 
+  it("400 when the action input is not an object", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({ action: { key: "verify", label: "V", run } });
+    const handler = bulkActionRoute(config);
+    const res = await handler(jsonReq({ ids: ["a"], input: "not-an-object" }), {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "input must be an object" });
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("400 when ids is empty", async () => {
     const config = makeConfig({
       action: { key: "verify", label: "V", run: async () => ({ ok: true }) },
@@ -144,7 +157,12 @@ describe("bulkActionRoute", () => {
     }));
     const config = makeConfig({
       audit: { enabled: true, sink },
-      action: { key: "verify", label: "Verify", run },
+      action: {
+        key: "verify",
+        label: "Verify",
+        form: [{ name: "note", type: "text" }],
+        run,
+      },
     });
     const handler = bulkActionRoute(config);
     const res = await handler(jsonReq({ ids: ["a", "b", "c"], input: { note: "k" } }), {
@@ -167,6 +185,31 @@ describe("bulkActionRoute", () => {
         targetId: "a,b,c",
       }),
     );
+  });
+
+  it("deduplicates ids and requires every selected row to exist inside the active scope", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const handler = bulkActionRoute(
+      makeConfig({ action: { key: "verify", label: "Verify", run } }),
+    );
+    const deduped = await handler(jsonReq({ ids: ["a", "a", "b"] }), {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(deduped.status).toBe(200);
+    expect(run).toHaveBeenCalledWith(["a", "b"], {}, expect.anything());
+
+    const missingRun = vi.fn(async () => ({ ok: true as const }));
+    const missingHandler = bulkActionRoute(
+      makeConfig({
+        rowNotFound: true,
+        action: { key: "verify", label: "Verify", run: missingRun },
+      }),
+    );
+    const missing = await missingHandler(jsonReq({ ids: ["outside-scope"] }), {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(missing.status).toBe(404);
+    expect(missingRun).not.toHaveBeenCalled();
   });
 
   it("audit targetId truncates after 10 ids with an ellipsis marker", async () => {
@@ -220,14 +263,18 @@ describe("bulkActionRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).not.toContain("db down");
-    expect(body.error).toBe("internal error");
+    expect(body.error).toBe("Internal server error");
   });
 
   it("passes ctx.actorId derived from the session to run", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig({
       session: { id: "u1" } as unknown as Session,
-      action: { key: "verify", label: "V", run },
+      action: {
+        key: "verify",
+        label: "V",
+        run,
+      },
     });
     const handler = bulkActionRoute(config);
     await handler(jsonReq({ ids: ["a"] }), {
@@ -291,7 +338,12 @@ describe("bulkActionRoute", () => {
   it("accepts FormData body with multiple ids fields", async () => {
     const run = vi.fn(async () => ({ ok: true as const, message: "ok" }));
     const config = makeConfig({
-      action: { key: "verify", label: "V", run },
+      action: {
+        key: "verify",
+        label: "V",
+        form: [{ name: "note", type: "text" }],
+        run,
+      },
     });
     const handler = bulkActionRoute(config);
     const fd = new FormData();

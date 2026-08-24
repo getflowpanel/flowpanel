@@ -1,13 +1,13 @@
 import type {
+  FieldAccessMap,
   FieldDef,
   QueryContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { FlowpanelAccessError, humanize, runWithRequestContext } from "@flowpanel/core";
+import { assertWritableInput, humanize, runWithRequestContext } from "@flowpanel/core";
 import type { z } from "zod";
-import { roleAllows } from "../runtime/action-helpers.js";
 
 export interface Schemas {
   create: z.ZodTypeAny;
@@ -34,58 +34,80 @@ export function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig
   return { create: inferred.create, update: inferred.update };
 }
 
-export interface StrippedField {
-  name: string;
-  reason: "role" | "readOnly";
+function declaredWriteFields(
+  resource: ResourceConfig,
+  fields: FieldDef<Record<string, unknown>>[] | undefined,
+): string[] {
+  if (fields) return fields.map((field) => field.name);
+  const names: string[] = [];
+  for (const column of resource.options.columns ?? []) {
+    if (typeof column === "string") names.push(column);
+    else if (typeof column === "number" || typeof column === "symbol") names.push(String(column));
+    else if (column.field) names.push(column.field);
+  }
+  return names;
 }
 
-export function stripNonWritableFields(
+function effectiveFieldPolicies(
+  resource: ResourceConfig,
+  fields: FieldDef<Record<string, unknown>>[] | undefined,
+  current: Record<string, unknown> | null,
+): FieldAccessMap<Record<string, unknown>> {
+  const policies: FieldAccessMap<Record<string, unknown>> = {
+    ...(resource.options.fieldAccess as FieldAccessMap<Record<string, unknown>> | undefined),
+  };
+  for (const field of fields ?? []) {
+    if (policies[field.name]?.write !== undefined) continue;
+    if (field.requireRole !== undefined) {
+      const requireRole = field.requireRole;
+      policies[field.name] = {
+        ...policies[field.name],
+        write:
+          typeof requireRole === "function" ? ({ session }) => requireRole(session) : requireRole,
+      };
+      continue;
+    }
+    const readOnly =
+      typeof field.readOnly === "function"
+        ? current !== null && field.readOnly(current)
+        : field.readOnly === true;
+    if (readOnly) policies[field.name] = { ...policies[field.name], write: false };
+  }
+  return policies;
+}
+
+/** Reject undeclared or forbidden submitted fields; never silently strip them. */
+export async function assertResourceWritableInput(
+  resource: ResourceConfig,
   fields: FieldDef<Record<string, unknown>>[] | undefined,
   input: unknown,
+  current: Record<string, unknown> | null,
   reqCtx: RequestContext,
-): { safe: unknown; stripped: StrippedField[] } {
-  if (!fields || typeof input !== "object" || input === null) {
-    return { safe: input, stripped: [] };
-  }
+): Promise<Record<string, unknown>> {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return {};
   const values = input as Record<string, unknown>;
-  const stripped: StrippedField[] = [];
-  for (const f of fields) {
-    if (!roleAllows(f.requireRole, reqCtx)) stripped.push({ name: f.name, reason: "role" });
-    else if (typeof f.readOnly === "function" ? f.readOnly(values) : f.readOnly === true)
-      stripped.push({ name: f.name, reason: "readOnly" });
-  }
-  if (stripped.length === 0) return { safe: input, stripped };
-  const out = { ...values };
-  for (const f of stripped) delete out[f.name];
-  return { safe: out, stripped };
-}
-
-export function throwIfStrippedRequired(
-  stripped: StrippedField[],
-  fieldErrors: Record<string, string>,
-): void {
-  const hit = stripped.find(({ name }) =>
-    Object.keys(fieldErrors).some((k) => k === name || k.startsWith(`${name}.`)),
-  );
-  if (!hit) return;
-  throw new FlowpanelAccessError(
-    hit.reason === "role"
-      ? `Field "${hit.name}" is required but restricted to another role.`
-      : `Field "${hit.name}" is required but read-only.`,
-  );
+  return (await assertWritableInput<Record<string, unknown>>({
+    declaredFields: declaredWriteFields(resource, fields),
+    policies: effectiveFieldPolicies(resource, fields, current),
+    input: values,
+    context: { ...reqCtx, current, input: values },
+  })) as Record<string, unknown>;
 }
 
 /** Fill `FieldDef.defaultValue` for keys absent from the input (create only). */
 export async function applyFieldDefaults(
   config: ResolvedAdminConfig,
+  resource: ResourceConfig,
   fields: FieldDef<Record<string, unknown>>[] | undefined,
   input: unknown,
   reqCtx: RequestContext,
 ): Promise<unknown> {
-  if (!fields || typeof input !== "object" || input === null) return input;
-  const defaulted = fields.filter((f) => f.defaultValue !== undefined);
-  if (defaulted.length === 0) return input;
+  if (typeof input !== "object" || input === null) return input;
   const out = { ...(input as Record<string, unknown>) };
+  for (const [name, value] of Object.entries(resource.options.create?.defaultValues ?? {})) {
+    if (out[name] === undefined) out[name] = value;
+  }
+  const defaulted = (fields ?? []).filter((f) => f.defaultValue !== undefined);
   for (const f of defaulted) {
     if (out[f.name] !== undefined) continue;
     if (typeof f.defaultValue === "function") {

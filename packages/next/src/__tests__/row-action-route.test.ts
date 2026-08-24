@@ -187,7 +187,12 @@ describe("rowActionRoute", () => {
     }));
     const config = makeConfig({
       audit: { enabled: true, sink },
-      action: { key: "reset-cap", label: "Reset cap", run },
+      action: {
+        key: "reset-cap",
+        label: "Reset cap",
+        form: [{ name: "note", type: "text" }],
+        run,
+      },
     });
     const handler = rowActionRoute(config);
     const req = new Request("http://localhost/x", {
@@ -252,10 +257,10 @@ describe("rowActionRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).not.toContain("kaboom");
-    expect(body.error).toBe("internal error");
+    expect(body.error).toBe("Internal server error");
   });
 
-  it("surfaces err.safeMessage on 500 when the thrown error opts in", async () => {
+  it("does not trust a safeMessage property on an untyped unexpected error", async () => {
     const config = makeConfig({
       action: {
         key: "boom",
@@ -274,7 +279,7 @@ describe("rowActionRoute", () => {
     });
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("Could not complete the action");
+    expect(body.error).toBe("Internal server error");
     expect(body.error).not.toContain("secret");
   });
 

@@ -1,5 +1,15 @@
-import type { ItemQueryContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { checkRequireRole, runWithRequestContext } from "@flowpanel/core";
+import type {
+  ItemQueryContext,
+  RequestContext,
+  ResolvedAdminConfig,
+  ResourceConfig,
+} from "@flowpanel/core";
+import {
+  authorizeOperation,
+  checkRequireRole,
+  resolveOperationAccess,
+  runWithRequestContext,
+} from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { buildHref } from "../runtime/href.js";
 import { buildRequestContext } from "../runtime/request-setup.js";
@@ -13,11 +23,23 @@ export interface ResourceEditPageProps {
   name: string;
   id: string;
   req: Request;
+  reqCtx?: RequestContext;
 }
 
-export async function ResourceEditPage({ config, resource, name, id, req }: ResourceEditPageProps) {
-  const reqCtx = await buildRequestContext({ req, config });
+export async function ResourceEditPage({
+  config,
+  resource,
+  name,
+  id,
+  req,
+  reqCtx: providedReqCtx,
+}: ResourceEditPageProps) {
+  const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
   checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
+  await authorizeOperation(
+    resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
+    reqCtx,
+  );
 
   if (resource.options.update?.disabled) {
     return <div className="text-fp-text-3">Editing is disabled for this resource.</div>;

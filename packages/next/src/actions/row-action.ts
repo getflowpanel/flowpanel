@@ -1,5 +1,6 @@
 import type {
   ActionResult,
+  IconName,
   ItemQueryContext,
   ResolvedAdminConfig,
   RowAction,
@@ -13,9 +14,9 @@ import {
   isAuditActive,
   maybeEmitAudit,
   notFoundResponse,
+  parseActionInputSchema,
   readActionInput,
-  safeErrorMessage,
-  validateActionInput,
+  validateActionOutput,
 } from "../runtime/action-helpers.js";
 import { applyActionResult } from "../runtime/apply-action-result.js";
 import { buildHref } from "../runtime/href.js";
@@ -29,7 +30,7 @@ import { serializeActionForm } from "./serialize-action-field.js";
 export interface SerializedRowAction {
   key: string;
   label: string;
-  icon?: string;
+  icon?: IconName;
   variant?: "default" | "destructive" | "success";
   placement?: "inline" | "menu";
   confirm?: { title: string; description?: string; confirmLabel?: string };
@@ -83,7 +84,7 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
     return withGuards(
       config,
       req,
-      { resource, actionRequireRole: action.requireRole },
+      { resource, actionAccess: action.access, actionRequireRole: action.requireRole },
       async (reqCtx) => {
         const itemCtx: ItemQueryContext = {
           ...reqCtx,
@@ -99,6 +100,13 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
         )) as Record<string, unknown> | null;
         if (!row) {
           return Response.json({ ok: false, error: "not found" }, { status: 404 });
+        }
+
+        if (action.when) {
+          const allowed = await action.when({ ...reqCtx, current: row, input: {} });
+          if (!allowed) {
+            return Response.json({ ok: false, error: "not found" }, { status: 404 });
+          }
         }
 
         if (action.hidden) {
@@ -118,14 +126,14 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
         const body = await readActionInput(req);
         if (!body.ok) return invalidJsonResponse();
         const input = body.input;
-
-        const inputIssues = await validateActionInput(
-          action.form as Parameters<typeof validateActionInput>[0],
+        const parsedInput = await parseActionInputSchema(
+          action.form as Parameters<typeof parseActionInputSchema>[0],
+          action.inputSchema,
           input,
         );
-        if (inputIssues) {
+        if (parsedInput.issues) {
           return Response.json(
-            { ok: false, error: "validation failed", issues: inputIssues },
+            { ok: false, error: "validation failed", issues: parsedInput.issues },
             { status: 422 },
           );
         }
@@ -133,57 +141,57 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
         const actionCtx = {
           ...reqCtx,
           db: config.adapter.db,
+          ...(action.unsafe?.includes("db") ? { unsafe: { db: config.adapter.db } } : {}),
           actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
           publish: async (channel: string, payload?: unknown) => {
             await publish(channel, payload);
           },
         };
 
-        try {
-          const result = (await runWithRequestContext(reqCtx, () =>
-            action.run(row, input, actionCtx),
-          )) as ActionResult;
+        const result = validateActionOutput(
+          action.outputSchema,
+          (await runWithRequestContext(reqCtx, () =>
+            action.run(row, parsedInput.data, actionCtx),
+          )) as ActionResult<unknown>,
+        );
 
-          let diff: ReturnType<typeof computeShallowDiff> | undefined;
-          if (result.ok && isAuditActive(config.audit, resource.options.audit)) {
-            let after: Record<string, unknown> | null = null;
-            try {
-              after = (await runWithRequestContext(reqCtx, () =>
-                config.adapter.get(resource.ref, itemCtx),
-              )) as Record<string, unknown> | null;
-            } catch {
-              after = null;
-            }
-            diff = computeShallowDiff(row, after);
+        let diff: ReturnType<typeof computeShallowDiff> | undefined;
+        if (result.ok && isAuditActive(config.audit, resource.options.audit)) {
+          let after: Record<string, unknown> | null = null;
+          try {
+            after = (await runWithRequestContext(reqCtx, () =>
+              config.adapter.get(resource.ref, itemCtx),
+            )) as Record<string, unknown> | null;
+          } catch {
+            after = null;
           }
-
-          await maybeEmitAudit(
-            result,
-            config.audit,
-            resource.options.audit,
-            buildAuditEvent(
-              reqCtx,
-              {
-                action: `${resourceName}.action.${actionKey}`,
-                resource: resourceName,
-                targetId: id,
-                ...(diff !== undefined ? { diff } : {}),
-              },
-              config.auth.userId,
-            ),
-          );
-
-          if (result.ok) {
-            await applyActionResult(result, {
-              resourceName,
-              pathname: buildHref(config, resourceName),
-            });
-          }
-
-          return Response.json(result);
-        } catch (err) {
-          return Response.json({ ok: false, error: safeErrorMessage(err) }, { status: 500 });
+          diff = computeShallowDiff(row, after);
         }
+
+        await maybeEmitAudit(
+          result,
+          config.audit,
+          resource.options.audit,
+          buildAuditEvent(
+            reqCtx,
+            {
+              action: `${resourceName}.action.${actionKey}`,
+              resource: resourceName,
+              targetId: id,
+              ...(diff !== undefined ? { diff } : {}),
+            },
+            config.auth.userId,
+          ),
+        );
+
+        if (result.ok) {
+          await applyActionResult(result, {
+            resourceName,
+            pathname: buildHref(config, resourceName),
+          });
+        }
+
+        return Response.json(result);
       },
     );
   };

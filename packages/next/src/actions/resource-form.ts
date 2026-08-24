@@ -40,7 +40,7 @@ function errorResult(err: unknown): { status: number; body: FormActionResult } {
     status?: number;
   };
   const status = typeof e?.status === "number" ? e.status : 500;
-  if (e?.code === "validation" && e.fieldErrors) {
+  if (e?.code === "validation_failed" && e.fieldErrors) {
     return {
       status,
       body: {
@@ -67,7 +67,7 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
       return Response.json({ ok: false, error: "create is disabled" }, { status: 403 });
     }
 
-    return withGuards(config, req, { resource }, async (reqCtx) => {
+    return withGuards(config, req, { resource, operation: "create" }, async (reqCtx) => {
       const parsed = await parseFormBody(req, resource, config);
       if (parsed === null) {
         return Response.json({ ok: false, error: "invalid form data" }, { status: 400 });
@@ -102,7 +102,7 @@ export function resourceUpdateRoute(config: ResolvedAdminConfig) {
       return Response.json({ ok: false, error: "editing is disabled" }, { status: 403 });
     }
 
-    return withGuards(config, req, { resource }, async (reqCtx) => {
+    return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {
       const parsed = await parseFormBody(req, resource, config);
       if (parsed === null) {
         return Response.json({ ok: false, error: "invalid form data" }, { status: 400 });

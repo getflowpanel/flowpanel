@@ -81,7 +81,7 @@ export function importRoute(config: ResolvedAdminConfig) {
       return Response.json({ ok: false, error: "create is disabled" }, { status: 403 });
     }
 
-    return withGuards(config, req, { resource }, async (reqCtx) => {
+    return withGuards(config, req, { resource, operation: "create" }, async (reqCtx) => {
       const declaredLength = req.headers.get("content-length");
       if (declaredLength !== null && Number(declaredLength) > MAX_IMPORT_REQUEST_BYTES) {
         return Response.json({ ok: false, error: "file too large" }, { status: 413 });

@@ -22,7 +22,12 @@ describe("introspect(drizzle pg table)", () => {
 
     const byName = Object.fromEntries(meta.columns.map((c) => [c.name, c]));
 
-    expect(byName.id).toMatchObject({ type: "string", primaryKey: true });
+    expect(byName.id).toMatchObject({
+      type: "string",
+      primaryKey: true,
+      readable: true,
+      writableOnUpdate: false,
+    });
     expect(byName.email).toMatchObject({ type: "string", nullable: false, unique: true });
     expect(byName.name).toMatchObject({ type: "string", nullable: true });
     expect(byName.role).toMatchObject({ type: "enum" });

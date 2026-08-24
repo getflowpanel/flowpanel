@@ -55,4 +55,22 @@ describe("applyActionResult", () => {
     await applyActionResult({ ok: true, refresh: false as never }, { pathname: "/admin/users" });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
+
+  it("isolates realtime and revalidation failures and returns typed warnings", async () => {
+    vi.mocked(publishResource).mockRejectedValueOnce(new Error("redis unavailable"));
+    vi.mocked(revalidatePath).mockImplementationOnce(() => {
+      throw new Error("cache unavailable");
+    });
+
+    await expect(
+      applyActionResult(
+        { ok: true, refresh: true },
+        { resourceName: "users", pathname: "/admin/users" },
+      ),
+    ).resolves.toEqual([
+      { code: "realtime_failed", message: "Realtime refresh could not be published." },
+      { code: "revalidation_failed", message: "Cached views could not be refreshed." },
+    ]);
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/users");
+  });
 });

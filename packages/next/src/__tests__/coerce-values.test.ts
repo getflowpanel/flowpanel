@@ -31,9 +31,23 @@ describe("coerceRowByColumns", () => {
     expect(fieldErrors).toEqual({});
   });
 
-  it("treats an empty string as null regardless of column type", () => {
-    const { values } = coerceRowByColumns(columns, { age: "", active: "", bornAt: "" });
-    expect(values).toEqual({ age: null, active: null, bornAt: null });
+  it("nulls an empty string on a nullable column", () => {
+    const { values, fieldErrors } = coerceRowByColumns(columns, { age: "", bornAt: "" });
+    expect(values).toEqual({ age: null, bornAt: null });
+    expect(fieldErrors).toEqual({});
+  });
+
+  it("omits an empty string on a NOT NULL column so a database default can apply", () => {
+    // Sending `null` for a NOT NULL column is never right: the column either has
+    // a default, in which case omitting lets it apply, or it has none, in which
+    // case the insert schema reports it as required rather than "Invalid input".
+    const { values, fieldErrors } = coerceRowByColumns(columns, {
+      email: "a@b.c",
+      active: "",
+    });
+    expect(values).toEqual({ email: "a@b.c" });
+    expect("active" in values).toBe(false);
+    expect(fieldErrors).toEqual({});
   });
 
   it("produces a per-field error for an unparseable number instead of NaN", () => {

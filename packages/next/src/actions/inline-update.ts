@@ -1,12 +1,13 @@
 import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { buildAuditEvent, maybeEmitAudit, roleAllows } from "../runtime/action-helpers.js";
+import { buildAuditEvent, maybeEmitAudit } from "../runtime/action-helpers.js";
 import { applyActionResult } from "../runtime/apply-action-result.js";
 import { buildHref } from "../runtime/href.js";
 import { bindPublisher } from "../runtime/publish.js";
 import { declaredFormFields } from "../runtime/resolve-form-fields.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
 import { withGuards } from "../runtime/with-guards.js";
+import { assertResourceWritableInput } from "./field-pipeline.js";
 
 export function inlineUpdateRoute(config: ResolvedAdminConfig) {
   bindPublisher(config);
@@ -24,7 +25,7 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
       return Response.json({ ok: false, error: "editing is disabled" }, { status: 403 });
     }
 
-    return withGuards(config, req, { resource }, async (reqCtx) => {
+    return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {
       let body: { field?: unknown; value?: unknown };
       try {
         body = (await req.json()) as { field?: unknown; value?: unknown };
@@ -50,10 +51,7 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
         );
       }
 
-      const fieldDef = declaredFormFields(resource, "update")?.find((f) => f.name === field);
-      if (fieldDef && !roleAllows(fieldDef.requireRole, reqCtx)) {
-        return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
-      }
+      const updateFields = declaredFormFields(resource, "update");
 
       let nextValue = value;
       const updateSchema = config.adapter.inferSchema?.(resource.ref)?.update as
@@ -104,13 +102,13 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
         return Response.json({ ok: false, error: "not found" }, { status: 404 });
       }
 
-      const readOnly =
-        typeof fieldDef?.readOnly === "function"
-          ? fieldDef.readOnly(existing)
-          : fieldDef?.readOnly === true;
-      if (readOnly) {
-        return Response.json({ ok: false, error: `"${field}" is read-only` }, { status: 403 });
-      }
+      await assertResourceWritableInput(
+        resource,
+        updateFields,
+        { [field]: nextValue },
+        existing,
+        reqCtx,
+      );
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,

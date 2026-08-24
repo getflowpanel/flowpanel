@@ -45,7 +45,7 @@ function fakeConfig(): { config: ResolvedAdminConfig; resource: ResourceConfig }
   const resource: ResourceConfig = {
     __kind: "resource",
     ref: { __name: "widgets" },
-    options: { columns: [] },
+    options: { columns: ["name"] },
   } as never;
   const config: ResolvedAdminConfig = {
     adapter,

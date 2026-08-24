@@ -21,7 +21,11 @@ export function coerceRowByColumns(
     if (!column || typeof raw !== "string") continue;
 
     if (raw === "") {
-      values[key] = null;
+      // A NOT NULL column can never accept null. Omitting the key lets a
+      // database default apply, and leaves a column without one to be reported
+      // as required by the insert schema.
+      if (column.nullable) values[key] = null;
+      else delete values[key];
       continue;
     }
 

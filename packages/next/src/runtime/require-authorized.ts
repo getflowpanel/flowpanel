@@ -1,14 +1,16 @@
 import {
   assertResourceScope,
+  authorizeOperation,
   checkRequireRole,
   FlowpanelAccessError,
   type ListQueryContext,
   type RequestContext,
   type ResolvedAdminConfig,
   type ResourceConfig,
+  resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { projectRow } from "./project-row.js";
+import { projectAuthorizedRow } from "./project-row.js";
 import { scopeBinding } from "./scope-binding.js";
 
 /** Runs the resource's role + scope checks. */
@@ -49,6 +51,10 @@ export async function readRelatedRows(
 ): Promise<Record<string, unknown>[] | null> {
   try {
     requireAuthorized(config, target, reqCtx);
+    await authorizeOperation(
+      resolveOperationAccess(target.options.access, target.options.requireRole, "read"),
+      reqCtx,
+    );
   } catch (err) {
     if (err instanceof FlowpanelAccessError) return null;
     throw err;
@@ -74,7 +80,9 @@ export async function readRelatedRows(
   const result = await runWithRequestContext(reqCtx, () =>
     config.adapter.list(target.ref, listCtx),
   );
-  return (result.rows as Record<string, unknown>[]).map((row) =>
-    projectRow(target, row, opts.extraFields),
+  return Promise.all(
+    (result.rows as Record<string, unknown>[]).map((row) =>
+      projectAuthorizedRow(target, row, reqCtx, opts.extraFields),
+    ),
   );
 }

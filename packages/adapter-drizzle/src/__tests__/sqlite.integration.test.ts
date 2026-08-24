@@ -1,4 +1,4 @@
-import type { ListQueryContext } from "@flowpanel/core";
+import { assertAdapterCapabilities, type ListQueryContext } from "@flowpanel/core";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
@@ -63,10 +63,36 @@ describe("drizzleAdapter SQLite CRUD", () => {
     } as ListQueryContext<any>;
   }
 
+  it("declares a truthful v2 capability set", () => {
+    expect(assertAdapterCapabilities(adapter)).toEqual({
+      version: 2,
+      projections: true,
+      transactions: true,
+      atomicImport: true,
+      returningRows: true,
+      migrations: true,
+    });
+  });
+
   it("list returns rows with pagination", async () => {
     const r = await adapter.list(users, ctx({ db, pageSize: 10, page: 1 }));
     expect(r.total).toBe(25);
     expect(r.rows).toHaveLength(10);
+  });
+
+  it("enforces explicit list/get projections", async () => {
+    const listed = await adapter.list(users, ctx({ db, pageSize: 1, select: ["id", "email"] }));
+    expect(Object.keys(listed.rows[0] as object).sort()).toEqual(["email", "id"]);
+
+    const item = await adapter.get(users, {
+      ...ctx({ db }),
+      id: "u3",
+      select: ["id", "name"],
+    } as any);
+    expect(Object.keys(item as object).sort()).toEqual(["id", "name"]);
+    await expect(adapter.list(users, ctx({ db, select: ["missing"] }))).rejects.toThrow(
+      /unknown column "missing"/,
+    );
   });
 
   it("list filter by equality", async () => {

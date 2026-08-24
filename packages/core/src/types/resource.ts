@@ -4,6 +4,8 @@ import type { z } from "zod";
 import type { BulkAction, RowAction } from "./action.js";
 import type { QueryContext, RequestContext } from "./context.js";
 import type { DrawerConfig } from "./drawer.js";
+import type { IconName } from "./icon.js";
+import type { FieldAccessMap, ResourceAccess, UiCondition } from "./policy.js";
 import type { ReferenceSpec, ResourceName } from "./registry.js";
 import type { Scope, Session } from "./session.js";
 import type { Tone } from "./widget.js";
@@ -27,6 +29,8 @@ export interface ColumnDef<Row> {
   label?: string;
   /** Custom cell renderer. Runs on the server; receives the request context. */
   render?: (row: Row, ctx: RequestContext) => ReactNode;
+  /** Extra row fields selected for a field-less server renderer. Never sent to the client. */
+  select?: (keyof Row & string)[];
   /** Allow clicking the header to sort by this column. */
   sortable?: boolean;
   /** Fixed column width, in px when a number. */
@@ -125,6 +129,10 @@ export interface FieldDef<Row> {
   readOnly?: boolean | ((values: Partial<Row>) => boolean);
   /** Leave the field out of the form entirely. */
   hidden?: boolean | ((values: Partial<Row>) => boolean);
+  /** Serializable presentation rule. Security remains enforced by `resource.fieldAccess`. */
+  visibleWhen?: UiCondition<Row>;
+  /** Serializable presentation rule. Security remains enforced by `resource.fieldAccess`. */
+  disabledWhen?: UiCondition<Row>;
   /** Restrict who may see and write this field. Enforced on every write route. */
   requireRole?: string | string[] | ((session: Session | null) => boolean);
   /** Per-field validation, run server-side after the resource schema. */
@@ -179,10 +187,13 @@ export interface ResourceOptions<Row> {
   labelOne?: string;
   /** Plural label shown in the nav and list title. */
   plural?: string;
-  /** Not rendered: nav entries carry a label and an href only. */
-  icon?: string;
+  /** Serializable Lucide icon rendered in navigation and the command palette. */
+  icon?: IconName;
   /** Keep the resource out of the navigation — its routes still work. */
   hidden?: boolean;
+
+  /** Additional fields that may cross the generated server/client boundary. */
+  expose?: (keyof Row & string)[];
 
   /**
    * Columns of the list table, in order. A bare string is a field name.
@@ -224,13 +235,20 @@ export interface ResourceOptions<Row> {
   delete?: { disabled?: boolean; softDelete?: keyof Row & string; confirm?: string };
 
   /** Per-row actions, rendered inline or in the row's menu. */
-  actions?: RowAction<Row>[];
+  // biome-ignore lint/suspicious/noExplicitAny: a resource stores heterogeneous action payloads; each payload remains exact on the action returned by rowAction().
+  actions?: RowAction<Row, any, any>[];
   /** Actions applied to a selection of rows. */
-  bulkActions?: BulkAction<Row>[];
+  // biome-ignore lint/suspicious/noExplicitAny: a resource stores heterogeneous action payloads; each payload remains exact on the action returned by bulkAction().
+  bulkActions?: BulkAction<Row, any, any>[];
 
   /** How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. */
   scope?: "bypass" | ((scope: Scope, query: unknown) => unknown);
   /** Restrict the whole resource to a role. Enforced on every route. */
+  /** Canonical operation-level authorization. */
+  access?: ResourceAccess<Row>;
+  /** Canonical read/write policy for declared fields. */
+  fieldAccess?: FieldAccessMap<Row>;
+  /** @deprecated Use `access`. This alias will be removed in 0.3. */
   requireRole?: string | string[] | ((session: Session | null) => boolean);
 
   /** Export button. `false` removes it. Defaults to CSV and JSON of the visible columns. */
@@ -252,16 +270,25 @@ export interface ResourceOptions<Row> {
   }>;
   /** What the list shows when there are no rows at all. */
   empty?: {
-    icon?: string;
+    /** Serializable Lucide icon rendered above the empty-state title. */
+    icon?: IconName;
     title?: string;
     description?: string;
     action?: { label: string; href: string };
   };
 }
 
-export interface ResourceConfig {
+export interface ResourceConfig<
+  Ref = unknown,
+  // biome-ignore lint/suspicious/noExplicitAny: the non-generic registry intentionally erases heterogeneous row types; `resource()` preserves the concrete row type.
+  Row = any,
+  Options extends ResourceOptions<Row> = ResourceOptions<Row>,
+> {
   __kind: "resource";
-  ref: unknown;
-  // biome-ignore lint/suspicious/noExplicitAny: heterogeneous resource registry — the row type is intentionally erased so a `ResourceConfig` accepts any concrete `ResourceOptions<Row>`.
-  options: ResourceOptions<any>;
+  ref: Ref;
+  options: ResourceOptions<Row> & Options;
 }
+
+/** Type-erased resource used only at heterogeneous registry boundaries. */
+// biome-ignore lint/suspicious/noExplicitAny: intentional variance erasure; concrete builders preserve all three generic arguments.
+export type AnyResourceConfig = ResourceConfig<any, any, any>;

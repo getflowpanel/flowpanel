@@ -26,6 +26,14 @@ function pushColumnSites(list: unknown, where: string, out: ColumnSite[]): void 
     if (!entry || typeof entry !== "object") return;
     const field = (entry as { field?: unknown }).field;
     if (typeof field === "string") out.push({ target: field, where: `${where}[${i}].field` });
+    const select = (entry as { select?: unknown }).select;
+    if (Array.isArray(select)) {
+      select.forEach((target, selectIndex) => {
+        if (typeof target === "string") {
+          out.push({ target, where: `${where}[${i}].select[${selectIndex}]` });
+        }
+      });
+    }
   });
 }
 
@@ -43,6 +51,7 @@ function columnSites(resource: ResourceConfig): ColumnSite[] {
   const o = resource.options;
   pushColumnSites(o.columns, "columns", out);
   pushColumnSites(o.filters, "filters", out);
+  pushColumnSites(o.expose, "expose", out);
   if (o.defaultSort && typeof o.defaultSort.field === "string") {
     out.push({ target: o.defaultSort.field, where: "defaultSort.field" });
   }
@@ -61,6 +70,20 @@ export function validateResourceColumns(
   resource: ResourceConfig,
   introspected: readonly ColumnMeta[],
 ): void {
+  resource.options.columns?.forEach((column: unknown, index: number) => {
+    if (typeof column !== "object" || column === null) return;
+    const candidate = column as { field?: unknown; render?: unknown; select?: unknown };
+    if (
+      candidate.render !== undefined &&
+      candidate.field === undefined &&
+      (!Array.isArray(candidate.select) || candidate.select.length === 0)
+    ) {
+      throw new Error(
+        `resource "${name}" columns[${index}] uses render without declaring a field or select. ` +
+          "Declare the row fields the server renderer needs.",
+      );
+    }
+  });
   if (introspected.length === 0) return;
   const known = introspected.map((c) => c.name);
   for (const site of columnSites(resource)) {

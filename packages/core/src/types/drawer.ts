@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { ActionResult } from "./action.js";
 import type { ActionContext } from "./context.js";
+import type { AccessRule, FieldWriteContext } from "./policy.js";
 import type { InferDB, ResourceName } from "./registry.js";
 import type { FieldDef } from "./resource.js";
 import type { CustomWidget, WidgetConfig } from "./widget.js";
@@ -73,6 +74,14 @@ export interface DrawerAction<Row = Record<string, unknown>> {
   form?: DrawerFieldFormSpec[];
   /** Also offer the action in the command palette. */
   palette?: boolean;
+  /** Roles allowed to see and execute this action. */
+  access?: AccessRule;
+  /** Server-enforced row condition evaluated after the scoped row load. */
+  when?: (context: FieldWriteContext<Row>) => boolean | Promise<boolean>;
+  /** Explicitly opt trusted code into raw database access. */
+  unsafe?: readonly "db"[];
+  /** @deprecated Use `access`. This alias will be removed in 0.3. */
+  requireRole?: string | string[];
   /** Server-side handler. Runs only after every guard has passed. */
   run: (
     row: Row,

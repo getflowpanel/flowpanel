@@ -1,4 +1,4 @@
-import { FlowpanelAccessError } from "@flowpanel/core";
+import { assertAdapterCapabilities, bindAdapterScope, FlowpanelAccessError } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
 import { prismaAdapter } from "../adapter.js";
 import type { PrismaDmmf } from "../introspect.js";
@@ -67,6 +67,40 @@ const baseCtx: Record<string, unknown> = {
 };
 
 describe("prismaAdapter tenant scope enforcement", () => {
+  it("declares truthful capabilities and enforces explicit projections", async () => {
+    const { item, _d } = makeMock();
+    _d.findMany.mockResolvedValue([{ id: "i1" }]);
+    _d.count.mockResolvedValue(1);
+    _d.findFirst.mockResolvedValue({ id: "i1" });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+
+    expect(adapter.capabilities).toMatchObject({
+      version: 2,
+      projections: true,
+      transactions: false,
+      atomicImport: false,
+      returningRows: true,
+      migrations: true,
+    });
+    expect(assertAdapterCapabilities(adapter)).toEqual(adapter.capabilities);
+    await adapter.list("Item", {
+      ...baseCtx,
+      select: ["id"],
+      applyScope: applyScopeC1,
+    } as never);
+    expect(_d.findMany).toHaveBeenCalledWith(expect.objectContaining({ select: { id: true } }));
+    await adapter.get("Item", {
+      id: "i1",
+      db: undefined,
+      select: ["id"],
+      applyScope: applyScopeC1,
+    } as never);
+    expect(_d.findFirst).toHaveBeenCalledWith(expect.objectContaining({ select: { id: true } }));
+    await expect(
+      adapter.list("Item", { ...baseCtx, select: ["missing"] } as never),
+    ).rejects.toThrow(/unknown field "missing"/);
+  });
+
   it("list merges scope keys into where (and count)", async () => {
     const { item, _d } = makeMock();
     _d.findMany.mockResolvedValue([]);
@@ -99,6 +133,21 @@ describe("prismaAdapter tenant scope enforcement", () => {
 
     expect(row).toBeNull();
     expect(_d.findFirst).toHaveBeenCalledWith({ where: { id: "i3", companyId: "c1" } });
+    expect(_d.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("accepts the opaque v2 bound scope without legacy flags", async () => {
+    const { item, _d } = makeMock();
+    _d.findFirst.mockResolvedValue({ id: "i1", companyId: "c1" });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+
+    await adapter.get("Item", {
+      id: "i1",
+      db: undefined,
+      boundScope: bindAdapterScope(applyScopeC1),
+    } as never);
+
+    expect(_d.findFirst).toHaveBeenCalledWith({ where: { id: "i1", companyId: "c1" } });
     expect(_d.findUnique).not.toHaveBeenCalled();
   });
 
@@ -230,6 +279,35 @@ describe("prismaAdapter tenant scope enforcement", () => {
     await expect(
       adapter.list("Item", { ...baseCtx, scopeRequired: true } as never),
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
+  });
+
+  it("FAIL-CLOSED: rejects ineffective or malformed bound scope predicates", async () => {
+    const { item } = makeMock();
+    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+
+    await expect(
+      adapter.list("Item", {
+        ...baseCtx,
+        scopeRequired: true,
+        applyScope: (where: unknown) => where,
+      } as never),
+    ).rejects.toThrow(/returned the input unchanged/);
+    await expect(
+      adapter.get("Item", {
+        id: "i1",
+        db: undefined,
+        scopeRequired: true,
+        applyScope: () => undefined,
+      } as never),
+    ).rejects.toThrow(/must return a where\/data object/);
+    await expect(
+      adapter.get("Item", {
+        id: "i1",
+        db: undefined,
+        scopeRequired: true,
+        applyScope: () => ({ companyId: "c1" }),
+      } as never),
+    ).rejects.toThrow(/removed required key "id"/);
   });
 
   it("FAIL-CLOSED: get throws when scopeRequired && no applyScope", async () => {

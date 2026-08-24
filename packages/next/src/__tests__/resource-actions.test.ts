@@ -45,7 +45,7 @@ function makeConfig(opts: {
         update: updateSchema,
       }) as never,
     list: async () => ({ rows: [], total: 0, page: 1, pageSize: 10 }),
-    get: async () => null,
+    get: async () => ({ id: "u1", email: "a@b.com", status: "active" }),
     create: async () =>
       opts.createReturn === undefined
         ? ({ id: "u1", email: "a@b.com" } as Record<string, unknown>)
@@ -80,6 +80,8 @@ function makeConfig(opts: {
     resources: [resource],
     resourcesByName: new Map([["users", resource]]),
     dashboardsByPath: new Map(),
+    basePath: "/admin",
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return { config, resource };
@@ -117,7 +119,7 @@ describe("makeActions.create", () => {
     const { config, resource } = makeConfig({});
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "not-email" })).rejects.toMatchObject({
-      code: "validation",
+      code: "validation_failed",
       fieldErrors: expect.objectContaining({ email: expect.any(String) }),
     });
   });
@@ -151,6 +153,15 @@ describe("makeActions.create", () => {
     await actions.create({ email: "a@b.com" });
     expect(publishResource).toHaveBeenCalledTimes(1);
     expect(revalidatePath).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a committed mutation successful and still revalidates when realtime fails", async () => {
+    vi.mocked(publishResource).mockRejectedValueOnce(new Error("redis unavailable"));
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource);
+
+    await expect(actions.create({ email: "a@b.com" })).resolves.toMatchObject({ id: "u1" });
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/users");
   });
 
   it("skips publish + revalidate when `publish: false` is passed", async () => {
@@ -190,7 +201,7 @@ describe("makeActions.update", () => {
     const { config, resource } = makeConfig({});
     const actions = makeActions(config, resource);
     await expect(actions.update("u1", { email: "broken" })).rejects.toMatchObject({
-      code: "validation",
+      code: "validation_failed",
     });
   });
 
@@ -286,7 +297,7 @@ describe("actorIdFromSession (via audit event)", () => {
 });
 
 describe("field rules on the write path", () => {
-  it("update strips a role-gated field declared only in create.fields (fallback)", async () => {
+  it("update rejects a role-gated submitted field declared in the fallback form", async () => {
     const { config, resource } = makeConfig({});
     (resource.options as { create?: unknown }).create = {
       fields: [{ name: "email", requireRole: "owner" }],
@@ -300,8 +311,11 @@ describe("field rules on the write path", () => {
       return { id: "u1" };
     };
     const actions = makeActions(config, resource);
-    await actions.update("u1", { email: "sneaky@b.com" });
-    expect(seen).toHaveBeenCalledWith({});
+    await expect(actions.update("u1", { email: "sneaky@b.com" })).rejects.toMatchObject({
+      code: "field_forbidden",
+      field: "email",
+    });
+    expect(seen).not.toHaveBeenCalled();
   });
 
   it("reports a required gated field as an access error, not a phantom validation error", async () => {
@@ -311,8 +325,8 @@ describe("field rules on the write path", () => {
     };
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
-      code: "access",
-      safeMessage: expect.stringContaining("restricted to another role"),
+      code: "field_forbidden",
+      field: "email",
     });
   });
 
@@ -321,11 +335,11 @@ describe("field rules on the write path", () => {
       schema: z.object({ email: z.string().email(), userId: z.number() }),
     });
     (resource.options as { create?: unknown }).create = {
-      fields: [{ name: "userId", label: "Customer", required: true }],
+      fields: [{ name: "email" }, { name: "userId", label: "Customer", required: true }],
     };
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "a@b.com", userId: null })).rejects.toMatchObject({
-      code: "validation",
+      code: "validation_failed",
       fieldErrors: { userId: "Customer is required" },
     });
   });
@@ -335,7 +349,7 @@ describe("field rules on the write path", () => {
       schema: z.object({ email: z.string().email(), ourPriceCents: z.number() }),
     });
     (resource.options as { create?: unknown }).create = {
-      fields: [{ name: "ourPriceCents" }],
+      fields: [{ name: "email" }, { name: "ourPriceCents" }],
     };
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
@@ -354,7 +368,7 @@ describe("field rules on the write path", () => {
     });
   });
 
-  it("strips readOnly fields from the write", async () => {
+  it("rejects submitted readOnly fields instead of silently stripping them", async () => {
     const { config, resource } = makeConfig({
       schema: {
         create: z.object({ email: z.string().email(), note: z.string().optional() }),
@@ -362,7 +376,7 @@ describe("field rules on the write path", () => {
       },
     });
     (resource.options as { create?: unknown }).create = {
-      fields: [{ name: "note", readOnly: true }],
+      fields: [{ name: "email" }, { name: "note", readOnly: true }],
     };
     const seen = vi.fn();
     (config.adapter as { create: unknown }).create = async (
@@ -373,8 +387,11 @@ describe("field rules on the write path", () => {
       return { id: "u1" };
     };
     const actions = makeActions(config, resource);
-    await actions.create({ email: "a@b.com", note: "sneaky" });
-    expect(seen).toHaveBeenCalledWith({ email: "a@b.com" });
+    await expect(actions.create({ email: "a@b.com", note: "sneaky" })).rejects.toMatchObject({
+      code: "field_forbidden",
+      field: "note",
+    });
+    expect(seen).not.toHaveBeenCalled();
   });
 
   it("runs a Zod FieldDef.validate after schema validation", async () => {
@@ -384,7 +401,7 @@ describe("field rules on the write path", () => {
     };
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
-      code: "validation",
+      code: "validation_failed",
       fieldErrors: { email: expect.any(String) },
     });
   });
@@ -396,7 +413,7 @@ describe("field rules on the write path", () => {
     };
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
-      code: "validation",
+      code: "validation_failed",
       fieldErrors: { email: "corporate addresses only" },
     });
   });
@@ -409,7 +426,10 @@ describe("field rules on the write path", () => {
       },
     });
     (resource.options as { create?: unknown }).create = {
-      fields: [{ name: "note", requireRole: "owner", defaultValue: "server-default" }],
+      fields: [
+        { name: "email" },
+        { name: "note", requireRole: "owner", defaultValue: "server-default" },
+      ],
     };
     const seen = vi.fn();
     (config.adapter as { create: unknown }).create = async (

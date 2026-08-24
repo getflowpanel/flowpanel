@@ -22,6 +22,7 @@ function makeConfig(opts: {
   session?: unknown;
   updateSchema?: z.ZodTypeAny;
   capturedInput?: { value?: unknown };
+  fieldAccess?: ResourceConfig["options"]["fieldAccess"];
   updateDisabled?: boolean;
   updateFields?: unknown[];
 }) {
@@ -63,6 +64,7 @@ function makeConfig(opts: {
         "name", // string column entry should be skipped by editable check
       ],
       ...(opts.resourceAudit === false ? { audit: false } : {}),
+      ...(opts.fieldAccess ? { fieldAccess: opts.fieldAccess } : {}),
       ...(opts.updateDisabled || opts.updateFields
         ? {
             update: {
@@ -180,7 +182,7 @@ describe("inlineUpdateRoute", () => {
     expect(body.ok).toBe(false);
     // Raw adapter message must not leak (it can carry DB schema/row details).
     expect(body.error).not.toMatch(/db failed/);
-    expect(body.error).toBe("internal error");
+    expect(body.error).toBe("Internal server error");
   });
 
   it("succeeds, emits audit with before/after diff, and publishes", async () => {
@@ -341,6 +343,38 @@ describe("inlineUpdateRoute", () => {
     });
     const res = await handler(req, { params: paramsFor("users", "u1") });
     expect(res.status).toBe(200);
+  });
+
+  it("enforces canonical fieldAccess after loading the scoped current row", async () => {
+    const denied = inlineUpdateRoute(
+      makeConfig({
+        role: "admin",
+        fieldAccess: {
+          email: { write: ({ current }) => current?.status === "pending" },
+        },
+      }),
+    );
+    const req = () =>
+      new Request("http://localhost/x", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ field: "email", value: "new@x.com" }),
+      });
+    const deniedResponse = await denied(req(), { params: paramsFor("users", "u1") });
+    expect(deniedResponse.status).toBe(403);
+    expect(await deniedResponse.json()).toMatchObject({
+      ok: false,
+      code: "field_forbidden",
+    });
+
+    const allowed = inlineUpdateRoute(
+      makeConfig({
+        fieldAccess: {
+          email: { write: ({ current }) => current?.status === "active" },
+        },
+      }),
+    );
+    expect((await allowed(req(), { params: paramsFor("users", "u1") })).status).toBe(200);
   });
 
   it("skips value validation when inferSchema has no usable update schema", async () => {

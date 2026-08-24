@@ -1,4 +1,5 @@
-import type { ResourceConfig } from "@flowpanel/core";
+import type { RequestContext, ResourceConfig } from "@flowpanel/core";
+import { filterReadableProjection } from "@flowpanel/core";
 
 /** Add a single declared-field entry to `fields`. */
 function addField(fields: Set<string>, entry: unknown): void {
@@ -26,8 +27,6 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
     rowKey?: string;
     drawer?: { fields?: unknown; tabs?: ReadonlyArray<{ fields?: unknown }> };
     detail?: { fields?: unknown; tabs?: ReadonlyArray<{ fields?: unknown }> };
-    create?: { fields?: unknown };
-    update?: { fields?: unknown };
   };
 
   for (const c of options.columns ?? []) addField(fields, c);
@@ -43,9 +42,6 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
     for (const tab of options.detail.tabs ?? []) addFieldList(fields, tab?.fields);
   }
 
-  addFieldList(fields, options.create?.fields);
-  addFieldList(fields, options.update?.fields);
-
   return fields;
 }
 
@@ -60,7 +56,30 @@ export function projectRow<Row extends Record<string, unknown>>(
   }
   const out: Record<string, unknown> = {};
   for (const f of fields) {
+    const policy = resource.options.fieldAccess?.[f];
+    if (policy?.sensitive || policy?.read === false) continue;
     if (Object.hasOwn(row, f)) out[f] = row[f];
   }
   return out as unknown as Row;
+}
+
+/** Request-aware projection for every server/client and HTTP row boundary. */
+export async function projectAuthorizedRow<Row extends Record<string, unknown>>(
+  resource: ResourceConfig,
+  row: Row,
+  reqCtx: RequestContext,
+  extraFields?: Iterable<string>,
+): Promise<Row> {
+  const fields = declaredRowFields(resource);
+  if (extraFields) for (const field of extraFields) fields.add(field);
+  const readable = await filterReadableProjection(
+    [...fields],
+    resource.options.fieldAccess,
+    reqCtx,
+  );
+  const out: Record<string, unknown> = {};
+  for (const field of readable) {
+    if (Object.hasOwn(row, field)) out[field] = row[field];
+  }
+  return out as Row;
 }

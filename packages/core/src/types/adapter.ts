@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { AdapterCapabilities } from "./adapter-v2.js";
 import type { ItemQueryContext, ListQueryContext, MutationContext } from "./context.js";
 import type { InferDB } from "./registry.js";
 import type { ListResult } from "./resource.js";
@@ -16,6 +17,16 @@ export interface ColumnMeta {
   /** Foreign key target, when the column references another table. */
   references?: { table: string; column: string };
   maxLength?: number;
+  /** Whether this column may be selected and returned by the adapter. */
+  readable?: boolean;
+  /** Whether create input may contain this column. */
+  writableOnCreate?: boolean;
+  /** Whether update input may contain this column. */
+  writableOnUpdate?: boolean;
+  /** Database-computed column that must not be accepted as input. */
+  generated?: boolean;
+  /** Adapter-discovered secret. Always excluded from generated read projections. */
+  sensitive?: boolean;
 }
 
 /** What the adapter reports about one table. */
@@ -38,6 +49,10 @@ export interface Adapter<DB = InferDB, Ref = unknown> {
   kind: AdapterKind;
   /** The client handed to every `ctx.db`. */
   db: DB;
+  /** v2 capability declaration. Absent only on deprecated third-party v1 adapters. */
+  capabilities?: AdapterCapabilities;
+  /** Execute work against one transaction-bound database handle. */
+  transaction?<T>(run: (db: DB) => Promise<T>): Promise<T>;
   /** Describe a table: its columns, types and primary key. */
   introspect(ref: Ref): ResourceIntrospection;
   /** Derive validation schemas from the table, used when a resource sets no `schema`. */

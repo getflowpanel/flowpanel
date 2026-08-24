@@ -1,12 +1,13 @@
 import type { RateLimitOptions } from "../runtime/rate-limit.js";
 import type { Adapter } from "./adapter.js";
 import type { CommandPaletteConfig } from "./command.js";
-import type { RequestContext } from "./context.js";
+import type { ErrorContext } from "./context.js";
 import type { DashboardConfig, PageConfig } from "./dashboard.js";
 import type { LabelsConfig } from "./labels.js";
+import type { AdminPaths, AdminPathsInput } from "./paths.js";
 import type { QueueConfig } from "./queue.js";
 import type { RealtimeConfig } from "./realtime.js";
-import type { ResourceConfig } from "./resource.js";
+import type { AnyResourceConfig, ResourceConfig } from "./resource.js";
 import type { Scope, ScopeContext, Session } from "./session.js";
 
 export type RateLimitConfig = RateLimitOptions & {
@@ -106,7 +107,22 @@ export interface ShellConfig {
   brand?: { name?: string; logo?: string; href?: string } | false;
 }
 
-export interface AdminConfig {
+/** Browser request protections applied by the Next.js runtime. */
+export interface SecurityConfig {
+  /**
+   * Reject cross-origin write requests using Origin and Fetch Metadata headers.
+   * Enabled by default. Disable only when an upstream gateway enforces an equivalent policy.
+   */
+  sameOrigin?: boolean;
+  /** Additional exact origins allowed to submit writes, for example `https://ops.example.com`. */
+  trustedOrigins?: string[];
+}
+
+export interface AdminDefinition<
+  Resources extends readonly AnyResourceConfig[] = readonly AnyResourceConfig[],
+> {
+  /** Stable id used in diagnostics, logs, and multi-admin deployments. */
+  id?: string;
   /** Database binding — `drizzleAdapter`, `prismaAdapter`, or your own. */
   adapter: Adapter;
   /** How the admin reads sessions and roles. */
@@ -120,7 +136,7 @@ export interface AdminConfig {
   /** Override built-in UI strings. */
   labels?: LabelsConfig;
   /** Tables the admin manages. */
-  resources?: ResourceConfig[];
+  resources?: Resources;
   /** Widget dashboards. */
   dashboards?: DashboardConfig[];
   /** Custom pages rendered inside the shell. */
@@ -135,22 +151,36 @@ export interface AdminConfig {
   realtime?: RealtimeConfig;
   /** Throttle requests per user or per IP. */
   rateLimit?: RateLimitConfig;
+  /** Browser request protections. Same-origin mutation checks are enabled by default. */
+  security?: SecurityConfig;
   /** Put the whole admin in read-only mode. */
   readOnly?: boolean;
-  /** URL prefix under which the admin is mounted. */
+  /** Mount points for the generated admin UI and HTTP API. */
+  paths?: AdminPathsInput;
+  /** @deprecated Use `paths.admin`. This alias will be removed in 0.3. */
   basePath?: string;
   /** Cross-cutting callbacks. */
   hooks?: {
-    onError?: (err: Error, ctx: RequestContext) => void | Promise<void>;
+    onError?: (err: Error, ctx: ErrorContext) => void | Promise<void>;
   };
 }
 
-export interface ResolvedAdminConfig extends AdminConfig {
+/** @deprecated Prefer `AdminDefinition`. Kept as the 0.2 compatibility name. */
+export interface AdminConfig<
+  Resources extends readonly AnyResourceConfig[] = readonly AnyResourceConfig[],
+> extends AdminDefinition<Resources> {}
+
+export interface ResolvedAdminConfig<
+  Resources extends readonly AnyResourceConfig[] = readonly AnyResourceConfig[],
+> extends AdminConfig<Resources> {
   readonly __resolved: true;
+  readonly resources: Resources;
   readonly resourcesByName: Map<string, ResourceConfig>;
   readonly dashboardsByPath: Map<string, DashboardConfig>;
   readonly pagesByPath: Map<string, PageConfig>;
   readonly queuesByKey: Map<string, QueueConfig>;
   /** Normalized `basePath` — leading slash, no trailing slash. Defaults to `/admin`. */
   readonly basePath: string;
+  /** Normalized mount points with leading slashes and no trailing slash. */
+  readonly paths: AdminPaths;
 }

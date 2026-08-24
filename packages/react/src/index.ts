@@ -1,6 +1,8 @@
+// LOC-OK: public package barrel mirrors the documented component surface in one entrypoint.
 export type { FlowpanelComponentSlots } from "@flowpanel/core";
 export { Avatar, type AvatarProps, DefaultAvatar } from "./_atoms/Avatar.js";
 export { Badge, type BadgeProps, type BadgeTone, DefaultBadge } from "./_atoms/Badge.js";
+export { FlowpanelIcon, type FlowpanelIconProps } from "./_atoms/FlowpanelIcon.js";
 export { LiveIndicator, type LiveIndicatorProps } from "./_atoms/LiveIndicator.js";
 export { LocalTime, type LocalTimeProps } from "./_atoms/LocalTime.js";
 export { Mono } from "./_atoms/Mono.js";

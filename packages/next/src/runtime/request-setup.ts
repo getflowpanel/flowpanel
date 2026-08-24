@@ -5,9 +5,17 @@ import { actorIdFromSession } from "./action-helpers.js";
 export interface BuildRequestCtxArgs {
   req: Request;
   config: AdminConfig;
+  requestId?: string;
+}
+
+function requestIdFrom(req: Request): string {
+  const supplied = req.headers.get("x-request-id");
+  if (supplied && /^[A-Za-z0-9._:-]{1,128}$/.test(supplied)) return supplied;
+  return crypto.randomUUID();
 }
 
 const limiterCache = new WeakMap<object, RateLimiter | null>();
+const requestContextCache = new WeakMap<Request, WeakMap<object, Promise<RequestContext>>>();
 
 function getLimiter(config: AdminConfig): RateLimiter | null {
   const cached = limiterCache.get(config as unknown as object);
@@ -33,9 +41,10 @@ function rateLimitKey(
   return `ip:${reqCtx.ip ?? "unknown"}`;
 }
 
-export async function buildRequestContext({
+async function resolveRequestContext({
   req,
   config,
+  requestId,
 }: BuildRequestCtxArgs): Promise<RequestContext> {
   const session: Session | null = await config.auth.session();
   const role = config.auth.role(session);
@@ -57,5 +66,46 @@ export async function buildRequestContext({
     if (!allowed) throw new FlowpanelRateLimitError();
   }
 
-  return { req, session, role, scope, ip, userAgent };
+  return { requestId: requestId ?? requestIdFrom(req), req, session, role, scope, ip, userAgent };
 }
+
+/**
+ * Resolve identity, rate limiting and tenant scope exactly once for one
+ * incoming Request/admin pair. All generated and headless surfaces share this
+ * binding, so a page with several reads cannot accidentally authenticate or
+ * consume the request limit several times.
+ */
+export function buildRequestContext(args: BuildRequestCtxArgs): Promise<RequestContext> {
+  let byAdmin = requestContextCache.get(args.req);
+  if (!byAdmin) {
+    byAdmin = new WeakMap<object, Promise<RequestContext>>();
+    requestContextCache.set(args.req, byAdmin);
+  }
+
+  const adminKey = args.config as unknown as object;
+  const existing = byAdmin.get(adminKey);
+  if (existing) return existing;
+
+  const pending = resolveRequestContext(args);
+  byAdmin.set(adminKey, pending);
+  // A transient auth/provider failure must not poison a Request forever. This
+  // mainly helps test harnesses and error boundaries that retry the same input.
+  void pending.catch(() => byAdmin?.delete(adminKey));
+  return pending;
+}
+
+/** @internal Seed the binding for a synthetic request created by a controller. */
+export function bindRequestContext(
+  req: Request,
+  config: AdminConfig,
+  context: RequestContext,
+): void {
+  let byAdmin = requestContextCache.get(req);
+  if (!byAdmin) {
+    byAdmin = new WeakMap<object, Promise<RequestContext>>();
+    requestContextCache.set(req, byAdmin);
+  }
+  byAdmin.set(config as unknown as object, Promise.resolve(context));
+}
+
+export { requestIdFrom };

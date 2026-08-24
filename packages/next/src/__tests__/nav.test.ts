@@ -1,5 +1,5 @@
-import type { Adapter } from "@flowpanel/core";
-import { defineAdmin, resource } from "@flowpanel/core";
+import type { Adapter, RequestContext } from "@flowpanel/core";
+import { dashboard, defineAdmin, page, queue, resource } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
 import { buildNav, resourceNavName } from "../runtime/nav.js";
 
@@ -55,7 +55,7 @@ describe("buildNav", () => {
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
       resources: [
-        resource({ __name: "users" }, { columns: [], plural: "Users" }),
+        resource({ __name: "users" }, { columns: [], plural: "Users", icon: "users" }),
         resource({ __name: "jobs" }, { columns: [], plural: "Jobs" }),
       ],
     });
@@ -63,7 +63,7 @@ describe("buildNav", () => {
     expect(nav).toHaveLength(1);
     expect(nav[0]?.label).toBe("Resources");
     expect(nav[0]?.items).toEqual([
-      { label: "Users", href: "/admin/users" },
+      { label: "Users", href: "/admin/users", icon: "users" },
       { label: "Jobs", href: "/admin/jobs" },
     ]);
   });
@@ -74,10 +74,60 @@ describe("buildNav", () => {
       auth: { session: async () => null, role: () => "guest" },
       resources: [
         resource({ __name: "users" }, { columns: [], plural: "Users" }),
-        resource({ __name: "_internal" }, { columns: [], hidden: true }),
+        resource({ __name: "internal_hidden" }, { columns: [], hidden: true }),
       ],
     });
     const nav = buildNav(cfg);
     expect(nav[0]?.items).toHaveLength(1);
+  });
+
+  it("filters hidden queues without removing their routes", () => {
+    const cfg = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      queues: [
+        queue({ name: "scrape" }, { label: "Scrape", boardUrl: "http://localhost/scrape" }),
+        queue(
+          { name: "billing" },
+          { label: "Billing", boardUrl: "http://localhost/billing", hidden: true },
+        ),
+      ],
+    });
+
+    expect(buildNav(cfg).flatMap((group) => group.items.map((item) => item.label))).toEqual([
+      "Scrape",
+    ]);
+    expect(cfg.queuesByKey.has("billing")).toBe(true);
+  });
+
+  it("filters every role-gated surface when a request context is provided", () => {
+    const cfg = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "support" },
+      dashboards: [
+        dashboard({ path: "/", label: "Overview", sections: [] }),
+        dashboard({ path: "/finance", label: "Finance", requireRole: "admin", sections: [] }),
+      ],
+      pages: [
+        page({ path: "/guide", label: "Guide", component: () => null }),
+        page({ path: "/audit", label: "Audit", component: () => null, requireRole: "admin" }),
+      ],
+      resources: [
+        resource({ __name: "users" }, { columns: [], plural: "Users" }),
+        resource({ __name: "secrets" }, { columns: [], requireRole: "admin" }),
+      ],
+      queues: [
+        queue({ name: "jobs" }, { label: "Jobs", boardUrl: "http://localhost/jobs" }),
+        queue(
+          { name: "billing" },
+          { label: "Billing", boardUrl: "http://localhost/billing", requireRole: "admin" },
+        ),
+      ],
+    });
+    const reqCtx = { role: "support", session: null } as RequestContext;
+
+    expect(buildNav(cfg, reqCtx).flatMap((group) => group.items.map((item) => item.label))).toEqual(
+      ["Overview", "Guide", "Users", "Jobs"],
+    );
   });
 });

@@ -37,7 +37,7 @@ export function restoreRoute(config: ResolvedAdminConfig) {
 
     const softDeleteColumn = String(softDelete);
 
-    return withGuards(config, req, { resource }, async (reqCtx) => {
+    return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {
       const itemCtx: ItemQueryContext = {
         ...reqCtx,
         db: config.adapter.db,

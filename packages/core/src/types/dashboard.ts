@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { DashboardAction } from "./action.js";
+import type { IconName } from "./icon.js";
 import type { Session } from "./session.js";
 import type { WidgetConfig } from "./widget.js";
 
@@ -37,6 +38,8 @@ export interface DashboardConfig {
   path: string;
   /** Nav entry and page title. */
   label: string;
+  /** Serializable Lucide icon rendered in navigation and the command palette. */
+  icon?: IconName;
   /** Adds a date picker whose value reaches every widget query. */
   dateRange?: DateRangeConfig;
   /** SSE channel(s) the whole dashboard subscribes to, independent of any widget. */
@@ -44,7 +47,8 @@ export interface DashboardConfig {
   /** Widget bands, rendered top to bottom. */
   sections: SectionConfig[];
   /** Optional top-bar action buttons rendered in the dashboard page header. */
-  actions?: DashboardAction[];
+  // biome-ignore lint/suspicious/noExplicitAny: a dashboard stores heterogeneous action payloads; each payload remains exact on dashboardAction().
+  actions?: DashboardAction<any, any>[];
   /** Hide the default `DashboardActionsBar`. */
   hideActionsBar?: boolean;
   /** Restrict access to this dashboard. */
@@ -57,6 +61,8 @@ export interface PageConfig {
   path: string;
   /** Nav entry and page title. */
   label: string;
+  /** Serializable Lucide icon rendered in navigation and the command palette. */
+  icon?: IconName;
   /** Server or client React component rendered at `<basePath><path>`. */
   component?: ComponentType<Record<string, never>>;
   /** External href used when `component` is not provided. */

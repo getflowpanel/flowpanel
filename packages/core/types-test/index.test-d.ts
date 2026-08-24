@@ -3,9 +3,12 @@
 
 import {
   type Adapter,
+  type AdapterCapabilities,
   type AdapterKind,
   type AdminConfig,
   type BarChartOptions,
+  type BoundAdapterScope,
+  bindAdapterScope,
   custom,
   type DrawerConfig,
   type DrawerTabWidgets,
@@ -14,11 +17,16 @@ import {
   type LabelsConfig,
   metric,
   type PieChartOptions,
+  type QueueOptions,
   type RealtimeConfig,
   type ResolvedAdminConfig,
   type ResourceConfig,
+  type RowAction,
   resource,
+  rowAction,
+  statGroup,
   table,
+  type WidgetContext,
 } from "@flowpanel/core";
 import { expectAssignable, expectError, expectType } from "tsd";
 
@@ -39,6 +47,15 @@ expectAssignable<AdapterKind>("drizzle");
 expectAssignable<AdapterKind>("prisma");
 // third-party adapters may name themselves
 expectAssignable<AdapterKind>("mikro-orm");
+expectAssignable<AdapterCapabilities>({
+  version: 2,
+  projections: true,
+  transactions: false,
+  atomicImport: false,
+  returningRows: true,
+  migrations: false,
+});
+expectType<BoundAdapterScope>(bindAdapterScope((query) => query));
 
 // ── resource builder: produces ResourceConfig with __kind discriminant ───
 declare const ref: unknown;
@@ -83,6 +100,13 @@ expectAssignable<RealtimeConfig>({
 // driver: "redis" requires url
 expectError<RealtimeConfig>({ driver: "redis" });
 
+// ── queues may stay routable while omitted from primary navigation ───────
+expectAssignable<QueueOptions>({
+  label: "Scrape",
+  boardUrl: "http://localhost/scrape",
+  hidden: true,
+});
+
 // ── drawer field lists are keyed to the row, like detail tabs ────────────
 type User = { id: number; email: string };
 expectAssignable<DrawerConfig<User>>({ fields: ["email"] });
@@ -90,6 +114,43 @@ expectAssignable<DrawerConfig<User>>({ fields: "*" });
 expectAssignable<DrawerConfig<User>>({ tabs: [{ key: "p", label: "Profile", fields: ["email"] }] });
 expectError<DrawerConfig<User>>({ fields: ["emial"] });
 expectError<DrawerConfig<User>>({ tabs: [{ key: "p", label: "Profile", fields: ["emial"] }] });
+
+// ── action forms describe their own payload, not properties of the row ──────
+type SuspendInput = { reason: string; notify: boolean };
+const suspend = rowAction<User, SuspendInput>({
+  key: "suspend",
+  label: "Suspend",
+  icon: "ban",
+  form: [
+    { name: "reason", type: "textarea", required: true },
+    { name: "notify", type: "checkbox" },
+  ],
+  run: async (user, input) => {
+    expectType<User>(user);
+    expectType<SuspendInput>(input);
+    return { ok: true };
+  },
+});
+expectType<RowAction<User, SuspendInput>>(suspend);
+expectError<RowAction<User, SuspendInput>>({
+  key: "bad",
+  label: "Bad",
+  form: [{ name: "typo", type: "text" }],
+  run: async () => ({ ok: true }),
+});
+
+// stat resolver callbacks keep their WidgetContext instead of collapsing to implicit any
+statGroup({
+  stats: [
+    {
+      label: "Users",
+      value: async (ctx) => {
+        expectType<WidgetContext>(ctx);
+        return 42;
+      },
+    },
+  ],
+});
 
 // ── drawer widget tabs reject custom() widgets ───────────────────────────
 expectAssignable<DrawerTabWidgets>({

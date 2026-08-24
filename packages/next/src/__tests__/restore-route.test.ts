@@ -138,7 +138,7 @@ describe("restoreRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).not.toMatch(/db failed/);
-    expect(body.error).toBe("internal error");
+    expect(body.error).toBe("Internal server error");
   });
 
   it("succeeds: calls adapter.restore with id + softDelete binding, publishes, and returns ok", async () => {

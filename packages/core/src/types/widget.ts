@@ -97,10 +97,13 @@ export interface CustomWidget<P = unknown> {
 }
 
 /** One row of a `statGroup`. */
+/** Display-safe literal returned by a stat resolver. */
+export type StatValue = string | number | boolean | bigint | Date | null | undefined;
+
 export interface StatItem {
   label: string;
   /** A literal, or a function resolved per request. */
-  value: unknown | ((ctx: WidgetContext, row?: unknown) => Promise<unknown>);
+  value: StatValue | ((ctx: WidgetContext, row?: unknown) => Promise<StatValue>);
   format?: NumericFormat;
   tone?: Tone;
 }

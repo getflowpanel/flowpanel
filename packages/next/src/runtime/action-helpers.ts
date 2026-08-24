@@ -1,4 +1,5 @@
 import type {
+  AccessRule,
   ActionResult,
   AuditConfig,
   AuditEvent,
@@ -8,7 +9,12 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { checkRequireRole, emitAudit } from "@flowpanel/core";
+import {
+  accessAllows,
+  checkRequireRole,
+  emitAudit,
+  FlowpanelUnknownFieldError,
+} from "@flowpanel/core";
 import type { z } from "zod";
 import { parseActionBody } from "../drawer/parse-action-body.js";
 import { requireAuthorized } from "./require-authorized.js";
@@ -105,6 +111,29 @@ export function roleAllows(requireRole: RequireRole | undefined, reqCtx: Request
   }
 }
 
+/** Keep only actions the current operator is authorized to execute. */
+export function filterActionsByRole<Action extends { requireRole?: RequireRole }>(
+  actions: readonly Action[] | undefined,
+  reqCtx: RequestContext,
+): Action[] {
+  return (actions ?? []).filter((action) => roleAllows(action.requireRole, reqCtx));
+}
+
+/** Keep only actions allowed by canonical `access` or its `requireRole` alias. */
+export async function filterActionsByAccess<
+  Action extends { access?: AccessRule | undefined; requireRole?: RequireRole },
+>(actions: readonly Action[] | undefined, reqCtx: RequestContext): Promise<Action[]> {
+  const visible: Action[] = [];
+  for (const action of actions ?? []) {
+    if (action.access !== undefined) {
+      if (await accessAllows(action.access, reqCtx)) visible.push(action);
+    } else if (roleAllows(action.requireRole, reqCtx)) {
+      visible.push(action);
+    }
+  }
+  return visible;
+}
+
 /** Block every write when the admin is globally read-only (`config.readOnly`). */
 export function guardWritable(config: ResolvedAdminConfig): Response | null {
   if (config.readOnly) {
@@ -147,7 +176,7 @@ export function buildAuditEvent(
 
 /** Wrap an action handler's success branch with the audit emit. */
 export async function maybeEmitAudit(
-  result: ActionResult,
+  result: ActionResult<unknown>,
   auditConfig: AuditConfig | undefined,
   resourceAudit: boolean | undefined,
   event: AuditEvent,
@@ -263,4 +292,60 @@ export function validateActionInput(
     }
     return issues.length > 0 ? issues : null;
   })();
+}
+
+/** Action inputs are an allowlist too; unknown keys never reach trusted callbacks. */
+export function assertActionInputFields(
+  form: FieldDef<Record<string, unknown>>[] | undefined,
+  input: Record<string, unknown>,
+  inputSchema?: z.ZodTypeAny,
+): void {
+  const shape = (inputSchema as { shape?: Record<string, unknown> } | undefined)?.shape;
+  const allowed = new Set([
+    ...(form ?? []).map((field) => field.name),
+    ...Object.keys(shape ?? {}),
+  ]);
+  for (const field of Object.keys(input)) {
+    if (!allowed.has(field)) throw new FlowpanelUnknownFieldError(field);
+  }
+}
+
+export interface ParsedActionInput {
+  data: Record<string, unknown>;
+  issues: ActionInputIssue[] | null;
+}
+
+/** Validate field rules and the optional cross-field action schema once. */
+export async function parseActionInputSchema(
+  form: FieldDef<Record<string, unknown>>[] | undefined,
+  inputSchema: z.ZodTypeAny | undefined,
+  input: Record<string, unknown>,
+): Promise<ParsedActionInput> {
+  assertActionInputFields(form, input, inputSchema);
+  const fieldIssues = await validateActionInput(form, input);
+  if (fieldIssues) return { data: input, issues: fieldIssues };
+  if (!inputSchema) return { data: input, issues: null };
+  const parsed = inputSchema.safeParse(input);
+  if (parsed.success) return { data: parsed.data as Record<string, unknown>, issues: null };
+  return {
+    data: input,
+    issues: parsed.error.issues.map((issue) => ({
+      path: issue.path.map((part) => (typeof part === "symbol" ? part.toString() : part)),
+      message: issue.message,
+    })),
+  };
+}
+
+/** Ensure arbitrary success data is declared and safe before it crosses the wire. */
+export function validateActionOutput(
+  outputSchema: z.ZodTypeAny | undefined,
+  result: ActionResult<unknown>,
+): ActionResult<unknown> {
+  if (!result.ok || result.data === undefined) return result;
+  if (!outputSchema) {
+    throw new Error("An action returned data without declaring outputSchema.");
+  }
+  const parsed = outputSchema.safeParse(result.data);
+  if (!parsed.success) throw new Error("An action returned data that failed outputSchema.");
+  return { ...result, data: parsed.data };
 }

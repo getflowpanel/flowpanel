@@ -17,40 +17,45 @@ export function referenceSearchRoute(config: ResolvedAdminConfig) {
       return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
     }
 
-    return withGuards(config, req, { resource, write: false }, async (reqCtx) => {
-      const fieldDef =
-        declaredFormFields(resource, "update")?.find((f) => f.name === field) ??
-        declaredFormFields(resource, "create")?.find((f) => f.name === field);
-      const ref = fieldDef?.reference;
-      if (!ref) {
-        return Response.json({ ok: false, error: "not a reference field" }, { status: 404 });
-      }
-      if (!roleAllows(fieldDef.requireRole, reqCtx)) {
-        return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
-      }
+    return withGuards(
+      config,
+      req,
+      { resource, operation: "read", write: false },
+      async (reqCtx) => {
+        const fieldDef =
+          declaredFormFields(resource, "update")?.find((f) => f.name === field) ??
+          declaredFormFields(resource, "create")?.find((f) => f.name === field);
+        const ref = fieldDef?.reference;
+        if (!ref) {
+          return Response.json({ ok: false, error: "not a reference field" }, { status: 404 });
+        }
+        if (!roleAllows(fieldDef.requireRole, reqCtx)) {
+          return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
+        }
 
-      const target = config.resourcesByName.get(ref.resource);
-      if (!target) {
-        return Response.json({ ok: false, error: "reference target not found" }, { status: 404 });
-      }
+        const target = config.resourcesByName.get(ref.resource);
+        if (!target) {
+          return Response.json({ ok: false, error: "reference target not found" }, { status: 404 });
+        }
 
-      const pk = config.adapter.introspect(target.ref).primaryKey;
-      const rows = await readRelatedRows(config, target, reqCtx, {
-        sort: { field: ref.labelField, dir: "asc" },
-        pageSize: REFERENCE_SEARCH_LIMIT,
-        search: new URL(req.url).searchParams.get("q") ?? "",
-        searchFields: [ref.labelField],
-        extraFields: [pk, ref.labelField],
-      });
-      if (!rows) {
-        return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
-      }
+        const pk = config.adapter.introspect(target.ref).primaryKey;
+        const rows = await readRelatedRows(config, target, reqCtx, {
+          sort: { field: ref.labelField, dir: "asc" },
+          pageSize: REFERENCE_SEARCH_LIMIT,
+          search: new URL(req.url).searchParams.get("q") ?? "",
+          searchFields: [ref.labelField],
+          extraFields: [pk, ref.labelField],
+        });
+        if (!rows) {
+          return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
+        }
 
-      const options = rows.map((row) => ({
-        value: String(row[pk]),
-        label: String(row[ref.labelField] ?? row[pk]),
-      }));
-      return Response.json({ ok: true, options });
-    });
+        const options = rows.map((row) => ({
+          value: String(row[pk]),
+          label: String(row[ref.labelField] ?? row[pk]),
+        }));
+        return Response.json({ ok: true, options });
+      },
+    );
   };
 }

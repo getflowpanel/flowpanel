@@ -15,16 +15,16 @@ import { createElement, Fragment, type ReactNode } from "react";
 import {
   actorIdFromSession,
   buildAuditEvent,
+  filterActionsByAccess,
   invalidJsonResponse,
   maybeEmitAudit,
   notFoundResponse,
+  parseActionInputSchema,
   readActionInput,
-  safeErrorMessage,
-  validateActionInput,
 } from "../runtime/action-helpers.js";
 import { applyActionResult } from "../runtime/apply-action-result.js";
 import { buildHref } from "../runtime/href.js";
-import { projectRow } from "../runtime/project-row.js";
+import { projectAuthorizedRow } from "../runtime/project-row.js";
 import { bindPublisher, publish } from "../runtime/publish.js";
 import { readRelatedRows } from "../runtime/require-authorized.js";
 import { scopeBinding } from "../runtime/scope-binding.js";
@@ -210,7 +210,7 @@ export interface DrawerRouteCtx {
   params: Promise<{ resource: string; id: string }>;
 }
 
-/** Factory producing the Next 15 route handler for `/api/flowpanel/drawer/[resource]/[id]`. */
+/** Factory producing the Next.js route handler for `/api/flowpanel/drawer/[resource]/[id]`. */
 export function drawerRoute(config: ResolvedAdminConfig) {
   bindPublisher(config);
   return async function GET(req: Request, ctx: DrawerRouteCtx): Promise<Response> {
@@ -227,48 +227,53 @@ export function drawerRoute(config: ResolvedAdminConfig) {
       );
     }
 
-    return withGuards(config, req, { resource, write: false }, async (reqCtx) => {
-      const itemCtx: ItemQueryContext = {
-        ...reqCtx,
-        db: config.adapter.db,
-        dateRange: { from: new Date(0), to: new Date() },
-        searchParams: new URLSearchParams(),
-        signal: new AbortController().signal,
-        id,
-        ...scopeBinding(config, resource, reqCtx),
-      };
-      const row = (await runWithRequestContext(reqCtx, () =>
-        config.adapter.get(resource.ref, itemCtx),
-      )) as Record<string, unknown> | null;
-      if (!row) {
-        return Response.json({ ok: false, error: "not found" }, { status: 404 });
-      }
+    return withGuards(
+      config,
+      req,
+      { resource, operation: "read", write: false },
+      async (reqCtx) => {
+        const itemCtx: ItemQueryContext = {
+          ...reqCtx,
+          db: config.adapter.db,
+          dateRange: { from: new Date(0), to: new Date() },
+          searchParams: new URLSearchParams(),
+          signal: new AbortController().signal,
+          id,
+          ...scopeBinding(config, resource, reqCtx),
+        };
+        const row = (await runWithRequestContext(reqCtx, () =>
+          config.adapter.get(resource.ref, itemCtx),
+        )) as Record<string, unknown> | null;
+        if (!row) {
+          return Response.json({ ok: false, error: "not found" }, { status: 404 });
+        }
 
-      const header =
-        typeof drawer.header === "function"
-          ? String(drawer.header(row) ?? "")
-          : String(row[(resource.options.rowKey as string | undefined) ?? "id"] ?? "");
+        const header =
+          typeof drawer.header === "function"
+            ? String(drawer.header(row) ?? "")
+            : String(row[(resource.options.rowKey as string | undefined) ?? "id"] ?? "");
 
-      const tabs: SerializedDrawerTab[] | null = drawer.tabs
-        ? await Promise.all(drawer.tabs.map((t) => serializeTab(t, row, config, reqCtx, req)))
-        : null;
+        const tabs: SerializedDrawerTab[] | null = drawer.tabs
+          ? await Promise.all(drawer.tabs.map((t) => serializeTab(t, row, config, reqCtx, req)))
+          : null;
 
-      const columns = (resource.options.columns as ReadonlyArray<unknown>) ?? [];
-      const payload: DrawerPayload = {
-        row: projectRow(resource, row),
-        header,
-        resourceLabel:
-          (resource.options.label as string | undefined) ?? humanize(String(resourceName)),
-        width: drawer.width ?? "lg",
-        fields: serializeFields(drawer.fields ?? "*"),
-        tabs,
-        actions: (drawer.actions ?? []).map(serializeAction),
-        prerendered: await prerenderRowFields(columns, row, reqCtx),
-        labels: buildFieldLabels(columns),
-        formats: buildFieldFormats(columns),
-      };
-      return Response.json(payload);
-    });
+        const columns = (resource.options.columns as ReadonlyArray<unknown>) ?? [];
+        const payload: DrawerPayload = {
+          row: await projectAuthorizedRow(resource, row, reqCtx),
+          header,
+          resourceLabel:
+            (resource.options.label as string | undefined) ?? humanize(String(resourceName)),
+          width: drawer.width ?? "lg",
+          fields: serializeFields(drawer.fields ?? "*"),
+          tabs,
+          actions: (await filterActionsByAccess(drawer.actions, reqCtx)).map(serializeAction),
+          prerendered: await prerenderRowFields(columns, row, reqCtx),
+          labels: buildFieldLabels(columns),
+          formats: buildFieldFormats(columns),
+        };
+        return Response.json(payload);
+      },
+    );
   };
 }
 
@@ -294,49 +299,60 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
       );
     }
 
-    return withGuards(config, req, { resource }, async (reqCtx) => {
-      const itemCtx: ItemQueryContext = {
-        ...reqCtx,
-        db: config.adapter.db,
-        dateRange: { from: new Date(0), to: new Date() },
-        searchParams: new URLSearchParams(),
-        signal: new AbortController().signal,
-        id,
-        ...scopeBinding(config, resource, reqCtx),
-      };
-      const row = (await runWithRequestContext(reqCtx, () =>
-        config.adapter.get(resource.ref, itemCtx),
-      )) as Record<string, unknown> | null;
-      if (!row) {
-        return Response.json({ ok: false, error: "not found" }, { status: 404 });
-      }
+    return withGuards(
+      config,
+      req,
+      { resource, actionAccess: action.access, actionRequireRole: action.requireRole },
+      async (reqCtx) => {
+        const itemCtx: ItemQueryContext = {
+          ...reqCtx,
+          db: config.adapter.db,
+          dateRange: { from: new Date(0), to: new Date() },
+          searchParams: new URLSearchParams(),
+          signal: new AbortController().signal,
+          id,
+          ...scopeBinding(config, resource, reqCtx),
+        };
+        const row = (await runWithRequestContext(reqCtx, () =>
+          config.adapter.get(resource.ref, itemCtx),
+        )) as Record<string, unknown> | null;
+        if (!row) {
+          return Response.json({ ok: false, error: "not found" }, { status: 404 });
+        }
+        if (action.when) {
+          const allowed = await action.when({ ...reqCtx, current: row, input: {} });
+          if (!allowed) {
+            return Response.json({ ok: false, error: "not found" }, { status: 404 });
+          }
+        }
 
-      const body = await readActionInput(req);
-      if (!body.ok) return invalidJsonResponse();
-      const input = body.input;
-
-      const inputIssues = await validateActionInput(
-        action.form as Parameters<typeof validateActionInput>[0],
-        input,
-      );
-      if (inputIssues) {
-        return Response.json(
-          { ok: false, error: "validation failed", issues: inputIssues },
-          { status: 422 },
+        const body = await readActionInput(req);
+        if (!body.ok) return invalidJsonResponse();
+        const parsedInput = await parseActionInputSchema(
+          action.form as Parameters<typeof parseActionInputSchema>[0],
+          undefined,
+          body.input,
         );
-      }
+        if (parsedInput.issues) {
+          return Response.json(
+            { ok: false, error: "validation failed", issues: parsedInput.issues },
+            { status: 422 },
+          );
+        }
 
-      const actionCtx = {
-        ...reqCtx,
-        db: config.adapter.db,
-        actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
-        publish: async (channel: string, payload?: unknown) => {
-          await publish(channel, payload);
-        },
-      };
+        const actionCtx = {
+          ...reqCtx,
+          db: config.adapter.db,
+          ...(action.unsafe?.includes("db") ? { unsafe: { db: config.adapter.db } } : {}),
+          actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
+          publish: async (channel: string, payload?: unknown) => {
+            await publish(channel, payload);
+          },
+        };
 
-      try {
-        const result = await runWithRequestContext(reqCtx, () => action.run(row, input, actionCtx));
+        const result = await runWithRequestContext(reqCtx, () =>
+          action.run(row, parsedInput.data, actionCtx),
+        );
 
         await maybeEmitAudit(
           result,
@@ -360,9 +376,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
           });
         }
         return Response.json(result);
-      } catch (err) {
-        return Response.json({ ok: false, error: safeErrorMessage(err) }, { status: 500 });
-      }
-    });
+      },
+    );
   };
 }

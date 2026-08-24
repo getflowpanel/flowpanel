@@ -20,7 +20,12 @@ import { publish, publishResource } from "../runtime/publish.js";
 
 function makeConfig(
   action: DrawerAction,
-  opts: { audit?: AuditConfig; resourceAudit?: boolean; session?: Session | null } = {},
+  opts: {
+    audit?: AuditConfig;
+    resourceAudit?: boolean;
+    session?: Session | null;
+    role?: string;
+  } = {},
 ) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -44,7 +49,7 @@ function makeConfig(
   } as never;
   const config: ResolvedAdminConfig = {
     adapter,
-    auth: { session: async () => opts.session ?? null, role: () => "admin" },
+    auth: { session: async () => opts.session ?? null, role: () => opts.role ?? "admin" },
     ...(opts.audit ? { audit: opts.audit } : {}),
     resources: [resource],
     resourcesByName: new Map([["jobs", resource]]),
@@ -88,13 +93,33 @@ describe("drawerActionRoute", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 403 without running a drawer action when requireRole fails", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig(
+      { key: "disable", label: "Disable", requireRole: "admin", run } as DrawerAction,
+      { role: "support" },
+    );
+    const res = await drawerActionRoute(config)(
+      new Request("http://localhost/x", { method: "POST" }),
+      { params: Promise.resolve({ resource: "jobs", id: "1", action: "disable" }) },
+    );
+
+    expect(res.status).toBe(403);
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("executes action.run with row + formData + ctx, returns its result, and applies refresh", async () => {
     const run = vi.fn(async (_row: unknown, _input: unknown) => ({
       ok: true as const,
       message: "Approved",
       refresh: true,
     }));
-    const config = makeConfig({ key: "approve", label: "Approve", run } as DrawerAction);
+    const config = makeConfig({
+      key: "approve",
+      label: "Approve",
+      form: [{ name: "note", type: "textarea" }],
+      run,
+    } as DrawerAction);
     const handler = drawerActionRoute(config);
     const fd = new FormData();
     fd.set("note", "hi");
@@ -158,7 +183,7 @@ describe("drawerActionRoute", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.ok).toBe(false);
-    expect(body.error).toBe("internal error");
+    expect(body.error).toBe("Internal server error");
     expect(body.error).not.toContain("boom");
     expect(body.error).not.toContain("ssn");
   });

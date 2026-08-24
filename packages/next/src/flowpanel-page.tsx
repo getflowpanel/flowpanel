@@ -1,5 +1,5 @@
-import type { ResolvedAdminConfig, ShellConfig, ShellMode } from "@flowpanel/core";
-import { checkRequireRole, FlowpanelAccessError, FlowpanelAuthError } from "@flowpanel/core";
+import type { RequestContext, ResolvedAdminConfig, ShellConfig, ShellMode } from "@flowpanel/core";
+import { FlowpanelAccessError, FlowpanelAuthError } from "@flowpanel/core";
 import { CommandHost, DrawerHost } from "@flowpanel/next/client";
 import {
   AdminShell,
@@ -10,22 +10,14 @@ import {
 } from "@flowpanel/react";
 import { redirect } from "next/navigation";
 import type * as React from "react";
-import { DashboardPage } from "./pages/dashboard.js";
-import { NotFound } from "./pages/not-found.js";
-import { QueuePage } from "./pages/queue-page.js";
-import { ResourceCreatePage } from "./pages/resource-create.js";
-import { ResourceDetailPage } from "./pages/resource-detail.js";
-import { ResourceEditPage } from "./pages/resource-edit.js";
-import { ResourceListPage } from "./pages/resource-list.js";
-import { UserPage } from "./pages/user-page.js";
-import { Welcome } from "./pages/welcome.js";
 import { buildServerRequest } from "./runtime/build-server-request.js";
-import { matchDashboard } from "./runtime/dashboard-routing.js";
-import { buildNav, resourceNavName } from "./runtime/nav.js";
-import { matchPage } from "./runtime/page-routing.js";
+import { buildNav } from "./runtime/nav.js";
 import { bindPublisher } from "./runtime/publish.js";
+import { renderContent } from "./runtime/render-content.js";
 import { buildRequestContext } from "./runtime/request-setup.js";
 import { ThemeVars } from "./runtime/theme-vars.js";
+
+export { renderContent } from "./runtime/render-content.js";
 
 type PageParams = Record<string, string | string[] | undefined>;
 type PageProps = {
@@ -90,10 +82,6 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
       }
     }
 
-    const navGroups = buildNav(config);
-    const navItems = navGroups.flatMap((g) =>
-      g.items.map((it) => ({ label: it.label, href: it.href })),
-    );
     const slugPath = `/${slug.join("/")}`;
     const currentPath = slugPath === "/" ? config.basePath || "/" : `${config.basePath}${slugPath}`;
     const url = new URL(`http://localhost${config.basePath}${slugPath}`);
@@ -101,11 +89,22 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
     const req = await buildServerRequest(url);
 
     let content: React.ReactNode;
+    let reqCtx: RequestContext | undefined;
+    let navGroups: ReturnType<typeof buildNav> = [];
     try {
-      content = await renderContent(config, slug, sp, req);
+      reqCtx = await buildRequestContext({ req, config });
+      navGroups = buildNav(config, reqCtx);
+      content = await renderContent(config, slug, sp, req, reqCtx);
     } catch (err) {
       content = await handleRenderError(err, config);
     }
+    const navItems = navGroups.flatMap((g) =>
+      g.items.map((it) => ({
+        label: it.label,
+        href: it.href,
+        ...(it.icon ? { icon: it.icon } : {}),
+      })),
+    );
 
     const shell = resolveShell(config, opts.shell);
     const themeComponents = config.theme?.components as
@@ -113,9 +112,8 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
       | undefined;
     const themeMode = config.theme?.mode;
     const labels = config.labels;
-    const accountUser = config.theme?.user
-      ? config.theme.user(await config.auth.session().catch(() => null))
-      : undefined;
+    const accountUser =
+      config.theme?.user && reqCtx ? config.theme.user(reqCtx.session) : undefined;
 
     const globals = (
       <>
@@ -189,86 +187,4 @@ export async function handleRenderError(
       description="Your account doesn't have permission to view this admin."
     />
   );
-}
-
-export async function renderContent(
-  config: ResolvedAdminConfig,
-  slug: string[],
-  sp: URLSearchParams,
-  req: Request,
-): Promise<React.ReactNode> {
-  const dash = matchDashboard(slug, config);
-  if (dash) {
-    const reqCtx = await buildRequestContext({ req, config });
-    if (dash.requireRole !== undefined) {
-      checkRequireRole(dash.requireRole, reqCtx.role, reqCtx.session);
-    }
-    return (
-      <DashboardPage config={config} dashboard={dash} searchParams={sp} req={req} reqCtx={reqCtx} />
-    );
-  }
-
-  const userPage = matchPage(slug, config);
-  if (userPage) {
-    const reqCtx = await buildRequestContext({ req, config });
-    if (userPage.requireRole !== undefined) {
-      checkRequireRole(userPage.requireRole, reqCtx.role, reqCtx.session);
-    }
-    return <UserPage page={userPage} />;
-  }
-
-  if (slug.length === 0) {
-    const isEmptyConfig =
-      config.resourcesByName.size === 0 &&
-      config.dashboardsByPath.size === 0 &&
-      config.pagesByPath.size === 0 &&
-      config.queuesByKey.size === 0;
-    if (isEmptyConfig) {
-      await buildRequestContext({ req, config });
-      return <Welcome />;
-    }
-    const first = config.resources?.[0];
-    if (!first) return <NotFound config={config} />;
-    return <ResourceListPage config={config} resource={first} searchParams={sp} req={req} />;
-  }
-
-  if (slug[0] === "queues" && slug.length === 2) {
-    const qkey = slug[1] ?? "";
-    const q = config.queuesByKey.get(qkey);
-    if (q) {
-      const reqCtx = await buildRequestContext({ req, config });
-      if (q.options.requireRole) {
-        checkRequireRole(q.options.requireRole, reqCtx.role, reqCtx.session);
-      }
-      return <QueuePage queue={q} />;
-    }
-    return <NotFound config={config} />;
-  }
-
-  const resourceName = slug[0];
-  if (!resourceName) return <NotFound config={config} />;
-  const resource = config.resourcesByName.get(resourceName);
-  if (!resource) return <NotFound config={config} />;
-  const name = resourceNavName(resource);
-
-  if (slug.length === 1) {
-    return <ResourceListPage config={config} resource={resource} searchParams={sp} req={req} />;
-  }
-
-  const second = slug[1];
-  if (!second) return <NotFound config={config} />;
-  if (slug.length === 2 && second === "new") {
-    return <ResourceCreatePage config={config} resource={resource} name={name} req={req} />;
-  }
-  if (slug.length === 2) {
-    return (
-      <ResourceDetailPage config={config} resource={resource} name={name} id={second} req={req} />
-    );
-  }
-  if (slug.length === 3 && slug[2] === "edit") {
-    return (
-      <ResourceEditPage config={config} resource={resource} name={name} id={second} req={req} />
-    );
-  }
-  return <NotFound config={config} />;
 }

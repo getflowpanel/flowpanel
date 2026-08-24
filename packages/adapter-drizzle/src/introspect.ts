@@ -15,6 +15,10 @@ export function introspect(table: unknown): ResourceIntrospection {
       nullable: !raw.notNull,
       unique: !!raw.isUnique,
       primaryKey: !!raw.primary,
+      readable: true,
+      writableOnCreate: raw.generated === undefined,
+      writableOnUpdate: raw.generated === undefined && !raw.primary,
+      generated: raw.generated !== undefined,
     };
     if (raw.enumValues) meta.enumValues = raw.enumValues;
     if (raw.primary) primaryKey = name;

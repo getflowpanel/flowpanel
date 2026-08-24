@@ -22,12 +22,19 @@ export interface PrismaAdapterOptions<P = unknown> {
 interface PrismaDelegate {
   findMany: (args: {
     where?: Record<string, unknown>;
+    select?: Record<string, boolean>;
     orderBy?: Record<string, "asc" | "desc">;
     skip?: number;
     take?: number;
   }) => Promise<unknown[]>;
-  findUnique: (args: { where: Record<string, unknown> }) => Promise<Record<string, unknown> | null>;
-  findFirst: (args: { where: Record<string, unknown> }) => Promise<Record<string, unknown> | null>;
+  findUnique: (args: {
+    where: Record<string, unknown>;
+    select?: Record<string, boolean>;
+  }) => Promise<Record<string, unknown> | null>;
+  findFirst: (args: {
+    where: Record<string, unknown>;
+    select?: Record<string, boolean>;
+  }) => Promise<Record<string, unknown> | null>;
   count: (args: { where?: Record<string, unknown> }) => Promise<number>;
   create: (args: { data: unknown }) => Promise<Record<string, unknown>>;
   update: (args: {
@@ -45,9 +52,14 @@ interface PrismaDelegate {
 /** Apply a resource's tenant `scope` predicate to a plain object, with fail-closed enforcement. */
 function applyScopeToWhere(
   where: Record<string, unknown>,
-  ctx: { applyScope?: (q: unknown) => unknown; scopeRequired?: boolean },
+  ctx: {
+    boundScope?: { apply(query: unknown): unknown };
+    applyScope?: (q: unknown) => unknown;
+    scopeRequired?: boolean;
+  },
 ): Record<string, unknown> {
-  if (!ctx.applyScope) {
+  const applyScope = ctx.boundScope?.apply ?? ctx.applyScope;
+  if (!applyScope) {
     if (ctx.scopeRequired) {
       throw new FlowpanelAccessError(
         "scope required but not bound: a scope predicate is declared and global scope " +
@@ -56,11 +68,39 @@ function applyScopeToWhere(
     }
     return where;
   }
-  return (ctx.applyScope(where) as Record<string, unknown>) ?? where;
+  const before = { ...where };
+  const scoped = applyScope(where);
+  if (typeof scoped !== "object" || scoped === null || Array.isArray(scoped)) {
+    throw new FlowpanelAccessError(
+      "the bound Prisma scope predicate must return a where/data object. " +
+        "Refusing to run an unscoped query.",
+    );
+  }
+  const result = scoped as Record<string, unknown>;
+  for (const key of Object.keys(before)) {
+    if (!(key in result)) {
+      throw new FlowpanelAccessError(
+        `the bound Prisma scope predicate removed required key "${key}". ` +
+          "Refusing to run a broadened query.",
+      );
+    }
+  }
+  const changed =
+    result !== where ||
+    Object.keys(result).length !== Object.keys(before).length ||
+    Object.keys(before).some((key) => !Object.is(result[key], before[key]));
+  if (ctx.scopeRequired && !changed) {
+    throw new FlowpanelAccessError(
+      "scope required but the bound Prisma predicate returned the input unchanged. " +
+        "Refusing to run an unscoped query.",
+    );
+  }
+  return result;
 }
 
 /** Subset of the Prisma client we touch — `$executeRaw{,Unsafe}`, `$queryRawUnsafe`. */
 interface PrismaClientLike {
+  $transaction?: <T>(run: (tx: PrismaClientLike) => Promise<T>) => Promise<T>;
   $executeRaw: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
   $executeRawUnsafe: (sql: string, ...values: unknown[]) => Promise<number>;
   $queryRawUnsafe: <T = unknown>(sql: string, ...values: unknown[]) => Promise<T>;
@@ -124,9 +164,46 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     return _dmmf;
   }
 
+  function hasScope(ctx: { boundScope?: unknown; applyScope?: unknown }): boolean {
+    return ctx.boundScope !== undefined || ctx.applyScope !== undefined;
+  }
+
+  function projection(modelName: string, select: readonly string[] | undefined) {
+    if (select === undefined) return undefined;
+    if (select.length === 0) throw new Error("prismaAdapter: select must contain a field");
+    if (select.length > 1024) throw new Error("prismaAdapter: select exceeds 1024 fields");
+    const model = getDmmf().datamodel.models.find((entry) => entry.name === modelName);
+    const known = new Set(
+      model?.fields.filter((field) => field.kind !== "object").map((field) => field.name),
+    );
+    const projected: Record<string, boolean> = {};
+    for (const name of new Set(select)) {
+      if (!known.has(name))
+        throw new Error(`prismaAdapter: select contains unknown field "${name}"`);
+      projected[name] = true;
+    }
+    return projected;
+  }
+
+  const canTransact = typeof prisma.$transaction === "function";
+
   return {
     kind: "prisma",
     db: opts.prisma,
+    capabilities: {
+      version: 2,
+      projections: true,
+      transactions: canTransact,
+      atomicImport: canTransact,
+      returningRows: true,
+      migrations: true,
+    },
+    ...(canTransact
+      ? {
+          transaction: <T>(run: (db: P) => Promise<T>) =>
+            prisma.$transaction?.((tx) => run(tx as unknown as P)) as Promise<T>,
+        }
+      : {}),
 
     introspect: (modelName) => introspect(modelName, getDmmf()),
 
@@ -135,6 +212,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     async list(modelName, ctx: ListQueryContext<unknown>): Promise<ListResult<unknown>> {
       const delegate = getDelegate(prisma, modelName);
       const dmmf = getDmmf();
+      const select = projection(modelName, ctx.select);
 
       const where: Record<string, unknown> = {};
 
@@ -190,6 +268,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const [rows, total] = await Promise.all([
         delegate.findMany({
           where: scopedWhere,
+          ...(select ? { select } : {}),
           ...(orderBy ? { orderBy } : {}),
           skip,
           take,
@@ -203,9 +282,11 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     async get(modelName, ctx: ItemQueryContext) {
       const delegate = getDelegate(prisma, modelName);
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
-      const result = ctx.applyScope
-        ? await delegate.findFirst({ where: baseWhere })
-        : await delegate.findUnique({ where: baseWhere });
+      const select = projection(modelName, ctx.select);
+      const args = { where: baseWhere, ...(select ? { select } : {}) };
+      const result = hasScope(ctx)
+        ? await delegate.findFirst(args)
+        : await delegate.findUnique(args);
       return result ?? null;
     },
 
@@ -219,7 +300,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       if (!ctx.id) throw new Error("prismaAdapter: update requires ctx.id");
       const delegate = getDelegate(prisma, modelName);
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
-      if (ctx.applyScope) {
+      if (hasScope(ctx)) {
         const res = await delegate.updateMany({ where: baseWhere, data: ctx.input });
         if (res.count === 0) return null;
         const row = await delegate.findFirst({ where: baseWhere });
@@ -234,12 +315,12 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       const softCol = ctx.softDelete?.column;
       if (softCol) {
-        if (ctx.applyScope) {
+        if (hasScope(ctx)) {
           await delegate.updateMany({ where: baseWhere, data: { [softCol]: new Date() } });
         } else {
           await delegate.update({ where: baseWhere, data: { [softCol]: new Date() } });
         }
-      } else if (ctx.applyScope) {
+      } else if (hasScope(ctx)) {
         await delegate.deleteMany({ where: baseWhere });
       } else {
         await delegate.delete({ where: baseWhere });
@@ -253,7 +334,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       if (!ctx.id) throw new Error("prismaAdapter: restore requires ctx.id");
       const delegate = getDelegate(prisma, modelName);
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
-      if (ctx.applyScope) {
+      if (hasScope(ctx)) {
         await delegate.updateMany({ where: baseWhere, data: { [softCol]: null } });
       } else {
         await delegate.update({ where: baseWhere, data: { [softCol]: null } });

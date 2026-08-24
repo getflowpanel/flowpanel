@@ -19,23 +19,23 @@ describe("FlowpanelError", () => {
     expect(err.message).toBe("Something broke");
   });
 
-  it("accepts a custom status", () => {
-    const err = new FlowpanelError("teapot", "I am a teapot", 418);
-    expect(err.status).toBe(418);
+  it("derives status from the exhaustive public code map", () => {
+    const err = new FlowpanelError("payload_too_large", "Payload too large");
+    expect(err.status).toBe(413);
   });
 
   it("toJSON exposes code + message (not the stack)", () => {
-    const err = new FlowpanelError("x", "oops");
-    expect(err.toJSON()).toEqual({ code: "x", message: "oops" });
+    const err = new FlowpanelError("bad_request", "oops");
+    expect(err.toJSON()).toEqual({ code: "bad_request", message: "oops" });
   });
 });
 
 describe("Specialized error subclasses", () => {
-  it("FlowpanelValidationError defaults message + status=400 and carries fieldErrors", () => {
+  it("FlowpanelValidationError defaults message + status=422 and carries fieldErrors", () => {
     const err = new FlowpanelValidationError({ email: "invalid" });
     expect(err.name).toBe("FlowpanelValidationError");
-    expect(err.code).toBe("validation");
-    expect(err.status).toBe(400);
+    expect(err.code).toBe("validation_failed");
+    expect(err.status).toBe(422);
     expect(err.message).toBe("Validation failed");
     expect(err.fieldErrors).toEqual({ email: "invalid" });
   });
@@ -49,14 +49,14 @@ describe("Specialized error subclasses", () => {
     const err = new FlowpanelAuthError();
     expect(err.name).toBe("FlowpanelAuthError");
     expect(err.status).toBe(401);
-    expect(err.code).toBe("auth");
+    expect(err.code).toBe("unauthenticated");
   });
 
   it("FlowpanelAccessError defaults to 403", () => {
     const err = new FlowpanelAccessError();
     expect(err.name).toBe("FlowpanelAccessError");
     expect(err.status).toBe(403);
-    expect(err.code).toBe("access");
+    expect(err.code).toBe("forbidden");
   });
 
   it("FlowpanelNotFoundError defaults to 404", () => {
@@ -77,7 +77,7 @@ describe("Specialized error subclasses", () => {
     const err = new FlowpanelRateLimitError();
     expect(err.name).toBe("FlowpanelRateLimitError");
     expect(err.status).toBe(429);
-    expect(err.code).toBe("rate_limit");
+    expect(err.code).toBe("rate_limited");
   });
 
   it("each subclass accepts a custom message", () => {

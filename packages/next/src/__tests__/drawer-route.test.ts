@@ -27,10 +27,10 @@ const fakeAdapter: Adapter = {
   delete: async () => {},
 };
 
-function mkConfig() {
+function mkConfig(role = "admin") {
   return defineAdmin({
     adapter: fakeAdapter,
-    auth: { session: async () => null, role: () => "admin" },
+    auth: { session: async () => null, role: () => role, requireRole: () => true },
     resources: [
       resource(
         { __name: "users" },
@@ -45,6 +45,12 @@ function mkConfig() {
                 key: "resend-welcome",
                 label: "Resend welcome",
                 variant: "default",
+                run: async () => ({ ok: true }),
+              },
+              {
+                key: "delete-user",
+                label: "Delete user",
+                requireRole: "admin",
                 run: async () => ({ ok: true }),
               },
             ],
@@ -127,9 +133,18 @@ describe("drawerRoute", () => {
     expect(body.width).toBe("lg");
     expect(body.fields).toBe("*");
     expect(body.tabs).toBeNull();
-    expect(body.actions).toHaveLength(1);
+    expect(body.actions).toHaveLength(2);
     expect(body.actions[0]?.key).toBe("resend-welcome");
     expect("run" in (body.actions[0] ?? {})).toBe(false);
+  });
+
+  it("does not advertise drawer actions the current operator cannot run", async () => {
+    const res = await drawerRoute(mkConfig("support"))(mkReq(), {
+      params: Promise.resolve({ resource: "users", id: "abc" }),
+    });
+    const body = (await res.json()) as { actions: { key: string }[] };
+
+    expect(body.actions.map((action) => action.key)).toEqual(["resend-welcome"]);
   });
 
   it("ships the resource's display label, humanizing the registry name when none is set", async () => {

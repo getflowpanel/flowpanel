@@ -127,6 +127,8 @@ describe("introspect", () => {
       name: "id",
       type: "number",
       primaryKey: true,
+      readable: true,
+      writableOnUpdate: false,
       nullable: false,
     });
     expect(byName.email).toMatchObject({

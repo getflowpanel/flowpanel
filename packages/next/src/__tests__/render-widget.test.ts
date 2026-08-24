@@ -128,6 +128,23 @@ describe("renderWidget — metric icon", () => {
   });
 });
 
+describe("renderWidget — chart package boundary", () => {
+  it("resolves the optional chart runtime from @flowpanel/next", async () => {
+    const widget: WidgetConfig = {
+      kind: "areaChart",
+      label: "Revenue",
+      query: async () => [{ day: "Mon", value: 12 }],
+      options: { x: "day", y: "value" },
+    } as never;
+
+    const node = await renderWidget(widget, ctx, cfg, reqCtx);
+    const fragment = node as ReactElement<{ children: ReactNode[] }>;
+    const renderer = fragment.props.children[0] as ReactElement<{ kind?: string }>;
+
+    expect(renderer.props.kind).toBe("areaChart");
+  });
+});
+
 describe("renderWidget — table emptyState", () => {
   it("passes options.emptyState through to TableWidget", async () => {
     const empty = "No orders yet" as unknown as ReactNode;

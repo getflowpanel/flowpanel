@@ -49,6 +49,10 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
       nullable: !field.isRequired,
       unique: field.isUnique,
       primaryKey: field.isId,
+      readable: true,
+      writableOnCreate: true,
+      writableOnUpdate: !field.isId,
+      generated: false,
     };
 
     if (field.kind === "enum") {

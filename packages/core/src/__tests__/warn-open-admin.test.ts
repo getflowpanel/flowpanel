@@ -61,10 +61,24 @@ describe("no-access-control warning", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("is silent in production", () => {
+  it("fails closed in production when anonymous access was not acknowledged", () => {
     process.env.NODE_ENV = "production";
-    defineAdmin(open);
+    expect(() => defineAdmin({ ...open })).toThrow(/production admin requires auth\.requireRole/i);
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("allows acknowledged anonymous production access only in read-only mode", () => {
+    process.env.NODE_ENV = "production";
+    expect(() =>
+      defineAdmin({
+        ...open,
+        readOnly: true,
+        auth: { ...open.auth, allowUnauthenticated: true },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      defineAdmin({ ...open, auth: { ...open.auth, allowUnauthenticated: true } }),
+    ).toThrow(/must also set readOnly: true/i);
   });
 
   it("is silent when the deployment opts out explicitly", () => {

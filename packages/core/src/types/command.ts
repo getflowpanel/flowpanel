@@ -1,8 +1,10 @@
+import type { IconName } from "./icon.js";
+
 /** One entry in the ⌘K palette. */
 export interface CommandItem {
   label: string;
-  /** Not rendered: palette entries show the label and the shortcut only. */
-  icon?: string;
+  /** Serializable Lucide icon rendered beside the label. */
+  icon?: IconName;
   /** Shortcut hint shown on the right, e.g. `"⌘J"`. Display only — bind it yourself. */
   shortcut?: string;
   /** Extra terms that should match this item in search. */

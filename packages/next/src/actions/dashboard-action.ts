@@ -1,4 +1,10 @@
-import type { ActionResult, DashboardAction, ResolvedAdminConfig } from "@flowpanel/core";
+import type {
+  ActionResult,
+  DashboardAction,
+  FieldDef,
+  IconName,
+  ResolvedAdminConfig,
+} from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
 import {
   actorIdFromSession,
@@ -6,9 +12,9 @@ import {
   invalidJsonResponse,
   maybeEmitAudit,
   notFoundResponse,
+  parseActionInputSchema,
   readActionInput,
-  safeErrorMessage,
-  validateActionInput,
+  validateActionOutput,
 } from "../runtime/action-helpers.js";
 import { applyActionResult } from "../runtime/apply-action-result.js";
 import { buildHref } from "../runtime/href.js";
@@ -30,15 +36,15 @@ export interface SerializedDashboardActionField {
 export interface SerializedDashboardAction {
   key: string;
   label: string;
-  icon?: string;
+  icon?: IconName;
   variant?: "default" | "destructive" | "success";
   confirm?: { title: string; description?: string; confirmLabel?: string };
   hasForm: boolean;
   form?: SerializedDashboardActionField[];
 }
 
-function serializeField(
-  f: NonNullable<DashboardAction["form"]>[number],
+function serializeField<Row extends Record<string, unknown>>(
+  f: FieldDef<Row>,
 ): SerializedDashboardActionField {
   const out: SerializedDashboardActionField = { name: f.name };
   if (f.label !== undefined) out.label = f.label;
@@ -55,7 +61,9 @@ function serializeField(
 }
 
 /** Serialize a `DashboardAction` for client consumption. */
-export function serializeDashboardAction(a: DashboardAction): SerializedDashboardAction {
+export function serializeDashboardAction<Input extends Record<string, unknown>, Output>(
+  a: DashboardAction<Input, Output>,
+): SerializedDashboardAction {
   const hasForm = Array.isArray(a.form) && a.form.length > 0;
   const out: SerializedDashboardAction = {
     key: a.key,
@@ -111,16 +119,22 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
     return withGuards(
       config,
       req,
-      { pageRequireRole: dashboard.requireRole, actionRequireRole: action.requireRole },
+      {
+        pageRequireRole: dashboard.requireRole,
+        actionAccess: action.access,
+        actionRequireRole: action.requireRole,
+      },
       async (reqCtx) => {
         const body = await readActionInput(req);
         if (!body.ok) return invalidJsonResponse();
-        const input = body.input;
-
-        const inputIssues = await validateActionInput(action.form, input);
-        if (inputIssues) {
+        const parsedInput = await parseActionInputSchema(
+          action.form as Parameters<typeof parseActionInputSchema>[0],
+          action.inputSchema,
+          body.input,
+        );
+        if (parsedInput.issues) {
           return Response.json(
-            { ok: false, error: "validation failed", issues: inputIssues },
+            { ok: false, error: "validation failed", issues: parsedInput.issues },
             { status: 422 },
           );
         }
@@ -128,44 +142,43 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
         const actionCtx = {
           ...reqCtx,
           db: config.adapter.db,
+          ...(action.unsafe?.includes("db") ? { unsafe: { db: config.adapter.db } } : {}),
           actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
           publish: async (channel: string, payload?: unknown) => {
             await publish(channel, payload);
           },
         };
 
-        try {
-          const result = (await runWithRequestContext(reqCtx, () =>
-            action.run(input, actionCtx),
-          )) as ActionResult;
+        const result = validateActionOutput(
+          action.outputSchema,
+          (await runWithRequestContext(reqCtx, () =>
+            action.run(parsedInput.data, actionCtx),
+          )) as ActionResult<unknown>,
+        );
 
-          await maybeEmitAudit(
-            result,
-            config.audit,
-            undefined, // dashboards have no per-resource audit opt-out
-            buildAuditEvent(
-              reqCtx,
-              {
-                action: `dashboard.action.${actionKey}`,
-                resource: "dashboard",
-                targetId: dashboardPath,
-              },
-              config.auth.userId,
-            ),
-          );
+        await maybeEmitAudit(
+          result,
+          config.audit,
+          undefined, // dashboards have no per-resource audit opt-out
+          buildAuditEvent(
+            reqCtx,
+            {
+              action: `dashboard.action.${actionKey}`,
+              resource: "dashboard",
+              targetId: dashboardPath,
+            },
+            config.auth.userId,
+          ),
+        );
 
-          if (result.ok) {
-            const dashboardSegments =
-              dashboardPath === "/" ? [] : dashboardPath.slice(1).split("/");
-            await applyActionResult(result, {
-              pathname: buildHref(config, ...dashboardSegments),
-            });
-          }
-
-          return Response.json(result);
-        } catch (err) {
-          return Response.json({ ok: false, error: safeErrorMessage(err) }, { status: 500 });
+        if (result.ok) {
+          const dashboardSegments = dashboardPath === "/" ? [] : dashboardPath.slice(1).split("/");
+          await applyActionResult(result, {
+            pathname: buildHref(config, ...dashboardSegments),
+          });
         }
+
+        return Response.json(result);
       },
     );
   };
