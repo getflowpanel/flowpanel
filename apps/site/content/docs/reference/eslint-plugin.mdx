@@ -121,7 +121,7 @@ normalizes both to the same thing. Autofixable.
 // bad
 filters: [
   {
-    key: "status",
+    field: "status",
     type: "select",
     options: [
       { label: "active", value: "active" },
@@ -131,7 +131,7 @@ filters: [
 ];
 
 // good
-filters: [{ key: "status", type: "select", options: ["active", "archived"] }];
+filters: [{ field: "status", type: "select", options: ["active", "archived"] }];
 ```
 
 ### `no-typo-column-keyword`

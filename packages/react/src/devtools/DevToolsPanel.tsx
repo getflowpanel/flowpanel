@@ -80,7 +80,7 @@ export function DevToolsPanel({
   if (!mounted || typeof document === "undefined") return null;
 
   const node = (
-    <div className="fixed bottom-4 right-4 z-50 font-mono text-fp-text-1">
+    <div data-flowpanel-portal="" className="fixed bottom-4 right-4 z-50 font-mono text-fp-text-1">
       {open ? (
         <div
           role="dialog"
@@ -93,7 +93,7 @@ export function DevToolsPanel({
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close DevTools"
-              className="cursor-pointer border-none bg-transparent text-sm leading-none text-fp-text-2"
+              className="-mr-2 inline-flex size-11 cursor-pointer items-center justify-center border-none bg-transparent text-sm leading-none text-fp-text-2 sm:size-9"
             >
               ×
             </button>
@@ -147,7 +147,7 @@ export function DevToolsPanel({
         onClick={() => setOpen((v) => !v)}
         aria-label="Toggle FlowPanel DevTools"
         aria-expanded={open}
-        className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-full border border-fp-border-1 bg-fp-bg-1 px-3 py-1.5 text-xs font-semibold text-fp-text-1 shadow-fp-md"
+        className="ml-auto flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-fp-border-1 bg-fp-bg-1 px-3 py-1.5 text-xs font-semibold text-fp-text-1 shadow-fp-md"
       >
         <StatusDot status={status} />
         fp

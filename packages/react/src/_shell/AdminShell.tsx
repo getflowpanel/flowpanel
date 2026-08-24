@@ -67,15 +67,19 @@ export function AdminShell({
         <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <DialogPrimitive.Trigger
             aria-label="Open navigation"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-fp-sm text-fp-text-2 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-fp-sm text-fp-text-2 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </DialogPrimitive.Trigger>
           <Brand brand={brand} className="min-w-0 flex-1" />
           {user ? <AccountMenu user={user} align="end" className="w-auto" /> : null}
           <DialogPrimitive.Portal>
-            <DialogPrimitive.Overlay className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/60 backdrop-blur-[2px]" />
+            <DialogPrimitive.Overlay
+              data-flowpanel-portal=""
+              className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/60 backdrop-blur-[2px]"
+            />
             <DialogPrimitive.Content
+              data-flowpanel-portal=""
               aria-describedby={undefined}
               className="fp-anim-sheet-left fixed left-0 top-0 z-50 flex h-dvh w-[min(80vw,288px)] flex-col border-r border-fp-border-1 bg-fp-bg-1 shadow-fp-lg focus:outline-none"
             >

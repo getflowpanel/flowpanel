@@ -76,4 +76,18 @@ describe("AccountMenu", () => {
     await user.click(screen.getByRole("button", { name: /account menu/i }));
     expect(screen.getByRole("menuitem", { name: "Read only" }).tagName).not.toBe("A");
   });
+
+  it("does not aria-hide the admin page while the account menu is open", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <AccountMenu user={{ name: "Ada", items: [{ label: "Read only" }] }} />
+        <main data-testid="admin-page">Dashboard content</main>
+      </>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /account menu/i }));
+
+    expect(screen.getByTestId("admin-page").getAttribute("aria-hidden")).toBeNull();
+  });
 });

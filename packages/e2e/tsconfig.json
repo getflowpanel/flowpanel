@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
@@ -9,5 +9,11 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["tests/**/*.ts", "playwright.config.ts", "global-setup.ts", "e2e-db.ts"]
+  "include": [
+    "tests/**/*.ts",
+    "playwright.config.ts",
+    "global-setup.ts",
+    "start-server.ts",
+    "e2e-db.ts"
+  ]
 }

@@ -51,6 +51,7 @@ export default defineAdmin({
 | `realtime` | `RealtimeConfig?` | `{ driver: "memory" }` for dev, Redis for prod. |
 | `audit` | `AuditConfig?` | Mutation audit log sink + retention. Nothing is recorded until you set `sink`. |
 | `rateLimit` | `RateLimitConfig?` | Per-user or per-IP throttling. |
+| `security` | `SecurityConfig?` | Default-on same-origin protection for write routes, plus explicitly trusted origins. |
 | `readOnly` | `boolean?` | Put the whole admin in read-only mode — disables every write form, drops actions, blocks mutations server-side. Great for a public demo or viewer role. |
 | `basePath` | `string?` | URL prefix the admin's **pages** mount under. Defaults to `/admin`. A missing leading `/` is added and a trailing one stripped, so `"internal/admin/"` and `"/internal/admin"` are the same. |
 | `commandPalette` | `CommandPaletteConfig?` | Extra `⌘K` entries. |
@@ -73,6 +74,29 @@ pages still render.
 </Callout>
 
 Full type signatures live on the **Reference / defineAdmin** page.
+
+## Cross-origin write protection
+
+FlowPanel rejects cross-origin mutations by default. The Next.js runtime checks
+the browser's `Origin` and Fetch Metadata headers before it loads the session or
+runs an action. Same-origin requests and trusted server-to-server clients that
+do not send browser headers continue to work.
+
+If a separate operations frontend must submit writes, allow its exact origin:
+
+```ts
+defineAdmin({
+  // ...
+  security: {
+    trustedOrigins: ["https://ops.example.com"],
+  },
+});
+```
+
+Behind a proxy, add the public origin when the request URL visible to Next.js
+uses an internal host. `sameOrigin: false` is available only for deployments
+whose gateway enforces an equivalent CSRF policy; disabling both protections
+is unsafe for cookie-authenticated admins.
 
 ## One resource per file
 

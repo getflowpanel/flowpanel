@@ -19,9 +19,9 @@ import {
   invalidJsonResponse,
   maybeEmitAudit,
   notFoundResponse,
-  parseActionInputSchema,
   readActionInput,
 } from "../runtime/action-helpers.js";
+import { parseActionInputSchema } from "../runtime/action-schema.js";
 import { applyActionResult } from "../runtime/apply-action-result.js";
 import { buildHref } from "../runtime/href.js";
 import { projectAuthorizedRow } from "../runtime/project-row.js";

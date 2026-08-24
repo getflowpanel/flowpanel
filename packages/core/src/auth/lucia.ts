@@ -33,7 +33,7 @@ export function withLucia(opts: LuciaAuthOptions): AuthConfig {
       } | null;
       if (!mod) {
         throw new Error(
-          "withLucia: next/headers is unavailable. Lucia integration requires Next.js 15+.",
+          "withLucia: next/headers is unavailable. Lucia integration requires Next.js 16.3+.",
         );
       }
       const cookieStore = await mod.cookies();

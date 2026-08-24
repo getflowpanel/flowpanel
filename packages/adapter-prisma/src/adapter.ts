@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import type {
   Adapter,
   ItemQueryContext,
@@ -6,154 +5,25 @@ import type {
   ListResult,
   MutationContext,
 } from "@flowpanel/core";
-import { FlowpanelAccessError, isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
+import { isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
 import type { PrismaDmmf } from "./introspect.js";
 import { introspect } from "./introspect.js";
+import {
+  applyScopeToWhere,
+  getDelegate,
+  loadDmmf,
+  MIGRATIONS_TABLE_DDL,
+  type PrismaClientLike,
+  pkWhere,
+} from "./runtime.js";
 import { inferSchema } from "./schema.js";
-
-const require = createRequire(import.meta.url);
 
 export interface PrismaAdapterOptions<P = unknown> {
   prisma: P;
   dmmf?: PrismaDmmf;
 }
 
-/** Subset of the Prisma model delegate methods we invoke. */
-interface PrismaDelegate {
-  findMany: (args: {
-    where?: Record<string, unknown>;
-    select?: Record<string, boolean>;
-    orderBy?: Record<string, "asc" | "desc">;
-    skip?: number;
-    take?: number;
-  }) => Promise<unknown[]>;
-  findUnique: (args: {
-    where: Record<string, unknown>;
-    select?: Record<string, boolean>;
-  }) => Promise<Record<string, unknown> | null>;
-  findFirst: (args: {
-    where: Record<string, unknown>;
-    select?: Record<string, boolean>;
-  }) => Promise<Record<string, unknown> | null>;
-  count: (args: { where?: Record<string, unknown> }) => Promise<number>;
-  create: (args: { data: unknown }) => Promise<Record<string, unknown>>;
-  update: (args: {
-    where: Record<string, unknown>;
-    data: unknown;
-  }) => Promise<Record<string, unknown>>;
-  updateMany: (args: {
-    where: Record<string, unknown>;
-    data: unknown;
-  }) => Promise<{ count: number }>;
-  delete: (args: { where: Record<string, unknown> }) => Promise<unknown>;
-  deleteMany: (args: { where: Record<string, unknown> }) => Promise<{ count: number }>;
-}
-
-/** Apply a resource's tenant `scope` predicate to a plain object, with fail-closed enforcement. */
-function applyScopeToWhere(
-  where: Record<string, unknown>,
-  ctx: {
-    boundScope?: { apply(query: unknown): unknown };
-    applyScope?: (q: unknown) => unknown;
-    scopeRequired?: boolean;
-  },
-): Record<string, unknown> {
-  const applyScope = ctx.boundScope?.apply ?? ctx.applyScope;
-  if (!applyScope) {
-    if (ctx.scopeRequired) {
-      throw new FlowpanelAccessError(
-        "scope required but not bound: a scope predicate is declared and global scope " +
-          "is active, but the adapter received no applyScope. Refusing to run an unscoped query.",
-      );
-    }
-    return where;
-  }
-  const before = { ...where };
-  const scoped = applyScope(where);
-  if (typeof scoped !== "object" || scoped === null || Array.isArray(scoped)) {
-    throw new FlowpanelAccessError(
-      "the bound Prisma scope predicate must return a where/data object. " +
-        "Refusing to run an unscoped query.",
-    );
-  }
-  const result = scoped as Record<string, unknown>;
-  for (const key of Object.keys(before)) {
-    if (!(key in result)) {
-      throw new FlowpanelAccessError(
-        `the bound Prisma scope predicate removed required key "${key}". ` +
-          "Refusing to run a broadened query.",
-      );
-    }
-  }
-  const changed =
-    result !== where ||
-    Object.keys(result).length !== Object.keys(before).length ||
-    Object.keys(before).some((key) => !Object.is(result[key], before[key]));
-  if (ctx.scopeRequired && !changed) {
-    throw new FlowpanelAccessError(
-      "scope required but the bound Prisma predicate returned the input unchanged. " +
-        "Refusing to run an unscoped query.",
-    );
-  }
-  return result;
-}
-
-/** Subset of the Prisma client we touch — `$executeRaw{,Unsafe}`, `$queryRawUnsafe`. */
-interface PrismaClientLike {
-  $transaction?: <T>(run: (tx: PrismaClientLike) => Promise<T>) => Promise<T>;
-  $executeRaw: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
-  $executeRawUnsafe: (sql: string, ...values: unknown[]) => Promise<number>;
-  $queryRawUnsafe: <T = unknown>(sql: string, ...values: unknown[]) => Promise<T>;
-  [delegateName: string]: unknown;
-}
-
-// Prisma exposes no datasource provider at runtime, so this DDL uses only the
-// subset of types and defaults postgres, mysql and sqlite all accept.
-export const MIGRATIONS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
-  id varchar(255) NOT NULL PRIMARY KEY,
-  applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-)`;
-
-function loadDmmf(): PrismaDmmf {
-  try {
-    const { Prisma } = require("@prisma/client");
-    return Prisma.dmmf as PrismaDmmf;
-  } catch {
-    throw new Error(
-      "prismaAdapter: could not load DMMF from @prisma/client. " +
-        "Make sure @prisma/client is installed and `prisma generate` has been run.",
-    );
-  }
-}
-
-function getDelegate(prisma: PrismaClientLike, modelName: string): PrismaDelegate {
-  const delegateName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
-  const delegate = prisma[delegateName];
-  if (!delegate) {
-    throw new Error(
-      `prismaAdapter: no delegate found for model "${modelName}" (tried prisma.${delegateName}). ` +
-        `Make sure the model exists in your Prisma schema.`,
-    );
-  }
-  return delegate as PrismaDelegate;
-}
-
-/** `{ [<the model's @id field>]: <id coerced to that field's type> }`. */
-function pkWhere(id: string, modelName: string, dmmf: PrismaDmmf): Record<string, unknown> {
-  const model = dmmf.datamodel.models.find((m) => m.name === modelName);
-  const pkField = model?.fields.find((f) => f.isId);
-  const name = pkField?.name ?? "id";
-  if (pkField && (pkField.type === "Int" || pkField.type === "BigInt")) {
-    const n = parseInt(id, 10);
-    if (Number.isNaN(n)) {
-      throw new Error(
-        `prismaAdapter: cannot coerce id "${id}" to ${pkField.type} for model "${modelName}"`,
-      );
-    }
-    return { [name]: n };
-  }
-  return { [name]: id };
-}
+export { MIGRATIONS_TABLE_DDL } from "./runtime.js";
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
   let _dmmf: PrismaDmmf | undefined = opts.dmmf;

@@ -25,7 +25,7 @@ function body(css: string): string {
   return css
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^@(?:import|source|tailwind|charset)\b[^;]*;\s*$/gm, "")
-    .replace(/^@theme\s*\{[\s\S]*?\n\}\s*$/gm, "")
+    .replace(/^@theme(?:\s+inline)?\s*\{[\s\S]*?\n\}\s*$/gm, "")
     .replace(/[ \t]+$/gm, "")
     .replace(/\n{2,}/g, "\n")
     .trim();

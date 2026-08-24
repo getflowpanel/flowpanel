@@ -1,15 +1,18 @@
 import { resource } from "@flowpanel/kit";
 import * as schema from "@/src/db/schema";
 import { modelLabel } from "@/src/lib/ai-models";
-import { formatDate, money } from "../format";
+import { formatDate, money } from "../../format";
 
 export const aiUsage = resource(schema.aiUsage, {
+  name: "ai_usage",
   label: "AI usage",
+  icon: "sparkles",
+  hidden: true,
   columns: [
     {
-      field: "userId",
+      field: "customerId",
       label: "Customer",
-      reference: { resource: "users", labelField: "email" },
+      reference: { resource: "customers", labelField: "company" },
     },
     "provider",
     { field: "model", label: "Model", render: (c) => modelLabel(c.model) },
@@ -23,7 +26,6 @@ export const aiUsage = resource(schema.aiUsage, {
     {
       field: "provider",
       type: "select",
-      label: "Provider",
       options: [
         { label: "OpenAI", value: "openai" },
         { label: "Anthropic", value: "anthropic" },
@@ -33,7 +35,6 @@ export const aiUsage = resource(schema.aiUsage, {
     {
       field: "task",
       type: "select",
-      label: "Task",
       options: [
         { label: "Match", value: "match" },
         { label: "Extract", value: "extract" },

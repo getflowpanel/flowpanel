@@ -13,8 +13,9 @@ export function SeeItRunning() {
 
   return (
     <section
+      id="demo"
       aria-labelledby="demo-title"
-      className="border-b border-[var(--color-border)] py-28 md:py-36"
+      className="scroll-mt-20 border-b border-[var(--color-border)] py-28 md:py-36"
     >
       <div className="mx-auto max-w-[1120px] px-6">
         <h2

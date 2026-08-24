@@ -1,6 +1,7 @@
 "use client";
 import { Command } from "cmdk";
 import type * as React from "react";
+import { DialogDescription, DialogTitle } from "../ui/dialog.js";
 
 export interface CommandGroupUI {
   label: string;
@@ -38,6 +39,8 @@ export function CommandPalette({
       label="Command palette"
       className="fp-anim-overlay fixed inset-0 z-50 grid place-items-start bg-fp-overlay/60 pt-20 backdrop-blur-[2px]"
     >
+      <DialogTitle className="sr-only">Command palette</DialogTitle>
+      <DialogDescription className="sr-only">Search and run admin commands</DialogDescription>
       <div className="mx-auto w-[600px] max-w-[92vw] overflow-hidden rounded-fp-xl border border-fp-border-1 bg-fp-bg-1 shadow-fp-lg">
         <Command.Input
           placeholder={placeholder}

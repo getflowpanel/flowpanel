@@ -10,7 +10,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+[data-flowpanel-root],
+[data-flowpanel-portal] {
   color-scheme: light;
 
   /* Color (HSL triplets) */
@@ -95,7 +96,10 @@
   --fp-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.dark {
+html[data-flowpanel-theme="dark"] [data-flowpanel-root],
+html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
+[data-flowpanel-root][data-theme="dark"],
+[data-flowpanel-portal][data-theme="dark"] {
   color-scheme: dark;
 
   --fp-bg-1: 222 18% 8%;
@@ -142,7 +146,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root {
+  [data-flowpanel-root],
+  [data-flowpanel-portal] {
     --fp-duration-fast: 0ms;
     --fp-duration: 0ms;
     --fp-duration-slow: 0ms;
@@ -433,7 +438,7 @@
    other interactive primitive carries its own :focus-visible style, but the
    raw nav links did not. Scoped to FlowPanel's own nav so it never restyles
    the host app's links. */
-nav[aria-label="Admin"] a:focus-visible {
+[data-flowpanel-root] nav[aria-label="Admin"] a:focus-visible {
   outline: 2px solid hsl(var(--fp-ring));
   outline-offset: 2px;
   border-radius: var(--fp-radius-sm);

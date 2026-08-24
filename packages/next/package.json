@@ -1,7 +1,7 @@
 {
   "name": "@flowpanel/next",
   "version": "0.1.0",
-  "description": "Next.js 15 integration for FlowPanel — App Router pages, route handlers, server actions, drawers, and SSE",
+  "description": "Next.js 16 integration for FlowPanel — App Router pages, route handlers, server actions, drawers, and SSE",
   "keywords": [
     "flowpanel",
     "admin",
@@ -10,7 +10,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/next"
   },
   "homepage": "https://github.com/getflowpanel/flowpanel",
@@ -49,16 +49,23 @@
     "tailwind-merge": "^2.3.0"
   },
   "peerDependencies": {
-    "next": "^15.0.0",
+    "@flowpanel/charts": ">=0.1.0 <1.0.0",
+    "next": "^16.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^4.0.0"
   },
+  "peerDependenciesMeta": {
+    "@flowpanel/charts": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@flowpanel/charts": "workspace:*",
     "@testing-library/react": "^16.3.2",
     "@types/react": "catalog:",
     "happy-dom": "^15.11.7",
-    "next": "^15.0.0",
+    "next": "^16.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tsup": "catalog:",

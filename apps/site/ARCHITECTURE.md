@@ -51,7 +51,7 @@ that ships the library**. The constraints below drove every choice.
 
 | Layer | Choice | Reason |
 |---|---|---|
-| Framework | **Next.js 15.5+ (App Router)** | Already the target of the library. RSC for docs pages, SSG for marketing. |
+| Framework | **Next.js 16 (App Router)** | RSC for docs pages, SSG for marketing; the library targets Next.js 16. |
 | Runtime | **React 19.2+** | Matches package peer deps. |
 | Language | **TypeScript 5.5+, strict** | Same `tsconfig.base.json` as monorepo. |
 | Styling | **Tailwind CSS v4** (CSS-first config via `@theme`) | Already a peer dep of `flowpanel`. Shared tokens with the admin panel itself. |
@@ -742,7 +742,7 @@ but I'm listing them so they don't surprise anyone:
 ## 13. Decision summary (one screen)
 
 - **Where**: `apps/site` inside the existing monorepo. Delete `apps/docs`.
-- **Stack**: Next.js 15 App Router + React 19 + Tailwind v4 + Fumadocs v16 + MDX + Zod + shadcn primitives.
+- **Stack**: Next.js 16 App Router + React 19 + Tailwind v4 + Fumadocs v16 + MDX + Zod + shadcn primitives.
 - **Architecture**: ED-small (`app / features / shared`), Stage 1–3 slice evolution, cross-feature imports allowed under composition→behavior discipline. Upgrade triggers documented for ED-medium and FSD. See §5.
 - **Content**: file-based MDX in `content/`, type-safe via `source.config.ts`.
 - **USPs**: cookie-driven `<AdapterTabs>` (no flash), build-time Orama search, twoslash-validated snippets, `llms.txt` + `?format=md` for LLM consumers, looping `.webm` hero of a real `/admin`.

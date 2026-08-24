@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { FlowpanelIcon } from "../_atoms/FlowpanelIcon.js";
 import { cn } from "../lib/cn.js";
 import { AccountMenu, type AccountMenuUser } from "./AccountMenu.js";
 import type { NavGroup } from "./AdminNav.js";
@@ -75,6 +76,9 @@ export function AdminTabs({
                     active ? "font-medium text-fp-text-1" : "text-fp-text-2 hover:text-fp-text-1",
                   )}
                 >
+                  {it.icon ? (
+                    <FlowpanelIcon name={it.icon} className="mr-2 h-4 w-4 shrink-0" />
+                  ) : null}
                   {it.label}
                   {active ? (
                     <span

@@ -12,6 +12,7 @@ import {
   detectPathAlias,
   detectSchema,
   detectStack,
+  isSupportedNextVersion,
   platformBin,
   pmCommands,
 } from "../detect.js";
@@ -24,7 +25,7 @@ describe("detect*", () => {
       path.join(tmp, "package.json"),
       JSON.stringify({
         dependencies: {
-          next: "^15.0.0",
+          next: "^16.3.0",
           "drizzle-orm": "^0.30.0",
           tailwindcss: "^4.0.0",
         },
@@ -49,8 +50,8 @@ describe("detect*", () => {
 
   it("detectStack pulls Next, TS, Drizzle, Tailwind", async () => {
     const s = await detectStack(tmp);
-    expect(s.nextjs).toBe("^15.0.0");
-    expect(s.nextjsMajor).toBe(15);
+    expect(s.nextjs).toBe("^16.3.0");
+    expect(s.nextjsMajor).toBe(16);
     expect(s.typescript).toBe(true);
     expect(s.drizzle).toBe(true);
     expect(s.prisma).toBe(false);
@@ -77,6 +78,16 @@ describe("detect*", () => {
     } finally {
       await fs.rm(empty, { recursive: true, force: true });
     }
+  });
+});
+
+describe("isSupportedNextVersion", () => {
+  it.each(["^16.3.0", "16.3.1", ">=16.4.0 <17"])("accepts %s", (version) => {
+    expect(isSupportedNextVersion(version)).toBe(true);
+  });
+
+  it.each([null, "latest", "^15.5.23", "^16.2.12", "^17.0.0"])("rejects %s", (version) => {
+    expect(isSupportedNextVersion(version)).toBe(false);
   });
 });
 

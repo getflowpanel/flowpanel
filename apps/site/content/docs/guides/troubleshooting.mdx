@@ -180,11 +180,18 @@ that, link to the target resource's own filtered list instead.
 
 ## A chart widget renders "Charts package not installed"
 
-The `@flowpanel/kit/charts` entry point loads `recharts` lazily, and `recharts`
-is an optional peer:
+The umbrella package already includes `@flowpanel/charts`; install its optional
+`recharts` peer:
 
 ```bash
 pnpm add recharts
+```
+
+With granular packages, the Next runtime cannot render a chart until both the
+chart runtime and its renderer are installed:
+
+```bash
+pnpm add @flowpanel/charts recharts
 ```
 
 ## A column will not sort, or is missing from the export

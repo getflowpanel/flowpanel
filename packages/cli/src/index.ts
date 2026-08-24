@@ -6,6 +6,10 @@ import { ejectCommand } from "./commands/eject.js";
 import { initCommand } from "./commands/init.js";
 import { migrateCommand } from "./commands/migrate.js";
 import { newCommand } from "./commands/new.js";
+import { loadDotEnv } from "./utils/env.js";
+import { reportFatal } from "./utils/fail.js";
+
+loadDotEnv();
 
 const cli = new Command()
   .name("flowpanel")
@@ -20,4 +24,7 @@ ejectCommand(cli);
 devCommand(cli);
 newCommand(cli);
 
-cli.parse();
+cli.parseAsync().catch((err) => {
+  reportFatal(err);
+  process.exit(1);
+});

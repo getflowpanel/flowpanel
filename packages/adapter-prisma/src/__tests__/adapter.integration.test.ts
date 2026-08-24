@@ -50,6 +50,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     });
     await prisma.$connect();
     await prisma.$executeRawUnsafe(CREATE_TABLE_SQL);
+    await prisma.$executeRawUnsafe(`DELETE FROM "TestUser"`);
   });
 
   afterAll(async () => {

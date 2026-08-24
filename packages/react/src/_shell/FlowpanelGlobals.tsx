@@ -8,7 +8,7 @@ import {
 import { LabelsProvider } from "../_provider/LabelsContext.js";
 import type { ThemeMode } from "../lib/theme.js";
 import { RealtimeProvider } from "../realtime/RealtimeProvider.js";
-import { ThemeScript } from "./ThemeScript.js";
+import { ThemeRuntime } from "./ThemeRuntime.js";
 
 export interface FlowpanelGlobalsProps {
   themeComponents?: Partial<FlowpanelComponentSlots>;
@@ -32,8 +32,10 @@ export function FlowpanelGlobals({
       <LabelsProvider {...(labels ? { value: labels } : {})}>
         <RealtimeProvider {...(realtimeEndpoint ? { endpoint: realtimeEndpoint } : {})}>
           <ToastProvider>
-            <ThemeScript {...(themeMode ? { defaultMode: themeMode } : {})} />
-            {children}
+            <div data-flowpanel-root="" className="contents">
+              <ThemeRuntime {...(themeMode ? { defaultMode: themeMode } : {})} />
+              {children}
+            </div>
           </ToastProvider>
         </RealtimeProvider>
       </LabelsProvider>

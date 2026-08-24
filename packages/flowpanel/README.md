@@ -32,7 +32,7 @@ import { withClerk } from "@flowpanel/kit/auth";
 import { db } from "@/db/client";
 import * as schema from "@/db/schema";
 
-declare module "@flowpanel/core" {
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes { db: typeof db }
 }
 

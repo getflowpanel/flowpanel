@@ -17,7 +17,7 @@ declare module "@flowpanel/kit" {
 
 /**
  * The showcase — `withClerk({ requireRole: "admin" })` is the only auth wiring
- * needed. `clerkMiddleware()` in `middleware.ts` populates `auth()`, and
+ * needed. `clerkMiddleware()` in `proxy.ts` populates `auth()`, and
  * `withClerk` reads `sessionClaims.publicMetadata.role` by default.
  *
  * Beyond auth, this config also exercises every Phase-0 feature so the

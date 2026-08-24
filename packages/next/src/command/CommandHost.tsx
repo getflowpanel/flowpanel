@@ -1,17 +1,19 @@
 "use client";
-import type { CommandPaletteConfig } from "@flowpanel/core";
+import type { CommandPaletteConfig, IconName } from "@flowpanel/core";
 import {
   type CommandGroupUI,
   CommandPalette,
+  FlowpanelIcon,
   toggleTheme,
   useAdminCommand,
 } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { createElement, useMemo } from "react";
 
 export interface CommandHostNavItem {
   label: string;
   href: string;
+  icon?: IconName;
 }
 
 export interface CommandHostProps {
@@ -37,6 +39,9 @@ export function buildCommandGroups(
       label: "Navigation",
       items: navItems.map((n) => ({
         label: n.label,
+        ...(n.icon
+          ? { icon: createElement(FlowpanelIcon, { name: n.icon, className: "h-4 w-4" }) }
+          : {}),
         onSelect: () => {
           nav.close();
           nav.push(n.href);
@@ -51,6 +56,9 @@ export function buildCommandGroups(
         label: g.label,
         items: g.items.map((it) => ({
           label: it.label,
+          ...(it.icon
+            ? { icon: createElement(FlowpanelIcon, { name: it.icon, className: "h-4 w-4" }) }
+            : {}),
           onSelect: () => {
             nav.close();
             nav.push(it.action.href);
@@ -68,6 +76,7 @@ export function buildCommandGroups(
       items: [
         {
           label: "Toggle dark mode",
+          icon: createElement(FlowpanelIcon, { name: "moon", className: "h-4 w-4" }),
           onSelect: () => {
             nav.close();
             toggleTheme();

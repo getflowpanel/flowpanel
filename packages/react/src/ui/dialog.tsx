@@ -14,6 +14,7 @@ const DialogOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
+    data-flowpanel-portal=""
     ref={ref}
     className={cn("fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/70", className)}
     {...props}
@@ -28,6 +29,7 @@ const DialogContent = React.forwardRef<
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
+      data-flowpanel-portal=""
       ref={ref}
       className={cn(
         "fp-anim-dialog fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-fp-border-1 bg-fp-bg-1 p-6 shadow-fp-lg sm:rounded-fp-xl",

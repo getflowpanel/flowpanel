@@ -1,8 +1,8 @@
 /**
  * Next.js startup hook — runs once when the server process boots.
  *
- * We use it to start the in-memory live activity ticker (`src/lib/live-feed.ts`)
- * that drives the dashboard's realtime feed and throughput counters. Guarded to
+ * We use it to start the in-memory market activity ticker in `src/demo`.
+ * It drives the dashboard's realtime example and is guarded to
  * the Node.js runtime (not Edge) and skippable via `DEMO_LIVE=off`.
  *
  * Note: the ticker lives in this one long-running process, so a live demo needs
@@ -14,7 +14,7 @@ export async function register(): Promise<void> {
     const { bindPublisher } = await import("@flowpanel/kit/next");
     const { default: config } = await import("@/src/admin/config");
     bindPublisher(config);
-    const { startLiveFeed } = await import("@/src/lib/live-feed");
-    startLiveFeed();
+    const { startMarketActivityTicker } = await import("@/src/demo/realtime/feed");
+    startMarketActivityTicker();
   }
 }

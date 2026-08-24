@@ -8,7 +8,7 @@ Clerk integration is a single line in `flowpanel.config.ts`.
 ## What's in it
 
 - `flowpanel.config.ts` — the centerpiece: `auth: withClerk({ requireRole: "admin" })`.
-- `middleware.ts` — `clerkMiddleware()` so `auth()` resolves on the server.
+- `proxy.ts` — `clerkMiddleware()` so `auth()` resolves on the server.
 - `app/layout.tsx` — `ClerkProvider` at the root.
 - `app/page.tsx` — `<SignedIn>` redirects to `/admin`; `<SignedOut>` shows `<SignIn>`.
 - `app/admin/[[...slug]]/page.tsx` — mounts FlowPanel.

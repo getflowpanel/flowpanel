@@ -20,7 +20,7 @@ describe("widgetSpanClassName", () => {
       query: async () => 1,
       options: { span: 4 },
     } as never;
-    expect(widgetSpanClassName(widget)).toBe("col-span-4");
+    expect(widgetSpanClassName(widget)).toBe("col-span-12 sm:col-span-4");
   });
 
   it("reads span regardless of widget kind (table)", () => {
@@ -36,6 +36,6 @@ describe("widgetSpanClassName", () => {
       kind: "statGroup",
       options: { stats: [], span: 8 },
     } as never;
-    expect(widgetSpanClassName(widget)).toBe("col-span-8");
+    expect(widgetSpanClassName(widget)).toBe("col-span-12 sm:col-span-8");
   });
 });

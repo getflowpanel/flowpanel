@@ -16,7 +16,11 @@ test("dashboard renders metric cards", async ({ page }) => {
 });
 
 test("cmd+k opens palette", async ({ page }) => {
+  const clientReady = page.waitForRequest((request) =>
+    request.url().includes("/api/flowpanel/stream?channel=market-activity"),
+  );
   await page.goto("/admin");
+  await clientReady;
   await page.keyboard.press("Meta+K");
   await expect(page.getByPlaceholder(/search/i)).toBeVisible();
 });

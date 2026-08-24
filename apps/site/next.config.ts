@@ -20,8 +20,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_FLOWPANEL_VERSION: flowpanelVersion,
   },
   // Required so the monorepo standalone trace includes workspace packages.
-  // Using a relative path avoids ESM/__dirname headaches in compiled config.
-  outputFileTracingRoot: "../..",
+  outputFileTracingRoot: resolve(process.cwd(), "../.."),
   reactStrictMode: true,
   experimental: {
     optimizePackageImports: ["lucide-react"],

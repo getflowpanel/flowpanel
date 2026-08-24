@@ -4,7 +4,10 @@ import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
 import { editConfigToAddResource } from "../eject/addResource.js";
+import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan.js";
+import { applyFilesystemPlan } from "../plan/transaction.js";
 import { fileExists } from "../utils/detect.js";
+import { writeJson, writePlanJson } from "../utils/output.js";
 
 /** Locate the user's flowpanel config. */
 async function findConfigFile(
@@ -105,46 +108,77 @@ export function newCommand(cli: Command): void {
     .description("Add a resource(...) entry to flowpanel.config.ts")
     .option("--table <expr>", "First argument expression (default: schema.<resource>)")
     .option("--kind <kind>", "Adapter kind: drizzle (default) or prisma", "drizzle")
-    .action(async (resource: string, opts: { table?: string; kind?: string }) => {
-      p.intro(pc.bgGreen(pc.black(" FlowPanel new ")));
+    .option("--dry-run", "Print the filesystem plan without writing")
+    .option("--json", "Emit machine-readable JSON")
+    .action(
+      async (
+        resource: string,
+        opts: { table?: string; kind?: string; dryRun?: boolean; json?: boolean },
+      ) => {
+        if (!opts.json) p.intro(pc.bgGreen(pc.black(" FlowPanel new ")));
 
-      const cwd = process.cwd();
-      const found = await findConfigFile(cwd);
-      if (!found) {
-        p.cancel("flowpanel.config.ts not found — run `flowpanel init` first.");
-        process.exit(1);
-      }
-
-      const source = await fs.readFile(found.path, "utf8");
-      const kind = opts.kind === "prisma" ? "prisma" : "drizzle";
-
-      if (kind === "drizzle" && opts.table === undefined) {
-        const check = await checkSchemaExport(cwd, source, resource);
-        if (check.status === "missing") {
-          p.cancel(check.message);
+        const cwd = process.cwd();
+        const found = await findConfigFile(cwd);
+        if (!found) {
+          const message = "flowpanel.config.ts not found — run `flowpanel init` first.";
+          if (opts.json) writeJson({ command: "new", applied: false, error: message });
+          else p.cancel(message);
           process.exit(1);
         }
-        if (check.status === "unverified") {
-          p.log.warn(
-            `Could not verify that "${resource}" is a real table — ${check.reason}.\n` +
-              "Writing the entry anyway; check that it compiles.",
-          );
+
+        const source = await fs.readFile(found.path, "utf8");
+        const kind = opts.kind === "prisma" ? "prisma" : "drizzle";
+
+        if (kind === "drizzle" && opts.table === undefined) {
+          const check = await checkSchemaExport(cwd, source, resource);
+          if (check.status === "missing") {
+            if (opts.json) writeJson({ command: "new", applied: false, error: check.message });
+            else p.cancel(check.message);
+            process.exit(1);
+          }
+          if (check.status === "unverified" && !opts.json) {
+            p.log.warn(
+              `Could not verify that "${resource}" is a real table — ${check.reason}.\n` +
+                "Writing the entry anyway; check that it compiles.",
+            );
+          }
         }
-      }
 
-      try {
-        const updated = editConfigToAddResource(source, resource, {
-          ...(opts.table !== undefined ? { table: opts.table } : {}),
-          kind,
-          filename: found.filename,
-        });
-        await fs.writeFile(found.path, updated, "utf8");
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        p.cancel(`Failed: ${msg}`);
-        process.exit(1);
-      }
-
-      p.outro(pc.green(`Added resource "${resource}" to ${found.filename}`));
-    });
+        try {
+          const updated = editConfigToAddResource(source, resource, {
+            ...(opts.table !== undefined ? { table: opts.table } : {}),
+            kind,
+            filename: found.filename,
+          });
+          const plan = await createFilesystemPlan(cwd, [
+            {
+              path: path.relative(cwd, found.path),
+              content: updated,
+              expectedContent: source,
+            },
+          ]);
+          if (opts.dryRun) {
+            if (opts.json) writePlanJson("new", plan, false);
+            else {
+              p.note(
+                publicPlan(plan)
+                  .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
+                  .join("\n"),
+                "Filesystem plan (no changes applied)",
+              );
+              p.outro(pc.dim("Dry run complete."));
+            }
+            return;
+          }
+          await applyFilesystemPlan(plan);
+          if (opts.json) writeJson({ command: "new", applied: true, plan: publicPlan(plan) });
+          else p.outro(pc.green(`Added resource "${resource}" to ${found.filename}`));
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (opts.json) writeJson({ command: "new", applied: false, error: msg });
+          else p.cancel(`Failed: ${msg}`);
+          process.exit(1);
+        }
+      },
+    );
 }

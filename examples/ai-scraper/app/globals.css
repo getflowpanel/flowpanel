@@ -19,36 +19,6 @@ body {
   color: hsl(var(--fp-text-1));
 }
 
-/* No fade and no background tint on purpose: both measured under WCAG AA 4.5:1
-   on the muted timestamp mid-animation. An inset edge bar does not. */
-@keyframes feed-row-enter {
-  0% {
-    transform: translateY(-16px);
-    box-shadow: inset 3px 0 0 0 hsl(var(--fp-accent));
-  }
-  60% {
-    box-shadow: inset 3px 0 0 0 hsl(var(--fp-accent));
-  }
-  100% {
-    transform: translateY(0);
-    box-shadow: inset 3px 0 0 0 transparent;
-  }
-}
-.feed-row-enter {
-  animation: feed-row-enter 600ms var(--fp-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
-}
-@media (prefers-reduced-motion: reduce) {
-  .feed-row-enter {
-    animation: none;
-  }
-}
-
-/* The feed mutates every ~2s; without this the browser's scroll anchoring
-   nudges the page on each row change, flickering everything below it. */
-.no-scroll-anchor {
-  overflow-anchor: none;
-}
-
 /* Charts are presentational — never paint a focus box on the recharts surface
    (belt-and-suspenders with the runtime's accessibilityLayer={false}). */
 .recharts-wrapper :focus,

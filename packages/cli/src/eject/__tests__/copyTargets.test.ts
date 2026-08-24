@@ -124,12 +124,12 @@ describe("copyLayoutTemplate config import", () => {
 });
 
 describe("ejected resource templates", () => {
-  it("point at @flowpanel/kit/react, the package a scaffold installs", async () => {
+  it("use the public protected controller instead of adapter internals", async () => {
     await copyResourceTemplates({ cwd: tmp, resourceName: "users", version: "1.0.0" });
-    for (const rel of ["app/admin/users/page.tsx", "app/admin/users/new/page.tsx"]) {
-      const src = await fs.readFile(path.join(tmp, rel), "utf8");
-      expect(src).toContain("@flowpanel/kit/react");
-      expect(src).not.toMatch(/from "@flowpanel\/react"/);
-    }
+    const actions = await fs.readFile(path.join(tmp, "app/admin/users/actions.ts"), "utf8");
+    expect(actions).toContain('createFlowpanel } from "@flowpanel/kit/next"');
+    expect(actions).toContain('request.resource("users")');
+    expect(actions).not.toMatch(/@flowpanel\/(?:core|next|react)/);
+    expect(actions).not.toMatch(/drizzle|prisma/i);
   });
 });

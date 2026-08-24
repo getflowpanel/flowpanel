@@ -64,7 +64,7 @@ normalizes both shapes to the same thing.
 // bad
 filters: [
   {
-    key: "status",
+    field: "status",
     type: "select",
     options: [
       { label: "active", value: "active" },
@@ -75,7 +75,7 @@ filters: [
 
 // good (auto-fixable)
 filters: [
-  { key: "status", type: "select", options: ["active", "archived"] },
+  { field: "status", type: "select", options: ["active", "archived"] },
 ];
 ```
 
@@ -129,7 +129,7 @@ can only be inferred from the ref at runtime are left to the runtime validator.
 ### `no-typo-column-keyword`
 
 Heuristic check for common camelCase typos in `columns: [...]` (string form
-or object form with `key`/`name`). v1 only catches a short list of known
+or object form with `field`). v1 only catches a short list of known
 typos: `userid`, `createdat`, `updatedat`, `isactive`. Full schema-aware
 validation is tracked separately.
 

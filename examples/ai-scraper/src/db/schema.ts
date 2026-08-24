@@ -23,7 +23,7 @@ export const accountStatus = pgEnum("account_status", [
   "past_due",
   "canceled",
 ]);
-export const scraperStatus = pgEnum("scraper_status", ["active", "paused", "error"]);
+export const monitorStatus = pgEnum("monitor_status", ["active", "paused", "error"]);
 export const scheduleKind = pgEnum("schedule_kind", ["manual", "hourly", "daily", "weekly"]);
 export const runStatus = pgEnum("run_status", ["queued", "running", "success", "failed"]);
 export const invoiceStatus = pgEnum("invoice_status", ["open", "paid", "void", "refunded"]);
@@ -33,8 +33,8 @@ export const matchStatus = pgEnum("match_status", ["confirmed", "needs_review", 
 export const aiTask = pgEnum("ai_task", ["match", "extract"]);
 
 /** Customers of the SaaS. */
-export const users = pgTable(
-  "users",
+export const customers = pgTable(
+  "customers",
   {
     id: serial("id").primaryKey(),
     email: text("email").notNull(),
@@ -47,28 +47,28 @@ export const users = pgTable(
     deletedAt: timestamp("deleted_at"),
   },
   (t) => ({
-    emailIdx: uniqueIndex("users_email_idx").on(t.email),
+    emailIdx: uniqueIndex("customers_email_idx").on(t.email),
   }),
 );
 
 /** A scraper a customer configured against some target site. */
-export const scrapers = pgTable(
-  "scrapers",
+export const monitors = pgTable(
+  "monitors",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id")
+    customerId: integer("customer_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => customers.id),
     name: text("name").notNull(),
     targetUrl: text("target_url").notNull(),
     schedule: scheduleKind("schedule").notNull().default("daily"),
-    status: scraperStatus("status").notNull().default("active"),
+    status: monitorStatus("status").notNull().default("active"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     lastRunAt: timestamp("last_run_at"),
   },
   (t) => ({
-    userIdx: index("scrapers_user_idx").on(t.userId),
-    statusIdx: index("scrapers_status_idx").on(t.status),
+    customerIdx: index("monitors_customer_idx").on(t.customerId),
+    statusIdx: index("monitors_status_idx").on(t.status),
   }),
 );
 
@@ -77,9 +77,9 @@ export const runs = pgTable(
   "runs",
   {
     id: serial("id").primaryKey(),
-    scraperId: integer("scraper_id")
+    monitorId: integer("monitor_id")
       .notNull()
-      .references(() => scrapers.id),
+      .references(() => monitors.id),
     status: runStatus("status").notNull().default("queued"),
     pagesCrawled: integer("pages_crawled").notNull().default(0),
     itemsExtracted: integer("items_extracted").notNull().default(0),
@@ -89,7 +89,7 @@ export const runs = pgTable(
     error: text("error"),
   },
   (t) => ({
-    scraperIdx: index("runs_scraper_idx").on(t.scraperId),
+    monitorIdx: index("runs_monitor_idx").on(t.monitorId),
     statusStartedIdx: index("runs_status_started_idx").on(t.status, t.startedAt),
   }),
 );
@@ -104,9 +104,9 @@ export const listings = pgTable(
   "listings",
   {
     id: serial("id").primaryKey(),
-    scraperId: integer("scraper_id")
+    monitorId: integer("monitor_id")
       .notNull()
-      .references(() => scrapers.id),
+      .references(() => monitors.id),
     runId: integer("run_id").references(() => runs.id),
     asin: text("asin").notNull(),
     site: text("site").notNull(),
@@ -123,7 +123,7 @@ export const listings = pgTable(
     scrapedAt: timestamp("scraped_at").notNull().defaultNow(),
   },
   (t) => ({
-    scraperIdx: index("listings_scraper_idx").on(t.scraperId),
+    monitorIdx: index("listings_monitor_idx").on(t.monitorId),
     runIdx: index("listings_run_idx").on(t.runId),
     siteIdx: index("listings_site_idx").on(t.site),
     categoryIdx: index("listings_category_idx").on(t.category),
@@ -135,9 +135,9 @@ export const products = pgTable(
   "products",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id")
+    customerId: integer("customer_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => customers.id),
     sku: text("sku").notNull(),
     title: text("title").notNull(),
     brand: text("brand"),
@@ -146,8 +146,8 @@ export const products = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => ({
-    userIdx: index("products_user_idx").on(t.userId),
-    skuIdx: uniqueIndex("products_sku_idx").on(t.userId, t.sku),
+    customerIdx: index("products_customer_idx").on(t.customerId),
+    skuIdx: uniqueIndex("products_sku_idx").on(t.customerId, t.sku),
     categoryIdx: index("products_category_idx").on(t.category),
   }),
 );
@@ -186,9 +186,9 @@ export const invoices = pgTable(
   "invoices",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id")
+    customerId: integer("customer_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => customers.id),
     amountCents: integer("amount_cents").notNull(),
     status: invoiceStatus("status").notNull().default("open"),
     stripeId: text("stripe_id"),
@@ -198,7 +198,7 @@ export const invoices = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => ({
-    userIdx: index("invoices_user_idx").on(t.userId),
+    customerIdx: index("invoices_customer_idx").on(t.customerId),
     statusIdx: index("invoices_status_idx").on(t.status),
   }),
 );
@@ -208,7 +208,7 @@ export const aiUsage = pgTable(
   "ai_usage",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id),
+    customerId: integer("customer_id").references(() => customers.id),
     runId: integer("run_id").references(() => runs.id),
     provider: aiProvider("provider").notNull(),
     model: text("model").notNull(),
@@ -223,32 +223,41 @@ export const aiUsage = pgTable(
   }),
 );
 
-export const usersRelations = relations(users, ({ many }) => ({
-  scrapers: many(scrapers),
+export const customersRelations = relations(customers, ({ many }) => ({
+  monitors: many(monitors),
   invoices: many(invoices),
   aiUsage: many(aiUsage),
   products: many(products),
 }));
 
-export const scrapersRelations = relations(scrapers, ({ one, many }) => ({
-  user: one(users, { fields: [scrapers.userId], references: [users.id] }),
+export const monitorsRelations = relations(monitors, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [monitors.customerId],
+    references: [customers.id],
+  }),
   runs: many(runs),
   listings: many(listings),
 }));
 
 export const runsRelations = relations(runs, ({ one, many }) => ({
-  scraper: one(scrapers, { fields: [runs.scraperId], references: [scrapers.id] }),
+  monitor: one(monitors, { fields: [runs.monitorId], references: [monitors.id] }),
   listings: many(listings),
 }));
 
 export const listingsRelations = relations(listings, ({ one, many }) => ({
-  scraper: one(scrapers, { fields: [listings.scraperId], references: [scrapers.id] }),
+  monitor: one(monitors, {
+    fields: [listings.monitorId],
+    references: [monitors.id],
+  }),
   run: one(runs, { fields: [listings.runId], references: [runs.id] }),
   matches: many(matches),
 }));
 
 export const productsRelations = relations(products, ({ one, many }) => ({
-  user: one(users, { fields: [products.userId], references: [users.id] }),
+  customer: one(customers, {
+    fields: [products.customerId],
+    references: [customers.id],
+  }),
   matches: many(matches),
 }));
 
@@ -258,10 +267,16 @@ export const matchesRelations = relations(matches, ({ one }) => ({
 }));
 
 export const invoicesRelations = relations(invoices, ({ one }) => ({
-  user: one(users, { fields: [invoices.userId], references: [users.id] }),
+  customer: one(customers, {
+    fields: [invoices.customerId],
+    references: [customers.id],
+  }),
 }));
 
 export const aiUsageRelations = relations(aiUsage, ({ one }) => ({
-  user: one(users, { fields: [aiUsage.userId], references: [users.id] }),
+  customer: one(customers, {
+    fields: [aiUsage.customerId],
+    references: [customers.id],
+  }),
   run: one(runs, { fields: [aiUsage.runId], references: [runs.id] }),
 }));

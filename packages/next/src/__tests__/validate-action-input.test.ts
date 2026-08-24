@@ -4,7 +4,7 @@ import {
   parseActionInputSchema,
   validateActionInput,
   validateActionOutput,
-} from "../runtime/action-helpers.js";
+} from "../runtime/action-schema.js";
 
 describe("validateActionInput", () => {
   it("runs a synchronous function-form validate and returns synchronously (no await needed)", () => {

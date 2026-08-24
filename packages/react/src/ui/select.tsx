@@ -62,6 +62,7 @@ const SelectContent = React.forwardRef<
 >(({ className, children, position = "popper", ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
+      data-flowpanel-portal=""
       ref={ref}
       position={position}
       className={cn(

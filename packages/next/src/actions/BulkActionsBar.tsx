@@ -6,12 +6,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  FlowpanelIcon,
   triggerDownload,
   useToast,
 } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import type { ActionInputIssue } from "../runtime/action-helpers.js";
+import type { ActionInputIssue } from "../runtime/action-schema.js";
 import { ActionFormDialog } from "./ActionFormDialog.js";
 import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field.js";
 import type { SerializedBulkAction } from "./bulk-action.js";
@@ -127,6 +128,7 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
                 onSelect={() => onActionPick(a)}
                 className={a.variant === "destructive" ? "text-fp-err" : undefined}
               >
+                {a.icon ? <FlowpanelIcon name={a.icon} className="mr-2 h-4 w-4" /> : null}
                 {a.label}
               </DropdownMenuItem>
             ))}

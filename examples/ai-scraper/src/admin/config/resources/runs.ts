@@ -1,24 +1,25 @@
 import { resource } from "@flowpanel/kit";
-import { eq } from "drizzle-orm";
+import { retryFailedRun } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
-import { retryRun } from "@/src/lib/runner";
-import { badge, formatDate, formatDuration } from "../format";
+import { badge, formatDate, formatDuration } from "../../format";
 
 export const runs = resource(schema.runs, {
+  name: "runs",
   label: "Runs",
   labelOne: "Run",
+  icon: "refresh",
+  hidden: true,
   columns: [
     {
-      field: "scraperId",
-      label: "Scraper",
-      reference: { resource: "scrapers", labelField: "name" },
+      field: "monitorId",
+      label: "Monitor",
+      reference: { resource: "monitors", labelField: "name" },
     },
-    { field: "status", label: "Status", format: badge },
+    { field: "status", format: badge },
     { field: "pagesCrawled", label: "Pages", align: "right" },
-    { field: "itemsExtracted", label: "Listings", align: "right" },
+    { field: "itemsExtracted", label: "Offers", align: "right" },
     {
       field: "durationMs",
-      label: "Duration",
       align: "right",
       render: (r) => formatDuration(r.durationMs),
     },
@@ -28,7 +29,6 @@ export const runs = resource(schema.runs, {
     {
       field: "status",
       type: "multiselect",
-      label: "Status",
       options: [
         { label: "Queued", value: "queued" },
         { label: "Running", value: "running" },
@@ -36,7 +36,7 @@ export const runs = resource(schema.runs, {
         { label: "Failed", value: "failed" },
       ],
     },
-    { field: "startedAt", type: "daterange", label: "Started" },
+    { field: "startedAt", type: "daterange" },
   ],
   defaultSort: { field: "startedAt", dir: "desc" },
   create: { disabled: true },
@@ -44,31 +44,18 @@ export const runs = resource(schema.runs, {
     {
       key: "retry",
       label: "Retry run",
+      icon: "refresh",
       confirm: {
         title: "Retry this run?",
         description: "Re-enqueues the scrape job. The run resets to queued.",
       },
       hidden: (row) => row.status !== "failed",
-      run: async (row, _input, ctx) => {
-        await retryRun(row.id);
-        await ctx.db
-          .update(schema.runs)
-          .set({
-            status: "queued",
-            error: null,
-            finishedAt: null,
-            durationMs: null,
-            pagesCrawled: 0,
-            itemsExtracted: 0,
-          })
-          .where(eq(schema.runs.id, row.id));
-        return { ok: true, message: "Run re-queued", refresh: true };
-      },
+      run: retryFailedRun,
     },
   ],
   export: {
     formats: ["csv"],
-    fields: ["id", "scraperId", "status", "pagesCrawled", "itemsExtracted", "startedAt"],
+    fields: ["id", "monitorId", "status", "pagesCrawled", "itemsExtracted", "startedAt"],
   },
   rowClick: "drawer",
   drawer: {
@@ -90,7 +77,7 @@ export const runs = resource(schema.runs, {
       },
       {
         key: "listings",
-        label: "Listings",
+        label: "Offers",
         resource: "listings",
         filter: (row) => ({ runId: row.id }),
       },

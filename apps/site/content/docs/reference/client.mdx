@@ -1,34 +1,116 @@
 ---
-title: Client hooks
-description: useAdminMutation — the client-side wrapper for a Server Action that returns an ActionResult.
+title: Typed client
+description: Call the protected Flowpanel HTTP API from custom React UI, then add mutation state where needed.
 ---
 
-`@flowpanel/client` is a small, standalone package: a client hook for wrapping
-a Server Action in pending/error state. It depends only on `@flowpanel/core`
-(for `ActionResult`) and React — nothing from `@flowpanel/react` or
-`@flowpanel/next` — for building custom mutation UI that doesn't otherwise
-pull in the component library.
+`@flowpanel/client` is the framework-neutral browser client. Use it when the
+generated admin is mostly right, but one screen needs custom UI. Calls still go
+through the same auth, resource access, field policy, tenant scope, validation,
+audit and adapter pipeline as generated pages.
 
 ```ts
-import { useAdminMutation } from "@flowpanel/kit/client";
+import {
+  createFlowpanelClient,
+  isFlowpanelErrorCode,
+  isFlowpanelErrorResult,
+  type CreateFlowpanelClientOptions,
+  type FlowpanelClient,
+  type FlowpanelClientMetadata,
+  type FlowpanelFetchOptions,
+  type FlowpanelListOptions,
+  type FlowpanelResourceClient,
+} from "@flowpanel/client";
 ```
 
-That subpath is the one to use from a kit install; the standalone
-`@flowpanel/client` package publishes the same export and works identically
-when you depend on it directly.
+The same surface is available from `@flowpanel/kit/client` when your project
+installs the umbrella package.
 
-## useAdminMutation
+## Create a client
+
+The server runtime exposes serializable metadata; pass it to the browser
+client instead of duplicating API paths.
 
 ```ts
-function useAdminMutation<Args extends unknown[]>(
-  action: (...args: Args) => Promise<ActionResult>,
-  options?: UseAdminMutationOptions,
-): UseAdminMutation<Args>;
+// server module
+import { createFlowpanel } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
+export const flowpanel = createFlowpanel(config);
+export const flowpanelMetadata = flowpanel.client;
 ```
 
-Wraps a Server Action that returns an `ActionResult`. `run` calls the action,
-tracks `pending` while it's in flight, and captures the error message —
-whether the action resolved `{ ok: false, error }` or threw — into `error`.
+```tsx
+"use client";
+
+import { createFlowpanelClient } from "@flowpanel/kit/client";
+import { flowpanelMetadata } from "./runtime";
+
+const client = createFlowpanelClient(flowpanelMetadata);
+const orders = client.resource<Order>("orders");
+const result = await orders.list({
+  page: 1,
+  pageSize: 25,
+  search: "acme",
+  filters: { status: "open" },
+});
+
+if (!result.ok) {
+  console.error(result.error.code, result.error.message);
+}
+```
+
+`createFlowpanelClient(metadata, options?)` returns a frozen
+`FlowpanelClient`. `CreateFlowpanelClientOptions.fetch` lets tests, React
+Native shells or instrumented apps provide their own fetch implementation.
+Every request uses `credentials: "same-origin"` and validates the response
+envelope before returning it.
+
+`FlowpanelClientMetadata` contains the runtime id, admin/API paths and protocol
+version. Treat it as public configuration, not a secret. The client rejects an
+unsupported protocol version immediately.
+
+## Resource methods
+
+`client.resource<Row>(name)` returns a `FlowpanelResourceClient<Row>`:
+
+| Method | HTTP request | Result |
+| --- | --- | --- |
+| `list(options?)` | `GET /<resource>` | Paginated rows |
+| `get(id, options?)` | `GET /<resource>/<id>` | One projected row |
+| `create(input, options?)` | `POST /<resource>` | Created row |
+| `update(id, input, options?)` | `PATCH /<resource>/<id>` | Updated row |
+| `delete(id, options?)` | `DELETE /<resource>/<id>` | `null` on success |
+
+`FlowpanelListOptions` accepts `page`, `pageSize`, `search`, and a flat
+`filters` record. It extends `FlowpanelFetchOptions`, so list calls and item
+calls both accept `signal` and extra `headers`. IDs and resource names are
+encoded as individual URL segments; empty, `.` and `..` segments are rejected.
+
+Network errors and malformed responses become a typed `internal` failure.
+An `AbortError` is rethrown so your component can distinguish cancellation
+from a failed request.
+
+## Narrowing errors
+
+`isFlowpanelErrorResult(result)` narrows a `FlowpanelResult<T>` to its error
+branch. `isFlowpanelErrorCode(value)` validates unknown data against the stable
+error-code union.
+
+```ts
+import { isFlowpanelErrorCode, isFlowpanelErrorResult } from "@flowpanel/kit/client";
+
+if (isFlowpanelErrorResult(result) && result.error.code === "field_forbidden") {
+  // Hide or disable the corresponding control.
+}
+
+isFlowpanelErrorCode("rate_limited"); // true
+isFlowpanelErrorCode("anything"); // false
+```
+
+## Mutation state hook
+
+`useAdminMutation` remains available for custom UI that calls a Server Action
+rather than the HTTP client.
 
 ```tsx
 "use client";
@@ -39,37 +121,20 @@ export function ArchiveButton({ id }: { id: string }) {
   const { run, pending, error, reset } = useAdminMutation(archiveOrder);
   return (
     <>
-      <button onClick={() => run(id)} disabled={pending}>
+      <button type="button" onClick={() => run(id)} disabled={pending}>
         Archive
       </button>
-      {error ? (
-        <p role="alert" onClick={reset}>
-          {error}
-        </p>
-      ) : null}
+      {error ? <button onClick={reset}>{error}</button> : null}
     </>
   );
 }
 ```
 
-### What the hook returns
-
 <AutoTypeTable path="../../packages/client/src/mutation.ts" name="UseAdminMutation" />
-
-`reset()` clears `error` back to `null` and `pending` back to `false` without
-calling the action — use it to dismiss a failure message, or when the
-component is reused for a different target.
-
-`run` never throws: an action that rejects is caught and surfaced as
-`{ ok: false, error }`, which is also what `run` resolves with.
-
-### Options
 
 <AutoTypeTable path="../../packages/client/src/mutation.ts" name="UseAdminMutationOptions" />
 
-For an optimistic value ahead of the round trip, use
-[`useOptimisticAction`](/docs/reference/react-components#hooks) from
-`@flowpanel/kit/react` instead: `useAdminMutation` holds no optimistic state
-of its own, only `pending` and `error`. `rollbackOn` accepts the single
-literal `"error"` and the hook never reads it — it is a placeholder for a
-rollback strategy that does not exist yet, and setting it changes nothing.
+`run` never throws: rejected actions and `{ ok: false }` results both become a
+failure result and update `error`. `reset()` clears local pending/error state.
+For optimistic values, use
+[`useOptimisticAction`](/docs/reference/react-components#hooks).

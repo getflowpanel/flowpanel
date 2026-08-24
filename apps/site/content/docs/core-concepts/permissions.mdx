@@ -33,10 +33,9 @@ Blocks the entire admin: every page, every API route. It runs in the request
 prologue — the first thing every route and every page render does, before any
 query or mutation — so nothing downstream can accidentally skip it.
 
-It is *not* middleware, though: the route is matched first, and on a page
-render the shell and nav render around the denied panel rather than in place
-of it. What the gate guarantees is that no data is read or written, not that
-the chrome disappears.
+It is *not* middleware, though: the route is matched first. On a denied page
+render FlowPanel keeps the empty shell around the access message, but exposes
+no navigation entries and reads no application data.
 
 ```ts
 defineAdmin({
@@ -63,10 +62,11 @@ page({ path: "/ops", label: "Ops", component: Ops, requireRole: "admin" });
 queue(emailQueue, { label: "Email", boardUrl: "…", requireRole: "admin" });
 ```
 
-A resource gate covers its list, detail, drawer, every action and every write
-route — not just the nav entry.
+A surface the operator cannot access is omitted from the built-in navigation.
+A resource gate also covers its list, detail, drawer, every action and every
+write route — hiding the entry is only the first layer.
 
-### 3. Per action — `requireRole` on a row, bulk or dashboard action
+### 3. Per action — `requireRole` on a row, bulk, drawer or dashboard action
 
 ```ts
 actions: [
@@ -74,7 +74,9 @@ actions: [
 ]
 ```
 
-Checked after the resource gate and before any input is even parsed.
+Checked after the resource gate and before any input is even parsed. Forbidden
+actions are not serialized into the page or drawer payload, so the UI never
+advertises a control that will only answer 403.
 
 ### 4. Per field — `FieldDef.requireRole`
 

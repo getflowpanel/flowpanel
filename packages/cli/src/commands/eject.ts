@@ -5,12 +5,16 @@ import type { Command } from "commander";
 import pc from "picocolors";
 import cliPkg from "../../package.json" with { type: "json" };
 import {
-  copyDashboardTemplate,
-  copyLayoutTemplate,
-  copyResourceTemplates,
+  dashboardTemplateIntents,
+  layoutTemplateIntents,
+  resourceTemplateIntents,
 } from "../eject/copyTargets.js";
 import { editConfigToCommentDashboard, editConfigToCommentResource } from "../eject/editConfig.js";
+import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan.js";
+import { applyFilesystemPlan } from "../plan/transaction.js";
+import type { FileIntent, FilesystemPlan } from "../plan/types.js";
 import { detectAppDir, fileExists } from "../utils/detect.js";
+import { writeJson, writePlanJson } from "../utils/output.js";
 
 /** Locate the user's flowpanel config, or `null` when the project has none yet. */
 async function findConfigFile(
@@ -33,10 +37,7 @@ export interface RunEjectOptions {
   force?: boolean;
 }
 
-/** Written files, relative to `cwd`. */
-export async function runEject(opts: RunEjectOptions): Promise<string[]> {
-  // Resolved before anything is written: copyResourceTemplates has no rollback,
-  // so a missing config after the copy would leave five orphaned files behind.
+export async function createEjectPlan(opts: RunEjectOptions): Promise<FilesystemPlan> {
   const cfg = await findConfigFile(opts.cwd);
   if (!cfg) {
     throw new Error(
@@ -44,55 +45,59 @@ export async function runEject(opts: RunEjectOptions): Promise<string[]> {
     );
   }
   const appDir = await detectAppDir(opts.cwd);
+  const source = await fs.readFile(cfg.path, "utf8");
+  let intents: FileIntent[];
 
   if (opts.target === "resource") {
     if (!opts.name) {
       throw new Error("eject resource: <name> is required (e.g. `flowpanel eject resource users`)");
     }
-    const written = await copyResourceTemplates({
+    intents = await resourceTemplateIntents({
       cwd: opts.cwd,
       resourceName: opts.name,
       version: opts.version,
       ...(opts.force ? { force: true } : {}),
     });
-    const source = await fs.readFile(cfg.path, "utf8");
-    const updated = editConfigToCommentResource(source, opts.name, cfg.filename, appDir);
-    await fs.writeFile(cfg.path, updated, "utf8");
-    return relativize(opts.cwd, written);
-  }
-
-  if (opts.target === "dashboard") {
+    intents.push({
+      path: path.relative(opts.cwd, cfg.path),
+      content: editConfigToCommentResource(source, opts.name, cfg.filename, appDir),
+      expectedContent: source,
+    });
+  } else if (opts.target === "dashboard") {
     if (!opts.name) {
       throw new Error(
         'eject dashboard: <path> is required (e.g. `flowpanel eject dashboard "/monitoring"`)',
       );
     }
-    const written = await copyDashboardTemplate({
+    intents = await dashboardTemplateIntents({
       cwd: opts.cwd,
       dashboardPath: opts.name,
       version: opts.version,
       ...(opts.force ? { force: true } : {}),
     });
-    const source = await fs.readFile(cfg.path, "utf8");
-    const updated = editConfigToCommentDashboard(source, opts.name, cfg.filename, appDir);
-    await fs.writeFile(cfg.path, updated, "utf8");
-    return relativize(opts.cwd, written);
-  }
-
-  if (opts.target === "layout") {
-    const written = await copyLayoutTemplate({
+    intents.push({
+      path: path.relative(opts.cwd, cfg.path),
+      content: editConfigToCommentDashboard(source, opts.name, cfg.filename, appDir),
+      expectedContent: source,
+    });
+  } else if (opts.target === "layout") {
+    intents = await layoutTemplateIntents({
       cwd: opts.cwd,
       version: opts.version,
       ...(opts.force ? { force: true } : {}),
     });
-    return relativize(opts.cwd, written);
+  } else {
+    throw new Error(`Unknown eject target: ${String(opts.target)}`);
   }
 
-  throw new Error(`Unknown eject target: ${String(opts.target)}`);
+  return createFilesystemPlan(opts.cwd, intents);
 }
 
-function relativize(cwd: string, files: string[]): string[] {
-  return files.map((f) => path.relative(cwd, f));
+/** Written files, relative to `cwd`. */
+export async function runEject(opts: RunEjectOptions): Promise<string[]> {
+  const plan = await createEjectPlan(opts);
+  const written = await applyFilesystemPlan(plan);
+  return written.filter((file) => !/^flowpanel\.config\.tsx?$/.test(file));
 }
 
 /** The kit version the ejected files were cut from; the CLI's own when kit isn't installed. */
@@ -115,32 +120,59 @@ export function ejectCommand(cli: Command): void {
       "Eject a FlowPanel piece into your app/admin folder. Targets: resource <name>, dashboard <path>, layout.",
     )
     .option("--force", "Overwrite files if they already exist")
-    .action(async (target: string, name: string | undefined, options: { force?: boolean }) => {
-      p.intro(pc.bgYellow(pc.black(" FlowPanel eject ")));
+    .option("--dry-run", "Print the filesystem plan without writing")
+    .option("--json", "Emit machine-readable JSON")
+    .action(
+      async (
+        target: string,
+        name: string | undefined,
+        options: { force?: boolean; dryRun?: boolean; json?: boolean },
+      ) => {
+        if (!options.json) p.intro(pc.bgYellow(pc.black(" FlowPanel eject ")));
 
-      const validTargets: ReadonlyArray<EjectTarget> = ["resource", "dashboard", "layout"];
-      if (!validTargets.includes(target as EjectTarget)) {
-        p.cancel(`Unknown target "${target}". Use one of: ${validTargets.join(", ")}`);
-        process.exit(1);
-      }
+        const validTargets: ReadonlyArray<EjectTarget> = ["resource", "dashboard", "layout"];
+        if (!validTargets.includes(target as EjectTarget)) {
+          p.cancel(`Unknown target "${target}". Use one of: ${validTargets.join(", ")}`);
+          process.exit(1);
+        }
 
-      const cwd = process.cwd();
-      const version = await ejectVersion(cwd);
+        const cwd = process.cwd();
+        const version = await ejectVersion(cwd);
 
-      try {
-        const written = await runEject({
-          cwd,
-          target: target as EjectTarget,
-          name: name ?? "",
-          version,
-          ...(options.force ? { force: true } : {}),
-        });
-        if (written.length > 0) p.note(written.join("\n"), "Wrote");
-        p.outro(pc.green(`Ejected ${target}${name ? ` ${name}` : ""}`));
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        p.cancel(`Failed: ${msg}`);
-        process.exit(1);
-      }
-    });
+        try {
+          const plan = await createEjectPlan({
+            cwd,
+            target: target as EjectTarget,
+            name: name ?? "",
+            version,
+            ...(options.force ? { force: true } : {}),
+          });
+          if (options.dryRun) {
+            if (options.json) writePlanJson("eject", plan, false);
+            else {
+              p.note(
+                publicPlan(plan)
+                  .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
+                  .join("\n"),
+                "Filesystem plan (no changes applied)",
+              );
+              p.outro(pc.dim("Dry run complete."));
+            }
+            return;
+          }
+          const written = await applyFilesystemPlan(plan);
+          if (options.json) {
+            writeJson({ command: "eject", applied: true, plan: publicPlan(plan) });
+          } else {
+            if (written.length > 0) p.note(written.join("\n"), "Wrote");
+            p.outro(pc.green(`Ejected ${target}${name ? ` ${name}` : ""}`));
+          }
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (options.json) writeJson({ command: "eject", applied: false, error: msg });
+          else p.cancel(`Failed: ${msg}`);
+          process.exit(1);
+        }
+      },
+    );
 }

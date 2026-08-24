@@ -68,11 +68,13 @@ See [Auth with Clerk](/docs/guides/auth-with-clerk) for the worked setup.
 [Theme slots](/docs/customization/theme-slots) for the ten shipped slots and how
 to register your own.
 
-`accent` and `cssVars` are emitted as `:root` custom properties, so they reach
-dialogs and drawers too — those portal to `document.body` and would miss a
-wrapper element. `accentDark` goes out as a `:root.dark` rule and wins exactly
-when dark mode is active — set it whenever a custom `accent` is tuned for
-light surfaces. Every `--fp-*` token is overridable:
+`accent` and `cssVars` are emitted only on `[data-flowpanel-root]` and
+`[data-flowpanel-portal]`. Dialogs and drawers carry the portal marker, so they
+receive the theme without changing the host application's tokens.
+`accentDark` targets the same namespaced roots when
+`html[data-flowpanel-theme="dark"]` or a FlowPanel root's `data-theme="dark"`
+is active. Set it whenever a custom `accent` is tuned for light surfaces.
+Every `--fp-*` token is overridable:
 
 ```ts
 theme: {
@@ -122,6 +124,15 @@ Pass a bare string when you only need the mode: `shell: "tabs"` is shorthand for
 
 <AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditConfig" />
 
+## SecurityConfig
+
+Same-origin mutation protection is enabled when `security` is omitted. Add
+exact `trustedOrigins` only when another frontend must write to the admin API.
+Requests without browser `Origin` / Fetch Metadata headers remain available to
+server-to-server clients.
+
+<AutoTypeTable path="../../packages/core/src/types/config.ts" name="SecurityConfig" />
+
 ### AuditEvent
 
 What your `sink` receives. FlowPanel never writes audit rows itself — where they
@@ -168,6 +179,9 @@ without ejecting.
 
 <AutoTypeTable path="../../packages/core/src/types/command.ts" name="CommandItem" />
 
+`CommandItem.icon` uses the same `IconName` registry as resources and actions;
+see [resource icons](/docs/reference/resources#icons).
+
 ## ResolvedAdminConfig
 
 What `defineAdmin` returns. The lookup maps are precomputed so request-time
@@ -185,23 +199,27 @@ or a `table()` widget's `resource`. The names it checks against are the
 `"ai_usage"` even when the exported variable is `aiUsage`. The error names the
 config path and suggests the near match.
 
-You hand the resolved config to `Flowpanel(config)` for the page and
-`handlers(config)` for the API. Both come from `@flowpanel/kit/next`:
+Bind the definition with `createFlowpanel(config)`, then mount its page and
+handlers. The runtime comes from `@flowpanel/kit/next`:
 
 ```ts
 // app/admin/[[...slug]]/page.tsx
-import { Flowpanel } from "@flowpanel/kit/next";
+import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
-export default Flowpanel(config);
+const flowpanel = createFlowpanel(config);
+
+export default flowpanel.page;
 ```
 
 ```ts
 // app/api/flowpanel/[...route]/route.ts
-import { handlers } from "@flowpanel/kit/next";
+import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
-export const { GET, POST } = handlers(config);
+const flowpanel = createFlowpanel(config);
+
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 ```
 
 ## Default bulk delete

@@ -1,0 +1,170 @@
+---
+title: Runtime contracts
+description: Low-level policy, result, adapter and pipeline APIs for custom runtimes and third-party adapters.
+---
+
+Most apps should use `defineAdmin`, `createFlowpanel`, and the generated UI.
+This page documents the lower-level `@flowpanel/core` contracts for adapter
+authors, custom framework integrations and security-sensitive extensions.
+
+```ts
+import {
+  accessAllows,
+  adapterCapabilities,
+  assertAdapterCapabilities,
+  assertWritableInput,
+  authorizeOperation,
+  bindAdapterScope,
+  errorResult,
+  evaluateUiCondition,
+  filterReadableProjection,
+  reportUnexpectedError,
+  resolveOperationAccess,
+  resultResponse,
+  runMutationPipeline,
+  FLOWPANEL_ERROR_STATUS,
+  type AccessContext,
+  type AccessRule,
+  type AdapterCapabilities,
+  type AdapterV2,
+  type AdminDefinition,
+  type AdminPaths,
+  type AdminPathsInput,
+  type AnyResourceConfig,
+  type BoundAdapterScope,
+  type ErrorContext,
+  type FieldAccess,
+  type FieldAccessMap,
+  type FieldWriteContext,
+  type FlowpanelErrorCode,
+  type FlowpanelResult,
+  type FlowpanelResultError,
+  type FlowpanelResultMeta,
+  type FlowpanelWarning,
+  type FlowpanelWarningCode,
+  type JsonValue,
+  type MutationPipelineStage,
+  type ResourceAccess,
+  type ResourceOperation,
+  type UiCondition,
+} from "@flowpanel/core";
+```
+
+## Definitions and paths
+
+`AdminDefinition<Resources>` is the immutable public input accepted by
+`defineAdmin`; `AnyResourceConfig` is its generic resource constraint.
+`AdminPathsInput` is the partial `{ admin, api }` input and `AdminPaths` is the
+normalized resolved pair. Both paths have a leading slash and no trailing
+slash.
+
+Application code normally relies on inference and never writes these types
+explicitly. They are useful when a factory returns a definition:
+
+```ts
+function companyAdmin(): AdminDefinition {
+  return {
+    adapter,
+    auth,
+    paths: { admin: "/ops", api: "/api/ops" },
+  };
+}
+```
+
+## Access and field policy
+
+`AccessRule` is a boolean, role string, role list, or predicate receiving
+`AccessContext` (`session`, `role`, `scope`). `ResourceAccess` maps those rules
+to the four `ResourceOperation` values: `read`, `create`, `update`, `delete`.
+
+- `accessAllows(rule, context)` evaluates one normalized rule.
+- `resolveOperationAccess(access, requireRole, operation)` applies precedence:
+  the operation-specific rule wins, then the compatibility `requireRole`.
+- `authorizeOperation(rule, context)` throws the safe access error when the
+  resolved rule rejects the request.
+
+`FieldAccess<Row>` adds `read`, `write` and `sensitive` policy. A
+`FieldAccessMap<Row>` maps it by field name; write predicates receive
+`FieldWriteContext<Row>` with both the current row and submitted input.
+
+- `filterReadableProjection(fields, policy, context)` removes fields the
+  caller may not read before the adapter query is built.
+- `assertWritableInput(input, knownFields, policy, context)` rejects unknown,
+  sensitive or forbidden writes. It does not silently drop them.
+
+`UiCondition<Row>` is the serializable `eq`, `neq`, `in`, `all`, `any`, `not`
+condition tree used for visibility. Values are `JsonValue`; use
+`evaluateUiCondition(condition, row)` to evaluate the same grammar in custom UI.
+UI visibility is presentation only — server access rules remain authoritative.
+
+## Adapter v2
+
+`AdapterV2` extends the base adapter with explicit `AdapterCapabilities`:
+
+| Capability | Meaning |
+| --- | --- |
+| `projections` | Reads honor a requested field projection. |
+| `transactions` | The adapter can run a callback atomically. |
+| `atomicImport` | Import does not leave a partially written batch. |
+| `returningRows` | Mutations return the committed row. |
+| `migrations` | CLI migration hooks are implemented. |
+
+`adapterCapabilities(adapter)` reads that record and returns conservative
+values for a legacy adapter. `assertAdapterCapabilities(adapter)` is the
+conformance assertion used by third-party adapter tests; do not advertise a
+capability until the behavior is actually atomic and scoped.
+
+A tenant policy crosses the runtime/adapter boundary as an opaque
+`BoundAdapterScope`. Create it with `bindAdapterScope(apply)`. Adapters must
+apply it to list, get, update and delete operations and fail closed when a
+resource requires scope but no binding is present.
+
+## One mutation pipeline
+
+`runMutationPipeline()` is the ordered runner shared by generated pages, HTTP
+handlers and protected controllers. Its `MutationPipelineStage` order is:
+
+1. transport and authentication;
+2. admin access and rate limit;
+3. route and resource access;
+4. operation and read-only checks;
+5. current-row load and field policy;
+6. input preparation and adapter execution;
+7. post-commit effects.
+
+Post-commit audit, realtime or revalidation failures do not turn a committed
+mutation into a false failure. They appear as a `FlowpanelWarning` in result
+metadata; `FlowpanelWarningCode` is `audit_failed`, `realtime_failed`, or
+`revalidation_failed`.
+
+## Result envelope
+
+Every protected controller and v1 JSON CRUD endpoint returns
+`FlowpanelResult<T>`:
+
+```ts
+type FlowpanelResult<T> =
+  | { ok: true; data: T; meta: FlowpanelResultMeta }
+  | { ok: false; error: FlowpanelResultError };
+```
+
+`FlowpanelResultMeta` carries the request id and optional warnings.
+`FlowpanelResultError` carries a stable `FlowpanelErrorCode`, a safe message,
+optional field errors and request id. `FLOWPANEL_ERROR_STATUS` is the canonical
+code-to-HTTP-status table.
+
+- `errorResult(error, requestId)` converts known errors to the envelope and
+  redacts unexpected failures to `internal`.
+- `resultResponse(result)` produces a JSON `Response` with the canonical status.
+- `reportUnexpectedError(error, context, onError)` invokes `hooks.onError` at
+  most once for the same error object. `ErrorContext` includes request,
+  operation, actor, IP and user-agent diagnostics but no submitted secrets.
+
+These helpers are public for runtime authors. Ordinary actions should throw a
+documented Flowpanel error or return an `ActionResult`, then let the built-in
+runtime normalize it.
+
+Generated-UI form, drawer, action, import, restore and SSE routes predate the
+v1 client protocol and keep their compact, route-specific response shapes for
+compatibility. Use `createFlowpanelClient` or protected controllers when a
+custom surface needs the structured envelope above.

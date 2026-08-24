@@ -23,8 +23,8 @@ dashboard.
 > `DATABASE_URL` defaults to the compose Postgres, so no `.env` is needed
 > for the local run.
 
-> **Requirements.** Next.js 15+ (App Router), React 19, Node 20+,
-> Tailwind v3 or v4, and either Drizzle `>=0.36` or Prisma 5 / 6. The
+> **Requirements.** Next.js `^16.3.0` (App Router), React 19,
+> Node 20+, Tailwind v3 or v4, and either Drizzle `>=0.45.2` or Prisma 5 / 6. The
 > Pages router is not supported. `init` stops if it finds no Tailwind in
 > `package.json` — the prompt to continue anyway defaults to No, because
 > the scaffolded stylesheet is a Tailwind entry point.
@@ -48,7 +48,7 @@ whatever it found, then reports every file it touched:
 
 ```
 ◇  Detected stack ──────────────────────────────────╮
-│  Next.js 15.5.0 · TypeScript · Drizzle · Tailwind 4  │
+│  Next.js 16.3.1 · TypeScript · Drizzle · Tailwind 4  │
 ├──────────────────────────────────────────────────╯
 ◇  7 written
 ◇  Wrote ─────────────────────────────────────────────────╮
@@ -183,18 +183,22 @@ reaching production. Replace it with a real provider (see
 
 ```ts
 // app/admin/[[...slug]]/page.tsx
-import { Flowpanel } from "@flowpanel/kit/next";
+import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
-export default Flowpanel(config);
+const flowpanel = createFlowpanel(config);
+
+export default flowpanel.page;
 ```
 
 ```ts
 // app/api/flowpanel/[...route]/route.ts
-import { handlers } from "@flowpanel/kit/next";
+import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
-export const { GET, POST } = handlers(config);
+const flowpanel = createFlowpanel(config);
+
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 export const runtime = "nodejs";
 ```
 

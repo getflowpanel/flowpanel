@@ -140,6 +140,14 @@
     display: block;
   }
 
+  /* Shiki dual-theme swap. AutoTypeTable emits `color:<light>;--shiki-dark:<dark>`
+     inline, so only `!important` can reach it. */
+  :where(.dark, [data-theme="dark"]) .shiki,
+  :where(.dark, [data-theme="dark"]) .shiki span {
+    /* biome-ignore lint/complexity/noImportantStyles: only !important outranks an inline color */
+    color: var(--shiki-dark) !important;
+  }
+
   /* AdapterTabs visibility — drives <AdapterTab adapter="..."> hide/show.
      Pure CSS so server render is correct on first paint and no JS is
      required for the toggle to flip the active branch. */

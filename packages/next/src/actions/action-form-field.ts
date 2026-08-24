@@ -1,4 +1,4 @@
-import type { ActionInputIssue } from "../runtime/action-helpers.js";
+import type { ActionInputIssue } from "../runtime/action-schema.js";
 
 /** Wire-safe descriptor for a single form field on a row/bulk/dashboard/drawer action. */
 export interface ActionFormField {

@@ -20,11 +20,17 @@ function renderWithToast(ui: React.ReactElement) {
 const inlineAction = {
   key: "sync",
   label: "Sync",
+  icon: "refresh" as const,
   placement: "inline" as const,
   hasForm: false,
 };
 
 describe("RowActionsMenu", () => {
+  it("renders a configured action icon", () => {
+    renderWithToast(<RowActionsMenu resource="users" id="1" actions={[inlineAction]} />);
+    expect(document.querySelector('[data-flowpanel-icon="refresh"]')).toBeTruthy();
+  });
+
   it("encodes resource, id and action key in the fetch URL", async () => {
     const fetchMock = vi
       .fn()

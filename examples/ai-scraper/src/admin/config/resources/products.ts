@@ -1,31 +1,22 @@
 import { type FieldDef, type InferRow, resource } from "@flowpanel/kit";
+import { asc } from "drizzle-orm";
+import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
-import { money } from "../format";
+import { PRODUCT_STORIES } from "@/src/demo/data/scenarios";
+import { money } from "../../format";
 
-const CATEGORIES = [
-  "Electronics",
-  "Computers",
-  "Phones",
-  "Fashion",
-  "Home & Kitchen",
-  "Jewelry",
-  "Toys & Games",
-];
+const CATEGORIES = [...new Set(PRODUCT_STORIES.map((product) => product.category))].sort();
 
-// The create / edit form is driven entirely by these field specs — `select`
-// reads `options`, `reference` resolves a Customer picker from the users table,
-// and `requireRole` gates a field server-side: `support` staff never see or can
-// write `ourPriceCents` (our internal cost), only `admin` does.
 const fields: FieldDef<InferRow<typeof schema.products>>[] = [
-  // `group` renders fields under section headings; `span` lays them out on a
-  // 12-column grid (full width on mobile). SKU and Brand share a row.
   {
     name: "sku",
     label: "SKU",
     required: true,
-    placeholder: "SKU-12345",
-    // Custom rule — runs server-side after schema validation.
-    validate: (v) => (/^SKU-\d+$/.test(String(v)) ? null : "Format: SKU-12345"),
+    placeholder: "NWA-SONY-XM5",
+    validate: (value) =>
+      /^[A-Z0-9]+(?:-[A-Z0-9]+)+$/.test(String(value))
+        ? null
+        : "Use uppercase letters, numbers, and hyphens",
     span: 6,
     group: "Product",
   },
@@ -49,18 +40,20 @@ const fields: FieldDef<InferRow<typeof schema.products>>[] = [
     group: "Pricing & ownership",
   },
   {
-    name: "userId",
+    name: "customerId",
     label: "Customer",
     type: "reference",
-    reference: { resource: "users", labelField: "email" },
+    reference: { resource: "customers", labelField: "company" },
     required: true,
     group: "Pricing & ownership",
   },
 ];
 
 export const products = resource(schema.products, {
-  label: "Catalog",
+  name: "products",
+  label: "Products",
   labelOne: "Product",
+  icon: "package",
   columns: [
     { field: "sku", label: "SKU" },
     { field: "title", label: "Product" },
@@ -68,13 +61,30 @@ export const products = resource(schema.products, {
     "category",
     { field: "ourPriceCents", label: "Our price", align: "right", format: money },
     {
-      field: "userId",
+      field: "customerId",
       label: "Customer",
-      reference: { resource: "users", labelField: "email" },
+      reference: { resource: "customers", labelField: "company" },
     },
   ],
   search: ["sku", "title", "brand"],
-  filters: [{ field: "category", type: "select", label: "Category", options: CATEGORIES }],
+  filters: [
+    {
+      field: "customerId",
+      type: "select",
+      label: "Customer",
+      options: async () =>
+        (
+          await db
+            .select({ id: schema.customers.id, company: schema.customers.company })
+            .from(schema.customers)
+            .orderBy(asc(schema.customers.company))
+        ).map((customer) => ({
+          label: customer.company ?? `Customer #${customer.id}`,
+          value: String(customer.id),
+        })),
+    },
+    { field: "category", type: "select", options: CATEGORIES },
+  ],
   defaultSort: { field: "createdAt", dir: "desc" },
   create: { fields },
   update: { fields },

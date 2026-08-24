@@ -24,20 +24,21 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   const active = PRESETS.find((p) => p.key === value.preset) ?? PRESETS[2];
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger className="inline-flex items-center gap-2 px-3 h-9 rounded-fp border border-fp-border-1 bg-fp-bg-1 text-sm text-fp-text-1 hover:bg-fp-bg-2">
+      <DropdownMenu.Trigger className="inline-flex h-11 items-center gap-2 rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 text-sm text-fp-text-1 hover:bg-fp-bg-2 sm:h-9">
         <Calendar className="h-3.5 w-3.5 text-fp-text-3" aria-hidden />
         {active?.label}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className="rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-1 shadow-fp-md"
+          data-flowpanel-portal=""
+          className="min-w-44 rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-1 shadow-fp-md"
           align="end"
         >
           {PRESETS.map((p) => (
             <DropdownMenu.Item
               key={p.key}
               className={cn(
-                "px-3 py-1.5 text-sm rounded hover:bg-fp-bg-2 cursor-pointer",
+                "flex min-h-11 cursor-pointer items-center rounded px-3 py-1.5 text-sm outline-none hover:bg-fp-bg-2 focus:bg-fp-bg-2 sm:min-h-9",
                 p.key === value.preset && "bg-fp-bg-2",
               )}
               onSelect={() => onChange({ preset: p.key })}

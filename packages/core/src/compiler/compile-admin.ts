@@ -59,7 +59,6 @@ function tryIntrospect(adapter: Adapter, ref: unknown): ResourceIntrospection | 
     return null;
   }
 }
-
 function assertUniqueActionKeys(
   actions: ReadonlyArray<{ key: string }> | undefined,
   resourceName: string,
@@ -77,7 +76,6 @@ function assertUniqueActionKeys(
     seen.add(action.key);
   }
 }
-
 function assertCanonicalAccess(resource: ResourceConfig, resourceName: string): void {
   if (resource.options.access !== undefined && resource.options.requireRole !== undefined) {
     throw new Error(
@@ -105,7 +103,6 @@ function assertCanonicalAccess(resource: ResourceConfig, resourceName: string): 
     }
   }
 }
-
 function assertCanonicalFieldAccess(
   resource: ResourceConfig,
   resourceName: string,
@@ -151,7 +148,6 @@ function assertCanonicalFieldAccess(
     }
   }
 }
-
 function assertProductionAuth(config: AdminConfig): void {
   if (process.env.NODE_ENV !== "production" || config.auth.requireRole !== undefined) return;
   if (config.auth.allowUnauthenticated !== true) {
@@ -175,7 +171,6 @@ function normalizeDeclaredRoutePath(raw: string): string {
   return normalizeRoutePath(raw);
 }
 
-/** @internal Compile and validate one immutable author definition. */
 export function compileAdmin<const Resources extends readonly AnyResourceConfig[]>(
   config: AdminConfig<Resources>,
 ): CompiledAdmin {

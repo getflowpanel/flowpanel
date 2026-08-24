@@ -11,12 +11,12 @@ import {
 
 describe("theme runtime", () => {
   beforeEach(() => {
-    document.documentElement.classList.remove("dark");
+    delete document.documentElement.dataset.flowpanelTheme;
     localStorage.clear();
   });
 
   afterEach(() => {
-    document.documentElement.classList.remove("dark");
+    delete document.documentElement.dataset.flowpanelTheme;
     localStorage.clear();
   });
 
@@ -52,24 +52,26 @@ describe("theme runtime", () => {
   });
 
   describe("applyThemeClass", () => {
-    it("adds/removes the dark class on <html>", () => {
+    it("uses a namespaced host marker without changing the host dark class", () => {
       applyThemeClass("dark");
-      expect(document.documentElement.classList.contains("dark")).toBe(true);
+      expect(document.documentElement.dataset.flowpanelTheme).toBe("dark");
+      expect(document.documentElement.classList.contains("dark")).toBe(false);
       applyThemeClass("light");
+      expect(document.documentElement.dataset.flowpanelTheme).toBe("light");
       expect(document.documentElement.classList.contains("dark")).toBe(false);
     });
   });
 
   describe("toggleTheme", () => {
-    it("flips the class and persists the choice", () => {
+    it("flips the namespaced marker and persists the choice", () => {
       const first = toggleTheme();
       expect(first).toBe("dark");
-      expect(document.documentElement.classList.contains("dark")).toBe(true);
+      expect(document.documentElement.dataset.flowpanelTheme).toBe("dark");
       expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
 
       const second = toggleTheme();
       expect(second).toBe("light");
-      expect(document.documentElement.classList.contains("dark")).toBe(false);
+      expect(document.documentElement.dataset.flowpanelTheme).toBe("light");
       expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
     });
   });

@@ -147,6 +147,13 @@ function slugify(heading: string): string {
 
 const docFiles = walk(DOCS, ".mdx");
 const pages = new Set(docFiles.map(pagePathOf));
+const twoslashBlocks = docFiles.reduce((count, file) => {
+  const text = readFileSync(file, "utf8");
+  return count + (text.match(/^```(?:ts|tsx) twoslash\s*$/gm)?.length ?? 0);
+}, 0);
+if (twoslashBlocks === 0) {
+  problems.push("docs: no TypeScript example is checked with twoslash");
+}
 
 /** Heading slugs per page, so a link's `#anchor` can be checked like the rest of it. */
 const headingsByPage = new Map<string, Set<string>>();
@@ -258,11 +265,32 @@ for (const [pkg, names] of exportsByPackage) {
   }
 }
 
+const demoReadme = readFileSync(join(ROOT, "examples/ai-scraper/README.md"), "utf8");
+for (const required of [
+  "Competitive price intelligence",
+  "Customers",
+  "Monitors",
+  "Products",
+  "Review",
+  "src/admin/config/index.ts",
+  "src/demo/data/scenarios.ts",
+  "DEMO_MODE=true",
+]) {
+  if (!demoReadme.includes(required)) {
+    problems.push(`examples/ai-scraper/README.md: missing ${required}`);
+  }
+}
+for (const removed of ["/admin/guide", "/admin/monitoring", "Download brief"]) {
+  if (demoReadme.includes(removed)) {
+    problems.push(`examples/ai-scraper/README.md: still documents ${removed}`);
+  }
+}
+
 if (problems.length > 0) {
   console.error(`✗ ${problems.length} docs problem(s):\n`);
   for (const p of problems) console.error(`  ${p}`);
   process.exit(1);
 }
 console.log(
-  `✔ docs verified — ${docFiles.length} pages, imports, links and type blocks agree, ${coveredCount} exports documented`,
+  `✔ docs verified — ${docFiles.length} pages, ${twoslashBlocks} twoslash example(s), imports, links and type blocks agree, ${coveredCount} exports documented`,
 );

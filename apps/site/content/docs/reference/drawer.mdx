@@ -23,6 +23,7 @@ resource(orders, {
         key: "refund",
         label: "Refund",
         variant: "destructive",
+        requireRole: "admin",
         confirm: "Refund this order?",
         form: [{ name: "reason", type: "textarea", required: true }],
         run: async (row, formData, ctx) => {
@@ -111,8 +112,12 @@ Buttons in the panel footer. See [Actions](/docs/reference/actions#draweraction)
 for `DrawerAction` and its form spec.
 
 Drawer actions go through the same guard pipeline as every other write: the
-admin-wide role gate, the resource gate, then input validation — all before
-`run`. Setting `palette: true` also surfaces the action in ⌘K.
+admin-wide role gate, the resource gate, the action's own `requireRole`, then
+input validation — all before `run`. An action the current operator cannot run
+is omitted from the drawer payload as well as blocked server-side. Setting
+`palette: true` also surfaces an authorized action in ⌘K.
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerAction" />
 
 ## The payload
 

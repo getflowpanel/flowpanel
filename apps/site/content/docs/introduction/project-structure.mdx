@@ -42,19 +42,20 @@ infers via the augmented `FlowpanelResources` registry).
 
 ## app/admin/[[...slug]]/page.tsx
 
-The page mount. It's a two-line RSC catch-all that hands every
-`/admin/...` URL to `Flowpanel(config)`. You don't write per-resource
+The page mount. It's a tiny RSC catch-all that hands every `/admin/...` URL to
+`createFlowpanel(config).page`. You don't write per-resource
 pages, layouts, or client components — they're rendered from your
 config at request time.
 
 ## app/api/flowpanel/[...route]/route.ts
 
-The API mount. `handlers(config)` returns `{ GET, POST }` for the drawer
-fetch, the reference-picker search, and every write: create, edit, inline
-update, restore, import, and row / bulk / drawer / dashboard actions all
-POST here. FlowPanel never binds a Next.js Server Action — the generated
-POST route is the only action transport, which is what keeps the role
-gates, audit and `ActionResult` handling in one place. See
+The API mount. `createFlowpanel(config).handlers` returns
+`{ GET, POST, PUT, PATCH, DELETE, OPTIONS }`. The v1 JSON endpoints support
+typed list/get/create/update/delete clients; the same catch-all also serves
+drawer data, reference search, form writes, restore, import, and row / bulk /
+drawer / dashboard actions. Every transport converges on the same role,
+field-policy, scope, validation and mutation pipeline. See
+[Next.js runtime](/docs/reference/next-runtime) and
 [Actions](/docs/reference/actions).
 
 ## app/api/flowpanel/stream/route.ts

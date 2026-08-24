@@ -38,6 +38,14 @@ function majorOf(v: string | undefined): number | null {
   return m?.[1] ? Number(m[1]) : null;
 }
 
+/** True when the declared range names a Next.js release FlowPanel supports. */
+export function isSupportedNextVersion(version: string | null): boolean {
+  if (!version) return false;
+  const match = /(\d+)\.(\d+)/.exec(version);
+  if (!match?.[1] || !match[2]) return false;
+  return Number(match[1]) === 16 && Number(match[2]) >= 3;
+}
+
 export async function detectStack(cwd: string): Promise<Stack> {
   const pkg = await readPkg(cwd);
   const deps: Record<string, string> = {

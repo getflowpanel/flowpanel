@@ -3,7 +3,7 @@ title: CLI
 description: The flowpanel command-line interface.
 ---
 
-flowpanel ships a small CLI in the `@flowpanel/cli` package. Bootstrap a
+FlowPanel ships a small CLI in the `@flowpanel/cli` package. Bootstrap a
 project with `pnpm dlx @flowpanel/cli init` — no install needed up front.
 `init` adds `@flowpanel/cli` as a devDependency, so every later command
 runs as `pnpm flowpanel <command>`. The shipped subcommands are `init`,
@@ -13,6 +13,26 @@ The CLI detects your package manager from the lockfile and uses it
 throughout — `init` installs with it, `dev` launches Next.js through its
 runner, and every "run this next" hint is printed in its syntax. The samples
 below use pnpm; substitute your own.
+
+| Command | Purpose | Options |
+| --- | --- | --- |
+| `init` | Detect the stack, install packages and scaffold routes/config/styles. | `--yes`, `--dry-run`, `--json` |
+| `migrate` | Apply FlowPanel SQL migrations. | `--dry-run`, `--json` |
+| `doctor` | Validate dependencies, wiring, security checks and TypeScript. | `--fix`, `--dry-run`, `--json` |
+| `eject <target> [name]` | Copy a resource, dashboard or layout into the app. | `--force`, `--dry-run`, `--json` |
+| `dev` | Run Next.js and optionally bull-board. | `--port`, `--no-board` |
+| `new <resource>` | Append a resource to the existing config. | `--table`, `--kind`, `--dry-run`, `--json` |
+
+Every command supports `--help`; the root command supports `--version`.
+Success exits `0`, validation or execution failures exit non-zero, and fatal
+errors show a concise message. Set `FLOWPANEL_DEBUG=1` when you also need the
+underlying stack trace.
+
+Mutating commands build a complete filesystem plan before the first write.
+`--dry-run` prints that plan; `--json` emits a machine-readable result for CI.
+Writes use atomic replacement and a rollback journal, so a later failure
+restores earlier files instead of leaving a half-written scaffold. Existing
+files with different content are reported as conflicts, not overwritten.
 
 ## flowpanel init
 
@@ -28,7 +48,7 @@ than always writing to the repo root.
 
 ```text
 ◇  Detected stack ─────────────────────────────────────╮
-│  Next.js 15.5.0 · TypeScript · Drizzle · Tailwind 4  │
+│  Next.js 16.3.1 · TypeScript · Drizzle · Tailwind 4  │
 ├──────────────────────────────────────────────────────╯
 ◇  7 written
 ◇  Wrote ─────────────────────────────────────────────────╮
@@ -38,7 +58,8 @@ than always writing to the repo root.
 │  app/api/flowpanel/stream/route.ts                      │
 │  styles/admin.css                                       │
 │  flowpanel/migrations/0001_init.sql                     │
-│  app/layout.tsx (added the admin stylesheet import)     │
+│  app/layout.tsx (added the admin stylesheet import and  │
+│  suppressHydrationWarning)                              │
 ├─────────────────────────────────────────────────────────╯
 ◇  Installed @flowpanel/kit, @flowpanel/cli
 ```
@@ -49,8 +70,13 @@ What varies:
   becomes `src/styles/admin.css`, when the project uses a `src/` layout.
 - **`app/layout.tsx`** — scaffolded when the project has none; otherwise the
   existing layout is patched with the stylesheet import. If that layout
-  already imports some other CSS bundle, `init` leaves it alone and prints
-  the import line for you to add.
+  already imports some other CSS bundle, `init` leaves that part alone and
+  prints the import line for you to add.
+- **`suppressHydrationWarning`** — added to the existing layout's `<html>`
+  tag whether or not the stylesheet import was. `mode: "auto"` resolves the
+  theme before hydration and sets the namespaced `data-flowpanel-theme`
+  marker, which the server render cannot predict; without the attribute React
+  reports a hydration mismatch on every admin page.
 - **`tailwind.config.ts`** — written only on Tailwind v3, and only when the
   file does not already exist. The v3 run also gets the `admin.css` v3
   variant (`@tailwind` directives instead of `@import "tailwindcss"`).
@@ -67,7 +93,7 @@ What varies:
 - **No Tailwind** — interactive only: a confirm that defaults to **No**;
   declining aborts with exit `1` and nothing written. Under `--yes` the run
   continues.
-- **No TTY and no `--yes`** — `init` asks questions, so a non-interactive run
+- **No TTY and no `--yes`, `--dry-run` or `--json`** — `init` asks questions, so a non-interactive run
   without `--yes` exits `1` immediately: *"init asks questions and this run
   has no interactive terminal. Re-run with --yes to accept the detected
   defaults."* Pass `--yes` in CI.
@@ -75,9 +101,10 @@ What varies:
   package manager's own last lines, the commands to run by hand, and sets
   exit code `1` so the run is not mistaken for a success.
 
-Re-running `init` is safe: existing files are preserved unless you
-confirm overwrite (interactive) or pass `--yes` (CI mode, skips files
-that exist).
+Re-running `init` is idempotent: matching generated files become `skip`.
+If any target exists with different content, the plan reports a conflict and
+nothing is written. Merge that file manually, then rerun. `--yes` accepts
+detected paths; it does not grant permission to overwrite source.
 
 ## flowpanel migrate
 
@@ -89,8 +116,16 @@ adapter's `db` instance and run the migration there.
 $ pnpm flowpanel migrate
 ```
 
-Use `--dry-run` to preview the file list without applying anything.
+Use `--dry-run` to load the adapter and preview only migrations that are not
+already recorded. Add `--json` for a stable pending/applied payload.
 The CLI tracks applied IDs in `_flowpanel_migrations`.
+
+Every command reads `.env.local` and then `.env` from the working directory
+before it runs, the same order Next.js uses, so a `DATABASE_URL` that already
+works for `next dev` works here too. Variables already set in the shell win, so
+`DATABASE_URL=… pnpm flowpanel migrate` still overrides the file. When the
+connection fails and no `DATABASE_URL` is set anywhere, the CLI says so instead
+of printing a driver stack trace; `FLOWPANEL_DEBUG=1` brings the stack back.
 
 `jiti` is loaded on demand; when it is missing the command prints the install
 line for **your** package manager (`pnpm add -D jiti`, `npm install --save-dev
@@ -100,7 +135,7 @@ jiti`, …) and exits `1`.
 
 Run the wiring checks, in this order:
 
-- Next.js ≥ 15, and TypeScript installed
+- Next.js ≥ 16.3 and < 17, and TypeScript installed
 - an ORM the adapters support — Drizzle or Prisma
 - `flowpanel.config.ts` exists
 - the four generated files exist: the API route, the SSE route, the seed
@@ -113,12 +148,12 @@ Run the wiring checks, in this order:
 ```bash
 $ pnpm flowpanel doctor
 $ pnpm flowpanel doctor --fix
+$ pnpm flowpanel doctor --fix --dry-run
 ```
 
-`--fix` rewrites the four generated files from the same templates `init`
-uses, for whichever are missing; it prints each path it wrote and re-runs
-the check. The other failures have no auto-fix — they print a hint
-instead.
+`--fix` creates whichever of the four generated files are missing from the
+same templates `init` uses. The fix is one transaction; `--dry-run` shows it
+without writing. The other failures have no auto-fix and print a hint instead.
 
 Exit code is non-zero when any check fails — wire it into CI to catch
 drift on every PR.
@@ -135,8 +170,9 @@ $ pnpm flowpanel eject layout
 ```
 
 It lists every file it wrote, then comments the matching config entry out
-(uncomment to revert). Pass `--force` to overwrite existing files; without it,
-an existing target aborts the run with exit `1`.
+(uncomment to revert). Template files and the config edit are committed as one
+rollback-safe transaction. Pass `--force` to explicitly replace an existing
+eject target; without it, a conflict aborts before any file changes.
 
 ## flowpanel dev
 
@@ -185,3 +221,6 @@ Flags: `--table <expr>` overrides the first argument (default
 `schema.<resource>`, and skips the schema check); `--kind drizzle|prisma`
 toggles the template (default `drizzle`; `prisma` writes
 `resource<unknown>("posts", …)`).
+
+`--dry-run` shows the config modification without applying it. `--json`
+returns the same plan/result envelope used by `init`, `doctor` and `eject`.

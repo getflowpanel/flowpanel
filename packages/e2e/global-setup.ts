@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 import { BASE_DATABASE_URL, E2E_DATABASE_URL, E2E_DB_NAME, withDatabase } from "./e2e-db.js";
 
@@ -17,7 +18,7 @@ export default async function globalSetup(): Promise<void> {
     await admin.end();
   }
 
-  const repoRoot = path.resolve(__dirname, "..", "..");
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
   const env = { ...process.env, DATABASE_URL: E2E_DATABASE_URL };
   execFileSync("pnpm", ["--filter", "ai-scraper", "db:push"], {
     cwd: repoRoot,

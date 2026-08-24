@@ -27,6 +27,7 @@ import { orders } from "@/db/schema";
 export const ordersResource = resource(orders, {
   label: "Order",
   plural: "Orders",
+  icon: "shopping-cart",
   columns: ["id", "customerEmail", { field: "total", format: "money" }, "status"],
   search: ["customerEmail"],
   filters: ["status", { field: "createdAt", type: "daterange" }],
@@ -37,6 +38,25 @@ export const ordersResource = resource(orders, {
 ## ResourceOptions
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceOptions" />
+
+### Icons
+
+`ResourceOptions.icon`, dashboard/page/queue icons, action icons and
+`CommandItem.icon` all use the same serializable `IconName` union. FlowPanel
+turns the name into a decorative Lucide SVG in the sidebar, tab strip and ⌘K
+palette, so the config remains safe to pass through a React Server Component
+boundary. Unknown names are rejected by TypeScript instead of disappearing at
+runtime. Built-in names include `users`, `settings`, `layout-dashboard`,
+`database`, `shopping-cart`, `archive`, `refresh`, `play`, `ban` and
+`trash-2`; editor autocomplete shows the complete `IconName` set.
+
+For custom pages and slots, render the same registry directly:
+
+```tsx
+import { FlowpanelIcon } from "@flowpanel/kit/react";
+
+<FlowpanelIcon name="workflow" className="size-4" />;
+```
 
 ## ColumnDef
 

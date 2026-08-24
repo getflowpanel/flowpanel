@@ -20,6 +20,7 @@ function renderWithToast(ui: React.ReactElement) {
 const bulkAction = {
   key: "archive all",
   label: "Archive",
+  icon: "archive" as const,
   hasForm: false,
 };
 
@@ -29,6 +30,20 @@ async function openMenuAndPick(label: string | RegExp) {
 }
 
 describe("BulkActionsBar", () => {
+  it("renders configured action icons in the menu", async () => {
+    renderWithToast(
+      <BulkActionsBar
+        resource="users"
+        selection={["1"]}
+        onClear={vi.fn()}
+        actions={[bulkAction]}
+      />,
+    );
+    fireEvent.keyDown(screen.getByRole("button", { name: /action…/i }), { key: "Enter" });
+    expect(await screen.findByRole("menuitem", { name: /archive/i })).toBeTruthy();
+    expect(document.querySelector('[data-flowpanel-icon="archive"]')).toBeTruthy();
+  });
+
   it("encodes resource and action key in the fetch URL", async () => {
     const fetchMock = vi
       .fn()

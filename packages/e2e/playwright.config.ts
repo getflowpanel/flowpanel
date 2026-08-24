@@ -10,7 +10,6 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: "html",
-  globalSetup: "./global-setup.ts",
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
@@ -20,11 +19,21 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "mobile-chrome",
+      grep: /@cross-browser/,
+      use: { ...devices["Pixel 7"] },
+    },
+    {
+      name: "webkit",
+      grep: /@cross-browser/,
+      use: { ...devices["Desktop Safari"] },
+    },
   ],
   webServer: {
-    // Boots the ai-scraper example against its own DB (see global-setup.ts)
-    // and its own .next build dir, never a server or DB anyone else is using.
-    command: "pnpm --filter ai-scraper dev",
+    // Boots the ai-scraper example only after its isolated database is ready,
+    // using its own .next build dir and never a server anyone else is using.
+    command: "pnpm exec tsx start-server.ts",
     url: `${BASE_URL}/admin`,
     reuseExistingServer: false,
     timeout: 180_000,

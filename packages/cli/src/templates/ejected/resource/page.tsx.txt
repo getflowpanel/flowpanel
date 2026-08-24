@@ -5,19 +5,20 @@
  * runtime no longer renders /admin/{{name}} — your code does. Customize
  * freely; FlowPanel will not touch this file again.
  *
- * Building blocks available:
- *   - import { DataTable, FilterBar, BulkBar } from "@flowpanel/kit/react";
- *   - your adapter (drizzle/prisma) directly via your db client
- *
- * This is a starting stub — replace with your real list UI.
+ * Data still goes through FlowPanel's protected request controller, so auth,
+ * field policies, tenant scope and adapter projection stay identical to the
+ * generated UI. Replace only the rendering below.
  */
-export default function Page() {
+import { listRows } from "./actions";
+
+export default async function Page() {
+  const result = await listRows();
   return (
-    <div className="p-6">
+    <div className="space-y-4 p-6">
       <h1 className="text-xl font-semibold">{{name}}</h1>
-      <p className="mt-2 text-sm text-fp-text-2">
-        This page was ejected from FlowPanel. Implement the list UI here.
-      </p>
+      <pre className="overflow-auto rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-4 text-xs">
+        {JSON.stringify(result.rows, null, 2)}
+      </pre>
     </div>
   );
 }

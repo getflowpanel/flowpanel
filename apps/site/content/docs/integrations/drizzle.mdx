@@ -44,7 +44,7 @@ export default defineAdmin({
 | `schema` | `Schema object` | The `import * as schema` you pass to `drizzle()`. |
 | `dialect` | `"pg" \| "mysql" \| "sqlite"?` | Inferred from the first table in `schema`. Pass it explicitly when inference throws — it only can when `schema` holds no Drizzle table. |
 
-The peer range is `drizzle-orm >=0.36.0 <1.0.0`.
+The peer range is `drizzle-orm >=0.45.2 <1.0.0`.
 
 Soft delete is configured per resource via
 `resource(table, { delete: { softDelete: "deletedAt" } })`, not on the

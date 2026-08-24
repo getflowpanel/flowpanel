@@ -25,7 +25,11 @@ describe("buildCommandGroups", () => {
           {
             label: "Actions",
             items: [
-              { label: "Open settings", action: { type: "navigate", href: "/admin/settings" } },
+              {
+                label: "Open settings",
+                icon: "settings",
+                action: { type: "navigate", href: "/admin/settings" },
+              },
             ],
           },
         ],
@@ -36,6 +40,7 @@ describe("buildCommandGroups", () => {
     actionsGroup?.items[0]?.onSelect();
     expect(close).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith("/admin/settings");
+    expect(actionsGroup?.items[0]?.icon).toBeTruthy();
   });
 
   // `CommandItem["action"]` is now `{ type: "navigate"; href: string }` only —

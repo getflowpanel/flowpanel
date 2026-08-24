@@ -11,7 +11,7 @@ describe("AdminNav", () => {
         brand={{ name: "Admin" }}
         currentPath="/admin/users"
         groups={[
-          { label: "People", items: [{ label: "Users", href: "/admin/users" }] },
+          { label: "People", items: [{ label: "Users", href: "/admin/users", icon: "users" }] },
           { label: "Billing", items: [{ label: "Invoices", href: "/admin/invoices" }] },
         ]}
       />,
@@ -20,5 +20,6 @@ describe("AdminNav", () => {
     expect(screen.getByRole("navigation", { name: /admin/i })).toBeTruthy();
     expect(screen.getByRole("link", { name: /users/i }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: /invoices/i }).getAttribute("aria-current")).toBeNull();
+    expect(document.querySelector('[data-flowpanel-icon="users"]')).toBeTruthy();
   });
 });

@@ -1,11 +1,11 @@
 {
   "name": "@flowpanel/kit",
   "version": "0.1.0",
-  "description": "Config-first admin panel framework for Next.js 15",
+  "description": "Config-first admin panel framework for Next.js 16",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/flowpanel"
   },
   "homepage": "https://github.com/getflowpanel/flowpanel",
@@ -95,9 +95,9 @@
     "@prisma/client": ">=5.0.0 <7.0.0",
     "bullmq": "^5.0.0",
     "express": "^4.19.0",
-    "drizzle-orm": ">=0.36.0 <1.0.0",
+    "drizzle-orm": ">=0.45.2 <1.0.0",
     "ioredis": "^5.10.0",
-    "next": "^15.0.0",
+    "next": "^16.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0 || ^3.0.0",

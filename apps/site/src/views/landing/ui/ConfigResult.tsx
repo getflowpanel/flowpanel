@@ -11,15 +11,27 @@ export default defineAdmin({
   auth: withClerk({ requireRole: "admin" }),
   resources: [
     resource(schema.jobs, {
-      columns: ["title", "platform", "category", "priceUsd", "postedAt"],
-      filters: [{ field: "platform", type: "select" }],
+      columns: [
+        "title",
+        "platform",
+        "category",
+        "priceUsd",
+        "postedAt",
+      ],
+      filters: [
+        {
+          field: "platform",
+          type: "select",
+          options: ["LinkedIn", "Remote OK", "Wellfound"],
+        },
+      ],
     }),
   ],
 });`;
 
 const OUTCOMES: ReadonlyArray<{ lead: string; rest: string }> = [
   { lead: "A typed table", rest: "— exactly the five columns you listed, in order." },
-  { lead: "A platform filter", rest: "— faceted, URL-synced, shareable." },
+  { lead: "A platform filter", rest: "— URL-synced and shareable." },
   { lead: "Search, sort, pagination and a row drawer", rest: "— included, nothing wired." },
   { lead: "Type-checked end to end", rest: "— misspell a column and it won't compile." },
 ];
@@ -38,19 +50,19 @@ export function ConfigResult() {
           This config becomes this admin.
         </h2>
         <p className="mt-4 max-w-[58ch] text-lg text-[var(--color-fg-muted)]">
-          No page tree to scaffold or maintain. Add a column to your schema, list it — the typed UI
+          No page tree per resource to maintain. Add a column to your schema, list it — the typed UI
           follows. Everything you don&apos;t list stays out.
         </p>
 
         <div className="mt-12 grid gap-x-12 gap-y-8 lg:grid-cols-[1.15fr_1fr] lg:items-center">
-          <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-code)]">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-code)]">
             <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
               <span aria-hidden className="h-2 w-2 rounded-full bg-[var(--color-accent)]" />
               <span className="font-mono text-xs text-[var(--color-fg-subtle)]">
                 flowpanel.config.ts
               </span>
             </div>
-            <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-[var(--color-fg)]">
+            <pre className="break-words whitespace-pre-wrap p-4 font-mono text-[13px] leading-relaxed text-[var(--color-fg)]">
               <code>{highlightTs(CONFIG)}</code>
             </pre>
           </div>

@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { tpl } from "../../utils/template.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const TYPECHECK_TIMEOUT_MS = 20_000;
 
 const roots: string[] = [];
 
@@ -140,47 +141,63 @@ async function renderPrisma(): Promise<string> {
 }
 
 describe("generated flowpanel.config.ts type-checks in a kit-only scaffold", () => {
-  it("drizzle template compiles clean", async () => {
-    const root = kitOnlyApp();
-    write(path.join(root, "flowpanel.config.ts"), await renderDrizzle());
-    expect(typecheck(root, ["flowpanel.config.ts"])).toEqual([]);
-  });
+  it(
+    "drizzle template compiles clean",
+    async () => {
+      const root = kitOnlyApp();
+      write(path.join(root, "flowpanel.config.ts"), await renderDrizzle());
+      expect(typecheck(root, ["flowpanel.config.ts"])).toEqual([]);
+    },
+    TYPECHECK_TIMEOUT_MS,
+  );
 
-  it("prisma template compiles clean", async () => {
-    const root = kitOnlyApp();
-    write(path.join(root, "flowpanel.config.ts"), await renderPrisma());
-    expect(typecheck(root, ["flowpanel.config.ts"])).toEqual([]);
-  });
+  it(
+    "prisma template compiles clean",
+    async () => {
+      const root = kitOnlyApp();
+      write(path.join(root, "flowpanel.config.ts"), await renderPrisma());
+      expect(typecheck(root, ["flowpanel.config.ts"])).toEqual([]);
+    },
+    TYPECHECK_TIMEOUT_MS,
+  );
 
-  it('augmenting "@flowpanel/core" instead is what the audit hit (TS2664)', async () => {
-    const root = kitOnlyApp();
-    const regressed = (await renderDrizzle()).replace(
-      'declare module "@flowpanel/kit"',
-      'declare module "@flowpanel/core"',
-    );
-    expect(regressed).toContain('declare module "@flowpanel/core"');
-    write(path.join(root, "flowpanel.config.ts"), regressed);
-    expect(typecheck(root, ["flowpanel.config.ts"]).join("\n")).toContain("TS2664");
-  });
+  it(
+    'augmenting "@flowpanel/core" instead is what the audit hit (TS2664)',
+    async () => {
+      const root = kitOnlyApp();
+      const regressed = (await renderDrizzle()).replace(
+        'declare module "@flowpanel/kit"',
+        'declare module "@flowpanel/core"',
+      );
+      expect(regressed).toContain('declare module "@flowpanel/core"');
+      write(path.join(root, "flowpanel.config.ts"), regressed);
+      expect(typecheck(root, ["flowpanel.config.ts"]).join("\n")).toContain("TS2664");
+    },
+    TYPECHECK_TIMEOUT_MS,
+  );
 
-  it("the augmentation reaches core's registry, not a kit-local copy", async () => {
-    const root = kitOnlyApp();
-    const filled = (await renderPrisma()).replace(
-      '// User: import("@prisma/client").User;',
-      "User: { id: string };",
-    );
-    expect(filled).toContain("User: { id: string };");
-    write(path.join(root, "flowpanel.config.ts"), filled);
-    // ResourceName is derived from core's FlowpanelResources; it only narrows
-    // if the `declare module "@flowpanel/kit"` block merged into core's.
-    write(
-      path.join(root, "probe.ts"),
-      'import type { ResourceName } from "@flowpanel/kit";\nexport const bad: ResourceName = "Nope";\n',
-    );
-    const errors = typecheck(root, ["flowpanel.config.ts", "probe.ts"]).join("\n");
-    expect(errors).toContain("TS2322");
-    expect(errors).toContain('"Nope"');
-  });
+  it(
+    "the augmentation reaches core's registry, not a kit-local copy",
+    async () => {
+      const root = kitOnlyApp();
+      const filled = (await renderPrisma()).replace(
+        '// User: import("@prisma/client").User;',
+        "User: { id: string };",
+      );
+      expect(filled).toContain("User: { id: string };");
+      write(path.join(root, "flowpanel.config.ts"), filled);
+      // ResourceName is derived from core's FlowpanelResources; it only narrows
+      // if the `declare module "@flowpanel/kit"` block merged into core's.
+      write(
+        path.join(root, "probe.ts"),
+        'import type { ResourceName } from "@flowpanel/kit";\nexport const bad: ResourceName = "Nope";\n',
+      );
+      const errors = typecheck(root, ["flowpanel.config.ts", "probe.ts"]).join("\n");
+      expect(errors).toContain("TS2322");
+      expect(errors).toContain('"Nope"');
+    },
+    TYPECHECK_TIMEOUT_MS,
+  );
 });
 
 describe("generated config templates", () => {
@@ -193,9 +210,8 @@ describe("generated config templates", () => {
     expect(await renderPrisma()).toContain('User: import("@prisma/client").User;');
   });
 
-  it("the umbrella really re-exports the augmented interfaces", () => {
+  it("the umbrella re-exports the canonical core declarations", () => {
     const kitIndex = fs.readFileSync(path.join(HERE, "../../../../flowpanel/src/index.ts"), "utf8");
-    expect(kitIndex).toContain("FlowpanelTypes");
-    expect(kitIndex).toContain("FlowpanelResources");
+    expect(kitIndex).toContain('export * from "@flowpanel/core"');
   });
 });

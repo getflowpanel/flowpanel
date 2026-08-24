@@ -28,6 +28,12 @@ function makeGroups(onSelectA: () => void): CommandGroupUI[] {
 describe("CommandPalette", () => {
   it("renders groups and items when open", () => {
     render(<CommandPalette open onOpenChange={() => {}} groups={makeGroups(() => {})} />);
+    expect(
+      screen.getByRole("dialog", {
+        name: "Command palette",
+        description: "Search and run admin commands",
+      }),
+    ).toBeTruthy();
     expect(screen.getByText("Navigation")).toBeTruthy();
     expect(screen.getByText("Theme")).toBeTruthy();
     expect(screen.getByText("Users")).toBeTruthy();

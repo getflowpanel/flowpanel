@@ -63,9 +63,10 @@ metric(label: string, query: (ctx) => Promise<number | string>, options?: Metric
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricOptions" />
 
 `icon` is handed to the metric card as a React child and rendered verbatim.
-There is no icon-name lookup anywhere in FlowPanel — pass an emoji or a
-ligature your own icon font resolves; the name of a Lucide icon renders as
-that literal text.
+Metric icons are deliberately free-form: pass an emoji or a ligature your own
+icon font resolves; a Lucide name renders as literal text. This differs from
+resource, action and command icons, which use the serializable `IconName`
+registry described under [resource icons](/docs/reference/resources#icons).
 
 ### MetricDelta
 
@@ -99,6 +100,10 @@ statGroup(options: StatGroupOptions)
 ### StatItem
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="StatItem" />
+
+`StatValue` is `string | number | boolean | bigint | Date | null | undefined`.
+Keeping the literal side explicit preserves full `WidgetContext` autocomplete
+inside async `value` resolvers.
 
 ## custom
 

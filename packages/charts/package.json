@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/charts"
   },
   "homepage": "https://github.com/getflowpanel/flowpanel",

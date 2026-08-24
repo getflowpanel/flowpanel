@@ -30,19 +30,19 @@ function declarations(theme: ThemeConfig): string[] {
 }
 
 /**
- * Emits `theme.accent` and `theme.cssVars` as `:root` overrides. Root scope, not a
- * wrapper element, because dialogs and drawers portal to `document.body` and would
- * otherwise fall back to the defaults. `theme.accentDark` goes out as a
- * `:root.dark` rule — higher specificity than both, so it wins exactly when the
- * dark class is on `<html>`.
+ * Emits theme overrides only inside Flowpanel roots and namespaced portals.
+ * Host application tokens and its own dark-mode convention remain untouched.
  */
 export function ThemeVars({ theme }: { theme: ThemeConfig | undefined }) {
   if (!theme) return null;
   const decls = declarations(theme);
+  const targets = "[data-flowpanel-root],[data-flowpanel-portal]";
+  const darkTargets =
+    'html[data-flowpanel-theme="dark"] [data-flowpanel-root],html[data-flowpanel-theme="dark"] [data-flowpanel-portal],[data-flowpanel-root][data-theme="dark"],[data-flowpanel-portal][data-theme="dark"]';
   const dark = theme.accentDark
-    ? `:root.dark{--fp-accent:${normalizeAccent(theme.accentDark).replace(UNSAFE, "")}}`
+    ? `${darkTargets}{--fp-accent:${normalizeAccent(theme.accentDark).replace(UNSAFE, "")}}`
     : "";
   if (decls.length === 0 && !dark) return null;
-  const root = decls.length > 0 ? `:root{${decls.join(";")}}` : "";
+  const root = decls.length > 0 ? `${targets}{${decls.join(";")}}` : "";
   return <style>{`${root}${dark}`}</style>;
 }

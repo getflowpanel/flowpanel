@@ -22,9 +22,11 @@ export const siteConfig = {
     github: "https://github.com/getflowpanel/flowpanel",
     issues: "https://github.com/getflowpanel/flowpanel/issues",
     discussions: "https://github.com/getflowpanel/flowpanel/discussions",
-    // Hosted demo of examples/ai-scraper. Empty until one is deployed — the
-    // landing section falls back to the source links rather than linking nowhere.
-    demo: process.env.NEXT_PUBLIC_DEMO_URL ?? "",
+    // Hosted demo of examples/ai-scraper. Local development points at the
+    // canonical showcase automatically; deployments provide their public URL.
+    demo:
+      process.env.NEXT_PUBLIC_DEMO_URL?.trim() ||
+      (process.env.NODE_ENV === "development" ? "http://localhost:3100/admin" : ""),
   },
 
   /** Runnable examples in the repo, surfaced from the landing page. */

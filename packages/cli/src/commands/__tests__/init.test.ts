@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tpl } from "../../utils/template.js";
-import { guessedPaths } from "../init.js";
+import { guessedPaths, patchLayoutWithSuppressHydration } from "../init.js";
 
 describe("guessedPaths", () => {
   it("uses the @/ alias when the project has one", () => {
@@ -44,7 +44,9 @@ describe("init templates (resolution)", () => {
     const out = await tpl("api-route.ts.txt", { CONFIG_IMPORT: "../../../../flowpanel.config" });
     expect(out).toContain('from "@flowpanel/kit/next"');
     expect(out).toContain('import config from "../../../../flowpanel.config"');
-    expect(out).toContain("export const { GET, POST } = handlers(config)");
+    expect(out).toContain(
+      "export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers",
+    );
     expect(out).toContain('runtime = "nodejs"');
   });
 
@@ -59,7 +61,7 @@ describe("init templates (resolution)", () => {
     const out = await tpl("admin-page.tsx.txt", { CONFIG_IMPORT: "../../../flowpanel.config" });
     expect(out).toContain('from "@flowpanel/kit/next"');
     expect(out).toContain('import config from "../../../flowpanel.config"');
-    expect(out).toContain("export default Flowpanel(config)");
+    expect(out).toContain("export default flowpanel.page");
   });
 
   it("app-layout template substitutes APP_NAME + CSS_IMPORT", async () => {
@@ -112,5 +114,37 @@ describe("init templates (resolution)", () => {
     const out = await tpl("tailwind.config.v3.ts.txt");
     expect(out).toContain('"./node_modules/@flowpanel/*/dist/**/*.{js,mjs}"');
     expect(out).toContain('"./node_modules/.pnpm/node_modules/@flowpanel/*/dist/**/*.{js,mjs}"');
+  });
+});
+
+describe("patchLayoutWithSuppressHydration", () => {
+  it("adds the attribute to an <html> tag that has other props", () => {
+    const out = patchLayoutWithSuppressHydration('<html lang="en">');
+    expect(out).toBe('<html lang="en" suppressHydrationWarning>');
+  });
+
+  it("adds the attribute to a bare <html> tag", () => {
+    expect(patchLayoutWithSuppressHydration("<html>")).toBe("<html suppressHydrationWarning>");
+  });
+
+  it("handles a multi-line <html> tag", () => {
+    const src = '<html\n  lang="en"\n  className="x"\n>';
+    expect(patchLayoutWithSuppressHydration(src)).toBe(
+      '<html\n  lang="en"\n  className="x" suppressHydrationWarning\n>',
+    );
+  });
+
+  it("returns null when the attribute is already there", () => {
+    expect(
+      patchLayoutWithSuppressHydration('<html lang="en" suppressHydrationWarning>'),
+    ).toBeNull();
+  });
+
+  it("returns null when there is no <html> tag to patch", () => {
+    expect(patchLayoutWithSuppressHydration("export default function L() {}")).toBeNull();
+  });
+
+  it("leaves an <htmlSomething> identifier alone", () => {
+    expect(patchLayoutWithSuppressHydration("const htmlFoo = 1;")).toBeNull();
   });
 });

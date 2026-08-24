@@ -38,8 +38,12 @@ export function Drawer({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/70" />
+        <DialogPrimitive.Overlay
+          data-flowpanel-portal=""
+          className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/70"
+        />
         <DialogPrimitive.Content
+          data-flowpanel-portal=""
           className={cn(
             "fp-anim-sheet-right fixed right-0 top-0 z-50 flex h-dvh max-w-full flex-col border-l border-fp-border-1 bg-fp-bg-1 shadow-fp-lg",
             WIDTH_CLASS[width],

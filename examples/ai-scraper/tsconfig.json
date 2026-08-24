@@ -21,13 +21,14 @@
     "isolatedModules": true
   },
   "include": [
+    ".next/types/**/*.ts",
     "app/**/*",
-    "src/**/*",
-    "scripts/**/*",
+    "drizzle.config.ts",
     "instrumentation.ts",
     "next.config.ts",
-    "drizzle.config.ts",
-    ".next/types/**/*.ts"
+    "scripts/**/*",
+    "src/**/*",
+    ".next/e2e/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

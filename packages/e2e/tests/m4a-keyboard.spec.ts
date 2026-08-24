@@ -16,7 +16,7 @@ import { expect, test } from "@playwright/test";
  */
 test.describe("M4a — keyboard navigation", () => {
   test("skip link is first focusable and jumps to main; Esc closes drawer", async ({ page }) => {
-    await page.goto("/admin/users");
+    await page.goto("/admin/customers");
     await page.locator("tbody tr").first().waitFor({ state: "visible" });
 
     // (1) The skip link must be the first thing a keyboard user reaches, so it

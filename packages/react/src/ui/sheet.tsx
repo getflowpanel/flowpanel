@@ -15,6 +15,7 @@ const SheetOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
+    data-flowpanel-portal=""
     ref={ref}
     className={cn("fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/70", className)}
     {...props}
@@ -45,7 +46,12 @@ const SheetContent = React.forwardRef<
 >(({ side = "right", className, children, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
-    <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+    <SheetPrimitive.Content
+      ref={ref}
+      data-flowpanel-portal=""
+      className={cn(sheetVariants({ side }), className)}
+      {...props}
+    >
       {children}
       <SheetPrimitive.Close className="absolute right-4 top-4 rounded-fp-sm p-1 text-fp-text-3 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 disabled:pointer-events-none">
         <X className="h-4 w-4" />

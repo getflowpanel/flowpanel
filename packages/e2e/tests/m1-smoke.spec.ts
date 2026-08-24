@@ -10,14 +10,13 @@ import { expect, test } from "@playwright/test";
  * Runs against examples/ai-scraper; requires ai-scraper + Postgres running
  * (db:push + db:seed applied — see playwright.config.ts webServer comment).
  * `/admin` itself is the Overview dashboard (covered by m2-smoke), so list
- * assertions target /admin/users ("Customers") and the create/edit flows
- * target /admin/products ("Catalog") — the one resource with declared form
- * fields.
+ * assertions target /admin/customers and the create/edit flows target
+ * /admin/products — both use the public resource DSL directly.
  */
 
 test("admin renders customers list from config", async ({ page }) => {
-  await page.goto("/admin/users");
-  // The users resource is labeled "Customers"; bare-string columns
+  await page.goto("/admin/customers");
+  // The customers resource uses a mix of explicit and bare-string columns;
   // (e.g. "email") humanize into their header labels.
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/customers/i);
   const headers = page.locator("table thead th");
@@ -25,25 +24,25 @@ test("admin renders customers list from config", async ({ page }) => {
 });
 
 test("keyboard nav: j moves cursor, Enter opens the row drawer", async ({ page }) => {
-  await page.goto("/admin/users");
+  await page.goto("/admin/customers");
   await page.locator("tbody").focus();
   await page.keyboard.press("j");
   await page.keyboard.press("Enter");
-  // users sets rowClick: "drawer", so Enter mirrors a row click — the
-  // URL-synced drawer opens as ?drawer=users:<id> (browsers percent-encode
+  // customers sets rowClick: "drawer", so Enter mirrors a row click — the
+  // URL-synced drawer opens as ?drawer=customers:<id> (browsers percent-encode
   // the ":" to %3A in the address bar).
-  await expect(page).toHaveURL(/drawer=users(?::|%3A)/);
+  await expect(page).toHaveURL(/drawer=customers(?::|%3A)/);
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 
 test("create flow: new catalog product", async ({ page }) => {
   await page.goto("/admin/products/new");
-  // sku, title (label "Product"), category, ourPriceCents, and userId are
+  // sku, title (label "Product"), category, ourPriceCents, and customerId are
   // NOT NULL — fill them all. "Customer" is a reference picker (combobox),
-  // so pick the first seeded user instead of typing.
+  // so pick the first seeded customer instead of typing.
   await page.getByLabel("SKU").fill(`SKU-${Date.now()}`);
   await page.getByLabel("Product").fill("E2E test product");
-  await page.getByLabel("Category").selectOption("Electronics");
+  await page.getByLabel("Category").selectOption("Headphones");
   await page.getByLabel(/our price/i).fill("1999");
   await page.getByRole("combobox", { name: "Customer" }).click();
   // Scope to the open listbox — the page's Category <select> also carries

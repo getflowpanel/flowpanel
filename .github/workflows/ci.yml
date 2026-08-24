@@ -36,6 +36,12 @@ jobs:
 
       - run: pnpm test:unit
 
+      - name: Production dependency audit (high/critical)
+        run: pnpm audit --prod --audit-level high
+
+      - name: Packed CLI clean-room install
+        run: pnpm check:cli-package
+
       # ── Publish-readiness gates (scripts added by package owners) ──────────
       - name: publint (package.json export correctness)
         run: pnpm -r --filter "./packages/*" --filter "!@flowpanel/e2e" run lint:publish
@@ -87,13 +93,24 @@ jobs:
         run: pnpm tsx scripts/check-file-sizes.ts
 
       - name: Docs match the packages
-        run: pnpm tsx scripts/check-docs.ts
+        run: pnpm check:docs
+
+      - name: Release metadata, examples and public links agree
+        run: pnpm check:release
+
+      - name: No circular package imports
+        run: pnpm check:cycles
+
+      - name: Aggregated changelog is current
+        run: |
+          pnpm --filter @flowpanel/site changelog
+          git diff --exit-code -- apps/site/content/changelog/index.mdx
 
       - name: Bundle-size budgets (.size-limit.json)
         run: pnpm --filter @flowpanel/kit exec size-limit
 
       - name: Changesets name real workspace packages
-        run: pnpm exec changeset status
+        run: pnpm check:changesets
 
       - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -102,8 +119,8 @@ jobs:
 
   # ── E2E tests against ai-scraper ────────────────────────────────────
   # Boots the actual ai-scraper example with a real Postgres service,
-  # runs db:push + seed, then runs Playwright (config in packages/e2e/
-  # spawns `pnpm --filter ai-scraper dev` as its webServer).
+  # Playwright starts packages/e2e/start-server.ts, which prepares the isolated
+  # database before spawning the ai-scraper development server.
   e2e:
     name: E2E tests
     runs-on: ubuntu-latest
@@ -151,24 +168,23 @@ jobs:
       - name: Install Playwright browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
         working-directory: packages/e2e
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Install Playwright system deps
         if: steps.pw-cache.outputs.cache-hit == 'true'
         working-directory: packages/e2e
-        run: pnpm exec playwright install-deps chromium
+        run: pnpm exec playwright install-deps chromium webkit
 
-      - name: Apply Drizzle schema to ai-scraper DB
-        working-directory: examples/ai-scraper
-        run: pnpm db:push
-
-      - name: Seed ai-scraper DB
-        working-directory: examples/ai-scraper
-        run: pnpm db:seed
-
-      - name: Run Playwright (boots ai-scraper via webServer)
+      - name: Run Playwright (prepares DB, then boots ai-scraper)
         working-directory: packages/e2e
         run: pnpm exec playwright test
+
+      - name: Verify public demo is read-only at the UI and HTTP boundaries
+        working-directory: packages/e2e
+        env:
+          E2E_BASE_URL: http://localhost:3101
+          DEMO_MODE: "true"
+        run: pnpm exec playwright test demo-public-mode.spec.ts --project=chromium
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
@@ -189,11 +205,24 @@ jobs:
       - run: pnpm build
       - run: pnpm test:unit
 
+  # ── Windows CLI smoke ────────────────────────────────────────────────────
+  windows-cli:
+    name: Windows CLI smoke test
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @flowpanel/cli build
+      - run: pnpm --filter @flowpanel/cli typecheck
+      - run: pnpm --filter @flowpanel/cli test:unit
+      - run: pnpm check:cli-package
+
   # ── Aggregate gate: a single required status for branch protection ───────
   ci-success:
     name: CI success
     if: always()
-    needs: [check, e2e, macos]
+    needs: [check, e2e, macos, windows-cli]
     runs-on: ubuntu-latest
     steps:
       - name: All required jobs passed

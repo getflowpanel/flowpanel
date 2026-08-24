@@ -12,6 +12,7 @@
     "react-components",
     "next-runtime",
     "client",
+    "runtime-contracts",
     "adapters",
     "scope-realtime",
     "errors",

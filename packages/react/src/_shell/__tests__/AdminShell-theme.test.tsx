@@ -13,7 +13,11 @@ import { useComponents } from "../../_provider/useComponents.js";
 import { AdminShell } from "../AdminShell.js";
 import { FlowpanelGlobals } from "../FlowpanelGlobals.js";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  delete document.documentElement.dataset.flowpanelTheme;
+});
 
 function Probe() {
   const { EmptyState } = useComponents();
@@ -21,6 +25,20 @@ function Probe() {
 }
 
 describe("FlowpanelGlobals — themeComponents prop", () => {
+  it("applies the configured theme after a client-side mount", async () => {
+    localStorage.removeItem("fp-theme");
+    render(
+      <FlowpanelGlobals themeMode="dark">
+        <div>content</div>
+      </FlowpanelGlobals>,
+    );
+
+    await vi.waitFor(() => expect(document.documentElement.dataset.flowpanelTheme).toBe("dark"));
+    expect(document.querySelector("[data-flowpanel-root]")?.getAttribute("data-theme")).toBe(
+      "dark",
+    );
+  });
+
   it("provides ComponentsProvider with the override applied", () => {
     function Custom({ title }: { title: string }) {
       return <div data-testid="custom-empty">{title.toUpperCase()}</div>;

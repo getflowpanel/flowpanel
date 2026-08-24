@@ -11,8 +11,10 @@ const KIT_NEXT_CLIENT = path.join(HERE, "../next-client.ts");
 const KIT_PACKAGE_JSON = path.join(HERE, "../../package.json");
 const KIT_TSUP_CONFIG = path.join(HERE, "../../tsup.config.ts");
 
-/** Names an entry barrel exposes: `export { a, type B } from …` plus local `export`ed declarations. */
-function exportedNames(file: string): Set<string> {
+/** Names an entry barrel exposes, including the kit's canonical core star re-export. */
+function exportedNames(file: string, visited = new Set<string>()): Set<string> {
+  if (visited.has(file)) return new Set();
+  visited.add(file);
   const source = ts.createSourceFile(
     file,
     readFileSync(file, "utf8"),
@@ -25,6 +27,12 @@ function exportedNames(file: string): Set<string> {
       const clause = stmt.exportClause;
       if (clause && ts.isNamedExports(clause)) {
         for (const spec of clause.elements) names.add(spec.name.text);
+      } else if (
+        stmt.moduleSpecifier &&
+        ts.isStringLiteral(stmt.moduleSpecifier) &&
+        stmt.moduleSpecifier.text === "@flowpanel/core"
+      ) {
+        for (const name of exportedNames(CORE_INDEX, visited)) names.add(name);
       }
       continue;
     }

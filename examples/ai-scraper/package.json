@@ -5,8 +5,9 @@
   "description": "FlowPanel end-to-end demo — AI web-scraping SaaS ops admin on Drizzle + Postgres",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
+    "test:unit": "vitest run",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
@@ -18,15 +19,16 @@
   "dependencies": {
     "@flowpanel/adapter-bullmq": "workspace:*",
     "@flowpanel/core": "workspace:*",
+    "@flowpanel/react": "workspace:*",
     "bullmq": "^5.0.0",
-    "drizzle-orm": "^0.36.0",
+    "drizzle-orm": "^0.45.2",
     "@flowpanel/kit": "workspace:*",
-    "next": "^15.0.0",
+    "next": "^16.3.1",
     "pg": "^8.13.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^2.15.0",
-    "zod": "^3.23.0"
+    "recharts": "^3.0.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
@@ -34,10 +36,11 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@tailwindcss/postcss": "^4.0.0",
-    "drizzle-kit": "^0.28.0",
-    "postcss": "^8.4.0",
+    "drizzle-kit": "^0.31.10",
+    "postcss": "^8.5.26",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.0.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

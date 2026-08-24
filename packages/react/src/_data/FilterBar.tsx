@@ -1,5 +1,6 @@
 "use client";
 import type { FilterType } from "@flowpanel/core";
+import { humanize } from "../lib/humanize.js";
 import { BooleanFilter } from "./filters/BooleanFilter.js";
 import { DateRangeFilter } from "./filters/DateRangeFilter.js";
 import { MultiSelectFilter } from "./filters/MultiSelectFilter.js";
@@ -37,7 +38,7 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
         const common = {
           value: v,
           onChange: (nv: string | null) => onChange(f.field, nv),
-          ...(f.label ? { label: f.label } : {}),
+          label: f.label ?? humanize(f.field),
           ...(f.placeholder ? { placeholder: f.placeholder } : {}),
         } as const;
         switch (f.type) {

@@ -10,7 +10,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/adapter-drizzle"
   },
   "type": "module",
@@ -51,7 +51,7 @@
     "node": ">=20"
   },
   "peerDependencies": {
-    "drizzle-orm": ">=0.36.0 <1.0.0",
+    "drizzle-orm": ">=0.45.2 <1.0.0",
     "zod": "^4.0.0"
   },
   "files": [
@@ -70,7 +70,7 @@
     "@types/node": "catalog:",
     "@types/pg": "^8.11.0",
     "better-sqlite3": "^12.9.0",
-    "drizzle-orm": "^0.45.0",
+    "drizzle-orm": "^0.45.2",
     "mysql2": "^3.22.2",
     "pg": "^8.11.0",
     "postgres": "^3.4.0",

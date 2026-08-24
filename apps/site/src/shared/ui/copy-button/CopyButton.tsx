@@ -27,7 +27,7 @@ export function CopyButton({ text, label = "copy" }: CopyButtonProps) {
         });
       }}
       aria-label={copied ? "Copied to clipboard" : `Copy "${text}" to clipboard`}
-      className="inline-flex items-center gap-1.5 font-mono text-xs text-[var(--color-fg-subtle)] transition-colors hover:text-[var(--color-fg)]"
+      className="-my-2 -mr-2 inline-flex min-h-11 shrink-0 touch-manipulation items-center gap-1.5 rounded-md px-2 font-mono text-xs text-[var(--color-fg-subtle)] transition-colors duration-200 hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-fg)] active:bg-[var(--color-bg-elevated)]"
     >
       {copied ? (
         <Check aria-hidden className="h-3.5 w-3.5 text-[var(--color-accent)]" />

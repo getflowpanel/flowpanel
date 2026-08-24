@@ -19,7 +19,8 @@ unit, font stacks, and motion durations/easings. Color tokens are HSL
 triplets:
 
 ```css
-:root {
+[data-flowpanel-root],
+[data-flowpanel-portal] {
   --fp-bg-1: 0 0% 100%;
   --fp-text-1: 224 25% 11%;
   --fp-accent: 220 90% 50%;
@@ -31,20 +32,28 @@ triplets:
 }
 ```
 
-A `.dark` block overrides the same properties for dark mode. On Tailwind
-v4, a `@theme` block at the bottom of the file maps each token into
+Dark tokens apply only below `html[data-flowpanel-theme="dark"]` and on
+explicit `[data-theme="dark"]` FlowPanel roots. Host-app `.dark` classes and
+`:root` variables are intentionally ignored, so installing FlowPanel cannot
+recolor the rest of your product. On Tailwind v4, a `@theme` block at the
+bottom of the file maps each token into
 Tailwind's theme, so utilities like `bg-fp-bg-1`, `text-fp-text-1`,
 `border-fp-border-1`, and `rounded-fp` exist as first-class Tailwind
 classes:
 
 ```css
-@theme {
+@theme inline {
   --color-fp-bg-1: hsl(var(--fp-bg-1));
   --color-fp-accent: hsl(var(--fp-accent));
   --radius-fp: var(--fp-radius);
   /* ... */
 }
 ```
+
+The `inline` modifier is intentional. FlowPanel's source tokens live on its
+namespaced roots rather than `:root`; inline theme values therefore resolve in
+the component's own scope and keep both Tailwind utilities and host-style
+isolation working.
 
 The full token list is the stylesheet itself. Two places to read it: the copy
 `flowpanel init` wrote into your project (`styles/admin.css`, or
@@ -70,7 +79,8 @@ the built code that ships to `node_modules`):
 @source "../node_modules/@flowpanel/*/dist";
 @source "../node_modules/.pnpm/node_modules/@flowpanel/*/dist";
 
-:root {
+[data-flowpanel-root],
+[data-flowpanel-portal] {
   --fp-bg-1: 0 0% 100%;
   /* ...design tokens... */
 }
@@ -181,8 +191,8 @@ export default defineAdmin({
 - **`accent`** is an HSL triplet (`"262 83% 58%"`), not an `hsl(...)`
   wrapper — the tokens are consumed as `hsl(var(--fp-accent))` internally.
   A wrapped value is unwrapped for you if you write it anyway.
-- **`accentDark`** re-declares the accent for dark mode (emitted as a
-  `:root.dark` rule). Accents tuned for light surfaces usually fail WCAG
+- **`accentDark`** re-declares the accent for namespaced dark roots and
+  portals. Accents tuned for light surfaces usually fail WCAG
   contrast on dark ones — pass a re-lightened triplet here whenever you
   set a custom `accent`. Focus rings follow automatically via
   `--fp-ring`.
@@ -192,9 +202,9 @@ export default defineAdmin({
   [Theme slots → Dark mode and persistence](/docs/customization/theme-slots#dark-mode-and-persistence).
 - **`cssVars`** overrides any `--fp-*` token directly, e.g. tightening
   the corner radius admin-wide.
-- **`accent`** and **`cssVars`** are emitted on `:root`, so they reach
-  dialogs and drawers too — those portal to `document.body` and would
-  miss a scoped wrapper element.
+- **`accent`** and **`cssVars`** are emitted for `[data-flowpanel-root]` and
+  `[data-flowpanel-portal]`. Dialogs and drawers carry the portal marker, so
+  they inherit the same theme without leaking variables into the host app.
 
 The full `ThemeConfig` property table (including `brand`, `components`,
 and `user`) lives on
@@ -202,7 +212,7 @@ and `user`) lives on
 
 ### Dark-mode token pairs
 
-The `.dark` class in `admin.css` overrides backgrounds, text, borders,
+The namespaced dark selectors in `admin.css` override backgrounds, text, borders,
 shadows, the chart palette, the five badge `-text` tokens, and — as of
 the design-system pass — the *default* `--fp-accent`, which is
 re-lightened for dark surfaces while `--fp-accent-text` flips dark to
@@ -246,9 +256,9 @@ something's missing).
 
 | Package | react | react-dom | next | tailwindcss | zod | other peers |
 |---|---|---|---|---|---|---|
-| `@flowpanel/react` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | — |
-| `@flowpanel/next` | `^19.0.0` | `^19.0.0` | `^15.0.0` | — | `^4.0.0` | — |
-| `@flowpanel/kit` | `^19.0.0` | `^19.0.0` | `^15.0.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | `drizzle-orm` `>=0.36.0 <1.0.0` (optional), `@prisma/client` `>=5.0.0 <7.0.0` (optional), `bullmq` `^5.0.0` (optional), `ioredis` `^5.10.0` (optional), `recharts` `^2.15.0 \|\| ^3.0.0` (optional, for `@flowpanel/kit/charts`), `@bull-board/api` + `@bull-board/express` `^6.0.0` and `express` `^4.19.0` (optional, for `@flowpanel/kit/bullmq/board`) |
+| `@flowpanel/react` | `^19.0.0` | `^19.0.0` | `^16.3.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | — |
+| `@flowpanel/next` | `^19.0.0` | `^19.0.0` | `^16.3.0` | — | `^4.0.0` | — |
+| `@flowpanel/kit` | `^19.0.0` | `^19.0.0` | `^16.3.0` | `^3.0.0 \|\| ^4.0.0` | `^4.0.0` | `drizzle-orm` `>=0.45.2 <1.0.0` (optional), `@prisma/client` `>=5.0.0 <7.0.0` (optional), `bullmq` `^5.0.0` (optional), `ioredis` `^5.10.0` (optional), `recharts` `^2.15.0 \|\| ^3.0.0` (optional, for `@flowpanel/kit/charts`), `@bull-board/api` + `@bull-board/express` `^6.0.0` and `express` `^4.19.0` (optional, for `@flowpanel/kit/bullmq/board`) |
 | `@flowpanel/charts` | `^19.0.0` | — | — | — | — | `recharts` `^2.15.0 \|\| ^3.0.0` |
 | `@flowpanel/client` | `^19.0.0` | — | — | — | — | — |
 

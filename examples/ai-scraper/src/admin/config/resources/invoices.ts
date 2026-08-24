@@ -1,22 +1,47 @@
-import { resource } from "@flowpanel/kit";
-import { eq } from "drizzle-orm";
+import { resource, rowAction } from "@flowpanel/kit";
+import { refundPaidInvoice } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
-import { refundInvoice } from "@/src/lib/billing";
-import { badge, formatDate, formatMonth, money } from "../format";
+import { badge, formatDate, formatMonth, money } from "../../format";
+
+type Invoice = typeof schema.invoices.$inferSelect;
+type RefundInput = { reason: string };
+
+const refund = rowAction<Invoice, RefundInput>({
+  key: "refund",
+  label: "Refund",
+  icon: "circle-dollar-sign",
+  variant: "destructive",
+  confirm: {
+    title: "Refund this invoice?",
+    description: "Issues a Stripe refund, then marks the invoice refunded.",
+  },
+  form: [
+    {
+      name: "reason",
+      label: "Reason",
+      type: "textarea",
+      placeholder: "Duplicate charge, service issue…",
+      required: true,
+    },
+  ],
+  hidden: (row) => row.status !== "paid",
+  run: refundPaidInvoice,
+});
 
 export const invoices = resource(schema.invoices, {
+  name: "invoices",
   label: "Invoices",
   labelOne: "Invoice",
-  // Issued by the billing pipeline, so both forms are disabled below — Refund
-  // is the only sanctioned write.
+  icon: "credit-card",
+  hidden: true,
   columns: [
     {
-      field: "userId",
+      field: "customerId",
       label: "Customer",
-      reference: { resource: "users", labelField: "email" },
+      reference: { resource: "customers", labelField: "company" },
     },
     { field: "amountCents", label: "Amount", align: "right", format: money },
-    { field: "status", label: "Status", format: badge },
+    { field: "status", format: badge },
     { field: "periodStart", label: "Period", render: (i) => formatMonth(i.periodStart) },
     { field: "createdAt", label: "Created", render: (i) => formatDate(i.createdAt) },
   ],
@@ -24,7 +49,6 @@ export const invoices = resource(schema.invoices, {
     {
       field: "status",
       type: "select",
-      label: "Status",
       options: [
         { label: "Open", value: "open" },
         { label: "Paid", value: "paid" },
@@ -36,26 +60,7 @@ export const invoices = resource(schema.invoices, {
   defaultSort: { field: "createdAt", dir: "desc" },
   create: { disabled: true },
   update: { disabled: true },
-  actions: [
-    {
-      key: "refund",
-      label: "Refund",
-      variant: "destructive",
-      confirm: {
-        title: "Refund this invoice?",
-        description: "Issues a Stripe refund, then marks the invoice refunded.",
-      },
-      hidden: (row) => row.status !== "paid",
-      run: async (row, _input, ctx) => {
-        await refundInvoice(row.stripeId);
-        await ctx.db
-          .update(schema.invoices)
-          .set({ status: "refunded" })
-          .where(eq(schema.invoices.id, row.id));
-        return { ok: true, message: "Invoice refunded", refresh: true };
-      },
-    },
-  ],
+  actions: [refund],
   rowClick: "drawer",
   drawer: {
     width: "md",
@@ -77,8 +82,8 @@ export const invoices = resource(schema.invoices, {
       {
         key: "customer",
         label: "Customer",
-        resource: "users",
-        filter: (row) => ({ id: row.userId }),
+        resource: "customers",
+        filter: (row) => ({ id: row.customerId }),
       },
     ],
   },

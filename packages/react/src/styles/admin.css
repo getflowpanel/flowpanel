@@ -1,7 +1,8 @@
 /* FlowPanel design tokens — CSS custom properties + motion + theme map.
    Every visual decision routes through a --fp-* token so host apps can
    re-theme the admin without touching component code. */
-:root {
+[data-flowpanel-root],
+[data-flowpanel-portal] {
   color-scheme: light;
 
   /* Color (HSL triplets) */
@@ -86,7 +87,10 @@
   --fp-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.dark {
+html[data-flowpanel-theme="dark"] [data-flowpanel-root],
+html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
+[data-flowpanel-root][data-theme="dark"],
+[data-flowpanel-portal][data-theme="dark"] {
   color-scheme: dark;
 
   --fp-bg-1: 222 18% 8%;
@@ -133,7 +137,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root {
+  [data-flowpanel-root],
+  [data-flowpanel-portal] {
     --fp-duration-fast: 0ms;
     --fp-duration: 0ms;
     --fp-duration-slow: 0ms;
@@ -424,13 +429,16 @@
    other interactive primitive carries its own :focus-visible style, but the
    raw nav links did not. Scoped to FlowPanel's own nav so it never restyles
    the host app's links. */
-nav[aria-label="Admin"] a:focus-visible {
+[data-flowpanel-root] nav[aria-label="Admin"] a:focus-visible {
   outline: 2px solid hsl(var(--fp-ring));
   outline-offset: 2px;
   border-radius: var(--fp-radius-sm);
 }
 
-@theme {
+/* `inline` is required because the --fp-* values live on the namespaced
+   FlowPanel root, not on :root. Without it Tailwind first resolves
+   --color-fp-* on :root, where the source token is intentionally absent. */
+@theme inline {
   --color-fp-bg-1: hsl(var(--fp-bg-1));
   --color-fp-bg-2: hsl(var(--fp-bg-2));
   --color-fp-bg-3: hsl(var(--fp-bg-3));

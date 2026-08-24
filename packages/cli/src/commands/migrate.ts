@@ -5,9 +5,11 @@ import type { Command } from "commander";
 import pc from "picocolors";
 import { detectPackageManager, fileExists, pmCommands } from "../utils/detect.js";
 import { log } from "../utils/log.js";
+import { writeJson } from "../utils/output.js";
 
 interface MigrateOptions {
   dryRun?: boolean;
+  json?: boolean;
 }
 
 interface MigrationAdapter {
@@ -105,8 +107,9 @@ export function migrateCommand(cli: Command): void {
     .command("migrate")
     .description("Apply SQL migrations from flowpanel/migrations/")
     .option("--dry-run", "Print migrations that would be applied without running them")
+    .option("--json", "Emit machine-readable JSON")
     .action(async (opts: MigrateOptions) => {
-      p.intro(pc.bgMagenta(pc.black(" FlowPanel migrate ")));
+      if (!opts.json) p.intro(pc.bgMagenta(pc.black(" FlowPanel migrate ")));
 
       const cwd = process.cwd();
       const dir = path.join(cwd, "flowpanel", "migrations");
@@ -115,13 +118,9 @@ export function migrateCommand(cli: Command): void {
         .filter((f) => f.endsWith(".sql"))
         .sort();
       if (files.length === 0) {
-        p.outro(pc.yellow(`No migrations found in ${path.relative(cwd, dir)}`));
-        return;
-      }
-
-      if (opts.dryRun) {
-        for (const f of files) log.info(`would apply: ${f}`);
-        p.outro(pc.dim(`${files.length} migration${files.length === 1 ? "" : "s"} (dry run)`));
+        if (opts.json) {
+          writeJson({ command: "migrate", applied: false, pending: [], reason: "no-migrations" });
+        } else p.outro(pc.yellow(`No migrations found in ${path.relative(cwd, dir)}`));
         return;
       }
 
@@ -177,22 +176,49 @@ export function migrateCommand(cli: Command): void {
       }
 
       const applied = await listAppliedMigrations();
+      const pending = files.filter((file) => !applied.has(file.replace(/\.sql$/, "")));
+
+      if (opts.dryRun) {
+        if (opts.json) {
+          writeJson({
+            command: "migrate",
+            applied: false,
+            pending: pending.map((file) => file.replace(/\.sql$/, "")),
+            alreadyApplied: files.length - pending.length,
+          });
+        } else {
+          for (const file of pending) log.info(`would apply: ${file}`);
+          p.outro(
+            pc.dim(`${pending.length} migration${pending.length === 1 ? "" : "s"} (dry run)`),
+          );
+        }
+        return;
+      }
 
       let ran = 0;
+      const appliedNow: string[] = [];
       for (const f of files) {
         const id = f.replace(/\.sql$/, "");
         if (applied.has(id)) {
-          log.info(`${id} — already applied`);
+          if (!opts.json) log.info(`${id} — already applied`);
           continue;
         }
         const sql = await fs.readFile(path.join(dir, f), "utf8");
         await runMigrationSql(sql);
         await markMigrationApplied(id);
-        log.ok(`${id} applied`);
+        appliedNow.push(id);
+        if (!opts.json) log.ok(`${id} applied`);
         ran++;
       }
 
-      if (ran === 0) {
+      if (opts.json) {
+        writeJson({
+          command: "migrate",
+          applied: true,
+          migrations: appliedNow,
+          alreadyApplied: files.length - appliedNow.length,
+        });
+      } else if (ran === 0) {
         p.outro(pc.dim("All migrations up to date."));
       } else {
         p.outro(pc.green(`${ran} migration${ran === 1 ? "" : "s"} applied`));

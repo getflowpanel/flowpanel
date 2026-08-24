@@ -16,40 +16,57 @@ Actions never become Server Actions. They are POST routes under
 Offered on a single row, inline or in the row menu.
 
 ```ts
-import { resource } from "@flowpanel/kit";
+import { resource, rowAction } from "@flowpanel/kit";
 import { orders } from "@/db/schema";
 
+type RefundInput = { reason: string };
+
+const refundOrder = rowAction<typeof orders.$inferSelect, RefundInput>({
+  key: "refund",
+  label: "Refund",
+  icon: "circle-dollar-sign",
+  variant: "destructive",
+  confirm: { title: "Refund this order?", confirmLabel: "Refund" },
+  requireRole: "admin",
+  disabled: (row) => (row.status === "refunded" ? "Already refunded" : false),
+  form: [{ name: "reason", label: "Reason", type: "textarea", required: true }],
+  run: async (row, input, ctx) => {
+    await refund(ctx.db, row.id, input.reason);
+    return { ok: true, message: `Refunded ${row.id}`, refresh: true };
+  },
+});
+
 resource(orders, {
-  columns: ["id", "status", "refundNote"],
-  actions: [
-    {
-      key: "refund",
-      label: "Refund",
-      variant: "destructive",
-      confirm: { title: "Refund this order?", confirmLabel: "Refund" },
-      requireRole: "admin",
-      disabled: (row) => (row.status === "refunded" ? "Already refunded" : false),
-      form: [{ name: "refundNote", label: "Reason", required: true }],
-      run: async (row, input, ctx) => {
-        await refund(ctx.db, row.id, (input as { refundNote: string }).refundNote);
-        return { ok: true, message: `Refunded ${row.id}`, refresh: true };
-      },
-    },
-  ],
+  columns: ["id", "status"],
+  actions: [refundOrder],
 });
 ```
 
-<Callout type="warn">
-An action's `form` is a `FieldDef<Row>[]`, and `FieldDef.name` is
-`keyof Row & string` — the **row's** columns, not an ad-hoc input name. The
-sample uses `refundNote` because that is a real column on `orders`; a
-`{ name: "reason" }` field on a table without a `reason` column does not
-compile. Action form fields must be real columns: collecting an input that
-has no column behind it is not supported.
+The form describes an action-specific `ActionInput`, not columns on the row.
+Use `rowAction<Row, Input>()` to get exact types for both handler arguments and
+compile-time checks for every `form[].name`. The helper returns the same plain
+object you could write inline; it has no runtime cost.
 
-Either add the column, or drop `form` and collect the input in your own
-`"use client"` component that POSTs to the action route.
-</Callout>
+```ts twoslash
+import { rowAction } from "@flowpanel/kit";
+
+type User = { id: string; status: "active" | "suspended" };
+type SuspendInput = { reason: string; notify: boolean };
+
+export const suspendUser = rowAction<User, SuspendInput>({
+  key: "suspend",
+  label: "Suspend",
+  icon: "ban",
+  form: [
+    { name: "reason", type: "textarea", required: true },
+    { name: "notify", type: "checkbox" },
+  ],
+  run: async (user, input) => ({
+    ok: true,
+    message: `${user.id}: ${input.reason}`,
+  }),
+});
+```
 
 <AutoTypeTable path="../../packages/core/src/types/action.ts" name="RowAction" />
 
@@ -66,6 +83,9 @@ half-applied. Page your own batches if you need more.
 
 <AutoTypeTable path="../../packages/core/src/types/action.ts" name="BulkAction" />
 
+Use `bulkAction<Row, Input>(definition)` when the bulk form has a typed
+payload. Its handler receives `string[]` ids followed by that input.
+
 When a resource has delete enabled and declares no `bulkActions`, `defineAdmin`
 adds a default delete action. Opt out with `bulkActions: []`.
 
@@ -74,6 +94,9 @@ adds a default delete action. Opt out with `bulkActions: []`.
 Rendered in a dashboard's page header. It gets no row — only the form input.
 
 <AutoTypeTable path="../../packages/core/src/types/action.ts" name="DashboardAction" />
+
+Use `dashboardAction<Input>(definition)` for the same typed form contract
+without a row type.
 
 Set `hideActionsBar: true` on the dashboard to suppress the bar these render in.
 
@@ -93,6 +116,9 @@ Rendered in the drawer footer for the open row. Its `form` uses the lighter
 What every `run` returns. The success shape drives what the operator sees next.
 
 <AutoTypeTable path="../../packages/core/src/types/action.ts" name="ActionResult" />
+
+`ActionInput` is the default `Record<string, unknown>` payload used when no
+more specific input type is supplied.
 
 Returning `{ ok: false, error }` is the way to fail a run cleanly — the message
 reaches the operator verbatim, so keep internals out of it. Throwing works too:

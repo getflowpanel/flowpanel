@@ -14,10 +14,9 @@ import {
   isAuditActive,
   maybeEmitAudit,
   notFoundResponse,
-  parseActionInputSchema,
   readActionInput,
-  validateActionOutput,
 } from "../runtime/action-helpers.js";
+import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema.js";
 import { applyActionResult } from "../runtime/apply-action-result.js";
 import { buildHref } from "../runtime/href.js";
 import { bindPublisher, publish } from "../runtime/publish.js";

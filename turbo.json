@@ -10,7 +10,7 @@
       "persistent": true
     },
     "test:unit": {
-      "outputs": [".vitest-cache/**"]
+      "outputs": []
     },
     "test:types": {
       "dependsOn": ["build"]

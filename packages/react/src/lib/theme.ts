@@ -35,18 +35,19 @@ export function writeStoredTheme(value: ThemeChoice): void {
   } catch {}
 }
 
-/** Toggle html.classList based on resolved theme. */
+/** Apply a namespaced theme marker without mutating the host app's `.dark` class. */
 export function applyThemeClass(choice: ThemeChoice): void {
   if (typeof document === "undefined") return;
-  const root = document.documentElement;
-  if (choice === "dark") root.classList.add("dark");
-  else root.classList.remove("dark");
+  document.documentElement.dataset.flowpanelTheme = choice;
+  for (const root of document.querySelectorAll<HTMLElement>("[data-flowpanel-root]")) {
+    root.dataset.theme = choice;
+  }
 }
 
-/** Toggle dark mode, persist the choice, and apply the class. */
+/** Toggle dark mode, persist the choice, and apply the namespaced marker. */
 export function toggleTheme(): ThemeChoice {
   const currentlyDark =
-    typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+    typeof document !== "undefined" && document.documentElement.dataset.flowpanelTheme === "dark";
   const next: ThemeChoice = currentlyDark ? "light" : "dark";
   writeStoredTheme(next);
   applyThemeClass(next);
@@ -55,5 +56,5 @@ export function toggleTheme(): ThemeChoice {
 
 /** Inline script body that runs before React hydration. */
 export function buildThemeInitScript(defaultMode: ThemeMode = "auto"): string {
-  return `(function(){try{var s=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var m=${JSON.stringify(defaultMode)};var sys=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;var d=s==='dark'||s==='light'?s==='dark':(m==='dark'||(m==='auto'&&sys));var r=document.documentElement;if(d)r.classList.add('dark');else r.classList.remove('dark');}catch(e){}})();`;
+  return `(function(){try{var s=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var m=${JSON.stringify(defaultMode)};var sys=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;var d=s==='dark'||s==='light'?s:(m==='dark'||(m==='auto'&&sys)?'dark':'light');document.documentElement.dataset.flowpanelTheme=d;}catch(e){}})();`;
 }

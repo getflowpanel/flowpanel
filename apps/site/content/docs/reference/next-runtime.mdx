@@ -1,14 +1,86 @@
 ---
 title: Next.js runtime
-description: The two mount points, the routes they serve, and the realtime helpers.
+description: createFlowpanel, generated pages, route handlers, protected controllers and realtime helpers.
 ---
 
-`@flowpanel/kit/next` is the bridge between your config and Next.js. It has two
-mount points and a handful of helpers for when you write routes of your own.
+`@flowpanel/kit/next` binds one config to every Next.js surface: the generated
+page, HTTP handlers, request-scoped protected controllers, client metadata and
+realtime publisher.
+
+## createFlowpanel
+
+Create one module-level runtime and reuse it from your route files:
+
+```ts
+// src/flowpanel.ts
+import { createFlowpanel } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
+export const flowpanel = createFlowpanel(config);
+```
+
+```ts
+// app/admin/[[...slug]]/page.tsx
+import { flowpanel } from "@/src/flowpanel";
+
+export default flowpanel.page;
+```
+
+```ts
+// app/api/flowpanel/[...route]/route.ts
+import { flowpanel } from "@/src/flowpanel";
+
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
+export const runtime = "nodejs";
+```
+
+`createFlowpanel(definition)` returns a frozen `FlowpanelRuntime`:
+
+| Member | Purpose |
+| --- | --- |
+| `page` | Generated catch-all page component. |
+| `handlers` | `FlowpanelHandlers` for REST and generated-UI routes. |
+| `request()` | Current request's protected `FlowpanelRequest`. |
+| `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/client`. |
+| `events.publish(channel, payload?)` | Namespaced, validated realtime event. |
+| `dispose()` | Idempotent runtime cleanup hook. |
+
+Payloads passed to `events.publish` must serialize to `WireValue`, use a valid
+channel name, and remain under 64 KiB. `FlowpanelClientMetadata` is safe to send
+to a client; it contains paths and protocol metadata, never sessions or adapter
+state.
+
+### Protected request controllers
+
+`await flowpanel.request()` authenticates once and returns a request-local
+`FlowpanelRequest`. Its typed `ResourceControllers` map exposes a
+`ResourceController<Row>` for each configured resource; `resource(name)` is the
+dynamic-name alternative. `ResourceListOptions<Row>` supports page, page size,
+search, filters, sort, projection and soft-delete visibility.
+
+```ts
+const request = await flowpanel.request();
+const result = await request.resources.orders.list({
+  pageSize: 25,
+  select: ["id", "status", "totalCents"],
+  sort: { field: "createdAt", dir: "desc" },
+});
+```
+
+Controllers return `FlowpanelResult` rather than throwing expected access,
+validation and not-found failures. They are not raw adapter shortcuts: every
+method applies admin/resource/operation policy, field projection, scope and
+the same mutation pipeline as the generated UI. Do not cache a
+`FlowpanelRequest` across requests.
+
+The `FlowpanelRuntime`, `FlowpanelRequest`, `ResourceControllers`,
+`ResourceController` and `ResourceListOptions` types are exported for custom
+server components and framework adapters.
 
 ## Flowpanel
 
-Returns the page component for the admin's catch-all route.
+`Flowpanel(config)` is the compatibility page factory used internally by
+`createFlowpanel(config).page`. Prefer the runtime when wiring a new app.
 
 ```ts
 export function Flowpanel(
@@ -47,14 +119,11 @@ embedding the admin inside chrome you already have. Its second parameter is
 
 ## handlers
 
-Returns the `GET` and `POST` handlers for the API catch-all. Every write route
-in the admin lives behind these.
+`handlers(config)` is the compatibility handler factory used internally by
+`createFlowpanel(config).handlers`. It returns the `FlowpanelHandlers` map:
 
 ```ts
-export function handlers(config: ResolvedAdminConfig): {
-  GET: (req: Request, ctx: { params: Promise<{ route?: string[] }> }) => Promise<Response>;
-  POST: (req: Request, ctx: { params: Promise<{ route?: string[] }> }) => Promise<Response>;
-};
+export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers;
 ```
 
 ```ts
@@ -62,8 +131,13 @@ export function handlers(config: ResolvedAdminConfig): {
 import { handlers } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
-export const { GET, POST } = handlers(config);
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = handlers(config);
 ```
+
+Each method is a `RouteHandler`: `(request, context) => Promise<Response>`.
+`RouteContext` carries the catch-all `route` params. Unsupported methods return
+the stable `method_not_allowed` envelope; `OPTIONS` advertises the enabled
+method/CORS contract.
 
 ### The routes it mounts
 
@@ -71,6 +145,11 @@ All paths are relative to `/api/flowpanel`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| `GET` | `/<resource>` | Typed list result for custom clients |
+| `GET` | `/<resource>/<id>` | One projected row |
+| `POST` | `/<resource>` | Create through the v1 JSON API |
+| `PATCH` / `PUT` | `/<resource>/<id>` | Update through the v1 JSON API |
+| `DELETE` | `/<resource>/<id>` | Delete through the v1 JSON API |
 | `GET` | `/drawer/<resource>/<id>` | Drawer payload for one row |
 | `GET` | `/<resource>/reference/<field>` | Options for a reference picker |
 | `POST` | `/<resource>/create` | Create form submit |
@@ -323,24 +402,16 @@ try {
 ## Navigation
 
 ```ts
-function buildNav(config: ResolvedAdminConfig): NavGroup[];
+function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): NavGroup[];
 function resourceNavName(resource: ResourceConfig): string;
 ```
 
 `buildNav` produces the same entries the sidebar and tab strip render, grouped
 as Dashboards, Pages, Resources and Queues. Useful when you build your own
-chrome around a `"bare"` shell.
-
-It filters on `hidden` only — **not** on `requireRole`. A resource gated to a
-role still appears in the nav for everyone; clicking it returns 403 rather than
-the list. Set `hidden: true` on the resource as well when the entry itself
-should not be advertised.
-
-That escape hatch is **resources only**. `DashboardConfig`, `PageConfig` and
-`QueueConfig` have no `hidden` property and `buildNav` does not filter them,
-so a role-gated dashboard or queue is always listed. To keep one out of the
-nav, either build your own nav from `buildNav`'s output and filter it, or
-render it as a `page({ href })` link you place yourself.
+chrome around a `"bare"` shell. Pass the request context to apply every
+surface's `requireRole`; the built-in shell always does this. Omitting `reqCtx`
+keeps the context-free behavior for tooling that only needs the complete site
+map. Resource entries with `hidden: true` are omitted in either mode.
 
 `resourceNavName` is `@flowpanel/core`'s `resolveResourceName` — the same
 resolver `defineAdmin` uses to key `resourcesByName` and derive the

@@ -35,6 +35,7 @@ const DropdownMenuSubContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.SubContent
+    data-flowpanel-portal=""
     ref={ref}
     className={cn(
       "fp-anim-pop z-50 min-w-[8rem] overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-1 text-fp-text-1 shadow-fp-md",
@@ -51,6 +52,7 @@ const DropdownMenuContent = React.forwardRef<
 >(({ className, sideOffset = 4, ...props }, ref) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
+      data-flowpanel-portal=""
       ref={ref}
       sideOffset={sideOffset}
       className={cn(

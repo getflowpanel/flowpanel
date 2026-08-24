@@ -1,29 +1,28 @@
-import { defineAdmin } from "@flowpanel/kit";
+import { defineAdmin, type IconName } from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { headers } from "next/headers";
-import { PriorityMetricCard } from "@/src/admin/PriorityMetricCard";
+import { MetricCard } from "@/src/admin/MetricCard";
+import { queues } from "@/src/admin/queues";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
-import { type AdminSession, getSession } from "@/src/lib/auth";
-import { monitoring } from "./dashboards/monitoring";
-import { overview } from "./dashboards/overview";
-import { queues } from "./queues";
+import { type AdminSession, getDemoSession } from "@/src/demo/auth/session";
+import { overview } from "./overview";
 import { aiUsage } from "./resources/ai-usage";
+import { customers } from "./resources/customers";
 import { invoices } from "./resources/invoices";
-import { listings } from "./resources/listings";
-import { matches } from "./resources/matches";
+import { monitors } from "./resources/monitors";
+import { offers } from "./resources/offers";
 import { products } from "./resources/products";
+import { review } from "./resources/review";
 import { runs } from "./resources/runs";
-import { scrapers } from "./resources/scrapers";
-import { users } from "./resources/users";
 
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
   }
   interface FlowpanelResources {
-    users: typeof schema.users.$inferSelect;
-    scrapers: typeof schema.scrapers.$inferSelect;
+    customers: typeof schema.customers.$inferSelect;
+    monitors: typeof schema.monitors.$inferSelect;
     runs: typeof schema.runs.$inferSelect;
     products: typeof schema.products.$inferSelect;
     listings: typeof schema.listings.$inferSelect;
@@ -32,6 +31,12 @@ declare module "@flowpanel/kit" {
     ai_usage: typeof schema.aiUsage.$inferSelect;
   }
 }
+
+const navigate = (label: string, icon: IconName, href: string) => ({
+  label,
+  icon,
+  action: { type: "navigate" as const, href },
+});
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
@@ -49,15 +54,15 @@ export default defineAdmin({
   auth: {
     session: async () => {
       const h = await headers();
-      const s = await getSession(new Request("http://flowpanel.local/", { headers: h }));
-      return s ? { ...s } : null;
+      const session = await getDemoSession(new Request("http://flowpanel.local/", { headers: h }));
+      return { ...session };
     },
     role: (s) => (s as AdminSession | null)?.role ?? "guest",
-    requireRole: "admin",
+    requireRole: ["admin", "support"],
   },
   shell: { mode: "tabs", brand: false },
   theme: {
-    components: { MetricCard: PriorityMetricCard },
+    components: { MetricCard },
     accent: "217 91% 50%",
     accentDark: "217 91% 65%",
     user: (s) => {
@@ -67,18 +72,32 @@ export default defineAdmin({
         name: session.user.name,
         email: session.email,
         items: [{ label: `Role: ${session.role}` }],
-        signOut: "#",
       };
     },
   },
-  resources: [users, scrapers, runs, products, listings, matches, invoices, aiUsage],
+  resources: [customers, monitors, products, review, runs, offers, invoices, aiUsage],
   queues,
-  dashboards: [overview, monitoring],
+  dashboards: [overview],
   commandPalette: {
     groups: [
       {
-        label: "Actions",
-        items: [{ label: "Open Overview", action: { type: "navigate", href: "/admin" } }],
+        label: "Explore",
+        items: [
+          navigate("Open overview", "layout-dashboard", "/admin"),
+          navigate("Open customers", "users", "/admin/customers"),
+          navigate("Open monitors", "workflow", "/admin/monitors"),
+          navigate("Open products", "package", "/admin/products"),
+          navigate("Review matches", "sparkles", "/admin/matches"),
+        ],
+      },
+      {
+        label: "Operations",
+        items: [
+          navigate("Open runs", "refresh", "/admin/runs"),
+          navigate("Open offers", "list", "/admin/listings"),
+          navigate("Open invoices", "credit-card", "/admin/invoices"),
+          navigate("Open AI usage", "sparkles", "/admin/ai_usage"),
+        ],
       },
     ],
   },

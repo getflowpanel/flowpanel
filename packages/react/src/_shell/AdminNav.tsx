@@ -1,5 +1,7 @@
 "use client";
+import type { IconName } from "@flowpanel/core";
 import Link from "next/link";
+import { FlowpanelIcon } from "../_atoms/FlowpanelIcon.js";
 import { cn } from "../lib/cn.js";
 import { AccountMenu, type AccountMenuUser } from "./AccountMenu.js";
 import { Brand, type ShellBrand } from "./Brand.js";
@@ -7,6 +9,7 @@ import { Brand, type ShellBrand } from "./Brand.js";
 export interface NavEntry {
   label: string;
   href: string;
+  icon?: IconName;
 }
 
 export interface NavGroup {
@@ -45,14 +48,17 @@ export function AdminNav({
                     <Link
                       href={it.href}
                       className={cn(
-                        "block rounded-fp px-2.5 py-1.5 text-sm transition-colors",
+                        "flex min-h-11 items-center gap-2 rounded-fp px-2.5 py-1.5 text-sm transition-colors sm:min-h-9",
                         active
                           ? "bg-fp-accent/10 font-medium text-fp-accent-badge-text"
                           : "text-fp-text-2 hover:bg-fp-bg-3/60 hover:text-fp-text-1",
                       )}
                       aria-current={active ? "page" : undefined}
                     >
-                      {it.label}
+                      {it.icon ? (
+                        <FlowpanelIcon name={it.icon} className="h-4 w-4 shrink-0" />
+                      ) : null}
+                      <span>{it.label}</span>
                     </Link>
                   </li>
                 );

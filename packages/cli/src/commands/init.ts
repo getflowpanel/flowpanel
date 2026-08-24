@@ -5,6 +5,9 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan.js";
+import { applyFilesystemPlan } from "../plan/transaction.js";
+import type { FileIntent } from "../plan/types.js";
 import {
   aliasOf,
   configImportFor,
@@ -16,13 +19,17 @@ import {
   detectSchema,
   detectStack,
   fileExists,
+  isSupportedNextVersion,
   type PathAliasMode,
   pmCommands,
 } from "../utils/detect.js";
+import { writeJson, writePlanJson } from "../utils/output.js";
 import { tpl } from "../utils/template.js";
 
 interface InitOptions {
   yes?: boolean;
+  dryRun?: boolean;
+  json?: boolean;
 }
 
 async function findAppLayout(cwd: string): Promise<string | null> {
@@ -39,6 +46,22 @@ function patchLayoutWithCssImport(src: string, importSpec: string): string | nul
   if (ADMIN_CSS_IMPORT_RE.test(src)) return null;
   if (/import\s+["'][^"']+\.css["']/.test(src)) return null;
   return `import "${importSpec}";\n${src}`;
+}
+
+/**
+ * Adds `suppressHydrationWarning` to the host's `<html>` tag. The theme resolves
+ * `mode: "auto"` on the client and sets a namespaced data attribute, which the
+ * server render cannot know about — without this attribute React logs a hydration
+ * mismatch on every admin page. Returns `null` when nothing needs changing.
+ */
+export function patchLayoutWithSuppressHydration(src: string): string | null {
+  const match = /<html\b([^>]*)>/.exec(src);
+  if (!match) return null;
+  const attrs = match[1] ?? "";
+  if (/\bsuppressHydrationWarning\b/.test(attrs)) return null;
+  const trailing = /\s*$/.exec(attrs)?.[0] ?? "";
+  const body = attrs.slice(0, attrs.length - trailing.length);
+  return src.replace(match[0], `<html${body} suppressHydrationWarning${trailing}>`);
 }
 
 const REQUIRED_DEPS: ReadonlyArray<{ pkg: string; dev: boolean }> = [
@@ -117,12 +140,15 @@ export function initCommand(cli: Command): void {
     .command("init")
     .description("Initialize FlowPanel in this project")
     .option("--yes", "Accept detected defaults without prompting (CI mode)")
+    .option("--dry-run", "Print the filesystem plan without writing or installing")
+    .option("--json", "Emit machine-readable JSON (implies --yes)")
     .action(async (opts: InitOptions) => {
-      p.intro(pc.bgCyan(pc.black(" FlowPanel init ")));
+      if (!opts.json) p.intro(pc.bgCyan(pc.black(" FlowPanel init ")));
 
       const cwd = process.cwd();
+      const unattended = opts.yes || opts.dryRun || opts.json;
 
-      if (!opts.yes && !process.stdin.isTTY) {
+      if (!unattended && !process.stdin.isTTY) {
         p.cancel(
           "init asks questions and this run has no interactive terminal. Re-run with --yes to accept the detected defaults.",
         );
@@ -136,6 +162,15 @@ export function initCommand(cli: Command): void {
       if (!stack.nextjs) {
         p.cancel(
           `Next.js not detected in package.json. Install it first: ${pmc.addDisplay("next react react-dom", false)}`,
+        );
+        process.exit(1);
+      }
+      if (!isSupportedNextVersion(stack.nextjs)) {
+        p.cancel(
+          `FlowPanel requires Next.js ^16.3.0. Upgrade first: ${pmc.addDisplay(
+            "next@^16.3.0 react@^19 react-dom@^19",
+            false,
+          )}`,
         );
         process.exit(1);
       }
@@ -155,9 +190,9 @@ export function initCommand(cli: Command): void {
         stack.prisma ? "Prisma" : null,
         stack.tailwind ? `Tailwind ${stack.tailwindMajor ?? ""}` : null,
       ].filter(Boolean) as string[];
-      p.note(parts.join(" · "), "Detected stack");
+      if (!opts.json) p.note(parts.join(" · "), "Detected stack");
 
-      if (!stack.tailwind && !opts.yes) {
+      if (!stack.tailwind && !unattended) {
         const proceed = await p.confirm({
           message:
             "Tailwind not found in package.json. The admin scaffold needs Tailwind to render. Continue anyway?",
@@ -198,7 +233,7 @@ export function initCommand(cli: Command): void {
       let auth = defaults.auth;
       let appName = defaults.appName;
 
-      if (opts.yes && guessed.length > 0) {
+      if (unattended && guessed.length > 0 && !opts.json) {
         p.log.warn(
           `Nothing matched these in your project, so the config imports a guess:\n  ${guessed.join(
             "\n  ",
@@ -206,7 +241,7 @@ export function initCommand(cli: Command): void {
         );
       }
 
-      if (!opts.yes) {
+      if (!unattended) {
         const appNameAns = await p.text({
           message: "App name",
           initialValue: defaults.appName,
@@ -308,58 +343,68 @@ export function initCommand(cli: Command): void {
         });
       }
 
-      const spinner = p.spinner();
-      spinner.start("Writing files");
-      const writtenPaths: string[] = [];
-      let skipped = 0;
-
-      for (const [rel, content] of Object.entries(files)) {
-        const full = path.join(cwd, rel);
-        if (await fileExists(full)) {
-          if (!opts.yes) {
-            spinner.stop(`${rel} exists`);
-            const overwrite = await p.confirm({
-              message: `${rel} already exists — overwrite?`,
-              initialValue: false,
-            });
-            if (p.isCancel(overwrite) || !overwrite) {
-              skipped++;
-              spinner.start("Writing files");
-              continue;
-            }
-            spinner.start("Writing files");
-          } else {
-            skipped++;
-            continue;
-          }
-        }
-        await fs.mkdir(path.dirname(full), { recursive: true });
-        await fs.writeFile(full, content, "utf8");
-        writtenPaths.push(rel);
-      }
+      const intents: FileIntent[] = Object.entries(files).map(([file, content]) => ({
+        path: file,
+        content,
+      }));
 
       if (existingLayout) {
         const layoutFull = path.join(cwd, existingLayout);
         const src = await fs.readFile(layoutFull, "utf8");
-        const patched = patchLayoutWithCssImport(src, cssImportSpec);
-        if (patched) {
-          await fs.writeFile(layoutFull, patched, "utf8");
-          writtenPaths.push(`${existingLayout} (added the admin stylesheet import)`);
-          layoutNote = "patched";
-        } else if (ADMIN_CSS_IMPORT_RE.test(src)) {
-          layoutNote = "kept";
-        } else {
+        const withCss = patchLayoutWithCssImport(src, cssImportSpec);
+        const withHydration = patchLayoutWithSuppressHydration(withCss ?? src);
+        const changes: string[] = [];
+        if (withCss) changes.push("the admin stylesheet import");
+        if (withHydration) changes.push("suppressHydrationWarning");
+
+        if (changes.length > 0)
+          intents.push({
+            path: existingLayout,
+            content: withHydration ?? withCss ?? src,
+            expectedContent: src,
+          });
+
+        if (withCss) layoutNote = "patched";
+        else if (ADMIN_CSS_IMPORT_RE.test(src)) layoutNote = "kept";
+        else {
           layoutNote = "kept-has-css";
           keptLayoutPath = existingLayout;
         }
       }
 
-      spinner.stop(
-        skipped > 0
-          ? `${writtenPaths.length} written, ${skipped} skipped (already present)`
-          : `${writtenPaths.length} written`,
-      );
-      if (writtenPaths.length > 0) p.note(writtenPaths.join("\n"), "Wrote");
+      const plan = await createFilesystemPlan(cwd, intents);
+      const conflicts = plan.operations.filter((operation) => operation.kind === "conflict");
+      if (conflicts.length > 0) {
+        if (opts.json) writePlanJson("init", plan, false);
+        else {
+          p.cancel(
+            `Nothing was written. FlowPanel will not overwrite files it does not own:\n  ${conflicts
+              .map((operation) => operation.path)
+              .join(
+                "\n  ",
+              )}\nMove them, merge the generated changes manually, or run doctor for details.`,
+          );
+        }
+        process.exit(1);
+      }
+
+      if (opts.dryRun) {
+        if (opts.json) writePlanJson("init", plan, false);
+        else {
+          const preview = publicPlan(plan);
+          p.note(
+            preview.operations
+              .map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
+              .join("\n"),
+            "Filesystem plan (no changes applied)",
+          );
+          p.outro(pc.dim("Dry run complete."));
+        }
+        return;
+      }
+
+      const writtenPaths = await applyFilesystemPlan(plan);
+      if (!opts.json && writtenPaths.length > 0) p.note(writtenPaths.join("\n"), "Wrote");
 
       const installed = await readInstalledDeps(cwd);
       const missing = REQUIRED_DEPS.filter((d) => !installed.has(d.pkg));
@@ -367,7 +412,7 @@ export function initCommand(cli: Command): void {
       if (missing.length > 0) {
         const names = missing.map((d) => d.pkg).join(", ");
         const depSpinner = p.spinner();
-        depSpinner.start(`Installing ${names} with ${pm}`);
+        if (!opts.json) depSpinner.start(`Installing ${names} with ${pm}`);
         let installOk = true;
         let failureOutput = "";
         for (const { pkg, dev } of missing) {
@@ -379,16 +424,18 @@ export function initCommand(cli: Command): void {
           }
         }
         if (installOk) {
-          depSpinner.stop(`Installed ${names}`);
+          if (!opts.json) depSpinner.stop(`Installed ${names}`);
         } else {
           depsOk = false;
-          depSpinner.stop("Dependency install failed");
+          if (!opts.json) depSpinner.stop("Dependency install failed");
           const reason = installFailureReason(failureOutput);
-          if (reason) p.note(reason, `${pm} said`);
-          p.note(
-            missing.map((d) => pmc.addDisplay(d.pkg, d.dev)).join("\n"),
-            "Install these manually, then run the steps below",
-          );
+          if (!opts.json) {
+            if (reason) p.note(reason, `${pm} said`);
+            p.note(
+              missing.map((d) => pmc.addDisplay(d.pkg, d.dev)).join("\n"),
+              "Install these manually, then run the steps below",
+            );
+          }
         }
       }
 
@@ -421,6 +468,13 @@ export function initCommand(cli: Command): void {
           `  ${pc.dim("Tailwind v3 detected — wrote tailwind.config.ts mirroring FlowPanel tokens.")}`,
         );
       }
-      p.outro(outroLines.join("\n"));
+      if (opts.json) {
+        writeJson({
+          command: "init",
+          applied: true,
+          dependenciesInstalled: depsOk,
+          plan: publicPlan(plan),
+        });
+      } else p.outro(outroLines.join("\n"));
     });
 }

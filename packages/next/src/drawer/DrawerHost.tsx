@@ -31,7 +31,7 @@ import {
   type ActionFormFieldErrors,
   mapActionIssuesToFieldErrors,
 } from "../actions/action-form-field.js";
-import type { ActionInputIssue } from "../runtime/action-helpers.js";
+import type { ActionInputIssue } from "../runtime/action-schema.js";
 import { formatFieldValue } from "../runtime/format-field-value.js";
 import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route.js";
 

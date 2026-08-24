@@ -12,8 +12,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="apps/site/public/admin-jobs-dark.png" />
-    <img alt="The FlowPanel admin — a Jobs list with search, filters, typed columns and resolved relations, generated from one config" src="apps/site/public/admin-jobs-light.png" width="900" />
+    <source media="(prefers-color-scheme: dark)" srcset="apps/site/public/admin-overview-dark.png" />
+    <img alt="The FlowPanel admin — an operations dashboard with metrics, realtime throughput and charts, generated from one config" src="apps/site/public/admin-overview-light.png" width="900" />
   </picture>
 </p>
 
@@ -38,7 +38,7 @@ pnpm flowpanel dev
 
 Visit `http://localhost:3000/admin`. Done.
 
-`flowpanel init` detects your stack (Next.js, Drizzle/Prisma, auth), installs `@flowpanel/kit` + `@flowpanel/cli`, and scaffolds the config + 6 wiring files. `flowpanel dev` starts Next.js (and bull-board if `REDIS_URL` is set).
+`flowpanel init` detects your stack (Next.js, Drizzle/Prisma, auth), installs `@flowpanel/kit` + `@flowpanel/cli`, and plans the config, routes, stylesheet and migration before writing anything. `flowpanel dev` starts Next.js (and bull-board if `REDIS_URL` is set).
 
 ## Use
 
@@ -118,8 +118,10 @@ on row click; soft-deleted rows are filtered out automatically.
   `@flowpanel/kit/auth`. Or write your own 4-field `AuthConfig`.
 - **i18n** — `labels` config localizes built-in chrome (BulkBar,
   pagination, drawer, confirm, palette).
-- **A11y** — WCAG 2.2 AA. Focus traps, aria-live, skip-to-content,
-  keyboard navigation. `prefers-reduced-motion` respected.
+- **A11y built in** — focus traps, aria-live, skip-to-content, keyboard
+  navigation and `prefers-reduced-motion`; CI runs axe rules tagged through
+  WCAG 2.2 AA. A production app still needs manual accessibility testing with
+  its own content, theme and assistive-technology matrix.
 
 ## Packages
 
@@ -137,7 +139,7 @@ on row click; soft-deleted rows are filtered out automatically.
 | [`@flowpanel/adapter-bullmq`](packages/adapter-bullmq) | BullMQ queue adapter + bull-board server          |
 | [`@flowpanel/eslint-plugin`](packages/eslint-plugin) | ESLint rules for FlowPanel admin configs           |
 
-All eleven ship together at the same version (`0.1.0` today — pre-1.0).
+All eleven ship together at the same pre-1.0 version.
 
 ## Eject when you outgrow it
 
@@ -158,7 +160,7 @@ the [eject guide](https://flowpanel.tech/docs) for the rationale.
 
 |                  | FlowPanel                             | [Refine](https://refine.dev)          | [AdminJS](https://adminjs.co)              | [react-admin](https://marmelab.com/react-admin/) | [Forest Admin](https://www.forestadmin.com) |
 | ---------------- | ------------------------------------- | ------------------------------------- | ------------------------------------------ | ------------------------------------------------ | ------------------------------------------- |
-| Stack target     | Next.js 15 App Router                 | React (Next.js, Remix, Vite, CRA)     | Node backend (Express, Hapi, Nest, Fastify)| React (any bundler)                              | SaaS — connects to your DB/API              |
+| Stack target     | Next.js 16 App Router                 | React (Next.js, Remix, Vite, CRA)     | Node backend (Express, Hapi, Nest, Fastify)| React (any bundler)                              | SaaS — connects to your DB/API              |
 | UI               | Bundled (shadcn/ui) + eject to source | Headless; adapters for MUI/AntD/Mantine/Chakra | Bundled React design system          | Bundled Material UI; headless `ra-core` available| Hosted web app                              |
 | Data layer       | Drizzle, Prisma adapters              | 15+ providers (REST, GraphQL, Supabase, Hasura, …) | Prisma, Sequelize, TypeORM, Mongoose, MikroORM | 50+ adapters (REST, GraphQL, Supabase, Hasura, …) | Direct DB connectors + REST/GraphQL APIs    |
 | Realtime         | SSE built in (memory / Redis)         | Live Provider (bring your own, e.g. Ably) | Not built in                            | Enterprise Edition feature                       | Yes, hosted                                 |
@@ -166,12 +168,12 @@ the [eject guide](https://flowpanel.tech/docs) for the rationale.
 | License          | MIT                                   | MIT                                   | MIT                                        | MIT core; paid Enterprise Edition (from €145/mo) | Proprietary SaaS (from $60/user/mo)         |
 | Self-host        | Yes                                   | Yes                                   | Yes                                        | Yes                                              | On-premise add-on                           |
 
-Pick FlowPanel if your app is a Next.js 15 App Router project that needs a CRUD admin layer over a Drizzle or Prisma schema. If your stack is React-without-Next or you want to swap the UI kit, look at Refine. If your data lives in MongoDB or you're already on an Express/Nest backend, AdminJS has the deepest support there. If you want Material UI and 50+ data-provider adapters, react-admin is the longest-running option. If you want a hosted product that connects to your existing DB without writing code, Forest.
+Pick FlowPanel if your app is a Next.js 16 App Router project that needs a CRUD admin layer over a Drizzle or Prisma schema. If your stack is React-without-Next or you want to swap the UI kit, look at Refine. If your data lives in MongoDB or you're already on an Express/Nest backend, AdminJS has the deepest support there. If you want Material UI and 50+ data-provider adapters, react-admin is the longest-running option. If you want a hosted product that connects to your existing DB without writing code, Forest.
 
 ## Stack
 
-- Next.js 15 + React 19 (App Router only)
-- Drizzle `>=0.36` or Prisma 5 / 6 (pick one per project)
+- Next.js `^16.3.0` + React 19 (App Router only)
+- Drizzle `>=0.45.2` or Prisma 5 / 6 (pick one per project)
 - Postgres, MySQL, SQLite (any combination, dialect-aware)
 - Optional: ioredis (realtime), bullmq (queues), @prisma/client
 

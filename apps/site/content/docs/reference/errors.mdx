@@ -17,48 +17,52 @@ The base class. Every other error extends it.
 
 ```ts
 class FlowpanelError extends Error {
-  readonly code: string;
+  readonly code: FlowpanelErrorCode;
   readonly safeMessage: string;
   readonly status: number;
 
-  constructor(code: string, safeMessage: string, status?: number);
+  constructor(code: FlowpanelErrorCode, safeMessage: string);
   toJSON(): { code: string; message: string };
 }
 ```
 
 | Property | Meaning |
 | --- | --- |
-| `code` | Stable machine-readable tag, e.g. `"validation"`. |
+| `code` | Stable machine-readable tag, e.g. `"validation_failed"`. |
 | `safeMessage` | Shown to the operator verbatim. Keep internals out of it. |
-| `status` | HTTP status the route responds with. Defaults to `500`. |
+| `status` | HTTP status from `FLOWPANEL_ERROR_STATUS[code]`. |
 
 Construct it directly for a case the subclasses do not cover:
 
 ```ts
-throw new FlowpanelError("payment_required", "Upgrade to run this action", 402);
+throw new FlowpanelError("conflict", "This order is already being processed");
 ```
 
 ## The subclasses
 
 | Class | `code` | Status | Default message | Raised by FlowPanel? |
 | --- | --- | --- | --- | --- |
-| `FlowpanelValidationError` | `validation` | 400 | Validation failed | yes |
-| `FlowpanelAuthError` | `auth` | 401 | Authentication required | no — yours to throw |
-| `FlowpanelAccessError` | `access` | 403 | Forbidden | yes |
+| `FlowpanelValidationError` | `validation_failed` | 422 | Validation failed | yes |
+| `FlowpanelAuthError` | `unauthenticated` | 401 | Authentication required | yours to throw |
+| `FlowpanelAccessError` | `forbidden` | 403 | Forbidden | yes |
+| `FlowpanelFieldAccessError` | `field_forbidden` | 403 | `Field "x" cannot be changed.` | yes |
+| `FlowpanelOperationDisabledError` | `operation_disabled` | 403 | This operation is disabled. | yes |
+| `FlowpanelUnknownFieldError` | `unknown_field` | 400 | `Unknown field: "x".` | yes |
 | `FlowpanelNotFoundError` | `not_found` | 404 | Not found | yes |
 | `FlowpanelConflictError` | `conflict` | 409 | Conflict | no — yours to throw |
-| `FlowpanelRateLimitError` | `rate_limit` | 429 | Rate limit exceeded | yes |
+| `FlowpanelRateLimitError` | `rate_limited` | 429 | Rate limit exceeded | yes |
 
 Each takes an optional message overriding the default.
 
 The last column matters when you write a `hooks.onError` or a log filter.
-FlowPanel itself raises four of the six: `FlowpanelAccessError` for every role
-gate and for an unbound tenant scope, `FlowpanelRateLimitError` from the
-request prologue, `FlowpanelNotFoundError` and `FlowpanelValidationError` from
-the resource routes. `FlowpanelAuthError` and `FlowpanelConflictError` are
-never thrown by the framework — they exist so *your* code can reach for the
-right status. (The render path still catches `FlowpanelAuthError` if you throw
-one from a page — see below.)
+FlowPanel raises `FlowpanelAccessError` for rejected admin/resource access and
+an unbound tenant scope, `FlowpanelFieldAccessError` for prohibited field
+reads/writes, `FlowpanelOperationDisabledError` for disabled mutations,
+`FlowpanelUnknownFieldError` for fields outside the resource contract,
+`FlowpanelRateLimitError` from the request prologue, and the not-found and
+validation errors from resource routes. `FlowpanelAuthError` and
+`FlowpanelConflictError` are available for application code. (The render path
+still catches `FlowpanelAuthError` if you throw one from a page — see below.)
 
 ### FlowpanelValidationError
 
@@ -131,8 +135,11 @@ valid, and you want the status code to say so.
 
 ## Errors the routes produce themselves
 
-Some responses never pass through the hierarchy at all — the route answers
-directly, in the same `{ ok: false, error }` shape.
+Some generated-UI responses never pass through the hierarchy at all — the
+route answers directly with a string `error`. These compatibility routes are
+distinct from the v1 JSON CRUD API and protected controllers, whose
+`FlowpanelResultError` contains `code`, `message`, optional `fieldErrors`, and
+`requestId`.
 
 ### 400 — malformed request body
 
@@ -170,7 +177,9 @@ turns "why is my action 404-ing" into a one-look answer:
 
 ### 403 / 422 from the guard pipeline
 
-`403 This admin is read-only.` when `readOnly: true` blocks a write;
+`403 Cross-origin write requests are not allowed.` when the default browser
+origin guard blocks a mutation; `403 This admin is read-only.` when
+`readOnly: true` blocks a write;
 `422 too many ids (max 1000)` when a bulk action exceeds its cap;
 `422 validation failed` with an `issues` array when an action `form` fails
 validation. See [Actions → Validation](/docs/reference/actions#validation).

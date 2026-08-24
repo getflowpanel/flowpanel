@@ -79,8 +79,7 @@ export async function ResourceListPage({
 
   const name = resourceNavName(resource);
   const configuredPageSize = resource.options.pageSize ?? 20;
-  // `?perPage=` is attacker-controlled, so it is matched against the offered
-  // options rather than parsed — an arbitrary size is an unbounded query.
+  // Match attacker-controlled `?perPage=` to the offered bounded options.
   const pageSizeOptions = pageSizeChoices(configuredPageSize);
   const requestedPageSize = Number(searchParams.get("perPage"));
   const pageSize = pageSizeOptions.includes(requestedPageSize)
@@ -195,9 +194,7 @@ export async function ResourceListPage({
     (result.rows as Row[]).map((row) => projectAuthorizedRow(resource, row, reqCtx)),
   );
 
-  // Resolved here rather than behind a fetch: the create form is the same
-  // server-rendered `AutoForm` the standalone /new page uses, handed to a client
-  // drawer as children. No drawer-payload protocol, no second round trip.
+  // Reuse the server-rendered /new AutoForm inside the client drawer, with no extra fetch.
   const createDeclared = resource.options.create?.disabled
     ? undefined
     : declaredFormFields(resource, "create");
