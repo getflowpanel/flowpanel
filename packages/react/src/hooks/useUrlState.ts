@@ -22,7 +22,8 @@ export function useUrlState(): UrlState {
         if (v === null || v === undefined || v === "") next.delete(k);
         else next.set(k, String(v));
       }
-      router.push(`${pathname}?${next.toString()}`);
+      const query = next.toString();
+      router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
     },
     [params, pathname, router],
   );

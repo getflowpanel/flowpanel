@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { FlowpanelAccessError } from "@flowpanel/core";
-import type { PrismaDmmf } from "./introspect.js";
+import type { PrismaDmmf } from "./introspect";
 
 const require = createRequire(import.meta.url);
 
@@ -90,6 +90,38 @@ export function applyScopeToWhere(
     );
   }
   return result;
+}
+
+function isColumnValue(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (value instanceof Date) return true;
+  return typeof value !== "object" && typeof value !== "function";
+}
+
+/** Resolve insert data for a scoped create: only equality scope keys can supply a column value. */
+export function applyScopeToData(
+  input: Record<string, unknown>,
+  ctx: {
+    boundScope?: { apply(query: unknown): unknown };
+    applyScope?: (query: unknown) => unknown;
+    scopeRequired?: boolean;
+  },
+): Record<string, unknown> {
+  const scoped = applyScopeToWhere({ ...input }, ctx);
+  const data: Record<string, unknown> = { ...input };
+  for (const [key, value] of Object.entries(scoped)) {
+    if (key in input && Object.is(input[key], value)) continue;
+    if (!isColumnValue(value)) {
+      throw new FlowpanelAccessError(
+        `create refused: the bound Prisma scope predicate contributed "${key}" as a filter ` +
+          "rather than a single value, so it cannot be written into the new row. Use an equality " +
+          `scope (e.g. { ${key}: tenantId }) on resources that allow create, or keep the filter ` +
+          "scope and disable create for this resource.",
+      );
+    }
+    data[key] = value;
+  }
+  return data;
 }
 
 export const MIGRATIONS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (

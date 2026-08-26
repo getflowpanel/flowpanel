@@ -4,9 +4,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { Field } from "../Field.js";
-import { Form, FormActionDispatchContext, FormContext } from "../Form.js";
-import { FormSubmit } from "../FormSubmit.js";
+import { Field } from "../Field";
+import { Form, FormActionDispatchContext, FormContext } from "../Form";
+import { FormSubmit } from "../FormSubmit";
 
 afterEach(cleanup);
 

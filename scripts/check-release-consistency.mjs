@@ -3,9 +3,10 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { licenseProblems } from "./sync-licenses.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const problems = [];
+const problems = [...licenseProblems()];
 
 function read(path) {
   return readFileSync(join(root, path), "utf8");

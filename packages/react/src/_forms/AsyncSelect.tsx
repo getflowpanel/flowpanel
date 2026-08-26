@@ -1,8 +1,8 @@
 "use client";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "cmdk";
 import * as React from "react";
-import { Button } from "../ui/button.js";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover.js";
+import { Button } from "../ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 export interface AsyncSelectOption {
   label: string;

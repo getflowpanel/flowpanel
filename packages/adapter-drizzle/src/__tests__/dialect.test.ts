@@ -2,7 +2,7 @@ import { int, mysqlTable, varchar } from "drizzle-orm/mysql-core";
 import { integer, pgTable, text } from "drizzle-orm/pg-core";
 import { sqliteTable, text as sqliteText } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
-import { resolveDialect } from "../dialect.js";
+import { resolveDialect } from "../dialect";
 
 const pgUsers = pgTable("users", { id: text("id").primaryKey(), age: integer("age") });
 const mysqlUsers = mysqlTable("users", {

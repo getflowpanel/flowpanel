@@ -2,7 +2,7 @@
 
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { normalizeAccent, ThemeVars } from "../runtime/theme-vars.js";
+import { normalizeAccent, ThemeVars } from "../runtime/theme-vars";
 
 describe("normalizeAccent", () => {
   it("passes a bare triplet through", () => {

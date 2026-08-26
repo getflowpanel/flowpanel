@@ -1,5 +1,6 @@
 import type { FieldDef } from "@flowpanel/core";
-import type { ActionFormField } from "./action-form-field.js";
+import { toWireOptions } from "../runtime/select-options";
+import type { ActionFormField } from "./action-form-field";
 
 export function serializeActionFormField(f: FieldDef<Record<string, unknown>>): ActionFormField {
   const out: ActionFormField = { name: f.name };
@@ -8,11 +9,7 @@ export function serializeActionFormField(f: FieldDef<Record<string, unknown>>): 
   if (f.placeholder !== undefined) out.placeholder = f.placeholder;
   if (f.type !== undefined) out.type = f.type;
   if (f.required !== undefined) out.required = f.required;
-  if (Array.isArray(f.options)) {
-    out.options = f.options.map((o) =>
-      typeof o === "string" ? { label: o, value: o } : { label: o.label, value: String(o.value) },
-    );
-  }
+  if (Array.isArray(f.options)) out.options = toWireOptions(f.options);
   return out;
 }
 

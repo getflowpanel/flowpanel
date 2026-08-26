@@ -1,0 +1,45 @@
+---
+title: Import and export
+description: Add bounded CSV or JSON transfer to a resource without bypassing its policies.
+kind: how-to
+---
+
+Import and export are resource capabilities. Enable them only for fields users are expected to move outside the admin, and treat imported files as untrusted input.
+
+## Export visible data
+
+```ts excerpt
+resource(schema.users, {
+  columns: ["email", "name", "role", "createdAt"],
+  export: {
+    formats: ["csv", "json"],
+    fields: ["email", "name", "role", "createdAt"],
+  },
+})
+```
+
+The export action uses the resource's authorized list surface and the configured field allowlist. Keep secrets and internal fields out even when they exist on the row type. Export is for the current supported result boundary, not an unbounded database dump.
+
+## Import through the normal write path
+
+```ts excerpt
+resource(schema.users, {
+  columns: ["email", "name", "role"],
+  import: {
+    formats: ["csv", "json"],
+    fields: ["email", "name", "role"],
+  },
+})
+```
+
+Every row goes through create validation, field access, scope, adapter execution, audit, and realtime publication. Read-only or role-restricted fields cannot be smuggled in by a crafted file.
+
+Match CSV headers or JSON keys to configured field names. Prefer stable machine values for select fields and document date/number formats for operators preparing files outside the app.
+
+## Operate it safely
+
+FlowPanel enforces request and row caps and reports rejected rows rather than silently truncating the file. For large migrations, use a dedicated background job with resumability, idempotency, and progress reporting instead of an admin upload.
+
+Before enabling import in production, test a valid file, duplicate data, a missing required field, an unauthorized field, malformed CSV or JSON, and a file above the cap. Confirm whether your domain operation is atomic per row or requires an application-level transaction.
+
+See [Resources reference](/docs/reference/resources) for exact option types and [Roles and permissions](/docs/guides/permissions) for the write boundaries.

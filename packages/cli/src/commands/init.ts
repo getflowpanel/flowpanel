@@ -5,9 +5,9 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
-import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan.js";
-import { applyFilesystemPlan } from "../plan/transaction.js";
-import type { FileIntent } from "../plan/types.js";
+import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
+import { applyFilesystemPlan } from "../plan/transaction";
+import type { FileIntent } from "../plan/types";
 import {
   aliasOf,
   configImportFor,
@@ -22,9 +22,10 @@ import {
   isSupportedNextVersion,
   type PathAliasMode,
   pmCommands,
-} from "../utils/detect.js";
-import { writeJson, writePlanJson } from "../utils/output.js";
-import { tpl } from "../utils/template.js";
+} from "../utils/detect";
+import { kitCompatibilityError, pinnedSpec } from "../utils/kit";
+import { writeJson, writePlanJson } from "../utils/output";
+import { tpl } from "../utils/template";
 
 interface InitOptions {
   yes?: boolean;
@@ -120,6 +121,8 @@ function installFailureReason(output: string): string | null {
   return lines.slice(-8).join("\n");
 }
 
+const GUESSED_AUTH_FILE = "server/lib/auth.ts";
+
 /**
  * Import specifiers the generated config falls back to when nothing matched on
  * disk. Without an `@/*` alias the guess has to be relative, or it cannot resolve.
@@ -131,8 +134,13 @@ export function guessedPaths(
   return {
     db: aliasOf(orm === "prisma" ? "lib/prisma.ts" : "server/lib/db.ts", aliasMode),
     schema: aliasOf("server/lib/db/schema.ts", aliasMode),
-    auth: aliasOf("server/lib/auth.ts", aliasMode),
+    auth: aliasOf(GUESSED_AUTH_FILE, aliasMode),
   };
+}
+
+/** Project-relative file the guessed `auth` specifier resolves to. */
+export function guessedAuthFile(aliasMode: PathAliasMode): string {
+  return aliasMode === "strip-src" ? `src/${GUESSED_AUTH_FILE}` : GUESSED_AUTH_FILE;
 }
 
 export function initCommand(cli: Command): void {
@@ -181,6 +189,13 @@ export function initCommand(cli: Command): void {
         process.exit(1);
       }
 
+      const kitMismatch = await kitCompatibilityError(cwd);
+      if (kitMismatch) {
+        if (opts.json) writeJson({ command: "init", applied: false, error: kitMismatch });
+        else p.cancel(kitMismatch);
+        process.exit(1);
+      }
+
       const orm: "drizzle" | "prisma" = stack.drizzle ? "drizzle" : "prisma";
 
       const parts = [
@@ -225,7 +240,6 @@ export function initCommand(cli: Command): void {
       const guessed = [
         detected.db === null ? `db client   ${defaults.db}` : null,
         orm === "drizzle" && detected.schema === null ? `schema      ${defaults.schema}` : null,
-        detected.auth === null ? `getSession  ${defaults.auth}` : null,
       ].filter(Boolean) as string[];
 
       let db = defaults.db;
@@ -331,6 +345,12 @@ export function initCommand(cli: Command): void {
         files["tailwind.config.ts"] = await tpl("tailwind.config.v3.ts.txt");
       }
 
+      // Nothing on disk exports getSession, so the config above imports a path
+      // that has to be created too — otherwise every later step dies on it.
+      const sessionStub = detected.auth === null && auth === guesses.auth;
+      const sessionStubFile = guessedAuthFile(aliasMode);
+      if (sessionStub) files[sessionStubFile] = await tpl("dev-session.ts.txt");
+
       const existingLayout = await findAppLayout(cwd);
       const cssImportSpec = aliasMode === "none" ? "../styles/admin.css" : "@/styles/admin.css";
       let layoutNote: "scaffolded" | "patched" | "kept" | "kept-has-css" = "scaffolded";
@@ -410,13 +430,13 @@ export function initCommand(cli: Command): void {
       const missing = REQUIRED_DEPS.filter((d) => !installed.has(d.pkg));
       let depsOk = true;
       if (missing.length > 0) {
-        const names = missing.map((d) => d.pkg).join(", ");
+        const names = missing.map((d) => pinnedSpec(d.pkg)).join(", ");
         const depSpinner = p.spinner();
         if (!opts.json) depSpinner.start(`Installing ${names} with ${pm}`);
         let installOk = true;
         let failureOutput = "";
         for (const { pkg, dev } of missing) {
-          const result = await runInstall(pm, pmc.add(pkg, dev), cwd);
+          const result = await runInstall(pm, pmc.add(pinnedSpec(pkg), dev), cwd);
           if (result.code !== 0) {
             installOk = false;
             failureOutput = result.output;
@@ -432,7 +452,7 @@ export function initCommand(cli: Command): void {
           if (!opts.json) {
             if (reason) p.note(reason, `${pm} said`);
             p.note(
-              missing.map((d) => pmc.addDisplay(d.pkg, d.dev)).join("\n"),
+              missing.map((d) => pmc.addDisplay(pinnedSpec(d.pkg), d.dev)).join("\n"),
               "Install these manually, then run the steps below",
             );
           }
@@ -453,6 +473,14 @@ export function initCommand(cli: Command): void {
           "",
         );
         process.exitCode = 1;
+      }
+      if (sessionStub) {
+        outroLines.push(
+          "",
+          `  ${pc.yellow("!")} No auth module found — wrote a development ${pc.cyan("getSession")} stub`,
+          `    at ${pc.cyan(sessionStubFile)}. It signs every request in as an admin.`,
+          `    Replace it with your real provider before production.`,
+        );
       }
       if (layoutNote === "kept-has-css") {
         outroLines.push(

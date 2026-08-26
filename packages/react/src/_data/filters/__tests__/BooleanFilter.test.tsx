@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BooleanFilter } from "../BooleanFilter.js";
+import { BooleanFilter } from "../BooleanFilter";
 
 afterEach(() => cleanup());
 

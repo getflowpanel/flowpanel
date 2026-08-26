@@ -10,11 +10,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 const triggerDownload = vi.fn();
-vi.mock("../../lib/trigger-download.js", () => ({
+vi.mock("../../lib/trigger-download", () => ({
   triggerDownload: (...args: unknown[]) => triggerDownload(...args),
 }));
 
-import { DataTable } from "../DataTable.js";
+import { DataTable } from "../DataTable";
 
 afterEach(() => {
   cleanup();

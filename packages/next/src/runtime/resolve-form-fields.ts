@@ -4,12 +4,12 @@ import type {
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
-  SelectOption,
 } from "@flowpanel/core";
 import { humanize, runWithRequestContext } from "@flowpanel/core";
 import type { ResolvedField } from "@flowpanel/react";
-import { roleAllows } from "./action-helpers.js";
-import { readRelatedRows } from "./require-authorized.js";
+import { roleAllows } from "./action-helpers";
+import { readRelatedRows } from "./require-authorized";
+import { toWireOptions } from "./select-options";
 
 /** The declared field specs for a form mode. */
 export function declaredFormFields(
@@ -26,14 +26,6 @@ function fieldFlag(
   values: Partial<Record<string, unknown>>,
 ): boolean {
   return typeof flag === "function" ? flag(values) : (flag ?? false);
-}
-
-function normalizeOptions(
-  opts: ReadonlyArray<string> | SelectOption[],
-): { label: string; value: string }[] {
-  return opts.map((o) =>
-    typeof o === "string" ? { label: o, value: o } : { label: o.label, value: String(o.value) },
-  );
 }
 
 /** Resolve just the CURRENT value's label for a `reference` field — a single PK lookup, not a list. */
@@ -82,9 +74,9 @@ export async function resolveFormFields(
         options = await resolveReferenceCurrentOption(config, reqCtx, f.reference, values[f.name]);
       } else if (typeof opts === "function") {
         const resolved = await runWithRequestContext(reqCtx, () => opts(queryCtx));
-        options = normalizeOptions(resolved);
+        options = toWireOptions(resolved);
       } else if (Array.isArray(opts)) {
-        options = normalizeOptions(opts);
+        options = toWireOptions(opts);
       }
       let defaultValue: unknown;
       if (row === undefined && f.defaultValue !== undefined) {

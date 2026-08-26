@@ -1,7 +1,7 @@
 import type { Adapter, ListQueryContext } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { drawerRoute } from "../drawer/drawer-route.js";
+import { drawerRoute } from "../drawer/drawer-route";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",
@@ -75,14 +75,12 @@ describe("drawerRoute", () => {
     expect(res.status).toBe(404);
   });
 
-  it("names the requested resource and the registered ones in development", async () => {
+  it("never names the registered resources in the response body", async () => {
     const handler = drawerRoute(mkConfig());
     const res = await handler(mkReq(), {
       params: Promise.resolve({ resource: "unknown", id: "abc" }),
     });
-    expect((await res.json()).error).toBe(
-      'resource not found: "unknown". Registered resources: "users", "posts".',
-    );
+    expect((await res.json()).error).toBe("resource not found");
   });
 
   it("stays terse in production", async () => {

@@ -1,6 +1,6 @@
 import type { AdminConfig, RateLimiter, RequestContext, Scope, Session } from "@flowpanel/core";
 import { checkRequireRole, createRateLimiter, FlowpanelRateLimitError } from "@flowpanel/core";
-import { actorIdFromSession } from "./action-helpers.js";
+import { actorIdFromSession } from "./action-helpers";
 
 export interface BuildRequestCtxArgs {
   req: Request;

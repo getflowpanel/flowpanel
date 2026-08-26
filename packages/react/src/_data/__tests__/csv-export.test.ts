@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { rowsToCsv, rowsToJson } from "../csv-export.js";
-import type { DataTableColumn } from "../data-table-types.js";
+import { rowsToCsv, rowsToJson } from "../csv-export";
+import type { DataTableColumn } from "../data-table-types";
 
 type Row = Record<string, unknown>;
 

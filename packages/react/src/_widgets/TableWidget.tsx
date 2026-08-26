@@ -1,8 +1,8 @@
 import type * as React from "react";
-import { DataTable, type DataTableColumn } from "../_data/DataTable.js";
-import { Card, CardHeader } from "../_layout/Card.js";
-import type { RealtimeChannels } from "../hooks/useRealtimeRefresh.js";
-import { RealtimeRefresh } from "../hooks/useRealtimeRefresh.js";
+import { DataTable, type DataTableColumn } from "../_data/DataTable";
+import { Card, CardHeader } from "../_layout/Card";
+import type { RealtimeChannels } from "../hooks/useRealtimeRefresh";
+import { RealtimeRefresh } from "../hooks/useRealtimeRefresh";
 
 export interface TableWidgetProps<Row extends Record<string, unknown>> {
   label?: string;
@@ -19,9 +19,10 @@ export interface TableWidgetProps<Row extends Record<string, unknown>> {
 
 export function TableWidget<Row extends Record<string, unknown>>(props: TableWidgetProps<Row>) {
   return (
-    <Card>
+    <Card className="overflow-hidden">
       {props.label ? <CardHeader>{props.label}</CardHeader> : null}
       <DataTable
+        className="rounded-none border-0 shadow-none"
         rows={props.rows}
         columns={props.columns}
         rowKey={props.rowKey}

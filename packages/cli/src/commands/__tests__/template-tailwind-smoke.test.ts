@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { tpl } from "../../utils/template.js";
+import { tpl } from "../../utils/template";
 
 // Each case boots a real Tailwind compiler over a fresh fixture tree.
 vi.setConfig({ testTimeout: 60_000 });

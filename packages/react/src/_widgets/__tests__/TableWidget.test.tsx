@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const refresh = vi.fn();
@@ -27,7 +27,7 @@ class MockEventSource {
   }
 }
 
-import { TableWidget } from "../TableWidget.js";
+import { TableWidget } from "../TableWidget";
 
 describe("TableWidget realtime", () => {
   beforeEach(() => {
@@ -74,5 +74,27 @@ describe("TableWidget realtime", () => {
       <TableWidget rows={[{ id: "1", name: "a" }]} columns={[{ field: "name" }]} rowKey="id" />,
     );
     expect(instances).toHaveLength(0);
+  });
+
+  it("renders an embedded table inside one framed surface", () => {
+    render(
+      <TableWidget
+        label="Recent orders"
+        rows={[{ id: "1", name: "a" }]}
+        columns={[{ field: "name" }]}
+        rowKey="id"
+      />,
+    );
+
+    const framedAncestors: HTMLElement[] = [];
+    let node = screen.getByRole("table").parentElement;
+    while (node) {
+      if (node.classList.contains("border") && node.classList.contains("border-fp-border-1")) {
+        framedAncestors.push(node);
+      }
+      node = node.parentElement;
+    }
+
+    expect(framedAncestors).toHaveLength(1);
   });
 });

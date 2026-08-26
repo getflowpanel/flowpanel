@@ -1,7 +1,7 @@
 import { defineAdmin, resolveResourceName, resource } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { prismaAdapter } from "../adapter.js";
-import type { PrismaDmmf } from "../introspect.js";
+import { prismaAdapter } from "../adapter";
+import type { PrismaDmmf } from "../introspect";
 
 const dmmf: PrismaDmmf = {
   datamodel: {

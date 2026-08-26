@@ -2,21 +2,33 @@ import { publish } from "@flowpanel/kit/next";
 import { findProductStory, PRODUCT_STORIES } from "../data/scenarios";
 import { MARKETPLACES } from "../data/types";
 import {
-  MARKET_ACTIVITY_CHANNEL,
-  MARKET_ACTIVITY_INTERVAL_MS,
-  type MarketActivitySnapshot,
+  LIVE_OPERATIONS_CHANNEL,
+  LIVE_OPERATIONS_INTERVAL_MS,
+  type LiveOperationsSnapshot,
   type MarketEvent,
   type MarketEventKind,
 } from "./types";
 
 const BUFFER_LIMIT = 20;
+const HISTORY_LIMIT = 36;
 const SNAPSHOT_LIMIT = 5;
+const BASE_OFFERS_PER_MINUTE = 132;
+const LIVE_SIGNAL_VERSION = 2;
+const THROUGHPUT_JITTER = [2, -3, 4, -1, 3, -2, 1, -4, 3, 0] as const;
 const KINDS: readonly MarketEventKind[] = [
   "price_drop",
   "price_rise",
   "stock_change",
   "crawl_completed",
 ];
+
+function nextThroughput(previous: number, index: number): number {
+  const baseline = index % 40 < 20 ? 144 : 132;
+  const correction = Math.round((baseline - previous) * 0.25);
+  const jitter = THROUGHPUT_JITTER[index % THROUGHPUT_JITTER.length] ?? 0;
+  const operationalChange = index % 17 === 0 ? -18 : index % 11 === 0 ? 16 : 0;
+  return Math.max(96, Math.min(174, previous + correction + jitter + operationalChange));
+}
 
 const marketplaceLabel = (value: string) =>
   value
@@ -48,60 +60,108 @@ export function createMarketEvent(index: number, at: Date): MarketEvent {
   };
 }
 
-interface MarketActivityState {
+interface LiveOperationsState {
+  signalVersion: number;
   timer: ReturnType<typeof setInterval> | null;
   index: number;
   offersPerMinute: number;
-  activeMonitors: number;
+  priceChangesToday: number;
+  concurrentCrawls: number;
+  avgMatchLatencyMs: number;
+  throughputHistory: number[];
   events: MarketEvent[];
 }
 
 const STORE_KEY = Symbol.for("scrapeai.marketActivity");
-const globalStore = globalThis as typeof globalThis & { [STORE_KEY]?: MarketActivityState };
+const globalStore = globalThis as typeof globalThis & { [STORE_KEY]?: LiveOperationsState };
 
-function createState(): MarketActivityState {
+function createState(): LiveOperationsState {
   const now = Date.now();
   const events = Array.from({ length: SNAPSHOT_LIMIT }, (_, offset) =>
     createMarketEvent(
       SNAPSHOT_LIMIT - offset,
-      new Date(now - offset * MARKET_ACTIVITY_INTERVAL_MS),
+      new Date(now - offset * LIVE_OPERATIONS_INTERVAL_MS),
     ),
   );
-  return { timer: null, index: SNAPSHOT_LIMIT, offersPerMinute: 132, activeMonitors: 34, events };
+  const throughputHistory = [BASE_OFFERS_PER_MINUTE - 14];
+  for (let index = 1; index < HISTORY_LIMIT; index += 1) {
+    throughputHistory.push(nextThroughput(throughputHistory[index - 1] ?? 118, index));
+  }
+  const offersPerMinute = throughputHistory.at(-1) ?? BASE_OFFERS_PER_MINUTE;
+  const current = new Date(now);
+  const minutesToday = current.getHours() * 60 + current.getMinutes();
+
+  return {
+    signalVersion: LIVE_SIGNAL_VERSION,
+    timer: null,
+    index: HISTORY_LIMIT + SNAPSHOT_LIMIT,
+    offersPerMinute,
+    priceChangesToday: Math.round((minutesToday * BASE_OFFERS_PER_MINUTE) / 6),
+    concurrentCrawls: 4,
+    avgMatchLatencyMs: 640,
+    throughputHistory,
+    events,
+  };
 }
 
-function state(): MarketActivityState {
+function state(): LiveOperationsState {
   globalStore[STORE_KEY] ??= createState();
-  return globalStore[STORE_KEY];
+  const current = globalStore[STORE_KEY];
+  if (current.signalVersion !== LIVE_SIGNAL_VERSION || !Array.isArray(current.throughputHistory)) {
+    const wasRunning = current.timer !== null;
+    if (current.timer) clearInterval(current.timer);
+    const defaults = createState();
+    current.signalVersion = defaults.signalVersion;
+    current.index = Math.max(current.index, defaults.index);
+    current.offersPerMinute = defaults.offersPerMinute;
+    current.priceChangesToday = defaults.priceChangesToday;
+    current.concurrentCrawls = defaults.concurrentCrawls;
+    current.avgMatchLatencyMs = defaults.avgMatchLatencyMs;
+    current.throughputHistory = defaults.throughputHistory;
+    current.timer = null;
+    if (wasRunning) startTicker(current);
+  }
+  return current;
 }
 
-function snapshot(current: MarketActivityState): MarketActivitySnapshot {
+function startTicker(current: LiveOperationsState): void {
+  current.timer = setInterval(() => {
+    void publish(LIVE_OPERATIONS_CHANNEL, advance(current));
+  }, LIVE_OPERATIONS_INTERVAL_MS);
+}
+
+function snapshot(current: LiveOperationsState): LiveOperationsSnapshot {
   return {
     connected: true,
     offersPerMinute: current.offersPerMinute,
-    activeMonitors: current.activeMonitors,
+    priceChangesToday: current.priceChangesToday,
+    concurrentCrawls: current.concurrentCrawls,
+    avgMatchLatencyMs: current.avgMatchLatencyMs,
+    throughputHistory: current.throughputHistory.slice(-HISTORY_LIMIT),
     events: current.events.slice(0, SNAPSHOT_LIMIT),
   };
 }
 
-function advance(current: MarketActivityState): MarketActivitySnapshot {
+function advance(current: LiveOperationsState): LiveOperationsSnapshot {
   current.index += 1;
-  current.offersPerMinute = 124 + ((current.index * 11) % 27);
-  current.activeMonitors = 31 + ((current.index * 5) % 6);
+  current.offersPerMinute = nextThroughput(current.offersPerMinute, current.index);
+  current.priceChangesToday += 1;
+  current.avgMatchLatencyMs = 520 + ((current.index * 37) % 320);
+  if (current.index % 3 === 0) current.concurrentCrawls = 3 + ((current.index / 3) % 4);
+  current.throughputHistory.push(current.offersPerMinute);
+  if (current.throughputHistory.length > HISTORY_LIMIT) current.throughputHistory.shift();
   current.events.unshift(createMarketEvent(current.index, new Date()));
   if (current.events.length > BUFFER_LIMIT) current.events.length = BUFFER_LIMIT;
   return snapshot(current);
 }
 
-export function getMarketActivitySnapshot(): MarketActivitySnapshot {
+export function getLiveOperationsSnapshot(): LiveOperationsSnapshot {
   return snapshot(state());
 }
 
-export function startMarketActivityTicker(): void {
+export function startLiveOperationsTicker(): void {
   if (process.env.DEMO_LIVE === "off") return;
   const current = state();
   if (current.timer) return;
-  current.timer = setInterval(() => {
-    void publish(MARKET_ACTIVITY_CHANNEL, advance(current));
-  }, MARKET_ACTIVITY_INTERVAL_MS);
+  startTicker(current);
 }

@@ -17,9 +17,9 @@ import {
   reportUnexpectedError,
   resolveOperationAccess,
 } from "@flowpanel/core";
-import { actorIdFromSession } from "./action-helpers.js";
-import { buildRequestContext, requestIdFrom } from "./request-setup.js";
-import { requireAuthorized } from "./require-authorized.js";
+import { actorIdFromSession } from "./action-helpers";
+import { buildRequestContext, requestIdFrom } from "./request-setup";
+import { requireAuthorized } from "./require-authorized";
 
 export interface GuardSpec {
   resource?: ResourceConfig | undefined;

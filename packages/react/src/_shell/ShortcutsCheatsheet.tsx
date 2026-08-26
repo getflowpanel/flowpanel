@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog.js";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 
 /** Modal cheatsheet listing every shortcut bound on the page. */
 export interface ShortcutSpec {

@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { FlowpanelIcon } from "../_atoms/FlowpanelIcon.js";
-import { cn } from "../lib/cn.js";
-import { AccountMenu, type AccountMenuUser } from "./AccountMenu.js";
-import type { NavGroup } from "./AdminNav.js";
-import { Brand, type ShellBrand } from "./Brand.js";
+import { FlowpanelIcon } from "../_atoms/FlowpanelIcon";
+import { cn } from "../lib/cn";
+import { AccountMenu, type AccountMenuUser } from "./AccountMenu";
+import type { NavGroup } from "./AdminNav";
+import { Brand, type ShellBrand } from "./Brand";
 
 /** Horizontal tab strip variant of the admin nav. */
 export function AdminTabs({
@@ -27,8 +27,13 @@ export function AdminTabs({
   // biome-ignore lint/correctness/useExhaustiveDependencies: currentPath is the intentional trigger — the active tab is scrolled into view whenever the route changes.
   useEffect(() => {
     const el = activeRef.current;
-    if (!el) return;
-    el.scrollIntoView({ inline: "center", block: "nearest" });
+    const strip = stripRef.current;
+    if (!el || !strip) return;
+    const tabRect = el.getBoundingClientRect();
+    const stripRect = strip.getBoundingClientRect();
+    const centeredLeft =
+      strip.scrollLeft + tabRect.left - stripRect.left - (strip.clientWidth - tabRect.width) / 2;
+    strip.scrollLeft = Math.max(0, centeredLeft);
   }, [currentPath]);
 
   useEffect(() => {

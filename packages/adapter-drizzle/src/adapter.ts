@@ -27,10 +27,10 @@ import {
   sql,
   type Table,
 } from "drizzle-orm";
-import { type DrizzleDialect, resolveDialect } from "./dialect.js";
-import { introspect } from "./introspect.js";
-import { type MigrationDb, migrationsTableDdl, runRaw, selectMigrationIds } from "./migrations.js";
-import { inferSchema } from "./schema.js";
+import { type DrizzleDialect, resolveDialect } from "./dialect";
+import { introspect } from "./introspect";
+import { type MigrationDb, migrationsTableDdl, runRaw, selectMigrationIds } from "./migrations";
+import { inferSchema } from "./schema";
 
 interface DrizzleLikeDb {
   select: (...args: unknown[]) => {
@@ -248,14 +248,6 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
   return {
     kind: "drizzle",
     db: opts.db,
-    capabilities: {
-      version: 2,
-      projections: true,
-      transactions: true,
-      atomicImport: true,
-      returningRows: true,
-      migrations: true,
-    },
     transaction: (run) => (opts.db as DrizzleLikeDb).transaction((tx) => run(tx as unknown as DB)),
 
     introspect: (ref) => introspect(ref),

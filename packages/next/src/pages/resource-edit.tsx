@@ -11,11 +11,11 @@ import {
   runWithRequestContext,
 } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
-import { buildHref } from "../runtime/href.js";
-import { buildRequestContext } from "../runtime/request-setup.js";
-import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { NotFound } from "./not-found.js";
+import { buildHref } from "../runtime/href";
+import { buildRequestContext } from "../runtime/request-setup";
+import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
+import { scopeBinding } from "../runtime/scope-binding";
+import { NotFound } from "./not-found";
 
 export interface ResourceEditPageProps {
   config: ResolvedAdminConfig;
@@ -60,7 +60,7 @@ export async function ResourceEditPage({
   if (!row) return <NotFound />;
 
   const intro = config.adapter.introspect(resource.ref);
-  const action = `/api/flowpanel/${name}/${id}/edit`;
+  const action = `${config.paths.api}/${name}/${id}/edit`;
   const declared = declaredFormFields(resource, "update");
   const fields = declared ? await resolveFormFields(config, declared, reqCtx, row) : undefined;
 

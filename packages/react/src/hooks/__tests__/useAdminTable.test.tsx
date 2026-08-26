@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/users",
 }));
 
-import { useAdminTable } from "../useAdminTable.js";
+import { useAdminTable } from "../useAdminTable";
 
 describe("useAdminTable", () => {
   beforeEach(() => {
@@ -53,6 +53,7 @@ describe("useAdminTable", () => {
     expect(url).toMatch(/\/admin\/users/);
     expect(url).toContain("f_plan=free");
     expect(url).not.toContain("page=2"); // reset
+    expect(replaceMock.mock.calls[0]![1]).toEqual({ scroll: false });
   });
 
   it("replaces rather than pushes, so Back leaves the list instead of walking filters", () => {
@@ -105,5 +106,6 @@ describe("useAdminTable", () => {
     const { result } = renderHook(() => useAdminTable());
     act(() => result.current.setPage(5));
     expect(replaceMock.mock.calls[0]![0]).toContain("page=5");
+    expect(replaceMock.mock.calls[0]![1]).toEqual({ scroll: true });
   });
 });

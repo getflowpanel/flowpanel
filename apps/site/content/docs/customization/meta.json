@@ -1,4 +1,4 @@
 {
-  "title": "Customization",
-  "pages": ["column-renderers", "forms", "import-export", "charts", "theme-slots", "eject"]
+  "title": "Customize the UI",
+  "pages": ["overview", "column-renderers", "charts", "styling", "theme-slots", "eject"]
 }

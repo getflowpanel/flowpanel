@@ -1,8 +1,8 @@
 "use client";
 import * as React from "react";
-import { cn } from "../../lib/cn.js";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select.js";
-import { BARE_CONTROL, FilterField } from "./FilterField.js";
+import { cn } from "../../lib/cn";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { BARE_CONTROL, FilterField } from "./FilterField";
 
 export interface BooleanFilterProps {
   label?: string;

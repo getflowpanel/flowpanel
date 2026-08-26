@@ -1,0 +1,54 @@
+---
+title: Styling
+description: Load FlowPanel styles, adjust design tokens, and integrate Tailwind safely.
+kind: how-to
+---
+
+FlowPanel styles are namespaced under its root and portal attributes. The CLI creates an application-owned `admin.css` that loads Tailwind, scans the installed FlowPanel packages, and defines `--fp-*` design tokens.
+
+## Use the generated stylesheet
+
+`flowpanel init` imports `styles/admin.css` or `src/styles/admin.css` from the root layout. Keep that import alongside the application's global stylesheet.
+
+For Tailwind v4, the file contains `@source` entries for normal and pnpm package layouts because FlowPanel class names live in compiled workspace packages. The CLI calculates the relative depth to `node_modules`.
+
+```css
+@import "tailwindcss";
+
+@source "../node_modules/@flowpanel/*/dist";
+@source "../node_modules/.pnpm/node_modules/@flowpanel/*/dist";
+```
+
+For Tailwind v3, the generated Tailwind config adds the corresponding `@flowpanel/*/dist` globs to `content`, and `admin.css` uses the v3 Tailwind directives. If components render without styling, check these scan paths before adding manual CSS overrides.
+
+## Change design tokens
+
+Override tokens on the FlowPanel root so the host application remains unaffected:
+
+```css
+[data-flowpanel-root],
+[data-flowpanel-portal] {
+  --fp-accent: 220 90% 50%;
+  --fp-radius: 0.375rem;
+  --fp-font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --fp-chart-1: 220 90% 55%;
+}
+```
+
+Color values are HSL triplets unless the source stylesheet states otherwise. Prefer semantic tokens—background, text, border, accent, success, warning, error, chart palette—over selectors tied to component markup.
+
+The full, current token list is the generated stylesheet or the package stylesheet it is based on. Keeping a second hand-written token table in docs would drift.
+
+## Support dark mode
+
+FlowPanel uses its namespaced theme attribute rather than recoloring the host `.dark` tree. Configure `theme.mode` as `light`, `dark`, or `auto`; use `theme.accentDark` when the light accent lacks contrast on dark surfaces.
+
+Test custom text/background and status pairs in both modes. Theme tokens make visual consistency possible, but the application still owns contrast and accessibility for its chosen values and custom content.
+
+## Apply targeted overrides safely
+
+Use token changes for system-wide appearance and normal class names inside your own custom components. Avoid reaching into FlowPanel's internal DOM structure: those selectors are not a public contract and make upgrades harder.
+
+When tokens cannot express the change, replace a supported [theme slot](/docs/customization/theme-slots). Eject only when behavior or page structure must change.
+
+See [Configuration reference](/docs/reference/define-config#themeconfig) for generated theme options.

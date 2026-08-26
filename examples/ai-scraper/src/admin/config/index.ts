@@ -1,4 +1,4 @@
-import { defineAdmin, type IconName } from "@flowpanel/kit";
+import { defineAdmin } from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { headers } from "next/headers";
 import { MetricCard } from "@/src/admin/MetricCard";
@@ -31,12 +31,6 @@ declare module "@flowpanel/kit" {
     ai_usage: typeof schema.aiUsage.$inferSelect;
   }
 }
-
-const navigate = (label: string, icon: IconName, href: string) => ({
-  label,
-  icon,
-  action: { type: "navigate" as const, href },
-});
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
@@ -75,30 +69,7 @@ export default defineAdmin({
       };
     },
   },
-  resources: [customers, monitors, products, review, runs, offers, invoices, aiUsage],
+  resources: [customers, monitors, runs, offers, products, review, invoices, aiUsage],
   queues,
   dashboards: [overview],
-  commandPalette: {
-    groups: [
-      {
-        label: "Explore",
-        items: [
-          navigate("Open overview", "layout-dashboard", "/admin"),
-          navigate("Open customers", "users", "/admin/customers"),
-          navigate("Open monitors", "workflow", "/admin/monitors"),
-          navigate("Open products", "package", "/admin/products"),
-          navigate("Review matches", "sparkles", "/admin/matches"),
-        ],
-      },
-      {
-        label: "Operations",
-        items: [
-          navigate("Open runs", "refresh", "/admin/runs"),
-          navigate("Open offers", "list", "/admin/listings"),
-          navigate("Open invoices", "credit-card", "/admin/invoices"),
-          navigate("Open AI usage", "sparkles", "/admin/ai_usage"),
-        ],
-      },
-    ],
-  },
 });

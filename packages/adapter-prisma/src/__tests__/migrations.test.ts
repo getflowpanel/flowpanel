@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { MIGRATIONS_TABLE_DDL, prismaAdapter } from "../adapter.js";
-import type { PrismaDmmf } from "../introspect.js";
+import { MIGRATIONS_TABLE_DDL, prismaAdapter } from "../adapter";
+import type { PrismaDmmf } from "../introspect";
 
 const dmmf: PrismaDmmf = { datamodel: { models: [], enums: [] } };
 

@@ -7,7 +7,7 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields.js";
+import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
 
 const ctx = (role: string): RequestContext => ({ role, session: null }) as RequestContext;
 

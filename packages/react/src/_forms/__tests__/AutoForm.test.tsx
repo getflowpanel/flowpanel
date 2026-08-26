@@ -3,7 +3,7 @@
 import type { ColumnMeta } from "@flowpanel/core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AutoForm, buildReferenceSearchUrl } from "../AutoForm.js";
+import { AutoForm, buildReferenceSearchUrl } from "../AutoForm";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),

@@ -12,6 +12,8 @@ node_modules/
 # Build outputs
 dist/
 build/
+!apps/site/content/docs/build/
+!apps/site/content/docs/build/**
 .turbo/
 *.tsbuildinfo
 
@@ -22,6 +24,7 @@ next-env.d.ts
 
 # Fumadocs MDX generated source
 .source/
+/apps/site/src/generated/
 
 # Build artifacts in public/
 apps/site/public/stars.json

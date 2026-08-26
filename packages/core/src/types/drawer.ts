@@ -1,10 +1,10 @@
 import type { z } from "zod";
-import type { ActionResult } from "./action.js";
-import type { ActionContext } from "./context.js";
-import type { AccessRule, FieldWriteContext } from "./policy.js";
-import type { InferDB, ResourceName } from "./registry.js";
-import type { FieldDef } from "./resource.js";
-import type { CustomWidget, WidgetConfig } from "./widget.js";
+import type { ActionResult } from "./action";
+import type { ActionContext } from "./context";
+import type { AccessRule, FieldWriteContext } from "./policy";
+import type { InferDB, ResourceName } from "./registry";
+import type { FieldDef } from "./resource";
+import type { CustomWidget, WidgetConfig } from "./widget";
 
 export type DrawerWidth = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 
@@ -92,7 +92,9 @@ export interface DrawerAction<Row = Record<string, unknown>> {
 
 /** Side panel opened for a single row. */
 export interface DrawerConfig<Row = Record<string, unknown>> {
-  /** Panel width. Defaults to `"lg"`. */
+  /** Panel width.
+   * @defaultValue "lg"
+   */
   width?: DrawerWidth;
   /** Panel title. Defaults to the row's key. */
   header?: (row: Row) => string;

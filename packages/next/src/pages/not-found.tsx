@@ -1,6 +1,6 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { Button, EmptyState } from "@flowpanel/react";
-import { buildHref } from "../runtime/href.js";
+import { buildHref } from "../runtime/href";
 
 export function NotFound({ config }: { config?: ResolvedAdminConfig }) {
   const backHref = config ? buildHref(config) : "/admin";

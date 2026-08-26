@@ -1,9 +1,9 @@
 "use client";
 import { type ForwardRefExoticComponent, forwardRef, type RefAttributes } from "react";
-import { useComponent } from "../_provider/ComponentsContext.js";
-import { type ButtonProps, DefaultButton } from "./buttonDefault.js";
+import { useComponent } from "../_provider/ComponentsContext";
+import { type ButtonProps, DefaultButton } from "./buttonDefault";
 
-export { type ButtonProps, buttonVariants, DefaultButton } from "./buttonDefault.js";
+export { type ButtonProps, buttonVariants, DefaultButton } from "./buttonDefault";
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>((props, ref) => {
   const Slot = useComponent("Button", DefaultButton) as ForwardRefExoticComponent<

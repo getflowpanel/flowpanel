@@ -1,6 +1,7 @@
 ---
 title: ESLint plugin
 description: Five rules that catch config mistakes the type system cannot.
+kind: reference
 ---
 
 `@flowpanel/eslint-plugin` is a separate, optional package. It catches the
@@ -23,7 +24,7 @@ shaped.
 
 ## Setup
 
-```ts title="eslint.config.ts"
+```ts excerpt title="eslint.config.ts"
 import flowpanel from "@flowpanel/eslint-plugin";
 
 export default [flowpanel.configs.recommended];
@@ -33,7 +34,7 @@ export default [flowpanel.configs.recommended];
 turns on all five rules at the severities in the table below. To pick rules by
 hand instead:
 
-```ts title="eslint.config.ts"
+```ts excerpt title="eslint.config.ts"
 import flowpanel from "@flowpanel/eslint-plugin";
 
 export default [
@@ -83,7 +84,7 @@ An entry in `actions:` or `bulkActions:` with `variant: "destructive"` and no
 sibling `confirm:` is reported. You have to write the message, so there is no
 autofix.
 
-```ts
+```ts excerpt
 // bad
 actions: [{ key: "delete", label: "Delete", variant: "destructive", run }];
 
@@ -117,7 +118,7 @@ When every entry of an `options:` array inside `filters: [...]` has
 `label === value`, the array can be a plain string array — the runtime
 normalizes both to the same thing. Autofixable.
 
-```ts
+```ts excerpt
 // bad
 filters: [
   {
@@ -138,7 +139,7 @@ filters: [{ field: "status", type: "select", options: ["active", "archived"] }];
 
 A heuristic check for the camelCase slips that a `Record<string, unknown>` row
 type will not catch — see
-[when column names are only `string`](/docs/core-concepts/resources#typos-and-column-validation).
+[when column names are only `string`](/docs/build/resources#typos-and-column-validation).
 Today it knows a short list: `userid`, `createdat`, `updatedat`, `isactive`.
 
 Deliberately **not** autofixable: `columns` is not a FlowPanel-exclusive

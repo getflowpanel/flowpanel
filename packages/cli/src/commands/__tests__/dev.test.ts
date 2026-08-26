@@ -1,7 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { pipeWithPrefix } from "../dev.js";
+import { pipeWithPrefix } from "../dev";
 
 function fakeChild(): { child: ChildProcess; stdout: EventEmitter; stderr: EventEmitter } {
   const stdout = new EventEmitter();
@@ -31,11 +31,11 @@ function capture(fn: () => void): { out: string[]; err: string[] } {
 
 describe("dev command module", () => {
   it("imports without throwing", async () => {
-    await expect(import("../dev.js")).resolves.toBeDefined();
+    await expect(import("../dev")).resolves.toBeDefined();
   });
 
   it("pipeWithPrefix is exported", async () => {
-    const mod = await import("../dev.js");
+    const mod = await import("../dev");
     expect(typeof mod.pipeWithPrefix).toBe("function");
   });
 });

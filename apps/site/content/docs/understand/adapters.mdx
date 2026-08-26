@@ -1,0 +1,35 @@
+---
+title: Adapters and introspection
+description: Understand how FlowPanel maps your schema to resource operations and metadata.
+kind: explanation
+---
+
+An adapter translates FlowPanel's resource contract into one data layer. The first-party adapters use Drizzle or Prisma, but the runtime depends on the adapter interface rather than either ORM.
+
+## Operations and metadata have different jobs
+
+Data methods list, fetch, create, update, delete, and optionally restore rows. They receive request context with pagination, filters, sort, selected fields, scope binding, input, and cancellation where relevant.
+
+Introspection describes the resource name, primary key, scalar columns, types, nullability, and related metadata. FlowPanel uses it to fill omitted columns, choose basic generated controls, validate configured names, and compile a registry. Introspection does not execute application authorization or make relations into arbitrary joins.
+
+`inferSchema` can provide write validation. Application-level schemas and field rules remain the authority when domain constraints go beyond database shape.
+
+## First-party differences
+
+Drizzle receives a table object, so TypeScript can infer `$inferSelect` directly. Its scope binding adds dialect-aware SQL predicates.
+
+Prisma receives a model name string and resolves its client delegate from DMMF. Runtime introspection is rich, but TypeScript needs `FlowpanelResources` to connect that string to the generated row type. Its scope binding merges constraints into Prisma `where` objects.
+
+Both adapters enforce explicit projections and apply scope to reads and by-ID mutations. Their database-specific limitations are documented in [Drizzle setup](/docs/introduction/drizzle) and [Prisma setup](/docs/introduction/prisma).
+
+## Declared columns narrow the boundary
+
+Introspection may know every scalar column while a resource declares only a few. Generated list and drawer paths project and serialize the declared surface plus explicit `expose` fields. This reduces accidental data transfer; it is still not a substitute for field access policy on sensitive values.
+
+## Custom adapters
+
+A custom adapter is appropriate when the source has stable CRUD semantics that can satisfy the same authorization, scope, projection, validation, and pagination expectations. Implement the public contract and run adapter conformance/integration tests against real storage behavior.
+
+Do not write an adapter merely to support one aggregate or joined screen. A custom dashboard query or page is usually clearer. Queue adapters are separate because queue state and control do not share resource CRUD semantics.
+
+Exact methods and option types belong in [Adapters reference](/docs/reference/adapters).

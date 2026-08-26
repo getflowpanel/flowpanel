@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { fileExists } from "./detect.js";
+import { fileExists } from "./detect";
 
 const CONFIG_FILE_CANDIDATES = [
   "flowpanel.config.ts",

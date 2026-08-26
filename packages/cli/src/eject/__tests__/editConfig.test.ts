@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { editConfigToCommentDashboard, editConfigToCommentResource } from "../editConfig.js";
+import { editConfigToCommentDashboard, editConfigToCommentResource } from "../editConfig";
 
 const before = `import { defineAdmin, resource } from "@flowpanel/kit";
 import * as schema from "./db/schema";

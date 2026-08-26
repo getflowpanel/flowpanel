@@ -2,7 +2,8 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
-import { backoffDelay, DEFAULT_RECONNECT_MAX_MS } from "./backoff.js";
+import { useApiBase } from "../_provider/ApiBaseContext";
+import { backoffDelay, DEFAULT_RECONNECT_MAX_MS } from "./backoff";
 import {
   type Callback,
   type RealtimeBus,
@@ -11,7 +12,8 @@ import {
   type RealtimeStatus,
   type StatusListener,
   statusForAttempt,
-} from "./context.js";
+} from "./context";
+import { readFrame } from "./frame";
 
 // LOC-OK: one cohesive EventSource lifecycle.
 
@@ -54,12 +56,14 @@ export function RealtimeProvider(props: RealtimeProviderProps): React.JSX.Elemen
 }
 
 function RealtimeProviderInner({
-  endpoint = "/api/flowpanel/stream",
+  endpoint,
   reopenDebounceMs = 50,
   refreshDebounceMs = 400,
   children,
 }: RealtimeProviderProps): React.JSX.Element {
   const router = useRouter();
+  const apiBase = useApiBase();
+  const streamUrl = endpoint ?? `${apiBase}/stream`;
   const stateRef = React.useRef<BusState | null>(null);
   if (stateRef.current === null) {
     stateRef.current = {
@@ -138,7 +142,7 @@ function RealtimeProviderInner({
 
     const params = new URLSearchParams();
     for (const ch of channels) params.append("channel", ch);
-    const url = `${endpoint}?${params.toString()}`;
+    const url = `${streamUrl}?${params.toString()}`;
 
     setStatus(state.attempt === 0 ? "connecting" : statusForAttempt(state.attempt));
     const es = new EventSource(url);
@@ -160,25 +164,12 @@ function RealtimeProviderInner({
     es.onmessage = (ev) => {
       setStatus("live");
       state.eventCount += 1;
-      let channel: string | undefined;
-      let payload: unknown;
-      try {
-        const parsed = ev.data ? JSON.parse(ev.data as string) : undefined;
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          typeof (parsed as { channel?: unknown }).channel === "string"
-        ) {
-          channel = (parsed as { channel: string }).channel;
-          payload = (parsed as { payload?: unknown }).payload;
-        }
-      } catch {}
-      // Malformed frame (not a `{channel: string, ...}` envelope): drop it, no
-      // dispatch/refresh. A well-formed envelope always refreshes (ADR 0014).
-      if (channel === undefined) {
+      const frame = readFrame(ev.data);
+      if (!frame) {
         notifyStats();
         return;
       }
+      const { channel, payload } = frame;
       const set = state.callbacks.get(channel);
       if (set) {
         for (const cb of Array.from(set)) {
@@ -215,7 +206,7 @@ function RealtimeProviderInner({
         openSource();
       }, delay);
     };
-  }, [endpoint, setStatus, notifyStats, scheduleRefresh]);
+  }, [streamUrl, setStatus, notifyStats, scheduleRefresh]);
 
   const scheduleReopen = React.useCallback(() => {
     const state = stateRef.current;

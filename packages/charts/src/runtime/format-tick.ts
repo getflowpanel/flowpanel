@@ -7,19 +7,7 @@ export function formatTick(value: unknown, bucket: ChartBucket = "auto"): string
     return value == null ? "" : String(value);
   }
 
-  switch (bucket) {
-    case "day":
-    case "week":
-    case "month":
-    case "year":
-      return formatDateOnly(date);
-    case "hour":
-      return formatToMinute(date);
-    case "minute":
-      return formatToMinute(date);
-    default:
-      return formatDateOnly(date);
-  }
+  return bucket === "hour" || bucket === "minute" ? formatToMinute(date) : formatDateOnly(date);
 }
 
 /** Build a tick formatter closure for a chart. */
@@ -36,7 +24,7 @@ export function buildTickFormatter(
 }
 
 /** Infer `"day"` vs `"hour"` from the spacing between the first few x-values. */
-export function inferBucket(
+function inferBucket(
   data: ReadonlyArray<Record<string, unknown>>,
   xKey: string,
 ): ChartBucket | null {

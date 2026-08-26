@@ -3,8 +3,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useEffect } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { ToastProvider } from "../Toast.js";
-import { useToast } from "../toast-api.js";
+import { ToastProvider } from "../Toast";
+import { useToast } from "../toast-api";
 
 afterEach(cleanup);
 

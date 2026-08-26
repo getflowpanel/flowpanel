@@ -2,10 +2,10 @@ import type { Adapter, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/co
 import { defineAdmin, queue, resource } from "@flowpanel/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { drawerActionRoute } from "../drawer/drawer-route.js";
-import { parseActionBody } from "../drawer/parse-action-body.js";
-import { handlers } from "../handlers.js";
-import { buildNav, resourceNavName } from "../runtime/nav.js";
+import { drawerActionRoute } from "../drawer/drawer-route";
+import { parseActionBody } from "../drawer/parse-action-body";
+import { handlers } from "../handlers";
+import { buildNav, resourceNavName } from "../runtime/nav";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // nav.ts: Drizzle Symbol(BaseName) branch + queueItems group
@@ -64,7 +64,7 @@ describe("buildNav — Queues group", () => {
 describe("runtime/publish.ts — publishResource + subscribe", () => {
   it("publishResource fans out on channel resource.<name> and reaches subscribers", async () => {
     // Import fresh so we always pick up the most recently bound publisher.
-    const mod = await import("../runtime/publish.js");
+    const mod = await import("../runtime/publish");
     const got: unknown[] = [];
     const off = mod.subscribe("resource.users", (payload) => {
       got.push(payload);

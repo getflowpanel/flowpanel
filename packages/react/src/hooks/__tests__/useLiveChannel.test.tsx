@@ -1,6 +1,6 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useLiveChannel } from "../useLiveChannel.js";
+import { useLiveChannel } from "../useLiveChannel";
 
 const instances: MockEventSource[] = [];
 
@@ -66,18 +66,6 @@ describe("useLiveChannel", () => {
     expect(getByTestId("status").textContent).toBe("live");
   });
 
-  it("invokes onMessage with JSON-parsed payload", () => {
-    const handler = vi.fn();
-    render(<Harness channel="x" onMessage={handler} />);
-    act(() => {
-      instances[0]!.open();
-    });
-    act(() => {
-      instances[0]!.message(JSON.stringify({ hi: 1 }));
-    });
-    expect(handler).toHaveBeenCalledWith({ hi: 1 });
-  });
-
   it("unwraps a channel envelope and delivers only the payload", () => {
     const handler = vi.fn();
     render(<Harness channel="x" onMessage={handler} />);
@@ -89,12 +77,32 @@ describe("useLiveChannel", () => {
     expect(handler).not.toHaveBeenCalledWith({ channel: "x", payload: { hi: 1 } });
   });
 
-  it("treats empty data as undefined payload", () => {
+  it("delivers an envelope carrying no payload", () => {
     const handler = vi.fn();
     render(<Harness channel="x" onMessage={handler} />);
     act(() => instances[0]!.open());
-    act(() => instances[0]!.message(""));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "x" })));
     expect(handler).toHaveBeenCalledWith(undefined);
+  });
+
+  it("drops a frame addressed to another channel", () => {
+    const handler = vi.fn();
+    render(<Harness channel="x" onMessage={handler} />);
+    act(() => instances[0]!.open());
+    act(() => {
+      instances[0]!.message(JSON.stringify({ channel: "other", payload: { hi: 1 } }));
+    });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("drops frames that are not channel envelopes", () => {
+    const handler = vi.fn();
+    render(<Harness channel="x" onMessage={handler} />);
+    act(() => instances[0]!.open());
+    act(() => instances[0]!.message(JSON.stringify({ hi: 1 })));
+    act(() => instances[0]!.message(""));
+    act(() => instances[0]!.message("not json"));
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it("reconnects with exponential backoff once the socket is CLOSED", async () => {
@@ -286,7 +294,7 @@ describe("useLiveChannel", () => {
       render(<Pooled showA showB onA={handlerA} onB={handlerB} />);
       act(() => instances[0]!.open());
       act(() => {
-        instances[0]!.message(JSON.stringify({ hi: 1 }));
+        instances[0]!.message(JSON.stringify({ channel: "shared", payload: { hi: 1 } }));
       });
       expect(handlerA).toHaveBeenCalledTimes(1);
       expect(handlerA).toHaveBeenCalledWith({ hi: 1 });
@@ -313,7 +321,7 @@ describe("useLiveChannel", () => {
       render(<Pooled showA showB onA={handlerA} onB={handlerB} />);
       act(() => instances[0]!.open());
       act(() => {
-        instances[0]!.message(JSON.stringify({ hi: 1 }));
+        instances[0]!.message(JSON.stringify({ channel: "shared", payload: { hi: 1 } }));
       });
       expect(handlerA).toHaveBeenCalledTimes(1);
       expect(handlerB).toHaveBeenCalledTimes(1);

@@ -11,11 +11,11 @@ import {
 } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import * as React from "react";
-import { BulkActionsBar } from "../actions/BulkActionsBar.js";
-import type { SerializedBulkAction } from "../actions/bulk-action.js";
-import { RestoreButton } from "../actions/RestoreButton.js";
-import { RowActionsMenu } from "../actions/RowActionsMenu.js";
-import type { SerializedRowAction } from "../actions/row-action.js";
+import { BulkActionsBar } from "../actions/BulkActionsBar";
+import type { SerializedBulkAction } from "../actions/bulk-action";
+import { RestoreButton } from "../actions/RestoreButton";
+import { RowActionsMenu } from "../actions/RowActionsMenu";
+import type { SerializedRowAction } from "../actions/row-action";
 
 /** Thin wrapper around `<DataTable>` that wires realtime refresh and row-click drawer interaction. */
 export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown>> {

@@ -1,10 +1,10 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { authorizeOperation, checkRequireRole, resolveOperationAccess } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
-import { buildHref } from "../runtime/href.js";
-import { buildRequestContext } from "../runtime/request-setup.js";
-import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields.js";
-import { singularLabel } from "../runtime/resource-title.js";
+import { buildHref } from "../runtime/href";
+import { buildRequestContext } from "../runtime/request-setup";
+import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
+import { singularLabel } from "../runtime/resource-title";
 
 export interface ResourceCreatePageProps {
   config: ResolvedAdminConfig;
@@ -33,7 +33,7 @@ export async function ResourceCreatePage({
   }
 
   const intro = config.adapter.introspect(resource.ref);
-  const action = `/api/flowpanel/${name}/create`;
+  const action = `${config.paths.api}/${name}/create`;
   const declared = declaredFormFields(resource, "create");
   const fields = declared ? await resolveFormFields(config, declared, reqCtx) : undefined;
 

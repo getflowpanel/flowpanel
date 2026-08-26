@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveCatchAllSegments } from "../flowpanel-page.js";
+import { resolveCatchAllSegments } from "../flowpanel-page";
 
 describe("resolveCatchAllSegments", () => {
   it("reads `slug` first when present", () => {

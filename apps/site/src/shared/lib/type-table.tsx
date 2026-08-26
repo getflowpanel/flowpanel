@@ -1,8 +1,6 @@
-import { createGenerator } from "fumadocs-typescript";
 import { AutoTypeTable as BaseAutoTypeTable } from "fumadocs-typescript/ui";
 import type { ComponentProps } from "react";
-
-const generator = createGenerator({ tsconfigPath: "./tsconfig.json" });
+import { getTypeGenerator } from "./type-project";
 
 /**
  * Renders a property table straight from a TypeScript declaration, so the docs
@@ -13,5 +11,5 @@ const generator = createGenerator({ tsconfigPath: "./tsconfig.json" });
  * ```
  */
 export function AutoTypeTable(props: Omit<ComponentProps<typeof BaseAutoTypeTable>, "generator">) {
-  return <BaseAutoTypeTable {...props} generator={generator} />;
+  return <BaseAutoTypeTable {...props} generator={getTypeGenerator()} />;
 }

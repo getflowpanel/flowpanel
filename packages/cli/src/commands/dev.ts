@@ -4,7 +4,7 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
-import { detectPackageManager, platformBin, pmCommands } from "../utils/detect.js";
+import { detectPackageManager, platformBin, pmCommands } from "../utils/detect";
 
 export function devCommand(cli: Command): void {
   cli

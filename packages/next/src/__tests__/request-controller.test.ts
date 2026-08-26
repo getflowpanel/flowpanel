@@ -1,7 +1,7 @@
 import type { Adapter, RequestContext } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { createControllerFactory } from "../runtime/controller-factory.js";
+import { createControllerFactory } from "../runtime/controller-factory";
 
 describe("protected request controllers", () => {
   it("enforces the compiled exposure projection and returns result envelopes", async () => {

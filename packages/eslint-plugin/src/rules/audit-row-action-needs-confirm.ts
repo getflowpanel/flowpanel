@@ -1,5 +1,5 @@
 import { AST_NODE_TYPES, type TSESTree } from "@typescript-eslint/utils";
-import { createRule } from "../create-rule.js";
+import { createRule } from "../create-rule";
 
 type MessageId = "needsConfirm";
 

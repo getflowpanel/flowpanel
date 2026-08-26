@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Adapter, ColumnMeta } from "../index.js";
-import { defineAdmin, queue, resource } from "../index.js";
+import type { Adapter, ColumnMeta } from "../index";
+import { defineAdmin, queue, resource } from "../index";
 
 function meta(name: string): ColumnMeta {
   return { name, type: "string", nullable: false, unique: false, primaryKey: name === "id" };
@@ -184,7 +184,7 @@ describe("defineAdmin — introspect-time column validation", () => {
     ).toThrow(/points at column "nope" via columns\[1\]\.field/);
   });
 
-  it("rejects a server-rendered column without an explicit field selection", () => {
+  it("rejects a server-rendered column that declares no field", () => {
     expect(() =>
       defineAdmin({
         adapter,
@@ -196,7 +196,7 @@ describe("defineAdmin — introspect-time column validation", () => {
           ),
         ],
       }),
-    ).toThrow(/columns\[1\].*field or select/i);
+    ).toThrow(/columns\[1\].*without declaring a field/i);
   });
 
   it("rejects an unknown defaultSort.field", () => {

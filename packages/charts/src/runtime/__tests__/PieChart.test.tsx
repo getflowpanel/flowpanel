@@ -1,8 +1,8 @@
 import { isValidElement, type ReactElement } from "react";
 import { Tooltip } from "recharts";
 import { describe, expect, it } from "vitest";
-import { ChartTooltip, type ChartTooltipProps } from "../ChartTooltip.js";
-import { PieChart } from "../PieChart.js";
+import { ChartTooltip, type ChartTooltipProps } from "../ChartTooltip";
+import { PieChart } from "../PieChart";
 
 function findElements(node: unknown, type: unknown, out: unknown[] = []): unknown[] {
   if (node == null || typeof node === "boolean") return out;

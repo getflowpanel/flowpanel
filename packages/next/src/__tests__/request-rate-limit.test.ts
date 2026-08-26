@@ -1,7 +1,7 @@
 import type { AdminConfig, RateLimitConfig } from "@flowpanel/core";
 import { FlowpanelRateLimitError } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { buildRequestContext } from "../runtime/request-setup.js";
+import { buildRequestContext } from "../runtime/request-setup";
 
 function mkConfig(rateLimit?: RateLimitConfig, userId: string | null = "u1"): AdminConfig {
   const base: AdminConfig = {

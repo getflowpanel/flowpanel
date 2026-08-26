@@ -1,5 +1,5 @@
-import type { AdminConfig } from "./types/config.js";
-import type { ResourceConfig } from "./types/resource.js";
+import type { AdminConfig } from "./types/config";
+import type { ResourceConfig } from "./types/resource";
 
 const MESSAGE =
   "[flowpanel] This admin has no access control: auth.requireRole is unset, no " +

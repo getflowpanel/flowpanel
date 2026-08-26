@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeShallowDiff, isAuditActive } from "../runtime/action-helpers.js";
+import { computeShallowDiff, isAuditActive } from "../runtime/action-helpers";
 
 describe("computeShallowDiff", () => {
   it("returns undefined when both snapshots are null", () => {

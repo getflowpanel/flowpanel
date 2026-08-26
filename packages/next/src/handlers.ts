@@ -1,17 +1,18 @@
 import type { RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { errorResult, FlowpanelNotFoundError } from "@flowpanel/core";
-import { bulkActionRoute } from "./actions/bulk-action.js";
-import { dashboardActionRoute } from "./actions/dashboard-action.js";
-import { inlineUpdateRoute } from "./actions/inline-update.js";
-import { referenceSearchRoute } from "./actions/reference-search.js";
-import { resourceCreateRoute, resourceUpdateRoute } from "./actions/resource-form.js";
-import { importRoute } from "./actions/resource-import.js";
-import { restoreRoute } from "./actions/restore.js";
-import { rowActionRoute } from "./actions/row-action.js";
-import { createResourceController } from "./controllers/resource-controller.js";
-import { drawerActionRoute, drawerRoute } from "./drawer/drawer-route.js";
-import { withGuards } from "./runtime/with-guards.js";
-import { methodNotAllowed, wireResponse } from "./wire/response.js";
+import { bulkActionRoute } from "./actions/bulk-action";
+import { dashboardActionRoute } from "./actions/dashboard-action";
+import { inlineUpdateRoute } from "./actions/inline-update";
+import { referenceSearchRoute } from "./actions/reference-search";
+import { resourceCreateRoute, resourceUpdateRoute } from "./actions/resource-form";
+import { importRoute } from "./actions/resource-import";
+import { restoreRoute } from "./actions/restore";
+import { rowActionRoute } from "./actions/row-action";
+import { createResourceController } from "./controllers/resource-controller";
+import { drawerActionRoute, drawerRoute } from "./drawer/drawer-route";
+import { declaredFieldSet } from "./runtime/parse-list-params";
+import { withGuards } from "./runtime/with-guards";
+import { methodNotAllowed, wireResponse } from "./wire/response";
 
 export interface RouteContext {
   params: Promise<{ route?: string[] }>;
@@ -122,12 +123,17 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
       }
       return getReferenceSearch(req, { params: Promise.resolve({ resource, field }) });
     }
-    if (route.length === 1 && route[0] && config.resourcesByName.has(route[0])) {
+    const listed =
+      route.length === 1 && route[0] ? config.resourcesByName.get(route[0]) : undefined;
+    if (listed && route[0]) {
       const resource = route[0];
       const url = new URL(req.url);
+      const declared = declaredFieldSet(listed.options);
       const filters: Record<string, unknown> = {};
       for (const [key, value] of url.searchParams) {
-        if (key.startsWith("filter.")) filters[key.slice(7)] = value;
+        if (!key.startsWith("filter.")) continue;
+        const field = key.slice(7);
+        if (declared.has(field)) filters[field] = value;
       }
       return resourceResult(config, req, resource, "read", async (controller) =>
         wireResponse(

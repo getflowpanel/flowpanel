@@ -4,9 +4,15 @@ import {
   defineConfig,
   defineDocs,
   frontmatterSchema,
+  remarkInclude,
 } from "fumadocs-mdx/config";
 import { transformerTwoslash } from "fumadocs-twoslash";
 import { z } from "zod";
+import { DOC_KINDS } from "./src/shared/lib/docs-contract";
+
+const docsFrontmatterSchema = frontmatterSchema.extend({
+  kind: z.enum(DOC_KINDS),
+});
 
 /**
  * Docs collection — file-based MDX with type-safe `title` / `description`
@@ -16,7 +22,7 @@ import { z } from "zod";
 export const docs = defineDocs({
   dir: "content/docs",
   docs: {
-    schema: frontmatterSchema,
+    schema: docsFrontmatterSchema,
   },
 });
 
@@ -61,6 +67,7 @@ export const changelog = defineCollections({
 
 export default defineConfig({
   mdxOptions: {
+    remarkPlugins: [remarkInclude],
     // Highlighting handled by Fumadocs UI defaults (shiki). Code blocks
     // tagged ` ```ts twoslash ` are type-checked at build time and gain
     // inline type/hover popups — see `apps/site/ARCHITECTURE.md`.

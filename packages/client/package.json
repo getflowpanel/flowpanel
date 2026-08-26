@@ -5,7 +5,10 @@
   "keywords": [
     "flowpanel",
     "admin",
-    "nextjs"
+    "admin-panel",
+    "nextjs",
+    "react",
+    "hooks"
   ],
   "license": "MIT",
   "repository": {
@@ -24,6 +27,7 @@
     },
     "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "files": [
     "dist",
     "README.md"

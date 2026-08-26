@@ -13,11 +13,11 @@ import {
   TableWidget as TableWidgetRenderer,
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
-import { ServerCard } from "./_server-card.js";
-import { buildHref } from "./href.js";
-import { type PrerenderedColumn, prerenderResourceCells } from "./prerender-cells.js";
-import { readRelatedRows } from "./require-authorized.js";
-import { resolveReferences } from "./resolve-references.js";
+import { ServerCard } from "./_server-card";
+import { buildHref } from "./href";
+import { type PrerenderedColumn, prerenderResourceCells } from "./prerender-cells";
+import { readRelatedRows } from "./require-authorized";
+import { resolveReferences } from "./resolve-references";
 
 type WidgetRow = Record<string, unknown>;
 

@@ -1,9 +1,9 @@
 "use client";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "cmdk";
 import * as React from "react";
-import { useLabels } from "../_provider/LabelsContext.js";
-import { Button } from "../ui/button.js";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover.js";
+import { useLabels } from "../_provider/LabelsContext";
+import { Button } from "../ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 export interface ReferenceItem {
   id: string;

@@ -4,12 +4,12 @@ import type {
   RequestContext,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
-import { bulkActionRoute } from "../actions/bulk-action.js";
-import { dashboardActionRoute } from "../actions/dashboard-action.js";
-import { restoreRoute } from "../actions/restore.js";
-import { rowActionRoute } from "../actions/row-action.js";
-import { bindRequestContext } from "../runtime/request-setup.js";
-import { toWireValue } from "../wire/serialize.js";
+import { bulkActionRoute } from "../actions/bulk-action";
+import { dashboardActionRoute } from "../actions/dashboard-action";
+import { restoreRoute } from "../actions/restore";
+import { rowActionRoute } from "../actions/row-action";
+import { bindRequestContext } from "../runtime/request-setup";
+import { toWireValue } from "../wire/serialize";
 
 function codeFor(status: number): FlowpanelErrorCode {
   if (status === 400) return "bad_request";

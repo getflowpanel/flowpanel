@@ -1,5 +1,5 @@
 "use client";
-import { Button } from "../ui/button.js";
+import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -7,7 +7,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu.js";
+} from "../ui/dropdown-menu";
 
 export interface ColumnVisibilityMenuColumn {
   field: string;

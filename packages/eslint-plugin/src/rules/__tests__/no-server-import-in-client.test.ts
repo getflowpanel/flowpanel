@@ -1,5 +1,5 @@
-import rule from "../no-server-import-in-client.js";
-import { ruleTester } from "./setup.js";
+import rule from "../no-server-import-in-client";
+import { ruleTester } from "./setup";
 
 ruleTester().run("no-server-import-in-client", rule, {
   valid: [
@@ -95,6 +95,24 @@ ruleTester().run("no-server-import-in-client", rule, {
         export const x = 1;
       `,
       errors: [{ messageId: "serverImport", data: { source: "@/db/schema" } }],
+    },
+    {
+      name: "use-client + a bare package's /server subpath export",
+      code: `
+        "use client";
+        import { createHandler } from "@flowpanel/kit/server";
+        export const x = 1;
+      `,
+      errors: [{ messageId: "serverImport", data: { source: "@flowpanel/kit/server" } }],
+    },
+    {
+      name: "use-client + a nested /server/ segment inside a bare package",
+      code: `
+        "use client";
+        import { auth } from "some-pkg/server/auth";
+        export const x = 1;
+      `,
+      errors: [{ messageId: "serverImport", data: { source: "some-pkg/server/auth" } }],
     },
   ],
 });

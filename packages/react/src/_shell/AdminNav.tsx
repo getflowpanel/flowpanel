@@ -1,10 +1,10 @@
 "use client";
 import type { IconName } from "@flowpanel/core";
 import Link from "next/link";
-import { FlowpanelIcon } from "../_atoms/FlowpanelIcon.js";
-import { cn } from "../lib/cn.js";
-import { AccountMenu, type AccountMenuUser } from "./AccountMenu.js";
-import { Brand, type ShellBrand } from "./Brand.js";
+import { FlowpanelIcon } from "../_atoms/FlowpanelIcon";
+import { cn } from "../lib/cn";
+import { AccountMenu, type AccountMenuUser } from "./AccountMenu";
+import { Brand, type ShellBrand } from "./Brand";
 
 export interface NavEntry {
   label: string;

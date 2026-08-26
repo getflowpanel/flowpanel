@@ -1,13 +1,14 @@
 ---
 title: Drawer
 description: The row side panel — layout, tabs and actions.
+kind: reference
 ---
 
 A drawer is the fast path to one row: it opens over the list without losing the
 operator's place, their filters or their scroll position. Declare it on a
 resource and set `rowClick: "drawer"` to open it by clicking the row.
 
-```ts
+```ts excerpt
 resource(orders, {
   columns: ["id", "customerEmail", "status"],
   rowClick: "drawer",
@@ -92,7 +93,7 @@ tab of metrics/charts/tables, or a `detail` tab, which renders on the server.
 Each widget in the tab is flattened to a `SerializedWidget` before it crosses:
 a discriminated union over `kind`, one variant per widget type.
 
-```ts
+```ts excerpt
 type SerializedWidget =
   | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
   | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }

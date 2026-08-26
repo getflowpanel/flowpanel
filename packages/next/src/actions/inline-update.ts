@@ -1,13 +1,13 @@
 import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { buildAuditEvent, maybeEmitAudit } from "../runtime/action-helpers.js";
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { buildHref } from "../runtime/href.js";
-import { bindPublisher } from "../runtime/publish.js";
-import { declaredFormFields } from "../runtime/resolve-form-fields.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { withGuards } from "../runtime/with-guards.js";
-import { assertResourceWritableInput } from "./field-pipeline.js";
+import { buildAuditEvent, maybeEmitAudit } from "../runtime/action-helpers";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { buildHref } from "../runtime/href";
+import { bindPublisher } from "../runtime/publish";
+import { declaredFormFields } from "../runtime/resolve-form-fields";
+import { scopeBinding } from "../runtime/scope-binding";
+import { withGuards } from "../runtime/with-guards";
+import { assertResourceWritableInput } from "./field-pipeline";
 
 export function inlineUpdateRoute(config: ResolvedAdminConfig) {
   bindPublisher(config);
@@ -51,7 +51,11 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
         );
       }
 
-      const updateFields = declaredFormFields(resource, "update");
+      const formFields = declaredFormFields(resource, "update");
+      const updateFields =
+        formFields && !formFields.some((f) => f.name === field)
+          ? [...formFields, { name: field }]
+          : formFields;
 
       let nextValue = value;
       const updateSchema = config.adapter.inferSchema?.(resource.ref)?.update as

@@ -1,0 +1,12 @@
+{
+  "title": "Build your admin",
+  "pages": [
+    "configuration",
+    "resources",
+    "forms",
+    "actions",
+    "drawers",
+    "dashboards",
+    "import-export"
+  ]
+}

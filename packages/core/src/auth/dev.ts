@@ -1,4 +1,4 @@
-import type { AuthConfig } from "../types/config.js";
+import type { AuthConfig } from "../types/config";
 
 /**
  * A fixed signed-in operator, for local development and examples: the session

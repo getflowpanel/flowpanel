@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { drizzleAdapter } from "../index.js";
+import { drizzleAdapter } from "../index";
 
 const items = sqliteTable("items", {
   id: text("id").primaryKey(),

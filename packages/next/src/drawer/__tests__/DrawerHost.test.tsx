@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams("drawer=users:27"),
 }));
 
-import { DrawerHost } from "../DrawerHost.js";
+import { DrawerHost } from "../DrawerHost";
 
 afterEach(() => {
   cleanup();

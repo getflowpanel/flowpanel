@@ -1,1 +1,1 @@
-export { type BullMQAdapter, type BullMQAdapterOptions, bullmqAdapter } from "./adapter.js";
+export { type BullMQAdapter, type BullMQAdapterOptions, bullmqAdapter } from "./adapter";

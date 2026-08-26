@@ -1,12 +1,12 @@
 "use client";
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
-import { Checkbox } from "../ui/checkbox.js";
-import type { DataTableColumn } from "./data-table-types.js";
-import { ALIGN_CLASS } from "./format-cell.js";
-import { InlineEditCell } from "./InlineEditCell.js";
-import { renderDefaultCell } from "./render-default-cell.js";
-import type { PinMeta } from "./useColumnLayout.js";
+import { cn } from "../lib/cn";
+import { Checkbox } from "../ui/checkbox";
+import type { DataTableColumn } from "./data-table-types";
+import { ALIGN_CLASS } from "./format-cell";
+import { InlineEditCell } from "./InlineEditCell";
+import { renderDefaultCell } from "./render-default-cell";
+import type { PinMeta } from "./useColumnLayout";
 
 function renderCellContent<Row extends Record<string, unknown>>(
   c: DataTableColumn<Row>,

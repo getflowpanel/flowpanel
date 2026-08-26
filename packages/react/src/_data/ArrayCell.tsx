@@ -1,5 +1,5 @@
 "use client";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export interface ArrayCellProps {
   value: ReadonlyArray<unknown> | null | undefined;

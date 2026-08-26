@@ -1,6 +1,6 @@
 import type { ResourceConfig } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { singularLabel } from "../runtime/resource-title.js";
+import { singularLabel } from "../runtime/resource-title";
 
 const withOptions = (options: Record<string, unknown>) =>
   ({ ref: {}, options }) as unknown as ResourceConfig;

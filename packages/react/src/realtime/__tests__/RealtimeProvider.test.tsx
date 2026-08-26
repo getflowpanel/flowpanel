@@ -53,10 +53,10 @@ class MockEventSource {
 
 import * as React from "react";
 
-import { RealtimeRefresh } from "../../hooks/useRealtimeRefresh.js";
-import type { RealtimeStatus } from "../context.js";
-import { useRealtimeBus, useRealtimeStatus } from "../hooks.js";
-import { RealtimeProvider } from "../RealtimeProvider.js";
+import { RealtimeRefresh } from "../../hooks/useRealtimeRefresh";
+import type { RealtimeStatus } from "../context";
+import { useRealtimeBus, useRealtimeStatus } from "../hooks";
+import { RealtimeProvider } from "../RealtimeProvider";
 
 /** Direct bus subscriber — lets a test assert per-channel callback routing. */
 function Sub({ channels, cb }: { channels: string[]; cb: (data: unknown) => void }) {

@@ -1,77 +1,43 @@
 ---
 title: Project structure
-description: Where flowpanel lives inside a Next.js project, and what each file does.
+description: See which FlowPanel files the CLI creates, who owns them, and when to edit them.
+kind: explanation
 ---
 
-After `flowpanel init`, your project has a handful of new files. All
-of them are tiny.
+`flowpanel init` adds a small integration layer to the host application. Paths begin with `src/` when the application uses `src/app`.
 
 ```text
 your-app/
-├── flowpanel.config.ts                     # the entire admin, declarative
+├── flowpanel.config.ts
 ├── app/
-│   ├── admin/
-│   │   └── [[...slug]]/
-│   │       └── page.tsx                    # one RSC catch-all page
-│   └── api/
-│       └── flowpanel/
-│           ├── [...route]/route.ts         # drawer + bulk-action handler
-│           └── stream/route.ts             # SSE channel for realtime
-├── styles/
-│   └── admin.css                           # bundled admin stylesheet
-└── flowpanel/
-    └── migrations/
-        └── 0001_init.sql                   # audit + tracking tables
+│   ├── admin/[[...slug]]/page.tsx
+│   └── api/flowpanel/
+│       ├── [...route]/route.ts
+│       └── stream/route.ts
+├── styles/admin.css
+└── flowpanel/migrations/0001_init.sql
 ```
 
-Two more files depend on what `init` finds: it scaffolds
-`app/layout.tsx` when the project has none (otherwise it adds the
-`admin.css` import to the existing one), and on Tailwind v3 it writes
-`tailwind.config.ts` unless one already exists.
+## Files you normally edit
 
-## flowpanel.config.ts
+`flowpanel.config.ts` is application-owned. It selects resources and defines auth, access, scope, dashboards, actions, realtime, labels, and theme options. Most FlowPanel work happens here or in modules imported by it.
 
-Single source of truth. Defines which resources are visible in the
-admin, which columns they expose, which filters and actions they have,
-and which theme components (if any) override the defaults.
+`styles/admin.css` is also application-owned. The CLI creates the correct Tailwind v3 or v4 entry and imports FlowPanel styles. Change tokens and safe overrides there; preserve the source/content directives needed to discover FlowPanel classes.
 
-This file is **typed against your schema**. Adding `columns: ["pwd"]`
-to a resource whose row type doesn't have a `pwd` field is a TypeScript
-error at build time (Drizzle infers via `Table["$inferSelect"]`; Prisma
-infers via the augmented `FlowpanelResources` registry).
+Review every SQL file before applying it. The initial migration creates FlowPanel's migration and audit tables. It does not configure an audit sink for you.
 
-## app/admin/[[...slug]]/page.tsx
+## Wiring files
 
-The page mount. It's a tiny RSC catch-all that hands every `/admin/...` URL to
-`createFlowpanel(config).page`. You don't write per-resource
-pages, layouts, or client components — they're rendered from your
-config at request time.
+The catch-all admin page passes every `/admin/...` request to `createFlowpanel(config).page`. The catch-all API route exports the generated HTTP handlers. The stream route exposes the authenticated Server-Sent Events endpoint.
 
-## app/api/flowpanel/[...route]/route.ts
+These files are intentionally small. Edit them only when changing mount paths or integrating custom route behavior. `flowpanel doctor --fix` can restore missing route templates, but does not overwrite an existing conflicting file.
 
-The API mount. `createFlowpanel(config).handlers` returns
-`{ GET, POST, PUT, PATCH, DELETE, OPTIONS }`. The v1 JSON endpoints support
-typed list/get/create/update/delete clients; the same catch-all also serves
-drawer data, reference search, form writes, restore, import, and row / bulk /
-drawer / dashboard actions. Every transport converges on the same role,
-field-policy, scope, validation and mutation pipeline. See
-[Next.js runtime](/docs/reference/next-runtime) and
-[Actions](/docs/reference/actions).
+The CLI may also add the stylesheet import and `suppressHydrationWarning` to an existing root layout. If no layout exists, it creates one. Tailwind v3 projects may receive a config file when none exists.
 
-## app/api/flowpanel/stream/route.ts
+## Files created later
 
-The Server-Sent Events endpoint. Subscribed components (e.g.
-`<TableWidget realtime="resource.users" />`) reconnect through this
-route. Set `realtime: { driver: "memory" }` for dev and switch to the
-Redis driver for prod — same config switch, no code change.
+`flowpanel eject` writes owned source under the admin route for a resource, dashboard, or layout. Ejected files are no longer generated at runtime and do not receive framework behavior changes automatically.
 
-## Nothing else
+FlowPanel does not copy the application schema or generate one page per configured resource. Adapters introspect the original Drizzle tables or Prisma metadata, and the catch-all routes render the compiled config.
 
-There are no scaffolded admin pages. No vendor folders. No copy of your
-schema in JSON. flowpanel introspects your ORM at runtime (DMMF for
-Prisma, table objects for Drizzle) and resolves everything else from
-there.
-
-If you outgrow this — say, one resource needs a fully custom drawer —
-the [`eject`](/docs/customization/eject) command writes a typed scaffold
-into your repo, and you own it from then on.
+See [How FlowPanel works](/docs/understand/how-flowpanel-works) for the runtime path and [Eject to source](/docs/customization/eject) for the ownership transfer.

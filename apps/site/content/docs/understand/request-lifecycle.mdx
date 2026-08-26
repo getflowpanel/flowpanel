@@ -1,0 +1,46 @@
+---
+title: Request and mutation lifecycle
+description: See where authentication, access, scope, writes, audit, and realtime run.
+kind: explanation
+---
+
+Generated pages, API calls, forms, actions, imports, and drawer requests share a server-side request runtime. The exact data operation differs, but the protection layers stay consistent.
+
+## Read lifecycle
+
+1. Resolve the session, actor ID, and role.
+2. Enforce the admin-wide gate and the target surface's access rule.
+3. Resolve global scope and bind the resource predicate.
+4. Parse only allowed search, filter, sort, pagination, and projection inputs.
+5. Call the adapter or application query.
+6. Apply field visibility and serialize the declared result surface.
+
+A browser cannot select an arbitrary database column by adding it to the URL. Unknown or undeclared query fields are rejected or ignored according to the specific parser contract.
+
+## Mutation lifecycle
+
+1. Authenticate and authorize before validating action-specific input.
+2. Bind tenant scope and resolve the target row where the operation needs it.
+3. Reject fields the operation may not write.
+4. Fill trusted create defaults and validate the resource/action schema.
+5. Execute the adapter or action handler.
+6. Normalize the result for the UI.
+7. After commit, emit configured audit, realtime, and revalidation effects.
+
+The order matters. Unauthorized callers do not learn detailed validation errors, and a submitted read-only field cannot bypass a hidden control.
+
+## Post-commit effects
+
+Audit and realtime happen after the database operation succeeds. If one of those effects fails, FlowPanel must not pretend the committed write rolled back. The operation can return a warning or surface the failure to observability while preserving the actual database result.
+
+This makes audit/realtime reliability an operational concern. Monitor failures and choose retry or reconciliation appropriate to the application.
+
+## Actions use the same boundary
+
+Row, bulk, drawer, and dashboard action routes repeat admin/resource/action access before `run`. Forms are validated server-side. The action context carries the resolved request services; it is not serialized to the client.
+
+## Custom code remains responsible
+
+A custom page query or external worker does not automatically pass through generated handlers. Reuse domain policies and explicit scope in those paths, then publish/audit through the supported server APIs where appropriate.
+
+See [Roles and permissions](/docs/guides/permissions), [Multi-tenant scope](/docs/guides/multi-tenant-scope), and [Runtime contracts reference](/docs/reference/runtime-contracts).

@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SelectFilter } from "../SelectFilter.js";
+import { SelectFilter } from "../SelectFilter";
 
 afterEach(() => cleanup());
 

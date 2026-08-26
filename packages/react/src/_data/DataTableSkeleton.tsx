@@ -1,10 +1,10 @@
 "use client";
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
-import { resolveFieldLabel } from "../lib/humanize.js";
-import { Skeleton } from "../ui/skeleton.js";
-import type { DataTableColumn } from "./data-table-types.js";
-import { ALIGN_CLASS, widthToCss } from "./format-cell.js";
+import { cn } from "../lib/cn";
+import { resolveFieldLabel } from "../lib/humanize";
+import { Skeleton } from "../ui/skeleton";
+import type { DataTableColumn } from "./data-table-types";
+import { ALIGN_CLASS, widthToCss } from "./format-cell";
 
 export interface DataTableSkeletonProps<Row> {
   orderedVisible: DataTableColumn<Row>[];

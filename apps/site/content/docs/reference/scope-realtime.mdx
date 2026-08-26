@@ -1,6 +1,7 @@
 ---
 title: Scope & realtime
 description: Tenant scoping, the publisher contract, and the rate limiter.
+kind: reference
 ---
 
 Three small contracts that sit under the rest of the framework: how a request is
@@ -11,7 +12,7 @@ throttling counts.
 
 A scope is resolved once per request and applied by the adapter to every query.
 
-```ts
+```ts excerpt
 type Scope = Record<string, unknown> | null;
 type Session = Record<string, unknown>;
 ```
@@ -20,7 +21,7 @@ type Session = Record<string, unknown>;
 
 <AutoTypeTable path="../../packages/core/src/types/session.ts" name="ScopeContext" />
 
-```ts
+```ts excerpt
 defineAdmin({
   scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
   // …
@@ -38,9 +39,7 @@ nothing throws `FlowpanelAccessError` when it is first queried, rather than
 serving another tenant's rows. That is a per-request failure, not a startup
 one: `defineAdmin` is pure and runs no such check.
 
-```ts
-export function assertResourceScope(input: ScopeCheckInput): void;
-```
+<ApiSignature path="../../packages/core/src/runtime/scope.ts" name="assertResourceScope" />
 
 <AutoTypeTable path="../../packages/core/src/runtime/scope.ts" name="ScopeCheckInput" />
 
@@ -56,13 +55,7 @@ implement the interface yourself to sit on a bus FlowPanel does not ship.
 
 <AutoTypeTable path="../../packages/core/src/runtime/publish.ts" name="Publisher" />
 
-```ts
-type PublisherOptions =
-  | { driver: "memory" }
-  | { driver: "redis"; url: string; keyPrefix?: string };
-
-function createPublisher(opts: PublisherOptions): Publisher;
-```
+<ApiSignature path="../../packages/core/src/runtime/publish.ts" name="createPublisher" />
 
 The memory driver only reaches the process that published, so a second instance
 never sees the message. That is fine locally and wrong in production — use the
@@ -77,18 +70,18 @@ channel name application code sees. The rate limiter has its own, unrelated
 default prefix: `"fp:rl:"`.
 
 Routing is by channel: one channel carries one payload shape, and the SSE layer
-adds the `{ channel, payload }` envelope on the way to the browser (ADR 0014),
-so a subscriber always knows which channel a message came from without
+adds the `{ channel, payload }` envelope on the way to the browser — and only
+there — so a subscriber always knows which channel a message came from without
 inspecting it. Use a distinct channel per event kind rather than multiplexing
 shapes onto one.
 
-See [Realtime in production](/docs/core-concepts/realtime-multi-instance).
+See [Realtime in production](/docs/guides/realtime).
 
 ## RateLimiter
 
 <AutoTypeTable path="../../packages/core/src/runtime/rate-limit.ts" name="RateLimiter" />
 
-```ts
+```ts excerpt
 function createRateLimiter(opts: RateLimitOptions): RateLimiter;
 ```
 

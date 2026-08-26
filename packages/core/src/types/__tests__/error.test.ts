@@ -7,7 +7,7 @@ import {
   FlowpanelNotFoundError,
   FlowpanelRateLimitError,
   FlowpanelValidationError,
-} from "../error.js";
+} from "../error";
 
 describe("FlowpanelError", () => {
   it("carries code, safeMessage, and status; defaults status to 500", () => {

@@ -1,5 +1,5 @@
-import type { InferRow } from "../types/registry.js";
-import type { ResourceConfig, ResourceOptions } from "../types/resource.js";
+import type { InferRow } from "../types/registry";
+import type { ResourceConfig, ResourceOptions } from "../types/resource";
 
 /** Register one table or model as an admin resource. */
 export function resource<Ref, const Name extends string>(

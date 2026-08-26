@@ -1,9 +1,9 @@
 "use client";
 import { lazy, type ReactNode, Suspense } from "react";
-import { type ToastApi, ToastContext } from "./toast-api.js";
-import { dispatchToast } from "./toast-bridge.js";
+import { type ToastApi, ToastContext } from "./toast-api";
+import { dispatchToast } from "./toast-bridge";
 
-const ToasterMount = lazy(() => import("./ToasterMount.js"));
+const ToasterMount = lazy(() => import("./ToasterMount"));
 
 const API: ToastApi = {
   success: (message, options) => {

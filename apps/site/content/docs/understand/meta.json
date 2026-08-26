@@ -1,0 +1,10 @@
+{
+  "title": "Understand FlowPanel",
+  "pages": [
+    "how-flowpanel-works",
+    "adapters",
+    "type-inference",
+    "request-lifecycle",
+    "server-client-boundaries"
+  ]
+}

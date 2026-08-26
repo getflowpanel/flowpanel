@@ -20,7 +20,7 @@ export function DashboardDateRange({ preset }: DashboardDateRangeProps) {
         if (next.preset) params.set("preset", next.preset);
         else params.delete("preset");
         const query = params.toString();
-        router.push(query ? `${pathname}?${query}` : pathname);
+        router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
       }}
     />
   );

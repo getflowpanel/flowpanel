@@ -1,14 +1,12 @@
-import type { ResourceIntrospection } from "./adapter.js";
-import type { AdminConfig, ResolvedAdminConfig } from "./config.js";
-import type { ResourceConfig } from "./resource.js";
+import type { ResourceIntrospection } from "./adapter";
+import type { AdminConfig, ResolvedAdminConfig } from "./config";
+import type { ResourceConfig } from "./resource";
 
 /** @internal Normalized resource data shared by every runtime surface. */
 export interface CompiledResource {
   readonly name: string;
   readonly definition: ResourceConfig;
   readonly introspection: ResourceIntrospection | null;
-  readonly clientProjection: readonly string[];
-  readonly serverProjection: readonly string[];
 }
 
 /** @internal Private compiled graph. Public integrations consume it through runtime factories. */

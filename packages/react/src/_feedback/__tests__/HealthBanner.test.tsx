@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { HealthBanner } from "../HealthBanner.js";
+import { HealthBanner } from "../HealthBanner";
 
 afterEach(cleanup);
 

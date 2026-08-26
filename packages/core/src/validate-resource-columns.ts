@@ -1,6 +1,6 @@
-import type { ColumnMeta } from "./types/adapter.js";
-import type { ResourceConfig } from "./types/resource.js";
-import { didYouMean } from "./validate-resource-refs.js";
+import type { ColumnMeta } from "./types/adapter";
+import type { ResourceConfig } from "./types/resource";
+import { didYouMean } from "./validate-resource-refs";
 
 interface ColumnSite {
   /** Column name the config points at. */
@@ -26,14 +26,6 @@ function pushColumnSites(list: unknown, where: string, out: ColumnSite[]): void 
     if (!entry || typeof entry !== "object") return;
     const field = (entry as { field?: unknown }).field;
     if (typeof field === "string") out.push({ target: field, where: `${where}[${i}].field` });
-    const select = (entry as { select?: unknown }).select;
-    if (Array.isArray(select)) {
-      select.forEach((target, selectIndex) => {
-        if (typeof target === "string") {
-          out.push({ target, where: `${where}[${i}].select[${selectIndex}]` });
-        }
-      });
-    }
   });
 }
 
@@ -72,14 +64,10 @@ export function validateResourceColumns(
 ): void {
   resource.options.columns?.forEach((column: unknown, index: number) => {
     if (typeof column !== "object" || column === null) return;
-    const candidate = column as { field?: unknown; render?: unknown; select?: unknown };
-    if (
-      candidate.render !== undefined &&
-      candidate.field === undefined &&
-      (!Array.isArray(candidate.select) || candidate.select.length === 0)
-    ) {
+    const candidate = column as { field?: unknown; render?: unknown };
+    if (candidate.render !== undefined && candidate.field === undefined) {
       throw new Error(
-        `resource "${name}" columns[${index}] uses render without declaring a field or select. ` +
+        `resource "${name}" columns[${index}] uses render without declaring a field. ` +
           "Declare the row fields the server renderer needs.",
       );
     }

@@ -1,0 +1,1 @@
+export const DEFAULT_CHART_HEIGHT = 240;

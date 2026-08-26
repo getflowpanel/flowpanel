@@ -4,7 +4,7 @@ import {
   parseListParams,
   resolveFilterSpecs,
   sanitizeFilterValues,
-} from "../runtime/parse-list-params.js";
+} from "../runtime/parse-list-params";
 
 describe("parseListParams", () => {
   it("parses page, q, sort, f_* filters", () => {

@@ -10,14 +10,14 @@ import {
 } from "@flowpanel/react";
 import { redirect } from "next/navigation";
 import type * as React from "react";
-import { buildServerRequest } from "./runtime/build-server-request.js";
-import { buildNav } from "./runtime/nav.js";
-import { bindPublisher } from "./runtime/publish.js";
-import { renderContent } from "./runtime/render-content.js";
-import { buildRequestContext } from "./runtime/request-setup.js";
-import { ThemeVars } from "./runtime/theme-vars.js";
+import { buildServerRequest } from "./runtime/build-server-request";
+import { buildNav } from "./runtime/nav";
+import { bindPublisher } from "./runtime/publish";
+import { renderContent } from "./runtime/render-content";
+import { buildRequestContext } from "./runtime/request-setup";
+import { ThemeVars } from "./runtime/theme-vars";
 
-export { renderContent } from "./runtime/render-content.js";
+export { renderContent } from "./runtime/render-content";
 
 type PageParams = Record<string, string | string[] | undefined>;
 type PageProps = {
@@ -146,6 +146,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
 
     return (
       <FlowpanelGlobals
+        apiBase={config.paths.api}
         {...(themeComponents ? { themeComponents } : {})}
         {...(themeMode ? { themeMode } : {})}
         {...(labels ? { labels } : {})}

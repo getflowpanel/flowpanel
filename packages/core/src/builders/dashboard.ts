@@ -1,4 +1,4 @@
-import type { DashboardConfig, PageConfig } from "../types/dashboard.js";
+import type { DashboardConfig, PageConfig } from "../types/dashboard";
 
 /** Register a dashboard route under `/admin<path>`. */
 export function dashboard(config: DashboardConfig): DashboardConfig {

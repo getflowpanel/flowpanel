@@ -2,7 +2,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { AdminNav } from "../AdminNav.js";
+import { AdminNav } from "../AdminNav";
 
 describe("AdminNav", () => {
   it("renders nav groups and items", () => {

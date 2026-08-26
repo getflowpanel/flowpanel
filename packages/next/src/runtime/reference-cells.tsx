@@ -1,8 +1,8 @@
 import type { ColumnDef, ResolvedAdminConfig } from "@flowpanel/core";
 import { ReferenceCell } from "@flowpanel/react";
 import type { ReactNode } from "react";
-import { buildHref } from "./href.js";
-import type { PrerenderedColumn } from "./prerender-cells.js";
+import { buildHref } from "./href";
+import type { PrerenderedColumn } from "./prerender-cells";
 
 /** Overlay resolved foreign-key labels on the server-prerendered cell matrix. */
 export function applyReferenceCells<Row extends Record<string, unknown>>(

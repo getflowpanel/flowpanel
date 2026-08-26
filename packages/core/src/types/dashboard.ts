@@ -1,8 +1,8 @@
 import type { ComponentType } from "react";
-import type { DashboardAction } from "./action.js";
-import type { IconName } from "./icon.js";
-import type { Session } from "./session.js";
-import type { WidgetConfig } from "./widget.js";
+import type { DashboardAction } from "./action";
+import type { IconName } from "./icon";
+import type { Session } from "./session";
+import type { WidgetConfig } from "./widget";
 
 export type DateRangePreset = "today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD";
 
@@ -28,7 +28,9 @@ export interface SectionConfig {
   label?: string;
   /** Supporting copy under the heading. */
   description?: string;
-  /** Grid columns the widgets lay out across. Defaults to 1. */
+  /** Grid columns the widgets lay out across.
+   * @defaultValue 1
+   */
   columns?: 1 | 2 | 3 | 4 | 6 | 12;
   widgets: WidgetConfig[];
 }

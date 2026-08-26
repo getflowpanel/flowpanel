@@ -45,7 +45,7 @@ class MockEventSource {
   }
 }
 
-import { RealtimeRefresh } from "../useRealtimeRefresh.js";
+import { RealtimeRefresh } from "../useRealtimeRefresh";
 
 describe("useRealtimeRefresh / RealtimeRefresh", () => {
   beforeEach(() => {
@@ -89,7 +89,7 @@ describe("useRealtimeRefresh / RealtimeRefresh", () => {
 
   it("debounces router.refresh on message (default 200ms)", async () => {
     render(<RealtimeRefresh channels="resource.x" />);
-    act(() => instances[0]!.message("{}"));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "resource.x" })));
     expect(refresh).not.toHaveBeenCalled();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(220);
@@ -99,7 +99,7 @@ describe("useRealtimeRefresh / RealtimeRefresh", () => {
 
   it("honors custom debounceMs", async () => {
     render(<RealtimeRefresh channels="resource.x" debounceMs={50} />);
-    act(() => instances[0]!.message("{}"));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "resource.x" })));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60);
     });
@@ -109,9 +109,9 @@ describe("useRealtimeRefresh / RealtimeRefresh", () => {
   it("coalesces multiple events into a single refresh within the window", async () => {
     render(<RealtimeRefresh channels="resource.x" debounceMs={50} />);
     act(() => {
-      instances[0]!.message("{}");
-      instances[0]!.message("{}");
-      instances[0]!.message("{}");
+      instances[0]!.message(JSON.stringify({ channel: "resource.x" }));
+      instances[0]!.message(JSON.stringify({ channel: "resource.x" }));
+      instances[0]!.message(JSON.stringify({ channel: "resource.x" }));
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60);

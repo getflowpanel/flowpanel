@@ -1,6 +1,6 @@
 import { subscribe } from "@flowpanel/next";
 import { describe, expect, it, vi } from "vitest";
-import { publish } from "../server.js";
+import { publish } from "../server";
 
 describe("@flowpanel/kit/server publish shares the @flowpanel/next store", () => {
   it("a subscriber registered through the next runtime store receives a publish sent via the server subpath", async () => {

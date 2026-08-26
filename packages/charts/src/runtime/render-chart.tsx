@@ -1,10 +1,10 @@
 import type { WidgetConfig } from "@flowpanel/core";
 import { Card, CardHeader } from "@flowpanel/react";
 import type { ReactNode } from "react";
-import { AreaChart } from "./AreaChart.js";
-import { BarChart } from "./BarChart.js";
-import { LineChart } from "./LineChart.js";
-import { PieChart } from "./PieChart.js";
+import { AreaChart } from "./AreaChart";
+import { BarChart } from "./BarChart";
+import { LineChart } from "./LineChart";
+import { PieChart } from "./PieChart";
 
 type ChartWidget = Extract<WidgetConfig, { kind: `${string}Chart` }>;
 

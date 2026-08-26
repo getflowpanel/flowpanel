@@ -4,7 +4,7 @@ import type {
   RequestContext,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
-import { readRelatedRows } from "./require-authorized.js";
+import { readRelatedRows } from "./require-authorized";
 
 export async function resolveReferences<Row extends Record<string, unknown>>(
   config: ResolvedAdminConfig,
@@ -40,6 +40,7 @@ export async function resolveReferences<Row extends Record<string, unknown>>(
       filters: { [pk]: idFilter },
       pageSize: ids.size,
       extraFields: [pk, ref.labelField],
+      includeDeleted: true,
     });
     if (!targetRows) continue;
 

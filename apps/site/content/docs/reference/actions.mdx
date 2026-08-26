@@ -1,6 +1,7 @@
 ---
 title: Actions
 description: Row, bulk, dashboard and drawer actions — every option and what they return.
+kind: reference
 ---
 
 An action is a server-side function the operator triggers from the UI. FlowPanel
@@ -13,9 +14,11 @@ Actions never become Server Actions. They are POST routes under
 
 ## RowAction
 
+<ApiSignature path="../../packages/core/src/types/action.ts" name="rowAction" />
+
 Offered on a single row, inline or in the row menu.
 
-```ts
+```ts excerpt
 import { resource, rowAction } from "@flowpanel/kit";
 import { orders } from "@/db/schema";
 
@@ -76,6 +79,8 @@ invisible, its route returns `404` for that row.
 
 ## BulkAction
 
+<ApiSignature path="../../packages/core/src/types/action.ts" name="bulkAction" />
+
 Applied to the operator's selection. `run` receives the ids, capped at 1000 per
 request — the cap is a **rejection, not a truncation**: over 1000 ids the route
 answers `422 too many ids (max 1000)` and `run` never executes, so nothing is
@@ -90,6 +95,8 @@ When a resource has delete enabled and declares no `bulkActions`, `defineAdmin`
 adds a default delete action. Opt out with `bulkActions: []`.
 
 ## DashboardAction
+
+<ApiSignature path="../../packages/core/src/types/action.ts" name="dashboardAction" />
 
 Rendered in a dashboard's page header. It gets no row — only the form input.
 

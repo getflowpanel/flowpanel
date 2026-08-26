@@ -1,5 +1,5 @@
 import { formatNumber, type NumericFormat } from "@flowpanel/react";
-import { ChartTooltip } from "./ChartTooltip.js";
+import { ChartTooltip } from "./ChartTooltip";
 
 /** Shared recharts prop literals for the runtime chart components. */
 

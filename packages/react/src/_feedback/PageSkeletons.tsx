@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
-import { cn } from "../lib/cn.js";
-import { Skeleton } from "../ui/skeleton.js";
+import { cn } from "../lib/cn";
+import { Skeleton } from "../ui/skeleton";
 
 export interface ResourceListSkeletonProps {
   /** Number of skeleton rows; defaults to 8. */

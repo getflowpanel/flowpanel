@@ -1,8 +1,8 @@
 "use client";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import * as React from "react";
-import { cn } from "../../lib/cn.js";
-import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover.js";
+import { cn } from "../../lib/cn";
+import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import {
   addDays,
   addMonths,
@@ -13,8 +13,8 @@ import {
   RANGE_PRESETS,
   startOfDay,
   toISODate,
-} from "../Calendar.js";
-import { FilterField } from "./FilterField.js";
+} from "../Calendar";
+import { FilterField } from "./FilterField";
 
 export interface DateRangeFilterProps {
   label?: string;

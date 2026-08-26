@@ -1,6 +1,7 @@
 ---
 title: React components
 description: The full @flowpanel/react export surface, grouped by what it's for.
+kind: reference
 ---
 
 `@flowpanel/react` is the component library the admin renders with. Most of it
@@ -8,7 +9,7 @@ is consumed indirectly — resources, widgets and forms compile down to these
 components — but every export is public and safe to use directly when you
 build a custom slot, page, or `"bare"`-shell chrome around FlowPanel.
 
-```ts
+```ts excerpt
 import { AutoForm, DataTable, useAdminTable } from "@flowpanel/kit/react";
 ```
 
@@ -56,6 +57,7 @@ content.
 | `useComponent` | Resolves a single slot — `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
 | `useComponentOverrides` | The raw override map from the nearest `ComponentsProvider`, without defaults filled in. |
 | `LabelsProvider`, `useLabels` | Provider/reader for label overrides (pluralization, field labels). |
+| `ApiBaseProvider`, `useApiBase` | Provider/reader for the route handlers' mount point. `FlowpanelGlobals` fills it from `paths.api`, so every client fetch — drawer, actions, inline edit, import, reference search, SSE — follows the admin wherever it is mounted. Standalone components fall back to `/api/flowpanel`. |
 
 <AutoTypeTable path="../../packages/react/src/_shell/AdminShell.tsx" name="AdminShellProps" />
 
@@ -122,7 +124,7 @@ unchanged by the rename; the property table above is generated from it.
 
 `FormField`'s `type` prop accepts:
 
-```ts
+```ts excerpt
 "text" | "email" | "password" | "url" | "number" | "date" | "datetime" |
 "datetime-local" | "time" | "color" | "search" | "textarea" | "markdown" |
 "json" | "tags" | "select" | "multiselect" | "radio" | "reference" |
@@ -204,7 +206,7 @@ than opening one per instance. The returned `LiveStatus` runs `idle` →
 reaches `offline` after six consecutive failed attempts (~30s); it returns to
 `idle` when the subscription is torn down. Retries continue while `offline`.
 
-```tsx
+```tsx excerpt
 const status = useLiveChannel("resource.orders", (payload) => {
   console.log("order event", payload);
 });
@@ -215,7 +217,7 @@ const status = useLiveChannel("resource.orders", (payload) => {
 `FilterBar` render from. `pageSize` is `number | null`: `null` means no
 `?perPage=` is present and the resource's configured `pageSize` applies.
 
-```tsx
+```tsx excerpt
 const { page, pageSize, sort, setPage, setSort } = useAdminTable();
 ```
 
@@ -230,14 +232,14 @@ not — it reads `next/navigation` directly.
 **`useTheme(options?)`** — reads the resolved light/dark/auto theme and
 returns a stable `toggle`/`setTheme` that persists to `localStorage`.
 
-```tsx
+```tsx excerpt
 const { theme, toggle } = useTheme();
 ```
 
 **`useToast()`** — fires a toast from anywhere under `ToastProvider` /
 `FlowpanelGlobals`.
 
-```tsx
+```tsx excerpt
 const toast = useToast();
 toast.success("Saved");
 ```
@@ -261,7 +263,7 @@ one dashboard URL search param, validated against a Zod schema.
 paint agree. `DataTable` uses `useMediaQuery("(max-width: 639px)")` for its
 card/table breakpoint; use the same query to match it in custom UI.
 
-```tsx
+```tsx excerpt
 const isMobile = useMediaQuery("(max-width: 639px)");
 ```
 
@@ -284,7 +286,7 @@ provider), `debounceMs` and `endpoint` apply directly and it opens one pooled
 `EventSource` carrying its whole channel set, shared with every other
 standalone subscriber of the same set.
 
-```tsx
+```tsx excerpt
 useRealtimeRefresh("resource.orders");
 ```
 
@@ -293,7 +295,7 @@ has no client component to hang the hook on: `<RealtimeRefresh channels={…}
 debounceMs={…} />` renders nothing and subscribes its channels. This is what
 the dashboard widget renderer emits for a widget's `realtime` option.
 
-```tsx
+```tsx excerpt
 <RealtimeRefresh channels={["resource.orders", "scraper:tick"]} />
 ```
 
@@ -301,7 +303,7 @@ the dashboard widget renderer emits for a widget's `realtime` option.
 active-channel list and event count. Development-only: it renders `null` when
 `NODE_ENV === "production"`. Mount it once, in development builds:
 
-```tsx
+```tsx excerpt
 {process.env.NODE_ENV !== "production" && <DevToolsPanel />}
 ```
 
@@ -341,7 +343,7 @@ with the same name, so importing both into one module needs an alias.
 | `NumericFormat` | The widget/metric format union. | The same union, re-declared next to `formatNumber`. |
 | `DrawerWidth` | `DrawerConfig["width"]`, the config option. | `DrawerProps["width"]`, the component prop — an identical union, declared separately. |
 
-```ts
+```ts excerpt
 import type { TableWidget } from "@flowpanel/kit";
 import { TableWidget as TableWidgetRenderer } from "@flowpanel/kit/react";
 ```
@@ -356,7 +358,7 @@ ever gains a member, they stop being interchangeable.
 
 ## UI primitives
 
-`Dialog`, `Popover`, `Select`, `DropdownMenu`, `Sheet`, `Tooltip`, `Tabs*`,
+`Dialog`, `Popover`, `Select`, `DropdownMenu`, `Tabs*`,
 plus `Button`, `Checkbox`, `Input`, `Label`, `Skeleton`, and `Switch`, are
 shadcn-derived primitives re-exported so custom slots and pages can be built
 in the same visual language as the rest of the admin. Each follows its

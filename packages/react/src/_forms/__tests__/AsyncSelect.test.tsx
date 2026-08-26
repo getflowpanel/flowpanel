@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AsyncSelect } from "../AsyncSelect.js";
+import { AsyncSelect } from "../AsyncSelect";
 
 afterEach(cleanup);
 

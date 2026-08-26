@@ -1,5 +1,5 @@
 import type { ComponentType, JSX } from "react";
-import { Card } from "../_layout/Card.js";
+import { Card } from "../_layout/Card";
 
 export interface CustomWidgetProps<P> {
   Component: ComponentType<P>;

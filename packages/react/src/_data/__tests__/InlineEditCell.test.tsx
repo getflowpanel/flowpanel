@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
 }));
 
-import { InlineEditCell } from "../InlineEditCell.js";
+import { InlineEditCell } from "../InlineEditCell";
 
 afterEach(cleanup);
 

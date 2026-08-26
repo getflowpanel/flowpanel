@@ -1,5 +1,5 @@
 "use client";
-import { Card, CardContent, CardHeader } from "../_layout/Card.js";
+import { Card, CardContent, CardHeader } from "../_layout/Card";
 
 /** Fallback card for a widget whose render or query threw. */
 export function ErrorCard({ error, onRetry }: { error: Error; onRetry?: () => void }) {

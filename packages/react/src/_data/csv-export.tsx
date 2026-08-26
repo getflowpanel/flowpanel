@@ -1,15 +1,15 @@
 "use client";
-import { resolveFieldLabel } from "../lib/humanize.js";
-import { triggerDownload } from "../lib/trigger-download.js";
-import { Button } from "../ui/button.js";
+import { resolveFieldLabel } from "../lib/humanize";
+import { triggerDownload } from "../lib/trigger-download";
+import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu.js";
-import type { DataTableColumn } from "./data-table-types.js";
-import { formatCell } from "./format-cell.js";
+} from "../ui/dropdown-menu";
+import type { DataTableColumn } from "./data-table-types";
+import { formatCell } from "./format-cell";
 
 export type ExportFormat = "csv" | "json";
 

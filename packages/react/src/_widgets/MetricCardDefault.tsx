@@ -1,8 +1,8 @@
 import type * as React from "react";
-import { Sparkline } from "../_atoms/Sparkline.js";
-import { Card, CardContent, CardHeader } from "../_layout/Card.js";
-import { cn } from "../lib/cn.js";
-import { formatNumber, type NumericFormat, type Tone } from "../lib/format.js";
+import { Sparkline } from "../_atoms/Sparkline";
+import { Card, CardContent, CardHeader } from "../_layout/Card";
+import { cn } from "../lib/cn";
+import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 
 export interface MetricCardProps {
   label: string;

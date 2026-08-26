@@ -1,6 +1,6 @@
 import type { Span } from "@flowpanel/core";
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export interface SectionLabelProps {
   label: string;
@@ -55,7 +55,11 @@ export const spanClass: Record<Span, string> = {
 export function Section({ label, description, columns = 1, className, children }: SectionProps) {
   return (
     <section className={cn("space-y-3", className)} data-columns={columns}>
-      {label ? <SectionLabel label={label} {...(description ? { description } : {})} /> : null}
+      {label ? (
+        <SectionLabel label={label} {...(description ? { description } : {})} />
+      ) : description ? (
+        <p className="text-xs text-fp-text-3">{description}</p>
+      ) : null}
       <div className={cn("grid gap-3", colClass[columns] ?? "grid-cols-1")}>{children}</div>
     </section>
   );

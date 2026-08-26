@@ -15,7 +15,7 @@ import {
   isSupportedNextVersion,
   platformBin,
   pmCommands,
-} from "../detect.js";
+} from "../detect";
 
 describe("detect*", () => {
   let tmp: string;

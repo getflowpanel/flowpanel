@@ -1,11 +1,11 @@
 "use client";
 import * as React from "react";
-import { useLabels } from "../_provider/LabelsContext.js";
-import { cn } from "../lib/cn.js";
-import { resolveFieldLabel } from "../lib/humanize.js";
-import { Checkbox } from "../ui/checkbox.js";
-import type { DataTableColumn } from "./data-table-types.js";
-import { renderDefaultCell } from "./render-default-cell.js";
+import { useLabels } from "../_provider/LabelsContext";
+import { cn } from "../lib/cn";
+import { resolveFieldLabel } from "../lib/humanize";
+import { Checkbox } from "../ui/checkbox";
+import type { DataTableColumn } from "./data-table-types";
+import { renderDefaultCell } from "./render-default-cell";
 
 export interface MobileCardListProps<Row> {
   columns: DataTableColumn<Row>[];

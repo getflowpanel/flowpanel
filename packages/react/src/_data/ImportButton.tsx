@@ -1,11 +1,12 @@
 "use client";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { useToast } from "../_feedback/toast-api.js";
-import { Button } from "../ui/button.js";
+import { useToast } from "../_feedback/toast-api";
+import { useApiBase } from "../_provider/ApiBaseContext";
+import { Button } from "../ui/button";
 
 export interface ImportButtonProps {
-  /** Resource name — the POST target `/api/flowpanel/<resource>/import`. */
+  /** Resource name — the POST target `<apiBase>/<resource>/import`. */
   resource: string;
   formats: ("csv" | "json")[];
   label: string;
@@ -15,6 +16,7 @@ export interface ImportButtonProps {
 export function ImportButton({ resource, formats, label }: ImportButtonProps) {
   const router = useRouter();
   const toast = useToast();
+  const apiBase = useApiBase();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
 
@@ -31,7 +33,7 @@ export function ImportButton({ resource, formats, label }: ImportButtonProps) {
     setBusy(true);
     try {
       const content = await file.text();
-      const res = await fetch(`/api/flowpanel/${resource}/import`, {
+      const res = await fetch(`${apiBase}/${resource}/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ format, content }),

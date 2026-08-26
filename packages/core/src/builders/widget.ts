@@ -9,7 +9,7 @@ import type {
   TableWidget,
   TableWidgetOptions,
   WidgetContext,
-} from "../types/widget.js";
+} from "../types/widget";
 
 /** A single big-number widget. */
 export function metric(

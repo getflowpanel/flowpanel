@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { FlowpanelAccessError } from "../../types/error.js";
-import { checkRequireRole } from "../auth.js";
+import { FlowpanelAccessError } from "../../types/error";
+import { checkRequireRole } from "../auth";
 
 describe("checkRequireRole", () => {
   it("passes when role matches string", () => {

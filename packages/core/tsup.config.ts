@@ -18,4 +18,5 @@ export default defineConfig([
   { entry: { index: "src/index.ts" }, clean: true, ...common },
   { entry: { labels: "src/labels.ts" }, clean: false, ...common },
   { entry: { auth: "src/auth/index.ts" }, clean: false, ...common },
+  { entry: { format: "src/format-column.ts" }, clean: false, ...common },
 ]);

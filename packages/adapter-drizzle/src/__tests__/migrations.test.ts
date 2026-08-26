@@ -2,8 +2,8 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { drizzleAdapter } from "../index.js";
-import { migrationsTableDdl } from "../migrations.js";
+import { drizzleAdapter } from "../index";
+import { migrationsTableDdl } from "../migrations";
 
 const users = sqliteTable("users_mig", { id: text("id").primaryKey() });
 

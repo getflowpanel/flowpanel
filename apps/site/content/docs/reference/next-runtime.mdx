@@ -1,6 +1,7 @@
 ---
 title: Next.js runtime
 description: createFlowpanel, generated pages, route handlers, protected controllers and realtime helpers.
+kind: reference
 ---
 
 `@flowpanel/kit/next` binds one config to every Next.js surface: the generated
@@ -9,9 +10,11 @@ realtime publisher.
 
 ## createFlowpanel
 
+<ApiSignature path="../../packages/next/src/create-flowpanel.tsx" name="createFlowpanel" />
+
 Create one module-level runtime and reuse it from your route files:
 
-```ts
+```ts excerpt
 // src/flowpanel.ts
 import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
@@ -19,14 +22,14 @@ import config from "@/flowpanel.config";
 export const flowpanel = createFlowpanel(config);
 ```
 
-```ts
+```ts excerpt
 // app/admin/[[...slug]]/page.tsx
 import { flowpanel } from "@/src/flowpanel";
 
 export default flowpanel.page;
 ```
 
-```ts
+```ts excerpt
 // app/api/flowpanel/[...route]/route.ts
 import { flowpanel } from "@/src/flowpanel";
 
@@ -58,7 +61,7 @@ state.
 dynamic-name alternative. `ResourceListOptions<Row>` supports page, page size,
 search, filters, sort, projection and soft-delete visibility.
 
-```ts
+```ts excerpt
 const request = await flowpanel.request();
 const result = await request.resources.orders.list({
   pageSize: 25,
@@ -79,18 +82,10 @@ server components and framework adapters.
 
 ## Flowpanel
 
+<ApiSignature path="../../packages/next/src/flowpanel-page.tsx" name="Flowpanel" />
+
 `Flowpanel(config)` is the compatibility page factory used internally by
 `createFlowpanel(config).page`. Prefer the runtime when wiring a new app.
-
-```ts
-export function Flowpanel(
-  config: ResolvedAdminConfig,
-  opts?: FlowpanelOptions,
-): (props: {
-  params: Promise<Record<string, string | string[] | undefined>>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) => Promise<ReactNode>;
-```
 
 Both props are required — the returned component awaits `searchParams` as well
 as `params`, because filters, pagination, the drawer and the dashboard date
@@ -102,7 +97,7 @@ to forward both.
 valued entry is taken as the catch-all segments, so the route folder may be
 `[[...slug]]`, `[...rest]`, or any other name.
 
-```ts
+```ts excerpt
 // app/admin/[[...slug]]/page.tsx
 import { Flowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
@@ -119,14 +114,12 @@ embedding the admin inside chrome you already have. Its second parameter is
 
 ## handlers
 
+<ApiSignature path="../../packages/next/src/handlers.ts" name="handlers" />
+
 `handlers(config)` is the compatibility handler factory used internally by
 `createFlowpanel(config).handlers`. It returns the `FlowpanelHandlers` map:
 
-```ts
-export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers;
-```
-
-```ts
+```ts excerpt
 // app/api/flowpanel/[...route]/route.ts
 import { handlers } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
@@ -165,13 +158,15 @@ All paths are relative to `/api/flowpanel`.
 Every one of them runs the same guard pipeline before its own work: the
 admin-wide role gate and rate limit, the resource gate, global read-only for
 writes, then the action's `requireRole`. See
-[Roles & permissions](/docs/core-concepts/permissions).
+[Roles & permissions](/docs/guides/permissions).
 
 ## stream
 
+<ApiSignature path="../../packages/next/src/stream.ts" name="stream" />
+
 The SSE endpoint backing realtime. Mount it on its own route.
 
-```ts
+```ts excerpt
 export function stream(
   config: ResolvedAdminConfig,
   opts?: StreamOptions,
@@ -181,7 +176,7 @@ export function stream(
 `StreamOptions` has one member — `heartbeatMs`, the interval between
 `: keep-alive` comments, defaulting to 15 s.
 
-```ts
+```ts excerpt
 // app/api/flowpanel/stream/route.ts
 import { stream } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
@@ -232,7 +227,7 @@ never receives events on is the symptom of hitting one of the first three rows.
 
 ## Realtime helpers
 
-```ts
+```ts excerpt
 function publish(channel: string, payload?: unknown): Promise<void>;
 function publishResource(
   name: string,
@@ -246,7 +241,7 @@ function bindPublisher(config: ResolvedAdminConfig): void;
 resource subscribes to when it sets `realtime: true`. Use it from a worker or a
 webhook to make lists refresh:
 
-```ts
+```ts excerpt
 import { publishResource } from "@flowpanel/kit/next";
 
 await publishResource("orders", { action: "update", id: order.id });
@@ -345,7 +340,7 @@ successful mutation — call it yourself only from a custom route.
 
 ## Dashboard path encoding
 
-```ts
+```ts excerpt
 function encodeDashboardPath(path: string): string;
 function decodeDashboardPath(encoded: string): string;
 ```
@@ -361,7 +356,7 @@ The create / update / delete pipeline that the form routes use, available
 directly for scripts and custom routes. It applies the resource's schema, field
 rules, scope and audit — the same path the UI takes.
 
-```ts
+```ts excerpt
 function makeActions(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
@@ -387,7 +382,7 @@ Builds the `RequestContext` every gate and query reads. It enforces
 `FlowpanelAccessError` or `FlowpanelRateLimitError`. Catch it if you are writing
 your own route:
 
-```ts
+```ts excerpt
 import { buildRequestContext } from "@flowpanel/kit/next";
 
 let reqCtx;
@@ -401,7 +396,7 @@ try {
 
 ## Navigation
 
-```ts
+```ts excerpt
 function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): NavGroup[];
 function resourceNavName(resource: ResourceConfig): string;
 ```

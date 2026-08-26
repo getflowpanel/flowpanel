@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { tpl } from "../../utils/template.js";
-import { guessedPaths, patchLayoutWithSuppressHydration } from "../init.js";
+import { tpl } from "../../utils/template";
+import { guessedAuthFile, guessedPaths, patchLayoutWithSuppressHydration } from "../init";
 
 describe("guessedPaths", () => {
   it("uses the @/ alias when the project has one", () => {
@@ -23,6 +23,44 @@ describe("guessedPaths", () => {
   it("points Prisma projects at the prisma client, alias or not", () => {
     expect(guessedPaths("prisma", "strip-src").db).toBe("@/lib/prisma");
     expect(guessedPaths("prisma", "none").db).toBe("./lib/prisma");
+  });
+});
+
+describe("guessedAuthFile", () => {
+  it("lands where the guessed auth specifier resolves", () => {
+    // guessedPaths(...).auth is what flowpanel.config.ts imports; the scaffolded
+    // stub has to be written to the file that specifier actually resolves to.
+    expect(guessedPaths("drizzle", "strip-src").auth).toBe("@/server/lib/auth");
+    expect(guessedAuthFile("strip-src")).toBe("src/server/lib/auth.ts");
+    expect(guessedPaths("drizzle", "root").auth).toBe("@/server/lib/auth");
+    expect(guessedAuthFile("root")).toBe("server/lib/auth.ts");
+    expect(guessedPaths("drizzle", "none").auth).toBe("./server/lib/auth");
+    expect(guessedAuthFile("none")).toBe("server/lib/auth.ts");
+  });
+});
+
+describe("dev-session template", () => {
+  it("exports the getSession the config imports", async () => {
+    const out = await tpl("dev-session.ts.txt");
+    expect(out).toContain("export async function getSession()");
+  });
+
+  it("returns a static session the config's role mapper reads as admin", async () => {
+    const out = await tpl("dev-session.ts.txt");
+    expect(out).toContain('role: "admin"');
+  });
+
+  it("says loudly that it must be replaced, in both the JSDoc and its output", async () => {
+    const out = await tpl("dev-session.ts.txt");
+    expect(out).toContain("DEVELOPMENT STUB — REPLACE BEFORE PRODUCTION.");
+    expect(out).toMatch(/console\.warn\(/);
+    expect(out).toContain("before deploying");
+  });
+
+  it("refuses to run in production instead of signing everyone in as admin", async () => {
+    const out = await tpl("dev-session.ts.txt");
+    expect(out).toContain('nodeEnv === "production"');
+    expect(out).toMatch(/throw new Error\(/);
   });
 });
 

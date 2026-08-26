@@ -1,6 +1,6 @@
 "use client";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { DefaultButton } from "../ui/buttonDefault.js";
+import { DefaultButton } from "../ui/buttonDefault";
 
 export interface ConfirmDialogProps {
   open: boolean;

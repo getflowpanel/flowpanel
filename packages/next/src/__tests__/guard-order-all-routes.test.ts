@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -9,11 +9,11 @@ vi.mock("../runtime/publish.js", () => ({
 
 import type { Adapter, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { z } from "zod";
-import { inlineUpdateRoute } from "../actions/inline-update.js";
-import { referenceSearchRoute } from "../actions/reference-search.js";
-import { importRoute } from "../actions/resource-import.js";
-import { restoreRoute } from "../actions/restore.js";
-import { drawerRoute } from "../drawer/drawer-route.js";
+import { inlineUpdateRoute } from "../actions/inline-update";
+import { referenceSearchRoute } from "../actions/reference-search";
+import { importRoute } from "../actions/resource-import";
+import { restoreRoute } from "../actions/restore";
+import { drawerRoute } from "../drawer/drawer-route";
 
 function makeConfig(opts: { requireRole?: string; rateLimited?: boolean } = {}) {
   const adapter = {

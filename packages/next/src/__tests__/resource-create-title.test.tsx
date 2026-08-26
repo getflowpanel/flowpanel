@@ -3,7 +3,7 @@ import { defineAdmin, resource } from "@flowpanel/core";
 import { PageHeader } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
-import { ResourceCreatePage } from "../pages/resource-create.js";
+import { ResourceCreatePage } from "../pages/resource-create";
 
 function findElement(tree: ReactNode, type: unknown): Record<string, unknown> | null {
   if (tree === null || tree === undefined || typeof tree !== "object") return null;

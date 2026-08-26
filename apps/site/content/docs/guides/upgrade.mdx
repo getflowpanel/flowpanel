@@ -1,120 +1,49 @@
 ---
-title: Upgrading
-description: How FlowPanel versions its packages, what to run after a bump, and where breaking changes are announced.
+title: Upgrade FlowPanel
+description: Align package versions, review migrations and changes, and validate generated and ejected surfaces.
+kind: how-to
 ---
 
-FlowPanel publishes every package from one repo at one version, so a bump is
-a single change to your `package.json` in the common case.
+FlowPanel workspace packages are released together. Most applications should depend on the umbrella `@flowpanel/kit` and local `@flowpanel/cli` at the same version rather than pinning lower-level packages independently.
 
-<Callout type="warn">
-**These docs describe `main`.** The latest published release is **0.1.0** —
-the first public one. Anything on this site that is not in 0.1.0 is on `main`
-and lands in the next release. When a page and your installed version
-disagree, your version wins; check the
-[changelog](/changelog) for what actually shipped.
-</Callout>
-
-## What you have installed
-
-Most apps depend on exactly two FlowPanel packages, both added by
-`flowpanel init`:
-
-```json
-{
-  "dependencies": { "@flowpanel/kit": "^0.1.0" },
-  "devDependencies": { "@flowpanel/cli": "^0.1.0" }
-}
-```
-
-`@flowpanel/kit` is an umbrella: it depends on `@flowpanel/core`,
-`@flowpanel/next`, `@flowpanel/react`, `@flowpanel/client`,
-`@flowpanel/charts` and the three adapters, and re-exports them on subpaths.
-You do not add those separately, and you should not pin them separately —
-a mixed set of versions under one kit is the one configuration nothing tests.
-
-Two packages are opt-in and versioned alongside the rest:
-`@flowpanel/eslint-plugin` and, if you depend on it directly instead of
-through the kit, `@flowpanel/react`.
-
-## Upgrading
+## Inspect the current install
 
 ```bash
-pnpm up "@flowpanel/*" --latest
+pnpm list "@flowpanel/*"
 pnpm flowpanel doctor
 ```
 
-`doctor` is the fast check that the upgrade landed cleanly: it verifies the
-Next.js and TypeScript floors, that the four generated files still exist, that
-`node_modules/.pnpm` holds exactly one `@flowpanel/core` copy, and that
-`tsc --noEmit` passes. See the [CLI reference](/docs/reference/cli).
+Before changing versions, record ejected files and any direct lower-level FlowPanel dependencies. Read the [changelog](/changelog) for every version you will cross.
 
-Then, in order:
-
-1. **Re-run the type check.** The config is where breaking changes surface
-   first, and `defineAdmin` is fully typed — a removed option is a compile
-   error, not a runtime surprise.
-2. **Boot the admin once.** Several checks only run when `defineAdmin`
-   evaluates: duplicate names, reserved names, unknown columns, unresolvable
-   cross-resource references. They throw with the config path named.
-3. **Re-read the migration list.** `pnpm flowpanel migrate --dry-run` shows
-   what a release added without applying anything.
-
-### The one duplicate-copy rule
-
-`@flowpanel/core` holds the `AsyncLocalStorage` request context and the
-augmentable registry interfaces. Two copies in one install means two request
-contexts and two registries — `getRequestContext()` throws inside a call that
-plainly is in a request, and module augmentation appears not to apply.
-
-That is what `doctor`'s single-copy check is for. It usually means something
-in your tree pins a FlowPanel package at a different version than the kit;
-align them and dedupe.
-
-## Ejected files do not upgrade
-
-Every file `flowpanel eject` wrote carries a stamp:
-
-```ts
-// flowpanel: ejected @ 0.1.0 — this file is yours
-```
-
-Nothing rewrites those files, ever — that is the point of ejecting. The stamp
-is a drift marker: after an upgrade, grep for stamps older than your installed
-version and decide, per file, whether the framework has since grown a way to
-un-eject it.
+## Update aligned packages
 
 ```bash
-grep -rn "flowpanel: ejected @" app/
+pnpm up "@flowpanel/*" --latest
+pnpm install
 ```
+
+Keep direct FlowPanel packages on the same released version. Multiple copies of `@flowpanel/core` can split request context and module augmentation; `flowpanel doctor` checks for that condition.
+
+## Review database work
+
+```bash
+pnpm flowpanel migrate --dry-run
+```
+
+Review pending SQL for the target dialect and deployment strategy before applying it. Back up production data according to the application's normal migration policy, then run `pnpm flowpanel migrate` in the controlled release step.
+
+## Validate the application
+
+Run the application's typecheck and production build. Start the admin once so config compilation can catch duplicate/reserved names, stale columns, and unresolved references. Exercise auth, one scoped read/write, forms, actions, realtime, and queues used by the deployment.
+
+## Review ejected files
+
+Ejected files contain a version stamp and are application-owned. The upgrade does not rewrite them. Compare their public imports and behavior with the changelog and current reference; test them separately from generated routes.
+
+If a newer config, renderer, page, or slot now covers the customization, consider returning that surface to generated behavior. Re-enabling config also requires removing the explicit Next.js route.
 
 ## Pre-1.0 expectations
 
-FlowPanel is pre-1.0, and the version reflects that: **a minor bump may
-break.** Read the [changelog](/changelog) before upgrading rather than after.
+Before 1.0, minor releases may contain breaking changes. Types and deprecation notes are part of the migration path, but they do not replace the changelog and application tests. Upgrade in a reviewable branch and avoid mixing unrelated dependency changes.
 
-What is already held stable ahead of 1.0, because breaking it silently
-corrupts an app rather than failing loudly:
-
-- **`theme.components` slot keys are append-only.** A slot in
-  `FlowpanelComponentSlots` stays there; removing one would silently disable
-  your override instead of erroring.
-- **`LabelsConfig` is forward-compatible.** New keys may appear at a minor
-  (with English defaults); removing, renaming, or flattening the nesting is a
-  major change.
-- **`defineAdmin` stays pure** — no I/O, no module-level mutation — so
-  importing your config from a script or a test keeps working.
-
-After 1.0 the discipline tightens: breaking changes need a major bump and a
-written rationale, soft deprecations get a `console.warn` and at least one
-minor release of grace, and an option that accepts `string | undefined` does
-not quietly narrow to `string` between minors.
-
-## Where changes are announced
-
-- **[Changelog](/changelog)** — every package's release notes, aggregated
-  newest-first, generated from the packages' own `CHANGELOG.md` files.
-- **Release notes on GitHub**, cut from the same changesets.
-
-If an upgrade breaks something these docs say should work, that is a docs bug
-as much as a code one — the [issue tracker](https://github.com/getflowpanel/flowpanel/issues)
-takes both.
+If the installed behavior and current site disagree, use the versioned package types and release notes as the authority and report the documentation mismatch.

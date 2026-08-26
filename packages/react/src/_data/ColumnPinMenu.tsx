@@ -1,12 +1,12 @@
 "use client";
-import { Button } from "../ui/button.js";
+import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu.js";
+} from "../ui/dropdown-menu";
 
 export type PinSide = "left" | "right" | null;
 

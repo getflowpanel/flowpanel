@@ -1,4 +1,4 @@
-export { areaChart } from "./builders/areaChart.js";
-export { barChart } from "./builders/barChart.js";
-export { lineChart } from "./builders/lineChart.js";
-export { pieChart } from "./builders/pieChart.js";
+export { areaChart } from "./builders/areaChart";
+export { barChart } from "./builders/barChart";
+export { lineChart } from "./builders/lineChart";
+export { pieChart } from "./builders/pieChart";

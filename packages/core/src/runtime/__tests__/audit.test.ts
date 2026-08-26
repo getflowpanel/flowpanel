@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AuditEvent } from "../../types/config.js";
-import { emitAudit } from "../audit.js";
+import type { AuditEvent } from "../../types/config";
+import { emitAudit } from "../audit";
 
 const ev: AuditEvent = { actorId: "u1", action: "users.update", at: new Date() };
 

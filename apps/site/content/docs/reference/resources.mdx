@@ -1,14 +1,10 @@
 ---
 title: resource()
 description: Every option on a resource, its columns, fields and filters.
+kind: reference
 ---
 
-```ts
-export function resource<Ref>(
-  ref: Ref,
-  options: ResourceOptions<InferRow<Ref>>,
-): ResourceConfig;
-```
+<ApiSignature path="../../packages/core/src/builders/resource.ts" name="resource" />
 
 `ref` is whatever your adapter understands — a Drizzle table object, or a
 Prisma model name. The row type comes from
@@ -18,9 +14,9 @@ augmentation, and anything else falls back to `Record<string, unknown>`. When
 it resolves to a real row type, `columns`, `search`, `filters` and
 `defaultSort` only accept real column names; when it falls back, they are
 plain `string` and the check moves to
-[`defineAdmin`'s introspect-time validation](/docs/core-concepts/resources#typos-and-column-validation).
+[`defineAdmin`'s introspect-time validation](/docs/build/resources#typos-and-column-validation).
 
-```ts
+```ts excerpt
 import { resource } from "@flowpanel/kit";
 import { orders } from "@/db/schema";
 
@@ -52,7 +48,7 @@ runtime. Built-in names include `users`, `settings`, `layout-dashboard`,
 
 For custom pages and slots, render the same registry directly:
 
-```tsx
+```tsx excerpt
 import { FlowpanelIcon } from "@flowpanel/kit/react";
 
 <FlowpanelIcon name="workflow" className="size-4" />;
@@ -73,7 +69,7 @@ never sorts or filters, and is skipped by export; see
 
 Declarative cell rendering — reach for this before writing a `render` function.
 
-```ts
+```ts excerpt
 type ColumnFormat =
   | "badge"
   | "money"
@@ -85,7 +81,7 @@ type ColumnFormat =
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 The object form of `badge` maps each cell value to a tone:
 
-```ts
+```ts excerpt
 { field: "status", format: { kind: "badge", tones: { paid: "ok", failed: "err" } } }
 ```
 
@@ -98,7 +94,7 @@ An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
 
 ### FieldType
 
-```ts
+```ts excerpt
 type FieldType =
   | "text" | "textarea" | "number" | "email" | "password" | "url"
   | "date" | "datetime" | "time"
@@ -125,7 +121,7 @@ no inference from the column's type, so declare a `FilterDef` with an explicit
 
 ### FilterType
 
-```ts
+```ts excerpt
 type FilterType =
   | "text" | "select" | "multiselect"
   | "daterange" | "numeric-range" | "boolean" | "tag";
@@ -143,7 +139,7 @@ A tab on the full-page detail view at `/<basePath>/<resource>/<id>`.
 
 ## SelectOption
 
-```ts
+```ts excerpt
 type SelectOption = { label: string; value: string | number | boolean };
 ```
 

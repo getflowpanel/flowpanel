@@ -1,11 +1,18 @@
 "use client";
-import { Button, ConfirmDialog, FlowpanelIcon, triggerDownload, useToast } from "@flowpanel/react";
+import {
+  Button,
+  ConfirmDialog,
+  FlowpanelIcon,
+  triggerDownload,
+  useApiBase,
+  useToast,
+} from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import type { ActionInputIssue } from "../runtime/action-schema.js";
-import { ActionFormDialog } from "./ActionFormDialog.js";
-import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field.js";
-import type { SerializedDashboardAction } from "./dashboard-action.js";
+import type { ActionInputIssue } from "../runtime/action-schema";
+import { ActionFormDialog } from "./ActionFormDialog";
+import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field";
+import type { SerializedDashboardAction } from "./dashboard-action";
 
 /** Top-bar action row rendered in the dashboard header when `DashboardConfig.actions` is non-empty. */
 export interface DashboardActionsBarProps {
@@ -24,6 +31,7 @@ type ServerResult =
 
 export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBarProps) {
   const router = useRouter();
+  const apiBase = useApiBase();
   const toast = useToast();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedDashboardAction | null>(null);
@@ -38,7 +46,7 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
   ): Promise<ActionFormFieldErrors | null> {
     setPending(action.key);
     try {
-      const res = await fetch(`/api/flowpanel/dashboards/${encodedPath}/actions/${action.key}`, {
+      const res = await fetch(`${apiBase}/dashboards/${encodedPath}/actions/${action.key}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(input),

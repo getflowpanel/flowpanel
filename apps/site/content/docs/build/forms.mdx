@@ -1,0 +1,71 @@
+---
+title: Forms
+description: Configure safe create and edit forms with typed fields, validation, defaults, and relations.
+kind: how-to
+---
+
+FlowPanel can generate forms from adapter metadata. Declare the field lists when you need a predictable write surface, different create and update behavior, or controls the adapter cannot infer.
+
+## Start with explicit fields
+
+```ts excerpt
+resource(schema.users, {
+  columns: ["email", "name", "role", "createdAt"],
+  create: {
+    fields: [
+      { name: "email", type: "email", required: true },
+      { name: "name", required: true },
+      { name: "role", type: "select", options: ["member", "admin"] },
+    ],
+  },
+  update: {
+    fields: [
+      { name: "name", required: true },
+      { name: "role", type: "select", options: ["member", "admin"] },
+    ],
+  },
+})
+```
+
+The create form can collect fields that should never be editable later. Omitted fields remain outside that form; they are not silently accepted by the write route.
+
+## Choose controls
+
+Use `type` for the intended input: text, textarea, number, email, password, URL, date/time, boolean controls, select variants, JSON, Markdown, tags, reference, hidden, or color. Add `label`, `help`, and `placeholder` only when the field name and control do not explain the task.
+
+`options` accepts static strings, `{ label, value }` pairs, or a server-side function. Dynamic options receive the typed query context and are resolved per request.
+
+## Relation fields
+
+A reference field stores the foreign key while showing a searchable label from another registered resource:
+
+```ts excerpt
+{
+  name: "customerId",
+  label: "Customer",
+  reference: {
+    resource: "customers",
+    valueField: "id",
+    labelField: "email",
+  },
+  required: true,
+}
+```
+
+The target resource's access, tenant scope, and searchable label field apply to the lookup. Register string-named resources in `FlowpanelResources` so the names and fields are checked.
+
+## Validate on the server
+
+Adapter or resource schema validation is authoritative. A field `validate` rule runs afterward and can use a Zod schema or return a message. `required` also improves browser feedback, but a handcrafted request still passes through the same server checks.
+
+Use a server `defaultValue` for trusted values such as the current tenant or initial status. Do not render sensitive defaults into the client just to post them back.
+
+## Restrict fields
+
+`readOnly`, `hidden`, and `requireRole` affect rendering and writes. A submitted read-only or unauthorized field is rejected by the server rather than silently applied. Use field policies when the rule depends on the operation or session.
+
+## Understand submission
+
+Generated forms post to FlowPanel route handlers. A successful create returns to the resource list; a successful update returns to the row. Writes pass through auth, resource access, scope, field policy, validation, the adapter, then post-commit audit/realtime/revalidation.
+
+Use a custom page when the operation needs a multi-step transaction, several resources, or client state that does not fit a resource form. See [Request and mutation lifecycle](/docs/understand/request-lifecycle) and the generated [Resources reference](/docs/reference/resources).

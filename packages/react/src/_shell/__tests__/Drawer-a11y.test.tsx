@@ -2,7 +2,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Drawer } from "../Drawer.js";
+import { Drawer } from "../Drawer";
 
 describe("Drawer — a11y contract", () => {
   it("renders a dialog with an accessible name from title", () => {

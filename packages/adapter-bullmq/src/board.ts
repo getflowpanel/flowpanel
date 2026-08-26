@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Server } from "node:http";
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter as BullBoardMQAdapter } from "@bull-board/api/bullMQAdapter";
@@ -25,18 +25,60 @@ function timingSafeEqualStrings(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-function requireToken(token: string) {
+const SESSION_COOKIE = "flowpanel_board_session";
+const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+// Derived, not the raw token: the shared secret never lands in a cookie jar, and the value
+// still validates across restarts and replicas without server-side session state.
+function sessionValue(token: string): string {
+  return createHmac("sha256", token).update(SESSION_COOKIE).digest("hex");
+}
+
+function readCookie(req: Request, name: string): string | undefined {
+  const raw = req.headers.cookie;
+  if (!raw) return undefined;
+  for (const part of raw.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() !== name) continue;
+    return decodeURIComponent(part.slice(eq + 1).trim());
+  }
+  return undefined;
+}
+
+function readToken(req: Request): string | undefined {
+  const header = req.header("authorization");
+  const headerToken = header?.toLowerCase().startsWith("bearer ")
+    ? header.slice("bearer ".length)
+    : undefined;
+  const queryToken = typeof req.query.token === "string" ? req.query.token : undefined;
+  return headerToken ?? queryToken;
+}
+
+/**
+ * The board is a SPA: only its document URL carries `?token=`, its scripts, styles and
+ * `/api/queues` polls do not. A valid token mints a session cookie that authorizes the rest.
+ */
+function requireToken(token: string, basePath: string) {
+  const session = sessionValue(token);
   return (req: Request, res: Response, next: NextFunction) => {
-    const header = req.header("authorization");
-    const headerToken = header?.toLowerCase().startsWith("bearer ")
-      ? header.slice("bearer ".length)
-      : undefined;
-    const queryToken = typeof req.query.token === "string" ? req.query.token : undefined;
-    const provided = headerToken ?? queryToken;
+    const cookie = readCookie(req, SESSION_COOKIE);
+    if (cookie && timingSafeEqualStrings(cookie, session)) {
+      next();
+      return;
+    }
+    const provided = readToken(req);
     if (!provided || !timingSafeEqualStrings(provided, token)) {
       res.status(401).json({ error: "unauthorized" });
       return;
     }
+    res.cookie(SESSION_COOKIE, session, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: req.protocol === "https",
+      path: basePath,
+      maxAge: SESSION_MAX_AGE_MS,
+    });
     next();
   };
 }
@@ -62,7 +104,7 @@ export function startBoardServer(opts: StartBoardServerOptions): Server {
     serverAdapter,
   });
 
-  app.use(basePath, requireToken(token), serverAdapter.getRouter());
+  app.use(basePath, requireToken(token, basePath), serverAdapter.getRouter());
 
   const port = opts.port ?? 3001;
   const bindHost = opts.bindHost ?? "127.0.0.1";

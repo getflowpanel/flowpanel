@@ -4,15 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node --import tsx ../../scripts/docs/generate-cli-reference.ts",
     "dev": "next dev --turbo",
+    "prebuild": "node --import tsx ../../scripts/docs/generate-cli-reference.ts",
     "build": "next build --webpack",
     "start": "next start",
     "postinstall": "fumadocs-mdx",
+    "pretest:unit": "node --import tsx ../../scripts/docs/generate-cli-reference.ts",
     "test:unit": "vitest run",
+    "pretypecheck": "node --import tsx ../../scripts/docs/generate-cli-reference.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "boundaries": "node scripts/check-boundaries.mjs",
-    "changelog": "node scripts/aggregate-changelog.mjs"
+    "changelog": "node scripts/aggregate-changelog.mjs",
+    "check:snippets": "tsc -p tsconfig.docs-snippets.json --noEmit"
   },
   "dependencies": {
     "fumadocs-core": "^16.14.5",
@@ -38,6 +43,7 @@
     "fumadocs-twoslash": "^3.2.0",
     "fumadocs-typescript": "^4.0.0",
     "tailwindcss": "^4.0.0",
+    "ts-morph": "^28.0.0",
     "typescript": "catalog:",
     "vite": "^7.0.0",
     "vitest": "catalog:"

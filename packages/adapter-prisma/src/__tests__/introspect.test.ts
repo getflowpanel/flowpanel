@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PrismaDmmf } from "../introspect.js";
-import { introspect } from "../introspect.js";
+import type { PrismaDmmf } from "../introspect";
+import { introspect } from "../introspect";
 
 const testDmmf: PrismaDmmf = {
   datamodel: {
@@ -150,5 +150,29 @@ describe("introspect", () => {
   it("throws for an unknown model, including the list of available models", () => {
     expect(() => introspect("NonExistent", testDmmf)).toThrowError(/NonExistent/);
     expect(() => introspect("NonExistent", testDmmf)).toThrowError(/User/);
+  });
+
+  it("memoizes per model: a repeated call does not re-scan the DMMF", () => {
+    let scans = 0;
+    const counted: PrismaDmmf = {
+      get datamodel() {
+        scans++;
+        return testDmmf.datamodel;
+      },
+    };
+
+    const first = introspect("User", counted);
+    const afterFirst = scans;
+    expect(afterFirst).toBeGreaterThan(0);
+
+    expect(introspect("User", counted)).toBe(first);
+    expect(scans).toBe(afterFirst);
+  });
+
+  it("returns a frozen result so a shared memo entry cannot be mutated", () => {
+    const meta = introspect("User", testDmmf);
+    expect(Object.isFrozen(meta)).toBe(true);
+    expect(Object.isFrozen(meta.columns)).toBe(true);
+    expect(Object.isFrozen(meta.columns[0])).toBe(true);
   });
 });

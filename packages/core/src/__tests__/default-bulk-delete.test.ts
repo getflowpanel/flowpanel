@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Adapter, BulkAction } from "../index.js";
-import { defineAdmin, resource } from "../index.js";
+import type { Adapter, BulkAction } from "../index";
+import { defineAdmin, resource } from "../index";
 
 const noopAdapter: Adapter = {
   kind: "drizzle",

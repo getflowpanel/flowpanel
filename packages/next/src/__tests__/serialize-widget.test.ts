@@ -8,7 +8,7 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { serializeWidget } from "../drawer/serialize-widget.js";
+import { serializeWidget } from "../drawer/serialize-widget";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",

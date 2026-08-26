@@ -200,6 +200,8 @@ interface PmCommands {
   addDisplay(pkg: string, dev: boolean): string;
   /** Runs a project-local binary, e.g. `pnpm flowpanel` / `npx flowpanel`. */
   exec: string;
+  /** Runs a published package's binary without installing it, e.g. `pnpm dlx <pkg>`. */
+  dlx: string;
   /** argv passed to `exec` to run a project-local binary with arguments. */
   execArgs(bin: string, args: string[]): string[];
   /** Runs a package.json script, e.g. `pnpm dev` / `npm run dev`. */
@@ -218,6 +220,7 @@ export function pmCommands(pm: PackageManager): PmCommands {
         add: (pkg, dev) => ["install", dev ? "--save-dev" : "--save", pkg],
         addDisplay: (pkg, dev) => `npm install ${dev ? "--save-dev " : ""}${pkg}`,
         exec: "npx",
+        dlx: "npx",
         execArgs: (bin, args) => [bin, ...args],
         run: "npm run",
       };
@@ -226,6 +229,7 @@ export function pmCommands(pm: PackageManager): PmCommands {
         add: (pkg, dev) => (dev ? ["add", "-D", pkg] : ["add", pkg]),
         addDisplay: (pkg, dev) => `yarn add ${dev ? "-D " : ""}${pkg}`,
         exec: "yarn",
+        dlx: "yarn dlx",
         execArgs: (bin, args) => [bin, ...args],
         run: "yarn",
       };
@@ -234,6 +238,7 @@ export function pmCommands(pm: PackageManager): PmCommands {
         add: (pkg, dev) => (dev ? ["add", "-d", pkg] : ["add", pkg]),
         addDisplay: (pkg, dev) => `bun add ${dev ? "-d " : ""}${pkg}`,
         exec: "bunx",
+        dlx: "bunx",
         execArgs: (bin, args) => [bin, ...args],
         run: "bun run",
       };
@@ -242,6 +247,7 @@ export function pmCommands(pm: PackageManager): PmCommands {
         add: (pkg, dev) => (dev ? ["add", "-D", pkg] : ["add", pkg]),
         addDisplay: (pkg, dev) => `pnpm add ${dev ? "-D " : ""}${pkg}`,
         exec: "pnpm",
+        dlx: "pnpm dlx",
         execArgs: (bin, args) => ["exec", bin, ...args],
         run: "pnpm",
       };

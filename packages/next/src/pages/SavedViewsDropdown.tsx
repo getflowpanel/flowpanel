@@ -109,7 +109,8 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
   function applyView(view: Omit<SavedView, "source">): void {
     const params = viewToUrlParams(view);
     setOpen(false);
-    router.push(`${pathname}?${params.toString()}`);
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
   function saveCurrent(): void {

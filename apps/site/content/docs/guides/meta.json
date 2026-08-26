@@ -1,10 +1,12 @@
 {
-  "title": "Guides",
+  "title": "Production",
   "pages": [
     "auth-with-clerk",
+    "permissions",
     "multi-tenant-scope",
+    "realtime",
     "realtime-with-redis",
-    "upgrade",
-    "troubleshooting"
+    "queues",
+    "upgrade"
   ]
 }

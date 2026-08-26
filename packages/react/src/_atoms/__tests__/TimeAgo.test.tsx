@@ -5,7 +5,7 @@ import { act } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TimeAgo } from "../TimeAgo.js";
+import { TimeAgo } from "../TimeAgo";
 
 afterEach(cleanup);
 

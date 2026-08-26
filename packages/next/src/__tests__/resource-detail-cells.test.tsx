@@ -4,7 +4,7 @@ import { DetailTabsClient } from "@flowpanel/next/client";
 import { KVRow, StatusBadge } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
-import { ResourceDetailPage } from "../pages/resource-detail.js";
+import { ResourceDetailPage } from "../pages/resource-detail";
 
 function findAllElements(
   tree: ReactNode,

@@ -2,8 +2,8 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Card, CardContent, CardHeader } from "../Card.js";
-import { Section, spanClass } from "../Section.js";
+import { Card, CardContent, CardHeader } from "../Card";
+import { Section, spanClass } from "../Section";
 
 afterEach(() => cleanup());
 
@@ -34,6 +34,17 @@ describe("Section", () => {
       </Section>,
     );
     expect(screen.getByText("Last 7 days")).toBeTruthy();
+  });
+
+  it("renders supporting copy without forcing a redundant section heading", () => {
+    const { container } = render(
+      <Section description="Monitor customer catalogs and marketplace coverage.">
+        <div>metrics</div>
+      </Section>,
+    );
+
+    expect(container.querySelector("h2")).toBeNull();
+    expect(screen.getByText("Monitor customer catalogs and marketplace coverage.")).toBeTruthy();
   });
 
   it("omits label block when no label", () => {

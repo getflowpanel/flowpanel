@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Input } from "../ui/input.js";
+import { Input } from "../ui/input";
 
 export interface TagInputProps {
   value: string[];

@@ -1,17 +1,19 @@
 "use client";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-
-import { useRealtimeBus } from "../realtime/hooks.js";
-import { acquireLiveChannels } from "./useLiveChannel.js";
+import { useApiBase } from "../_provider/ApiBaseContext";
+import { useRealtimeBus } from "../realtime/hooks";
+import { acquireLiveChannels } from "./useLiveChannel";
 
 /** Widget-side realtime spec. */
 export type RealtimeChannels = string | string[] | undefined;
 
 export interface UseRealtimeRefreshOptions {
-  /** Debounce window, ms. Defaults to 200ms (matches DataTable). Only applies in standalone mode (no RealtimeProvider ancestor); under a provider, the provider's refreshDebounceMs governs the refresh. */
+  /** Debounce window in standalone mode (no RealtimeProvider ancestor). Under a provider, the provider's refreshDebounceMs governs refreshes.
+   * @defaultValue 200
+   */
   debounceMs?: number;
-  /** Override the SSE endpoint. Default: /api/flowpanel/stream. Only applies in standalone mode (no RealtimeProvider ancestor); under a provider, the provider owns the endpoint. */
+  /** Override the SSE endpoint. Only applies in standalone mode; under a provider, the provider owns it. */
   endpoint?: string;
 }
 
@@ -30,7 +32,8 @@ export function useRealtimeRefresh(
 ): React.ReactNode {
   const router = useRouter();
   const debounceMs = opts.debounceMs ?? 200;
-  const endpoint = opts.endpoint ?? "/api/flowpanel/stream";
+  const apiBase = useApiBase();
+  const endpoint = opts.endpoint ?? `${apiBase}/stream`;
   const bus = useRealtimeBus();
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 

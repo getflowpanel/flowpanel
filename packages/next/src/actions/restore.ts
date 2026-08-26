@@ -1,11 +1,11 @@
 import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { buildAuditEvent, maybeEmitAudit } from "../runtime/action-helpers.js";
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { buildHref } from "../runtime/href.js";
-import { bindPublisher } from "../runtime/publish.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { withGuards } from "../runtime/with-guards.js";
+import { buildAuditEvent, maybeEmitAudit } from "../runtime/action-helpers";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { buildHref } from "../runtime/href";
+import { bindPublisher } from "../runtime/publish";
+import { scopeBinding } from "../runtime/scope-binding";
+import { withGuards } from "../runtime/with-guards";
 
 export function restoreRoute(config: ResolvedAdminConfig) {
   bindPublisher(config);

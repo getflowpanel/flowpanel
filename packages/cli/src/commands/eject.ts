@@ -3,18 +3,18 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
-import cliPkg from "../../package.json" with { type: "json" };
 import {
   dashboardTemplateIntents,
   layoutTemplateIntents,
   resourceTemplateIntents,
-} from "../eject/copyTargets.js";
-import { editConfigToCommentDashboard, editConfigToCommentResource } from "../eject/editConfig.js";
-import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan.js";
-import { applyFilesystemPlan } from "../plan/transaction.js";
-import type { FileIntent, FilesystemPlan } from "../plan/types.js";
-import { detectAppDir, fileExists } from "../utils/detect.js";
-import { writeJson, writePlanJson } from "../utils/output.js";
+} from "../eject/copyTargets";
+import { editConfigToCommentDashboard, editConfigToCommentResource } from "../eject/editConfig";
+import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
+import { applyFilesystemPlan } from "../plan/transaction";
+import type { FileIntent, FilesystemPlan } from "../plan/types";
+import { detectAppDir, fileExists } from "../utils/detect";
+import { CLI_VERSION, installedKitVersion, kitCompatibilityError } from "../utils/kit";
+import { writeJson, writePlanJson } from "../utils/output";
 
 /** Locate the user's flowpanel config, or `null` when the project has none yet. */
 async function findConfigFile(
@@ -38,6 +38,9 @@ export interface RunEjectOptions {
 }
 
 export async function createEjectPlan(opts: RunEjectOptions): Promise<FilesystemPlan> {
+  const mismatch = await kitCompatibilityError(opts.cwd);
+  if (mismatch) throw new Error(mismatch);
+
   const cfg = await findConfigFile(opts.cwd);
   if (!cfg) {
     throw new Error(
@@ -102,15 +105,7 @@ export async function runEject(opts: RunEjectOptions): Promise<string[]> {
 
 /** The kit version the ejected files were cut from; the CLI's own when kit isn't installed. */
 export async function ejectVersion(cwd: string): Promise<string> {
-  try {
-    const pkg = JSON.parse(
-      await fs.readFile(path.join(cwd, "node_modules/@flowpanel/kit/package.json"), "utf8"),
-    );
-    if (typeof pkg?.version === "string") return pkg.version;
-  } catch {
-    /* fall through */
-  }
-  return cliPkg.version;
+  return (await installedKitVersion(cwd)) ?? CLI_VERSION;
 }
 
 export function ejectCommand(cli: Command): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toCsv, toJson } from "../export.js";
+import { toCsv, toJson } from "../export";
 
 describe("toCsv", () => {
   it("emits header + rows", () => {

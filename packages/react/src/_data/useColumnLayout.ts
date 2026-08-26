@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import type { DataTableColumn } from "./data-table-types.js";
+import type { DataTableColumn } from "./data-table-types";
 
 export interface PinMeta {
   side: "left" | "right" | "none";

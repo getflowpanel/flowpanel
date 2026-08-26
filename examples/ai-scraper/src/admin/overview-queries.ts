@@ -1,5 +1,6 @@
 import type { WidgetContext } from "@flowpanel/kit";
 import { type AnyColumn, and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import type { ReviewQueueProps } from "@/src/admin/ReviewQueue";
 import type { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 
@@ -50,35 +51,34 @@ export async function reviewBacklog({ db }: QueryContext): Promise<number> {
   return Number(row?.count ?? 0);
 }
 
-export async function offersTrend({
-  db,
-  dateRange,
-}: QueryContext): Promise<Array<{ day: string; offers: number }>> {
-  const day = sql`date_trunc('day', ${schema.listings.scrapedAt})`;
-  return db
-    .select({
-      day: sql<string>`to_char(${day}, 'Mon FMDD')`,
-      offers: sql<number>`count(*)::int`,
-    })
-    .from(schema.listings)
-    .where(inRange(schema.listings.scrapedAt, dateRange))
-    .groupBy(day)
-    .orderBy(day);
-}
+export async function reviewQueueSummary(context: QueryContext): Promise<ReviewQueueProps> {
+  const { db, dateRange } = context;
+  const [pending, rows] = await Promise.all([
+    reviewBacklog(context),
+    db
+      .select({ status: schema.matches.status, count: sql<number>`count(*)::int` })
+      .from(schema.matches)
+      .where(inRange(schema.matches.matchedAt, dateRange))
+      .groupBy(schema.matches.status),
+  ]);
+  const counts = new Map(rows.map((row) => [row.status, Number(row.count)]));
+  const total = rows.reduce((sum, row) => sum + Number(row.count), 0);
+  const outcome = (status: "confirmed" | "needs_review" | "rejected", label: string) => {
+    const count = counts.get(status) ?? 0;
+    return {
+      label,
+      count,
+      share: total === 0 ? 0 : Math.round((count / total) * 100),
+      tone: status === "needs_review" ? ("warn" as const) : ("default" as const),
+    };
+  };
 
-export async function matchQuality({
-  db,
-  dateRange,
-}: QueryContext): Promise<Array<{ status: string; count: number }>> {
-  return db
-    .select({ status: schema.matches.status, count: sql<number>`count(*)::int` })
-    .from(schema.matches)
-    .where(
-      and(
-        gte(schema.matches.matchedAt, dateRange.from),
-        lte(schema.matches.matchedAt, dateRange.to),
-      ),
-    )
-    .groupBy(schema.matches.status)
-    .orderBy(schema.matches.status);
+  return {
+    pending,
+    outcomes: [
+      outcome("confirmed", "Confirmed"),
+      outcome("needs_review", "Needs review"),
+      outcome("rejected", "Rejected"),
+    ],
+  };
 }

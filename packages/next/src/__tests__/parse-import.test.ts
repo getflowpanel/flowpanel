@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseImport } from "../runtime/parse-import.js";
+import { parseImport } from "../runtime/parse-import";
 
 describe("parseImport", () => {
   it("parses a JSON array of objects", () => {

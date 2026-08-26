@@ -5,8 +5,8 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { safeErrorMessage } from "../runtime/action-helpers.js";
-import { readRelatedRows } from "../runtime/require-authorized.js";
+import { safeErrorMessage } from "../runtime/action-helpers";
+import { readRelatedRows } from "../runtime/require-authorized";
 
 /** Wire-safe shape of a drawer widget. */
 export type SerializedWidget =

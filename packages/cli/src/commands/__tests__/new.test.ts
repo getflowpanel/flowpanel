@@ -3,8 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
-import { editConfigToAddResource } from "../../eject/addResource.js";
-import { tpl } from "../../utils/template.js";
+import { editConfigToAddResource } from "../../eject/addResource";
+import { tpl } from "../../utils/template";
+import { parseAdapterKind } from "../new";
 
 const BASE_CONFIG = `import { defineAdmin, resource } from "@flowpanel/kit";
 import * as schema from "./db/schema";
@@ -181,5 +182,34 @@ export default defineAdmin({ resources: [] });
     const out = editConfigToAddResource(await initTemplate("drizzle"), "users");
     expect(out).toContain('    //   label: "Users",');
     expect(out).toContain('    resource(schema.users, { columns: ["id"] }),');
+  });
+
+  it("drops the import instruction it has just carried out", async () => {
+    for (const orm of ["drizzle", "prisma"] as const) {
+      const template = await initTemplate(orm);
+      expect(template).toContain("// Add `resource` to the");
+      const out = editConfigToAddResource(template, orm === "prisma" ? "User" : "users", {
+        kind: orm,
+      });
+      expect(out).not.toContain("// Add `resource` to the");
+      expect(out).toContain('import { defineAdmin, resource } from "@flowpanel/kit";');
+    }
+  });
+});
+
+describe("parseAdapterKind", () => {
+  it("defaults to drizzle when the flag is absent", () => {
+    expect(parseAdapterKind(undefined)).toBe("drizzle");
+  });
+
+  it("accepts the documented kinds", () => {
+    expect(parseAdapterKind("drizzle")).toBe("drizzle");
+    expect(parseAdapterKind("prisma")).toBe("prisma");
+  });
+
+  it("rejects anything else instead of silently coercing to drizzle", () => {
+    expect(parseAdapterKind("mongoose")).toBeNull();
+    expect(parseAdapterKind("Prisma")).toBeNull();
+    expect(parseAdapterKind("")).toBeNull();
   });
 });

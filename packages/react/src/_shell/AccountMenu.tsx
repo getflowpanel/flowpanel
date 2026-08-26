@@ -1,13 +1,13 @@
 "use client";
 import { ChevronsUpDown, LogOut } from "lucide-react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu.js";
+} from "../ui/dropdown-menu";
 
 export interface AccountMenuItem {
   label: string;

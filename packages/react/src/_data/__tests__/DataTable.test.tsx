@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LabelsProvider } from "../../_provider/LabelsContext.js";
+import { LabelsProvider } from "../../_provider/LabelsContext";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-import { DataTable } from "../DataTable.js";
+import { DataTable } from "../DataTable";
 
 afterEach(() => cleanup());
 

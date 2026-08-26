@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bullmqAdapter } from "../adapter.js";
+import { bullmqAdapter } from "../adapter";
 
 describe("bullmqAdapter", () => {
   it("returns { kind, queues } wrapper", () => {

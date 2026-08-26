@@ -1,4 +1,4 @@
-import type { IconName } from "./icon.js";
+import type { IconName } from "./icon";
 
 /** One entry in the ⌘K palette. */
 export interface CommandItem {
@@ -22,7 +22,9 @@ export interface CommandGroup {
 export interface CommandPaletteConfig {
   /** Your own groups, listed after the built-in ones. */
   groups?: CommandGroup[];
-  /** Placeholder text for the input. Defaults to "Search resources, actions…". */
+  /** Placeholder text for the input.
+   * @defaultValue "Search resources, actions…"
+   */
   placeholder?: string;
   /** Drop the built-in group that links to every resource. */
   disableNavigation?: boolean;

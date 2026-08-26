@@ -1,0 +1,209 @@
+---
+title: Troubleshooting
+description: Find a FlowPanel error by symptom, fix its cause, and verify the result.
+kind: troubleshooting
+---
+
+Start with `pnpm flowpanel doctor`. It checks package compatibility, generated wiring, duplicate core packages, and the application typecheck. Use the exact visible error as the heading to search below.
+
+## Installation and configuration
+
+### “The admin renders, but navigation is empty”
+
+**Cause:** `resources`, `dashboards`, and `pages` are empty. `init` cannot decide which application data belongs in the admin.
+
+**Fix:** add a resource to `flowpanel.config.ts` or run `pnpm flowpanel new <resource>`.
+
+**Verify:** restart development and open the resource URL from the new navigation item.
+
+**Related:** [Getting started](/docs/introduction/getting-started#add-your-first-resource)
+
+### “The admin renders without styles”
+
+**Cause:** the root layout does not import `admin.css`, or Tailwind does not scan installed FlowPanel package output.
+
+**Fix:** restore the generated stylesheet import. For Tailwind v4, check both `@source` paths; for v3, check the package globs in `content`.
+
+**Verify:** restart Next.js and confirm utilities, tokens, and the drawer portal are styled.
+
+**Related:** [Styling](/docs/customization/styling#use-the-generated-stylesheet)
+
+### “defineAdmin throws when the app boots”
+
+**Cause:** admin compilation found an inconsistent graph. Common messages name an unknown column, duplicate or reserved resource/queue/route name, duplicate action key, missing drawer config, omitted columns on a non-introspectable ref, or unresolved cross-resource reference.
+
+**Fix:** follow the path and known-name list in the error. Prefer renaming the config entry over suppressing validation.
+
+**Verify:** import the config in a test or restart the app; compilation should complete without warnings/errors.
+
+**Related:** [How FlowPanel works](/docs/understand/how-flowpanel-works#from-schema-to-compiled-admin)
+
+### “Column typos compile without an error”
+
+**Cause:** the resource row fell back to an open record, usually because a Prisma/string resource is absent from `FlowpanelResources`.
+
+**Fix:** add the registry mapping and ensure the augmentation file is included by TypeScript.
+
+**Verify:** deliberately misspell a column; `tsc --noEmit` and admin compilation should both reject it.
+
+**Related:** [Type inference and registries](/docs/understand/type-inference)
+
+### “flowpanel init exits in CI”
+
+**Cause:** interactive prompts have no TTY.
+
+**Fix:** run `flowpanel init --yes` after verifying detected/default paths with `--dry-run --json` in a controlled job.
+
+**Verify:** the JSON/filesystem plan contains the intended app, database, schema, and auth paths.
+
+**Related:** [CLI reference](/docs/reference/cli#flowpanel-init)
+
+## Authentication and access
+
+### “Everything returns 403 after connecting Clerk”
+
+**Cause:** `publicMetadata.role` is absent from the session claims, stale in the current session, or different from `requireRole`.
+
+**Fix:** include public metadata in the Clerk session token, set the user role, and refresh the session.
+
+**Verify:** test the page and one API/action route as both an allowed and denied role.
+
+**Related:** [Authenticate with Clerk](/docs/guides/auth-with-clerk#verify-the-boundary)
+
+### “Production refuses to start without requireRole”
+
+**Cause:** writable production admins require an auth role gate. An explicitly unauthenticated admin must also be read-only.
+
+**Fix:** configure real auth and `auth.requireRole`. Only for a deliberately public read-only surface, set `allowUnauthenticated: true` together with `readOnly: true`.
+
+**Verify:** build under `NODE_ENV=production` and send an anonymous request to a generated write route.
+
+**Related:** [Roles and permissions](/docs/guides/permissions)
+
+### “A tenant can address another tenant's row”
+
+**Cause:** the resource has no bound scope, a custom query omitted `ctx.scope`, or create accepts a client-controlled tenant field.
+
+**Fix:** bind the resource predicate, set the tenant through a trusted server default, and apply scope inside custom queries.
+
+**Verify:** test cross-tenant list, by-ID read, update, delete, restore, reference, and create paths.
+
+**Related:** [Multi-tenant scope](/docs/guides/multi-tenant-scope#verify-isolation)
+
+## Data and forms
+
+### “400 invalid JSON body”
+
+**Cause:** a request declares JSON but sends malformed JSON or `FormData`.
+
+**Fix:** serialize a JSON object for `application/json`, or let the form request use its matching content type.
+
+**Verify:** inspect the request body and content-type together in the network panel.
+
+**Related:** [Typed client](/docs/reference/client)
+
+### “A bulk action returns 422 without running”
+
+**Cause:** the selection exceeds that action's maximum or its input failed validation. Oversized selections are rejected, not truncated.
+
+**Fix:** reduce/batch the selection or adjust the action's checked maximum within the supported limit.
+
+**Verify:** confirm no partial mutation occurred, then retry a valid batch.
+
+**Related:** [Actions reference](/docs/reference/actions#bulkaction)
+
+### “Prisma cannot resolve a model delegate”
+
+**Cause:** the resource name does not match the PascalCase Prisma model, or Prisma Client is stale.
+
+**Fix:** use `"OrderItem"` for `prisma.orderItem` and run `prisma generate`.
+
+**Verify:** start the app and confirm adapter introspection sees the model and scalar fields.
+
+**Related:** [Prisma setup](/docs/introduction/prisma)
+
+### “A drawer relation shows fewer rows than the resource list”
+
+**Cause:** related-resource drawer tabs show a bounded first page, not an unbounded relation.
+
+**Fix:** link to the full resource list with a filter when users need pagination or bulk work.
+
+**Verify:** compare the tab with the filtered resource page using more rows than one page.
+
+**Related:** [Drawers](/docs/build/drawers#organize-the-detail-into-tabs)
+
+## Realtime and queues
+
+### “Realtime works locally but not across production instances”
+
+**Cause:** the memory driver is process-local, Redis differs between instances, proxy buffering delays SSE, or timeouts close the stream.
+
+**Fix:** configure the Redis driver consistently and apply the production SSE checklist.
+
+**Verify:** connect a browser to one instance and mutate through another.
+
+**Related:** [Realtime](/docs/guides/realtime#verify-end-to-end)
+
+### “A worker publishes but no browser refreshes”
+
+**Cause:** the worker never bound the admin's publisher or uses a different Redis prefix.
+
+**Fix:** call `bindPublisher(config)` once during worker startup before publishing.
+
+**Verify:** publish from the worker while a browser is connected through another app instance.
+
+**Related:** [Realtime with Redis](/docs/guides/realtime-with-redis#publish-from-an-external-worker)
+
+### “The queue page is blank or the board returns 401”
+
+**Cause:** `boardUrl` is unreachable from the browser, the board token/session is missing, or the reverse proxy does not pass board assets and polling.
+
+**Fix:** test the board URL directly, then repair its separate auth and proxy boundary.
+
+**Verify:** test both the FlowPanel queue role gate and direct board endpoint.
+
+**Related:** [Queues](/docs/guides/queues#verify-and-troubleshoot)
+
+## Customization and eject
+
+### “Charts package not installed”
+
+**Cause:** the optional `recharts` peer is absent.
+
+**Fix:** run `pnpm add recharts` (and install `@flowpanel/charts` when using granular packages).
+
+**Verify:** restart the server and render one chart with a non-empty and empty dataset.
+
+**Related:** [Charts](/docs/customization/charts#install-the-optional-peer)
+
+### “A computed column will not sort, filter, edit, or export”
+
+**Cause:** a renderer-only column has no adapter field for those operations.
+
+**Fix:** name a real `field`, expose the computed value in the data model/adapter, or accept a display-only cell.
+
+**Verify:** check list sorting, filter controls, inline edit, drawer/detail, and export separately.
+
+**Related:** [Column renderers](/docs/customization/column-renderers#joined-or-computed-values)
+
+### “An ejected page still wins after re-enabling config”
+
+**Cause:** Next.js file-based routing takes precedence over FlowPanel's catch-all route.
+
+**Fix:** remove or relocate the explicit ejected route after restoring the config entry.
+
+**Verify:** restart Next.js and confirm the generated route renders; preserve any application-owned behavior before deleting files.
+
+**Related:** [Eject to source](/docs/customization/eject#reverse-an-eject)
+
+## Runtime and package identity
+
+### “getRequestContext() called outside of a request scope”
+
+**Cause:** the helper is genuinely outside a generated request/action, or the install contains two copies of `@flowpanel/core` with separate AsyncLocalStorage instances.
+
+**Fix:** use `tryGetRequestContext()` for optional access, pass context explicitly in background work, and align/dedupe FlowPanel package versions.
+
+**Verify:** run `pnpm flowpanel doctor`, inspect `pnpm list @flowpanel/core`, and retry inside a generated request.
+
+**Related:** [Contexts reference](/docs/reference/contexts#request-scoped-access)

@@ -3,7 +3,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Drawer, DrawerContent, DrawerHeader } from "../Drawer.js";
+import { Drawer, DrawerContent, DrawerHeader } from "../Drawer";
 
 function Harness({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const [open, setOpen] = useState(true);

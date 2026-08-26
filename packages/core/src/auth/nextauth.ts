@@ -1,5 +1,5 @@
-import type { AuthConfig } from "../types/config.js";
-import type { Session } from "../types/session.js";
+import type { AuthConfig } from "../types/config";
+import type { Session } from "../types/session";
 
 export interface NextAuthOptions {
   /** Your NextAuth (Auth.js) `auth()` function — typically from `@/auth`. */

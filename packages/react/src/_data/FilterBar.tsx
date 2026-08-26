@@ -1,13 +1,13 @@
 "use client";
 import type { FilterType } from "@flowpanel/core";
-import { humanize } from "../lib/humanize.js";
-import { BooleanFilter } from "./filters/BooleanFilter.js";
-import { DateRangeFilter } from "./filters/DateRangeFilter.js";
-import { MultiSelectFilter } from "./filters/MultiSelectFilter.js";
-import { NumericRangeFilter } from "./filters/NumericRangeFilter.js";
-import { SelectFilter } from "./filters/SelectFilter.js";
-import { TagFilter } from "./filters/TagFilter.js";
-import { TextFilter } from "./filters/TextFilter.js";
+import { humanize } from "../lib/humanize";
+import { BooleanFilter } from "./filters/BooleanFilter";
+import { DateRangeFilter } from "./filters/DateRangeFilter";
+import { MultiSelectFilter } from "./filters/MultiSelectFilter";
+import { NumericRangeFilter } from "./filters/NumericRangeFilter";
+import { SelectFilter } from "./filters/SelectFilter";
+import { TagFilter } from "./filters/TagFilter";
+import { TextFilter } from "./filters/TextFilter";
 
 export interface FilterBarSpec {
   field: string;

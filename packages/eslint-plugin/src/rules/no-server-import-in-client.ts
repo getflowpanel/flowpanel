@@ -1,5 +1,5 @@
 import { AST_NODE_TYPES, type TSESTree } from "@typescript-eslint/utils";
-import { createRule } from "../create-rule.js";
+import { createRule } from "../create-rule";
 
 type MessageId = "serverImport";
 
@@ -63,11 +63,16 @@ function isAppLocal(source: string): boolean {
   );
 }
 
+/** `next/server` is a Next.js request-primitive entry point, safe in a client file. */
+function isAllowedPackageServerEntry(source: string): boolean {
+  return source === "next/server" || source.startsWith("next/server/");
+}
+
 function isServerOnlySource(source: string): boolean {
   if (source === "server-only") return true;
   if (source.endsWith("/server-only")) return true;
-  if (!isAppLocal(source)) return false;
-  if (/(^|\/)db(\/|$)/.test(source)) {
+  if (isAllowedPackageServerEntry(source)) return false;
+  if (isAppLocal(source) && /(^|\/)db(\/|$)/.test(source)) {
     if (
       source === `${source.split("/")[0]}/db` ||
       source.includes("/db/") ||
@@ -76,8 +81,6 @@ function isServerOnlySource(source: string): boolean {
       return true;
     }
   }
-  // Scoped to app-local paths: `next/server` is a package entry point, not a
-  // server-only module of the app.
   return /\/server(\/|$)/.test(source);
 }
 

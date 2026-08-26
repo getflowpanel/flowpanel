@@ -1,5 +1,5 @@
 /**
- * ScrapeAI: customers upload a catalog (`products`), scheduled `scrapers` crawl
+ * ScrapeAI: customers upload a catalog (`products`), scheduled `monitors` crawl
  * marketplaces into `listings`, and the AI links the two as scored `matches`.
  */
 

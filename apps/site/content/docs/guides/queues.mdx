@@ -1,0 +1,65 @@
+---
+title: Queues
+description: Register BullMQ queues and expose their board through an authenticated boundary.
+kind: how-to
+---
+
+FlowPanel registers a queue in navigation and embeds a bull-board URL. The board is a separate HTTP process, so it needs its own network and authentication boundary.
+
+## Prerequisites
+
+```bash
+pnpm add bullmq ioredis @bull-board/api @bull-board/express express
+```
+
+Create the BullMQ queues in an application module and reuse those instances for workers, the board, and optional metrics.
+
+## Register a queue
+
+```ts excerpt
+import { queue } from "@flowpanel/kit";
+import { emailQueue } from "@/server/queues";
+
+export const emailQueuePage = queue(emailQueue, {
+  label: "Email",
+  boardUrl: "https://internal.example.com/queues/email",
+  requireRole: "admin",
+});
+```
+
+Add it to `queues` in the root config. The queue's `.name` becomes its key unless `key` is set. `requireRole` protects the FlowPanel page and navigation entry.
+
+## Start the board process
+
+```ts excerpt
+import { startBoardServer } from "@flowpanel/kit/bullmq/board";
+import { queuesByName } from "@/server/queues";
+
+const token = process.env.BOARD_TOKEN;
+if (!token) throw new Error("BOARD_TOKEN is required");
+
+startBoardServer({
+  queues: queuesByName,
+  port: 3001,
+  bindHost: "127.0.0.1",
+  auth: { token },
+});
+```
+
+The token is required. A valid token establishes an HttpOnly board session cookie for subsequent assets and polling requests.
+
+## Protect the deployment boundary
+
+The iframe URL is not protected by FlowPanel's `requireRole`; anyone who can reach the board port meets the board server directly. Keep it on loopback, put it behind an authenticated reverse proxy, and inject credentials server-side. A query-string token is useful for local setup but leaks through URLs and logs in a shared environment.
+
+`flowpanel dev` starts the board alongside Next.js when `REDIS_URL` is present unless `--no-board` is used. In production, supervise the board as a separate process with health checks and restricted network exposure.
+
+## Read queue state in dashboards
+
+`bullmqAdapter` wraps a named map of queue instances for application queries. Dashboard metrics may call the normal BullMQ methods through that map; they do not need the board HTTP server.
+
+## Verify and troubleshoot
+
+Test the FlowPanel role gate and direct board URL separately. Confirm missing/invalid tokens return unauthorized, the session cookie is scoped to the board base path, and the reverse proxy supports iframe assets and polling. An unreachable `boardUrl` produces an empty/failed iframe while the rest of the admin remains available.
+
+See [Queues reference](/docs/reference/queues) for generated queue and board option types.

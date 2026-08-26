@@ -3,8 +3,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
-import { AccountMenu } from "../AccountMenu.js";
-import { Brand } from "../Brand.js";
+import { AccountMenu } from "../AccountMenu";
+import { Brand } from "../Brand";
 
 afterEach(cleanup);
 

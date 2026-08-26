@@ -1,17 +1,18 @@
 "use client";
 import type { PieChartOptions } from "@flowpanel/core";
 import { Cell, Legend, Pie, PieChart as RcPie, ResponsiveContainer, Tooltip } from "recharts";
-import { ChartEmptyState } from "./ChartEmptyState.js";
+import { ChartEmptyState } from "./ChartEmptyState";
 import {
   buildTooltipProps,
   CHART_SURFACE_PROPS,
   chartColor,
   LEGEND_PROPS,
   STATIC_SERIES_PROPS,
-} from "./chart-theme.js";
+} from "./chart-theme";
+import { DEFAULT_CHART_HEIGHT } from "./defaults";
 
 export function PieChart({ data, options }: { data: unknown[]; options: PieChartOptions }) {
-  const height = options.height ?? 240;
+  const height = options.height ?? DEFAULT_CHART_HEIGHT;
   if (data.length === 0) return <ChartEmptyState height={height} />;
   return (
     <ResponsiveContainer width="100%" height={height}>

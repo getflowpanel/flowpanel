@@ -1,9 +1,9 @@
-export { type CreateFlowpanelClientOptions, createFlowpanelClient } from "./client.js";
+export { type CreateFlowpanelClientOptions, createFlowpanelClient } from "./client";
 export {
   type UseAdminMutation,
   type UseAdminMutationOptions,
   useAdminMutation,
-} from "./mutation.js";
+} from "./mutation";
 export {
   type FlowpanelClient,
   type FlowpanelClientMetadata,
@@ -12,4 +12,4 @@ export {
   type FlowpanelResourceClient,
   isFlowpanelErrorCode,
   isFlowpanelErrorResult,
-} from "./types.js";
+} from "./types";

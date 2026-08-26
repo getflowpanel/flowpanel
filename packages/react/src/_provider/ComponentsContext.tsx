@@ -1,16 +1,16 @@
 "use client";
 import type { FlowpanelComponentSlots } from "@flowpanel/core";
 import { createContext, type JSX, type ReactNode, useContext, useMemo } from "react";
-import type { AvatarProps } from "../_atoms/AvatarDefault.js";
-import type { BadgeProps } from "../_atoms/BadgeDefault.js";
-import type { StatusBadgeProps } from "../_atoms/StatusBadgeDefault.js";
-import type { PaginationProps } from "../_data/PaginationDefault.js";
-import type { ConfirmDialogProps } from "../_feedback/ConfirmDialogDefault.js";
-import type { EmptyStateProps } from "../_feedback/EmptyStateDefault.js";
-import type { SkeletonTableProps } from "../_feedback/SkeletonTableDefault.js";
-import type { PageHeaderProps } from "../_shell/PageHeaderDefault.js";
-import type { MetricCardProps } from "../_widgets/MetricCardDefault.js";
-import type { ButtonProps } from "../ui/buttonDefault.js";
+import type { AvatarProps } from "../_atoms/AvatarDefault";
+import type { BadgeProps } from "../_atoms/BadgeDefault";
+import type { StatusBadgeProps } from "../_atoms/StatusBadgeDefault";
+import type { PaginationProps } from "../_data/PaginationDefault";
+import type { ConfirmDialogProps } from "../_feedback/ConfirmDialogDefault";
+import type { EmptyStateProps } from "../_feedback/EmptyStateDefault";
+import type { SkeletonTableProps } from "../_feedback/SkeletonTableDefault";
+import type { PageHeaderProps } from "../_shell/PageHeaderDefault";
+import type { MetricCardProps } from "../_widgets/MetricCardDefault";
+import type { ButtonProps } from "../ui/buttonDefault";
 
 /** Augment the core slot registry with the 10 shipped React slots. */
 declare module "@flowpanel/core" {

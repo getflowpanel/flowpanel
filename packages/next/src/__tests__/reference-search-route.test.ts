@@ -1,6 +1,6 @@
 import type { Adapter, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { referenceSearchRoute } from "../actions/reference-search.js";
+import { referenceSearchRoute } from "../actions/reference-search";
 
 interface FixtureOpts {
   role?: string;

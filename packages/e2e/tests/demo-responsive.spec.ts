@@ -42,13 +42,15 @@ for (const viewport of viewports) {
   }
 }
 
-test("the five-screen product story stays navigable without page overflow", async ({ page }) => {
+test("the seven-screen product story stays navigable without page overflow", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   for (const route of [
     "/admin",
     "/admin/customers",
     "/admin/monitors",
+    "/admin/runs",
+    "/admin/listings",
     "/admin/products",
     "/admin/matches",
   ]) {

@@ -7,7 +7,7 @@ import {
   THEME_STORAGE_KEY,
   toggleTheme,
   writeStoredTheme,
-} from "../theme.js";
+} from "../theme";
 
 describe("theme runtime", () => {
   beforeEach(() => {

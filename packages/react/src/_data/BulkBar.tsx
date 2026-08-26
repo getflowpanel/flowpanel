@@ -1,8 +1,8 @@
 "use client";
 import { formatLabel } from "@flowpanel/core/labels";
-import { useLabels } from "../_provider/LabelsContext.js";
-import { cn } from "../lib/cn.js";
-import { Button } from "../ui/button.js";
+import { useLabels } from "../_provider/LabelsContext";
+import { cn } from "../lib/cn";
+import { Button } from "../ui/button";
 
 export interface BulkBarAction {
   key: string;

@@ -107,7 +107,9 @@ jobs:
           git diff --exit-code -- apps/site/content/changelog/index.mdx
 
       - name: Bundle-size budgets (.size-limit.json)
-        run: pnpm --filter @flowpanel/kit exec size-limit
+        run: |
+          pnpm --filter @flowpanel/kit exec size-limit
+          pnpm --filter @flowpanel/charts exec size-limit
 
       - name: Changesets name real workspace packages
         run: pnpm check:changesets

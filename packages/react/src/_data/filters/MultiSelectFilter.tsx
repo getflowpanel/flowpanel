@@ -1,11 +1,11 @@
 "use client";
 import { ChevronDown } from "lucide-react";
 import * as React from "react";
-import { cn } from "../../lib/cn.js";
-import { Button } from "../../ui/button.js";
-import { Checkbox } from "../../ui/checkbox.js";
-import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover.js";
-import { BARE_CONTROL, FilterField } from "./FilterField.js";
+import { cn } from "../../lib/cn";
+import { Button } from "../../ui/button";
+import { Checkbox } from "../../ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
+import { BARE_CONTROL, FilterField } from "./FilterField";
 
 export interface MultiSelectFilterOption {
   label: string;

@@ -1,5 +1,5 @@
-import type { AuthConfig } from "../types/config.js";
-import type { Session } from "../types/session.js";
+import type { AuthConfig } from "../types/config";
+import type { Session } from "../types/session";
 
 /** Minimal duck-type for a Lucia v3+ instance. */
 export interface LuciaLike {

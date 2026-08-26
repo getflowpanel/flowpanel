@@ -1,9 +1,9 @@
-import { assertAdapterCapabilities, type ListQueryContext } from "@flowpanel/core";
+import type { ListQueryContext } from "@flowpanel/core";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { drizzleAdapter } from "../index.js";
+import { drizzleAdapter } from "../index";
 
 const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -62,17 +62,6 @@ describe("drizzleAdapter SQLite CRUD", () => {
       ...overrides,
     } as ListQueryContext<any>;
   }
-
-  it("declares a truthful v2 capability set", () => {
-    expect(assertAdapterCapabilities(adapter)).toEqual({
-      version: 2,
-      projections: true,
-      transactions: true,
-      atomicImport: true,
-      returningRows: true,
-      migrations: true,
-    });
-  });
 
   it("list returns rows with pagination", async () => {
     const r = await adapter.list(users, ctx({ db, pageSize: 10, page: 1 }));

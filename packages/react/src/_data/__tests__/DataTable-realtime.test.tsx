@@ -54,8 +54,8 @@ class MockEventSource {
   }
 }
 
-import { RealtimeProvider } from "../../realtime/RealtimeProvider.js";
-import { DataTable } from "../DataTable.js";
+import { RealtimeProvider } from "../../realtime/RealtimeProvider";
+import { DataTable } from "../DataTable";
 
 const COLUMNS = [{ field: "name" as const }];
 const ROWS = [{ id: "1", name: "a" }];
@@ -124,7 +124,9 @@ describe("DataTable realtime", () => {
     });
     // Message triggers debounce
     act(() => {
-      (instances[0]! as unknown as { message: (d: string) => void }).message("{}");
+      (instances[0]! as unknown as { message: (d: string) => void }).message(
+        JSON.stringify({ channel: "resource.users" }),
+      );
     });
     expect(refresh).not.toHaveBeenCalled();
     await act(async () => {

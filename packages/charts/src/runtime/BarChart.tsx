@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartEmptyState } from "./ChartEmptyState.js";
+import { ChartEmptyState } from "./ChartEmptyState";
 import {
   AXIS_STYLE_PROPS,
   AXIS_TICK_PROPS,
@@ -22,11 +22,12 @@ import {
   GRID_PROPS,
   LEGEND_PROPS,
   STATIC_SERIES_PROPS,
-} from "./chart-theme.js";
-import { buildTickFormatter } from "./format-tick.js";
+} from "./chart-theme";
+import { DEFAULT_CHART_HEIGHT } from "./defaults";
+import { buildTickFormatter } from "./format-tick";
 
 export function BarChart({ data, options }: { data: unknown[]; options: BarChartOptions }) {
-  const height = options.height ?? 240;
+  const height = options.height ?? DEFAULT_CHART_HEIGHT;
   if (data.length === 0) return <ChartEmptyState height={height} />;
   const ys = Array.isArray(options.y) ? options.y : [options.y];
   const multiSeries = ys.length > 1;
@@ -63,6 +64,7 @@ export function BarChart({ data, options }: { data: unknown[]; options: BarChart
               {...AXIS_STYLE_PROPS}
               tickFormatter={categoryTickFormatter}
               {...AXIS_TICK_PROPS}
+              interval={0}
             />
           </>
         ) : (
@@ -72,6 +74,7 @@ export function BarChart({ data, options }: { data: unknown[]; options: BarChart
               {...AXIS_STYLE_PROPS}
               tickFormatter={categoryTickFormatter}
               {...AXIS_TICK_PROPS}
+              interval={0}
             />
             <YAxis
               {...AXIS_STYLE_PROPS}

@@ -1,11 +1,14 @@
 {
   "name": "@flowpanel/next",
   "version": "0.1.0",
-  "description": "Next.js 16 integration for FlowPanel — App Router pages, route handlers, server actions, drawers, and SSE",
+  "description": "Next.js 16 integration for FlowPanel \u2014 App Router pages, route handlers, drawers, actions, and SSE",
   "keywords": [
     "flowpanel",
     "admin",
-    "nextjs"
+    "admin-panel",
+    "nextjs",
+    "app-router",
+    "react"
   ],
   "license": "MIT",
   "repository": {
@@ -28,6 +31,9 @@
     },
     "./package.json": "./package.json"
   },
+  "sideEffects": [
+    "./dist/index.js"
+  ],
   "files": [
     "dist",
     "README.md"

@@ -1,0 +1,48 @@
+---
+title: Realtime
+description: Choose the memory or Redis driver and operate live updates safely in production.
+kind: how-to
+---
+
+FlowPanel uses Server-Sent Events (SSE) to tell subscribed browser surfaces when data changed. The event is a refresh signal, not a copy of the row.
+
+## Choose the driver
+
+Use the memory driver when exactly one long-lived Next.js process serves mutations and SSE connections. It is appropriate for local development and a single-instance deployment.
+
+Use Redis when requests can reach more than one process, during rolling deploys with overlap, or when an external worker publishes updates. Without a shared publisher, a mutation on one instance cannot notify a browser connected to another.
+
+Follow [Realtime with Redis](/docs/guides/realtime-with-redis) for setup.
+
+## Understand the path
+
+1. A list or widget subscribes to a named channel.
+2. The browser opens the generated `/api/flowpanel/stream` endpoint.
+3. A successful mutation publishes a small action/id payload after the write commits.
+4. The subscribed surface receives the signal and refetches through its normal authorized query.
+
+Row contents, sessions, and database clients are not sent through Redis or SSE. Custom payloads should still contain no secrets because every authorized subscriber to that channel can receive them.
+
+## Publish from application code
+
+Generated resource mutations publish automatically when realtime is configured. For a custom mutation in the same initialized process, call `publishResource` or `publish` from the server export.
+
+An external worker has not evaluated the admin config. Bind its publisher once before emitting events, and reuse the connection rather than creating one per job. See the Redis recipe for the exact sequence.
+
+## Production checklist
+
+- authenticate the SSE route with the same session boundary as the admin;
+- disable reverse-proxy buffering for the stream path;
+- set proxy and load-balancer idle timeouts above the heartbeat interval;
+- allow enough long-lived connections for active operators;
+- keep Redis TLS, credentials, and network access production-grade;
+- use a namespace so environments sharing Redis do not collide;
+- monitor reconnect rate, stream errors, publish failures, and Redis availability.
+
+SSE clients reconnect automatically, but realtime is not a durable event log. A reconnect refetches current state; it does not replay every missed mutation.
+
+## Verify end to end
+
+Open the same resource in two browsers. Mutate in one and confirm the other refetches. In a multi-instance environment, pin each browser/request to a different process or test during a rolling deployment. Also test Redis unavailable at startup and during publication so the application's failure policy is understood.
+
+See [Scope, realtime, and rate limits reference](/docs/reference/scope-realtime) for current channels, publisher types, and stream helpers.

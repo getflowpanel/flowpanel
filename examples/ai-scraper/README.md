@@ -1,11 +1,11 @@
-# ScrapeAI — the canonical Flowpanel demo
+# ScrapeAI — the canonical FlowPanel demo
 
 ScrapeAI is a fictional **Competitive price intelligence** SaaS. Customers connect product
 catalogs and marketplace monitors; ScrapeAI discovers competing offers, matches them to catalog
 products, and sends uncertain results to a human Review workflow.
 
-This example is the reference for building a production-shaped admin with Flowpanel, Next.js,
-Drizzle, and PostgreSQL. The main journey uses five screens and the public Flowpanel DSL directly:
+This example is the reference for building a production-shaped admin with FlowPanel, Next.js,
+Drizzle, and PostgreSQL. The main journey uses seven screens and the public FlowPanel DSL directly:
 no generated page tree, config meta-framework, runtime crawler, or external AI call.
 
 ![ScrapeAI operations overview showing monitor health, marketplace offers, AI match quality, and recent crawl runs](./public/scrapeai-overview-dark.png)
@@ -26,10 +26,10 @@ pnpm --filter ai-scraper dev
 Open [http://localhost:3000](http://localhost:3000), then choose **Open admin**. The default local
 mode is interactive. Use the Admin / Support switch to see server-enforced role differences.
 
-## Five-screen tour
+## Seven-screen tour
 
 **Overview** turns operational data into a concise status page: active monitors, offers found,
-crawl success, the Review backlog, marketplace activity, match quality, and recent runs. The date
+crawl success, the Review backlog, marketplace activity, live throughput, and recent runs. The date
 range changes time-based metrics and charts; each summary links to its underlying resource.
 
 **Customers** manages the SaaS accounts that own catalogs and monitors. Search and filter the
@@ -40,24 +40,31 @@ the drawer, and compare the Admin-only disable action with the Support persona.
 validate target URLs, filters expose schedule and status, bulk actions pause or resume work, and the
 drawer connects a monitor to its recent Runs and discovered Offers.
 
+**Runs** is the operational history of every crawl. It keeps status, throughput, duration, retry,
+related Offers, and AI usage together without making operators reconstruct a run from raw tables.
+
+**Offers** is the live marketplace dataset discovered by those runs. It demonstrates full-text
+search, faceted and numeric filters, stock and rating formats, export, and a drawer that connects
+each marketplace offer to its AI match.
+
 **Products** is each customer's own catalog. It demonstrates explicit grouped forms, searchable
 customer references, category filters, money formatting, field-level RBAC, export, and related AI
 matches without exposing raw foreign-key IDs to operators.
 
 **Review** is the human-in-the-loop core. Ambiguous product/offer matches appear lowest-confidence
 first with saved views and Confirm / Reject actions; the drawer keeps the decision, marketplace
-offer, and catalog product together. Runs, Offers, Invoices, and AI usage remain available through
-drawers, deep links, and the command palette without crowding primary navigation.
+offer, and catalog product together. Invoices and AI usage remain available through drawers without
+crowding primary navigation with implementation-level datasets.
 
 ## Feature-to-code map
 
 | Capability | Canonical source |
 | --- | --- |
 | Complete admin composition, auth, security, theme | `src/admin/config/index.ts` |
-| Customers, Monitors, Products, Review resources | `src/admin/config/resources/` |
+| Customers, Monitors, Runs, Offers, Products, Review resources | `src/admin/config/resources/` |
 | Operational dashboard composition | `src/admin/config/overview.ts` |
-| Named, testable dashboard queries | `src/admin/config/overview-queries.ts` |
-| One accessible custom realtime widget | `src/admin/MarketActivity.tsx` |
+| Named, testable dashboard queries | `src/admin/overview-queries.ts` |
+| One accessible live-operations widget | `src/admin/LiveOperations.tsx` |
 | Bounded synthetic SSE feed | `src/demo/realtime/feed.ts` |
 | Six coherent customer/product stories | `src/demo/data/scenarios.ts` |
 | Deterministic relational data generator | `src/demo/data/generate.ts` |
@@ -67,7 +74,7 @@ drawers, deep links, and the command palette without crowding primary navigation
 | Next.js admin page and API handlers | `app/admin/` and `app/api/flowpanel/` |
 
 The `src/admin` directory is deliberately copyable application code. Synthetic identities, data,
-and realtime simulation live under `src/demo`, making the boundary between Flowpanel usage and
+and realtime simulation live under `src/demo`, making the boundary between FlowPanel usage and
 showcase infrastructure explicit.
 
 ## Data model and reset
@@ -83,7 +90,7 @@ sandbox, schedule `pnpm --filter ai-scraper demo:reset` hourly.
 
 ## Public demo safety
 
-Set `DEMO_MODE=true` for a public deployment. Flowpanel then removes mutation affordances and
+Set `DEMO_MODE=true` for a public deployment. FlowPanel then removes mutation affordances and
 rejects create, update, delete, inline-edit, row-action, drawer-action, and bulk-action requests on
 the server; hiding buttons is not the security boundary. The persona cookie is an unsigned,
 allow-listed demo mechanism only—replace all of `src/demo/auth` with trusted application auth.
@@ -115,7 +122,7 @@ to a browser-reachable HTTPS origin when deployed.
 
 Build from the repository root with the included Dockerfile, attach PostgreSQL, and set at least
 `DATABASE_URL` and `DEMO_MODE=true`. Run `db:push` and `db:seed` once, then schedule `demo:reset`.
-A persistent Node host supports Market activity; on Vercel or another sleeping serverless runtime,
+A persistent Node host supports Live operations; on Vercel or another sleeping serverless runtime,
 set `DEMO_LIVE=off`.
 
 ```bash

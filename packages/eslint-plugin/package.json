@@ -6,7 +6,9 @@
     "flowpanel",
     "eslint",
     "eslint-plugin",
-    "admin"
+    "eslintplugin",
+    "admin",
+    "lint"
   ],
   "license": "MIT",
   "repository": {

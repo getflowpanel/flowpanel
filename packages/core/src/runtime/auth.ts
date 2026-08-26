@@ -1,5 +1,5 @@
-import { FlowpanelAccessError } from "../types/error.js";
-import type { Session } from "../types/session.js";
+import { FlowpanelAccessError } from "../types/error";
+import type { Session } from "../types/session";
 
 export type RequireRole = string | string[] | ((s: Session | null) => boolean) | undefined;
 

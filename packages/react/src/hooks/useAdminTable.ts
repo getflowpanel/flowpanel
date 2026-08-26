@@ -45,17 +45,17 @@ export function useAdminTable(): UseAdminTable {
   // Replace, not push: list state changes on every keystroke of a filter, and a
   // history stack of them means Back walks the filters instead of leaving.
   const navigate = React.useCallback(
-    (mutate: (p: URLSearchParams) => void) => {
+    (mutate: (p: URLSearchParams) => void, scroll = false) => {
       const next = new URLSearchParams(sp.toString());
       mutate(next);
       const q = next.toString();
-      router.replace(q ? `${pathname}?${q}` : pathname);
+      router.replace(q ? `${pathname}?${q}` : pathname, { scroll });
     },
     [router, pathname, sp],
   );
 
   const setPage = React.useCallback(
-    (p: number) => navigate((q) => q.set("page", String(p))),
+    (p: number) => navigate((q) => q.set("page", String(p)), true),
     [navigate],
   );
   // Resizing the page invalidates the offset, so drop back to the first page.
@@ -65,7 +65,7 @@ export function useAdminTable(): UseAdminTable {
         if (n == null) q.delete("perPage");
         else q.set("perPage", String(n));
         q.delete("page");
-      }),
+      }, true),
     [navigate],
   );
   const setSearch = React.useCallback(

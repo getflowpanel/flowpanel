@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { configSourceFiles, findDestructiveWithoutConfirm } from "../config-scan.js";
+import { configSourceFiles, findDestructiveWithoutConfirm } from "../config-scan";
 
 let tmp: string;
 beforeEach(async () => {

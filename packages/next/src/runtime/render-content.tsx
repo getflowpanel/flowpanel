@@ -1,20 +1,20 @@
 import type { RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { checkRequireRole } from "@flowpanel/core";
 import type * as React from "react";
-import { DashboardPage } from "../pages/dashboard.js";
-import { NotFound } from "../pages/not-found.js";
-import { QueuePage } from "../pages/queue-page.js";
-import { ResourceCreatePage } from "../pages/resource-create.js";
-import { ResourceDetailPage } from "../pages/resource-detail.js";
-import { ResourceEditPage } from "../pages/resource-edit.js";
-import { ResourceListPage } from "../pages/resource-list.js";
-import { UserPage } from "../pages/user-page.js";
-import { Welcome } from "../pages/welcome.js";
-import { roleAllows } from "./action-helpers.js";
-import { matchDashboard } from "./dashboard-routing.js";
-import { resourceNavName } from "./nav.js";
-import { matchPage } from "./page-routing.js";
-import { buildRequestContext } from "./request-setup.js";
+import { DashboardPage } from "../pages/dashboard";
+import { NotFound } from "../pages/not-found";
+import { QueuePage } from "../pages/queue-page";
+import { ResourceCreatePage } from "../pages/resource-create";
+import { ResourceDetailPage } from "../pages/resource-detail";
+import { ResourceEditPage } from "../pages/resource-edit";
+import { ResourceListPage } from "../pages/resource-list";
+import { UserPage } from "../pages/user-page";
+import { Welcome } from "../pages/welcome";
+import { roleAllows } from "./action-helpers";
+import { matchDashboard } from "./dashboard-routing";
+import { resourceNavName } from "./nav";
+import { matchPage } from "./page-routing";
+import { buildRequestContext } from "./request-setup";
 
 /** Resolve an authenticated admin route to its server-rendered page. */
 export async function renderContent(

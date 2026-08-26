@@ -1,239 +1,94 @@
 ---
 title: Getting started
-description: From zero to a working /admin route in under a minute.
+description: Add FlowPanel to an existing Next.js app and expose your first resource.
+kind: tutorial
 ---
 
-flowpanel turns a single typed config into a complete `/admin` route for
-your Next.js app. This guide walks you from a fresh install to a working
-dashboard.
+This tutorial adds a working `/admin` route to an existing application. You will initialize FlowPanel, expose one table or model, apply its migration, and start the admin.
 
-> **Want to see it running first?** Clone the repo and start the
-> `ai-scraper` example — Postgres in Docker, seeded, on `:3000`. The
-> packages' `dist/` is gitignored and the example imports it, so build the
-> workspace before starting the app:
->
-> ```bash
-> git clone https://github.com/getflowpanel/flowpanel && cd flowpanel
-> pnpm install
-> pnpm --filter "./packages/*" build
-> cd examples/ai-scraper && pnpm docker:up && pnpm db:push && pnpm db:seed && pnpm dev
-> ```
->
-> Docker Desktop has to be running (`docker info` should succeed).
-> `DATABASE_URL` defaults to the compose Postgres, so no `.env` is needed
-> for the local run.
+> **Prefer to look around first?** The [ScrapeAI example](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) shows resources, dashboards, roles, actions, and realtime updates in one application.
 
-> **Requirements.** Next.js `^16.3.0` (App Router), React 19,
-> Node 20+, Tailwind v3 or v4, and either Drizzle `>=0.45.2` or Prisma 5 / 6. The
-> Pages router is not supported. `init` stops if it finds no Tailwind in
-> `package.json` — the prompt to continue anyway defaults to No, because
-> the scaffolded stylesheet is a Tailwind entry point.
+## Before you start
 
-## Initialize
+<Compatibility />
 
-One command installs the packages and scaffolds the `/admin` route. Run
-it from your project root:
+You need a Next.js App Router project with Tailwind CSS and either Drizzle or Prisma already configured. Run the commands below from the project root. The Pages Router is not supported.
+
+FlowPanel uses your existing database client and authentication. If the CLI cannot find an auth helper, it creates a development-only session stub that throws in production. Replace it before deployment.
+
+## Initialize FlowPanel
 
 ```bash
 pnpm dlx @flowpanel/cli init
 ```
 
-The CLI inspects your `package.json`, picks Drizzle or Prisma, installs
-`@flowpanel/kit` (the runtime) and `@flowpanel/cli` (so later
-`pnpm flowpanel` commands resolve a local binary), and writes the wiring
-files.
+The CLI detects the package manager, ORM, app directory, path alias, database client, schema, auth helper, and Tailwind version. Confirm the detected paths when prompted.
 
-It asks where your db client, schema and `getSession` live, defaulting to
-whatever it found, then reports every file it touched:
+It installs `@flowpanel/kit` and a version-aligned local `@flowpanel/cli`. Existing files are changed only when the CLI has a safe, targeted edit; conflicting files stop the operation. To inspect the plan without writing or installing anything, run:
 
-```
-◇  Detected stack ──────────────────────────────────╮
-│  Next.js 16.3.1 · TypeScript · Drizzle · Tailwind 4  │
-├──────────────────────────────────────────────────╯
-◇  7 written
-◇  Wrote ─────────────────────────────────────────────────╮
-│  flowpanel.config.ts                                    │
-│  src/app/admin/[[...slug]]/page.tsx                     │
-│  src/app/api/flowpanel/[...route]/route.ts              │
-│  src/app/api/flowpanel/stream/route.ts                  │
-│  src/styles/admin.css                                   │
-│  flowpanel/migrations/0001_init.sql                     │
-│  src/app/layout.tsx (added the admin stylesheet import) │
-├─────────────────────────────────────────────────────────╯
+```bash
+pnpm dlx @flowpanel/cli init --dry-run
 ```
 
-Pass `--yes` to take the detected defaults without being asked; it warns
-about any path it had to guess.
+## Add your first resource
 
-The generated config _is_ the entire admin panel. Every resource you
-list becomes a typed CRUD page; everything you don't list stays out.
+Open `flowpanel.config.ts`. The generated config has an empty `resources` array because FlowPanel cannot decide which application data belongs in the admin.
 
-## The config file
+Use the version for your ORM and adjust the import paths and field names to match your project:
 
-Open `flowpanel.config.ts`. This is what `init` generates (Drizzle
-shown; the Prisma variant is shape-identical save the adapter import):
+<AdapterTabs>
+  <AdapterTab adapter="drizzle">
+    <include>../../snippets/getting-started/drizzle-config.ts</include>
+  </AdapterTab>
+  <AdapterTab adapter="prisma">
+    <include>../../snippets/getting-started/prisma-config.ts</include>
+  </AdapterTab>
+</AdapterTabs>
 
-```ts
-import { defineAdmin } from "@flowpanel/kit";
-import { drizzleAdapter } from "@flowpanel/kit/drizzle";
-import { db } from "@/server/lib/db";
-import * as schema from "@/server/lib/db/schema";
-import { getSession } from "@/server/lib/auth";
+Drizzle infers the row type from the table. A Prisma resource starts from a model name string, so the `FlowpanelResources` augmentation binds that name to the generated Prisma type. This is what makes columns, search fields, actions, and renderers type-safe.
 
-declare module "@flowpanel/kit" {
-  interface FlowpanelTypes {
-    db: typeof db;
-  }
-  interface FlowpanelResources {
-    // users: typeof schema.users.$inferSelect;
-  }
-}
+Keep the generated auth block if it already matches your application. The example requires the `admin` role; a request without that role receives a server-side access denial, not merely a hidden navigation item.
 
-export default defineAdmin({
-  adapter: drizzleAdapter({ db, schema }),
-  auth: {
-    session: getSession,
-    role: (s) => (s as { user?: { role?: string } } | null)?.user?.role ?? "guest",
-    requireRole: "admin",
-  },
-  realtime: { driver: "memory" },
-  theme: { brand: { name: "your-app" }, accent: "220 90% 50%", mode: "auto" },
-  resources: [
-    // Add `resource` to the "@flowpanel/kit" import above, then:
-    // resource(schema.users, { label: "Users", columns: ["email", "name", "createdAt"] }),
-  ],
-});
-```
-
-**The generated `resources` array is empty** — every entry is commented
-out, because the CLI cannot know which of your tables belong in an admin.
-Add at least one before you run the app, or `/admin` renders with no
-resources in the nav:
-
-```ts
-import { defineAdmin, resource } from "@flowpanel/kit";
-// …
-  resources: [
-    resource(schema.users, {
-      columns: ["email", "role", "createdAt"],
-    }),
-    resource(schema.orders, {
-      columns: ["id", "status", "total"],
-      filters: [{ field: "status", type: "select" }],
-    }),
-  ],
-```
-
-Each `resource()` call describes one table you'll manage in the admin.
-The first argument is the Drizzle table, or — for Prisma — the model name
-as a string, e.g. `resource("User", { … })`. Prisma model names are
-PascalCase and the name is also the URL slug, so `resource("User", …)`
-lives at `/admin/User`; pass `name: "users"` in the options to choose the
-slug yourself.
-
-Columns, filters and actions are type-checked against the row shape
-**when FlowPanel can infer one**. A Drizzle table ref infers it from
-`$inferSelect` automatically. A Prisma string ref has no row type to
-infer, so those fields stay plain `string` until you fill in the
-`FlowpanelResources` entry the template leaves commented:
-
-```ts
-declare module "@flowpanel/kit" {
-  interface FlowpanelResources {
-    User: import("@prisma/client").User;
-  }
-}
-```
-
-The `FlowpanelTypes` block binds `typeof db` into `WidgetContext`, so
-`ctx.db` in dashboards and actions is your real, typed client.
-
-### If you don't have a session helper yet
-
-The template imports `getSession` from your app because that is what a real
-admin needs. To get to a rendered page before wiring auth, swap the whole
-`auth` block for `devAuth()`:
-
-```ts
-import { defineAdmin, devAuth } from "@flowpanel/kit";
-
-export default defineAdmin({
-  adapter: drizzleAdapter({ db, schema }),
-  auth: devAuth(),           // every request is a signed-in "admin"
-  // …
-});
-```
-
-`devAuth(role = "admin")` returns an `AuthConfig` whose session is always
-`{ id: "dev" }` and whose `role()` always returns `role`. It is also exported
-from `@flowpanel/kit/auth` alongside `withClerk` / `withLucia` /
-`withNextAuth`.
-
-<Callout type="warn">
-`devAuth()` authenticates nobody. It sets no `requireRole`, so the admin still
-answers anonymous requests, and the "no access control" development warning
-still fires — deliberately, because that warning is the thing that stops this
-reaching production. Replace it with a real provider (see
-[Authenticate with Clerk](/docs/guides/auth-with-clerk)) before you deploy.
-</Callout>
-
-## Mount the route
-
-`flowpanel init` already wrote two files:
-
-```ts
-// app/admin/[[...slug]]/page.tsx
-import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
-
-const flowpanel = createFlowpanel(config);
-
-export default flowpanel.page;
-```
-
-```ts
-// app/api/flowpanel/[...route]/route.ts
-import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
-
-const flowpanel = createFlowpanel(config);
-
-export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
-export const runtime = "nodejs";
-```
-
-The page renders every `/admin/...` URL via a single catch-all RSC. The
-API route handles the drawer fetch and bulk-action submissions. A third
-file, `app/api/flowpanel/stream/route.ts`, mounts the SSE channel for
-realtime — generated automatically by `init`.
-
-## Run
-
-`init` also wrote `flowpanel/migrations/0001_init.sql`, which creates the
-migration-tracking table and `flowpanel_audit_log`. Apply it once, then
-start the dev server:
+## Apply the migration
 
 ```bash
 pnpm flowpanel migrate
-pnpm dev
 ```
 
-Open `localhost:3000/admin`. Each resource you listed gets its own page
-with CRUD, pagination and filters, driven entirely by the config you just
-wrote. With an empty `resources` array, `/admin` shows a welcome screen
-with a copy-paste snippet for your first resource instead of a nav.
+The command reads `DATABASE_URL`, applies pending SQL files in `flowpanel/migrations`, and records them in FlowPanel's migration table. Use `--dry-run` to list pending files without executing them.
 
-The migration's SQL is Postgres-flavoured — adjust it by hand for MySQL
-or SQLite. And `flowpanel_audit_log` is only a table: FlowPanel writes
-**nothing** to it until you point `audit.sink` at it, so a fresh install
-leaves it empty forever. See
-[Configuration](/docs/core-concepts/configuration).
+The initial migration is PostgreSQL SQL. Review or adapt it before running against MySQL or SQLite. The audit table remains unused until you configure an `audit.sink`.
 
-## Next steps
+## Start the admin
 
-- Shape lists & cells with [Column renderers](/docs/customization/column-renderers)
-- Build create / edit [Forms](/docs/customization/forms) — selects, relation pickers, validation
-- Bulk [Import & export](/docs/customization/import-export) CSV / JSON
-- Tune the admin in [Configuration](/docs/core-concepts/configuration)
-- Replace any component via [Theme slots](/docs/customization/theme-slots)
-- [Eject](/docs/customization/eject) a resource into source when you outgrow the config layer
+```bash
+pnpm flowpanel dev
+```
+
+Open [http://localhost:3000/admin](http://localhost:3000/admin). You should see the resource in the navigation and a paginated list at its resource URL. If the navigation is empty, confirm that `resources` contains the resource and restart the dev process so the config is reloaded.
+
+`flowpanel dev` starts Next.js and, when `REDIS_URL` is present, the BullMQ board process. Use your normal `pnpm dev` command if you do not need the board integration.
+
+## What the CLI created
+
+The exact paths follow your `app` or `src/app` layout:
+
+| File | Purpose | You edit it when… |
+| --- | --- | --- |
+| `flowpanel.config.ts` | Resources, dashboards, auth, scope, realtime, and theme | You change admin behavior |
+| `app/admin/[[...slug]]/page.tsx` | Catch-all admin page | You change the mount path or eject page behavior |
+| `app/api/flowpanel/[...route]/route.ts` | Resource and action handlers | You change the API mount path |
+| `app/api/flowpanel/stream/route.ts` | Authenticated SSE endpoint | You change the stream mount path |
+| `styles/admin.css` | FlowPanel stylesheet and Tailwind entry | You customize tokens or content scanning |
+| `flowpanel/migrations/0001_init.sql` | FlowPanel-owned database tables | You review dialect-specific SQL |
+
+See [Project structure](/docs/introduction/project-structure) for ownership and generated-file details.
+
+## Choose what to build next
+
+- Shape the list, search, filters, and access rules in [Resources](/docs/build/resources).
+- Configure create and edit fields in [Forms](/docs/build/forms).
+- Add operational commands in [Actions](/docs/build/actions).
+- Pick the right UI layer in [Choose an extension point](/docs/customization/overview).
+- Prepare authentication and tenant isolation in [Production](/docs/guides/auth-with-clerk).
+- Read [How FlowPanel works](/docs/understand/how-flowpanel-works) before building a deeper integration.

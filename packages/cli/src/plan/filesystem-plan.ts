@@ -6,7 +6,7 @@ import type {
   FileOperationKind,
   FilesystemPlan,
   PublicFilesystemPlan,
-} from "./types.js";
+} from "./types";
 
 function normalizeRelativePath(input: string): string {
   const normalized = path.normalize(input);

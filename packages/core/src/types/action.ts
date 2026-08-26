@@ -1,9 +1,9 @@
 import type { z } from "zod";
-import type { ActionContext, RequestContext } from "./context.js";
-import type { IconName } from "./icon.js";
-import type { AccessRule, FieldWriteContext } from "./policy.js";
-import type { InferDB } from "./registry.js";
-import type { FieldDef } from "./resource.js";
+import type { ActionContext, RequestContext } from "./context";
+import type { IconName } from "./icon";
+import type { AccessRule, FieldWriteContext } from "./policy";
+import type { InferDB } from "./registry";
+import type { FieldDef } from "./resource";
 
 /** Object collected by an action form and handed to its server-side handler. */
 export type ActionInput = Record<string, unknown>;
@@ -87,7 +87,9 @@ export interface BulkAction<Row, Input extends ActionInput = ActionInput, Output
   outputSchema?: z.ZodType<Output>;
   /** Restrict the action to a role. Enforced before `run`. */
   access?: AccessRule;
-  /** Maximum selected ids accepted by this action. Defaults to 1000. */
+  /** Maximum selected ids accepted by this action.
+   * @defaultValue 1000
+   */
   max?: number;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];

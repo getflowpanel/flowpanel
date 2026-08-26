@@ -1,8 +1,8 @@
 import type { AnyResourceConfig, ResolvedAdminConfig } from "@flowpanel/core";
 import { cache } from "react";
-import { buildServerRequest } from "./build-server-request.js";
-import { createControllerFactory, type FlowpanelRequest } from "./controller-factory.js";
-import { buildRequestContext } from "./request-setup.js";
+import { buildServerRequest } from "./build-server-request";
+import { createControllerFactory, type FlowpanelRequest } from "./controller-factory";
+import { buildRequestContext } from "./request-setup";
 
 export function createRequestRuntime<Resources extends readonly AnyResourceConfig[]>(
   config: ResolvedAdminConfig<Resources>,

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -20,7 +20,7 @@ import {
   decodeDashboardPath,
   encodeDashboardPath,
   serializeDashboardAction,
-} from "../actions/dashboard-action.js";
+} from "../actions/dashboard-action";
 
 function makeConfig(opts: {
   dashboard?: DashboardConfig;

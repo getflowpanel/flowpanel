@@ -1,6 +1,7 @@
 ---
 title: Errors
 description: The error hierarchy, its status codes, and what reaches the operator.
+kind: reference
 ---
 
 Throw one of these from an action, an adapter, or a custom route and FlowPanel
@@ -15,16 +16,7 @@ decided an operator may read.
 
 The base class. Every other error extends it.
 
-```ts
-class FlowpanelError extends Error {
-  readonly code: FlowpanelErrorCode;
-  readonly safeMessage: string;
-  readonly status: number;
-
-  constructor(code: FlowpanelErrorCode, safeMessage: string);
-  toJSON(): { code: string; message: string };
-}
-```
+<ApiSignature path="../../packages/core/src/types/error.ts" name="FlowpanelError" />
 
 | Property | Meaning |
 | --- | --- |
@@ -34,7 +26,7 @@ class FlowpanelError extends Error {
 
 Construct it directly for a case the subclasses do not cover:
 
-```ts
+```ts excerpt
 throw new FlowpanelError("conflict", "This order is already being processed");
 ```
 
@@ -66,17 +58,19 @@ still catches `FlowpanelAuthError` if you throw one from a page — see below.)
 
 ### FlowpanelValidationError
 
+<ApiSignature path="../../packages/core/src/types/error.ts" name="FlowpanelValidationError" />
+
 The one subclass with extra state: `fieldErrors`, keyed by field name — and it
 is the **first** constructor argument, with the message second:
 
-```ts
+```ts excerpt
 constructor(fieldErrors: Record<string, string>, message = "Validation failed");
 ```
 
 Forms render the entries against the matching inputs instead of showing one
 banner.
 
-```ts
+```ts excerpt
 import { FlowpanelValidationError } from "@flowpanel/kit";
 
 throw new FlowpanelValidationError({
@@ -102,7 +96,7 @@ adapter cannot introspect; an unresolvable cross-resource reference; and a
 `rowClick: "drawer"` with no drawer.
 
 Each names the config path at fault and, where it can, the near match. See
-[Troubleshooting](/docs/guides/troubleshooting#defineadmin-throws-when-the-app-boots)
+[Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots)
 for the full table.
 
 ## On the page render path
@@ -120,7 +114,7 @@ Other errors propagate to your Next.js error boundary.
 
 Inside an action's `run` you have both options:
 
-```ts
+```ts excerpt
 run: async (row, input, ctx) => {
   if (row.status === "refunded") {
     return { ok: false, error: "Already refunded" };   // 200 with a failure body

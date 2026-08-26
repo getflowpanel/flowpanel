@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveDashboardDateRangeInput } from "../pages/dashboard.js";
+import { resolveDashboardDateRangeInput } from "../pages/dashboard";
 
 function sp(entries: Record<string, string> = {}): URLSearchParams {
   return new URLSearchParams(entries);

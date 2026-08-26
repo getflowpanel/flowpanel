@@ -1,8 +1,8 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
-import { roleAllows } from "../runtime/action-helpers.js";
-import { readRelatedRows } from "../runtime/require-authorized.js";
-import { declaredFormFields } from "../runtime/resolve-form-fields.js";
-import { withGuards } from "../runtime/with-guards.js";
+import { roleAllows } from "../runtime/action-helpers";
+import { readRelatedRows } from "../runtime/require-authorized";
+import { declaredFormFields } from "../runtime/resolve-form-fields";
+import { withGuards } from "../runtime/with-guards";
 
 const REFERENCE_SEARCH_LIMIT = 20;
 

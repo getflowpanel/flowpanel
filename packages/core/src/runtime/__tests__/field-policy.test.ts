@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { assertWritableInput, filterReadableProjection } from "../../policy/fields.js";
-import { FlowpanelFieldAccessError, FlowpanelUnknownFieldError } from "../../types/error.js";
-import type { FieldAccessMap, FieldWriteContext } from "../../types/policy.js";
+import { assertWritableInput, filterReadableProjection } from "../../policy/fields";
+import { FlowpanelFieldAccessError, FlowpanelUnknownFieldError } from "../../types/error";
+import type { FieldAccessMap, FieldWriteContext } from "../../types/policy";
 
 type Customer = {
   id: string;

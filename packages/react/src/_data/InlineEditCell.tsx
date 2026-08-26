@@ -1,9 +1,10 @@
 "use client";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { LocalTime } from "../_atoms/LocalTime.js";
-import { useToast } from "../_feedback/toast-api.js";
-import { cn } from "../lib/cn.js";
+import { LocalTime } from "../_atoms/LocalTime";
+import { useToast } from "../_feedback/toast-api";
+import { useApiBase } from "../_provider/ApiBaseContext";
+import { cn } from "../lib/cn";
 
 /** Editable table cell. */
 export interface InlineEditCellProps {
@@ -28,6 +29,7 @@ export function InlineEditCell({
 }: InlineEditCellProps) {
   const router = useRouter();
   const toast = useToast();
+  const apiBase = useApiBase();
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<string>(() => valueToInputString(value, valueType));
   const [pending, setPending] = React.useState(false);
@@ -55,7 +57,7 @@ export function InlineEditCell({
     }
     setPending(true);
     try {
-      const res = await fetch(`/api/flowpanel/${resource}/${id}/update`, {
+      const res = await fetch(`${apiBase}/${resource}/${id}/update`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ field, value: parsed }),

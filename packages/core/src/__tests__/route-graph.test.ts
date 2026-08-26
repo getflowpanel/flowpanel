@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RouteNameRegistry } from "../compiler/route-graph.js";
+import { RouteNameRegistry } from "../compiler/route-graph";
 
 describe("RouteNameRegistry", () => {
   it("rejects names that are not one safe URL segment", () => {

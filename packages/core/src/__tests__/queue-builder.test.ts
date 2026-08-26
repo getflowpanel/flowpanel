@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { queue } from "../builders/queue.js";
-import { defineAdmin } from "../define-admin.js";
+import { queue } from "../builders/queue";
+import { defineAdmin } from "../define-admin";
 
 describe("queue() builder", () => {
   it("returns __kind=queue with ref + options", () => {

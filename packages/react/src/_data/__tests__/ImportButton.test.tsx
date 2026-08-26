@@ -15,11 +15,11 @@ const toastApi = vi.hoisted(() => ({
   dismiss: vi.fn(),
 }));
 
-vi.mock("../../_feedback/toast-api.js", () => ({
+vi.mock("../../_feedback/toast-api", () => ({
   useToast: () => toastApi,
 }));
 
-import { ImportButton } from "../ImportButton.js";
+import { ImportButton } from "../ImportButton";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);

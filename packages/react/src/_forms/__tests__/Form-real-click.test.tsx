@@ -21,9 +21,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { Field } from "../Field.js";
-import { Form } from "../Form.js";
-import { FormSubmit } from "../FormSubmit.js";
+import { Field } from "../Field";
+import { Form } from "../Form";
+import { FormSubmit } from "../FormSubmit";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),

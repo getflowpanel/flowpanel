@@ -1,112 +1,51 @@
 ---
 title: Theme slots
-description: Swap any of ten components inside the admin without forking the framework.
+description: Replace a shared FlowPanel visual primitive while preserving its typed contract.
+kind: how-to
 ---
 
-The second customization layer is **L2: theme**. flowpanel exposes ten
-named slots — `MetricCard`, `Button`, `Badge`, `Avatar`, `StatusBadge`,
-`EmptyState`, `PageHeader`, `Pagination`, `ConfirmDialog`, and
-`SkeletonTable` — that you can replace with your own components via
-`theme.components`.
+A theme slot replaces one shared component everywhere FlowPanel renders it. Use slots to align the admin with an application design system—not to change data fetching, routing, or page behavior.
 
-Per invariant I-11, slot keys are append-only across minor versions.
+## Replace one component
 
-## Swap one
+```tsx excerpt
+import { forwardRef } from "react";
+import type { ButtonProps } from "@flowpanel/kit/react";
 
-```ts
-import { defineAdmin } from "@flowpanel/kit";
-import { MyMetricCard } from "@/components/my-metric-card";
-
-export default defineAdmin({
-  adapter: /* ... */,
-  auth: /* ... */,
-  theme: {
-    components: {
-      MetricCard: MyMetricCard,
-    },
+export const ProductButton = forwardRef<HTMLButtonElement, ButtonProps>(
+  function ProductButton({ className, ...props }, ref) {
+    return <button ref={ref} className={`product-button ${className ?? ""}`} {...props} />;
   },
-  resources: [/* ... */],
+);
+```
+
+```ts excerpt
+export default defineAdmin({
+  adapter,
+  auth,
+  theme: {
+    components: { Button: ProductButton },
+  },
+  resources,
 });
 ```
 
-`theme.components` is typed as `Partial<FlowpanelComponentSlots>`. Each
-key carries the exact prop interface of the default — `MetricCardProps`,
-`ButtonProps`, etc. — so prop typos and signature drift fail at compile
-time.
+`theme.components` is typed against `FlowpanelComponentSlots`. Preserve the complete prop contract, forward refs where the default does, pass through accessibility attributes, and keep loading/disabled behavior observable.
 
-## The 10 slots
+## Available slots
 
-```ts
-interface FlowpanelComponentSlots {
-  EmptyState:    ComponentType<EmptyStateProps>;
-  MetricCard:    ComponentType<MetricCardProps>;
-  Button:        ComponentType<ButtonProps>;
-  Badge:         ComponentType<BadgeProps>;
-  Avatar:        ComponentType<AvatarProps>;
-  StatusBadge:   ComponentType<StatusBadgeProps>;
-  PageHeader:    ComponentType<PageHeaderProps>;
-  Pagination:    ComponentType<PaginationProps>;
-  ConfirmDialog: ComponentType<ConfirmDialogProps>;
-  SkeletonTable: ComponentType<SkeletonTableProps>;
-}
-```
+The shipped slot registry is generated from the React package:
 
-The interface is declared by `@flowpanel/core` and augmented by
-`@flowpanel/react` with the shipped 10 — both reachable as `@flowpanel/kit`
-and `@flowpanel/kit/react`. Your override for `Button`
-**should** be `forwardRef`-aware to avoid warnings from Radix UI when
-the Button is used with `asChild`.
+<ThemeSlots />
 
-## Adding your own slot keys
+Import each prop type from `@flowpanel/kit/react` rather than copying its fields. TypeScript will then surface contract changes during an upgrade. The generated [React components reference](/docs/reference/react-components) is the canonical prop reference.
 
-You can extend `FlowpanelComponentSlots` with extra slot keys via
-module augmentation. This is how you'd register a slot your custom
-widgets read from `useComponents()`:
+## Test the replacement in context
 
-```ts
-import type { ComponentType } from "react";
-import type { MyToolbarProps } from "@/components/my-toolbar";
+A slot can appear in lists, forms, drawers, dashboards, dialogs, and loading states. Verify keyboard focus, disabled and destructive states, long labels, mobile width, dark mode, and screen-reader names. For `Button`, support ref forwarding and composition used by Radix-based controls.
 
-declare module "@flowpanel/kit" {
-  interface FlowpanelComponentSlots {
-    MyToolbar: ComponentType<MyToolbarProps>;
-  }
-}
-```
+## Add application-owned slots carefully
 
-After augmentation, `theme.components.MyToolbar = MyToolbar` is
-type-checked, and `useComponents().MyToolbar` returns a typed
-component.
+`FlowpanelComponentSlots` is augmentable, so custom widgets can share application-owned primitives through the same provider. This does not make a new key part of FlowPanel's shipped UI; only components that explicitly read that key will use it.
 
-## Dark mode and persistence
-
-FlowPanel ships a small theme runtime alongside the slot registry:
-
-- `<ThemeScript defaultMode="auto" />` — drop this into the `<head>`
-  of your root layout (set `suppressHydrationWarning` on the host
-  `<html>` element). The inline script applies the persisted theme
-  before React hydration, so the page never flashes the wrong palette.
-- `useTheme()` — client hook that returns `{ theme, toggle, setTheme }`.
-  Persists explicit user choices to `localStorage` under `fp-theme`
-  and watches `prefers-color-scheme` while no explicit choice exists.
-
-```tsx
-import { ThemeScript } from "@flowpanel/kit/react";
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <ThemeScript defaultMode="auto" />
-      </head>
-      <body>{children}</body>
-    </html>
-  );
-}
-```
-
-## When to eject
-
-Theme slots replace _components_, not behavior. If you need to change
-how a page _works_ — say, custom data fetching for one resource —
-move up to **L3: eject**.
+Use [Styling](/docs/customization/styling) for token-level changes. Use [Eject](/docs/customization/eject) when the required change is behavioral rather than a component substitution.

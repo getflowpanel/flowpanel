@@ -9,7 +9,7 @@ vi.mock("@flowpanel/core", async () => {
 });
 
 import { createPublisher, type ResolvedAdminConfig } from "@flowpanel/core";
-import { bindPublisher, publish, resetPublisherForTests, subscribe } from "../runtime/publish.js";
+import { bindPublisher, publish, resetPublisherForTests, subscribe } from "../runtime/publish";
 
 function fakeConfig(realtime?: unknown): ResolvedAdminConfig {
   return {

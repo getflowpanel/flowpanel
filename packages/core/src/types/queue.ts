@@ -1,4 +1,4 @@
-import type { IconName } from "./icon.js";
+import type { IconName } from "./icon";
 
 export interface QueueOptions {
   /** Nav entry and page title for this queue. */

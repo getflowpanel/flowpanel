@@ -1,14 +1,14 @@
 // LOC-OK: the resource DSL type surface (ColumnDef / FieldDef / ColumnFormat /
 import type { ReactNode } from "react";
 import type { z } from "zod";
-import type { BulkAction, RowAction } from "./action.js";
-import type { QueryContext, RequestContext } from "./context.js";
-import type { DrawerConfig } from "./drawer.js";
-import type { IconName } from "./icon.js";
-import type { FieldAccessMap, ResourceAccess, UiCondition } from "./policy.js";
-import type { ReferenceSpec, ResourceName } from "./registry.js";
-import type { Scope, Session } from "./session.js";
-import type { Tone } from "./widget.js";
+import type { BulkAction, RowAction } from "./action";
+import type { QueryContext, RequestContext } from "./context";
+import type { DrawerConfig } from "./drawer";
+import type { IconName } from "./icon";
+import type { FieldAccessMap, ResourceAccess } from "./policy";
+import type { ReferenceSpec, ResourceName } from "./registry";
+import type { Scope, Session } from "./session";
+import type { Tone } from "./widget";
 
 export type { DrawerConfig };
 
@@ -29,8 +29,6 @@ export interface ColumnDef<Row> {
   label?: string;
   /** Custom cell renderer. Runs on the server; receives the request context. */
   render?: (row: Row, ctx: RequestContext) => ReactNode;
-  /** Extra row fields selected for a field-less server renderer. Never sent to the client. */
-  select?: (keyof Row & string)[];
   /** Allow clicking the header to sort by this column. */
   sortable?: boolean;
   /** Fixed column width, in px when a number. */
@@ -129,10 +127,6 @@ export interface FieldDef<Row> {
   readOnly?: boolean | ((values: Partial<Row>) => boolean);
   /** Leave the field out of the form entirely. */
   hidden?: boolean | ((values: Partial<Row>) => boolean);
-  /** Serializable presentation rule. Security remains enforced by `resource.fieldAccess`. */
-  visibleWhen?: UiCondition<Row>;
-  /** Serializable presentation rule. Security remains enforced by `resource.fieldAccess`. */
-  disabledWhen?: UiCondition<Row>;
   /** Restrict who may see and write this field. Enforced on every write route. */
   requireRole?: string | string[] | ((session: Session | null) => boolean);
   /** Per-field validation, run server-side after the resource schema. */
@@ -207,13 +201,19 @@ export interface ResourceOptions<Row> {
   filters?: (keyof Row | FilterDef<Row>)[];
   /** Sort applied when the URL carries none. */
   defaultSort?: { field: keyof Row & string; dir: "asc" | "desc" };
-  /** Rows per page. Defaults to 20. */
+  /** Rows per page.
+   * @defaultValue 20
+   */
   pageSize?: number;
-  /** Row height preset for the list table. Defaults to `"comfortable"`. */
+  /** Row height preset for the list table.
+   * @defaultValue "comfortable"
+   */
   density?: "comfortable" | "compact";
   /** Open the row's drawer when its row is clicked. Requires `drawer`. */
   rowClick?: "drawer" | false;
-  /** Property holding each row's unique id. Defaults to `"id"`. */
+  /** Property holding each row's unique id.
+   * @defaultValue "id"
+   */
   rowKey?: keyof Row & string;
 
   /** Side panel opened for a single row. */

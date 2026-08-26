@@ -6,7 +6,7 @@ import {
   RealtimeContext,
   type RealtimeStats,
   type RealtimeStatus,
-} from "./context.js";
+} from "./context";
 
 /** Returns the active `RealtimeBus`, or `null` if no provider is mounted. */
 export function useRealtimeBus(): RealtimeBus | null {

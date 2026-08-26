@@ -9,12 +9,12 @@ import {
 } from "@conform-to/react";
 import { ChevronDown } from "lucide-react";
 import * as React from "react";
-import { JsonEditor } from "../_data/JsonEditor.js";
-import { TagInput } from "../_data/TagInput.js";
-import { Checkbox } from "../ui/checkbox.js";
-import { Input } from "../ui/input.js";
-import { AsyncSelect, type AsyncSelectOption } from "./AsyncSelect.js";
-import type { FieldControlType } from "./Field.js";
+import { JsonEditor } from "../_data/JsonEditor";
+import { TagInput } from "../_data/TagInput";
+import { Checkbox } from "../ui/checkbox";
+import { Input } from "../ui/input";
+import { AsyncSelect, type AsyncSelectOption } from "./AsyncSelect";
+import type { FieldControlType } from "./Field";
 
 export interface AriaProps {
   "aria-invalid"?: true;

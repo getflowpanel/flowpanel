@@ -20,16 +20,17 @@ import {
   maybeEmitAudit,
   notFoundResponse,
   readActionInput,
-} from "../runtime/action-helpers.js";
-import { parseActionInputSchema } from "../runtime/action-schema.js";
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { buildHref } from "../runtime/href.js";
-import { projectAuthorizedRow } from "../runtime/project-row.js";
-import { bindPublisher, publish } from "../runtime/publish.js";
-import { readRelatedRows } from "../runtime/require-authorized.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { withGuards } from "../runtime/with-guards.js";
-import { type SerializedWidget, serializeWidget } from "./serialize-widget.js";
+} from "../runtime/action-helpers";
+import { parseActionInputSchema } from "../runtime/action-schema";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { buildHref } from "../runtime/href";
+import { projectAuthorizedRow } from "../runtime/project-row";
+import { bindPublisher, publish } from "../runtime/publish";
+import { readRelatedRows } from "../runtime/require-authorized";
+import { scopeBinding } from "../runtime/scope-binding";
+import { withGuards } from "../runtime/with-guards";
+import { type SerializedWidget, serializeWidget } from "./serialize-widget";
 
 export type { SerializedWidget };
 
@@ -251,7 +252,10 @@ export function drawerRoute(config: ResolvedAdminConfig) {
         const header =
           typeof drawer.header === "function"
             ? String(drawer.header(row) ?? "")
-            : String(row[(resource.options.rowKey as string | undefined) ?? "id"] ?? "");
+            : String(
+                row[(resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY] ??
+                  "",
+              );
 
         const tabs: SerializedDrawerTab[] | null = drawer.tabs
           ? await Promise.all(drawer.tabs.map((t) => serializeTab(t, row, config, reqCtx, req)))

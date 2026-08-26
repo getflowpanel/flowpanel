@@ -14,10 +14,10 @@ import {
 } from "@flowpanel/next/client";
 import { RealtimeRefresh, Section, SkeletonCard } from "@flowpanel/react";
 import { Suspense } from "react";
-import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action.js";
-import { filterActionsByAccess } from "../runtime/action-helpers.js";
-import { type DateRangeInput, resolveDateRange } from "../runtime/date-range.js";
-import { renderWidget } from "../runtime/render-widget.js";
+import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action";
+import { filterActionsByAccess } from "../runtime/action-helpers";
+import { type DateRangeInput, resolveDateRange } from "../runtime/date-range";
+import { renderWidget } from "../runtime/render-widget";
 
 export interface DashboardPageProps {
   config: ResolvedAdminConfig;
@@ -91,7 +91,7 @@ export async function DashboardPage({
   const encodedPath = encodeDashboardPath(dashboard.path);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {dashboard.realtime ? <RealtimeRefresh channels={dashboard.realtime} /> : null}
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold text-fp-text-1">{dashboard.label}</h1>

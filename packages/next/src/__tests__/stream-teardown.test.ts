@@ -7,13 +7,13 @@ const subscribeSpy = vi.fn((_channel: string, _handler: (payload: unknown) => vo
   disposeSpies.push(dispose);
   return dispose;
 });
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   bindPublisher: vi.fn(),
   subscribe: (channel: string, handler: (payload: unknown) => void) =>
     subscribeSpy(channel, handler),
 }));
 
-import { stream } from "../stream.js";
+import { stream } from "../stream";
 
 function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdminConfig {
   return {

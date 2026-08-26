@@ -1,9 +1,9 @@
 import type { TSESLint } from "@typescript-eslint/utils";
-import auditRowActionNeedsConfirm from "./rules/audit-row-action-needs-confirm.js";
-import noServerImportInClient from "./rules/no-server-import-in-client.js";
-import noTypoColumnKeyword from "./rules/no-typo-column-keyword.js";
-import preferShorthandFilter from "./rules/prefer-shorthand-filter.js";
-import requireUniqueResourceNames from "./rules/require-unique-resource-names.js";
+import auditRowActionNeedsConfirm from "./rules/audit-row-action-needs-confirm";
+import noServerImportInClient from "./rules/no-server-import-in-client";
+import noTypoColumnKeyword from "./rules/no-typo-column-keyword";
+import preferShorthandFilter from "./rules/prefer-shorthand-filter";
+import requireUniqueResourceNames from "./rules/require-unique-resource-names";
 
 /** Kept in step with package.json by `index.test.ts`. */
 const VERSION = "0.1.0";

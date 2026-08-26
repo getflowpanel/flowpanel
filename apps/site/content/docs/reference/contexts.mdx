@@ -1,6 +1,7 @@
 ---
 title: Contexts
 description: What your queries, mutations and actions receive at runtime.
+kind: reference
 ---
 
 Every function you hand FlowPanel — a widget query, a field's `defaultValue`, an
@@ -65,7 +66,7 @@ Produced by `multiselect` filters — match any of `values`.
 
 ### Narrowing them
 
-```ts
+```ts excerpt
 import { isFilterInValue, isFilterRangeValue } from "@flowpanel/kit";
 
 for (const [field, value] of Object.entries(ctx.filters)) {
@@ -84,7 +85,7 @@ for (const [field, value] of Object.entries(ctx.filters)) {
 When you cannot thread a context through — a helper several calls deep, say —
 read it from AsyncLocalStorage instead of reaching for a global.
 
-```ts
+```ts excerpt
 import { getRequestContext, tryGetRequestContext } from "@flowpanel/kit";
 
 const ctx = getRequestContext();      // throws outside a request
@@ -92,6 +93,5 @@ const maybe = tryGetRequestContext(); // null outside a request
 ```
 
 `runWithRequestContext(ctx, fn)` establishes the scope; FlowPanel already wraps
-every adapter call and every action `run` in it. This is the one piece of
-ambient state the framework keeps, and invariant I-10 confines it to
-AsyncLocalStorage precisely so it stays request-scoped rather than global.
+every adapter call and every action `run` in it. This ambient state lives in
+AsyncLocalStorage so concurrent requests do not share it.

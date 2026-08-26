@@ -1,8 +1,7 @@
 "use client";
-import type { ColumnFormat } from "@flowpanel/core";
+import { type ColumnFormat, formatColumnValue } from "@flowpanel/core/format";
 import type * as React from "react";
-import { StatusBadge } from "../_atoms/StatusBadge.js";
-import { formatNumericCell } from "./format-cell.js";
+import { StatusBadge } from "../_atoms/StatusBadge";
 
 /** Render a declarative `ColumnFormat` cell. */
 export function renderFormatCell(format: ColumnFormat, value: unknown): React.ReactNode {
@@ -18,5 +17,5 @@ export function renderFormatCell(format: ColumnFormat, value: unknown): React.Re
       />
     );
   }
-  return formatNumericCell(value, format);
+  return formatColumnValue(value, format);
 }

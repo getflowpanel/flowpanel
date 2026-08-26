@@ -1,17 +1,17 @@
 "use client";
 import type { FlowpanelComponentSlots } from "@flowpanel/core";
 import { useMemo } from "react";
-import { DefaultAvatar } from "../_atoms/AvatarDefault.js";
-import { DefaultBadge } from "../_atoms/BadgeDefault.js";
-import { DefaultStatusBadge } from "../_atoms/StatusBadgeDefault.js";
-import { DefaultPagination } from "../_data/PaginationDefault.js";
-import { DefaultConfirmDialog } from "../_feedback/ConfirmDialogDefault.js";
-import { DefaultEmptyState } from "../_feedback/EmptyStateDefault.js";
-import { DefaultSkeletonTable } from "../_feedback/SkeletonTableDefault.js";
-import { DefaultPageHeader } from "../_shell/PageHeaderDefault.js";
-import { DefaultMetricCard } from "../_widgets/MetricCardDefault.js";
-import { DefaultButton } from "../ui/buttonDefault.js";
-import { useComponentOverrides } from "./ComponentsContext.js";
+import { DefaultAvatar } from "../_atoms/AvatarDefault";
+import { DefaultBadge } from "../_atoms/BadgeDefault";
+import { DefaultStatusBadge } from "../_atoms/StatusBadgeDefault";
+import { DefaultPagination } from "../_data/PaginationDefault";
+import { DefaultConfirmDialog } from "../_feedback/ConfirmDialogDefault";
+import { DefaultEmptyState } from "../_feedback/EmptyStateDefault";
+import { DefaultSkeletonTable } from "../_feedback/SkeletonTableDefault";
+import { DefaultPageHeader } from "../_shell/PageHeaderDefault";
+import { DefaultMetricCard } from "../_widgets/MetricCardDefault";
+import { DefaultButton } from "../ui/buttonDefault";
+import { useComponentOverrides } from "./ComponentsContext";
 
 const DEFAULTS: FlowpanelComponentSlots = {
   EmptyState: DefaultEmptyState,

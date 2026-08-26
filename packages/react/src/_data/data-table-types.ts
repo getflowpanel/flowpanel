@@ -1,6 +1,6 @@
 import type { ColumnFormat } from "@flowpanel/core";
 import type * as React from "react";
-import type { DataTableDensity } from "./DensityToggle.js";
+import type { DataTableDensity } from "./DensityToggle";
 
 export interface DataTableColumn<Row> {
   field: keyof Row & string;

@@ -5,10 +5,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { Field } from "../Field.js";
-import { buildSubmissionReply, Form, FormActionDispatchContext } from "../Form.js";
-import { FormError } from "../FormError.js";
-import { FormSubmit } from "../FormSubmit.js";
+import { Field } from "../Field";
+import { buildSubmissionReply, Form, FormActionDispatchContext } from "../Form";
+import { FormError } from "../FormError";
+import { FormSubmit } from "../FormSubmit";
 
 // `Form` calls `useRouter()` unconditionally (for `redirectTo` navigation on a
 // successful submit), so every render needs the app-router context mocked —

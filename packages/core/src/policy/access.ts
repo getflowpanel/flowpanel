@@ -1,11 +1,6 @@
-import type { RequireRole } from "../runtime/auth.js";
-import { FlowpanelAccessError } from "../types/error.js";
-import type {
-  AccessContext,
-  AccessRule,
-  ResourceAccess,
-  ResourceOperation,
-} from "../types/policy.js";
+import type { RequireRole } from "../runtime/auth";
+import { FlowpanelAccessError } from "../types/error";
+import type { AccessContext, AccessRule, ResourceAccess, ResourceOperation } from "../types/policy";
 
 export async function accessAllows(
   rule: AccessRule | undefined,

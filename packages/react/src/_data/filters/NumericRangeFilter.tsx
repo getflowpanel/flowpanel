@@ -1,7 +1,7 @@
 "use client";
-import { cn } from "../../lib/cn.js";
-import { Input } from "../../ui/input.js";
-import { BARE_CONTROL, FilterField } from "./FilterField.js";
+import { cn } from "../../lib/cn";
+import { Input } from "../../ui/input";
+import { BARE_CONTROL, FilterField } from "./FilterField";
 
 export interface NumericRangeFilterProps {
   label?: string;

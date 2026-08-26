@@ -1,3 +1,3 @@
-export { type PrismaAdapterOptions, prismaAdapter } from "./adapter.js";
-export { introspect, type PrismaDmmf } from "./introspect.js";
-export { inferSchema } from "./schema.js";
+export { type PrismaAdapterOptions, prismaAdapter } from "./adapter";
+export { introspect, type PrismaDmmf } from "./introspect";
+export { inferSchema } from "./schema";

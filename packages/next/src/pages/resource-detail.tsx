@@ -19,15 +19,16 @@ import {
 import { DetailTabsClient } from "@flowpanel/next/client";
 import { Button, DataTable, KV, KVRow, PageHeader } from "@flowpanel/react";
 import type * as React from "react";
-import { formatFieldValue } from "../runtime/format-field-value.js";
-import { buildHref } from "../runtime/href.js";
-import { prerenderResourceCells } from "../runtime/prerender-cells.js";
-import { projectAuthorizedRow } from "../runtime/project-row.js";
-import { renderColumnFormat } from "../runtime/render-column-format.js";
-import { buildRequestContext } from "../runtime/request-setup.js";
-import { readRelatedRows } from "../runtime/require-authorized.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { NotFound } from "./not-found.js";
+import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { formatFieldValue } from "../runtime/format-field-value";
+import { buildHref } from "../runtime/href";
+import { prerenderResourceCells } from "../runtime/prerender-cells";
+import { projectAuthorizedRow } from "../runtime/project-row";
+import { renderColumnFormat } from "../runtime/render-column-format";
+import { buildRequestContext } from "../runtime/request-setup";
+import { readRelatedRows } from "../runtime/require-authorized";
+import { scopeBinding } from "../runtime/scope-binding";
+import { NotFound } from "./not-found";
 
 const RELATED_TAB_PAGE_SIZE = 25;
 
@@ -108,7 +109,7 @@ export async function ResourceDetailPage({
 
   if (!row) return <NotFound config={config} />;
 
-  const pk = (resource.options.rowKey as string | undefined) ?? "id";
+  const pk = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
   const title = `${resource.options.label ?? name} · ${String(row[pk])}`;
 
   const editAction = (
@@ -197,7 +198,7 @@ async function renderTab<Row extends Record<string, unknown>>(
       defaultSortable: false,
       metaByField,
     });
-    const rowKey = (target.options.rowKey as string | undefined) ?? "id";
+    const rowKey = (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
     return (
       <DataTable
         columns={columns}

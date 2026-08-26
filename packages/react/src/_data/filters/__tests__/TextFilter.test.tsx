@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TextFilter } from "../TextFilter.js";
+import { TextFilter } from "../TextFilter";
 
 afterEach(() => cleanup());
 

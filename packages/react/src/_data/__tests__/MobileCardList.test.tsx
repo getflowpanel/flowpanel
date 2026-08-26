@@ -3,8 +3,8 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { LabelsProvider } from "../../_provider/LabelsContext.js";
-import { MobileCardList } from "../MobileCardList.js";
+import { LabelsProvider } from "../../_provider/LabelsContext";
+import { MobileCardList } from "../MobileCardList";
 
 afterEach(() => cleanup());
 

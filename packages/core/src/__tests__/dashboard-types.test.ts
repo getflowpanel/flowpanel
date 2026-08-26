@@ -16,7 +16,7 @@ import type {
   StatGroupWidget,
   TableWidget,
   WidgetConfig,
-} from "../index.js";
+} from "../index";
 
 describe("M2 public types", () => {
   it("DashboardConfig shape matches spec", () => {

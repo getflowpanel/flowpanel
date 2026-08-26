@@ -1,6 +1,6 @@
 import type { FlowpanelResult } from "@flowpanel/core";
 import { resultResponse } from "@flowpanel/core";
-import { toWireValue } from "./serialize.js";
+import { toWireValue } from "./serialize";
 
 export function wireResponse<T>(result: FlowpanelResult<T>, init?: ResponseInit): Response {
   if (init) {

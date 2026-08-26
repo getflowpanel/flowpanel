@@ -21,12 +21,12 @@ vi.mock("next/navigation", () => ({
   redirect: (url: string) => redirectSpy(url),
 }));
 
-import { handleRenderError, renderContent } from "../flowpanel-page.js";
-import { DashboardPage } from "../pages/dashboard.js";
-import { NotFound } from "../pages/not-found.js";
-import { QueuePage } from "../pages/queue-page.js";
-import { UserPage } from "../pages/user-page.js";
-import { Welcome } from "../pages/welcome.js";
+import { handleRenderError, renderContent } from "../flowpanel-page";
+import { DashboardPage } from "../pages/dashboard";
+import { NotFound } from "../pages/not-found";
+import { QueuePage } from "../pages/queue-page";
+import { UserPage } from "../pages/user-page";
+import { Welcome } from "../pages/welcome";
 
 function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdminConfig {
   return {

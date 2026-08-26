@@ -7,9 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // publisher would hide exactly the bug this test guards against (see below).
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { bindPublisher, resetPublisherForTests } from "../runtime/publish.js";
-import { stream } from "../stream.js";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { bindPublisher, resetPublisherForTests } from "../runtime/publish";
+import { stream } from "../stream";
 
 function makeConfig(): ResolvedAdminConfig {
   return {

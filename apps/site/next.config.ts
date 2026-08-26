@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createMDX } from "fumadocs-mdx/next";
 import type { NextConfig } from "next";
+import { DOC_REDIRECTS } from "./src/shared/lib/docs-contract";
 
 const withMDX = createMDX();
 
@@ -27,6 +28,15 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ["image/avif", "image/webp"],
+  },
+  redirects() {
+    return Promise.resolve(
+      DOC_REDIRECTS.map(({ source, destination }) => ({
+        source,
+        destination,
+        permanent: true,
+      })),
+    );
   },
 };
 

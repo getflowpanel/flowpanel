@@ -16,7 +16,7 @@ export function ResourceListDeletedToggle() {
     else next.set(PARAM, "1");
     next.delete("page");
     const q = next.toString();
-    router.push(q ? `${pathname}?${q}` : pathname);
+    router.push(q ? `${pathname}?${q}` : pathname, { scroll: false });
   }
 
   return (

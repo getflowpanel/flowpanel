@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -10,8 +10,8 @@ vi.mock("../runtime/publish.js", () => ({
 import type { Adapter, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { importRoute } from "../actions/resource-import.js";
-import { publishResource } from "../runtime/publish.js";
+import { importRoute } from "../actions/resource-import";
+import { publishResource } from "../runtime/publish";
 
 const createSchema = z.object({ email: z.string().email() });
 

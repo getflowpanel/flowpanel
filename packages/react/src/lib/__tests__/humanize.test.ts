@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { humanize, resolveFieldLabel } from "../humanize.js";
+import { humanize, resolveFieldLabel } from "../humanize";
 
 describe("humanize", () => {
   it("capitalizes single words as sentence case", () => {

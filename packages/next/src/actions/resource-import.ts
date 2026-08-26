@@ -1,14 +1,14 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { FlowpanelValidationError } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
-import { safeErrorMessage } from "../runtime/action-helpers.js";
-import { coerceRowByColumns } from "../runtime/coerce-values.js";
-import { buildHref } from "../runtime/href.js";
-import { resourceNavName } from "../runtime/nav.js";
-import { parseImport } from "../runtime/parse-import.js";
-import { publishResource } from "../runtime/publish.js";
-import { withGuards } from "../runtime/with-guards.js";
-import { makeActions } from "./resource-actions.js";
+import { safeErrorMessage } from "../runtime/action-helpers";
+import { coerceRowByColumns } from "../runtime/coerce-values";
+import { buildHref } from "../runtime/href";
+import { resourceNavName } from "../runtime/nav";
+import { parseImport } from "../runtime/parse-import";
+import { publishResource } from "../runtime/publish";
+import { withGuards } from "../runtime/with-guards";
+import { makeActions } from "./resource-actions";
 
 function pick(row: Record<string, unknown>, keys: string[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};

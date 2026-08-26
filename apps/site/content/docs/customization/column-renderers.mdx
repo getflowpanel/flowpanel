@@ -1,204 +1,69 @@
 ---
 title: Column renderers
-description: Override how a single field renders in the table or drawer.
+description: Format built-in values or render a custom server or interactive cell.
+kind: how-to
 ---
 
-The lightest customization layer is **L1: props**. The most common cells —
-status badges, money, formatted numbers — need no code at all: set `format`
-and FlowPanel renders a themed cell. Reach for `render` only when you need
-something bespoke.
+Column definitions control table cells and are reused by drawer/detail field rendering. Use a built-in format when it fits; reach for `render` only when the value needs application-specific presentation.
 
-## Built-in formatters
+## Use built-in formatting
 
-`format` covers the cells you'd otherwise hand-roll:
-
-```ts title="src/admin/resources/orders.ts"
-import { resource } from "@flowpanel/kit";
-import * as schema from "@/db/schema";
-
-export const orders = resource(schema.orders, {
-  columns: [
-    "id",
-    { field: "status", format: "badge" }, // themed status pill
-    { field: "totalCents", format: { kind: "money", scale: 100 } }, // "$12.34"
-    { field: "items", format: "number" }, // "1,234"
-  ],
-});
+```ts excerpt
+columns: [
+  "email",
+  { field: "status", format: { kind: "badge", tones: { active: "ok", blocked: "danger" } } },
+  { field: "balance", label: "Balance", format: { kind: "money", currency: "USD" }, align: "right" },
+]
 ```
 
-- **`"badge"`** renders the value as a status pill. Without a `tones` map the
-  tone comes from the value itself, lower-cased, through a fixed table:
+Built-in badge, money, and number formats stay consistent across the admin and preserve the field's normal sort/export behavior.
 
-  | Tone | Values |
-  | --- | --- |
-  | `ok` | `active`, `enabled`, `success`, `succeeded`, `completed`, `healthy` |
-  | `warn` | `pending`, `waiting`, `warn`, `degraded`, `processing` |
-  | `err` | `failed`, `error`, `rejected`, `disabled`, `canceled` |
-  | `muted` | `inactive`, `draft`, `archived` |
+## Render a custom server cell
 
-  Anything not in the table falls back to `muted` — so a domain enum of your
-  own renders grey until you map it:
-
-  ```ts
-  { field: "plan", format: { kind: "badge", tones: { pro: "ok", trial: "warn" } } }
-  ```
-
-  The pill is theme-aware (it uses your `--fp-ok` / `--fp-warn` tokens) and
-  swappable via the `StatusBadge`
-  [theme slot](/docs/customization/theme-slots).
-- **`"money"`** formats a number as currency (defaults to USD `$`). Bare
-  `format: "money"` works for whole-unit amounts. The object form always
-  carries `kind`, so it is `{ kind: "money", scale: 100 }` when the value is
-  stored in integer cents and `{ kind: "money", currency: "EUR" }` to change
-  the currency — `{ currency: "EUR" }` on its own is a type error.
-- **`"number"`** renders a thousands-separated integer.
-
-## A custom cell with `render`
-
-When `format` isn't enough, hand a `render` function to the column and you
-control the cell completely:
-
-```tsx title="src/admin/resources/orders.tsx"
-import { resource } from "@flowpanel/kit";
-import * as schema from "@/db/schema";
-
-export const orders = resource(schema.orders, {
-  columns: [
-    "id",
-    {
-      field: "status",
-      render: (row) => (
-        <span data-status={row.status} className="badge">
-          {row.status}
-        </span>
-      ),
+```tsx excerpt
+columns: [
+  {
+    field: "customerId",
+    label: "Customer",
+    render: async (order, ctx) => {
+      const customer = await findCustomer(ctx.db, order.customerId);
+      return <a href={`/admin/customers/${customer.id}`}>{customer.email}</a>;
     },
-    "total",
-  ],
-});
+  },
+]
 ```
 
-Cell precedence, highest first:
+`render` runs on the server with the row and request context. The function and database client never cross the browser boundary. Return only UI intended for the operator; the row still must be protected by resource access and scope.
 
-1. **`editable: true`** — the cell renders as an inline editor, so it wins
-   over both `render` and `format`.
-2. **`render`** — the server-prerendered node.
-3. **`format`** — the declarative formatter.
-4. The default renderer for the column's introspected type.
+For foreign keys, prefer a declarative `reference` when the target is another registered resource. It provides a consistent link and label lookup without a per-cell query.
 
-The column object accepts `field` (the row key to read from — typed
-against `keyof Row`) and either `format` (a declarative formatter) or
-`render` (a function returning a `ReactNode`). Other supported keys:
-`label`, `sortable`, `width`, `align`, `className`, `hidden`,
-`editable`, `reference`.
+## Add an interactive client cell
 
-A `reference` column renders the foreign key's looked-up label as a link to the
-target resource. To configure that same relation as an editable form control,
-see [Create & edit forms](/docs/customization/forms#relation-fields).
+A server renderer may return a client component:
 
-`row` is the **typed** record — `schema.orders.$inferSelect` for
-Drizzle, or your augmented model type for Prisma. Autocomplete and
-type-checking work end-to-end.
-
-## Where a column definition applies
-
-One `columns` list drives every surface that shows the resource's rows, so a
-`render` or `format` you write once looks the same in all of them:
-
-- the **list table**,
-- the **detail page** at `/<basePath>/<resource>/<id>` — its key/value view
-  reuses each column's `label`, `render` and `format`,
-- the **drawer**, which pre-renders the same cells server-side,
-- a **`table({ resource })` dashboard widget**, and a **drawer resource tab**,
-  which read the target resource's own columns.
-
-A field-less `render` column (below) is the one exception on the export path.
-
-## `render` runs server-side
-
-`render(row, ctx)` is called on the server before the table reaches the
-client. FlowPanel ships the resulting `ReactNode` tree across the RSC
-boundary; the function itself never crosses. That means:
-
-- **No client hooks** inside `render` — `useState`, `useEffect`,
-  `useContext`, etc. only work inside a `"use client"` component.
-- **No inline event handlers** — `onClick`, `onChange`, etc. cannot be
-  attached directly inside `render`. Return an `<a>` / `<Link>` instead,
-  or wrap the interactive part in a `"use client"` child that takes its
-  data as plain props.
-
-```tsx title="src/admin/RefundButton.tsx"
-"use client";
-export function RefundButton({ orderId }: { orderId: string }) {
-  return <button onClick={() => fetch(`/api/refund/${orderId}`, { method: "POST" })}>
-    Refund
-  </button>;
-}
+```tsx excerpt
+render: (row) => <CopyId value={String(row.id)} />
 ```
 
-```tsx title="src/admin/resources/orders.tsx"
-import { resource } from "@flowpanel/kit";
-import * as schema from "@/db/schema";
-import { RefundButton } from "../RefundButton";
-
-export const orders = resource(schema.orders, {
-  columns: [
-    "id",
-    {
-      field: "status",
-      // Server-side: return the element tree. The interactivity lives in
-      // RefundButton (a "use client" component).
-      render: (row) => <RefundButton orderId={row.id} />,
-    },
-  ],
-});
-```
+Keep the client props small and serializable. The client component may manage interaction, but it should call an authorized server route for mutations rather than receiving server services as props.
 
 ## Joined or computed values
 
-`ColumnDef.field` is `keyof Row & string`, so dotted relation paths
-aren't supported as column identifiers. For a value that has no column
-behind it — a joined record, something you compute from two fields —
-drop `field` and let `render` supply the whole cell:
+Omit `field` when the cell is derived entirely from the row:
 
-```tsx
+```tsx excerpt
 {
   label: "Customer",
-  render: (row) => row.customerEmail ?? "—",
+  render: (order) => `${order.firstName} ${order.lastName}`,
 }
 ```
 
-A field-less column is a real column, with its own rules:
+A computed-only column has no adapter field. FlowPanel cannot automatically sort, filter, inline-edit, or include it in field-based export. If those operations matter, expose the value through the data model or a custom adapter/query surface.
 
-- **`label` and `render` are both required.** A column with neither `field`
-  nor a `render`+`label` pair is dropped from the table, with a
-  `console.warn` in development naming its index.
-- **It can never sort or filter.** There is no row property to sort by, so
-  `sortable` is forced to `false` and the header never becomes a sort
-  control. It cannot appear in `filters` either.
-- **`editable`, `format` and `reference` are ignored on it** — all three key
-  off a row property.
-- **It is skipped by CSV / JSON export.** The table's Export button writes the
-  underlying row values, and there are none here; the column simply does not
-  appear in the file.
-- **Column validation skips it.** `defineAdmin`'s introspect-time check has no
-  column name to compare against, so it passes it over.
+## Check all consumers
 
-Internally such a column is keyed `__cell_<index>`, which is what the export
-filter matches on. Don't rely on that key — it moves when you reorder columns.
+Before shipping a custom column, verify the list, drawer/detail view, export, empty value, long value, and mobile width. `hidden` affects the table but can leave the field available to another declared surface; `expose` controls additional values that may cross the generated boundary.
 
-## Default labels
+Use a [theme slot](/docs/customization/theme-slots) when the same primitive needs to change everywhere, or a [custom page](/docs/build/dashboards) when the entire row experience no longer fits a table.
 
-If you omit `label`, FlowPanel humanizes the raw field name —
-`createdAt` becomes "Created at", `apiKey` becomes "API key", common
-initialisms (`ID`, `URL`, `API`, ...) stay uppercase. The same helper
-is exported as `humanize(name)` and `resolveFieldLabel(label, field)`
-from `@flowpanel/kit`.
-
-## When to reach for theme slots
-
-If you find yourself overriding every column's renderer, or reaching
-for behavior the column API doesn't expose, that's the signal to step
-up to **L2: theme slots** — swap one of the 10 component primitives
-(see [Theme slots](/docs/customization/theme-slots)). If even that's
-not enough, **L3: eject** writes the page's source into your repo.
+See [Resources reference](/docs/reference/resources#columnformat) for generated column types.

@@ -8,14 +8,15 @@ import {
   DropdownMenuTrigger,
   FlowpanelIcon,
   triggerDownload,
+  useApiBase,
   useToast,
 } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import type { ActionInputIssue } from "../runtime/action-schema.js";
-import { ActionFormDialog } from "./ActionFormDialog.js";
-import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field.js";
-import type { SerializedRowAction } from "./row-action.js";
+import type { ActionInputIssue } from "../runtime/action-schema";
+import { ActionFormDialog } from "./ActionFormDialog";
+import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field";
+import type { SerializedRowAction } from "./row-action";
 
 export interface RowActionsMenuProps {
   resource: string;
@@ -34,6 +35,7 @@ type ServerResult =
 
 export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
   const router = useRouter();
+  const apiBase = useApiBase();
   const toast = useToast();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedRowAction | null>(null);
@@ -53,7 +55,7 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
     setPending(action.key);
     try {
       const res = await fetch(
-        `/api/flowpanel/${encodeURIComponent(resource)}/${encodeURIComponent(
+        `${apiBase}/${encodeURIComponent(resource)}/${encodeURIComponent(
           id,
         )}/actions/${encodeURIComponent(action.key)}`,
         {

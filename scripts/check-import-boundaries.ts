@@ -14,6 +14,18 @@ for (const file of globSync("packages/core/src/**/*.ts", {
   }
 }
 
+// Rule 1b: core is the framework-agnostic base and must never depend on the UI
+// package. madge --circular cannot see this: it does not resolve workspace specifiers.
+for (const file of globSync("packages/core/src/**/*.ts", {
+  ignore: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
+  cwd: process.cwd(),
+})) {
+  const src = readFileSync(file, "utf-8");
+  if (/from\s+["']@flowpanel\/react/.test(src)) {
+    violations.push(`${file}: imports from @flowpanel/react`);
+  }
+}
+
 // Rule 2: adapter-* and queue-* must not import from @flowpanel/react
 for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   for (const file of globSync(`packages/${pkg}/src/**/*.ts`, {

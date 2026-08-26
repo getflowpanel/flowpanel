@@ -1,19 +1,18 @@
 ---
 title: queue()
 description: The queue builder, its options, and how a queue key becomes a route.
+kind: reference
 ---
 
 `queue(ref, options)` registers one BullMQ queue as a nav entry and a page in
 the admin. FlowPanel does not implement a queue UI of its own — the page
 embeds [bull-board](https://github.com/felixmosh/bull-board) in an iframe. For
 the security consequences of that split, read
-[Queues](/docs/core-concepts/queues) first; this page is the type surface.
+[Queues](/docs/guides/queues) first; this page is the type surface.
 
-```ts
-export function queue(ref: unknown, options: QueueOptions): QueueConfig;
-```
+<ApiSignature path="../../packages/core/src/builders/queue.ts" name="queue" />
 
-```ts
+```ts excerpt
 import { defineAdmin, queue } from "@flowpanel/kit";
 import { emailQueue } from "@/lib/queues";
 
@@ -77,14 +76,14 @@ your names. Set `options.key` to something else.
 `queue()` only mounts the page. To count jobs for a dashboard widget, wrap the
 same `Queue` instances with `bullmqAdapter` and read through the returned map:
 
-```ts
+```ts excerpt
 import { bullmqAdapter } from "@flowpanel/kit/bullmq";
 import { emailQueue, scrapeQueue } from "@/lib/queues";
 
 export const jobs = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
 ```
 
-```ts
+```ts excerpt
 import { metric } from "@flowpanel/kit";
 import { jobs } from "@/lib/queue-adapter";
 

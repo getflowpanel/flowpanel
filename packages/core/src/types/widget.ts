@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
-import type { ResolvedDateRange } from "./dashboard.js";
-import type { InferDB, ResourceName } from "./registry.js";
-import type { Session } from "./session.js";
+import type { ResolvedDateRange } from "./dashboard";
+import type { InferDB, ResourceName } from "./registry";
+import type { Session } from "./session";
 
 /** Server-side context passed to every widget `query` function. */
 export interface WidgetContext<DB = InferDB> {
@@ -65,7 +65,9 @@ export interface TableWidgetOptions<R = unknown> {
   query?: (ctx: WidgetContext) => Promise<R[]>;
   /** Columns to show. Defaults to the resource's own list columns. */
   columns?: RowKey<R>[];
-  /** Row cap. Defaults to 10. Applies to the `resource` path only. */
+  /** Row cap. Applies to the `resource` path only.
+   * @defaultValue 10
+   */
   limit?: number;
   /** Rendered in place of the table body when there are zero rows. */
   emptyState?: ReactNode;
@@ -85,7 +87,9 @@ export interface CustomOptions {
   span?: Span;
   /** Re-render when any of these channels fire. */
   realtime?: string | string[];
-  /** Wrap the component in the standard widget card. Defaults to `true`. */
+  /** Wrap the component in the standard widget card.
+   * @defaultValue true
+   */
   frame?: boolean;
 }
 
@@ -133,7 +137,9 @@ export interface ChartOptionsBase<R = unknown> {
   x: RowKey<R>;
   /** Row key(s) plotted on the y-axis. An array draws one series per key. */
   y: RowKey<R> | RowKey<R>[];
-  /** Chart height in px. Defaults to 240. */
+  /** Chart height in px.
+   * @defaultValue 240
+   */
   height?: number;
   /** How y-values are rendered in ticks and tooltips. */
   format?: NumericFormat;
@@ -174,7 +180,9 @@ export interface PieChartOptions<R = unknown> {
   value: RowKey<R>;
   /** Cut a hole in the middle. */
   donut?: boolean;
-  /** Show the slice legend. Defaults to `false`. */
+  /** Show the slice legend.
+   * @defaultValue false
+   */
   showLegend?: boolean;
   /** Chart height in px. */
   height?: number;

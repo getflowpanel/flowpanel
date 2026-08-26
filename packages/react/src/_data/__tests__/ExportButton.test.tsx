@@ -2,12 +2,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const triggerDownload = vi.fn();
-vi.mock("../../lib/trigger-download.js", () => ({
+vi.mock("../../lib/trigger-download", () => ({
   triggerDownload: (...args: unknown[]) => triggerDownload(...args),
 }));
 
-import { ExportButton } from "../csv-export.js";
-import type { DataTableColumn } from "../data-table-types.js";
+import { ExportButton } from "../csv-export";
+import type { DataTableColumn } from "../data-table-types";
 
 afterEach(() => {
   cleanup();

@@ -3,9 +3,9 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
-import { detectPackageManager, fileExists, pmCommands } from "../utils/detect.js";
-import { log } from "../utils/log.js";
-import { writeJson } from "../utils/output.js";
+import { detectPackageManager, fileExists, pmCommands } from "../utils/detect";
+import { log } from "../utils/log";
+import { writeJson } from "../utils/output";
 
 interface MigrateOptions {
   dryRun?: boolean;
@@ -112,6 +112,7 @@ export function migrateCommand(cli: Command): void {
       if (!opts.json) p.intro(pc.bgMagenta(pc.black(" FlowPanel migrate ")));
 
       const cwd = process.cwd();
+      const pmc = pmCommands(await detectPackageManager(cwd));
       const dir = path.join(cwd, "flowpanel", "migrations");
 
       const files = (await fs.readdir(dir).catch(() => [] as string[]))
@@ -126,8 +127,27 @@ export function migrateCommand(cli: Command): void {
 
       const cfgPath = path.join(cwd, "flowpanel.config.ts");
       if (!(await fileExists(cfgPath))) {
-        log.err("flowpanel.config.ts not found. Run `pnpm dlx @flowpanel/cli init` first.");
+        log.err(`flowpanel.config.ts not found. Run \`${pmc.dlx} @flowpanel/cli init\` first.`);
         process.exit(1);
+      }
+
+      // Everything below opens a database connection, so --dry-run stops here:
+      // the adapter's applied-migrations reader creates its tracking table.
+      if (opts.dryRun) {
+        if (opts.json) {
+          writeJson({
+            command: "migrate",
+            applied: false,
+            dryRun: true,
+            appliedStateKnown: false,
+            pending: files.map((file) => file.replace(/\.sql$/, "")),
+          });
+        } else {
+          for (const file of files) log.info(`would apply: ${file}`);
+          log.warn("Applied state unknown — --dry-run does not connect to the database.");
+          p.outro(pc.dim(`${files.length} migration file${files.length === 1 ? "" : "s"} on disk`));
+        }
+        return;
       }
 
       let jiti: JitiInstance;
@@ -142,7 +162,6 @@ export function migrateCommand(cli: Command): void {
       } catch (e) {
         const code = (e as NodeJS.ErrnoException).code;
         if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
-          const pmc = pmCommands(await detectPackageManager(cwd));
           log.err("flowpanel migrate needs `jiti` to load your TypeScript config. Install:");
           log.dim(`  ${pmc.addDisplay("jiti", true)}`);
           process.exit(1);
@@ -176,24 +195,6 @@ export function migrateCommand(cli: Command): void {
       }
 
       const applied = await listAppliedMigrations();
-      const pending = files.filter((file) => !applied.has(file.replace(/\.sql$/, "")));
-
-      if (opts.dryRun) {
-        if (opts.json) {
-          writeJson({
-            command: "migrate",
-            applied: false,
-            pending: pending.map((file) => file.replace(/\.sql$/, "")),
-            alreadyApplied: files.length - pending.length,
-          });
-        } else {
-          for (const file of pending) log.info(`would apply: ${file}`);
-          p.outro(
-            pc.dim(`${pending.length} migration${pending.length === 1 ? "" : "s"} (dry run)`),
-          );
-        }
-        return;
-      }
 
       let ran = 0;
       const appliedNow: string[] = [];

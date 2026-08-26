@@ -1,5 +1,5 @@
 import type { RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
-import { createDashboardActionController } from "./action-controller.js";
+import { createDashboardActionController } from "./action-controller";
 
 /** Protected dashboard operations. Widget view-model queries stay server-rendered in 0.2. */
 export function createDashboardController(

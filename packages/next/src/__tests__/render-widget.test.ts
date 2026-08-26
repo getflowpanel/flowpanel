@@ -10,8 +10,8 @@ import type {
 import { MetricCard, RealtimeRefresh, TableWidget } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { ServerCard } from "../runtime/_server-card.js";
-import { renderWidget } from "../runtime/render-widget.js";
+import { ServerCard } from "../runtime/_server-card";
+import { renderWidget } from "../runtime/render-widget";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",

@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_DATABASE_URL } from "./e2e-db.js";
+import { E2E_DATABASE_URL } from "./e2e-db";
 
 const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3100";
 const PORT = new URL(BASE_URL).port || "3100";

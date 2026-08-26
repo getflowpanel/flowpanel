@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type LuciaLike, withLucia } from "../lucia.js";
+import { type LuciaLike, withLucia } from "../lucia";
 
 function fakeLucia(overrides: Partial<LuciaLike> = {}): LuciaLike {
   return {

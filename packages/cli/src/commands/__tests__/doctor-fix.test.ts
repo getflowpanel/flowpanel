@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runDoctorChecks } from "../doctor.js";
+import { runDoctorChecks } from "../doctor";
 
 // Each check writes template files and runs the full doctor pass (the last
 // test runs it twice); 5s is tight on slow CI runners.
@@ -22,6 +22,7 @@ async function seedPkg(dir: string): Promise<void> {
       devDependencies: { typescript: "^5.0.0" },
     }),
   );
+  await fs.writeFile(path.join(dir, "flowpanel.config.ts"), "export default {};\n");
 }
 
 beforeEach(async () => {
@@ -83,6 +84,41 @@ describe("runDoctorChecks --fix", () => {
       "utf8",
     );
     expect(adminContent).toContain('import config from "../../../flowpanel.config";');
+  });
+
+  it("refuses to scaffold into a directory that is not a FlowPanel project", async () => {
+    const bare = await fs.mkdtemp(path.join(os.tmpdir(), "fp-doctor-bare-"));
+    try {
+      const { plan, fixBlocked } = await runDoctorChecks(bare, true, { quiet: true });
+      expect(plan).toBeUndefined();
+      expect(fixBlocked).toMatch(/not a FlowPanel project/);
+      expect(fixBlocked).toContain("flowpanel init");
+      expect(await fs.readdir(bare)).toEqual([]);
+    } finally {
+      await fs.rm(bare, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts a flowpanel.config.tsx project", async () => {
+    const tsx = await fs.mkdtemp(path.join(os.tmpdir(), "fp-doctor-tsx-"));
+    try {
+      await seedPkg(tsx);
+      await fs.rm(path.join(tsx, "flowpanel.config.ts"));
+      await fs.writeFile(path.join(tsx, "flowpanel.config.tsx"), "export default {};\n");
+      const { fixBlocked, checks } = await runDoctorChecks(tsx, true, { quiet: true });
+      expect(fixBlocked).toBeUndefined();
+      expect(checks.find((c) => c.name === "API route")!.ok).toBe(true);
+    } finally {
+      await fs.rm(tsx, { recursive: true, force: true });
+    }
+  });
+
+  it("--fix --dry-run plans without writing", async () => {
+    const { plan } = await runDoctorChecks(tmp, true, { applyFixes: false, quiet: true });
+    expect(plan!.operations.map((o) => o.path)).toContain("app/api/flowpanel/[...route]/route.ts");
+    await expect(
+      fs.access(path.join(tmp, "app/api/flowpanel/[...route]/route.ts")),
+    ).rejects.toThrow();
   });
 
   it("on a src/app project, fixes land under src/app/ (not a shadowing root app/)", async () => {

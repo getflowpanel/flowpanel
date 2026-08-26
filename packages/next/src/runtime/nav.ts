@@ -1,8 +1,8 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { humanize, resolveResourceName } from "@flowpanel/core";
 import type { NavGroup } from "@flowpanel/react";
-import { roleAllows } from "./action-helpers.js";
-import { buildHref } from "./href.js";
+import { roleAllows } from "./action-helpers";
+import { buildHref } from "./href";
 
 /** Extract the URL slug for a resource. */
 export const resourceNavName = resolveResourceName;

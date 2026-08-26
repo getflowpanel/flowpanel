@@ -1,8 +1,7 @@
 import type { z } from "zod";
-import type { AdapterCapabilities } from "./adapter-v2.js";
-import type { ItemQueryContext, ListQueryContext, MutationContext } from "./context.js";
-import type { InferDB } from "./registry.js";
-import type { ListResult } from "./resource.js";
+import type { ItemQueryContext, ListQueryContext, MutationContext } from "./context";
+import type { InferDB } from "./registry";
+import type { ListResult } from "./resource";
 
 /** One column, as the adapter sees it. Drives inferred controls and validation. */
 export interface ColumnMeta {
@@ -49,8 +48,6 @@ export interface Adapter<DB = InferDB, Ref = unknown> {
   kind: AdapterKind;
   /** The client handed to every `ctx.db`. */
   db: DB;
-  /** v2 capability declaration. Absent only on deprecated third-party v1 adapters. */
-  capabilities?: AdapterCapabilities;
   /** Execute work against one transaction-bound database handle. */
   transaction?<T>(run: (db: DB) => Promise<T>): Promise<T>;
   /** Describe a table: its columns, types and primary key. */

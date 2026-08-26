@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { prismaAdapter } from "../adapter.js";
-import type { PrismaDmmf } from "../introspect.js";
+import { prismaAdapter } from "../adapter";
+import type { PrismaDmmf } from "../introspect";
 
 // Minimal DMMF for User model
 const testDmmf: PrismaDmmf = {

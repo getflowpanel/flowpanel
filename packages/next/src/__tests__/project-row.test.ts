@@ -1,6 +1,6 @@
 import type { RequestContext, ResourceConfig } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { declaredRowFields, projectAuthorizedRow, projectRow } from "../runtime/project-row.js";
+import { declaredRowFields, projectAuthorizedRow } from "../runtime/project-row";
 
 function resourceWith(options: Record<string, unknown>): ResourceConfig {
   return { __kind: "resource", ref: { __name: "r" }, options } as never;
@@ -62,30 +62,7 @@ describe("declaredRowFields", () => {
   });
 });
 
-describe("projectRow", () => {
-  const r = resourceWith({ columns: ["id", "email"] });
-
-  it("keeps only declared fields present on the row", () => {
-    const row = { id: "1", email: "a@b.co", passwordHash: "secret", internalFlag: true };
-    const out = projectRow(r, row);
-    expect(out).toEqual({ id: "1", email: "a@b.co" });
-    expect(out).not.toHaveProperty("passwordHash");
-    expect(out).not.toHaveProperty("internalFlag");
-  });
-
-  it("does not invent keys absent from the source row", () => {
-    const row = { id: "1" };
-    const out = projectRow(r, row);
-    expect(out).toEqual({ id: "1" });
-    expect(Object.keys(out)).toEqual(["id"]);
-  });
-
-  it("widens the kept set via extraFields for a single call", () => {
-    const row = { id: "1", email: "a@b.co", computedScore: 42 };
-    const out = projectRow(r, row, ["computedScore"]);
-    expect(out).toEqual({ id: "1", email: "a@b.co", computedScore: 42 });
-  });
-
+describe("projectAuthorizedRow", () => {
   it("applies request-level field read policy before returning a client row", async () => {
     const protectedResource = resourceWith({
       columns: ["id", "email", "internalNote", "passwordHash"],

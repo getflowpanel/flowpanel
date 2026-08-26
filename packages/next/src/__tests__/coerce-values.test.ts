@@ -1,6 +1,6 @@
 import type { ColumnMeta } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { coerceRowByColumns } from "../runtime/coerce-values.js";
+import { coerceRowByColumns } from "../runtime/coerce-values";
 
 const columns: ColumnMeta[] = [
   { name: "id", type: "string", nullable: false, unique: true, primaryKey: true },

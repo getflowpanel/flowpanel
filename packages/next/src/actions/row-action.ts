@@ -15,15 +15,15 @@ import {
   maybeEmitAudit,
   notFoundResponse,
   readActionInput,
-} from "../runtime/action-helpers.js";
-import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema.js";
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { buildHref } from "../runtime/href.js";
-import { bindPublisher, publish } from "../runtime/publish.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { withGuards } from "../runtime/with-guards.js";
-import type { ActionFormField } from "./action-form-field.js";
-import { serializeActionForm } from "./serialize-action-field.js";
+} from "../runtime/action-helpers";
+import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { buildHref } from "../runtime/href";
+import { bindPublisher, publish } from "../runtime/publish";
+import { scopeBinding } from "../runtime/scope-binding";
+import { withGuards } from "../runtime/with-guards";
+import type { ActionFormField } from "./action-form-field";
+import { serializeActionForm } from "./serialize-action-field";
 
 /** Wire-safe shape of `RowAction`. */
 export interface SerializedRowAction {

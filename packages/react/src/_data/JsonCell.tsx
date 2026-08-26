@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
-import { cn } from "../lib/cn.js";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover.js";
+import { cn } from "../lib/cn";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 export interface JsonCellProps {
   value: unknown;

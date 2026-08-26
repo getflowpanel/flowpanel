@@ -1,8 +1,8 @@
 "use client";
 import { getInputProps } from "@conform-to/react";
 import type * as React from "react";
-import { Label } from "../ui/label.js";
-import { useFormContext } from "./Form.js";
+import { Label } from "../ui/label";
+import { useFormContext } from "./Form";
 import {
   type AriaProps,
   CheckboxField,
@@ -15,7 +15,7 @@ import {
   SelectField,
   TagsField,
   TextareaField,
-} from "./field-controls.js";
+} from "./field-controls";
 
 export type FieldControlType =
   | "text"

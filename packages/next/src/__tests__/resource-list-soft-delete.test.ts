@@ -3,7 +3,7 @@ import { defineAdmin, resource } from "@flowpanel/core";
 import { DataTableWithDrawerRows, ResourceListDeletedToggle } from "@flowpanel/next/client";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { ResourceListPage } from "../pages/resource-list.js";
+import { ResourceListPage } from "../pages/resource-list";
 
 /**
  * Walks the RSC-returned tree and returns the props of the first element of

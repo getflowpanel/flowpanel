@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { prismaAdapter } from "../adapter.js";
+import { prismaAdapter } from "../adapter";
 
 const require = createRequire(import.meta.url);
 

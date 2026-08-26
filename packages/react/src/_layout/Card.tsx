@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export function Card({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) {
   return (

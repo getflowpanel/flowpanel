@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import cliPkg from "../../../package.json" with { type: "json" };
-import { ejectVersion, runEject } from "../eject.js";
+import { ejectVersion, runEject } from "../eject";
 
 let tmp: string;
 beforeEach(async () => {

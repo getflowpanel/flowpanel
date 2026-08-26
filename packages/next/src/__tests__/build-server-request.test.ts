@@ -11,7 +11,7 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ getAll: () => fakeCookies }),
 }));
 
-import { buildServerRequest } from "../runtime/build-server-request.js";
+import { buildServerRequest } from "../runtime/build-server-request";
 
 describe("buildServerRequest", () => {
   it("carries real headers (x-forwarded-for, user-agent) onto the Request", async () => {

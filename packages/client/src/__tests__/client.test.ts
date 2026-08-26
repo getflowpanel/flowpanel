@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFlowpanelClient } from "../client.js";
+import { createFlowpanelClient } from "../client";
 
 const metadata = {
   id: "acme",

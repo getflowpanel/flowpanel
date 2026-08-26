@@ -1,6 +1,6 @@
-import type { BoundAdapterScope } from "./adapter-v2.js";
-import type { InferDB } from "./registry.js";
-import type { Scope, Session } from "./session.js";
+import type { BoundAdapterScope } from "./bound-scope";
+import type { InferDB } from "./registry";
+import type { Scope, Session } from "./session";
 
 /** Structured decode of a `numeric-range` / `daterange` `FilterDef` value. */
 export interface FilterRangeValue {

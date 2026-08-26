@@ -23,8 +23,11 @@ RBAC, global read-only mode, the CLI (`init`, `migrate`, `doctor`, `eject`,
   filter sets server-side.
 - **Postgres `LISTEN/NOTIFY` realtime driver.** Alternative to the Redis
   pub/sub driver, no extra infra.
-- **More examples.** `examples/with-clerk`, `examples/multi-tenant`,
-  `examples/with-prisma` — beyond the existing `ai-scraper` showcase.
+- **More examples.** `examples/multi-tenant`, `examples/with-prisma` — beyond
+  the shipped `ai-scraper` showcase and `with-clerk` auth example.
+- **Trim the react bundle back under 70 KB.** It measures 69.93 KB against a
+  72 KB budget after growing 3.72 KB in 0.2.0; ADR 0017 records the raise and
+  makes the trim explicit debt rather than a moved goalpost.
 
 ## 1.x — longer
 
@@ -39,6 +42,7 @@ RBAC, global read-only mode, the CLI (`init`, `migrate`, `doctor`, `eject`,
 ## Not planned
 
 - **Pages Router support.** App Router only.
-- **Non-Next.js standalone runtime.** The bridge depends on RSC + Server
-  Actions.
+- **Non-Next.js standalone runtime.** `@flowpanel/react` imports
+  `next/navigation` and `next/link` throughout for routing and URL-synced
+  state; every one of those call sites needs a router abstraction first.
 - **Mixed adapters in one config.** One adapter per `defineAdmin` call.

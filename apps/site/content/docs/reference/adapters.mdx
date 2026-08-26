@@ -1,14 +1,15 @@
 ---
 title: Adapter contract
 description: What FlowPanel needs from a database layer, method by method.
+kind: reference
 ---
 
 The adapter is the only part of FlowPanel that talks to your database.
 Implement this interface to support an ORM that has no shipped adapter — nothing
 else in the framework issues a query.
 
-Shipped adapters: [`drizzleAdapter`](/docs/integrations/drizzle) and
-[`prismaAdapter`](/docs/integrations/prisma).
+Shipped adapters: [`drizzleAdapter`](/docs/introduction/drizzle) and
+[`prismaAdapter`](/docs/introduction/prisma).
 
 ## Adapter
 
@@ -93,6 +94,12 @@ custom routes of your own.
 
 Each shipped adapter takes its own options shape.
 
+<ApiSignature path="../../packages/adapter-drizzle/src/adapter.ts" name="drizzleAdapter" />
+
+<ApiSignature path="../../packages/adapter-prisma/src/adapter.ts" name="prismaAdapter" />
+
+<ApiSignature path="../../packages/adapter-bullmq/src/adapter.ts" name="bullmqAdapter" />
+
 <AutoTypeTable path="../../packages/adapter-drizzle/src/adapter.ts" name="DrizzleAdapterOptions" />
 
 <AutoTypeTable path="../../packages/adapter-prisma/src/adapter.ts" name="PrismaAdapterOptions" />
@@ -125,10 +132,9 @@ falls back to when it declares no `schema`. `PrismaDmmf` is the shape
 `@flowpanel/kit/drizzle` also exports `toCsv` and `toJson` — standalone
 row serializers, not wired into any route by default.
 
-```ts
-function toCsv<Row extends Record<string, unknown>>(rows: Row[], fields: string[]): string;
-function toJson<Row extends Record<string, unknown>>(rows: Row[], fields: string[]): string;
-```
+<ApiSignature path="../../packages/adapter-drizzle/src/export.ts" name="toCsv" />
+
+<ApiSignature path="../../packages/adapter-drizzle/src/export.ts" name="toJson" />
 
 Both project each row down to `fields` before serializing, the same
 declared-columns discipline as the rest of the framework. `toCsv` quotes

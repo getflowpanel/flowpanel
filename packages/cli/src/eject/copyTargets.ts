@@ -1,11 +1,11 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createFilesystemPlan } from "../plan/filesystem-plan.js";
-import { applyFilesystemPlan } from "../plan/transaction.js";
-import type { FileIntent } from "../plan/types.js";
-import { configImportFor, detectAppDir, detectPathAlias } from "../utils/detect.js";
-import { stampMarker } from "./marker.js";
+import { createFilesystemPlan } from "../plan/filesystem-plan";
+import { applyFilesystemPlan } from "../plan/transaction";
+import type { FileIntent } from "../plan/types";
+import { configImportFor, detectAppDir, detectPathAlias } from "../utils/detect";
+import { stampMarker } from "./marker";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 

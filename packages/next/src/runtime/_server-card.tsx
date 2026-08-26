@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../utils/cn.js";
+import { cn } from "../utils/cn";
 
 /** Server-only mirror of `@flowpanel/react`'s `Card` shell. */
 export interface ServerCardProps {

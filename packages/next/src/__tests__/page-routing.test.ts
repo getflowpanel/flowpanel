@@ -1,8 +1,8 @@
 import type { Adapter } from "@flowpanel/core";
 import { defineAdmin, page, resource } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { buildNav } from "../runtime/nav.js";
-import { matchPage } from "../runtime/page-routing.js";
+import { buildNav } from "../runtime/nav";
+import { matchPage } from "../runtime/page-routing";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",

@@ -1,11 +1,11 @@
 "use client";
 import type * as React from "react";
-import { useComponent } from "../_provider/ComponentsContext.js";
-import { DefaultAvatar } from "./AvatarDefault.js";
+import { useComponent } from "../_provider/ComponentsContext";
+import { DefaultAvatar } from "./AvatarDefault";
 
-export { type AvatarProps, DefaultAvatar } from "./AvatarDefault.js";
+export { type AvatarProps, DefaultAvatar } from "./AvatarDefault";
 
-export function Avatar(props: import("./AvatarDefault.js").AvatarProps): React.JSX.Element {
+export function Avatar(props: import("./AvatarDefault").AvatarProps): React.JSX.Element {
   const Slot = useComponent("Avatar", DefaultAvatar);
   return <Slot {...props} />;
 }

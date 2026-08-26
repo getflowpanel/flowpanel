@@ -1,4 +1,4 @@
-import { FlowpanelAccessError } from "../types/error.js";
+import { FlowpanelAccessError } from "../types/error";
 
 export interface ScopeCheckInput {
   hasGlobal: boolean;

@@ -2,8 +2,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { assertPlanHasNoConflicts, createFilesystemPlan, publicPlan } from "../filesystem-plan.js";
-import { applyFilesystemPlan } from "../transaction.js";
+import { assertPlanHasNoConflicts, createFilesystemPlan, publicPlan } from "../filesystem-plan";
+import { applyFilesystemPlan } from "../transaction";
 
 let cwd: string;
 

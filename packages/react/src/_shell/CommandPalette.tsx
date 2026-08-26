@@ -1,7 +1,7 @@
 "use client";
 import { Command } from "cmdk";
 import type * as React from "react";
-import { DialogDescription, DialogTitle } from "../ui/dialog.js";
+import { DialogDescription, DialogTitle } from "../ui/dialog";
 
 export interface CommandGroupUI {
   label: string;

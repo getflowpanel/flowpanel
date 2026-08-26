@@ -1,5 +1,5 @@
-import rule from "../require-unique-resource-names.js";
-import { ruleTester } from "./setup.js";
+import rule from "../require-unique-resource-names";
+import { ruleTester } from "./setup";
 
 ruleTester().run("require-unique-resource-names", rule, {
   valid: [

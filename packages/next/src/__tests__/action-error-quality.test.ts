@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -14,9 +14,9 @@ import type {
   ResourceConfig,
   RowAction,
 } from "@flowpanel/core";
-import { bulkActionRoute } from "../actions/bulk-action.js";
-import { dashboardActionRoute } from "../actions/dashboard-action.js";
-import { rowActionRoute } from "../actions/row-action.js";
+import { bulkActionRoute } from "../actions/bulk-action";
+import { dashboardActionRoute } from "../actions/dashboard-action";
+import { rowActionRoute } from "../actions/row-action";
 
 const adapter: Adapter = {
   kind: "drizzle",
@@ -132,53 +132,8 @@ describe("malformed JSON body", () => {
   });
 });
 
-describe("404 messages name what was asked for, in development", () => {
-  it("row action: unknown resource lists the registered ones", async () => {
-    const res = await rowActionRoute(makeConfig())(jsonReq("{}"), {
-      params: Promise.resolve({ resource: "ghost", id: "u1", action: "ping" }),
-    });
-    expect(res.status).toBe(404);
-    expect((await res.json()).error).toBe(
-      'resource not found: "ghost". Registered resources: "users", "orders".',
-    );
-  });
-
-  it("row action: unknown action lists the resource's action keys", async () => {
-    const res = await rowActionRoute(makeConfig())(jsonReq("{}"), {
-      params: Promise.resolve({ resource: "users", id: "u1", action: "nope" }),
-    });
-    expect((await res.json()).error).toBe('action not found: "nope". Registered actions: "ping".');
-  });
-
-  it("row action: a resource with no actions reports (none)", async () => {
-    const res = await rowActionRoute(makeConfig())(jsonReq("{}"), {
-      params: Promise.resolve({ resource: "orders", id: "o1", action: "nope" }),
-    });
-    expect((await res.json()).error).toBe('action not found: "nope". Registered actions: (none).');
-  });
-
-  it("bulk action: unknown action lists the bulk keys", async () => {
-    const res = await bulkActionRoute(makeConfig())(jsonReq("{}"), {
-      params: Promise.resolve({ resource: "users", action: "nope" }),
-    });
-    expect((await res.json()).error).toBe(
-      'action not found: "nope". Registered actions: "archive".',
-    );
-  });
-
-  it("dashboard action: unknown dashboard lists the registered paths", async () => {
-    const res = await dashboardActionRoute(makeConfig())(jsonReq("{}"), {
-      params: Promise.resolve({ dashboard: "pipeline", action: "rebuild" }),
-    });
-    expect((await res.json()).error).toBe(
-      'dashboard not found: "/pipeline". Registered dashboards: "/".',
-    );
-  });
-});
-
-describe("404 messages stay terse in production", () => {
+describe("404 bodies never enumerate the registry", () => {
   it("row action: unknown resource", async () => {
-    process.env.NODE_ENV = "production";
     const res = await rowActionRoute(makeConfig())(jsonReq("{}"), {
       params: Promise.resolve({ resource: "ghost", id: "u1", action: "ping" }),
     });
@@ -187,18 +142,55 @@ describe("404 messages stay terse in production", () => {
   });
 
   it("row action: unknown action", async () => {
-    process.env.NODE_ENV = "production";
     const res = await rowActionRoute(makeConfig())(jsonReq("{}"), {
       params: Promise.resolve({ resource: "users", id: "u1", action: "nope" }),
     });
     expect((await res.json()).error).toBe("action not found");
   });
 
+  it("bulk action: unknown action", async () => {
+    const res = await bulkActionRoute(makeConfig())(jsonReq("{}"), {
+      params: Promise.resolve({ resource: "users", action: "nope" }),
+    });
+    expect((await res.json()).error).toBe("action not found");
+  });
+
   it("dashboard action: unknown dashboard", async () => {
-    process.env.NODE_ENV = "production";
     const res = await dashboardActionRoute(makeConfig())(jsonReq("{}"), {
       params: Promise.resolve({ dashboard: "pipeline", action: "rebuild" }),
     });
     expect((await res.json()).error).toBe("dashboard not found");
+  });
+
+  it("stays terse in production too", async () => {
+    process.env.NODE_ENV = "production";
+    const res = await rowActionRoute(makeConfig())(jsonReq("{}"), {
+      params: Promise.resolve({ resource: "ghost", id: "u1", action: "ping" }),
+    });
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe("resource not found");
+  });
+});
+
+describe("404s report the registry on the server log in development", () => {
+  it("names what was asked for and what is registered", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await rowActionRoute(makeConfig())(jsonReq("{}"), {
+      params: Promise.resolve({ resource: "ghost", id: "u1", action: "ping" }),
+    });
+    expect(warn).toHaveBeenCalledWith(
+      '[flowpanel] resource not found: "ghost". Registered resources: "users", "orders".',
+    );
+    warn.mockRestore();
+  });
+
+  it("stays silent in production", async () => {
+    process.env.NODE_ENV = "production";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await rowActionRoute(makeConfig())(jsonReq("{}"), {
+      params: Promise.resolve({ resource: "ghost", id: "u1", action: "ping" }),
+    });
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

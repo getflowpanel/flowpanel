@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 // Spy on the publisher module we'll create — use dynamic import after mock
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -20,8 +20,8 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ getAll: () => [] }),
 }));
 
-import { makeActions } from "../actions/resource-actions.js";
-import { publishResource } from "../runtime/publish.js";
+import { makeActions } from "../actions/resource-actions";
+import { publishResource } from "../runtime/publish";
 
 function fakeConfig(): { config: ResolvedAdminConfig; resource: ResourceConfig } {
   const adapter: Adapter = {

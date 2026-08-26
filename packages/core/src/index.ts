@@ -1,57 +1,50 @@
-export { devAuth } from "./auth/dev.js";
-export { dashboard, page } from "./builders/dashboard.js";
-export { queue } from "./builders/queue.js";
-export { resource } from "./builders/resource.js";
-export { custom, metric, statGroup, table } from "./builders/widget.js";
-export { defineAdmin } from "./define-admin.js";
-export { humanize, resolveFieldLabel } from "./humanize.js";
-export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access.js";
-export { evaluateUiCondition } from "./policy/conditions.js";
-export { assertWritableInput, filterReadableProjection } from "./policy/fields.js";
-export { resolveResourceName } from "./resource-name.js";
-export { emitAudit } from "./runtime/audit.js";
-export { checkRequireRole, type RequireRole } from "./runtime/auth.js";
-export { type MutationPipelineStage, runMutationPipeline } from "./runtime/operation-pipeline.js";
-export { createPublisher, type Publisher, type PublisherOptions } from "./runtime/publish.js";
+export { devAuth } from "./auth/dev";
+export { dashboard, page } from "./builders/dashboard";
+export { queue } from "./builders/queue";
+export { resource } from "./builders/resource";
+export { custom, metric, statGroup, table } from "./builders/widget";
+export { isBuiltinBulkDelete } from "./compiler/builtin-bulk-delete";
+export { defineAdmin } from "./define-admin";
+export { formatColumnValue } from "./format-column";
+export { humanize, resolveFieldLabel } from "./humanize";
+export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";
+export { assertWritableInput, filterReadableProjection } from "./policy/fields";
+export { resolveResourceName } from "./resource-name";
+export { emitAudit } from "./runtime/audit";
+export { checkRequireRole, type RequireRole } from "./runtime/auth";
+export { createPublisher, type Publisher, type PublisherOptions } from "./runtime/publish";
 export {
   createRateLimiter,
   type RateLimiter,
   type RateLimitOptions,
-} from "./runtime/rate-limit.js";
+} from "./runtime/rate-limit";
 export {
   getRequestContext,
   runWithRequestContext,
   tryGetRequestContext,
-} from "./runtime/request-context.js";
-export { errorResult, reportUnexpectedError, resultResponse } from "./runtime/result.js";
-export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope.js";
-export { assertAdapterCapabilities } from "./testing/adapter-conformance.js";
+} from "./runtime/request-context";
+export { errorResult, reportUnexpectedError, resultResponse } from "./runtime/result";
+export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope";
 export type {
   ActionInput,
   ActionResult,
   BulkAction,
   DashboardAction,
   RowAction,
-} from "./types/action.js";
-export { bulkAction, dashboardAction, rowAction } from "./types/action.js";
+} from "./types/action";
+export { bulkAction, dashboardAction, rowAction } from "./types/action";
 export type {
   Adapter,
   AdapterKind,
   ColumnMeta,
   ResourceIntrospection,
-} from "./types/adapter.js";
-export {
-  type AdapterCapabilities,
-  type AdapterV2,
-  adapterCapabilities,
-  type BoundAdapterScope,
-  bindAdapterScope,
-} from "./types/adapter-v2.js";
+} from "./types/adapter";
+export { type BoundAdapterScope, bindAdapterScope } from "./types/bound-scope";
 export type {
   CommandGroup,
   CommandItem,
   CommandPaletteConfig,
-} from "./types/command.js";
+} from "./types/command";
 export type {
   AdminConfig,
   AdminDefinition,
@@ -65,7 +58,7 @@ export type {
   ShellConfig,
   ShellMode,
   ThemeConfig,
-} from "./types/config.js";
+} from "./types/config";
 export type {
   ActionContext,
   ErrorContext,
@@ -77,8 +70,8 @@ export type {
   QueryContext,
   RequestContext,
   StructuredFilterValue,
-} from "./types/context.js";
-export { isFilterInValue, isFilterRangeValue } from "./types/context.js";
+} from "./types/context";
+export { isFilterInValue, isFilterRangeValue } from "./types/context";
 export type {
   DashboardConfig,
   DateRangeConfig,
@@ -86,7 +79,7 @@ export type {
   PageConfig,
   ResolvedDateRange,
   SectionConfig,
-} from "./types/dashboard.js";
+} from "./types/dashboard";
 export type {
   DrawerAction,
   DrawerConfig,
@@ -97,7 +90,7 @@ export type {
   DrawerTabResource,
   DrawerTabWidgets,
   DrawerWidth,
-} from "./types/drawer.js";
+} from "./types/drawer";
 export {
   FlowpanelAccessError,
   FlowpanelAuthError,
@@ -109,16 +102,16 @@ export {
   FlowpanelRateLimitError,
   FlowpanelUnknownFieldError,
   FlowpanelValidationError,
-} from "./types/error.js";
-export type { IconName } from "./types/icon.js";
+} from "./types/error";
+export type { IconName } from "./types/icon";
 export {
   DEFAULT_LABELS,
   formatLabel,
   type LabelsConfig,
   mergeLabels,
   type ResolvedLabels,
-} from "./types/labels.js";
-export type { AdminPaths, AdminPathsInput } from "./types/paths.js";
+} from "./types/labels";
+export type { AdminPaths, AdminPathsInput } from "./types/paths";
 export type {
   AccessContext,
   AccessRule,
@@ -128,10 +121,9 @@ export type {
   JsonValue,
   ResourceAccess,
   ResourceOperation,
-  UiCondition,
-} from "./types/policy.js";
-export type { QueueConfig, QueueOptions } from "./types/queue.js";
-export type { RealtimeConfig } from "./types/realtime.js";
+} from "./types/policy";
+export type { QueueConfig, QueueOptions } from "./types/queue";
+export type { RealtimeConfig } from "./types/realtime";
 export type {
   FlowpanelResources,
   FlowpanelTypes,
@@ -139,7 +131,7 @@ export type {
   InferRow,
   ReferenceSpec,
   ResourceName,
-} from "./types/registry.js";
+} from "./types/registry";
 export type {
   AnyResourceConfig,
   ColumnDef,
@@ -153,7 +145,7 @@ export type {
   ResourceConfig,
   ResourceOptions,
   SelectOption,
-} from "./types/resource.js";
+} from "./types/resource";
 export {
   FLOWPANEL_ERROR_STATUS,
   type FlowpanelErrorCode,
@@ -162,8 +154,8 @@ export {
   type FlowpanelResultMeta,
   type FlowpanelWarning,
   type FlowpanelWarningCode,
-} from "./types/result.js";
-export type { Scope, ScopeContext, Session } from "./types/session.js";
+} from "./types/result";
+export type { Scope, ScopeContext, Session } from "./types/session";
 export type {
   AreaChartOptions,
   AreaChartWidget,
@@ -192,4 +184,4 @@ export type {
   Tone,
   WidgetConfig,
   WidgetContext,
-} from "./types/widget.js";
+} from "./types/widget";

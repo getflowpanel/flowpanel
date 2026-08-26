@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LABELS, formatLabel, mergeLabels } from "../labels.js";
+import { DEFAULT_LABELS, formatLabel, mergeLabels } from "../labels";
 
 describe("mergeLabels", () => {
   it("returns the singleton DEFAULT_LABELS when user is undefined", () => {

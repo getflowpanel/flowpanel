@@ -24,25 +24,26 @@ import {
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
 import { AutoForm, Button, FlowpanelIcon, PageHeader } from "@flowpanel/react";
-import { serializeBulkAction } from "../actions/bulk-action.js";
-import { type SerializedRowAction, serializeRowAction } from "../actions/row-action.js";
-import { filterActionsByAccess } from "../runtime/action-helpers.js";
-import { buildHref } from "../runtime/href.js";
-import { resourceNavName } from "../runtime/nav.js";
+import { serializeBulkAction } from "../actions/bulk-action";
+import { type SerializedRowAction, serializeRowAction } from "../actions/row-action";
+import { filterActionsByAccess } from "../runtime/action-helpers";
+import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { buildHref } from "../runtime/href";
+import { resourceNavName } from "../runtime/nav";
 import {
   declaredFieldSet,
   parseListParams,
   resolveFilterSpecs,
   sanitizeFilterValues,
-} from "../runtime/parse-list-params.js";
-import { prerenderResourceCells } from "../runtime/prerender-cells.js";
-import { projectAuthorizedRow } from "../runtime/project-row.js";
-import { applyReferenceCells } from "../runtime/reference-cells.js";
-import { buildRequestContext } from "../runtime/request-setup.js";
-import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields.js";
-import { resolveReferences } from "../runtime/resolve-references.js";
-import { singularLabel } from "../runtime/resource-title.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
+} from "../runtime/parse-list-params";
+import { prerenderResourceCells } from "../runtime/prerender-cells";
+import { projectAuthorizedRow } from "../runtime/project-row";
+import { applyReferenceCells } from "../runtime/reference-cells";
+import { buildRequestContext } from "../runtime/request-setup";
+import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
+import { resolveReferences } from "../runtime/resolve-references";
+import { singularLabel } from "../runtime/resource-title";
+import { scopeBinding } from "../runtime/scope-binding";
 
 export interface ResourceListPageProps {
   config: ResolvedAdminConfig;
@@ -78,7 +79,7 @@ export async function ResourceListPage({
   });
 
   const name = resourceNavName(resource);
-  const configuredPageSize = resource.options.pageSize ?? 20;
+  const configuredPageSize = resource.options.pageSize ?? DEFAULT_RESOURCE_PAGE_SIZE;
   // Match attacker-controlled `?perPage=` to the offered bounded options.
   const pageSizeOptions = pageSizeChoices(configuredPageSize);
   const requestedPageSize = Number(searchParams.get("perPage"));
@@ -153,7 +154,7 @@ export async function ResourceListPage({
     fkLabels,
   );
 
-  const rowKey = (resource.options.rowKey as string | undefined) ?? "id";
+  const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
   const useDrawerRowClick = resource.options.rowClick === "drawer" && !!resource.options.drawer;
 
   const deletedRowKeys: string[] | undefined = softDelete
@@ -213,7 +214,7 @@ export async function ResourceListPage({
               actions: (
                 <CreateDrawer label="Add new" title={`New ${createLabel}`}>
                   <AutoForm
-                    action={`/api/flowpanel/${name}/create`}
+                    action={`${config.paths.api}/${name}/create`}
                     columns={config.adapter.introspect(resource.ref).columns}
                     {...(createFields ? { fields: createFields } : {})}
                     submitLabel="Create"

@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { PrismaDmmf, PrismaDmmfField } from "./introspect.js";
+import type { PrismaDmmf, PrismaDmmfField } from "./introspect";
 
-export type { PrismaDmmf } from "./introspect.js";
+export type { PrismaDmmf } from "./introspect";
 
 function fieldToZod(field: PrismaDmmfField, dmmf: PrismaDmmf): z.ZodTypeAny {
   if (field.isList) return z.array(z.unknown());

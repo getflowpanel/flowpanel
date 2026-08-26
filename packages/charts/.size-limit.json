@@ -1,0 +1,8 @@
+[
+  {
+    "name": "@flowpanel/charts (own code; recharts is a peer)",
+    "path": "dist/runtime.js",
+    "import": "{ AreaChart, BarChart, LineChart, PieChart }",
+    "limit": "8 KB"
+  }
+]

@@ -1,5 +1,5 @@
-import type { DashboardConfig } from "./types/dashboard.js";
-import type { ResourceConfig } from "./types/resource.js";
+import type { DashboardConfig } from "./types/dashboard";
+import type { ResourceConfig } from "./types/resource";
 
 interface RefSite {
   /** Resource name the config points at. */

@@ -1,13 +1,14 @@
 ---
 title: Widgets
 description: Every widget builder and the options it accepts.
+kind: reference
 ---
 
 Widgets are the contents of a dashboard section, and of a drawer's widget tab.
 Each builder returns a `WidgetConfig`; every `query` runs on the server with a
 `WidgetContext`.
 
-```ts
+```ts excerpt
 import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
 import { areaChart } from "@flowpanel/kit/charts";
 
@@ -56,9 +57,7 @@ widget re-runs its query — the rest of the dashboard stays put.
 
 ## metric
 
-```ts
-metric(label: string, query: (ctx) => Promise<number | string>, options?: MetricOptions)
-```
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="metric" />
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricOptions" />
 
@@ -74,9 +73,7 @@ registry described under [resource icons](/docs/reference/resources#icons).
 
 ## table
 
-```ts
-table<R>(options: TableWidgetOptions<R>)
-```
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="table" />
 
 Point it at a registered `resource` to reuse that resource's columns, or supply
 your own `query` and `columns`.
@@ -91,9 +88,7 @@ string is accepted.
 
 ## statGroup
 
-```ts
-statGroup(options: StatGroupOptions)
-```
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="statGroup" />
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="StatGroupOptions" />
 
@@ -107,9 +102,7 @@ inside async `value` resolvers.
 
 ## custom
 
-```ts
-custom<P>(Component: ComponentType<P>, props: P | ((ctx) => Promise<P>), options?: CustomOptions)
-```
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="custom" />
 
 Renders your own component in the grid. `props` may be a value or a function
 resolved on the server per request, which is how you feed it query results.
@@ -121,7 +114,7 @@ resolved on the server per request, which is how you feed it query results.
 Chart builders live in `@flowpanel/kit/charts`, which is a separate entry point
 so the recharts bundle never loads for admins that use no charts.
 
-```ts
+```ts excerpt
 import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts";
 ```
 
@@ -140,17 +133,25 @@ Shared by area, bar and line charts.
 
 ### areaChart
 
+<ApiSignature path="../../packages/charts/src/builders/areaChart.ts" name="areaChart" />
+
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="AreaChartOptions" />
 
 ### barChart
+
+<ApiSignature path="../../packages/charts/src/builders/barChart.ts" name="barChart" />
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="BarChartOptions" />
 
 ### lineChart
 
+<ApiSignature path="../../packages/charts/src/builders/lineChart.ts" name="lineChart" />
+
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="LineChartOptions" />
 
 ### pieChart
+
+<ApiSignature path="../../packages/charts/src/builders/pieChart.ts" name="pieChart" />
 
 Pie charts take `category` / `value` instead of `x` / `y`.
 
@@ -158,10 +159,9 @@ Pie charts take `category` / `value` instead of `x` / `y`.
 
 ## Dashboards
 
-```ts
-dashboard(config: DashboardConfig): DashboardConfig
-page(config: PageConfig): PageConfig
-```
+<ApiSignature path="../../packages/core/src/builders/dashboard.ts" name="dashboard" />
+
+<ApiSignature path="../../packages/core/src/builders/dashboard.ts" name="page" />
 
 Both are identity functions — they exist so the object literal is checked
 against its type at the call site and reads as a builder alongside `resource()`

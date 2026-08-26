@@ -1,6 +1,6 @@
 import type { WidgetConfig } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { widgetSpanClassName } from "../pages/dashboard.js";
+import { widgetSpanClassName } from "../pages/dashboard";
 
 describe("widgetSpanClassName", () => {
   it("returns undefined when the widget declares no span", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -9,7 +9,7 @@ vi.mock("../runtime/publish.js", () => ({
 
 import type { Adapter, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { z } from "zod";
-import { importRoute } from "../actions/resource-import.js";
+import { importRoute } from "../actions/resource-import";
 
 // Mirrors what `createInsertSchema(table)` (drizzle-zod) actually produces —
 // plain, non-coercing `z.number()` / `z.boolean()` / `z.date()` — so this

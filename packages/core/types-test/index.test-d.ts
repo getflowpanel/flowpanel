@@ -47,14 +47,7 @@ expectAssignable<AdapterKind>("drizzle");
 expectAssignable<AdapterKind>("prisma");
 // third-party adapters may name themselves
 expectAssignable<AdapterKind>("mikro-orm");
-expectAssignable<AdapterCapabilities>({
-  version: 2,
-  projections: true,
-  transactions: false,
-  atomicImport: false,
-  returningRows: true,
-  migrations: false,
-});
+expectAssignable<AdapterCapabilities>({ version: 2 });
 expectType<BoundAdapterScope>(bindAdapterScope((query) => query));
 
 // ── resource builder: produces ResourceConfig with __kind discriminant ───

@@ -21,7 +21,7 @@ vi.mock("ioredis", () => ({
   }),
 }));
 
-import { createPublisher } from "../runtime/publish.js";
+import { createPublisher } from "../runtime/publish";
 
 beforeEach(() => {
   callCount = 0;

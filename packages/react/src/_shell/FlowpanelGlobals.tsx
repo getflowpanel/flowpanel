@@ -1,21 +1,21 @@
 import type { LabelsConfig } from "@flowpanel/core";
 import type * as React from "react";
-import { ToastProvider } from "../_feedback/Toast.js";
-import {
-  ComponentsProvider,
-  type FlowpanelComponentSlots,
-} from "../_provider/ComponentsContext.js";
-import { LabelsProvider } from "../_provider/LabelsContext.js";
-import type { ThemeMode } from "../lib/theme.js";
-import { RealtimeProvider } from "../realtime/RealtimeProvider.js";
-import { ThemeRuntime } from "./ThemeRuntime.js";
+import { ToastProvider } from "../_feedback/Toast";
+import { ApiBaseProvider } from "../_provider/ApiBaseContext";
+import { ComponentsProvider, type FlowpanelComponentSlots } from "../_provider/ComponentsContext";
+import { LabelsProvider } from "../_provider/LabelsContext";
+import type { ThemeMode } from "../lib/theme";
+import { RealtimeProvider } from "../realtime/RealtimeProvider";
+import { ThemeRuntime } from "./ThemeRuntime";
 
 export interface FlowpanelGlobalsProps {
   themeComponents?: Partial<FlowpanelComponentSlots>;
   labels?: LabelsConfig;
   /** Default theme mode when the user has no stored choice. */
   themeMode?: ThemeMode;
-  /** Override the SSE endpoint used by widget realtime subscriptions. */
+  /** Where the route handlers are mounted — `paths.api`. Every client fetch is built from it. */
+  apiBase?: string;
+  /** Override the SSE endpoint. Defaults to `${apiBase}/stream`. */
   realtimeEndpoint?: string;
   children: React.ReactNode;
 }
@@ -24,21 +24,25 @@ export function FlowpanelGlobals({
   themeComponents,
   labels,
   themeMode,
+  apiBase,
   realtimeEndpoint,
   children,
 }: FlowpanelGlobalsProps) {
+  const endpoint = realtimeEndpoint ?? (apiBase ? `${apiBase}/stream` : undefined);
   return (
     <ComponentsProvider {...(themeComponents ? { value: themeComponents } : {})}>
-      <LabelsProvider {...(labels ? { value: labels } : {})}>
-        <RealtimeProvider {...(realtimeEndpoint ? { endpoint: realtimeEndpoint } : {})}>
-          <ToastProvider>
-            <div data-flowpanel-root="" className="contents">
-              <ThemeRuntime {...(themeMode ? { defaultMode: themeMode } : {})} />
-              {children}
-            </div>
-          </ToastProvider>
-        </RealtimeProvider>
-      </LabelsProvider>
+      <ApiBaseProvider {...(apiBase ? { value: apiBase } : {})}>
+        <LabelsProvider {...(labels ? { value: labels } : {})}>
+          <RealtimeProvider {...(endpoint ? { endpoint } : {})}>
+            <ToastProvider>
+              <div data-flowpanel-root="" className="min-h-full">
+                <ThemeRuntime {...(themeMode ? { defaultMode: themeMode } : {})} />
+                {children}
+              </div>
+            </ToastProvider>
+          </RealtimeProvider>
+        </LabelsProvider>
+      </ApiBaseProvider>
     </ComponentsProvider>
   );
 }

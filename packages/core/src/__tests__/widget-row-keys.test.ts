@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from "vitest";
-import { table } from "../builders/widget.js";
-import type { BarChartOptions, PieChartOptions, RowKey, TableWidgetOptions } from "../index.js";
+import { table } from "../builders/widget";
+import type { BarChartOptions, PieChartOptions, RowKey, TableWidgetOptions } from "../index";
 
 type Row = { model: string; confidence: number };
 

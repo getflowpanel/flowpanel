@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveDateRange } from "../runtime/date-range.js";
+import { resolveDateRange } from "../runtime/date-range";
 
 describe("resolveDateRange", () => {
   beforeEach(() => {

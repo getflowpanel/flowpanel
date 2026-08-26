@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useMemo } from "react";
-import { useUrlState } from "./useUrlState.js";
+import { useUrlState } from "./useUrlState";
 
 export interface AdminDrawerState {
   resource: string | null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PrismaDmmf } from "../introspect.js";
-import { inferSchema } from "../schema.js";
+import type { PrismaDmmf } from "../introspect";
+import { inferSchema } from "../schema";
 
 const testDmmf: PrismaDmmf = {
   datamodel: {

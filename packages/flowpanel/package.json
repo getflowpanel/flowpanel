@@ -2,6 +2,18 @@
   "name": "@flowpanel/kit",
   "version": "0.1.0",
   "description": "Config-first admin panel framework for Next.js 16",
+  "keywords": [
+    "flowpanel",
+    "admin",
+    "admin-panel",
+    "dashboard",
+    "nextjs",
+    "react",
+    "crud",
+    "rbac",
+    "drizzle",
+    "prisma"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -65,6 +77,7 @@
     },
     "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "files": [
     "dist",
     "README.md"

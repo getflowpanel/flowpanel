@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -19,8 +19,8 @@ import type {
   SecurityConfig,
 } from "@flowpanel/core";
 import { FlowpanelConflictError } from "@flowpanel/core";
-import { bulkActionRoute } from "../actions/bulk-action.js";
-import { withGuards } from "../runtime/with-guards.js";
+import { bulkActionRoute } from "../actions/bulk-action";
+import { withGuards } from "../runtime/with-guards";
 
 type Row = { id: string; reason: string };
 

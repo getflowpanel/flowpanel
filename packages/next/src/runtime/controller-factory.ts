@@ -4,11 +4,11 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { createDashboardController } from "../controllers/dashboard-controller.js";
+import { createDashboardController } from "../controllers/dashboard-controller";
 import {
   createResourceController,
   type ResourceController,
-} from "../controllers/resource-controller.js";
+} from "../controllers/resource-controller";
 
 type RowOf<Resource> =
   Resource extends ResourceConfig<infer _Ref, infer Row, infer _Options>

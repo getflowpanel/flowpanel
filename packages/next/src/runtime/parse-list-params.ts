@@ -1,4 +1,5 @@
 import type { FilterDef, FilterInValue, FilterRangeValue, FilterType } from "@flowpanel/core";
+import { toWireOptions } from "./select-options";
 
 export interface ListParams {
   page: number;
@@ -96,13 +97,9 @@ export async function resolveFilterSpecs<Row>(
     const def = d as FilterDef<Row>;
     let options: { label: string; value: string }[] | undefined;
     if (typeof def.options === "function") {
-      const resolved = await def.options(ctx as never);
-      options = resolved.map((o) => ({ label: o.label, value: String(o.value) }));
+      options = toWireOptions(await def.options(ctx as never));
     } else if (Array.isArray(def.options)) {
-      options = def.options.map((o) => {
-        if (typeof o === "string") return { label: o, value: o };
-        return { label: o.label, value: String(o.value) };
-      });
+      options = toWireOptions(def.options);
     }
     out.push({
       field: String(def.field),

@@ -1,6 +1,6 @@
 import type { ActionResult, FlowpanelWarning } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
-import { publish, publishResource } from "./publish.js";
+import { publish, publishResource } from "./publish";
 
 export interface ApplyActionResultOptions {
   resourceName?: string;

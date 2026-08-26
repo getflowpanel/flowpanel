@@ -14,7 +14,7 @@ export async function register(): Promise<void> {
     const { bindPublisher } = await import("@flowpanel/kit/next");
     const { default: config } = await import("@/src/admin/config");
     bindPublisher(config);
-    const { startMarketActivityTicker } = await import("@/src/demo/realtime/feed");
-    startMarketActivityTicker();
+    const { startLiveOperationsTicker } = await import("@/src/demo/realtime/feed");
+    startLiveOperationsTicker();
   }
 }

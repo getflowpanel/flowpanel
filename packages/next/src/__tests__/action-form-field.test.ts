@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mapActionIssuesToFieldErrors } from "../actions/action-form-field.js";
-import {
-  serializeActionForm,
-  serializeActionFormField,
-} from "../actions/serialize-action-field.js";
+import { mapActionIssuesToFieldErrors } from "../actions/action-form-field";
+import { serializeActionForm, serializeActionFormField } from "../actions/serialize-action-field";
 
 describe("mapActionIssuesToFieldErrors", () => {
   it("returns null for an empty or undefined issue list", () => {

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
-import type { RealtimeStatus } from "../realtime/context.js";
-import { useRealtimeBus } from "../realtime/hooks.js";
+import type { RealtimeStatus } from "../realtime/context";
+import { useRealtimeBus } from "../realtime/hooks";
 
 /** Max number of status transitions retained in the rolling log. */
 export const LOG_LIMIT = 50;

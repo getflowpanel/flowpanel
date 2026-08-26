@@ -1,5 +1,5 @@
 "use client";
-import type { LiveStatus } from "../hooks/useLiveChannel.js";
+import type { LiveStatus } from "../hooks/useLiveChannel";
 
 export interface LiveIndicatorProps {
   status: LiveStatus;

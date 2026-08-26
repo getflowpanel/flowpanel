@@ -5,7 +5,7 @@ import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { drizzleAdapter } from "../index.js";
+import { drizzleAdapter } from "../index";
 
 // Check Docker availability synchronously so describe.skipIf works at module load time.
 function isDockerAvailable(): boolean {

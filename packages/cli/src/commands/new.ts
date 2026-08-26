@@ -3,11 +3,11 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
-import { editConfigToAddResource } from "../eject/addResource.js";
-import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan.js";
-import { applyFilesystemPlan } from "../plan/transaction.js";
-import { fileExists } from "../utils/detect.js";
-import { writeJson, writePlanJson } from "../utils/output.js";
+import { editConfigToAddResource } from "../eject/addResource";
+import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
+import { applyFilesystemPlan } from "../plan/transaction";
+import { fileExists } from "../utils/detect";
+import { writeJson, writePlanJson } from "../utils/output";
 
 /** Locate the user's flowpanel config. */
 async function findConfigFile(
@@ -102,6 +102,15 @@ async function checkSchemaExport(
   };
 }
 
+export type AdapterKind = "drizzle" | "prisma";
+export const ADAPTER_KINDS: ReadonlyArray<AdapterKind> = ["drizzle", "prisma"];
+
+/** The default when `--kind` is absent; `null` for a value the flag does not accept. */
+export function parseAdapterKind(raw: string | undefined): AdapterKind | null {
+  if (raw === undefined) return "drizzle";
+  return ADAPTER_KINDS.includes(raw as AdapterKind) ? (raw as AdapterKind) : null;
+}
+
 export function newCommand(cli: Command): void {
   cli
     .command("new <resource>")
@@ -118,6 +127,14 @@ export function newCommand(cli: Command): void {
         if (!opts.json) p.intro(pc.bgGreen(pc.black(" FlowPanel new ")));
 
         const cwd = process.cwd();
+        const kind = parseAdapterKind(opts.kind);
+        if (kind === null) {
+          const message = `Unknown --kind "${opts.kind}". Use one of: ${ADAPTER_KINDS.join(", ")}`;
+          if (opts.json) writeJson({ command: "new", applied: false, error: message });
+          else p.cancel(message);
+          process.exit(1);
+        }
+
         const found = await findConfigFile(cwd);
         if (!found) {
           const message = "flowpanel.config.ts not found — run `flowpanel init` first.";
@@ -127,7 +144,6 @@ export function newCommand(cli: Command): void {
         }
 
         const source = await fs.readFile(found.path, "utf8");
-        const kind = opts.kind === "prisma" ? "prisma" : "drizzle";
 
         if (kind === "drizzle" && opts.table === undefined) {
           const check = await checkSchemaExport(cwd, source, resource);

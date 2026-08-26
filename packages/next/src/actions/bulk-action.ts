@@ -5,23 +5,28 @@ import type {
   ItemQueryContext,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
-import { FlowpanelNotFoundError, runWithRequestContext } from "@flowpanel/core";
-import { parseActionBody } from "../drawer/parse-action-body.js";
+import {
+  FlowpanelNotFoundError,
+  isBuiltinBulkDelete,
+  runWithRequestContext,
+} from "@flowpanel/core";
+import { parseActionBody } from "../drawer/parse-action-body";
 import {
   actorIdFromSession,
   buildAuditEvent,
   invalidJsonResponse,
   maybeEmitAudit,
   notFoundResponse,
-} from "../runtime/action-helpers.js";
-import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema.js";
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { buildHref } from "../runtime/href.js";
-import { bindPublisher, publish } from "../runtime/publish.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { withGuards } from "../runtime/with-guards.js";
-import type { ActionFormField } from "./action-form-field.js";
-import { serializeActionForm } from "./serialize-action-field.js";
+} from "../runtime/action-helpers";
+import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { deleteRow } from "../runtime/delete-row";
+import { buildHref } from "../runtime/href";
+import { bindPublisher, publish } from "../runtime/publish";
+import { scopeBinding } from "../runtime/scope-binding";
+import { withGuards } from "../runtime/with-guards";
+import type { ActionFormField } from "./action-form-field";
+import { serializeActionForm } from "./serialize-action-field";
 
 /** Wire-safe shape of `BulkAction`. */
 export interface SerializedBulkAction {
@@ -132,10 +137,17 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
       );
     }
 
+    const builtinDelete = isBuiltinBulkDelete(action);
+
     return withGuards(
       config,
       req,
-      { resource, actionAccess: action.access, actionRequireRole: action.requireRole },
+      {
+        resource,
+        actionAccess: action.access,
+        actionRequireRole: action.requireRole,
+        ...(builtinDelete ? { operation: "delete" as const } : {}),
+      },
       async (reqCtx) => {
         const body = await parseBulkBody(req);
         if (!body.ok) {
@@ -194,12 +206,18 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
           }),
         );
 
-        const result = validateActionOutput(
-          action.outputSchema,
-          (await runWithRequestContext(reqCtx, () =>
-            action.run(ids, parsedInput.data, actionCtx),
-          )) as ActionResult<unknown>,
-        );
+        let result: ActionResult<unknown>;
+        if (builtinDelete) {
+          for (const id of ids) await deleteRow(config, resource, id, reqCtx);
+          result = { ok: true, message: `Deleted ${ids.length}` };
+        } else {
+          result = validateActionOutput(
+            action.outputSchema,
+            (await runWithRequestContext(reqCtx, () =>
+              action.run(ids, parsedInput.data, actionCtx),
+            )) as ActionResult<unknown>,
+          );
+        }
 
         const targetId = ids.slice(0, 10).join(",") + (ids.length > 10 ? "…" : "");
         await maybeEmitAudit(

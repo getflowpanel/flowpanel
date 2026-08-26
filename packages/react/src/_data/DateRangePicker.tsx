@@ -2,7 +2,7 @@
 import type { DateRangePreset } from "@flowpanel/core";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Calendar } from "lucide-react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export interface DateRangePickerProps {
   value: { preset?: DateRangePreset; from?: Date; to?: Date };

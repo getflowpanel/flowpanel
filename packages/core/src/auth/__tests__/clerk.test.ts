@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withClerk } from "../clerk.js";
+import { withClerk } from "../clerk";
 
 describe("withClerk", () => {
   it("returns AuthConfig with default role extractor (publicMetadata.role)", () => {

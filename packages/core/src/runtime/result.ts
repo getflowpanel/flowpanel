@@ -1,10 +1,10 @@
-import type { ErrorContext } from "../types/context.js";
-import { FlowpanelError, FlowpanelValidationError } from "../types/error.js";
+import type { ErrorContext } from "../types/context";
+import { FlowpanelError, FlowpanelValidationError } from "../types/error";
 import {
   FLOWPANEL_ERROR_STATUS,
   type FlowpanelResult,
   type FlowpanelResultError,
-} from "../types/result.js";
+} from "../types/result";
 
 const reportedErrors = new WeakSet<object>();
 

@@ -8,7 +8,6 @@ export const runs = resource(schema.runs, {
   label: "Runs",
   labelOne: "Run",
   icon: "refresh",
-  hidden: true,
   columns: [
     {
       field: "monitorId",

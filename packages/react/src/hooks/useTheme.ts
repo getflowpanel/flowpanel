@@ -7,7 +7,7 @@ import {
   type ThemeChoice,
   type ThemeMode,
   toggleTheme as toggleThemeImpl,
-} from "../lib/theme.js";
+} from "../lib/theme";
 
 export interface UseThemeOptions {
   /** Default mode when the user has not made an explicit choice. */

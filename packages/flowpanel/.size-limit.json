@@ -3,7 +3,7 @@
     "name": "flowpanel/react (UI bundle)",
     "path": "dist/react.js",
     "import": "{ AdminShell, DataTable, AutoForm, Form }",
-    "limit": "71 KB"
+    "limit": "72 KB"
   },
   {
     "name": "flowpanel/client (hooks)",
@@ -12,7 +12,7 @@
     "limit": "25 KB"
   },
   {
-    "name": "flowpanel/charts (lazy)",
+    "name": "flowpanel/charts (lazy runtime shim; recharts is a peer)",
     "path": "dist/charts-runtime.js",
     "import": "{ AreaChart, BarChart, PieChart }",
     "limit": "10 KB"

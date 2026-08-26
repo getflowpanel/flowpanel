@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
-import { BASE_DATABASE_URL, E2E_DATABASE_URL, E2E_DB_NAME, withDatabase } from "./e2e-db.js";
+import { BASE_DATABASE_URL, E2E_DATABASE_URL, E2E_DB_NAME, withDatabase } from "./e2e-db";
 
 export default async function globalSetup(): Promise<void> {
   const admin = new Client({ connectionString: withDatabase(BASE_DATABASE_URL, "postgres") });

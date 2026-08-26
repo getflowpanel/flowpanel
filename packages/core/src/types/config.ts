@@ -1,14 +1,14 @@
-import type { RateLimitOptions } from "../runtime/rate-limit.js";
-import type { Adapter } from "./adapter.js";
-import type { CommandPaletteConfig } from "./command.js";
-import type { ErrorContext } from "./context.js";
-import type { DashboardConfig, PageConfig } from "./dashboard.js";
-import type { LabelsConfig } from "./labels.js";
-import type { AdminPaths, AdminPathsInput } from "./paths.js";
-import type { QueueConfig } from "./queue.js";
-import type { RealtimeConfig } from "./realtime.js";
-import type { AnyResourceConfig, ResourceConfig } from "./resource.js";
-import type { Scope, ScopeContext, Session } from "./session.js";
+import type { RateLimitOptions } from "../runtime/rate-limit";
+import type { Adapter } from "./adapter";
+import type { CommandPaletteConfig } from "./command";
+import type { ErrorContext } from "./context";
+import type { DashboardConfig, PageConfig } from "./dashboard";
+import type { LabelsConfig } from "./labels";
+import type { AdminPaths, AdminPathsInput } from "./paths";
+import type { QueueConfig } from "./queue";
+import type { RealtimeConfig } from "./realtime";
+import type { AnyResourceConfig, ResourceConfig } from "./resource";
+import type { Scope, ScopeContext, Session } from "./session";
 
 export type RateLimitConfig = RateLimitOptions & {
   per?: "user" | "ip";

@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartEmptyState } from "./ChartEmptyState.js";
+import { ChartEmptyState } from "./ChartEmptyState";
 import {
   ACTIVE_DOT_PROPS,
   AXIS_STYLE_PROPS,
@@ -23,11 +23,12 @@ import {
   LEGEND_PROPS,
   LINE_TOOLTIP_CURSOR,
   STATIC_SERIES_PROPS,
-} from "./chart-theme.js";
-import { buildTickFormatter } from "./format-tick.js";
+} from "./chart-theme";
+import { DEFAULT_CHART_HEIGHT } from "./defaults";
+import { buildTickFormatter } from "./format-tick";
 
 export function LineChart({ data, options }: { data: unknown[]; options: LineChartOptions }) {
-  const height = options.height ?? 240;
+  const height = options.height ?? DEFAULT_CHART_HEIGHT;
   if (data.length === 0) return <ChartEmptyState height={height} />;
   const ys = Array.isArray(options.y) ? options.y : [options.y];
   const multiSeries = ys.length > 1;

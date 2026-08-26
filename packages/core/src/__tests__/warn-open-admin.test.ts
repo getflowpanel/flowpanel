@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Adapter, AdminConfig } from "../index.js";
-import { defineAdmin, resource } from "../index.js";
+import type { Adapter, AdminConfig } from "../index";
+import { defineAdmin, resource } from "../index";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",

@@ -1,0 +1,75 @@
+---
+title: Configuration
+description: Compose a typed FlowPanel config from resources, dashboards, pages, and runtime policies.
+kind: how-to
+---
+
+`flowpanel.config.ts` is the server-side definition of the admin. Keep it declarative at the top and move individual resources, dashboards, and policies into focused modules as the admin grows.
+
+## Start with the smallest config
+
+The complete first-resource configs are compiled with the docs:
+
+<AdapterTabs>
+  <AdapterTab adapter="drizzle">
+    <include>../../snippets/getting-started/drizzle-config.ts</include>
+  </AdapterTab>
+  <AdapterTab adapter="prisma">
+    <include>../../snippets/getting-started/prisma-config.ts</include>
+  </AdapterTab>
+</AdapterTabs>
+
+The adapter and auth are server-only. `resources`, `dashboards`, and `pages` describe what FlowPanel exposes. Features omitted from config remain unavailable.
+
+## One resource per file
+
+Large inline arrays become difficult to review. Export each resource from a normal TypeScript module and compose them in the root config:
+
+```ts excerpt
+// src/admin/resources/users.ts
+import { resource } from "@flowpanel/kit";
+import { users } from "@/server/lib/db/schema";
+
+export const usersResource = resource(users, {
+  columns: ["email", "name", "role", "createdAt"],
+  search: ["email", "name"],
+});
+```
+
+```ts excerpt
+// flowpanel.config.ts
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth,
+  resources: [usersResource, ordersResource],
+  dashboards: [overviewDashboard],
+});
+```
+
+Use the root file for composition, not a second configuration abstraction. A reader should be able to see every registered surface from its imports and arrays.
+
+## Type database contexts
+
+Augment `FlowpanelTypes` once so `ctx.db` in actions, widgets, filters, and policy callbacks is your actual client:
+
+```ts excerpt
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+```
+
+Drizzle resources infer rows from table objects. Prisma and string-named custom resources use `FlowpanelResources`; see [Type inference and registries](/docs/understand/type-inference).
+
+## Keep policies close to their boundary
+
+Admin-wide auth and tenant resolution belong at the root. Resource access, field policies, action roles, and per-resource scope belong beside the resource they protect. Hiding navigation or a button is never the security boundary—the generated handlers repeat these checks on the server.
+
+Cross-origin write protection is enabled by default. Configure `security.allowedOrigins` only when a trusted origin must submit writes; do not use it as authentication.
+
+## Reload changes
+
+The config is evaluated on the server. Restart the dev process after changing module augmentation, adapter setup, or environment-dependent initialization. Ordinary config edits are normally picked up by Next.js development reload.
+
+Next, add list behavior in [Resources](/docs/build/resources). The exhaustive generated shape is in [Configuration reference](/docs/reference/define-config).

@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { assertPlanHasNoConflicts } from "./filesystem-plan.js";
-import type { FileOperation, FilesystemPlan } from "./types.js";
+import { assertPlanHasNoConflicts } from "./filesystem-plan";
+import type { FileOperation, FilesystemPlan } from "./types";
 
 export interface TransactionHooks {
   /** Test seam invoked immediately before an operation is written. */

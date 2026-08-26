@@ -1,12 +1,12 @@
 "use client";
 import type * as React from "react";
-import { useComponent } from "../_provider/ComponentsContext.js";
-import { DefaultPagination } from "./PaginationDefault.js";
+import { useComponent } from "../_provider/ComponentsContext";
+import { DefaultPagination } from "./PaginationDefault";
 
-export { DefaultPagination, type PaginationProps } from "./PaginationDefault.js";
+export { DefaultPagination, type PaginationProps } from "./PaginationDefault";
 
 export function Pagination(
-  props: import("./PaginationDefault.js").PaginationProps,
+  props: import("./PaginationDefault").PaginationProps,
 ): React.JSX.Element {
   const Slot = useComponent("Pagination", DefaultPagination);
   return <Slot {...props} />;

@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type Check, runDoctorChecks } from "../doctor.js";
+import { type Check, runDoctorChecks } from "../doctor";
 
 // Every case runs a full doctor pass, which shells out to `tsc --noEmit`.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });

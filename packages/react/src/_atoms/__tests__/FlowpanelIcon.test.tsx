@@ -2,7 +2,7 @@
 
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { FlowpanelIcon } from "../FlowpanelIcon.js";
+import { FlowpanelIcon } from "../FlowpanelIcon";
 
 afterEach(cleanup);
 

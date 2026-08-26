@@ -1,7 +1,7 @@
 import type { Adapter, RequestContext } from "@flowpanel/core";
 import { dashboard, defineAdmin, page, queue, resource } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { buildNav, resourceNavName } from "../runtime/nav.js";
+import { buildNav, resourceNavName } from "../runtime/nav";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",

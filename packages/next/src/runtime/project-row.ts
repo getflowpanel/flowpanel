@@ -1,5 +1,6 @@
 import type { RequestContext, ResourceConfig } from "@flowpanel/core";
 import { filterReadableProjection } from "@flowpanel/core";
+import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
 
 /** Add a single declared-field entry to `fields`. */
 function addField(fields: Set<string>, entry: unknown): void {
@@ -30,7 +31,7 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
   };
 
   for (const c of options.columns ?? []) addField(fields, c);
-  fields.add(options.rowKey ?? "id");
+  fields.add(options.rowKey ?? DEFAULT_RESOURCE_ROW_KEY);
 
   if (options.drawer) {
     addFieldList(fields, options.drawer.fields);
@@ -43,24 +44,6 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
   }
 
   return fields;
-}
-
-export function projectRow<Row extends Record<string, unknown>>(
-  resource: ResourceConfig,
-  row: Row,
-  extraFields?: Iterable<string>,
-): Row {
-  const fields = declaredRowFields(resource);
-  if (extraFields) {
-    for (const f of extraFields) fields.add(f);
-  }
-  const out: Record<string, unknown> = {};
-  for (const f of fields) {
-    const policy = resource.options.fieldAccess?.[f];
-    if (policy?.sensitive || policy?.read === false) continue;
-    if (Object.hasOwn(row, f)) out[f] = row[f];
-  }
-  return out as unknown as Row;
 }
 
 /** Request-aware projection for every server/client and HTTP row boundary. */

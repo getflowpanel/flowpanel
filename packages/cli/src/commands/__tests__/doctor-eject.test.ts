@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { checkEjectMarker } from "../doctor.js";
+import { checkEjectMarker } from "../../doctor/probes";
 
 let tmp: string;
 beforeEach(async () => {

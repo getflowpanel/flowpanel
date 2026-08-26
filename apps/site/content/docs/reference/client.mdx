@@ -1,6 +1,7 @@
 ---
 title: Typed client
-description: Call the protected Flowpanel HTTP API from custom React UI, then add mutation state where needed.
+description: Call the protected FlowPanel HTTP API from custom React UI, then add mutation state where needed.
+kind: reference
 ---
 
 `@flowpanel/client` is the framework-neutral browser client. Use it when the
@@ -8,7 +9,7 @@ generated admin is mostly right, but one screen needs custom UI. Calls still go
 through the same auth, resource access, field policy, tenant scope, validation,
 audit and adapter pipeline as generated pages.
 
-```ts
+```ts excerpt
 import {
   createFlowpanelClient,
   isFlowpanelErrorCode,
@@ -27,10 +28,12 @@ installs the umbrella package.
 
 ## Create a client
 
+<ApiSignature path="../../packages/client/src/client.ts" name="createFlowpanelClient" />
+
 The server runtime exposes serializable metadata; pass it to the browser
 client instead of duplicating API paths.
 
-```ts
+```ts excerpt
 // server module
 import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
@@ -39,7 +42,7 @@ export const flowpanel = createFlowpanel(config);
 export const flowpanelMetadata = flowpanel.client;
 ```
 
-```tsx
+```tsx excerpt
 "use client";
 
 import { createFlowpanelClient } from "@flowpanel/kit/client";
@@ -96,7 +99,7 @@ from a failed request.
 branch. `isFlowpanelErrorCode(value)` validates unknown data against the stable
 error-code union.
 
-```ts
+```ts excerpt
 import { isFlowpanelErrorCode, isFlowpanelErrorResult } from "@flowpanel/kit/client";
 
 if (isFlowpanelErrorResult(result) && result.error.code === "field_forbidden") {
@@ -112,7 +115,7 @@ isFlowpanelErrorCode("anything"); // false
 `useAdminMutation` remains available for custom UI that calls a Server Action
 rather than the HTTP client.
 
-```tsx
+```tsx excerpt
 "use client";
 import { useAdminMutation } from "@flowpanel/kit/client";
 import { archiveOrder } from "./actions";

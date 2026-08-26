@@ -1,7 +1,7 @@
 import type { Adapter } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { ResourceListPage } from "../pages/resource-list.js";
+import { ResourceListPage } from "../pages/resource-list";
 
 /**
  * Simulates a real Postgres driver: `list()` throws when `filters.status`

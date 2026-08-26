@@ -1,7 +1,7 @@
-import { assertAdapterCapabilities, bindAdapterScope, FlowpanelAccessError } from "@flowpanel/core";
+import { bindAdapterScope, FlowpanelAccessError } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { prismaAdapter } from "../adapter.js";
-import type { PrismaDmmf } from "../introspect.js";
+import { prismaAdapter } from "../adapter";
+import type { PrismaDmmf } from "../introspect";
 
 const dmmf: PrismaDmmf = {
   datamodel: {
@@ -67,22 +67,13 @@ const baseCtx: Record<string, unknown> = {
 };
 
 describe("prismaAdapter tenant scope enforcement", () => {
-  it("declares truthful capabilities and enforces explicit projections", async () => {
+  it("enforces explicit projections", async () => {
     const { item, _d } = makeMock();
     _d.findMany.mockResolvedValue([{ id: "i1" }]);
     _d.count.mockResolvedValue(1);
     _d.findFirst.mockResolvedValue({ id: "i1" });
     const adapter = prismaAdapter({ prisma: { item }, dmmf });
 
-    expect(adapter.capabilities).toMatchObject({
-      version: 2,
-      projections: true,
-      transactions: false,
-      atomicImport: false,
-      returningRows: true,
-      migrations: true,
-    });
-    expect(assertAdapterCapabilities(adapter)).toEqual(adapter.capabilities);
     await adapter.list("Item", {
       ...baseCtx,
       select: ["id"],
@@ -359,6 +350,38 @@ describe("prismaAdapter tenant scope enforcement", () => {
     expect(_d.create).toHaveBeenCalledWith({
       data: { name: "New", companyId: "c1" },
     });
+  });
+
+  it("create refuses a non-equality scope with an actionable error, not a Prisma validation error", async () => {
+    const { item, _d } = makeMock();
+    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+
+    for (const applyScope of [
+      (where: unknown) => ({ ...(where as object), companyId: { in: ["c1", "c2"] } }),
+      (where: unknown) => ({ ...(where as object), OR: [{ companyId: "c1" }] }),
+    ]) {
+      const promise = adapter.create("Item", {
+        input: { name: "New" },
+        db: undefined,
+        applyScope,
+      } as never);
+      await expect(promise).rejects.toBeInstanceOf(FlowpanelAccessError);
+      await expect(promise).rejects.toThrow(/as a filter rather than a single value/);
+    }
+    expect(_d.create).not.toHaveBeenCalled();
+  });
+
+  it("create without a scope passes the input through untouched", async () => {
+    const { item, _d } = makeMock();
+    _d.create.mockResolvedValue({ id: "new1" });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+
+    await adapter.create("Item", {
+      input: { name: "New", companyId: "c2" },
+      db: undefined,
+    } as never);
+
+    expect(_d.create).toHaveBeenCalledWith({ data: { name: "New", companyId: "c2" } });
   });
 
   it("FAIL-CLOSED: create throws when scopeRequired && no applyScope", async () => {

@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(currentSearch),
 }));
 
-import { useDashboardParam } from "../useDashboardParam.js";
+import { useDashboardParam } from "../useDashboardParam";
 
 function harness<T>(key: string, schema: z.ZodType<T>, fallback: T) {
   const seen: { value: T; setValue: (n: T) => void; pending: boolean }[] = [];

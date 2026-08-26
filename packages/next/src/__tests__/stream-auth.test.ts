@@ -2,13 +2,13 @@ import type { ResolvedAdminConfig, ResourceConfig, Session } from "@flowpanel/co
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const subscribeSpy = vi.fn((_channel: string, _handler: (payload: unknown) => void) => () => {});
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   bindPublisher: vi.fn(),
   subscribe: (channel: string, handler: (payload: unknown) => void) =>
     subscribeSpy(channel, handler),
 }));
 
-import { stream } from "../stream.js";
+import { stream } from "../stream";
 
 function roleFromUser(s: Session | null): string {
   return (s as { user?: { role?: string } } | null)?.user?.role ?? "guest";

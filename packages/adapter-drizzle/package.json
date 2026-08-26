@@ -4,8 +4,11 @@
   "description": "Drizzle ORM adapter for FlowPanel",
   "keywords": [
     "flowpanel",
+    "admin",
+    "adapter",
     "drizzle",
-    "adapter"
+    "drizzle-orm",
+    "orm"
   ],
   "license": "MIT",
   "repository": {
@@ -13,6 +16,7 @@
     "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/adapter-drizzle"
   },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -56,7 +60,6 @@
   },
   "files": [
     "dist",
-    "package.json",
     "README.md"
   ],
   "dependencies": {

@@ -2,17 +2,17 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Avatar, type AvatarProps } from "../../_atoms/Avatar.js";
-import { Badge, type BadgeProps } from "../../_atoms/Badge.js";
-import { StatusBadge, type StatusBadgeProps } from "../../_atoms/StatusBadge.js";
-import { Pagination, type PaginationProps } from "../../_data/Pagination.js";
-import { ConfirmDialog, type ConfirmDialogProps } from "../../_feedback/ConfirmDialog.js";
-import { EmptyState } from "../../_feedback/EmptyState.js";
-import { SkeletonTable, type SkeletonTableProps } from "../../_feedback/SkeletonTable.js";
-import { PageHeader, type PageHeaderProps } from "../../_shell/PageHeader.js";
-import { MetricCard } from "../../_widgets/MetricCard.js";
-import { Button, type ButtonProps } from "../../ui/button.js";
-import { ComponentsProvider } from "../ComponentsContext.js";
+import { Avatar, type AvatarProps } from "../../_atoms/Avatar";
+import { Badge, type BadgeProps } from "../../_atoms/Badge";
+import { StatusBadge, type StatusBadgeProps } from "../../_atoms/StatusBadge";
+import { Pagination, type PaginationProps } from "../../_data/Pagination";
+import { ConfirmDialog, type ConfirmDialogProps } from "../../_feedback/ConfirmDialog";
+import { EmptyState } from "../../_feedback/EmptyState";
+import { SkeletonTable, type SkeletonTableProps } from "../../_feedback/SkeletonTable";
+import { PageHeader, type PageHeaderProps } from "../../_shell/PageHeader";
+import { MetricCard } from "../../_widgets/MetricCard";
+import { Button, type ButtonProps } from "../../ui/button";
+import { ComponentsProvider } from "../ComponentsContext";
 
 afterEach(() => cleanup());
 

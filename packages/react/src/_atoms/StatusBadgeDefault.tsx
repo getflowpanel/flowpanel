@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { type BadgeTone, DefaultBadge } from "./BadgeDefault.js";
+import { type BadgeTone, DefaultBadge } from "./BadgeDefault";
 
 /** The status badge accepts the single {@link BadgeTone}/`Tone` vocabulary. */
 export type StatusBadgeTone = BadgeTone;

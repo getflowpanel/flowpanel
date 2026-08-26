@@ -1,4 +1,4 @@
-import type { QueueConfig, QueueOptions } from "../types/queue.js";
+import type { QueueConfig, QueueOptions } from "../types/queue";
 
 /** Register a BullMQ queue in your FlowPanel admin. */
 export function queue(ref: unknown, options: QueueOptions): QueueConfig {

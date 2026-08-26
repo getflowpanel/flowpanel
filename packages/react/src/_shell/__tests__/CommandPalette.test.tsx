@@ -2,8 +2,8 @@
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useAdminCommand } from "../../hooks/useAdminCommand.js";
-import { type CommandGroupUI, CommandPalette } from "../CommandPalette.js";
+import { useAdminCommand } from "../../hooks/useAdminCommand";
+import { type CommandGroupUI, CommandPalette } from "../CommandPalette";
 
 afterEach(() => {
   cleanup();

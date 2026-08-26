@@ -21,26 +21,28 @@ import {
   type Tone,
   triggerDownload,
   useAdminDrawer,
+  useApiBase,
   useToast,
 } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
-import { ActionFormDialog } from "../actions/ActionFormDialog.js";
+import { ActionFormDialog } from "../actions/ActionFormDialog";
 import {
   type ActionFormField,
   type ActionFormFieldErrors,
   mapActionIssuesToFieldErrors,
-} from "../actions/action-form-field.js";
-import type { ActionInputIssue } from "../runtime/action-schema.js";
-import { formatFieldValue } from "../runtime/format-field-value.js";
-import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route.js";
+} from "../actions/action-form-field";
+import type { ActionInputIssue } from "../runtime/action-schema";
+import { formatFieldValue } from "../runtime/format-field-value";
+import { toWireOptions } from "../runtime/select-options";
+import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route";
 
 function toActionFormFields(form: SerializedDrawerAction["form"]): ActionFormField[] {
   if (!form) return [];
   return form.map((f) => ({
     name: f.name,
     ...(f.type ? { type: f.type } : {}),
-    ...(f.options ? { options: f.options.map((o) => ({ label: o, value: o })) } : {}),
+    ...(f.options ? { options: toWireOptions(f.options) } : {}),
   }));
 }
 
@@ -330,6 +332,7 @@ function ActionButton({
 }) {
   const toast = useToast();
   const router = useRouter();
+  const apiBase = useApiBase();
   const [pending, setPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -342,7 +345,7 @@ function ActionButton({
     setPending(true);
     try {
       const res = await fetch(
-        `/api/flowpanel/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(
+        `${apiBase}/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(
           id,
         )}/actions/${encodeURIComponent(action.key)}`,
         {
@@ -435,6 +438,7 @@ function ActionButton({
 
 export function DrawerHost() {
   const { state, close } = useAdminDrawer();
+  const apiBase = useApiBase();
   const [payload, setPayload] = useState<DrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -453,7 +457,7 @@ export function DrawerHost() {
     const ctrl = new AbortController();
     setLoading(true);
     setError(null);
-    fetch(`/api/flowpanel/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(id)}`, {
+    fetch(`${apiBase}/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(id)}`, {
       signal: ctrl.signal,
       cache: "no-store",
     })

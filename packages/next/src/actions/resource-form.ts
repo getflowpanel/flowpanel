@@ -1,8 +1,8 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { FlowpanelValidationError } from "@flowpanel/core";
-import { coerceRowByColumns } from "../runtime/coerce-values.js";
-import { withGuards } from "../runtime/with-guards.js";
-import { type FormActionResult, makeActions } from "./resource-actions.js";
+import { coerceRowByColumns } from "../runtime/coerce-values";
+import { withGuards } from "../runtime/with-guards";
+import { type FormActionResult, makeActions } from "./resource-actions";
 
 /** FormData → plain object, coerced to each column's real JS type via `coerceRowByColumns`. */
 function coerceFormData(

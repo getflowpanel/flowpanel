@@ -1,6 +1,6 @@
 "use client";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export interface PaginationProps {
   page: number;

@@ -1,4 +1,4 @@
-import { buildThemeInitScript, type ThemeMode } from "../lib/theme.js";
+import { buildThemeInitScript, type ThemeMode } from "../lib/theme";
 
 export interface ThemeScriptProps {
   defaultMode?: ThemeMode;

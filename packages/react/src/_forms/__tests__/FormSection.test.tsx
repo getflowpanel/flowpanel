@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { FormSection } from "../FormSection.js";
+import { FormSection } from "../FormSection";
 
 afterEach(cleanup);
 

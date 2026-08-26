@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { withNextAuth } from "../nextauth.js";
+import { withNextAuth } from "../nextauth";
 
 describe("withNextAuth", () => {
   it("delegates session() to the user-supplied auth() function", async () => {

@@ -1,14 +1,14 @@
 "use client";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
-import { resolveFieldLabel } from "../lib/humanize.js";
-import { Checkbox } from "../ui/checkbox.js";
-import { ColumnPinMenu } from "./ColumnPinMenu.js";
-import { ColumnResizer } from "./ColumnResizer.js";
-import type { DataTableColumn, DataTableSort } from "./data-table-types.js";
-import { ALIGN_CLASS, widthToCss } from "./format-cell.js";
-import type { PinMeta } from "./useColumnLayout.js";
+import { cn } from "../lib/cn";
+import { resolveFieldLabel } from "../lib/humanize";
+import { Checkbox } from "../ui/checkbox";
+import { ColumnPinMenu } from "./ColumnPinMenu";
+import { ColumnResizer } from "./ColumnResizer";
+import type { DataTableColumn, DataTableSort } from "./data-table-types";
+import { ALIGN_CLASS, widthToCss } from "./format-cell";
+import type { PinMeta } from "./useColumnLayout";
 
 export interface DataTableHeaderProps<Row> {
   orderedVisible: DataTableColumn<Row>[];

@@ -1,5 +1,5 @@
 "use client";
-import { Button, useLabels, useToast } from "@flowpanel/react";
+import { Button, useApiBase, useLabels, useToast } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
@@ -10,6 +10,7 @@ export interface RestoreButtonProps {
 
 export function RestoreButton({ resource, id }: RestoreButtonProps) {
   const router = useRouter();
+  const apiBase = useApiBase();
   const toast = useToast();
   const labels = useLabels();
   const [pending, setPending] = React.useState(false);
@@ -17,7 +18,7 @@ export function RestoreButton({ resource, id }: RestoreButtonProps) {
   async function restore(): Promise<void> {
     setPending(true);
     try {
-      const res = await fetch(`/api/flowpanel/${resource}/${id}/restore`, { method: "POST" });
+      const res = await fetch(`${apiBase}/${resource}/${id}/restore`, { method: "POST" });
       const result = (await res.json()) as { ok: true } | { ok: false; error: string };
       if (!result.ok) {
         toast.error(result.error || `${labels.actions.restore} failed`);

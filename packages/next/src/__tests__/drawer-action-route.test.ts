@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -15,8 +15,8 @@ import type {
   ResourceConfig,
   Session,
 } from "@flowpanel/core";
-import { drawerActionRoute } from "../drawer/drawer-route.js";
-import { publish, publishResource } from "../runtime/publish.js";
+import { drawerActionRoute } from "../drawer/drawer-route";
+import { publish, publishResource } from "../runtime/publish";
 
 function makeConfig(
   action: DrawerAction,
@@ -379,24 +379,20 @@ describe("drawerActionRoute — error quality", () => {
     expect((await res.json()).error).toBe("invalid JSON body");
   });
 
-  it("names the requested resource and the registered ones in development", async () => {
+  it("never names the registered resources in the response body", async () => {
     const res = await drawerActionRoute(makeConfig(okAction))(jsonReq("{}"), {
       params: Promise.resolve({ resource: "ghost", id: "1", action: "approve" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toBe(
-      'resource not found: "ghost". Registered resources: "jobs".',
-    );
+    expect((await res.json()).error).toBe("resource not found");
   });
 
-  it("names the requested action and the drawer's own action keys in development", async () => {
+  it("never names the drawer's action keys in the response body", async () => {
     const res = await drawerActionRoute(makeConfig(okAction))(jsonReq("{}"), {
       params: Promise.resolve({ resource: "jobs", id: "1", action: "missing" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toBe(
-      'action not found: "missing". Registered actions: "approve".',
-    );
+    expect((await res.json()).error).toBe("action not found");
   });
 
   it("stays terse in production", async () => {

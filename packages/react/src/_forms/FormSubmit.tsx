@@ -1,6 +1,6 @@
 "use client";
-import { Button, type ButtonProps } from "../ui/button.js";
-import { useFormContext } from "./Form.js";
+import { Button, type ButtonProps } from "../ui/button";
+import { useFormContext } from "./Form";
 
 export function FormSubmit(props: ButtonProps) {
   const { form, isSubmitting } = useFormContext();

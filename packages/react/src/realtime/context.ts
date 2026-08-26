@@ -34,11 +34,15 @@ export interface RealtimeBus {
 }
 
 export interface RealtimeProviderProps {
-  /** SSE endpoint. Default: `/api/flowpanel/stream`. */
+  /** SSE endpoint. Defaults to the admin's mount point + `/stream`. */
   endpoint?: string;
-  /** Debounce window for reopening the EventSource after channel set changes. */
+  /** Debounce window for reopening the EventSource after channel set changes.
+   * @defaultValue 50
+   */
   reopenDebounceMs?: number;
-  /** Debounce window for the coalesced `router.refresh()` the provider runs on incoming events. */
+  /** Debounce window for the coalesced `router.refresh()` the provider runs on incoming events.
+   * @defaultValue 400
+   */
   refreshDebounceMs?: number;
   children: React.ReactNode;
 }

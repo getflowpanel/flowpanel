@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { Toaster, toast } from "sonner";
-import { bindToaster } from "./toast-bridge.js";
+import { bindToaster } from "./toast-bridge";
 
 /** Child effects run first, so `<Toaster>` has already subscribed when this one binds. */
 export default function ToasterMount() {

@@ -5,12 +5,9 @@ import type {
   AuditEvent,
   RequestContext,
   RequireRole,
-  ResolvedAdminConfig,
-  ResourceConfig,
 } from "@flowpanel/core";
 import { accessAllows, checkRequireRole, emitAudit } from "@flowpanel/core";
-import { parseActionBody } from "../drawer/parse-action-body.js";
-import { requireAuthorized } from "./require-authorized.js";
+import { parseActionBody } from "../drawer/parse-action-body";
 
 /** Body of a POSTed action, or a flag that the JSON was malformed. */
 export type ActionInput =
@@ -36,23 +33,19 @@ export function invalidJsonResponse(): Response {
 }
 
 /**
- * 404 for an unknown route target. Development names what was asked for and
- * what is registered; production stays terse so the response leaks nothing.
+ * 404 for an unknown route target. These run before the guards, so the body stays
+ * terse in every environment and development gets the registry on the server log.
  */
 export function notFoundResponse(
   kind: "resource" | "action" | "dashboard",
   requested: string,
   registered: readonly string[],
 ): Response {
-  const terse = `${kind} not found`;
-  if (process.env.NODE_ENV === "production") {
-    return Response.json({ ok: false, error: terse }, { status: 404 });
+  if (process.env.NODE_ENV !== "production") {
+    const known = registered.length > 0 ? registered.map((n) => `"${n}"`).join(", ") : "(none)";
+    console.warn(`[flowpanel] ${kind} not found: "${requested}". Registered ${kind}s: ${known}.`);
   }
-  const known = registered.length > 0 ? registered.map((n) => `"${n}"`).join(", ") : "(none)";
-  return Response.json(
-    { ok: false, error: `${terse}: "${requested}". Registered ${kind}s: ${known}.` },
-    { status: 404 },
-  );
+  return Response.json({ ok: false, error: `${kind} not found` }, { status: 404 });
 }
 
 function idString(id: unknown): string | null {
@@ -80,19 +73,6 @@ export function actorIdFromSession(
   return null;
 }
 
-export function guardResourceAccess(
-  config: ResolvedAdminConfig,
-  resource: ResourceConfig,
-  reqCtx: RequestContext,
-): Response | null {
-  try {
-    requireAuthorized(config, resource, reqCtx);
-    return null;
-  } catch (err) {
-    return Response.json({ ok: false, error: safeErrorMessage(err, "forbidden") }, { status: 403 });
-  }
-}
-
 /** Non-throwing role check, used for field-level RBAC (`FieldDef.requireRole`). */
 export function roleAllows(requireRole: RequireRole | undefined, reqCtx: RequestContext): boolean {
   if (requireRole === undefined) return true;
@@ -102,14 +82,6 @@ export function roleAllows(requireRole: RequireRole | undefined, reqCtx: Request
   } catch {
     return false;
   }
-}
-
-/** Keep only actions the current operator is authorized to execute. */
-export function filterActionsByRole<Action extends { requireRole?: RequireRole }>(
-  actions: readonly Action[] | undefined,
-  reqCtx: RequestContext,
-): Action[] {
-  return (actions ?? []).filter((action) => roleAllows(action.requireRole, reqCtx));
 }
 
 /** Keep only actions allowed by canonical `access` or its `requireRole` alias. */
@@ -125,28 +97,6 @@ export async function filterActionsByAccess<
     }
   }
   return visible;
-}
-
-/** Block every write when the admin is globally read-only (`config.readOnly`). */
-export function guardWritable(config: ResolvedAdminConfig): Response | null {
-  if (config.readOnly) {
-    return Response.json({ ok: false, error: "This admin is read-only." }, { status: 403 });
-  }
-  return null;
-}
-
-/** Per-action `requireRole` guard. */
-export function guardActionRole(
-  requiredRole: string | string[] | undefined,
-  reqCtx: RequestContext,
-): Response | null {
-  if (requiredRole === undefined) return null;
-  try {
-    checkRequireRole(requiredRole, reqCtx.role, reqCtx.session);
-    return null;
-  } catch (err) {
-    return Response.json({ ok: false, error: safeErrorMessage(err, "forbidden") }, { status: 403 });
-  }
 }
 
 /** Build the standard `AuditEvent` shape every action handler emits. */

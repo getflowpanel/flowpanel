@@ -2,13 +2,14 @@
 import type { ColumnMeta } from "@flowpanel/core";
 import * as React from "react";
 import { z } from "zod";
-import { humanize } from "../lib/humanize.js";
-import { Field } from "./Field.js";
-import { Form } from "./Form.js";
-import { FormError } from "./FormError.js";
-import { FormSection } from "./FormSection.js";
-import { FormSubmit } from "./FormSubmit.js";
-import type { ResolvedField } from "./field-types.js";
+import { DEFAULT_API_BASE, useApiBase } from "../_provider/ApiBaseContext";
+import { humanize } from "../lib/humanize";
+import { Field } from "./Field";
+import { Form } from "./Form";
+import { FormError } from "./FormError";
+import { FormSection } from "./FormSection";
+import { FormSubmit } from "./FormSubmit";
+import type { ResolvedField } from "./field-types";
 
 type InputType = NonNullable<React.ComponentProps<typeof Field>["type"]>;
 
@@ -38,15 +39,21 @@ const SPAN_CLASS: Record<NonNullable<ResolvedField["span"]>, string> = {
 
 const GRID = "grid grid-cols-1 gap-4 sm:grid-cols-12";
 
-export function buildReferenceSearchUrl(action: string, field: string): string | undefined {
-  const resource = /^\/api\/flowpanel\/([^/]+)\//.exec(action)?.[1];
-  return resource ? `/api/flowpanel/${resource}/reference/${encodeURIComponent(field)}` : undefined;
+export function buildReferenceSearchUrl(
+  action: string,
+  field: string,
+  apiBase: string = DEFAULT_API_BASE,
+): string | undefined {
+  if (!action.startsWith(`${apiBase}/`)) return undefined;
+  const resource = action.slice(apiBase.length + 1).split("/")[0];
+  return resource ? `${apiBase}/${resource}/reference/${encodeURIComponent(field)}` : undefined;
 }
 
 /** One resolved field in its grid cell, sized by `span` (default full width). */
 function FieldCell({ field, action }: { field: ResolvedField; action: string }) {
+  const apiBase = useApiBase();
   const searchUrl =
-    field.type === "reference" ? buildReferenceSearchUrl(action, field.name) : undefined;
+    field.type === "reference" ? buildReferenceSearchUrl(action, field.name, apiBase) : undefined;
   return (
     <div className={SPAN_CLASS[field.span ?? 12]}>
       <Field

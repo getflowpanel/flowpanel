@@ -4,7 +4,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import type { Adapter } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
-import { createFlowpanel } from "../create-flowpanel.js";
+import { createFlowpanel } from "../create-flowpanel";
 
 const adapter: Adapter = {
   kind: "test",

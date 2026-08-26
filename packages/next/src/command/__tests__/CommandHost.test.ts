@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildCommandGroups } from "../CommandHost.js";
+import { buildCommandGroups } from "../CommandHost";
 
 describe("buildCommandGroups", () => {
   it("navigates via nav.push when a built-in nav item is selected", () => {

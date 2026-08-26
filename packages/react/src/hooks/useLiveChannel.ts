@@ -1,13 +1,14 @@
 "use client";
 import * as React from "react";
-
-import { backoffDelay, DEFAULT_RECONNECT_MAX_MS } from "../realtime/backoff.js";
-import { statusForAttempt } from "../realtime/context.js";
+import { useApiBase } from "../_provider/ApiBaseContext";
+import { backoffDelay, DEFAULT_RECONNECT_MAX_MS } from "../realtime/backoff";
+import { statusForAttempt } from "../realtime/context";
+import { readFrame } from "../realtime/frame";
 
 export type LiveStatus = "idle" | "connecting" | "live" | "reconnecting" | "offline";
 
 export interface UseLiveChannelOptions {
-  /** Override the SSE endpoint. Default: /api/flowpanel/stream. */
+  /** Override the SSE endpoint. Defaults to the admin's mount point + `/stream`. */
   endpoint?: string;
   /**
    * Cap on the exponential reconnect delay. Default: 30_000.
@@ -48,21 +49,14 @@ function setEntryStatus(entry: PoolEntry, status: LiveStatus): void {
   });
 }
 
-function dispatch(entry: PoolEntry, channel: string | undefined, value: unknown): void {
-  const targets: Set<Listener>[] = [];
-  if (channel === undefined) {
-    targets.push(...entry.listeners.values());
-  } else {
-    const set = entry.listeners.get(channel);
-    if (set) targets.push(set);
-  }
-  for (const set of targets) {
-    for (const fn of Array.from(set)) {
-      try {
-        fn(value);
-      } catch {
-        // one listener's error must not block delivery to the others.
-      }
+function dispatch(entry: PoolEntry, channel: string, value: unknown): void {
+  const set = entry.listeners.get(channel);
+  if (!set) return;
+  for (const fn of Array.from(set)) {
+    try {
+      fn(value);
+    } catch {
+      // one listener's error must not block delivery to the others.
     }
   }
 }
@@ -83,24 +77,9 @@ function connectEntry(key: string, endpoint: string, channels: string[], maxMs: 
   es.onmessage = (ev) => {
     entry.attempt = 0;
     setEntryStatus(entry, "live");
-    let channel: string | undefined;
-    let value: unknown;
-    try {
-      const parsed = ev.data === "" ? undefined : JSON.parse(ev.data);
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        typeof (parsed as { channel?: unknown }).channel === "string"
-      ) {
-        channel = (parsed as { channel: string }).channel;
-        value = (parsed as { payload?: unknown }).payload;
-      } else {
-        value = parsed;
-      }
-    } catch {
-      value = ev.data;
-    }
-    dispatch(entry, channel, value);
+    const frame = readFrame(ev.data);
+    if (!frame) return;
+    dispatch(entry, frame.channel, frame.payload);
   };
   es.onerror = () => {
     // A superseded source firing onerror is a no-op — only entry.source drives the lifecycle.
@@ -206,7 +185,8 @@ export function useLiveChannel(
   }, [onMessage]);
 
   const enabled = opts.enabled !== false && channel !== "";
-  const endpoint = opts.endpoint ?? "/api/flowpanel/stream";
+  const apiBase = useApiBase();
+  const endpoint = opts.endpoint ?? `${apiBase}/stream`;
   const maxMs = opts.reconnectMaxMs ?? DEFAULT_RECONNECT_MAX_MS;
 
   const [status, setStatus] = React.useState<LiveStatus>(() => {

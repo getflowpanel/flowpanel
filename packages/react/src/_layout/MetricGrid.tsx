@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export interface MetricGridProps {
   columns?: 1 | 2 | 3 | 4 | 6;

@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
 }));
 
 import type { Adapter, AuditConfig, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { restoreRoute } from "../actions/restore.js";
-import { publishResource } from "../runtime/publish.js";
+import { restoreRoute } from "../actions/restore";
+import { publishResource } from "../runtime/publish";
 
 function makeConfig(opts: {
   audit?: AuditConfig | undefined;
@@ -109,14 +109,14 @@ describe("restoreRoute", () => {
     expect(res.status).toBe(501);
   });
 
-  it("returns 403 when the admin is read-only (guardWritable)", async () => {
+  it("returns 403 when the admin is read-only", async () => {
     const handler = restoreRoute(makeConfig({ readOnly: true }));
     const req = new Request("http://localhost/x", { method: "POST" });
     const res = await handler(req, { params: paramsFor("users", "u1") });
     expect(res.status).toBe(403);
   });
 
-  it("returns 403 when the session's role fails the resource's requireRole (guardResourceAccess)", async () => {
+  it("returns 403 when the session's role fails the resource's requireRole", async () => {
     const handler = restoreRoute(makeConfig({ role: "viewer", requireRole: "admin" }));
     const req = new Request("http://localhost/x", { method: "POST" });
     const res = await handler(req, { params: paramsFor("users", "u1") });

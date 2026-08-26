@@ -8,7 +8,6 @@ export const offers = resource(schema.listings, {
   label: "Offers",
   labelOne: "Offer",
   icon: "list",
-  hidden: true,
   columns: [
     { field: "title", label: "Product" },
     { field: "site", label: "Marketplace", format: "badge" },

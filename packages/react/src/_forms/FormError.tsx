@@ -1,5 +1,5 @@
 "use client";
-import { useFormContext } from "./Form.js";
+import { useFormContext } from "./Form";
 
 export function FormError() {
   const { form } = useFormContext();

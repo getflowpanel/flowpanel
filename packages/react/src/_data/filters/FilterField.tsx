@@ -1,6 +1,6 @@
 "use client";
 import type * as React from "react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 
 /**
  * Chrome for a filter control: the label lives *inside* the pill, divided from

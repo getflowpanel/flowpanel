@@ -1,7 +1,7 @@
 import type { Adapter } from "@flowpanel/core";
 import { defineAdmin } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { buildRequestContext } from "../runtime/request-setup.js";
+import { buildRequestContext } from "../runtime/request-setup";
 
 const adapter: Adapter = {
   kind: "test",

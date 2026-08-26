@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
 }));
 
 import { revalidatePath } from "next/cache";
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { publish, publishResource } from "../runtime/publish.js";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { publish, publishResource } from "../runtime/publish";
 
 describe("applyActionResult", () => {
   beforeEach(() => {

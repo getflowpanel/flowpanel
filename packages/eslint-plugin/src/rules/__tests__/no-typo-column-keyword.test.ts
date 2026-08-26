@@ -1,5 +1,5 @@
-import rule from "../no-typo-column-keyword.js";
-import { ruleTester } from "./setup.js";
+import rule from "../no-typo-column-keyword";
+import { ruleTester } from "./setup";
 
 ruleTester().run("no-typo-column-keyword", rule, {
   valid: [

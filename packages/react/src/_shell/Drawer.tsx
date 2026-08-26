@@ -2,7 +2,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export type DrawerWidth = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 

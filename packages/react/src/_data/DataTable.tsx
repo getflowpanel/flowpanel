@@ -2,30 +2,30 @@
 // LOC-OK: table render orchestrator — coordinates the column-layout, selection,
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { LiveIndicator } from "../_atoms/LiveIndicator.js";
-import { useLabels } from "../_provider/LabelsContext.js";
-import { useLiveChannel } from "../hooks/useLiveChannel.js";
-import { useMediaQuery } from "../hooks/useMediaQuery.js";
-import { cn } from "../lib/cn.js";
-import { useRealtimeBus, useRealtimeStatus } from "../realtime/hooks.js";
-import { ExportButton } from "./csv-export.js";
-import { DataTableHeader } from "./DataTableHeader.js";
-import { DataTableRow } from "./DataTableRow.js";
-import { DataTableSkeleton } from "./DataTableSkeleton.js";
-import { type DataTableDensity, DensityToggle } from "./DensityToggle.js";
-import type { DataTableColumn, DataTableProps } from "./data-table-types.js";
-import { ImportButton } from "./ImportButton.js";
-import { MobileCardList } from "./MobileCardList.js";
-import { Pagination } from "./Pagination.js";
-import { useColumnLayout } from "./useColumnLayout.js";
-import { useDataTableKeyboard } from "./useDataTableKeyboard.js";
-import { useDataTableSelection } from "./useDataTableSelection.js";
+import { LiveIndicator } from "../_atoms/LiveIndicator";
+import { useLabels } from "../_provider/LabelsContext";
+import { useLiveChannel } from "../hooks/useLiveChannel";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { cn } from "../lib/cn";
+import { useRealtimeBus, useRealtimeStatus } from "../realtime/hooks";
+import { ExportButton } from "./csv-export";
+import { DataTableHeader } from "./DataTableHeader";
+import { DataTableRow } from "./DataTableRow";
+import { DataTableSkeleton } from "./DataTableSkeleton";
+import { type DataTableDensity, DensityToggle } from "./DensityToggle";
+import type { DataTableColumn, DataTableProps } from "./data-table-types";
+import { ImportButton } from "./ImportButton";
+import { MobileCardList } from "./MobileCardList";
+import { Pagination } from "./Pagination";
+import { useColumnLayout } from "./useColumnLayout";
+import { useDataTableKeyboard } from "./useDataTableKeyboard";
+import { useDataTableSelection } from "./useDataTableSelection";
 
 export type {
   DataTableColumn,
   DataTableProps,
   DataTableSort,
-} from "./data-table-types.js";
+} from "./data-table-types";
 
 /** Bus-path subscription callback — the provider runs the refresh. */
 const NOOP = (): void => undefined;

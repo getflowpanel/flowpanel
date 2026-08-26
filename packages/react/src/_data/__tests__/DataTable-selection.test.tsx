@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-import { DataTable } from "../DataTable.js";
+import { DataTable } from "../DataTable";
 
 afterEach(cleanup);
 

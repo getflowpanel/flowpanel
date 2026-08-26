@@ -1,15 +1,14 @@
 import { custom, dashboard, metric, table } from "@flowpanel/kit";
-import { areaChart, pieChart } from "@flowpanel/kit/charts";
-import { MarketActivity } from "@/src/admin/MarketActivity";
+import { LiveOperations } from "@/src/admin/LiveOperations";
 import {
   activeMonitorCount,
   crawlSuccessRate,
-  matchQuality,
   offersDiscovered,
-  offersTrend,
   reviewBacklog,
+  reviewQueueSummary,
 } from "@/src/admin/overview-queries";
-import { getMarketActivitySnapshot } from "@/src/demo/realtime/feed";
+import { ReviewQueue } from "@/src/admin/ReviewQueue";
+import { getLiveOperationsSnapshot } from "@/src/demo/realtime/feed";
 
 export const overview = dashboard({
   path: "/",
@@ -18,16 +17,25 @@ export const overview = dashboard({
   dateRange: { preset: "last7d" },
   sections: [
     {
-      label: "Operations",
       description:
         "Monitor customer catalogs, marketplace coverage, crawl health, and AI-assisted matching.",
       columns: 4,
       widgets: [
-        metric("Active monitors", activeMonitorCount, { drilldown: "/admin/monitors" }),
-        metric("Offers discovered", offersDiscovered, { drilldown: "/admin/listings" }),
-        metric("Crawl success", crawlSuccessRate, { drilldown: "/admin/runs" }),
+        metric("Active monitors", activeMonitorCount, {
+          drilldown: "/admin/monitors",
+          sublabel: "running now",
+        }),
+        metric("Offers discovered", offersDiscovered, {
+          drilldown: "/admin/listings",
+          sublabel: "in this period",
+        }),
+        metric("Crawl success", crawlSuccessRate, {
+          drilldown: "/admin/runs",
+          sublabel: "completed runs",
+        }),
         metric("Needs review", reviewBacklog, {
           drilldown: "/admin/matches",
+          sublabel: "AI matches",
           tone: "warn",
         }),
       ],
@@ -35,39 +43,24 @@ export const overview = dashboard({
     {
       columns: 12,
       widgets: [
-        areaChart("Offers discovered", offersTrend, {
-          x: "day",
-          y: "offers",
-          smooth: true,
-          span: 8,
-          drilldown: "/admin/listings",
-        }),
-        custom(MarketActivity, async () => ({ initial: getMarketActivitySnapshot() }), {
-          span: 4,
+        custom(LiveOperations, async () => ({ initial: getLiveOperationsSnapshot() }), {
+          span: 12,
+          frame: false,
         }),
       ],
     },
     {
       columns: 12,
       widgets: [
-        pieChart("Match quality", matchQuality, {
-          category: "status",
-          value: "count",
-          donut: true,
-          showLegend: true,
+        custom(ReviewQueue, reviewQueueSummary, {
           span: 4,
-          drilldown: "/admin/matches",
-          colors: {
-            confirmed: "hsl(158 42% 48%)",
-            needs_review: "hsl(40 68% 56%)",
-            rejected: "hsl(353 50% 61%)",
-          },
+          frame: false,
         }),
         table({
           label: "Recent runs",
           resource: "runs",
           columns: ["status", "pagesCrawled", "itemsExtracted", "durationMs", "startedAt"],
-          limit: 6,
+          limit: 5,
           span: 8,
         }),
       ],

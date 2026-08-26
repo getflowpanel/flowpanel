@@ -1,14 +1,15 @@
 import type { AdminDefinition, AnyResourceConfig, ResolvedAdminConfig } from "@flowpanel/core";
-import { createPublisher, defineAdmin } from "@flowpanel/core";
-import { Flowpanel } from "./flowpanel-page.js";
-import { handlers as createHandlers, type FlowpanelHandlers } from "./handlers.js";
-import type { FlowpanelRequest } from "./runtime/controller-factory.js";
-import { createRequestRuntime } from "./runtime/request-runtime.js";
+import { defineAdmin } from "@flowpanel/core";
+import { Flowpanel } from "./flowpanel-page";
+import { handlers as createHandlers, type FlowpanelHandlers } from "./handlers";
+import type { FlowpanelRequest } from "./runtime/controller-factory";
+import { bindPublisher, publish } from "./runtime/publish";
+import { createRequestRuntime } from "./runtime/request-runtime";
 import {
   type FlowpanelClientMetadata,
   serializeClientMetadata,
   toWireValue,
-} from "./wire/serialize.js";
+} from "./wire/serialize";
 
 export interface FlowpanelRuntime<Resources extends readonly AnyResourceConfig[]> {
   readonly page: ReturnType<typeof Flowpanel>;
@@ -36,8 +37,7 @@ export function createFlowpanel<const Resources extends readonly AnyResourceConf
 ): FlowpanelRuntime<Resources> {
   const config = isResolved(definition) ? definition : defineAdmin(definition);
   const request = createRequestRuntime(config);
-  const publisher = createPublisher(config.realtime ?? { driver: "memory" });
-  const namespace = config.id ?? "local";
+  bindPublisher(config);
   let disposed = false;
 
   return Object.freeze({
@@ -54,7 +54,7 @@ export function createFlowpanel<const Resources extends readonly AnyResourceConf
           const bytes = new TextEncoder().encode(JSON.stringify(wirePayload)).byteLength;
           if (bytes > MAX_EVENT_BYTES) throw new Error("Flowpanel event payload exceeds 64 KiB.");
         }
-        await publisher.publish(`${namespace}:${channel}`, wirePayload);
+        await publish(channel, wirePayload);
       },
     }),
     async dispose() {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { prismaAdapter } from "../adapter.js";
-import type { PrismaDmmf, PrismaDmmfField } from "../introspect.js";
+import { prismaAdapter } from "../adapter";
+import type { PrismaDmmf, PrismaDmmfField } from "../introspect";
 
 function field(name: string, type: string, over: Partial<PrismaDmmfField> = {}): PrismaDmmfField {
   return {

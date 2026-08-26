@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 /** Renders a foreign-key cell as a navigable link to the target resource's detail page. */
 export interface ReferenceCellProps {

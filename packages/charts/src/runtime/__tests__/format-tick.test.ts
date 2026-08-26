@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { formatTick } from "../format-tick.js";
+import { formatTick } from "../format-tick";
 
 describe("formatTick clock consistency (west-of-UTC viewer)", () => {
   const originalTz = process.env.TZ;

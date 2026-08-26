@@ -15,9 +15,9 @@ if (!globalStore[STORE_KEY]) {
 }
 const store: PublisherStore = globalStore[STORE_KEY];
 
-/** Binds the process-wide publisher to `config.realtime`. */
+/** Binds the process-wide publisher to `config.realtime`, replacing any unbound fallback. */
 export function bindPublisher(config: ResolvedAdminConfig): void {
-  if (store.publisher) return;
+  if (store.boundConfig) return;
   store.publisher = createPublisher(config.realtime ?? { driver: "memory" });
   store.boundConfig = config;
 }

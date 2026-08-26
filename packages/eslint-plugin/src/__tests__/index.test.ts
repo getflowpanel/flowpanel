@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import plugin, { configs, rules } from "../index.js";
+import plugin, { configs, rules } from "../index";
 
 const pkg = JSON.parse(
   readFileSync(

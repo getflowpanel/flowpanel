@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TagInput } from "../TagInput.js";
+import { TagInput } from "../TagInput";
 
 afterEach(cleanup);
 

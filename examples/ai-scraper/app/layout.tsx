@@ -5,8 +5,8 @@ import { DEMO_ROLE_COOKIE } from "@/src/demo/auth/role";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ScrapeAI — Flowpanel demo",
-  description: "Competitive price-intelligence operations, built with Flowpanel",
+  title: "ScrapeAI — FlowPanel demo",
+  description: "Competitive price-intelligence operations, built with FlowPanel",
 };
 
 const REPO = "https://github.com/getflowpanel/flowpanel";
@@ -87,7 +87,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <footer className="border-t border-fp-border-1 bg-fp-bg-1">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 text-xs text-fp-text-3 sm:px-6">
-            <span>Built with Flowpanel.</span>
+            <span>Built with FlowPanel.</span>
             <a
               href={CONFIG}
               target="_blank"

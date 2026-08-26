@@ -1,6 +1,6 @@
-import { FlowpanelFieldAccessError, FlowpanelUnknownFieldError } from "../types/error.js";
-import type { AccessContext, FieldAccessMap, FieldWriteContext } from "../types/policy.js";
-import { accessAllows } from "./access.js";
+import { FlowpanelFieldAccessError, FlowpanelUnknownFieldError } from "../types/error";
+import type { AccessContext, FieldAccessMap, FieldWriteContext } from "../types/policy";
+import { accessAllows } from "./access";
 
 export async function filterReadableProjection<Row>(
   projection: readonly (keyof Row & string)[],

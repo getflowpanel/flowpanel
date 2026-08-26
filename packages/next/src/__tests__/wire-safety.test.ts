@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toWireValue } from "../wire/serialize.js";
+import { toWireValue } from "../wire/serialize";
 
 describe("wire serializer", () => {
   it("normalizes dates and bigint without changing safe plain data", () => {

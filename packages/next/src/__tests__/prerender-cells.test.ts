@@ -1,6 +1,6 @@
 import type { ColumnDef, ColumnMeta, RequestContext } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { prerenderResourceCells } from "../runtime/prerender-cells.js";
+import { prerenderResourceCells } from "../runtime/prerender-cells";
 
 type Row = { id: string; email: string; tags: string[]; userId: string; secret: string };
 

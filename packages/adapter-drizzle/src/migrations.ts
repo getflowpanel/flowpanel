@@ -1,5 +1,5 @@
 import type { SQL } from "drizzle-orm";
-import type { DrizzleDialect } from "./dialect.js";
+import type { DrizzleDialect } from "./dialect";
 
 const DDL: Record<DrizzleDialect, string> = {
   pg: `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (

@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
-import { tpl } from "../../utils/template.js";
+import { tpl } from "../../utils/template";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TYPECHECK_TIMEOUT_MS = 20_000;
@@ -157,6 +157,19 @@ describe("generated flowpanel.config.ts type-checks in a kit-only scaffold", () 
       const root = kitOnlyApp();
       write(path.join(root, "flowpanel.config.ts"), await renderPrisma());
       expect(typecheck(root, ["flowpanel.config.ts"])).toEqual([]);
+    },
+    TYPECHECK_TIMEOUT_MS,
+  );
+
+  it(
+    "the scaffolded dev-session stub satisfies the config's getSession import",
+    async () => {
+      const root = kitOnlyApp();
+      // What init writes when it finds no auth module: the stub replaces the
+      // fixture's own src/auth.ts and has to keep the config compiling.
+      write(path.join(root, "src/auth.ts"), await tpl("dev-session.ts.txt"));
+      write(path.join(root, "flowpanel.config.ts"), await renderDrizzle());
+      expect(typecheck(root, ["flowpanel.config.ts", "src/auth.ts"])).toEqual([]);
     },
     TYPECHECK_TIMEOUT_MS,
   );

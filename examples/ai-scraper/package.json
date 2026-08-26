@@ -2,7 +2,7 @@
   "name": "ai-scraper",
   "private": true,
   "version": "0.0.4",
-  "description": "FlowPanel end-to-end demo — AI web-scraping SaaS ops admin on Drizzle + Postgres",
+  "description": "FlowPanel end-to-end demo \u2014 AI web-scraping SaaS ops admin on Drizzle + Postgres",
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",

@@ -11,7 +11,7 @@ import { parseWithZod } from "@conform-to/zod/v4";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import type { $ZodType, output as zOutput } from "zod/v4/core";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export interface FormActionResult {
   ok: boolean;

@@ -1,4 +1,4 @@
-import type { Scope, Session } from "./session.js";
+import type { Scope, Session } from "./session";
 
 export interface AccessContext {
   session: Session | null;
@@ -50,11 +50,3 @@ export type JsonValue =
   | null
   | JsonValue[]
   | { [key: string]: JsonValue };
-
-export type UiCondition<Row> =
-  | { field: keyof Row & string; eq: JsonValue }
-  | { field: keyof Row & string; neq: JsonValue }
-  | { field: keyof Row & string; in: JsonValue[] }
-  | { all: UiCondition<Row>[] }
-  | { any: UiCondition<Row>[] }
-  | { not: UiCondition<Row> };

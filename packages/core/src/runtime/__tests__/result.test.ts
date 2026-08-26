@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { FlowpanelValidationError } from "../../types/error.js";
-import { errorResult, reportUnexpectedError, resultResponse } from "../result.js";
+import { FlowpanelValidationError } from "../../types/error";
+import { errorResult, reportUnexpectedError, resultResponse } from "../result";
 
 const context = {
   requestId: "req_42",

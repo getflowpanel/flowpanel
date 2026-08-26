@@ -2,8 +2,8 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ToastProvider } from "../../_feedback/Toast.js";
-import { CopyButton } from "../CopyButton.js";
+import { ToastProvider } from "../../_feedback/Toast";
+import { CopyButton } from "../CopyButton";
 
 afterEach(cleanup);
 

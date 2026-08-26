@@ -1,12 +1,13 @@
 ---
 title: Type registry
 description: FlowpanelTypes, FlowpanelResources, and the types that resolve through them.
+kind: reference
 ---
 
 FlowPanel ships no code generator and reads no schema file. Everything it
 knows about *your* types, it learns from two empty interfaces you augment:
 
-```ts
+```ts excerpt
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
@@ -26,19 +27,19 @@ Everything on this page is **opt-in**. Leave both interfaces empty and the
 framework still runs; the types simply degrade to `unknown` / `string` /
 `Record<string, unknown>`, and the checks move from compile time to
 `defineAdmin`'s
-[introspect-time validation](/docs/core-concepts/resources#typos-and-column-validation).
+[introspect-time validation](/docs/build/resources#typos-and-column-validation).
 
 ## FlowpanelTypes
 
 A one-key registry for framework-wide type bindings. Today it carries `db`.
 
-```ts
+```ts excerpt
 interface FlowpanelTypes {}
 ```
 
 ### InferDB
 
-```ts
+```ts excerpt
 type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;
 ```
 
@@ -55,7 +56,7 @@ Augment `FlowpanelTypes["db"]` once and all three carry your real client with
 no per-callsite annotation; skip it and they are `unknown`, so every use needs
 a cast.
 
-```ts
+```ts excerpt
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
@@ -77,13 +78,13 @@ A map of **resolved resource name → row type**. "Resolved" is the name
 `pgTable("ai_usage", …)` is `"ai_usage"` even when the exported variable is
 `aiUsage`, unless the resource sets `options.name`.
 
-```ts
+```ts excerpt
 interface FlowpanelResources {}
 ```
 
 ### InferRow
 
-```ts
+```ts excerpt
 type InferRow<Ref> = Ref extends { $inferSelect: infer R }
   ? R
   : Ref extends keyof FlowpanelResources
@@ -106,7 +107,7 @@ This is what turns `resource(ref, options)` into
 
 ### ResourceName
 
-```ts
+```ts excerpt
 type ResourceName = [keyof FlowpanelResources] extends [never]
   ? string
   : keyof FlowpanelResources & string;
@@ -121,7 +122,7 @@ runs whether or not the compiler caught it.
 
 ### ReferenceSpec
 
-```ts
+```ts excerpt
 type ReferenceSpec = [keyof FlowpanelResources] extends [never]
   ? { resource: string; labelField: string }
   : {
@@ -140,7 +141,7 @@ The augmented form is a **distributed** union, which is the point: it pairs
 each resource name with that resource's *own* keys, so `labelField` cannot
 name a column of a different table.
 
-```ts
+```ts excerpt
 { field: "userId", reference: { resource: "users", labelField: "email" } }
 //                                                  ^ keyof users row, not of orders
 ```
@@ -166,4 +167,4 @@ One place. `declare module` merges globally, so repeating the block per
 resource file only risks conflicting entries — keep it in
 `flowpanel.config.ts`, or in a dedicated `flowpanel.d.ts` that is included by
 your `tsconfig.json`. See
-[One resource per file](/docs/core-concepts/configuration#one-resource-per-file).
+[One resource per file](/docs/build/configuration#one-resource-per-file).

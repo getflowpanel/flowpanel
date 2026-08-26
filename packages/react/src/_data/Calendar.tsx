@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export interface CalendarRange {
   from: Date | null;

@@ -1,7 +1,7 @@
 "use client";
 
-import { useTheme } from "../hooks/useTheme.js";
-import type { ThemeMode } from "../lib/theme.js";
+import { useTheme } from "../hooks/useTheme";
+import type { ThemeMode } from "../lib/theme";
 
 export interface ThemeRuntimeProps {
   defaultMode?: ThemeMode;

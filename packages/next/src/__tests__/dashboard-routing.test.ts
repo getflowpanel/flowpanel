@@ -1,6 +1,6 @@
 import type { DashboardConfig, ResolvedAdminConfig } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { matchDashboard } from "../runtime/dashboard-routing.js";
+import { matchDashboard } from "../runtime/dashboard-routing";
 
 function makeConfig(dashboards: DashboardConfig[]): ResolvedAdminConfig {
   const dashboardsByPath = new Map<string, DashboardConfig>();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actorIdFromSession, buildAuditEvent } from "../runtime/action-helpers.js";
+import { actorIdFromSession, buildAuditEvent } from "../runtime/action-helpers";
 
 describe("actorIdFromSession", () => {
   it("returns null for a null/non-object session", () => {

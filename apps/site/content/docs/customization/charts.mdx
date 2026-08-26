@@ -1,138 +1,68 @@
 ---
-title: Chart components
-description: Render FlowPanel-themed charts from your own client-side data.
+title: Charts
+description: Add server-queried chart widgets or render FlowPanel chart components from client data.
+kind: how-to
 ---
 
-Dashboard charts are normally declared with the server builders
-(`areaChart`, `barChart`, `lineChart`, `pieChart` from
-`@flowpanel/kit/charts` — see
-[Widgets → Charts](/docs/reference/widgets#charts)):
-FlowPanel runs the query and renders the widget for you. When the data
-doesn't come from a resource query — values held in React state, a
-third-party API response, numbers you computed on the client — use the
-**runtime components** directly. You get the framework's axes, grid,
-tooltip/hover and theming without hand-rolling SVG; you supply the rows.
+Use a chart when the shape or change over time is easier to see than to read in a table. FlowPanel provides server-queried dashboard builders and lower-level runtime components.
 
-```tsx
-import { AreaChart, BarChart, LineChart, PieChart } from "@flowpanel/kit/charts/runtime";
+## Install the optional peer
+
+Charts use Recharts. Install a version supported by the current package metadata:
+
+```bash
+pnpm add recharts
 ```
 
-Granular installs import the same components from
-`@flowpanel/charts/runtime`. All four are `"use client"` components, so
-they work anywhere in your client tree (a server component may render
-them too, as long as `data` is serializable).
+Import dashboard builders from `@flowpanel/kit/charts`. Import runtime React components from `@flowpanel/kit/charts/runtime`.
 
-## Props
+## Add a dashboard chart
 
-Every component takes exactly two props: `data`, an array of plain row
-objects, and `options`, the same options type the corresponding server
-builder accepts (`AreaChartOptions` et al., exported from `@flowpanel/kit`):
+```ts excerpt
+import { lineChart } from "@flowpanel/kit/charts";
 
-Full option tables are in the
-[Widgets reference](/docs/reference/widgets) — generated from the types, so
-they cannot drift.
-
-```tsx
-<AreaChart
-  data={[
-    { day: "2026-07-01", signups: 12 },
-    { day: "2026-07-02", signups: 19 },
-  ]}
-  options={{ x: "day", y: "signups", smooth: true }}
-/>
+lineChart("Signups", async ({ db, dateRange }) => {
+  return findDailySignups(db, dateRange);
+}, {
+  xKey: "day",
+  series: [{ key: "count", label: "Signups" }],
+  valueFormat: "number",
+})
 ```
 
-The cartesian charts (`AreaChart`, `LineChart`, `BarChart`) share:
+The query runs on the server. Return a flat array with one x-axis value and numeric series values per row. Normalize dates, missing buckets, and numeric strings in the query layer so the component receives a predictable shape.
 
-- **`x`** — row key for the x-axis.
-- **`y`** — one row key, or an array of keys for multiple series. With more
-  than one key, each series gets a distinct color from the built-in
-  multi-hue palette (the same one `PieChart` uses) and a legend renders
-  automatically. A single key keeps today's look: the theme accent color,
-  no legend.
-- **`height`** — pixels, defaults to `240`. Width always fills the container.
-- **`bucket`** — x-axis tick granularity when x values are dates (`Date`
-  objects, ISO-like strings, or epoch ms): `"day"` and coarser render
-  date-only labels, `"hour"` / `"minute"` include the time. The default
-  `"auto"` infers day-vs-hour from the gap between consecutive points.
-  Non-date x values render as-is. Date-only strings (`"2026-07-01"`, what SQL
-  `date_trunc`/`DATE()` emits) always print on their own calendar day,
-  regardless of the viewer's timezone.
-- **`format`** — a `NumericFormat` (`"number"`, `"currency"`, `"percent"`,
-  `"bytes"`, `"duration"`) applied to the value axis ticks and the tooltip
-  value — the same formatter `MetricCard`'s `format` option uses, so a
-  metric card and the chart below it read consistently.
-- **`tooltip`** — `"default"` (unset) is the full tooltip; `"compact"` drops
-  the axis-value label row and tightens the padding; `false` omits the
-  tooltip entirely.
+Choose the form that matches the question:
 
-Per component:
+- line or area for change over an ordered interval;
+- bar for comparison among discrete categories;
+- pie only for a small part-to-whole set where labels remain readable;
+- table when exact values matter more than the pattern.
 
-- **`AreaChart`** — `stacked` (stack multiple series), `smooth` (monotone
-  interpolation instead of straight segments).
-- **`LineChart`** — `smooth`, `markers` (dots on data points, off by default).
-- **`BarChart`** — `stacked`, `horizontal` (flip to horizontal bars).
-- **`PieChart`** — `category` and `value` (row keys, instead of `x`/`y`),
-  `donut`, `showLegend` (off unless you set it — the slice legend is
-  opt-in), `height`, and `colors`: a map from category
-  value to any CSS color, e.g.
-  `{ success: "hsl(142 70% 45%)", failed: "hsl(0 84% 60%)" }`. Unlisted
-  categories fall back to the built-in multi-hue palette by order.
-  `format` and `tooltip` work the same as the cartesian charts and apply
-  to the slice tooltip value (the legend shows category names only, so
-  `format` has nothing to reformat there); pie has no axis-label row to
-  drop, so `"compact"` just tightens the tooltip padding.
+## Format and color deliberately
 
-`drilldown` wraps the whole chart card in a link when the widget is rendered
-through the dashboard widget layer (`ChartRenderer`, used by the server
-`areaChart`/`barChart`/`lineChart`/`pieChart` builders) — mirroring how
-`MetricCard` handles its own `drilldown` option. The remaining widget-layer
-keys (`span`, `realtime`, …) still have no effect when you render a runtime
-component directly, since there's no widget/card wrapper to attach them to.
+Use series labels instead of exposing database keys. Apply number, currency, percentage, and date formatting consistently with nearby metrics. The default palette comes from `--fp-chart-1` through `--fp-chart-7`; override those tokens for brand alignment and verify contrast in light and dark modes.
 
-## Live data example
+Do not encode meaning by color alone. Keep legends and tooltips readable, and avoid more simultaneous series than users can distinguish.
 
-The components re-render like any React component, which makes them a
-natural fit for live series — swap the `data` array and the chart
-follows. A trimmed-down throughput card:
+## Render client-owned data
 
-```tsx
+Use a runtime component when the data already lives in client state or comes from a browser-only interaction:
+
+```tsx excerpt
 "use client";
-import { AreaChart } from "@flowpanel/kit/charts/runtime";
-import { useMemo, useState } from "react";
 
-const OPTIONS = { x: "time", y: "rate", smooth: true, height: 120 } as const;
+import { LineChart } from "@flowpanel/kit/charts/runtime";
 
-export function ThroughputCard() {
-  const [history, setHistory] = useState<{ time: string; rate: number }[]>([]);
-  // ...append a { time, rate } sample on each SSE/websocket tick...
-
-  // Memoize the element so unrelated state updates in the card skip the
-  // chart subtree entirely.
-  const chart = useMemo(() => <AreaChart data={history} options={OPTIONS} />, [history]);
-
-  return (
-    <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-3">
-      <div className="mb-1 text-xs text-fp-text-3">Crawl rate · listings / min</div>
-      {chart}
-    </div>
-  );
+export function Preview({ data }: { data: Array<{ day: string; count: number }> }) {
+  return <LineChart data={data} xKey="day" series={[{ key: "count", label: "Count" }]} />;
 }
 ```
 
-Charts render settled — entry animations are disabled, so a live sibling
-ticking (or StrictMode's double-mount) never leaves bars frozen mid-animation.
+Fetch protected data through an authorized server boundary. Do not move a server query into the browser solely to use the runtime component.
 
-## Theming
+## Handle every state
 
-Axes, grid, tooltip and series colors read the admin theme tokens
-(`--fp-border-1`, `--fp-text-3`, `--fp-bg-1`, `--fp-accent`,
-`--fp-radius-lg`, `--fp-shadow-md`), so charts follow light/dark mode and
-any custom theme automatically — no configuration needed. A single-series
-cartesian chart's stroke and gradient fill use your accent color; a
-multi-series chart, and pie slices, use the categorical palette tokens
-`--fp-chart-1` … `--fp-chart-7`, which carry separate light- and dark-mode
-values in `admin.css` and are overridable like any other token (or
-per-slice on `PieChart` via `colors`). A chart whose query returns zero
-rows renders a token-styled "No data yet" state instead of an empty axis
-frame.
+Define what zero rows means, distinguish loading from empty, and surface a recoverable error without removing the rest of the dashboard. Realtime refresh should update the chart because a user decision benefits—not merely because a channel exists.
+
+Use a custom widget when the visualization needs annotations, interaction, or a data model that the built-in chart options cannot express clearly. Exact builder and prop types live in [Widgets reference](/docs/reference/widgets#charts) and [React components reference](/docs/reference/react-components#widgets).

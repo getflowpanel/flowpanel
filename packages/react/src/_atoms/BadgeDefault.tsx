@@ -1,6 +1,6 @@
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
-import type { Tone } from "../lib/format.js";
+import { cn } from "../lib/cn";
+import type { Tone } from "../lib/format";
 
 /** Alias of the single {@link Tone} vocabulary — every badge tone is a `Tone`. */
 export type BadgeTone = Tone;

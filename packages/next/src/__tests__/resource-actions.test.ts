@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -19,8 +19,8 @@ vi.mock("next/headers", () => ({
 import type { Adapter, AuditConfig, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { makeActions } from "../actions/resource-actions.js";
-import { publishResource } from "../runtime/publish.js";
+import { makeActions } from "../actions/resource-actions";
+import { publishResource } from "../runtime/publish";
 
 const createSchema = z.object({ email: z.string().email() });
 const updateSchema = z.object({ email: z.string().email().optional() });

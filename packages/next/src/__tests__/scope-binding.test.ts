@@ -1,6 +1,6 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { scopeBinding } from "../runtime/scope-binding.js";
+import { scopeBinding } from "../runtime/scope-binding";
 
 function makeConfig(hasGlobalScope: boolean): ResolvedAdminConfig {
   return {

@@ -7,7 +7,7 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { resolveReferences } from "../runtime/resolve-references.js";
+import { resolveReferences } from "../runtime/resolve-references";
 
 const reqCtx: RequestContext = {
   req: new Request("http://localhost/"),

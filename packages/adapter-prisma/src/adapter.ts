@@ -6,24 +6,25 @@ import type {
   MutationContext,
 } from "@flowpanel/core";
 import { isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
-import type { PrismaDmmf } from "./introspect.js";
-import { introspect } from "./introspect.js";
+import type { PrismaDmmf } from "./introspect";
+import { introspect } from "./introspect";
 import {
+  applyScopeToData,
   applyScopeToWhere,
   getDelegate,
   loadDmmf,
   MIGRATIONS_TABLE_DDL,
   type PrismaClientLike,
   pkWhere,
-} from "./runtime.js";
-import { inferSchema } from "./schema.js";
+} from "./runtime";
+import { inferSchema } from "./schema";
 
 export interface PrismaAdapterOptions<P = unknown> {
   prisma: P;
   dmmf?: PrismaDmmf;
 }
 
-export { MIGRATIONS_TABLE_DDL } from "./runtime.js";
+export { MIGRATIONS_TABLE_DDL } from "./runtime";
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
   let _dmmf: PrismaDmmf | undefined = opts.dmmf;
@@ -60,14 +61,6 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
   return {
     kind: "prisma",
     db: opts.prisma,
-    capabilities: {
-      version: 2,
-      projections: true,
-      transactions: canTransact,
-      atomicImport: canTransact,
-      returningRows: true,
-      migrations: true,
-    },
     ...(canTransact
       ? {
           transaction: <T>(run: (db: P) => Promise<T>) =>
@@ -162,7 +155,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
     async create(modelName, ctx: MutationContext<unknown>) {
       const delegate = getDelegate(prisma, modelName);
-      const data = applyScopeToWhere((ctx.input as Record<string, unknown>) ?? {}, ctx);
+      const data = applyScopeToData((ctx.input as Record<string, unknown>) ?? {}, ctx);
       return delegate.create({ data });
     },
 

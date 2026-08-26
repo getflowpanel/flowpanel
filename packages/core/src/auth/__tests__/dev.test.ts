@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { devAuth } from "../dev.js";
+import { devAuth } from "../dev";
 
 describe("devAuth", () => {
   const originalEnv = process.env.NODE_ENV;
@@ -29,7 +29,7 @@ describe("devAuth", () => {
   it("does not silence the open-admin development warning", async () => {
     process.env.NODE_ENV = "development";
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { warnIfNoAccessControl } = await import("../../warn-open-admin.js");
+    const { warnIfNoAccessControl } = await import("../../warn-open-admin");
     warnIfNoAccessControl({ adapter: {} as never, auth: devAuth() }, []);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("no access control"));
   });

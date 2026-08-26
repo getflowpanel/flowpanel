@@ -1,10 +1,10 @@
 import type * as React from "react";
 
-import { ArrayCell } from "./ArrayCell.js";
-import type { DataTableColumn } from "./data-table-types.js";
-import { renderCellValue } from "./format-cell.js";
-import { JsonCell } from "./JsonCell.js";
-import { renderFormatCell } from "./render-format.js";
+import { ArrayCell } from "./ArrayCell";
+import type { DataTableColumn } from "./data-table-types";
+import { renderCellValue } from "./format-cell";
+import { JsonCell } from "./JsonCell";
+import { renderFormatCell } from "./render-format";
 
 export function renderDefaultCell<Row extends Record<string, unknown>>(
   c: DataTableColumn<Row>,

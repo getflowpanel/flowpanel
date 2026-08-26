@@ -17,12 +17,13 @@ import {
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { makeActions } from "../actions/resource-actions.js";
-import { actorIdFromSession } from "../runtime/action-helpers.js";
-import { projectAuthorizedRow } from "../runtime/project-row.js";
-import { requireAuthorized } from "../runtime/require-authorized.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { createActionController } from "./action-controller.js";
+import { makeActions } from "../actions/resource-actions";
+import { actorIdFromSession } from "../runtime/action-helpers";
+import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { projectAuthorizedRow } from "../runtime/project-row";
+import { requireAuthorized } from "../runtime/require-authorized";
+import { scopeBinding } from "../runtime/scope-binding";
+import { createActionController } from "./action-controller";
 
 const MAX_PAGE_SIZE = 100;
 const MAX_COLUMNS = 256;
@@ -75,7 +76,11 @@ function exposure(resource: ResourceConfig, config: ResolvedAdminConfig): string
   for (const value of resource.options.columns ?? []) add(value);
   for (const value of resource.options.expose ?? []) add(value);
   fields.add(
-    String(resource.options.rowKey ?? config.adapter.introspect(resource.ref).primaryKey ?? "id"),
+    String(
+      resource.options.rowKey ??
+        config.adapter.introspect(resource.ref).primaryKey ??
+        DEFAULT_RESOURCE_ROW_KEY,
+    ),
   );
   return [...fields];
 }
@@ -155,11 +160,13 @@ export function createResourceController<Row extends Record<string, unknown>>(
         await authorizeRead(config, resource, ctx);
         const page =
           Number.isInteger(options.page) && Number(options.page) > 0 ? Number(options.page) : 1;
-        const requestedSize = Number(options.pageSize ?? resource.options.pageSize ?? 20);
+        const requestedSize = Number(
+          options.pageSize ?? resource.options.pageSize ?? DEFAULT_RESOURCE_PAGE_SIZE,
+        );
         const pageSize =
           Number.isInteger(requestedSize) && requestedSize > 0 && requestedSize <= MAX_PAGE_SIZE
             ? requestedSize
-            : Math.min(resource.options.pageSize ?? 20, MAX_PAGE_SIZE);
+            : Math.min(resource.options.pageSize ?? DEFAULT_RESOURCE_PAGE_SIZE, MAX_PAGE_SIZE);
         const select = await selectedFields(
           config,
           resource,

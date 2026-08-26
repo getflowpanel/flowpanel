@@ -1,6 +1,6 @@
 import { integer, pgTable, text } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { inferSchema } from "../schema.js";
+import { inferSchema } from "../schema";
 
 const users = pgTable("users", {
   id: text("id").primaryKey(),

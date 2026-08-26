@@ -15,7 +15,7 @@ export default function Home() {
     >
       <div className="w-full border-y border-fp-border-1 py-12 sm:py-20">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-fp-text-3">
-          Canonical Flowpanel demo
+          Canonical FlowPanel demo
         </p>
         <h1 className="mt-5 max-w-4xl text-4xl font-semibold tracking-tight sm:text-6xl">
           Competitive price intelligence, operated from one typed config.

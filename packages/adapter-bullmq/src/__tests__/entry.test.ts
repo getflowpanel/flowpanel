@@ -8,7 +8,7 @@ describe("package entry", () => {
   });
 
   it("exports the adapter only — the board lives at ./board", async () => {
-    const mod = await import("../index.js");
+    const mod = await import("../index");
     expect(Object.keys(mod)).toEqual(["bullmqAdapter"]);
   });
 });

@@ -1,6 +1,6 @@
 import type { ResolvedAdminConfig, ResourceConfig, Session } from "@flowpanel/core";
 import { checkRequireRole } from "@flowpanel/core";
-import { bindPublisher, subscribe } from "./runtime/publish.js";
+import { bindPublisher, subscribe } from "./runtime/publish";
 
 const HEARTBEAT_MS = 15_000;
 

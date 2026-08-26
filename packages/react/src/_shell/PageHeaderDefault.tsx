@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { type BreadcrumbItem, Breadcrumbs } from "./Breadcrumbs.js";
+import { type BreadcrumbItem, Breadcrumbs } from "./Breadcrumbs";
 
 export interface PageHeaderProps {
   title: string;

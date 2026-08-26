@@ -14,8 +14,11 @@
     "version-packages": "changeset version && pnpm --filter @flowpanel/site changelog",
     "release": "turbo run build && changeset publish",
     "prepare": "lefthook install || true",
-    "check:docs": "node --import tsx scripts/check-docs.ts",
+    "docs:generate": "node --import tsx scripts/docs/generate-cli-reference.ts",
+    "precheck:docs": "pnpm docs:generate",
+    "check:docs": "node --import tsx scripts/check-docs.ts && pnpm --filter @flowpanel/site check:snippets",
     "check:cli-package": "node scripts/check-cli-package.mjs",
+    "sync:licenses": "node scripts/sync-licenses.mjs",
     "check:release": "node scripts/check-release-consistency.mjs",
     "check:changesets": "changeset status",
     "check:cycles": "madge --circular --extensions ts,tsx packages/*/src"
@@ -34,6 +37,7 @@
     "size-limit": "^12.0.1",
     "tsx": "^4.19.0",
     "turbo": "^2.0.0",
+    "ts-morph": "^28.0.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

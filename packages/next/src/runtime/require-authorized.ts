@@ -10,8 +10,8 @@ import {
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { projectAuthorizedRow } from "./project-row.js";
-import { scopeBinding } from "./scope-binding.js";
+import { projectAuthorizedRow } from "./project-row";
+import { scopeBinding } from "./scope-binding";
 
 /** Runs the resource's role + scope checks. */
 export function requireAuthorized(
@@ -36,6 +36,8 @@ export interface RelatedReadOptions {
   dateRange?: { from: Date; to: Date };
   /** Kept on top of the target's declared fields — a label field, a primary key. */
   extraFields?: Iterable<string>;
+  /** Reach soft-deleted rows too, so a reference to one still resolves its label. */
+  includeDeleted?: boolean;
 }
 
 /**
@@ -73,7 +75,9 @@ export async function readRelatedRows(
     pageSize: opts.pageSize ?? 20,
     search: opts.search ?? "",
     ...(opts.searchFields ? { searchFields: opts.searchFields } : {}),
-    ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
+    ...(softDelete
+      ? { softDelete: { column: String(softDelete) }, includeDeleted: opts.includeDeleted }
+      : {}),
     ...scopeBinding(config, target, reqCtx),
   };
 

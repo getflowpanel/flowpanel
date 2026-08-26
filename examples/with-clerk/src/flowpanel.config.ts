@@ -16,23 +16,9 @@ declare module "@flowpanel/kit" {
 }
 
 /**
- * The showcase — `withClerk({ requireRole: "admin" })` is the only auth wiring
- * needed. `clerkMiddleware()` in `proxy.ts` populates `auth()`, and
- * `withClerk` reads `sessionClaims.publicMetadata.role` by default.
- *
- * Beyond auth, this config also exercises every Phase-0 feature so the
- * dogfood CI workflow (`.github/workflows/dogfood.yml`) verifies them on
- * every PR:
- *
- * - **Row actions**: "Promote to admin" / "Reset to member" on users.
- * - **Bulk actions**: "Publish selected" / "Unpublish selected" on posts.
- * - **FK columns**: `posts.authorId` rendered as `<Link>` to the author's
- *   user drawer via `reference: { resource: "users", labelField: "email" }`.
- * - **Detail page tabs**: users show "Profile" + "Recent posts" (related
- *   resource tab) side-by-side.
- *
- * Set `publicMetadata.role = "admin"` on a Clerk user in the Clerk dashboard
- * to grant access.
+ * `withClerk({ requireRole: "admin" })` is the only auth wiring needed:
+ * `clerkMiddleware()` in `proxy.ts` populates `auth()`, and `withClerk` reads
+ * `sessionClaims.publicMetadata.role`.
  */
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),

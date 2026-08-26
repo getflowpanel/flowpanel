@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -15,8 +15,8 @@ import type {
   ResourceConfig,
   Session,
 } from "@flowpanel/core";
-import { bulkActionRoute, serializeBulkAction } from "../actions/bulk-action.js";
-import { publishResource } from "../runtime/publish.js";
+import { bulkActionRoute, serializeBulkAction } from "../actions/bulk-action";
+import { publishResource } from "../runtime/publish";
 
 type Row = { id: string };
 

@@ -6,7 +6,7 @@ import {
   type FlowpanelListOptions,
   type FlowpanelResourceClient,
   isFlowpanelErrorCode,
-} from "./types.js";
+} from "./types";
 
 export interface CreateFlowpanelClientOptions {
   fetch?: typeof globalThis.fetch;

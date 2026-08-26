@@ -2,10 +2,10 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Menu } from "lucide-react";
 import * as React from "react";
-import { AccountMenu, type AccountMenuUser } from "./AccountMenu.js";
-import { AdminNav, type NavGroup } from "./AdminNav.js";
-import { AdminTabs } from "./AdminTabs.js";
-import { Brand, type ShellBrand } from "./Brand.js";
+import { AccountMenu, type AccountMenuUser } from "./AccountMenu";
+import { AdminNav, type NavGroup } from "./AdminNav";
+import { AdminTabs } from "./AdminTabs";
+import { Brand, type ShellBrand } from "./Brand";
 
 export type AdminShellVariant = "sidebar" | "tabs";
 

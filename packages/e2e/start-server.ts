@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import prepareDatabase from "./global-setup.js";
+import prepareDatabase from "./global-setup";
 
 async function main() {
   // Playwright starts webServer before globalSetup. Preparing the database here

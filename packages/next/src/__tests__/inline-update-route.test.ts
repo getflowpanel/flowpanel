@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -9,8 +9,8 @@ vi.mock("../runtime/publish.js", () => ({
 
 import type { Adapter, AuditConfig, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { z } from "zod";
-import { inlineUpdateRoute } from "../actions/inline-update.js";
-import { publishResource } from "../runtime/publish.js";
+import { inlineUpdateRoute } from "../actions/inline-update";
+import { publishResource } from "../runtime/publish";
 
 function makeConfig(opts: {
   audit?: AuditConfig | undefined;
@@ -375,6 +375,30 @@ describe("inlineUpdateRoute", () => {
       }),
     );
     expect((await allowed(req(), { params: paramsFor("users", "u1") })).status).toBe(200);
+  });
+
+  it("writes an editable column the explicit update form omits", async () => {
+    const handler = inlineUpdateRoute(
+      makeConfig({ updateFields: [{ name: "status" }], role: "admin" }),
+    );
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ field: "email", value: "new@x.com" }),
+    });
+
+    expect((await handler(req, { params: paramsFor("users", "u1") })).status).toBe(200);
+  });
+
+  it("still refuses a field that is neither editable nor in the form", async () => {
+    const handler = inlineUpdateRoute(makeConfig({ updateFields: [{ name: "status" }] }));
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ field: "name", value: "x" }),
+    });
+
+    expect((await handler(req, { params: paramsFor("users", "u1") })).status).toBe(403);
   });
 
   it("skips value validation when inferSchema has no usable update schema", async () => {

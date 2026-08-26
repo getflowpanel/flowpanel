@@ -1,4 +1,4 @@
-import type { AuditConfig, AuditEvent } from "../types/config.js";
+import type { AuditConfig, AuditEvent } from "../types/config";
 
 export async function emitAudit(cfg: AuditConfig | undefined, event: AuditEvent): Promise<void> {
   if (!cfg) return;

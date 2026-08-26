@@ -1,28 +1,16 @@
-import { reservedNameError } from "../reserved-names.js";
-import { resolveResourceName } from "../resource-name.js";
-import type { BulkAction } from "../types/action.js";
-import type { Adapter, ResourceIntrospection } from "../types/adapter.js";
-import type { CompiledAdmin, CompiledResource } from "../types/compiled.js";
-import type { AdminConfig, ResolvedAdminConfig } from "../types/config.js";
-import type { DashboardConfig, PageConfig } from "../types/dashboard.js";
-import type { QueueConfig } from "../types/queue.js";
-import type { AnyResourceConfig, ResourceConfig } from "../types/resource.js";
-import { validateResourceColumns } from "../validate-resource-columns.js";
-import { validateResourceRefs } from "../validate-resource-refs.js";
-import { warnIfNoAccessControl } from "../warn-open-admin.js";
-import { collectResourceExposure } from "./exposure.js";
-import { normalizeRoutePath, RouteNameRegistry } from "./route-graph.js";
-
-const defaultDeleteBulk: BulkAction<unknown> = {
-  key: "delete",
-  label: "Delete",
-  variant: "destructive",
-  confirm: { title: "Delete selected items?", description: "This cannot be undone." },
-  run: async () => ({
-    ok: false,
-    error: "default bulk delete is wired at the runtime layer; this sentinel should never execute",
-  }),
-};
+import { reservedNameError } from "../reserved-names";
+import { resolveResourceName } from "../resource-name";
+import type { Adapter, ResourceIntrospection } from "../types/adapter";
+import type { CompiledAdmin, CompiledResource } from "../types/compiled";
+import type { AdminConfig, ResolvedAdminConfig } from "../types/config";
+import type { DashboardConfig, PageConfig } from "../types/dashboard";
+import type { QueueConfig } from "../types/queue";
+import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
+import { validateResourceColumns } from "../validate-resource-columns";
+import { validateResourceRefs } from "../validate-resource-refs";
+import { warnIfNoAccessControl } from "../warn-open-admin";
+import { builtinBulkDelete } from "./builtin-bulk-delete";
+import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
 
 function readOnlyResource(resource: ResourceConfig): ResourceConfig {
   const { import: _import, ...options } = resource.options;
@@ -205,7 +193,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     if (config.readOnly) {
       resource = readOnlyResource(raw);
     } else if (raw.options.delete?.disabled !== true && raw.options.bulkActions === undefined) {
-      resource = { ...raw, options: { ...raw.options, bulkActions: [defaultDeleteBulk] } };
+      resource = { ...raw, options: { ...raw.options, bulkActions: [builtinBulkDelete] } };
     }
 
     const introspection = tryIntrospect(config.adapter, resource.ref);
@@ -231,7 +219,6 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
       name,
       definition: resource,
       introspection,
-      ...collectResourceExposure(resource, introspection),
     });
   }
 

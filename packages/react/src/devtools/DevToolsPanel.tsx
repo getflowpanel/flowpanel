@@ -1,10 +1,10 @@
 "use client";
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { cn } from "../lib/cn.js";
-import type { RealtimeStatus } from "../realtime/context.js";
-import { useRealtimeStats } from "../realtime/hooks.js";
-import { formatTime, LOG_LIMIT, useStatusLog } from "./useStatusLog.js";
+import { cn } from "../lib/cn";
+import type { RealtimeStatus } from "../realtime/context";
+import { useRealtimeStats } from "../realtime/hooks";
+import { formatTime, LOG_LIMIT, useStatusLog } from "./useStatusLog";
 
 /** Dev-only floating panel for debugging a FlowPanel dashboard. */
 

@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "incremental": false,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/server/lib/db": ["./content/snippets/fixtures/db.ts"],
+      "@/server/lib/db/schema": ["./content/snippets/fixtures/schema.ts"],
+      "@/server/lib/auth": ["./content/snippets/fixtures/auth.ts"],
+      "@/server/lib/prisma": ["./content/snippets/fixtures/prisma.ts"]
+    }
+  },
+  "include": ["content/snippets/**/*.ts", "content/snippets/**/*.tsx"],
+  "exclude": ["node_modules", ".next", "dist"]
+}

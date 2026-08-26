@@ -1,11 +1,14 @@
 {
   "name": "@flowpanel/core",
   "version": "0.1.0",
-  "description": "Core logic for FlowPanel — types, defineAdmin, runtime helpers",
+  "description": "Core logic for FlowPanel \u2014 types, defineAdmin, runtime helpers",
   "keywords": [
     "flowpanel",
     "admin",
-    "nextjs"
+    "admin-panel",
+    "nextjs",
+    "rbac",
+    "crud"
   ],
   "license": "MIT",
   "repository": {
@@ -21,6 +24,9 @@
     "*": {
       "labels": [
         "./dist/labels.d.ts"
+      ],
+      "format": [
+        "./dist/format.d.ts"
       ],
       "auth": [
         "./dist/auth.d.ts"
@@ -46,6 +52,16 @@
       "require": {
         "types": "./dist/labels.d.cts",
         "default": "./dist/labels.cjs"
+      }
+    },
+    "./format": {
+      "import": {
+        "types": "./dist/format.d.ts",
+        "default": "./dist/format.mjs"
+      },
+      "require": {
+        "types": "./dist/format.d.cts",
+        "default": "./dist/format.cjs"
       }
     },
     "./auth": {

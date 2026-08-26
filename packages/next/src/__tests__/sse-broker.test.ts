@@ -15,7 +15,7 @@ function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdmin
 type Handler = (payload: unknown) => void;
 const listeners = new Map<string, Set<Handler>>();
 
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   bindPublisher: vi.fn(),
   subscribe: vi.fn((channel: string, handler: Handler) => {
     let set = listeners.get(channel);
@@ -35,7 +35,7 @@ function emit(channel: string, payload: unknown): void {
   for (const h of listeners.get(channel) ?? []) h(payload);
 }
 
-import { stream } from "../stream.js";
+import { stream } from "../stream";
 
 async function readChunks(
   reader: ReadableStreamDefaultReader<Uint8Array>,

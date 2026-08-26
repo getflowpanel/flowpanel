@@ -13,12 +13,13 @@ import {
   maybeEmitAudit,
   notFoundResponse,
   readActionInput,
-} from "../runtime/action-helpers.js";
-import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema.js";
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { buildHref } from "../runtime/href.js";
-import { bindPublisher, publish } from "../runtime/publish.js";
-import { withGuards } from "../runtime/with-guards.js";
+} from "../runtime/action-helpers";
+import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { buildHref } from "../runtime/href";
+import { bindPublisher, publish } from "../runtime/publish";
+import { toWireOptions } from "../runtime/select-options";
+import { withGuards } from "../runtime/with-guards";
 
 /** Wire-safe descriptor for a single `form` field on a dashboard action. */
 export interface SerializedDashboardActionField {
@@ -51,11 +52,7 @@ function serializeField<Row extends Record<string, unknown>>(
   if (f.placeholder !== undefined) out.placeholder = f.placeholder;
   if (f.type !== undefined) out.type = f.type;
   if (f.required !== undefined) out.required = f.required;
-  if (Array.isArray(f.options)) {
-    out.options = f.options.map((o) =>
-      typeof o === "string" ? { label: o, value: o } : { label: o.label, value: String(o.value) },
-    );
-  }
+  if (Array.isArray(f.options)) out.options = toWireOptions(f.options);
   return out;
 }
 

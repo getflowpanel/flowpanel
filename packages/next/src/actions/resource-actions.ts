@@ -17,22 +17,23 @@ import {
   runWithRequestContext,
 } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
-import { actorIdFromSession } from "../runtime/action-helpers.js";
-import { buildServerRequest } from "../runtime/build-server-request.js";
-import { buildHref } from "../runtime/href.js";
-import { resourceNavName } from "../runtime/nav.js";
-import { bindPublisher, publishResource } from "../runtime/publish.js";
-import { buildRequestContext } from "../runtime/request-setup.js";
-import { requireAuthorized } from "../runtime/require-authorized.js";
-import { declaredFormFields } from "../runtime/resolve-form-fields.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
+import { actorIdFromSession } from "../runtime/action-helpers";
+import { buildServerRequest } from "../runtime/build-server-request";
+import { deleteRow } from "../runtime/delete-row";
+import { buildHref } from "../runtime/href";
+import { resourceNavName } from "../runtime/nav";
+import { bindPublisher, publishResource } from "../runtime/publish";
+import { buildRequestContext } from "../runtime/request-setup";
+import { requireAuthorized } from "../runtime/require-authorized";
+import { declaredFormFields } from "../runtime/resolve-form-fields";
+import { scopeBinding } from "../runtime/scope-binding";
 import {
   applyFieldDefaults,
   assertResourceWritableInput,
   friendlyFieldErrors,
   runFieldValidators,
   schemasFor,
-} from "./field-pipeline.js";
+} from "./field-pipeline";
 
 export interface ResourceActions {
   create: (input: unknown) => Promise<unknown>;
@@ -215,16 +216,7 @@ export function makeActions(
         throw new FlowpanelOperationDisabledError("Delete is disabled for this resource.");
       }
 
-      const softDelete = resource.options.delete?.softDelete;
-      const mctx: MutationContext<Record<string, unknown>> = {
-        ...reqCtx,
-        db: config.adapter.db,
-        input: {},
-        id,
-        ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
-        ...scopeBinding(config, resource, reqCtx),
-      };
-      await runWithRequestContext(reqCtx, () => config.adapter.delete(resource.ref, mctx));
+      await deleteRow(config, resource, id, reqCtx);
       await baseAudit(`${name}.delete`, reqCtx, { targetId: id });
       await runPostCommitEffects({ action: "delete", id }, [buildHref(config, name)]);
     },

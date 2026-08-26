@@ -8,14 +8,15 @@ import {
   DropdownMenuTrigger,
   FlowpanelIcon,
   triggerDownload,
+  useApiBase,
   useToast,
 } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import type { ActionInputIssue } from "../runtime/action-schema.js";
-import { ActionFormDialog } from "./ActionFormDialog.js";
-import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field.js";
-import type { SerializedBulkAction } from "./bulk-action.js";
+import type { ActionInputIssue } from "../runtime/action-schema";
+import { ActionFormDialog } from "./ActionFormDialog";
+import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field";
+import type { SerializedBulkAction } from "./bulk-action";
 
 export interface BulkActionsBarProps {
   resource: string;
@@ -35,6 +36,7 @@ type ServerResult =
 
 export function BulkActionsBar({ resource, selection, onClear, actions }: BulkActionsBarProps) {
   const router = useRouter();
+  const apiBase = useApiBase();
   const toast = useToast();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedBulkAction | null>(null);
@@ -51,9 +53,7 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
     setPending(action.key);
     try {
       const res = await fetch(
-        `/api/flowpanel/${encodeURIComponent(resource)}/bulk-actions/${encodeURIComponent(
-          action.key,
-        )}`,
+        `${apiBase}/${encodeURIComponent(resource)}/bulk-actions/${encodeURIComponent(action.key)}`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },

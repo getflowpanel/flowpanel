@@ -1,4 +1,4 @@
-import { FLOWPANEL_ERROR_STATUS, type FlowpanelErrorCode } from "./result.js";
+import { FLOWPANEL_ERROR_STATUS, type FlowpanelErrorCode } from "./result";
 
 export class FlowpanelError extends Error {
   readonly code: FlowpanelErrorCode;
