@@ -107,18 +107,12 @@ function createState(): LiveOperationsState {
 function state(): LiveOperationsState {
   globalStore[STORE_KEY] ??= createState();
   const current = globalStore[STORE_KEY];
-  if (current.signalVersion !== LIVE_SIGNAL_VERSION || !Array.isArray(current.throughputHistory)) {
+  // A dev-server reload keeps the module instance but may have changed the shape.
+  // Refill in place so the running ticker keeps its reference.
+  if (current.signalVersion !== LIVE_SIGNAL_VERSION) {
     const wasRunning = current.timer !== null;
     if (current.timer) clearInterval(current.timer);
-    const defaults = createState();
-    current.signalVersion = defaults.signalVersion;
-    current.index = Math.max(current.index, defaults.index);
-    current.offersPerMinute = defaults.offersPerMinute;
-    current.priceChangesToday = defaults.priceChangesToday;
-    current.concurrentCrawls = defaults.concurrentCrawls;
-    current.avgMatchLatencyMs = defaults.avgMatchLatencyMs;
-    current.throughputHistory = defaults.throughputHistory;
-    current.timer = null;
+    Object.assign(current, createState(), { timer: null });
     if (wasRunning) startTicker(current);
   }
   return current;

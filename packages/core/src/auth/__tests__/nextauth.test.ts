@@ -5,14 +5,14 @@ describe("withNextAuth", () => {
   it("delegates session() to the user-supplied auth() function", async () => {
     const auth = vi.fn().mockResolvedValue({ user: { id: "u1", role: "admin" } });
     const cfg = withNextAuth({ auth });
-    const s = await cfg.session();
+    const s = await cfg.session(new Request("http://localhost/admin"));
     expect(s).toEqual({ user: { id: "u1", role: "admin" } });
     expect(auth).toHaveBeenCalledOnce();
   });
 
   it("session returns null when auth() resolves to undefined", async () => {
     const cfg = withNextAuth({ auth: async () => undefined });
-    expect(await cfg.session()).toBeNull();
+    expect(await cfg.session(new Request("http://localhost/admin"))).toBeNull();
   });
 
   it("default role extractor reads session.user.role", () => {

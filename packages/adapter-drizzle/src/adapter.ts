@@ -7,7 +7,12 @@ import type {
   ListResult,
   MutationContext,
 } from "@flowpanel/core";
-import { FlowpanelAccessError, isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
+import {
+  FlowpanelAccessError,
+  isFilterInValue,
+  isFilterRangeValue,
+  resolveScopeApplier,
+} from "@flowpanel/core";
 import {
   type AnyColumn,
   and,
@@ -96,16 +101,8 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
 
   /** Runs the tenant predicate against a probe to collect the conditions it applies. */
   function captureScopeClauses(ctx: ScopeContext): SQL[] {
-    const applyScope = ctx.boundScope?.apply ?? ctx.applyScope;
-    if (!applyScope) {
-      if (ctx.scopeRequired) {
-        throw new FlowpanelAccessError(
-          "scope required but not bound: a scope predicate is declared and global scope " +
-            "is active, but the adapter received no applyScope. Refusing to run an unscoped query.",
-        );
-      }
-      return [];
-    }
+    const applyScope = resolveScopeApplier(ctx);
+    if (!applyScope) return [];
     const captured: SQL[] = [];
     const probe = {
       where(cond: SQL) {

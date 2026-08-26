@@ -1,11 +1,11 @@
 import { resolveDemoRole } from "./role";
 
-export interface AdminSession {
+export type AdminSession = {
   id: number;
   email: string;
   role: "admin" | "support";
   user: { id: string; name: string };
-}
+};
 
 /**
  * Synthetic identities for the demo persona switch. A real application

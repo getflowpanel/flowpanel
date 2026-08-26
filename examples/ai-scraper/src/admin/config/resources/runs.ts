@@ -1,7 +1,7 @@
 import { resource } from "@flowpanel/kit";
 import { retryFailedRun } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
-import { badge, formatDate, formatDuration } from "../../format";
+import { badge, formatDuration } from "../../format";
 
 export const runs = resource(schema.runs, {
   name: "runs",
@@ -22,7 +22,7 @@ export const runs = resource(schema.runs, {
       align: "right",
       render: (r) => formatDuration(r.durationMs),
     },
-    { field: "startedAt", label: "Started", render: (r) => formatDate(r.startedAt) },
+    { field: "startedAt", label: "Started" },
   ],
   filters: [
     {

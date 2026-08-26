@@ -12,20 +12,10 @@ export interface ListParams {
 const MAX_PAGE = 100_000;
 
 /** Clamp `?page=` to a positive integer no larger than `MAX_PAGE`; non-finite/garbage → 1. */
-export function parsePage(raw: string | null): number {
+function parsePage(raw: string | null): number {
   const n = Number(raw);
   if (!Number.isFinite(n)) return 1;
   return Math.min(Math.max(Math.trunc(n), 1), MAX_PAGE);
-}
-
-/** Highest `?pageSize=` a caller may ask for in one page of JSON. */
-const MAX_PAGE_SIZE = 200;
-
-/** Clamp `?pageSize=` into the range a single response may carry; garbage → `fallback`. */
-export function parsePageSize(raw: string | null, fallback: number): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(Math.max(Math.trunc(n), 1), MAX_PAGE_SIZE);
 }
 
 /** Parse list URL params into the shape the adapter list query expects. */

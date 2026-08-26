@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { FlowpanelAccessError } from "@flowpanel/core";
+import { FlowpanelAccessError, resolveScopeApplier } from "@flowpanel/core";
 import type { PrismaDmmf } from "./introspect";
 
 const require = createRequire(import.meta.url);
@@ -52,16 +52,8 @@ export function applyScopeToWhere(
     scopeRequired?: boolean;
   },
 ): Record<string, unknown> {
-  const applyScope = ctx.boundScope?.apply ?? ctx.applyScope;
-  if (!applyScope) {
-    if (ctx.scopeRequired) {
-      throw new FlowpanelAccessError(
-        "scope required but not bound: a scope predicate is declared and global scope " +
-          "is active, but the adapter received no applyScope. Refusing to run an unscoped query.",
-      );
-    }
-    return where;
-  }
+  const applyScope = resolveScopeApplier(ctx);
+  if (!applyScope) return where;
   const before = { ...where };
   const scoped = applyScope(where);
   if (typeof scoped !== "object" || scoped === null || Array.isArray(scoped)) {

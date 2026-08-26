@@ -1,5 +1,3 @@
-/** FlowPanel theme runtime — dark/light mode persistence. */
-
 export type ThemeMode = "light" | "dark" | "auto";
 export type ThemeChoice = "light" | "dark";
 

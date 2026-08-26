@@ -1,6 +1,6 @@
 import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { buildAuditEvent, maybeEmitAudit } from "../runtime/action-helpers";
+import { buildAuditEvent, maybeEmitAudit, notFoundResponse } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { buildHref } from "../runtime/href";
 import { bindPublisher } from "../runtime/publish";
@@ -17,7 +17,7 @@ export function restoreRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName, id } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
 
     const softDelete = resource.options.delete?.softDelete;

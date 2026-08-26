@@ -9,7 +9,9 @@ describe("devAuth", () => {
   });
 
   it("returns a static session", async () => {
-    await expect(devAuth().session()).resolves.toEqual({ id: "dev" });
+    await expect(devAuth().session(new Request("http://localhost/admin"))).resolves.toEqual({
+      id: "dev",
+    });
   });
 
   it("defaults the role to admin", () => {

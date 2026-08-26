@@ -12,7 +12,7 @@ import {
 } from "@flowpanel/core";
 import { parseActionBody } from "../drawer/parse-action-body";
 import {
-  actorIdFromSession,
+  buildActionContext,
   buildAuditEvent,
   invalidJsonResponse,
   maybeEmitAudit,
@@ -22,7 +22,7 @@ import { parseActionInputSchema, validateActionOutput } from "../runtime/action-
 import { applyActionResult } from "../runtime/apply-action-result";
 import { deleteRow } from "../runtime/delete-row";
 import { buildHref } from "../runtime/href";
-import { bindPublisher, publish } from "../runtime/publish";
+import { bindPublisher } from "../runtime/publish";
 import { readRow } from "../runtime/read-row";
 import { withGuards } from "../runtime/with-guards";
 import type { ActionFormField } from "./action-form-field";
@@ -178,15 +178,7 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
           );
         }
 
-        const actionCtx = {
-          ...reqCtx,
-          db: config.adapter.db,
-          ...(action.unsafe?.includes("db") ? { unsafe: { db: config.adapter.db } } : {}),
-          actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
-          publish: async (channel: string, payload?: unknown) => {
-            await publish(channel, payload);
-          },
-        };
+        const actionCtx = buildActionContext(config, reqCtx, action);
 
         await Promise.all(
           ids.map(async (id) => {

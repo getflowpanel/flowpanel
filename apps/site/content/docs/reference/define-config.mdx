@@ -32,6 +32,10 @@ The only part of FlowPanel that knows about your auth provider. `session` and
 `role` run on every request and every page render, so keep them cheap — cache
 inside your own session helper if they hit the network.
 
+`session` receives the request being served, so a provider that reads cookies,
+headers or the host — a tenant resolver, an OAuth callback check — can use it
+directly. A helper that ignores the argument still satisfies the type.
+
 <AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuthConfig" />
 
 `requireRole` is the admin-wide gate, and nothing else in FlowPanel demands a

@@ -1,5 +1,3 @@
-/** Shared reconnect schedule for the realtime bus and the SSE connection pool. */
-
 /** First reconnect delay; doubles per consecutive failure. */
 const BASE_MS = 500;
 

@@ -2,7 +2,7 @@ import { resource } from "@flowpanel/kit";
 import { confirmMatch, rejectMatch } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { MATCH_MODELS, modelLabel } from "@/src/lib/ai-models";
-import { badge, confidenceCell, formatDate, modelBadge } from "../../format";
+import { badge, confidenceCell, modelBadge } from "../../format";
 
 export const review = resource(schema.matches, {
   name: "matches",
@@ -28,7 +28,7 @@ export const review = resource(schema.matches, {
     },
     { field: "status", format: badge },
     { field: "model", render: (row) => modelBadge(row.model) },
-    { field: "matchedAt", label: "Matched", render: (row) => formatDate(row.matchedAt) },
+    { field: "matchedAt", label: "Matched" },
   ],
   filters: [
     {

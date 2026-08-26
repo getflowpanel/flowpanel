@@ -1,5 +1,5 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
-import { roleAllows } from "../runtime/action-helpers";
+import { notFoundResponse, roleAllows } from "../runtime/action-helpers";
 import { readRelatedRows } from "../runtime/require-authorized";
 import { declaredFormFields } from "../runtime/resolve-form-fields";
 import { withGuards } from "../runtime/with-guards";
@@ -14,7 +14,7 @@ export function referenceSearchRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName, field } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
 
     return withGuards(

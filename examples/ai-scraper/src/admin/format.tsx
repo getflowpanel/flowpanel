@@ -32,23 +32,8 @@ export const badge: ColumnFormat = { kind: "badge", tones: STATUS_TONES };
 export const money: ColumnFormat = { kind: "money", scale: 100 };
 
 // Cell renderers for the app-specific shapes the framework doesn't cover --
-const dateTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
-const shortDateTime = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-});
 const monthYear = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
 const tabularNums: CSSProperties = { fontVariantNumeric: "tabular-nums" };
-
-/** Human-readable timestamp, or an em dash for null. */
-export const formatDate = (value: Date | string | null | undefined) =>
-  value == null ? "—" : dateTime.format(new Date(value));
-
-/** One-line timestamp for narrow columns, e.g. "Aug 18, 4:32 PM". */
-export const formatShortDate = (value: Date | string | null | undefined) =>
-  value == null ? "—" : shortDateTime.format(new Date(value));
 
 /** Billing period as a month, e.g. "Aug 2026". */
 export const formatMonth = (value: Date | string | null | undefined) =>

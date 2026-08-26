@@ -1,7 +1,7 @@
 import { bulkAction, type FieldDef, resource } from "@flowpanel/kit";
 import { pauseMonitors, resumeMonitors } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
-import { badge, formatShortDate, urlCell } from "../../format";
+import { badge, urlCell } from "../../format";
 
 type Monitor = typeof schema.monitors.$inferSelect;
 
@@ -76,7 +76,7 @@ export const monitors = resource(schema.monitors, {
     { field: "targetUrl", label: "Target", render: (row) => urlCell(row.targetUrl) },
     "schedule",
     { field: "status", format: badge },
-    { field: "lastRunAt", label: "Last run", render: (row) => formatShortDate(row.lastRunAt) },
+    { field: "lastRunAt", label: "Last run" },
   ],
   search: ["name", "targetUrl"],
   filters: [

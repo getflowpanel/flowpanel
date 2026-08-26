@@ -1,8 +1,6 @@
 "use client";
 import * as React from "react";
 
-/** Shared types + React context for the realtime bus. */
-
 export type Callback = (data: unknown) => void;
 
 /** Connection status surfaced to UI. */

@@ -19,20 +19,13 @@ import {
   TabsList,
   TabsTrigger,
   type Tone,
-  triggerDownload,
   useAdminDrawer,
   useApiBase,
-  useToast,
 } from "@flowpanel/react";
-import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
 import { ActionFormDialog } from "../actions/ActionFormDialog";
-import {
-  type ActionFormField,
-  type ActionFormFieldErrors,
-  mapActionIssuesToFieldErrors,
-} from "../actions/action-form-field";
-import type { ActionInputIssue } from "../runtime/action-schema";
+import type { ActionFormField, ActionFormFieldErrors } from "../actions/action-form-field";
+import { useActionRunner } from "../actions/use-action-runner";
 import { formatFieldValue } from "../runtime/format-field-value";
 import { toWireOptions } from "../runtime/select-options";
 import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route";
@@ -309,16 +302,6 @@ function DrawerBody({ payload }: { payload: DrawerPayload }) {
   );
 }
 
-interface DrawerActionResult {
-  ok: boolean;
-  message?: string;
-  error?: string;
-  issues?: ActionInputIssue[];
-  refresh?: boolean | string | string[];
-  redirect?: string;
-  download?: { filename: string; data: string; mime?: string };
-}
-
 function ActionButton({
   action,
   resource,
@@ -330,52 +313,23 @@ function ActionButton({
   id: string;
   onActionSuccess: () => void;
 }) {
-  const toast = useToast();
-  const router = useRouter();
   const apiBase = useApiBase();
+  const runAction = useActionRunner();
   const [pending, setPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const hasForm = Boolean(action.form && action.form.length > 0);
 
-  /** Runs the action. */
-  async function runAction(
+  async function runDrawerAction(
     input: Record<string, unknown> = {},
   ): Promise<ActionFormFieldErrors | null> {
     setPending(true);
     try {
-      const res = await fetch(
-        `${apiBase}/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(
-          id,
-        )}/actions/${encodeURIComponent(action.key)}`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(input),
-        },
+      return await runAction(
+        `${apiBase}/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(id)}/actions/${encodeURIComponent(action.key)}`,
+        input,
+        { failureMessage: `${action.label} failed`, onRefreshed: onActionSuccess },
       );
-      const result = (await res.json().catch(() => ({
-        ok: false,
-        error: res.statusText,
-      }))) as DrawerActionResult;
-      if (!res.ok || result.ok === false) {
-        const fieldErrors = mapActionIssuesToFieldErrors(result.issues);
-        if (fieldErrors) return fieldErrors;
-        toast.error(result.error ?? `Error ${res.status}`);
-        return null;
-      }
-      if (result.message) toast.success(result.message);
-      if (result.download) triggerDownload(result.download);
-      if (result.redirect) {
-        router.push(result.redirect);
-      } else if (result.refresh !== false) {
-        router.refresh();
-        onActionSuccess();
-      }
-      return null;
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Action failed");
-      return null;
     } finally {
       setPending(false);
     }
@@ -387,7 +341,7 @@ function ActionButton({
     } else if (action.confirm) {
       setConfirmOpen(true);
     } else {
-      void runAction();
+      void runDrawerAction();
     }
   }
 
@@ -414,7 +368,7 @@ function ActionButton({
           fields={toActionFormFields(action.form)}
           onCancel={() => setFormOpen(false)}
           onSubmit={async (input) => {
-            const fieldErrors = await runAction(input);
+            const fieldErrors = await runDrawerAction(input);
             if (!fieldErrors) setFormOpen(false);
             return fieldErrors;
           }}
@@ -428,7 +382,7 @@ function ActionButton({
           confirmLabel={action.label}
           {...(action.variant === "destructive" ? { variant: "destructive" as const } : {})}
           onConfirm={() => {
-            void runAction();
+            void runDrawerAction();
           }}
         />
       ) : null}

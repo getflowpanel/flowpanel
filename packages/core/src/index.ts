@@ -1,3 +1,4 @@
+export { type AdapterScopeContext, resolveScopeApplier } from "./adapter-scope";
 export { devAuth } from "./auth/dev";
 export { dashboard, page } from "./builders/dashboard";
 export { queue } from "./builders/queue";

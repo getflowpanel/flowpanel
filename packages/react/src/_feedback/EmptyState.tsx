@@ -5,7 +5,6 @@ import { DefaultEmptyState } from "./EmptyStateDefault";
 
 export { DefaultEmptyState, type EmptyStateProps } from "./EmptyStateDefault";
 
-/** falling back to DefaultEmptyState. */
 export function EmptyState(
   props: import("./EmptyStateDefault").EmptyStateProps,
 ): React.JSX.Element {

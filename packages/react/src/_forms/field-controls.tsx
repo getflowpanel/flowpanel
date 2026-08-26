@@ -294,7 +294,6 @@ interface TextareaFieldProps {
   aria: AriaProps;
 }
 
-/** `textarea` / `markdown` — see `ScalarField`'s doc comment. */
 export function TextareaField({
   field,
   markdown,
@@ -323,11 +322,10 @@ interface SelectFieldProps {
   readOnly: boolean;
   aria: AriaProps;
   options: { label: string; value: string }[];
-  /** disables the visible `<select>` — a `disabled` control is dropped from */
+  /** Submitted by a hidden input when read-only: a disabled control posts nothing. */
   rawValue: unknown;
 }
 
-/** `select` — see `ScalarField`'s doc comment. */
 export function SelectField({
   field,
   placeholder,
@@ -371,13 +369,11 @@ interface RadioFieldProps {
   field: FieldMetadata<unknown>;
   readOnly: boolean;
   options: { label: string; value: string }[];
-  /** See `SelectFieldProps.rawValue`. */
   rawValue: unknown;
   aria: AriaProps;
   labelId?: string;
 }
 
-/** `radio` — see `ScalarField`'s doc comment. */
 export function RadioField({ field, readOnly, options, rawValue, aria, labelId }: RadioFieldProps) {
   const control = useStringControl(field);
   return (
@@ -412,7 +408,6 @@ interface CheckboxFieldProps {
   aria: AriaProps;
 }
 
-/** `boolean` / `switch` / `checkbox` — see `ScalarField`'s doc comment. */
 export function CheckboxField({ field, readOnly, aria }: CheckboxFieldProps) {
   const control = useStringControl(field);
   const checked = control.value === "on" || control.value === "true";

@@ -33,7 +33,9 @@ describe("withLucia", () => {
     // next/headers can't be loaded outside Next runtime.
     const cfg = withLucia({ lucia: fakeLucia() });
     // either the import returns null and we throw, OR we return null silently
-    await expect(cfg.session()).rejects.toThrow(/next\/headers is unavailable/);
+    await expect(cfg.session(new Request("http://localhost/admin"))).rejects.toThrow(
+      /next\/headers is unavailable/,
+    );
   });
 
   it("custom role override replaces default", () => {

@@ -5,9 +5,11 @@ import type {
   AuditEvent,
   RequestContext,
   RequireRole,
+  ResolvedAdminConfig,
 } from "@flowpanel/core";
 import { accessAllows, checkRequireRole, emitAudit } from "@flowpanel/core";
 import { parseActionBody } from "../drawer/parse-action-body";
+import { publish } from "./publish";
 
 /** Body of a POSTed action, or a flag that the JSON was malformed. */
 export type ActionInput =
@@ -71,6 +73,23 @@ export function actorIdFromSession(
     return idString((user as { id?: unknown }).id);
   }
   return null;
+}
+
+/** The context every action's `run` receives: request, database, actor, publisher. */
+export function buildActionContext(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  action: { unsafe?: readonly "db"[] },
+) {
+  return {
+    ...reqCtx,
+    db: config.adapter.db,
+    ...(action.unsafe?.includes("db") ? { unsafe: { db: config.adapter.db } } : {}),
+    actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
+    publish: async (channel: string, payload?: unknown) => {
+      await publish(channel, payload);
+    },
+  };
 }
 
 /** Non-throwing role check, used for field-level RBAC (`FieldDef.requireRole`). */

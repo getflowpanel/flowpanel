@@ -42,7 +42,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "rm -rf dist && tsup",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
     "lint:publish": "publint --strict",

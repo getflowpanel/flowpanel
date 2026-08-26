@@ -1,7 +1,7 @@
 import { type FieldDef, type InferRow, resource } from "@flowpanel/kit";
 import { disableCustomer } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
-import { badge, formatDate } from "../../format";
+import { badge } from "../../format";
 
 const PLANS = [
   { label: "Free", value: "free" },
@@ -59,7 +59,7 @@ export const customers = resource(schema.customers, {
     "email",
     { field: "plan", format: badge },
     { field: "status", format: badge },
-    { field: "createdAt", label: "Joined", render: (row) => formatDate(row.createdAt) },
+    { field: "createdAt", label: "Joined" },
   ],
   search: ["company", "name", "email"],
   filters: [

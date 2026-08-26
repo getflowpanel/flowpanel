@@ -1,4 +1,5 @@
 import { AST_NODE_TYPES, ASTUtils, type TSESLint, type TSESTree } from "@typescript-eslint/utils";
+import { findPropertyByName } from "../ast-utils";
 import { createRule } from "../create-rule";
 
 type MessageId = "duplicate" | "duplicateRef";
@@ -129,19 +130,6 @@ function extractResourceName(call: TSESTree.CallExpression): string | null {
   const ref = call.arguments[0];
   if (ref && ref.type === AST_NODE_TYPES.Literal && typeof ref.value === "string") {
     return ref.value;
-  }
-  return null;
-}
-
-function findPropertyByName(
-  obj: TSESTree.ObjectExpression,
-  name: string,
-): TSESTree.Property | null {
-  for (const prop of obj.properties) {
-    if (prop.type !== AST_NODE_TYPES.Property) continue;
-    const key = prop.key;
-    if (key.type === AST_NODE_TYPES.Identifier && key.name === name) return prop;
-    if (key.type === AST_NODE_TYPES.Literal && key.value === name) return prop;
   }
   return null;
 }

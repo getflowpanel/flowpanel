@@ -85,7 +85,13 @@ describe("the JSON list route parses like the rendered page", () => {
   it("clamps a hostile pageSize instead of forwarding it", async () => {
     seen.length = 0;
     await get(makeConfig(), "?pageSize=100000");
-    expect(seen[0]?.pageSize).toBeLessThanOrEqual(200);
+    expect(seen[0]?.pageSize).toBeLessThanOrEqual(100);
+  });
+
+  it("clamps a hostile page instead of forwarding its offset", async () => {
+    seen.length = 0;
+    await get(makeConfig(), "?page=999999999");
+    expect(seen[0]?.page).toBeLessThanOrEqual(100_000);
   });
 
   it("still refuses a filter on an undeclared field", async () => {

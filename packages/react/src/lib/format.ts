@@ -1,7 +1,6 @@
-/** Numeric format helpers mirrored from @flowpanel/core widget types. */
+export type { NumericFormat, Tone } from "@flowpanel/core";
 
-export type NumericFormat = "number" | "currency" | "percent" | "bytes" | "duration";
-export type Tone = "default" | "accent" | "ok" | "warn" | "err" | "info" | "muted";
+import type { NumericFormat } from "@flowpanel/core";
 
 export function formatNumber(
   v: number,

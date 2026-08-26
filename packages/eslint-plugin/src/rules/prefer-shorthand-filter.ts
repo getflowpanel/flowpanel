@@ -1,4 +1,5 @@
 import { AST_NODE_TYPES, type TSESTree } from "@typescript-eslint/utils";
+import { asStringLiteral, findPropertyByName } from "../ast-utils";
 import { createRule } from "../create-rule";
 
 type MessageId = "preferShorthand";
@@ -80,26 +81,6 @@ function isFiltersProperty(node: TSESTree.Property): boolean {
   if (key.type === AST_NODE_TYPES.Identifier) return key.name === "filters";
   if (key.type === AST_NODE_TYPES.Literal) return key.value === "filters";
   return false;
-}
-
-function findPropertyByName(
-  obj: TSESTree.ObjectExpression,
-  name: string,
-): TSESTree.Property | null {
-  for (const prop of obj.properties) {
-    if (prop.type !== AST_NODE_TYPES.Property) continue;
-    const key = prop.key;
-    if (key.type === AST_NODE_TYPES.Identifier && key.name === name) return prop;
-    if (key.type === AST_NODE_TYPES.Literal && key.value === name) return prop;
-  }
-  return null;
-}
-
-function asStringLiteral(node: TSESTree.Node): string | null {
-  if (node.type === AST_NODE_TYPES.Literal && typeof node.value === "string") {
-    return node.value;
-  }
-  return null;
 }
 
 export default rule;

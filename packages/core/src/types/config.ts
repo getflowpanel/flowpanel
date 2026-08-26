@@ -16,8 +16,12 @@ export type RateLimitConfig = RateLimitOptions & {
 };
 
 export interface AuthConfig {
-  /** Reads the current session. Called on every request and page render. */
-  session: () => Promise<Session | null>;
+  /**
+   * Reads the current session. Called on every request and page render, and handed
+   * the request being served so a provider that inspects headers, cookies or the
+   * host — a tenant resolver, an OAuth callback check — does not have to forge one.
+   */
+  session: (req: Request) => Promise<Session | null>;
   /** Maps a session to a role string, which every `requireRole` gate compares against. */
   role: (session: Session | null) => string;
   /** Admin-wide gate. Blocks every route and page before anything else runs. */

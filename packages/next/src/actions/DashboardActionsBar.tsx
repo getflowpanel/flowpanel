@@ -1,18 +1,10 @@
 "use client";
-import {
-  Button,
-  ConfirmDialog,
-  FlowpanelIcon,
-  triggerDownload,
-  useApiBase,
-  useToast,
-} from "@flowpanel/react";
-import { useRouter } from "next/navigation";
+import { Button, ConfirmDialog, FlowpanelIcon, useApiBase } from "@flowpanel/react";
 import * as React from "react";
-import type { ActionInputIssue } from "../runtime/action-schema";
 import { ActionFormDialog } from "./ActionFormDialog";
-import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field";
+import type { ActionFormFieldErrors } from "./action-form-field";
 import type { SerializedDashboardAction } from "./dashboard-action";
+import { useActionRunner } from "./use-action-runner";
 
 /** Top-bar action row rendered in the dashboard header when `DashboardConfig.actions` is non-empty. */
 export interface DashboardActionsBarProps {
@@ -20,60 +12,25 @@ export interface DashboardActionsBarProps {
   actions: SerializedDashboardAction[];
 }
 
-type ServerResult =
-  | {
-      ok: true;
-      message?: string;
-      redirect?: string;
-      download?: { filename: string; data: string; mime?: string };
-    }
-  | { ok: false; error: string; issues?: ActionInputIssue[] };
-
 export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBarProps) {
-  const router = useRouter();
   const apiBase = useApiBase();
-  const toast = useToast();
+  const runAction = useActionRunner();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedDashboardAction | null>(null);
   const [formAction, setFormAction] = React.useState<SerializedDashboardAction | null>(null);
 
   if (actions.length === 0) return null;
 
-  /** Runs the action. */
   async function execute(
     action: SerializedDashboardAction,
     input: Record<string, unknown> = {},
   ): Promise<ActionFormFieldErrors | null> {
     setPending(action.key);
     try {
-      const res = await fetch(`${apiBase}/dashboards/${encodedPath}/actions/${action.key}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
+      return await runAction(`${apiBase}/dashboards/${encodedPath}/actions/${action.key}`, input, {
+        successMessage: `${action.label} ran`,
+        failureMessage: `${action.label} failed`,
       });
-      const result = (await res.json()) as ServerResult;
-
-      if (!result.ok) {
-        const fieldErrors = mapActionIssuesToFieldErrors(result.issues);
-        if (fieldErrors) return fieldErrors;
-        toast.error(result.error || `${action.label} failed`);
-        return null;
-      }
-
-      toast.success(result.message ?? `${action.label} ran`);
-
-      if (result.download) {
-        triggerDownload(result.download);
-      }
-      if (result.redirect) {
-        router.push(result.redirect);
-      } else {
-        router.refresh();
-      }
-      return null;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Network error");
-      return null;
     } finally {
       setPending(null);
     }

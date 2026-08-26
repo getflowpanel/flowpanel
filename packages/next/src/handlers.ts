@@ -12,8 +12,6 @@ import { createResourceController } from "./controllers/resource-controller";
 import { drawerActionRoute, drawerRoute } from "./drawer/drawer-route";
 import {
   declaredFieldSet,
-  parsePage,
-  parsePageSize,
   resolveFilterSpecs,
   sanitizeFilterValues,
 } from "./runtime/parse-list-params";
@@ -70,6 +68,55 @@ async function readJsonObject(req: Request): Promise<Record<string, unknown> | R
   }
 }
 
+type RouteHandlerWith<Params> = (
+  req: Request,
+  ctx: { params: Promise<Params> },
+) => Promise<Response>;
+
+interface RoutePattern<Params> {
+  /** Literal segments, or `:name` for a captured one. */
+  segments: readonly string[];
+  handler: RouteHandlerWith<Params>;
+}
+
+/** A pattern described the route but a captured segment was empty. */
+const MALFORMED = Symbol("malformed-route");
+
+/** Capture a route's named segments, or `null` when the pattern does not describe it. */
+function matchRoute(
+  segments: readonly string[],
+  route: readonly string[],
+): Record<string, string> | typeof MALFORMED | null {
+  if (segments.length !== route.length) return null;
+  const params: Record<string, string> = {};
+  let malformed = false;
+  for (const [i, segment] of segments.entries()) {
+    const value = route[i];
+    if (segment.startsWith(":")) {
+      if (value) params[segment.slice(1)] = value;
+      else malformed = true;
+    } else if (segment !== value) return null;
+  }
+  return malformed ? MALFORMED : params;
+}
+
+/** Dispatch to the first pattern that describes `route`. */
+function dispatch(
+  routes: ReadonlyArray<RoutePattern<never>>,
+  req: Request,
+  route: readonly string[],
+): Promise<Response> | Response | null {
+  for (const { segments, handler } of routes) {
+    const params = matchRoute(segments, route);
+    if (params === null) continue;
+    if (params === MALFORMED) {
+      return Response.json({ ok: false, error: "bad request" }, { status: 400 });
+    }
+    return handler(req, { params: Promise.resolve(params as never) });
+  }
+  return null;
+}
+
 function resourceResult(
   config: ResolvedAdminConfig,
   req: Request,
@@ -113,22 +160,15 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
     ctx: { params: Promise<{ route?: string[] }> },
   ): Promise<Response> {
     const { route = [] } = await ctx.params;
-    if (route.length === 3 && route[0] === "drawer") {
-      const resource = route[1];
-      const id = route[2];
-      if (!resource || !id) {
-        return Response.json({ error: "bad request" }, { status: 400 });
-      }
-      return getDrawer(req, { params: Promise.resolve({ resource, id }) });
-    }
-    if (route.length === 3 && route[1] === "reference") {
-      const resource = route[0];
-      const field = route[2];
-      if (!resource || !field) {
-        return Response.json({ error: "bad request" }, { status: 400 });
-      }
-      return getReferenceSearch(req, { params: Promise.resolve({ resource, field }) });
-    }
+    const matched = dispatch(
+      [
+        { segments: ["drawer", ":resource", ":id"], handler: getDrawer },
+        { segments: [":resource", "reference", ":field"], handler: getReferenceSearch },
+      ] as ReadonlyArray<RoutePattern<never>>,
+      req,
+      route,
+    );
+    if (matched) return matched;
     const listed =
       route.length === 1 && route[0] ? config.resourcesByName.get(route[0]) : undefined;
     if (listed && route[0]) {
@@ -148,8 +188,8 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
         });
         return wireResponse(
           await controller.list({
-            page: parsePage(url.searchParams.get("page")),
-            pageSize: parsePageSize(url.searchParams.get("pageSize"), 20),
+            page: Number(url.searchParams.get("page") ?? 1),
+            pageSize: Number(url.searchParams.get("pageSize") ?? 20),
             search: url.searchParams.get("search") ?? "",
             filters: sanitizeFilterValues(raw, specs),
           }),
@@ -169,80 +209,28 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
     ctx: { params: Promise<{ route?: string[] }> },
   ): Promise<Response> {
     const { route = [] } = await ctx.params;
-    if (route.length === 5 && route[0] === "drawer" && route[3] === "actions") {
-      const resource = route[1];
-      const id = route[2];
-      const action = route[4];
-      if (!resource || !id || !action) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postDrawerAction(req, { params: Promise.resolve({ resource, id, action }) });
-    }
-    if (route.length === 4 && route[0] === "dashboards" && route[2] === "actions") {
-      const dashboard = route[1];
-      const action = route[3];
-      if (!dashboard || !action) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postDashboardAction(req, {
-        params: Promise.resolve({ dashboard, action }),
-      });
-    }
-    if (route.length === 4 && route[2] === "actions") {
-      const resource = route[0];
-      const id = route[1];
-      const action = route[3];
-      if (!resource || !id || !action) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postRowAction(req, { params: Promise.resolve({ resource, id, action }) });
-    }
-    if (route.length === 3 && route[1] === "bulk-actions") {
-      const resource = route[0];
-      const action = route[2];
-      if (!resource || !action) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postBulkAction(req, { params: Promise.resolve({ resource, action }) });
-    }
-    if (route.length === 2 && route[1] === "import") {
-      const resource = route[0];
-      if (!resource) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postImport(req, { params: Promise.resolve({ resource }) });
-    }
-    if (route.length === 2 && route[1] === "create") {
-      const resource = route[0];
-      if (!resource) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postResourceCreate(req, { params: Promise.resolve({ resource }) });
-    }
-    if (route.length === 3 && route[2] === "update") {
-      const resource = route[0];
-      const id = route[1];
-      if (!resource || !id) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postInlineUpdate(req, { params: Promise.resolve({ resource, id }) });
-    }
-    if (route.length === 3 && route[2] === "edit") {
-      const resource = route[0];
-      const id = route[1];
-      if (!resource || !id) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postResourceUpdate(req, { params: Promise.resolve({ resource, id }) });
-    }
-    if (route.length === 3 && route[2] === "restore") {
-      const resource = route[0];
-      const id = route[1];
-      if (!resource || !id) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postRestore(req, { params: Promise.resolve({ resource, id }) });
-    }
+    const matched = dispatch(
+      [
+        {
+          segments: ["drawer", ":resource", ":id", "actions", ":action"],
+          handler: postDrawerAction,
+        },
+        {
+          segments: ["dashboards", ":dashboard", "actions", ":action"],
+          handler: postDashboardAction,
+        },
+        { segments: [":resource", ":id", "actions", ":action"], handler: postRowAction },
+        { segments: [":resource", "bulk-actions", ":action"], handler: postBulkAction },
+        { segments: [":resource", "import"], handler: postImport },
+        { segments: [":resource", "create"], handler: postResourceCreate },
+        { segments: [":resource", ":id", "update"], handler: postInlineUpdate },
+        { segments: [":resource", ":id", "edit"], handler: postResourceUpdate },
+        { segments: [":resource", ":id", "restore"], handler: postRestore },
+      ] as ReadonlyArray<RoutePattern<never>>,
+      req,
+      route,
+    );
+    if (matched) return matched;
     if (route.length === 1 && route[0] && config.resourcesByName.has(route[0])) {
       const input = await readJsonObject(req);
       if (input instanceof Response) return input;

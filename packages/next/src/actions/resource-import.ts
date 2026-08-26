@@ -1,7 +1,7 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { FlowpanelValidationError } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
-import { safeErrorMessage } from "../runtime/action-helpers";
+import { notFoundResponse, safeErrorMessage } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
 import { buildHref } from "../runtime/href";
 import { resourceNavName } from "../runtime/nav";
@@ -70,7 +70,7 @@ export function importRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     const importOpt = resource.options.import;
     if (!importOpt) {

@@ -1,7 +1,10 @@
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { pipeWithPrefix } from "../dev";
+import { findBoardScript, pipeWithPrefix } from "../dev";
 
 function fakeChild(): { child: ChildProcess; stdout: EventEmitter; stderr: EventEmitter } {
   const stdout = new EventEmitter();
@@ -95,5 +98,38 @@ describe("pipeWithPrefix", () => {
     });
     expect(out).toEqual(["[board] listening on 3001\n"]);
     expect(err).toEqual(["[board] boom\n"]);
+  });
+});
+
+describe("findBoardScript", () => {
+  it("finds the ESM board script a CJS app needs to import the adapter statically", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-board-mts-"));
+    try {
+      await fs.mkdir(path.join(tmp, "scripts"), { recursive: true });
+      await fs.writeFile(path.join(tmp, "scripts/board-server.mts"), "");
+      expect(await findBoardScript(tmp)).toBe("scripts/board-server.mts");
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("still finds the .ts script projects scaffolded before", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-board-ts-"));
+    try {
+      await fs.mkdir(path.join(tmp, "scripts"), { recursive: true });
+      await fs.writeFile(path.join(tmp, "scripts/board-server.ts"), "");
+      expect(await findBoardScript(tmp)).toBe("scripts/board-server.ts");
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("reports none when neither exists", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-board-none-"));
+    try {
+      expect(await findBoardScript(tmp)).toBeNull();
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
   });
 });

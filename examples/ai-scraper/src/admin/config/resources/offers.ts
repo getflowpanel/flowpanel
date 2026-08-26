@@ -1,7 +1,7 @@
 import { resource } from "@flowpanel/kit";
 import * as schema from "@/src/db/schema";
 import { MARKETPLACES } from "@/src/demo/data/types";
-import { badge, formatDate, money, ratingCell } from "../../format";
+import { badge, money, ratingCell } from "../../format";
 
 export const offers = resource(schema.listings, {
   name: "listings",
@@ -15,7 +15,7 @@ export const offers = resource(schema.listings, {
     { field: "stock", format: badge },
     { field: "rating", align: "right", render: (row) => ratingCell(row.rating) },
     { field: "reviews", align: "right", format: "number" },
-    { field: "scrapedAt", label: "Discovered", render: (row) => formatDate(row.scrapedAt) },
+    { field: "scrapedAt", label: "Discovered" },
   ],
   search: ["title", "brand", "asin", "seller"],
   filters: [

@@ -1,5 +1,6 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { FlowpanelValidationError } from "@flowpanel/core";
+import { notFoundResponse } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
 import { declaredFormFields } from "../runtime/resolve-form-fields";
 import { withGuards } from "../runtime/with-guards";
@@ -94,7 +95,7 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     if (resource.options.create?.disabled) {
       return Response.json({ ok: false, error: "create is disabled" }, { status: 403 });
@@ -129,7 +130,7 @@ export function resourceUpdateRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName, id } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     if (resource.options.update?.disabled) {
       return Response.json({ ok: false, error: "editing is disabled" }, { status: 403 });

@@ -184,16 +184,18 @@ describe("handleRenderError", () => {
   it("re-throws errors that aren't FlowpanelAuthError/FlowpanelAccessError", async () => {
     const config = makeConfig();
     const boom = new Error("db exploded");
-    await expect(handleRenderError(boom, config)).rejects.toBe(boom);
+    await expect(
+      handleRenderError(boom, config, new Request("http://localhost/admin")),
+    ).rejects.toBe(boom);
   });
 
   it("redirects to signInUrl when unauthenticated (session() returns null)", async () => {
     const config = makeConfig({
       auth: { session: async () => null, role: () => "guest", signInUrl: "/sign-in" },
     } as never);
-    await expect(handleRenderError(new FlowpanelAccessError(), config)).rejects.toThrow(
-      "NEXT_REDIRECT:/sign-in",
-    );
+    await expect(
+      handleRenderError(new FlowpanelAccessError(), config, new Request("http://localhost/admin")),
+    ).rejects.toThrow("NEXT_REDIRECT:/sign-in");
     expect(redirectSpy).toHaveBeenCalledWith("/sign-in");
   });
 
@@ -205,9 +207,9 @@ describe("handleRenderError", () => {
         forbiddenUrl: "/403",
       },
     } as never);
-    await expect(handleRenderError(new FlowpanelAccessError(), config)).rejects.toThrow(
-      "NEXT_REDIRECT:/403",
-    );
+    await expect(
+      handleRenderError(new FlowpanelAccessError(), config, new Request("http://localhost/admin")),
+    ).rejects.toThrow("NEXT_REDIRECT:/403");
     expect(redirectSpy).toHaveBeenCalledWith("/403");
   });
 
@@ -220,9 +222,9 @@ describe("handleRenderError", () => {
         forbiddenUrl: "/403",
       },
     } as never);
-    await expect(handleRenderError(new FlowpanelAuthError(), config)).rejects.toThrow(
-      "NEXT_REDIRECT:/sign-in",
-    );
+    await expect(
+      handleRenderError(new FlowpanelAuthError(), config, new Request("http://localhost/admin")),
+    ).rejects.toThrow("NEXT_REDIRECT:/sign-in");
     expect(redirectSpy).toHaveBeenCalledWith("/sign-in");
   });
 
@@ -230,7 +232,11 @@ describe("handleRenderError", () => {
     const config = makeConfig({
       auth: { session: async () => null, role: () => "guest" },
     } as never);
-    const node = await handleRenderError(new FlowpanelAccessError(), config);
+    const node = await handleRenderError(
+      new FlowpanelAccessError(),
+      config,
+      new Request("http://localhost/admin"),
+    );
     expect(redirectSpy).not.toHaveBeenCalled();
     expect(isValidElement(node) && node.type).toBe(EmptyState);
     expect(isValidElement(node) && (node.props as { title: string }).title).toBe(
@@ -245,7 +251,11 @@ describe("handleRenderError", () => {
         role: () => "viewer",
       },
     } as never);
-    const node = await handleRenderError(new FlowpanelAccessError(), config);
+    const node = await handleRenderError(
+      new FlowpanelAccessError(),
+      config,
+      new Request("http://localhost/admin"),
+    );
     expect(redirectSpy).not.toHaveBeenCalled();
     expect(isValidElement(node) && node.type).toBe(EmptyState);
     expect(isValidElement(node) && (node.props as { title: string }).title).toBe("Access denied");

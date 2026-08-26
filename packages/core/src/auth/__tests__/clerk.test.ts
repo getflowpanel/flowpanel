@@ -47,6 +47,8 @@ describe("withClerk", () => {
     const cfg = withClerk();
     // The dynamic import will resolve to null (module not found in this env);
     // we can't easily mock import() so we just assert it errors descriptively.
-    await expect(cfg.session()).rejects.toThrow(/@clerk\/nextjs is not installed/);
+    await expect(cfg.session(new Request("http://localhost/admin"))).rejects.toThrow(
+      /@clerk\/nextjs is not installed/,
+    );
   });
 });

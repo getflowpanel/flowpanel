@@ -1,7 +1,7 @@
 import { ThemeScript } from "@flowpanel/kit/react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { DEMO_ROLE_COOKIE } from "@/src/demo/auth/role";
+import { DEMO_ROLE_COOKIE, toDemoRole } from "@/src/demo/auth/role";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ const CONFIG = `${SOURCE}/src/admin/config`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const demoMode = process.env.DEMO_MODE === "true";
-  const role = (await cookies()).get(DEMO_ROLE_COOKIE)?.value === "support" ? "support" : "admin";
+  const role = toDemoRole((await cookies()).get(DEMO_ROLE_COOKIE)?.value);
 
   return (
     <html lang="en" suppressHydrationWarning>

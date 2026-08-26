@@ -5,7 +5,6 @@ import { DefaultMetricCard } from "./MetricCardDefault";
 
 export { DefaultMetricCard, type MetricCardProps } from "./MetricCardDefault";
 
-/** falling back to DefaultMetricCard. */
 export function MetricCard(
   props: import("./MetricCardDefault").MetricCardProps,
 ): React.JSX.Element {

@@ -3,7 +3,6 @@
 
 import {
   type Adapter,
-  type AdapterCapabilities,
   type AdapterKind,
   type AdminConfig,
   type BarChartOptions,
@@ -47,7 +46,6 @@ expectAssignable<AdapterKind>("drizzle");
 expectAssignable<AdapterKind>("prisma");
 // third-party adapters may name themselves
 expectAssignable<AdapterKind>("mikro-orm");
-expectAssignable<AdapterCapabilities>({ version: 2 });
 expectType<BoundAdapterScope>(bindAdapterScope((query) => query));
 
 // ── resource builder: produces ResourceConfig with __kind discriminant ───

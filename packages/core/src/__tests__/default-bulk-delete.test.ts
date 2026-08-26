@@ -53,3 +53,46 @@ describe("defaultBulkActions — auto-injected delete", () => {
     expect(users?.options.bulkActions ?? []).toHaveLength(0);
   });
 });
+
+describe("action forms the dialog cannot serve", () => {
+  const adapter = {
+    kind: "test",
+    db: {},
+    introspect: () => ({ name: "users", columns: [], primaryKey: "id" }),
+    inferSchema: () => ({ create: {}, update: {}, select: {} }),
+    list: async () => ({ rows: [], total: 0, page: 1, pageSize: 10 }),
+    get: async () => null,
+    create: async () => ({}),
+    update: async () => ({}),
+    delete: async () => undefined,
+  } as never;
+
+  function withActionForm(form: unknown[]) {
+    return () =>
+      defineAdmin({
+        adapter,
+        auth: { session: async () => null, role: () => "admin", allowUnauthenticated: true },
+        resources: [
+          resource("users", {
+            name: "users",
+            columns: ["id"],
+            actions: [{ key: "assign", label: "Assign", form, run: async () => ({ ok: true }) }],
+          } as never),
+        ],
+      });
+  }
+
+  it("refuses a reference picker it has no endpoint for", () => {
+    expect(
+      withActionForm([{ name: "owner", reference: { resource: "users", labelField: "email" } }]),
+    ).toThrow(/reference/);
+  });
+
+  it("refuses options it would have to await", () => {
+    expect(withActionForm([{ name: "plan", options: async () => [] }])).toThrow(/function/);
+  });
+
+  it("accepts a literal options array", () => {
+    expect(withActionForm([{ name: "plan", options: ["free", "pro"] }])).not.toThrow();
+  });
+});

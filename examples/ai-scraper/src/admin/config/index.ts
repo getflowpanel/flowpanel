@@ -1,6 +1,5 @@
 import { defineAdmin } from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
-import { headers } from "next/headers";
 import { MetricCard } from "@/src/admin/MetricCard";
 import { queues } from "@/src/admin/queues";
 import { db } from "@/src/db/client";
@@ -46,11 +45,7 @@ export default defineAdmin({
   },
   rateLimit: { driver: "memory", limit: 240, windowMs: 60_000, per: "ip", enabled: true },
   auth: {
-    session: async () => {
-      const h = await headers();
-      const session = await getDemoSession(new Request("http://flowpanel.local/", { headers: h }));
-      return { ...session };
-    },
+    session: (req) => getDemoSession(req),
     role: (s) => (s as AdminSession | null)?.role ?? "guest",
     requireRole: ["admin", "support"],
   },

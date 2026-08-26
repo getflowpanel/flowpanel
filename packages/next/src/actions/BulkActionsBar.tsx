@@ -7,16 +7,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   FlowpanelIcon,
-  triggerDownload,
   useApiBase,
-  useToast,
 } from "@flowpanel/react";
-import { useRouter } from "next/navigation";
 import * as React from "react";
-import type { ActionInputIssue } from "../runtime/action-schema";
 import { ActionFormDialog } from "./ActionFormDialog";
-import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field";
+import type { ActionFormFieldErrors } from "./action-form-field";
 import type { SerializedBulkAction } from "./bulk-action";
+import { useActionRunner } from "./use-action-runner";
 
 export interface BulkActionsBarProps {
   resource: string;
@@ -25,19 +22,9 @@ export interface BulkActionsBarProps {
   actions: SerializedBulkAction[];
 }
 
-type ServerResult =
-  | {
-      ok: true;
-      message?: string;
-      redirect?: string;
-      download?: { filename: string; data: string; mime?: string };
-    }
-  | { ok: false; error: string; issues?: ActionInputIssue[] };
-
 export function BulkActionsBar({ resource, selection, onClear, actions }: BulkActionsBarProps) {
-  const router = useRouter();
   const apiBase = useApiBase();
-  const toast = useToast();
+  const runAction = useActionRunner();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedBulkAction | null>(null);
   const [formAction, setFormAction] = React.useState<SerializedBulkAction | null>(null);
@@ -45,48 +32,21 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
 
   if (selection.length === 0 || actions.length === 0) return null;
 
-  /** Runs the action. */
   async function execute(
     action: SerializedBulkAction,
     input: Record<string, unknown> = {},
   ): Promise<ActionFormFieldErrors | null> {
     setPending(action.key);
     try {
-      const res = await fetch(
+      return await runAction(
         `${apiBase}/${encodeURIComponent(resource)}/bulk-actions/${encodeURIComponent(action.key)}`,
+        { ids: selection, input },
         {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ids: selection, input }),
+          successMessage: `${action.label} ran on ${selection.length}`,
+          failureMessage: `${action.label} failed`,
+          onRefreshed: onClear,
         },
       );
-      const result = (await res.json().catch(() => ({
-        ok: false,
-        error: res.statusText,
-      }))) as ServerResult;
-
-      if (!result.ok) {
-        const fieldErrors = mapActionIssuesToFieldErrors(result.issues);
-        if (fieldErrors) return fieldErrors;
-        toast.error(result.error || `${action.label} failed`);
-        return null;
-      }
-
-      toast.success(result.message ?? `${action.label} ran on ${selection.length}`);
-
-      if (result.download) {
-        triggerDownload(result.download);
-      }
-      if (result.redirect) {
-        router.push(result.redirect);
-        return null;
-      }
-      onClear();
-      router.refresh();
-      return null;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Network error");
-      return null;
     } finally {
       setPending(null);
     }

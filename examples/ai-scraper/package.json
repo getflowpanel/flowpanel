@@ -14,11 +14,9 @@
     "demo:reset": "tsx scripts/reset-demo.ts",
     "docker:up": "docker compose up -d --wait",
     "docker:down": "docker compose down",
-    "flowpanel:board": "tsx scripts/board-server.ts"
+    "flowpanel:board": "tsx scripts/board-server.mts"
   },
   "dependencies": {
-    "@flowpanel/adapter-bullmq": "workspace:*",
-    "@flowpanel/core": "workspace:*",
     "@flowpanel/react": "workspace:*",
     "bullmq": "^5.0.0",
     "drizzle-orm": "^0.45.2",

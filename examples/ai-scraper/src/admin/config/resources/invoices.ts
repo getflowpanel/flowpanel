@@ -1,7 +1,7 @@
 import { resource, rowAction } from "@flowpanel/kit";
 import { refundPaidInvoice } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
-import { badge, formatDate, formatMonth, money } from "../../format";
+import { badge, formatMonth, money } from "../../format";
 
 type Invoice = typeof schema.invoices.$inferSelect;
 type RefundInput = { reason: string };
@@ -43,7 +43,7 @@ export const invoices = resource(schema.invoices, {
     { field: "amountCents", label: "Amount", align: "right", format: money },
     { field: "status", format: badge },
     { field: "periodStart", label: "Period", render: (i) => formatMonth(i.periodStart) },
-    { field: "createdAt", label: "Created", render: (i) => formatDate(i.createdAt) },
+    { field: "createdAt", label: "Created" },
   ],
   filters: [
     {

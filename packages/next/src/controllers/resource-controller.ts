@@ -26,6 +26,8 @@ import { scopeBinding } from "../runtime/scope-binding";
 import { createActionController } from "./action-controller";
 
 const MAX_PAGE_SIZE = 100;
+/** Beyond this a `page` is abuse, not pagination — the offset it implies serves nobody. */
+const MAX_PAGE = 100_000;
 const MAX_COLUMNS = 256;
 
 export interface ResourceListOptions<Row> {
@@ -158,8 +160,11 @@ export function createResourceController<Row extends Record<string, unknown>>(
     list(options = {}) {
       return execute(config, ctx, "resource.list", async () => {
         await authorizeRead(config, resource, ctx);
+        const requestedPage = Number(options.page);
         const page =
-          Number.isInteger(options.page) && Number(options.page) > 0 ? Number(options.page) : 1;
+          Number.isInteger(requestedPage) && requestedPage > 0
+            ? Math.min(requestedPage, MAX_PAGE)
+            : 1;
         const requestedSize = Number(
           options.pageSize ?? resource.options.pageSize ?? DEFAULT_RESOURCE_PAGE_SIZE,
         );

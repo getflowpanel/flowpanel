@@ -181,7 +181,7 @@ eject target; without it, a conflict aborts before any file changes.
 <CliReference command="dev" />
 
 Wrapper around `next dev` that also spawns `bull-board` when a
-`scripts/board-server.ts` file is present and `REDIS_URL` is set.
+`scripts/board-server.mts` (or `.ts`) file is present and `REDIS_URL` is set.
 
 ```bash
 $ pnpm flowpanel dev --port 3000
@@ -193,7 +193,7 @@ the local binaries resolve whichever manager installed them. Output is
 prefixed `[next]` / `[board]`, and either child exiting shuts the other down.
 
 Pass `--no-board` to skip the queue dashboard even when Redis is up. With
-`REDIS_URL` set but no `scripts/board-server.ts` on disk, the board is skipped
+`REDIS_URL` set but no `scripts/board-server.mts` or `.ts` on disk, the board is skipped
 with a one-line note rather than an error.
 
 ## flowpanel new

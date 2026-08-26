@@ -96,7 +96,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
       navGroups = await buildNav(config, reqCtx);
       content = await renderContent(config, slug, sp, req, reqCtx);
     } catch (err) {
-      content = await handleRenderError(err, config);
+      content = await handleRenderError(err, config, req);
     }
     const navItems = navGroups.flatMap((g) =>
       g.items.map((it) => ({
@@ -170,12 +170,13 @@ export function FlowpanelContent(
 export async function handleRenderError(
   err: unknown,
   config: ResolvedAdminConfig,
+  req: Request,
 ): Promise<React.ReactNode> {
   if (!(err instanceof FlowpanelAccessError) && !(err instanceof FlowpanelAuthError)) {
     throw err;
   }
 
-  const session = await config.auth.session().catch(() => null);
+  const session = await config.auth.session(req).catch(() => null);
   const isAuthError = err instanceof FlowpanelAuthError || session === null;
   const target = isAuthError ? config.auth.signInUrl : config.auth.forbiddenUrl;
   if (target) redirect(target);

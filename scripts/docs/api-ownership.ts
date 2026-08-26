@@ -136,6 +136,11 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/adapter-scope.ts",
+    page: "/docs/reference/runtime-contracts",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/types/bound-scope.ts",
     page: "/docs/reference/adapters",
     guidance: true,

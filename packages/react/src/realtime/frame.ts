@@ -1,5 +1,3 @@
-/** Shared SSE frame reader for the realtime bus and the SSE connection pool. */
-
 export interface RealtimeFrame {
   channel: string;
   payload: unknown;

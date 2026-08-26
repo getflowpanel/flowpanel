@@ -13,7 +13,7 @@ import type {
 import { humanize, runWithRequestContext } from "@flowpanel/core";
 import { createElement, Fragment, type ReactNode } from "react";
 import {
-  actorIdFromSession,
+  buildActionContext,
   buildAuditEvent,
   filterActionsByAccess,
   invalidJsonResponse,
@@ -26,7 +26,7 @@ import { applyActionResult } from "../runtime/apply-action-result";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { buildHref } from "../runtime/href";
 import { projectAuthorizedRow } from "../runtime/project-row";
-import { bindPublisher, publish } from "../runtime/publish";
+import { bindPublisher } from "../runtime/publish";
 import { readRelatedRows } from "../runtime/require-authorized";
 import { scopeBinding } from "../runtime/scope-binding";
 import { withGuards } from "../runtime/with-guards";
@@ -344,15 +344,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
           );
         }
 
-        const actionCtx = {
-          ...reqCtx,
-          db: config.adapter.db,
-          ...(action.unsafe?.includes("db") ? { unsafe: { db: config.adapter.db } } : {}),
-          actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
-          publish: async (channel: string, payload?: unknown) => {
-            await publish(channel, payload);
-          },
-        };
+        const actionCtx = buildActionContext(config, reqCtx, action);
 
         // A drawer action's result is typed ActionResult<never>; any data reaching here
         // escaped the type system, so refuse it rather than forward it to the client.

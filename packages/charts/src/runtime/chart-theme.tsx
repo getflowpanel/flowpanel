@@ -1,8 +1,6 @@
 import { formatNumber, type NumericFormat } from "@flowpanel/react";
 import { ChartTooltip } from "./ChartTooltip";
 
-/** Shared recharts prop literals for the runtime chart components. */
-
 /** Number of --fp-chart-N palette tokens declared in admin.css. */
 const CHART_TOKENS = 7;
 

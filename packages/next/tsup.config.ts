@@ -8,13 +8,15 @@ const sharedEsbuild = (options: { jsx?: string }): void => {
   options.jsx = "automatic";
 };
 
+// tsup runs these concurrently, so none of them may clean: whichever finishes
+// first would have its output deleted by a later one. The build script clears
+// dist once, before tsup starts.
 export default defineConfig([
   {
     entry: ["src/index.ts"],
     format: ["esm"],
     dts: true,
     splitting: false,
-    clean: true,
     esbuildOptions: sharedEsbuild,
     external: [
       "next",

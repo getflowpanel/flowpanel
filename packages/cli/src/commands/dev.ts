@@ -6,6 +6,16 @@ import type { Command } from "commander";
 import pc from "picocolors";
 import { detectPackageManager, platformBin, pmCommands } from "../utils/detect";
 
+/** The board entry point, in either module flavour. `.mts` lets a CJS app import ESM statically. */
+const BOARD_SCRIPTS = ["scripts/board-server.mts", "scripts/board-server.ts"] as const;
+
+export async function findBoardScript(cwd: string): Promise<string | null> {
+  for (const candidate of BOARD_SCRIPTS) {
+    if (await fileExists(path.join(cwd, candidate))) return candidate;
+  }
+  return null;
+}
+
 export function devCommand(cli: Command): void {
   cli
     .command("dev")
@@ -36,13 +46,11 @@ export function devCommand(cli: Command): void {
       pipeWithPrefix(next, pc.cyan("[next] "));
       children.push(next);
 
-      const wantBoard =
-        opts.board !== false &&
-        !!process.env.REDIS_URL &&
-        (await fileExists(path.join(cwd, "scripts/board-server.ts")));
+      const boardScript = opts.board === false ? null : await findBoardScript(cwd);
+      const wantBoard = !!process.env.REDIS_URL && boardScript !== null;
 
-      if (wantBoard) {
-        const board = spawn(runner, pmc.execArgs("tsx", ["scripts/board-server.ts"]), {
+      if (wantBoard && boardScript) {
+        const board = spawn(runner, pmc.execArgs("tsx", [boardScript]), {
           cwd,
           stdio: ["ignore", "pipe", "pipe"],
           env: process.env,
@@ -52,7 +60,7 @@ export function devCommand(cli: Command): void {
       } else if (process.env.REDIS_URL && opts.board !== false) {
         process.stdout.write(
           pc.dim(
-            "[flowpanel] REDIS_URL set but scripts/board-server.ts not found — board skipped\n",
+            `[flowpanel] REDIS_URL set but ${BOARD_SCRIPTS.join(" / ")} not found — board skipped\n`,
           ),
         );
       }

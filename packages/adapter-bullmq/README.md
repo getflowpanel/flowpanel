@@ -34,14 +34,14 @@ Mount bull-board on a separate port via `startBoardServer`, exported from the
 is **required** — `startBoardServer` throws without it:
 
 ```ts
-// scripts/board-server.ts
+// scripts/board-server.mts
 import { startBoardServer } from "@flowpanel/adapter-bullmq/board";
 import { queues } from "@/lib/queues";
 
 startBoardServer({ queues, port: 3001, auth: { token: process.env.BOARD_TOKEN! } });
 ```
 
-Run with `pnpm flowpanel dev` (which auto-starts the board if `REDIS_URL` is set and `scripts/board-server.ts` exists), or directly via `tsx scripts/board-server.ts`.
+Run with `pnpm flowpanel dev` (which auto-starts the board if `REDIS_URL` is set and `scripts/board-server.mts` exists), or directly via `tsx scripts/board-server.mts`.
 
 ## How it works
 

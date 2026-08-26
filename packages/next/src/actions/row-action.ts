@@ -7,7 +7,7 @@ import type {
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
 import {
-  actorIdFromSession,
+  buildActionContext,
   buildAuditEvent,
   computeShallowDiff,
   invalidJsonResponse,
@@ -19,7 +19,7 @@ import {
 import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { buildHref } from "../runtime/href";
-import { bindPublisher, publish } from "../runtime/publish";
+import { bindPublisher } from "../runtime/publish";
 import { scopeBinding } from "../runtime/scope-binding";
 import { withGuards } from "../runtime/with-guards";
 import type { ActionFormField } from "./action-form-field";
@@ -137,15 +137,7 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
           );
         }
 
-        const actionCtx = {
-          ...reqCtx,
-          db: config.adapter.db,
-          ...(action.unsafe?.includes("db") ? { unsafe: { db: config.adapter.db } } : {}),
-          actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
-          publish: async (channel: string, payload?: unknown) => {
-            await publish(channel, payload);
-          },
-        };
+        const actionCtx = buildActionContext(config, reqCtx, action);
 
         const result = validateActionOutput(
           action.outputSchema,
