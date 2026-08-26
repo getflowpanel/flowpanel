@@ -11,9 +11,11 @@ import {
   runWithRequestContext,
 } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
+import { writableColumns } from "../actions/field-pipeline";
 import { buildHref } from "../runtime/href";
 import { buildRequestContext } from "../runtime/request-setup";
 import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
+import { singularLabel } from "../runtime/resource-title";
 import { scopeBinding } from "../runtime/scope-binding";
 import { NotFound } from "./not-found";
 
@@ -66,11 +68,11 @@ export async function ResourceEditPage({
 
   return (
     <>
-      <PageHeader title={`Edit ${resource.options.label ?? name}`} />
+      <PageHeader title={`Edit ${singularLabel(resource, name)}`} />
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
-          columns={intro.columns}
+          columns={writableColumns(resource, intro.columns, declared)}
           defaultValues={row}
           {...(fields ? { fields } : {})}
           submitLabel="Save"

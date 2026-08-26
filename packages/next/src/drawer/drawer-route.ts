@@ -21,7 +21,7 @@ import {
   notFoundResponse,
   readActionInput,
 } from "../runtime/action-helpers";
-import { parseActionInputSchema } from "../runtime/action-schema";
+import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { buildHref } from "../runtime/href";
@@ -354,8 +354,11 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
           },
         };
 
-        const result = await runWithRequestContext(reqCtx, () =>
-          action.run(row, parsedInput.data, actionCtx),
+        // A drawer action's result is typed ActionResult<never>; any data reaching here
+        // escaped the type system, so refuse it rather than forward it to the client.
+        const result = validateActionOutput(
+          undefined,
+          await runWithRequestContext(reqCtx, () => action.run(row, parsedInput.data, actionCtx)),
         );
 
         await maybeEmitAudit(

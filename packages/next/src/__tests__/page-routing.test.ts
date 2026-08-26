@@ -28,7 +28,7 @@ function Reports() {
 }
 
 describe("pages — empty / undefined", () => {
-  it("no pages → no Pages nav group, matchPage returns null", () => {
+  it("no pages → no Pages nav group, matchPage returns null", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -36,23 +36,23 @@ describe("pages — empty / undefined", () => {
     expect(cfg.pagesByPath.size).toBe(0);
     expect(matchPage(["foo"], cfg)).toBeNull();
     expect(matchPage([], cfg)).toBeNull();
-    const nav = buildNav(cfg);
+    const nav = await buildNav(cfg);
     expect(nav.find((g) => g.label === "Pages")).toBeUndefined();
   });
 
-  it("pages: [] resolves to empty map and no nav group", () => {
+  it("pages: [] resolves to empty map and no nav group", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
       pages: [],
     });
     expect(cfg.pagesByPath.size).toBe(0);
-    expect(buildNav(cfg).find((g) => g.label === "Pages")).toBeUndefined();
+    expect((await buildNav(cfg)).find((g) => g.label === "Pages")).toBeUndefined();
   });
 });
 
 describe("pages — registered with component", () => {
-  it("matchPage resolves the page for a single-segment slug", () => {
+  it("matchPage resolves the page for a single-segment slug", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -64,31 +64,31 @@ describe("pages — registered with component", () => {
     expect(p?.component).toBe(CostDeepDive);
   });
 
-  it("buildNav contains a 'Pages' group with the page label and basePath-aware href", () => {
+  it("buildNav contains a 'Pages' group with the page label and basePath-aware href", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
       pages: [page({ path: "/cost-deep-dive", label: "Cost analytics", component: CostDeepDive })],
     });
-    const nav = buildNav(cfg);
+    const nav = await buildNav(cfg);
     const pagesGroup = nav.find((g) => g.label === "Pages");
     expect(pagesGroup).toBeDefined();
     expect(pagesGroup?.items).toEqual([{ label: "Cost analytics", href: "/admin/cost-deep-dive" }]);
   });
 
-  it("honors a custom basePath when building the page href", () => {
+  it("honors a custom basePath when building the page href", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
       basePath: "/internal/admin",
       pages: [page({ path: "/reports", label: "Reports", component: Reports })],
     });
-    const nav = buildNav(cfg);
+    const nav = await buildNav(cfg);
     const pagesGroup = nav.find((g) => g.label === "Pages");
     expect(pagesGroup?.items[0]?.href).toBe("/internal/admin/reports");
   });
 
-  it("matches a page registered at '/' against an empty slug", () => {
+  it("matches a page registered at '/' against an empty slug", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -97,7 +97,7 @@ describe("pages — registered with component", () => {
     expect(matchPage([], cfg)?.label).toBe("Home");
   });
 
-  it("normalizes a trailing slash on a page path", () => {
+  it("normalizes a trailing slash on a page path", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -106,7 +106,7 @@ describe("pages — registered with component", () => {
     expect(matchPage(["reports"], cfg)?.label).toBe("Reports");
   });
 
-  it("returns null when the slug does not match any registered page", () => {
+  it("returns null when the slug does not match any registered page", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -117,17 +117,17 @@ describe("pages — registered with component", () => {
 });
 
 describe("pages — external href entries", () => {
-  it("nav entry uses page.href when no component is supplied", () => {
+  it("nav entry uses page.href when no component is supplied", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
       pages: [page({ path: "/docs", label: "Docs", href: "https://docs.example.com" })],
     });
-    const nav = buildNav(cfg);
+    const nav = await buildNav(cfg);
     expect(nav.find((g) => g.label === "Pages")?.items[0]?.href).toBe("https://docs.example.com");
   });
 
-  it("matchPage returns null for href-only entries (FlowPanel does not render them)", () => {
+  it("matchPage returns null for href-only entries (FlowPanel does not render them)", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -138,7 +138,7 @@ describe("pages — external href entries", () => {
 });
 
 describe("pages — collisions", () => {
-  it("throws on duplicate page paths", () => {
+  it("throws on duplicate page paths", async () => {
     expect(() =>
       defineAdmin({
         adapter: fakeAdapter,
@@ -151,7 +151,7 @@ describe("pages — collisions", () => {
     ).toThrow(/Duplicate page path/);
   });
 
-  it("throws when a page path collides with a dashboard path", () => {
+  it("throws when a page path collides with a dashboard path", async () => {
     expect(() =>
       defineAdmin({
         adapter: fakeAdapter,
@@ -164,7 +164,7 @@ describe("pages — collisions", () => {
 });
 
 describe("pages — alongside resources", () => {
-  it("pages, dashboards, and resources all appear in nav with stable group order", () => {
+  it("pages, dashboards, and resources all appear in nav with stable group order", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -172,7 +172,7 @@ describe("pages — alongside resources", () => {
       pages: [page({ path: "/reports", label: "Reports", component: Reports })],
       resources: [resource({ __name: "users" }, { columns: [], plural: "Users" })],
     });
-    const nav = buildNav(cfg);
+    const nav = await buildNav(cfg);
     expect(nav.map((g) => g.label)).toEqual(["Dashboards", "Pages", "Resources"]);
   });
 });

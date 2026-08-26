@@ -11,7 +11,6 @@ import {
   assertResourceScope,
   authorizeOperation,
   checkRequireRole,
-  humanize,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
@@ -42,7 +41,7 @@ import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
 import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
 import { resolveReferences } from "../runtime/resolve-references";
-import { singularLabel } from "../runtime/resource-title";
+import { pluralLabel, singularLabel } from "../runtime/resource-title";
 import { scopeBinding } from "../runtime/scope-binding";
 
 export interface ResourceListPageProps {
@@ -189,7 +188,7 @@ export async function ResourceListPage({
     reqCtx,
   );
   const serializedBulkActions = rawBulkActions?.map(serializeBulkAction) ?? [];
-  const displayPlural = resource.options.plural ?? resource.options.label ?? humanize(name);
+  const displayPlural = pluralLabel(resource, name);
 
   const clientRows = await Promise.all(
     (result.rows as Row[]).map((row) => projectAuthorizedRow(resource, row, reqCtx)),

@@ -72,4 +72,50 @@ describe("protected request controllers", () => {
     const forbidden = await controllers.resources.customers.list({ select: ["secret"] });
     expect(forbidden).toMatchObject({ ok: false, error: { code: "unknown_field" } });
   });
+  it("rejects a delegated action when the originating request is cross-origin", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const adapter: Adapter = {
+      kind: "test",
+      db: {},
+      introspect: () => ({
+        name: "customers",
+        primaryKey: "id",
+        columns: [{ name: "id", type: "string", nullable: false, unique: true, primaryKey: true }],
+      }),
+      inferSchema: () => ({ create: {} as never, update: {} as never, select: {} as never }),
+      list: async () => ({ rows: [], total: 0, page: 1, pageSize: 10 }),
+      get: async () => ({ id: "c1" }),
+      create: async () => ({}),
+      update: async () => null,
+      delete: async () => undefined,
+    };
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => ({ id: "operator" }), role: () => "admin" },
+      resources: [
+        resource("customers", {
+          name: "customers",
+          columns: ["id"],
+          actions: [{ key: "ping", label: "Ping", run }],
+        }),
+      ],
+    });
+    const request = new Request("http://localhost/admin/customers", {
+      method: "POST",
+      headers: { origin: "https://evil.example" },
+    });
+    const context: RequestContext = {
+      requestId: "req-2",
+      req: request,
+      session: { id: "operator" },
+      role: "admin",
+      scope: null,
+      ip: null,
+      userAgent: null,
+    };
+    const controllers = createControllerFactory(config, context);
+    const result = await controllers.resources.customers.action("c1", "ping");
+    expect(result.ok).toBe(false);
+    expect(run).not.toHaveBeenCalled();
+  });
 });

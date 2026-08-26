@@ -26,8 +26,10 @@ export {
 export { errorResult, reportUnexpectedError, resultResponse } from "./runtime/result";
 export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope";
 export type {
+  ActionConfirm,
   ActionInput,
   ActionResult,
+  ActionVariant,
   BulkAction,
   DashboardAction,
   RowAction,

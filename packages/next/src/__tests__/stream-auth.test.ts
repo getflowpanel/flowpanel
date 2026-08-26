@@ -151,4 +151,21 @@ describe("stream() — channel validation", () => {
     expect(subscribeSpy.mock.calls.map((c) => c[0])).toEqual(["resource.users"]);
     await res.body?.cancel();
   });
+  it("rejects a resource.<name> channel the resource's access map closes to the caller", async () => {
+    const gated = {
+      __kind: "resource",
+      ref: {},
+      options: { access: { read: "admin" } },
+    } as unknown as ResourceConfig;
+    const config = makeConfig({
+      auth: { session: async () => ({ user: { id: "u1", role: "viewer" } }), role: roleFromUser },
+      resourcesByName: new Map<string, ResourceConfig>([["payroll", gated]]),
+    } as never);
+    const res = await stream(config)(
+      new Request("http://localhost/stream?channel=resource.payroll"),
+    );
+    expect(res.status).toBe(200);
+    expect(subscribeSpy.mock.calls.map((c) => c[0])).toEqual([]);
+    await res.body?.cancel();
+  });
 });

@@ -6,6 +6,7 @@ import pc from "picocolors";
 import { detectPackageManager, fileExists, pmCommands } from "../utils/detect";
 import { log } from "../utils/log";
 import { writeJson } from "../utils/output";
+import { readTsconfigOptions } from "../utils/tsconfig";
 
 interface MigrateOptions {
   dryRun?: boolean;
@@ -37,56 +38,11 @@ interface JitiModule {
   createJiti: (cwd: string, opts?: JitiOptions) => JitiInstance;
 }
 
-function stripJsoncComments(src: string): string {
-  let out = "";
-  let i = 0;
-  let inString = false;
-  while (i < src.length) {
-    const ch = src[i];
-    const next = src[i + 1];
-    if (inString) {
-      out += ch;
-      if (ch === "\\" && i + 1 < src.length) {
-        out += next;
-        i += 2;
-        continue;
-      }
-      if (ch === '"') inString = false;
-      i++;
-      continue;
-    }
-    if (ch === '"') {
-      inString = true;
-      out += ch;
-      i++;
-      continue;
-    }
-    if (ch === "/" && next === "/") {
-      while (i < src.length && src[i] !== "\n") i++;
-      continue;
-    }
-    if (ch === "/" && next === "*") {
-      i += 2;
-      while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) i++;
-      i += 2;
-      continue;
-    }
-    out += ch;
-    i++;
-  }
-  return out;
-}
-
 async function readTsconfigAliases(cwd: string): Promise<Record<string, string>> {
-  const tsconfigPath = path.join(cwd, "tsconfig.json");
   try {
-    const raw = await fs.readFile(tsconfigPath, "utf8");
-    const stripped = stripJsoncComments(raw).replace(/,(\s*[}\]])/g, "$1");
-    const parsed = JSON.parse(stripped) as {
-      compilerOptions?: { paths?: Record<string, string[]>; baseUrl?: string };
-    };
-    const paths = parsed.compilerOptions?.paths ?? {};
-    const baseUrl = parsed.compilerOptions?.baseUrl ?? ".";
+    const compilerOptions = await readTsconfigOptions(cwd);
+    const paths = compilerOptions?.paths ?? {};
+    const baseUrl = compilerOptions?.baseUrl ?? ".";
     const baseDir = path.resolve(cwd, baseUrl);
     const out: Record<string, string> = {};
     for (const [key, values] of Object.entries(paths)) {

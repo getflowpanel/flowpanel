@@ -10,7 +10,13 @@ import { restoreRoute } from "./actions/restore";
 import { rowActionRoute } from "./actions/row-action";
 import { createResourceController } from "./controllers/resource-controller";
 import { drawerActionRoute, drawerRoute } from "./drawer/drawer-route";
-import { declaredFieldSet } from "./runtime/parse-list-params";
+import {
+  declaredFieldSet,
+  parsePage,
+  parsePageSize,
+  resolveFilterSpecs,
+  sanitizeFilterValues,
+} from "./runtime/parse-list-params";
 import { withGuards } from "./runtime/with-guards";
 import { methodNotAllowed, wireResponse } from "./wire/response";
 
@@ -77,7 +83,7 @@ function resourceResult(
   return withGuards(
     config,
     req,
-    { operation, write: operation !== "read", route: resourceName },
+    { operation, write: operation !== "read", route: resourceName, envelope: "result" },
     async (ctx) => {
       const resource = config.resourcesByName.get(resourceName);
       if (!resource) {
@@ -129,22 +135,26 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
       const resource = route[0];
       const url = new URL(req.url);
       const declared = declaredFieldSet(listed.options);
-      const filters: Record<string, unknown> = {};
+      const raw: Record<string, unknown> = {};
       for (const [key, value] of url.searchParams) {
         if (!key.startsWith("filter.")) continue;
-        const field = key.slice(7);
-        if (declared.has(field)) filters[field] = value;
+        const field = key.slice("filter.".length);
+        if (declared.has(field)) raw[field] = value;
       }
-      return resourceResult(config, req, resource, "read", async (controller) =>
-        wireResponse(
+      return resourceResult(config, req, resource, "read", async (controller, ctx) => {
+        const specs = await resolveFilterSpecs(listed.options.filters, {
+          db: config.adapter.db,
+          session: ctx.session,
+        });
+        return wireResponse(
           await controller.list({
-            page: Number(url.searchParams.get("page") ?? 1),
-            pageSize: Number(url.searchParams.get("pageSize") ?? 20),
+            page: parsePage(url.searchParams.get("page")),
+            pageSize: parsePageSize(url.searchParams.get("pageSize"), 20),
             search: url.searchParams.get("search") ?? "",
-            filters,
+            filters: sanitizeFilterValues(raw, specs),
           }),
-        ),
-      );
+        );
+      });
     }
     if (route.length === 2 && route[0] && route[1]) {
       return resourceResult(config, req, route[0], "read", async (controller) =>

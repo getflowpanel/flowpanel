@@ -90,10 +90,10 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
 
     let content: React.ReactNode;
     let reqCtx: RequestContext | undefined;
-    let navGroups: ReturnType<typeof buildNav> = [];
+    let navGroups: Awaited<ReturnType<typeof buildNav>> = [];
     try {
       reqCtx = await buildRequestContext({ req, config });
-      navGroups = buildNav(config, reqCtx);
+      navGroups = await buildNav(config, reqCtx);
       content = await renderContent(config, slug, sp, req, reqCtx);
     } catch (err) {
       content = await handleRenderError(err, config);

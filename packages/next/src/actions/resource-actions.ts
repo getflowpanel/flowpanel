@@ -23,6 +23,7 @@ import { deleteRow } from "../runtime/delete-row";
 import { buildHref } from "../runtime/href";
 import { resourceNavName } from "../runtime/nav";
 import { bindPublisher, publishResource } from "../runtime/publish";
+import { readRow } from "../runtime/read-row";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAuthorized } from "../runtime/require-authorized";
 import { declaredFormFields } from "../runtime/resolve-form-fields";
@@ -215,6 +216,9 @@ export function makeActions(
       if (resource.options.delete?.disabled) {
         throw new FlowpanelOperationDisabledError("Delete is disabled for this resource.");
       }
+
+      const current = await readRow(config, resource, id, reqCtx);
+      if (!current) throw new FlowpanelNotFoundError();
 
       await deleteRow(config, resource, id, reqCtx);
       await baseAudit(`${name}.delete`, reqCtx, { targetId: id });

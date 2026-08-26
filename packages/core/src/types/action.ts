@@ -33,18 +33,24 @@ export type ActionResult<Data = never> =
     };
 
 /** Action offered on a single row of the list. */
+/** Button styling shared by every action kind. `"destructive"` marks a dangerous action. */
+export type ActionVariant = "default" | "destructive" | "success";
+
+/** Confirmation prompt shown before an action runs. */
+export type ActionConfirm = string | { title: string; description?: string; confirmLabel?: string };
+
 export interface RowAction<Row, Input extends ActionInput = ActionInput, Output = never> {
   /** Stable identifier, used in the action's URL. */
   key: string;
   label: string;
   /** Serializable Lucide icon rendered beside the label. */
   icon?: IconName;
-  /** Button styling. `"destructive"` marks a dangerous action. */
-  variant?: "default" | "destructive" | "success";
+  /** Button styling. */
+  variant?: ActionVariant;
   /** `"inline"` renders a button in the row; `"menu"` puts it in the row menu. */
   placement?: "inline" | "menu";
   /** Ask for confirmation before running. */
-  confirm?: string | { title: string; description?: string; confirmLabel?: string };
+  confirm?: ActionConfirm;
   /** Inputs collected before `run`, passed to it as `input`. */
   form?: FieldDef<Input>[];
   /** Cross-field input validation for trusted action code. */
@@ -75,10 +81,10 @@ export interface BulkAction<Row, Input extends ActionInput = ActionInput, Output
   label: string;
   /** Serializable Lucide icon rendered beside the label. */
   icon?: IconName;
-  /** Button styling. `"destructive"` marks a dangerous action. */
-  variant?: "default" | "destructive";
+  /** Button styling. */
+  variant?: ActionVariant;
   /** Ask for confirmation before running. */
-  confirm?: string | { title: string; description?: string };
+  confirm?: ActionConfirm;
   /** Inputs collected before `run`, passed to it as `input`. */
   form?: FieldDef<Input>[];
   /** Cross-field input validation for trusted action code. */
@@ -106,10 +112,10 @@ export interface DashboardAction<Input extends ActionInput = ActionInput, Output
   label: string;
   /** Serializable Lucide icon rendered beside the label. */
   icon?: IconName;
-  /** Button styling. `"destructive"` marks a dangerous action. */
-  variant?: "default" | "destructive" | "success";
+  /** Button styling. */
+  variant?: ActionVariant;
   /** Ask for confirmation before running. */
-  confirm?: string | { title: string; description?: string; confirmLabel?: string };
+  confirm?: ActionConfirm;
   /** Inputs collected before `run`, passed to it as `input`. */
   form?: FieldDef<Input>[];
   /** Cross-field input validation for trusted action code. */

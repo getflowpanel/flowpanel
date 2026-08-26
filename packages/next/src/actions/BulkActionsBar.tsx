@@ -148,7 +148,9 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
           {...(confirming.confirm?.description
             ? { description: confirming.confirm.description }
             : {})}
-          confirmLabel={`${confirming.label} (${selection.length})`}
+          confirmLabel={
+            confirming.confirm?.confirmLabel ?? `${confirming.label} (${selection.length})`
+          }
           variant={confirming.variant === "destructive" ? "destructive" : "default"}
           onConfirm={async () => {
             const action = confirming;

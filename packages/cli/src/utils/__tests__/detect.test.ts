@@ -160,6 +160,26 @@ describe("detectPathAlias", () => {
     }
   });
 
+  it("reads a tsconfig carrying block comments and a trailing comma", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-alias-jsonc-"));
+    try {
+      await fs.writeFile(
+        path.join(tmp, "tsconfig.json"),
+        `{
+  /* Paths for the app.
+     Next.js writes this block on create. */
+  "compilerOptions": {
+    // the alias every page imports through
+    "paths": { "@/*": ["src/*"] },
+  }
+}`,
+      );
+      expect(await detectPathAlias(tmp)).toBe("strip-src");
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
   it("returns 'strip-src' for paths['@/*'] = ['./src/*']", async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-alias-dotsrc-"));
     try {

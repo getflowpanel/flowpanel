@@ -59,8 +59,6 @@ function controllerRequest(
     context.req.url,
   );
   const headers = new Headers(context.req.headers);
-  headers.delete("origin");
-  headers.delete("sec-fetch-site");
   headers.set("content-type", "application/json");
   const request = new Request(url, {
     method: "POST",

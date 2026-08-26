@@ -12,7 +12,7 @@ import { buildNav, resourceNavName } from "../runtime/nav";
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("resourceNavName — Drizzle Symbol(BaseName) fallback", () => {
-  it("falls back to Symbol(drizzle:BaseName) when other lookups fail", () => {
+  it("falls back to Symbol(drizzle:BaseName) when other lookups fail", async () => {
     const ref: Record<string | symbol, unknown> = {};
     // Drizzle 0.30+ stamps the table name on this symbol.
     const sym = Symbol("drizzle:BaseName");
@@ -20,14 +20,14 @@ describe("resourceNavName — Drizzle Symbol(BaseName) fallback", () => {
     expect(resourceNavName({ ref, options: {} })).toBe("shipments");
   });
 
-  it("throws on non-string Symbol(drizzle:BaseName) values, not a 'resource' fallback", () => {
+  it("throws on non-string Symbol(drizzle:BaseName) values, not a 'resource' fallback", async () => {
     const ref: Record<string | symbol, unknown> = {};
     const sym = Symbol("drizzle:BaseName");
     (ref as Record<symbol, unknown>)[sym] = 42;
     expect(() => resourceNavName({ ref, options: {} })).toThrow(/name/i);
   });
 
-  it("throws when ref is null, not a 'resource' fallback", () => {
+  it("throws when ref is null, not a 'resource' fallback", async () => {
     expect(() => resourceNavName({ ref: null, options: {} })).toThrow(/name/i);
   });
 });
@@ -44,13 +44,13 @@ describe("buildNav — Queues group", () => {
     update: async () => ({}),
     delete: async () => undefined,
   };
-  it("appends a Queues group when queues are registered", () => {
+  it("appends a Queues group when queues are registered", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "admin" },
       queues: [queue({ name: "scraper" }, { label: "Scraper", boardUrl: "/b" })],
     });
-    const nav = buildNav(cfg);
+    const nav = await buildNav(cfg);
     const queuesGroup = nav.find((g) => g.label === "Queues");
     expect(queuesGroup).toBeDefined();
     expect(queuesGroup?.items).toEqual([{ label: "Scraper", href: "/admin/queues/scraper" }]);

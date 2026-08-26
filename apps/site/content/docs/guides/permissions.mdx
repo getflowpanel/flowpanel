@@ -25,6 +25,12 @@ Set `requireRole` on a resource, dashboard, page, queue, or action when only a s
 
 Use resource `access` when permission differs by operation. Keep the rule in the resource module so reviewers can see the data surface and its policy together.
 
+## Know which rule an action runs under
+
+An action that declares its own `access` or `requireRole` is governed by that rule alone — the same rule that decides whether the action is offered in the UI, so a visible action is a runnable one.
+
+An action that declares neither inherits the resource's `update` rule. Actions mutate, so a resource closed to a role for writes is closed to that role's actions too. Declare a rule on the action itself when it should be reachable more widely, or when it only reads.
+
 ## Restrict fields and writes
 
 Form fields support `requireRole`, `readOnly`, and `hidden`; resource field policies can express broader read/write rules. The server rejects submitted fields the current operation may not write. It does not rely on the browser to omit them.

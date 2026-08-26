@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { readTsconfigOptions } from "./tsconfig";
 
 export interface Stack {
   nextjs: string | null;
@@ -69,20 +70,8 @@ export async function detectStack(cwd: string): Promise<Stack> {
 export type PathAliasMode = "strip-src" | "root" | "none";
 
 export async function detectPathAlias(cwd: string): Promise<PathAliasMode> {
-  let raw: string;
-  try {
-    raw = await fs.readFile(path.join(cwd, "tsconfig.json"), "utf8");
-  } catch {
-    return "none";
-  }
-  const stripped = raw.replace(/\/\/[^\n]*/g, "").replace(/,(\s*[}\]])/g, "$1");
-  let parsed: { compilerOptions?: { paths?: Record<string, string[]> } };
-  try {
-    parsed = JSON.parse(stripped) as typeof parsed;
-  } catch {
-    return "none";
-  }
-  const targets = parsed.compilerOptions?.paths?.["@/*"];
+  const compilerOptions = await readTsconfigOptions(cwd);
+  const targets = compilerOptions?.paths?.["@/*"];
   if (!targets || targets.length === 0) return "none";
   const first = targets[0]?.replace(/^\.\//, "");
   if (first === "src/*") return "strip-src";

@@ -34,7 +34,8 @@ export function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig
   return { create: inferred.create, update: inferred.update };
 }
 
-function declaredWriteFields(
+/** The field names a write may carry: the declared form fields, else the resource's columns. */
+export function declaredWriteFields(
   resource: ResourceConfig,
   fields: FieldDef<Record<string, unknown>>[] | undefined,
 ): string[] {
@@ -46,6 +47,17 @@ function declaredWriteFields(
     else if (column.field) names.push(column.field);
   }
   return names;
+}
+
+/** The generated form may only offer columns a write is allowed to carry. */
+export function writableColumns<Column extends { name: string; primaryKey?: boolean }>(
+  resource: ResourceConfig,
+  columns: Column[],
+  fields: FieldDef<Record<string, unknown>>[] | undefined,
+): Column[] {
+  if (fields) return columns;
+  const writable = new Set(declaredWriteFields(resource, undefined));
+  return columns.filter((c) => writable.has(c.name));
 }
 
 function effectiveFieldPolicies(

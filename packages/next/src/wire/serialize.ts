@@ -9,9 +9,14 @@ export type WireValue =
   | { [key: string]: WireValue };
 
 function invalid(path: string, value: unknown): never {
-  const kind = value === null ? "null" : typeof value;
+  const kind =
+    value !== null && typeof value === "object"
+      ? (Object.getPrototypeOf(value)?.constructor?.name ?? "object")
+      : value === null
+        ? "null"
+        : typeof value;
   throw new FlowpanelValidationError({
-    [path]: `Value of type ${kind} is not serializable.`,
+    [path]: `Value of type ${kind} is not serializable. Give it a toJSON(), or leave the column out of the exposed set.`,
   });
 }
 
@@ -40,6 +45,15 @@ export function toWireValue(
   }
   if (typeof value === "object") {
     if (seen.has(value as object)) return invalid(path, value);
+    // A class that declares toJSON has stated how it serializes — Prisma's Decimal does.
+    // Anything that has not (a Map, a live database handle) still fails loudly.
+    const toJson = (value as { toJSON?: unknown }).toJSON;
+    if (typeof toJson === "function") {
+      seen.add(value as object);
+      const encoded = toWireValue((toJson as () => unknown).call(value), path, seen);
+      seen.delete(value as object);
+      return encoded;
+    }
     const prototype = Object.getPrototypeOf(value);
     if (prototype !== Object.prototype && prototype !== null) return invalid(path, value);
     seen.add(value as object);

@@ -19,38 +19,38 @@ const fakeAdapter: Adapter = {
 };
 
 describe("resourceNavName", () => {
-  it("uses options.name when set", () => {
+  it("uses options.name when set", async () => {
     expect(resourceNavName({ ref: {}, options: { name: "customers" } })).toBe("customers");
   });
-  it("falls back to ref.__name", () => {
+  it("falls back to ref.__name", async () => {
     expect(resourceNavName({ ref: { __name: "jobs" }, options: {} })).toBe("jobs");
   });
-  it("falls back to Drizzle-style ref._.name", () => {
+  it("falls back to Drizzle-style ref._.name", async () => {
     expect(resourceNavName({ ref: { _: { name: "orders" } }, options: {} })).toBe("orders");
   });
-  it("falls back to Drizzle's Symbol(drizzle:Name)", () => {
+  it("falls back to Drizzle's Symbol(drizzle:Name)", async () => {
     const nameSym = Symbol("drizzle:Name");
     expect(resourceNavName({ ref: { [nameSym]: "payments" }, options: {} })).toBe("payments");
   });
-  it("falls back to Drizzle's Symbol(drizzle:BaseName)", () => {
+  it("falls back to Drizzle's Symbol(drizzle:BaseName)", async () => {
     const baseNameSym = Symbol("drizzle:BaseName");
     expect(resourceNavName({ ref: { [baseNameSym]: "invoices" }, options: {} })).toBe("invoices");
   });
-  it("throws instead of silently returning a literal fallback", () => {
+  it("throws instead of silently returning a literal fallback", async () => {
     expect(() => resourceNavName({ ref: {}, options: {} })).toThrow(/name/i);
   });
 });
 
 describe("buildNav", () => {
-  it("returns empty array when no resources", () => {
+  it("returns empty array when no resources", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
     });
-    expect(buildNav(cfg)).toEqual([]);
+    expect(await buildNav(cfg)).toEqual([]);
   });
 
-  it("groups resources under 'Resources' heading", () => {
+  it("groups resources under 'Resources' heading", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -59,7 +59,7 @@ describe("buildNav", () => {
         resource({ __name: "jobs" }, { columns: [], plural: "Jobs" }),
       ],
     });
-    const nav = buildNav(cfg);
+    const nav = await buildNav(cfg);
     expect(nav).toHaveLength(1);
     expect(nav[0]?.label).toBe("Resources");
     expect(nav[0]?.items).toEqual([
@@ -68,7 +68,7 @@ describe("buildNav", () => {
     ]);
   });
 
-  it("filters hidden resources", () => {
+  it("filters hidden resources", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -77,11 +77,11 @@ describe("buildNav", () => {
         resource({ __name: "internal_hidden" }, { columns: [], hidden: true }),
       ],
     });
-    const nav = buildNav(cfg);
+    const nav = await buildNav(cfg);
     expect(nav[0]?.items).toHaveLength(1);
   });
 
-  it("filters hidden queues without removing their routes", () => {
+  it("filters hidden queues without removing their routes", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -94,13 +94,13 @@ describe("buildNav", () => {
       ],
     });
 
-    expect(buildNav(cfg).flatMap((group) => group.items.map((item) => item.label))).toEqual([
-      "Scrape",
-    ]);
+    expect((await buildNav(cfg)).flatMap((group) => group.items.map((item) => item.label))).toEqual(
+      ["Scrape"],
+    );
     expect(cfg.queuesByKey.has("billing")).toBe(true);
   });
 
-  it("filters every role-gated surface when a request context is provided", () => {
+  it("filters every role-gated surface when a request context is provided", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "support" },
@@ -126,8 +126,8 @@ describe("buildNav", () => {
     });
     const reqCtx = { role: "support", session: null } as RequestContext;
 
-    expect(buildNav(cfg, reqCtx).flatMap((group) => group.items.map((item) => item.label))).toEqual(
-      ["Overview", "Guide", "Users", "Jobs"],
-    );
+    expect(
+      (await buildNav(cfg, reqCtx)).flatMap((group) => group.items.map((item) => item.label)),
+    ).toEqual(["Overview", "Guide", "Users", "Jobs"]);
   });
 });

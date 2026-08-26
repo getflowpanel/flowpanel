@@ -30,13 +30,26 @@ export interface GuardSpec {
   route?: string | undefined;
   /** Read-only routes pass `false` so `config.readOnly` does not block them. */
   write?: boolean | undefined;
+  /**
+   * Which body this route speaks. Routes answering with `Result` — the JSON API and the
+   * programmatic controllers — must fail in that envelope too, or `@flowpanel/client`
+   * reads every guard rejection as an unrecognised response. Action and form routes
+   * answer with `ActionResult`, whose `error` is the operator-facing message.
+   */
+  envelope?: "result" | undefined;
 }
 
-function errorResponse(err: unknown, requestId: string): Response {
+function errorResponse(
+  err: unknown,
+  requestId: string,
+  envelope?: GuardSpec["envelope"],
+): Response {
   const result = coreErrorResult(err, requestId);
   if (result.ok) throw new Error("errorResult unexpectedly returned success");
-  const { code, message, fieldErrors } = result.error;
   const status = err instanceof FlowpanelError ? err.status : 500;
+  const headers = { "x-request-id": requestId };
+  if (envelope === "result") return Response.json(result, { status, headers });
+  const { code, message, fieldErrors } = result.error;
   return Response.json(
     {
       ok: false,
@@ -45,7 +58,7 @@ function errorResponse(err: unknown, requestId: string): Response {
       requestId,
       ...(fieldErrors ? { fieldErrors } : {}),
     },
-    { status, headers: { "x-request-id": requestId } },
+    { status, headers },
   );
 }
 
@@ -63,6 +76,7 @@ function guardSameOrigin(
   config: ResolvedAdminConfig,
   req: Request,
   requestId: string,
+  envelope?: GuardSpec["envelope"],
 ): Response | null {
   if (config.security?.sameOrigin === false) return null;
 
@@ -76,13 +90,13 @@ function guardSameOrigin(
       if (normalized) trusted.add(normalized);
     }
     if (origin !== null && trusted.has(origin)) return null;
-    return errorResponse(new FlowpanelAccessError(CROSS_ORIGIN_ERROR), requestId);
+    return errorResponse(new FlowpanelAccessError(CROSS_ORIGIN_ERROR), requestId, envelope);
   }
 
   // Modern browsers send Fetch Metadata even when Origin is unavailable.
   // Header-less requests remain available to trusted server-to-server clients.
   if (req.headers.get("sec-fetch-site") === "cross-site") {
-    return errorResponse(new FlowpanelAccessError(CROSS_ORIGIN_ERROR), requestId);
+    return errorResponse(new FlowpanelAccessError(CROSS_ORIGIN_ERROR), requestId, envelope);
   }
   return null;
 }
@@ -95,7 +109,7 @@ export async function withGuards(
 ): Promise<Response> {
   const requestId = requestIdFrom(req);
   if (spec.write !== false) {
-    const originGuard = guardSameOrigin(config, req, requestId);
+    const originGuard = guardSameOrigin(config, req, requestId, spec.envelope);
     if (originGuard) return originGuard;
   }
 
@@ -105,7 +119,7 @@ export async function withGuards(
   } catch (err) {
     const context = errorContext(req, requestId, spec);
     await reportUnexpectedError(err, context, config.hooks?.onError);
-    return errorResponse(err, requestId);
+    return errorResponse(err, requestId, spec.envelope);
   }
 
   if (spec.write !== false) {
@@ -113,6 +127,7 @@ export async function withGuards(
       return errorResponse(
         new FlowpanelOperationDisabledError("This admin is read-only."),
         requestId,
+        spec.envelope,
       );
     }
   }
@@ -121,18 +136,25 @@ export async function withGuards(
     try {
       requireAuthorized(config, spec.resource, reqCtx);
     } catch (err) {
-      return errorResponse(err, requestId);
+      return errorResponse(err, requestId, spec.envelope);
     }
-    if (spec.operation) {
+    // Action routes set no operation. An action that carries its own rule is governed
+    // by it — the same rule that decides whether the action is offered at all. An
+    // action that carries none inherits the resource's write rule instead of running
+    // ungated, which is what a resource using the canonical `access` map would do.
+    const actionCarriesOwnRule =
+      spec.actionAccess !== undefined || spec.actionRequireRole !== undefined;
+    const operation = spec.operation ?? (actionCarriesOwnRule ? undefined : "update");
+    if (operation) {
       try {
         const rule = resolveOperationAccess(
           spec.resource.options.access,
           spec.resource.options.requireRole,
-          spec.operation,
+          operation,
         );
         await authorizeOperation(rule, reqCtx);
       } catch (err) {
-        return errorResponse(err, requestId);
+        return errorResponse(err, requestId, spec.envelope);
       }
     }
   }
@@ -141,7 +163,7 @@ export async function withGuards(
     try {
       checkRequireRole(spec.pageRequireRole, reqCtx.role, reqCtx.session);
     } catch (err) {
-      return errorResponse(err, requestId);
+      return errorResponse(err, requestId, spec.envelope);
     }
   }
 
@@ -155,13 +177,13 @@ export async function withGuards(
     try {
       await authorizeOperation(spec.actionAccess, reqCtx);
     } catch (err) {
-      return errorResponse(err, requestId);
+      return errorResponse(err, requestId, spec.envelope);
     }
   } else {
     try {
       checkRequireRole(spec.actionRequireRole, reqCtx.role, reqCtx.session);
     } catch (err) {
-      return errorResponse(err, requestId);
+      return errorResponse(err, requestId, spec.envelope);
     }
   }
 
@@ -170,7 +192,7 @@ export async function withGuards(
   } catch (err) {
     const context = errorContext(req, requestId, spec, reqCtx);
     await reportUnexpectedError(err, context, config.hooks?.onError);
-    return errorResponse(err, requestId);
+    return errorResponse(err, requestId, spec.envelope);
   }
 }
 

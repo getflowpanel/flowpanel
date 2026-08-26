@@ -1,6 +1,7 @@
-import type { ResolvedAdminConfig, ResourceConfig, Session } from "@flowpanel/core";
-import { checkRequireRole } from "@flowpanel/core";
+import type { AccessContext, RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
+import { accessAllows, checkRequireRole, resolveOperationAccess } from "@flowpanel/core";
 import { bindPublisher, subscribe } from "./runtime/publish";
+import { buildRequestContext } from "./runtime/request-setup";
 
 const HEARTBEAT_MS = 15_000;
 
@@ -11,23 +12,21 @@ export interface StreamOptions {
   heartbeatMs?: number;
 }
 
-/** Whether `session`/the caller's role may subscribe to `channel`. */
-function channelAllowed(
+/** Whether the caller may subscribe to `channel`. */
+async function channelAllowed(
   channel: string,
   config: ResolvedAdminConfig,
-  session: Session | null,
-): boolean {
+  reqCtx: AccessContext,
+): Promise<boolean> {
   if (!CHANNEL_PATTERN.test(channel)) return false;
   const resourceName = channel.startsWith("resource.") ? channel.slice("resource.".length) : null;
   if (resourceName === null) return true;
-  const resource: ResourceConfig | undefined = config.resourcesByName.get(resourceName);
-  if (!resource || resource.options.requireRole === undefined) return true;
-  try {
-    checkRequireRole(resource.options.requireRole, config.auth.role(session), session);
-    return true;
-  } catch {
-    return false;
-  }
+  const resource = config.resourcesByName.get(resourceName);
+  if (!resource) return true;
+  return accessAllows(
+    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
+    reqCtx,
+  );
 }
 
 export function stream(
@@ -39,10 +38,10 @@ export function stream(
   return async function streamGET(req: Request): Promise<Response> {
     bindPublisher(config);
 
-    const session = await config.auth.session();
-    const role = config.auth.role(session);
+    let reqCtx: RequestContext;
     try {
-      checkRequireRole(config.auth.requireRole, role, session);
+      reqCtx = await buildRequestContext({ req, config });
+      checkRequireRole(config.auth.requireRole, reqCtx.role, reqCtx.session);
     } catch {
       return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
@@ -51,9 +50,10 @@ export function stream(
     const requestedChannels = url.searchParams.getAll("channel");
     // Cap before the per-channel role check so a huge repeated ?channel= list can't force
     // MAX_CHANNELS-unbounded role checks.
-    const channels = requestedChannels
-      .slice(0, MAX_CHANNELS)
-      .filter((ch) => channelAllowed(ch, config, session));
+    const channels: string[] = [];
+    for (const ch of requestedChannels.slice(0, MAX_CHANNELS)) {
+      if (await channelAllowed(ch, config, reqCtx)) channels.push(ch);
+    }
     const encoder = new TextEncoder();
 
     let disposers: Array<() => void> = [];

@@ -1,6 +1,7 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { authorizeOperation, checkRequireRole, resolveOperationAccess } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
+import { writableColumns } from "../actions/field-pipeline";
 import { buildHref } from "../runtime/href";
 import { buildRequestContext } from "../runtime/request-setup";
 import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
@@ -43,7 +44,7 @@ export async function ResourceCreatePage({
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
-          columns={intro.columns}
+          columns={writableColumns(resource, intro.columns, declared)}
           {...(fields ? { fields } : {})}
           submitLabel="Create"
           redirectTo={buildHref(config, name)}

@@ -13,11 +13,12 @@ export async function deleteRow(
   resource: ResourceConfig,
   id: string,
   reqCtx: RequestContext,
+  db: unknown = config.adapter.db,
 ): Promise<void> {
   const softDelete = resource.options.delete?.softDelete;
   const mctx: MutationContext<Record<string, unknown>> = {
     ...reqCtx,
-    db: config.adapter.db,
+    db,
     input: {},
     id,
     ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),

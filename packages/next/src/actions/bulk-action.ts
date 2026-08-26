@@ -1,8 +1,8 @@
 import type {
   ActionResult,
+  ActionVariant,
   BulkAction,
   IconName,
-  ItemQueryContext,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
 import {
@@ -23,7 +23,7 @@ import { applyActionResult } from "../runtime/apply-action-result";
 import { deleteRow } from "../runtime/delete-row";
 import { buildHref } from "../runtime/href";
 import { bindPublisher, publish } from "../runtime/publish";
-import { scopeBinding } from "../runtime/scope-binding";
+import { readRow } from "../runtime/read-row";
 import { withGuards } from "../runtime/with-guards";
 import type { ActionFormField } from "./action-form-field";
 import { serializeActionForm } from "./serialize-action-field";
@@ -33,8 +33,8 @@ export interface SerializedBulkAction {
   key: string;
   label: string;
   icon?: IconName;
-  variant?: "default" | "destructive";
-  confirm?: { title: string; description?: string };
+  variant?: ActionVariant;
+  confirm?: { title: string; description?: string; confirmLabel?: string };
   hasForm: boolean;
   form?: ActionFormField[];
 }
@@ -190,25 +190,21 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
 
         await Promise.all(
           ids.map(async (id) => {
-            const itemCtx: ItemQueryContext = {
-              ...reqCtx,
-              db: config.adapter.db,
-              dateRange: { from: new Date(0), to: new Date() },
-              searchParams: new URLSearchParams(),
-              signal: new AbortController().signal,
-              id,
-              ...scopeBinding(config, resource, reqCtx),
-            };
-            const row = await runWithRequestContext(reqCtx, () =>
-              config.adapter.get(resource.ref, itemCtx),
-            );
+            const row = await readRow(config, resource, id, reqCtx);
             if (!row) throw new FlowpanelNotFoundError();
           }),
         );
 
         let result: ActionResult<unknown>;
         if (builtinDelete) {
-          for (const id of ids) await deleteRow(config, resource, id, reqCtx);
+          // One failure must not leave a half-deleted selection behind an audit
+          // entry that claims the whole batch.
+          const deleteAll = async (db: unknown) => {
+            for (const id of ids) await deleteRow(config, resource, id, reqCtx, db);
+          };
+          const transaction = config.adapter.transaction;
+          if (transaction) await transaction.call(config.adapter, deleteAll);
+          else await deleteAll(config.adapter.db);
           result = { ok: true, message: `Deleted ${ids.length}` };
         } else {
           result = validateActionOutput(

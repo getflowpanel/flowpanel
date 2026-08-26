@@ -13,7 +13,7 @@ import {
 } from "@flowpanel/react";
 import * as React from "react";
 import type { ActionFormField, ActionFormFieldErrors } from "./action-form-field";
-import { readActionFormValues } from "./action-form-values";
+import { readFormValues } from "./form-values";
 
 export interface ActionFormDialogProps {
   /** Dialog title — typically `action.confirm?.title ?? action.label`. */
@@ -45,7 +45,7 @@ export function ActionFormDialog({
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const input = readActionFormValues(fields, new FormData(e.currentTarget));
+    const input = readFormValues(fields, new FormData(e.currentTarget));
     setPending(true);
     try {
       const errors = await onSubmit(input);

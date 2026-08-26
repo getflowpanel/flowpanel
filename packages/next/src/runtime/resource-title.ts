@@ -1,4 +1,5 @@
 import type { ResourceConfig } from "@flowpanel/core";
+import { humanize } from "@flowpanel/core";
 
 /**
  * Name for a single row, as `customization/forms` documents it:
@@ -8,4 +9,9 @@ import type { ResourceConfig } from "@flowpanel/core";
  */
 export function singularLabel(resource: ResourceConfig, name: string): string {
   return resource.options.labelOne ?? resource.options.label ?? name;
+}
+
+/** Name for the collection: the sidebar entry, the list heading and the detail crumb. */
+export function pluralLabel(resource: ResourceConfig, name: string): string {
+  return resource.options.plural ?? resource.options.label ?? humanize(name);
 }

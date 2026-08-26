@@ -27,6 +27,7 @@ import { projectAuthorizedRow } from "../runtime/project-row";
 import { renderColumnFormat } from "../runtime/render-column-format";
 import { buildRequestContext } from "../runtime/request-setup";
 import { readRelatedRows } from "../runtime/require-authorized";
+import { singularLabel } from "../runtime/resource-title";
 import { scopeBinding } from "../runtime/scope-binding";
 import { NotFound } from "./not-found";
 
@@ -110,7 +111,7 @@ export async function ResourceDetailPage({
   if (!row) return <NotFound config={config} />;
 
   const pk = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
-  const title = `${resource.options.label ?? name} · ${String(row[pk])}`;
+  const title = `${singularLabel(resource, name)} · ${String(row[pk])}`;
 
   const editAction = (
     <Button asChild>
