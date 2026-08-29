@@ -71,12 +71,13 @@ Using the same scope in every mode keeps seed, queries, relationships, and tests
 
 Add `demo_sandboxes` with:
 
-- `id`: UUID primary key;
+- `id`: text primary key; public ids are canonical random UUID strings and local/E2E use `local`;
 - `seedVersion`: integer;
 - `createdAt` and `lastSeenAt`;
 - `inactivityExpiresAt` and `absoluteExpiresAt`;
 - `lastResetAt`;
-- `fingerprintHash`: HMAC of the trusted client IP for creation throttling.
+- nullable `fingerprintHash`: HMAC of the trusted client IP for public creation throttling; local
+  rows store null.
 
 Add `demo_maintenance`, a singleton row containing `lastCleanupAt`, so multiple application
 instances coordinate maintenance through PostgreSQL rather than process memory.
