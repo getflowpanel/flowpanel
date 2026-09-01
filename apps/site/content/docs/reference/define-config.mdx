@@ -122,6 +122,10 @@ Pass a bare string when you only need the mode: `shell: "tabs"` is shorthand for
 - `"bare"` — no chrome at all; your `app/layout.tsx` supplies it. Globals
   (toasts, drawer host, command palette, realtime) still mount.
 
+The shell includes a skip-to-content link by default. Set `skipLink: false`
+only when the host application layout already renders one for the same content
+target; this avoids duplicate keyboard stops without removing the affordance.
+
 ## AuditConfig
 
 <AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditConfig" />
@@ -228,7 +232,8 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 
 When a resource has delete enabled (i.e. **not** `delete: { disabled: true }`)
 and declares no `bulkActions`, `defineAdmin` injects a default `delete` bulk
-action. Opt out with `bulkActions: []` or `delete: { disabled: true }`.
+action. Set `delete.confirm` to replace its confirmation description. Opt out
+with `bulkActions: []` or `delete: { disabled: true }`.
 
 `readOnly: true` short-circuits the whole rule: a read-only admin rewrites
 every resource to `bulkActions: []` (and empties `actions` and the drawer's

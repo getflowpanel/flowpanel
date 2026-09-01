@@ -70,7 +70,7 @@ export default defineConfig({
     remarkPlugins: [remarkInclude],
     // Highlighting handled by Fumadocs UI defaults (shiki). Code blocks
     // tagged ` ```ts twoslash ` are type-checked at build time and gain
-    // inline type/hover popups — see `apps/site/ARCHITECTURE.md`.
+    // inline type and hover popups.
     rehypeCodeOptions: {
       // Preserve Fumadocs' default transformers (notation highlight / diff /
       // focus / word) — a bare `transformers` array would otherwise replace

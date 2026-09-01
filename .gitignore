@@ -1,6 +1,8 @@
-# Claude Code
+# Local agent tooling
+AGENTS.md
 CLAUDE.md
 .claude/
+.superpowers/
 
 # Local-only internal notes (invariants, ADRs, specs) — never committed.
 # Anchored to repo root so it does NOT match apps/site/content/docs/.
@@ -48,10 +50,6 @@ test-results/
 *.swo
 Thumbs.db
 
-# Tooling (internal)
-.claude/
-.superpowers/
-AGENTS.md
 # Design-audit scratch output (design-is skill) — local only, never shipped
 DESIGN-IS-*/
 

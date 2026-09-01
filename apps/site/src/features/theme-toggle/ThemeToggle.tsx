@@ -29,7 +29,7 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(next)}
       aria-label={mounted ? `Switch to ${next} theme` : "Toggle theme"}
-      className="grid h-8 w-8 place-items-center rounded-md text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg)]"
+      className="grid h-11 w-11 place-items-center rounded-md text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg)]"
     >
       {mounted ? (
         isDark ? (

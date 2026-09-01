@@ -25,8 +25,8 @@ export function SiteHeader({ variant = "marketing" }: SiteHeaderProps) {
       <div
         className={
           isDocs
-            ? "mx-auto flex h-14 max-w-[1280px] items-center gap-6 px-6"
-            : "mx-auto flex h-14 max-w-[1120px] items-center gap-6 px-6"
+            ? "mx-auto flex h-14 max-w-[1280px] items-center gap-3 px-4 sm:gap-6 sm:px-6"
+            : "mx-auto flex h-14 max-w-[1120px] items-center gap-3 px-4 sm:gap-6 sm:px-6"
         }
       >
         <div className="flex shrink-0 items-center gap-2.5 font-mono">
@@ -38,7 +38,7 @@ export function SiteHeader({ variant = "marketing" }: SiteHeaderProps) {
             <Logo size={24} className="text-[var(--color-accent)]" />
             <span className="text-base font-medium text-[var(--color-fg)]">{siteConfig.name}</span>
           </Link>
-          <span className="rounded-md border border-[var(--color-border)] px-1.5 py-0.5 text-xs text-[var(--color-fg-muted)]">
+          <span className="hidden rounded-md border border-[var(--color-border)] px-1.5 py-0.5 text-xs text-[var(--color-fg-muted)] sm:inline-flex">
             {isDocs ? "docs" : `v${flowpanelVersion}`}
           </span>
         </div>
@@ -53,14 +53,17 @@ export function SiteHeader({ variant = "marketing" }: SiteHeaderProps) {
 
         <nav
           aria-label="Primary"
-          className="flex shrink-0 items-center gap-3 font-mono text-sm text-[var(--color-fg-muted)] sm:gap-5"
+          className="flex shrink-0 items-center gap-0.5 font-mono text-sm text-[var(--color-fg-muted)] sm:gap-3"
         >
-          <Link href="/docs" className="transition-colors hover:text-[var(--color-fg)]">
+          <Link
+            href="/docs"
+            className="inline-flex min-h-11 items-center px-2 transition-colors hover:text-[var(--color-fg)]"
+          >
             Docs
           </Link>
           <Link
             href="/changelog"
-            className="hidden transition-colors hover:text-[var(--color-fg)] sm:inline"
+            className="hidden min-h-11 items-center px-2 transition-colors hover:text-[var(--color-fg)] sm:inline-flex"
           >
             Changelog
           </Link>

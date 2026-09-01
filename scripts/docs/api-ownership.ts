@@ -377,6 +377,12 @@ export const API_OWNERSHIP_RULES = [
 
 export const API_EXCLUSIONS = [
   {
+    sourcePrefix: "packages/core/src/internal/",
+    category: "internal-plumbing",
+    reason:
+      "This subpath is shared implementation plumbing for first-party adapters, not public product API.",
+  },
+  {
     sourcePrefix: "packages/react/src/ui/",
     category: "upstream-primitive",
     reason:

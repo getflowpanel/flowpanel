@@ -1,8 +1,11 @@
+import { rmSync } from "node:fs";
 import { defineConfig } from "tsup";
 
-// tsup runs these concurrently, so none of them may clean: whichever finishes
-// first would have its output deleted by a later one. The build script clears
-// dist once, before tsup starts.
+// tsup runs these configs concurrently and cleans per config, so no single one
+// of them may clean: whichever finished first would have its output deleted by
+// a later one. Clear dist once here, before any build starts.
+rmSync("dist", { recursive: true, force: true });
+
 export default defineConfig([
   {
     entry: { index: "src/index.ts" },
@@ -15,7 +18,6 @@ export default defineConfig([
     entry: { runtime: "src/runtime.tsx" },
     format: ["esm"],
     dts: true,
-    clean: false,
     splitting: false,
     external: ["react", "recharts", "@flowpanel/core", "@flowpanel/react"],
     banner: { js: '"use client";' },

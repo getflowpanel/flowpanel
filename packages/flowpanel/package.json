@@ -87,10 +87,10 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@flowpanel/adapter-bullmq": "workspace:*",
@@ -107,8 +107,8 @@
     "@bull-board/express": "^6.0.0",
     "@prisma/client": ">=5.0.0 <7.0.0",
     "bullmq": "^5.0.0",
-    "express": "^4.19.0",
     "drizzle-orm": ">=0.45.2 <1.0.0",
+    "express": "^4.19.0",
     "ioredis": "^5.10.0",
     "next": "^16.3.0",
     "react": "^19.0.0",
@@ -124,19 +124,19 @@
     "@bull-board/express": {
       "optional": true
     },
-    "express": {
-      "optional": true
-    },
-    "drizzle-orm": {
+    "@prisma/client": {
       "optional": true
     },
     "bullmq": {
       "optional": true
     },
-    "ioredis": {
+    "drizzle-orm": {
       "optional": true
     },
-    "@prisma/client": {
+    "express": {
+      "optional": true
+    },
+    "ioredis": {
       "optional": true
     },
     "recharts": {

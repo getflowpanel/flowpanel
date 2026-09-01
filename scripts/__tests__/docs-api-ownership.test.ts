@@ -99,6 +99,26 @@ describe("API documentation ownership", () => {
     });
   });
 
+  it("classifies the core migration lexer subpath as internal plumbing", () => {
+    expect(
+      resolveApiOwnership(
+        symbol({
+          exportPath: "./internal/migration-sql",
+          exportName: "tokenizeMigrationSql",
+          declarationName: "tokenizeMigrationSql",
+          declarationPath: "packages/core/src/internal/migration-sql.ts",
+          kind: "function",
+          isTypeOnly: false,
+        }),
+      ),
+    ).toEqual({
+      status: "excluded",
+      category: "internal-plumbing",
+      reason:
+        "This subpath is shared implementation plumbing for first-party adapters, not public product API.",
+    });
+  });
+
   it("reports an unmatched source directory", () => {
     const problems = checkApiOwnership(
       [symbol({ declarationPath: "packages/core/src/new-surface/index.ts" })],

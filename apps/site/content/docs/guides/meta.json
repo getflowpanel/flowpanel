@@ -1,6 +1,7 @@
 {
   "title": "Production",
   "pages": [
+    "production-readiness",
     "auth-with-clerk",
     "permissions",
     "multi-tenant-scope",

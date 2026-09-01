@@ -37,7 +37,7 @@ export async function DocsLayoutShell({ tree, children }: DocsLayoutShellProps) 
         </div>
       </details>
       <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-10 px-6 py-10 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_200px]">
-        <aside className="hidden lg:block lg:sticky lg:top-20 lg:self-start">
+        <aside className="docs-sidebar-scrollbar hidden lg:sticky lg:top-20 lg:block lg:w-[calc(100%+0.75rem)] lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:pr-5 lg:[scrollbar-gutter:stable]">
           <Sidebar tree={tree} adapter={adapter} />
         </aside>
         {children}

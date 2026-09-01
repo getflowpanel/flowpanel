@@ -38,11 +38,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "rm -rf dist && tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
+    "build": "tsup",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*",

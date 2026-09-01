@@ -69,7 +69,7 @@ export function FeatureGrid() {
   return (
     <section
       aria-labelledby="features-title"
-      className="border-b border-[var(--color-border)] py-28 md:py-36"
+      className="border-b border-[var(--color-border)] py-20 md:py-24"
     >
       <div className="mx-auto max-w-[1120px] px-6">
         <h2

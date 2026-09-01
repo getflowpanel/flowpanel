@@ -32,7 +32,10 @@ The catch-all admin page passes every `/admin/...` request to `createFlowpanel(c
 
 These files are intentionally small. Edit them only when changing mount paths or integrating custom route behavior. `flowpanel doctor --fix` can restore missing route templates, but does not overwrite an existing conflicting file.
 
-The CLI may also add the stylesheet import and `suppressHydrationWarning` to an existing root layout. If no layout exists, it creates one. Tailwind v3 projects may receive a config file when none exists.
+The CLI may also add the stylesheet import, pre-hydration `ThemeScript`, and
+`suppressHydrationWarning` to an existing root layout. If no layout exists, it
+creates one with all three. Tailwind v3 projects may receive a config file when
+none exists.
 
 ## Files created later
 

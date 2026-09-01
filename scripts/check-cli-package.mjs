@@ -9,12 +9,42 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sandbox = await mkdtemp(path.join(tmpdir(), "flowpanel-cli-package-"));
 const command = (name) => (process.platform === "win32" ? `${name}.cmd` : name);
 
+/** A command reported its own failure already; the caller only sets the status. */
+class CommandFailed extends Error {}
+
+/**
+ * `stdio: "pipe"` hands a failure back with Buffer stdout/stderr, which node's
+ * default printer renders as thousands of byte codes. Report what the command
+ * actually said instead.
+ */
+function run(file, args, options) {
+  try {
+    return execFileSync(file, args, options);
+  } catch (error) {
+    console.error(`✗ ${file} ${args.join(" ")} failed with status ${error.status ?? "unknown"}`);
+    for (const stream of ["stdout", "stderr"]) {
+      const said = String(error[stream] ?? "").trim();
+      if (said) console.error(`── ${stream} ──\n${said}`);
+    }
+    throw new CommandFailed(`${file} failed`);
+  }
+}
+
+/** The clean-room install is the one step that reaches the network. */
+function runOnceMore(file, args, options) {
+  try {
+    return execFileSync(file, args, options);
+  } catch {
+    console.error(`↻ ${file} ${args.join(" ")} failed; retrying once before failing the check`);
+    return run(file, args, options);
+  }
+}
+
 try {
-  execFileSync(
-    command("pnpm"),
-    ["--filter", "@flowpanel/cli", "pack", "--pack-destination", sandbox],
-    { cwd: root, stdio: "pipe" },
-  );
+  run(command("pnpm"), ["--filter", "@flowpanel/cli", "pack", "--pack-destination", sandbox], {
+    cwd: root,
+    stdio: "pipe",
+  });
 
   const tarballs = (await readdir(sandbox)).filter((name) => name.endsWith(".tgz"));
   assert.equal(tarballs.length, 1, `expected one CLI tarball, found ${tarballs.length}`);
@@ -26,7 +56,7 @@ try {
     `${JSON.stringify({ name: "flowpanel-cli-consumer", private: true }, null, 2)}\n`,
   );
 
-  execFileSync(
+  runOnceMore(
     command("npm"),
     ["install", "--ignore-scripts", "--no-audit", "--no-fund", path.join(sandbox, tarballs[0])],
     {
@@ -45,13 +75,16 @@ try {
     ".bin",
     process.platform === "win32" ? "flowpanel.cmd" : "flowpanel",
   );
-  const help = execFileSync(binary, ["--help"], { cwd: consumer, encoding: "utf8" });
+  const help = run(binary, ["--help"], { cwd: consumer, encoding: "utf8" });
   assert.match(help, /Usage: flowpanel/);
   for (const subcommand of ["init", "dev", "new", "migrate", "doctor", "eject"]) {
     assert.match(help, new RegExp(`\\b${subcommand}\\b`));
   }
 
   console.log("✓ packed CLI installs into a clean npm project and exposes every command");
+} catch (error) {
+  if (!(error instanceof CommandFailed)) throw error;
+  process.exitCode = 1;
 } finally {
   await rm(sandbox, { recursive: true, force: true });
 }

@@ -7,6 +7,14 @@ import { licenseProblems } from "./sync-licenses.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const problems = [...licenseProblems()];
+const ORDERED_MANIFEST_MAPS = [
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "peerDependencies",
+  "peerDependenciesMeta",
+  "scripts",
+];
 
 function read(path) {
   return readFileSync(join(root, path), "utf8");
@@ -22,9 +30,33 @@ function walk(dir, predicate, out = []) {
   return out;
 }
 
+const manifestFiles = [
+  "package.json",
+  ...walk("apps", (path) => path.endsWith("package.json")),
+  ...walk("examples", (path) => path.endsWith("package.json")),
+  ...walk("packages", (path) => path.endsWith("package.json")),
+].sort();
+
+for (const file of manifestFiles) {
+  const manifest = JSON.parse(read(file));
+  const orderedMaps = [
+    ...ORDERED_MANIFEST_MAPS.map((field) => [field, manifest[field]]),
+    ["pnpm.overrides", manifest.pnpm?.overrides],
+  ];
+  for (const [field, value] of orderedMaps) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const actual = Object.keys(value);
+    const expected = [...actual].sort();
+    if (actual.some((key, index) => key !== expected[index])) {
+      problems.push(`${file}: ${field} keys must be sorted alphabetically`);
+    }
+  }
+}
+
 const publicTextFiles = [
   "README.md",
   ...walk("packages", (path) => path.endsWith("README.md")),
+  ...walk("examples", (path) => /(?:README\.md|\.env\.example|\.ya?ml)$/.test(path)),
   ...walk(".github", (path) => /\.(?:md|ya?ml)$/.test(path)),
   ...walk("apps/site/content", (path) => path.endsWith(".mdx")),
   ...walk("apps/site/src", (path) => /\.[jt]sx?$/.test(path)),

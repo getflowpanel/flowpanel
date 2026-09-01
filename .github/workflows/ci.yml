@@ -177,16 +177,22 @@ jobs:
         working-directory: packages/e2e
         run: pnpm exec playwright install-deps chromium webkit
 
+      - name: Verify demo sandbox lifecycle against PostgreSQL
+        run: |
+          pnpm --filter ai-scraper db:push
+          pnpm --filter ai-scraper test:integration
+
       - name: Run Playwright (prepares DB, then boots ai-scraper)
         working-directory: packages/e2e
         run: pnpm exec playwright test
 
       - name: Verify public demo is read-only at the UI and HTTP boundaries
         working-directory: packages/e2e
-        env:
-          E2E_BASE_URL: http://localhost:3101
-          DEMO_MODE: "true"
-        run: pnpm exec playwright test demo-public-mode.spec.ts --project=chromium
+        run: pnpm test:e2e:demo-readonly
+
+      - name: Verify the documentation site in a real browser
+        working-directory: packages/e2e
+        run: pnpm test:e2e:site
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()

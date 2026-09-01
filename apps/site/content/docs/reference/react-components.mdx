@@ -352,7 +352,7 @@ import { TableWidget as TableWidgetRenderer } from "@flowpanel/kit/react";
 declared **twice with identical members** — once here (what `Form` reads back
 from the route it POSTs to) and once in `@flowpanel/kit/next` (what
 `makeActions`' form routes answer with). Both are
-`{ ok: boolean; error?: string; fieldErrors?: Record<string, string> }`, so
+`{ ok: boolean; createdKey?: string; error?: string; fieldErrors?: Record<string, string> }`, so
 either import satisfies the other. They are still two declarations: if one
 ever gains a member, they stop being interchangeable.
 

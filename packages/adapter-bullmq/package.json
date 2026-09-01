@@ -41,10 +41,10 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "@bull-board/api": "^6.0.0",
