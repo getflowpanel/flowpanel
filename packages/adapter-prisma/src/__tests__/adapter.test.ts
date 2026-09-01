@@ -200,6 +200,25 @@ describe("prismaAdapter", () => {
     );
   });
 
+  it("list search omits `mode` off PostgreSQL — Prisma rejects it there", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.findMany.mockResolvedValue([]);
+    _delegate.count.mockResolvedValue(0);
+
+    const adapter = prismaAdapter({
+      prisma: { user: delegate },
+      dmmf: testDmmf,
+      provider: "sqlite",
+    });
+    await adapter.list("User", { ...baseCtx, search: "alice", searchFields: ["name"] });
+
+    expect(_delegate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ OR: [{ name: { contains: "alice" } }] }),
+      }),
+    );
+  });
+
   it("FAIL-CLOSED: list search has no effect when searchFields is undeclared", async () => {
     const { user: delegate, _delegate } = makeMockPrisma();
     _delegate.findMany.mockResolvedValue([]);

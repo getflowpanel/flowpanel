@@ -16,6 +16,12 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 
 # Build the workspace packages the site imports, then the site itself.
+# NEXT_PUBLIC_* values are inlined at build time; Coolify passes build-time
+# env vars as build args.
+ARG NEXT_PUBLIC_DEMO_URL
+ARG NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_DEMO_URL=${NEXT_PUBLIC_DEMO_URL} \
+    NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @flowpanel/core build \
  && pnpm --filter @flowpanel/react build \

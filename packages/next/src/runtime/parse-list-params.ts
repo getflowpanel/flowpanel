@@ -9,7 +9,7 @@ export interface ListParams {
 }
 
 /** Highest page number `?page=` may request — beyond this it's abuse, not real pagination. */
-const MAX_PAGE = 100_000;
+export const MAX_PAGE = 100_000;
 
 /** Clamp `?page=` to a positive integer no larger than `MAX_PAGE`; non-finite/garbage → 1. */
 function parsePage(raw: string | null): number {

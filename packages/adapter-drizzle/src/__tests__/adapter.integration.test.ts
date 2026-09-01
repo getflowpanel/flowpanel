@@ -115,6 +115,20 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     expect(r.total).toBe(0);
   });
 
+  it("list search treats %, _ and ! in the query as literals, not wildcards", async () => {
+    const wild = await adapter.list(users, ctx({ db, search: "%", searchFields: ["name"] }));
+    expect(wild.total).toBe(0);
+
+    const underscore = await adapter.list(
+      users,
+      ctx({ db, search: "User _", searchFields: ["name"] }),
+    );
+    expect(underscore.total).toBe(0);
+
+    const bang = await adapter.list(users, ctx({ db, search: "User 7", searchFields: ["name"] }));
+    expect(bang.total).toBeGreaterThan(0);
+  });
+
   it("FAIL-CLOSED: search has no effect when searchFields is undeclared", async () => {
     // A hand-crafted `?search=` on a resource with no declared search fields
     // must not become a data oracle across every text column.

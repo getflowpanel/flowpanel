@@ -37,7 +37,7 @@ export default defineAdmin({
             title: "Promote this user to admin?",
             description: "The user will be able to access the admin panel.",
           },
-          hidden: async (row) => row.role === "admin",
+          hidden: (row) => row.role === "admin",
           run: async (row, _input, { db }) => {
             await db.update(schema.users).set({ role: "admin" }).where(eq(schema.users.id, row.id));
             return { ok: true, message: `Promoted ${row.email}`, refresh: true };
@@ -51,7 +51,7 @@ export default defineAdmin({
             title: "Reset this user's role?",
             description: "They lose admin access immediately.",
           },
-          hidden: async (row) => row.role !== "admin",
+          hidden: (row) => row.role !== "admin",
           run: async (row, _input, { db }) => {
             await db
               .update(schema.users)

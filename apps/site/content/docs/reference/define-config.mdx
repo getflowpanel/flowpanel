@@ -43,8 +43,9 @@ session: a config with no `requireRole` here, none on any resource, and no
 global `scope` serves every route and page to anonymous visitors. `defineAdmin`
 prints a warning about that in development. A deployment that is open on
 purpose — behind a VPN or an authenticating proxy — sets
-`allowUnauthenticated: true` to say so and silence the warning; it enforces
-nothing either way.
+`allowUnauthenticated: true` to say so and silence the warning. Production is
+stricter: a config without `auth.requireRole` refuses to compile unless it sets
+both `allowUnauthenticated: true` and `readOnly: true`.
 
 Four presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
 (`devAuth` is also on the package root):

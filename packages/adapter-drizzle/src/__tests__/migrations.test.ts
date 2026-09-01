@@ -302,6 +302,11 @@ describe("drizzleAdapter migration SQL validation", () => {
     ["unterminated string", "INSERT INTO notes(value) VALUES ('unfinished);"],
     ["mysql delimiter directive", "DELIMITER $$ CREATE PROCEDURE p() BEGIN SELECT 1; END $$"],
     ["unsafe procedural body", "CREATE TRIGGER t AFTER UPDATE ON items BEGIN SELECT 1; END;"],
+    [
+      "transaction control inside the file",
+      "CREATE TABLE a (id int);\nCOMMIT;\nCREATE TABLE b (id int);",
+    ],
+    ["client directive", "SOURCE other-file.sql;\nCREATE TABLE a (id int);"],
   ])("rejects %s before touching the database", async (_label, rawSql) => {
     const db = {
       execute: vi.fn().mockResolvedValue([[], []]),

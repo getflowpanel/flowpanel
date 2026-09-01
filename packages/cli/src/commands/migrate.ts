@@ -123,7 +123,9 @@ export function migrateCommand(cli: Command): void {
 
       const cfgPath = path.join(cwd, "flowpanel.config.ts");
       if (!(await fileExists(cfgPath))) {
-        log.err(`flowpanel.config.ts not found. Run \`${pmc.dlx} @flowpanel/cli init\` first.`);
+        const msg = `flowpanel.config.ts not found. Run \`${pmc.dlx} @flowpanel/cli init\` first.`;
+        if (opts.json) writeJson({ command: "migrate", applied: false, error: msg });
+        else log.err(msg);
         process.exit(1);
       }
 

@@ -27,10 +27,14 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
   ): Promise<ActionFormFieldErrors | null> {
     setPending(action.key);
     try {
-      return await runAction(`${apiBase}/dashboards/${encodedPath}/actions/${action.key}`, input, {
-        successMessage: `${action.label} ran`,
-        failureMessage: `${action.label} failed`,
-      });
+      return await runAction(
+        `${apiBase}/dashboards/${encodedPath}/actions/${encodeURIComponent(action.key)}`,
+        input,
+        {
+          successMessage: `${action.label} ran`,
+          failureMessage: `${action.label} failed`,
+        },
+      );
     } finally {
       setPending(null);
     }
@@ -54,13 +58,7 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
         <Button
           key={a.key}
           size="sm"
-          variant={
-            a.variant === "destructive"
-              ? "destructive"
-              : a.variant === "success"
-                ? "default"
-                : "default"
-          }
+          variant={a.variant === "destructive" ? "destructive" : "default"}
           disabled={pending === a.key}
           onClick={() => onClick(a)}
           aria-busy={pending === a.key || undefined}

@@ -50,11 +50,7 @@ implicit DDL commits remain explicitly non-rollbackable. `.env.local` and
 CLI is tested in clean npm projects on Linux and Windows.
 Custom adapters should add `applyMigration(id, sql)`; the deprecated
 `runMigrationSql` plus `markMigrationApplied` pair remains a warned, non-atomic
-upgrade fallback. Prisma implements the locked operation too, one protocol per
-declared `provider`: a transaction on PostgreSQL and SQLite, and a durable claim
-row on MySQL, whose implicit DDL commits nothing can roll back. It runs ordinary
-multi-statement files safely and rejects dialect-specific procedural bodies,
-MySQL executable comments and client directives before executing any SQL.
+upgrade fallback.
 
 The canonical ScrapeAI demo is a focused seven-screen competitive-price
 intelligence story with deterministic relational data, Admin/Support personas,

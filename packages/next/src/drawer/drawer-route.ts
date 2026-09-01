@@ -136,7 +136,9 @@ async function prerenderRowFields(
   for (const col of withRender) {
     try {
       out[col.field] = renderToStaticMarkup(createElement(Fragment, null, col.render(row, reqCtx)));
-    } catch {}
+    } catch (error) {
+      console.error(`[flowpanel] drawer cell render failed for "${col.field}"`, error);
+    }
   }
   return out;
 }

@@ -67,7 +67,7 @@ pnpm flowpanel dev
 
 Open [http://localhost:3000/admin](http://localhost:3000/admin). You should see the resource in the navigation and a paginated list at its resource URL. If the navigation is empty, confirm that `resources` contains the resource and restart the dev process so the config is reloaded.
 
-`flowpanel dev` starts Next.js and, when `REDIS_URL` is present, the BullMQ board process. Use your normal `pnpm dev` command if you do not need the board integration.
+`flowpanel dev` starts Next.js and, when `REDIS_URL` is set and the project has a `scripts/board-server.mts` (or `.ts`) file, the BullMQ board process. `init` does not create that script; see the [queues guide](/docs/guides/queues). Use your normal `pnpm dev` command if you do not need the board integration.
 
 ## What the CLI created
 

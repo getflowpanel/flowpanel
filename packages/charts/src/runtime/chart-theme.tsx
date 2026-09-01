@@ -67,10 +67,9 @@ export const LINE_TOOLTIP_CURSOR = {
 export const BAR_TOOLTIP_CURSOR = { fill: "hsl(var(--fp-text-1) / 0.06)" } as const;
 
 /**
- * A tick roughly every 150px. At the old 48px gap a wide chart printed a label
- * under every other bar — a band of timestamps nobody reads, competing with the
- * series for attention. Recharts drops ticks to satisfy the gap, so narrow
- * charts thin out on their own.
+ * A sparse axis: a tight tick gap prints a label under every other bar — a band
+ * of timestamps nobody reads. Recharts drops ticks to satisfy the gap, so
+ * narrow charts thin out on their own.
  */
 export const AXIS_TICK_PROPS = {
   interval: "preserveStartEnd",

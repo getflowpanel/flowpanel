@@ -13,7 +13,6 @@ export interface MarketEvent {
 }
 
 export interface LiveOperationsSnapshot {
-  connected: boolean;
   offersPerMinute: number;
   priceChangesToday: number;
   concurrentCrawls: number;

@@ -78,6 +78,22 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     expect(result.pageSize).toBe(3);
   });
 
+  it("list search executes against the real SQLite client and matches case-insensitively", async () => {
+    await prisma.testUser.create({ data: { email: "findme@example.com", name: "Search Target" } });
+
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    const result = await adapter.list("TestUser", {
+      page: 1,
+      pageSize: 10,
+      filters: {},
+      search: "SEARCH TAR",
+      searchFields: ["name"],
+      db: undefined,
+    } as any);
+
+    expect(result.rows.map((row: any) => row.name)).toEqual(["Search Target"]);
+  });
+
   it("numeric-range filter: `gte`/`lte` return only in-range rows, never throws", async () => {
     // Reproduces the reported bug class: an undecoded "min:max" string used
     // to reach the query layer verbatim and blow up (or, for prisma, throw

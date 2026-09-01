@@ -32,13 +32,13 @@ export type ActionResult<Data = never> =
       fieldErrors?: Record<string, string>;
     };
 
-/** Action offered on a single row of the list. */
 /** Button styling shared by every action kind. `"destructive"` marks a dangerous action. */
 export type ActionVariant = "default" | "destructive" | "success";
 
 /** Confirmation prompt shown before an action runs. */
 export type ActionConfirm = string | { title: string; description?: string; confirmLabel?: string };
 
+/** Action offered on a single row of the list. */
 export interface RowAction<Row, Input extends ActionInput = ActionInput, Output = never> {
   /** Stable identifier, used in the action's URL. */
   key: string;

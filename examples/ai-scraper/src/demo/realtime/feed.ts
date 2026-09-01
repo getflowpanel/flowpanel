@@ -126,7 +126,6 @@ function startTicker(current: LiveOperationsState): void {
 
 function snapshot(current: LiveOperationsState): LiveOperationsSnapshot {
   return {
-    connected: true,
     offersPerMinute: current.offersPerMinute,
     priceChangesToday: current.priceChangesToday,
     concurrentCrawls: current.concurrentCrawls,

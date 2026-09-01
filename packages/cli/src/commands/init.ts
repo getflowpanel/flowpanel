@@ -335,7 +335,12 @@ export function initCommand(cli: Command): void {
       if (sessionStub) files[sessionStubFile] = await tpl("dev-session.ts.txt");
 
       const existingLayout = await findAppLayout(cwd);
-      const cssImportSpec = aliasMode === "none" ? "../styles/admin.css" : "@/styles/admin.css";
+      // Without an alias the layout's relative import must climb out of the
+      // app dir, which is one level deeper when the App Router lives in src/.
+      const cssImportSpec =
+        aliasMode === "none"
+          ? `${"../".repeat(appDir.split("/").length)}${cssRel}`
+          : "@/styles/admin.css";
       let layoutNote: "scaffolded" | "patched" | "kept" | "kept-has-css" = "scaffolded";
       let keptLayoutPath = "";
 
@@ -416,8 +421,10 @@ export function initCommand(cli: Command): void {
       let depsOk = true;
       if (missing.length > 0) {
         const names = missing.map((d) => pinnedSpec(d.pkg)).join(", ");
-        const depSpinner = p.spinner();
-        if (!opts.json) depSpinner.start(`Installing ${names} with ${pm}`);
+        // A spinner in a pipe floods CI logs with ANSI redraw frames.
+        const depSpinner = !opts.json && process.stdout.isTTY ? p.spinner() : null;
+        if (depSpinner) depSpinner.start(`Installing ${names} with ${pm}`);
+        else if (!opts.json) p.log.step(`Installing ${names} with ${pm}…`);
         let installOk = true;
         let failureOutput = "";
         for (const { pkg, dev } of missing) {
@@ -429,10 +436,12 @@ export function initCommand(cli: Command): void {
           }
         }
         if (installOk) {
-          if (!opts.json) depSpinner.stop(`Installed ${names}`);
+          if (depSpinner) depSpinner.stop(`Installed ${names}`);
+          else if (!opts.json) p.log.success(`Installed ${names}`);
         } else {
           depsOk = false;
-          if (!opts.json) depSpinner.stop("Dependency install failed");
+          if (depSpinner) depSpinner.stop("Dependency install failed");
+          else if (!opts.json) p.log.error("Dependency install failed");
           const reason = installFailureReason(failureOutput);
           if (!opts.json) {
             if (reason) p.note(reason, `${pm} said`);

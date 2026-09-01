@@ -63,7 +63,7 @@ export function Hero() {
           </Link>
         </nav>
 
-        <fieldset aria-label="Quick start" className="mt-8 min-w-0 w-full max-w-[640px]">
+        <section aria-label="Quick start" className="mt-8 min-w-0 w-full max-w-[640px]">
           <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs">
             <span className="uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
               Quick start
@@ -79,7 +79,7 @@ export function Hero() {
             </span>
             <CopyButton text={INSTALL_CMD} />
           </div>
-        </fieldset>
+        </section>
 
         <TrustBar />
 

@@ -16,7 +16,7 @@ import {
   sanitizeFilterValues,
 } from "./runtime/parse-list-params";
 import { filterReadableDeclarations, resolveReadableFieldSet } from "./runtime/readable-fields";
-import { readJsonObject as readJsonBody } from "./runtime/request-body";
+import { readJsonObject } from "./runtime/request-body";
 import { withGuards } from "./runtime/with-guards";
 import { methodNotAllowed, wireResponse } from "./wire/response";
 
@@ -44,12 +44,12 @@ function badTransport(
   return Response.json({ ok: false, error: { code, message } }, { status });
 }
 
-async function readJsonObject(req: Request): Promise<Record<string, unknown> | Response> {
+async function readJsonRequest(req: Request): Promise<Record<string, unknown> | Response> {
   const type = req.headers.get("content-type") ?? "";
   if (!type.toLowerCase().includes("application/json")) {
     return badTransport("unsupported_media_type", "Expected application/json.", 415);
   }
-  const parsed = await readJsonBody(req);
+  const parsed = await readJsonObject(req);
   if (parsed.ok) return parsed.value;
   if (parsed.reason === "payload-too-large") {
     return badTransport("payload_too_large", "JSON body exceeds 1 MiB.", 413);
@@ -198,7 +198,10 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
         wireResponse(await controller.get(route[1] as string)),
       );
     }
-    return Response.json({ error: "not found" }, { status: 404 });
+    return Response.json(
+      { ok: false, error: { code: "not_found", message: "not found" } },
+      { status: 404 },
+    );
   }
 
   async function POST(
@@ -229,13 +232,16 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
     );
     if (matched) return matched;
     if (route.length === 1 && route[0] && config.resourcesByName.has(route[0])) {
-      const input = await readJsonObject(req);
+      const input = await readJsonRequest(req);
       if (input instanceof Response) return input;
       return resourceResult(config, req, route[0], "create", async (controller) =>
         wireResponse(await controller.create(input)),
       );
     }
-    return Response.json({ error: "not found" }, { status: 404 });
+    return Response.json(
+      { ok: false, error: { code: "not_found", message: "not found" } },
+      { status: 404 },
+    );
   }
 
   async function update(req: Request, ctx: RouteContext): Promise<Response> {
@@ -243,7 +249,7 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
     if (route.length !== 2 || !route[0] || !route[1]) {
       return methodNotAllowed(METHODS);
     }
-    const input = await readJsonObject(req);
+    const input = await readJsonRequest(req);
     if (input instanceof Response) return input;
     return resourceResult(config, req, route[0], "update", async (controller) =>
       wireResponse(await controller.update(route[1] as string, input)),

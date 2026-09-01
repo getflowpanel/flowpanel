@@ -384,7 +384,7 @@ describe("drawerActionRoute — error quality", () => {
       params: Promise.resolve({ resource: "ghost", id: "1", action: "approve" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toBe("resource not found");
+    expect((await res.json()).error).toEqual({ code: "not_found", message: "resource not found" });
   });
 
   it("never names the drawer's action keys in the response body", async () => {
@@ -392,7 +392,7 @@ describe("drawerActionRoute — error quality", () => {
       params: Promise.resolve({ resource: "jobs", id: "1", action: "missing" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toBe("action not found");
+    expect((await res.json()).error).toEqual({ code: "not_found", message: "action not found" });
   });
 
   it("stays terse in production", async () => {
@@ -402,7 +402,10 @@ describe("drawerActionRoute — error quality", () => {
       const res = await drawerActionRoute(makeConfig(okAction))(jsonReq("{}"), {
         params: Promise.resolve({ resource: "ghost", id: "1", action: "approve" }),
       });
-      expect((await res.json()).error).toBe("resource not found");
+      expect((await res.json()).error).toEqual({
+        code: "not_found",
+        message: "resource not found",
+      });
     } finally {
       process.env.NODE_ENV = original;
     }

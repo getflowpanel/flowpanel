@@ -18,10 +18,16 @@ export function RestoreButton({ resource, id }: RestoreButtonProps) {
   async function restore(): Promise<void> {
     setPending(true);
     try {
-      const res = await fetch(`${apiBase}/${resource}/${id}/restore`, { method: "POST" });
-      const result = (await res.json()) as { ok: true } | { ok: false; error: string };
+      const res = await fetch(
+        `${apiBase}/${encodeURIComponent(resource)}/${encodeURIComponent(id)}/restore`,
+        { method: "POST" },
+      );
+      const result = (await res.json()) as
+        | { ok: true }
+        | { ok: false; error?: string | { message?: string } };
       if (!result.ok) {
-        toast.error(result.error || `${labels.actions.restore} failed`);
+        const message = typeof result.error === "string" ? result.error : result.error?.message;
+        toast.error(message || `${labels.actions.restore} failed`);
         return;
       }
       toast.success(labels.actions.restore);

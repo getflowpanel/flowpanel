@@ -19,6 +19,10 @@ export interface FlowpanelRuntime<Resources extends readonly AnyResourceConfig[]
   readonly events: {
     publish(channel: string, payload?: unknown): Promise<void>;
   };
+  /**
+   * Stops this runtime's `events.publish`. The underlying publisher is
+   * process-bound and shared across runtimes, so its connections stay open.
+   */
   dispose(): Promise<void>;
 }
 

@@ -122,8 +122,11 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         );
         const textCols = ctx.searchFields.filter((f) => textColSet.has(f));
         if (textCols.length > 0) {
+          // Prisma accepts `mode` only on PostgreSQL; MySQL and SQLite compare
+          // case-insensitively by default collation.
+          const insensitive = opts.provider === "postgresql" ? { mode: "insensitive" } : {};
           where.OR = textCols.map((name) => ({
-            [name]: { contains: ctx.search, mode: "insensitive" },
+            [name]: { contains: ctx.search, ...insensitive },
           }));
         }
       }

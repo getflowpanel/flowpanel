@@ -7,9 +7,9 @@
 
 Collapse helpers that existed in more than one copy. No behaviour changes.
 
-Six routes hand-wrote the 404 that `notFoundResponse` already produces, so they
-answered without the development-mode hint naming the registered resources. They
-call the helper now.
+Six routes hand-wrote the 404 that `notFoundResponse` already produces, so
+their bodies drifted from its terse shape and skipped its development-mode
+server log naming the registered resources. They call the helper now.
 
 `findPropertyByName` and `asStringLiteral` were declared three and two times
 across the lint rules; both live in `ast-utils`.
@@ -18,8 +18,3 @@ across the lint rules; both live in `ast-utils`.
 rather than mirroring the unions, so adding a variant in core can no longer leave
 the two vocabularies disagreeing. The import is type-only and keeps the client
 bundle free of core's runtime.
-
-Also removes comment noise: doc comments a bulk edit had truncated mid-sentence,
-cross-references to a doc comment that says nothing extra, and module banners
-that restated the filename. The one comment that carried a real constraint — why
-a read-only `<select>` needs a hidden input — is repaired rather than deleted.

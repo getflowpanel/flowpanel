@@ -20,7 +20,7 @@ import {
 import { makeActions } from "../actions/resource-actions";
 import { actorIdFromSession } from "../runtime/action-helpers";
 import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
-import { declaredFieldSet } from "../runtime/parse-list-params";
+import { declaredFieldSet, MAX_PAGE } from "../runtime/parse-list-params";
 import { projectAuthorizedRow, projectAuthorizedRows } from "../runtime/project-row";
 import {
   resolveReadableFieldSet,
@@ -31,8 +31,6 @@ import { scopeBinding } from "../runtime/scope-binding";
 import { createActionController } from "./action-controller";
 
 const MAX_PAGE_SIZE = 100;
-/** Beyond this a `page` is abuse, not pagination — the offset it implies serves nobody. */
-const MAX_PAGE = 100_000;
 const MAX_COLUMNS = 256;
 
 export interface ResourceListOptions<Row> {

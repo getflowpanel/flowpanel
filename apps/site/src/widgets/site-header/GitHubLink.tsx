@@ -1,7 +1,7 @@
 import { Github } from "lucide-react";
 import { siteConfig } from "@/shared/lib/site-config";
 
-export function GitHubStars() {
+export function GitHubLink() {
   return (
     <a
       href={siteConfig.links.github}

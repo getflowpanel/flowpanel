@@ -50,7 +50,7 @@ the chart package and only needs the `recharts` peer.
 ## What's wired
 
 - RSC catch-all dispatching dashboards, resource list/detail/edit/create, queue iframe pages.
-- Server Actions for create / update / delete with `revalidatePath` + `publishResource`.
+- Create / update / delete forms POST to the `handlers()` API routes — the single action transport (no Server Actions) — which apply `revalidatePath` + `publishResource` on success.
 - SSE stream with 15s heartbeat + abort handling.
 - Drawer GET (`/api/flowpanel/drawer/<r>/<id>`) and drawer-action POST (`/api/flowpanel/drawer/<r>/<id>/actions/<key>`) — both dispatched by `handlers()`.
 - Auth + scope + rate-limit checks per request, audit emission on mutations.

@@ -1,8 +1,8 @@
-import { db } from "../../../../src/db/client";
-import { readSandboxConfig } from "../../../../src/demo/sandbox/config";
-import { DEMO_SANDBOX_HEADER, isPublicSandboxId } from "../../../../src/demo/sandbox/identity";
-import { SandboxResetRateLimitError } from "../../../../src/demo/sandbox/lifecycle";
-import { resetCurrentSandbox } from "../../../../src/demo/sandbox/service";
+import { db } from "@/src/db/client";
+import { readSandboxConfig } from "@/src/demo/sandbox/config";
+import { DEMO_SANDBOX_HEADER, isPublicSandboxId } from "@/src/demo/sandbox/identity";
+import { SandboxResetRateLimitError } from "@/src/demo/sandbox/lifecycle";
+import { resetCurrentSandbox } from "@/src/demo/sandbox/service";
 
 const failure = (error: string, status: number) => Response.json({ ok: false, error }, { status });
 

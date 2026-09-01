@@ -1,9 +1,15 @@
+/** A leading formula sigil would execute when the CSV opens in a spreadsheet. */
+function neutralizeFormula(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 function escapeCsv(v: unknown): string {
   if (v === null || v === undefined) return "";
   let s: string;
   if (v instanceof Date) s = v.toISOString();
   else if (typeof v === "object") s = JSON.stringify(v);
   else s = String(v);
+  s = neutralizeFormula(s);
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

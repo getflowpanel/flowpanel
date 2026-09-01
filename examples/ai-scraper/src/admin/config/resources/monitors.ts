@@ -1,8 +1,8 @@
 import { bulkAction, type FieldDef, resource } from "@flowpanel/kit";
+import { badge, urlCell } from "@/src/admin/format";
 import { pauseMonitors, resumeMonitors } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { sandboxField, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
-import { badge, urlCell } from "../../format";
 
 type Monitor = typeof schema.monitors.$inferSelect;
 

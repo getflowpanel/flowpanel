@@ -3,6 +3,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { databaseUrl } from "../../../db/connection";
 import * as schema from "../../../db/schema";
 import { readSandboxConfig } from "../config";
 import { SandboxCapacityError, SandboxCreationRateLimitError } from "../lifecycle";
@@ -10,7 +11,6 @@ import { cleanupExpiredSandboxes, databaseMaintenanceRepository } from "../maint
 import { ensureSandbox } from "../service";
 
 const enabled = process.env.DEMO_POSTGRES_INTEGRATION === "1";
-const connectionString = process.env.DATABASE_URL ?? "postgres://fp:fp@localhost:54329/ai_scraper";
 const baseConfig = readSandboxConfig({});
 const publicConfig = {
   ...baseConfig,
@@ -74,7 +74,7 @@ async function insertActiveSandbox(id: string, fingerprintHash: string, now: Dat
 
 describe.skipIf(!enabled)("demo sandbox lifecycle — PostgreSQL", () => {
   beforeAll(async () => {
-    pool = new Pool({ connectionString, max: 8 });
+    pool = new Pool({ connectionString: databaseUrl, max: 8 });
     db = drizzle(pool, { schema });
     await deleteTestSandboxes();
     await pool.query("drop trigger if exists flowpanel_test_fail_demo_seed on products");

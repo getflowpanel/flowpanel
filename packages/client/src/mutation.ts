@@ -3,8 +3,6 @@ import type { ActionResult } from "@flowpanel/core";
 import { useCallback, useState } from "react";
 
 export interface UseAdminMutationOptions {
-  /** Rollback strategy when the action returns { ok: false } or throws. Defaults to "error". */
-  rollbackOn?: "error";
   onSuccess?: (result: Extract<ActionResult, { ok: true }>) => void;
   onError?: (message: string) => void;
 }
@@ -16,7 +14,7 @@ export interface UseAdminMutation<Args extends unknown[]> {
   reset: () => void;
 }
 
-/** Client hook wrapping a Server Action that returns an `ActionResult`. */
+/** Client hook wrapping an async action that returns an `ActionResult`. */
 export function useAdminMutation<Args extends unknown[]>(
   action: (...args: Args) => Promise<ActionResult>,
   options: UseAdminMutationOptions = {},
@@ -46,7 +44,9 @@ export function useAdminMutation<Args extends unknown[]>(
         setPending(false);
       }
     },
-    [action, options],
+    // Inline `options` literals must not defeat the memo; the two callbacks are
+    // the only values `run` reads from it.
+    [action, options.onSuccess, options.onError],
   );
 
   const reset = useCallback(() => {

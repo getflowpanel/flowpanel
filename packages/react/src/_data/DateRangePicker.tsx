@@ -7,7 +7,6 @@ import { cn } from "../lib/cn";
 export interface DateRangePickerProps {
   value: { preset?: DateRangePreset; from?: Date; to?: Date };
   onChange: (next: { preset?: DateRangePreset; from?: Date; to?: Date }) => void;
-  allowCustom?: boolean;
 }
 
 const PRESETS: Array<{ key: DateRangePreset; label: string }> = [

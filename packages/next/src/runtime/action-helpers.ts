@@ -39,7 +39,10 @@ export function notFoundResponse(
     const known = registered.length > 0 ? registered.map((n) => `"${n}"`).join(", ") : "(none)";
     console.warn(`[flowpanel] ${kind} not found: "${requested}". Registered ${kind}s: ${known}.`);
   }
-  return Response.json({ ok: false, error: `${kind} not found` }, { status: 404 });
+  return Response.json(
+    { ok: false, error: { code: "not_found", message: `${kind} not found` } },
+    { status: 404 },
+  );
 }
 
 function idString(id: unknown): string | null {

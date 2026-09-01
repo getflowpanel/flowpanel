@@ -26,6 +26,11 @@ describe("toCsv", () => {
     expect(out).toBe("a,b,c\n,,2026-01-15T00:00:00.000Z\n");
   });
 
+  it("neutralizes leading formula sigils so spreadsheets treat them as text", () => {
+    const out = toCsv([{ id: "=SUM(A1)", name: "+cmd", note: "@ref" }], ["id", "name", "note"]);
+    expect(out).toBe("id,name,note\n'=SUM(A1),'+cmd,'@ref\n");
+  });
+
   it("handles empty rows array (header-only)", () => {
     expect(toCsv([], ["x", "y"])).toBe("x,y\n");
   });

@@ -18,19 +18,12 @@ import { parseActionInputSchema, validateActionOutput } from "../runtime/action-
 import { applyActionResult } from "../runtime/apply-action-result";
 import { buildHref } from "../runtime/href";
 import { bindPublisher } from "../runtime/publish";
-import { toWireOptions } from "../runtime/select-options";
 import { withGuards } from "../runtime/with-guards";
+import type { ActionFormField } from "./action-form-field";
+import { serializeActionFormField } from "./serialize-action-field";
 
 /** Wire-safe descriptor for a single `form` field on a dashboard action. */
-export interface SerializedDashboardActionField {
-  name: string;
-  label?: string;
-  help?: string;
-  placeholder?: string;
-  type?: string;
-  required?: boolean;
-  options?: { label: string; value: string }[];
-}
+export type SerializedDashboardActionField = ActionFormField;
 
 /** Wire-safe shape of `DashboardAction`. */
 export interface SerializedDashboardAction {
@@ -41,19 +34,6 @@ export interface SerializedDashboardAction {
   confirm?: { title: string; description?: string; confirmLabel?: string };
   hasForm: boolean;
   form?: SerializedDashboardActionField[];
-}
-
-function serializeField<Row extends Record<string, unknown>>(
-  f: FieldDef<Row>,
-): SerializedDashboardActionField {
-  const out: SerializedDashboardActionField = { name: f.name };
-  if (f.label !== undefined) out.label = f.label;
-  if (f.help !== undefined) out.help = f.help;
-  if (f.placeholder !== undefined) out.placeholder = f.placeholder;
-  if (f.type !== undefined) out.type = f.type;
-  if (f.required !== undefined) out.required = f.required;
-  if (Array.isArray(f.options)) out.options = toWireOptions(f.options);
-  return out;
 }
 
 /** Serialize a `DashboardAction` for client consumption. */
@@ -72,22 +52,25 @@ export function serializeDashboardAction<Input extends Record<string, unknown>, 
     out.confirm = typeof a.confirm === "string" ? { title: a.confirm } : a.confirm;
   }
   if (hasForm && a.form) {
-    out.form = a.form.map(serializeField);
+    out.form = (a.form as FieldDef<Record<string, unknown>>[]).map(serializeActionFormField);
   }
   return out;
 }
 
-/** URL-safe encoding of a `DashboardConfig.path`. */
+/**
+ * URL-safe encoding of a `DashboardConfig.path`. Underscores are escaped
+ * before slashes so paths containing literal underscores round-trip.
+ */
 export function encodeDashboardPath(path: string): string {
   if (path === "/" || path === "") return "_root_";
   const trimmed = path.startsWith("/") ? path.slice(1) : path;
-  return trimmed.replace(/\//g, "__");
+  return trimmed.replace(/_/g, "_5f").replace(/\//g, "_2f");
 }
 
 /** Reverse of `encodeDashboardPath`. */
 export function decodeDashboardPath(encoded: string): string {
   if (encoded === "_root_") return "/";
-  return `/${encoded.replace(/__/g, "/")}`;
+  return `/${encoded.replace(/_2f/g, "/").replace(/_5f/g, "_")}`;
 }
 
 export function dashboardActionRoute(config: ResolvedAdminConfig) {

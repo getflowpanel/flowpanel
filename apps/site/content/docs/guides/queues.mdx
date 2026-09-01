@@ -31,6 +31,8 @@ Add it to `queues` in the root config. The queue's `.name` becomes its key unles
 
 ## Start the board process
 
+Put the entry point at `scripts/board-server.mts` (or `.ts`) — the location `flowpanel dev` looks for:
+
 ```ts excerpt
 import { startBoardServer } from "@flowpanel/kit/bullmq/board";
 import { queuesByName } from "@/server/queues";
@@ -52,7 +54,7 @@ The token is required. A valid token establishes an HttpOnly board session cooki
 
 The iframe URL is not protected by FlowPanel's `requireRole`; anyone who can reach the board port meets the board server directly. Keep it on loopback, put it behind an authenticated reverse proxy, and inject credentials server-side. A query-string token is useful for local setup but leaks through URLs and logs in a shared environment.
 
-`flowpanel dev` starts the board alongside Next.js when `REDIS_URL` is present unless `--no-board` is used. In production, supervise the board as a separate process with health checks and restricted network exposure.
+`flowpanel dev` starts the board alongside Next.js when `REDIS_URL` is set and `scripts/board-server.mts` (or `.ts`) exists, unless `--no-board` is used. In production, supervise the board as a separate process with health checks and restricted network exposure.
 
 ## Read queue state in dashboards
 

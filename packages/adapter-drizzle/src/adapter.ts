@@ -21,11 +21,9 @@ import {
   eq,
   getTableColumns,
   gte,
-  ilike,
   inArray,
   isNotNull,
   isNull,
-  like,
   lte,
   or,
   type SQL,
@@ -89,7 +87,6 @@ export interface DrizzleAdapterOptions<DB = unknown> {
 
 export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB, Table> {
   const dialect = resolveDialect(opts);
-  const likeOp = dialect === "pg" ? ilike : like;
   const migrationMethods = createMigrationMethods(opts.db as MigrationDb, dialect);
 
   function getDb(ctx: { db?: unknown }): DrizzleLikeDb {
@@ -230,7 +227,15 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
           );
         });
       if (textCols.length) {
-        const ors = textCols.map((c) => likeOp(c, `%${ctx.search}%`));
+        // `%`/`_` in user input are literals, not wildcards; `!` needs no
+        // dialect-specific quoting as the ESCAPE character.
+        const escaped = ctx.search.replace(/[!%_]/g, "!$&");
+        const pattern = `%${escaped}%`;
+        const ors = textCols.map((c) =>
+          dialect === "pg"
+            ? sql`${c} ILIKE ${pattern} ESCAPE '!'`
+            : sql`${c} LIKE ${pattern} ESCAPE '!'`,
+        );
         const orClause = or(...ors);
         if (orClause) clauses.push(orClause);
       }
@@ -238,7 +243,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     const softCol = ctx.softDelete?.column;
     if (softCol && !ctx.includeDeleted) {
       const col = cols[softCol];
-      if (col) clauses.push(sql`${col} IS NULL`);
+      if (col) clauses.push(isNull(col));
     }
     for (const c of captureScopeClauses(ctx)) clauses.push(c);
     return clauses.length ? and(...clauses) : undefined;

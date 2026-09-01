@@ -1,6 +1,7 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { CreateDrawer } from "@flowpanel/next/client";
 import { AutoForm } from "@flowpanel/react";
+import { writableColumns } from "../actions/field-pipeline";
 import { buildHref } from "../runtime/href";
 import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
 import { singularLabel } from "../runtime/resource-title";
@@ -28,7 +29,11 @@ export async function buildResourceListCreateAction({
     <CreateDrawer label="Add new" title={`New ${label}`}>
       <AutoForm
         action={`${config.paths.api}/${name}/create`}
-        columns={config.adapter.introspect(resource.ref).columns}
+        columns={writableColumns(
+          resource,
+          config.adapter.introspect(resource.ref).columns,
+          declared,
+        )}
         {...(fields ? { fields } : {})}
         submitLabel="Create"
         redirectTo={buildHref(config, name)}

@@ -80,7 +80,7 @@ describe("drawerRoute", () => {
     const res = await handler(mkReq(), {
       params: Promise.resolve({ resource: "unknown", id: "abc" }),
     });
-    expect((await res.json()).error).toBe("resource not found");
+    expect((await res.json()).error).toEqual({ code: "not_found", message: "resource not found" });
   });
 
   it("stays terse in production", async () => {
@@ -90,7 +90,10 @@ describe("drawerRoute", () => {
       const res = await drawerRoute(mkConfig())(mkReq(), {
         params: Promise.resolve({ resource: "unknown", id: "abc" }),
       });
-      expect((await res.json()).error).toBe("resource not found");
+      expect((await res.json()).error).toEqual({
+        code: "not_found",
+        message: "resource not found",
+      });
     } finally {
       process.env.NODE_ENV = original;
     }

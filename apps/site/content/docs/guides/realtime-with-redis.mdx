@@ -38,7 +38,7 @@ import { bindPublisher, publishResource } from "@flowpanel/kit/server";
 import config from "@/flowpanel.config";
 
 bindPublisher(config);
-await publishResource("orders", "update", orderId);
+await publishResource("orders", { action: "update", id: orderId });
 ```
 
 Bind once during worker startup, after environment variables are available. A worker that skips binding has no config-selected publisher. Do not bind on every job.

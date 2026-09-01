@@ -171,6 +171,29 @@ describe("AutoForm", () => {
     expect((screen.getByLabelText("Qty") as HTMLInputElement).value).toBe("9");
   });
 
+  it("renders an introspected enum column as a select of its values", () => {
+    render(
+      <AutoForm
+        action="/api/x"
+        columns={[
+          {
+            name: "status",
+            type: "enum",
+            nullable: false,
+            unique: false,
+            primaryKey: false,
+            enumValues: ["active", "paused"],
+          },
+        ]}
+      />,
+    );
+    const select = screen.getByLabelText(/status/i) as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+    const values = Array.from(select.querySelectorAll("option")).map((o) => o.value);
+    expect(values).toContain("active");
+    expect(values).toContain("paused");
+  });
+
   it("sets type=number for numeric columns", () => {
     render(
       <AutoForm

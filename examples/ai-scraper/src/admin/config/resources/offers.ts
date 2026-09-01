@@ -1,8 +1,8 @@
 import { resource } from "@flowpanel/kit";
+import { badge, money, ratingCell } from "@/src/admin/format";
 import * as schema from "@/src/db/schema";
 import { MARKETPLACES } from "@/src/demo/data/types";
 import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
-import { badge, money, ratingCell } from "../../format";
 
 export const offers = resource(schema.listings, {
   ...sandboxResourcePolicy(schema.listings.sandboxId),

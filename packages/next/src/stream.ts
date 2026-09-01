@@ -1,5 +1,12 @@
 import type { AccessContext, RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
-import { accessAllows, checkRequireRole, resolveOperationAccess } from "@flowpanel/core";
+import {
+  accessAllows,
+  checkRequireRole,
+  errorResult,
+  FlowpanelError,
+  reportUnexpectedError,
+  resolveOperationAccess,
+} from "@flowpanel/core";
 import { bindPublisher, subscribe } from "./runtime/publish";
 import { buildRequestContext } from "./runtime/request-setup";
 
@@ -42,8 +49,23 @@ export function stream(
     try {
       reqCtx = await buildRequestContext({ req, config });
       checkRequireRole(config.auth.requireRole, reqCtx.role, reqCtx.session);
-    } catch {
-      return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    } catch (err) {
+      // Preserve the real status: a crashing session provider is a 500 and a
+      // rate limit is a 429, not a silent 403.
+      await reportUnexpectedError(
+        err,
+        {
+          requestId: "stream",
+          route: "stream",
+          method: req.method,
+          url: req.url,
+          ip: null,
+          userAgent: req.headers.get("user-agent"),
+        },
+        config.hooks?.onError,
+      );
+      const status = err instanceof FlowpanelError ? err.status : 500;
+      return Response.json(errorResult(err, "stream"), { status });
     }
 
     const url = new URL(req.url);

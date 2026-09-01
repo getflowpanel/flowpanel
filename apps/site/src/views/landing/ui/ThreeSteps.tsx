@@ -41,7 +41,7 @@ const STEPS: ReadonlyArray<Step> = [
       <>
         <PromptLine command="cat app/admin/[[...slug]]/page.tsx" />
         {"\n"}
-        <OutputLine text="export default Flowpanel(config)" />
+        <OutputLine text="export default createFlowpanel(config).page" />
       </>
     ),
   },

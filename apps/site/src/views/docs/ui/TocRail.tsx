@@ -17,8 +17,8 @@ interface TocRailProps {
  * Right rail on docs pages: "On this page" with anchor links + an
  * "Edit this page on GitHub" affordance.
  *
- * Active heading tracks via IntersectionObserver. We rely on `data-`
- * attributes on the rendered anchors set by Fumadocs's heading components.
+ * Active heading tracks via IntersectionObserver over the heading ids
+ * from the TOC data.
  */
 export function TocRail({ toc, editPath, rawMarkdownHref }: TocRailProps) {
   const [activeId, setActiveId] = useState<string | null>(toc[0]?.url.replace(/^#/, "") ?? null);

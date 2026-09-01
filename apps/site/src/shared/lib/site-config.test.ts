@@ -12,6 +12,6 @@ describe("siteConfig demo URL", () => {
 
     const { siteConfig } = await import("./site-config");
 
-    expect(siteConfig.links.demo).toBe("http://localhost:3100/admin");
+    expect(siteConfig.links.demo).toBe("http://localhost:3000/admin");
   });
 });

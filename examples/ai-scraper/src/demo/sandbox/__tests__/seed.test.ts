@@ -11,9 +11,7 @@ function offsetMap(rows: { id: number }[], offset: number) {
 
 describe("sandbox seed remapping", () => {
   it("starts reset cooldown only after an explicit reset", () => {
-    expect(buildSandboxMetadataUpdate(now, { markReset: false })).toMatchObject({
-      lastResetAt: null,
-    });
+    expect(buildSandboxMetadataUpdate(now, { markReset: false })).not.toHaveProperty("lastResetAt");
     expect(buildSandboxMetadataUpdate(now, { markReset: true })).toMatchObject({
       lastResetAt: now,
     });

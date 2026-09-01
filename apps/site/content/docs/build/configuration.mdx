@@ -66,7 +66,7 @@ Drizzle resources infer rows from table objects. Prisma and string-named custom 
 
 Admin-wide auth and tenant resolution belong at the root. Resource access, field policies, action roles, and per-resource scope belong beside the resource they protect. Hiding navigation or a button is never the security boundary—the generated handlers repeat these checks on the server.
 
-Cross-origin write protection is enabled by default. Configure `security.allowedOrigins` only when a trusted origin must submit writes; do not use it as authentication.
+Cross-origin write protection is enabled by default. Configure `security.trustedOrigins` only when a trusted origin must submit writes; do not use it as authentication.
 
 ## Reload changes
 

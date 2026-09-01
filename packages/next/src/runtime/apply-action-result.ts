@@ -1,4 +1,4 @@
-import type { ActionResult, FlowpanelWarning } from "@flowpanel/core";
+import type { ActionResult } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
 import { publish, publishResource } from "./publish";
 
@@ -7,14 +7,17 @@ export interface ApplyActionResultOptions {
   pathname?: string;
 }
 
-/** Applies side effects from successful actions: publishes updates and revalidates the cache. */
+/**
+ * Applies side effects from successful actions: publishes updates and
+ * revalidates the cache. Failures are logged, never thrown — the mutation
+ * itself already succeeded.
+ */
 export async function applyActionResult(
   result: ActionResult<unknown>,
   opts: ApplyActionResultOptions,
-): Promise<FlowpanelWarning[]> {
-  if (!result.ok) return [];
+): Promise<void> {
+  if (!result.ok) return;
   const refresh = result.refresh;
-  const warnings: FlowpanelWarning[] = [];
 
   try {
     if (refresh === true && opts.resourceName) {
@@ -26,7 +29,6 @@ export async function applyActionResult(
     }
   } catch (error) {
     console.error("[flowpanel] realtime effect failed", error);
-    warnings.push({ code: "realtime_failed", message: "Realtime refresh could not be published." });
   }
 
   if (refresh !== false && opts.pathname) {
@@ -34,11 +36,6 @@ export async function applyActionResult(
       revalidatePath(opts.pathname);
     } catch (error) {
       console.error("[flowpanel] revalidation effect failed", error);
-      warnings.push({
-        code: "revalidation_failed",
-        message: "Cached views could not be refreshed.",
-      });
     }
   }
-  return warnings;
 }

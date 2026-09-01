@@ -76,7 +76,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   const isSelected = selectionEnabled && selectionSet.has(rowKeyValue);
   return (
     <tr
-      aria-rowindex={rowIndex + 1}
+      aria-rowindex={rowIndex + 2}
       aria-current={active ? "true" : undefined}
       onClick={() => onRowClick?.(row)}
       className={cn(

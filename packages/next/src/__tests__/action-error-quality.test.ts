@@ -138,28 +138,28 @@ describe("404 bodies never enumerate the registry", () => {
       params: Promise.resolve({ resource: "ghost", id: "u1", action: "ping" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toBe("resource not found");
+    expect((await res.json()).error).toEqual({ code: "not_found", message: "resource not found" });
   });
 
   it("row action: unknown action", async () => {
     const res = await rowActionRoute(makeConfig())(jsonReq("{}"), {
       params: Promise.resolve({ resource: "users", id: "u1", action: "nope" }),
     });
-    expect((await res.json()).error).toBe("action not found");
+    expect((await res.json()).error).toEqual({ code: "not_found", message: "action not found" });
   });
 
   it("bulk action: unknown action", async () => {
     const res = await bulkActionRoute(makeConfig())(jsonReq("{}"), {
       params: Promise.resolve({ resource: "users", action: "nope" }),
     });
-    expect((await res.json()).error).toBe("action not found");
+    expect((await res.json()).error).toEqual({ code: "not_found", message: "action not found" });
   });
 
   it("dashboard action: unknown dashboard", async () => {
     const res = await dashboardActionRoute(makeConfig())(jsonReq("{}"), {
       params: Promise.resolve({ dashboard: "pipeline", action: "rebuild" }),
     });
-    expect((await res.json()).error).toBe("dashboard not found");
+    expect((await res.json()).error).toEqual({ code: "not_found", message: "dashboard not found" });
   });
 
   it("stays terse in production too", async () => {
@@ -168,7 +168,7 @@ describe("404 bodies never enumerate the registry", () => {
       params: Promise.resolve({ resource: "ghost", id: "u1", action: "ping" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toBe("resource not found");
+    expect((await res.json()).error).toEqual({ code: "not_found", message: "resource not found" });
   });
 });
 

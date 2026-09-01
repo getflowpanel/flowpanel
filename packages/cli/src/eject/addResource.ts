@@ -117,8 +117,8 @@ export function editConfigToAddResource(
   } else {
     firstArg = `schema.${resourceName}`;
   }
-  const typeParam = kind === "prisma" ? "<unknown>" : "";
-  const callText = `resource${typeParam}(${firstArg}, { columns: ["id"] })`;
+  // No `columns` — the DSL lists every introspected column until the user narrows it.
+  const callText = `resource(${firstArg}, {})`;
   const importInsertion = resourceImportInsertion(sf);
 
   let arrayRange: { start: number; end: number; elements: number[] } | null = null;

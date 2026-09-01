@@ -1,5 +1,6 @@
 "use client";
-// LOC-OK: drawer shell — fields / resource / widgets / statgroup tab views plus
+// LOC-OK: drawer shell — fields / resource / widgets / statgroup tab views plus the
+// action bar and lazy tab loading in one client component.
 import type { ColumnFormat } from "@flowpanel/core";
 import {
   ConfirmDialog,

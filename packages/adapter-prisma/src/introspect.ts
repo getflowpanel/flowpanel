@@ -60,9 +60,11 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
       unique: field.isUnique,
       primaryKey: field.isId,
       readable: true,
-      writableOnCreate: true,
+      // An id with a default (autoincrement/cuid/uuid) is database-generated;
+      // a non-id default stays writable.
+      writableOnCreate: !(field.isId && field.hasDefault),
       writableOnUpdate: !field.isId,
-      generated: false,
+      generated: field.isId && field.hasDefault,
     };
 
     if (field.kind === "enum") {

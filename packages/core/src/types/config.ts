@@ -35,7 +35,9 @@ export interface AuthConfig {
   /**
    * Declares that this admin is meant to be reachable without any role gate —
    * a deployment already fronted by a VPN or an authenticating proxy. Silences
-   * the development-only "no access control" warning and changes no runtime check.
+   * the development-only "no access control" warning. Production refuses to
+   * start without `requireRole` unless this is `true` AND the admin is
+   * `readOnly`.
    */
   allowUnauthenticated?: boolean;
 }
@@ -127,7 +129,7 @@ export interface SecurityConfig {
 export interface AdminDefinition<
   Resources extends readonly AnyResourceConfig[] = readonly AnyResourceConfig[],
 > {
-  /** Stable id used in diagnostics, logs, and multi-admin deployments. */
+  /** Stable id surfaced in the wire client metadata (`client.id`, default `"local"`) to tell multi-admin deployments apart. */
   id?: string;
   /** Database binding — `drizzleAdapter`, `prismaAdapter`, or your own. */
   adapter: Adapter;

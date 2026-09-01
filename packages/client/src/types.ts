@@ -45,21 +45,31 @@ export function isFlowpanelErrorResult(
   return !value.ok;
 }
 
+// Listed literally: a runtime import of core's status map would drag the whole
+// core barrel (AsyncLocalStorage included) into the browser bundle. The type
+// checks below fail compilation if this list drifts from core's codes.
+const ERROR_CODES = [
+  "bad_request",
+  "unknown_field",
+  "unauthenticated",
+  "forbidden",
+  "field_forbidden",
+  "operation_disabled",
+  "not_found",
+  "method_not_allowed",
+  "conflict",
+  "payload_too_large",
+  "unsupported_media_type",
+  "validation_failed",
+  "rate_limited",
+  "internal",
+] as const satisfies readonly FlowpanelErrorCode[];
+type MissingErrorCode = Exclude<FlowpanelErrorCode, (typeof ERROR_CODES)[number]>;
+const _allErrorCodesListed: MissingErrorCode extends never ? true : never = true;
+void _allErrorCodesListed;
+
+const ERROR_CODE_SET: ReadonlySet<string> = new Set(ERROR_CODES);
+
 export function isFlowpanelErrorCode(value: unknown): value is FlowpanelErrorCode {
-  return new Set([
-    "bad_request",
-    "unknown_field",
-    "unauthenticated",
-    "forbidden",
-    "field_forbidden",
-    "operation_disabled",
-    "not_found",
-    "method_not_allowed",
-    "conflict",
-    "payload_too_large",
-    "unsupported_media_type",
-    "validation_failed",
-    "rate_limited",
-    "internal",
-  ]).has(String(value));
+  return typeof value === "string" && ERROR_CODE_SET.has(value);
 }

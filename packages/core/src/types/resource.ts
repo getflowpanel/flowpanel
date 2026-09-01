@@ -1,4 +1,5 @@
 // LOC-OK: the resource DSL type surface (ColumnDef / FieldDef / ColumnFormat /
+// FilterDef / ResourceOptions) lives in one file so the pieces stay coherent.
 import type { ReactNode } from "react";
 import type { z } from "zod";
 import type { BulkAction, RowAction } from "./action";
@@ -243,7 +244,6 @@ export interface ResourceOptions<Row> {
 
   /** How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. */
   scope?: "bypass" | ((scope: Scope, query: unknown) => unknown);
-  /** Restrict the whole resource to a role. Enforced on every route. */
   /** Canonical operation-level authorization. */
   access?: ResourceAccess<Row>;
   /** Canonical read/write policy for declared fields. */

@@ -41,7 +41,7 @@ describe("stream() — authentication", () => {
     const res = await stream(config)(new Request("http://localhost/stream"));
     expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body).toEqual({ ok: false, error: "Forbidden" });
+    expect(body).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
 
   it("returns 403 when the session's role doesn't satisfy admin-wide requireRole", async () => {

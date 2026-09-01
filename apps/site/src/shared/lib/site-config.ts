@@ -26,7 +26,7 @@ export const siteConfig = {
     // canonical showcase automatically; deployments provide their public URL.
     demo:
       process.env.NEXT_PUBLIC_DEMO_URL?.trim() ||
-      (process.env.NODE_ENV === "development" ? "http://localhost:3100/admin" : ""),
+      (process.env.NODE_ENV === "development" ? "http://localhost:3000/admin" : ""),
   },
 
   /** Runnable examples in the repo, surfaced from the landing page. */
@@ -39,7 +39,8 @@ export const siteConfig = {
     },
     {
       name: "with-clerk",
-      summary: "The same admin gated behind Clerk — middleware, provider, one line of config.",
+      summary:
+        "A minimal users/posts admin gated behind Clerk — middleware, provider, one line of config.",
       url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk",
     },
   ],

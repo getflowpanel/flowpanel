@@ -127,7 +127,9 @@ export function ejectCommand(cli: Command): void {
 
         const validTargets: ReadonlyArray<EjectTarget> = ["resource", "dashboard", "layout"];
         if (!validTargets.includes(target as EjectTarget)) {
-          p.cancel(`Unknown target "${target}". Use one of: ${validTargets.join(", ")}`);
+          const msg = `Unknown target "${target}". Use one of: ${validTargets.join(", ")}`;
+          if (options.json) writeJson({ command: "eject", applied: false, error: msg });
+          else p.cancel(msg);
           process.exit(1);
         }
 

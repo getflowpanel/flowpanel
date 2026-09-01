@@ -60,6 +60,10 @@ Run with `pnpm flowpanel dev` (which auto-starts the board if `REDIS_URL` is set
   controls) to present the shared-secret `auth.token`, via an `Authorization:
   Bearer <token>` header or a `?token=` query param, checked with a
   constant-time comparison
+- mint an `HttpOnly` session cookie (scoped to the board's base path) once a
+  valid token is presented; the cookie authorizes subsequent requests, so the
+  board SPA's scripts, styles, and `/api/queues` polls work without carrying
+  `?token=` themselves
 
 `startBoardServer` does **not**:
 

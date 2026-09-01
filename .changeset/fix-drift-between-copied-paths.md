@@ -38,7 +38,6 @@ action routes apply. `DrawerAction` is typed to return no data, so nothing could
 leak through the type system, but a cast now fails loudly instead of being
 forwarded.
 
-**`@flowpanel/core` could publish without its `labels` typings.** The four tsup
-entries ran concurrently while the first declared `clean: true`, so it could
-delete output another had already written — `labels.d.ts` was missing from a
-completed build. The build clears `dist` once before tsup starts.
+**`@flowpanel/core` could publish without its `labels` typings:** concurrent
+tsup configs with `clean: true` could delete each other's output, so the build
+now clears `dist` once before tsup starts.

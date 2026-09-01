@@ -25,7 +25,7 @@ export default defineAdmin({
 describe("editConfigToAddResource", () => {
   it("adds a new resource to an existing array", () => {
     const out = editConfigToAddResource(BASE_CONFIG, "orders");
-    expect(out).toContain('resource(schema.orders, { columns: ["id"] })');
+    expect(out).toContain("resource(schema.orders, {})");
     // original resource still present
     expect(out).toContain("resource(schema.users,");
   });
@@ -37,19 +37,19 @@ describe("editConfigToAddResource", () => {
   it("creates the resources field if absent", () => {
     const out = editConfigToAddResource(CONFIG_NO_RESOURCES, "products");
     expect(out).toContain("resources:");
-    expect(out).toContain('resource(schema.products, { columns: ["id"] })');
+    expect(out).toContain("resource(schema.products, {})");
   });
 
   it("prisma kind produces string literal first arg", () => {
     const out = editConfigToAddResource(CONFIG_NO_RESOURCES, "post", { kind: "prisma" });
-    expect(out).toContain('resource<unknown>("post",');
+    expect(out).toContain('resource("post",');
   });
 
   it("respects --table override", () => {
     const out = editConfigToAddResource(BASE_CONFIG, "purchases", {
       table: "schema.purchases",
     });
-    expect(out).toContain('resource(schema.purchases, { columns: ["id"] })');
+    expect(out).toContain("resource(schema.purchases, {})");
   });
 });
 
@@ -68,13 +68,13 @@ describe("editConfigToAddResource formatting", () => {
   it("keeps the commented example the scaffold leaves behind", () => {
     const out = editConfigToAddResource(CONFIG_COMMENTED, "posts");
     expect(out).toContain('//   label: "Users",');
-    expect(out).toContain('    resource(schema.posts, { columns: ["id"] }),\n  ],');
+    expect(out).toContain("    resource(schema.posts, {}),\n  ],");
   });
 
   it("indents a second entry to match the first", () => {
     const out = editConfigToAddResource(BASE_CONFIG, "orders");
     expect(out).toContain(
-      '    resource(schema.users, { columns: ["email"] }),\n    resource(schema.orders, { columns: ["id"] }),',
+      '    resource(schema.users, { columns: ["email"] }),\n    resource(schema.orders, {}),',
     );
   });
 
@@ -137,21 +137,21 @@ describe("editConfigToAddResource against the real init template", () => {
   it("adds the resource import the drizzle template lacks", async () => {
     const out = editConfigToAddResource(await initTemplate("drizzle"), "users");
     expect(out).toContain('import { defineAdmin, resource } from "@flowpanel/kit";');
-    expect(out).toContain('resource(schema.users, { columns: ["id"] })');
+    expect(out).toContain("resource(schema.users, {})");
     expect(undefinedNames(out)).toEqual([]);
   });
 
   it("adds the resource import the prisma template lacks", async () => {
     const out = editConfigToAddResource(await initTemplate("prisma"), "User", { kind: "prisma" });
     expect(out).toContain('import { defineAdmin, resource } from "@flowpanel/kit";');
-    expect(out).toContain('resource<unknown>("User", { columns: ["id"] })');
+    expect(out).toContain('resource("User", {})');
     expect(undefinedNames(out)).toEqual([]);
   });
 
   it("without the import fix the written config does not resolve `resource`", async () => {
     const unfixed = (await initTemplate("drizzle")).replace(
       "  resources: [",
-      '  resources: [\n    resource(schema.users, { columns: ["id"] }),',
+      "  resources: [\n    resource(schema.users, {}),",
     );
     expect(undefinedNames(unfixed)).toContain("Cannot find name 'resource'.");
   });
@@ -181,7 +181,7 @@ export default defineAdmin({ resources: [] });
   it("keeps the commented worked example the template ships", async () => {
     const out = editConfigToAddResource(await initTemplate("drizzle"), "users");
     expect(out).toContain('    //   label: "Users",');
-    expect(out).toContain('    resource(schema.users, { columns: ["id"] }),');
+    expect(out).toContain("    resource(schema.users, {}),");
   });
 
   it("drops the import instruction it has just carried out", async () => {

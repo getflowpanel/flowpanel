@@ -14,6 +14,3 @@ Whichever finished first had its output deleted by the other — which is how
 `@flowpanel/kit` unable to typecheck its own `./next/client` re-export. The
 build now clears `dist` once before tsup starts, the way `@flowpanel/core`
 already did.
-
-`compile-admin.ts` also grew past the 300-line cap, so its five configuration
-validators now live in `compiler/validate-config.ts`.

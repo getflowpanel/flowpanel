@@ -1,9 +1,9 @@
 import { type FieldDef, type InferRow, resource } from "@flowpanel/kit";
+import { badge } from "@/src/admin/format";
 import { disableCustomer } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { readSandboxConfig } from "@/src/demo/sandbox/config";
 import { sandboxField, sandboxImportConfig, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
-import { badge } from "../../format";
 
 const PLANS = [
   { label: "Free", value: "free" },

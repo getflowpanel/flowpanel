@@ -59,7 +59,7 @@ The exact ordering is documented in [Request and mutation lifecycle](/docs/under
 
 Review generated SQL like application SQL. Run `pnpm flowpanel migrate --dry-run` in CI or the release environment before applying pending files.
 
-Both shipped adapters pass migration SQL and bookkeeping through one adapter operation, and serialize migrators at the database. On PostgreSQL and SQLite the statements and the applied marker share one transaction. MySQL implicitly commits many DDL statements, so no tool can promise rollback for an arbitrary migration: make changes restart-safe, take a backup, and prepare a forward fix. There, Drizzle holds a connection-pinned advisory lock and Prisma holds a durable claim row that records where a failed run stopped and refuses to replay it.
+Both shipped adapters pass migration SQL and bookkeeping through one adapter operation, and serialize migrators at the database. On PostgreSQL and SQLite the statements and the applied marker share one transaction. On MySQL, implicit DDL commits mean no tool can promise rollback for an arbitrary migration: make changes restart-safe, take a backup, and prepare a forward fix. To serialize MySQL migrators, Drizzle holds a connection-pinned advisory lock, and Prisma holds a durable claim row that records where a failed run stopped and refuses to replay it.
 
 Read [CLI reference](/docs/reference/cli#flowpanel-migrate) and [Adapter reference](/docs/reference/adapters) for dialect-specific behavior.
 

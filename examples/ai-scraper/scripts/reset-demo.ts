@@ -2,6 +2,7 @@
 import { pathToFileURL } from "node:url";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { databaseUrl } from "../src/db/connection";
 import * as schema from "../src/db/schema";
 import { isPublicSandboxId } from "../src/demo/sandbox/identity";
 import { RESET_DEMO_HELP } from "../src/demo/sandbox/script-help";
@@ -23,7 +24,7 @@ async function main() {
   }
   const id = sandboxArg(process.argv.slice(2));
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL ?? "postgres://fp:fp@localhost:54329/ai_scraper",
+    connectionString: databaseUrl,
   });
   try {
     await resetSandboxData(drizzle(pool, { schema }), id, new Date());

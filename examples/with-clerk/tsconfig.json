@@ -20,6 +20,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": [".next/types/**/*", "app/**/*", "src/**/*", "proxy.ts", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "scripts"]
+  "include": [".next/types/**/*", "app/**/*", "src/**/*", "scripts/**/*", "proxy.ts"],
+  "exclude": ["node_modules"]
 }

@@ -139,7 +139,8 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
           }
         : {}),
     };
-    const next = [...userViews, view];
+    // Same name replaces the existing view; duplicates would collide as React keys.
+    const next = [...userViews.filter((v) => v.name !== name), view];
     setUserViews(next);
     persistUserViews(resource, next);
     setNameOpen(false);

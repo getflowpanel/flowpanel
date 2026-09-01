@@ -1,5 +1,5 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { FlowpanelValidationError } from "@flowpanel/core";
+import { FlowpanelError, FlowpanelValidationError } from "@flowpanel/core";
 import { notFoundResponse } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
@@ -72,25 +72,17 @@ async function parseFormBody(
   return parsed.ok ? { ok: true, ...coerceFormData(parsed.value, resource, config, mode) } : parsed;
 }
 
-function errorResult(err: unknown): { status: number; body: FormActionResult } {
-  const e = err as {
-    code?: string;
-    fieldErrors?: Record<string, string>;
-    safeMessage?: string;
-    status?: number;
-  };
-  const status = typeof e?.status === "number" ? e.status : 500;
-  if (e?.code === "validation_failed" && e.fieldErrors) {
+function formActionError(err: unknown): { status: number; body: FormActionResult } {
+  if (err instanceof FlowpanelValidationError) {
     return {
-      status,
-      body: {
-        ok: false,
-        ...(e.safeMessage ? { error: e.safeMessage } : {}),
-        fieldErrors: e.fieldErrors,
-      },
+      status: err.status,
+      body: { ok: false, error: err.safeMessage, fieldErrors: err.fieldErrors },
     };
   }
-  return { status, body: { ok: false, error: e?.safeMessage ?? "Action failed" } };
+  if (err instanceof FlowpanelError) {
+    return { status: err.status, body: { ok: false, error: err.safeMessage } };
+  }
+  return { status: 500, body: { ok: false, error: "Action failed" } };
 }
 
 export function resourceCreateRoute(config: ResolvedAdminConfig) {
@@ -129,7 +121,7 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
             : {}),
         } satisfies FormActionResult);
       } catch (err) {
-        const { status, body } = errorResult(err);
+        const { status, body } = formActionError(err);
         return Response.json(body, { status });
       }
     });
@@ -162,7 +154,7 @@ export function resourceUpdateRoute(config: ResolvedAdminConfig) {
         await actions.update(id, parsed.values);
         return Response.json({ ok: true } satisfies FormActionResult);
       } catch (err) {
-        const { status, body } = errorResult(err);
+        const { status, body } = formActionError(err);
         return Response.json(body, { status });
       }
     });

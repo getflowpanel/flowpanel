@@ -47,6 +47,19 @@ describe("Field — json/tags dispatch", () => {
     expect(ta.value).toContain('"a": 1');
   });
 
+  it("renders a toggle switch for type=switch, submitting checkbox semantics", () => {
+    render(
+      <FormContext.Provider value={ctx}>
+        <Field name="flag" type="switch" label="Flag" />
+      </FormContext.Provider>,
+    );
+    const toggle = screen.getByRole("switch");
+    expect(document.querySelector('input[name="flag"]')).toBeNull();
+    fireEvent.click(toggle);
+    const hidden = document.querySelector('input[name="flag"]') as HTMLInputElement;
+    expect(hidden.value).toBe("on");
+  });
+
   it("renders TagInput for type=tags", () => {
     render(
       <FormContext.Provider value={ctx}>

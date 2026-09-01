@@ -18,10 +18,6 @@ interface MediaFrameProps {
  * Browser-chrome wrapper around the hero product shot. Renders both theme
  * variants; `globals.css` shows the one matching the active theme (the site
  * has no Tailwind `dark:` variant — themes flip via CSS-var tokens).
- *
- * SWAP POINT: when the console→admin walkthrough video is ready, replace the
- * `<Image>`s below with a `<video>` of the same aspect ratio — the chrome,
- * sizing, and surrounding layout stay identical, so nothing else moves.
  */
 export function MediaFrame({
   srcDark,

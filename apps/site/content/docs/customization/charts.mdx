@@ -24,9 +24,9 @@ import { lineChart } from "@flowpanel/kit/charts";
 lineChart("Signups", async ({ db, dateRange }) => {
   return findDailySignups(db, dateRange);
 }, {
-  xKey: "day",
-  series: [{ key: "count", label: "Signups" }],
-  valueFormat: "number",
+  x: "day",
+  y: "count",
+  format: "number",
 })
 ```
 
@@ -41,7 +41,7 @@ Choose the form that matches the question:
 
 ## Format and color deliberately
 
-Use series labels instead of exposing database keys. Apply number, currency, percentage, and date formatting consistently with nearby metrics. The default palette comes from `--fp-chart-1` through `--fp-chart-7`; override those tokens for brand alignment and verify contrast in light and dark modes.
+Legend and tooltip names come from the `y` row keys, so alias columns to presentable names in the query instead of exposing raw database keys. Use the `format` option so number, currency, and percentage rendering stays consistent with nearby metrics. The default palette comes from `--fp-chart-1` through `--fp-chart-7`; override those tokens for brand alignment and verify contrast in light and dark modes.
 
 Do not encode meaning by color alone. Keep legends and tooltips readable, and avoid more simultaneous series than users can distinguish.
 
@@ -55,7 +55,7 @@ Use a runtime component when the data already lives in client state or comes fro
 import { LineChart } from "@flowpanel/kit/charts/runtime";
 
 export function Preview({ data }: { data: Array<{ day: string; count: number }> }) {
-  return <LineChart data={data} xKey="day" series={[{ key: "count", label: "Count" }]} />;
+  return <LineChart data={data} options={{ x: "day", y: "count" }} />;
 }
 ```
 

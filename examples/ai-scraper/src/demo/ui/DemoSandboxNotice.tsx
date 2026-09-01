@@ -5,13 +5,17 @@ import * as React from "react";
 
 export type SandboxNoticeState = "idle" | "pending" | "restored" | "rate_limited" | "error";
 
+export function sandboxNoticeBadge(readOnly: boolean): string {
+  return readOnly ? "Demo maintenance" : "Interactive sandbox";
+}
+
 export function sandboxNoticeCopy(state: SandboxNoticeState, readOnly = false): string {
   if (readOnly) return "Editing is temporarily disabled while this demo is being maintained.";
   if (state === "pending") return "Restoring the original demo data…";
   if (state === "restored") return "Original demo data restored for this browser.";
   if (state === "rate_limited") return "Please wait a moment before resetting again.";
   if (state === "error") return "Could not reset the demo. Please try again.";
-  return "Interactive sandbox · Private to this browser · Resets after 60 minutes of inactivity";
+  return "Private to this browser · Resets after 60 minutes of inactivity";
 }
 
 export function DemoSandboxNotice({ readOnly }: { readOnly: boolean }) {
@@ -42,7 +46,7 @@ export function DemoSandboxNotice({ readOnly }: { readOnly: boolean }) {
       <div className="mx-auto flex min-h-11 max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5 text-xs sm:px-6">
         <span className="inline-flex items-center gap-2 font-medium text-fp-text-1">
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-fp-ok" />
-          {readOnly ? "Demo maintenance" : "Interactive sandbox"}
+          {sandboxNoticeBadge(readOnly)}
         </span>
         <span className="hidden text-fp-text-3 sm:inline" aria-hidden>
           ·
@@ -51,7 +55,7 @@ export function DemoSandboxNotice({ readOnly }: { readOnly: boolean }) {
           aria-live="polite"
           className="order-3 w-full min-w-0 pb-1 text-fp-text-2 sm:order-none sm:w-auto sm:flex-1 sm:pb-0"
         >
-          {sandboxNoticeCopy(state, readOnly).replace(/^Interactive sandbox · /, "")}
+          {sandboxNoticeCopy(state, readOnly)}
         </span>
         {!readOnly ? (
           <button

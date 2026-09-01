@@ -7,6 +7,7 @@ import {
   type ThemeChoice,
   type ThemeMode,
   toggleTheme as toggleThemeImpl,
+  writeStoredTheme,
 } from "../lib/theme";
 
 export interface UseThemeOptions {
@@ -55,9 +56,7 @@ export function useTheme(opts: UseThemeOptions = {}): UseTheme {
   const setTheme = React.useCallback((next: ThemeChoice) => {
     applyThemeClass(next);
     setThemeState(next);
-    try {
-      if (typeof localStorage !== "undefined") localStorage.setItem("fp-theme", next);
-    } catch {}
+    writeStoredTheme(next);
   }, []);
 
   return { theme, toggle, setTheme };

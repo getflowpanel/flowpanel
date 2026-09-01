@@ -1,8 +1,8 @@
 import { resource } from "@flowpanel/kit";
+import { badge, formatDuration } from "@/src/admin/format";
 import { retryFailedRun } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
-import { badge, formatDuration } from "../../format";
 
 export const runs = resource(schema.runs, {
   ...sandboxResourcePolicy(schema.runs.sandboxId),

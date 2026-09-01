@@ -1,10 +1,11 @@
-import { MigrationSqlLexError, tokenizeMigrationSql } from "@flowpanel/core/internal/migration-sql";
+import {
+  MigrationSqlLexError,
+  SQL_CLIENT_DIRECTIVE,
+  SQL_TRANSACTION_CONTROL,
+  tokenizeMigrationSql,
+} from "@flowpanel/core/internal/migration-sql";
 
 export type PrismaProvider = "mysql" | "postgresql" | "sqlite";
-
-const CLIENT_DIRECTIVE =
-  /(?:^|\n)\s*(?:DELIMITER\b|SOURCE\s+|\\[A-Za-z]+\b|\.(?:read|once|output)\b|GO\s*(?:\n|$))/i;
-const TRANSACTION_CONTROL = /^\s*(?:BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE\s+SAVEPOINT)\b/i;
 
 /**
  * Split ordinary migration SQL without treating semicolons in strings,
@@ -35,7 +36,7 @@ export function splitSqlStatements(sql: string, provider: PrismaProvider): strin
       }
       if (statement.syntax === "") continue;
     }
-    if (CLIENT_DIRECTIVE.test(statement.syntax)) {
+    if (SQL_CLIENT_DIRECTIVE.test(statement.syntax)) {
       throw new Error(
         "prismaAdapter: migration SQL contains a client directive, which Prisma does not interpret. " +
           "Use the provider's native migration workflow for that file.",
@@ -61,7 +62,7 @@ export function splitSqlStatements(sql: string, provider: PrismaProvider): strin
           "Move the trigger/procedure/function to your ORM migration workflow or implement a custom applyMigration.",
       );
     }
-    if (TRANSACTION_CONTROL.test(statement.syntax)) {
+    if (SQL_TRANSACTION_CONTROL.test(statement.syntax)) {
       throw new Error(
         "prismaAdapter: migration SQL cannot contain transaction-control statements; " +
           "the adapter owns the migration boundary.",

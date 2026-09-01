@@ -2,10 +2,6 @@ import { SignedOut, SignIn } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
-// Clerk reads its publishable key from process.env at render time, so this
-// page must run dynamically per request (not be prerendered at build time).
-export const dynamic = "force-dynamic";
-
 /**
  * Landing page: redirect signed-in users to /admin (where FlowPanel's
  * `withClerk({ requireRole: "admin" })` will further gate on role), and show

@@ -72,13 +72,16 @@ test("desktop documentation sidebar keeps safe spacing at lg and xl", async ({ p
     await expect(sidebar).toBeVisible();
 
     const spacing = await sidebar.evaluate((element) => {
-      const versionSelector = element.querySelector<HTMLElement>('button[aria-label^="Version"]');
+      const versionLabel = Array.from(element.querySelectorAll<HTMLElement>("p")).find(
+        (node) => node.textContent?.trim().toLowerCase() === "version",
+      );
+      const versionChip = versionLabel?.nextElementSibling as HTMLElement | null;
       const article = document.querySelector<HTMLElement>("article");
-      if (!versionSelector || !article) {
+      if (!versionChip || !article) {
         return { contentGap: 0, contentWidth: 0, hasViewportOverflow: true, rightGap: 0 };
       }
       const sidebarRect = element.getBoundingClientRect();
-      const versionRect = versionSelector.getBoundingClientRect();
+      const versionRect = versionChip.getBoundingClientRect();
       return {
         contentGap: article.getBoundingClientRect().left - sidebarRect.right,
         contentWidth: versionRect.width,

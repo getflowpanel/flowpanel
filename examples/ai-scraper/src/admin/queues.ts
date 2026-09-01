@@ -1,4 +1,5 @@
 import { queue } from "@flowpanel/kit";
+import { readSandboxConfig } from "@/src/demo/sandbox/config";
 import { liveQueues } from "@/src/lib/queues";
 
 const label = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
@@ -18,11 +19,14 @@ function iframeBoardUrl(name: string): string {
   return `${base}/queue/${name}?token=${encodeURIComponent(token)}`;
 }
 
-export const queues = liveQueues.map((q) =>
-  queue(q.instance, {
-    label: label(q.name),
-    icon: "workflow",
-    boardUrl: iframeBoardUrl(q.name),
-    hidden: true,
-  }),
-);
+// The tokenized board URL grants destructive job controls, so the public demo gets no queues section.
+export const queues = readSandboxConfig().publicMode
+  ? []
+  : liveQueues.map((q) =>
+      queue(q.instance, {
+        label: label(q.name),
+        icon: "workflow",
+        boardUrl: iframeBoardUrl(q.name),
+        hidden: true,
+      }),
+    );

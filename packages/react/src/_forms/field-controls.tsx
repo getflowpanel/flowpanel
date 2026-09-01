@@ -13,6 +13,7 @@ import { JsonEditor } from "../_data/JsonEditor";
 import { TagInput } from "../_data/TagInput";
 import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
+import { Switch } from "../ui/switch";
 import { AsyncSelect, type AsyncSelectOption } from "./AsyncSelect";
 import type { FieldControlType } from "./Field";
 
@@ -405,6 +406,26 @@ interface CheckboxFieldProps {
   field: FieldMetadata<unknown>;
   readOnly: boolean;
   aria: AriaProps;
+}
+
+/** `type: "switch"` — a toggle with checkbox form semantics (submits "on" or nothing). */
+export function SwitchField({ field, readOnly, aria }: CheckboxFieldProps) {
+  const control = useStringControl(field);
+  const checked = control.value === "on" || control.value === "true";
+  return (
+    <>
+      {checked ? <input type="hidden" name={field.name} value="on" /> : null}
+      <Switch
+        id={field.id}
+        checked={checked}
+        onCheckedChange={(next) => {
+          if (!readOnly) control.change(next ? "on" : "");
+        }}
+        disabled={readOnly}
+        {...aria}
+      />
+    </>
+  );
 }
 
 export function CheckboxField({ field, readOnly, aria }: CheckboxFieldProps) {

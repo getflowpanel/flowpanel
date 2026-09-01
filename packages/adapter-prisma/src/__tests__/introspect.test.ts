@@ -128,7 +128,9 @@ describe("introspect", () => {
       type: "number",
       primaryKey: true,
       readable: true,
+      writableOnCreate: false,
       writableOnUpdate: false,
+      generated: true,
       nullable: false,
     });
     expect(byName.email).toMatchObject({
@@ -137,7 +139,14 @@ describe("introspect", () => {
       unique: true,
       nullable: false,
     });
-    expect(byName.active).toMatchObject({ name: "active", type: "boolean", nullable: false });
+    // A non-id default stays writable — only defaulted ids are database-generated.
+    expect(byName.active).toMatchObject({
+      name: "active",
+      type: "boolean",
+      nullable: false,
+      writableOnCreate: true,
+      generated: false,
+    });
     expect(byName.age).toMatchObject({ name: "age", type: "number", nullable: true });
     expect(byName.role).toMatchObject({ name: "role", type: "enum" });
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

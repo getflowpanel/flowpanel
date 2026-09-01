@@ -13,6 +13,7 @@ import {
   SCALAR_TYPE,
   ScalarField,
   SelectField,
+  SwitchField,
   TagsField,
   TextareaField,
 } from "./field-controls";
@@ -154,7 +155,12 @@ export function Field({
       />
     );
   } else if (inlineLabel) {
-    control = <CheckboxField field={field} readOnly={readOnly} aria={aria} />;
+    control =
+      type === "switch" ? (
+        <SwitchField field={field} readOnly={readOnly} aria={aria} />
+      ) : (
+        <CheckboxField field={field} readOnly={readOnly} aria={aria} />
+      );
   } else {
     control = (
       <ScalarField

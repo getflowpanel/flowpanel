@@ -1,5 +1,6 @@
 "use client";
-// LOC-OK: table render orchestrator — coordinates the column-layout, selection,
+// LOC-OK: table render orchestrator — coordinates column layout, selection, inline
+// edit, realtime refresh and the mobile card view in one place.
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { LiveIndicator } from "../_atoms/LiveIndicator";
@@ -295,7 +296,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   return (
     <div className={cn(frame, className)}>
       {toolbar}
-      <table className="w-full text-sm">
+      <table className="w-full text-sm" aria-rowcount={total + 1}>
         <DataTableHeader
           orderedVisible={orderedVisible}
           sort={sort}
@@ -329,7 +330,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             <DataTableRow<Row>
               key={keyOf(r)}
               row={r}
-              rowIndex={idx}
+              rowIndex={(page - 1) * pageSize + idx}
               rowKeyValue={keyOf(r)}
               entering={enteringKeySet.has(keyOf(r))}
               rowKey={rowKey}

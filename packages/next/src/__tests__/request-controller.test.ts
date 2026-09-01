@@ -187,4 +187,49 @@ describe("protected request controllers", () => {
     expect(result.ok).toBe(false);
     expect(run).not.toHaveBeenCalled();
   });
+
+  it("dashboard(path).action(key) reaches the dashboard's action", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const adapter: Adapter = {
+      kind: "test",
+      db: {},
+      introspect: () => ({
+        name: "customers",
+        primaryKey: "id",
+        columns: [{ name: "id", type: "string", nullable: false, unique: true, primaryKey: true }],
+      }),
+      inferSchema: () => ({ create: {} as never, update: {} as never, select: {} as never }),
+      list: async () => ({ rows: [], total: 0, page: 1, pageSize: 10 }),
+      get: async () => null,
+      create: async () => ({}),
+      update: async () => null,
+      delete: async () => undefined,
+    };
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => ({ id: "operator" }), role: () => "admin" },
+      resources: [resource("customers", { name: "customers", columns: ["id"] })],
+      dashboards: [
+        {
+          path: "/team/ops",
+          label: "Ops",
+          sections: [],
+          actions: [{ key: "trigger", label: "Trigger", run }],
+        },
+      ],
+    });
+    const context: RequestContext = {
+      requestId: "req-3",
+      req: new Request("http://localhost/admin"),
+      session: { id: "operator" },
+      role: "admin",
+      scope: null,
+      ip: null,
+      userAgent: null,
+    };
+    const controllers = createControllerFactory(config, context);
+    const result = await controllers.dashboard("/team/ops").action("trigger");
+    expect(result.ok).toBe(true);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
 });

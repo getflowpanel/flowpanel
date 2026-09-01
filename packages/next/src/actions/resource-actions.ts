@@ -19,6 +19,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { actorIdFromSession } from "../runtime/action-helpers";
 import { buildServerRequest } from "../runtime/build-server-request";
+import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { deleteRow } from "../runtime/delete-row";
 import { buildHref } from "../runtime/href";
 import { resourceNavName } from "../runtime/nav";
@@ -136,8 +137,8 @@ export function makeActions(
       const row = (await runWithRequestContext(reqCtx, () =>
         config.adapter.create(resource.ref, mctx),
       )) as Record<string, unknown> | null | undefined;
-      const rowId =
-        row && typeof row === "object" && "id" in row ? (row as { id?: unknown }).id : undefined;
+      const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+      const rowId = row && typeof row === "object" ? row[rowKey] : undefined;
       await baseAudit(`${name}.create`, reqCtx, {
         ...(rowId !== undefined && rowId !== null ? { targetId: String(rowId) } : {}),
       });

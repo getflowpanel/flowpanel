@@ -1,11 +1,11 @@
 import { type FieldDef, type InferRow, resource } from "@flowpanel/kit";
 import { asc, eq } from "drizzle-orm";
+import { money } from "@/src/admin/format";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 import type { AdminSession } from "@/src/demo/auth/session";
 import { PRODUCT_STORIES } from "@/src/demo/data/scenarios";
 import { requireSandboxId, sandboxField, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
-import { money } from "../../format";
 
 const CATEGORIES = [...new Set(PRODUCT_STORIES.map((product) => product.category))].sort();
 const sandboxPolicy = sandboxResourcePolicy(schema.products.sandboxId);
@@ -29,7 +29,7 @@ const fields: FieldDef<InferRow<typeof schema.products>>[] = [
     name: "category",
     type: "select",
     options: CATEGORIES,
-    defaultValue: "Electronics", // prefills the create form
+    defaultValue: "Electronics",
     span: 6,
     group: "Product",
   },
@@ -38,7 +38,7 @@ const fields: FieldDef<InferRow<typeof schema.products>>[] = [
     label: "Our price (cents)",
     type: "number",
     help: "Integer cents.",
-    requireRole: "admin", // admin-only field — `support` never sees it
+    requireRole: "admin",
     span: 6,
     group: "Pricing & ownership",
   },

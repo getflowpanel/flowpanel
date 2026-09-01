@@ -31,7 +31,7 @@ dashboard({
 
 ## Bundle
 
-`@flowpanel/kit/charts` is **lazy** — it doesn't count toward the initial admin bundle. The 60 KB charts payload only loads when a chart widget renders.
+`@flowpanel/kit/charts` is **lazy** — it doesn't count toward the initial admin bundle and only loads when a chart widget renders. The package's own runtime is budgeted at 8 KB (`.size-limit.json`); `recharts` is a peer dependency, loaded alongside it, not shipped in the package.
 
 ## Documentation
 

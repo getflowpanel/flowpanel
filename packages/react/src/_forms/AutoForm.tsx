@@ -14,6 +14,7 @@ import type { ResolvedField } from "./field-types";
 type InputType = NonNullable<React.ComponentProps<typeof Field>["type"]>;
 
 function inputTypeFor(meta: ColumnMeta): InputType {
+  if (meta.enumValues?.length) return "select";
   switch (meta.type) {
     case "number":
       return "number";
@@ -155,7 +156,14 @@ export function AutoForm({
         <div className={GRID}>
           {introspected.map((c) => (
             <div key={c.name} className={SPAN_CLASS[12]}>
-              <Field name={c.name} label={humanize(c.name)} type={inputTypeFor(c)} />
+              <Field
+                name={c.name}
+                label={humanize(c.name)}
+                type={inputTypeFor(c)}
+                {...(c.enumValues?.length
+                  ? { options: c.enumValues.map((v) => ({ label: humanize(v), value: v })) }
+                  : {})}
+              />
             </div>
           ))}
         </div>

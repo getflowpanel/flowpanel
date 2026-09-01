@@ -154,3 +154,14 @@ export function tokenizeMigrationSql(
   if (hasCode) finishStatement(rawSql.length);
   return statements;
 }
+
+/**
+ * Client-side directives no database driver interprets: DELIMITER, SOURCE,
+ * psql backslash commands, sqlite dot commands, and GO batch separators.
+ */
+export const SQL_CLIENT_DIRECTIVE =
+  /(?:^|\n)\s*(?:DELIMITER\b|SOURCE\s+|\\[A-Za-z]+\b|\.(?:read|once|output)\b|GO\s*(?:\n|$))/i;
+
+/** Statements that would break an adapter-owned migration transaction boundary. */
+export const SQL_TRANSACTION_CONTROL =
+  /^\s*(?:BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE\s+SAVEPOINT)\b/i;

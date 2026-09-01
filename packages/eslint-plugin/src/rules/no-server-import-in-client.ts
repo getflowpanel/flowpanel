@@ -72,15 +72,7 @@ function isServerOnlySource(source: string): boolean {
   if (source === "server-only") return true;
   if (source.endsWith("/server-only")) return true;
   if (isAllowedPackageServerEntry(source)) return false;
-  if (isAppLocal(source) && /(^|\/)db(\/|$)/.test(source)) {
-    if (
-      source === `${source.split("/")[0]}/db` ||
-      source.includes("/db/") ||
-      source.endsWith("/db")
-    ) {
-      return true;
-    }
-  }
+  if (isAppLocal(source) && /(^|\/)db(\/|$)/.test(source)) return true;
   return /\/server(\/|$)/.test(source);
 }
 

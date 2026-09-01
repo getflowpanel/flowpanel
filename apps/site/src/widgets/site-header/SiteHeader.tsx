@@ -4,7 +4,7 @@ import { ThemeToggle } from "@/features/theme-toggle";
 import { siteConfig } from "@/shared/lib/site-config";
 import { flowpanelVersion } from "@/shared/lib/version";
 import { Logo } from "@/shared/ui/logo";
-import { GitHubStars } from "./GitHubStars";
+import { GitHubLink } from "./GitHubLink";
 
 interface SiteHeaderProps {
   variant?: "marketing" | "docs";
@@ -67,7 +67,7 @@ export function SiteHeader({ variant = "marketing" }: SiteHeaderProps) {
           >
             Changelog
           </Link>
-          <GitHubStars />
+          <GitHubLink />
           <ThemeToggle />
         </nav>
       </div>

@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../../db/schema";
 import { generateDemoData } from "../data/generate";
+import { SANDBOX_ABSOLUTE_MS, SANDBOX_INACTIVITY_MS } from "./config";
 import { SeedMappingError, seedRows } from "./seed-rows";
 
 export const SEED_VERSION = 1;
@@ -13,8 +14,8 @@ export function buildSandboxMetadataUpdate(now: Date, { markReset }: { markReset
   return {
     seedVersion: SEED_VERSION,
     lastSeenAt: now,
-    lastResetAt: markReset ? now : null,
-    inactivityExpiresAt: new Date(now.getTime() + 60 * 60_000),
+    inactivityExpiresAt: new Date(now.getTime() + SANDBOX_INACTIVITY_MS),
+    ...(markReset ? { lastResetAt: now } : {}),
   };
 }
 
@@ -55,8 +56,8 @@ export async function seedSandboxInTransaction(
       seedVersion: 0,
       createdAt: now,
       lastSeenAt: now,
-      inactivityExpiresAt: new Date(now.getTime() + 60 * 60_000),
-      absoluteExpiresAt: new Date(now.getTime() + 24 * 60 * 60_000),
+      inactivityExpiresAt: new Date(now.getTime() + SANDBOX_INACTIVITY_MS),
+      absoluteExpiresAt: new Date(now.getTime() + SANDBOX_ABSOLUTE_MS),
       fingerprintHash: null,
     })
     .onConflictDoNothing({ target: schema.demoSandboxes.id });

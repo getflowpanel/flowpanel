@@ -1,4 +1,9 @@
-import { MigrationSqlLexError, tokenizeMigrationSql } from "@flowpanel/core/internal/migration-sql";
+import {
+  MigrationSqlLexError,
+  SQL_CLIENT_DIRECTIVE,
+  SQL_TRANSACTION_CONTROL,
+  tokenizeMigrationSql,
+} from "@flowpanel/core/internal/migration-sql";
 import type { SQL } from "drizzle-orm";
 import type { DrizzleDialect } from "./dialect";
 
@@ -49,10 +54,16 @@ export function splitSqlStatements(rawSql: string, dialect: DrizzleDialect): str
       );
     }
     if (statement.hasExecutableMysqlComment && statement.syntax === "") continue;
-    if (/\bDELIMITER\b/i.test(statement.syntax)) {
+    if (SQL_CLIENT_DIRECTIVE.test(statement.syntax)) {
       throw new Error(
-        "drizzleAdapter: migration SQL contains a DELIMITER directive, which database drivers do not interpret. " +
-          "Move that procedural statement to a dialect-specific migration runner.",
+        "drizzleAdapter: migration SQL contains a client directive, which database drivers do not interpret. " +
+          "Move that statement to a dialect-specific migration runner.",
+      );
+    }
+    if (SQL_TRANSACTION_CONTROL.test(statement.syntax)) {
+      throw new Error(
+        "drizzleAdapter: migration SQL cannot contain transaction-control statements; " +
+          "the adapter owns the migration boundary.",
       );
     }
     if (dialect !== "pg" && statement.hasDollarQuote) {

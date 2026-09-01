@@ -70,7 +70,7 @@ describe("dashboardActionRoute", () => {
     });
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toContain("dashboard");
+    expect(body.error).toEqual({ code: "not_found", message: "dashboard not found" });
   });
 
   it("returns 404 when the action key is not in dashboard.actions", async () => {
@@ -94,7 +94,7 @@ describe("dashboardActionRoute", () => {
     });
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toContain("action");
+    expect(body.error).toEqual({ code: "not_found", message: "action not found" });
   });
 
   it("returns 403 when per-action requireRole fails", async () => {
@@ -286,9 +286,15 @@ describe("encodeDashboardPath / decodeDashboardPath", () => {
     expect(decodeDashboardPath("pipeline")).toBe("/pipeline");
   });
 
-  it("maps interior slashes to __", () => {
-    expect(encodeDashboardPath("/team/ops")).toBe("team__ops");
-    expect(decodeDashboardPath("team__ops")).toBe("/team/ops");
+  it("maps interior slashes to an escaped segment", () => {
+    expect(encodeDashboardPath("/team/ops")).toBe("team_2fops");
+    expect(decodeDashboardPath("team_2fops")).toBe("/team/ops");
+  });
+
+  it("round-trips paths containing literal underscores", () => {
+    for (const path of ["/a__b", "/a_2fb", "/a_5f/b", "/team_ops/x"]) {
+      expect(decodeDashboardPath(encodeDashboardPath(path))).toBe(path);
+    }
   });
 });
 

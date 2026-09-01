@@ -21,6 +21,7 @@ function makeConfig(opts: {
   columns?: unknown[];
   session?: unknown;
   updateSchema?: z.ZodTypeAny;
+  resourceSchema?: unknown;
   capturedInput?: { value?: unknown };
   fieldAccess?: ResourceConfig["options"]["fieldAccess"];
   updateDisabled?: boolean;
@@ -64,6 +65,7 @@ function makeConfig(opts: {
         "name", // string column entry should be skipped by editable check
       ],
       ...(opts.resourceAudit === false ? { audit: false } : {}),
+      ...(opts.resourceSchema ? { schema: opts.resourceSchema } : {}),
       ...(opts.fieldAccess ? { fieldAccess: opts.fieldAccess } : {}),
       ...(opts.updateDisabled || opts.updateFields
         ? {
@@ -313,6 +315,22 @@ describe("inlineUpdateRoute", () => {
     expect(body.error).toBe("validation failed");
     expect(Array.isArray(body.issues)).toBe(true);
     expect(body.issues[0].path).toEqual(["email"]);
+  });
+
+  it("enforces the resource's declared schema over the adapter-inferred one", async () => {
+    const handler = inlineUpdateRoute(
+      makeConfig({
+        updateSchema: z.object({ email: z.string() }).partial(),
+        resourceSchema: { update: z.object({ email: z.string().email() }).partial() },
+      }),
+    );
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ field: "email", value: "not-an-email" }),
+    });
+    const res = await handler(req, { params: paramsFor("users", "u1") });
+    expect(res.status).toBe(422);
   });
 
   it("writes the parsed value (coerced by the update schema), not the raw input", async () => {

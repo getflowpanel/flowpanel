@@ -6,9 +6,7 @@ import { drawerActionRoute } from "../drawer/drawer-route";
 import { handlers } from "../handlers";
 import { buildNav, resourceNavName } from "../runtime/nav";
 
-// ─────────────────────────────────────────────────────────────────────────────
 // nav.ts: Drizzle Symbol(BaseName) branch + queueItems group
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("resourceNavName — Drizzle Symbol(BaseName) fallback", () => {
   it("falls back to Symbol(drizzle:BaseName) when other lookups fail", async () => {
@@ -56,9 +54,7 @@ describe("buildNav — Queues group", () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // publish.ts: publishResource + subscribe entry points
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("runtime/publish.ts — publishResource + subscribe", () => {
   it("publishResource fans out on channel resource.<name> and reaches subscribers", async () => {
@@ -74,9 +70,7 @@ describe("runtime/publish.ts — publishResource + subscribe", () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // drawer-route.ts: 403 (auth fail) + 404 (row missing) in drawerActionRoute
-// ─────────────────────────────────────────────────────────────────────────────
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -149,9 +143,7 @@ describe("drawerActionRoute — auth/row edge cases", () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // handlers.ts: route-segment empty guards
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("handlers — additional length-mismatch routes return 404", () => {
   const fakeAdapter: Adapter = {

@@ -100,10 +100,10 @@ export interface CustomWidget<P = unknown> {
   options: CustomOptions;
 }
 
-/** One row of a `statGroup`. */
 /** Display-safe literal returned by a stat resolver. */
 export type StatValue = string | number | boolean | bigint | Date | null | undefined;
 
+/** One row of a `statGroup`. */
 export interface StatItem {
   label: string;
   /** A literal, or a function resolved per request. */

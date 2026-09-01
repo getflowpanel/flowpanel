@@ -8,7 +8,7 @@ import { readJsonObject, requestBodyErrorResponse } from "../runtime/request-bod
 import { declaredFormFields } from "../runtime/resolve-form-fields";
 import { scopeBinding } from "../runtime/scope-binding";
 import { withGuards } from "../runtime/with-guards";
-import { assertResourceWritableInput } from "./field-pipeline";
+import { assertResourceWritableInput, schemasFor } from "./field-pipeline";
 
 export function inlineUpdateRoute(config: ResolvedAdminConfig) {
   bindPublisher(config);
@@ -56,7 +56,9 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
           : formFields;
 
       let nextValue = value;
-      const updateSchema = config.adapter.inferSchema?.(resource.ref)?.update as
+      // The same schema resolution as form edits and JSON PATCH: the resource's
+      // declared `schema` wins over the adapter-inferred one.
+      const updateSchema = schemasFor(config, resource).update as
         | { pick?: (mask: Record<string, true>) => { safeParse: (v: unknown) => unknown } }
         | { safeParse?: (v: unknown) => unknown }
         | undefined;

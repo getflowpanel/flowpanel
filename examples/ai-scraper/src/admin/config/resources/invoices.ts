@@ -1,8 +1,8 @@
 import { resource, rowAction } from "@flowpanel/kit";
+import { badge, formatMonth, money } from "@/src/admin/format";
 import { refundPaidInvoice } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
-import { badge, formatMonth, money } from "../../format";
 
 type Invoice = typeof schema.invoices.$inferSelect;
 type RefundInput = { reason: string };

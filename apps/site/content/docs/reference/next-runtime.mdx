@@ -204,7 +204,8 @@ update, delete, row/bulk/dashboard actions, import and drawer. Set
 development; a deployment that is open on purpose — behind a VPN or an
 authenticating proxy — declares
 [`auth.allowUnauthenticated`](/docs/reference/define-config#authconfig) to
-silence the warning.
+silence the warning, and in production must pair it with `readOnly: true` or
+the config refuses to compile.
 </Callout>
 
 When `auth.requireRole` *is* set and the caller's role fails it, the route

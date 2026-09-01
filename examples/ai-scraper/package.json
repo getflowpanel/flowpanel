@@ -2,9 +2,10 @@
   "name": "ai-scraper",
   "private": true,
   "version": "0.0.4",
-  "description": "FlowPanel end-to-end demo \u2014 AI web-scraping SaaS ops admin on Drizzle + Postgres",
+  "description": "FlowPanel end-to-end demo — AI web-scraping SaaS ops admin on Drizzle + Postgres",
   "scripts": {
     "build": "next build --webpack",
+    "db:ensure": "tsx scripts/ensure-database.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
     "demo:cleanup": "tsx scripts/cleanup-demo.ts",

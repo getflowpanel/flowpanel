@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { databaseUrl } from "../src/db/connection";
 import * as schema from "../src/db/schema";
 import { readSandboxConfig } from "../src/demo/sandbox/config";
 import { cleanupExpiredSandboxesInDatabase } from "../src/demo/sandbox/maintenance";
@@ -13,7 +14,7 @@ async function main() {
   }
   const config = readSandboxConfig();
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL ?? "postgres://fp:fp@localhost:54329/ai_scraper",
+    connectionString: databaseUrl,
   });
   try {
     const result = await cleanupExpiredSandboxesInDatabase({
