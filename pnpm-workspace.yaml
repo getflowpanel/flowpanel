@@ -11,10 +11,10 @@ onlyBuiltDependencies:
   - better-sqlite3
 
 catalog:
-  typescript: ^5.7.0
-  vitest: ^3.0.0
+  typescript: ^5.9.3
+  vitest: ^3.2.7
   tsup: ^8.3.0
   tsd: ^0.33.0
   "@types/node": ^22.0.0
-  "@types/react": ^19.0.0
-  "@types/react-dom": ^19.0.0
+  "@types/react": ^19.2.18
+  "@types/react-dom": ^19.2.5

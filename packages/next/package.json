@@ -50,15 +50,15 @@
   },
   "peerDependencies": {
     "next": "^15.0.0 || ^16.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/react": "catalog:",
-    "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "next": "^15.5.24",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
