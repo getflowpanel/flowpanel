@@ -6,6 +6,7 @@ const PORT = new URL(BASE_URL).port || "3100";
 
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: "demo-readonly.spec.ts",
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
@@ -42,8 +43,14 @@ export default defineConfig({
     env: {
       PORT,
       DATABASE_URL: E2E_DATABASE_URL,
-      // Nested under ".next" so the existing ".next/" gitignore rule covers it.
-      NEXT_DIST_DIR: ".next/e2e",
+      DEMO_MODE: "true",
+      DEMO_READ_ONLY: "false",
+      DEMO_SANDBOX_SECRET: "flowpanel-e2e-private-sandbox-secret-v1",
+      DEMO_SANDBOX_MAX_ACTIVE: "500",
+      DEMO_SANDBOX_MAX_CREATES_PER_HOUR: "1000",
+      // A prior dev-server shutdown can remove its cache slightly after the port is released.
+      // Isolate each Playwright invocation so rapid local reruns cannot corrupt the next server.
+      NEXT_DIST_DIR: `.next/e2e-${process.pid}`,
     },
   },
 });

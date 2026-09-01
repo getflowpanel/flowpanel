@@ -13,8 +13,10 @@ import { FormSubmit } from "../FormSubmit";
 // `Form` calls `useRouter()` unconditionally (for `redirectTo` navigation on a
 // successful submit), so every render needs the app-router context mocked —
 // see `FormProps.redirectTo`.
+const routerPush = vi.hoisted(() => vi.fn());
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: routerPush }),
 }));
 
 const fetchMock = vi.fn();
@@ -68,6 +70,38 @@ describe("Form", () => {
     );
     const input = screen.getByLabelText("Email") as HTMLInputElement;
     expect(input.defaultValue).toBe("x@y.z");
+  });
+
+  it("preserves redirect params and marks the created row for one-shot entry motion", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, createdKey: "product 42" }),
+    });
+    let dispatch: ((fd: FormData) => void) | null = null;
+    render(
+      <Form
+        action="/api/flowpanel/products/create"
+        schema={z.object({ title: z.string() })}
+        redirectTo="/admin/products?view=recent"
+      >
+        <ActionCapture
+          onReady={(fn) => {
+            dispatch = fn;
+          }}
+        />
+        <Field name="title" label="Title" />
+      </Form>,
+    );
+
+    const fd = new FormData();
+    fd.set("title", "New product");
+    await act(async () => {
+      React.startTransition(() => dispatch?.(fd));
+    });
+
+    await waitFor(() =>
+      expect(routerPush).toHaveBeenCalledWith("/admin/products?view=recent&fp_created=product+42"),
+    );
   });
 });
 

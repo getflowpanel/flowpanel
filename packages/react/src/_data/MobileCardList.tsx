@@ -23,6 +23,7 @@ export interface MobileCardListProps<Row> {
   emptyAction?: React.ReactNode;
   emptyIcon?: React.ReactNode;
   className?: string;
+  enteringRowKeys?: string[];
 }
 
 export function MobileCardList<Row extends Record<string, unknown>>({
@@ -41,6 +42,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   emptyAction,
   emptyIcon,
   className,
+  enteringRowKeys = [],
 }: MobileCardListProps<Row>) {
   const labels = useLabels();
   const visible = React.useMemo(() => columns.filter((c) => !c.hidden), [columns]);
@@ -55,6 +57,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
 
   const selectionEnabled = onSelectionChange !== undefined;
   const selectionSet = React.useMemo(() => new Set(selection ?? []), [selection]);
+  const enteringKeySet = React.useMemo(() => new Set(enteringRowKeys), [enteringRowKeys]);
 
   const keyOf = React.useCallback(
     (row: Row) => (getRowKey ? getRowKey(row) : String(row[rowKey])),
@@ -92,6 +95,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
     <ul className={cn("space-y-2", className)}>
       {rows.map((r, idx) => {
         const key = keyOf(r);
+        const entering = enteringKeySet.has(key);
         const isSelected = selectionEnabled && selectionSet.has(key);
 
         const interactive = Boolean(onRowClick);
@@ -110,6 +114,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
               "rounded-fp border border-fp-border-1 bg-fp-bg-1 transition-colors",
               interactive && "active:bg-fp-bg-2",
               isSelected && "ring-2 ring-fp-focus/40",
+              entering && "fp-row-enter",
             )}
           >
             <div
@@ -141,7 +146,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                       }}
                       onClick={(e) => e.stopPropagation()}
                       aria-label={`Select row ${key}`}
-                      className="mt-1 h-5 w-5 shrink-0"
+                      className="-ml-3 -mt-2 h-11 w-11 shrink-0 sm:ml-0 sm:mt-1 sm:h-5 sm:w-5"
                     />
                   ) : null}
                   <div className="min-w-0 flex-1">

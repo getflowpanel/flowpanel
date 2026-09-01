@@ -48,17 +48,19 @@ export const MARKETPLACES = [
 
 export type Marketplace = (typeof MARKETPLACES)[number];
 
-export type GeneratedListing = Omit<typeof schema.listings.$inferSelect, "runId"> & {
+export type GeneratedRow<Row> = Omit<Row, "sandboxId" | "seedKey">;
+
+export type GeneratedListing = Omit<GeneratedRow<typeof schema.listings.$inferSelect>, "runId"> & {
   runId: number;
 };
 
 export interface DemoData {
-  customers: (typeof schema.customers.$inferSelect)[];
-  monitors: (typeof schema.monitors.$inferSelect)[];
-  runs: (typeof schema.runs.$inferSelect)[];
-  products: (typeof schema.products.$inferSelect)[];
+  customers: GeneratedRow<typeof schema.customers.$inferSelect>[];
+  monitors: GeneratedRow<typeof schema.monitors.$inferSelect>[];
+  runs: GeneratedRow<typeof schema.runs.$inferSelect>[];
+  products: GeneratedRow<typeof schema.products.$inferSelect>[];
   listings: GeneratedListing[];
-  matches: (typeof schema.matches.$inferSelect)[];
-  invoices: (typeof schema.invoices.$inferSelect)[];
-  aiUsage: (typeof schema.aiUsage.$inferSelect)[];
+  matches: GeneratedRow<typeof schema.matches.$inferSelect>[];
+  invoices: GeneratedRow<typeof schema.invoices.$inferSelect>[];
+  aiUsage: GeneratedRow<typeof schema.aiUsage.$inferSelect>[];
 }

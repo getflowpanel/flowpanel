@@ -15,6 +15,8 @@ import {
   resolveFilterSpecs,
   sanitizeFilterValues,
 } from "./runtime/parse-list-params";
+import { filterReadableDeclarations, resolveReadableFieldSet } from "./runtime/readable-fields";
+import { readJsonObject as readJsonBody } from "./runtime/request-body";
 import { withGuards } from "./runtime/with-guards";
 import { methodNotAllowed, wireResponse } from "./wire/response";
 
@@ -34,8 +36,6 @@ export interface FlowpanelHandlers {
 }
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] as const;
-const MAX_JSON_BODY = 1024 * 1024;
-
 function badTransport(
   code: "bad_request" | "payload_too_large" | "unsupported_media_type",
   message: string,
@@ -49,23 +49,15 @@ async function readJsonObject(req: Request): Promise<Record<string, unknown> | R
   if (!type.toLowerCase().includes("application/json")) {
     return badTransport("unsupported_media_type", "Expected application/json.", 415);
   }
-  const declared = Number(req.headers.get("content-length") ?? 0);
-  if (Number.isFinite(declared) && declared > MAX_JSON_BODY) {
+  const parsed = await readJsonBody(req);
+  if (parsed.ok) return parsed.value;
+  if (parsed.reason === "payload-too-large") {
     return badTransport("payload_too_large", "JSON body exceeds 1 MiB.", 413);
   }
-  const text = await req.text();
-  if (new TextEncoder().encode(text).byteLength > MAX_JSON_BODY) {
-    return badTransport("payload_too_large", "JSON body exceeds 1 MiB.", 413);
+  if (parsed.reason === "object-required") {
+    return badTransport("bad_request", "JSON body must be an object.", 400);
   }
-  try {
-    const value = JSON.parse(text) as unknown;
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-      return badTransport("bad_request", "JSON body must be an object.", 400);
-    }
-    return value as Record<string, unknown>;
-  } catch {
-    return badTransport("bad_request", "Invalid JSON body.", 400);
-  }
+  return badTransport("bad_request", "Invalid JSON body.", 400);
 }
 
 type RouteHandlerWith<Params> = (
@@ -174,23 +166,28 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
     if (listed && route[0]) {
       const resource = route[0];
       const url = new URL(req.url);
-      const declared = declaredFieldSet(listed.options);
-      const raw: Record<string, unknown> = {};
-      for (const [key, value] of url.searchParams) {
-        if (!key.startsWith("filter.")) continue;
-        const field = key.slice("filter.".length);
-        if (declared.has(field)) raw[field] = value;
-      }
       return resourceResult(config, req, resource, "read", async (controller, ctx) => {
-        const specs = await resolveFilterSpecs(listed.options.filters, {
+        const declared = declaredFieldSet(listed.options);
+        const readable = await resolveReadableFieldSet(declared, listed.options.fieldAccess, ctx);
+        const raw: Record<string, unknown> = {};
+        for (const [key, value] of url.searchParams) {
+          if (!key.startsWith("filter.")) continue;
+          const field = key.slice("filter.".length);
+          if (readable.has(field)) raw[field] = value;
+        }
+        const readableFilterDefs = filterReadableDeclarations(listed.options.filters, readable);
+        const specs = await resolveFilterSpecs(readableFilterDefs, {
           db: config.adapter.db,
           session: ctx.session,
         });
+        const readableSearchFields = (listed.options.search ?? [])
+          .map(String)
+          .filter((field) => readable.has(field));
         return wireResponse(
           await controller.list({
             page: Number(url.searchParams.get("page") ?? 1),
             pageSize: Number(url.searchParams.get("pageSize") ?? 20),
-            search: url.searchParams.get("search") ?? "",
+            search: readableSearchFields.length > 0 ? (url.searchParams.get("search") ?? "") : "",
             filters: sanitizeFilterValues(raw, specs),
           }),
         );

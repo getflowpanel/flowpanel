@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "test:e2e": "playwright test",
+    "test:e2e:demo-readonly": "playwright test --config playwright.demo-readonly.config.ts",
+    "test:e2e:site": "playwright test --config playwright.site.config.ts",
     "test:e2e:ui": "playwright test --ui",
     "typecheck": "tsc --noEmit"
   },

@@ -25,12 +25,14 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
   const fields = new Set<string>();
   const options = resource.options as {
     columns?: unknown[];
+    expose?: unknown[];
     rowKey?: string;
     drawer?: { fields?: unknown; tabs?: ReadonlyArray<{ fields?: unknown }> };
     detail?: { fields?: unknown; tabs?: ReadonlyArray<{ fields?: unknown }> };
   };
 
   for (const c of options.columns ?? []) addField(fields, c);
+  addFieldList(fields, options.expose);
   fields.add(options.rowKey ?? DEFAULT_RESOURCE_ROW_KEY);
 
   if (options.drawer) {
@@ -46,6 +48,29 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
   return fields;
 }
 
+/** Project a row through a read-policy result that was resolved before its adapter query. */
+export function projectRowFields<Row extends Record<string, unknown>>(
+  row: Row,
+  readable: Iterable<string>,
+): Row {
+  const out: Record<string, unknown> = {};
+  for (const field of readable) {
+    if (Object.hasOwn(row, field)) out[field] = row[field];
+  }
+  return out as Row;
+}
+
+/** Resolve the readable field set for a resource's rows once per request. */
+export async function resolveRowProjection(
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+  extraFields?: Iterable<string>,
+): Promise<string[]> {
+  const fields = declaredRowFields(resource);
+  if (extraFields) for (const field of extraFields) fields.add(field);
+  return await filterReadableProjection([...fields], resource.options.fieldAccess, reqCtx);
+}
+
 /** Request-aware projection for every server/client and HTTP row boundary. */
 export async function projectAuthorizedRow<Row extends Record<string, unknown>>(
   resource: ResourceConfig,
@@ -53,16 +78,16 @@ export async function projectAuthorizedRow<Row extends Record<string, unknown>>(
   reqCtx: RequestContext,
   extraFields?: Iterable<string>,
 ): Promise<Row> {
-  const fields = declaredRowFields(resource);
-  if (extraFields) for (const field of extraFields) fields.add(field);
-  const readable = await filterReadableProjection(
-    [...fields],
-    resource.options.fieldAccess,
-    reqCtx,
-  );
-  const out: Record<string, unknown> = {};
-  for (const field of readable) {
-    if (Object.hasOwn(row, field)) out[field] = row[field];
-  }
-  return out as Row;
+  return projectRowFields(row, await resolveRowProjection(resource, reqCtx, extraFields));
+}
+
+/** A page of rows shares one policy decision; a field policy may be async. */
+export async function projectAuthorizedRows<Row extends Record<string, unknown>>(
+  resource: ResourceConfig,
+  rows: readonly Row[],
+  reqCtx: RequestContext,
+  extraFields?: Iterable<string>,
+): Promise<Row[]> {
+  const readable = await resolveRowProjection(resource, reqCtx, extraFields);
+  return rows.map((row) => projectRowFields(row, readable));
 }

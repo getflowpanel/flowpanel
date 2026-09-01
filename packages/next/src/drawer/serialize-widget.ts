@@ -6,6 +6,11 @@ import type {
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
 import { safeErrorMessage } from "../runtime/action-helpers";
+import {
+  declaredFieldName,
+  filterReadableDeclarations,
+  resolveReadableFieldSet,
+} from "../runtime/readable-fields";
 import { readRelatedRows } from "../runtime/require-authorized";
 
 /** Wire-safe shape of a drawer widget. */
@@ -70,6 +75,7 @@ export async function serializeWidget(
       case "table": {
         let rows: Record<string, unknown>[] = [];
         let columns: { field: string; label?: string }[] = [];
+        let readableResourceFields: ReadonlySet<string> | null = null;
         const queryFn = w.options.query;
         if (queryFn) {
           const raw = (await runWithRequestContext(reqCtx, () => queryFn(widgetCtx))) as unknown[];
@@ -82,9 +88,22 @@ export async function serializeWidget(
                 extraFields: w.options.columns ?? [],
               })
             : null;
-          if (target && related) {
+          if (!target || !related) {
+            readableResourceFields = new Set();
+          } else {
+            const candidates = [...(target.options.columns ?? []), ...(w.options.columns ?? [])]
+              .map(declaredFieldName)
+              .filter((field): field is string => field !== null);
+            readableResourceFields = await resolveReadableFieldSet(
+              candidates,
+              target.options.fieldAccess,
+              reqCtx,
+            );
             rows = related;
-            columns = (target.options.columns as unknown[])
+            columns = filterReadableDeclarations(
+              target.options.columns,
+              readableResourceFields ?? new Set(),
+            )
               .map((c) => {
                 if (typeof c === "string") return { field: c };
                 const col = c as { field?: string; label?: string; hidden?: boolean };
@@ -97,7 +116,9 @@ export async function serializeWidget(
           }
         }
         if (w.options.columns && w.options.columns.length > 0) {
-          columns = w.options.columns.map((k) => ({ field: k }));
+          columns = w.options.columns
+            .filter((field) => !readableResourceFields || readableResourceFields.has(field))
+            .map((field) => ({ field }));
         } else if (columns.length === 0 && rows[0]) {
           columns = Object.keys(rows[0]).map((k) => ({ field: k }));
         }

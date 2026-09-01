@@ -3,7 +3,6 @@ import { defineAdmin, queue, resource } from "@flowpanel/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { drawerActionRoute } from "../drawer/drawer-route";
-import { parseActionBody } from "../drawer/parse-action-body";
 import { handlers } from "../handlers";
 import { buildNav, resourceNavName } from "../runtime/nav";
 
@@ -72,53 +71,6 @@ describe("runtime/publish.ts — publishResource + subscribe", () => {
     await mod.publishResource("users", { action: "update", id: "u1" });
     expect(got).toEqual([{ action: "update", id: "u1" }]);
     off();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// parse-action-body.ts: malformed form-data / json branches
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("parseActionBody — content-type branches", () => {
-  it("returns {} when content-type is missing", async () => {
-    const req = new Request("http://localhost/x", { method: "POST", body: "raw" });
-    expect(await parseActionBody(req)).toEqual({});
-  });
-
-  it("treats malformed form-data as empty input", async () => {
-    const req = new Request("http://localhost/x", {
-      method: "POST",
-      headers: { "content-type": "multipart/form-data" }, // no boundary → throws
-      body: "x=1",
-    });
-    expect(await parseActionBody(req)).toEqual({});
-  });
-
-  it("treats malformed JSON body as empty input", async () => {
-    const req = new Request("http://localhost/x", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "not-json",
-    });
-    expect(await parseActionBody(req)).toEqual({});
-  });
-
-  it("parses x-www-form-urlencoded body", async () => {
-    const req = new Request("http://localhost/x", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: "k=v&n=1",
-    });
-    expect(await parseActionBody(req)).toEqual({ k: "v", n: "1" });
-  });
-
-  it("parses application/json body", async () => {
-    const req = new Request("http://localhost/x", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ a: 1 }),
-    });
-    expect(await parseActionBody(req)).toEqual({ a: 1 });
   });
 });
 

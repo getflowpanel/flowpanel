@@ -18,7 +18,7 @@ test("@cross-browser release shell is responsive and role-aware", async ({ page,
     for (const control of [
       page.getByRole("button", { name: "admin" }),
       page.getByRole("button", { name: "support" }),
-      page.getByRole("link", { name: "Source", exact: true }),
+      page.getByRole("link", { name: "View on GitHub" }),
     ]) {
       const box = await control.boundingBox();
       expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -31,11 +31,10 @@ test("@cross-browser release shell is responsive and role-aware", async ({ page,
   expect(hasHorizontalOverflow).toBe(false);
 
   await page.goto("/admin");
-  await expect(page.getByText("ScrapeAI", { exact: true })).toBeVisible();
-  await expect(page.getByText("Competitive price intelligence", { exact: true })).toBeVisible();
+  await expect(page.getByText("FlowPanel demo", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "admin" })).toBeVisible();
   await expect(page.getByRole("button", { name: "support" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Source", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "View on GitHub" })).toBeVisible();
   await expect(page.getByText("Demo guide", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Download brief", { exact: true })).toHaveCount(0);
 
@@ -56,4 +55,24 @@ test("@cross-browser release shell is responsive and role-aware", async ({ page,
   await page.getByRole("button", { name: "Account menu" }).click();
   await expect(page.getByText("Role: support")).toBeVisible();
   expect(hydrationWarnings).toEqual([]);
+});
+
+test("demo persona makes the field-level policy visible", async ({ page }) => {
+  await page.goto("/admin");
+
+  await Promise.all([
+    page.waitForURL(/\/admin$/),
+    page.getByRole("button", { name: "support" }).click(),
+  ]);
+  await page.goto("/admin/products");
+  await expect(page.getByRole("columnheader", { name: "Our price" })).toHaveCount(0);
+  await page.getByRole("row").filter({ hasText: "NWA-APP2-USB-C" }).first().click();
+  await expect(page.getByText("Our price", { exact: true })).toHaveCount(0);
+
+  await Promise.all([
+    page.waitForURL(/\/admin$/),
+    page.getByRole("button", { name: "admin" }).click(),
+  ]);
+  await page.goto("/admin/products");
+  await expect(page.getByRole("columnheader", { name: "Our price" })).toBeVisible();
 });

@@ -1,6 +1,8 @@
 import { type FieldDef, type InferRow, resource } from "@flowpanel/kit";
 import { disableCustomer } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
+import { readSandboxConfig } from "@/src/demo/sandbox/config";
+import { sandboxField, sandboxImportConfig, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
 import { badge } from "../../format";
 
 const PLANS = [
@@ -49,6 +51,7 @@ const fields: FieldDef<InferRow<typeof schema.customers>>[] = [
 ];
 
 export const customers = resource(schema.customers, {
+  ...sandboxResourcePolicy(schema.customers.sandboxId),
   name: "customers",
   label: "Customers",
   labelOne: "Customer",
@@ -68,7 +71,7 @@ export const customers = resource(schema.customers, {
     { field: "createdAt", type: "daterange", label: "Joined" },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
-  create: { fields },
+  create: { fields: [...fields, sandboxField<InferRow<typeof schema.customers>>()] },
   update: { fields },
   delete: { softDelete: "deletedAt" },
   rowClick: "drawer",
@@ -77,10 +80,13 @@ export const customers = resource(schema.customers, {
     formats: ["csv", "json"],
     fields: ["id", "company", "name", "email", "plan", "status", "createdAt"],
   },
-  import: {
-    formats: ["csv", "json"],
-    fields: ["company", "name", "email", "plan", "status"],
-  },
+  import: sandboxImportConfig(
+    {
+      formats: ["csv", "json"] as const,
+      fields: ["company", "name", "email", "plan", "status"] as const,
+    },
+    readSandboxConfig().publicMode,
+  ),
   empty: {
     icon: "users",
     title: "No customers yet",

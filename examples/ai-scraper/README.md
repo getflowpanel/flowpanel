@@ -25,6 +25,8 @@ pnpm --filter ai-scraper dev
 
 Open [http://localhost:3000](http://localhost:3000), then choose **Open admin**. The default local
 mode is interactive. Use the Admin / Support switch to see server-enforced role differences.
+The in-app persona guide points to Products and Customers, where the Support role loses the
+admin-only pricing field and destructive disable action while retaining routine operations.
 
 ## Seven-screen tour
 
@@ -70,7 +72,7 @@ crowding primary navigation with implementation-level datasets.
 | Deterministic relational data generator | `src/demo/data/generate.ts` |
 | Disposable demo personas | `src/demo/auth/` |
 | Drizzle tables and relations | `src/db/schema.ts` |
-| Thin transactional database writer | `scripts/seed-data.ts` |
+| Transactional sandbox seed and reset | `src/demo/sandbox/seed.ts` |
 | Next.js admin page and API handlers | `app/admin/` and `app/api/flowpanel/` |
 
 The `src/admin` directory is deliberately copyable application code. Synthetic identities, data,
@@ -85,15 +87,29 @@ ambiguous variants; background rows add enough volume for pagination, filters, c
 views. Ownership and timestamps are generated as one causal graph, and exactly 26 matches begin in
 `needs_review`.
 
-`pnpm --filter ai-scraper db:seed` truncates and recreates that deterministic state. For a hosted
-sandbox, schedule `pnpm --filter ai-scraper demo:reset` hourly.
+`pnpm --filter ai-scraper db:seed` idempotently creates the stable `local` sandbox. It never
+rewrites another sandbox. Reset one target explicitly with
+`pnpm --filter ai-scraper demo:reset -- --sandbox local`; remove expired browser sandboxes with
+`pnpm --filter ai-scraper demo:cleanup -- --force`.
 
 ## Public demo safety
 
-Set `DEMO_MODE=true` for a public deployment. FlowPanel then removes mutation affordances and
-rejects create, update, delete, inline-edit, row-action, drawer-action, and bulk-action requests on
-the server; hiding buttons is not the security boundary. The persona cookie is an unsigned,
-allow-listed demo mechanism only—replace all of `src/demo/auth` with trusted application auth.
+Set `DEMO_MODE=true` and a random 32+ character `DEMO_SANDBOX_SECRET` for a public deployment. Each
+browser gets a private, pre-populated PostgreSQL sandbox: create, edit, delete, actions, reloads,
+references, exports, and dashboards all stay inside that database-enforced scope. Inactivity
+expires after 60 minutes and absolute lifetime is 24 hours. A visitor can reset only their own
+sandbox; reset is atomic and rate-limited. Public bulk import is disabled to bound amplification,
+while ordinary creates remain available.
+
+The active-sandbox cap defaults to 200 and creation throttling to 10 per IP-HMAC per hour. Set
+`DEMO_TRUST_PROXY=true` only behind a reverse proxy that replaces forwarding headers; otherwise the
+server deliberately uses one conservative unknown fingerprint bucket. Raw client IPs are never stored.
+Lazy PostgreSQL-coordinated cleanup runs at most every 15 minutes, and `demo:cleanup` is available
+for cron/observability. Set `DEMO_READ_ONLY=true` to remove mutation affordances and reject direct
+writes during an incident. Hiding controls is never the security boundary.
+
+The persona cookie is an unsigned, allow-listed demo mechanism only—replace all of `src/demo/auth`
+with trusted application auth in a real product.
 
 The example also enables role checks, audit events, and in-memory IP rate limiting. The realtime
 feed never writes to PostgreSQL and never calls marketplaces or an LLM. Set `DEMO_LIVE=off` on
@@ -114,20 +130,35 @@ pnpm --filter ai-scraper flowpanel:board
 pnpm --filter ai-scraper dev
 ```
 
-Queue routes stay out of primary navigation and are available from operational links. `BOARD_TOKEN`
-is mandatory because the separate board origin exposes destructive job controls. Set `BOARD_URL`
-to a browser-reachable HTTPS origin when deployed.
+Queue routes stay out of primary navigation. When Redis is configured, the Live operations header
+links to the queue boards, and each board exposes the other configured queues as contextual tabs.
+`BOARD_TOKEN` is mandatory because the separate board origin exposes destructive job controls. Set
+`BOARD_URL` to a browser-reachable HTTPS origin when deployed.
 
 ## Deploy
 
-Build from the repository root with the included Dockerfile, attach PostgreSQL, and set at least
-`DATABASE_URL` and `DEMO_MODE=true`. Run `db:push` and `db:seed` once, then schedule `demo:reset`.
-A persistent Node host supports Live operations; on Vercel or another sleeping serverless runtime,
-set `DEMO_LIVE=off`.
+Build from the repository root with the included Dockerfile, attach PostgreSQL, and set
+`DATABASE_URL`, `DEMO_MODE=true`, and `DEMO_SANDBOX_SECRET`. The container applies the schema and
+starts; it does not globally seed on restart. Browser sandboxes are populated lazily. A persistent
+Node host supports Live operations; on Vercel or another sleeping serverless runtime, set
+`DEMO_LIVE=off`.
+
+The browser-sandbox schema replaces the shared demo schema used before this release. Because every
+row in this example is synthetic, that one upgrade is intentionally a fresh-database deployment,
+not an in-place data migration. Recreate the local demo volume before the first upgraded start:
+
+```bash
+docker compose -f examples/ai-scraper/docker-compose.demo.yml down --volumes
+```
+
+For a hosted demo, retain the old database only as an archive and point the new release at a fresh
+database. Subsequent starts use `db:push` against the sandbox schema without clearing live browser
+sandboxes. Do not use this demo deployment workflow for application data that must be retained.
 
 ```bash
 docker build -f examples/ai-scraper/Dockerfile .
-docker compose -f examples/ai-scraper/docker-compose.demo.yml up --build
+DEMO_SANDBOX_SECRET="$(openssl rand -hex 32)" \
+  docker compose -f examples/ai-scraper/docker-compose.demo.yml up --build
 ```
 
 The result is a standard Next.js application. Railway, Fly.io, Coolify, and comparable Node hosts

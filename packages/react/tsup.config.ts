@@ -11,6 +11,7 @@ export default defineConfig({
   format: ["esm"],
   outExtension: () => ({ js: ".mjs" }),
   dts: true,
+  clean: true,
   // Code splitting is what makes the barrel tree-shakeable. Without it tsup
   // emits one non-splittable chunk, and module-scope side effects (every
   // `createContext(…)` in here) block esbuild from proving the unused half

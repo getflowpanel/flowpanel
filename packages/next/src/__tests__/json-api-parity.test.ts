@@ -19,7 +19,14 @@ import { toWireValue } from "../wire/serialize";
 
 const seen: ListQueryContext<Record<string, unknown>>[] = [];
 
-function makeConfig(opts: { role?: string; access?: Record<string, string> } = {}) {
+function makeConfig(
+  opts: {
+    role?: string;
+    access?: Record<string, string>;
+    fieldAccess?: ResourceConfig["options"]["fieldAccess"];
+    search?: string[];
+  } = {},
+) {
   const adapter = {
     kind: "drizzle",
     db: {},
@@ -50,6 +57,8 @@ function makeConfig(opts: { role?: string; access?: Record<string, string> } = {
       columns: [{ field: "id" }, { field: "amount" }, { field: "createdAt" }],
       filters: [{ field: "createdAt", type: "daterange" }],
       ...(opts.access ? { access: opts.access } : {}),
+      ...(opts.fieldAccess ? { fieldAccess: opts.fieldAccess } : {}),
+      ...(opts.search ? { search: opts.search } : {}),
     },
   } as unknown as ResourceConfig;
 
@@ -98,6 +107,25 @@ describe("the JSON list route parses like the rendered page", () => {
     seen.length = 0;
     await get(makeConfig(), "?filter.secretNote=x");
     expect(seen[0]?.filters).toEqual({});
+  });
+
+  it("drops read-restricted JSON filters and search before the adapter query", async () => {
+    seen.length = 0;
+    const res = await get(
+      makeConfig({
+        role: "support",
+        fieldAccess: { amount: { read: "admin" } },
+        search: ["amount"],
+      }),
+      "?filter.amount=42&search=42",
+    );
+
+    expect(res.status).toBe(200);
+    expect(seen[0]?.filters).toEqual({});
+    expect(seen[0]?.search).toBe("");
+    expect(seen[0]?.searchFields ?? []).toEqual([]);
+    expect(seen[0]?.searchParams.get("filter.amount")).toBeNull();
+    expect(seen[0]?.searchParams.get("search")).toBeNull();
   });
 });
 

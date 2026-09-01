@@ -1,4 +1,4 @@
-// LOC-OK: init command — one cohesive scaffolding flow (detect adapter, write
+// LOC-OK: one transactional scaffold flow; prompting, planning and installation order stay explicit.
 import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -26,6 +26,13 @@ import {
 import { kitCompatibilityError, pinnedSpec } from "../utils/kit";
 import { writeJson, writePlanJson } from "../utils/output";
 import { tpl } from "../utils/template";
+import {
+  findAppLayout,
+  hasAdminCssImport,
+  patchLayoutWithCssImport,
+  patchLayoutWithSuppressHydration,
+  patchLayoutWithThemeScript,
+} from "./init-layout";
 
 interface InitOptions {
   yes?: boolean;
@@ -33,36 +40,14 @@ interface InitOptions {
   json?: boolean;
 }
 
-async function findAppLayout(cwd: string): Promise<string | null> {
-  for (const rel of ["app/layout.tsx", "src/app/layout.tsx"]) {
-    if (await fileExists(path.join(cwd, rel))) return rel;
-  }
-  return null;
+export function initErrorPayload(error: string) {
+  return { command: "init", applied: false, error } as const;
 }
 
-const ADMIN_CSS_IMPORT_RE = /["']@\/styles\/admin\.css["']|["']\.{1,2}\/.*styles\/admin\.css["']/;
-
-/** Inserts `import "<spec>";` at the top of an existing layout file. */
-function patchLayoutWithCssImport(src: string, importSpec: string): string | null {
-  if (ADMIN_CSS_IMPORT_RE.test(src)) return null;
-  if (/import\s+["'][^"']+\.css["']/.test(src)) return null;
-  return `import "${importSpec}";\n${src}`;
-}
-
-/**
- * Adds `suppressHydrationWarning` to the host's `<html>` tag. The theme resolves
- * `mode: "auto"` on the client and sets a namespaced data attribute, which the
- * server render cannot know about — without this attribute React logs a hydration
- * mismatch on every admin page. Returns `null` when nothing needs changing.
- */
-export function patchLayoutWithSuppressHydration(src: string): string | null {
-  const match = /<html\b([^>]*)>/.exec(src);
-  if (!match) return null;
-  const attrs = match[1] ?? "";
-  if (/\bsuppressHydrationWarning\b/.test(attrs)) return null;
-  const trailing = /\s*$/.exec(attrs)?.[0] ?? "";
-  const body = attrs.slice(0, attrs.length - trailing.length);
-  return src.replace(match[0], `<html${body} suppressHydrationWarning${trailing}>`);
+function failInit(opts: InitOptions, message: string): never {
+  if (opts.json) writeJson(initErrorPayload(message));
+  else p.cancel(message);
+  process.exit(1);
 }
 
 const REQUIRED_DEPS: ReadonlyArray<{ pkg: string; dev: boolean }> = [
@@ -157,10 +142,10 @@ export function initCommand(cli: Command): void {
       const unattended = opts.yes || opts.dryRun || opts.json;
 
       if (!unattended && !process.stdin.isTTY) {
-        p.cancel(
+        failInit(
+          opts,
           "init asks questions and this run has no interactive terminal. Re-run with --yes to accept the detected defaults.",
         );
-        process.exit(1);
       }
 
       const pm = await detectPackageManager(cwd);
@@ -168,32 +153,30 @@ export function initCommand(cli: Command): void {
       const stack = await detectStack(cwd);
 
       if (!stack.nextjs) {
-        p.cancel(
+        failInit(
+          opts,
           `Next.js not detected in package.json. Install it first: ${pmc.addDisplay("next react react-dom", false)}`,
         );
-        process.exit(1);
       }
       if (!isSupportedNextVersion(stack.nextjs)) {
-        p.cancel(
+        failInit(
+          opts,
           `FlowPanel requires Next.js ^16.3.0. Upgrade first: ${pmc.addDisplay(
             "next@^16.3.0 react@^19 react-dom@^19",
             false,
           )}`,
         );
-        process.exit(1);
       }
       if (!stack.drizzle && !stack.prisma) {
-        p.cancel(
+        failInit(
+          opts,
           `No ORM detected. Install one: ${pmc.addDisplay("drizzle-orm", false)}  (or ${pmc.addDisplay("@prisma/client prisma", false)}).`,
         );
-        process.exit(1);
       }
 
       const kitMismatch = await kitCompatibilityError(cwd);
       if (kitMismatch) {
-        if (opts.json) writeJson({ command: "init", applied: false, error: kitMismatch });
-        else p.cancel(kitMismatch);
-        process.exit(1);
+        failInit(opts, kitMismatch);
       }
 
       const orm: "drizzle" | "prisma" = stack.drizzle ? "drizzle" : "prisma";
@@ -373,19 +356,21 @@ export function initCommand(cli: Command): void {
         const src = await fs.readFile(layoutFull, "utf8");
         const withCss = patchLayoutWithCssImport(src, cssImportSpec);
         const withHydration = patchLayoutWithSuppressHydration(withCss ?? src);
+        const withTheme = patchLayoutWithThemeScript(withHydration ?? withCss ?? src);
         const changes: string[] = [];
         if (withCss) changes.push("the admin stylesheet import");
         if (withHydration) changes.push("suppressHydrationWarning");
+        if (withTheme) changes.push("the pre-hydration theme script");
 
         if (changes.length > 0)
           intents.push({
             path: existingLayout,
-            content: withHydration ?? withCss ?? src,
+            content: withTheme ?? withHydration ?? withCss ?? src,
             expectedContent: src,
           });
 
         if (withCss) layoutNote = "patched";
-        else if (ADMIN_CSS_IMPORT_RE.test(src)) layoutNote = "kept";
+        else if (hasAdminCssImport(src)) layoutNote = "kept";
         else {
           layoutNote = "kept-has-css";
           keptLayoutPath = existingLayout;

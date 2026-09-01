@@ -82,4 +82,30 @@ describe("DefaultPagination", () => {
     );
     expect(screen.getByLabelText("Rows per page")).toBeTruthy();
   });
+
+  it("uses 44px mobile targets without giving up compact desktop density", () => {
+    render(
+      <DefaultPagination
+        page={2}
+        pageSize={10}
+        total={100}
+        onChange={vi.fn()}
+        pageSizeOptions={[10, 20]}
+        onPageSizeChange={vi.fn()}
+      />,
+    );
+
+    for (const button of [
+      screen.getByRole("button", { name: "Previous page" }),
+      screen.getByRole("button", { name: "Page 2" }),
+      screen.getByRole("button", { name: "Next page" }),
+    ]) {
+      expect(button.className).toContain("h-11");
+      expect(button.className).toContain("sm:h-8");
+    }
+    expect(screen.getByRole("button", { name: "Previous page" }).className).toContain("w-11");
+    expect(screen.getByRole("button", { name: "Previous page" }).className).toContain("sm:w-8");
+    expect(screen.getByLabelText("Rows per page").className).toContain("h-11");
+    expect(screen.getByLabelText("Rows per page").className).toContain("sm:h-8");
+  });
 });

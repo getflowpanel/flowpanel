@@ -336,6 +336,37 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
   animation: fp-slide-up var(--fp-duration) var(--fp-ease-spring);
 }
 
+/* Entry animation for newly created rows. */
+@keyframes fp-row-enter {
+  from {
+    opacity: 0.45;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fp-row-enter-surface {
+  from {
+    background-color: hsl(var(--fp-accent) / 0.09);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.fp-row-enter {
+  animation: fp-row-enter 240ms var(--fp-ease-out) both;
+}
+li.fp-row-enter {
+  animation:
+    fp-row-enter 240ms var(--fp-ease-out) both,
+    fp-row-enter-surface 240ms var(--fp-ease-out);
+}
+tr.fp-row-enter > td {
+  animation: fp-row-enter-surface 240ms var(--fp-ease-out);
+}
+
 /* Press feedback for buttons and tappable chips — transform only, so it
    never shifts layout. Longhands, so the same class also drives the color
    transition without fighting Tailwind's transition utilities. */
@@ -423,7 +454,9 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
   .fp-anim-sheet-bottom[data-state="closed"],
   .fp-anim-sheet-top[data-state="open"],
   .fp-anim-sheet-top[data-state="closed"],
-  .fp-bulkbar[data-state="open"] {
+  .fp-bulkbar[data-state="open"],
+  .fp-row-enter,
+  tr.fp-row-enter > td {
     animation: none;
   }
   .fp-press:active {

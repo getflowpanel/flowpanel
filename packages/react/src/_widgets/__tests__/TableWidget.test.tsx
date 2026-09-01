@@ -97,4 +97,17 @@ describe("TableWidget realtime", () => {
 
     expect(framedAncestors).toHaveLength(1);
   });
+
+  it("fills its dashboard grid slot so neighboring cards align", () => {
+    render(
+      <TableWidget
+        label="Recent orders"
+        rows={[{ id: "1", name: "a" }]}
+        columns={[{ field: "name" }]}
+        rowKey="id"
+      />,
+    );
+
+    expect(screen.getByRole("table").closest(".h-full")).not.toBeNull();
+  });
 });

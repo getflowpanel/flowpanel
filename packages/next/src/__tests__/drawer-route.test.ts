@@ -1,4 +1,4 @@
-import type { Adapter, ListQueryContext } from "@flowpanel/core";
+import type { Adapter, ListQueryContext, ResourceConfig } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
 import { drawerRoute } from "../drawer/drawer-route";
@@ -38,7 +38,7 @@ function mkConfig(role = "admin") {
           columns: ["id", "email"],
           drawer: {
             width: "lg",
-            header: (row: unknown) => (row as { name: string }).name,
+            header: (row: unknown) => (row as { email: string }).email,
             fields: "*",
             actions: [
               {
@@ -127,7 +127,7 @@ describe("drawerRoute", () => {
       tabs: unknown;
     };
     expect(body.row.id).toBe("abc");
-    expect(body.header).toBe("Alice");
+    expect(body.header).toBe("a@b.c");
     expect(body.width).toBe("lg");
     expect(body.fields).toBe("*");
     expect(body.tabs).toBeNull();
@@ -173,10 +173,10 @@ describe("drawerRoute", () => {
   });
 
   it("projects payload.row to the declared surface — an undeclared column never reaches the wire", async () => {
-    // `fakeAdapter.get` returns `name` (used only server-side by
-    // `drawer.header`) in addition to `id`/`email`. `columns: ["id",
-    // "email"]` is the only declaration on this resource — `name` must not
-    // survive into the JSON body even though `drawer.fields` is "*".
+    // `fakeAdapter.get` returns `name` in addition to `id`/`email`.
+    // `columns: ["id", "email"]` is the only declaration on this resource —
+    // `name` must not survive into the JSON body even though `drawer.fields`
+    // is "*".
     const handler = drawerRoute(mkConfig());
     const res = await handler(mkReq(), {
       params: Promise.resolve({ resource: "users", id: "abc" }),
@@ -184,9 +184,89 @@ describe("drawerRoute", () => {
     const body = (await res.json()) as { row: Record<string, unknown>; header: string };
     expect(body.row).toEqual({ id: "abc", email: "a@b.c" });
     expect(body.row).not.toHaveProperty("name");
-    // The header is still computed server-side from the FULL row — only the
-    // wire payload is projected.
-    expect(body.header).toBe("Alice");
+    expect(body.header).toBe("a@b.c");
+  });
+
+  it("projects the row before drawer headers and renderers and omits restricted metadata", async () => {
+    const headerRows: Record<string, unknown>[] = [];
+    const renderRows: Record<string, unknown>[] = [];
+    const get = vi.fn(async (_ref: unknown, ctx: { id?: string }) => ({
+      id: ctx.id,
+      email: "a@b.c",
+      secret: "classified",
+    }));
+    const config = defineAdmin({
+      adapter: {
+        ...fakeAdapter,
+        get,
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: [
+            { name: "id", type: "string", nullable: false, unique: true, primaryKey: true },
+            { name: "email", type: "string", nullable: false, unique: false, primaryKey: false },
+            { name: "secret", type: "string", nullable: false, unique: false, primaryKey: false },
+          ],
+        }),
+      },
+      auth: { session: async () => null, role: () => "support" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: [
+              "id",
+              {
+                field: "email",
+                label: "Email",
+                render: (row: unknown) => {
+                  const projected = row as Record<string, unknown>;
+                  renderRows.push(projected);
+                  return String(projected.secret ?? "redacted");
+                },
+              },
+              {
+                field: "secret",
+                label: "Secret",
+                format: { kind: "money", currency: "USD" },
+                render: (row: unknown) => String((row as Record<string, unknown>).secret),
+              },
+            ],
+            fieldAccess: { secret: { read: "admin" } },
+            drawer: {
+              fields: ["id", "email", "secret"],
+              header: (row: unknown) => {
+                const projected = row as Record<string, unknown>;
+                headerRows.push(projected);
+                return projected.secret === undefined ? "safe" : String(projected.secret);
+              },
+            },
+          },
+        ),
+      ],
+    });
+
+    const res = await drawerRoute(config)(mkReq(), {
+      params: Promise.resolve({ resource: "users", id: "abc" }),
+    });
+    const body = (await res.json()) as {
+      row: Record<string, unknown>;
+      header: string;
+      fields: string[];
+      prerendered: Record<string, string>;
+      labels: Record<string, string>;
+      formats: Record<string, unknown>;
+    };
+
+    expect(body.row).toEqual({ id: "abc", email: "a@b.c" });
+    expect(body.header).toBe("safe");
+    expect(body.fields).toEqual(["id", "email"]);
+    expect(body.prerendered).toEqual({ email: "redacted" });
+    expect(body.labels).toEqual({ email: "Email" });
+    expect(body.formats).toEqual({});
+    expect(headerRows).toEqual([{ id: "abc", email: "a@b.c" }]);
+    expect(renderRows).toEqual([{ id: "abc", email: "a@b.c" }]);
+    expect(get.mock.calls[0]?.[1]).toMatchObject({ select: ["id", "email"] });
   });
 
   it("ships column formats so a drawer row reads like its table cell", async () => {
@@ -351,7 +431,9 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
     targetScope?: unknown;
     globalScope?: boolean;
     widgetTab?: boolean;
+    widgetColumns?: string[];
     list?: Adapter["list"];
+    targetFieldAccess?: ResourceConfig["options"]["fieldAccess"];
   }) {
     const list =
       opts.list ??
@@ -365,7 +447,15 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
       ? {
           key: "activity",
           label: "Activity",
-          widgets: [{ kind: "table", options: { resource: "payments" } }],
+          widgets: [
+            {
+              kind: "table",
+              options: {
+                resource: "payments",
+                ...(opts.widgetColumns ? { columns: opts.widgetColumns } : {}),
+              },
+            },
+          ],
         }
       : {
           key: "payments",
@@ -387,6 +477,7 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
           columns: ["id", "userId", "amount"],
           ...(opts.targetRequireRole ? { requireRole: opts.targetRequireRole } : {}),
           ...(opts.targetScope ? { scope: opts.targetScope } : {}),
+          ...(opts.targetFieldAccess ? { fieldAccess: opts.targetFieldAccess } : {}),
         } as never),
       ],
     });
@@ -401,7 +492,11 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
         kind: string;
         rows?: Record<string, unknown>[];
         columns?: string[];
-        widgets?: { kind: string; rows?: Record<string, unknown>[] }[];
+        widgets?: {
+          kind: string;
+          rows?: Record<string, unknown>[];
+          columns?: { field: string }[];
+        }[];
       }[];
     };
     return body.tabs;
@@ -460,6 +555,25 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
     expect(scopeCalls).toEqual([[{ tenantId: "t1" }, "q"]]);
   });
 
+  it("does not widen a related tab when its relationship filter is read-restricted", async () => {
+    const list = vi.fn(async (_ref: unknown, _ctx: ListQueryContext<unknown>) => ({
+      rows: [{ id: "p1", userId: "abc", amount: 10 }],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    }));
+    const tabs = await tabsOf(
+      mkConfigWith({
+        role: "support",
+        list,
+        targetFieldAccess: { userId: { read: "admin" } },
+      }),
+    );
+
+    expect(tabs[0]).toMatchObject({ kind: "resource", rows: [] });
+    expect(list).not.toHaveBeenCalled();
+  });
+
   it("a widget tab's table does not read a role-gated target the viewer cannot access", async () => {
     const list = vi.fn(async (_ref: unknown, _ctx: ListQueryContext<unknown>) => ({
       rows: [],
@@ -468,9 +582,15 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
       pageSize: 20,
     }));
     const tabs = await tabsOf(
-      mkConfigWith({ role: "staff", targetRequireRole: "superadmin", widgetTab: true, list }),
+      mkConfigWith({
+        role: "staff",
+        targetRequireRole: "superadmin",
+        widgetTab: true,
+        widgetColumns: ["amount"],
+        list,
+      }),
     );
-    expect(tabs[0]?.widgets?.[0]).toMatchObject({ kind: "table", rows: [] });
+    expect(tabs[0]?.widgets?.[0]).toMatchObject({ kind: "table", rows: [], columns: [] });
     expect(list).not.toHaveBeenCalled();
   });
 
@@ -482,12 +602,25 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
       pageSize: 20,
     }));
     const tabs = await tabsOf(mkConfigWith({ globalScope: true, widgetTab: true, list }));
-    expect(tabs[0]?.widgets?.[0]).toMatchObject({ kind: "table", rows: [] });
+    expect(tabs[0]?.widgets?.[0]).toMatchObject({ kind: "table", rows: [], columns: [] });
     expect(list).not.toHaveBeenCalled();
   });
 
   it("a widget tab's table ships only the target's declared columns", async () => {
     const tabs = await tabsOf(mkConfigWith({ widgetTab: true }));
     expect(tabs[0]?.widgets?.[0]?.rows).toEqual([{ id: "p1", userId: "abc", amount: 10 }]);
+  });
+
+  it("a widget tab omits read-restricted target column metadata", async () => {
+    const tabs = await tabsOf(
+      mkConfigWith({
+        role: "support",
+        widgetTab: true,
+        targetFieldAccess: { amount: { read: "admin" } },
+      }),
+    );
+
+    expect(tabs[0]?.widgets?.[0]?.rows).toEqual([{ id: "p1", userId: "abc" }]);
+    expect(tabs[0]?.widgets?.[0]?.columns?.map((column) => column.field)).toEqual(["id", "userId"]);
   });
 });

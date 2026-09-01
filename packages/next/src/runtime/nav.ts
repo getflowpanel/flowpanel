@@ -9,7 +9,10 @@ import { pluralLabel } from "./resource-title";
 export const resourceNavName = resolveResourceName;
 
 /** A resource is advertised only when the caller could actually open its list. */
-function readableByCaller(resource: ResourceConfig, reqCtx: RequestContext): Promise<boolean> {
+export function readableByCaller(
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+): Promise<boolean> {
   return accessAllows(
     resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
     reqCtx,

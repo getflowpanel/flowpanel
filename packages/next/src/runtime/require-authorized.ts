@@ -10,7 +10,8 @@ import {
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { projectAuthorizedRow } from "./project-row";
+import { declaredRowFields, projectRowFields } from "./project-row";
+import { resolveReadableFieldSet } from "./readable-fields";
 import { scopeBinding } from "./scope-binding";
 
 /** Runs the resource's role + scope checks. */
@@ -62,6 +63,37 @@ export async function readRelatedRows(
     throw err;
   }
 
+  const filters = opts.filters ?? {};
+  const filterFields = Object.keys(filters);
+  // A missing projected relationship value must not turn a related query into
+  // an unfiltered list.
+  if (Object.values(filters).some((value) => value === undefined)) return [];
+  const requestedSearchFields = opts.searchFields ?? [];
+  const requestedSortField = opts.sort?.field;
+  const outputFields = declaredRowFields(target);
+  for (const field of opts.extraFields ?? []) outputFields.add(field);
+  const readable = await resolveReadableFieldSet(
+    [
+      ...outputFields,
+      ...filterFields,
+      ...requestedSearchFields,
+      ...(requestedSortField ? [requestedSortField] : []),
+    ],
+    target.options.fieldAccess,
+    reqCtx,
+  );
+  // Relationship filters are constraints, not optional user refinements. If
+  // policy removes one, fail closed instead of widening the related result.
+  if (filterFields.some((field) => !readable.has(field))) return [];
+  const searchFields = requestedSearchFields.filter((field) => readable.has(field));
+  if (requestedSearchFields.length > 0 && searchFields.length === 0) return [];
+  const sort = opts.sort && readable.has(opts.sort.field) ? opts.sort : null;
+  const projectedFields = [...outputFields].filter((field) => readable.has(field));
+  const knownColumns = new Set(
+    config.adapter.introspect(target.ref).columns.map((column) => column.name),
+  );
+  const select = projectedFields.filter((field) => knownColumns.has(field));
+
   const softDelete = target.options.delete?.softDelete;
   const listCtx: ListQueryContext<unknown> = {
     ...reqCtx,
@@ -69,12 +101,13 @@ export async function readRelatedRows(
     dateRange: opts.dateRange ?? { from: new Date(0), to: new Date() },
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,
-    filters: opts.filters ?? {},
-    sort: (opts.sort ?? null) as ListQueryContext<unknown>["sort"],
+    filters,
+    sort: sort as ListQueryContext<unknown>["sort"],
     page: opts.page ?? 1,
     pageSize: opts.pageSize ?? 20,
-    search: opts.search ?? "",
-    ...(opts.searchFields ? { searchFields: opts.searchFields } : {}),
+    search: searchFields.length > 0 ? (opts.search ?? "") : "",
+    ...(searchFields.length > 0 ? { searchFields } : {}),
+    ...(select.length > 0 ? { select } : {}),
     ...(softDelete
       ? { softDelete: { column: String(softDelete) }, includeDeleted: opts.includeDeleted }
       : {}),
@@ -84,9 +117,7 @@ export async function readRelatedRows(
   const result = await runWithRequestContext(reqCtx, () =>
     config.adapter.list(target.ref, listCtx),
   );
-  return Promise.all(
-    (result.rows as Record<string, unknown>[]).map((row) =>
-      projectAuthorizedRow(target, row, reqCtx, opts.extraFields),
-    ),
+  return (result.rows as Record<string, unknown>[]).map((row) =>
+    projectRowFields(row, projectedFields),
   );
 }

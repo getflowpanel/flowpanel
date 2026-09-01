@@ -36,6 +36,7 @@ export interface DataTableRowProps<Row extends Record<string, unknown>> {
   row: Row;
   rowIndex: number;
   rowKeyValue: string;
+  entering?: boolean;
   rowKey: keyof Row & string;
   active: boolean;
   orderedVisible: DataTableColumn<Row>[];
@@ -56,6 +57,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   row,
   rowIndex,
   rowKeyValue,
+  entering,
   rowKey,
   active,
   orderedVisible,
@@ -86,6 +88,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
         onRowClick && "cursor-pointer hover:bg-fp-bg-2/70",
         isSelected && "bg-fp-accent/5",
         active && "bg-fp-accent/5 outline outline-2 -outline-offset-2 outline-fp-focus/60",
+        entering && "fp-row-enter",
       )}
     >
       {selectionEnabled ? (

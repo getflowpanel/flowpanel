@@ -28,6 +28,24 @@ describe("defaultBulkActions — auto-injected delete", () => {
     expect(bulk?.[0]?.variant).toBe("destructive");
   });
 
+  it("uses the resource's delete confirmation copy", () => {
+    const cfg = defineAdmin({
+      adapter: noopAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [
+        resource(
+          { __name: "offers" },
+          { columns: [], delete: { confirm: "Also deletes related matches." } },
+        ),
+      ],
+    });
+
+    expect(cfg.resourcesByName.get("offers")?.options.bulkActions?.[0]?.confirm).toEqual({
+      title: "Delete selected items?",
+      description: "Also deletes related matches.",
+    });
+  });
+
   it("does NOT override explicit bulkActions", () => {
     const custom: BulkAction<unknown> = {
       key: "archive",

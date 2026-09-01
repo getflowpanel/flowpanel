@@ -6,8 +6,9 @@
 #   docker build -f examples/ai-scraper/Dockerfile -t ai-scraper .
 #
 # Coolify: Base Directory "/", Dockerfile "examples/ai-scraper/Dockerfile",
-# port 3000. Needs a Postgres reachable via DATABASE_URL at runtime; on boot the
-# container applies the schema and (re-runnably) seeds, then serves.
+# port 3000. Needs a fresh or already sandbox-shaped Postgres reachable via
+# DATABASE_URL at runtime; see the README's one-time upgrade note. On boot the
+# container applies the current schema, then serves. Browser sandboxes seed lazily.
 
 FROM node:22-alpine AS build
 RUN apk add --no-cache libc6-compat
@@ -37,7 +38,6 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
 
-# On boot: apply the Drizzle schema, then seed (the seed TRUNCATEs before
-# inserting, so restarts are safe), then serve. DATABASE_URL is injected at
-# runtime (compose / Coolify), overriding the build-time placeholder.
-CMD ["sh", "-c", "pnpm db:push && pnpm db:seed && pnpm start"]
+# Public data is provisioned per browser on first use; container restarts never
+# rewrite live visitor sandboxes.
+CMD ["sh", "-c", "pnpm db:push && pnpm start"]

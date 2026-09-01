@@ -1,11 +1,14 @@
 import { type FieldDef, type InferRow, resource } from "@flowpanel/kit";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
+import type { AdminSession } from "@/src/demo/auth/session";
 import { PRODUCT_STORIES } from "@/src/demo/data/scenarios";
+import { requireSandboxId, sandboxField, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
 import { money } from "../../format";
 
 const CATEGORIES = [...new Set(PRODUCT_STORIES.map((product) => product.category))].sort();
+const sandboxPolicy = sandboxResourcePolicy(schema.products.sandboxId);
 
 const fields: FieldDef<InferRow<typeof schema.products>>[] = [
   {
@@ -50,6 +53,7 @@ const fields: FieldDef<InferRow<typeof schema.products>>[] = [
 ];
 
 export const products = resource(schema.products, {
+  ...sandboxPolicy,
   name: "products",
   label: "Products",
   labelOne: "Product",
@@ -72,11 +76,12 @@ export const products = resource(schema.products, {
       field: "customerId",
       type: "select",
       label: "Customer",
-      options: async () =>
+      options: async (ctx) =>
         (
           await db
             .select({ id: schema.customers.id, company: schema.customers.company })
             .from(schema.customers)
+            .where(eq(schema.customers.sandboxId, requireSandboxId(ctx.session as AdminSession)))
             .orderBy(asc(schema.customers.company))
         ).map((customer) => ({
           label: customer.company ?? `Customer #${customer.id}`,
@@ -86,8 +91,15 @@ export const products = resource(schema.products, {
     { field: "category", type: "select", options: CATEGORIES },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
-  create: { fields },
+  fieldAccess: {
+    ...sandboxPolicy.fieldAccess,
+    ourPriceCents: { read: "admin" },
+  },
+  create: { fields: [...fields, sandboxField<InferRow<typeof schema.products>>()] },
   update: { fields },
+  delete: {
+    confirm: "Permanently delete selected products and their matches? This cannot be undone.",
+  },
   rowClick: "drawer",
   export: {
     formats: ["csv", "json"],

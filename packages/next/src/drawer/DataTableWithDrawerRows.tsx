@@ -52,6 +52,10 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   openDrawerOnRowClick?: boolean;
   /** SSE channel(s) to subscribe to for live refresh. */
   realtime?: RealtimeChannels;
+  /** Keys that receive the subtle one-shot created-row entry treatment. */
+  enteringRowKeys?: string[];
+  /** Marker copied from `fp_created`; consumed from the visible URL after paint. */
+  createdRowKey?: string;
 }
 
 export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
@@ -72,6 +76,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
     deletedRowKeys,
     openDrawerOnRowClick,
     realtime,
+    createdRowKey,
     ...rest
   } = props;
   const { open } = useAdminDrawer();
@@ -83,6 +88,18 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
   const hasRestore = !!deletedRowKeySet;
 
   const [selection, setSelection] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (!createdRowKey || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("fp_created") !== createdRowKey) return;
+    url.searchParams.delete("fp_created");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }, [createdRowKey]);
 
   return (
     <>

@@ -1,6 +1,6 @@
 import type {
   BulkAction,
-  ColumnDef,
+  FilterDef,
   ListQueryContext,
   RequestContext,
   ResolvedAdminConfig,
@@ -15,34 +15,32 @@ import {
   runWithRequestContext,
 } from "@flowpanel/core";
 import {
-  CreateDrawer,
   DataTableWithDrawerRows,
   ResourceListDeletedToggle,
   ResourceListFilters,
   ResourceListSearch,
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
-import { AutoForm, Button, FlowpanelIcon, PageHeader } from "@flowpanel/react";
+import { Button, FlowpanelIcon, PageHeader } from "@flowpanel/react";
 import { serializeBulkAction } from "../actions/bulk-action";
 import { type SerializedRowAction, serializeRowAction } from "../actions/row-action";
 import { filterActionsByAccess } from "../runtime/action-helpers";
 import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
-import { buildHref } from "../runtime/href";
 import { resourceNavName } from "../runtime/nav";
 import {
-  declaredFieldSet,
   parseListParams,
   resolveFilterSpecs,
   sanitizeFilterValues,
 } from "../runtime/parse-list-params";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
-import { projectAuthorizedRow } from "../runtime/project-row";
+import { projectRowFields } from "../runtime/project-row";
+import { resolveReadableListSurface } from "../runtime/readable-list";
 import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
-import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
 import { resolveReferences } from "../runtime/resolve-references";
-import { pluralLabel, singularLabel } from "../runtime/resource-title";
+import { pluralLabel } from "../runtime/resource-title";
 import { scopeBinding } from "../runtime/scope-binding";
+import { buildResourceListCreateAction } from "./resource-list-create-action";
 
 export interface ResourceListPageProps {
   config: ResolvedAdminConfig;
@@ -85,28 +83,23 @@ export async function ResourceListPage({
   const pageSize = pageSizeOptions.includes(requestedPageSize)
     ? requestedPageSize
     : configuredPageSize;
-  const defaultSortRaw = resource.options.defaultSort;
-  const defaultSort: { field: string; dir: "asc" | "desc" } | undefined = defaultSortRaw
-    ? { field: defaultSortRaw.field as string, dir: defaultSortRaw.dir }
-    : undefined;
-  const allowedFields = declaredFieldSet({
-    columns: resource.options.columns as unknown[],
-    filters: resource.options.filters as unknown[] | undefined,
-    search: resource.options.search as unknown[] | undefined,
-    ...(defaultSortRaw ? { defaultSort: { field: defaultSortRaw.field as string } } : {}),
-  });
+  const readable = await resolveReadableListSurface(resource, reqCtx, searchParams);
   const {
     page,
     search,
     sort,
     filters: rawFilters,
-  } = parseListParams(searchParams, defaultSort, allowedFields);
+  } = parseListParams(searchParams, readable.defaultSort, readable.fields);
 
-  const filterSpecs = await resolveFilterSpecs(resource.options.filters, {
-    db: config.adapter.db,
-    session: reqCtx.session,
-  });
+  const filterSpecs = await resolveFilterSpecs(
+    readable.filters as Array<keyof Row | FilterDef<Row>>,
+    {
+      db: config.adapter.db,
+      session: reqCtx.session,
+    },
+  );
   const filters = sanitizeFilterValues(rawFilters, filterSpecs);
+  const effectiveSearch = readable.searchFields.length > 0 ? search : "";
 
   const softDelete = resource.options.delete?.softDelete;
   const includeDeleted = !!softDelete && searchParams.get("deleted") === "1";
@@ -114,32 +107,31 @@ export async function ResourceListPage({
     ...reqCtx,
     db: config.adapter.db,
     dateRange: { from: new Date(0), to: new Date() },
-    searchParams,
+    searchParams: readable.searchParams,
     signal: new AbortController().signal,
     filters,
     sort: sort as ListQueryContext<unknown>["sort"],
     page,
     pageSize,
-    search,
-    ...(resource.options.search && resource.options.search.length > 0
-      ? { searchFields: resource.options.search as string[] }
-      : {}),
+    search: effectiveSearch,
+    ...(readable.searchFields.length > 0 ? { searchFields: readable.searchFields } : {}),
     ...(softDelete ? { softDelete: { column: String(softDelete) }, includeDeleted } : {}),
     ...scopeBinding(config, resource, reqCtx),
   };
 
   const result = await runWithRequestContext(reqCtx, () => config.adapter.list(resource.ref, ctx));
+  const clientRows = (result.rows as Row[]).map((row) => projectRowFields(row, readable.rowFields));
 
   const intro = config.adapter.introspect(resource.ref);
   const metaByField = new Map(intro.columns.map((c) => [c.name, c]));
 
-  const columnDefs = resource.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>>;
+  const columnDefs = readable.columns;
 
-  const fkLabels = await resolveReferences<Row>(config, reqCtx, columnDefs, result.rows as Row[]);
+  const fkLabels = await resolveReferences<Row>(config, reqCtx, columnDefs, clientRows);
 
   const { columns, prerenderedCells } = prerenderResourceCells<Row>(
     columnDefs,
-    result.rows as Row[],
+    clientRows,
     reqCtx,
     { defaultSortable: true, metaByField },
   );
@@ -148,7 +140,7 @@ export async function ResourceListPage({
     config,
     columnDefs,
     columns,
-    result.rows as Row[],
+    clientRows,
     prerenderedCells,
     fkLabels,
   );
@@ -170,7 +162,7 @@ export async function ResourceListPage({
   let rowActionsById: Record<string, SerializedRowAction[]> | undefined;
   if (rawActions?.some((a) => a.hidden)) {
     const entries = await Promise.all(
-      (result.rows as Row[]).map(async (row) => {
+      clientRows.map(async (row) => {
         const visible: SerializedRowAction[] = [];
         for (const [i, a] of rawActions.entries()) {
           const h = a.hidden;
@@ -189,43 +181,18 @@ export async function ResourceListPage({
   );
   const serializedBulkActions = rawBulkActions?.map(serializeBulkAction) ?? [];
   const displayPlural = pluralLabel(resource, name);
+  const createdRowKeyParam = searchParams.get("fp_created");
+  const createdRowKey =
+    createdRowKeyParam && createdRowKeyParam.length <= 512 ? createdRowKeyParam : undefined;
 
-  const clientRows = await Promise.all(
-    (result.rows as Row[]).map((row) => projectAuthorizedRow(resource, row, reqCtx)),
-  );
-
-  // Reuse the server-rendered /new AutoForm inside the client drawer, with no extra fetch.
-  const createDeclared = resource.options.create?.disabled
-    ? undefined
-    : declaredFormFields(resource, "create");
-  const createFields = createDeclared
-    ? await resolveFormFields(config, createDeclared, reqCtx)
-    : undefined;
-  const createLabel = singularLabel(resource, name);
+  const createAction = await buildResourceListCreateAction({ config, resource, name, reqCtx });
 
   return (
     <>
-      <PageHeader
-        title={displayPlural}
-        {...(resource.options.create?.disabled
-          ? {}
-          : {
-              actions: (
-                <CreateDrawer label="Add new" title={`New ${createLabel}`}>
-                  <AutoForm
-                    action={`${config.paths.api}/${name}/create`}
-                    columns={config.adapter.introspect(resource.ref).columns}
-                    {...(createFields ? { fields: createFields } : {})}
-                    submitLabel="Create"
-                    redirectTo={buildHref(config, name)}
-                  />
-                </CreateDrawer>
-              ),
-            })}
-      />
+      <PageHeader title={displayPlural} {...(createAction ? { actions: createAction } : {})} />
       {/* Search sits in the filter row, not above it — one band of chrome. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {resource.options.search && resource.options.search.length > 0 ? (
+        {readable.searchFields.length > 0 ? (
           <ResourceListSearch placeholder={`Search ${displayPlural}…`} />
         ) : null}
         <div className="flex-1">
@@ -250,6 +217,7 @@ export async function ResourceListPage({
         pageSize={result.pageSize}
         pageSizeOptions={pageSizeOptions}
         rowKey={rowKey as keyof Row & string}
+        {...(createdRowKey ? { enteringRowKeys: [createdRowKey], createdRowKey } : {})}
         {...(resource.options.density ? { density: resource.options.density } : {})}
         {...(resource.options.export ? { exportable: resource.options.export } : {})}
         {...(resource.options.import

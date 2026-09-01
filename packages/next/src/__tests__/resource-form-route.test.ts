@@ -128,15 +128,33 @@ describe("resourceCreateRoute", () => {
     expect(res.status).toBe(403);
   });
 
-  it("creates the row, publishes, and returns { ok: true }", async () => {
+  it("creates the row, publishes, and returns its key for entry motion", async () => {
     const captured: { value?: unknown } = {};
     const handler = resourceCreateRoute(makeConfig({ createCaptured: captured }));
     const req = formRequest("http://localhost/x", { email: "a@b.com" });
     const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, createdKey: "u1" });
     expect(captured.value).toEqual({ email: "a@b.com" });
     expect(publishResource).toHaveBeenCalledWith("users", { action: "create", id: "u1" });
+  });
+
+  it("rejects an oversized form before calling the adapter", async () => {
+    const captured: { value?: unknown } = {};
+    const handler = resourceCreateRoute(makeConfig({ createCaptured: captured }));
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "content-length": String(1024 * 1024 + 1),
+      },
+      body: "email=a%40b.com",
+    });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
+
+    expect(res.status).toBe(413);
+    expect((await res.json()).error).toBe("request body is too large");
+    expect(captured.value).toBeUndefined();
   });
 
   it("coerces an empty form field to null", async () => {

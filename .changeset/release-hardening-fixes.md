@@ -14,7 +14,8 @@ for the runtime (`isBuiltinBulkDelete`), and the bulk route executes it through
 the resource's own delete path — honouring `delete.softDelete`, the bound
 scope, and the `delete` operation's access rule, which it previously skipped.
 `deleteRow` is now the single delete used by both the bulk route and the
-server-side `delete` action.
+server-side `delete` action. A resource's `delete.confirm` text is also carried
+into the injected confirmation dialog instead of being ignored.
 
 **The JSON list endpoint no longer filters on undeclared columns.** `GET
 <api>/<resource>?filter.<field>=…` forwarded any field straight to the adapter,
@@ -47,6 +48,22 @@ and only to that channel's subscribers.
 **Inline edit accepts the columns it advertises.** A column marked
 `editable: true` that a resource's explicit update form omitted was rejected as
 an unknown field.
+
+**Write routes share one bounded body parser.** JSON and multipart mutations
+now reject malformed input consistently, and payloads larger than 1 MiB fail
+before handlers allocate or validate the complete body.
+
+**Field read policy reaches every row surface.** Server-rendered lists, JSON
+lists and drawer payloads now project rows through the same request-level
+allowlist, including fields needed only for labels, formats and drawer headers.
+
+**New rows get a one-shot entry treatment.** Create responses expose the stable
+`createdKey`; generated forms preserve the current query and hash while
+redirecting, and desktop tables and mobile cards highlight that row without
+disregarding reduced-motion preferences.
+
+**Embedded shells can avoid duplicate skip links.** `shell.skipLink` and
+`AdminShell.showSkipLink` let a host layout own the page's single skip target.
 
 **404s stop enumerating the registry.** Unknown resource/action/dashboard
 responses listed every registered name whenever `NODE_ENV !== "production"`,

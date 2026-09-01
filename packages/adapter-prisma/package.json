@@ -29,12 +29,12 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "pretest:unit": "prisma generate --schema=prisma/schema.prisma",
-    "test:unit": "vitest run",
-    "test:types": "tsd",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "pretest:unit": "prisma generate --schema=prisma/schema.prisma",
+    "test:types": "tsd",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "tsd": {
     "directory": "types-test",
@@ -72,6 +72,8 @@
   },
   "devDependencies": {
     "@prisma/client": "^5.20.0",
+    "@testcontainers/mysql": "^11.14.0",
+    "@testcontainers/postgresql": "^10.28.0",
     "@types/node": "catalog:",
     "prisma": "^5.20.0",
     "tsd": "catalog:",

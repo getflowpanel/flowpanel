@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { tpl } from "../../utils/template";
-import { guessedAuthFile, guessedPaths, patchLayoutWithSuppressHydration } from "../init";
+import { guessedAuthFile, guessedPaths, initErrorPayload } from "../init";
+
+describe("init JSON errors", () => {
+  it("uses the same stable machine-readable envelope for preflight failures", () => {
+    expect(initErrorPayload("Next.js is missing")).toEqual({
+      command: "init",
+      applied: false,
+      error: "Next.js is missing",
+    });
+  });
+});
 
 describe("guessedPaths", () => {
   it("uses the @/ alias when the project has one", () => {
@@ -110,6 +120,8 @@ describe("init templates (resolution)", () => {
     expect(out).toContain('import "@/styles/admin.css";');
     expect(out).toContain('title: "Acme — Admin"');
     expect(out).toContain('<html lang="en" suppressHydrationWarning>');
+    expect(out).toContain('import { ThemeScript } from "@flowpanel/kit/react"');
+    expect(out).toContain('<ThemeScript defaultMode="auto" />');
   });
 
   it("tailwind v3 config template exposes the fp-* color map", async () => {
@@ -152,37 +164,5 @@ describe("init templates (resolution)", () => {
     const out = await tpl("tailwind.config.v3.ts.txt");
     expect(out).toContain('"./node_modules/@flowpanel/*/dist/**/*.{js,mjs}"');
     expect(out).toContain('"./node_modules/.pnpm/node_modules/@flowpanel/*/dist/**/*.{js,mjs}"');
-  });
-});
-
-describe("patchLayoutWithSuppressHydration", () => {
-  it("adds the attribute to an <html> tag that has other props", () => {
-    const out = patchLayoutWithSuppressHydration('<html lang="en">');
-    expect(out).toBe('<html lang="en" suppressHydrationWarning>');
-  });
-
-  it("adds the attribute to a bare <html> tag", () => {
-    expect(patchLayoutWithSuppressHydration("<html>")).toBe("<html suppressHydrationWarning>");
-  });
-
-  it("handles a multi-line <html> tag", () => {
-    const src = '<html\n  lang="en"\n  className="x"\n>';
-    expect(patchLayoutWithSuppressHydration(src)).toBe(
-      '<html\n  lang="en"\n  className="x" suppressHydrationWarning\n>',
-    );
-  });
-
-  it("returns null when the attribute is already there", () => {
-    expect(
-      patchLayoutWithSuppressHydration('<html lang="en" suppressHydrationWarning>'),
-    ).toBeNull();
-  });
-
-  it("returns null when there is no <html> tag to patch", () => {
-    expect(patchLayoutWithSuppressHydration("export default function L() {}")).toBeNull();
-  });
-
-  it("leaves an <htmlSomething> identifier alone", () => {
-    expect(patchLayoutWithSuppressHydration("const htmlFoo = 1;")).toBeNull();
   });
 });

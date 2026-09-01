@@ -39,12 +39,24 @@ FlowPanel styling no longer depends on or mutates a host application's global
 
 The CLI now plans filesystem changes before writing. `init`, `doctor`, `new`,
 `migrate` and `eject` expose machine-readable and dry-run modes where
-applicable; writes are atomic and rollback-safe, reruns are idempotent, and
-conflicting source files are never overwritten implicitly. `.env.local` and
+applicable; filesystem writes are atomic and rollback-safe, reruns are
+idempotent, and conflicting source files are never overwritten implicitly.
+Migration SQL and bookkeeping now pass through one adapter operation. Drizzle
+splits ordinary multi-statement files, serializes and rechecks applied IDs at
+the database boundary, and uses transactional DDL where the database supports
+it. MySQL statements run individually under an advisory lock, while its
+implicit DDL commits remain explicitly non-rollbackable. `.env.local` and
 `.env` load consistently, diagnostics are concise by default, and the packed
 CLI is tested in clean npm projects on Linux and Windows.
+Custom adapters should add `applyMigration(id, sql)`; the deprecated
+`runMigrationSql` plus `markMigrationApplied` pair remains a warned, non-atomic
+upgrade fallback. Prisma implements the locked operation too, one protocol per
+declared `provider`: a transaction on PostgreSQL and SQLite, and a durable claim
+row on MySQL, whose implicit DDL commits nothing can roll back. It runs ordinary
+multi-statement files safely and rejects dialect-specific procedural bodies,
+MySQL executable comments and client directives before executing any SQL.
 
-The canonical ScrapeAI demo is a focused five-screen competitive-price
+The canonical ScrapeAI demo is a focused seven-screen competitive-price
 intelligence story with deterministic relational data, Admin/Support personas,
 a responsive operations dashboard and human review workflow. The synchronized
 documentation covers every public export, separates generated-UI compatibility

@@ -1,7 +1,7 @@
 {
   "name": "@flowpanel/next",
   "version": "0.1.0",
-  "description": "Next.js 16 integration for FlowPanel \u2014 App Router pages, route handlers, drawers, actions, and SSE",
+  "description": "Next.js 16 integration for FlowPanel — App Router pages, route handlers, drawers, actions, and SSE",
   "keywords": [
     "flowpanel",
     "admin",
@@ -42,11 +42,26 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "rm -rf dist && tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
+    "build": "tsup",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "test:types": "tsd",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "tsd": {
+    "directory": "types-test",
+    "compilerOptions": {
+      "module": "nodenext",
+      "moduleResolution": "nodenext",
+      "strict": true,
+      "esModuleInterop": true,
+      "paths": {
+        "@flowpanel/next": [
+          "./dist/index.d.ts"
+        ]
+      }
+    }
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*",
@@ -74,6 +89,7 @@
     "next": "^16.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "tsd": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",

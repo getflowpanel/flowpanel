@@ -15,6 +15,8 @@ import { cn } from "../lib/cn";
 
 export interface FormActionResult {
   ok: boolean;
+  /** Stable row key returned after create; appended to redirects as a one-shot entry marker. */
+  createdKey?: string;
   error?: string;
   fieldErrors?: Record<string, string>;
 }
@@ -56,6 +58,19 @@ export interface FormProps<S extends $ZodType> {
   redirectTo?: string;
 }
 
+/** Add the one-shot entry marker without losing filters, views, or hash fragments. */
+export function redirectWithCreatedKey(redirectTo: string, createdKey?: string): string {
+  if (!createdKey) return redirectTo;
+  const hashIndex = redirectTo.indexOf("#");
+  const beforeHash = hashIndex >= 0 ? redirectTo.slice(0, hashIndex) : redirectTo;
+  const hash = hashIndex >= 0 ? redirectTo.slice(hashIndex) : "";
+  const queryIndex = beforeHash.indexOf("?");
+  const path = queryIndex >= 0 ? beforeHash.slice(0, queryIndex) : beforeHash;
+  const params = new URLSearchParams(queryIndex >= 0 ? beforeHash.slice(queryIndex + 1) : "");
+  params.set("fp_created", createdKey);
+  return `${path}?${params.toString()}${hash}`;
+}
+
 export function Form<S extends $ZodType>({
   action,
   schema,
@@ -86,7 +101,7 @@ export function Form<S extends $ZodType>({
       } finally {
         setIsSubmitting(false);
       }
-      if (res.ok && redirectTo) router.push(redirectTo);
+      if (res.ok && redirectTo) router.push(redirectWithCreatedKey(redirectTo, res.createdKey));
       return buildSubmissionReply(submission, res);
     },
     [action, schema, redirectTo, router],

@@ -25,6 +25,7 @@ import { handleRenderError, renderContent } from "../flowpanel-page";
 import { DashboardPage } from "../pages/dashboard";
 import { NotFound } from "../pages/not-found";
 import { QueuePage } from "../pages/queue-page";
+import { ResourceListPage } from "../pages/resource-list";
 import { UserPage } from "../pages/user-page";
 import { Welcome } from "../pages/welcome";
 
@@ -47,6 +48,38 @@ function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdmin
 }
 
 describe("renderContent — admin-wide requireRole", () => {
+  it("opens the first resource the caller can read, not merely the first visible resource", async () => {
+    const denied = {
+      __kind: "resource",
+      ref: { __name: "secrets" },
+      options: { columns: [], access: { read: async () => false } },
+    } as ResourceConfig;
+    const allowed = {
+      __kind: "resource",
+      ref: { __name: "customers" },
+      options: { columns: [], access: { read: async () => true } },
+    } as ResourceConfig;
+    const config = makeConfig({
+      resources: [denied, allowed],
+      resourcesByName: new Map([
+        ["secrets", denied],
+        ["customers", allowed],
+      ]),
+    });
+
+    const node = await renderContent(
+      config,
+      [],
+      new URLSearchParams(),
+      new Request("http://localhost/admin"),
+    );
+
+    expect(isValidElement(node) && node.type).toBe(ResourceListPage);
+    expect(isValidElement(node) && (node.props as { resource: ResourceConfig }).resource).toBe(
+      allowed,
+    );
+  });
+
   it("rejects a dashboard render when admin-wide requireRole fails, even without its own gate", async () => {
     const dash: DashboardConfig = { path: "/", label: "Home", sections: [] };
     const config = makeConfig({
@@ -157,13 +190,21 @@ describe("renderContent — admin-wide requireRole", () => {
       ref: {} as never,
       options: { label: "Scraper", boardUrl: "http://localhost:3001" },
     };
+    const billing: QueueConfig = {
+      __kind: "queue",
+      ref: {} as never,
+      options: { label: "Billing", boardUrl: "http://localhost:3001/billing", hidden: true },
+    };
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "admin" } }),
         role: () => "admin",
         requireRole: "admin",
       },
-      queuesByKey: new Map([["scraper", queue]]),
+      queuesByKey: new Map([
+        ["scraper", queue],
+        ["billing", billing],
+      ]),
     } as never);
 
     const node = await renderContent(
@@ -173,6 +214,13 @@ describe("renderContent — admin-wide requireRole", () => {
       new Request("http://localhost/admin/queues/scraper"),
     );
     expect(isValidElement(node) && node.type).toBe(QueuePage);
+    expect(
+      isValidElement(node) &&
+        (node.props as { navigation: Array<{ label: string; href: string }> }).navigation,
+    ).toEqual([
+      { label: "Scraper", href: "/admin/queues/scraper", active: true },
+      { label: "Billing", href: "/admin/queues/billing", active: false },
+    ]);
   });
 });
 

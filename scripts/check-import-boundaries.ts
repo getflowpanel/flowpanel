@@ -39,15 +39,21 @@ for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   }
 }
 
-// Rule 3: packages must import from @flowpanel/core only via public index (not deep imports)
+// Rule 3: adapters reach @flowpanel/core through its public index. The one
+// exception is `internal/migration-sql`: core exports the SQL lexer on that
+// subpath so the two adapters share one tokenizer instead of forking it, and
+// the `internal/` prefix keeps it out of the user-facing API.
+const SHARED_CORE_INTERNALS = new Set(["internal/migration-sql"]);
 for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   for (const file of globSync(`packages/${pkg}/src/**/*.ts`, {
     ignore: ["**/__tests__/**", "**/*.test.ts"],
     cwd: process.cwd(),
   })) {
     const src = readFileSync(file, "utf-8");
-    if (/from\s+["']@flowpanel\/core\/[^"']+/.test(src)) {
-      violations.push(`${file}: deep import from @flowpanel/core (use public index)`);
+    for (const [, subpath] of src.matchAll(/from\s+["']@flowpanel\/core\/([^"']+)["']/g)) {
+      if (!SHARED_CORE_INTERNALS.has(subpath)) {
+        violations.push(`${file}: deep import from @flowpanel/core (use public index)`);
+      }
     }
   }
 }

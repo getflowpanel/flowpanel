@@ -15,6 +15,8 @@ export interface AdminShellProps {
   user?: AccountMenuUser;
   navGroups: NavGroup[];
   currentPath: string;
+  /** Set false when the host layout already provides the page's skip link. */
+  showSkipLink?: boolean;
   children: React.ReactNode;
 }
 
@@ -25,6 +27,7 @@ export function AdminShell({
   user,
   navGroups,
   currentPath,
+  showSkipLink = true,
   children,
 }: AdminShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
@@ -46,7 +49,7 @@ export function AdminShell({
   if (variant === "tabs") {
     return (
       <div className="min-h-screen bg-fp-bg-2 font-fp-sans text-fp-text-1 antialiased">
-        {skipLink}
+        {showSkipLink ? skipLink : null}
         <AdminTabs
           groups={navGroups}
           currentPath={currentPath}
@@ -62,7 +65,7 @@ export function AdminShell({
 
   return (
     <div className="flex h-screen flex-col bg-fp-bg-2 font-fp-sans text-fp-text-1 antialiased md:flex-row">
-      {skipLink}
+      {showSkipLink ? skipLink : null}
       <div className="flex shrink-0 items-center gap-2 border-b border-fp-border-1 bg-fp-bg-1 px-3 py-2 md:hidden">
         <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <DialogPrimitive.Trigger

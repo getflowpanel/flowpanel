@@ -64,7 +64,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
       await prisma.testUser.create({ data: { email: `seed${i}@example.com`, name: `User ${i}` } });
     }
 
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
     const result = await adapter.list("TestUser", {
       page: 1,
       pageSize: 3,
@@ -84,7 +84,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     // a validation error) instead of filtering. `age` is untouched by every
     // other test in this file (always NULL there), so a distinctive range
     // isolates these rows regardless of test order.
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
     for (let i = 0; i < 5; i++) {
       await adapter.create("TestUser", {
         input: { email: `range${i}@filtertest.com`, age: 1000 + i },
@@ -115,7 +115,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
   });
 
   it("daterange filter: `gte`/`lte` return only in-range rows, never throws", async () => {
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
     const inRange = (await adapter.create("TestUser", {
       input: { email: "daterange-in@filtertest.com", createdAt: new Date("2020-02-01T00:00:00Z") },
       db: undefined,
@@ -146,7 +146,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     // match zero rows — worse than a crash because nobody notices. Filters
     // on `email` (String) rather than `id` (Int) — a `multiselect` value is
     // always `string[]`, and prisma validates arg types against the schema.
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
     const a = (await adapter.create("TestUser", {
       input: { email: "in-a@filtertest.com" },
       db: undefined,
@@ -171,7 +171,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
       data: { email: "get-test@example.com" },
     });
 
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
     const found = (await adapter.get("TestUser", {
       id: String(created.id),
       db: undefined,
@@ -184,7 +184,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
   });
 
   it("create + update + delete roundtrip", async () => {
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
 
     const created = (await adapter.create("TestUser", {
       input: { email: "crud@example.com", active: true },
@@ -206,7 +206,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
   });
 
   it("soft-delete + restore roundtrip", async () => {
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
 
     const created = (await adapter.create("TestUser", {
       input: { email: "softdel@example.com" },
@@ -247,5 +247,32 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     } as any)) as TestRow;
     expect(restored).not.toBeNull();
     expect(restored.deletedAt).toBeNull();
+  });
+
+  it("rolls back the first delete when a later delete in the transaction fails", async () => {
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    if (!adapter.transaction) throw new Error("Prisma adapter did not expose transactions");
+
+    const first = await prisma.testUser.create({
+      data: { email: "tx-rollback-first@example.com" },
+    });
+
+    await expect(
+      adapter.transaction(async (tx) => {
+        await adapter.delete!("TestUser", {
+          id: String(first.id),
+          input: {},
+          db: tx,
+        } as any);
+        await adapter.delete!("TestUser", {
+          id: "2147483647",
+          input: {},
+          db: tx,
+        } as any);
+      }),
+    ).rejects.toThrow();
+
+    const preserved = await prisma.testUser.findUnique({ where: { id: first.id } });
+    expect(preserved?.email).toBe("tx-rollback-first@example.com");
   });
 });

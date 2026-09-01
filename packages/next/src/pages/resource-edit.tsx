@@ -5,8 +5,10 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import {
+  assertResourceScope,
   authorizeOperation,
   checkRequireRole,
+  filterReadableProjection,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
@@ -42,6 +44,10 @@ export async function ResourceEditPage({
     resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
     reqCtx,
   );
+  assertResourceScope({
+    hasGlobal: !!config.scope,
+    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+  });
 
   if (resource.options.update?.disabled) {
     return <div className="text-fp-text-3">Editing is disabled for this resource.</div>;
@@ -65,6 +71,20 @@ export async function ResourceEditPage({
   const action = `${config.paths.api}/${name}/${id}/edit`;
   const declared = declaredFormFields(resource, "update");
   const fields = declared ? await resolveFormFields(config, declared, reqCtx, row) : undefined;
+  const columns = writableColumns(resource, intro.columns, declared);
+  const defaultFields = fields
+    ? fields.map((field) => field.name)
+    : columns.filter((column) => !column.primaryKey).map((column) => column.name);
+  const readableDefaults = await filterReadableProjection(
+    defaultFields,
+    resource.options.fieldAccess,
+    reqCtx,
+  );
+  const defaultValues = Object.fromEntries(
+    readableDefaults
+      .filter((field) => Object.hasOwn(row, field))
+      .map((field) => [field, row[field]]),
+  );
 
   return (
     <>
@@ -72,8 +92,8 @@ export async function ResourceEditPage({
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
-          columns={writableColumns(resource, intro.columns, declared)}
-          defaultValues={row}
+          columns={columns}
+          defaultValues={defaultValues}
           {...(fields ? { fields } : {})}
           submitLabel="Save"
           redirectTo={buildHref(config, name, id)}

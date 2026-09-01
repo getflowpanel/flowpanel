@@ -1,5 +1,10 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { authorizeOperation, checkRequireRole, resolveOperationAccess } from "@flowpanel/core";
+import {
+  assertResourceScope,
+  authorizeOperation,
+  checkRequireRole,
+  resolveOperationAccess,
+} from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
 import { buildHref } from "../runtime/href";
@@ -28,6 +33,10 @@ export async function ResourceCreatePage({
     resolveOperationAccess(resource.options.access, resource.options.requireRole, "create"),
     reqCtx,
   );
+  assertResourceScope({
+    hasGlobal: !!config.scope,
+    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+  });
 
   if (resource.options.create?.disabled) {
     return <div className="text-fp-text-3">Create is disabled for this resource.</div>;

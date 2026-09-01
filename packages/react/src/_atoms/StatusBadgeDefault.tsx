@@ -1,4 +1,4 @@
-import type * as React from "react";
+import { cn } from "../lib/cn";
 import { type BadgeTone, DefaultBadge } from "./BadgeDefault";
 
 /** The status badge accepts the single {@link BadgeTone}/`Tone` vocabulary. */
@@ -35,9 +35,9 @@ const TONE_MAP: Record<string, BadgeTone> = {
 /** Pure renderer — no context dependency. Used as the registry default. */
 export function DefaultStatusBadge({ status, tone, className }: StatusBadgeProps) {
   const resolved = tone ?? TONE_MAP[status.toLowerCase()] ?? "muted";
-  const extra: React.HTMLAttributes<HTMLSpanElement> = className ? { className } : {};
+  const compactClassName = cn("px-1.5 py-px text-[11px] leading-4", className);
   return (
-    <DefaultBadge tone={resolved} {...extra}>
+    <DefaultBadge tone={resolved} className={compactClassName}>
       {status}
     </DefaultBadge>
   );

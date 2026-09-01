@@ -122,7 +122,7 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
       },
       async (reqCtx) => {
         const body = await readActionInput(req);
-        if (!body.ok) return invalidJsonResponse();
+        if (!body.ok) return invalidJsonResponse(body.reason);
         const parsedInput = await parseActionInputSchema(
           action.form as Parameters<typeof parseActionInputSchema>[0],
           action.inputSchema,

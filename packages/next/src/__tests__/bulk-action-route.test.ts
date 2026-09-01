@@ -120,6 +120,26 @@ describe("bulkActionRoute", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("413 when the request body is too large", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({ action: { key: "verify", label: "V", run } });
+    const handler = bulkActionRoute(config);
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": String(1024 * 1024 + 1),
+      },
+      body: JSON.stringify({ ids: ["a"] }),
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(res.status).toBe(413);
+    expect((await res.json()).error).toBe("request body is too large");
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("400 when ids is empty", async () => {
     const config = makeConfig({
       action: { key: "verify", label: "V", run: async () => ({ ok: true }) },

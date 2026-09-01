@@ -54,7 +54,7 @@ function makeMockPrisma() {
 describe("prismaAdapter with a non-`id` primary key", () => {
   it("get queries by the model's @id field", async () => {
     const prisma = makeMockPrisma();
-    const adapter = prismaAdapter({ prisma, dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
 
     await adapter.get("Article", { id: "hello-world", db: undefined } as never);
 
@@ -65,7 +65,7 @@ describe("prismaAdapter with a non-`id` primary key", () => {
 
   it("update targets the @id field", async () => {
     const prisma = makeMockPrisma();
-    const adapter = prismaAdapter({ prisma, dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
 
     await adapter.update("Article", {
       id: "hello-world",
@@ -81,7 +81,7 @@ describe("prismaAdapter with a non-`id` primary key", () => {
 
   it("delete targets the @id field", async () => {
     const prisma = makeMockPrisma();
-    const adapter = prismaAdapter({ prisma, dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
 
     await adapter.delete?.("Article", { id: "hello-world", input: {}, db: undefined } as never);
 
@@ -90,7 +90,7 @@ describe("prismaAdapter with a non-`id` primary key", () => {
 
   it("soft delete and restore target the @id field", async () => {
     const prisma = makeMockPrisma();
-    const adapter = prismaAdapter({ prisma, dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
     const ctx = {
       id: "hello-world",
       input: {},
@@ -109,7 +109,7 @@ describe("prismaAdapter with a non-`id` primary key", () => {
 
   it("coerces to the @id field's type under its own name", async () => {
     const prisma = makeMockPrisma();
-    const adapter = prismaAdapter({ prisma, dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
 
     await adapter.get("Ticket", { id: "42", db: undefined } as never);
 
@@ -118,7 +118,7 @@ describe("prismaAdapter with a non-`id` primary key", () => {
 
   it("still throws when the id cannot be coerced to a numeric @id field", async () => {
     const prisma = makeMockPrisma();
-    const adapter = prismaAdapter({ prisma, dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
 
     await expect(adapter.get("Ticket", { id: "abc", db: undefined } as never)).rejects.toThrow(
       /cannot coerce/,
@@ -126,7 +126,7 @@ describe("prismaAdapter with a non-`id` primary key", () => {
   });
 
   it("introspect reports the @id field as the primary key", () => {
-    const adapter = prismaAdapter({ prisma: {}, dmmf });
+    const adapter = prismaAdapter({ prisma: {}, dmmf, provider: "postgresql" });
     expect(adapter.introspect("Article").primaryKey).toBe("slug");
   });
 });

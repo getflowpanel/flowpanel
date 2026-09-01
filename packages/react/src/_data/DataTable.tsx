@@ -68,6 +68,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   onShowShortcuts,
   inlineEditResource,
   mobileLayout = "card",
+  enteringRowKeys = [],
   exportable = false,
   importable,
   showDensityToggle = false,
@@ -142,6 +143,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   });
   const { selectionEnabled, keyOf, selectionSet, allOnPageSelected, toggleRow, toggleAll } =
     selectionApi;
+  const enteringKeySet = React.useMemo(() => new Set(enteringRowKeys), [enteringRowKeys]);
 
   const tbodyRef = React.useRef<HTMLTableSectionElement>(null);
   const keyboard = useDataTableKeyboard<Row>({
@@ -275,6 +277,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             {...(emptyDescription ? { emptyDescription } : {})}
             {...(emptyAction ? { emptyAction } : {})}
             {...(emptyIcon ? { emptyIcon } : {})}
+            enteringRowKeys={enteringRowKeys}
           />
         </div>
         <Pagination
@@ -328,6 +331,7 @@ export function DataTable<Row extends Record<string, unknown>>({
               row={r}
               rowIndex={idx}
               rowKeyValue={keyOf(r)}
+              entering={enteringKeySet.has(keyOf(r))}
               rowKey={rowKey}
               active={idx === cursor}
               orderedVisible={orderedVisible}

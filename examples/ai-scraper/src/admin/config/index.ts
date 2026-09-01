@@ -5,6 +5,8 @@ import { queues } from "@/src/admin/queues";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 import { type AdminSession, getDemoSession } from "@/src/demo/auth/session";
+import { readSandboxConfig } from "@/src/demo/sandbox/config";
+import { requireSandboxId } from "@/src/demo/sandbox/scope";
 import { overview } from "./overview";
 import { aiUsage } from "./resources/ai-usage";
 import { customers } from "./resources/customers";
@@ -31,9 +33,12 @@ declare module "@flowpanel/kit" {
   }
 }
 
+const sandboxConfig = readSandboxConfig();
+
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  readOnly: process.env.DEMO_MODE === "true",
+  readOnly: sandboxConfig.readOnly,
+  scope: ({ session }) => ({ sandboxId: requireSandboxId(session as AdminSession | null) }),
   realtime: { driver: "memory" },
   audit: {
     enabled: true,
@@ -47,9 +52,10 @@ export default defineAdmin({
   auth: {
     session: (req) => getDemoSession(req),
     role: (s) => (s as AdminSession | null)?.role ?? "guest",
+    userId: (s) => (s as AdminSession | null)?.user.id ?? null,
     requireRole: ["admin", "support"],
   },
-  shell: { mode: "tabs", brand: false },
+  shell: { mode: "tabs", brand: false, skipLink: false },
   theme: {
     components: { MetricCard },
     accent: "217 91% 50%",

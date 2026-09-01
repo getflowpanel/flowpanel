@@ -70,8 +70,16 @@ export interface Adapter<DB = InferDB, Ref = unknown> {
   delete(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
   /** Clear the soft-delete stamp. Without it, the admin hides the restore button. */
   restore?(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
-  /** Optional migration support, used by `flowpanel migrate`. */
+  /**
+   * Optional migration support, used by `flowpanel migrate`.
+   * The CLI's earlier `listAppliedMigrations` result may be stale. Implementations
+   * that support concurrent migrators must serialize and recheck `id` at the
+   * database boundary.
+   */
+  applyMigration?(id: string, sql: string): Promise<void>;
+  /** @deprecated Implement `applyMigration` for CLI migration support. */
   runMigrationSql?(sql: string): Promise<void>;
   listAppliedMigrations?(): Promise<Set<string>>;
+  /** @deprecated Implement `applyMigration` for CLI migration support. */
   markMigrationApplied?(id: string): Promise<void>;
 }

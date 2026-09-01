@@ -2,29 +2,27 @@
  * Seed the demo database with realistic ai-scraper data.
  * Run: `pnpm db:seed` (after `pnpm docker:up && pnpm db:push`).
  *
- * The actual data lives in `scripts/seed-data.ts` so `scripts/reset-demo.ts`
- * can reuse it without copy-paste.
+ * Seed and reset share the transactional sandbox service.
  */
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "../src/db/schema";
-import { seedDatabase } from "./seed-data";
+import { seedSandbox } from "../src/demo/sandbox/seed";
 
-const db = drizzle(
-  new Pool({
-    connectionString: process.env.DATABASE_URL ?? "postgres://fp:fp@localhost:54329/ai_scraper",
-  }),
-  { schema },
-);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL ?? "postgres://fp:fp@localhost:54329/ai_scraper",
+});
+const db = drizzle(pool, { schema });
 
 async function seed() {
   console.log("⏳ seeding…");
-  await seedDatabase(db);
+  await seedSandbox(db, "local", new Date());
   console.log("✅ seeded");
-  process.exit(0);
 }
 
-seed().catch((err) => {
-  console.error("seed failed:", err);
-  process.exit(1);
-});
+seed()
+  .catch((err) => {
+    console.error("seed failed:", err);
+    process.exitCode = 1;
+  })
+  .finally(() => pool.end());

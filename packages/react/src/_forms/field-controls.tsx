@@ -192,7 +192,6 @@ export function MultiSelectField({
                   else set.delete(o.value);
                   control.change(encodeList(Array.from(set)));
                 }}
-                className="h-3.5 w-3.5"
               />
               {o.label}
             </label>

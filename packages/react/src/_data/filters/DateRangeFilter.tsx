@@ -161,7 +161,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
         }}
       >
         <PopoverTrigger
-          className="fp-press flex h-8 min-w-0 items-center gap-2 rounded-full text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+          className="fp-press flex h-11 min-w-0 items-center gap-2 rounded-full text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:h-8"
           aria-label={label ? `${label}: date range` : "Date range"}
         >
           <span className={cn("truncate", trigger ? "text-fp-text-1" : "text-fp-text-3")}>
@@ -176,7 +176,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
             type="button"
             onClick={clear}
             aria-label="Clear date range"
-            className="fp-press inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-fp-text-3 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+            className="fp-press -mr-3 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fp-text-3 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:mr-0 sm:h-6 sm:w-6"
           >
             <X aria-hidden className="h-3.5 w-3.5" />
           </button>

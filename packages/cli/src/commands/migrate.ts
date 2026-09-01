@@ -14,6 +14,7 @@ interface MigrateOptions {
 }
 
 interface MigrationAdapter {
+  applyMigration?: (id: string, sql: string) => Promise<void>;
   runMigrationSql?: (sql: string) => Promise<void>;
   listAppliedMigrations?: () => Promise<Set<string>>;
   markMigrationApplied?: (id: string) => Promise<void>;
@@ -36,6 +37,45 @@ interface JitiInstance {
 
 interface JitiModule {
   createJiti: (cwd: string, opts?: JitiOptions) => JitiInstance;
+}
+
+const LEGACY_MIGRATION_WARNING =
+  "This adapter uses the legacy non-atomic migration hooks; concurrent migrators are not serialized. " +
+  "Implement applyMigration(id, sql) before relying on transactional rollback or duplicate suppression.";
+
+interface MigrationExecutor {
+  applyMigration: (id: string, sql: string) => Promise<void>;
+  listAppliedMigrations: () => Promise<Set<string>>;
+  mode: "adapter" | "legacy-hooks";
+  warnings: string[];
+}
+
+export function resolveMigrationExecutor(
+  adapter: MigrationAdapter | undefined,
+): MigrationExecutor | undefined {
+  const listAppliedMigrations = adapter?.listAppliedMigrations?.bind(adapter);
+  if (typeof listAppliedMigrations !== "function") return undefined;
+
+  const applyMigration = adapter?.applyMigration?.bind(adapter);
+  if (typeof applyMigration === "function") {
+    return { applyMigration, listAppliedMigrations, mode: "adapter", warnings: [] };
+  }
+
+  const runMigrationSql = adapter?.runMigrationSql?.bind(adapter);
+  const markMigrationApplied = adapter?.markMigrationApplied?.bind(adapter);
+  if (typeof runMigrationSql !== "function" || typeof markMigrationApplied !== "function") {
+    return undefined;
+  }
+
+  return {
+    applyMigration: async (id, sql) => {
+      await runMigrationSql(sql);
+      await markMigrationApplied(id);
+    },
+    listAppliedMigrations,
+    mode: "legacy-hooks",
+    warnings: [LEGACY_MIGRATION_WARNING],
+  };
 }
 
 async function readTsconfigAliases(cwd: string): Promise<Record<string, string>> {
@@ -136,21 +176,21 @@ export function migrateCommand(cli: Command): void {
       }
 
       const adapter = config.adapter;
-      const runMigrationSql = adapter?.runMigrationSql?.bind(adapter);
-      const listAppliedMigrations = adapter?.listAppliedMigrations?.bind(adapter);
-      const markMigrationApplied = adapter?.markMigrationApplied?.bind(adapter);
-      if (
-        typeof runMigrationSql !== "function" ||
-        typeof listAppliedMigrations !== "function" ||
-        typeof markMigrationApplied !== "function"
-      ) {
+      const executor = resolveMigrationExecutor(adapter);
+      if (!executor) {
         log.err(
           "Adapter does not support `flowpanel migrate`. Use `drizzleAdapter` or `prismaAdapter` from a FlowPanel ≥ this version.",
         );
         process.exit(1);
       }
+      if (!opts.json && executor.mode === "legacy-hooks") {
+        log.warn(LEGACY_MIGRATION_WARNING);
+      }
 
-      const applied = await listAppliedMigrations();
+      // This is a UX snapshot, not a concurrency claim. A modern adapter's
+      // applyMigration implementation must serialize and recheck the id at the
+      // database boundary because another CLI process can invalidate it.
+      const applied = await executor.listAppliedMigrations();
 
       let ran = 0;
       const appliedNow: string[] = [];
@@ -161,8 +201,7 @@ export function migrateCommand(cli: Command): void {
           continue;
         }
         const sql = await fs.readFile(path.join(dir, f), "utf8");
-        await runMigrationSql(sql);
-        await markMigrationApplied(id);
+        await executor.applyMigration(id, sql);
         appliedNow.push(id);
         if (!opts.json) log.ok(`${id} applied`);
         ran++;
@@ -174,6 +213,8 @@ export function migrateCommand(cli: Command): void {
           applied: true,
           migrations: appliedNow,
           alreadyApplied: files.length - appliedNow.length,
+          migrationMode: executor.mode,
+          warnings: executor.warnings,
         });
       } else if (ran === 0) {
         p.outro(pc.dim("All migrations up to date."));

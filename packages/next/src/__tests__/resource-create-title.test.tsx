@@ -54,6 +54,26 @@ async function titleFor(options: ResourceOptions<Record<string, unknown>>): Prom
 }
 
 describe("ResourceCreatePage title", () => {
+  it("fails closed when global scope is active and the resource has no scope", async () => {
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => null, role: () => "admin" },
+      scope: () => ({ tenantId: "t1" }),
+      resources: [resource({ __name: "customers" }, { columns: ["id"] })],
+    });
+    const resourceConfig = config.resourcesByName.get("customers");
+    if (!resourceConfig) throw new Error("fixture: resource not registered");
+
+    await expect(
+      ResourceCreatePage({
+        config,
+        resource: resourceConfig,
+        name: "customers",
+        req: new Request("http://localhost/admin/customers/new"),
+      }),
+    ).rejects.toThrow(/missing scope/i);
+  });
+
   it("prefers labelOne", async () => {
     await expect(
       titleFor({ columns: ["id"], label: "Customers", labelOne: "Customer" }),

@@ -21,6 +21,16 @@ function renderDialog(fields: ActionFormField[], onSubmit = vi.fn().mockResolved
 }
 
 describe("ActionFormDialog — canonical controls", () => {
+  it("does not emit a Radix accessibility warning when description is omitted", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    renderDialog([{ name: "note", label: "Note", type: "text" }]);
+
+    await waitFor(() =>
+      expect(warn.mock.calls.flat().join(" ")).not.toMatch(/Missing `Description`/),
+    );
+    warn.mockRestore();
+  });
+
   it("type=reference renders the AsyncSelect picker, not a text box", async () => {
     renderDialog([
       {

@@ -2,6 +2,12 @@ import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { FlowpanelValidationError } from "@flowpanel/core";
 import { notFoundResponse } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
+import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import {
+  type RequestBodyError,
+  readRequestFormData,
+  requestBodyErrorResponse,
+} from "../runtime/request-body";
 import { declaredFormFields } from "../runtime/resolve-form-fields";
 import { withGuards } from "../runtime/with-guards";
 import { declaredWriteFields } from "./field-pipeline";
@@ -58,12 +64,12 @@ async function parseFormBody(
   resource: ResourceConfig,
   config: ResolvedAdminConfig,
   mode: "create" | "update",
-): Promise<{ values: Record<string, unknown>; fieldErrors: Record<string, string> } | null> {
-  try {
-    return coerceFormData(await req.formData(), resource, config, mode);
-  } catch {
-    return null;
-  }
+): Promise<
+  | { ok: true; values: Record<string, unknown>; fieldErrors: Record<string, string> }
+  | { ok: false; reason: RequestBodyError }
+> {
+  const parsed = await readRequestFormData(req);
+  return parsed.ok ? { ok: true, ...coerceFormData(parsed.value, resource, config, mode) } : parsed;
 }
 
 function errorResult(err: unknown): { status: number; body: FormActionResult } {
@@ -103,17 +109,25 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
 
     return withGuards(config, req, { resource, operation: "create" }, async (reqCtx) => {
       const parsed = await parseFormBody(req, resource, config, "create");
-      if (parsed === null) {
-        return Response.json({ ok: false, error: "invalid form data" }, { status: 400 });
-      }
+      if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
 
       const actions = makeActions(config, resource, { reqCtx });
       try {
         if (Object.keys(parsed.fieldErrors).length > 0) {
           throw new FlowpanelValidationError(parsed.fieldErrors);
         }
-        await actions.create(parsed.values);
-        return Response.json({ ok: true } satisfies FormActionResult);
+        const created = await actions.create(parsed.values);
+        const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+        const createdValue =
+          created && typeof created === "object"
+            ? (created as Record<string, unknown>)[rowKey]
+            : undefined;
+        return Response.json({
+          ok: true,
+          ...(createdValue !== undefined && createdValue !== null
+            ? { createdKey: String(createdValue) }
+            : {}),
+        } satisfies FormActionResult);
       } catch (err) {
         const { status, body } = errorResult(err);
         return Response.json(body, { status });
@@ -138,9 +152,7 @@ export function resourceUpdateRoute(config: ResolvedAdminConfig) {
 
     return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {
       const parsed = await parseFormBody(req, resource, config, "update");
-      if (parsed === null) {
-        return Response.json({ ok: false, error: "invalid form data" }, { status: 400 });
-      }
+      if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
 
       const actions = makeActions(config, resource, { reqCtx });
       try {

@@ -9,7 +9,7 @@ import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
 import { validateResourceColumns } from "../validate-resource-columns";
 import { validateResourceRefs } from "../validate-resource-refs";
 import { warnIfNoAccessControl } from "../warn-open-admin";
-import { builtinBulkDelete } from "./builtin-bulk-delete";
+import { createBuiltinBulkDelete } from "./builtin-bulk-delete";
 import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
 import {
   assertCanonicalAccess,
@@ -98,7 +98,13 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     if (config.readOnly) {
       resource = readOnlyResource(raw);
     } else if (raw.options.delete?.disabled !== true && raw.options.bulkActions === undefined) {
-      resource = { ...raw, options: { ...raw.options, bulkActions: [builtinBulkDelete] } };
+      resource = {
+        ...raw,
+        options: {
+          ...raw.options,
+          bulkActions: [createBuiltinBulkDelete(raw.options.delete?.confirm)],
+        },
+      };
     }
 
     const introspection = tryIntrospect(config.adapter, resource.ref);

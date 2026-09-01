@@ -1,6 +1,6 @@
 # Full demo dress rehearsal: app + Postgres in one network.
 # Usage:
-#   docker compose -f docker-compose.demo.yml up --build
+#   DEMO_SANDBOX_SECRET="$(openssl rand -hex 32)" docker compose -f docker-compose.demo.yml up --build
 # Then open http://localhost:3000/admin.
 #
 # Caddy/Traefik labels are commented hints; uncomment when you front
@@ -25,7 +25,7 @@ services:
     build:
       # Build context is the monorepo root so the demo builds from workspace
       # source (no npm publish required). Run from this directory:
-      #   docker compose -f docker-compose.demo.yml up --build
+      #   DEMO_SANDBOX_SECRET="$(openssl rand -hex 32)" docker compose -f docker-compose.demo.yml up --build
       context: ../..
       dockerfile: examples/ai-scraper/Dockerfile
     depends_on:
@@ -34,15 +34,20 @@ services:
     environment:
       DATABASE_URL: postgres://fp:fp@postgres:5432/ai_scraper
       DEMO_MODE: "true"
+      DEMO_SANDBOX_SECRET: "${DEMO_SANDBOX_SECRET:?Set DEMO_SANDBOX_SECRET to 32+ random characters}"
+      DEMO_TRUST_PROXY: "${DEMO_TRUST_PROXY:-false}"
+      DEMO_READ_ONLY: "false"
       NODE_ENV: production
     ports:
       - "3000:3000"
     # labels:
-    #   caddy: demo.flowpanel.dev
+    #   caddy: demo.flowpanel.tech
     #   caddy.reverse_proxy: "{{upstreams 3000}}"
     #   traefik.enable: "true"
-    #   traefik.http.routers.demo.rule: "Host(`demo.flowpanel.dev`)"
+    #   traefik.http.routers.demo.rule: "Host(`demo.flowpanel.tech`)"
     #   traefik.http.services.demo.loadbalancer.server.port: "3000"
+    # The production reverse proxy must replace X-Real-IP/X-Forwarded-For;
+    # sandbox creation throttling never trusts a browser-controlled address.
 
 volumes:
   ai_scraper_demo_data:

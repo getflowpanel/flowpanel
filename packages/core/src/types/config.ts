@@ -109,6 +109,8 @@ export interface ShellConfig {
   mode?: ShellMode;
   /** Overrides `theme.brand`. `false` hides brand even in sidebar/tabs. */
   brand?: { name?: string; logo?: string; href?: string } | false;
+  /** Disable when the host application layout already renders a skip-to-content link. */
+  skipLink?: boolean;
 }
 
 /** Browser request protections applied by the Next.js runtime. */

@@ -20,7 +20,12 @@ import {
 import { makeActions } from "../actions/resource-actions";
 import { actorIdFromSession } from "../runtime/action-helpers";
 import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
-import { projectAuthorizedRow } from "../runtime/project-row";
+import { declaredFieldSet } from "../runtime/parse-list-params";
+import { projectAuthorizedRow, projectAuthorizedRows } from "../runtime/project-row";
+import {
+  resolveReadableFieldSet,
+  sanitizeReadableListSearchParams,
+} from "../runtime/readable-fields";
 import { requireAuthorized } from "../runtime/require-authorized";
 import { scopeBinding } from "../runtime/scope-binding";
 import { createActionController } from "./action-controller";
@@ -178,22 +183,44 @@ export function createResourceController<Row extends Record<string, unknown>>(
           ctx,
           options.select as readonly string[] | undefined,
         );
+        const declaredQueryFields = declaredFieldSet(resource.options);
+        const readableQueryFields = await resolveReadableFieldSet(
+          declaredQueryFields,
+          resource.options.fieldAccess,
+          ctx,
+        );
+        const requestedFilters = options.filters ?? {};
+        const filters = Object.fromEntries(
+          Object.entries(requestedFilters).filter(([field]) => readableQueryFields.has(field)),
+        );
+        const requestedSort = options.sort ?? resource.options.defaultSort ?? null;
+        const sort =
+          requestedSort && readableQueryFields.has(String(requestedSort.field))
+            ? requestedSort
+            : null;
+        const readableSearchFields = (resource.options.search ?? [])
+          .map(String)
+          .filter((field) => readableQueryFields.has(field));
+        const search = readableSearchFields.length > 0 ? (options.search ?? "") : "";
+        const searchParams = sanitizeReadableListSearchParams(
+          new URL(ctx.req.url).searchParams,
+          readableQueryFields,
+          readableSearchFields.length > 0,
+        );
         const softDelete = resource.options.delete?.softDelete;
         const query: ListQueryContext<unknown> = {
           ...ctx,
           db: config.adapter.db,
           dateRange: { from: new Date(0), to: new Date() },
-          searchParams: new URL(ctx.req.url).searchParams,
+          searchParams,
           signal: ctx.req.signal,
-          filters: options.filters ?? {},
-          sort: (options.sort ??
-            resource.options.defaultSort ??
-            null) as ListQueryContext<unknown>["sort"],
+          filters,
+          sort: sort as ListQueryContext<unknown>["sort"],
           page,
           pageSize,
-          search: options.search ?? "",
+          search,
           select,
-          ...(resource.options.search ? { searchFields: resource.options.search as string[] } : {}),
+          ...(readableSearchFields.length > 0 ? { searchFields: readableSearchFields } : {}),
           ...(softDelete
             ? { softDelete: { column: String(softDelete) }, includeDeleted: options.includeDeleted }
             : {}),
@@ -202,10 +229,11 @@ export function createResourceController<Row extends Record<string, unknown>>(
         const result = await runWithRequestContext(ctx, () =>
           config.adapter.list(resource.ref, query),
         );
-        const rows = await Promise.all(
-          (result.rows as Record<string, unknown>[]).map((row) =>
-            projectAuthorizedRow(resource, row, ctx, select),
-          ),
+        const rows = await projectAuthorizedRows(
+          resource,
+          result.rows as Record<string, unknown>[],
+          ctx,
+          select,
         );
         return { ...result, rows } as ListResult<Partial<Row>>;
       });

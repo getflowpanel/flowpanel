@@ -4,6 +4,7 @@ import { buildAuditEvent, maybeEmitAudit, notFoundResponse } from "../runtime/ac
 import { applyActionResult } from "../runtime/apply-action-result";
 import { buildHref } from "../runtime/href";
 import { bindPublisher } from "../runtime/publish";
+import { readJsonObject, requestBodyErrorResponse } from "../runtime/request-body";
 import { declaredFormFields } from "../runtime/resolve-form-fields";
 import { scopeBinding } from "../runtime/scope-binding";
 import { withGuards } from "../runtime/with-guards";
@@ -26,12 +27,9 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
     }
 
     return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {
-      let body: { field?: unknown; value?: unknown };
-      try {
-        body = (await req.json()) as { field?: unknown; value?: unknown };
-      } catch {
-        return Response.json({ ok: false, error: "invalid JSON body" }, { status: 400 });
-      }
+      const parsedBody = await readJsonObject(req);
+      if (!parsedBody.ok) return requestBodyErrorResponse(parsedBody.reason);
+      const body = parsedBody.value as { field?: unknown; value?: unknown };
 
       if (typeof body.field !== "string" || !body.field) {
         return Response.json({ ok: false, error: "field is required" }, { status: 400 });

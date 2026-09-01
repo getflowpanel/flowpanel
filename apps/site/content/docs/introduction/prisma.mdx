@@ -16,6 +16,8 @@ The adapter is included in `@flowpanel/kit`; import it from `@flowpanel/kit/pris
 
 <include>../../snippets/getting-started/prisma-config.ts</include>
 
+`provider` is the `datasource` provider from `schema.prisma` — `"postgresql"`, `"mysql"` or `"sqlite"`. `flowpanel migrate` locks and splits SQL differently for each, so the adapter requires it rather than guessing.
+
 Use the PascalCase model name from `schema.prisma`: `"User"`, not the delegate name `"user"`. The adapter resolves it to `prisma.user` at runtime. Pass `name: "users"` in resource options if you want a different stable URL slug.
 
 A model name is a runtime string, so TypeScript cannot infer its row by itself. Add the model to `FlowpanelResources` as shown above. Column names, search fields, filters, form fields, action rows, and renderers then use the generated Prisma type.

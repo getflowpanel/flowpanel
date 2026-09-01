@@ -1,9 +1,11 @@
 import { resource } from "@flowpanel/kit";
 import * as schema from "@/src/db/schema";
 import { MARKETPLACES } from "@/src/demo/data/types";
+import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
 import { badge, money, ratingCell } from "../../format";
 
 export const offers = resource(schema.listings, {
+  ...sandboxResourcePolicy(schema.listings.sandboxId),
   name: "listings",
   label: "Offers",
   labelOne: "Offer",
@@ -39,6 +41,9 @@ export const offers = resource(schema.listings, {
   defaultSort: { field: "scrapedAt", dir: "desc" },
   density: "compact",
   create: { disabled: true },
+  delete: {
+    confirm: "Permanently delete selected offers and their matches? This cannot be undone.",
+  },
   rowClick: "drawer",
   export: {
     formats: ["csv", "json"],

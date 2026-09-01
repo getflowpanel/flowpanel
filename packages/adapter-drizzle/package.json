@@ -30,11 +30,11 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
-    "test:types": "tsd",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "test:types": "tsd",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "tsd": {
     "directory": "types-test",
@@ -71,13 +71,10 @@
     "@testcontainers/postgresql": "^10.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "catalog:",
-    "@types/pg": "^8.11.0",
     "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.45.2",
     "mysql2": "^3.22.2",
-    "pg": "^8.11.0",
     "postgres": "^3.4.0",
-    "testcontainers": "^10.0.0",
     "tsd": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",

@@ -1,45 +1,41 @@
-/** Cron entry point for the public demo. Exits non-zero so the platform alerts. */
+/** Operator entry point for restoring exactly one demo sandbox. */
+import { pathToFileURL } from "node:url";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "../src/db/schema";
-import { seedDatabase } from "./seed-data";
+import { isPublicSandboxId } from "../src/demo/sandbox/identity";
+import { RESET_DEMO_HELP } from "../src/demo/sandbox/script-help";
+import { resetSandboxData } from "../src/demo/sandbox/seed";
 
-const HELP = `Reset the FlowPanel public demo database.
-
-Usage:
-  DATABASE_URL=postgres://... pnpm exec tsx scripts/reset-demo.ts [--help]
-
-What it does:
-  1. TRUNCATEs every demo table (RESTART IDENTITY CASCADE).
-  2. Re-inserts the seed rows from scripts/seed-data.ts.
-
-Environment:
-  DATABASE_URL   Required in production. Falls back to the local
-                 docker-compose URL when unset.`;
-
-if (process.argv.includes("--help") || process.argv.includes("-h")) {
-  console.log(HELP);
-  process.exit(0);
+function sandboxArg(args: string[]): string {
+  const index = args.indexOf("--sandbox");
+  const value = index < 0 ? "local" : args[index + 1];
+  if (!value || (value !== "local" && !isPublicSandboxId(value))) {
+    throw new Error("--sandbox must be local or a canonical public UUID");
+  }
+  return value;
 }
 
-const connectionString = process.env.DATABASE_URL ?? "postgres://fp:fp@localhost:54329/ai_scraper";
-
-const pool = new Pool({ connectionString });
-const db = drizzle(pool, { schema });
-
-async function reset() {
-  console.log("⏳ resetting demo database…");
-  await seedDatabase(db);
-  console.log("✅ demo database reset");
-}
-
-reset()
-  .then(async () => {
-    await pool.end();
-    process.exit(0);
-  })
-  .catch(async (err) => {
-    console.error("reset-demo failed:", err);
-    await pool.end().catch(() => {});
-    process.exit(1);
+async function main() {
+  if (process.argv.includes("--help") || process.argv.includes("-h")) {
+    console.log(RESET_DEMO_HELP);
+    return;
+  }
+  const id = sandboxArg(process.argv.slice(2));
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL ?? "postgres://fp:fp@localhost:54329/ai_scraper",
   });
+  try {
+    await resetSandboxData(drizzle(pool, { schema }), id, new Date());
+    console.log(JSON.stringify({ ok: true, sandbox: id }));
+  } finally {
+    await pool.end();
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error("reset-demo failed:", error instanceof Error ? error.message : "unknown error");
+    process.exitCode = 1;
+  });
+}

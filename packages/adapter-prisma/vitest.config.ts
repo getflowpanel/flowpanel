@@ -6,7 +6,11 @@ export default defineConfig({
     ...sharedTestConfig,
     globals: false,
     environment: "node",
-    testTimeout: 30_000,
+    // The PostgreSQL and MySQL suites each start their own Docker container and
+    // generate a provider-specific Prisma client before the first test runs.
+    testTimeout: 120_000,
+    hookTimeout: 180_000,
+    fileParallelism: false,
     include: ["src/**/__tests__/**/*.test.ts"],
   },
 });

@@ -7,6 +7,15 @@ import { SelectFilter } from "../SelectFilter";
 afterEach(() => cleanup());
 
 describe("SelectFilter", () => {
+  it("keeps the actual mobile trigger at least 44px tall", () => {
+    render(
+      <SelectFilter value={null} onChange={vi.fn()} options={[{ label: "Pro", value: "pro" }]} />,
+    );
+
+    expect(screen.getByRole("combobox").className).toContain("h-11");
+    expect(screen.getByRole("combobox").className).toContain("sm:h-8");
+  });
+
   it("emits the selected value and null when 'All' is picked", () => {
     const onChange = vi.fn();
     const { rerender } = render(

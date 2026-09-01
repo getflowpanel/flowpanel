@@ -72,6 +72,8 @@ export interface DataTableProps<Row> {
   inlineEditResource?: string;
   /** Mobile layout when the viewport is narrower than 640px. */
   mobileLayout?: "card" | "scroll" | false;
+  /** Stable keys that should receive the one-shot, reduced-motion-safe entry treatment. */
+  enteringRowKeys?: string[];
   /** When set, renders an "Export" button in the toolbar that downloads the rows currently on screen. */
   exportable?: boolean | { formats?: ("csv" | "json")[]; fields?: string[] };
   importable?: { resource: string; formats: ("csv" | "json")[] };

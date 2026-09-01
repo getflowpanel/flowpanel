@@ -16,6 +16,21 @@ const rows: User[] = [
 ];
 
 describe("MobileCardList", () => {
+  it("animates only the explicitly created mobile card", () => {
+    const { container } = render(
+      <MobileCardList
+        columns={[{ field: "name" }, { field: "email" }]}
+        rows={rows}
+        rowKey="id"
+        enteringRowKeys={["2"]}
+      />,
+    );
+
+    const cards = [...container.querySelectorAll("li")];
+    expect(cards[0]?.classList.contains("fp-row-enter")).toBe(false);
+    expect(cards[1]?.classList.contains("fp-row-enter")).toBe(true);
+  });
+
   it("renders the row as a non-button element with role=button so nested buttons stay valid", () => {
     render(
       <MobileCardList
@@ -175,5 +190,25 @@ describe("MobileCardList", () => {
       </LabelsProvider>,
     );
     expect(screen.getByText("Ничего не найдено")).toBeTruthy();
+  });
+
+  it("gives row selection a 44px mobile hit area without enlarging its visual mark", () => {
+    render(
+      <MobileCardList
+        columns={[{ field: "name" }]}
+        rows={rows}
+        rowKey="id"
+        selection={[]}
+        onSelectionChange={() => {}}
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox", { name: "Select row 1" });
+    expect(checkbox.className).toContain("h-11");
+    expect(checkbox.className).toContain("w-11");
+    expect(checkbox.className).toContain("sm:h-5");
+    expect(checkbox.className).toContain("sm:w-5");
+    expect(checkbox.querySelector("span")?.className).toContain("h-4");
+    expect(checkbox.querySelector("span")?.className).toContain("w-4");
   });
 });

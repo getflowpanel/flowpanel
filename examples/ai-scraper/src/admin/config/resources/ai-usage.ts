@@ -1,9 +1,11 @@
 import { resource } from "@flowpanel/kit";
 import * as schema from "@/src/db/schema";
+import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
 import { modelLabel } from "@/src/lib/ai-models";
 import { money } from "../../format";
 
 export const aiUsage = resource(schema.aiUsage, {
+  ...sandboxResourcePolicy(schema.aiUsage.sandboxId),
   name: "ai_usage",
   label: "AI usage",
   icon: "sparkles",

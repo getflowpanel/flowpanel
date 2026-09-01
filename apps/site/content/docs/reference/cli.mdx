@@ -55,7 +55,7 @@ than always writing to the repo root.
 │  styles/admin.css                                       │
 │  flowpanel/migrations/0001_init.sql                     │
 │  app/layout.tsx (added the admin stylesheet import and  │
-│  suppressHydrationWarning)                              │
+│  suppressHydrationWarning and ThemeScript)              │
 ├─────────────────────────────────────────────────────────╯
 ◇  Installed @flowpanel/kit, @flowpanel/cli
 ```
@@ -68,11 +68,12 @@ What varies:
   existing layout is patched with the stylesheet import. If that layout
   already imports some other CSS bundle, `init` leaves that part alone and
   prints the import line for you to add.
-- **`suppressHydrationWarning`** — added to the existing layout's `<html>`
-  tag whether or not the stylesheet import was. `mode: "auto"` resolves the
-  theme before hydration and sets the namespaced `data-flowpanel-theme`
-  marker, which the server render cannot predict; without the attribute React
-  reports a hydration mismatch on every admin page.
+- **`ThemeScript` + `suppressHydrationWarning`** — the pre-hydration script is
+  added to `<head>`, and the attribute is added to the existing layout's
+  `<html>` tag whether or not the stylesheet import was. `mode: "auto"`
+  resolves the theme before hydration and sets the namespaced
+  `data-flowpanel-theme` marker, which the server render cannot predict;
+  together they avoid both a light-theme flash and a React hydration warning.
 - **`tailwind.config.ts`** — written only on Tailwind v3, and only when the
   file does not already exist. The v3 run also gets the `admin.css` v3
   variant (`@tailwind` directives instead of `@import "tailwindcss"`).
@@ -114,9 +115,39 @@ adapter's `db` instance and run the migration there.
 $ pnpm flowpanel migrate
 ```
 
-Use `--dry-run` to load the adapter and preview only migrations that are not
-already recorded. Add `--json` for a stable pending/applied payload.
-The CLI tracks applied IDs in `_flowpanel_migrations`.
+Use `--dry-run` to inspect migration files without importing your config or
+opening a database connection. Because it deliberately cannot know the applied
+state, it lists every SQL file and reports `appliedStateKnown: false` in JSON.
+Run the command without `--dry-run` to compare those files with the database.
+Add `--json` for a stable pending/applied payload. The CLI tracks applied IDs in
+`_flowpanel_migrations`.
+
+Each pending file is handed to the selected migration executor. A modern
+adapter provides one `applyMigration(id, sql)` operation; the compatibility
+executor composes the legacy `runMigrationSql` and `markMigrationApplied`
+hooks. On PostgreSQL and SQLite the modern operation keeps SQL and bookkeeping
+in one transaction. MySQL DDL implicitly commits, so review and back up
+production migrations.
+
+The applied-ID list is a preflight snapshot, not a process lock. Both shipped
+adapters serialize at the database, recheck the ID under that lock and treat a
+concurrent duplicate as a no-op. PostgreSQL and SQLite keep the file and its
+marker in one transaction. MySQL implicitly commits DDL, so it is serialized
+instead: Drizzle pins a connection behind an advisory lock, Prisma claims a
+durable row that also records where a failed run stopped.
+
+Custom adapters should implement `applyMigration` and `listAppliedMigrations`.
+During the 0.2 upgrade, the CLI still accepts the legacy `runMigrationSql` plus
+`markMigrationApplied` pair and warns that it is non-atomic and does not
+serialize concurrent migrators; JSON output then exposes
+`migrationMode: "legacy-hooks"` and a non-empty `warnings` array, so CI can
+reject it explicitly. Both shipped adapters implement the locked operation and
+never take that path.
+
+Both adapters reject dialect-specific procedural scripts without PostgreSQL
+dollar-quoted bodies before executing them; Prisma also rejects MySQL
+executable comments and client directives such as `DELIMITER`. Use the ORM's
+native migration workflow for those files.
 
 Every command reads `.env.local` and then `.env` from the working directory
 before it runs, the same order Next.js uses, so a `DATABASE_URL` that already

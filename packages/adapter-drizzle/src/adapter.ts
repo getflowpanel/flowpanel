@@ -34,7 +34,8 @@ import {
 } from "drizzle-orm";
 import { type DrizzleDialect, resolveDialect } from "./dialect";
 import { introspect } from "./introspect";
-import { type MigrationDb, migrationsTableDdl, runRaw, selectMigrationIds } from "./migrations";
+import { createMigrationMethods } from "./migration-executor";
+import type { MigrationDb } from "./migrations";
 import { inferSchema } from "./schema";
 
 interface DrizzleLikeDb {
@@ -89,6 +90,7 @@ export interface DrizzleAdapterOptions<DB = unknown> {
 export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB, Table> {
   const dialect = resolveDialect(opts);
   const likeOp = dialect === "pg" ? ilike : like;
+  const migrationMethods = createMigrationMethods(opts.db as MigrationDb, dialect);
 
   function getDb(ctx: { db?: unknown }): DrizzleLikeDb {
     return (ctx.db ?? opts.db) as DrizzleLikeDb;
@@ -395,28 +397,6 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
         .set({ [softCol]: null })
         .where(where);
     },
-
-    async runMigrationSql(rawSql: string): Promise<void> {
-      await runRaw(opts.db as MigrationDb, dialect, sql.raw(rawSql));
-    },
-
-    async listAppliedMigrations(): Promise<Set<string>> {
-      const db = opts.db as MigrationDb;
-      await runRaw(db, dialect, sql.raw(migrationsTableDdl(dialect)));
-      const ids = await selectMigrationIds(
-        db,
-        dialect,
-        sql.raw(`SELECT id FROM _flowpanel_migrations`),
-      );
-      return new Set(ids);
-    },
-
-    async markMigrationApplied(id: string): Promise<void> {
-      await runRaw(
-        opts.db as MigrationDb,
-        dialect,
-        sql`INSERT INTO _flowpanel_migrations (id) VALUES (${id})`,
-      );
-    },
+    ...migrationMethods,
   };
 }

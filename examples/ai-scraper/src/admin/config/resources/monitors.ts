@@ -1,6 +1,7 @@
 import { bulkAction, type FieldDef, resource } from "@flowpanel/kit";
 import { pauseMonitors, resumeMonitors } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
+import { sandboxField, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
 import { badge, urlCell } from "../../format";
 
 type Monitor = typeof schema.monitors.$inferSelect;
@@ -62,6 +63,7 @@ const fields: FieldDef<Monitor>[] = [
 ];
 
 export const monitors = resource(schema.monitors, {
+  ...sandboxResourcePolicy(schema.monitors.sandboxId),
   name: "monitors",
   label: "Monitors",
   labelOne: "Monitor",
@@ -84,8 +86,12 @@ export const monitors = resource(schema.monitors, {
     { field: "schedule", type: "select", options: SCHEDULES },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
-  create: { fields },
+  create: { fields: [...fields, sandboxField<Monitor>()] },
   update: { fields },
+  delete: {
+    confirm:
+      "Permanently delete selected monitors and their runs, offers, matches, and AI usage? This cannot be undone.",
+  },
   bulkActions: [
     bulkAction<Monitor>({
       key: "pause",

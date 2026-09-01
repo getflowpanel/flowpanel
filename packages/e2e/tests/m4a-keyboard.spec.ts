@@ -29,6 +29,7 @@ test.describe("M4a — keyboard navigation", () => {
       .first();
     await expect(firstFocusable).toHaveAttribute("href", "#main");
     await expect(firstFocusable).toHaveText(/skip to main content/i);
+    await expect(page.getByRole("link", { name: /skip to main content/i })).toHaveCount(1);
 
     // (2) Focusing it and pressing Enter activates the in-page jump to #main.
     await firstFocusable.focus();

@@ -44,6 +44,7 @@ export interface FlowpanelOptions {
 interface ResolvedShell {
   mode: ShellMode;
   brand?: ShellBrand;
+  showSkipLink: boolean;
 }
 
 function resolveShell(
@@ -53,9 +54,10 @@ function resolveShell(
   const raw = override ?? config.shell;
   const cfg: ShellConfig = typeof raw === "string" ? { mode: raw } : (raw ?? {});
   const mode: ShellMode = cfg.mode ?? "sidebar";
+  const showSkipLink = cfg.skipLink !== false;
 
   if (cfg.brand === false || mode === "bare") {
-    return { mode };
+    return { mode, showSkipLink };
   }
   const override_ = cfg.brand && typeof cfg.brand === "object" ? cfg.brand : undefined;
   const themeBrand = config.theme?.brand;
@@ -64,7 +66,7 @@ function resolveShell(
     ...(override_ ?? {}),
   };
   const hasBrand = brand.name !== undefined || brand.logo !== undefined;
-  return { mode, ...(hasBrand ? { brand } : {}) };
+  return { mode, showSkipLink, ...(hasBrand ? { brand } : {}) };
 }
 
 /** Mount the admin UI as a Next.js page component. */
@@ -136,6 +138,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
           variant={shell.mode}
           navGroups={navGroups}
           currentPath={slug.length === 0 ? config.basePath || "/" : currentPath}
+          showSkipLink={shell.showSkipLink}
           {...(shell.brand !== undefined ? { brand: shell.brand } : {})}
           {...(accountUser ? { user: accountUser } : {})}
         >

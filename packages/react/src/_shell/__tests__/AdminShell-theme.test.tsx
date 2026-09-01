@@ -62,6 +62,18 @@ describe("FlowpanelGlobals — themeComponents prop", () => {
 });
 
 describe("AdminShell — variant prop", () => {
+  it("can defer the skip link to a host application layout", () => {
+    render(
+      <FlowpanelGlobals>
+        <AdminShell navGroups={[]} currentPath="/admin" showSkipLink={false}>
+          <div>content</div>
+        </AdminShell>
+      </FlowpanelGlobals>,
+    );
+
+    expect(screen.queryByRole("link", { name: "Skip to main content" })).toBeNull();
+  });
+
   it("renders sidebar nav by default", () => {
     render(
       <FlowpanelGlobals>

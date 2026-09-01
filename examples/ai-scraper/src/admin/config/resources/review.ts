@@ -1,10 +1,12 @@
 import { resource } from "@flowpanel/kit";
 import { confirmMatch, rejectMatch } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
+import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
 import { MATCH_MODELS, modelLabel } from "@/src/lib/ai-models";
 import { badge, confidenceCell, modelBadge } from "../../format";
 
 export const review = resource(schema.matches, {
+  ...sandboxResourcePolicy(schema.matches.sandboxId),
   name: "matches",
   label: "Review",
   labelOne: "Match",
@@ -59,6 +61,9 @@ export const review = resource(schema.matches, {
     { name: "Rejected", filters: { status: "rejected" } },
   ],
   create: { disabled: true },
+  delete: {
+    confirm: "Permanently delete selected review decisions? This cannot be undone.",
+  },
   actions: [
     {
       key: "confirm",

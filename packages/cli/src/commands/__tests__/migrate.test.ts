@@ -1,10 +1,10 @@
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { Command } from "commander";
+import { describe, expect, it, vi } from "vitest";
 import { type PackageManager, pmCommands } from "../../utils/detect";
-
-const MIGRATE_SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), "../migrate.ts");
+import { migrateCommand, resolveMigrationExecutor } from "../migrate";
 
 describe("migrate — install hints", () => {
   it("renders the jiti hint in each manager's dialect", () => {
@@ -13,19 +13,6 @@ describe("migrate — install hints", () => {
     expect(hint("npm")).toBe("npm install --save-dev jiti");
     expect(hint("yarn")).toBe("yarn add -D jiti");
     expect(hint("bun")).toBe("bun add -d jiti");
-  });
-
-  it("hardcodes no package-manager install command", async () => {
-    const src = await fs.readFile(MIGRATE_SRC, "utf8");
-    expect(src).not.toMatch(/(pnpm|npm|yarn|bun) (add|install) /);
-    expect(src).toContain('addDisplay("jiti", true)');
-  });
-
-  it("points a config-less project at the package that exists on npm", async () => {
-    const src = await fs.readFile(MIGRATE_SRC, "utf8");
-    expect(src).toMatch(/\$\{pmc\.dlx\} @flowpanel\/cli init/);
-    expect(src).not.toMatch(/dlx flowpanel init/);
-    expect(src).not.toMatch(/pnpm dlx/);
   });
 
   it("renders dlx in each manager's dialect", () => {
@@ -37,23 +24,87 @@ describe("migrate — install hints", () => {
 });
 
 describe("migrate --dry-run", () => {
-  it("returns before anything that can reach the database", async () => {
-    const src = await fs.readFile(MIGRATE_SRC, "utf8");
-    const dryRun = src.indexOf("if (opts.dryRun)");
-    expect(dryRun).toBeGreaterThan(-1);
-    for (const reachesDb of [
-      'await import("jiti")',
-      "await jiti.import(cfgPath)",
-      "await listAppliedMigrations()",
-      "await runMigrationSql(",
-    ]) {
-      expect(src.indexOf(reachesDb)).toBeGreaterThan(dryRun);
+  it("lists on-disk migrations without loading config or reaching the database", async () => {
+    const originalCwd = process.cwd();
+    const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "flowpanel-migrate-"));
+    const output: string[] = [];
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      output.push(String(chunk));
+      return true;
+    });
+
+    try {
+      const migrationsDir = path.join(projectDir, "flowpanel", "migrations");
+      await fs.mkdir(migrationsDir, { recursive: true });
+      await fs.writeFile(path.join(migrationsDir, "0002_second.sql"), "select 2;");
+      await fs.writeFile(path.join(migrationsDir, "0001_first.sql"), "select 1;");
+      await fs.writeFile(
+        path.join(projectDir, "flowpanel.config.ts"),
+        'throw new Error("dry-run must not load config");\n',
+      );
+      process.chdir(projectDir);
+
+      const cli = new Command();
+      migrateCommand(cli);
+      await cli.parseAsync(["node", "flowpanel", "migrate", "--dry-run", "--json"]);
+
+      expect(JSON.parse(output.join(""))).toEqual({
+        command: "migrate",
+        applied: false,
+        dryRun: true,
+        appliedStateKnown: false,
+        pending: ["0001_first", "0002_second"],
+      });
+    } finally {
+      process.chdir(originalCwd);
+      stdout.mockRestore();
+      await fs.rm(projectDir, { recursive: true, force: true });
     }
   });
+});
 
-  it("says applied state is unknown rather than implying a clean database", async () => {
-    const src = await fs.readFile(MIGRATE_SRC, "utf8");
-    expect(src).toContain("appliedStateKnown: false");
-    expect(src).toContain("Applied state unknown");
+describe("migrate — adapter contract", () => {
+  it("uses the adapter's atomic migration operation", async () => {
+    const calls: string[] = [];
+    const executor = resolveMigrationExecutor({
+      applyMigration: async (id, sql) => {
+        calls.push(`${id}:${sql}`);
+      },
+      listAppliedMigrations: async () => new Set(["0001"]),
+    });
+
+    expect(executor?.mode).toBe("adapter");
+    expect(executor?.warnings).toEqual([]);
+    expect(await executor?.listAppliedMigrations()).toEqual(new Set(["0001"]));
+    await executor?.applyMigration("0002", "select 1");
+    expect(calls).toEqual(["0002:select 1"]);
+  });
+
+  it("runs legacy SQL before marking it and exposes the non-atomic warning", async () => {
+    const calls: string[] = [];
+    const executor = resolveMigrationExecutor({
+      runMigrationSql: async (sql) => {
+        calls.push(`run:${sql}`);
+      },
+      markMigrationApplied: async (id) => {
+        calls.push(`mark:${id}`);
+      },
+      listAppliedMigrations: async () => new Set(),
+    });
+
+    expect(executor?.mode).toBe("legacy-hooks");
+    expect(executor?.warnings).toHaveLength(1);
+    expect(executor?.warnings[0]).toContain("legacy non-atomic migration hooks");
+    expect(executor?.warnings[0]).toContain("concurrent migrators are not serialized");
+    await executor?.applyMigration("0001", "select 1");
+    expect(calls).toEqual(["run:select 1", "mark:0001"]);
+  });
+
+  it("rejects partial migration contracts", () => {
+    expect(
+      resolveMigrationExecutor({
+        applyMigration: async () => undefined,
+      }),
+    ).toBeUndefined();
   });
 });

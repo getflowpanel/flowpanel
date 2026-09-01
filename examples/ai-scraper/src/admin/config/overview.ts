@@ -9,6 +9,7 @@ import {
 } from "@/src/admin/overview-queries";
 import { ReviewQueue } from "@/src/admin/ReviewQueue";
 import { getLiveOperationsSnapshot } from "@/src/demo/realtime/feed";
+import { liveQueues } from "@/src/lib/queues";
 
 export const overview = dashboard({
   path: "/",
@@ -43,10 +44,17 @@ export const overview = dashboard({
     {
       columns: 12,
       widgets: [
-        custom(LiveOperations, async () => ({ initial: getLiveOperationsSnapshot() }), {
-          span: 12,
-          frame: false,
-        }),
+        custom(
+          LiveOperations,
+          async () => ({
+            initial: getLiveOperationsSnapshot(),
+            ...(liveQueues[0] ? { queueHref: `/admin/queues/${liveQueues[0].name}` } : {}),
+          }),
+          {
+            span: 12,
+            frame: false,
+          },
+        ),
       ],
     },
     {

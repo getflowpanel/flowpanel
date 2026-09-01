@@ -72,7 +72,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
     _d.findMany.mockResolvedValue([{ id: "i1" }]);
     _d.count.mockResolvedValue(1);
     _d.findFirst.mockResolvedValue({ id: "i1" });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await adapter.list("Item", {
       ...baseCtx,
@@ -96,7 +96,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
     const { item, _d } = makeMock();
     _d.findMany.mockResolvedValue([]);
     _d.count.mockResolvedValue(0);
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await adapter.list("Item", {
       ...baseCtx,
@@ -114,7 +114,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
   it("get uses findFirst with merged scope; out-of-scope returns null", async () => {
     const { item, _d } = makeMock();
     _d.findFirst.mockResolvedValue(null);
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     const row = await adapter.get("Item", {
       id: "i3",
@@ -130,7 +130,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
   it("accepts the opaque v2 bound scope without legacy flags", async () => {
     const { item, _d } = makeMock();
     _d.findFirst.mockResolvedValue({ id: "i1", companyId: "c1" });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await adapter.get("Item", {
       id: "i1",
@@ -145,7 +145,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
   it("update uses updateMany with merged scope; 0-count out-of-scope returns null", async () => {
     const { item, _d } = makeMock();
     _d.updateMany.mockResolvedValue({ count: 0 });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     const result = await adapter.update("Item", {
       id: "i3",
@@ -166,7 +166,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
     const { item, _d } = makeMock();
     _d.updateMany.mockResolvedValue({ count: 1 });
     _d.findFirst.mockResolvedValue({ id: "i1", companyId: "c1", name: "A2" });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     const result = await adapter.update("Item", {
       id: "i1",
@@ -181,7 +181,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
   it("delete uses deleteMany with merged scope", async () => {
     const { item, _d } = makeMock();
     _d.deleteMany.mockResolvedValue({ count: 0 });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await adapter.delete!("Item", {
       id: "i3",
@@ -197,7 +197,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
   it("soft delete uses updateMany with merged scope when applyScope set", async () => {
     const { item, _d } = makeMock();
     _d.updateMany.mockResolvedValue({ count: 0 });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await adapter.delete!("Item", {
       id: "i3",
@@ -217,7 +217,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
   it("restore uses updateMany with merged scope; out-of-scope affects 0 rows", async () => {
     const { item, _d } = makeMock();
     _d.updateMany.mockResolvedValue({ count: 0 });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await adapter.restore!("Item", {
       id: "i3",
@@ -237,7 +237,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
   it("restore (unscoped) keeps the update fast path", async () => {
     const { item, _d } = makeMock();
     _d.update.mockResolvedValue({ id: "i1" });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await adapter.restore!("Item", {
       id: "i1",
@@ -252,7 +252,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
 
   it("FAIL-CLOSED: restore throws when scopeRequired && no applyScope", async () => {
     const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
     await expect(
       adapter.restore!("Item", {
         id: "i1",
@@ -266,7 +266,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
 
   it("FAIL-CLOSED: list throws when scopeRequired && no applyScope", async () => {
     const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
     await expect(
       adapter.list("Item", { ...baseCtx, scopeRequired: true } as never),
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
@@ -274,7 +274,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
 
   it("FAIL-CLOSED: rejects ineffective or malformed bound scope predicates", async () => {
     const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await expect(
       adapter.list("Item", {
@@ -303,7 +303,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
 
   it("FAIL-CLOSED: get throws when scopeRequired && no applyScope", async () => {
     const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
     await expect(
       adapter.get("Item", { id: "i1", db: undefined, scopeRequired: true } as never),
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
@@ -311,7 +311,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
 
   it("FAIL-CLOSED: update throws when scopeRequired && no applyScope", async () => {
     const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
     await expect(
       adapter.update("Item", {
         id: "i1",
@@ -324,7 +324,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
 
   it("FAIL-CLOSED: delete throws when scopeRequired && no applyScope", async () => {
     const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
     await expect(
       adapter.delete!("Item", {
         id: "i1",
@@ -338,7 +338,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
   it("create merges the resolved scope into insert data, overriding client input", async () => {
     const { item, _d } = makeMock();
     _d.create.mockResolvedValue({ id: "new1", companyId: "c1", name: "New" });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     // Attacker-controlled input hand-crafts a row for a DIFFERENT tenant.
     await adapter.create("Item", {
@@ -354,7 +354,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
 
   it("create refuses a non-equality scope with an actionable error, not a Prisma validation error", async () => {
     const { item, _d } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     for (const applyScope of [
       (where: unknown) => ({ ...(where as object), companyId: { in: ["c1", "c2"] } }),
@@ -374,7 +374,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
   it("create without a scope passes the input through untouched", async () => {
     const { item, _d } = makeMock();
     _d.create.mockResolvedValue({ id: "new1" });
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await adapter.create("Item", {
       input: { name: "New", companyId: "c2" },
@@ -386,7 +386,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
 
   it("FAIL-CLOSED: create throws when scopeRequired && no applyScope", async () => {
     const { item, _d } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await expect(
       adapter.create("Item", {
@@ -403,7 +403,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
     _d.findUnique.mockResolvedValue({ id: "i1" });
     _d.update.mockResolvedValue({ id: "i1" });
     _d.delete.mockResolvedValue({});
-    const adapter = prismaAdapter({ prisma: { item }, dmmf });
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
 
     await adapter.get("Item", { id: "i1", db: undefined } as never);
     expect(_d.findUnique).toHaveBeenCalledWith({ where: { id: "i1" } });

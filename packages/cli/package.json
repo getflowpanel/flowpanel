@@ -27,11 +27,11 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
     "dev": "tsx src/index.ts",
+    "lint:attw": "attw --pack .",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack ."
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",

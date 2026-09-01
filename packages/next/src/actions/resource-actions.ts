@@ -229,6 +229,8 @@ export function makeActions(
 
 export interface FormActionResult {
   ok: boolean;
+  /** Stable row key returned by create routes so the destination list can animate that row. */
+  createdKey?: string;
   error?: string;
   fieldErrors?: Record<string, string>;
 }

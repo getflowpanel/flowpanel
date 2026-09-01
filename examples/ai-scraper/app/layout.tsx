@@ -2,6 +2,9 @@ import { ThemeScript } from "@flowpanel/kit/react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { DEMO_ROLE_COOKIE, toDemoRole } from "@/src/demo/auth/role";
+import { isEnabledFlag } from "@/src/demo/sandbox/config";
+import { DemoPersonaGuide } from "@/src/demo/ui/DemoPersonaGuide";
+import { DemoSandboxNotice } from "@/src/demo/ui/DemoSandboxNotice";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +17,8 @@ const SOURCE = `${REPO}/tree/main/examples/ai-scraper`;
 const CONFIG = `${SOURCE}/src/admin/config`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const demoMode = process.env.DEMO_MODE === "true";
+  const demoMode = isEnabledFlag(process.env.DEMO_MODE);
+  const readOnly = isEnabledFlag(process.env.DEMO_READ_ONLY);
   const role = toDemoRole((await cookies()).get(DEMO_ROLE_COOKIE)?.value);
 
   return (
@@ -33,55 +37,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to main content
         </a>
 
-        {demoMode ? (
-          <div
-            role="status"
-            className="border-b border-fp-border-1 bg-fp-bg-1 px-4 py-2 text-center text-xs text-fp-text-2"
-          >
-            Public sandbox · Data resets hourly · Editing is disabled
-          </div>
-        ) : null}
-
-        <header className="border-b border-fp-border-1 bg-fp-bg-1">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:min-h-14 sm:flex-nowrap sm:px-6">
-            <div className="flex w-full min-w-0 items-baseline gap-3 sm:w-auto">
-              <span className="text-sm font-semibold text-fp-text-1">ScrapeAI</span>
-              <span className="truncate text-xs text-fp-text-3">
-                Competitive price intelligence
-              </span>
-            </div>
-
-            <div className="flex w-full items-center justify-between gap-2 sm:ml-auto sm:w-auto sm:justify-end">
-              <fieldset className="flex items-center rounded-fp border border-fp-border-1 bg-fp-bg-2 p-0.5">
-                <legend className="sr-only">Demo persona</legend>
-                {(["admin", "support"] as const).map((persona) => (
-                  <form action="/api/demo/role" method="post" key={persona}>
-                    <input type="hidden" name="role" value={persona} />
-                    <button
-                      type="submit"
-                      aria-pressed={role === persona}
-                      className={`min-h-11 rounded-fp-sm px-3 py-2 text-xs font-medium capitalize sm:min-h-9 ${
-                        role === persona
-                          ? "bg-fp-bg-1 text-fp-text-1 shadow-sm"
-                          : "text-fp-text-3 hover:text-fp-text-1"
-                      }`}
-                    >
-                      {persona}
-                    </button>
-                  </form>
-                ))}
-              </fieldset>
-              <a
-                href={SOURCE}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 items-center px-2 text-xs font-medium text-fp-text-2 hover:text-fp-text-1 sm:min-h-9"
-              >
-                Source
-              </a>
-            </div>
-          </div>
-        </header>
+        <DemoPersonaGuide role={role} />
+        {demoMode ? <DemoSandboxNotice readOnly={readOnly} /> : null}
 
         <div className="flex-1">{children}</div>
 

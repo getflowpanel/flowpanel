@@ -23,7 +23,7 @@ export interface FilterFieldProps {
  * top of the pill's and the gaps stop matching between filters.
  */
 export const BARE_CONTROL =
-  "h-8 gap-2 border-0 bg-transparent px-0 shadow-none focus:border-0 focus:ring-0 focus-visible:ring-0 hover:border-0";
+  "h-11 gap-2 border-0 bg-transparent px-0 shadow-none focus:border-0 focus:ring-0 focus-visible:ring-0 hover:border-0 sm:h-8";
 
 export function FilterField({
   label,
@@ -35,7 +35,7 @@ export function FilterField({
   return (
     <div
       className={cn(
-        "inline-flex h-9 items-center rounded-full border bg-fp-bg-1 shadow-fp-xs transition-colors",
+        "inline-flex h-11 items-center rounded-full border bg-fp-bg-1 shadow-fp-xs transition-colors sm:h-9",
         active ? "border-fp-accent/40" : "border-fp-border-1 hover:border-fp-border-2",
         "focus-within:border-fp-focus focus-within:ring-2 focus-within:ring-fp-focus/25",
         className,

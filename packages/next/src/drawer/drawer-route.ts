@@ -1,5 +1,6 @@
 // LOC-OK: GET drawer payload + POST drawer action share the same DrawerRouteCtx
 import type {
+  ColumnDef,
   ColumnFormat,
   DrawerAction,
   DrawerConfig,
@@ -25,8 +26,13 @@ import { parseActionInputSchema, validateActionOutput } from "../runtime/action-
 import { applyActionResult } from "../runtime/apply-action-result";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { buildHref } from "../runtime/href";
-import { projectAuthorizedRow } from "../runtime/project-row";
+import { declaredRowFields, projectRowFields } from "../runtime/project-row";
 import { bindPublisher } from "../runtime/publish";
+import {
+  filterColumnsByReadableFields,
+  resolveReadableColumns,
+  resolveReadableFieldSet,
+} from "../runtime/readable-fields";
 import { readRelatedRows } from "../runtime/require-authorized";
 import { scopeBinding } from "../runtime/scope-binding";
 import { withGuards } from "../runtime/with-guards";
@@ -135,12 +141,15 @@ async function prerenderRowFields(
   return out;
 }
 
-/** Flatten a declared drawer field list to the wire shape. */
-function serializeFields(fields: DrawerFieldList<Record<string, unknown>>): "*" | string[] {
+/** Flatten a declared drawer field list and apply the request's canonical read policy. */
+function serializeFields(
+  fields: DrawerFieldList<Record<string, unknown>>,
+  readable: ReadonlySet<string>,
+): "*" | string[] {
   if (fields === "*") return "*";
   return fields
     .map((f) => (typeof f === "object" && f !== null ? f.name : String(f)))
-    .filter((f) => f !== "");
+    .filter((field) => field !== "" && readable.has(field));
 }
 
 function serializeAction(a: DrawerAction): SerializedDrawerAction {
@@ -155,12 +164,18 @@ function serializeAction(a: DrawerAction): SerializedDrawerAction {
 async function serializeTab(
   tab: DrawerTab,
   row: Record<string, unknown>,
+  readableSourceFields: ReadonlySet<string>,
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
   req: Request,
 ): Promise<SerializedDrawerTab> {
   if ("fields" in tab) {
-    return { kind: "fields", key: tab.key, label: tab.label, fields: serializeFields(tab.fields) };
+    return {
+      kind: "fields",
+      key: tab.key,
+      label: tab.label,
+      fields: serializeFields(tab.fields, readableSourceFields),
+    };
   }
   if ("widgets" in tab) {
     const widgetCtx: WidgetContext = {
@@ -192,7 +207,12 @@ async function serializeTab(
       columns: [],
     };
   }
-  const columns = (target.options.columns as unknown[]).map((c) => {
+  const readableColumns = await resolveReadableColumns(
+    target.options.columns as never[],
+    target.options.fieldAccess,
+    reqCtx,
+  );
+  const columns = readableColumns.map((c) => {
     if (typeof c === "string") return c;
     const col = c as { field?: string };
     return String(col.field ?? "");
@@ -233,6 +253,15 @@ export function drawerRoute(config: ResolvedAdminConfig) {
       req,
       { resource, operation: "read", write: false },
       async (reqCtx) => {
+        const readableRowFields = await resolveReadableFieldSet(
+          declaredRowFields(resource),
+          resource.options.fieldAccess,
+          reqCtx,
+        );
+        const knownColumns = new Set(
+          config.adapter.introspect(resource.ref).columns.map((column) => column.name),
+        );
+        const select = [...readableRowFields].filter((field) => knownColumns.has(field));
         const itemCtx: ItemQueryContext = {
           ...reqCtx,
           db: config.adapter.db,
@@ -240,6 +269,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
           searchParams: new URLSearchParams(),
           signal: new AbortController().signal,
           id,
+          ...(select.length > 0 ? { select } : {}),
           ...scopeBinding(config, resource, reqCtx),
         };
         const row = (await runWithRequestContext(reqCtx, () =>
@@ -248,30 +278,41 @@ export function drawerRoute(config: ResolvedAdminConfig) {
         if (!row) {
           return Response.json({ ok: false, error: "not found" }, { status: 404 });
         }
+        const projectedRow = projectRowFields(row, readableRowFields);
 
         const header =
           typeof drawer.header === "function"
-            ? String(drawer.header(row) ?? "")
+            ? String(drawer.header(projectedRow) ?? "")
             : String(
-                row[(resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY] ??
-                  "",
+                projectedRow[
+                  (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY
+                ] ?? "",
               );
 
         const tabs: SerializedDrawerTab[] | null = drawer.tabs
-          ? await Promise.all(drawer.tabs.map((t) => serializeTab(t, row, config, reqCtx, req)))
+          ? await Promise.all(
+              drawer.tabs.map((t) =>
+                serializeTab(t, projectedRow, readableRowFields, config, reqCtx, req),
+              ),
+            )
           : null;
 
-        const columns = (resource.options.columns as ReadonlyArray<unknown>) ?? [];
+        const columns = filterColumnsByReadableFields(
+          (resource.options.columns as ReadonlyArray<
+            keyof Record<string, unknown> | ColumnDef<Record<string, unknown>>
+          >) ?? [],
+          readableRowFields,
+        );
         const payload: DrawerPayload = {
-          row: await projectAuthorizedRow(resource, row, reqCtx),
+          row: projectedRow,
           header,
           resourceLabel:
             (resource.options.label as string | undefined) ?? humanize(String(resourceName)),
           width: drawer.width ?? "lg",
-          fields: serializeFields(drawer.fields ?? "*"),
+          fields: serializeFields(drawer.fields ?? "*", readableRowFields),
           tabs,
           actions: (await filterActionsByAccess(drawer.actions, reqCtx)).map(serializeAction),
-          prerendered: await prerenderRowFields(columns, row, reqCtx),
+          prerendered: await prerenderRowFields(columns, projectedRow, reqCtx),
           labels: buildFieldLabels(columns),
           formats: buildFieldFormats(columns),
         };
@@ -331,7 +372,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
         }
 
         const body = await readActionInput(req);
-        if (!body.ok) return invalidJsonResponse();
+        if (!body.ok) return invalidJsonResponse(body.reason);
         const parsedInput = await parseActionInputSchema(
           action.form as Parameters<typeof parseActionInputSchema>[0],
           undefined,

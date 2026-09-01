@@ -1,9 +1,11 @@
 import { resource } from "@flowpanel/kit";
 import { retryFailedRun } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
+import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
 import { badge, formatDuration } from "../../format";
 
 export const runs = resource(schema.runs, {
+  ...sandboxResourcePolicy(schema.runs.sandboxId),
   name: "runs",
   label: "Runs",
   labelOne: "Run",
@@ -19,6 +21,7 @@ export const runs = resource(schema.runs, {
     { field: "itemsExtracted", label: "Offers", align: "right" },
     {
       field: "durationMs",
+      label: "Duration",
       align: "right",
       render: (r) => formatDuration(r.durationMs),
     },
@@ -39,6 +42,7 @@ export const runs = resource(schema.runs, {
   ],
   defaultSort: { field: "startedAt", dir: "desc" },
   create: { disabled: true },
+  delete: { disabled: true },
   actions: [
     {
       key: "retry",

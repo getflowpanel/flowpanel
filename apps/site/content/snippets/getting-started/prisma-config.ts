@@ -10,7 +10,7 @@ declare module "@flowpanel/kit" {
 }
 
 export default defineAdmin({
-  adapter: prismaAdapter({ prisma }),
+  adapter: prismaAdapter({ prisma, provider: "postgresql" }),
   auth: {
     session: getSession,
     role: (session) => (session as { user?: { role?: string } } | null)?.user?.role ?? "guest",

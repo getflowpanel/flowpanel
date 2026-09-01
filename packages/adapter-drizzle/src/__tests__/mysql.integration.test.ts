@@ -352,4 +352,24 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter migrations (mysql)", () => {
     ];
     expect(rows).toHaveLength(0);
   });
+
+  it("executes multi-statement files individually before recording the marker", async () => {
+    const adapter = drizzleAdapter({ db, schema: { users } });
+    await adapter.applyMigration?.(
+      "0003_multi_mysql",
+      `CREATE TABLE probe_mig_multi (id INT PRIMARY KEY, note VARCHAR(255) NOT NULL);
+       INSERT INTO probe_mig_multi (id, note) VALUES (1, 'one;two');
+       -- a comment semicolon must not become a statement ;
+       INSERT INTO probe_mig_multi (id, note) VALUES (2, 'three');`,
+    );
+
+    const [rows] = (await pool.query(
+      "SELECT id, note FROM probe_mig_multi ORDER BY id",
+    )) as unknown as [Array<{ id: number; note: string }>, unknown];
+    expect(rows).toEqual([
+      { id: 1, note: "one;two" },
+      { id: 2, note: "three" },
+    ]);
+    expect(await adapter.listAppliedMigrations?.()).toContain("0003_multi_mysql");
+  });
 });

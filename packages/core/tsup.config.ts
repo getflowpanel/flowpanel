@@ -1,4 +1,10 @@
+import { rmSync } from "node:fs";
 import { defineConfig } from "tsup";
+
+// tsup runs these configs concurrently and cleans per config, so no single one
+// of them may clean: whichever finished first would have its output deleted by
+// a later one. Clear dist once here, before any build starts.
+rmSync("dist", { recursive: true, force: true });
 
 // Split into separate builds per entry so tsup's DTS bundler doesn't extract
 // shared types into a `config-XXX.d.ts` chunk. The chunk breaks
@@ -14,12 +20,10 @@ const common = {
   splitting: false,
 };
 
-// tsup runs these concurrently, so none of them may clean: whichever finishes
-// first would have its output deleted by a later one. The build script clears
-// dist once, before tsup starts.
 export default defineConfig([
   { entry: { index: "src/index.ts" }, ...common },
   { entry: { labels: "src/labels.ts" }, ...common },
   { entry: { auth: "src/auth/index.ts" }, ...common },
   { entry: { format: "src/format-column.ts" }, ...common },
+  { entry: { "internal/migration-sql": "src/internal/migration-sql.ts" }, ...common },
 ]);

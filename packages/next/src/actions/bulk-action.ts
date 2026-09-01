@@ -10,7 +10,6 @@ import {
   isBuiltinBulkDelete,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { parseActionBody } from "../drawer/parse-action-body";
 import {
   buildActionContext,
   buildAuditEvent,
@@ -24,6 +23,12 @@ import { deleteRow } from "../runtime/delete-row";
 import { buildHref } from "../runtime/href";
 import { bindPublisher } from "../runtime/publish";
 import { readRow } from "../runtime/read-row";
+import {
+  formDataObject,
+  type RequestBodyError,
+  readJsonObject,
+  readRequestFormData,
+} from "../runtime/request-body";
 import { withGuards } from "../runtime/with-guards";
 import type { ActionFormField } from "./action-form-field";
 import { serializeActionForm } from "./serialize-action-field";
@@ -61,20 +66,15 @@ export function serializeBulkAction<Row>(a: BulkAction<Row>): SerializedBulkActi
 
 type BulkBody =
   | { ok: true; ids: string[]; input: Record<string, unknown> }
-  | { ok: false; reason: "invalid-json" | "ids" | "input" };
+  | { ok: false; reason: RequestBodyError | "ids" | "input" };
 
 /** Parses the incoming request body for the array of selected IDs. */
 async function parseBulkBody(req: Request): Promise<BulkBody> {
   const contentType = req.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
-    let payload: unknown;
-    try {
-      payload = await req.json();
-    } catch {
-      return { ok: false, reason: "invalid-json" };
-    }
-    if (!payload || typeof payload !== "object") return { ok: false, reason: "ids" };
-    const obj = payload as { ids?: unknown; input?: unknown };
+    const payload = await readJsonObject(req);
+    if (!payload.ok) return payload;
+    const obj = payload.value as { ids?: unknown; input?: unknown };
     if (!Array.isArray(obj.ids)) return { ok: false, reason: "ids" };
     const ids = obj.ids.filter((v): v is string => typeof v === "string");
     if (ids.length === 0) return { ok: false, reason: "ids" };
@@ -84,13 +84,9 @@ async function parseBulkBody(req: Request): Promise<BulkBody> {
     }
     return { ok: true, ids, input: input as Record<string, unknown> };
   }
-  const cloned = req.clone();
-  let form: FormData;
-  try {
-    form = await cloned.formData();
-  } catch {
-    return { ok: false, reason: "ids" };
-  }
+  const parsedForm = await readRequestFormData(req);
+  if (!parsedForm.ok) return parsedForm;
+  const form = parsedForm.value;
   const raw = form.getAll("ids");
   const ids: string[] = [];
   for (const v of raw) {
@@ -105,8 +101,8 @@ async function parseBulkBody(req: Request): Promise<BulkBody> {
     else if (v) ids.push(v);
   }
   if (ids.length === 0) return { ok: false, reason: "ids" };
-  const input = await parseActionBody(req);
-  delete (input as Record<string, unknown>).ids;
+  const input = formDataObject(form);
+  delete input.ids;
   return { ok: true, ids, input };
 }
 
@@ -151,7 +147,14 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
       async (reqCtx) => {
         const body = await parseBulkBody(req);
         if (!body.ok) {
-          if (body.reason === "invalid-json") return invalidJsonResponse();
+          if (
+            body.reason === "invalid-json" ||
+            body.reason === "object-required" ||
+            body.reason === "payload-too-large" ||
+            body.reason === "invalid-form"
+          ) {
+            return invalidJsonResponse(body.reason);
+          }
           if (body.reason === "input") {
             return Response.json({ ok: false, error: "input must be an object" }, { status: 400 });
           }

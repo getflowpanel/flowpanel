@@ -54,7 +54,7 @@ function makeDelegate() {
 function setup() {
   const delegate = makeDelegate();
   const config = defineAdmin({
-    adapter: prismaAdapter({ prisma: { user: delegate }, dmmf }),
+    adapter: prismaAdapter({ prisma: { user: delegate }, dmmf, provider: "postgresql" }),
     auth: { session: async () => null, role: () => "guest" },
     resources: [resource("User", { columns: ["email"], search: ["email"] })],
   });
@@ -111,7 +111,7 @@ describe("Prisma string ref through defineAdmin", () => {
 
   it("a missing model still fails on the delegate, not on name resolution", async () => {
     const config = defineAdmin({
-      adapter: prismaAdapter({ prisma: {}, dmmf }),
+      adapter: prismaAdapter({ prisma: {}, dmmf, provider: "postgresql" }),
       auth: { session: async () => null, role: () => "guest" },
       resources: [resource("User", { columns: ["email"] })],
     });

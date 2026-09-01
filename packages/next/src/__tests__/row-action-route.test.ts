@@ -222,6 +222,43 @@ describe("rowActionRoute", () => {
     );
   });
 
+  it("rejects a primitive JSON body before running the action", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const handler = rowActionRoute(makeConfig({ action: { key: "ping", label: "Ping", run } }));
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "42",
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "ping" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "JSON body must be an object" });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized body before running the action", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const handler = rowActionRoute(makeConfig({ action: { key: "ping", label: "Ping", run } }));
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": String(1024 * 1024 + 1),
+      },
+      body: "{}",
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "ping" }),
+    });
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ ok: false, error: "request body is too large" });
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("does NOT emit audit when resource.options.audit === false", async () => {
     const sink = vi.fn(async () => {});
     const config = makeConfig({

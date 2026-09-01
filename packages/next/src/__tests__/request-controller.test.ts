@@ -72,6 +72,75 @@ describe("protected request controllers", () => {
     const forbidden = await controllers.resources.customers.list({ select: ["secret"] });
     expect(forbidden).toMatchObject({ ok: false, error: { code: "unknown_field" } });
   });
+
+  it("removes read-restricted query controls before calling the adapter", async () => {
+    const list = vi.fn(async (_ref, ctx) => ({
+      rows: [{ id: "c1", name: "Acme", secret: "never" }],
+      total: 1,
+      page: ctx.page,
+      pageSize: ctx.pageSize,
+    }));
+    const adapter: Adapter = {
+      kind: "test",
+      db: {},
+      introspect: () => ({
+        name: "customers",
+        primaryKey: "id",
+        columns: [
+          { name: "id", type: "string", nullable: false, unique: true, primaryKey: true },
+          { name: "name", type: "string", nullable: false, unique: false, primaryKey: false },
+          { name: "secret", type: "string", nullable: false, unique: false, primaryKey: false },
+        ],
+      }),
+      inferSchema: () => ({ create: {} as never, update: {} as never, select: {} as never }),
+      list,
+      get: async () => null,
+      create: async () => ({}),
+      update: async () => null,
+      delete: async () => undefined,
+    };
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => ({ id: "operator" }), role: () => "support" },
+      resources: [
+        resource("customers", {
+          name: "customers",
+          columns: ["id", "name", "secret"],
+          search: ["name", "secret"],
+          defaultSort: { field: "secret", dir: "asc" },
+          fieldAccess: { secret: { read: "admin" } },
+        }),
+      ],
+    });
+    const request = new Request(
+      "http://localhost/admin/customers?filter.secret=guess&search=guess&sort=secret%3Aasc",
+    );
+    const context: RequestContext = {
+      requestId: "req-field-query",
+      req: request,
+      session: { id: "operator" },
+      role: "support",
+      scope: null,
+      ip: null,
+      userAgent: null,
+    };
+
+    const result = await createControllerFactory(config, context).resources.customers.list({
+      filters: { name: "Acme", secret: "guess" },
+      sort: { field: "secret", dir: "desc" },
+      search: "guess",
+    });
+
+    expect(result.ok).toBe(true);
+    const query = list.mock.calls[0]?.[1];
+    expect(query?.filters).toEqual({ name: "Acme" });
+    expect(query?.sort).toBeNull();
+    expect(query?.searchFields).toEqual(["name"]);
+    expect(query?.search).toBe("guess");
+    expect(query?.searchParams.get("filter.secret")).toBeNull();
+    expect(query?.searchParams.get("sort")).toBeNull();
+  });
+
   it("rejects a delegated action when the originating request is cross-origin", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const adapter: Adapter = {

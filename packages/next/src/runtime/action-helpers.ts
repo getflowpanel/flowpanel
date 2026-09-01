@@ -8,30 +8,22 @@ import type {
   ResolvedAdminConfig,
 } from "@flowpanel/core";
 import { accessAllows, checkRequireRole, emitAudit } from "@flowpanel/core";
-import { parseActionBody } from "../drawer/parse-action-body";
 import { publish } from "./publish";
+import { type RequestBodyError, readActionObject, requestBodyErrorResponse } from "./request-body";
 
 /** Body of a POSTed action, or a flag that the JSON was malformed. */
 export type ActionInput =
   | { ok: true; input: Record<string, unknown> }
-  | { ok: false; reason: "invalid-json" };
+  | { ok: false; reason: RequestBodyError };
 
-/** Like `parseActionBody`, but a malformed JSON body is reported instead of swallowed. */
+/** Read an action body without discarding parse errors. */
 export async function readActionInput(req: Request): Promise<ActionInput> {
-  const contentType = req.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    try {
-      const parsed = (await req.json()) as Record<string, unknown> | null;
-      return { ok: true, input: parsed ?? {} };
-    } catch {
-      return { ok: false, reason: "invalid-json" };
-    }
-  }
-  return { ok: true, input: await parseActionBody(req) };
+  const parsed = await readActionObject(req);
+  return parsed.ok ? { ok: true, input: parsed.value } : parsed;
 }
 
-export function invalidJsonResponse(): Response {
-  return Response.json({ ok: false, error: "invalid JSON body" }, { status: 400 });
+export function invalidJsonResponse(reason: RequestBodyError = "invalid-json"): Response {
+  return requestBodyErrorResponse(reason);
 }
 
 /**

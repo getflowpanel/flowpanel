@@ -19,7 +19,7 @@ export interface TableWidgetProps<Row extends Record<string, unknown>> {
 
 export function TableWidget<Row extends Record<string, unknown>>(props: TableWidgetProps<Row>) {
   return (
-    <Card className="overflow-hidden">
+    <Card className="h-full overflow-hidden">
       {props.label ? <CardHeader>{props.label}</CardHeader> : null}
       <DataTable
         className="rounded-none border-0 shadow-none"

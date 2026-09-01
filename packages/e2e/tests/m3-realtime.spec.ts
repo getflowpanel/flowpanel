@@ -22,7 +22,7 @@ import { expect, test } from "@playwright/test";
  *
  * Row-count assertion note: the primary signal here is that the disabled
  * user's row disappears from tab B, NOT that `tbody tr` shrinks by one.
- * The seed data (`examples/ai-scraper/scripts/seed-data.ts`) ships far more
+ * The demo seed (`examples/ai-scraper/src/demo/sandbox/seed.ts`) ships far more
  * active customers than the list's default page size (20), so page 1 always
  * renders a FULL page — soft-deleting one row makes the next active user
  * (beyond the previous page boundary) slide into view, backfilling the

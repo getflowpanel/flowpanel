@@ -25,10 +25,43 @@ FlowPanel branches on it.
 
 `kind`, `db`, `introspect`, `inferSchema`, `list`, `get`, `create`, `update`
 and `delete` are required. `restore` is optional — an adapter without it makes
-the admin hide the restore button rather than fail at runtime. The last three
-(`runMigrationSql`, `listAppliedMigrations`, `markMigrationApplied`) are
-optional too and only power `flowpanel migrate`; without them that command has
-nothing to run against.
+the admin hide the restore button rather than fail at runtime. `applyMigration`
+and `listAppliedMigrations` are optional too and power `flowpanel migrate`;
+without both, that command exits before executing SQL. The older
+`runMigrationSql` and `markMigrationApplied` hooks remain typed for adapter
+compatibility. The CLI can compose both as a temporary upgrade path and prints
+a warning because that legacy pair cannot keep SQL and its bookkeeping record
+atomic. Implement `applyMigration(id, sql)` before relying on rollback safety.
+
+Both shipped adapters execute a migration and write its applied ID through one
+adapter operation. The CLI's earlier applied-ID list is only a snapshot, so an
+adapter that permits concurrent migrators must serialize and recheck the ID at
+the database boundary. A duplicate ID becomes a no-op only after that recheck.
+
+PostgreSQL and SQLite keep every statement and the marker in one transaction —
+Drizzle and Prisma both take a lock inside it (a PostgreSQL advisory lock, a
+SQLite write lock) and recheck the ID before executing anything.
+
+MySQL implicitly commits DDL, so no tool can promise rollback for an arbitrary
+MySQL file: review migrations, make DDL restart-safe, back up production data,
+and apply them in a controlled release step. Drizzle pins one connection and
+holds a `GET_LOCK` advisory lock. Prisma cannot pin a connection, so it claims
+a durable row in `_flowpanel_migration_claims` instead: the claim serializes
+migrators, survives a crashed one, and records the statement a failed run
+stopped at. A failed claim stops later runs until you repair the schema and
+delete that row, so a half-applied file is never silently retried.
+
+Because the lock protocol and the SQL dialect differ per provider,
+`prismaAdapter` takes a required `provider` — the same value as the
+`datasource` block in `schema.prisma`.
+
+Both adapters split ordinary multi-statement SQL safely. They reject
+dialect-specific procedural scripts (for example SQLite/MySQL trigger bodies or
+stored procedures) before execution unless the body uses PostgreSQL dollar
+quoting, and Prisma also rejects MySQL executable comments and client
+directives such as `DELIMITER`, `SOURCE` and `.read`. Apply those files through
+the ORM's native migration workflow or a dialect-native runner; a rejected file
+is never recorded as applied.
 
 ## ResourceIntrospection
 

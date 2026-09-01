@@ -23,10 +23,15 @@ import {
   type RowAction,
   resource,
   rowAction,
+  type ShellConfig,
   statGroup,
   table,
   type WidgetContext,
 } from "@flowpanel/core";
+import {
+  type MigrationSqlStatement,
+  tokenizeMigrationSql,
+} from "@flowpanel/core/internal/migration-sql";
 import { expectAssignable, expectError, expectType } from "tsd";
 
 declare module "@flowpanel/core" {
@@ -47,6 +52,15 @@ expectAssignable<AdapterKind>("prisma");
 // third-party adapters may name themselves
 expectAssignable<AdapterKind>("mikro-orm");
 expectType<BoundAdapterScope>(bindAdapterScope((query) => query));
+expectAssignable<Adapter["applyMigration"]>(async (id, sql) => {
+  expectType<string>(id);
+  expectType<string>(sql);
+});
+expectType<MigrationSqlStatement[]>(tokenizeMigrationSql("SELECT 1;"));
+
+// ── ShellConfig lets host layouts own the single skip link ──────────────
+expectAssignable<ShellConfig>({ skipLink: false });
+expectError<ShellConfig>({ skipLink: "false" });
 
 // ── resource builder: produces ResourceConfig with __kind discriminant ───
 declare const ref: unknown;

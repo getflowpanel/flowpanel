@@ -59,10 +59,14 @@ export function AdminTabs({
       aria-label="Admin"
       className="sticky top-0 z-40 border-b border-fp-border-1 bg-fp-bg-1/85 backdrop-blur-md"
     >
+      <p id="admin-tabs-scroll-hint" className="sr-only">
+        More destinations are available by horizontal scrolling.
+      </p>
       <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
         {hasBrand ? <Brand brand={brand} className="hidden flex-shrink-0 py-3 sm:flex" /> : null}
         <ul
           ref={stripRef}
+          aria-describedby="admin-tabs-scroll-hint"
           className={cn(
             "fp-scroll-fade-x fp-scrollbar-hide flex flex-1 items-center gap-1 overflow-x-auto",
             !hasBrand && "-ml-3",

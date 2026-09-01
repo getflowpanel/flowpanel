@@ -43,7 +43,7 @@ export function pageItems(page: number, pages: number, siblings = 1): (number | 
 }
 
 const STEP =
-  "fp-press inline-flex h-8 w-8 items-center justify-center rounded-fp text-fp-text-2 transition-colors hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 disabled:pointer-events-none disabled:opacity-40";
+  "fp-press inline-flex h-11 w-11 items-center justify-center rounded-fp text-fp-text-2 transition-colors hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 disabled:pointer-events-none disabled:opacity-40 sm:h-8 sm:w-8";
 
 /** Pure renderer — no context dependency. Used as the registry default. */
 export function DefaultPagination({
@@ -87,7 +87,7 @@ export function DefaultPagination({
             // biome-ignore lint/suspicious/noArrayIndexKey: a gap has no identity beyond its slot
             key={`gap-${i}`}
             aria-hidden
-            className="inline-flex h-8 w-8 items-center justify-center text-fp-text-3"
+            className="inline-flex h-11 w-11 items-center justify-center text-fp-text-3 sm:h-8 sm:w-8"
           >
             …
           </span>
@@ -99,7 +99,7 @@ export function DefaultPagination({
             aria-label={`Page ${item}`}
             aria-current={item === page ? "page" : undefined}
             className={cn(
-              "fp-press inline-flex h-8 min-w-8 items-center justify-center rounded-fp px-1.5 tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+              "fp-press inline-flex h-11 min-w-11 items-center justify-center rounded-fp px-1.5 tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:h-8 sm:min-w-8",
               item === page
                 ? "border border-fp-accent font-medium text-fp-accent-badge-text"
                 : "text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1",
@@ -129,7 +129,7 @@ export function DefaultPagination({
             aria-label="Rows per page"
             value={pageSize}
             onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-            className="h-8 appearance-none rounded-fp border border-fp-border-1 bg-fp-bg-1 pl-3 pr-8 text-sm text-fp-text-1 shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25"
+            className="h-11 appearance-none rounded-fp border border-fp-border-1 bg-fp-bg-1 pl-3 pr-8 text-sm text-fp-text-1 shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25 sm:h-8"
           >
             {sizePicker.map((n) => (
               <option key={n} value={n}>

@@ -42,6 +42,25 @@ describe("DataTable", () => {
     expect(screen.getByText("c@b.co")).toBeTruthy();
   });
 
+  it("animates only the explicitly created desktop row", () => {
+    const { container } = render(
+      <DataTable
+        columns={[{ field: "name", label: "Name" }]}
+        rows={rows}
+        total={rows.length}
+        page={1}
+        pageSize={10}
+        rowKey="id"
+        enteringRowKeys={["2"]}
+      />,
+    );
+
+    const renderedRows = [...container.querySelectorAll("tbody tr")];
+    expect(renderedRows[0]?.classList.contains("fp-row-enter")).toBe(false);
+    expect(renderedRows[1]?.classList.contains("fp-row-enter")).toBe(true);
+    expect(renderedRows[2]?.classList.contains("fp-row-enter")).toBe(false);
+  });
+
   it("renders empty state when rows are empty", () => {
     render(
       <DataTable

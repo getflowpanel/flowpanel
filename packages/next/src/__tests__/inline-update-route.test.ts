@@ -123,6 +123,33 @@ describe("inlineUpdateRoute", () => {
     expect((await res.json()).error).toMatch(/invalid JSON/i);
   });
 
+  it("returns 400 when the JSON body is not an object", async () => {
+    const handler = inlineUpdateRoute(makeConfig({}));
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "[]",
+    });
+    const res = await handler(req, { params: paramsFor("users", "u1") });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("JSON body must be an object");
+  });
+
+  it("returns 413 when the request body is too large", async () => {
+    const handler = inlineUpdateRoute(makeConfig({}));
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": String(1024 * 1024 + 1),
+      },
+      body: "{}",
+    });
+    const res = await handler(req, { params: paramsFor("users", "u1") });
+    expect(res.status).toBe(413);
+    expect((await res.json()).error).toBe("request body is too large");
+  });
+
   it("returns 400 when field is missing", async () => {
     const handler = inlineUpdateRoute(makeConfig({}));
     const req = new Request("http://localhost/x", {

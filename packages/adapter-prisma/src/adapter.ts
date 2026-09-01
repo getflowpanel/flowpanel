@@ -8,23 +8,27 @@ import type {
 import { isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
 import type { PrismaDmmf } from "./introspect";
 import { introspect } from "./introspect";
+import { createMigrationMethods } from "./migration-executor";
 import {
   applyScopeToData,
   applyScopeToWhere,
-  getDelegate,
   loadDmmf,
-  MIGRATIONS_TABLE_DDL,
   type PrismaClientLike,
   pkWhere,
+  getDelegate as resolveDelegate,
 } from "./runtime";
 import { inferSchema } from "./schema";
+import type { PrismaProvider } from "./sql-statements";
 
 export interface PrismaAdapterOptions<P = unknown> {
   prisma: P;
+  /** The `datasource` provider from schema.prisma; migrations are dialect-specific. */
+  provider: PrismaProvider;
   dmmf?: PrismaDmmf;
 }
 
 export { MIGRATIONS_TABLE_DDL } from "./runtime";
+export type { PrismaProvider } from "./sql-statements";
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
   let _dmmf: PrismaDmmf | undefined = opts.dmmf;
@@ -37,6 +41,14 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
   function hasScope(ctx: { boundScope?: unknown; applyScope?: unknown }): boolean {
     return ctx.boundScope !== undefined || ctx.applyScope !== undefined;
+  }
+
+  function getDb(ctx: { db?: unknown }): PrismaClientLike {
+    return (ctx.db ?? prisma) as PrismaClientLike;
+  }
+
+  function getDelegate(modelName: string, ctx: { db?: unknown }) {
+    return resolveDelegate(getDb(ctx), modelName);
   }
 
   function projection(modelName: string, select: readonly string[] | undefined) {
@@ -73,7 +85,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     inferSchema: (modelName) => inferSchema(modelName, getDmmf()),
 
     async list(modelName, ctx: ListQueryContext<unknown>): Promise<ListResult<unknown>> {
-      const delegate = getDelegate(prisma, modelName);
+      const delegate = getDelegate(modelName, ctx);
       const dmmf = getDmmf();
       const select = projection(modelName, ctx.select);
 
@@ -143,7 +155,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     },
 
     async get(modelName, ctx: ItemQueryContext) {
-      const delegate = getDelegate(prisma, modelName);
+      const delegate = getDelegate(modelName, ctx);
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       const select = projection(modelName, ctx.select);
       const args = { where: baseWhere, ...(select ? { select } : {}) };
@@ -154,14 +166,14 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     },
 
     async create(modelName, ctx: MutationContext<unknown>) {
-      const delegate = getDelegate(prisma, modelName);
+      const delegate = getDelegate(modelName, ctx);
       const data = applyScopeToData((ctx.input as Record<string, unknown>) ?? {}, ctx);
       return delegate.create({ data });
     },
 
     async update(modelName, ctx: MutationContext<unknown>) {
       if (!ctx.id) throw new Error("prismaAdapter: update requires ctx.id");
-      const delegate = getDelegate(prisma, modelName);
+      const delegate = getDelegate(modelName, ctx);
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       if (hasScope(ctx)) {
         const res = await delegate.updateMany({ where: baseWhere, data: ctx.input });
@@ -174,7 +186,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
     async delete(modelName, ctx: MutationContext<unknown>): Promise<void> {
       if (!ctx.id) throw new Error("prismaAdapter: delete requires ctx.id");
-      const delegate = getDelegate(prisma, modelName);
+      const delegate = getDelegate(modelName, ctx);
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       const softCol = ctx.softDelete?.column;
       if (softCol) {
@@ -195,7 +207,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       if (!softCol)
         throw new Error("prismaAdapter: restore requires ctx.softDelete to be configured");
       if (!ctx.id) throw new Error("prismaAdapter: restore requires ctx.id");
-      const delegate = getDelegate(prisma, modelName);
+      const delegate = getDelegate(modelName, ctx);
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       if (hasScope(ctx)) {
         await delegate.updateMany({ where: baseWhere, data: { [softCol]: null } });
@@ -204,22 +216,6 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       }
     },
 
-    async runMigrationSql(rawSql: string): Promise<void> {
-      await prisma.$executeRawUnsafe(rawSql);
-    },
-
-    async listAppliedMigrations(): Promise<Set<string>> {
-      await prisma.$executeRawUnsafe(MIGRATIONS_TABLE_DDL);
-      const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-        `SELECT id FROM _flowpanel_migrations`,
-      );
-      const ids = new Set<string>();
-      for (const r of rows) ids.add(r.id);
-      return ids;
-    },
-
-    async markMigrationApplied(id: string): Promise<void> {
-      await prisma.$executeRaw`INSERT INTO _flowpanel_migrations (id) VALUES (${id})`;
-    },
+    ...createMigrationMethods(prisma, opts.provider),
   };
 }

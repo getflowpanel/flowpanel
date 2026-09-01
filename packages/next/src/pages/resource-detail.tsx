@@ -110,8 +110,11 @@ export async function ResourceDetailPage({
 
   if (!row) return <NotFound config={config} />;
 
+  const projectedRow = await projectAuthorizedRow(resource, row, reqCtx);
+
   const pk = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
-  const title = `${singularLabel(resource, name)} · ${String(row[pk])}`;
+  const label = singularLabel(resource, name);
+  const title = projectedRow[pk] === undefined ? label : `${label} · ${String(projectedRow[pk])}`;
 
   const editAction = (
     <Button asChild>
@@ -121,7 +124,7 @@ export async function ResourceDetailPage({
 
   const tabs = resource.options.detail?.tabs;
   const hasTabs = Array.isArray(tabs) && tabs.length > 0;
-  const cells = hasTabs ? null : buildDetailCells(resource, row, reqCtx);
+  const cells = hasTabs ? null : buildDetailCells(resource, projectedRow, reqCtx);
 
   return (
     <>
@@ -132,12 +135,20 @@ export async function ResourceDetailPage({
       )}
       {hasTabs ? (
         <DetailTabsClient
-          tabs={await renderTabs(config, reqCtx, resource, row, tabs as DetailTab<typeof row>[])}
+          tabs={
+            await renderTabs(
+              config,
+              reqCtx,
+              resource,
+              projectedRow,
+              tabs as DetailTab<typeof projectedRow>[],
+            )
+          }
         />
       ) : (
         <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
           <KV>
-            {Object.entries(await projectAuthorizedRow(resource, row, reqCtx)).map(([k, v]) => (
+            {Object.entries(projectedRow).map(([k, v]) => (
               <KVRow
                 key={k}
                 label={resolveFieldLabel(cells?.get(k)?.label, k)}

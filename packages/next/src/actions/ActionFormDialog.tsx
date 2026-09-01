@@ -64,7 +64,7 @@ export function ActionFormDialog({
         if (!open) onCancel();
       }}
     >
-      <DialogContent>
+      <DialogContent {...(description ? {} : { "aria-describedby": undefined })}>
         <form id={formId} onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
