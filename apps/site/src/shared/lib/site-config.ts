@@ -6,7 +6,7 @@
 export const siteConfig = {
   name: "flowpanel",
   description: "The admin panel you don't have to build.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://flowpanel.tech",
+  url: process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://flowpanel.tech",
   ogImage: "/og.png",
 
   repo: {
