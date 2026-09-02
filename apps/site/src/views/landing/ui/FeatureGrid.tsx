@@ -45,8 +45,8 @@ const FEATURES: ReadonlyArray<Feature> = [
   },
   {
     icon: Command,
-    title: "⌘K command palette",
-    desc: "Jump to any registered resource — included, no wiring.",
+    title: "Command palette",
+    desc: "⌘K jumps to any registered resource. Included, no wiring.",
   },
   {
     icon: Building2,
@@ -76,7 +76,7 @@ export function FeatureGrid() {
           id="features-title"
           className="max-w-[24ch] text-balance text-4xl font-semibold tracking-[-0.02em] md:text-5xl"
         >
-          Everything an internal tool needs — already in.
+          Everything an internal tool needs.
         </h2>
 
         <ul className="mt-12 grid gap-px overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-border)] sm:grid-cols-2 lg:grid-cols-3">
@@ -85,9 +85,7 @@ export function FeatureGrid() {
               key={f.title}
               className="bg-[var(--color-bg)] p-6 transition-colors duration-200 hover:bg-[var(--color-bg-subtle)] md:p-7"
             >
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
-                <f.icon aria-hidden className="h-5 w-5" />
-              </span>
+              <f.icon aria-hidden className="h-5 w-5 text-[var(--color-accent)]" />
               <h3 className="mt-4 text-base font-semibold tracking-tight">{f.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-[var(--color-fg-muted)]">{f.desc}</p>
             </li>

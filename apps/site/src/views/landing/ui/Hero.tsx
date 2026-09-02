@@ -44,9 +44,6 @@ export function Hero() {
               : {})}
             className="inline-flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-6 py-3 font-mono text-sm font-medium text-[var(--color-accent-fg)] transition-[background-color,box-shadow] duration-200 hover:bg-[var(--color-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] active:bg-[var(--color-accent-hover)]"
           >
-            {demo ? (
-              <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-current opacity-80" />
-            ) : null}
             <span>{demo ? "Open live demo" : "Explore the demo"}</span>
             {demo ? (
               <ArrowUpRight aria-hidden className="h-4 w-4" />
@@ -65,9 +62,7 @@ export function Hero() {
 
         <section aria-label="Quick start" className="mt-8 min-w-0 w-full max-w-[640px]">
           <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs">
-            <span className="uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
-              Quick start
-            </span>
+            <span className="text-[var(--color-fg-subtle)]">Quick start</span>
             <span className="text-[var(--color-fg-muted)]">
               Detects your ORM and scaffolds /admin
             </span>

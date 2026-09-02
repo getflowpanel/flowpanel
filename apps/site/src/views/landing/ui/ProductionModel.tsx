@@ -1,4 +1,4 @@
-import { AppWindow, Database, ShieldCheck, Waypoints } from "lucide-react";
+import { AppWindow, ArrowRight, Database, ShieldCheck, Waypoints } from "lucide-react";
 import Link from "next/link";
 
 const PROOFS = [
@@ -42,9 +42,7 @@ export function ProductionModel() {
       <div className="mx-auto max-w-[1120px] px-6">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--color-accent)]">
-              Production model
-            </p>
+            <p className="font-mono text-xs text-[var(--color-accent)]">Production model</p>
             <h2
               id="production-model-title"
               className="mt-3 max-w-[22ch] text-3xl font-semibold tracking-[-0.02em] md:text-4xl"
@@ -54,9 +52,10 @@ export function ProductionModel() {
           </div>
           <Link
             href="/docs/guides/production-readiness"
-            className="inline-flex min-h-11 items-center font-mono text-sm font-medium text-[var(--color-accent)] transition-colors hover:text-[var(--color-accent-hover)]"
+            className="inline-flex min-h-11 items-center gap-2 font-mono text-sm font-medium text-[var(--color-accent)] transition-colors hover:text-[var(--color-accent-hover)]"
           >
-            Open the production checklist →
+            <span>Open the production checklist</span>
+            <ArrowRight aria-hidden className="h-4 w-4" />
           </Link>
         </div>
 
@@ -77,9 +76,10 @@ export function ProductionModel() {
               </p>
               <Link
                 href={href}
-                className="mt-4 inline-flex min-h-11 items-center font-mono text-xs text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
+                className="mt-4 inline-flex min-h-11 items-center gap-2 font-mono text-xs text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
               >
-                {linkLabel} →
+                <span>{linkLabel}</span>
+                <ArrowRight aria-hidden className="h-3.5 w-3.5" />
               </Link>
             </article>
           ))}
