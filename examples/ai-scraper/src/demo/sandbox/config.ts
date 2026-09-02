@@ -33,8 +33,8 @@ function boundedPositiveInteger(env: Env, name: string, fallback: number, maximu
 export function readSandboxConfig(env: Env = process.env): DemoSandboxConfig {
   const publicMode = isEnabledFlag(env.DEMO_MODE);
   const secret = env.DEMO_SANDBOX_SECRET?.trim() || null;
-  if (publicMode && (!secret || secret.length < 32)) {
-    throw new Error("DEMO_SANDBOX_SECRET must contain at least 32 characters in public demo mode");
+  if (secret !== null && secret.length < 32) {
+    throw new Error("DEMO_SANDBOX_SECRET must contain at least 32 characters");
   }
 
   return Object.freeze({
@@ -49,4 +49,16 @@ export function readSandboxConfig(env: Env = process.env): DemoSandboxConfig {
     touchIntervalMs: 5 * 60_000,
     cleanupIntervalMs: 15 * 60_000,
   });
+}
+
+/**
+ * The proxy is the only component that signs with the secret, so it is the only
+ * one that can demand it: the admin pages read this config while `next build`
+ * collects them, long before a deployment's runtime secrets exist.
+ */
+export function requireSandboxSecret(config: DemoSandboxConfig): string {
+  if (!config.secret) {
+    throw new Error("DEMO_SANDBOX_SECRET must be set in public demo mode");
+  }
+  return config.secret;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isEnabledFlag, readSandboxConfig } from "../config";
+import { isEnabledFlag, readSandboxConfig, requireSandboxSecret } from "../config";
 
 describe("demo sandbox configuration", () => {
   it("uses safe local defaults", () => {
@@ -16,11 +16,29 @@ describe("demo sandbox configuration", () => {
     });
   });
 
-  it("requires a strong secret in public mode", () => {
-    expect(() => readSandboxConfig({ DEMO_MODE: "true" })).toThrow(/32 characters/);
+  it("rejects a secret too short to sign with, whatever the mode", () => {
+    expect(() => readSandboxConfig({ DEMO_SANDBOX_SECRET: "short" })).toThrow(/32 characters/);
     expect(() => readSandboxConfig({ DEMO_MODE: "true", DEMO_SANDBOX_SECRET: "short" })).toThrow(
       /32 characters/,
     );
+  });
+
+  it("reads a public-mode config without a secret so `next build` can collect the pages", () => {
+    expect(readSandboxConfig({ DEMO_MODE: "true" })).toMatchObject({
+      publicMode: true,
+      secret: null,
+    });
+  });
+
+  it("refuses to hand out a secret the deployment never set", () => {
+    expect(() => requireSandboxSecret(readSandboxConfig({ DEMO_MODE: "true" }))).toThrow(
+      /must be set in public demo mode/,
+    );
+    expect(
+      requireSandboxSecret(
+        readSandboxConfig({ DEMO_MODE: "true", DEMO_SANDBOX_SECRET: "x".repeat(32) }),
+      ),
+    ).toBe("x".repeat(32));
   });
 
   it("accepts bounded integer overrides and the emergency read-only switch", () => {
