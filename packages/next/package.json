@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/next",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Next.js 16 integration for FlowPanel — App Router pages, route handlers, drawers, actions, and SSE",
   "keywords": [
     "flowpanel",

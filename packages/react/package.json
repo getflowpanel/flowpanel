@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/react",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Admin UI components for FlowPanel — shell, data table, forms, widgets and realtime hooks built on Radix UI + Tailwind v4 + design tokens",
   "keywords": [
     "flowpanel",

@@ -1,7 +1,7 @@
 {
   "name": "@flowpanel/cli",
-  "version": "0.1.0",
-  "description": "CLI for FlowPanel \u2014 init, dev, new, migrate, doctor and eject",
+  "version": "0.2.0",
+  "description": "CLI for FlowPanel — init, dev, new, migrate, doctor and eject",
   "keywords": [
     "flowpanel",
     "cli",
