@@ -1,0 +1,2 @@
+# One line ending everywhere, so template fixtures and their assertions match on Windows too.
+* text=auto eol=lf

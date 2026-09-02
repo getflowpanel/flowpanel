@@ -66,7 +66,8 @@ describe("filesystem plan", () => {
 
   it("applies a conflict-free plan and is idempotent on rerun", async () => {
     const first = await createFilesystemPlan(cwd, [{ path: "nested/file.ts", content: "value" }]);
-    expect(await applyFilesystemPlan(first)).toEqual([path.join("nested", "file.ts")]);
+    expect(first.operations[0]?.path).toBe("nested/file.ts");
+    expect(await applyFilesystemPlan(first)).toEqual(["nested/file.ts"]);
 
     const second = await createFilesystemPlan(cwd, [{ path: "nested/file.ts", content: "value" }]);
     expect(second.operations[0]?.kind).toBe("skip");

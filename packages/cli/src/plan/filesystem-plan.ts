@@ -18,7 +18,8 @@ function normalizeRelativePath(input: string): string {
   ) {
     throw new Error(`Unsafe project path: ${input || "<empty>"}`);
   }
-  return normalized;
+  // Planned paths are reported and compared, so they stay POSIX on every host.
+  return normalized.split(path.sep).join("/");
 }
 
 async function readExisting(file: string): Promise<string | null> {

@@ -28,6 +28,11 @@ jobs:
 
       - uses: ./.github/actions/setup
 
+      # `changeset status` resolves config.baseBranch as a local ref; checkout
+      # only creates the branch being tested.
+      - name: Make the changesets base branch resolvable
+        run: git show-ref --verify --quiet refs/heads/main || git branch main origin/main
+
       - run: pnpm build
 
       - run: pnpm typecheck

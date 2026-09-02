@@ -1,0 +1,57 @@
+# Deploys flowpanel.tech and demo.flowpanel.tech after CI passes on main.
+# Coolify listens on the server's loopback only, so GitHub webhooks cannot
+# reach it — the deploy is triggered by running its API on the host over SSH.
+name: deploy
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ matrix.site }}
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - site: flowpanel.tech
+            uuid: COOLIFY_SITE_APP_UUID
+          - site: demo.flowpanel.tech
+            uuid: COOLIFY_DEMO_APP_UUID
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: main
+
+      - name: Confirm main still points at the commit CI verified
+        id: verified_head
+        if: github.event_name == 'workflow_run'
+        env:
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" = "$VERIFIED_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "main advanced after this CI run; the newer run deploys it"
+          fi
+
+      - uses: ./.github/actions/coolify-deploy
+        if: steps.verified_head.outputs.current != 'false'
+        with:
+          app-uuid: ${{ secrets[matrix.uuid] }}
+          ssh-key: ${{ secrets.COOLIFY_SSH_KEY }}
+          ssh-target: ${{ secrets.COOLIFY_SSH_TARGET }}
+          api-token: ${{ secrets.COOLIFY_TOKEN }}
