@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { db } from "./src/db/client";
-import { readSandboxConfig } from "./src/demo/sandbox/config";
+import { readSandboxConfig, requireSandboxSecret } from "./src/demo/sandbox/config";
 import {
   bindSandboxRequest,
   DEMO_FINGERPRINT_HEADER,
@@ -21,10 +21,11 @@ export async function proxy(request: NextRequest) {
     production: process.env.NODE_ENV === "production",
   });
 
-  if (config.publicMode && config.secret) {
+  if (config.publicMode) {
+    const secret = requireSandboxSecret(config);
     binding.headers.set(
       DEMO_FINGERPRINT_HEADER,
-      fingerprintClientIp(trustedClientIp(request.headers, config.trustProxy), config.secret),
+      fingerprintClientIp(trustedClientIp(request.headers, config.trustProxy), secret),
     );
   } else {
     binding.headers.delete(DEMO_FINGERPRINT_HEADER);

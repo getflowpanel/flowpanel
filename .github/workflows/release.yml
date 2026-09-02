@@ -50,9 +50,11 @@ jobs:
       - if: steps.verified_head.outputs.current == 'true'
         run: pnpm install --frozen-lockfile
       - if: steps.verified_head.outputs.current == 'true'
-        run: pnpm check:release && pnpm check:docs
-      - if: steps.verified_head.outputs.current == 'true'
         run: pnpm -r --filter "./packages/*" run build
+      # After the build: the docs check resolves re-exports through the packages'
+      # own entry points, which do not exist until their dist does.
+      - if: steps.verified_head.outputs.current == 'true'
+        run: pnpm check:release && pnpm check:docs
       - name: Create release PR or publish
         if: steps.verified_head.outputs.current == 'true'
         uses: changesets/action@63a615b9cd06ba9a3e6d13796c7fbcb080a60a0b # v1.8.0
