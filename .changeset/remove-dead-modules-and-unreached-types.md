@@ -18,9 +18,9 @@ are used, and trimming individual members would leave a documented primitive
 set that cannot be composed.
 
 `AdapterCapabilities` and `AdapterV2` are gone from `@flowpanel/core`, along
-with the optional `Adapter.capabilities` field and the `capabilities:
-{ version: 2 }` literal both shipped adapters wrote. Nothing ever read the
-value; a version marker no runtime consults is not a contract. `bindAdapterScope`
+with the optional `Adapter.capabilities` field and the
+`capabilities: { version: 2 }` literal both shipped adapters wrote. Nothing
+ever read the value; a version marker no runtime consults is not a contract. `bindAdapterScope`
 and `BoundAdapterScope` — the parts of that module that carry real meaning —
 stay, and now live in `types/bound-scope.ts` rather than a file named after a
 type that no longer exists.

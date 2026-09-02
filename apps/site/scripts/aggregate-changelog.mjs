@@ -13,7 +13,7 @@
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SITE_DIR = `${path.dirname(fileURLToPath(import.meta.url))}/..`;
 const REPO_DIR = path.resolve(SITE_DIR, "../..");
@@ -122,6 +122,42 @@ function parseSemver(/** @type {string} */ v) {
   return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
+/**
+ * Package changelogs are prose, but this file is compiled as MDX, where `{`
+ * opens an expression and `<` opens a tag. One release note that wrapped an
+ * inline code span across a line break was enough to fail the site build — and
+ * the site build is the production deploy. Escape both outside code, so a
+ * release note can never be syntax.
+ */
+export function escapeMdxProse(/** @type {string} */ body) {
+  let inFence = false;
+  return body
+    .split("\n")
+    .map((line) => {
+      if (/^\s*(?:```|~~~)/.test(line)) {
+        inFence = !inFence;
+        return line;
+      }
+      return inFence ? line : escapeOutsideCodeSpans(line);
+    })
+    .join("\n");
+}
+
+function escapeOutsideCodeSpans(/** @type {string} */ line) {
+  // A code span opens on a run of backticks and closes on a run of the same
+  // length, so ``a ` b`` is one span rather than two.
+  const spans = /(`+)(.*?)\1(?!`)/g;
+  let out = "";
+  let read = 0;
+  for (let span = spans.exec(line); span; span = spans.exec(line)) {
+    out += escapeSyntax(line.slice(read, span.index)) + span[0];
+    read = span.index + span[0].length;
+  }
+  return out + escapeSyntax(line.slice(read));
+}
+
+const escapeSyntax = (/** @type {string} */ text) => text.replace(/[{<]/g, "\\$&");
+
 /** Compose the final MDX body. */
 function emit(/** @type {Map<string, Map<string, SectionBlock[]>>} */ byVersion) {
   const versions = sortedVersions(byVersion.keys());
@@ -159,7 +195,7 @@ function emit(/** @type {Map<string, Map<string, SectionBlock[]>>} */ byVersion)
           out.push(`**${section.section}**`);
           out.push("");
         }
-        const body = section.lines.join("\n").trim();
+        const body = escapeMdxProse(section.lines.join("\n").trim());
         if (body) {
           out.push(body);
           out.push("");
@@ -186,7 +222,9 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
