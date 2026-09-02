@@ -1,3 +1,4 @@
+import { browserOrigin } from "@flowpanel/kit/next";
 import { db } from "@/src/db/client";
 import { readSandboxConfig } from "@/src/demo/sandbox/config";
 import { DEMO_SANDBOX_HEADER, isPublicSandboxId } from "@/src/demo/sandbox/identity";
@@ -8,7 +9,7 @@ const failure = (error: string, status: number) => Response.json({ ok: false, er
 
 export async function POST(req: Request): Promise<Response> {
   const origin = req.headers.get("origin");
-  if (origin !== new URL(req.url).origin) return failure("forbidden", 403);
+  if (origin !== browserOrigin(req)) return failure("forbidden", 403);
   const fetchSite = req.headers.get("sec-fetch-site");
   if (fetchSite && fetchSite !== "same-origin") return failure("forbidden", 403);
 

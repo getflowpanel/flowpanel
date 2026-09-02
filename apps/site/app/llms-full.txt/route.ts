@@ -6,7 +6,12 @@ import { source } from "@/shared/lib/source";
  * Concatenates every doc body into one plain-text stream for LLM
  * consumers. Each page is preceded by an H2 with its title and URL so
  * the LLM can cite back.
+ *
+ * Built once: the bodies are assembled from repository sources, which the
+ * deployed image does not carry.
  */
+export const dynamic = "force-static";
+
 export async function GET(): Promise<Response> {
   const chunks: string[] = [
     `# ${siteConfig.name} — full documentation`,

@@ -18,6 +18,7 @@ import {
   resolveOperationAccess,
 } from "@flowpanel/core";
 import { actorIdFromSession } from "./action-helpers";
+import { browserOrigin } from "./request-origin";
 import { buildRequestContext, requestIdFrom } from "./request-setup";
 import { requireAuthorized } from "./require-authorized";
 
@@ -80,7 +81,7 @@ function guardSameOrigin(
 ): Response | null {
   if (config.security?.sameOrigin === false) return null;
 
-  const requestOrigin = new URL(req.url).origin;
+  const requestOrigin = browserOrigin(req);
   const originHeader = req.headers.get("origin");
   if (originHeader !== null) {
     const origin = normalizeOrigin(originHeader);

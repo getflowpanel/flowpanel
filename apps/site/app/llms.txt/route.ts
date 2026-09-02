@@ -6,9 +6,10 @@ import { source } from "@/shared/lib/source";
  * the site, lists every top-level section, and offers `llms-full.txt`
  * for the bulk version.
  *
- * Rendered at request time (cheap), no `revalidate` needed — the page
- * tree is part of the compiled bundle.
+ * Built once from the page tree, like every other docs surface.
  */
+export const dynamic = "force-static";
+
 export function GET(): Response {
   const lines: string[] = [
     `# ${siteConfig.name}`,
