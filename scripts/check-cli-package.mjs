@@ -13,15 +13,27 @@ const command = (name) => (process.platform === "win32" ? `${name}.cmd` : name);
 class CommandFailed extends Error {}
 
 /**
+ * Node refuses to spawn a `.cmd` without a shell. Under one, quote only what
+ * has to be quoted: a quoted bare name leaves `%~dp0` pointing at the current
+ * directory, so the shim looks for pnpm next to the repo instead of itself.
+ */
+function exec(file, args, options) {
+  if (!file.endsWith(".cmd")) return execFileSync(file, args, options);
+  const quote = (value) => (/[\s"]/.test(value) ? `"${value}"` : value);
+  return execFileSync(quote(file), args.map(quote), { ...options, shell: true });
+}
+
+/**
  * `stdio: "pipe"` hands a failure back with Buffer stdout/stderr, which node's
  * default printer renders as thousands of byte codes. Report what the command
  * actually said instead.
  */
 function run(file, args, options) {
   try {
-    return execFileSync(file, args, options);
+    return exec(file, args, options);
   } catch (error) {
-    console.error(`✗ ${file} ${args.join(" ")} failed with status ${error.status ?? "unknown"}`);
+    const why = error.status ?? error.code ?? error.message;
+    console.error(`✗ ${file} ${args.join(" ")} failed with ${why}`);
     for (const stream of ["stdout", "stderr"]) {
       const said = String(error[stream] ?? "").trim();
       if (said) console.error(`── ${stream} ──\n${said}`);
@@ -33,7 +45,7 @@ function run(file, args, options) {
 /** The clean-room install is the one step that reaches the network. */
 function runOnceMore(file, args, options) {
   try {
-    return execFileSync(file, args, options);
+    return exec(file, args, options);
   } catch {
     console.error(`↻ ${file} ${args.join(" ")} failed; retrying once before failing the check`);
     return run(file, args, options);

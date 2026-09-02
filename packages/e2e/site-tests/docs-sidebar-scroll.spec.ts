@@ -84,7 +84,9 @@ test("desktop documentation sidebar keeps safe spacing at lg and xl", async ({ p
       const versionRect = versionChip.getBoundingClientRect();
       return {
         contentGap: article.getBoundingClientRect().left - sidebarRect.right,
-        contentWidth: versionRect.width,
+        // The scrollbar gutter is the platform's call — overlay on macOS,
+        // reserved on Linux — so measure the column as if it were not there.
+        contentWidth: versionRect.width + (sidebarRect.width - element.clientWidth),
         hasViewportOverflow: document.documentElement.scrollWidth > window.innerWidth,
         rightGap: sidebarRect.right - versionRect.right,
       };

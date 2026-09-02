@@ -116,7 +116,10 @@ describe("scaffolded stylesheet compiles through real Tailwind", () => {
   it("v4: emits nothing without the Tailwind import", async () => {
     const template = await tpl("admin.css.txt", { SOURCE_UP: "../" });
     expect(template).toContain('@import "tailwindcss";');
-    const css = await buildV4(appRoot("hoisted"), template.replace('@import "tailwindcss";\n', ""));
+    const css = await buildV4(
+      appRoot("hoisted"),
+      template.replace(/@import "tailwindcss";\r?\n/, ""),
+    );
     expect(css).not.toContain(".bg-fp-bg-1");
     expect(css).not.toContain("@theme");
   });
