@@ -24,7 +24,7 @@ interface AdapterTabsProps {
 export function AdapterTabs({ children }: AdapterTabsProps) {
   return (
     <div className="not-prose my-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
-      <header className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+      <header className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2 font-mono text-xs text-[var(--color-fg-subtle)]">
         <span>Adapter example</span>
         <span>Toggle in the sidebar</span>
       </header>

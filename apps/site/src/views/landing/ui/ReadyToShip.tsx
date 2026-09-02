@@ -10,9 +10,7 @@ export function ReadyToShip() {
       <div className="mx-auto max-w-[1120px] px-6">
         <div className="grid gap-10 md:grid-cols-[minmax(0,0.85fr)_minmax(360px,1fr)] md:items-end md:gap-20">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
-              Get started
-            </p>
+            <p className="font-mono text-xs text-[var(--color-fg-subtle)]">Get started</p>
             <h2
               id="ready-title"
               className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] md:text-4xl"
