@@ -48,10 +48,8 @@ function createRedisLimiter(opts: Extract<RateLimitOptions, { driver: "redis" }>
 
   async function load(): Promise<InstanceType<RedisCtor>> {
     if (client) return client;
-    // Specifier held in a variable so TypeScript does not statically
-    // resolve `ioredis` — it is an optional peer dep and may be absent.
     const specifier = "ioredis";
-    const mod = (await import(specifier).catch(() => null)) as
+    const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as
       | { default: RedisCtor }
       | RedisCtor
       | null;

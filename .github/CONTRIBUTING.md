@@ -27,8 +27,9 @@ Node ≥ 22 (see `.nvmrc`), pnpm 10. The repo is a workspace monorepo (`packages
 3. **Write tests.** TDD is preferred. Untested behavior changes will be
    asked for tests before merge.
 4. **Add a changeset.** Run `pnpm changeset`, pick the bump level, write
-   one user-visible sentence. The CI gate `changeset-required.yml`
-   enforces this on PRs that touch package source.
+   one user-visible sentence. CI validates the changesets on every PR
+   (`pnpm check:changesets` runs `changeset status`), so a malformed or
+   wrongly-named entry fails the build.
 5. **Open the PR.** Fill out the template. If you touched
    `packages/*/src/index.ts`, describe the public-surface impact in the
    PR (symbols added / changed / removed) and include a tsd type-test.
@@ -54,13 +55,14 @@ Five layers, in order of cost:
 1. **Unit** (`vitest`) — public functions and components. Always run.
 2. **Integration** (`testcontainers`) — adapter behaviors against real
    databases. Skip gracefully when Docker is absent (`describe.skipIf`).
-3. **E2E** (Playwright) — `examples/freelance-radar` flows.
+3. **E2E** (Playwright) — `examples/ai-scraper` flows.
    `packages/e2e/` boots the example via `webServer`.
 4. **Type tests** (`tsd`) — public API shapes. Run via `pnpm -r test:types`.
 5. **A11y** (Axe via Playwright) — 0 wcag2aa violations.
 
-CI runs all of unit + typecheck + lint + size-limit on every PR. The
-integration / E2E / a11y layers run on `main` and tagged releases.
+CI runs unit + typecheck + lint + size-limit and the Playwright
+E2E / integration / a11y layers on every PR. Only the macOS smoke
+test is gated to `main`.
 
 ## Releases
 
@@ -92,7 +94,7 @@ review and, if needed, ask for the design to be reworked.
 
 ## Repo layout
 
-The published docs site (<https://flowpanel.dev>) renders from
+The published docs site (<https://flowpanel.tech>) renders from
 `apps/site/content/docs/` — that's the canonical user-facing surface.
 Internal architecture notes (invariants, ADRs, specs) are maintained
 privately by the maintainer and are not part of this repository.

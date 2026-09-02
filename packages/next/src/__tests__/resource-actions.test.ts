@@ -1,16 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
 }));
+// `makeActions`'s no-`reqCtx` fallback path (`ctxFor`) builds its request via
+// `buildServerRequest`, which reads `next/headers` — unavailable outside a
+// real Next.js request scope. Every test below calls `makeActions(config,
+// resource)` without a `reqCtx`, so it needs this mocked the same way
+// `build-server-request.test.ts` does.
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({ getAll: () => [] }),
+}));
 
 import type { Adapter, AuditConfig, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { makeActions, makeFormAction } from "../actions/resource-actions.js";
-import { publishResource } from "../runtime/publish.js";
+import { makeActions } from "../actions/resource-actions";
+import { publishResource } from "../runtime/publish";
 
 const createSchema = z.object({ email: z.string().email() });
 const updateSchema = z.object({ email: z.string().email().optional() });
@@ -35,7 +45,7 @@ function makeConfig(opts: {
         update: updateSchema,
       }) as never,
     list: async () => ({ rows: [], total: 0, page: 1, pageSize: 10 }),
-    get: async () => null,
+    get: async () => ({ id: "u1", email: "a@b.com", status: "active" }),
     create: async () =>
       opts.createReturn === undefined
         ? ({ id: "u1", email: "a@b.com" } as Record<string, unknown>)
@@ -70,6 +80,8 @@ function makeConfig(opts: {
     resources: [resource],
     resourcesByName: new Map([["users", resource]]),
     dashboardsByPath: new Map(),
+    basePath: "/admin",
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return { config, resource };
@@ -78,6 +90,7 @@ function makeConfig(opts: {
 describe("makeActions.create", () => {
   beforeEach(() => {
     vi.mocked(publishResource).mockReset();
+    vi.mocked(revalidatePath).mockReset();
   });
 
   it("creates the row, emits audit with target id, and publishes", async () => {
@@ -106,7 +119,7 @@ describe("makeActions.create", () => {
     const { config, resource } = makeConfig({});
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "not-email" })).rejects.toMatchObject({
-      code: "validation",
+      code: "validation_failed",
       fieldErrors: expect.objectContaining({ email: expect.any(String) }),
     });
   });
@@ -133,11 +146,37 @@ describe("makeActions.create", () => {
     await actions.create({ email: "a@b.com" });
     expect(publishResource).toHaveBeenCalledWith("users", { action: "create" });
   });
+
+  it("publishes exactly once for a single create with the default options", async () => {
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource);
+    await actions.create({ email: "a@b.com" });
+    expect(publishResource).toHaveBeenCalledTimes(1);
+    expect(revalidatePath).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a committed mutation successful and still revalidates when realtime fails", async () => {
+    vi.mocked(publishResource).mockRejectedValueOnce(new Error("redis unavailable"));
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource);
+
+    await expect(actions.create({ email: "a@b.com" })).resolves.toMatchObject({ id: "u1" });
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/users");
+  });
+
+  it("skips publish + revalidate when `publish: false` is passed", async () => {
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource, { publish: false });
+    await actions.create({ email: "a@b.com" });
+    expect(publishResource).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
 });
 
 describe("makeActions.update", () => {
   beforeEach(() => {
     vi.mocked(publishResource).mockReset();
+    vi.mocked(revalidatePath).mockReset();
   });
 
   it("updates the row, emits audit with targetId, and publishes", async () => {
@@ -162,14 +201,23 @@ describe("makeActions.update", () => {
     const { config, resource } = makeConfig({});
     const actions = makeActions(config, resource);
     await expect(actions.update("u1", { email: "broken" })).rejects.toMatchObject({
-      code: "validation",
+      code: "validation_failed",
     });
+  });
+
+  it("skips publish + revalidate when `publish: false` is passed", async () => {
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource, { publish: false });
+    await actions.update("u1", { email: "new@b.com" });
+    expect(publishResource).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
 
 describe("makeActions.delete", () => {
   beforeEach(() => {
     vi.mocked(publishResource).mockReset();
+    vi.mocked(revalidatePath).mockReset();
   });
 
   it("deletes the row, emits audit, and publishes", async () => {
@@ -179,6 +227,14 @@ describe("makeActions.delete", () => {
     await actions.delete("u1");
     expect(publishResource).toHaveBeenCalledWith("users", { action: "delete", id: "u1" });
     expect(sink).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips publish + revalidate when `publish: false` is passed", async () => {
+    const { config, resource } = makeConfig({});
+    const actions = makeActions(config, resource, { publish: false });
+    await actions.delete("u1");
+    expect(publishResource).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("threads softDelete column through to adapter.delete", async () => {
@@ -240,73 +296,169 @@ describe("actorIdFromSession (via audit event)", () => {
   });
 });
 
-describe("makeFormAction", () => {
-  it("returns { ok: true } on a successful create", async () => {
+describe("field rules on the write path", () => {
+  it("update rejects a role-gated submitted field declared in the fallback form", async () => {
     const { config, resource } = makeConfig({});
-    const action = makeFormAction(config, resource, "create");
-    const fd = new FormData();
-    fd.set("email", "a@b.com");
-    const result = await action(null, fd);
-    expect(result).toEqual({ ok: true });
-  });
-
-  it("maps a FlowpanelValidationError to { ok: false, fieldErrors }", async () => {
-    const { config, resource } = makeConfig({});
-    const action = makeFormAction(config, resource, "create");
-    const fd = new FormData();
-    fd.set("email", "not-email");
-    const result = await action(null, fd);
-    expect(result.ok).toBe(false);
-    expect(result.fieldErrors).toBeDefined();
-    expect(result.fieldErrors?.email).toBeDefined();
-  });
-
-  it("returns { ok: false, error } on a non-validation error", async () => {
-    const { config, resource } = makeConfig({});
-    // Force the underlying adapter call to throw an unrelated error.
-    config.adapter.create = async () => {
-      const e = Object.assign(new Error("boom"), { safeMessage: "Action failed" });
-      throw e;
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email", requireRole: "owner" }],
     };
-    const action = makeFormAction(config, resource, "create");
-    const fd = new FormData();
-    fd.set("email", "a@b.com");
-    const result = await action(null, fd);
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe("Action failed");
-  });
-
-  it("coerces empty form-data values to null before submitting", async () => {
-    let received: unknown = null;
-    const { config, resource } = makeConfig({
-      schema: z.object({ email: z.string().email(), nickname: z.null() }),
-    });
-    config.adapter.create = async (_ref, ctx) => {
-      received = (ctx as { input: unknown }).input;
+    const seen = vi.fn();
+    (config.adapter as { update: unknown }).update = async (
+      _ref: unknown,
+      mctx: { input: unknown },
+    ) => {
+      seen(mctx.input);
       return { id: "u1" };
     };
-    const action = makeFormAction(config, resource, "create");
-    const fd = new FormData();
-    fd.set("email", "a@b.com");
-    fd.set("nickname", "");
-    const result = await action(null, fd);
-    expect(result.ok).toBe(true);
-    expect(received).toEqual({ email: "a@b.com", nickname: null });
+    const actions = makeActions(config, resource);
+    await expect(actions.update("u1", { email: "sneaky@b.com" })).rejects.toMatchObject({
+      code: "field_forbidden",
+      field: "email",
+    });
+    expect(seen).not.toHaveBeenCalled();
   });
 
-  it("runs the update path when kind='update' and id provided", async () => {
+  it("reports a required gated field as an access error, not a phantom validation error", async () => {
     const { config, resource } = makeConfig({});
-    const action = makeFormAction(config, resource, "update", "u1");
-    const fd = new FormData();
-    fd.set("email", "x@b.com");
-    const result = await action(null, fd);
-    expect(result.ok).toBe(true);
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email", requireRole: "owner" }],
+    };
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
+      code: "field_forbidden",
+      field: "email",
+    });
   });
 
-  it("returns { ok: true } early if kind='update' and id missing (no-op)", async () => {
+  it("reports a missing required field using its FieldDef label, not the raw Zod message", async () => {
+    const { config, resource } = makeConfig({
+      schema: z.object({ email: z.string().email(), userId: z.number() }),
+    });
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email" }, { name: "userId", label: "Customer", required: true }],
+    };
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "a@b.com", userId: null })).rejects.toMatchObject({
+      code: "validation_failed",
+      fieldErrors: { userId: "Customer is required" },
+    });
+  });
+
+  it("falls back to a humanized field name when the FieldDef has no label", async () => {
+    const { config, resource } = makeConfig({
+      schema: z.object({ email: z.string().email(), ourPriceCents: z.number() }),
+    });
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email" }, { name: "ourPriceCents" }],
+    };
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
+      fieldErrors: { ourPriceCents: "Our price cents is required" },
+    });
+  });
+
+  it("keeps Zod's own message for a non-empty value that merely fails format validation", async () => {
     const { config, resource } = makeConfig({});
-    const action = makeFormAction(config, resource, "update");
-    const result = await action(null, new FormData());
-    expect(result.ok).toBe(true);
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email", label: "Work email" }],
+    };
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "not-an-email" })).rejects.toMatchObject({
+      fieldErrors: { email: expect.not.stringMatching(/is required/) },
+    });
+  });
+
+  it("rejects submitted readOnly fields instead of silently stripping them", async () => {
+    const { config, resource } = makeConfig({
+      schema: {
+        create: z.object({ email: z.string().email(), note: z.string().optional() }),
+        update: updateSchema,
+      },
+    });
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email" }, { name: "note", readOnly: true }],
+    };
+    const seen = vi.fn();
+    (config.adapter as { create: unknown }).create = async (
+      _ref: unknown,
+      mctx: { input: unknown },
+    ) => {
+      seen(mctx.input);
+      return { id: "u1" };
+    };
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "a@b.com", note: "sneaky" })).rejects.toMatchObject({
+      code: "field_forbidden",
+      field: "note",
+    });
+    expect(seen).not.toHaveBeenCalled();
+  });
+
+  it("runs a Zod FieldDef.validate after schema validation", async () => {
+    const { config, resource } = makeConfig({});
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email", validate: z.string().endsWith("@corp.com") }],
+    };
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
+      code: "validation_failed",
+      fieldErrors: { email: expect.any(String) },
+    });
+  });
+
+  it("runs a function FieldDef.validate and keys its message to the field", async () => {
+    const { config, resource } = makeConfig({});
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email", validate: () => "corporate addresses only" }],
+    };
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
+      code: "validation_failed",
+      fieldErrors: { email: "corporate addresses only" },
+    });
+  });
+
+  it("fills defaultValue for absent keys on create — after stripping, so a gated required field still lands", async () => {
+    const { config, resource } = makeConfig({
+      schema: {
+        create: z.object({ email: z.string().email(), note: z.string() }),
+        update: updateSchema,
+      },
+    });
+    (resource.options as { create?: unknown }).create = {
+      fields: [
+        { name: "email" },
+        { name: "note", requireRole: "owner", defaultValue: "server-default" },
+      ],
+    };
+    const seen = vi.fn();
+    (config.adapter as { create: unknown }).create = async (
+      _ref: unknown,
+      mctx: { input: unknown },
+    ) => {
+      seen(mctx.input);
+      return { id: "u1" };
+    };
+    const actions = makeActions(config, resource);
+    await actions.create({ email: "a@b.com" });
+    expect(seen).toHaveBeenCalledWith({ email: "a@b.com", note: "server-default" });
+  });
+
+  it("reuses a caller-supplied RequestContext instead of building one per call", async () => {
+    const { config, resource } = makeConfig({});
+    const sessionSpy = vi.fn(async () => null);
+    (config.auth as { session: unknown }).session = sessionSpy;
+    const reqCtx = {
+      req: new Request("http://localhost/import"),
+      session: null,
+      role: "admin",
+      scope: null,
+      ip: null,
+      userAgent: null,
+    } as never;
+    const actions = makeActions(config, resource, { reqCtx });
+    await actions.create({ email: "a@b.com" });
+    await actions.create({ email: "b@b.com" });
+    expect(sessionSpy).not.toHaveBeenCalled();
   });
 });

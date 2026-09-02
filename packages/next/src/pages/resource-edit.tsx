@@ -1,11 +1,25 @@
-import type { ItemQueryContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { checkRequireRole, runWithRequestContext } from "@flowpanel/core";
+import type {
+  ItemQueryContext,
+  RequestContext,
+  ResolvedAdminConfig,
+  ResourceConfig,
+} from "@flowpanel/core";
+import {
+  assertResourceScope,
+  authorizeOperation,
+  checkRequireRole,
+  filterReadableProjection,
+  resolveOperationAccess,
+  runWithRequestContext,
+} from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
-import { makeFormAction } from "../actions/resource-actions.js";
-import { buildRequestContext } from "../runtime/request-setup.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { NotFound } from "./not-found.js";
-import { pickSchema } from "./resource-create.js";
+import { writableColumns } from "../actions/field-pipeline";
+import { buildHref } from "../runtime/href";
+import { buildRequestContext } from "../runtime/request-setup";
+import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
+import { singularLabel } from "../runtime/resource-title";
+import { scopeBinding } from "../runtime/scope-binding";
+import { NotFound } from "./not-found";
 
 export interface ResourceEditPageProps {
   config: ResolvedAdminConfig;
@@ -13,11 +27,27 @@ export interface ResourceEditPageProps {
   name: string;
   id: string;
   req: Request;
+  reqCtx?: RequestContext;
 }
 
-export async function ResourceEditPage({ config, resource, name, id, req }: ResourceEditPageProps) {
-  const reqCtx = await buildRequestContext({ req, config });
+export async function ResourceEditPage({
+  config,
+  resource,
+  name,
+  id,
+  req,
+  reqCtx: providedReqCtx,
+}: ResourceEditPageProps) {
+  const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
   checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
+  await authorizeOperation(
+    resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
+    reqCtx,
+  );
+  assertResourceScope({
+    hasGlobal: !!config.scope,
+    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+  });
 
   if (resource.options.update?.disabled) {
     return <div className="text-fp-text-3">Editing is disabled for this resource.</div>;
@@ -38,19 +68,35 @@ export async function ResourceEditPage({ config, resource, name, id, req }: Reso
   if (!row) return <NotFound />;
 
   const intro = config.adapter.introspect(resource.ref);
-  const schema = pickSchema(config, resource, "update");
-  const action = makeFormAction(config, resource, "update", id);
+  const action = `${config.paths.api}/${name}/${id}/edit`;
+  const declared = declaredFormFields(resource, "update");
+  const fields = declared ? await resolveFormFields(config, declared, reqCtx, row) : undefined;
+  const columns = writableColumns(resource, intro.columns, declared);
+  const defaultFields = fields
+    ? fields.map((field) => field.name)
+    : columns.filter((column) => !column.primaryKey).map((column) => column.name);
+  const readableDefaults = await filterReadableProjection(
+    defaultFields,
+    resource.options.fieldAccess,
+    reqCtx,
+  );
+  const defaultValues = Object.fromEntries(
+    readableDefaults
+      .filter((field) => Object.hasOwn(row, field))
+      .map((field) => [field, row[field]]),
+  );
 
   return (
     <>
-      <PageHeader title={`Edit ${resource.options.label ?? name}`} />
+      <PageHeader title={`Edit ${singularLabel(resource, name)}`} />
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
-          schema={schema}
-          columns={intro.columns}
-          defaultValues={row}
+          columns={columns}
+          defaultValues={defaultValues}
+          {...(fields ? { fields } : {})}
           submitLabel="Save"
+          redirectTo={buildHref(config, name, id)}
         />
       </div>
     </>

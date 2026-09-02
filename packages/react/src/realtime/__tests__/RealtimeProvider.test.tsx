@@ -51,10 +51,24 @@ class MockEventSource {
   }
 }
 
-import { RealtimeRefresh } from "../../hooks/useRealtimeRefresh.js";
-import type { RealtimeStatus } from "../context.js";
-import { useRealtimeStatus } from "../hooks.js";
-import { RealtimeProvider } from "../RealtimeProvider.js";
+import * as React from "react";
+
+import { RealtimeRefresh } from "../../hooks/useRealtimeRefresh";
+import type { RealtimeStatus } from "../context";
+import { useRealtimeBus, useRealtimeStatus } from "../hooks";
+import { RealtimeProvider } from "../RealtimeProvider";
+
+/** Direct bus subscriber — lets a test assert per-channel callback routing. */
+function Sub({ channels, cb }: { channels: string[]; cb: (data: unknown) => void }) {
+  const bus = useRealtimeBus();
+  const key = channels.join("|");
+  React.useEffect(() => {
+    if (!bus) return;
+    return bus.subscribe(key.split("|"), cb);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bus, key, cb]);
+  return null;
+}
 
 const flushReopen = async () => {
   await act(async () => {
@@ -125,7 +139,7 @@ describe("RealtimeProvider", () => {
     });
     expect(refresh).toHaveBeenCalledTimes(0);
     // One message → provider fires exactly one coalesced refresh for all 3.
-    act(() => instances[0]!.message("{}"));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "a" })));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20);
     });
@@ -206,8 +220,8 @@ describe("RealtimeProvider", () => {
 
     // Events arrive while hidden: no refresh, and the socket stays OPEN
     // (the whole point — no reconnect on tab switch).
-    act(() => instances[0]!.message("{}"));
-    act(() => instances[0]!.message("{}"));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "a" })));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "a" })));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20);
     });
@@ -290,7 +304,7 @@ describe("RealtimeProvider", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("surfaces 'offline' when the EventSource closes permanently (browser gives up)", async () => {
+  it("surfaces 'reconnecting' for both a transient error and a permanently CLOSED socket (the bus retries either way)", async () => {
     let status: RealtimeStatus = "idle";
     function Probe() {
       status = useRealtimeStatus();
@@ -308,9 +322,193 @@ describe("RealtimeProvider", () => {
     // A transient error keeps the socket retrying → reconnecting.
     act(() => instances[0]!.error());
     expect(status).toBe("reconnecting");
-    // A CLOSED socket means the browser stopped retrying → offline.
+    act(() => instances[0]!.open());
+    expect(status).toBe("live");
+    // A CLOSED socket means the browser stopped retrying, but the bus now
+    // schedules its own reconnect (Task 1.3) — still surfaced as
+    // "reconnecting", not the terminal "offline".
     act(() => instances[0]!.fail());
-    expect(status).toBe("offline");
+    expect(status).toBe("reconnecting");
+  });
+
+  it("reconnects with exponential backoff after the socket is permanently CLOSED", async () => {
+    render(
+      <RealtimeProvider reopenDebounceMs={10}>
+        <RealtimeRefresh channels="a" />
+      </RealtimeProvider>,
+    );
+    await flushReopen();
+    act(() => instances[0]!.open());
+    act(() => instances[0]!.fail());
+    expect(instances).toHaveLength(1);
+    // First backoff: 500ms * 2^0 = 500ms.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(instances).toHaveLength(2);
+  });
+
+  it("resets the reconnect attempt counter once the new connection opens", async () => {
+    render(
+      <RealtimeProvider reopenDebounceMs={10}>
+        <RealtimeRefresh channels="a" />
+      </RealtimeProvider>,
+    );
+    await flushReopen();
+    act(() => instances[0]!.open());
+    act(() => instances[0]!.fail());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(instances).toHaveLength(2);
+    // New source opens successfully → attempt resets to 0, so the next
+    // failure backs off at the base delay again, not a doubled one.
+    act(() => instances[1]!.open());
+    act(() => instances[1]!.fail());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(499);
+    });
+    expect(instances).toHaveLength(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(instances).toHaveLength(3);
+  });
+
+  it("ignores a stale EventSource's onerror after it has been superseded by a newer source", async () => {
+    let status: RealtimeStatus = "idle";
+    function Probe() {
+      status = useRealtimeStatus();
+      return null;
+    }
+    function Host({ extra }: { extra: boolean }) {
+      return (
+        <RealtimeProvider reopenDebounceMs={10}>
+          <Probe />
+          <RealtimeRefresh channels="a" />
+          {extra ? <RealtimeRefresh channels="b" /> : null}
+        </RealtimeProvider>
+      );
+    }
+    const { rerender } = render(<Host extra={false} />);
+    await flushReopen();
+    const sourceA = instances[0]!;
+    act(() => sourceA.open());
+    expect(status).toBe("live");
+
+    // Channel-set change → provider closes A (readyState → CLOSED) and opens B.
+    rerender(<Host extra={true} />);
+    await flushReopen();
+    expect(instances).toHaveLength(2);
+    const sourceB = instances[1]!;
+    act(() => sourceB.open());
+    expect(status).toBe("live");
+
+    // A's trailing onerror arrives after it was already superseded — must be
+    // a full no-op: no status flip, no attempt bump, no reconnect scheduled.
+    act(() => sourceA.error());
+    expect(status).toBe("live");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(instances).toHaveLength(2);
+    expect(status).toBe("live");
+  });
+
+  it("clears the pending reconnect timer on unmount", async () => {
+    const { unmount } = render(
+      <RealtimeProvider reopenDebounceMs={10}>
+        <RealtimeRefresh channels="a" />
+      </RealtimeProvider>,
+    );
+    await flushReopen();
+    act(() => instances[0]!.open());
+    act(() => instances[0]!.fail());
+    unmount();
+    // No pending reconnect fires after unmount — nothing left to assert on
+    // (openSource closures over a null stateRef.current no-op), but this
+    // must not throw and must not open a new EventSource.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(instances).toHaveLength(1);
+  });
+
+  it("routes an envelope to only its own channel's subscriber", async () => {
+    const cbA = vi.fn();
+    const cbB = vi.fn();
+    render(
+      <RealtimeProvider refreshDebounceMs={10}>
+        <Sub channels={["a"]} cb={cbA} />
+        <Sub channels={["b"]} cb={cbB} />
+      </RealtimeProvider>,
+    );
+    await flushReopen();
+    act(() => instances[0]!.open());
+    act(() => {
+      instances[0]!.message(JSON.stringify({ channel: "b", payload: { x: 1 } }));
+    });
+    expect(cbB).toHaveBeenCalledWith({ x: 1 });
+    expect(cbA).not.toHaveBeenCalled();
+  });
+
+  it("invokes a callback subscribed to two channels exactly once for a single-channel message", async () => {
+    const cb = vi.fn();
+    render(
+      <RealtimeProvider refreshDebounceMs={10}>
+        <Sub channels={["a", "b"]} cb={cb} />
+      </RealtimeProvider>,
+    );
+    await flushReopen();
+    act(() => instances[0]!.open());
+    act(() => {
+      instances[0]!.message(JSON.stringify({ channel: "a", payload: 1 }));
+    });
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb).toHaveBeenCalledWith(1);
+  });
+
+  it("schedules a coalesced refresh for a well-formed envelope even with no local subscriber", async () => {
+    render(
+      <RealtimeProvider refreshDebounceMs={10}>
+        <RealtimeRefresh channels="a" />
+      </RealtimeProvider>,
+    );
+    await flushReopen();
+    act(() => instances[0]!.open());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(refresh).toHaveBeenCalledTimes(0);
+    act(() => {
+      instances[0]!.message(JSON.stringify({ channel: "z" }));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops a malformed frame silently: no dispatch, no refresh", async () => {
+    const cb = vi.fn();
+    render(
+      <RealtimeProvider refreshDebounceMs={10}>
+        <Sub channels={["a"]} cb={cb} />
+      </RealtimeProvider>,
+    );
+    await flushReopen();
+    act(() => instances[0]!.open());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(refresh).toHaveBeenCalledTimes(0);
+    act(() => instances[0]!.message("not json"));
+    act(() => instances[0]!.message(JSON.stringify({ noChannel: true })));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(cb).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledTimes(0);
   });
 
   it("closes the source when the last subscriber unmounts", async () => {
@@ -351,10 +549,12 @@ describe("RealtimeProvider", () => {
     expect(instances[1]!.url).not.toContain("channel=b");
   });
 
-  it("falls back to legacy per-channel EventSource when no provider is mounted", () => {
+  it("falls back to the pooled multiplexed EventSource when no provider is mounted", () => {
     render(<RealtimeRefresh channels={["a", "b"]} />);
-    // Legacy path is synchronous (no provider debounce).
-    expect(instances).toHaveLength(2);
+    // Pool path is synchronous (no provider debounce) and multiplexes too.
+    expect(instances).toHaveLength(1);
+    expect(instances[0]!.url).toContain("channel=a");
+    expect(instances[0]!.url).toContain("channel=b");
   });
 
   // Status hook drives the `<LiveIndicator>`. We track the value through a

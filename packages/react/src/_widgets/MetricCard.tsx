@@ -1,15 +1,13 @@
 "use client";
 import type * as React from "react";
-import { useComponents } from "../_provider/ComponentsContext.js";
+import { useComponent } from "../_provider/ComponentsContext";
+import { DefaultMetricCard } from "./MetricCardDefault";
 
-export { DefaultMetricCard, type MetricCardProps } from "./MetricCardDefault.js";
+export { DefaultMetricCard, type MetricCardProps } from "./MetricCardDefault";
 
-/** Renders whatever override the user registered via theme.components.MetricCard,
- *  falling back to DefaultMetricCard. Use this internally; users keep importing
- *  { MetricCard } as the public name. */
 export function MetricCard(
-  props: import("./MetricCardDefault.js").MetricCardProps,
+  props: import("./MetricCardDefault").MetricCardProps,
 ): React.JSX.Element {
-  const Slot = useComponents().MetricCard;
+  const Slot = useComponent("MetricCard", DefaultMetricCard);
   return <Slot {...props} />;
 }

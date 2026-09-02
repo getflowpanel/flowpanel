@@ -1,8 +1,6 @@
-import { CodeBlock, OutputLine, PromptLine } from "@/shared/ui/code-block";
+import { CodeBlock, highlightTs, OutputLine, PromptLine } from "@/shared/ui/code-block";
 
 interface Layer {
-  level: string;
-  tag: string;
   title: string;
   description: string;
   code: React.ReactNode;
@@ -10,31 +8,35 @@ interface Layer {
 
 const LAYERS: ReadonlyArray<Layer> = [
   {
-    level: "L1",
-    tag: "props",
     title: "Tweak with config",
-    description: "Override a column renderer, add a row action, hide a field.",
-    code: <>{`columns: [{ field: "status", render: (row) => row.status }]`}</>,
+    description: "Override a column renderer, add a row action, or hide a field.",
+    code: highlightTs(`columns: [{ field: "status", render: (row) => row.status }]`),
   },
   {
-    level: "L2",
-    tag: "theme",
-    title: "Swap any of 10 slots",
+    title: "Swap a component slot",
     description:
-      "Replace MetricCard, Button, Badge, Avatar, StatusBadge, EmptyState, PageHeader, Pagination, ConfirmDialog, or SkeletonTable with your own component.",
-    code: <>{`theme: { components: { MetricCard: MyMetricCard } }`}</>,
+      "Replace any built-in — MetricCard, Badge, Pagination and seven more — with your own component.",
+    code: highlightTs(`theme: { components: { MetricCard: MyMetricCard } }`),
   },
   {
-    level: "L3",
-    tag: "eject",
     title: "Take the source",
     description:
-      "One command writes a five-file scaffold into your repo. Each file stamped — it's yours.",
+      "One command writes a five-file scaffold into your repo, lists every file, and comments the config entry out. Every file is yours.",
     code: (
       <>
         <PromptLine command="pnpm flowpanel eject resource users" />
         {"\n"}
-        <OutputLine text="wrote 5 files to app/admin/users/" />
+        <OutputLine text="app/admin/users/page.tsx" />
+        {"\n"}
+        <OutputLine text="app/admin/users/new/page.tsx" />
+        {"\n"}
+        <OutputLine text="app/admin/users/[id]/page.tsx" />
+        {"\n"}
+        <OutputLine text="app/admin/users/[id]/edit/page.tsx" />
+        {"\n"}
+        <OutputLine text="app/admin/users/actions.ts" />
+        {"\n"}
+        <OutputLine text="Ejected resource users" />
       </>
     ),
   },
@@ -44,50 +46,34 @@ export function CustomizationLayers() {
   return (
     <section
       aria-labelledby="layers-title"
-      className="border-b border-[var(--color-border)] py-28 md:py-40"
+      className="border-b border-[var(--color-border)] py-20 md:py-24"
     >
       <div className="mx-auto max-w-[1120px] px-6">
-        <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-[var(--color-fg-muted)]">
-          <span aria-hidden className="text-[var(--color-fg-subtle)]">
-            ●
-          </span>
-          <span>02 Customization</span>
-        </p>
         <h2
           id="layers-title"
-          className="mt-6 text-balance text-4xl font-semibold tracking-tight md:text-5xl"
+          className="max-w-[20ch] text-balance text-4xl font-semibold tracking-[-0.02em] md:text-5xl"
         >
           Three layers. Take only what you need.
         </h2>
-        <p className="mt-5 max-w-[60ch] text-lg text-[var(--color-fg-muted)]">
-          Stay declarative, swap a single component, or own the source. The escape hatch is one
-          command away — and you never lose typing.
+        <p className="mt-4 max-w-[58ch] text-lg text-[var(--color-fg-muted)]">
+          Stay declarative, swap a single component, or take the source — without ever losing your
+          types.
         </p>
 
-        <ul className="mt-16 space-y-6">
+        <ul className="mt-14 space-y-5">
           {LAYERS.map((layer) => (
             <li
-              key={layer.level}
-              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-6 md:p-8"
+              key={layer.title}
+              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-6 shadow-[var(--shadow-card)] md:p-8"
             >
-              <div className="grid gap-x-6 gap-y-3 md:grid-cols-[120px_1fr] md:gap-x-10">
-                <div>
-                  <p className="font-mono text-sm font-semibold tracking-tight text-[var(--color-fg)]">
-                    {layer.level}
-                  </p>
-                  <p className="mt-1 font-mono text-xs text-[var(--color-fg-subtle)]">
-                    {layer.tag}
-                  </p>
-                </div>
+              <div className="grid gap-x-10 gap-y-4 md:grid-cols-[1fr_1.25fr] md:items-start">
                 <div className="min-w-0">
                   <h3 className="text-xl font-semibold tracking-tight">{layer.title}</h3>
-                  <p className="mt-3 max-w-[60ch] text-[var(--color-fg-muted)]">
+                  <p className="mt-2 max-w-[42ch] text-[var(--color-fg-muted)]">
                     {layer.description}
                   </p>
-                  <div className="mt-5">
-                    <CodeBlock>{layer.code}</CodeBlock>
-                  </div>
                 </div>
+                <CodeBlock>{layer.code}</CodeBlock>
               </div>
             </li>
           ))}

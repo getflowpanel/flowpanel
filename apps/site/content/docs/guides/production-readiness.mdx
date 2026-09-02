@@ -1,0 +1,101 @@
+---
+title: Production readiness
+description: Verify FlowPanel's ownership, security, data, scaling, and release boundaries before deploying an admin.
+kind: how-to
+---
+
+Use this page as the final review for a production FlowPanel deployment. It links to the detailed guides where configuration and failure modes need more space.
+
+FlowPanel is embedded application code, not a hosted admin service. Your Next.js process renders the admin and handles its requests; your database client executes queries; your identity provider creates the session; and your deployment owns the network boundary. There is no FlowPanel control plane receiving database credentials or application rows.
+
+## Runtime and data ownership
+
+- Keep `flowpanel.config.ts`, generated routes, and database migrations in the same review process as the rest of the application.
+- Expose only resources and fields that belong in the admin. Schema discovery is a starting point, not permission to publish every column.
+- Use the application's existing database client and secrets. Do not add a second credential path for the admin.
+- Treat custom widgets, pages, renderers, and external workers as application code. They do not automatically inherit generated-handler policy.
+
+Read [Why FlowPanel](/docs/introduction/why-flowpanel), [Project structure](/docs/introduction/project-structure), and [Server and client boundaries](/docs/understand/server-client-boundaries) before changing generated routes.
+
+## Security boundary
+
+### Authentication and roles
+
+Replace the development session stub before deployment. Configure `auth.session`, derive a trusted role, and set `auth.requireRole`. Generated pages and handlers repeat the access check on the server; hiding a navigation item is not the boundary.
+
+- [Authentication with Clerk](/docs/guides/auth-with-clerk)
+- [Roles and permissions](/docs/guides/permissions)
+- [Request and mutation lifecycle](/docs/understand/request-lifecycle)
+
+### Tenant isolation
+
+Resolve the tenant from trusted session state and bind the same scope to every tenant-owned resource. The first-party adapters fail closed when required scope cannot produce a constraint. Test reads, creates, updates, deletes, imports, exports, actions, and drawer relations with an identifier from another tenant.
+
+Follow [Multi-tenant scope](/docs/guides/multi-tenant-scope) and keep database constraints as defence in depth.
+
+### Origins and server clients
+
+Same-origin mutation protection is enabled by default. Add exact `security.trustedOrigins` only when another frontend must write to the admin API. Server-to-server clients without browser `Origin` or Fetch Metadata headers remain supported, so authenticate them explicitly at the surrounding application boundary.
+
+See [SecurityConfig](/docs/reference/define-config#securityconfig) for the exact surface.
+
+### Fields and operations
+
+Use resource access rules, operation policy, field read/write rules, and `requireRole` for distinct responsibilities. The server rejects fields that the current operation may not write; crafted forms and imports do not bypass hidden or read-only controls.
+
+`readOnly: true` blocks generated mutations globally and is useful for a public demo, maintenance window, or incident response. It does not replace authentication, tenant scope, or database permissions.
+
+## Validation and change effects
+
+- Declare explicit create and update fields for a write surface that reviewers can audit.
+- Validate actions and forms on the server. Unauthorized callers are rejected before they receive detailed validation feedback.
+- Configure an `audit.sink`; FlowPanel emits events but does not choose where your audit history is stored.
+- Use a shared rate-limit driver when more than one application instance accepts traffic. An in-memory driver is process-local.
+- Monitor post-commit audit, realtime, and revalidation warnings. A failed notification must not make a committed database write look rolled back.
+
+The exact ordering is documented in [Request and mutation lifecycle](/docs/understand/request-lifecycle) and the warning envelope in [Runtime contracts](/docs/reference/runtime-contracts).
+
+## Migrations and rollback
+
+Review generated SQL like application SQL. Run `pnpm flowpanel migrate --dry-run` in CI or the release environment before applying pending files.
+
+Both shipped adapters pass migration SQL and bookkeeping through one adapter operation, and serialize migrators at the database. On PostgreSQL and SQLite the statements and the applied marker share one transaction. On MySQL, implicit DDL commits mean no tool can promise rollback for an arbitrary migration: make changes restart-safe, take a backup, and prepare a forward fix. To serialize MySQL migrators, Drizzle holds a connection-pinned advisory lock, and Prisma holds a durable claim row that records where a failed run stopped and refuses to replay it.
+
+Read [CLI reference](/docs/reference/cli#flowpanel-migrate) and [Adapter reference](/docs/reference/adapters) for dialect-specific behavior.
+
+## Realtime and queues
+
+The in-memory realtime driver is for one persistent process. Use Redis when refresh signals must cross instances, and treat SSE delivery as notification rather than durable event storage. Monitor publisher failures, reconnects, and connection counts.
+
+Queue boards expose operational and potentially destructive controls. Protect their separate origin, require a strong board token, and restrict network access.
+
+- [Realtime](/docs/guides/realtime)
+- [Realtime with Redis](/docs/guides/realtime-with-redis)
+- [Queues](/docs/guides/queues)
+
+## Observability and recovery
+
+- Preserve FlowPanel request IDs in application logs and error reporting.
+- Alert on authentication failures, scope failures, rate-limit pressure, adapter errors, and post-commit warning codes.
+- Verify that operators see a recovery path rather than raw database or validation internals.
+- Document how to disable writes, rotate credentials, reconcile audit/realtime warnings, and restore from backup.
+- Exercise the same policies through generated pages, HTTP handlers, actions, import, and any custom server code.
+
+Use [Errors](/docs/reference/errors) and [Troubleshooting](/docs/troubleshooting) during incident preparation.
+
+## Release checklist
+
+Before sending production traffic:
+
+- [ ] Real authentication replaces the development stub and unauthenticated access fails.
+- [ ] `auth.requireRole` and resource/operation policies have authorized and denied tests.
+- [ ] Every tenant-owned resource is scoped and cross-tenant reads and writes fail closed.
+- [ ] Exact trusted origins are configured only where needed.
+- [ ] Create/update fields, imports, exports, actions, and hidden resources expose no unintended data.
+- [ ] Audit storage, rate limiting, logs, request IDs, alerts, and retention are configured.
+- [ ] Pending migrations were reviewed with `--dry-run`; backup and recovery steps are documented.
+- [ ] Realtime and queues use deployment-appropriate drivers and protected origins.
+- [ ] The application passes unit tests, typecheck, lint, production build, and critical browser journeys.
+- [ ] The [upgrade guide](/docs/guides/upgrade) and package changelog were reviewed; rollback or forward-fix ownership is explicit.
+
+If any item is intentionally omitted, record why and who owns the risk. A transparent boundary is more reliable than a hidden default.

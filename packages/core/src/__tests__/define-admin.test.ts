@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Adapter } from "../index.js";
-import { defineAdmin, resource } from "../index.js";
+import type { Adapter } from "../index";
+import { defineAdmin, resource, table } from "../index";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",
@@ -15,6 +15,106 @@ const fakeAdapter: Adapter = {
 };
 
 describe("defineAdmin", () => {
+  it("rejects ambiguous resource access aliases", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [
+          resource("users", {
+            columns: [],
+            requireRole: "operator",
+            access: { read: "operator" },
+          }),
+        ],
+      }),
+    ).toThrow(/cannot declare both access and requireRole/i);
+  });
+
+  it("rejects invalid canonical field and bulk-action policies", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [
+          resource("users", {
+            columns: ["email"],
+            fieldAccess: { missing: { write: true } } as any,
+          }),
+        ],
+      }),
+    ).toThrow(/fieldAccess declares unknown field "missing"/);
+
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [
+          resource("users", {
+            columns: ["secret"],
+            fieldAccess: { secret: { sensitive: true, read: "admin" } },
+          }),
+        ],
+      }),
+    ).toThrow(/sensitive field "secret".*cannot declare readable access/);
+
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [
+          resource("users", {
+            columns: ["email"],
+            bulkActions: [
+              {
+                key: "oversized",
+                label: "Oversized",
+                max: 10_001,
+                run: async () => ({ ok: true }),
+              },
+            ],
+          }),
+        ],
+      }),
+    ).toThrow(/max between 1 and 10000/);
+  });
+
+  it("compiles the same definition only once", () => {
+    let introspections = 0;
+    const adapter: Adapter = {
+      ...fakeAdapter,
+      introspect: () => {
+        introspections += 1;
+        return { name: "users", columns: [], primaryKey: "id" };
+      },
+    };
+    const definition = {
+      adapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource("users", { columns: [] })],
+    };
+
+    const first = defineAdmin(definition);
+    const second = defineAdmin(definition);
+
+    expect(second).toBe(first);
+    expect(introspections).toBe(1);
+  });
+
+  it("normalizes admin and API paths from one paths object", () => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      paths: { admin: "internal/admin/", api: "internal/flowpanel/" },
+    });
+
+    expect(config.paths).toEqual({
+      admin: "/internal/admin",
+      api: "/internal/flowpanel",
+    });
+    expect(config.basePath).toBe("/internal/admin");
+  });
+
   it("resolves a minimal config", () => {
     const config = defineAdmin({
       adapter: fakeAdapter,
@@ -67,6 +167,91 @@ describe("defineAdmin", () => {
     expect(config.resourcesByName.has("payments")).toBe(true);
   });
 
+  it("derives name from Drizzle's Symbol(drizzle:BaseName)", () => {
+    const baseNameSym = Symbol("drizzle:BaseName");
+    const ref = { [baseNameSym]: "invoices" };
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource(ref as unknown as Record<string, never>, { columns: [] })],
+    });
+    expect(config.resourcesByName.has("invoices")).toBe(true);
+  });
+
+  it("indexes a Prisma-style string ref under the model name", () => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource("User", { columns: ["email"] })],
+    });
+    expect(config.resourcesByName.has("User")).toBe(true);
+    expect(config.resourcesByName.get("User")?.ref).toBe("User");
+  });
+
+  it("honours options.name over a string ref", () => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource("User", { name: "customers", columns: [] })],
+    });
+    expect(config.resourcesByName.has("customers")).toBe(true);
+    expect(config.resourcesByName.has("User")).toBe(false);
+    expect(config.resourcesByName.get("customers")?.ref).toBe("User");
+  });
+
+  it("rejects duplicate string refs", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [resource("User", { columns: [] }), resource("User", { columns: [] })],
+      }),
+    ).toThrow(/Duplicate resource name: "User"/);
+  });
+
+  it("throws on an empty string ref", () => {
+    expect(() =>
+      defineAdmin({
+        adapter: fakeAdapter,
+        auth: { session: async () => null, role: () => "guest" },
+        resources: [resource("", { columns: [] })],
+      }),
+    ).toThrow(/name/i);
+  });
+
+  it("readOnly strips every write affordance from resources", () => {
+    const ref = { __name: "users" };
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      readOnly: true,
+      resources: [
+        resource(ref, {
+          columns: ["email", { field: "name", editable: true }],
+          create: { fields: [{ name: "email" }] },
+          import: { formats: ["csv"] },
+          delete: { softDelete: "deletedAt" },
+          actions: [{ key: "ping", label: "Ping", run: async () => ({ ok: true }) }],
+          drawer: {
+            actions: [{ key: "disable", label: "Disable", run: async () => ({ ok: true }) }],
+          },
+        }),
+      ],
+    });
+    const opts = config.resourcesByName.get("users")?.options;
+    expect(opts?.create?.disabled).toBe(true);
+    expect(opts?.update?.disabled).toBe(true);
+    expect(opts?.delete?.disabled).toBe(true);
+    expect(opts?.actions).toEqual([]);
+    expect(opts?.bulkActions).toEqual([]);
+    expect(opts?.drawer?.actions).toEqual([]);
+    // import (a bulk create) is removed entirely — no toolbar Import button.
+    expect(opts?.import).toBeUndefined();
+    // editable column made static; the create.fields config is preserved.
+    expect((opts?.columns?.[1] as { editable?: boolean }).editable).toBe(false);
+    expect(opts?.create?.fields).toHaveLength(1);
+  });
+
   it("throws if name cannot be resolved", () => {
     expect(() => {
       defineAdmin({
@@ -75,5 +260,116 @@ describe("defineAdmin", () => {
         resources: [resource({} as any, { columns: [] })],
       });
     }).toThrow(/name/i);
+  });
+});
+
+describe("defineAdmin cross-resource references", () => {
+  const base = {
+    adapter: fakeAdapter,
+    auth: { session: async () => null, role: () => "guest" as const },
+  };
+
+  it("accepts a column reference to a registered resource", () => {
+    const config = defineAdmin({
+      ...base,
+      resources: [
+        resource({ __name: "users" }, { columns: ["email"] }),
+        resource(
+          { __name: "orders" },
+          { columns: [{ field: "userId", reference: { resource: "users", labelField: "email" } }] },
+        ),
+      ],
+    });
+    expect(config.resourcesByName.size).toBe(2);
+  });
+
+  it("throws on a column reference to an unregistered resource, with a suggestion", () => {
+    expect(() =>
+      defineAdmin({
+        ...base,
+        resources: [
+          resource({ __name: "ai_usage" }, { columns: ["tokens"] }),
+          resource(
+            { __name: "runs" },
+            {
+              columns: [
+                { field: "usageId", reference: { resource: "aiUsage", labelField: "tokens" } },
+              ],
+            },
+          ),
+        ],
+      }),
+    ).toThrow(
+      /resource "runs" points at resource "aiUsage" via columns\[0\]\.reference\.resource.*Did you mean "ai_usage"\?.*Registered: "ai_usage", "runs"\./s,
+    );
+  });
+
+  it("throws on a drawer tab pointing at an unregistered resource", () => {
+    expect(() =>
+      defineAdmin({
+        ...base,
+        resources: [
+          resource(
+            { __name: "users" },
+            {
+              columns: ["email"],
+              drawer: { tabs: [{ key: "o", label: "Orders", resource: "order" }] },
+            },
+          ),
+        ],
+      }),
+    ).toThrow(/drawer\.tabs\[0\]\.resource/);
+  });
+
+  it("throws on a detail tab pointing at an unregistered resource", () => {
+    expect(() =>
+      defineAdmin({
+        ...base,
+        resources: [
+          resource(
+            { __name: "users" },
+            {
+              columns: ["email"],
+              detail: { tabs: [{ key: "o", label: "Orders", resource: "orders" }] },
+            },
+          ),
+        ],
+      }),
+    ).toThrow(/detail\.tabs\[0\]\.resource/);
+  });
+
+  it("throws on a dashboard table widget pointing at an unregistered resource", () => {
+    expect(() =>
+      defineAdmin({
+        ...base,
+        resources: [resource({ __name: "users" }, { columns: ["email"] })],
+        dashboards: [
+          {
+            path: "/",
+            label: "Overview",
+            sections: [{ widgets: [table({ resource: "user", limit: 5 })] }],
+          },
+        ],
+      }),
+    ).toThrow(/dashboard "\/" points at resource "user" via sections\[0\]\.widgets\[0\]\.resource/);
+  });
+
+  it("throws on a table widget inside a drawer widget tab", () => {
+    expect(() =>
+      defineAdmin({
+        ...base,
+        resources: [
+          resource(
+            { __name: "users" },
+            {
+              columns: ["email"],
+              drawer: {
+                tabs: [{ key: "w", label: "Activity", widgets: [table({ resource: "runz" })] }],
+              },
+            },
+          ),
+        ],
+      }),
+    ).toThrow(/drawer\.tabs\[0\]\.widgets\[0\]\.resource/);
   });
 });

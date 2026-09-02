@@ -5,14 +5,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 // Spy on the publisher module we'll create — use dynamic import after mock
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
 }));
 
-import { makeActions } from "../actions/resource-actions.js";
-import { publishResource } from "../runtime/publish.js";
+// `makeActions`'s no-`reqCtx` fallback path builds its request via
+// `buildServerRequest`, which reads `next/headers` — unavailable outside a
+// real Next.js request scope. Every test below calls `makeActions(config,
+// resource)` without a `reqCtx`, so it needs this mocked.
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({ getAll: () => [] }),
+}));
+
+import { makeActions } from "../actions/resource-actions";
+import { publishResource } from "../runtime/publish";
 
 function fakeConfig(): { config: ResolvedAdminConfig; resource: ResourceConfig } {
   const adapter: Adapter = {
@@ -36,7 +45,7 @@ function fakeConfig(): { config: ResolvedAdminConfig; resource: ResourceConfig }
   const resource: ResourceConfig = {
     __kind: "resource",
     ref: { __name: "widgets" },
-    options: { columns: [] },
+    options: { columns: ["name"] },
   } as never;
   const config: ResolvedAdminConfig = {
     adapter,

@@ -1,6 +1,6 @@
 import type * as React from "react";
-import { Card } from "../_layout/Card.js";
-import { Skeleton } from "../ui/skeleton.js";
+import { Card } from "../_layout/Card";
+import { Skeleton } from "../ui/skeleton";
 
 export function SkeletonCard({ height = 80 }: { height?: number }) {
   const cssVars = { "--fp-skeleton-h": `${height}px` } as React.CSSProperties;

@@ -1,5 +1,5 @@
-import rule from "../prefer-shorthand-filter.js";
-import { ruleTester } from "./setup.js";
+import rule from "../prefer-shorthand-filter";
+import { ruleTester } from "./setup";
 
 ruleTester().run("prefer-shorthand-filter", rule, {
   valid: [

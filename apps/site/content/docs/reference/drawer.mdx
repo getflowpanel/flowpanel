@@ -1,0 +1,135 @@
+---
+title: Drawer
+description: The row side panel — layout, tabs and actions.
+kind: reference
+---
+
+A drawer is the fast path to one row: it opens over the list without losing the
+operator's place, their filters or their scroll position. Declare it on a
+resource and set `rowClick: "drawer"` to open it by clicking the row.
+
+```ts excerpt
+resource(orders, {
+  columns: ["id", "customerEmail", "status"],
+  rowClick: "drawer",
+  drawer: {
+    width: "xl",
+    header: (row) => `Order ${row.id}`,
+    tabs: [
+      { key: "summary", label: "Summary", fields: "*" },
+      { key: "items", label: "Items", resource: "orderItems", filter: (row) => ({ orderId: row.id }) },
+    ],
+    actions: [
+      {
+        key: "refund",
+        label: "Refund",
+        variant: "destructive",
+        requireRole: "admin",
+        confirm: "Refund this order?",
+        form: [{ name: "reason", type: "textarea", required: true }],
+        run: async (row, formData, ctx) => {
+          await refund(ctx.db, row.id, formData.reason as string);
+          return { ok: true, message: "Refunded", refresh: true };
+        },
+      },
+    ],
+  },
+});
+```
+
+## DrawerConfig
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerConfig" />
+
+`DrawerWidth` is `"sm" | "md" | "lg" | "xl" | "2xl" | "full"`, defaulting to
+`"lg"`.
+
+Without `tabs`, the panel renders `fields` as a flat key/value list. Field
+labels come from the matching column's `label`, and any column with a `render`
+function is rendered with it — so a status badge looks the same in the drawer as
+in the table.
+
+`fields` is `DrawerFieldList<Row>` — the same shape as `detail.fields`:
+`(keyof Row | FieldDef<Row>)[] | "*"`. A key your row does not have is a compile
+error, not an empty row in the panel.
+
+## Tabs
+
+`DrawerTab` is a union of three shapes, discriminated by which key you set.
+
+### DrawerTabFields
+
+The row's own fields.
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerTabFields" />
+
+### DrawerTabResource
+
+Rows of a related resource, filtered by the open row.
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerTabResource" />
+
+The related resource's own `requireRole` still applies. A tab the operator may
+not read comes back empty rather than failing the whole panel.
+
+<Callout type="warn">
+A resource tab shows the **first 20 rows** and nothing more. There is no
+pagination, no "load more", and no count of what was left out — the drawer
+route reads one page of 20 and serializes it. For a relation that can exceed
+that, link to the target resource's own list (filtered) instead of leaning on
+the tab.
+</Callout>
+
+### DrawerTabWidgets
+
+Dashboard widgets, scoped to the open row.
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerTabWidgets" />
+
+`custom()` widgets are rejected here at compile time. The drawer payload is
+serialized over the wire, and a React component cannot cross it — use a widget
+tab of metrics/charts/tables, or a `detail` tab, which renders on the server.
+
+Each widget in the tab is flattened to a `SerializedWidget` before it crosses:
+a discriminated union over `kind`, one variant per widget type.
+
+```ts excerpt
+type SerializedWidget =
+  | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
+  | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }
+  | { kind: "statGroup"; stats: { label: string; value: unknown; /* … */ }[]; /* … */ }
+  | { kind: "chart"; subkind: "area" | "bar" | "line" | "pie"; label: string; dataPoints: number; /* … */ }
+  | { kind: "unsupported"; label?: string; reason: string; span?: number };
+```
+
+The queries have already run by then — a metric carries its resolved `value`,
+a chart carries only how many points it produced. A widget whose query throws
+comes back as `{ kind: "unsupported", reason }` with a client-safe message, so
+one failing widget does not take the panel down with it.
+
+## Actions
+
+Buttons in the panel footer. See [Actions](/docs/reference/actions#draweraction)
+for `DrawerAction` and its form spec.
+
+Drawer actions go through the same guard pipeline as every other write: the
+admin-wide role gate, the resource gate, the action's own `requireRole`, then
+input validation — all before `run`. An action the current operator cannot run
+is omitted from the drawer payload as well as blocked server-side. Setting
+`palette: true` also surfaces an authorized action in ⌘K.
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerAction" />
+
+## The payload
+
+What `GET /api/flowpanel/drawer/<resource>/<id>` answers with — worth knowing if
+you render the drawer yourself.
+
+<AutoTypeTable path="../../packages/next/src/drawer/drawer-route.ts" name="DrawerPayload" />
+
+## What crosses to the client
+
+The drawer payload carries only the resource's **declared** surface — the
+columns and fields you listed, never the raw adapter row. Columns with a
+`render` function are pre-rendered to HTML on the server, so your renderer can
+touch server-only data without shipping it.

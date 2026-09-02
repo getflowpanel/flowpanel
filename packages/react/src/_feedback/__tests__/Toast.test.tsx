@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { ToastProvider, useToast } from "../Toast.js";
+import { ToastProvider } from "../Toast";
+import { useToast } from "../toast-api";
 
 afterEach(cleanup);
 
@@ -39,5 +41,20 @@ describe("Toast", () => {
     );
     fireEvent.click(screen.getByText("ping-error"));
     expect(await screen.findByText("Bad")).toBeTruthy();
+  });
+  it("keeps a toast fired before the renderer chunk lands", async () => {
+    function OnMount() {
+      const toast = useToast();
+      useEffect(() => {
+        toast.success("Queued");
+      }, [toast]);
+      return null;
+    }
+    render(
+      <ToastProvider>
+        <OnMount />
+      </ToastProvider>,
+    );
+    expect(await screen.findByText("Queued")).toBeTruthy();
   });
 });

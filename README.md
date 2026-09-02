@@ -1,172 +1,110 @@
 # FlowPanel
 
-> One typed config → full admin panel for your Next.js app. Drizzle or Prisma. Realtime. Queues. Eject when you outgrow it.
+FlowPanel creates a typed admin interface inside an existing Next.js app from your Drizzle or Prisma schema and a small config.
 
-[![npm](https://img.shields.io/npm/v/flowpanel.svg?color=blue)](https://www.npmjs.com/package/flowpanel)
-[![Downloads](https://img.shields.io/npm/dm/flowpanel.svg?color=blue)](https://www.npmjs.com/package/flowpanel)
-[![Bundle size](https://img.shields.io/bundlephobia/minzip/flowpanel.svg)](https://bundlephobia.com/package/flowpanel)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/%40flowpanel%2Fkit.svg?color=blue)](https://www.npmjs.com/package/@flowpanel/kit)
 [![CI](https://github.com/getflowpanel/flowpanel/actions/workflows/ci.yml/badge.svg)](https://github.com/getflowpanel/flowpanel/actions/workflows/ci.yml)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Community
+[![ScrapeAI operations dashboard built with FlowPanel](examples/ai-scraper/public/scrapeai-overview-dark.png)](examples/ai-scraper)
 
-- **Questions & ideas** — [GitHub Discussions](https://github.com/getflowpanel/flowpanel/discussions)
-- **Bugs & features** — [open an issue](https://github.com/getflowpanel/flowpanel/issues)
-- **Discord** — coming soon
+[See the demo](https://flowpanel.tech) · [Read the docs](https://flowpanel.tech/docs/introduction/getting-started) · [View the changelog](https://flowpanel.tech/changelog)
 
-## Install
+## When FlowPanel fits
+
+Use FlowPanel when your product already has a Next.js App Router application and a Drizzle or Prisma data layer, and you need an internal interface for CRUD, operational dashboards, actions, imports, queues, or live data. It stays in your repository, uses your database client and auth, and deploys with the host app.
+
+FlowPanel is not a hosted database browser or a general React admin framework. It is a poor fit if you use the Pages Router, need a non-Next.js frontend, need an unsupported data source without writing an adapter, or want a no-code product managed outside your codebase.
+
+## Requirements
+
+<!-- flowpanel:compatibility:start -->
+| Requirement | Supported range |
+| --- | --- |
+| Node.js | `>=20` |
+| Next.js | `^16.3.0` |
+| React | `^19.0.0` |
+| Tailwind CSS | `^3.0.0 || ^4.0.0` |
+| Drizzle ORM | `>=0.45.2 <1.0.0` |
+| Prisma Client | `>=5.0.0 <7.0.0` |
+<!-- flowpanel:compatibility:end -->
+
+The App Router is required. Choose Drizzle or Prisma for the resource adapter. Redis and BullMQ are optional.
+
+## Quick start
+
+Run these commands from the root of an existing application:
 
 ```bash
-pnpm add @flowpanel/kit
-pnpm flowpanel init
+pnpm dlx @flowpanel/cli init
+pnpm flowpanel migrate
 pnpm flowpanel dev
 ```
 
-Visit `http://localhost:3000/admin`. Done.
+`init` detects the ORM, installs version-aligned packages, and creates the config, admin page, API and SSE routes, stylesheet, and first migration. It does not overwrite files it does not own. Use `--dry-run` to inspect the filesystem plan.
 
-`flowpanel init` detects your stack (Next.js, Drizzle/Prisma, auth) and scaffolds the config + 6 wiring files. `flowpanel dev` starts Next.js (and bull-board if `REDIS_URL` is set).
-
-## Use
+The generated config starts with no resources. Add one table or model:
 
 ```ts
-// flowpanel.config.ts
-import { defineAdmin, resource, dashboard, metric, table } from "@flowpanel/kit";
+import { defineAdmin, resource } from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
-import { withClerk } from "@flowpanel/kit/auth";
-import { db } from "@/db/client";
-import * as schema from "@/db/schema";
-
-declare module "@flowpanel/core" {
-  interface FlowpanelTypes {
-    db: typeof db;
-  }
-}
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  auth: withClerk({ requireRole: "admin" }),
-  realtime: { driver: "memory" },
-
   resources: [
     resource(schema.users, {
-      label: "Users",
-      columns: ["email", "role", "plan", "createdAt"],
-      search: ["email"],
-      filters: [{ field: "plan", type: "select", options: [/* ... */] }],
-      drawer: { fields: "*" },
-      delete: { softDelete: "deletedAt" },
-    }),
-  ],
-
-  dashboards: [
-    dashboard({
-      path: "/",
-      label: "Overview",
-      sections: [{
-        label: "Today",
-        columns: 3,
-        widgets: [
-          metric("Users",   async ({ db }) => db.$count(schema.users)),
-          metric("Active",  async ({ db }) => /* ... */ 0),
-          table({ resource: "users", limit: 10, realtime: "resource.users" }),
-        ],
-      }],
+      columns: ["email", "name", "createdAt"],
+      search: ["email", "name"],
     }),
   ],
 });
 ```
 
-That's the whole admin. Run `pnpm dev`, navigate to `/admin`. The realtime
-table refreshes across tabs when anyone mutates a user; the drawer opens
-on row click; soft-deleted rows are filtered out automatically.
+Open [http://localhost:3000/admin](http://localhost:3000/admin). The [Getting started guide](https://flowpanel.tech/docs/introduction/getting-started) includes complete Drizzle and Prisma configs with authentication.
 
-## What you get
+## Customize without a rewrite
 
-- **Type-safe CRUD** from your Drizzle or Prisma schema. `ctx.db` is your
-  real client — autocomplete and all.
-- **Dashboards** — `metric()`, `table()`, `areaChart()`, `barChart()`,
-  `lineChart()`, `pieChart()`, `statGroup()`, `custom()`.
-- **Drawer + detail pages** for every resource. URL-synced
-  (`?drawer=users:abc123`), focus-trapped, ESC-closable.
-- **Server Actions** with optimistic updates. Soft-delete + restore.
-  Bulk actions. Confirm dialogs. CSV/JSON export.
-- **Realtime via SSE.** Memory driver for dev, Redis pub/sub for prod —
-  a one-field config switch.
-- **BullMQ queues** — `queue(myQueue, { label: "Scraper" })` mounts a
-  bull-board iframe at `/admin/queues/scraper`.
-- **Filters, sort, pagination, column resize, column pin, bulk select.**
-  All URL-synced for shareable links.
-- **Three customization tiers**: props → `theme.components`
-  overrides (10 slots: Button, Badge, Avatar, StatusBadge, EmptyState,
-  MetricCard, PageHeader, Pagination, ConfirmDialog, SkeletonTable) → eject (`flowpanel eject resource users`).
-- **First-class auth** — `withClerk`, `withNextAuth`, `withLucia` from
-  `@flowpanel/kit/auth`. Or write your own 4-field `AuthConfig`.
-- **i18n** — `labels` config localizes built-in chrome (BulkBar,
-  pagination, drawer, confirm, palette).
-- **A11y** — WCAG 2.2 AA. Focus traps, aria-live, skip-to-content,
-  keyboard navigation. `prefers-reduced-motion` respected.
+Start with the smallest extension point that solves the problem:
+
+1. Change labels, columns, fields, filters, actions, or layout in config.
+2. Add a column renderer when one value needs a different presentation.
+3. Build a custom widget or page for a composed workflow.
+4. Replace a shared visual primitive through a theme slot.
+5. Eject a resource, dashboard, or layout only when you need to own its source and behavior.
+
+The [customization guide](https://flowpanel.tech/docs/customization/overview) explains what each layer can and cannot change.
+
+## Learn FlowPanel
+
+- [Getting started](https://flowpanel.tech/docs/introduction/getting-started) — reach a working first resource.
+- [Build your admin](https://flowpanel.tech/docs/build/resources) — resources, forms, actions, drawers, and dashboards.
+- [Customize the UI](https://flowpanel.tech/docs/customization/overview) — renderers, charts, styling, slots, and eject.
+- [Production](https://flowpanel.tech/docs/guides/auth-with-clerk) — auth, permissions, scope, realtime, and queues.
+- [Understand FlowPanel](https://flowpanel.tech/docs/understand/how-flowpanel-works) — adapters, lifecycle, inference, and server boundaries.
+- [Reference](https://flowpanel.tech/docs/reference/define-config) — generated types, signatures, defaults, and CLI options.
+
+## Examples
+
+- [`examples/ai-scraper`](examples/ai-scraper) is the complete ScrapeAI demo with dashboards, resources, actions, roles, and realtime data.
+- [`examples/with-clerk`](examples/with-clerk) is the smallest Clerk integration.
 
 ## Packages
 
-| Package                          | Purpose                                                                |
-| -------------------------------- | ---------------------------------------------------------------------- |
-| [`flowpanel`](packages/flowpanel) | Umbrella package — re-exports the others via subpaths                  |
-| [`@flowpanel/core`](packages/core) | `defineAdmin`, builders, types, runtime helpers                       |
-| [`@flowpanel/next`](packages/next) | Next.js App Router bridge — page + API + SSE handlers                 |
-| [`@flowpanel/react`](packages/react) | UI primitives — `<AdminShell>`, `<DataTable>`, `<Drawer>`, hooks    |
-| [`@flowpanel/charts`](packages/charts) | Lazy-loaded chart widgets (recharts)                              |
-| [`@flowpanel/client`](packages/client) | Client-side hooks (live channels, useAdminTable)                  |
-| [`@flowpanel/cli`](packages/cli) | `init`, `eject`, `migrate`, `doctor`                                  |
-| [`@flowpanel/adapter-drizzle`](packages/adapter-drizzle) | Drizzle adapter (Postgres, MySQL, SQLite)        |
-| [`@flowpanel/adapter-prisma`](packages/adapter-prisma) | Prisma adapter — DMMF runtime introspection        |
-| [`@flowpanel/adapter-bullmq`](packages/adapter-bullmq) | BullMQ queue adapter + bull-board server          |
+| Package | Purpose |
+| --- | --- |
+| [`@flowpanel/kit`](packages/flowpanel) | Main package and public subpath exports |
+| [`@flowpanel/cli`](packages/cli) | Project setup, migrations, diagnostics, generation, and eject |
+| [`@flowpanel/adapter-drizzle`](packages/adapter-drizzle) | Drizzle resource adapter |
+| [`@flowpanel/adapter-prisma`](packages/adapter-prisma) | Prisma resource adapter |
+| [`@flowpanel/adapter-bullmq`](packages/adapter-bullmq) | BullMQ queue adapter and board integration |
 
-All ten ship together at the same version (1.0+).
-
-## Eject when you outgrow it
-
-```bash
-pnpm flowpanel eject resource users
-```
-
-5-file scaffold lands at `app/admin/users/{page,new,[id],[id]/edit,actions}.tsx`,
-each stamped with the marker `// flowpanel: ejected @ 1.0.0 — this file is yours`.
-The runtime stops rendering the resource; your code does. `flowpanel.config.ts`
-is auto-edited to comment out the matching `resource(...)` entry.
-
-Three eject targets, no fourth: `resource`, `dashboard`, `layout`. See
-the [eject guide](https://flowpanel.dev/docs) for the rationale.
-
-## Compared to
-
-|                  | FlowPanel                             | [Refine](https://refine.dev)          | [AdminJS](https://adminjs.co)              | [react-admin](https://marmelab.com/react-admin/) | [Forest Admin](https://www.forestadmin.com) |
-| ---------------- | ------------------------------------- | ------------------------------------- | ------------------------------------------ | ------------------------------------------------ | ------------------------------------------- |
-| Stack target     | Next.js 15 App Router                 | React (Next.js, Remix, Vite, CRA)     | Node backend (Express, Hapi, Nest, Fastify)| React (any bundler)                              | SaaS — connects to your DB/API              |
-| UI               | Bundled (shadcn/ui) + eject to source | Headless; adapters for MUI/AntD/Mantine/Chakra | Bundled React design system          | Bundled Material UI; headless `ra-core` available| Hosted web app                              |
-| Data layer       | Drizzle, Prisma adapters              | 15+ providers (REST, GraphQL, Supabase, Hasura, …) | Prisma, Sequelize, TypeORM, Mongoose, MikroORM | 50+ adapters (REST, GraphQL, Supabase, Hasura, …) | Direct DB connectors + REST/GraphQL APIs    |
-| Realtime         | SSE built in (memory / Redis)         | Live Provider (bring your own, e.g. Ably) | Not built in                            | Enterprise Edition feature                       | Yes, hosted                                 |
-| Auth             | `withClerk`, `withNextAuth`, `withLucia`, custom 4-field config | Auth Provider pattern (Okta, Azure AD, Cognito, …) | RBAC built in                | 10+ adapters (Auth0, Cognito, Keycloak, Entra, …)| Built in (roles, SSO/SAML on Control plan)  |
-| License          | MIT                                   | MIT                                   | MIT                                        | MIT core; paid Enterprise Edition (from €145/mo) | Proprietary SaaS (from $60/user/mo)         |
-| Self-host        | Yes                                   | Yes                                   | Yes                                        | Yes                                              | On-premise add-on                           |
-
-Pick FlowPanel if your app is a Next.js 15 App Router project that needs a CRUD admin layer over a Drizzle or Prisma schema. If your stack is React-without-Next or you want to swap the UI kit, look at Refine. If your data lives in MongoDB or you're already on an Express/Nest backend, AdminJS has the deepest support there. If you want Material UI and 50+ data-provider adapters, react-admin is the longest-running option. If you want a hosted product that connects to your existing DB without writing code, Forest.
-
-## Stack
-
-- Next.js 15 + React 19 (App Router only)
-- Drizzle 0.30+ or Prisma 5+/6 (pick one per project)
-- Postgres, MySQL, SQLite (any combination, dialect-aware)
-- Optional: ioredis (realtime), bullmq (queues), @prisma/client
-
-## Documentation
-
-**<https://flowpanel.dev>** — full reference, recipes, and getting-started guide.
+Lower-level core, Next.js, React, charts, client, and ESLint packages are available for advanced integrations. All workspace packages are released together while FlowPanel is pre-1.0.
 
 ## Contributing
 
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md). Questions and design ideas belong in [GitHub Discussions](https://github.com/getflowpanel/flowpanel/discussions); reproducible bugs belong in [Issues](https://github.com/getflowpanel/flowpanel/issues).
 
 ## License
 

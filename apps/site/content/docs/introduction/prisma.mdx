@@ -1,0 +1,33 @@
+---
+title: Prisma setup
+description: Connect FlowPanel to an existing Prisma project.
+kind: how-to
+---
+
+The Prisma adapter reads model metadata from DMMF and executes resource operations through your existing Prisma Client.
+
+## Requirements
+
+Install Prisma Client and run `prisma generate` before starting FlowPanel. The supported package range appears in [Getting started](/docs/introduction/getting-started#before-you-start).
+
+The adapter is included in `@flowpanel/kit`; import it from `@flowpanel/kit/prisma`.
+
+## Configure the adapter
+
+<include>../../snippets/getting-started/prisma-config.ts</include>
+
+`provider` is the `datasource` provider from `schema.prisma` — `"postgresql"`, `"mysql"` or `"sqlite"`. `flowpanel migrate` locks and splits SQL differently for each, so the adapter requires it rather than guessing.
+
+Use the PascalCase model name from `schema.prisma`: `"User"`, not the delegate name `"user"`. The adapter resolves it to `prisma.user` at runtime. Pass `name: "users"` in resource options if you want a different stable URL slug.
+
+A model name is a runtime string, so TypeScript cannot infer its row by itself. Add the model to `FlowpanelResources` as shown above. Column names, search fields, filters, form fields, action rows, and renderers then use the generated Prisma type.
+
+## Database behavior
+
+The adapter introspects scalar fields, uses offset pagination, and coerces integer primary keys from URL segments. Search uses Prisma's `contains`; database collation and provider determine case sensitivity. Soft delete works when the resource names a nullable field such as `deletedAt`.
+
+## Limitation
+
+Relations, JSON sub-fields, and computed values are not automatic list columns. Resolve them in a custom renderer or query, or implement a custom adapter when they must participate in sorting and filtering.
+
+Continue with [Getting started](/docs/introduction/getting-started) or see the generated [Adapter reference](/docs/reference/adapters).

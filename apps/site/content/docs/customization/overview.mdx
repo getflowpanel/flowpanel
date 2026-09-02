@@ -1,0 +1,37 @@
+---
+title: Choose an extension point
+description: Pick the smallest customization layer that gives you the control you need.
+kind: how-to
+---
+
+FlowPanel supports several levels of customization. Start with the narrowest one: it is easier to understand, test, and carry through upgrades.
+
+| Need | Use | It cannot change |
+| --- | --- | --- |
+| Change labels, columns, fields, filters, actions, or layout | Config | Framework page behavior |
+| Change how one value looks | [Column renderer](/docs/customization/column-renderers) | Adapter sorting or filtering for a computed value |
+| Add a composed experience | Custom widget or `page()` | Shared shell primitives |
+| Replace a shared visual primitive everywhere | [Theme slot](/docs/customization/theme-slots) | Data fetching or routing behavior |
+| Own page behavior and source | [Eject](/docs/customization/eject) | Automatic behavior updates for the ejected surface |
+
+## Start in config
+
+Config is the right place when the underlying workflow already exists and only its shape changes. Prefer built-in column formats, explicit form fields, dashboard layout, labels, theme tokens, and action definitions before creating components.
+
+## Render one value differently
+
+A column renderer is a server function. It can format joined or computed data and can return a client component with serializable props when the cell needs interaction. It does not create a database field, so computed-only cells cannot automatically sort, filter, inline-edit, or export.
+
+## Add a custom widget or page
+
+Use `custom()` when a self-contained dashboard block needs its own component. Use `page()` when the screen is a workflow with its own layout or navigation. Keep queries and secrets on the server and pass a deliberate serializable model to client components.
+
+## Replace a shared primitive
+
+Theme slots are for consistent design-system integration: button, badge, metric card, empty state, pagination, and similar primitives. An override must preserve the slot's prop and ref contract because every FlowPanel surface can call it.
+
+## Eject only for behavior ownership
+
+Eject when a generated resource, dashboard, or layout is no longer the correct behavioral model. The CLI writes a starting scaffold and disables the matching config entry; implementing and maintaining that route becomes application work.
+
+If the need can be stated as “this value”, “this widget”, or “this visual primitive”, eject is probably too broad.

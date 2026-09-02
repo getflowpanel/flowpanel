@@ -1,60 +1,41 @@
-"use server";
 import type {
   AuditEvent,
+  ItemQueryContext,
   MutationContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
 import {
+  authorizeOperation,
   emitAudit,
+  FlowpanelAccessError,
   FlowpanelNotFoundError,
+  FlowpanelOperationDisabledError,
   FlowpanelValidationError,
+  resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
-import type { z } from "zod";
-import { actorIdFromSession } from "../runtime/action-helpers.js";
-import { buildHref } from "../runtime/href.js";
-import { resourceNavName } from "../runtime/nav.js";
-import { bindPublisher, publishResource } from "../runtime/publish.js";
-import { buildRequestContext } from "../runtime/request-setup.js";
-import { requireAuthorized } from "../runtime/require-authorized.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-
-interface Schemas {
-  create: z.ZodTypeAny;
-  update: z.ZodTypeAny;
-}
-
-function isSchemaPair(s: unknown): s is { create?: z.ZodTypeAny; update?: z.ZodTypeAny } {
-  return typeof s === "object" && s !== null && ("create" in s || "update" in s);
-}
-
-function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig): Schemas {
-  const userSchema = resource.options.schema;
-  if (userSchema) {
-    if (isSchemaPair(userSchema)) {
-      const inferred = config.adapter.inferSchema(resource.ref);
-      return {
-        create: userSchema.create ?? inferred.create,
-        update: userSchema.update ?? inferred.update,
-      };
-    }
-    return { create: userSchema, update: userSchema };
-  }
-  const inferred = config.adapter.inferSchema(resource.ref);
-  return { create: inferred.create, update: inferred.update };
-}
-
-function zodFieldErrors(err: z.ZodError): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const issue of err.issues) {
-    const key = issue.path.map(String).join(".");
-    if (key && !(key in out)) out[key] = issue.message;
-  }
-  return out;
-}
+import { actorIdFromSession } from "../runtime/action-helpers";
+import { buildServerRequest } from "../runtime/build-server-request";
+import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { deleteRow } from "../runtime/delete-row";
+import { buildHref } from "../runtime/href";
+import { resourceNavName } from "../runtime/nav";
+import { bindPublisher, publishResource } from "../runtime/publish";
+import { readRow } from "../runtime/read-row";
+import { buildRequestContext } from "../runtime/request-setup";
+import { requireAuthorized } from "../runtime/require-authorized";
+import { declaredFormFields } from "../runtime/resolve-form-fields";
+import { scopeBinding } from "../runtime/scope-binding";
+import {
+  applyFieldDefaults,
+  assertResourceWritableInput,
+  friendlyFieldErrors,
+  runFieldValidators,
+  schemasFor,
+} from "./field-pipeline";
 
 export interface ResourceActions {
   create: (input: unknown) => Promise<unknown>;
@@ -62,16 +43,29 @@ export interface ResourceActions {
   delete: (id: string) => Promise<void>;
 }
 
-// `actorIdFromSession` lives in ../runtime/action-helpers.js — shared across
-// every action handler so audit `actorId` extraction is uniform.
+export interface MakeActionsOptions {
+  /** Reuse a caller-built `RequestContext` instead of building one per call. */
+  reqCtx?: RequestContext;
+  /** Publish + revalidate per call. Default `true`; set `false` to batch-notify once yourself. */
+  publish?: boolean;
+}
 
 export function makeActions(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
+  opts: MakeActionsOptions = {},
 ): ResourceActions {
   bindPublisher(config);
   const name = resourceNavName(resource);
   const schemas = schemasFor(config, resource);
+
+  async function ctxFor(path: string): Promise<RequestContext> {
+    if (opts.reqCtx) return opts.reqCtx;
+    return buildRequestContext({
+      req: await buildServerRequest(`http://localhost${path}`),
+      config,
+    });
+  }
 
   async function baseAudit(
     action: string,
@@ -79,7 +73,7 @@ export function makeActions(
     partial: Partial<AuditEvent>,
   ): Promise<void> {
     if (resource.options.audit === false) return;
-    const actorId = actorIdFromSession(reqCtx.session);
+    const actorId = actorIdFromSession(reqCtx.session, config.auth.userId);
     await emitAudit(config.audit, {
       actorId,
       action,
@@ -91,14 +85,48 @@ export function makeActions(
     });
   }
 
+  async function runPostCommitEffects(
+    payload: { action: "create" | "update" | "delete"; id?: string },
+    paths: string[],
+  ): Promise<void> {
+    if (opts.publish === false) return;
+    try {
+      await publishResource(name, payload);
+    } catch (error) {
+      console.error("[flowpanel] realtime effect failed", error);
+    }
+    for (const path of paths) {
+      try {
+        revalidatePath(path);
+      } catch (error) {
+        console.error("[flowpanel] revalidation effect failed", error);
+      }
+    }
+  }
+
   return {
     async create(input) {
-      const req = new Request(`http://localhost${buildHref(config, name, "new")}`);
-      const reqCtx = await buildRequestContext({ req, config });
+      const reqCtx = await ctxFor(buildHref(config, name, "new"));
       requireAuthorized(config, resource, reqCtx);
+      await authorizeOperation(
+        resolveOperationAccess(resource.options.access, resource.options.requireRole, "create"),
+        reqCtx,
+      );
+      if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
+      if (resource.options.create?.disabled) {
+        throw new FlowpanelOperationDisabledError("Create is disabled for this resource.");
+      }
 
-      const parsed = schemas.create.safeParse(input);
-      if (!parsed.success) throw new FlowpanelValidationError(zodFieldErrors(parsed.error));
+      const fields = declaredFormFields(resource, "create");
+      const safe = await assertResourceWritableInput(resource, fields, input, null, reqCtx);
+      const withDefaults = await applyFieldDefaults(config, resource, fields, safe, reqCtx);
+      const parsed = schemas.create.safeParse(withDefaults);
+      if (!parsed.success) {
+        const fieldErrors = friendlyFieldErrors(fields, withDefaults, parsed.error);
+        throw new FlowpanelValidationError(fieldErrors);
+      }
+      const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);
+      if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
@@ -109,26 +137,55 @@ export function makeActions(
       const row = (await runWithRequestContext(reqCtx, () =>
         config.adapter.create(resource.ref, mctx),
       )) as Record<string, unknown> | null | undefined;
-      const rowId =
-        row && typeof row === "object" && "id" in row ? (row as { id?: unknown }).id : undefined;
+      const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+      const rowId = row && typeof row === "object" ? row[rowKey] : undefined;
       await baseAudit(`${name}.create`, reqCtx, {
         ...(rowId !== undefined && rowId !== null ? { targetId: String(rowId) } : {}),
       });
-      await publishResource(name, {
-        action: "create",
-        ...(rowId !== undefined && rowId !== null ? { id: String(rowId) } : {}),
-      });
-      revalidatePath(buildHref(config, name));
+      await runPostCommitEffects(
+        {
+          action: "create",
+          ...(rowId !== undefined && rowId !== null ? { id: String(rowId) } : {}),
+        },
+        [buildHref(config, name)],
+      );
       return row;
     },
 
     async update(id, input) {
-      const req = new Request(`http://localhost${buildHref(config, name, id, "edit")}`);
-      const reqCtx = await buildRequestContext({ req, config });
+      const reqCtx = await ctxFor(buildHref(config, name, id, "edit"));
       requireAuthorized(config, resource, reqCtx);
+      await authorizeOperation(
+        resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
+        reqCtx,
+      );
+      if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
+      if (resource.options.update?.disabled) {
+        throw new FlowpanelOperationDisabledError("Update is disabled for this resource.");
+      }
 
-      const parsed = schemas.update.safeParse(input);
-      if (!parsed.success) throw new FlowpanelValidationError(zodFieldErrors(parsed.error));
+      const fields = declaredFormFields(resource, "update");
+      const itemCtx: ItemQueryContext = {
+        ...reqCtx,
+        db: config.adapter.db,
+        dateRange: { from: new Date(0), to: new Date() },
+        searchParams: new URLSearchParams(),
+        signal: new AbortController().signal,
+        id,
+        ...scopeBinding(config, resource, reqCtx),
+      };
+      const current = (await runWithRequestContext(reqCtx, () =>
+        config.adapter.get(resource.ref, itemCtx),
+      )) as Record<string, unknown> | null;
+      if (!current) throw new FlowpanelNotFoundError();
+      const safe = await assertResourceWritableInput(resource, fields, input, current, reqCtx);
+      const parsed = schemas.update.safeParse(safe);
+      if (!parsed.success) {
+        const fieldErrors = friendlyFieldErrors(fields, safe, parsed.error);
+        throw new FlowpanelValidationError(fieldErrors);
+      }
+      const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);
+      if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
@@ -142,88 +199,39 @@ export function makeActions(
       );
       if (!row) throw new FlowpanelNotFoundError();
       await baseAudit(`${name}.update`, reqCtx, { targetId: id });
-      await publishResource(name, { action: "update", id });
-      revalidatePath(buildHref(config, name));
-      revalidatePath(buildHref(config, name, id));
+      await runPostCommitEffects({ action: "update", id }, [
+        buildHref(config, name),
+        buildHref(config, name, id),
+      ]);
       return row;
     },
 
     async delete(id) {
-      const req = new Request(`http://localhost${buildHref(config, name, id)}`);
-      const reqCtx = await buildRequestContext({ req, config });
+      const reqCtx = await ctxFor(buildHref(config, name, id));
       requireAuthorized(config, resource, reqCtx);
+      await authorizeOperation(
+        resolveOperationAccess(resource.options.access, resource.options.requireRole, "delete"),
+        reqCtx,
+      );
+      if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
+      if (resource.options.delete?.disabled) {
+        throw new FlowpanelOperationDisabledError("Delete is disabled for this resource.");
+      }
 
-      const softDelete = resource.options.delete?.softDelete;
-      const mctx: MutationContext<Record<string, unknown>> = {
-        ...reqCtx,
-        db: config.adapter.db,
-        input: {},
-        id,
-        ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
-        ...scopeBinding(config, resource, reqCtx),
-      };
-      await runWithRequestContext(reqCtx, () => config.adapter.delete(resource.ref, mctx));
+      const current = await readRow(config, resource, id, reqCtx);
+      if (!current) throw new FlowpanelNotFoundError();
+
+      await deleteRow(config, resource, id, reqCtx);
       await baseAudit(`${name}.delete`, reqCtx, { targetId: id });
-      await publishResource(name, { action: "delete", id });
-      revalidatePath(buildHref(config, name));
+      await runPostCommitEffects({ action: "delete", id }, [buildHref(config, name)]);
     },
   };
 }
 
 export interface FormActionResult {
   ok: boolean;
+  /** Stable row key returned by create routes so the destination list can animate that row. */
+  createdKey?: string;
   error?: string;
   fieldErrors?: Record<string, string>;
-}
-
-/**
- * Returns a bound form action suitable for `<AutoForm action={...}>`.
- * Returns { ok: true } or { ok: false, error, fieldErrors }.
- */
-export function makeFormAction(
-  config: ResolvedAdminConfig,
-  resource: ResourceConfig,
-  kind: "create" | "update",
-  id?: string,
-): (prev: FormActionResult | null, fd: FormData) => Promise<FormActionResult> {
-  return async function formAction(
-    _prev: FormActionResult | null,
-    fd: FormData,
-  ): Promise<FormActionResult> {
-    "use server";
-    const raw = Object.fromEntries(fd.entries());
-    const input = coerceFormData(raw);
-    const actions = makeActions(config, resource);
-    try {
-      if (kind === "create") {
-        await actions.create(input);
-      } else if (id) {
-        await actions.update(id, input);
-      }
-      return { ok: true };
-    } catch (e) {
-      const err = e as {
-        code?: string;
-        fieldErrors?: Record<string, string>;
-        safeMessage?: string;
-      };
-      if (err?.code === "validation" && err?.fieldErrors) {
-        return {
-          ok: false,
-          ...(err.safeMessage ? { error: err.safeMessage } : {}),
-          fieldErrors: err.fieldErrors,
-        };
-      }
-      return { ok: false, error: err?.safeMessage ?? "Action failed" };
-    }
-  };
-}
-
-function coerceFormData(raw: Record<string, FormDataEntryValue>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (v === "") out[k] = null;
-    else out[k] = v;
-  }
-  return out;
 }

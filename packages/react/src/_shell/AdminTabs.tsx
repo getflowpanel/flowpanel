@@ -1,56 +1,82 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { cn } from "../lib/cn.js";
-import type { NavGroup } from "./AdminNav.js";
+import { FlowpanelIcon } from "../_atoms/FlowpanelIcon";
+import { cn } from "../lib/cn";
+import { AccountMenu, type AccountMenuUser } from "./AccountMenu";
+import type { NavGroup } from "./AdminNav";
+import { Brand, type ShellBrand } from "./Brand";
 
-/**
- * Horizontal tab strip variant of the admin nav. Used for embedded admins
- * where the host app already owns the top-level chrome (header, brand,
- * user menu) and FlowPanel only needs an in-content tab switcher between
- * resources and dashboards.
- *
- * Groups are flattened — the visual hierarchy of "Dashboards" / "Resources"
- * collapses into a single row of tabs. Group labels are dropped: in tabs
- * mode the user-visible affordance is the tab itself, not its category.
- *
- * On narrow viewports the strip overflows horizontally rather than truncating;
- * the active tab is scrolled into view on route change so it never gets
- * clipped at the edge.
- */
+/** Horizontal tab strip variant of the admin nav. */
 export function AdminTabs({
   groups,
-  brandName,
+  brand,
+  user,
   currentPath,
 }: {
   groups: NavGroup[];
-  brandName?: string;
+  brand?: ShellBrand | undefined;
+  user?: AccountMenuUser | undefined;
   currentPath: string;
 }) {
+  const hasBrand = Boolean(brand?.name ?? brand?.logo);
   const items = groups.flatMap((g) => g.items);
   const activeRef = useRef<HTMLAnchorElement | null>(null);
+  const stripRef = useRef<HTMLUListElement | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: currentPath is the intentional trigger — the active tab is scrolled into view whenever the route changes.
   useEffect(() => {
     const el = activeRef.current;
-    if (!el) return;
-    // Avoid scroll-into-view causing the whole page to jump vertically: only
-    // adjust the inline (horizontal) axis. `nearest` for block keeps vertical
-    // position untouched.
-    el.scrollIntoView({ inline: "center", block: "nearest" });
+    const strip = stripRef.current;
+    if (!el || !strip) return;
+    const tabRect = el.getBoundingClientRect();
+    const stripRect = strip.getBoundingClientRect();
+    const centeredLeft =
+      strip.scrollLeft + tabRect.left - stripRect.left - (strip.clientWidth - tabRect.width) / 2;
+    strip.scrollLeft = Math.max(0, centeredLeft);
   }, [currentPath]);
 
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    const sync = () => {
+      const start = el.scrollLeft > 1;
+      const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      el.dataset.overflow = start && end ? "both" : start ? "start" : end ? "end" : "none";
+    };
+    sync();
+    el.addEventListener("scroll", sync, { passive: true });
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", sync);
+      ro.disconnect();
+    };
+  }, []);
+
   return (
-    <nav aria-label="Admin" className="border-b border-fp-border-1 bg-fp-bg-1">
-      <div className="mx-auto flex max-w-7xl items-center gap-6 px-6">
-        {brandName ? (
-          <div className="flex-shrink-0 py-3 text-sm font-semibold text-fp-text-1">{brandName}</div>
-        ) : null}
-        <ul className="fp-scrollbar-hide flex flex-1 items-center gap-1 overflow-x-auto">
+    <nav
+      aria-label="Admin"
+      className="sticky top-0 z-40 border-b border-fp-border-1 bg-fp-bg-1/85 backdrop-blur-md"
+    >
+      <p id="admin-tabs-scroll-hint" className="sr-only">
+        More destinations are available by horizontal scrolling.
+      </p>
+      <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
+        {hasBrand ? <Brand brand={brand} className="hidden flex-shrink-0 py-3 sm:flex" /> : null}
+        <ul
+          ref={stripRef}
+          aria-describedby="admin-tabs-scroll-hint"
+          className={cn(
+            "fp-scroll-fade-x fp-scrollbar-hide flex flex-1 items-center gap-1 overflow-x-auto",
+            !hasBrand && "-ml-3",
+          )}
+        >
           {items.map((it) => {
             const active = currentPath === it.href;
             return (
               <li key={it.href} className="flex-shrink-0">
-                <a
+                <Link
                   href={it.href}
                   ref={active ? activeRef : undefined}
                   aria-current={active ? "page" : undefined}
@@ -59,15 +85,26 @@ export function AdminTabs({
                     active ? "font-medium text-fp-text-1" : "text-fp-text-2 hover:text-fp-text-1",
                   )}
                 >
+                  {it.icon ? (
+                    <FlowpanelIcon name={it.icon} className="mr-2 h-4 w-4 shrink-0" />
+                  ) : null}
                   {it.label}
                   {active ? (
-                    <span aria-hidden className="absolute inset-x-3 bottom-0 h-0.5 bg-fp-accent" />
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-fp-accent"
+                    />
                   ) : null}
-                </a>
+                </Link>
               </li>
             );
           })}
         </ul>
+        {user ? (
+          <div className="flex-shrink-0 py-1.5">
+            <AccountMenu user={user} align="end" className="w-auto" compact />
+          </div>
+        ) : null}
       </div>
     </nav>
   );

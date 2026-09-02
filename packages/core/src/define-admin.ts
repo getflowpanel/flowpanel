@@ -1,137 +1,19 @@
-import type { BulkAction } from "./types/action.js";
-import type { AdminConfig, ResolvedAdminConfig } from "./types/config.js";
-import type { DashboardConfig, PageConfig } from "./types/dashboard.js";
-import type { QueueConfig } from "./types/queue.js";
-import type { ResourceConfig } from "./types/resource.js";
+import { compileAdmin } from "./compiler/compile-admin";
+import type { CompiledAdmin } from "./types/compiled";
+import type { AdminConfig, ResolvedAdminConfig } from "./types/config";
+import type { AnyResourceConfig } from "./types/resource";
 
-/**
- * Normalize a page's `path` to the form used as the `pagesByPath` Map key
- * and emitted by `/${slug.join("/")}` at the runtime layer. Ensures a
- * leading slash and strips any trailing slash. Empty input → "/".
- */
-function normalizeRoutePath(raw: string): string {
-  let p = raw.trim();
-  if (p === "" || p === "/") return "/";
-  if (!p.startsWith("/")) p = `/${p}`;
-  if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
-  return p;
-}
+const compiledAdminCache = new WeakMap<object, CompiledAdmin>();
 
-function resolveResourceName(ref: unknown, options: { name?: string }): string {
-  if (options.name) return options.name;
-  if (ref && typeof ref === "object") {
-    const r = ref as { __name?: unknown; _?: { name?: unknown } };
-    if (typeof r.__name === "string") return r.__name;
-    if (r._ && typeof r._ === "object" && typeof r._.name === "string") return r._.name;
-    // Drizzle: table name lives on Symbol(drizzle:Name).
-    for (const sym of Object.getOwnPropertySymbols(ref)) {
-      if (sym.description === "drizzle:Name") {
-        const v = (ref as Record<symbol, unknown>)[sym];
-        if (typeof v === "string") return v;
-      }
-    }
-  }
-  throw new Error(
-    "Unable to resolve resource name. Pass options.name explicitly, " +
-      "or ensure the adapter ref exposes __name or _.name.",
-  );
-}
+/** Define and validate a Flowpanel admin while preserving its resource tuple types. */
+export function defineAdmin<
+  const Resources extends readonly AnyResourceConfig[] = readonly AnyResourceConfig[],
+>(config: AdminConfig<Resources>): ResolvedAdminConfig<Resources> {
+  const cached = compiledAdminCache.get(config);
+  if (cached) return cached.resolved as ResolvedAdminConfig<Resources>;
 
-/**
- * Sentinel BulkAction injected by `defineAdmin` when a resource has `delete`
- * enabled and no explicit `bulkActions`. The actual delete execution is wired
- * at the runtime layer (@flowpanel/next) in Phase 4; this `run` is a no-op
- * guard so the shape is a valid BulkAction.
- */
-const defaultDeleteBulk: BulkAction<unknown> = {
-  key: "delete",
-  label: "Delete",
-  variant: "destructive",
-  confirm: { title: "Delete selected items?", description: "This cannot be undone." },
-  run: async () => ({
-    ok: false,
-    error: "default bulk delete is wired at the runtime layer; this sentinel should never execute",
-  }),
-};
-
-/**
- * Resolve a FlowPanel admin configuration.
- *
- * Pure: `config` and every nested `ResourceConfig` / `ResourceConfig.options`
- * is treated as immutable. For each resource where `delete` is enabled
- * (i.e. not `delete: { disabled: true }`) and `bulkActions` is `undefined`,
- * a CLONED resource with `bulkActions: [defaultDeleteBulk]` is produced.
- * Opt out with `bulkActions: []` or `delete: { disabled: true }`.
- */
-export function defineAdmin(config: AdminConfig): ResolvedAdminConfig {
-  const resources = (config.resources ?? []).map((r) => {
-    const deleteDisabled = r.options.delete?.disabled === true;
-    if (!deleteDisabled && r.options.bulkActions === undefined) {
-      return { ...r, options: { ...r.options, bulkActions: [defaultDeleteBulk] } };
-    }
-    return r;
-  });
-  const resourcesByName = new Map<string, ResourceConfig>();
-  for (const r of resources) {
-    const name = resolveResourceName(r.ref, r.options);
-    if (resourcesByName.has(name)) {
-      throw new Error(`Duplicate resource name: "${name}". Each resource name must be unique.`);
-    }
-    if (r.options.rowClick === "drawer" && r.options.drawer === undefined) {
-      throw new Error(
-        `resource "${name}" sets rowClick: "drawer" but has no drawer config. ` +
-          `Add drawer: { fields: "*" } or change rowClick.`,
-      );
-    }
-    resourcesByName.set(name, r);
-  }
-  const dashboardsByPath = new Map<string, DashboardConfig>();
-  for (const d of config.dashboards ?? []) {
-    // Key by the canonical route form. `matchDashboard` and
-    // `decodeDashboardPath` both resolve via `/${slug.join("/")}`, so a
-    // non-canonical `path` like "pipeline" must be stored as "/pipeline" to be
-    // reachable — and so it collides correctly with a same-path page below.
-    const path = normalizeRoutePath(d.path);
-    if (dashboardsByPath.has(path)) {
-      throw new Error(`Duplicate dashboard path: "${d.path}".`);
-    }
-    dashboardsByPath.set(path, d);
-  }
-  const pagesByPath = new Map<string, PageConfig>();
-  for (const p of config.pages ?? []) {
-    const path = normalizeRoutePath(p.path);
-    if (pagesByPath.has(path)) {
-      throw new Error(`Duplicate page path: "${p.path}".`);
-    }
-    if (dashboardsByPath.has(path)) {
-      throw new Error(`Page path "${p.path}" collides with a dashboard at the same path.`);
-    }
-    pagesByPath.set(path, p);
-  }
-  const queuesByKey = new Map<string, QueueConfig>();
-  for (const q of config.queues ?? []) {
-    const name = (q.ref as { name?: string })?.name;
-    const key = q.options.key ?? name;
-    if (!key) throw new Error("queue() requires options.key when the queue has no .name");
-    if (queuesByKey.has(key)) throw new Error(`duplicate queue key: ${key}`);
-    queuesByKey.set(key, q);
-  }
-  // Normalize basePath: must start with `/`, must not end with `/`. We
-  // accept `""` as a shorthand for "no prefix" (admin mounted at the root)
-  // by storing it as the empty string; consumers join with `${basePath}/...`.
-  const rawBasePath = config.basePath ?? "/admin";
-  let basePath = rawBasePath.trim();
-  if (basePath !== "" && !basePath.startsWith("/")) basePath = `/${basePath}`;
-  if (basePath.endsWith("/")) basePath = basePath.slice(0, -1);
-
-  return {
-    ...config,
-    resources,
-    __resolved: true,
-    resourcesByName,
-    dashboardsByPath,
-    pagesByPath,
-    queuesByKey,
-    basePath,
-  };
+  const compiled = compileAdmin(config);
+  compiledAdminCache.set(config, compiled);
+  compiledAdminCache.set(compiled.resolved, compiled);
+  return compiled.resolved as ResolvedAdminConfig<Resources>;
 }

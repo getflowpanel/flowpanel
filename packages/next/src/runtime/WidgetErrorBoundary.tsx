@@ -10,11 +10,7 @@ interface State {
 interface BoundaryProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
-  /**
-   * Identifier of the widget this boundary wraps. Surfaces in error
-   * telemetry (Sentry tag) and gives the user a hint about which card
-   * crashed when multiple are on the same dashboard.
-   */
+  /** Identifier of the widget this boundary wraps. */
   widgetId?: string;
   /** Dashboard slug — same purpose as `widgetId`, lifted one level up. */
   dashboardId?: string;
@@ -26,10 +22,6 @@ interface SentryLike {
 }
 
 function getSentry(): SentryLike | null {
-  // Sentry is an optional peer integration — hosts that wire it ship
-  // `window.Sentry`, hosts that don't get a graceful no-op. We avoid a
-  // direct import so `@flowpanel/next` doesn't drag in @sentry/* as a
-  // hard dependency.
   const candidate = (globalThis as { Sentry?: unknown }).Sentry;
   if (
     candidate &&
@@ -41,12 +33,7 @@ function getSentry(): SentryLike | null {
   return null;
 }
 
-/**
- * Functional fallback rendered when the boundary caught an error.
- * Splits out so we can use `useRouter` (hook, requires function component)
- * for the retry path while the boundary itself stays a class — only class
- * components can implement `getDerivedStateFromError`.
- */
+/** Functional fallback rendered when the boundary caught an error. */
 function BoundaryFallback({
   error,
   onReset,
@@ -62,19 +49,6 @@ function BoundaryFallback({
   return <ErrorCard error={error} onRetry={handleRetry} />;
 }
 
-/**
- * Per-widget error boundary used by FlowPanel runtime to isolate one
- * widget's failure from the rest of the dashboard. A SQL error in a
- * single card no longer torpedoes its 3 neighbours.
- *
- * Telemetry. When `widgetId` / `dashboardId` are passed and a global
- * Sentry SDK is available on `globalThis.Sentry`, the boundary tags the
- * captured exception with both. Hosts without Sentry get a no-op.
- *
- * Recovery. The default fallback renders an `<ErrorCard>` with a "Retry"
- * action that clears the boundary state and calls `router.refresh()`,
- * which re-runs the widget's server query without a full page reload.
- */
 export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
   override state: State = { error: null };
 

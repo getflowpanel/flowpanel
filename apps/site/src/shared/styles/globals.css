@@ -25,9 +25,13 @@
   --color-border: oklch(0.92 0.005 80);
   --color-border-strong: oklch(0.86 0.005 80);
 
-  /* Accent — used very sparingly (focus ring, active link, ★ counter) */
-  --color-accent: oklch(0.55 0.18 255);
-  --color-accent-fg: oklch(0.985 0.005 80);
+  /* Accent — brand blue (#29ABE2). Used with restraint: primary CTA,
+     active link, focus ring, ★ counter, chart series. */
+  --color-accent: oklch(0.7 0.12 233);
+  --color-accent-hover: oklch(0.64 0.13 233);
+  --color-accent-fg: oklch(0.17 0.02 240);
+  --color-accent-subtle: oklch(0.7 0.12 233 / 0.12);
+  --color-accent-ring: oklch(0.7 0.12 233 / 0.55);
 
   /* Typography */
   --font-sans:
@@ -44,16 +48,53 @@
 }
 
 @layer base {
+  :root {
+    /* Code syntax (light). Low-saturation, on the warm code surface. */
+    --code-kw: oklch(0.5 0.16 295);
+    --code-str: oklch(0.5 0.12 150);
+    --code-num: oklch(0.52 0.13 55);
+    --code-fn: oklch(0.5 0.13 240);
+    --code-punct: oklch(0.55 0.012 240);
+    --code-comment: oklch(0.62 0.008 240);
+
+    /* Elevation (light). Soft and diffuse — the cream surface turns a deep
+       navy shadow into a heavy smudge, so keep the alpha low here. */
+    --shadow-frame:
+      0 24px 60px -30px rgba(15, 23, 42, 0.16), 0 6px 18px -12px rgba(15, 23, 42, 0.08);
+    --shadow-code: 0 18px 44px -32px rgba(15, 23, 42, 0.14);
+    --shadow-cta: 0 30px 70px -52px rgba(15, 23, 42, 0.16);
+    --shadow-card: 0 16px 40px -34px rgba(15, 23, 42, 0.1);
+  }
+
   :root[data-theme="dark"],
   .dark {
-    --color-bg: oklch(0.13 0.005 240);
-    --color-bg-subtle: oklch(0.17 0.005 240);
-    --color-bg-elevated: oklch(0.2 0.005 240);
+    /* Deep navy that echoes the logo (vs. pure black). */
+    --color-bg: oklch(0.135 0.012 245);
+    --color-bg-subtle: oklch(0.175 0.012 245);
+    --color-bg-elevated: oklch(0.205 0.013 245);
     --color-fg: oklch(0.94 0.005 80);
     --color-fg-muted: oklch(0.72 0.008 240);
     --color-fg-subtle: oklch(0.55 0.006 240);
-    --color-border: oklch(0.24 0.005 240);
-    --color-border-strong: oklch(0.32 0.005 240);
+    --color-border: oklch(0.245 0.012 245);
+    --color-border-strong: oklch(0.32 0.012 245);
+    /* Accent reads a touch brighter on the dark surface. */
+    --color-accent: oklch(0.72 0.12 233);
+    --color-accent-hover: oklch(0.8 0.1 233);
+    --color-accent-subtle: oklch(0.72 0.12 233 / 0.14);
+
+    /* Code syntax (dark). */
+    --code-kw: oklch(0.78 0.11 295);
+    --code-str: oklch(0.8 0.09 158);
+    --code-num: oklch(0.82 0.1 65);
+    --code-fn: oklch(0.78 0.12 235);
+    --code-punct: oklch(0.6 0.012 240);
+    --code-comment: oklch(0.55 0.008 240);
+
+    /* Elevation (dark). Deeper, near-black against the navy surface. */
+    --shadow-frame: 0 24px 60px -24px rgba(2, 6, 23, 0.55), 0 8px 24px -12px rgba(2, 6, 23, 0.4);
+    --shadow-code: 0 24px 60px -32px rgba(2, 6, 23, 0.5);
+    --shadow-cta: 0 40px 90px -50px rgba(2, 6, 23, 0.55);
+    --shadow-card: 0 20px 50px -36px rgba(2, 6, 23, 0.45);
   }
 
   html {
@@ -78,9 +119,33 @@
 
   /* Focus ring — single source of truth, used by all interactive primitives. */
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-accent-ring);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
+  }
+
+  /* Theme-aware product shots (MediaFrame). Light variant shows by default;
+     the dark theme flips to the dark variant. Matches the token theming so a
+     screenshot always matches the surrounding surface. */
+  [data-fp-media] {
+    display: none;
+  }
+  [data-fp-media="light"] {
+    display: block;
+  }
+  :where(.dark, [data-theme="dark"]) [data-fp-media="light"] {
+    display: none;
+  }
+  :where(.dark, [data-theme="dark"]) [data-fp-media="dark"] {
+    display: block;
+  }
+
+  /* Shiki dual-theme swap. AutoTypeTable emits `color:<light>;--shiki-dark:<dark>`
+     inline, so only `!important` can reach it. */
+  :where(.dark, [data-theme="dark"]) .shiki,
+  :where(.dark, [data-theme="dark"]) .shiki span {
+    /* biome-ignore lint/complexity/noImportantStyles: only !important outranks an inline color */
+    color: var(--shiki-dark) !important;
   }
 
   /* AdapterTabs visibility — drives <AdapterTab adapter="..."> hide/show.
@@ -89,5 +154,44 @@
   html[data-adapter="prisma"] [data-adapter-tab="drizzle"],
   html[data-adapter="drizzle"] [data-adapter-tab="prisma"] {
     display: none;
+  }
+}
+
+@layer components {
+  .docs-sidebar-scrollbar {
+    scrollbar-color: var(--color-fg-subtle) transparent;
+    scrollbar-width: thin;
+  }
+
+  .docs-sidebar-scrollbar:hover {
+    scrollbar-color: color-mix(in oklch, var(--color-fg-muted) 80%, transparent) transparent;
+  }
+
+  .docs-sidebar-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .docs-sidebar-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .docs-sidebar-scrollbar::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--color-fg-subtle);
+    background-clip: content-box;
+  }
+
+  .docs-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--color-fg-muted) 80%, transparent);
+    background-clip: content-box;
+  }
+}
+
+@media (forced-colors: active) {
+  .docs-sidebar-scrollbar,
+  .docs-sidebar-scrollbar:hover {
+    scrollbar-color: auto;
   }
 }

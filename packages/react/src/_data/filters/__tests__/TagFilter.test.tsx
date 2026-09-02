@@ -2,14 +2,14 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TagFilter } from "../TagFilter.js";
+import { TagFilter } from "../TagFilter";
 
 afterEach(() => cleanup());
 
 describe("TagFilter", () => {
   it("emits trimmed value on blur", () => {
     const onChange = vi.fn();
-    render(<TagFilter field="tags" value={null} onChange={onChange} />);
+    render(<TagFilter value={null} onChange={onChange} />);
     const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "x,y" } });
     fireEvent.blur(input);
@@ -18,7 +18,7 @@ describe("TagFilter", () => {
 
   it("emits null when blurred with empty value", () => {
     const onChange = vi.fn();
-    render(<TagFilter field="tags" value="a,b" onChange={onChange} />);
+    render(<TagFilter value="a,b" onChange={onChange} />);
     const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.blur(input);

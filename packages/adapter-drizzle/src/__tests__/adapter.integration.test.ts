@@ -5,7 +5,7 @@ import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { drizzleAdapter } from "../index.js";
+import { drizzleAdapter } from "../index";
 
 // Check Docker availability synchronously so describe.skipIf works at module load time.
 function isDockerAvailable(): boolean {
@@ -104,9 +104,36 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     expect((r.rows[0] as any).id).toBe("u5");
   });
 
-  it("list search across text columns", async () => {
-    const r = await adapter.list(users, ctx({ db, search: "User 7" }));
+  it("list search matches within declared searchFields", async () => {
+    const r = await adapter.list(users, ctx({ db, search: "User 7", searchFields: ["name"] }));
     expect(r.rows.some((row: any) => row.id === "u7")).toBe(true);
+  });
+
+  it("list search does NOT match columns outside searchFields", async () => {
+    // "u5@e.co" only appears in `email`; searchFields only declares `name`.
+    const r = await adapter.list(users, ctx({ db, search: "u5@e.co", searchFields: ["name"] }));
+    expect(r.total).toBe(0);
+  });
+
+  it("list search treats %, _ and ! in the query as literals, not wildcards", async () => {
+    const wild = await adapter.list(users, ctx({ db, search: "%", searchFields: ["name"] }));
+    expect(wild.total).toBe(0);
+
+    const underscore = await adapter.list(
+      users,
+      ctx({ db, search: "User _", searchFields: ["name"] }),
+    );
+    expect(underscore.total).toBe(0);
+
+    const bang = await adapter.list(users, ctx({ db, search: "User 7", searchFields: ["name"] }));
+    expect(bang.total).toBeGreaterThan(0);
+  });
+
+  it("FAIL-CLOSED: search has no effect when searchFields is undeclared", async () => {
+    // A hand-crafted `?search=` on a resource with no declared search fields
+    // must not become a data oracle across every text column.
+    const r = await adapter.list(users, ctx({ db, search: "User 7" }));
+    expect(r.total).toBe(25);
   });
 
   it("list filter __null__ sentinel translates to IS NULL", async () => {
@@ -127,6 +154,71 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
 
     // Cleanup so subsequent tests see the original 25-row state.
     await client`DELETE FROM users WHERE id IN ('null1', 'null2')`;
+  });
+
+  it("numeric-range filter: `gte`/`lte` return only in-range rows, never throws", async () => {
+    // Reproduces the reported bug: `eq(age, "25:30")` used to throw
+    // "invalid input syntax for type integer" and 500 the whole page.
+    const r = await adapter.list(
+      users,
+      ctx({ db, filters: { age: { op: "range", gte: 25, lte: 30 } }, pageSize: 50 }),
+    );
+    expect(r.total).toBe(6); // ages 25..30 inclusive
+    expect(r.rows.every((row: any) => row.age >= 25 && row.age <= 30)).toBe(true);
+  });
+
+  it("numeric-range filter: one-sided bound (only gte, or only lte)", async () => {
+    const gteOnly = await adapter.list(
+      users,
+      ctx({ db, filters: { age: { op: "range", gte: 40 } }, pageSize: 50 }),
+    );
+    expect(gteOnly.rows.every((row: any) => row.age >= 40)).toBe(true);
+    expect(gteOnly.total).toBe(5); // ages 40..44
+
+    const lteOnly = await adapter.list(
+      users,
+      ctx({ db, filters: { age: { op: "range", lte: 21 } }, pageSize: 50 }),
+    );
+    expect(lteOnly.rows.every((row: any) => row.age <= 21)).toBe(true);
+    expect(lteOnly.total).toBe(2); // ages 20..21
+  });
+
+  it("daterange filter: `gte`/`lte` return only in-range rows, never throws", async () => {
+    // Reproduces the reported bug: a `daterange` filter against a timestamp
+    // column used to hit the same class of Postgres type-syntax crash.
+    await client`INSERT INTO users (id, email, name, created_at) VALUES ('d1', 'd1@e.co', 'D1', '2020-01-15T00:00:00Z')`;
+    await client`INSERT INTO users (id, email, name, created_at) VALUES ('d2', 'd2@e.co', 'D2', '2020-06-15T00:00:00Z')`;
+
+    const r = await adapter.list(
+      users,
+      ctx({
+        db,
+        filters: {
+          createdAt: {
+            op: "range",
+            gte: new Date("2020-01-01T00:00:00Z"),
+            lte: new Date("2020-03-01T00:00:00Z"),
+          },
+        },
+        pageSize: 50,
+      }),
+    );
+    expect(r.total).toBe(1);
+    expect((r.rows[0] as any).id).toBe("d1");
+
+    await client`DELETE FROM users WHERE id IN ('d1', 'd2')`;
+  });
+
+  it("multiselect filter: returns the UNION of matching rows, never matches nothing", async () => {
+    // Reproduces the reported bug: `eq(id, "u1,u3,u5")` used to silently
+    // match zero rows instead of throwing — worse than a crash because
+    // nobody notices.
+    const r = await adapter.list(
+      users,
+      ctx({ db, filters: { id: { op: "in", values: ["u1", "u3", "u5"] } }, pageSize: 50 }),
+    );
+    expect(r.total).toBe(3);
+    expect(r.rows.map((row: any) => row.id).sort()).toEqual(["u1", "u3", "u5"]);
   });
 
   it("get returns a row or null", async () => {
@@ -177,5 +269,25 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     } as any);
 
     expect(await adapter.get(users, { ...ctx({ db }), id: "new1" } as any)).toBeNull();
+  });
+});
+
+describe.skipIf(!dockerAvailable)("drizzleAdapter migrations (pg)", () => {
+  it("creates its bookkeeping table and round-trips applied ids", async () => {
+    const adapter = drizzleAdapter({ db, schema: { users } });
+
+    expect(await adapter.listAppliedMigrations?.()).toEqual(new Set());
+
+    await adapter.markMigrationApplied?.("0001_init");
+    await adapter.markMigrationApplied?.("0002_posts");
+
+    expect(await adapter.listAppliedMigrations?.()).toEqual(new Set(["0001_init", "0002_posts"]));
+  });
+
+  it("executes raw migration SQL", async () => {
+    const adapter = drizzleAdapter({ db, schema: { users } });
+    await adapter.runMigrationSql?.(`CREATE TABLE probe_mig (id text PRIMARY KEY)`);
+    const rows = await client`SELECT id FROM probe_mig`;
+    expect(rows).toHaveLength(0);
   });
 });

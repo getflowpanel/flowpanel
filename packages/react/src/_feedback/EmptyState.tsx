@@ -1,15 +1,13 @@
 "use client";
 import type * as React from "react";
-import { useComponents } from "../_provider/ComponentsContext.js";
+import { useComponent } from "../_provider/ComponentsContext";
+import { DefaultEmptyState } from "./EmptyStateDefault";
 
-export { DefaultEmptyState, type EmptyStateProps } from "./EmptyStateDefault.js";
+export { DefaultEmptyState, type EmptyStateProps } from "./EmptyStateDefault";
 
-/** Renders whatever override the user registered via theme.components.EmptyState,
- *  falling back to DefaultEmptyState. Use this internally; users keep importing
- *  { EmptyState } as the public name. */
 export function EmptyState(
-  props: import("./EmptyStateDefault.js").EmptyStateProps,
+  props: import("./EmptyStateDefault").EmptyStateProps,
 ): React.JSX.Element {
-  const Slot = useComponents().EmptyState;
+  const Slot = useComponent("EmptyState", DefaultEmptyState);
   return <Slot {...props} />;
 }

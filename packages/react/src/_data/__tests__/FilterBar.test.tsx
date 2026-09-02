@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FilterBar } from "../FilterBar.js";
+import { FilterBar } from "../FilterBar";
 
 afterEach(() => cleanup());
 
@@ -25,6 +25,25 @@ describe("FilterBar", () => {
     );
     expect(screen.getByText("Email")).toBeTruthy();
     expect(screen.getByText("Plan")).toBeTruthy();
+  });
+
+  it("humanizes an omitted label and gives the control an accessible name", () => {
+    render(
+      <FilterBar
+        filters={[
+          {
+            field: "createdAt",
+            type: "select",
+            options: [{ label: "Today", value: "today" }],
+          },
+        ]}
+        values={{}}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Created at")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Created at" })).toBeTruthy();
   });
 
   it("shows Clear button when any filter has a value AND onClear is provided; clicking calls onClear", () => {

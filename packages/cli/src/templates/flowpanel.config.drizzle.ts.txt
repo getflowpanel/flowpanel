@@ -1,12 +1,19 @@
-import { defineAdmin, resource } from "@flowpanel/kit";
+import { defineAdmin } from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { db } from "{{DB}}";
 import * as schema from "{{SCHEMA}}";
 import { getSession } from "{{AUTH}}";
 
-declare module "@flowpanel/core" {
+// Augment "@flowpanel/kit": it is the package you installed, and the
+// interfaces below merge into the same declarations "@flowpanel/core" owns.
+declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
+  }
+  // resource name -> row type. Fill one entry per resource to get
+  // compile-checked columns, filters and cross-resource references.
+  interface FlowpanelResources {
+    // users: typeof schema.users.$inferSelect;
   }
 }
 
@@ -24,11 +31,12 @@ export default defineAdmin({
 
   theme: {
     brand: { name: "{{APP_NAME}}" },
-    accent: "hsl(220 90% 56%)",
+    accent: "220 90% 50%",
     mode: "auto",
   },
 
   resources: [
+    // Add `resource` to the "@flowpanel/kit" import above, then:
     // resource(schema.users, {
     //   label: "Users",
     //   columns: ["email", "name", "createdAt"],

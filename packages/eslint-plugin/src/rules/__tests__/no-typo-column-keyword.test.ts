@@ -1,5 +1,5 @@
-import rule from "../no-typo-column-keyword.js";
-import { ruleTester } from "./setup.js";
+import rule from "../no-typo-column-keyword";
+import { ruleTester } from "./setup";
 
 ruleTester().run("no-typo-column-keyword", rule, {
   valid: [
@@ -46,11 +46,9 @@ ruleTester().run("no-typo-column-keyword", rule, {
           columns: ["userid"],
         };
       `,
-      output: `
-        const config = {
-          columns: ["userId"],
-        };
-      `,
+      // `output: null` = reported but never rewritten. `eslint --fix` used to
+      // silently turn a legitimately lowercase `userid` column into `userId`.
+      output: null,
       errors: [
         {
           messageId: "typo",
@@ -65,11 +63,7 @@ ruleTester().run("no-typo-column-keyword", rule, {
           columns: ["createdat"],
         };
       `,
-      output: `
-        const config = {
-          columns: ["createdAt"],
-        };
-      `,
+      output: null,
       errors: [{ messageId: "typo" }],
     },
     {
@@ -81,13 +75,7 @@ ruleTester().run("no-typo-column-keyword", rule, {
           ],
         };
       `,
-      output: `
-        const config = {
-          columns: [
-            { key: "isActive", label: "Active" },
-          ],
-        };
-      `,
+      output: null,
       errors: [{ messageId: "typo" }],
     },
   ],

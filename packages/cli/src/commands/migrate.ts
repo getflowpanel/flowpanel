@@ -3,14 +3,18 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
-import { fileExists } from "../utils/detect.js";
-import { log } from "../utils/log.js";
+import { detectPackageManager, fileExists, pmCommands } from "../utils/detect";
+import { log } from "../utils/log";
+import { writeJson } from "../utils/output";
+import { readTsconfigOptions } from "../utils/tsconfig";
 
 interface MigrateOptions {
   dryRun?: boolean;
+  json?: boolean;
 }
 
 interface MigrationAdapter {
+  applyMigration?: (id: string, sql: string) => Promise<void>;
   runMigrationSql?: (sql: string) => Promise<void>;
   listAppliedMigrations?: () => Promise<Set<string>>;
   markMigrationApplied?: (id: string) => Promise<void>;
@@ -35,65 +39,50 @@ interface JitiModule {
   createJiti: (cwd: string, opts?: JitiOptions) => JitiInstance;
 }
 
-// Translate the user's tsconfig `compilerOptions.paths` into a Record jiti
-// understands. jiti v2 takes a flat `alias: Record<string, string>` where the
-// key may end in `/*` and the value points at an absolute on-disk path. We
-// pass through the most common shape — `"@/*": ["./*"]` — and resolve the
-// path relative to the project root. Skip silently if tsconfig is absent or
-// malformed; users without aliases shouldn't pay a parse-failure tax.
-// Strip JSONC comments without mangling string contents (Next.js scaffolds
-// emit `"src/**/*"` globs whose `/*` would otherwise be eaten by a naive
-// block-comment regex). The scanner tracks string state explicitly.
-function stripJsoncComments(src: string): string {
-  let out = "";
-  let i = 0;
-  let inString = false;
-  while (i < src.length) {
-    const ch = src[i];
-    const next = src[i + 1];
-    if (inString) {
-      out += ch;
-      if (ch === "\\" && i + 1 < src.length) {
-        out += next;
-        i += 2;
-        continue;
-      }
-      if (ch === '"') inString = false;
-      i++;
-      continue;
-    }
-    if (ch === '"') {
-      inString = true;
-      out += ch;
-      i++;
-      continue;
-    }
-    if (ch === "/" && next === "/") {
-      while (i < src.length && src[i] !== "\n") i++;
-      continue;
-    }
-    if (ch === "/" && next === "*") {
-      i += 2;
-      while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) i++;
-      i += 2;
-      continue;
-    }
-    out += ch;
-    i++;
+const LEGACY_MIGRATION_WARNING =
+  "This adapter uses the legacy non-atomic migration hooks; concurrent migrators are not serialized. " +
+  "Implement applyMigration(id, sql) before relying on transactional rollback or duplicate suppression.";
+
+interface MigrationExecutor {
+  applyMigration: (id: string, sql: string) => Promise<void>;
+  listAppliedMigrations: () => Promise<Set<string>>;
+  mode: "adapter" | "legacy-hooks";
+  warnings: string[];
+}
+
+export function resolveMigrationExecutor(
+  adapter: MigrationAdapter | undefined,
+): MigrationExecutor | undefined {
+  const listAppliedMigrations = adapter?.listAppliedMigrations?.bind(adapter);
+  if (typeof listAppliedMigrations !== "function") return undefined;
+
+  const applyMigration = adapter?.applyMigration?.bind(adapter);
+  if (typeof applyMigration === "function") {
+    return { applyMigration, listAppliedMigrations, mode: "adapter", warnings: [] };
   }
-  return out;
+
+  const runMigrationSql = adapter?.runMigrationSql?.bind(adapter);
+  const markMigrationApplied = adapter?.markMigrationApplied?.bind(adapter);
+  if (typeof runMigrationSql !== "function" || typeof markMigrationApplied !== "function") {
+    return undefined;
+  }
+
+  return {
+    applyMigration: async (id, sql) => {
+      await runMigrationSql(sql);
+      await markMigrationApplied(id);
+    },
+    listAppliedMigrations,
+    mode: "legacy-hooks",
+    warnings: [LEGACY_MIGRATION_WARNING],
+  };
 }
 
 async function readTsconfigAliases(cwd: string): Promise<Record<string, string>> {
-  const tsconfigPath = path.join(cwd, "tsconfig.json");
   try {
-    const raw = await fs.readFile(tsconfigPath, "utf8");
-    const stripped = stripJsoncComments(raw).replace(/,(\s*[}\]])/g, "$1");
-    const parsed = JSON.parse(stripped) as {
-      compilerOptions?: { paths?: Record<string, string[]>; baseUrl?: string };
-    };
-    const paths = parsed.compilerOptions?.paths ?? {};
-    const baseUrl = parsed.compilerOptions?.baseUrl ?? ".";
+    const compilerOptions = await readTsconfigOptions(cwd);
+    const paths = compilerOptions?.paths ?? {};
+    const baseUrl = compilerOptions?.baseUrl ?? ".";
     const baseDir = path.resolve(cwd, baseUrl);
     const out: Record<string, string> = {};
     for (const [key, values] of Object.entries(paths)) {
@@ -114,35 +103,51 @@ export function migrateCommand(cli: Command): void {
     .command("migrate")
     .description("Apply SQL migrations from flowpanel/migrations/")
     .option("--dry-run", "Print migrations that would be applied without running them")
+    .option("--json", "Emit machine-readable JSON")
     .action(async (opts: MigrateOptions) => {
-      p.intro(pc.bgMagenta(pc.black(" FlowPanel migrate ")));
+      if (!opts.json) p.intro(pc.bgMagenta(pc.black(" FlowPanel migrate ")));
 
       const cwd = process.cwd();
+      const pmc = pmCommands(await detectPackageManager(cwd));
       const dir = path.join(cwd, "flowpanel", "migrations");
 
       const files = (await fs.readdir(dir).catch(() => [] as string[]))
         .filter((f) => f.endsWith(".sql"))
         .sort();
       if (files.length === 0) {
-        p.outro(pc.yellow(`No migrations found in ${path.relative(cwd, dir)}`));
-        return;
-      }
-
-      if (opts.dryRun) {
-        for (const f of files) log.info(`would apply: ${f}`);
-        p.outro(pc.dim(`${files.length} migration${files.length === 1 ? "" : "s"} (dry run)`));
+        if (opts.json) {
+          writeJson({ command: "migrate", applied: false, pending: [], reason: "no-migrations" });
+        } else p.outro(pc.yellow(`No migrations found in ${path.relative(cwd, dir)}`));
         return;
       }
 
       const cfgPath = path.join(cwd, "flowpanel.config.ts");
       if (!(await fileExists(cfgPath))) {
-        log.err("flowpanel.config.ts not found. Run `pnpm dlx flowpanel init` first.");
+        const msg = `flowpanel.config.ts not found. Run \`${pmc.dlx} @flowpanel/cli init\` first.`;
+        if (opts.json) writeJson({ command: "migrate", applied: false, error: msg });
+        else log.err(msg);
         process.exit(1);
       }
 
-      // ── Step 1: bring up jiti. Only the "jiti not installed" case maps to
-      // the install hint; anything else (alias resolution failure, syntax
-      // error, missing dependency in the config) must surface verbatim.
+      // Everything below opens a database connection, so --dry-run stops here:
+      // the adapter's applied-migrations reader creates its tracking table.
+      if (opts.dryRun) {
+        if (opts.json) {
+          writeJson({
+            command: "migrate",
+            applied: false,
+            dryRun: true,
+            appliedStateKnown: false,
+            pending: files.map((file) => file.replace(/\.sql$/, "")),
+          });
+        } else {
+          for (const file of files) log.info(`would apply: ${file}`);
+          log.warn("Applied state unknown — --dry-run does not connect to the database.");
+          p.outro(pc.dim(`${files.length} migration file${files.length === 1 ? "" : "s"} on disk`));
+        }
+        return;
+      }
+
       let jiti: JitiInstance;
       try {
         const jitiMod = (await import("jiti")) as JitiModule;
@@ -156,16 +161,12 @@ export function migrateCommand(cli: Command): void {
         const code = (e as NodeJS.ErrnoException).code;
         if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
           log.err("flowpanel migrate needs `jiti` to load your TypeScript config. Install:");
-          log.dim("  pnpm add -D jiti");
+          log.dim(`  ${pmc.addDisplay("jiti", true)}`);
           process.exit(1);
         }
         throw e;
       }
 
-      // ── Step 2: evaluate the user's flowpanel.config.ts. Errors here are
-      // user-actionable (bad alias, missing module, syntax error in the
-      // config). Surface the real message — the previous catch-all blamed
-      // jiti for every failure mode.
       let config: MaybeConfig;
       try {
         const mod = (await jiti.import(cfgPath)) as { default?: MaybeConfig } | MaybeConfig;
@@ -177,40 +178,47 @@ export function migrateCommand(cli: Command): void {
       }
 
       const adapter = config.adapter;
-      // Bind to the adapter so third-party adapters whose migration methods
-      // reference `this` keep working (the shipped drizzle/prisma adapters use
-      // closures, but the public Adapter contract must not silently require it).
-      const runMigrationSql = adapter?.runMigrationSql?.bind(adapter);
-      const listAppliedMigrations = adapter?.listAppliedMigrations?.bind(adapter);
-      const markMigrationApplied = adapter?.markMigrationApplied?.bind(adapter);
-      if (
-        typeof runMigrationSql !== "function" ||
-        typeof listAppliedMigrations !== "function" ||
-        typeof markMigrationApplied !== "function"
-      ) {
+      const executor = resolveMigrationExecutor(adapter);
+      if (!executor) {
         log.err(
           "Adapter does not support `flowpanel migrate`. Use `drizzleAdapter` or `prismaAdapter` from a FlowPanel ≥ this version.",
         );
         process.exit(1);
       }
+      if (!opts.json && executor.mode === "legacy-hooks") {
+        log.warn(LEGACY_MIGRATION_WARNING);
+      }
 
-      const applied = await listAppliedMigrations();
+      // This is a UX snapshot, not a concurrency claim. A modern adapter's
+      // applyMigration implementation must serialize and recheck the id at the
+      // database boundary because another CLI process can invalidate it.
+      const applied = await executor.listAppliedMigrations();
 
       let ran = 0;
+      const appliedNow: string[] = [];
       for (const f of files) {
         const id = f.replace(/\.sql$/, "");
         if (applied.has(id)) {
-          log.info(`${id} — already applied`);
+          if (!opts.json) log.info(`${id} — already applied`);
           continue;
         }
         const sql = await fs.readFile(path.join(dir, f), "utf8");
-        await runMigrationSql(sql);
-        await markMigrationApplied(id);
-        log.ok(`${id} applied`);
+        await executor.applyMigration(id, sql);
+        appliedNow.push(id);
+        if (!opts.json) log.ok(`${id} applied`);
         ran++;
       }
 
-      if (ran === 0) {
+      if (opts.json) {
+        writeJson({
+          command: "migrate",
+          applied: true,
+          migrations: appliedNow,
+          alreadyApplied: files.length - appliedNow.length,
+          migrationMode: executor.mode,
+          warnings: executor.warnings,
+        });
+      } else if (ran === 0) {
         p.outro(pc.dim("All migrations up to date."));
       } else {
         p.outro(pc.green(`${ran} migration${ran === 1 ? "" : "s"} applied`));

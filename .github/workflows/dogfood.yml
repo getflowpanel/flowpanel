@@ -7,9 +7,9 @@ name: Dogfood
 # them turns this workflow red automatically — no manual smoke testing
 # every release.
 #
-# `freelance-radar` (an external real-world consumer) is too heavyweight
-# to wire into CI directly; this fixture covers the same surfaces with a
-# 200-LOC config.
+# with-clerk is the fast 200-LOC dogfood fixture; `ai-scraper` (an external
+# real-world consumer) is exercised separately by the e2e job in ci.yml,
+# which boots it against a real Postgres.
 
 on:
   push:

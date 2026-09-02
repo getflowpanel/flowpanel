@@ -2,16 +2,24 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SelectFilter } from "../SelectFilter.js";
+import { SelectFilter } from "../SelectFilter";
 
 afterEach(() => cleanup());
 
 describe("SelectFilter", () => {
+  it("keeps the actual mobile trigger at least 44px tall", () => {
+    render(
+      <SelectFilter value={null} onChange={vi.fn()} options={[{ label: "Pro", value: "pro" }]} />,
+    );
+
+    expect(screen.getByRole("combobox").className).toContain("h-11");
+    expect(screen.getByRole("combobox").className).toContain("sm:h-8");
+  });
+
   it("emits the selected value and null when 'All' is picked", () => {
     const onChange = vi.fn();
     const { rerender } = render(
       <SelectFilter
-        field="plan"
         value={null}
         onChange={onChange}
         options={[
@@ -28,7 +36,6 @@ describe("SelectFilter", () => {
 
     rerender(
       <SelectFilter
-        field="plan"
         value="pro"
         onChange={onChange}
         options={[
@@ -45,12 +52,7 @@ describe("SelectFilter", () => {
     // component and verify the Select value prop reflects '__all__' when value is null.
     const onChange = vi.fn();
     render(
-      <SelectFilter
-        field="plan"
-        value={null}
-        onChange={onChange}
-        options={[{ label: "Pro", value: "pro" }]}
-      />,
+      <SelectFilter value={null} onChange={onChange} options={[{ label: "Pro", value: "pro" }]} />,
     );
     // Placeholder is visible when value is null
     expect(screen.getByText("All")).toBeTruthy();

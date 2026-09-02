@@ -1,14 +1,15 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { stampMarker } from "./marker.js";
+import { createFilesystemPlan } from "../plan/filesystem-plan";
+import { applyFilesystemPlan } from "../plan/transaction";
+import type { FileIntent } from "../plan/types";
+import { configImportFor, detectAppDir, detectPathAlias } from "../utils/detect";
+import { stampMarker } from "./marker";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
-/**
- * Resolve the templates root in both dev (running from src/) and prod
- * (running from dist/). Mirrors `utils/template.ts`'s strategy.
- */
+/** Resolve the templates root in both dev (running from src/) and prod (running from dist/). */
 async function resolveTemplatesRoot(): Promise<string> {
   const candidates = [
     path.join(HERE, "..", "templates", "ejected"),
@@ -51,89 +52,109 @@ const RESOURCE_LAYOUT: ReadonlyArray<readonly [srcRel: string, destRel: string]>
   ["resource/actions.ts.txt", "actions.ts"],
 ];
 
-async function writeStamped(
+async function stampedIntent(
   templatePath: string,
-  destPath: string,
+  destination: string,
   vars: Record<string, string>,
   version: string,
   force: boolean,
   cwd: string,
-): Promise<void> {
-  if (!force) {
-    try {
-      await fs.access(destPath);
-      throw new Error(
-        `Eject target already exists: ${path.relative(cwd, destPath)} (pass force: true to overwrite)`,
-      );
-    } catch (e: unknown) {
-      if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") throw e;
-    }
-  }
+): Promise<FileIntent> {
   const raw = await fs.readFile(templatePath, "utf8");
   const substituted = Object.entries(vars).reduce(
     (acc, [key, value]) => acc.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), value),
     raw,
   );
   const stamped = stampMarker(substituted, version);
-  await fs.mkdir(path.dirname(destPath), { recursive: true });
-  await fs.writeFile(destPath, stamped, "utf8");
+  return {
+    path: path.relative(cwd, destination),
+    content: stamped,
+    ...(force ? { overwrite: true } : {}),
+  };
 }
 
-export async function copyResourceTemplates(opts: CopyResourceOptions): Promise<string[]> {
+async function applyIntents(cwd: string, intents: FileIntent[]): Promise<string[]> {
+  const plan = await createFilesystemPlan(cwd, intents);
+  const conflict = plan.operations.find((operation) => operation.kind === "conflict");
+  if (conflict) {
+    throw new Error(
+      `Eject target already exists: ${conflict.path} (pass force: true to overwrite)`,
+    );
+  }
+  const written = await applyFilesystemPlan(plan);
+  return written.map((file) => path.join(cwd, file));
+}
+
+export async function resourceTemplateIntents(opts: CopyResourceOptions): Promise<FileIntent[]> {
   const templatesRoot = await resolveTemplatesRoot();
-  const targetDir = path.join(opts.cwd, "app/admin", opts.resourceName);
-  const written: string[] = [];
+  const appDir = await detectAppDir(opts.cwd);
+  const targetDir = path.join(opts.cwd, appDir, "admin", opts.resourceName);
+  const aliasMode = await detectPathAlias(opts.cwd);
+  const configImport = configImportFor(`${appDir}/admin/${opts.resourceName}`, aliasMode);
+  const intents: FileIntent[] = [];
 
   for (const [srcRel, destRel] of RESOURCE_LAYOUT) {
     const dest = path.join(targetDir, destRel);
-    await writeStamped(
-      path.join(templatesRoot, srcRel),
+    intents.push(
+      await stampedIntent(
+        path.join(templatesRoot, srcRel),
+        dest,
+        { name: opts.resourceName, CONFIG_IMPORT: configImport },
+        opts.version,
+        opts.force ?? false,
+        opts.cwd,
+      ),
+    );
+  }
+  return intents;
+}
+
+export async function copyResourceTemplates(opts: CopyResourceOptions): Promise<string[]> {
+  return applyIntents(opts.cwd, await resourceTemplateIntents(opts));
+}
+
+/** Eject a dashboard. */
+export async function dashboardTemplateIntents(opts: CopyDashboardOptions): Promise<FileIntent[]> {
+  const templatesRoot = await resolveTemplatesRoot();
+  const appDir = await detectAppDir(opts.cwd);
+  const normalized = opts.dashboardPath === "/" ? "" : opts.dashboardPath.replace(/^\//, "");
+  const dest = path.join(opts.cwd, appDir, "admin", normalized, "page.tsx");
+
+  return [
+    await stampedIntent(
+      path.join(templatesRoot, "dashboard/page.tsx.txt"),
       dest,
-      { name: opts.resourceName },
+      { path: opts.dashboardPath },
       opts.version,
       opts.force ?? false,
       opts.cwd,
-    );
-    written.push(dest);
-  }
-  return written;
+    ),
+  ];
 }
 
-/**
- * Eject a dashboard. Writes a single `app/admin/<path>/page.tsx` (root
- * dashboard at `path: "/"` lands at `app/admin/page.tsx`).
- */
 export async function copyDashboardTemplate(opts: CopyDashboardOptions): Promise<string[]> {
-  const templatesRoot = await resolveTemplatesRoot();
-  const normalized = opts.dashboardPath === "/" ? "" : opts.dashboardPath.replace(/^\//, "");
-  const dest = path.join(opts.cwd, "app/admin", normalized, "page.tsx");
-
-  await writeStamped(
-    path.join(templatesRoot, "dashboard/page.tsx.txt"),
-    dest,
-    { path: opts.dashboardPath },
-    opts.version,
-    opts.force ?? false,
-    opts.cwd,
-  );
-  return [dest];
+  return applyIntents(opts.cwd, await dashboardTemplateIntents(opts));
 }
 
-/**
- * Eject the admin layout. Writes `app/admin/layout.tsx` that wraps
- * children in `<AdminShell>` from @flowpanel/react.
- */
-export async function copyLayoutTemplate(opts: CopyLayoutOptions): Promise<string[]> {
+/** Eject the admin layout. */
+export async function layoutTemplateIntents(opts: CopyLayoutOptions): Promise<FileIntent[]> {
   const templatesRoot = await resolveTemplatesRoot();
-  const dest = path.join(opts.cwd, "app/admin", "layout.tsx");
+  const appDir = await detectAppDir(opts.cwd);
+  const dest = path.join(opts.cwd, appDir, "admin", "layout.tsx");
+  const aliasMode = await detectPathAlias(opts.cwd);
 
-  await writeStamped(
-    path.join(templatesRoot, "layout/layout.tsx.txt"),
-    dest,
-    {},
-    opts.version,
-    opts.force ?? false,
-    opts.cwd,
-  );
-  return [dest];
+  return [
+    await stampedIntent(
+      path.join(templatesRoot, "layout/layout.tsx.txt"),
+      dest,
+      { CONFIG_IMPORT: configImportFor(`${appDir}/admin`, aliasMode) },
+      opts.version,
+      opts.force ?? false,
+      opts.cwd,
+    ),
+  ];
+}
+
+export async function copyLayoutTemplate(opts: CopyLayoutOptions): Promise<string[]> {
+  return applyIntents(opts.cwd, await layoutTemplateIntents(opts));
 }

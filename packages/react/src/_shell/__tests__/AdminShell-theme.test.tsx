@@ -9,11 +9,15 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
 }));
 
-import { useComponents } from "../../_provider/ComponentsContext.js";
-import { AdminShell } from "../AdminShell.js";
-import { FlowpanelGlobals } from "../FlowpanelGlobals.js";
+import { useComponents } from "../../_provider/useComponents";
+import { AdminShell } from "../AdminShell";
+import { FlowpanelGlobals } from "../FlowpanelGlobals";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  delete document.documentElement.dataset.flowpanelTheme;
+});
 
 function Probe() {
   const { EmptyState } = useComponents();
@@ -21,6 +25,20 @@ function Probe() {
 }
 
 describe("FlowpanelGlobals — themeComponents prop", () => {
+  it("applies the configured theme after a client-side mount", async () => {
+    localStorage.removeItem("fp-theme");
+    render(
+      <FlowpanelGlobals themeMode="dark">
+        <div>content</div>
+      </FlowpanelGlobals>,
+    );
+
+    await vi.waitFor(() => expect(document.documentElement.dataset.flowpanelTheme).toBe("dark"));
+    expect(document.querySelector("[data-flowpanel-root]")?.getAttribute("data-theme")).toBe(
+      "dark",
+    );
+  });
+
   it("provides ComponentsProvider with the override applied", () => {
     function Custom({ title }: { title: string }) {
       return <div data-testid="custom-empty">{title.toUpperCase()}</div>;
@@ -44,6 +62,18 @@ describe("FlowpanelGlobals — themeComponents prop", () => {
 });
 
 describe("AdminShell — variant prop", () => {
+  it("can defer the skip link to a host application layout", () => {
+    render(
+      <FlowpanelGlobals>
+        <AdminShell navGroups={[]} currentPath="/admin" showSkipLink={false}>
+          <div>content</div>
+        </AdminShell>
+      </FlowpanelGlobals>,
+    );
+
+    expect(screen.queryByRole("link", { name: "Skip to main content" })).toBeNull();
+  });
+
   it("renders sidebar nav by default", () => {
     render(
       <FlowpanelGlobals>

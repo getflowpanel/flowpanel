@@ -1,18 +1,20 @@
 name: release
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: release-main
   cancel-in-progress: false
 
 jobs:
   release:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,22 +24,44 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
+          ref: main
+      - name: Confirm CI passed for the current main commit
+        id: verified_head
+        env:
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" = "$VERIFIED_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "main advanced after this CI run; the newer run will handle release"
+          fi
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        if: steps.verified_head.outputs.current == 'true'
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.verified_head.outputs.current == 'true'
         with:
           node-version-file: .nvmrc
           cache: pnpm
           registry-url: "https://registry.npmjs.org"
       # npm >= 11.5.2 is required for OIDC trusted publishing.
-      - run: npm i -g npm@^11.5.2
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm -r build
+      - if: steps.verified_head.outputs.current == 'true'
+        run: npm i -g npm@^11.5.2
+      - if: steps.verified_head.outputs.current == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.verified_head.outputs.current == 'true'
+        run: pnpm check:release && pnpm check:docs
+      - if: steps.verified_head.outputs.current == 'true'
+        run: pnpm -r --filter "./packages/*" run build
       - name: Create release PR or publish
+        if: steps.verified_head.outputs.current == 'true'
         uses: changesets/action@63a615b9cd06ba9a3e6d13796c7fbcb080a60a0b # v1.8.0
         with:
           # requires npm trusted publisher configured on npmjs.com
-          publish: pnpm publish -r --provenance --access public
+          version: pnpm version-packages
+          publish: pnpm changeset publish
           commit: "chore: version packages"
           title: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"

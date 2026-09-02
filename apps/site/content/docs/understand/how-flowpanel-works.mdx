@@ -1,0 +1,39 @@
+---
+title: How FlowPanel works
+description: Follow schema and config through adapters, routes, and the rendered admin interface.
+kind: explanation
+---
+
+FlowPanel is an embedded runtime, not a separate service. It combines application-owned schema metadata and config with generated Next.js boundaries.
+
+## From schema to compiled admin
+
+1. A resource points at a Drizzle table or Prisma model name.
+2. The adapter supplies operations and introspected column metadata.
+3. `resource()`, `dashboard()`, `page()`, and other builders preserve typed definitions without performing I/O.
+4. `defineAdmin()` compiles the graph: it resolves names and defaults, validates columns and references, checks route collisions and action keys, applies global read-only behavior, and indexes resources.
+5. `createFlowpanel(config)` binds that resolved definition to a page, HTTP handlers, request runtime, client metadata, and event publisher.
+
+Failures such as duplicate resource names or unknown columns happen while the admin is compiled, close to startup, rather than producing a half-working page.
+
+## The three execution times
+
+| Time | What happens |
+| --- | --- |
+| Startup/module evaluation | Config composition, adapter creation, admin compilation, publisher binding |
+| Each server request | Session, role, access, scope, adapter queries or mutations, server renderers |
+| In the browser | Navigation state, tables/forms/drawers, client hooks, SSE subscription, refetch after signals |
+
+The database client and config stay on the server. Browser code receives serialized metadata and the declared row/value surface needed to render the current screen.
+
+## Routes are integration points
+
+The catch-all page renders resource and dashboard URLs through React Server Components. The catch-all API handles typed CRUD, forms, actions, references, import/export, and drawer payloads. The stream route holds authenticated SSE connections.
+
+All generated transports converge on the same policies and adapter instead of implementing separate security rules for each UI.
+
+## Config is selective
+
+Adapter introspection can describe a schema, but config decides what is exposed. Explicit resources, columns, fields, search fields, filters, actions, and policies are the public admin surface. New database columns do not need to become new admin capabilities.
+
+Continue with [Adapters and introspection](/docs/understand/adapters), [Request and mutation lifecycle](/docs/understand/request-lifecycle), or [Server and client boundaries](/docs/understand/server-client-boundaries).

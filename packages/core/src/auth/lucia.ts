@@ -1,10 +1,7 @@
-import type { AuthConfig } from "../types/config.js";
-import type { Session } from "../types/session.js";
+import type { AuthConfig } from "../types/config";
+import type { Session } from "../types/session";
 
-/**
- * Minimal duck-type for a Lucia v3+ instance. Avoids a hard dep on
- * `lucia` so users on different versions stay compatible.
- */
+/** Minimal duck-type for a Lucia v3+ instance. */
 export interface LuciaLike {
   validateSession(sessionId: string): Promise<{
     user: Record<string, unknown> | null;
@@ -22,36 +19,21 @@ export interface LuciaAuthOptions {
   forbiddenUrl?: string;
   /** Extract the role from the Lucia user. Defaults to `user.role || "guest"`. */
   role?: (s: Session | null) => string;
+  /** Extract the actor id for the audit trail / per-user rate limiting. */
+  userId?: (s: Session | null) => string | null;
 }
 
-/**
- * First-class Lucia (v3+) integration.
- *
- * @example
- * import { defineAdmin } from "@flowpanel/kit";
- * import { withLucia } from "@flowpanel/kit/auth";
- * import { lucia } from "@/auth/lucia";
- *
- * export default defineAdmin({
- *   auth: withLucia({ lucia, requireRole: "admin" }),
- *   // ...
- * });
- *
- * Reads the session cookie from the incoming request via
- * `next/headers`. If the cookie is missing or invalid, `session()`
- * returns `null` and FlowPanel redirects to `signInUrl`.
- */
+/** First-class Lucia (v3+) integration. */
 export function withLucia(opts: LuciaAuthOptions): AuthConfig {
   return {
     async session(): Promise<Session | null> {
-      // Lazy specifier: TypeScript does not statically resolve the import.
       const specifier = "next/headers";
-      const mod = (await import(specifier).catch(() => null)) as {
+      const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as {
         cookies: () => Promise<{ get: (name: string) => { value: string } | undefined }>;
       } | null;
       if (!mod) {
         throw new Error(
-          "withLucia: next/headers is unavailable. Lucia integration requires Next.js 15+.",
+          "withLucia: next/headers is unavailable. Lucia integration requires Next.js 16.3+.",
         );
       }
       const cookieStore = await mod.cookies();
@@ -65,6 +47,12 @@ export function withLucia(opts: LuciaAuthOptions): AuthConfig {
       ((s: Session | null): string => {
         const r = (s as { role?: unknown } | null)?.role;
         return typeof r === "string" ? r : "guest";
+      }),
+    userId:
+      opts.userId ??
+      ((s: Session | null): string | null => {
+        const id = (s as { id?: unknown } | null)?.id;
+        return id === undefined || id === null ? null : String(id);
       }),
     ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),

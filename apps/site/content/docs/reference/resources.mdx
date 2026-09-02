@@ -1,0 +1,159 @@
+---
+title: resource()
+description: Every option on a resource, its columns, fields and filters.
+kind: reference
+---
+
+<ApiSignature path="../../packages/core/src/builders/resource.ts" name="resource" />
+
+`ref` is whatever your adapter understands — a Drizzle table object, or a
+Prisma model name. The row type comes from
+[`InferRow<Ref>`](/docs/reference/registry#inferrow): a Drizzle table resolves
+through `$inferSelect`, a string ref through your `FlowpanelResources`
+augmentation, and anything else falls back to `Record<string, unknown>`. When
+it resolves to a real row type, `columns`, `search`, `filters` and
+`defaultSort` only accept real column names; when it falls back, they are
+plain `string` and the check moves to
+[`defineAdmin`'s introspect-time validation](/docs/build/resources#typos-and-column-validation).
+
+```ts excerpt
+import { resource } from "@flowpanel/kit";
+import { orders } from "@/db/schema";
+
+export const ordersResource = resource(orders, {
+  label: "Order",
+  plural: "Orders",
+  icon: "shopping-cart",
+  columns: ["id", "customerEmail", { field: "total", format: "money" }, "status"],
+  search: ["customerEmail"],
+  filters: ["status", { field: "createdAt", type: "daterange" }],
+  defaultSort: { field: "createdAt", dir: "desc" },
+});
+```
+
+## ResourceOptions
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceOptions" />
+
+### Icons
+
+`ResourceOptions.icon`, dashboard/page/queue icons, action icons and
+`CommandItem.icon` all use the same serializable `IconName` union. FlowPanel
+turns the name into a decorative Lucide SVG in the sidebar, tab strip and ⌘K
+palette, so the config remains safe to pass through a React Server Component
+boundary. Unknown names are rejected by TypeScript instead of disappearing at
+runtime. Built-in names include `users`, `settings`, `layout-dashboard`,
+`database`, `shopping-cart`, `archive`, `refresh`, `play`, `ban` and
+`trash-2`; editor autocomplete shows the complete `IconName` set.
+
+For custom pages and slots, render the same registry directly:
+
+```tsx excerpt
+import { FlowpanelIcon } from "@flowpanel/kit/react";
+
+<FlowpanelIcon name="workflow" className="size-4" />;
+```
+
+## ColumnDef
+
+An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ColumnDef" />
+
+`field` is optional so a column can render a value no row property holds — a
+join, something computed. Such a column must set both `render` and `label`,
+never sorts or filters, and is skipped by export; see
+[Joined or computed values](/docs/customization/column-renderers#joined-or-computed-values).
+
+### ColumnFormat
+
+Declarative cell rendering — reach for this before writing a `render` function.
+
+```ts excerpt
+type ColumnFormat =
+  | "badge"
+  | "money"
+  | "number"
+  | { kind: "badge"; tones?: Record<string, Tone> }
+  | { kind: "money"; currency?: string; scale?: number };
+```
+
+`Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
+The object form of `badge` maps each cell value to a tone:
+
+```ts excerpt
+{ field: "status", format: { kind: "badge", tones: { paid: "ok", failed: "err" } } }
+```
+
+## FieldDef
+
+An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
+`form`. Every rule here is enforced on the server, not just in the UI.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FieldDef" />
+
+### FieldType
+
+```ts excerpt
+type FieldType =
+  | "text" | "textarea" | "number" | "email" | "password" | "url"
+  | "date" | "datetime" | "time"
+  | "boolean" | "switch" | "checkbox"
+  | "select" | "multiselect" | "radio"
+  | "json" | "markdown" | "tags" | "reference" | "hidden" | "color";
+```
+
+Omit it on a declared field and the control is `"text"` — or `"reference"`
+when the field sets `reference`. The adapter's `ColumnMeta.type` is consulted
+only by the fully generated form a resource gets when it declares **no**
+`create.fields` / `update.fields` at all, and even there it only maps
+`number`, `boolean`, `date` and `json`; every other column type renders as
+text. So `enum`, `array` and `reference` columns need an explicit `type` (plus
+`options` / `reference`) to get a richer control.
+
+## FilterDef
+
+An entry in `filters`. A bare string is **always** a `text` filter — there is
+no inference from the column's type, so declare a `FilterDef` with an explicit
+`type` for a select, a date range, or anything else.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FilterDef" />
+
+### FilterType
+
+```ts excerpt
+type FilterType =
+  | "text" | "select" | "multiselect"
+  | "daterange" | "numeric-range" | "boolean" | "tag";
+```
+
+`daterange` and `numeric-range` reach your adapter as a `FilterRangeValue`;
+`multiselect` as a `FilterInValue`. Both are documented under
+[Contexts](/docs/reference/contexts#filter-values).
+
+## DetailTab
+
+A tab on the full-page detail view at `/<basePath>/<resource>/<id>`.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="DetailTab" />
+
+## SelectOption
+
+```ts excerpt
+type SelectOption = { label: string; value: string | number | boolean };
+```
+
+Wherever `options` is accepted, you may pass `string[]`, `SelectOption[]`, or a
+function resolved per request.
+
+## ListResult
+
+What a `list` returns, from the adapter through to the pagination control.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ListResult" />
+
+## ResourceConfig
+
+What `resource()` returns. You pass it to `defineAdmin`; you rarely read it.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceConfig" />

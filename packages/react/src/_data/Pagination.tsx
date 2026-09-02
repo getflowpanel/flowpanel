@@ -1,14 +1,13 @@
 "use client";
 import type * as React from "react";
-import { useComponents } from "../_provider/ComponentsContext.js";
+import { useComponent } from "../_provider/ComponentsContext";
+import { DefaultPagination } from "./PaginationDefault";
 
-export { DefaultPagination, type PaginationProps } from "./PaginationDefault.js";
+export { DefaultPagination, type PaginationProps } from "./PaginationDefault";
 
-/** Renders whatever override the user registered via theme.components.Pagination,
- *  falling back to DefaultPagination. */
 export function Pagination(
-  props: import("./PaginationDefault.js").PaginationProps,
+  props: import("./PaginationDefault").PaginationProps,
 ): React.JSX.Element {
-  const Slot = useComponents().Pagination;
+  const Slot = useComponent("Pagination", DefaultPagination);
   return <Slot {...props} />;
 }

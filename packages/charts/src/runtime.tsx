@@ -1,6 +1,6 @@
 "use client";
-export { AreaChart } from "./runtime/AreaChart.js";
-export { BarChart } from "./runtime/BarChart.js";
-export { LineChart } from "./runtime/LineChart.js";
-export { PieChart } from "./runtime/PieChart.js";
-export { ChartRenderer } from "./runtime/render-chart.js";
+export { AreaChart } from "./runtime/AreaChart";
+export { BarChart } from "./runtime/BarChart";
+export { LineChart } from "./runtime/LineChart";
+export { PieChart } from "./runtime/PieChart";
+export { ChartRenderer } from "./runtime/render-chart";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { FlowpanelAccessError } from "../../types/error.js";
-import { assertResourceScope } from "../scope.js";
+import { FlowpanelAccessError } from "../../types/error";
+import { assertResourceScope } from "../scope";
 
 describe("assertResourceScope", () => {
   it("passes when global scope defined and resource has scope fn", () => {

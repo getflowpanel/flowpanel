@@ -4,12 +4,15 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     next: "src/next.ts",
+    "next-client": "src/next-client.ts",
     drizzle: "src/drizzle.ts",
     react: "src/react.ts",
     client: "src/client.ts",
     bullmq: "src/bullmq.ts",
+    "bullmq-board": "src/bullmq-board.ts",
     server: "src/server.ts",
     charts: "src/charts.ts",
+    "charts-runtime": "src/charts-runtime.ts",
     prisma: "src/prisma.ts",
     auth: "src/auth.ts",
   },
@@ -30,5 +33,7 @@ export default defineConfig({
     "recharts",
     "@flowpanel/charts",
     "@flowpanel/charts/runtime",
+    "@flowpanel/adapter-bullmq/board",
+    "@flowpanel/next/client",
   ],
 });

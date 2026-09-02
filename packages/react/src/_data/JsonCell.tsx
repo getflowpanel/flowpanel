@@ -1,16 +1,8 @@
 "use client";
 import * as React from "react";
-import { cn } from "../lib/cn.js";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover.js";
+import { cn } from "../lib/cn";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
-/**
- * Renders a `jsonb` object (or any non-primitive value) as a "View JSON"
- * trigger that pops a preformatted detail view. Keeps row height fixed
- * — the structured payload only paints on demand.
- *
- * For known-shape arrays use `<ArrayCell>` instead; this is the fallback
- * for opaque objects.
- */
 export interface JsonCellProps {
   value: unknown;
   className?: string;
@@ -21,14 +13,10 @@ export function JsonCell({ value, className }: JsonCellProps) {
   if (value === null || value === undefined) {
     return <span className="text-fp-text-3">—</span>;
   }
-  // Primitive fallthrough — render inline; popover is overkill.
   if (typeof value !== "object") {
     return <span className={className}>{String(value)}</span>;
   }
 
-  // We stringify on demand inside the popover so very large blobs don't pay
-  // the cost until the user actually asks. The button still shows a short
-  // type hint so the table isn't all "View JSON" buttons.
   const hint = Array.isArray(value) ? `Array(${value.length})` : "{…}";
 
   return (

@@ -1,0 +1,58 @@
+---
+title: Add actions
+description: Add row, bulk, drawer, and dashboard operations with typed input and authorization.
+kind: how-to
+---
+
+An action is a server-side operation triggered from the admin. Row, bulk, drawer, and dashboard actions share the same design: stable key, visible label, optional input and confirmation, authorization, a `run` function, and a result the UI can apply.
+
+## Add a row action
+
+```ts excerpt
+import { resource, rowAction } from "@flowpanel/kit";
+
+type SuspendInput = { reason: string };
+
+const suspend = rowAction<User, SuspendInput>({
+  key: "suspend",
+  label: "Suspend",
+  variant: "destructive",
+  confirm: { title: "Suspend this user?", confirmLabel: "Suspend" },
+  requireRole: "admin",
+  form: [{ name: "reason", type: "textarea", required: true }],
+  disabled: (user) => (user.status === "suspended" ? "Already suspended" : false),
+  run: async (user, input, ctx) => {
+    await suspendUser(ctx.db, user.id, input.reason);
+    return { ok: true, message: "User suspended", refresh: true };
+  },
+});
+
+resource(schema.users, { columns: ["email", "status"], actions: [suspend] });
+```
+
+The helper ties form field names to `SuspendInput` and types the row. The handler receives your database client, session, scope, audit, publish, and revalidation utilities through `ctx`.
+
+## Choose the placement
+
+- A row action receives one resolved row.
+- A bulk action receives selected IDs. Requests above the configured hard cap are rejected, never truncated.
+- A drawer action stays beside the row detail while the list remains open.
+- A dashboard action receives input without a row and appears in the dashboard header.
+
+Keep the operation where the user has the context to understand it. Reuse a domain service inside multiple actions instead of sharing a UI-specific definition.
+
+## Authorize before input work
+
+The admin and resource gates run before the action gate; input validation runs only after authorization. `requireRole` is enforced on the POST route as well as in the rendered action list. Use `hidden` for row-specific availability and `disabled` when the operator should see why an action cannot run.
+
+## Return an actionable result
+
+Return `{ ok: true }` for success and add `message`, `redirect`, or `refresh` only when the next UI state needs them. Return `{ ok: false, error }` for an expected domain failure. Keep internal details out of user-visible messages.
+
+Thrown `FlowpanelError` values retain their mapped status; unexpected errors become a generic server response and should be captured by application logging.
+
+## Verify the operation
+
+Test the handler or route for an authorized success, an unauthorized request, invalid input, and a domain failure. For mutations, also verify the intended audit and realtime effects.
+
+See [Actions reference](/docs/reference/actions) for generated types and [Request and mutation lifecycle](/docs/understand/request-lifecycle) for execution order.

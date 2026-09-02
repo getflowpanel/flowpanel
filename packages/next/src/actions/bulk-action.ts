@@ -1,87 +1,92 @@
-import type { ActionResult, BulkAction, ResolvedAdminConfig } from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
-import { parseActionBody } from "../drawer/parse-action-body.js";
+import type {
+  ActionResult,
+  ActionVariant,
+  BulkAction,
+  IconName,
+  ResolvedAdminConfig,
+} from "@flowpanel/core";
 import {
+  FlowpanelNotFoundError,
+  isBuiltinBulkDelete,
+  runWithRequestContext,
+} from "@flowpanel/core";
+import {
+  buildActionContext,
   buildAuditEvent,
-  guardActionRole,
-  guardResourceAccess,
+  invalidJsonResponse,
   maybeEmitAudit,
-  safeErrorMessage,
-  validateActionInput,
-} from "../runtime/action-helpers.js";
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { buildHref } from "../runtime/href.js";
-import { bindPublisher, publish } from "../runtime/publish.js";
-import { buildRequestContext } from "../runtime/request-setup.js";
+  notFoundResponse,
+} from "../runtime/action-helpers";
+import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { deleteRow } from "../runtime/delete-row";
+import { buildHref } from "../runtime/href";
+import { bindPublisher } from "../runtime/publish";
+import { readRow } from "../runtime/read-row";
+import {
+  formDataObject,
+  type RequestBodyError,
+  readJsonObject,
+  readRequestFormData,
+} from "../runtime/request-body";
+import { withGuards } from "../runtime/with-guards";
+import type { ActionFormField } from "./action-form-field";
+import { serializeActionForm } from "./serialize-action-field";
 
-/**
- * Wire-safe shape of `BulkAction`. The `run` callback isn't crossable across
- * the network boundary; strip it server-side and resolve on
- * `POST /api/flowpanel/<resource>/bulk-actions/<key>`.
- *
- * `confirm` is normalized to its object form so the client doesn't have to
- * branch on `string | { ... }`.
- */
+/** Wire-safe shape of `BulkAction`. */
 export interface SerializedBulkAction {
   key: string;
   label: string;
-  icon?: string;
-  variant?: "default" | "destructive";
-  confirm?: { title: string; description?: string };
+  icon?: IconName;
+  variant?: ActionVariant;
+  confirm?: { title: string; description?: string; confirmLabel?: string };
   hasForm: boolean;
+  form?: ActionFormField[];
 }
 
-/**
- * Serialize a `BulkAction` for client consumption. Strips the runtime `run`
- * callback and normalizes `confirm`.
- */
+/** Serialize a `BulkAction` for client consumption. */
 export function serializeBulkAction<Row>(a: BulkAction<Row>): SerializedBulkAction {
+  const hasForm = Array.isArray(a.form) && a.form.length > 0;
   const out: SerializedBulkAction = {
     key: a.key,
     label: a.label,
-    hasForm: Array.isArray(a.form) && a.form.length > 0,
+    hasForm,
   };
   if (a.icon !== undefined) out.icon = a.icon;
   if (a.variant !== undefined) out.variant = a.variant;
   if (a.confirm !== undefined) {
     out.confirm = typeof a.confirm === "string" ? { title: a.confirm } : a.confirm;
   }
+  if (hasForm) {
+    const serialized = serializeActionForm(a.form as Parameters<typeof serializeActionForm>[0]);
+    if (serialized) out.form = serialized;
+  }
   return out;
 }
 
-/**
- * Parses the incoming request body for the array of selected IDs.
- *
- * Accepts:
- *   - JSON: `{ ids: ["a", "b"], input?: {...} }` (canonical)
- *   - FormData: `ids` (repeated or comma-separated) + arbitrary fields → `input`
- *
- * Returns `null` if `ids` is missing, not an array, or empty.
- */
-async function parseBulkBody(req: Request): Promise<{ ids: string[]; input: unknown } | null> {
+type BulkBody =
+  | { ok: true; ids: string[]; input: Record<string, unknown> }
+  | { ok: false; reason: RequestBodyError | "ids" | "input" };
+
+/** Parses the incoming request body for the array of selected IDs. */
+async function parseBulkBody(req: Request): Promise<BulkBody> {
   const contentType = req.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
-    let payload: unknown;
-    try {
-      payload = await req.json();
-    } catch {
-      return null;
-    }
-    if (!payload || typeof payload !== "object") return null;
-    const obj = payload as { ids?: unknown; input?: unknown };
-    if (!Array.isArray(obj.ids)) return null;
+    const payload = await readJsonObject(req);
+    if (!payload.ok) return payload;
+    const obj = payload.value as { ids?: unknown; input?: unknown };
+    if (!Array.isArray(obj.ids)) return { ok: false, reason: "ids" };
     const ids = obj.ids.filter((v): v is string => typeof v === "string");
-    if (ids.length === 0) return null;
-    return { ids, input: obj.input ?? {} };
+    if (ids.length === 0) return { ok: false, reason: "ids" };
+    const input = obj.input ?? {};
+    if (typeof input !== "object" || input === null || Array.isArray(input)) {
+      return { ok: false, reason: "input" };
+    }
+    return { ok: true, ids, input: input as Record<string, unknown> };
   }
-  // form-data fallback — `ids` may be repeated, or a single comma-separated string.
-  const cloned = req.clone();
-  let form: FormData;
-  try {
-    form = await cloned.formData();
-  } catch {
-    return null;
-  }
+  const parsedForm = await readRequestFormData(req);
+  if (!parsedForm.ok) return parsedForm;
+  const form = parsedForm.value;
   const raw = form.getAll("ids");
   const ids: string[] = [];
   for (const v of raw) {
@@ -95,53 +100,13 @@ async function parseBulkBody(req: Request): Promise<{ ids: string[]; input: unkn
       );
     else if (v) ids.push(v);
   }
-  if (ids.length === 0) return null;
-  // Everything else in the form becomes `input`.
-  const input = await parseActionBody(req);
-  delete (input as Record<string, unknown>).ids;
-  return { ids, input };
+  if (ids.length === 0) return { ok: false, reason: "ids" };
+  const input = formDataObject(form);
+  delete input.ids;
+  return { ok: true, ids, input };
 }
 
-/**
- * `POST /api/flowpanel/<resource>/bulk-actions/<key>` — runs a bulk action
- * against a selection of IDs.
- *
- * Body: JSON `{ ids: string[], input?: unknown }` (canonical) or form-data
- * with one or more `ids` fields.
- *
- * Flow:
- *
- * 1. Look up resource + action by key (`resource.options.bulkActions`).
- *    404 if either is missing.
- * 2. Parse `ids` from the body. 400 if missing / empty.
- * 3. Resource-level role + scope.
- * 4. Per-action `requireRole`.
- * 5. Call `action.run(ids, input, ctx)`. The action is responsible for its
- *    own atomicity / partial-failure semantics — flowpanel treats the
- *    `ActionResult` as the single outcome.
- * 6. On success: emit one audit event tagged with the count + the first
- *    few IDs (capped to avoid PII-flooding audit sinks), apply side
- *    effects (publish + revalidate), return the result.
- *
- * Why a single call rather than per-id iteration: bulk SQL operations
- * (`UPDATE WHERE id IN (...)`) need atomic semantics. If a user wants
- * per-item progress they should implement `run` to iterate and publish
- * progress events through `ctx.publish`.
- *
- * @example Wired into the catch-all handler in `handlers()`:
- * ```ts
- * if (route.length === 3 && route[1] === "bulk-actions") {
- *   return postBulkAction(req, { params: Promise.resolve({ resource, action }) });
- * }
- * ```
- */
-/**
- * Hard cap on the number of ids a single bulk action may target. A
- * hand-crafted POST could otherwise pass tens of thousands of ids and force a
- * giant `WHERE id IN (...)` (or a server-side per-id loop), turning the
- * endpoint into a cheap DoS vector. 1000 is comfortably above any realistic
- * page-selection while keeping the query bounded.
- */
+/** Hard cap on the number of ids a single bulk action may target. */
 const MAX_BULK = 1000;
 
 export function bulkActionRoute(config: ResolvedAdminConfig) {
@@ -154,84 +119,122 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
     const { resource: resourceName, action: actionKey } = await ctx.params;
     const resource = config.resourcesByName.get(resourceName);
     if (!resource) {
-      return Response.json({ ok: false, error: "resource not found" }, { status: 404 });
+      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     const actions = resource.options.bulkActions as
       | BulkAction<Record<string, unknown>>[]
       | undefined;
     const action = actions?.find((a) => a.key === actionKey);
     if (!action) {
-      return Response.json({ ok: false, error: "action not found" }, { status: 404 });
-    }
-
-    const body = await parseBulkBody(req);
-    if (!body) {
-      return Response.json(
-        { ok: false, error: "ids must be a non-empty array of strings" },
-        { status: 400 },
-      );
-    }
-    if (body.ids.length > MAX_BULK) {
-      return Response.json({ ok: false, error: `too many ids (max ${MAX_BULK})` }, { status: 422 });
-    }
-
-    // Validate `input` against the action's declared `form` before running —
-    // same defense-in-depth as the row-action path.
-    const inputIssues = validateActionInput(
-      action.form as Parameters<typeof validateActionInput>[0],
-      body.input,
-    );
-    if (inputIssues) {
-      return Response.json(
-        { ok: false, error: "validation failed", issues: inputIssues },
-        { status: 422 },
+      return notFoundResponse(
+        "action",
+        actionKey,
+        (actions ?? []).map((a) => a.key),
       );
     }
 
-    const reqCtx = await buildRequestContext({ req, config });
+    const builtinDelete = isBuiltinBulkDelete(action);
 
-    const resourceGuard = guardResourceAccess(config, resource, reqCtx);
-    if (resourceGuard) return resourceGuard;
-    const roleGuard = guardActionRole(action.requireRole, reqCtx);
-    if (roleGuard) return roleGuard;
-
-    const actionCtx = {
-      ...reqCtx,
-      db: config.adapter.db,
-      publish: async (channel: string, payload?: unknown) => {
-        await publish(channel, payload);
+    return withGuards(
+      config,
+      req,
+      {
+        resource,
+        actionAccess: action.access,
+        actionRequireRole: action.requireRole,
+        ...(builtinDelete ? { operation: "delete" as const } : {}),
       },
-    };
+      async (reqCtx) => {
+        const body = await parseBulkBody(req);
+        if (!body.ok) {
+          if (
+            body.reason === "invalid-json" ||
+            body.reason === "object-required" ||
+            body.reason === "payload-too-large" ||
+            body.reason === "invalid-form"
+          ) {
+            return invalidJsonResponse(body.reason);
+          }
+          if (body.reason === "input") {
+            return Response.json({ ok: false, error: "input must be an object" }, { status: 400 });
+          }
+          return Response.json(
+            { ok: false, error: "ids must be a non-empty array of strings" },
+            { status: 400 },
+          );
+        }
+        const ids = [...new Set(body.ids)];
+        const max = action.max ?? MAX_BULK;
+        if (ids.length > max) {
+          return Response.json({ ok: false, error: `too many ids (max ${max})` }, { status: 422 });
+        }
 
-    try {
-      const result = (await runWithRequestContext(reqCtx, () =>
-        action.run(body.ids, body.input, actionCtx),
-      )) as ActionResult;
+        const parsedInput = await parseActionInputSchema(
+          action.form as Parameters<typeof parseActionInputSchema>[0],
+          action.inputSchema,
+          body.input,
+        );
+        if (parsedInput.issues) {
+          return Response.json(
+            { ok: false, error: "validation failed", issues: parsedInput.issues },
+            { status: 422 },
+          );
+        }
 
-      // Cap the targetId blob to the first 10 IDs to keep audit rows small
-      // — sinks often write to a DB column with a reasonable max length.
-      const targetId = body.ids.slice(0, 10).join(",") + (body.ids.length > 10 ? "…" : "");
-      await maybeEmitAudit(
-        result,
-        config.audit,
-        resource.options.audit,
-        buildAuditEvent(reqCtx, {
-          action: `${resourceName}.bulk.${actionKey}`,
-          resource: resourceName,
-          targetId,
-        }),
-      );
+        const actionCtx = buildActionContext(config, reqCtx, action);
 
-      if (result.ok) {
-        await applyActionResult(result, {
-          resourceName,
-          pathname: buildHref(config, resourceName),
-        });
-      }
+        await Promise.all(
+          ids.map(async (id) => {
+            const row = await readRow(config, resource, id, reqCtx);
+            if (!row) throw new FlowpanelNotFoundError();
+          }),
+        );
 
-      return Response.json(result);
-    } catch (err) {
-      return Response.json({ ok: false, error: safeErrorMessage(err) }, { status: 500 });
-    }
+        let result: ActionResult<unknown>;
+        if (builtinDelete) {
+          // One failure must not leave a half-deleted selection behind an audit
+          // entry that claims the whole batch.
+          const deleteAll = async (db: unknown) => {
+            for (const id of ids) await deleteRow(config, resource, id, reqCtx, db);
+          };
+          const transaction = config.adapter.transaction;
+          if (transaction) await transaction.call(config.adapter, deleteAll);
+          else await deleteAll(config.adapter.db);
+          result = { ok: true, message: `Deleted ${ids.length}` };
+        } else {
+          result = validateActionOutput(
+            action.outputSchema,
+            (await runWithRequestContext(reqCtx, () =>
+              action.run(ids, parsedInput.data, actionCtx),
+            )) as ActionResult<unknown>,
+          );
+        }
+
+        const targetId = ids.slice(0, 10).join(",") + (ids.length > 10 ? "…" : "");
+        await maybeEmitAudit(
+          result,
+          config.audit,
+          resource.options.audit,
+          buildAuditEvent(
+            reqCtx,
+            {
+              action: `${resourceName}.bulk.${actionKey}`,
+              resource: resourceName,
+              targetId,
+            },
+            config.auth.userId,
+          ),
+        );
+
+        if (result.ok) {
+          await applyActionResult(result, {
+            resourceName,
+            pathname: buildHref(config, resourceName),
+          });
+        }
+
+        return Response.json(result);
+      },
+    );
   };
 }

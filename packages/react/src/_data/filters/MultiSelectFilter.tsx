@@ -1,8 +1,11 @@
 "use client";
+import { ChevronDown } from "lucide-react";
 import * as React from "react";
-import { Button } from "../../ui/button.js";
-import { Checkbox } from "../../ui/checkbox.js";
-import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover.js";
+import { cn } from "../../lib/cn";
+import { Button } from "../../ui/button";
+import { Checkbox } from "../../ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
+import { BARE_CONTROL, FilterField } from "./FilterField";
 
 export interface MultiSelectFilterOption {
   label: string;
@@ -10,7 +13,6 @@ export interface MultiSelectFilterOption {
 }
 
 export interface MultiSelectFilterProps {
-  field: string;
   label?: string;
   value: string | null;
   onChange: (value: string | null) => void;
@@ -38,12 +40,20 @@ export function MultiSelectFilter({
         ? (options.find((o) => o.value === selected[0])?.label ?? selected[0])
         : `${selected.length} selected`;
   return (
-    <div className="flex flex-col gap-1">
-      {label ? <span className="text-xs text-fp-text-3">{label}</span> : null}
+    <FilterField label={label} active={selected.length > 0}>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-40 justify-between">
-            {buttonText}
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              BARE_CONTROL,
+              "w-auto justify-start font-normal",
+              selected.length === 0 && "text-fp-text-2",
+            )}
+          >
+            <span className="truncate">{buttonText}</span>
+            <ChevronDown aria-hidden className="h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-48 p-1">
@@ -51,7 +61,7 @@ export function MultiSelectFilter({
             <label
               key={o.value}
               htmlFor={`${id}-${o.value}`}
-              className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-fp-bg-2"
+              className="flex cursor-pointer items-center gap-2 rounded-fp-sm px-2 py-1.5 transition-colors hover:bg-fp-bg-3/70"
             >
               <Checkbox
                 id={`${id}-${o.value}`}
@@ -63,6 +73,6 @@ export function MultiSelectFilter({
           ))}
         </PopoverContent>
       </Popover>
-    </div>
+    </FilterField>
   );
 }

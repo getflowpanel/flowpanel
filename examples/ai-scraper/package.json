@@ -1,0 +1,47 @@
+{
+  "name": "ai-scraper",
+  "private": true,
+  "version": "0.0.4",
+  "description": "FlowPanel end-to-end demo — AI web-scraping SaaS ops admin on Drizzle + Postgres",
+  "scripts": {
+    "build": "next build --webpack",
+    "db:ensure": "tsx scripts/ensure-database.ts",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx scripts/seed.ts",
+    "demo:cleanup": "tsx scripts/cleanup-demo.ts",
+    "demo:reset": "tsx scripts/reset-demo.ts",
+    "dev": "next dev",
+    "docker:down": "docker compose down",
+    "docker:up": "docker compose up -d --wait",
+    "flowpanel:board": "tsx scripts/board-server.mts",
+    "start": "next start",
+    "test:integration": "DEMO_POSTGRES_INTEGRATION=1 vitest run src/demo/sandbox/__tests__/postgres.integration.test.ts --no-file-parallelism",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flowpanel/kit": "workspace:*",
+    "@flowpanel/react": "workspace:*",
+    "bullmq": "^5.0.0",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.3.1",
+    "pg": "^8.13.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^3.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "catalog:",
+    "@types/pg": "^8.11.0",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "drizzle-kit": "^0.31.10",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,4 +1,13 @@
 {
-  "title": "Guides",
-  "pages": ["auth-with-clerk", "multi-tenant-scope", "realtime-with-redis"]
+  "title": "Production",
+  "pages": [
+    "production-readiness",
+    "auth-with-clerk",
+    "permissions",
+    "multi-tenant-scope",
+    "realtime",
+    "realtime-with-redis",
+    "queues",
+    "upgrade"
+  ]
 }

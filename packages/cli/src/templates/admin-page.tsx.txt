@@ -1,4 +1,6 @@
-import { Flowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import { createFlowpanel } from "@flowpanel/kit/next";
+import config from "{{CONFIG_IMPORT}}";
 
-export default Flowpanel(config);
+const flowpanel = createFlowpanel(config);
+
+export default flowpanel.page;

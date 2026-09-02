@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
 }));
 
 import { revalidatePath } from "next/cache";
-import { applyActionResult } from "../runtime/apply-action-result.js";
-import { publish, publishResource } from "../runtime/publish.js";
+import { applyActionResult } from "../runtime/apply-action-result";
+import { publish, publishResource } from "../runtime/publish";
 
 describe("applyActionResult", () => {
   beforeEach(() => {
@@ -40,6 +40,12 @@ describe("applyActionResult", () => {
     expect(publish).toHaveBeenNthCalledWith(2, "alerts");
   });
 
+  it("publishes to exactly that channel when refresh is a bare string", async () => {
+    await applyActionResult({ ok: true, refresh: "scraperRuns" }, {});
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith("scraperRuns");
+  });
+
   it("calls revalidatePath when pathname given and refresh is not explicitly false", async () => {
     await applyActionResult({ ok: true }, { pathname: "/admin/users" });
     expect(revalidatePath).toHaveBeenCalledWith("/admin/users");
@@ -48,5 +54,20 @@ describe("applyActionResult", () => {
   it("does NOT revalidate when refresh === false is explicit", async () => {
     await applyActionResult({ ok: true, refresh: false as never }, { pathname: "/admin/users" });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("isolates realtime and revalidation failures — the mutation already succeeded", async () => {
+    vi.mocked(publishResource).mockRejectedValueOnce(new Error("redis unavailable"));
+    vi.mocked(revalidatePath).mockImplementationOnce(() => {
+      throw new Error("cache unavailable");
+    });
+
+    await expect(
+      applyActionResult(
+        { ok: true, refresh: true },
+        { resourceName: "users", pathname: "/admin/users" },
+      ),
+    ).resolves.toBeUndefined();
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/users");
   });
 });

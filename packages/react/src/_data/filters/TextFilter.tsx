@@ -1,9 +1,10 @@
 "use client";
 import * as React from "react";
-import { Input } from "../../ui/input.js";
+import { cn } from "../../lib/cn";
+import { Input } from "../../ui/input";
+import { BARE_CONTROL, FilterField } from "./FilterField";
 
 export interface TextFilterProps {
-  field: string;
   label?: string;
   value: string | null;
   onChange: (value: string | null) => void;
@@ -20,8 +21,13 @@ export function TextFilter({
 }: TextFilterProps) {
   const id = React.useId();
   const [local, setLocal] = React.useState(value ?? "");
-  React.useEffect(() => setLocal(value ?? ""), [value]);
   const committed = React.useRef(value ?? "");
+  // A value arriving from outside (clear-filters, a restored view) is already
+  // committed; without this the debounce would echo it back as a change.
+  React.useEffect(() => {
+    setLocal(value ?? "");
+    committed.current = value ?? "";
+  }, [value]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — only `local` should re-arm the debounce; onChange/debounceMs are read fresh inside the timer.
   React.useEffect(() => {
     const t = setTimeout(() => {
@@ -33,15 +39,14 @@ export function TextFilter({
     return () => clearTimeout(t);
   }, [local]);
   return (
-    <label htmlFor={id} className="flex flex-col gap-1">
-      {label ? <span className="text-xs text-fp-text-3">{label}</span> : null}
+    <FilterField label={label} htmlFor={id} active={Boolean(value)}>
       <Input
         id={id}
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         placeholder={placeholder ?? "Search…"}
-        className="h-8 w-40"
+        className={cn(BARE_CONTROL, "w-36")}
       />
-    </label>
+    </FilterField>
   );
 }

@@ -6,7 +6,7 @@
 export const siteConfig = {
   name: "flowpanel",
   description: "The admin panel you don't have to build.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://flowpanel.dev",
+  url: process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://flowpanel.tech",
   ogImage: "/og.png",
 
   repo: {
@@ -22,11 +22,28 @@ export const siteConfig = {
     github: "https://github.com/getflowpanel/flowpanel",
     issues: "https://github.com/getflowpanel/flowpanel/issues",
     discussions: "https://github.com/getflowpanel/flowpanel/discussions",
-    // Public read-only instance of `examples/freelance-radar`. DNS lands
-    // here once the deployment is up. Until then the link 404s — owner
-    // is aware. See examples/freelance-radar/README.md.
-    demo: "https://demo.flowpanel.dev",
+    // Hosted demo of examples/ai-scraper. Local development points at the
+    // canonical showcase automatically; deployments provide their public URL.
+    demo:
+      process.env.NEXT_PUBLIC_DEMO_URL?.trim() ||
+      (process.env.NODE_ENV === "development" ? "http://localhost:3000/admin" : ""),
   },
+
+  /** Runnable examples in the repo, surfaced from the landing page. */
+  examples: [
+    {
+      name: "ai-scraper",
+      summary:
+        "An AI scraping SaaS ops admin: resources, dashboards, BullMQ queues and realtime, on Drizzle + Postgres.",
+      url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper",
+    },
+    {
+      name: "with-clerk",
+      summary:
+        "A minimal users/posts admin gated behind Clerk — middleware, provider, one line of config.",
+      url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk",
+    },
+  ],
 
   nav: {
     primary: [

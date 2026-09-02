@@ -4,29 +4,25 @@ import {
   defineConfig,
   defineDocs,
   frontmatterSchema,
+  remarkInclude,
 } from "fumadocs-mdx/config";
 import { transformerTwoslash } from "fumadocs-twoslash";
 import { z } from "zod";
+import { DOC_KINDS } from "./src/shared/lib/docs-contract";
+
+const docsFrontmatterSchema = frontmatterSchema.extend({
+  kind: z.enum(DOC_KINDS),
+});
 
 /**
- * Docs collection — file-based, type-safe frontmatter.
- *
- * `adapter` controls how code samples render on the page:
- *   - "both"          → page can use <AdapterTabs>; default
- *   - "prisma-only"   → only Prisma snippets, no tabs
- *   - "drizzle-only"  → only Drizzle snippets, no tabs
+ * Docs collection — file-based MDX with type-safe `title` / `description`
+ * frontmatter (fumadocs' base schema). Drizzle/Prisma code samples switch
+ * via the cookie-driven <AdapterTabs> component, not per-page frontmatter.
  */
 export const docs = defineDocs({
   dir: "content/docs",
   docs: {
-    schema: frontmatterSchema.extend({
-      adapter: z.enum(["both", "prisma-only", "drizzle-only"]).default("both"),
-      since: z
-        .string()
-        .regex(/^\d+\.\d+\.\d+$/, "expected semver like 0.7.2")
-        .optional(),
-      draft: z.boolean().default(false),
-    }),
+    schema: docsFrontmatterSchema,
   },
 });
 
@@ -71,9 +67,10 @@ export const changelog = defineCollections({
 
 export default defineConfig({
   mdxOptions: {
+    remarkPlugins: [remarkInclude],
     // Highlighting handled by Fumadocs UI defaults (shiki). Code blocks
     // tagged ` ```ts twoslash ` are type-checked at build time and gain
-    // inline type/hover popups — see `apps/site/ARCHITECTURE.md`.
+    // inline type and hover popups.
     rehypeCodeOptions: {
       // Preserve Fumadocs' default transformers (notation highlight / diff /
       // focus / word) — a bare `transformers` array would otherwise replace

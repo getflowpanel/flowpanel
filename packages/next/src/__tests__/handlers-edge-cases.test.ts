@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -9,7 +9,7 @@ vi.mock("../runtime/publish.js", () => ({
 
 import type { Adapter } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
-import { handlers } from "../handlers.js";
+import { handlers } from "../handlers";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",

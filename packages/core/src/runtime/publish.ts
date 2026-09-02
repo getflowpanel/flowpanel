@@ -7,42 +7,7 @@ export type PublisherOptions =
   | { driver: "memory" }
   | { driver: "redis"; url: string; keyPrefix?: string };
 
-/**
- * Build an SSE realtime publisher. `@flowpanel/kit/next` calls this internally
- * to fan out resource-mutation events (`publishResource(name, ...)`) to
- * every subscribed browser, but consumer code can use it directly for
- * custom channels (`publish("scraper:tick", { ... })`).
- *
- * Two drivers:
- *
- * - `"memory"` (default) — events live in the current Node process.
- *   Single-instance only; use for `next dev` or single-container deploys.
- * - `"redis"` — events fan out via Redis pub/sub. Required for any
- *   deployment with more than one Next.js instance. `keyPrefix` defaults
- *   to `"flowpanel"`.
- *
- * @example Single-instance (dev)
- * ```ts
- * const pub = createPublisher({ driver: "memory" });
- * ```
- *
- * @example Production multi-instance
- * ```ts
- * const pub = createPublisher({
- *   driver: "redis",
- *   url: process.env.REDIS_URL!,
- *   keyPrefix: "fp",
- * });
- *
- * export default defineAdmin({
- *   // …
- *   realtime: { publisher: pub },
- * });
- * ```
- *
- * See `apps/site/content/docs/core-concepts/realtime-multi-instance.mdx`
- * for the ops checklist.
- */
+/** Build an SSE realtime publisher. */
 export function createPublisher(opts: PublisherOptions): Publisher {
   if (opts.driver === "memory") return createMemoryPublisher();
   return createRedisPublisher(opts);
@@ -87,12 +52,15 @@ function createRedisPublisher(opts: Extract<PublisherOptions, { driver: "redis" 
   let sub: InstanceType<RedisCtor> | null = null;
   const handlers = new Map<string, Set<(p: unknown) => void>>();
 
+  const keyPrefix = opts.keyPrefix ?? "flowpanel";
+  function wireChannel(channel: string): string {
+    return `${keyPrefix}:${channel}`;
+  }
+
   async function load() {
     if (!Redis) {
-      // Specifier held in a variable so TypeScript does not statically
-      // resolve `ioredis` — it is an optional peer dep and may be absent.
       const specifier = "ioredis";
-      const mod = (await import(specifier).catch(() => null)) as
+      const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as
         | { default: RedisCtor }
         | RedisCtor
         | null;
@@ -106,7 +74,10 @@ function createRedisPublisher(opts: Extract<PublisherOptions, { driver: "redis" 
     if (!pub) pub = new Redis(opts.url);
     if (!sub) {
       sub = new Redis(opts.url);
-      sub.on("message", (channel, raw) => {
+      sub.on("message", (rawChannel, raw) => {
+        const channel = rawChannel.startsWith(`${keyPrefix}:`)
+          ? rawChannel.slice(keyPrefix.length + 1)
+          : rawChannel;
         let payload: unknown;
         try {
           payload = raw === "" ? undefined : JSON.parse(raw);
@@ -125,7 +96,7 @@ function createRedisPublisher(opts: Extract<PublisherOptions, { driver: "redis" 
       await load();
       const body = payload === undefined ? "" : JSON.stringify(payload);
       // biome-ignore lint/style/noNonNullAssertion: load() initializes `pub` before any publish runs.
-      await pub!.publish(channel, body);
+      await pub!.publish(wireChannel(channel), body);
     },
     subscribe(channel, handler) {
       let set = handlers.get(channel);
@@ -137,7 +108,7 @@ function createRedisPublisher(opts: Extract<PublisherOptions, { driver: "redis" 
       set.add(handler);
       if (firstSubscriber) {
         void load()
-          .then(() => sub?.subscribe(channel))
+          .then(() => sub?.subscribe(wireChannel(channel)))
           .catch((err) => {
             console.error("[flowpanel] redis subscribe failed:", err);
           });
@@ -146,7 +117,7 @@ function createRedisPublisher(opts: Extract<PublisherOptions, { driver: "redis" 
         set?.delete(handler);
         if (set?.size === 0) {
           handlers.delete(channel);
-          void sub?.unsubscribe(channel);
+          void sub?.unsubscribe(wireChannel(channel));
         }
       };
     },

@@ -1,15 +1,4 @@
-/**
- * Localizable strings for FlowPanel's built-in chrome.
- *
- * Pass via `defineAdmin({ labels: { ... } })`. Unset keys fall back to
- * English defaults.
- *
- * Templates use `{name}` placeholders. The resolver `formatLabel(template, vars)`
- * substitutes them. We use plain strings (not functions) so the labels object
- * can be serialized across the React Server Components boundary — `defineAdmin`
- * is server-evaluated, but the labels are consumed in client components like
- * BulkBar via `useLabels()`.
- */
+/** Localizable strings for FlowPanel's built-in chrome. */
 export interface LabelsConfig {
   /** Empty list state — used when a resource list returns 0 rows. */
   noResults?: string;
@@ -38,6 +27,7 @@ export interface LabelsConfig {
     restore?: string;
     new?: string;
     export?: string;
+    import?: string;
   };
   /** Drawer chrome. */
   drawer?: {
@@ -84,6 +74,7 @@ export const DEFAULT_LABELS: {
     restore: "Restore",
     new: "New",
     export: "Export",
+    import: "Import",
   },
   drawer: { close: "Close", viewDetails: "Open full page →" },
   formError: "Please fix the errors above.",
@@ -110,13 +101,7 @@ export function mergeLabels(user?: LabelsConfig): ResolvedLabels {
   } as ResolvedLabels;
 }
 
-/**
- * Substitute `{key}` placeholders in a label template with values.
- *
- * @example
- *   formatLabel("{n} selected", { n: 3 })  // → "3 selected"
- *   formatLabel("Search {label}…", { label: "users" })  // → "Search users…"
- */
+/** Substitute `{key}` placeholders in a label template with values. */
 export function formatLabel(template: string, vars: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (match, key) => (key in vars ? String(vars[key]) : match));
 }

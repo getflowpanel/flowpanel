@@ -1,6 +1,6 @@
 # @flowpanel/next
 
-Next.js 15 App Router integration for FlowPanel.
+Next.js 16 App Router integration for FlowPanel.
 
 [![npm](https://img.shields.io/npm/v/@flowpanel/next.svg)](https://www.npmjs.com/package/@flowpanel/next)
 
@@ -12,18 +12,22 @@ Two route files own the entire admin surface:
 
 ```ts
 // app/admin/[[...slug]]/page.tsx
-import { Flowpanel } from "@flowpanel/kit/next";
+import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
-export default Flowpanel(config);
+const flowpanel = createFlowpanel(config);
+
+export default flowpanel.page;
 ```
 
 ```ts
 // app/api/flowpanel/[...route]/route.ts
-import { handlers } from "@flowpanel/kit/next";
+import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
-export const { GET, POST } = handlers(config);
+const flowpanel = createFlowpanel(config);
+
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 export const runtime = "nodejs";
 ```
 
@@ -39,17 +43,21 @@ export const dynamic = "force-dynamic";
 
 `flowpanel init` writes all three.
 
+Dashboard chart widgets are optional. Granular `@flowpanel/next` installs must
+also add `@flowpanel/charts` and `recharts`; `@flowpanel/kit` already includes
+the chart package and only needs the `recharts` peer.
+
 ## What's wired
 
 - RSC catch-all dispatching dashboards, resource list/detail/edit/create, queue iframe pages.
-- Server Actions for create / update / delete with `revalidatePath` + `publishResource`.
+- Create / update / delete forms POST to the `handlers()` API routes — the single action transport (no Server Actions) — which apply `revalidatePath` + `publishResource` on success.
 - SSE stream with 15s heartbeat + abort handling.
 - Drawer GET (`/api/flowpanel/drawer/<r>/<id>`) and drawer-action POST (`/api/flowpanel/drawer/<r>/<id>/actions/<key>`) — both dispatched by `handlers()`.
 - Auth + scope + rate-limit checks per request, audit emission on mutations.
 
 ## Documentation
 
-<https://flowpanel.dev>
+<https://flowpanel.tech>
 
 ## License
 

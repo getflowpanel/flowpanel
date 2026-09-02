@@ -2,10 +2,10 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { FormError } from "../FormError.js";
+import { FormError } from "../FormError";
 
 // FormError consumes useFormContext. Mock the module to inject errors.
-vi.mock("../Form.js", () => ({
+vi.mock("../Form", () => ({
   useFormContext: () => ({ form: { errors: ["Email is required"] } }),
 }));
 

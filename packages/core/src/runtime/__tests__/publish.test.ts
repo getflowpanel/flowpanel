@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPublisher } from "../publish.js";
+import { createPublisher } from "../publish";
 
 describe("createPublisher (memory)", () => {
   it("fans out to subscribers of the channel", async () => {

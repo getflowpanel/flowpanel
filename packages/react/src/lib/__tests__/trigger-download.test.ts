@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { triggerDownload } from "../trigger-download.js";
+import { triggerDownload } from "../trigger-download";
 
 const createObjectURL = vi.fn((_obj: Blob | MediaSource): string => "blob:fake");
 const revokeObjectURL = vi.fn((_url: string): void => undefined);

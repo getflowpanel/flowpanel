@@ -7,14 +7,11 @@ import {
   type ThemeChoice,
   type ThemeMode,
   toggleTheme as toggleThemeImpl,
-} from "../lib/theme.js";
+  writeStoredTheme,
+} from "../lib/theme";
 
 export interface UseThemeOptions {
-  /**
-   * Default mode when the user has not made an explicit choice. `"auto"`
-   * follows `prefers-color-scheme`. An explicit toggle from the user always
-   * overrides this default.
-   */
+  /** Default mode when the user has not made an explicit choice. */
   defaultMode?: ThemeMode;
 }
 
@@ -24,12 +21,7 @@ export interface UseTheme {
   setTheme: (next: ThemeChoice) => void;
 }
 
-/**
- * Read the current theme + a stable toggle that persists to localStorage.
- *
- * On mount, syncs to the stored value (or system pref if `defaultMode` is
- * `"auto"`). Watches `prefers-color-scheme` while no explicit choice is set.
- */
+/** Read the current theme + a stable toggle that persists to localStorage. */
 export function useTheme(opts: UseThemeOptions = {}): UseTheme {
   const defaultMode: ThemeMode = opts.defaultMode ?? "auto";
   const [theme, setThemeState] = React.useState<ThemeChoice>("light");
@@ -44,7 +36,6 @@ export function useTheme(opts: UseThemeOptions = {}): UseTheme {
     applyThemeClass(next);
     setThemeState(next);
 
-    // Track system changes only while user has no explicit pref.
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
@@ -65,12 +56,7 @@ export function useTheme(opts: UseThemeOptions = {}): UseTheme {
   const setTheme = React.useCallback((next: ThemeChoice) => {
     applyThemeClass(next);
     setThemeState(next);
-    // Persist explicit selection.
-    try {
-      if (typeof localStorage !== "undefined") localStorage.setItem("fp-theme", next);
-    } catch {
-      // ignore
-    }
+    writeStoredTheme(next);
   }, []);
 
   return { theme, toggle, setTheme };

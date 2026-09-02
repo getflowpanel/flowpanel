@@ -2,10 +2,18 @@
   "name": "@flowpanel/adapter-bullmq",
   "version": "0.1.0",
   "description": "BullMQ queue UIs for FlowPanel via bull-board",
+  "keywords": [
+    "flowpanel",
+    "admin",
+    "adapter",
+    "bullmq",
+    "bull-board",
+    "queue"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/adapter-bullmq"
   },
   "homepage": "https://github.com/getflowpanel/flowpanel",
@@ -16,8 +24,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./board": {
+      "types": "./dist/board.d.ts",
+      "import": "./dist/board.js"
+    },
+    "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "files": [
     "dist",
     "README.md"
@@ -27,23 +41,34 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "bullmq": "^5.0.0"
-  },
-  "dependencies": {
     "@bull-board/api": "^6.0.0",
     "@bull-board/express": "^6.0.0",
-    "@flowpanel/core": "workspace:*",
+    "bullmq": "^5.0.0",
     "express": "^4.19.0"
   },
+  "peerDependenciesMeta": {
+    "@bull-board/api": {
+      "optional": true
+    },
+    "@bull-board/express": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@bull-board/api": "^6.0.0",
+    "@bull-board/express": "^6.0.0",
     "@types/express": "^4.17.0",
     "bullmq": "^5.0.0",
+    "express": "^4.19.0",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

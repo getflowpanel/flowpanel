@@ -1,7 +1,7 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useMediaQuery } from "../useMediaQuery.js";
+import { useMediaQuery } from "../useMediaQuery";
 
 class MockMediaQueryList {
   matches: boolean;

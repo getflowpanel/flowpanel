@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
-import type { RealtimeStatus } from "../realtime/context.js";
-import { useRealtimeBus } from "../realtime/hooks.js";
+import type { RealtimeStatus } from "../realtime/context";
+import { useRealtimeBus } from "../realtime/hooks";
 
 /** Max number of status transitions retained in the rolling log. */
 export const LOG_LIMIT = 50;
@@ -14,14 +14,7 @@ export interface LogEntry {
   at: number;
 }
 
-/**
- * Subscribes to the realtime bus status and keeps a bounded ring of
- * transitions. Returns the live status plus the most-recent-first log slice.
- *
- * Source of truth is `subscribeStatus` on the shared `RealtimeBus`; we seed
- * the ring with the current snapshot so the log isn't empty when the panel
- * first mounts.
- */
+/** Subscribes to the realtime bus status and keeps a bounded ring of transitions. */
 export function useStatusLog(): { status: RealtimeStatus; log: LogEntry[] } {
   const bus = useRealtimeBus();
   const [status, setStatus] = React.useState<RealtimeStatus>(() => bus?.getStatus() ?? "idle");
@@ -43,13 +36,11 @@ export function useStatusLog(): { status: RealtimeStatus; log: LogEntry[] } {
           at: Date.now(),
         };
         const appended = [...prev, entry];
-        // Bounded ring: drop oldest beyond LOG_LIMIT.
         return appended.length > LOG_LIMIT ? appended.slice(appended.length - LOG_LIMIT) : appended;
       });
     });
   }, [bus]);
 
-  // Most-recent-first for display without mutating the stored order.
   const ordered = React.useMemo(() => [...log].reverse(), [log]);
   return { status, log: ordered };
 }

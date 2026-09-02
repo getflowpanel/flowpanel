@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader } from "../_layout/Card.js";
-import { formatNumber, type NumericFormat, type Tone } from "../lib/format.js";
+import { Card, CardContent, CardHeader } from "../_layout/Card";
+import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 
 export interface StatGroupCardProps {
   label?: string;

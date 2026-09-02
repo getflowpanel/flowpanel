@@ -1,10 +1,10 @@
 import type { WidgetConfig } from "@flowpanel/core";
 import { Card, CardHeader } from "@flowpanel/react";
 import type { ReactNode } from "react";
-import { AreaChart } from "./AreaChart.js";
-import { BarChart } from "./BarChart.js";
-import { LineChart } from "./LineChart.js";
-import { PieChart } from "./PieChart.js";
+import { AreaChart } from "./AreaChart";
+import { BarChart } from "./BarChart";
+import { LineChart } from "./LineChart";
+import { PieChart } from "./PieChart";
 
 type ChartWidget = Extract<WidgetConfig, { kind: `${string}Chart` }>;
 
@@ -31,10 +31,22 @@ export function ChartRenderer({ kind, label, options, data }: ChartRendererProps
       body = <PieChart data={data} options={options as never} />;
       break;
   }
-  return (
+  const card = (
     <Card>
       <CardHeader>{label}</CardHeader>
       <div className="p-3">{body}</div>
     </Card>
   );
+  if (options.drilldown) {
+    return (
+      <a
+        href={options.drilldown}
+        className="block hover:opacity-90 transition-opacity"
+        {...(label ? { "aria-label": label } : {})}
+      >
+        {card}
+      </a>
+    );
+  }
+  return card;
 }

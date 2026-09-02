@@ -1,6 +1,6 @@
 "use client";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { DefaultButton } from "../ui/buttonDefault.js";
+import { DefaultButton } from "../ui/buttonDefault";
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -27,8 +27,14 @@ export function DefaultConfirmDialog({
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in" />
-        <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(420px,92vw)] -translate-x-1/2 -translate-y-1/2 rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6 shadow-xl data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95">
+        <AlertDialog.Overlay
+          data-flowpanel-portal=""
+          className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/70"
+        />
+        <AlertDialog.Content
+          data-flowpanel-portal=""
+          className="fp-anim-dialog fixed left-1/2 top-1/2 z-50 w-[min(420px,92vw)] -translate-x-1/2 -translate-y-1/2 rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-6 shadow-fp-lg"
+        >
           <AlertDialog.Title className="text-base font-semibold text-fp-text-1">
             {title}
           </AlertDialog.Title>

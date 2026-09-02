@@ -2,8 +2,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LabelsProvider } from "../../_provider/LabelsContext.js";
-import { ReferencePicker } from "../ReferencePicker.js";
+import { LabelsProvider } from "../../_provider/LabelsContext";
+import { ReferencePicker } from "../ReferencePicker";
 
 afterEach(cleanup);
 

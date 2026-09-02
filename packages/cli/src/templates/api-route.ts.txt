@@ -1,5 +1,7 @@
-import { handlers } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import { createFlowpanel } from "@flowpanel/kit/next";
+import config from "{{CONFIG_IMPORT}}";
 
-export const { GET, POST } = handlers(config);
+const flowpanel = createFlowpanel(config);
+
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 export const runtime = "nodejs";

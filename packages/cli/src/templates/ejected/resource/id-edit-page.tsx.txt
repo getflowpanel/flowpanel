@@ -1,5 +1,5 @@
 /**
- * Ejected edit view for "{{name}}".
+ * Ejected edit view for "{{name}}". Receives `[id]` from the route segment.
  */
 export default async function EditPage({
   params,

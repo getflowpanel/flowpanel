@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -13,9 +13,10 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
   RowAction,
+  Session,
 } from "@flowpanel/core";
-import { rowActionRoute, serializeRowAction } from "../actions/row-action.js";
-import { publishResource } from "../runtime/publish.js";
+import { rowActionRoute, serializeRowAction } from "../actions/row-action";
+import { publishResource } from "../runtime/publish";
 
 type Row = { id: string; status: string };
 
@@ -25,6 +26,8 @@ function makeConfig(opts: {
   resourceAudit?: boolean | undefined;
   role?: string;
   rowNotFound?: boolean;
+  session?: Session | null;
+  userId?: (session: Session | null) => string | null;
 }) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -53,7 +56,11 @@ function makeConfig(opts: {
 
   const config: ResolvedAdminConfig = {
     adapter,
-    auth: { session: async () => null, role: () => opts.role ?? "admin" },
+    auth: {
+      session: async () => opts.session ?? null,
+      role: () => opts.role ?? "admin",
+      ...(opts.userId ? { userId: opts.userId } : {}),
+    },
     ...(opts.audit ? { audit: opts.audit } : {}),
     resources: [resource],
     resourcesByName: new Map([["users", resource]]),
@@ -180,7 +187,12 @@ describe("rowActionRoute", () => {
     }));
     const config = makeConfig({
       audit: { enabled: true, sink },
-      action: { key: "reset-cap", label: "Reset cap", run },
+      action: {
+        key: "reset-cap",
+        label: "Reset cap",
+        form: [{ name: "note", type: "text" }],
+        run,
+      },
     });
     const handler = rowActionRoute(config);
     const req = new Request("http://localhost/x", {
@@ -208,6 +220,43 @@ describe("rowActionRoute", () => {
         targetId: "u1",
       }),
     );
+  });
+
+  it("rejects a primitive JSON body before running the action", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const handler = rowActionRoute(makeConfig({ action: { key: "ping", label: "Ping", run } }));
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "42",
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "ping" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "JSON body must be an object" });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized body before running the action", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const handler = rowActionRoute(makeConfig({ action: { key: "ping", label: "Ping", run } }));
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": String(1024 * 1024 + 1),
+      },
+      body: "{}",
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "ping" }),
+    });
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ ok: false, error: "request body is too large" });
+    expect(run).not.toHaveBeenCalled();
   });
 
   it("does NOT emit audit when resource.options.audit === false", async () => {
@@ -245,10 +294,10 @@ describe("rowActionRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).not.toContain("kaboom");
-    expect(body.error).toBe("internal error");
+    expect(body.error).toBe("Internal server error");
   });
 
-  it("surfaces err.safeMessage on 500 when the thrown error opts in", async () => {
+  it("does not trust a safeMessage property on an untyped unexpected error", async () => {
     const config = makeConfig({
       action: {
         key: "boom",
@@ -267,7 +316,7 @@ describe("rowActionRoute", () => {
     });
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("Could not complete the action");
+    expect(body.error).toBe("Internal server error");
     expect(body.error).not.toContain("secret");
   });
 
@@ -298,6 +347,37 @@ describe("rowActionRoute", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("runs a function-form field validator and returns its message as a field error", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      action: {
+        key: "note",
+        label: "Note",
+        form: [
+          {
+            name: "status",
+            type: "text",
+            validate: async (value) => (value === "banned" ? "status cannot be banned" : null),
+          },
+        ],
+        run,
+      },
+    });
+    const handler = rowActionRoute(config);
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "banned" }),
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "note" }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.issues).toEqual([{ path: ["status"], message: "status cannot be banned" }]);
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("passes input through to run when the form validation succeeds", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig({
@@ -322,6 +402,43 @@ describe("rowActionRoute", () => {
       { id: "u1", status: "active" },
       expect.objectContaining({ status: "looks good" }),
       expect.anything(),
+    );
+  });
+
+  it("passes ctx.actorId derived from the session to run", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      session: { id: "u1" } as unknown as Session,
+      action: { key: "ping", label: "Ping", run },
+    });
+    const handler = rowActionRoute(config);
+    const req = new Request("http://localhost/x", { method: "POST" });
+    await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "ping" }),
+    });
+    expect(run).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ actorId: "u1" }),
+    );
+  });
+
+  it("honors config.auth.userId when set", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      session: { customId: "c1" } as unknown as Session,
+      userId: (session) => (session as unknown as { customId?: string } | null)?.customId ?? null,
+      action: { key: "ping", label: "Ping", run },
+    });
+    const handler = rowActionRoute(config);
+    const req = new Request("http://localhost/x", { method: "POST" });
+    await handler(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "ping" }),
+    });
+    expect(run).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ actorId: "c1" }),
     );
   });
 });
@@ -391,5 +508,37 @@ describe("serializeRowAction", () => {
       run: async () => ({ ok: true }),
     });
     expect(withoutForm.hasForm).toBe(false);
+  });
+
+  it("serializes form field descriptors so RowActionsMenu can render them", () => {
+    const wire = serializeRowAction({
+      key: "note",
+      label: "Note",
+      form: [
+        { name: "status", label: "Status", type: "text", required: true },
+        { name: "priority", type: "select", options: ["low", "high"] },
+      ],
+      run: async () => ({ ok: true }),
+    });
+    expect(wire.form).toEqual([
+      { name: "status", label: "Status", type: "text", required: true },
+      {
+        name: "priority",
+        type: "select",
+        options: [
+          { label: "low", value: "low" },
+          { label: "high", value: "high" },
+        ],
+      },
+    ]);
+  });
+
+  it("omits `form` from the wire shape when there's no form", () => {
+    const wire = serializeRowAction({
+      key: "k",
+      label: "L",
+      run: async () => ({ ok: true }),
+    });
+    expect("form" in wire).toBe(false);
   });
 });

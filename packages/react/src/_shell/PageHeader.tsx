@@ -1,14 +1,13 @@
 "use client";
 import type * as React from "react";
-import { useComponents } from "../_provider/ComponentsContext.js";
+import { useComponent } from "../_provider/ComponentsContext";
+import { DefaultPageHeader } from "./PageHeaderDefault";
 
-export { DefaultPageHeader, type PageHeaderProps } from "./PageHeaderDefault.js";
+export { DefaultPageHeader, type PageHeaderProps } from "./PageHeaderDefault";
 
-/** Renders whatever override the user registered via theme.components.PageHeader,
- *  falling back to DefaultPageHeader. */
 export function PageHeader(
-  props: import("./PageHeaderDefault.js").PageHeaderProps,
+  props: import("./PageHeaderDefault").PageHeaderProps,
 ): React.JSX.Element {
-  const Slot = useComponents().PageHeader;
+  const Slot = useComponent("PageHeader", DefaultPageHeader);
   return <Slot {...props} />;
 }

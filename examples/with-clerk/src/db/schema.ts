@@ -3,7 +3,7 @@
  *
  * Two tables — `users` and `posts` — are enough to demonstrate that
  * `withClerk({ requireRole: "admin" })` gates a real CRUD admin without
- * pulling in the SaaS-shaped complexity of `freelance-radar`.
+ * pulling in the SaaS-shaped complexity of `ai-scraper`.
  *
  * `users.clerkId` is the Clerk user id (`auth().userId`). The seed assigns
  * one row the "admin" role; you set `publicMetadata.role = "admin"` on the

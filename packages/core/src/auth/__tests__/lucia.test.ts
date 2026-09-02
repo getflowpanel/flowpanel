@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type LuciaLike, withLucia } from "../lucia.js";
+import { type LuciaLike, withLucia } from "../lucia";
 
 function fakeLucia(overrides: Partial<LuciaLike> = {}): LuciaLike {
   return {
@@ -33,7 +33,9 @@ describe("withLucia", () => {
     // next/headers can't be loaded outside Next runtime.
     const cfg = withLucia({ lucia: fakeLucia() });
     // either the import returns null and we throw, OR we return null silently
-    await expect(cfg.session()).rejects.toThrow(/next\/headers is unavailable/);
+    await expect(cfg.session(new Request("http://localhost/admin"))).rejects.toThrow(
+      /next\/headers is unavailable/,
+    );
   });
 
   it("custom role override replaces default", () => {
@@ -42,5 +44,17 @@ describe("withLucia", () => {
       role: () => "owner",
     });
     expect(cfg.role({ role: "anything" })).toBe("owner");
+  });
+
+  it("default userId extractor reads the top-level Lucia user id", () => {
+    const cfg = withLucia({ lucia: fakeLucia() });
+    expect(cfg.userId?.({ id: "u1" })).toBe("u1");
+    expect(cfg.userId?.({ id: 42 })).toBe("42"); // string-coerced (custom adapters may use numeric ids)
+    expect(cfg.userId?.(null)).toBeNull();
+  });
+
+  it("custom userId override replaces default", () => {
+    const cfg = withLucia({ lucia: fakeLucia(), userId: () => "fixed" });
+    expect(cfg.userId?.({ id: "u1" })).toBe("fixed");
   });
 });

@@ -3,62 +3,102 @@ import type { BarChartOptions } from "@flowpanel/core";
 import {
   Bar,
   CartesianGrid,
+  Legend,
   BarChart as RcBar,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { buildTickFormatter } from "./format-tick.js";
+import { ChartEmptyState } from "./ChartEmptyState";
+import {
+  AXIS_STYLE_PROPS,
+  AXIS_TICK_PROPS,
+  BAR_TOOLTIP_CURSOR,
+  buildTooltipProps,
+  buildValueTickFormatter,
+  CHART_SURFACE_PROPS,
+  chartColor,
+  GRID_PROPS,
+  LEGEND_PROPS,
+  STATIC_SERIES_PROPS,
+} from "./chart-theme";
+import { DEFAULT_CHART_HEIGHT } from "./defaults";
+import { buildTickFormatter } from "./format-tick";
 
 export function BarChart({ data, options }: { data: unknown[]; options: BarChartOptions }) {
+  const height = options.height ?? DEFAULT_CHART_HEIGHT;
+  if (data.length === 0) return <ChartEmptyState height={height} />;
   const ys = Array.isArray(options.y) ? options.y : [options.y];
+  const multiSeries = ys.length > 1;
   const layout = options.horizontal ? "vertical" : "horizontal";
   const categoryTickFormatter = buildTickFormatter(
     data as Record<string, unknown>[],
     options.x,
     options.bucket,
   );
+  const valueTickFormatter = buildValueTickFormatter(options.format);
+  // Stacked bars only round the outer segment cleanly, so keep them square.
+  const radius: [number, number, number, number] = options.stacked
+    ? [0, 0, 0, 0]
+    : options.horizontal
+      ? [0, 4, 4, 0]
+      : [4, 4, 0, 0];
   return (
-    <ResponsiveContainer width="100%" height={options.height ?? 240}>
-      <RcBar data={data as object[]} layout={layout}>
-        <CartesianGrid stroke="hsl(var(--fp-border-1))" strokeDasharray="3 3" />
+    <ResponsiveContainer width="100%" height={height}>
+      <RcBar {...CHART_SURFACE_PROPS} data={data as object[]} layout={layout}>
+        <CartesianGrid
+          {...GRID_PROPS}
+          {...(options.horizontal ? { vertical: true, horizontal: false } : {})}
+        />
         {options.horizontal ? (
           <>
-            <XAxis type="number" stroke="hsl(var(--fp-text-3))" fontSize={12} />
+            <XAxis
+              type="number"
+              {...AXIS_STYLE_PROPS}
+              {...(valueTickFormatter ? { tickFormatter: valueTickFormatter } : {})}
+            />
             <YAxis
               type="category"
               dataKey={options.x}
-              stroke="hsl(var(--fp-text-3))"
-              fontSize={12}
+              {...AXIS_STYLE_PROPS}
               tickFormatter={categoryTickFormatter}
+              {...AXIS_TICK_PROPS}
+              interval={0}
             />
           </>
         ) : (
           <>
             <XAxis
               dataKey={options.x}
-              stroke="hsl(var(--fp-text-3))"
-              fontSize={12}
+              {...AXIS_STYLE_PROPS}
               tickFormatter={categoryTickFormatter}
+              {...AXIS_TICK_PROPS}
+              interval={0}
             />
-            <YAxis stroke="hsl(var(--fp-text-3))" fontSize={12} />
+            <YAxis
+              {...AXIS_STYLE_PROPS}
+              width={40}
+              {...(valueTickFormatter ? { tickFormatter: valueTickFormatter } : {})}
+            />
           </>
         )}
-        <Tooltip
-          contentStyle={{
-            background: "hsl(var(--fp-bg-1))",
-            border: "1px solid hsl(var(--fp-border-1))",
-            borderRadius: "var(--fp-radius)",
-            color: "hsl(var(--fp-text-1))",
-          }}
-        />
-        {ys.map((y) => (
+        {options.tooltip !== false ? (
+          <Tooltip
+            cursor={BAR_TOOLTIP_CURSOR}
+            {...buildTooltipProps(options.format, options.tooltip)}
+          />
+        ) : null}
+        {multiSeries ? <Legend {...LEGEND_PROPS} /> : null}
+        {ys.map((y, i) => (
           <Bar
             key={y}
             dataKey={y}
             {...(options.stacked ? { stackId: "a" } : {})}
-            fill="hsl(var(--fp-accent))"
+            fill={multiSeries ? chartColor(i) : "hsl(var(--fp-accent))"}
+            radius={radius}
+            maxBarSize={40}
+            {...STATIC_SERIES_PROPS}
           />
         ))}
       </RcBar>

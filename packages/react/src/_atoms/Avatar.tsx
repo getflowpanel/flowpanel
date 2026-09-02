@@ -1,12 +1,11 @@
 "use client";
 import type * as React from "react";
-import { useComponents } from "../_provider/ComponentsContext.js";
+import { useComponent } from "../_provider/ComponentsContext";
+import { DefaultAvatar } from "./AvatarDefault";
 
-export { type AvatarProps, DefaultAvatar } from "./AvatarDefault.js";
+export { type AvatarProps, DefaultAvatar } from "./AvatarDefault";
 
-/** Renders whatever override the user registered via theme.components.Avatar,
- *  falling back to DefaultAvatar. */
-export function Avatar(props: import("./AvatarDefault.js").AvatarProps): React.JSX.Element {
-  const Slot = useComponents().Avatar;
+export function Avatar(props: import("./AvatarDefault").AvatarProps): React.JSX.Element {
+  const Slot = useComponent("Avatar", DefaultAvatar);
   return <Slot {...props} />;
 }

@@ -4,6 +4,17 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { detectPackageManager, platformBin, pmCommands } from "../utils/detect";
+
+/** The board entry point, in either module flavour. `.mts` lets a CJS app import ESM statically. */
+const BOARD_SCRIPTS = ["scripts/board-server.mts", "scripts/board-server.ts"] as const;
+
+export async function findBoardScript(cwd: string): Promise<string | null> {
+  for (const candidate of BOARD_SCRIPTS) {
+    if (await fileExists(path.join(cwd, candidate))) return candidate;
+  }
+  return null;
+}
 
 export function devCommand(cli: Command): void {
   cli
@@ -24,9 +35,10 @@ export function devCommand(cli: Command): void {
       process.on("SIGINT", () => shutdown(0));
       process.on("SIGTERM", () => shutdown(0));
 
-      // 1. Always spawn `next dev`.
       p.intro(pc.bgCyan(pc.black(" FlowPanel dev ")));
-      const next = spawn("pnpm", ["exec", "next", "dev", "--port", opts.port], {
+      const pmc = pmCommands(await detectPackageManager(cwd));
+      const runner = platformBin(pmc.exec);
+      const next = spawn(runner, pmc.execArgs("next", ["dev", "--port", opts.port]), {
         cwd,
         stdio: ["ignore", "pipe", "pipe"],
         env: process.env,
@@ -34,14 +46,11 @@ export function devCommand(cli: Command): void {
       pipeWithPrefix(next, pc.cyan("[next] "));
       children.push(next);
 
-      // 2. Maybe spawn bull-board.
-      const wantBoard =
-        opts.board !== false &&
-        !!process.env.REDIS_URL &&
-        (await fileExists(path.join(cwd, "scripts/board-server.ts")));
+      const boardScript = opts.board === false ? null : await findBoardScript(cwd);
+      const wantBoard = !!process.env.REDIS_URL && boardScript !== null;
 
-      if (wantBoard) {
-        const board = spawn("pnpm", ["exec", "tsx", "scripts/board-server.ts"], {
+      if (wantBoard && boardScript) {
+        const board = spawn(runner, pmc.execArgs("tsx", [boardScript]), {
           cwd,
           stdio: ["ignore", "pipe", "pipe"],
           env: process.env,
@@ -49,15 +58,13 @@ export function devCommand(cli: Command): void {
         pipeWithPrefix(board, pc.magenta("[board] "));
         children.push(board);
       } else if (process.env.REDIS_URL && opts.board !== false) {
-        // REDIS_URL set, but no board script — log a hint but don't fail.
         process.stdout.write(
           pc.dim(
-            "[flowpanel] REDIS_URL set but scripts/board-server.ts not found — board skipped\n",
+            `[flowpanel] REDIS_URL set but ${BOARD_SCRIPTS.join(" / ")} not found — board skipped\n`,
           ),
         );
       }
 
-      // Wait for any child to exit; propagate code.
       next.on("exit", (code) => shutdown(code ?? 0));
       const board = children[1];
       if (wantBoard && board) {
@@ -67,14 +74,23 @@ export function devCommand(cli: Command): void {
 }
 
 export function pipeWithPrefix(child: ChildProcess, prefix: string): void {
-  const onLine =
-    (stream: NodeJS.WritableStream) =>
-    (chunk: Buffer): void => {
+  const onLine = (stream: NodeJS.WritableStream) => {
+    // `pnpm exec <missing-bin>` opens the stream with a bare "undefined" line
+    // ahead of its real error. Only that opening line is dropped — everything
+    // after it, including a server's own `undefined`, is relayed.
+    let opened = false;
+    return (chunk: Buffer): void => {
       const text = chunk.toString();
       for (const line of text.split(/\r?\n/)) {
-        if (line.length > 0) stream.write(`${prefix}${line}\n`);
+        if (line.length === 0) continue;
+        if (!opened) {
+          opened = true;
+          if (line.trim() === "undefined") continue;
+        }
+        stream.write(`${prefix}${line}\n`);
       }
     };
+  };
   child.stdout?.on("data", onLine(process.stdout));
   child.stderr?.on("data", onLine(process.stderr));
 }

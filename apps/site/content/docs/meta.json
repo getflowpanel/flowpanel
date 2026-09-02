@@ -1,4 +1,12 @@
 {
   "title": "Documentation",
-  "pages": ["introduction", "core-concepts", "guides", "customization", "integrations", "reference"]
+  "pages": [
+    "introduction",
+    "build",
+    "customization",
+    "guides",
+    "understand",
+    "reference",
+    "troubleshooting"
+  ]
 }

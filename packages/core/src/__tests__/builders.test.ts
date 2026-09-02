@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { custom, dashboard, metric, page, statGroup, table } from "../index.js";
+import { custom, dashboard, metric, page, statGroup, table } from "../index";
 
 describe("M2 builders", () => {
   it("metric() produces MetricWidget with kind and defaults", () => {

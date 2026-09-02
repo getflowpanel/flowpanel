@@ -1,0 +1,94 @@
+---
+title: Scope & realtime
+description: Tenant scoping, the publisher contract, and the rate limiter.
+kind: reference
+---
+
+Three small contracts that sit under the rest of the framework: how a request is
+narrowed to a tenant, how realtime messages travel between instances, and how
+throttling counts.
+
+## Scope
+
+A scope is resolved once per request and applied by the adapter to every query.
+
+```ts excerpt
+type Scope = Record<string, unknown> | null;
+type Session = Record<string, unknown>;
+```
+
+`AdminConfig.scope` receives:
+
+<AutoTypeTable path="../../packages/core/src/types/session.ts" name="ScopeContext" />
+
+```ts excerpt
+defineAdmin({
+  scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
+  // …
+});
+```
+
+The returned object reaches every context as `ctx.scope`, and the adapter turns
+it into a predicate on `ctx.applyScope`.
+
+### The opt-out is mandatory
+
+Once an admin declares a global `scope`, every resource must say what it does
+with it — use it, or opt out with `scope: "bypass"`. A resource that says
+nothing throws `FlowpanelAccessError` when it is first queried, rather than
+serving another tenant's rows. That is a per-request failure, not a startup
+one: `defineAdmin` is pure and runs no such check.
+
+<ApiSignature path="../../packages/core/src/runtime/scope.ts" name="assertResourceScope" />
+
+<AutoTypeTable path="../../packages/core/src/runtime/scope.ts" name="ScopeCheckInput" />
+
+That check runs for you inside the request prologue. You only call it directly
+when writing an adapter or a route of your own.
+
+See [Multi-tenant scope](/docs/guides/multi-tenant-scope) for the full setup.
+
+## Publisher
+
+The realtime transport. `createPublisher` builds one from `AdminConfig.realtime`;
+implement the interface yourself to sit on a bus FlowPanel does not ship.
+
+<AutoTypeTable path="../../packages/core/src/runtime/publish.ts" name="Publisher" />
+
+<ApiSignature path="../../packages/core/src/runtime/publish.ts" name="createPublisher" />
+
+The memory driver only reaches the process that published, so a second instance
+never sees the message. That is fine locally and wrong in production — use the
+Redis driver whenever more than one instance serves the admin. The Redis
+driver loads `ioredis` on first use and throws if it is not installed; it is an
+optional peer dependency.
+
+`keyPrefix` namespaces channels when several admins share a Redis, and it
+defaults to `"flowpanel"` — the wire channel for `resource.orders` is
+`flowpanel:resource.orders` unless you set it. It never changes the logical
+channel name application code sees. The rate limiter has its own, unrelated
+default prefix: `"fp:rl:"`.
+
+Routing is by channel: one channel carries one payload shape, and the SSE layer
+adds the `{ channel, payload }` envelope on the way to the browser — and only
+there — so a subscriber always knows which channel a message came from without
+inspecting it. Use a distinct channel per event kind rather than multiplexing
+shapes onto one.
+
+See [Realtime in production](/docs/guides/realtime).
+
+## RateLimiter
+
+<AutoTypeTable path="../../packages/core/src/runtime/rate-limit.ts" name="RateLimiter" />
+
+```ts excerpt
+function createRateLimiter(opts: RateLimitOptions): RateLimiter;
+```
+
+`check` returns `false` when the caller is over the limit, and the request
+prologue turns that into a `429`. The key is derived from
+`AuthConfig.userId` for `per: "user"`, falling back to the IP when the session
+carries no id.
+
+Like the publisher, the memory driver counts per process — a limit of 100 across
+four instances is really 400 until you move to Redis.

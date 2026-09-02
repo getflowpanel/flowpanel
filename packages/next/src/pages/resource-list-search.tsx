@@ -59,21 +59,21 @@ export function ResourceListSearch({ placeholder = "Search…" }: ResourceListSe
   }, [draft, table]);
 
   return (
-    <div className="relative mb-3 max-w-sm">
-      <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fp-text-3" />
+    <div className="relative w-56">
+      <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fp-text-3" />
       <input
         type="search"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}
-        className="h-9 w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 pl-8 pr-8 text-sm text-fp-text-1 placeholder:text-fp-text-3 focus:border-fp-accent focus:outline-none"
+        className="h-9 w-full rounded-full border border-fp-border-1 bg-fp-bg-1 pl-9 pr-8 text-sm text-fp-text-1 shadow-fp-xs transition-colors placeholder:text-fp-text-3 hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25 [&::-webkit-search-cancel-button]:hidden"
       />
       {draft ? (
         <button
           type="button"
           aria-label="Clear search"
           onClick={() => setDraft("")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-fp-sm p-1 text-fp-text-3 hover:text-fp-text-1"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-fp-sm p-1 text-fp-text-3 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1"
         >
           <XIcon className="h-3 w-3" />
         </button>

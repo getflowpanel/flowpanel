@@ -1,5 +1,5 @@
 import { AST_NODE_TYPES, type TSESTree } from "@typescript-eslint/utils";
-import { createRule } from "../create-rule.js";
+import { createRule } from "../create-rule";
 
 type MessageId = "typo";
 
@@ -10,19 +10,11 @@ const TYPOS: Record<string, string> = {
   isactive: "isActive",
 };
 
-/**
- * Heuristic check for common camelCase typos inside `columns: [...]` entries.
- * The full "did you mean" against the resource's row type needs type info from
- * the parser services and is tracked separately. This rule covers the most
- * frequent lowercase-vs-camelCase mistakes.
- *
- * Autofixable for entries that exactly match a known typo (case-insensitive).
- */
+/** Heuristic check for common camelCase typos inside `columns: [...]` entries. */
 const rule = createRule<[], MessageId>({
   name: "no-typo-column-keyword",
   meta: {
     type: "problem",
-    fixable: "code",
     docs: {
       description: "Catch common camelCase typos in `columns: [...]` (e.g. `userid` → `userId`).",
     },
@@ -46,12 +38,10 @@ const rule = createRule<[], MessageId>({
     };
 
     function checkColumnEntry(entry: TSESTree.Expression | TSESTree.SpreadElement): void {
-      // Bare string entry: `"userid"`.
       if (entry.type === AST_NODE_TYPES.Literal && typeof entry.value === "string") {
         reportIfTypo(entry, entry.value);
         return;
       }
-      // Object form: `{ key: "userid", ... }` or `{ name: "userid", ... }`.
       if (entry.type === AST_NODE_TYPES.ObjectExpression) {
         for (const prop of entry.properties) {
           if (prop.type !== AST_NODE_TYPES.Property) continue;
@@ -68,14 +58,9 @@ const rule = createRule<[], MessageId>({
       const suggested = TYPOS[raw.toLowerCase()];
       if (!suggested) return;
       if (raw === suggested) return;
-      context.report({
-        node,
-        messageId: "typo",
-        data: { actual: raw, suggested },
-        fix(fixer) {
-          return fixer.replaceText(node, JSON.stringify(suggested));
-        },
-      });
+      // No autofix: `columns` is not FlowPanel-exclusive and a lowercase column
+      // can be intentional, so `eslint --fix` must not rewrite it silently.
+      context.report({ node, messageId: "typo", data: { actual: raw, suggested } });
     }
   },
 });

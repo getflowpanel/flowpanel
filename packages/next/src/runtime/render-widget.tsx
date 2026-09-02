@@ -1,6 +1,5 @@
 import type {
   ColumnDef,
-  ListQueryContext,
   RequestContext,
   ResolvedAdminConfig,
   WidgetConfig,
@@ -9,26 +8,92 @@ import type {
 import {
   MetricCard,
   RealtimeRefresh,
+  ReferenceCell,
   StatGroupCard,
   TableWidget as TableWidgetRenderer,
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
-import { ServerCard } from "./_server-card.js";
-import { prerenderResourceCells } from "./prerender-cells.js";
-import { buildRequestContext } from "./request-setup.js";
-import { scopeBinding } from "./scope-binding.js";
+import { ServerCard } from "./_server-card";
+import { buildHref } from "./href";
+import { type PrerenderedColumn, prerenderResourceCells } from "./prerender-cells";
+import { readRelatedRows } from "./require-authorized";
+import { resolveReferences } from "./resolve-references";
 
-/**
- * Render a widget on the server.
- *
- * The chart branch lazy-imports `@flowpanel/charts/runtime`. That package is
- * introduced in Phase 3; for now we handle the ImportError gracefully so the
- * dispatcher remains structurally complete and shippable in Phase 2.
- */
+type WidgetRow = Record<string, unknown>;
+
+/** Resource column defs, narrowed and reordered to an explicit widget column list. */
+function pickWidgetColumns(
+  declared: ReadonlyArray<string | ColumnDef<WidgetRow>>,
+  wanted: string[] | undefined,
+): ReadonlyArray<string | ColumnDef<WidgetRow>> {
+  if (!wanted || wanted.length === 0) return declared;
+  return wanted.map(
+    (field) =>
+      declared.find((c) => typeof c === "object" && c.field === field) ??
+      declared.find((c) => c === field) ??
+      field,
+  );
+}
+
+/** A dashboard table has no sort handler and no inline-edit target — strip both affordances. */
+function toWidgetColumn(c: PrerenderedColumn<WidgetRow>): PrerenderedColumn<WidgetRow> {
+  const out: PrerenderedColumn<WidgetRow> = { field: c.field };
+  if (c.label !== undefined) out.label = c.label;
+  if (c.width !== undefined) out.width = c.width;
+  if (c.align !== undefined) out.align = c.align;
+  if (c.className !== undefined) out.className = c.className;
+  if (c.type !== undefined) out.type = c.type;
+  if (c.format !== undefined) out.format = c.format;
+  return out;
+}
+
+/** Replace foreign-key cells with the referenced row's label, as the list page does. */
+async function withReferenceCells(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  defs: ReadonlyArray<string | ColumnDef<WidgetRow>>,
+  rows: WidgetRow[],
+  columns: PrerenderedColumn<WidgetRow>[],
+  prerenderedCells: (ReactNode | undefined)[][] | undefined,
+): Promise<(ReactNode | undefined)[][] | undefined> {
+  const fkLabels = await resolveReferences<WidgetRow>(config, reqCtx, defs, rows);
+  if (fkLabels.size === 0) return prerenderedCells;
+  const cells = prerenderedCells
+    ? prerenderedCells.map((r) => r.slice())
+    : rows.map(() => Array<ReactNode | undefined>(columns.length).fill(undefined));
+  const colIdxByField = new Map(columns.map((c, i) => [c.field, i]));
+  for (const def of defs) {
+    if (typeof def !== "object") continue;
+    const ref = def.reference;
+    const field = String(def.field ?? "");
+    if (!ref || !field) continue;
+    const labelMap = fkLabels.get(field);
+    const colIdx = colIdxByField.get(field);
+    if (!labelMap || colIdx === undefined) continue;
+    rows.forEach((row, rowIdx) => {
+      const rowCells = cells[rowIdx];
+      if (!rowCells) return;
+      const raw = row[field];
+      if (raw === null || raw === undefined) {
+        rowCells[colIdx] = <span className="text-fp-text-3">—</span>;
+        return;
+      }
+      const label = labelMap.get(String(raw));
+      if (label === undefined) return;
+      rowCells[colIdx] = (
+        <ReferenceCell label={String(label)} href={buildHref(config, ref.resource, String(raw))} />
+      );
+    });
+  }
+  return cells;
+}
+
+/** Render a widget on the server. */
 export async function renderWidget(
   widget: WidgetConfig,
   ctx: WidgetContext,
   config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
 ): Promise<ReactNode> {
   switch (widget.kind) {
     case "metric": {
@@ -48,6 +113,7 @@ export async function renderWidget(
             {...(sparkline ? { sparkline } : {})}
             {...(widget.options.tone ? { tone: widget.options.tone } : {})}
             {...(widget.options.drilldown ? { drilldown: widget.options.drilldown } : {})}
+            {...(widget.options.icon ? { icon: widget.options.icon } : {})}
           />
           {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
         </Fragment>
@@ -79,24 +145,12 @@ export async function renderWidget(
       );
     }
     case "custom": {
-      // Render the user-authored Component server-side, here, in the same RSC
-      // context where the dashboard config was authored. We deliberately do
-      // NOT delegate to a component imported from `@flowpanel/react` — that
-      // package is bundled with `"use client"`, so passing `Component` (a
-      // function) into it would fail RSC serialization with:
-      //   "Functions cannot be passed directly to Client Components".
-      // By invoking the Component here, only its rendered JSX (a plain,
-      // serializable React tree) ever crosses into any client boundary.
       const props =
         typeof widget.props === "function"
           ? await (widget.props as (c: WidgetContext) => Promise<unknown>)(ctx)
           : widget.props;
       const Component = widget.Component as ComponentType<unknown>;
       const inner = createElement(Component, props as Record<string, unknown>);
-      // When `frame: false` is passed, skip the ServerCard wrapper. This is
-      // for widgets that own their outer layout (e.g. a grid of inner cards)
-      // — wrapping them in the default frame would visibly nest a card
-      // inside another card.
       const framed = widget.options.frame === false ? inner : <ServerCard>{inner}</ServerCard>;
       return (
         <Fragment>
@@ -106,77 +160,51 @@ export async function renderWidget(
       );
     }
     case "table": {
-      type Row = Record<string, unknown>;
+      type Row = WidgetRow;
       let rows: Row[] = [];
-      // Resolved column metadata for the rendered table. Sourced from the
-      // resource's `columns` array when the widget targets a resource (so
-      // labels like "Created at" replace raw `createdAt` headers); falls
-      // back to `Object.keys(rows[0])` when there's no resource binding.
-      let columns: { field: string; label?: string }[] = [];
-      // Per-row, per-column server-prerendered ReactNode tree. Indexed
-      // `[rowIndex][colIndex]` against the resolved `columns` order. Only
-      // populated when at least one ColumnDef carries a `render` function —
-      // executing those functions server-side is the whole point of this
-      // payload, since function refs can't cross the RSC boundary.
+      let columns: PrerenderedColumn<Row>[] = [];
       let prerenderedCells: (ReactNode | undefined)[][] | undefined;
+
+      const explicit = widget.options.columns;
 
       if (widget.options.query) {
         rows = (await widget.options.query(ctx)) as Row[];
       } else if (widget.options.resource) {
         const res = config.resourcesByName.get(widget.options.resource);
         if (res) {
-          const softDelete = res.options.delete?.softDelete;
-          // The widget context has no resolved scope/role. Build a real
-          // RequestContext from the request so the target resource's tenant
-          // scope is enforced (a widget must not leak cross-tenant rows).
-          const reqCtxForList = await buildRequestContext({ req: ctx.req, config });
-          const listCtx: ListQueryContext<unknown> = {
-            ...reqCtxForList,
-            db: ctx.db,
+          const related = await readRelatedRows(config, res, reqCtx, {
             dateRange: ctx.dateRange,
-            searchParams: new URLSearchParams(),
-            signal: new AbortController().signal,
-            filters: {},
-            sort: null,
-            page: 1,
             pageSize: widget.options.limit ?? 10,
-            search: "",
-            ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
-            ...scopeBinding(config, res, reqCtxForList),
-          };
-          const r = await config.adapter.list(res.ref, listCtx);
-          rows = r.rows as Row[];
+            extraFields: [...(explicit ?? []), "id"],
+          });
+          rows = (related ?? []) as Row[];
 
-          // When the widget didn't pass an explicit `columns` override,
-          // adopt the resource's column metadata (field + label + render).
-          if (!widget.options.columns || widget.options.columns.length === 0) {
-            // The widget context has no role/scope/ip/userAgent — synth
-            // a best-effort RequestContext matching what the column
-            // renderer would have seen on the dedicated list page.
-            const reqCtx: RequestContext = {
-              req: ctx.req,
-              session: ctx.session,
-              role: "",
-              scope: null,
-              ip: null,
-              userAgent: null,
-            };
-            const prerendered = prerenderResourceCells<Row>(
-              res.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>>,
-              rows,
-              reqCtx,
-              { dropHidden: true },
+          if (related) {
+            const defs = pickWidgetColumns(
+              res.options.columns as ReadonlyArray<string | ColumnDef<Row>>,
+              explicit,
             );
-            columns = prerendered.columns;
-            prerenderedCells = prerendered.prerenderedCells;
+            const intro = config.adapter.introspect(res.ref);
+            const metaByField = new Map(intro.columns.map((c) => [c.name, c]));
+            const prerendered = prerenderResourceCells<Row>(defs, rows, reqCtx, {
+              dropHidden: !explicit || explicit.length === 0,
+              metaByField,
+            });
+            columns = prerendered.columns.map(toWidgetColumn);
+            prerenderedCells = await withReferenceCells(
+              config,
+              reqCtx,
+              defs,
+              rows,
+              columns,
+              prerendered.prerenderedCells,
+            );
           }
         }
       }
 
-      // Apply explicit `widget.options.columns` override (or fall back to
-      // raw keys when neither resource nor override gave us anything).
-      if (widget.options.columns && widget.options.columns.length > 0) {
-        columns = widget.options.columns.map((k) => ({ field: k }));
+      if (columns.length === 0 && explicit && explicit.length > 0) {
+        columns = explicit.map((k) => ({ field: k }));
       } else if (columns.length === 0 && rows[0]) {
         columns = Object.keys(rows[0]).map((k) => ({ field: k }));
       }
@@ -185,13 +213,11 @@ export async function renderWidget(
         <TableWidgetRenderer
           {...(widget.options.label ? { label: widget.options.label } : {})}
           rows={rows}
-          columns={columns.map((c) => ({
-            field: c.field,
-            ...(c.label ? { label: c.label } : {}),
-          }))}
+          columns={columns}
           rowKey={"id"}
           {...(prerenderedCells ? { prerenderedCells } : {})}
           {...(widget.options.realtime ? { realtime: widget.options.realtime } : {})}
+          {...(widget.options.emptyState ? { emptyState: widget.options.emptyState } : {})}
         />
       );
     }
@@ -199,13 +225,6 @@ export async function renderWidget(
     case "barChart":
     case "lineChart":
     case "pieChart": {
-      // Lazy-loaded from @flowpanel/charts to avoid pulling Recharts into the
-      // main bundle. ONLY the dynamic import is guarded here — a missing
-      // package is a distinct, recoverable condition with its own message.
-      // The data query and render run AFTER, so a failing `widget.query` (e.g.
-      // a DB error) propagates to WidgetErrorBoundary like every other widget
-      // — showing "Widget failed" with the real error logged, instead of a
-      // misleading "install charts" message.
       let chartsMod: {
         // biome-ignore lint/suspicious/noExplicitAny: cross-package dynamic import
         ChartRenderer: (props: any) => ReactNode;

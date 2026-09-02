@@ -4,7 +4,7 @@ import { cleanup, render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { LocalTime } from "../LocalTime.js";
+import { LocalTime } from "../LocalTime";
 
 afterEach(() => cleanup());
 

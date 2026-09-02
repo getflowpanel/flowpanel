@@ -2,7 +2,7 @@
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronRight, Circle } from "lucide-react";
 import * as React from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
@@ -18,7 +18,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center gap-2 rounded-fp-sm px-2 py-1.5 text-sm outline-none focus:bg-fp-bg-2 data-[state=open]:bg-fp-bg-2",
+      "flex cursor-default select-none items-center gap-2 rounded-fp-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-fp-bg-3/70 data-[state=open]:bg-fp-bg-3/70",
       inset && "pl-8",
       className,
     )}
@@ -35,10 +35,10 @@ const DropdownMenuSubContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.SubContent
+    data-flowpanel-portal=""
     ref={ref}
     className={cn(
-      "fp-dropdown-content",
-      "z-50 min-w-[8rem] overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1 p-1 text-fp-text-1 shadow-lg",
+      "fp-anim-pop z-50 min-w-[8rem] overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-1 text-fp-text-1 shadow-fp-md",
       className,
     )}
     {...props}
@@ -52,11 +52,11 @@ const DropdownMenuContent = React.forwardRef<
 >(({ className, sideOffset = 4, ...props }, ref) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
+      data-flowpanel-portal=""
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "fp-dropdown-content",
-        "z-50 min-w-[8rem] overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1 p-1 text-fp-text-1 shadow-md",
+        "fp-anim-pop z-50 min-w-[8rem] overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-1 text-fp-text-1 shadow-fp-md",
         className,
       )}
       {...props}
@@ -72,7 +72,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center gap-2 rounded-fp-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-fp-bg-2 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center gap-2 rounded-fp-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-fp-bg-3/70 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       inset && "pl-8",
       className,
     )}
@@ -88,7 +88,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-fp-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-fp-bg-2 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-fp-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-fp-bg-3/70 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className,
     )}
     {...props}
@@ -110,7 +110,7 @@ const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-fp-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-fp-bg-2 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-fp-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-fp-bg-3/70 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className,
     )}
     {...props}

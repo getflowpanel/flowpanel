@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -13,18 +13,20 @@ import type {
   DashboardAction,
   DashboardConfig,
   ResolvedAdminConfig,
+  Session,
 } from "@flowpanel/core";
 import {
   dashboardActionRoute,
   decodeDashboardPath,
   encodeDashboardPath,
   serializeDashboardAction,
-} from "../actions/dashboard-action.js";
+} from "../actions/dashboard-action";
 
 function makeConfig(opts: {
   dashboard?: DashboardConfig;
   audit?: AuditConfig | undefined;
   role?: string;
+  session?: Session | null;
 }) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -43,7 +45,7 @@ function makeConfig(opts: {
 
   const config: ResolvedAdminConfig = {
     adapter,
-    auth: { session: async () => null, role: () => opts.role ?? "admin" },
+    auth: { session: async () => opts.session ?? null, role: () => opts.role ?? "admin" },
     ...(opts.audit ? { audit: opts.audit } : {}),
     resources: [],
     resourcesByName: new Map(),
@@ -68,7 +70,7 @@ describe("dashboardActionRoute", () => {
     });
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toContain("dashboard");
+    expect(body.error).toEqual({ code: "not_found", message: "dashboard not found" });
   });
 
   it("returns 404 when the action key is not in dashboard.actions", async () => {
@@ -92,7 +94,7 @@ describe("dashboardActionRoute", () => {
     });
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toContain("action");
+    expect(body.error).toEqual({ code: "not_found", message: "action not found" });
   });
 
   it("returns 403 when per-action requireRole fails", async () => {
@@ -125,7 +127,14 @@ describe("dashboardActionRoute", () => {
       path: "/pipeline",
       label: "Pipeline",
       sections: [],
-      actions: [{ key: "trigger-scraper", label: "Trigger", run } as DashboardAction],
+      actions: [
+        {
+          key: "trigger-scraper",
+          label: "Trigger",
+          form: [{ name: "reason", type: "text" }],
+          run,
+        } as DashboardAction,
+      ],
     };
     const config = makeConfig({
       dashboard,
@@ -156,6 +165,23 @@ describe("dashboardActionRoute", () => {
     );
   });
 
+  it("passes ctx.actorId derived from the session to run", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const dashboard: DashboardConfig = {
+      path: "/pipeline",
+      label: "Pipeline",
+      sections: [],
+      actions: [{ key: "trigger-scraper", label: "Trigger", run } as DashboardAction],
+    };
+    const config = makeConfig({ dashboard, session: { id: "u1" } as unknown as Session });
+    const handler = dashboardActionRoute(config);
+    const req = new Request("http://localhost/x", { method: "POST" });
+    await handler(req, {
+      params: Promise.resolve({ dashboard: "pipeline", action: "trigger-scraper" }),
+    });
+    expect(run).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ actorId: "u1" }));
+  });
+
   it("returns 500 with a generic message (not the raw error) when action.run throws", async () => {
     const dashboard: DashboardConfig = {
       path: "/pipeline",
@@ -181,7 +207,7 @@ describe("dashboardActionRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).not.toContain("kaboom");
-    expect(body.error).toBe("internal error");
+    expect(body.error).toBe("Internal server error");
   });
 
   it("returns 422 with issues when input fails the action's required form field", async () => {
@@ -260,9 +286,15 @@ describe("encodeDashboardPath / decodeDashboardPath", () => {
     expect(decodeDashboardPath("pipeline")).toBe("/pipeline");
   });
 
-  it("maps interior slashes to __", () => {
-    expect(encodeDashboardPath("/team/ops")).toBe("team__ops");
-    expect(decodeDashboardPath("team__ops")).toBe("/team/ops");
+  it("maps interior slashes to an escaped segment", () => {
+    expect(encodeDashboardPath("/team/ops")).toBe("team_2fops");
+    expect(decodeDashboardPath("team_2fops")).toBe("/team/ops");
+  });
+
+  it("round-trips paths containing literal underscores", () => {
+    for (const path of ["/a__b", "/a_2fb", "/a_5f/b", "/team_ops/x"]) {
+      expect(decodeDashboardPath(encodeDashboardPath(path))).toBe(path);
+    }
   });
 });
 

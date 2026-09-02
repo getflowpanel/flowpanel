@@ -45,7 +45,7 @@ class MockEventSource {
   }
 }
 
-import { RealtimeRefresh } from "../useRealtimeRefresh.js";
+import { RealtimeRefresh } from "../useRealtimeRefresh";
 
 describe("useRealtimeRefresh / RealtimeRefresh", () => {
   beforeEach(() => {
@@ -65,13 +65,21 @@ describe("useRealtimeRefresh / RealtimeRefresh", () => {
     expect(instances[0]?.url).toContain("channel=resource.orders");
   });
 
-  it("subscribes to every channel in an array", () => {
+  it("multiplexes every channel in an array onto one EventSource", () => {
     render(<RealtimeRefresh channels={["resource.a", "resource.b"]} />);
-    expect(instances).toHaveLength(2);
-    expect(instances.map((i) => i.url)).toEqual([
-      expect.stringContaining("channel=resource.a"),
-      expect.stringContaining("channel=resource.b"),
-    ]);
+    expect(instances).toHaveLength(1);
+    expect(instances[0]?.url).toContain("channel=resource.a");
+    expect(instances[0]?.url).toContain("channel=resource.b");
+  });
+
+  it("shares one EventSource across two components subscribing to the same channels", () => {
+    render(
+      <>
+        <RealtimeRefresh channels={["resource.a", "resource.b"]} />
+        <RealtimeRefresh channels={["resource.b", "resource.a"]} />
+      </>,
+    );
+    expect(instances).toHaveLength(1);
   });
 
   it("does not subscribe when channels is undefined", () => {
@@ -81,7 +89,7 @@ describe("useRealtimeRefresh / RealtimeRefresh", () => {
 
   it("debounces router.refresh on message (default 200ms)", async () => {
     render(<RealtimeRefresh channels="resource.x" />);
-    act(() => instances[0]!.message("{}"));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "resource.x" })));
     expect(refresh).not.toHaveBeenCalled();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(220);
@@ -91,7 +99,7 @@ describe("useRealtimeRefresh / RealtimeRefresh", () => {
 
   it("honors custom debounceMs", async () => {
     render(<RealtimeRefresh channels="resource.x" debounceMs={50} />);
-    act(() => instances[0]!.message("{}"));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "resource.x" })));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60);
     });
@@ -101,9 +109,9 @@ describe("useRealtimeRefresh / RealtimeRefresh", () => {
   it("coalesces multiple events into a single refresh within the window", async () => {
     render(<RealtimeRefresh channels="resource.x" debounceMs={50} />);
     act(() => {
-      instances[0]!.message("{}");
-      instances[0]!.message("{}");
-      instances[0]!.message("{}");
+      instances[0]!.message(JSON.stringify({ channel: "resource.x" }));
+      instances[0]!.message(JSON.stringify({ channel: "resource.x" }));
+      instances[0]!.message(JSON.stringify({ channel: "resource.x" }));
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60);
@@ -111,35 +119,33 @@ describe("useRealtimeRefresh / RealtimeRefresh", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("refresh fires once per channel in an array on independent events", async () => {
+  it("refresh fires once per event on the multiplexed source", async () => {
     render(<RealtimeRefresh channels={["resource.a", "resource.b"]} debounceMs={50} />);
-    act(() => instances[0]!.message("{}"));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "resource.a" })));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60);
     });
-    act(() => instances[1]!.message("{}"));
+    act(() => instances[0]!.message(JSON.stringify({ channel: "resource.b" })));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60);
     });
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
-  it("closes every EventSource on unmount", () => {
+  it("closes the EventSource on unmount", () => {
     const { unmount } = render(<RealtimeRefresh channels={["a", "b"]} />);
-    expect(instances).toHaveLength(2);
-    const closeSpies = instances.map((i) => i.closeSpy);
+    expect(instances).toHaveLength(1);
+    const closeSpy = instances[0]!.closeSpy;
     unmount();
-    for (const spy of closeSpies) {
-      expect(spy).toHaveBeenCalledTimes(1);
-    }
+    expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("dedupes duplicate channels — one EventSource per unique key", () => {
+  it("dedupes duplicate channels — one channel param per unique name", () => {
     render(<RealtimeRefresh channels={["dup", "dup", "other", "dup"]} />);
-    expect(instances).toHaveLength(2);
-    const urls = instances.map((i) => i.url);
-    expect(urls.some((u) => u.includes("channel=dup"))).toBe(true);
-    expect(urls.some((u) => u.includes("channel=other"))).toBe(true);
+    expect(instances).toHaveLength(1);
+    const url = instances[0]!.url;
+    expect(url.match(/channel=dup/g)).toHaveLength(1);
+    expect(url).toContain("channel=other");
   });
 
   it("does not churn subscriptions when parent re-renders with a new array literal", () => {
@@ -154,14 +160,12 @@ describe("useRealtimeRefresh / RealtimeRefresh", () => {
       );
     }
     const { rerender } = render(<Host tick={0} />);
-    expect(instances).toHaveLength(2);
-    const closeSpies = instances.map((i) => i.closeSpy);
+    expect(instances).toHaveLength(1);
+    const closeSpy = instances[0]!.closeSpy;
     rerender(<Host tick={1} />);
     rerender(<Host tick={2} />);
     // No new instances and no closes.
-    expect(instances).toHaveLength(2);
-    for (const spy of closeSpies) {
-      expect(spy).not.toHaveBeenCalled();
-    }
+    expect(instances).toHaveLength(1);
+    expect(closeSpy).not.toHaveBeenCalled();
   });
 });

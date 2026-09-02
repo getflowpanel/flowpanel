@@ -1,0 +1,68 @@
+---
+title: Charts
+description: Add server-queried chart widgets or render FlowPanel chart components from client data.
+kind: how-to
+---
+
+Use a chart when the shape or change over time is easier to see than to read in a table. FlowPanel provides server-queried dashboard builders and lower-level runtime components.
+
+## Install the optional peer
+
+Charts use Recharts. Install a version supported by the current package metadata:
+
+```bash
+pnpm add recharts
+```
+
+Import dashboard builders from `@flowpanel/kit/charts`. Import runtime React components from `@flowpanel/kit/charts/runtime`.
+
+## Add a dashboard chart
+
+```ts excerpt
+import { lineChart } from "@flowpanel/kit/charts";
+
+lineChart("Signups", async ({ db, dateRange }) => {
+  return findDailySignups(db, dateRange);
+}, {
+  x: "day",
+  y: "count",
+  format: "number",
+})
+```
+
+The query runs on the server. Return a flat array with one x-axis value and numeric series values per row. Normalize dates, missing buckets, and numeric strings in the query layer so the component receives a predictable shape.
+
+Choose the form that matches the question:
+
+- line or area for change over an ordered interval;
+- bar for comparison among discrete categories;
+- pie only for a small part-to-whole set where labels remain readable;
+- table when exact values matter more than the pattern.
+
+## Format and color deliberately
+
+Legend and tooltip names come from the `y` row keys, so alias columns to presentable names in the query instead of exposing raw database keys. Use the `format` option so number, currency, and percentage rendering stays consistent with nearby metrics. The default palette comes from `--fp-chart-1` through `--fp-chart-7`; override those tokens for brand alignment and verify contrast in light and dark modes.
+
+Do not encode meaning by color alone. Keep legends and tooltips readable, and avoid more simultaneous series than users can distinguish.
+
+## Render client-owned data
+
+Use a runtime component when the data already lives in client state or comes from a browser-only interaction:
+
+```tsx excerpt
+"use client";
+
+import { LineChart } from "@flowpanel/kit/charts/runtime";
+
+export function Preview({ data }: { data: Array<{ day: string; count: number }> }) {
+  return <LineChart data={data} options={{ x: "day", y: "count" }} />;
+}
+```
+
+Fetch protected data through an authorized server boundary. Do not move a server query into the browser solely to use the runtime component.
+
+## Handle every state
+
+Define what zero rows means, distinguish loading from empty, and surface a recoverable error without removing the rest of the dashboard. Realtime refresh should update the chart because a user decision benefits—not merely because a channel exists.
+
+Use a custom widget when the visualization needs annotations, interaction, or a data model that the built-in chart options cannot express clearly. Exact builder and prop types live in [Widgets reference](/docs/reference/widgets#charts) and [React components reference](/docs/reference/react-components#widgets).

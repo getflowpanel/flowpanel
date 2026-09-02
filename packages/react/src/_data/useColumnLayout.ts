@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import type { DataTableColumn } from "./data-table-types.js";
+import type { DataTableColumn } from "./data-table-types";
 
 export interface PinMeta {
   side: "left" | "right" | "none";
@@ -39,10 +39,6 @@ export function useColumnLayout<Row>(params: {
   const { columns, columnVisibility, columnWidths, pinnedColumns } = params;
 
   const [liveWidths, setLiveWidths] = React.useState<Record<string, number>>(columnWidths ?? {});
-  // Sync from the prop only when its CONTENT differs from what we already have.
-  // A new object literal with identical values (host re-render, or our own
-  // post-persist setState round-trip) must NOT clobber an in-progress or
-  // just-committed resize.
   React.useEffect(() => {
     setLiveWidths((current) =>
       shallowEqualWidths(current, columnWidths ?? {}) ? current : { ...(columnWidths ?? {}) },
@@ -59,9 +55,6 @@ export function useColumnLayout<Row>(params: {
     [columns, columnVisibility],
   );
 
-  // Map field -> original column index so we can look up `prerenderedCells`
-  // (which is indexed against the original `columns` order, not the
-  // reordered/visible-filtered list).
   const colIndexByField = React.useMemo(() => {
     const m = new Map<string, number>();
     columns.forEach((c, i) => {

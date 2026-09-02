@@ -41,6 +41,11 @@ jobs:
 
       - uses: ./.github/actions/setup
 
+      # The docs type-check their samples with twoslash, so every package a
+      # sample imports has to have been built.
+      - name: Build workspace packages
+        run: pnpm turbo run build --filter="./packages/*"
+
       - name: Typecheck
         run: pnpm --filter @flowpanel/site typecheck
 

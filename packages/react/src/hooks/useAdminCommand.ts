@@ -8,12 +8,7 @@ export interface AdminCommand {
   close: () => void;
 }
 
-/**
- * Controls the ⌘K command palette. Binds a global keydown listener on
- * `window` for `⌘K` (macOS) / `Ctrl+K` (Windows/Linux) that toggles the
- * palette. ESC closing and focus management are handled by the palette
- * primitive (cmdk `Command.Dialog`).
- */
+/** Controls the ⌘K command palette. */
 export function useAdminCommand(): AdminCommand {
   const [open, setOpen] = useState(false);
 

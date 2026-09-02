@@ -14,19 +14,17 @@
  * pieces you want to own.
  */
 import { AdminShell, FlowpanelGlobals } from "@flowpanel/kit/react";
-import config from "@/flowpanel.config";
+import config from "{{CONFIG_IMPORT}}";
 import type { ReactNode } from "react";
 
 export default function Layout({ children }: { children: ReactNode }) {
-  // FlowpanelGlobals provides theme/labels/toast contexts.
-  // AdminShell renders nav + main + skip-link. Pass variant="tabs"
-  // for a horizontal tab strip instead of the default sidebar.
+  // Pass variant="tabs" for a horizontal tab strip instead of the default sidebar.
   return (
-    <FlowpanelGlobals labels={config.labels}>
+    <FlowpanelGlobals labels={config.labels} apiBase={config.paths.api}>
       <AdminShell
         navGroups={[]}
         currentPath="/admin"
-        brandName={config.theme?.brand?.name}
+        brand={config.theme?.brand}
       >
         {children}
       </AdminShell>

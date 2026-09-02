@@ -5,12 +5,15 @@
   "keywords": [
     "flowpanel",
     "admin",
-    "nextjs"
+    "admin-panel",
+    "nextjs",
+    "rbac",
+    "crud"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/core"
   },
   "homepage": "https://github.com/getflowpanel/flowpanel",
@@ -19,11 +22,17 @@
   "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
-      "labels": [
-        "./dist/labels.d.ts"
-      ],
       "auth": [
         "./dist/auth.d.ts"
+      ],
+      "format": [
+        "./dist/format.d.ts"
+      ],
+      "internal/migration-sql": [
+        "./dist/internal/migration-sql.d.ts"
+      ],
+      "labels": [
+        "./dist/labels.d.ts"
       ]
     }
   },
@@ -38,16 +47,6 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./labels": {
-      "import": {
-        "types": "./dist/labels.d.ts",
-        "default": "./dist/labels.mjs"
-      },
-      "require": {
-        "types": "./dist/labels.d.cts",
-        "default": "./dist/labels.cjs"
-      }
-    },
     "./auth": {
       "import": {
         "types": "./dist/auth.d.ts",
@@ -58,15 +57,45 @@
         "default": "./dist/auth.cjs"
       }
     },
+    "./format": {
+      "import": {
+        "types": "./dist/format.d.ts",
+        "default": "./dist/format.mjs"
+      },
+      "require": {
+        "types": "./dist/format.d.cts",
+        "default": "./dist/format.cjs"
+      }
+    },
+    "./internal/migration-sql": {
+      "import": {
+        "types": "./dist/internal/migration-sql.d.ts",
+        "default": "./dist/internal/migration-sql.mjs"
+      },
+      "require": {
+        "types": "./dist/internal/migration-sql.d.cts",
+        "default": "./dist/internal/migration-sql.cjs"
+      }
+    },
+    "./labels": {
+      "import": {
+        "types": "./dist/labels.d.ts",
+        "default": "./dist/labels.mjs"
+      },
+      "require": {
+        "types": "./dist/labels.d.cts",
+        "default": "./dist/labels.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
-    "test:types": "tsd",
+    "lint:attw": "attw --pack .",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack ."
+    "test:types": "tsd",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "tsd": {
     "directory": "types-test",
@@ -78,6 +107,9 @@
       "paths": {
         "@flowpanel/core": [
           "./dist/index.d.ts"
+        ],
+        "@flowpanel/core/internal/migration-sql": [
+          "./dist/internal/migration-sql.d.ts"
         ],
         "@flowpanel/core/labels": [
           "./dist/labels.d.ts"

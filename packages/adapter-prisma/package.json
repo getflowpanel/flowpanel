@@ -4,15 +4,18 @@
   "description": "Prisma ORM adapter for FlowPanel",
   "keywords": [
     "flowpanel",
+    "admin",
+    "adapter",
     "prisma",
-    "adapter"
+    "orm"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/adapter-prisma"
   },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -21,16 +24,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "pretest:unit": "prisma generate --schema=prisma/schema.prisma",
-    "test:unit": "vitest run",
-    "test:types": "tsd",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "pretest:unit": "prisma generate --schema=prisma/schema.prisma",
+    "test:types": "tsd",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "tsd": {
     "directory": "types-test",
@@ -61,7 +65,6 @@
   },
   "files": [
     "dist",
-    "package.json",
     "README.md"
   ],
   "dependencies": {
@@ -69,6 +72,8 @@
   },
   "devDependencies": {
     "@prisma/client": "^5.20.0",
+    "@testcontainers/mysql": "^11.14.0",
+    "@testcontainers/postgresql": "^10.28.0",
     "@types/node": "catalog:",
     "prisma": "^5.20.0",
     "tsd": "catalog:",

@@ -1,0 +1,154 @@
+---
+title: Actions
+description: Row, bulk, dashboard and drawer actions — every option and what they return.
+kind: reference
+---
+
+An action is a server-side function the operator triggers from the UI. FlowPanel
+gives you four places to put one, all sharing the same result type and the same
+guard pipeline: the admin-wide role gate, the resource gate, then the action's
+own `requireRole` — before `run` is ever called.
+
+Actions never become Server Actions. They are POST routes under
+`/api/flowpanel/…`, mounted by `handlers(config)`.
+
+## RowAction
+
+<ApiSignature path="../../packages/core/src/types/action.ts" name="rowAction" />
+
+Offered on a single row, inline or in the row menu.
+
+```ts excerpt
+import { resource, rowAction } from "@flowpanel/kit";
+import { orders } from "@/db/schema";
+
+type RefundInput = { reason: string };
+
+const refundOrder = rowAction<typeof orders.$inferSelect, RefundInput>({
+  key: "refund",
+  label: "Refund",
+  icon: "circle-dollar-sign",
+  variant: "destructive",
+  confirm: { title: "Refund this order?", confirmLabel: "Refund" },
+  requireRole: "admin",
+  disabled: (row) => (row.status === "refunded" ? "Already refunded" : false),
+  form: [{ name: "reason", label: "Reason", type: "textarea", required: true }],
+  run: async (row, input, ctx) => {
+    await refund(ctx.db, row.id, input.reason);
+    return { ok: true, message: `Refunded ${row.id}`, refresh: true };
+  },
+});
+
+resource(orders, {
+  columns: ["id", "status"],
+  actions: [refundOrder],
+});
+```
+
+The form describes an action-specific `ActionInput`, not columns on the row.
+Use `rowAction<Row, Input>()` to get exact types for both handler arguments and
+compile-time checks for every `form[].name`. The helper returns the same plain
+object you could write inline; it has no runtime cost.
+
+```ts twoslash
+import { rowAction } from "@flowpanel/kit";
+
+type User = { id: string; status: "active" | "suspended" };
+type SuspendInput = { reason: string; notify: boolean };
+
+export const suspendUser = rowAction<User, SuspendInput>({
+  key: "suspend",
+  label: "Suspend",
+  icon: "ban",
+  form: [
+    { name: "reason", type: "textarea", required: true },
+    { name: "notify", type: "checkbox" },
+  ],
+  run: async (user, input) => ({
+    ok: true,
+    message: `${user.id}: ${input.reason}`,
+  }),
+});
+```
+
+<AutoTypeTable path="../../packages/core/src/types/action.ts" name="RowAction" />
+
+`hidden` runs server-side for every row on the page, and the row's action list
+is filtered before it reaches the client — a hidden action is not merely
+invisible, its route returns `404` for that row.
+
+## BulkAction
+
+<ApiSignature path="../../packages/core/src/types/action.ts" name="bulkAction" />
+
+Applied to the operator's selection. `run` receives the ids, capped at 1000 per
+request — the cap is a **rejection, not a truncation**: over 1000 ids the route
+answers `422 too many ids (max 1000)` and `run` never executes, so nothing is
+half-applied. Page your own batches if you need more.
+
+<AutoTypeTable path="../../packages/core/src/types/action.ts" name="BulkAction" />
+
+Use `bulkAction<Row, Input>(definition)` when the bulk form has a typed
+payload. Its handler receives `string[]` ids followed by that input.
+
+When a resource has delete enabled and declares no `bulkActions`, `defineAdmin`
+adds a default delete action. Opt out with `bulkActions: []`.
+
+## DashboardAction
+
+<ApiSignature path="../../packages/core/src/types/action.ts" name="dashboardAction" />
+
+Rendered in a dashboard's page header. It gets no row — only the form input.
+
+<AutoTypeTable path="../../packages/core/src/types/action.ts" name="DashboardAction" />
+
+Use `dashboardAction<Input>(definition)` for the same typed form contract
+without a row type.
+
+Set `hideActionsBar: true` on the dashboard to suppress the bar these render in.
+
+## DrawerAction
+
+Rendered in the drawer footer for the open row. Its `form` uses the lighter
+`DrawerFieldFormSpec` rather than `FieldDef`.
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerAction" />
+
+### DrawerFieldFormSpec
+
+<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerFieldFormSpec" />
+
+## ActionResult
+
+What every `run` returns. The success shape drives what the operator sees next.
+
+<AutoTypeTable path="../../packages/core/src/types/action.ts" name="ActionResult" />
+
+`ActionInput` is the default `Record<string, unknown>` payload used when no
+more specific input type is supplied.
+
+Returning `{ ok: false, error }` is the way to fail a run cleanly — the message
+reaches the operator verbatim, so keep internals out of it. Throwing works too:
+a `FlowpanelError` maps to its own status, anything else becomes a generic
+`500` with the detail logged rather than sent.
+
+## ActionContext
+
+The last argument to every `run`.
+
+<AutoTypeTable path="../../packages/core/src/types/context.ts" name="ActionContext" />
+
+`ctx.db` is your own client — the adapter hands it through untouched, so you
+write ordinary queries. `ctx.publish` pushes a realtime message to every
+connected admin; widgets and lists that name the channel in `realtime` refresh.
+
+## Validation
+
+An action with a `form` is validated server-side before `run`:
+
+1. `required` fields must be present.
+2. Each field's `validate` runs — a Zod schema or a function returning a message.
+3. Only then does `run` receive `input`.
+
+A failure returns `422` with an `issues` array. The client renders them against
+the matching inputs.

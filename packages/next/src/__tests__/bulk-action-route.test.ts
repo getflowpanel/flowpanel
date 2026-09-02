@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("../runtime/publish.js", () => ({
+vi.mock("../runtime/publish", () => ({
   publish: vi.fn(),
   publishResource: vi.fn(),
   bindPublisher: vi.fn(),
@@ -13,9 +13,10 @@ import type {
   BulkAction,
   ResolvedAdminConfig,
   ResourceConfig,
+  Session,
 } from "@flowpanel/core";
-import { bulkActionRoute, serializeBulkAction } from "../actions/bulk-action.js";
-import { publishResource } from "../runtime/publish.js";
+import { bulkActionRoute, serializeBulkAction } from "../actions/bulk-action";
+import { publishResource } from "../runtime/publish";
 
 type Row = { id: string };
 
@@ -24,6 +25,8 @@ function makeConfig(opts: {
   audit?: AuditConfig | undefined;
   resourceAudit?: boolean | undefined;
   role?: string;
+  rowNotFound?: boolean;
+  session?: Session | null;
 }) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -31,7 +34,7 @@ function makeConfig(opts: {
     introspect: () => ({ name: "items", columns: [], primaryKey: "id" }),
     inferSchema: () => ({}) as never,
     list: async () => ({ rows: [], total: 0, page: 1, pageSize: 10 }),
-    get: async () => ({}),
+    get: async () => (opts.rowNotFound ? null : {}),
     create: async () => ({}),
     update: async () => ({}),
     delete: async () => undefined,
@@ -49,7 +52,7 @@ function makeConfig(opts: {
 
   const config: ResolvedAdminConfig = {
     adapter,
-    auth: { session: async () => null, role: () => opts.role ?? "admin" },
+    auth: { session: async () => opts.session ?? null, role: () => opts.role ?? "admin" },
     ...(opts.audit ? { audit: opts.audit } : {}),
     resources: [resource],
     resourcesByName: new Map([["items", resource]]),
@@ -105,6 +108,38 @@ describe("bulkActionRoute", () => {
     expect(res.status).toBe(400);
   });
 
+  it("400 when the action input is not an object", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({ action: { key: "verify", label: "V", run } });
+    const handler = bulkActionRoute(config);
+    const res = await handler(jsonReq({ ids: ["a"], input: "not-an-object" }), {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "input must be an object" });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("413 when the request body is too large", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({ action: { key: "verify", label: "V", run } });
+    const handler = bulkActionRoute(config);
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": String(1024 * 1024 + 1),
+      },
+      body: JSON.stringify({ ids: ["a"] }),
+    });
+    const res = await handler(req, {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(res.status).toBe(413);
+    expect((await res.json()).error).toBe("request body is too large");
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("400 when ids is empty", async () => {
     const config = makeConfig({
       action: { key: "verify", label: "V", run: async () => ({ ok: true }) },
@@ -142,7 +177,12 @@ describe("bulkActionRoute", () => {
     }));
     const config = makeConfig({
       audit: { enabled: true, sink },
-      action: { key: "verify", label: "Verify", run },
+      action: {
+        key: "verify",
+        label: "Verify",
+        form: [{ name: "note", type: "text" }],
+        run,
+      },
     });
     const handler = bulkActionRoute(config);
     const res = await handler(jsonReq({ ids: ["a", "b", "c"], input: { note: "k" } }), {
@@ -155,7 +195,7 @@ describe("bulkActionRoute", () => {
     expect(run).toHaveBeenCalledWith(
       ["a", "b", "c"],
       { note: "k" },
-      expect.objectContaining({ session: null }),
+      expect.objectContaining({ session: null, actorId: null }),
     );
     expect(publishResource).toHaveBeenCalledWith("items", { action: "update" });
     expect(sink).toHaveBeenCalledWith(
@@ -165,6 +205,31 @@ describe("bulkActionRoute", () => {
         targetId: "a,b,c",
       }),
     );
+  });
+
+  it("deduplicates ids and requires every selected row to exist inside the active scope", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const handler = bulkActionRoute(
+      makeConfig({ action: { key: "verify", label: "Verify", run } }),
+    );
+    const deduped = await handler(jsonReq({ ids: ["a", "a", "b"] }), {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(deduped.status).toBe(200);
+    expect(run).toHaveBeenCalledWith(["a", "b"], {}, expect.anything());
+
+    const missingRun = vi.fn(async () => ({ ok: true as const }));
+    const missingHandler = bulkActionRoute(
+      makeConfig({
+        rowNotFound: true,
+        action: { key: "verify", label: "Verify", run: missingRun },
+      }),
+    );
+    const missing = await missingHandler(jsonReq({ ids: ["outside-scope"] }), {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(missing.status).toBe(404);
+    expect(missingRun).not.toHaveBeenCalled();
   });
 
   it("audit targetId truncates after 10 ids with an ellipsis marker", async () => {
@@ -218,7 +283,28 @@ describe("bulkActionRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).not.toContain("db down");
-    expect(body.error).toBe("internal error");
+    expect(body.error).toBe("Internal server error");
+  });
+
+  it("passes ctx.actorId derived from the session to run", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      session: { id: "u1" } as unknown as Session,
+      action: {
+        key: "verify",
+        label: "V",
+        run,
+      },
+    });
+    const handler = bulkActionRoute(config);
+    await handler(jsonReq({ ids: ["a"] }), {
+      params: Promise.resolve({ resource: "items", action: "verify" }),
+    });
+    expect(run).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ actorId: "u1" }),
+    );
   });
 
   it("returns 422 when ids exceeds the bulk cap, before running", async () => {
@@ -272,7 +358,12 @@ describe("bulkActionRoute", () => {
   it("accepts FormData body with multiple ids fields", async () => {
     const run = vi.fn(async () => ({ ok: true as const, message: "ok" }));
     const config = makeConfig({
-      action: { key: "verify", label: "V", run },
+      action: {
+        key: "verify",
+        label: "V",
+        form: [{ name: "note", type: "text" }],
+        run,
+      },
     });
     const handler = bulkActionRoute(config);
     const fd = new FormData();
@@ -319,5 +410,24 @@ describe("serializeBulkAction", () => {
       run: async () => ({ ok: true }),
     });
     expect(wire.confirm).toEqual({ title: "Are you sure?" });
+  });
+
+  it("serializes form field descriptors so BulkActionsBar can render them", () => {
+    const wire = serializeBulkAction({
+      key: "archive",
+      label: "Archive",
+      form: [{ name: "reason", type: "textarea", required: true }],
+      run: async () => ({ ok: true }),
+    });
+    expect(wire.form).toEqual([{ name: "reason", type: "textarea", required: true }]);
+  });
+
+  it("omits `form` from the wire shape when there's no form", () => {
+    const wire = serializeBulkAction({
+      key: "k",
+      label: "L",
+      run: async () => ({ ok: true }),
+    });
+    expect("form" in wire).toBe(false);
   });
 });

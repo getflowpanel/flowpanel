@@ -12,11 +12,11 @@ import { expect, test } from "@playwright/test";
  * 2. Activating it (Enter) jumps to the #main landmark.
  * 3. A row opens the drawer; Esc closes it.
  *
- * Requires freelance-radar + Postgres running.
+ * Requires ai-scraper + Postgres running.
  */
 test.describe("M4a — keyboard navigation", () => {
   test("skip link is first focusable and jumps to main; Esc closes drawer", async ({ page }) => {
-    await page.goto("/admin/users");
+    await page.goto("/admin/customers");
     await page.locator("tbody tr").first().waitFor({ state: "visible" });
 
     // (1) The skip link must be the first thing a keyboard user reaches, so it
@@ -29,6 +29,7 @@ test.describe("M4a — keyboard navigation", () => {
       .first();
     await expect(firstFocusable).toHaveAttribute("href", "#main");
     await expect(firstFocusable).toHaveText(/skip to main content/i);
+    await expect(page.getByRole("link", { name: /skip to main content/i })).toHaveCount(1);
 
     // (2) Focusing it and pressing Enter activates the in-page jump to #main.
     await firstFocusable.focus();
@@ -36,8 +37,10 @@ test.describe("M4a — keyboard navigation", () => {
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/#main$/);
 
-    // (3) Open the drawer by clicking the first row; Esc closes it.
-    await page.locator("tbody tr").first().click();
+    // (3) Open the drawer by clicking the first row's email cell (company is
+    // the inline-edit showcase column and would start editing instead); Esc
+    // closes the drawer.
+    await page.locator("tbody tr").first().getByText(/@/).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);

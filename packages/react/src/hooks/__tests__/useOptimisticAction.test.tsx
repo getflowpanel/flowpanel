@@ -1,6 +1,6 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { useOptimisticAction } from "../useOptimisticAction.js";
+import { useOptimisticAction } from "../useOptimisticAction";
 
 type Row = { count: number };
 

@@ -1,21 +1,23 @@
-import type { ResolvedAdminConfig, ShellConfig, ShellMode } from "@flowpanel/core";
-import { checkRequireRole } from "@flowpanel/core";
+import type { RequestContext, ResolvedAdminConfig, ShellConfig, ShellMode } from "@flowpanel/core";
+import { FlowpanelAccessError, FlowpanelAuthError } from "@flowpanel/core";
 import { CommandHost, DrawerHost } from "@flowpanel/next/client";
-import { AdminShell, type FlowpanelComponentSlots, FlowpanelGlobals } from "@flowpanel/react";
+import {
+  AdminShell,
+  EmptyState,
+  type FlowpanelComponentSlots,
+  FlowpanelGlobals,
+  type ShellBrand,
+} from "@flowpanel/react";
+import { redirect } from "next/navigation";
 import type * as React from "react";
-import { DashboardPage } from "./pages/dashboard.js";
-import { NotFound } from "./pages/not-found.js";
-import { QueuePage } from "./pages/queue-page.js";
-import { ResourceCreatePage } from "./pages/resource-create.js";
-import { ResourceDetailPage } from "./pages/resource-detail.js";
-import { ResourceEditPage } from "./pages/resource-edit.js";
-import { ResourceListPage } from "./pages/resource-list.js";
-import { UserPage } from "./pages/user-page.js";
-import { matchDashboard } from "./runtime/dashboard-routing.js";
-import { buildNav, resourceNavName } from "./runtime/nav.js";
-import { matchPage } from "./runtime/page-routing.js";
-import { bindPublisher } from "./runtime/publish.js";
-import { buildRequestContext } from "./runtime/request-setup.js";
+import { buildServerRequest } from "./runtime/build-server-request";
+import { buildNav } from "./runtime/nav";
+import { bindPublisher } from "./runtime/publish";
+import { renderContent } from "./runtime/render-content";
+import { buildRequestContext } from "./runtime/request-setup";
+import { ThemeVars } from "./runtime/theme-vars";
+
+export { renderContent } from "./runtime/render-content";
 
 type PageParams = Record<string, string | string[] | undefined>;
 type PageProps = {
@@ -23,14 +25,6 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/**
- * Read the catch-all segments from Next's `params` regardless of what the
- * host project named its catch-all bucket. We probe `slug` and `rest` first
- * (the two conventional names), then fall back to the first `string[]`
- * value in `params`.
- *
- * @internal — exported for tests.
- */
 export function resolveCatchAllSegments(params: PageParams): string[] {
   const slug = params.slug;
   if (Array.isArray(slug)) return slug;
@@ -43,18 +37,14 @@ export function resolveCatchAllSegments(params: PageParams): string[] {
 }
 
 export interface FlowpanelOptions {
-  /**
-   * Override `config.shell` at render time. Useful when the same admin
-   * config is mounted at different routes with different chrome (e.g.
-   * standalone `/admin` with sidebar, embedded `/dashboard/admin` with
-   * tabs).
-   */
+  /** Override `config.shell` at render time. */
   shell?: ShellConfig | ShellMode;
 }
 
 interface ResolvedShell {
   mode: ShellMode;
-  brandName?: string;
+  brand?: ShellBrand;
+  showSkipLink: boolean;
 }
 
 function resolveShell(
@@ -64,34 +54,22 @@ function resolveShell(
   const raw = override ?? config.shell;
   const cfg: ShellConfig = typeof raw === "string" ? { mode: raw } : (raw ?? {});
   const mode: ShellMode = cfg.mode ?? "sidebar";
+  const showSkipLink = cfg.skipLink !== false;
 
   if (cfg.brand === false || mode === "bare") {
-    return { mode };
+    return { mode, showSkipLink };
   }
-  const brandName =
-    (cfg.brand && typeof cfg.brand === "object" ? cfg.brand.name : undefined) ??
-    config.theme?.brand?.name;
-  return { mode, ...(brandName !== undefined ? { brandName } : {}) };
+  const override_ = cfg.brand && typeof cfg.brand === "object" ? cfg.brand : undefined;
+  const themeBrand = config.theme?.brand;
+  const brand: ShellBrand = {
+    ...(themeBrand ?? {}),
+    ...(override_ ?? {}),
+  };
+  const hasBrand = brand.name !== undefined || brand.logo !== undefined;
+  return { mode, showSkipLink, ...(hasBrand ? { brand } : {}) };
 }
 
-/**
- * Mount the admin UI as a Next.js page component. Place inside an
- * optional catch-all route — typically `app/admin/[[...slug]]/page.tsx`,
- * but the catch-all bucket name is flexible: `slug`, `rest`, or any
- * other identifier you choose. The first `string[]` param value is
- * treated as the URL segments (preference: `slug` → `rest` → first array).
- *
- * @example
- * ```ts
- * // app/admin/[[...slug]]/page.tsx
- * import { Flowpanel } from "@flowpanel/next";
- * import { config } from "@/flowpanel.config";
- * export default Flowpanel(config);
- *
- * // app/admin/[[...rest]]/page.tsx — also works, no config change needed.
- * export default Flowpanel(config);
- * ```
- */
+/** Mount the admin UI as a Next.js page component. */
 export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = {}) {
   bindPublisher(config);
   return async function FlowpanelPage({ params, searchParams }: PageProps) {
@@ -106,17 +84,29 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
       }
     }
 
-    const navGroups = buildNav(config);
-    const navItems = navGroups.flatMap((g) =>
-      g.items.map((it) => ({ label: it.label, href: it.href })),
-    );
     const slugPath = `/${slug.join("/")}`;
     const currentPath = slugPath === "/" ? config.basePath || "/" : `${config.basePath}${slugPath}`;
     const url = new URL(`http://localhost${config.basePath}${slugPath}`);
     for (const [k, v] of sp.entries()) url.searchParams.append(k, v);
-    const req = new Request(url);
+    const req = await buildServerRequest(url);
 
-    const content = await renderContent(config, slug, sp, req);
+    let content: React.ReactNode;
+    let reqCtx: RequestContext | undefined;
+    let navGroups: Awaited<ReturnType<typeof buildNav>> = [];
+    try {
+      reqCtx = await buildRequestContext({ req, config });
+      navGroups = await buildNav(config, reqCtx);
+      content = await renderContent(config, slug, sp, req, reqCtx);
+    } catch (err) {
+      content = await handleRenderError(err, config, req);
+    }
+    const navItems = navGroups.flatMap((g) =>
+      g.items.map((it) => ({
+        label: it.label,
+        href: it.href,
+        ...(it.icon ? { icon: it.icon } : {}),
+      })),
+    );
 
     const shell = resolveShell(config, opts.shell);
     const themeComponents = config.theme?.components as
@@ -124,6 +114,8 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
       | undefined;
     const themeMode = config.theme?.mode;
     const labels = config.labels;
+    const accountUser =
+      config.theme?.user && reqCtx ? config.theme.user(reqCtx.session) : undefined;
 
     const globals = (
       <>
@@ -146,7 +138,9 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
           variant={shell.mode}
           navGroups={navGroups}
           currentPath={slug.length === 0 ? config.basePath || "/" : currentPath}
-          {...(shell.brandName !== undefined ? { brandName: shell.brandName } : {})}
+          showSkipLink={shell.showSkipLink}
+          {...(shell.brand !== undefined ? { brand: shell.brand } : {})}
+          {...(accountUser ? { user: accountUser } : {})}
         >
           {content}
           {globals}
@@ -155,22 +149,19 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
 
     return (
       <FlowpanelGlobals
+        apiBase={config.paths.api}
         {...(themeComponents ? { themeComponents } : {})}
         {...(themeMode ? { themeMode } : {})}
         {...(labels ? { labels } : {})}
       >
+        <ThemeVars theme={config.theme} />
         {body}
       </FlowpanelGlobals>
     );
   };
 }
 
-/**
- * Sugar for `Flowpanel(config, { shell: "bare" })`. Renders only the page
- * content — the host app provides chrome via its own `app/layout.tsx` or
- * a wrapper component. Globals (toasts, drawer, ⌘K, realtime) are still
- * mounted, so feature parity is preserved.
- */
+/** Sugar for `Flowpanel(config, { shell: "bare" })`. */
 export function FlowpanelContent(
   config: ResolvedAdminConfig,
   opts: Omit<FlowpanelOptions, "shell"> = {},
@@ -178,88 +169,27 @@ export function FlowpanelContent(
   return Flowpanel(config, { ...opts, shell: "bare" });
 }
 
-async function renderContent(
+/** Render-path auth boundary. */
+export async function handleRenderError(
+  err: unknown,
   config: ResolvedAdminConfig,
-  slug: string[],
-  sp: URLSearchParams,
   req: Request,
 ): Promise<React.ReactNode> {
-  // Dashboards take priority over resources — a dashboard registered at
-  // "/" + slug.join("/") intercepts before the resource fallthrough.
-  const dash = matchDashboard(slug, config);
-  if (dash) {
-    const session = await config.auth.session();
-    if (dash.requireRole !== undefined) {
-      const role = config.auth.role(session);
-      checkRequireRole(dash.requireRole, role, session);
-    }
-    return (
-      <DashboardPage
-        config={config}
-        dashboard={dash}
-        searchParams={sp}
-        req={req}
-        session={session}
-      />
-    );
+  if (!(err instanceof FlowpanelAccessError) && !(err instanceof FlowpanelAuthError)) {
+    throw err;
   }
 
-  // User pages registered via `defineAdmin({ pages: [...] })` come next,
-  // after dashboards but before the resource fallthrough — so `/x` resolves
-  // to a `page({ path: "/x", component })` rather than being treated as a
-  // missing resource named "x".
-  const userPage = matchPage(slug, config);
-  if (userPage) {
-    if (userPage.requireRole !== undefined) {
-      const reqCtx = await buildRequestContext({ req, config });
-      checkRequireRole(userPage.requireRole, reqCtx.role, reqCtx.session);
-    }
-    return <UserPage page={userPage} />;
-  }
+  const session = await config.auth.session(req).catch(() => null);
+  const isAuthError = err instanceof FlowpanelAuthError || session === null;
+  const target = isAuthError ? config.auth.signInUrl : config.auth.forbiddenUrl;
+  if (target) redirect(target);
 
-  if (slug.length === 0) {
-    const first = config.resources?.[0];
-    if (!first) return <NotFound config={config} />;
-    return <ResourceListPage config={config} resource={first} searchParams={sp} req={req} />;
-  }
-
-  if (slug[0] === "queues" && slug.length === 2) {
-    const qkey = slug[1] ?? "";
-    const q = config.queuesByKey.get(qkey);
-    if (q) {
-      if (q.options.requireRole) {
-        const reqCtx = await buildRequestContext({ req, config });
-        checkRequireRole(q.options.requireRole, reqCtx.role, reqCtx.session);
-      }
-      return <QueuePage queue={q} />;
-    }
-    return <NotFound config={config} />;
-  }
-
-  const resourceName = slug[0];
-  if (!resourceName) return <NotFound config={config} />;
-  const resource = config.resourcesByName.get(resourceName);
-  if (!resource) return <NotFound config={config} />;
-  const name = resourceNavName(resource);
-
-  if (slug.length === 1) {
-    return <ResourceListPage config={config} resource={resource} searchParams={sp} req={req} />;
-  }
-
-  const second = slug[1];
-  if (!second) return <NotFound config={config} />;
-  if (slug.length === 2 && second === "new") {
-    return <ResourceCreatePage config={config} resource={resource} name={name} req={req} />;
-  }
-  if (slug.length === 2) {
-    return (
-      <ResourceDetailPage config={config} resource={resource} name={name} id={second} req={req} />
-    );
-  }
-  if (slug.length === 3 && slug[2] === "edit") {
-    return (
-      <ResourceEditPage config={config} resource={resource} name={name} id={second} req={req} />
-    );
-  }
-  return <NotFound config={config} />;
+  return isAuthError ? (
+    <EmptyState title="Sign in required" description="You need to sign in to view this admin." />
+  ) : (
+    <EmptyState
+      title="Access denied"
+      description="Your account doesn't have permission to view this admin."
+    />
+  );
 }

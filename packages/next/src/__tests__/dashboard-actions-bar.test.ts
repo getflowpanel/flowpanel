@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldRenderActionsBar } from "../pages/dashboard.js";
+import { shouldRenderActionsBar } from "../pages/dashboard";
 
 describe("shouldRenderActionsBar", () => {
   it("renders when there is at least one action and the bar is not hidden", () => {

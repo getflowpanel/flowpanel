@@ -1,0 +1,188 @@
+---
+title: Widgets
+description: Every widget builder and the options it accepts.
+kind: reference
+---
+
+Widgets are the contents of a dashboard section, and of a drawer's widget tab.
+Each builder returns a `WidgetConfig`; every `query` runs on the server with a
+`WidgetContext`.
+
+```ts excerpt
+import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
+import { areaChart } from "@flowpanel/kit/charts";
+
+export const overview = dashboard({
+  path: "/",
+  label: "Overview",
+  dateRange: { preset: "last30d" },
+  sections: [
+    {
+      label: "Revenue",
+      widgets: [
+        metric("MRR", async ({ db, dateRange }) => mrr(db, dateRange), {
+          format: "currency",
+          span: 3,
+          drilldown: "/admin/invoices",
+        }),
+        areaChart("Revenue over time", async ({ db }) => revenueSeries(db), {
+          x: "day",
+          y: ["subscriptions", "one-off"],
+          stacked: true,
+          span: 9,
+        }),
+      ],
+    },
+  ],
+});
+```
+
+## WidgetContext
+
+What every widget `query` receives.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="WidgetContext" />
+
+## Shared option types
+
+`Span` is `1 | 2 | 3 | 4 | 6 | 8 | 12` — the widget's width in the section's
+12-column grid.
+
+`NumericFormat` is `"number" | "currency" | "percent" | "bytes" | "duration"`.
+
+`Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
+
+Every widget accepts `realtime`, a channel name or list. When one fires, that
+widget re-runs its query — the rest of the dashboard stays put.
+
+## metric
+
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="metric" />
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricOptions" />
+
+`icon` is handed to the metric card as a React child and rendered verbatim.
+Metric icons are deliberately free-form: pass an emoji or a ligature your own
+icon font resolves; a Lucide name renders as literal text. This differs from
+resource, action and command icons, which use the serializable `IconName`
+registry described under [resource icons](/docs/reference/resources#icons).
+
+### MetricDelta
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricDelta" />
+
+## table
+
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="table" />
+
+Point it at a registered `resource` to reuse that resource's columns, or supply
+your own `query` and `columns`.
+
+`R` is inferred from `query`, so `columns` is checked against the row that query
+returns — a misspelled column is a compile error. `columns` is `RowKey<R>[]`,
+which is `keyof R & string` once `R` is known and plain `string` while it is
+not: without a `query` there is no row type to check against, and any column
+string is accepted.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="TableWidgetOptions" />
+
+## statGroup
+
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="statGroup" />
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="StatGroupOptions" />
+
+### StatItem
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="StatItem" />
+
+`StatValue` is `string | number | boolean | bigint | Date | null | undefined`.
+Keeping the literal side explicit preserves full `WidgetContext` autocomplete
+inside async `value` resolvers.
+
+## custom
+
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="custom" />
+
+Renders your own component in the grid. `props` may be a value or a function
+resolved on the server per request, which is how you feed it query results.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="CustomOptions" />
+
+## Charts
+
+Chart builders live in `@flowpanel/kit/charts`, which is a separate entry point
+so the recharts bundle never loads for admins that use no charts.
+
+```ts excerpt
+import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts";
+```
+
+Each takes `(label, query, options)`, where `query` returns an array of rows.
+The row type is inferred from `query`, so `x` / `y` (and `category` / `value` on
+a pie) must name keys of that row — a typo is a compile error. A `query` typed
+as `unknown[]` leaves them as plain strings.
+
+### ChartOptionsBase
+
+Shared by area, bar and line charts.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="ChartOptionsBase" />
+
+`ChartBucket` is `"minute" | "hour" | "day" | "week" | "month" | "year" | "auto"`.
+
+### areaChart
+
+<ApiSignature path="../../packages/charts/src/builders/areaChart.ts" name="areaChart" />
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="AreaChartOptions" />
+
+### barChart
+
+<ApiSignature path="../../packages/charts/src/builders/barChart.ts" name="barChart" />
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="BarChartOptions" />
+
+### lineChart
+
+<ApiSignature path="../../packages/charts/src/builders/lineChart.ts" name="lineChart" />
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="LineChartOptions" />
+
+### pieChart
+
+<ApiSignature path="../../packages/charts/src/builders/pieChart.ts" name="pieChart" />
+
+Pie charts take `category` / `value` instead of `x` / `y`.
+
+<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="PieChartOptions" />
+
+## Dashboards
+
+<ApiSignature path="../../packages/core/src/builders/dashboard.ts" name="dashboard" />
+
+<ApiSignature path="../../packages/core/src/builders/dashboard.ts" name="page" />
+
+Both are identity functions — they exist so the object literal is checked
+against its type at the call site and reads as a builder alongside `resource()`
+and `queue()`.
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DashboardConfig" />
+
+### SectionConfig
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="SectionConfig" />
+
+### DateRangeConfig
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DateRangeConfig" />
+
+`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD"`.
+
+### ResolvedDateRange
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="ResolvedDateRange" />
+
+### PageConfig
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="PageConfig" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toCsv, toJson } from "../export.js";
+import { toCsv, toJson } from "../export";
 
 describe("toCsv", () => {
   it("emits header + rows", () => {
@@ -24,6 +24,11 @@ describe("toCsv", () => {
       ["a", "b", "c"],
     );
     expect(out).toBe("a,b,c\n,,2026-01-15T00:00:00.000Z\n");
+  });
+
+  it("neutralizes leading formula sigils so spreadsheets treat them as text", () => {
+    const out = toCsv([{ id: "=SUM(A1)", name: "+cmd", note: "@ref" }], ["id", "name", "note"]);
+    expect(out).toBe("id,name,note\n'=SUM(A1),'+cmd,'@ref\n");
   });
 
   it("handles empty rows array (header-only)", () => {

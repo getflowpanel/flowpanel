@@ -6,12 +6,14 @@
     "flowpanel",
     "eslint",
     "eslint-plugin",
-    "admin"
+    "eslintplugin",
+    "admin",
+    "lint"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/eslint-plugin"
   },
   "homepage": "https://github.com/getflowpanel/flowpanel",
@@ -33,10 +35,10 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
+    "lint:attw": "attw --pack .",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack ."
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "sideEffects": false,
   "files": [
@@ -54,7 +56,6 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@typescript-eslint/parser": "^8.0.0",
     "@typescript-eslint/rule-tester": "^8.0.0",
     "eslint": "^9.0.0",
     "tsup": "catalog:",

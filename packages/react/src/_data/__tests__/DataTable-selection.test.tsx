@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-import { DataTable } from "../DataTable.js";
+import { DataTable } from "../DataTable";
 
 afterEach(cleanup);
 
@@ -67,11 +67,16 @@ describe("DataTable selection", () => {
     expect(onSelectionChange).toHaveBeenLastCalledWith([]);
   });
 
-  it("selected row has aria-selected='true'", () => {
+  it("exposes selection on the row checkbox, not as aria-selected on the <tr>", () => {
+    // `row` inside role="table" does not map aria-selected, so the checkbox is
+    // the only exposure a screen reader honors.
     render(<DataTable {...baseProps} selection={["1"]} onSelectionChange={vi.fn()} />);
     const rows = screen.getAllByRole("row");
     // first role=row is the thead row; row index 1 is the first tbody row
-    expect(rows[1]?.getAttribute("aria-selected")).toBe("true");
-    expect(rows[2]?.getAttribute("aria-selected")).toBe("false");
+    expect(rows[1]?.hasAttribute("aria-selected")).toBe(false);
+    expect(rows[2]?.hasAttribute("aria-selected")).toBe(false);
+    const [, first, second] = screen.getAllByRole("checkbox");
+    expect(first?.getAttribute("aria-checked")).toBe("true");
+    expect(second?.getAttribute("aria-checked")).toBe("false");
   });
 });

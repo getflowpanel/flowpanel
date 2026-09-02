@@ -10,7 +10,7 @@ vi.mock("ioredis", () => ({
   default: vi.fn(() => redisClient),
 }));
 
-import { createRateLimiter } from "../runtime/rate-limit.js";
+import { createRateLimiter } from "../runtime/rate-limit";
 
 describe("createRateLimiter — memory", () => {
   afterEach(() => {

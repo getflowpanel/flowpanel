@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before opening, please skim the [documentation](https://flowpanel.dev/docs)
+        Before opening, please skim the [documentation](https://flowpanel.tech/docs)
         and browse [GitHub Discussions](https://github.com/getflowpanel/flowpanel/discussions)
         — your feature may already be planned, deferred, or under discussion.
 
@@ -38,7 +38,7 @@ body:
     attributes:
       label: Scope check
       options:
-        - label: I checked the [documentation](https://flowpanel.dev/docs) and [Discussions](https://github.com/getflowpanel/flowpanel/discussions) — this isn't already planned or deferred.
+        - label: I checked the [documentation](https://flowpanel.tech/docs) and [Discussions](https://github.com/getflowpanel/flowpanel/discussions) — this isn't already planned or deferred.
           required: true
         - label: I'm willing to send a PR if the design is approved.
           required: false

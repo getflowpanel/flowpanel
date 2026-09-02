@@ -1,88 +1,81 @@
 ---
-title: Multi-tenant scoping
-description: Restrict every query to one tenant with a global scope plus a per-resource predicate — leak-proof and fail-closed.
+title: Multi-tenant scope
+description: Bind every tenant-owned resource operation to the current tenant and verify fail-closed behavior.
+kind: how-to
 ---
 
-flowpanel scopes a multi-tenant admin in two layers:
+Tenant scope has two parts: the root config resolves who the request belongs to, and each tenant-owned resource translates that scope into an adapter predicate.
 
-1. A **global `scope`** function resolves the current tenant from the request
-   (e.g. `companyId` from the session).
-2. Each **resource declares a `scope` predicate** that AND-s the tenant
-   condition into every read and by-id mutation.
+## Prerequisites
 
-The split is deliberate: the global function names the tenant once; each
-resource maps that tenant onto its own column. The same captured condition
-guards `list`, `get`, `update`, and `delete`, so a scoped resource can never
-leak a row from another tenant.
+Authentication must provide a trusted tenant identifier. Decide which resources are tenant-owned and which are intentionally global. Do not infer tenancy from a client query parameter.
 
-## 1. Resolve the tenant globally
+## Resolve the tenant once
 
-The global `scope` receives `{ req, session }` and returns a plain object
-(or `null` to disable scoping for this request):
-
-```ts
-import { defineAdmin } from "@flowpanel/kit";
-
+```ts excerpt
 export default defineAdmin({
-  // …adapter, auth…
-  scope: ({ session }) => {
-    const companyId = (session as { companyId?: string } | null)?.companyId;
-    return companyId ? { companyId } : null;
+  adapter,
+  auth,
+  scope: async ({ session }) => {
+    const tenantId = session?.user?.tenantId;
+    if (!tenantId) throw new Error("No tenant selected");
+    return { tenantId };
   },
-  resources: [
-    /* … */
-  ],
+  resources,
 });
 ```
 
-## 2. Map the tenant onto each resource
+The resolved value is request-scoped and available to resource predicates, policies, actions, and widget queries.
 
-The returned object is handed to every resource's `scope` predicate. The
-predicate AND-s the tenant condition into the adapter's native query.
+## Bind each tenant-owned resource
 
-For **Drizzle**, call `.where(...)` on the query builder:
-
-```ts
-import { resource } from "@flowpanel/kit";
-import { eq } from "drizzle-orm";
-import * as schema from "@/db/schema";
-
-resource(schema.invoices, {
-  columns: ["number", "total", "status"],
-  scope: (s, query) =>
-    query.where(eq(schema.invoices.companyId, (s as { companyId: string }).companyId)),
-});
+```ts excerpt
+resource(schema.orders, {
+  columns: ["number", "status", "total", "createdAt"],
+  scope: ({ tenantId }, query) => query.where(eq(schema.orders.tenantId, tenantId)),
+  create: {
+    fields: [
+      "number",
+      "status",
+      "total",
+      {
+        name: "tenantId",
+        type: "hidden",
+        hidden: true,
+        defaultValue: async ({ scope }) => scope.tenantId,
+      },
+    ],
+  },
+})
 ```
 
-For **Prisma**, merge the tenant key into the `where` object:
+The predicate's `query` argument is adapter-specific. With Drizzle it is a query builder — chain a `where` clause as above. With Prisma it is the `where` object — merge the tenant keys into it and return the result:
 
-```ts
-resource("Invoice", {
-  columns: ["number", "total", "status"],
-  scope: (s, where) => ({
-    ...(where as object),
-    companyId: (s as { companyId: string }).companyId,
-  }),
-});
+```ts excerpt
+scope: ({ tenantId }, where) => ({ ...(where as object), tenantId }),
 ```
 
-## Fail-closed enforcement
+The predicate applies to lists, lookups, updates, deletes, restore, references, and related-resource reads—not only to the visible list.
 
-When a global `scope` is active, **every resource must either declare a
-`scope` predicate or opt out explicitly**:
+Create needs special attention because no stored row exists to filter yet. Set the tenant through a trusted server default or write policy, and keep the tenant field outside the operator-controlled form.
 
-```ts
-resource(schema.auditLog, {
-  columns: ["action", "at"],
-  // This table is global on purpose — opt out of tenant scoping.
-  scope: "bypass",
-});
-```
+## Preserve fail-closed behavior
 
-If a resource is missing both, the runtime refuses to run an unscoped query
-and throws rather than risk a cross-tenant leak. This is intentional: it's
-safer to surface a configuration error than to silently return another
-tenant's rows.
+When global scope is active and a resource declares scope, supported adapters reject an operation if the predicate is not bound or adds no constraint. Do not catch that access error and retry an unscoped query.
 
-See [Resources](/docs/core-concepts/resources) for the full resource option
-reference.
+Global resources should omit tenant scope deliberately and have their own explicit access policy. Make that exception visible in code review.
+
+## Verify isolation
+
+Create fixtures for two tenants and test:
+
+1. each tenant lists only its own rows;
+2. a by-ID read of the other tenant's row fails;
+3. update, delete, restore, and row actions cannot target the other tenant;
+4. create cannot submit or override another tenant ID;
+5. references and drawer related tabs remain scoped;
+6. dashboard queries use `ctx.scope` in their own application queries.
+
+FlowPanel can enforce the generated resource path, but a custom widget or page query remains your code. Apply the same tenant predicate there.
+
+See [Scope, realtime, and rate limits reference](/docs/reference/scope-realtime) for generated types.

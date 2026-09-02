@@ -1,73 +1,85 @@
 import type { z } from "zod";
-import type { ItemQueryContext, ListQueryContext, MutationContext } from "./context.js";
-import type { InferDB } from "./registry.js";
-import type { ListResult } from "./resource.js";
+import type { ItemQueryContext, ListQueryContext, MutationContext } from "./context";
+import type { InferDB } from "./registry";
+import type { ListResult } from "./resource";
 
+/** One column, as the adapter sees it. Drives inferred controls and validation. */
 export interface ColumnMeta {
   name: string;
+  /** Normalized type. Decides the default form control and filter. */
   type: "string" | "number" | "boolean" | "date" | "json" | "enum" | "array" | "reference";
   nullable: boolean;
   unique: boolean;
   primaryKey: boolean;
+  /** Allowed values, for `enum` columns. */
   enumValues?: readonly string[];
+  /** Foreign key target, when the column references another table. */
   references?: { table: string; column: string };
   maxLength?: number;
+  /** Whether this column may be selected and returned by the adapter. */
+  readable?: boolean;
+  /** Whether create input may contain this column. */
+  writableOnCreate?: boolean;
+  /** Whether update input may contain this column. */
+  writableOnUpdate?: boolean;
+  /** Database-computed column that must not be accepted as input. */
+  generated?: boolean;
+  /** Adapter-discovered secret. Always excluded from generated read projections. */
+  sensitive?: boolean;
 }
 
+/** What the adapter reports about one table. */
 export interface ResourceIntrospection {
+  /** Table name, used as the resource's default `name`. */
   name: string;
   columns: ColumnMeta[];
   primaryKey: string;
 }
 
+/** Adapter identity. The shipped kinds autocomplete; third-party kinds are free-form. */
+export type AdapterKind = "drizzle" | "prisma" | (string & {});
+
 /**
- * Adapter contract.
- *
- * - `DB` is the concrete driver handle (`NodePgDatabase`, `PrismaClient`, …).
- * - `Ref` is the *shape* of the per-resource reference each method accepts —
- *   a Drizzle `Table` for `drizzleAdapter`, a model-name `string` for
- *   `prismaAdapter`. Threading it through the methods lets adapter authors
- *   work with their native types inside the implementation rather than
- *   re-casting `unknown` on every line.
- *
- * Method return values stay `unknown` (or `ListResult<unknown>`) because the
- * runtime adapter cannot promise a caller-picked row shape — callers in
- * `@flowpanel/next` narrow the result with `as Record<string, unknown>` at
- * the dispatch boundary. The win is for adapter IMPLEMENTERS: they get a
- * properly typed `ref` parameter and no longer need wall-to-wall `as any`.
+ * What FlowPanel needs from a database layer. Implement it to support an ORM
+ * that has no shipped adapter — nothing else in the framework talks to the DB.
  */
 export interface Adapter<DB = InferDB, Ref = unknown> {
-  kind: "drizzle" | "prisma";
+  /** Which ORM this adapter wraps. Shipped adapters use `"drizzle"` / `"prisma"`. */
+  kind: AdapterKind;
+  /** The client handed to every `ctx.db`. */
   db: DB;
+  /** Execute work against one transaction-bound database handle. */
+  transaction?<T>(run: (db: DB) => Promise<T>): Promise<T>;
+  /** Describe a table: its columns, types and primary key. */
   introspect(ref: Ref): ResourceIntrospection;
+  /** Derive validation schemas from the table, used when a resource sets no `schema`. */
   inferSchema(ref: Ref): {
     create: z.ZodTypeAny;
     update: z.ZodTypeAny;
     select: z.ZodTypeAny;
   };
+  /** One page of rows, honoring filters, sort, search, scope and soft delete. */
   list(ref: Ref, ctx: ListQueryContext<unknown>): Promise<ListResult<unknown>>;
+  /** A single row by id, or null. Must respect tenant scope. */
   get(ref: Ref, ctx: ItemQueryContext): Promise<unknown | null>;
+  /** Insert a row. Must reject rows that fall outside the caller's scope. */
   create(ref: Ref, ctx: MutationContext<unknown>): Promise<unknown>;
-  /**
-   * Returns the updated row, or `null` when no row matched (e.g. an
-   * out-of-scope id under tenant scope, or a by-id update that hit 0 rows).
-   * Callers surface a not-found from the `null`.
-   */
+  /** Update a row by id, or return null when it does not exist in scope. */
   update(ref: Ref, ctx: MutationContext<unknown>): Promise<unknown | null>;
+  /** Delete a row — or stamp `ctx.softDelete.column` when soft delete is on. */
   delete(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
+  /** Clear the soft-delete stamp. Without it, the admin hides the restore button. */
   restore?(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
   /**
-   * Migration bookkeeping — used by `flowpanel migrate` to track which SQL
-   * files in `flowpanel/migrations/` have already been applied. Optional on
-   * the type so third-party adapters can ship without it, but both first-
-   * party adapters (`drizzleAdapter`, `prismaAdapter`) implement them.
-   *
-   * `runMigrationSql(sql)` executes the raw migration SQL as-is.
-   * `listAppliedMigrations()` ensures the `_flowpanel_migrations` table
-   * exists and returns the set of already-applied migration IDs.
-   * `markMigrationApplied(id)` records a single migration ID as applied.
+   * Optional migration support, used by `flowpanel migrate`.
+   * The CLI's earlier `listAppliedMigrations` result may be stale. Implementations
+   * that support concurrent migrators must serialize and recheck `id` at the
+   * database boundary.
    */
+  applyMigration?(id: string, sql: string): Promise<void>;
+  /** @deprecated Implement `applyMigration` for CLI migration support. */
   runMigrationSql?(sql: string): Promise<void>;
   listAppliedMigrations?(): Promise<Set<string>>;
+  /** @deprecated Implement `applyMigration` for CLI migration support. */
   markMigrationApplied?(id: string): Promise<void>;
 }

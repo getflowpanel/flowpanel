@@ -2,14 +2,14 @@
 
 ## Supported Versions
 
-Active support for the latest minor of `flowpanel` and its peer packages.
-Older minors receive critical-CVE patches for 6 months past the next
-minor's release.
+FlowPanel is pre-1.0 and all workspace packages release together.
+Fixes land on the latest 0.x minor only. Older minors receive
+critical-CVE patches for 6 months past the next minor's release.
 
-| Version line | Supported          |
-| ------------ | ------------------ |
-| 1.x.x        | ✅ Active          |
-| 0.x.x        | ❌ End-of-life     |
+| Version line       | Supported                            |
+| ------------------ | ------------------------------------ |
+| Latest 0.x minor   | Active                               |
+| Older 0.x minors   | Critical-CVE patches only (6 months) |
 
 ## Reporting a Vulnerability
 
@@ -23,7 +23,7 @@ Alternative: email the maintainer (see the `flowpanel` package.json
 
 Include:
 
-- Affected package name and version (e.g., `@flowpanel/next@1.0.3`).
+- Affected package name and version (e.g., `@flowpanel/next@0.1.0`).
 - Reproduction steps — minimal repro repo, or paste a snippet.
 - Expected vs. actual behavior.
 - Your assessment of severity (low / medium / high / critical).

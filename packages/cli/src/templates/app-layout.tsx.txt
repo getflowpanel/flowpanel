@@ -1,3 +1,4 @@
+import { ThemeScript } from "@flowpanel/kit/react";
 import type { Metadata } from "next";
 import "{{CSS_IMPORT}}";
 
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-fp-bg-2 text-fp-text-1 antialiased">{children}</body>
+      <head>
+        <ThemeScript defaultMode="auto" />
+      </head>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }

@@ -1,18 +1,19 @@
 import type {
-  ListQueryContext,
   RequestContext,
   ResolvedAdminConfig,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { scopeBinding } from "../runtime/scope-binding.js";
+import { safeErrorMessage } from "../runtime/action-helpers";
+import {
+  declaredFieldName,
+  filterReadableDeclarations,
+  resolveReadableFieldSet,
+} from "../runtime/readable-fields";
+import { readRelatedRows } from "../runtime/require-authorized";
 
-/**
- * Wire-safe shape of a drawer widget. Mirrors `WidgetConfig` but strips
- * non-serializable bits (function refs, React component refs) so the payload
- * can cross the route boundary.
- */
+/** Wire-safe shape of a drawer widget. */
 export type SerializedWidget =
   | {
       kind: "metric";
@@ -28,13 +29,7 @@ export type SerializedWidget =
       kind: "table";
       label?: string;
       rows: Record<string, unknown>[];
-      /**
-       * Column descriptors. `field` is the row key; `label` is the optional
-       * humanized header. Replaces the previous `string[]` shape so dashboard
-       * drawer-tab tables can surface resource-configured labels instead of
-       * dumping raw schema names. Backward-compatible at the wire level
-       * because the consumer (`DrawerHost.tsx`) renders the new shape.
-       */
+      /** Column descriptors. */
       columns: { field: string; label?: string }[];
       span?: number;
       realtime?: string | string[];
@@ -56,17 +51,11 @@ export type SerializedWidget =
     }
   | { kind: "unsupported"; label?: string; reason: string; span?: number };
 
-/**
- * Runs the widget's query (under the request context) and returns a
- * serialization-safe representation. Errors are caught and surfaced as
- * `{ kind: "unsupported" }` so a single bad widget doesn't fail the whole tab.
- */
 export async function serializeWidget(
   w: WidgetConfig,
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
   widgetCtx: WidgetContext,
-  req: Request,
 ): Promise<SerializedWidget> {
   try {
     switch (w.kind) {
@@ -86,39 +75,35 @@ export async function serializeWidget(
       case "table": {
         let rows: Record<string, unknown>[] = [];
         let columns: { field: string; label?: string }[] = [];
+        let readableResourceFields: ReadonlySet<string> | null = null;
         const queryFn = w.options.query;
         if (queryFn) {
           const raw = (await runWithRequestContext(reqCtx, () => queryFn(widgetCtx))) as unknown[];
           rows = raw as Record<string, unknown>[];
         } else if (w.options.resource) {
           const target = config.resourcesByName.get(w.options.resource);
-          if (target) {
-            const softDelete = target.options.delete?.softDelete;
-            const listCtx: ListQueryContext<unknown> = {
-              ...reqCtx,
-              req,
-              db: config.adapter.db,
-              dateRange: { from: new Date(0), to: new Date() },
-              searchParams: new URLSearchParams(),
-              signal: new AbortController().signal,
-              filters: {},
-              sort: null,
-              page: 1,
-              pageSize: w.options.limit ?? 10,
-              search: "",
-              ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
-              ...scopeBinding(config, target, reqCtx),
-            };
-            const r = await runWithRequestContext(reqCtx, () =>
-              config.adapter.list(target.ref, listCtx),
+          const related = target
+            ? await readRelatedRows(config, target, reqCtx, {
+                pageSize: w.options.limit ?? 10,
+                extraFields: w.options.columns ?? [],
+              })
+            : null;
+          if (!target || !related) {
+            readableResourceFields = new Set();
+          } else {
+            const candidates = [...(target.options.columns ?? []), ...(w.options.columns ?? [])]
+              .map(declaredFieldName)
+              .filter((field): field is string => field !== null);
+            readableResourceFields = await resolveReadableFieldSet(
+              candidates,
+              target.options.fieldAccess,
+              reqCtx,
             );
-            rows = r.rows as Record<string, unknown>[];
-            // Pull `{ field, label }` from the resource's ColumnDef so the
-            // drawer-tab table shows humanized headers instead of raw
-            // schema names. `render` is dropped — we serialize through a
-            // JSON `Response.json(payload)` boundary, so ReactNode trees
-            // can't survive.
-            columns = (target.options.columns as unknown[])
+            rows = related;
+            columns = filterReadableDeclarations(
+              target.options.columns,
+              readableResourceFields ?? new Set(),
+            )
               .map((c) => {
                 if (typeof c === "string") return { field: c };
                 const col = c as { field?: string; label?: string; hidden?: boolean };
@@ -131,7 +116,9 @@ export async function serializeWidget(
           }
         }
         if (w.options.columns && w.options.columns.length > 0) {
-          columns = w.options.columns.map((k) => ({ field: k }));
+          columns = w.options.columns
+            .filter((field) => !readableResourceFields || readableResourceFields.has(field))
+            .map((field) => ({ field }));
         } else if (columns.length === 0 && rows[0]) {
           columns = Object.keys(rows[0]).map((k) => ({ field: k }));
         }
@@ -190,8 +177,6 @@ export async function serializeWidget(
         };
       }
       default:
-        // custom widgets — React component refs can't serialize through a
-        // fetch boundary. Surface a clear message rather than a blank tile.
         return {
           kind: "unsupported",
           reason: "custom widgets are not supported in drawer tabs",
@@ -200,7 +185,7 @@ export async function serializeWidget(
   } catch (err) {
     return {
       kind: "unsupported",
-      reason: err instanceof Error ? err.message : "widget query failed",
+      reason: safeErrorMessage(err, "widget query failed"),
     };
   }
 }

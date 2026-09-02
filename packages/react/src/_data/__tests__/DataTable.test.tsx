@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LabelsProvider } from "../../_provider/LabelsContext.js";
+import { LabelsProvider } from "../../_provider/LabelsContext";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-import { DataTable } from "../DataTable.js";
+import { DataTable } from "../DataTable";
 
 afterEach(() => cleanup());
 
@@ -42,6 +42,25 @@ describe("DataTable", () => {
     expect(screen.getByText("c@b.co")).toBeTruthy();
   });
 
+  it("animates only the explicitly created desktop row", () => {
+    const { container } = render(
+      <DataTable
+        columns={[{ field: "name", label: "Name" }]}
+        rows={rows}
+        total={rows.length}
+        page={1}
+        pageSize={10}
+        rowKey="id"
+        enteringRowKeys={["2"]}
+      />,
+    );
+
+    const renderedRows = [...container.querySelectorAll("tbody tr")];
+    expect(renderedRows[0]?.classList.contains("fp-row-enter")).toBe(false);
+    expect(renderedRows[1]?.classList.contains("fp-row-enter")).toBe(true);
+    expect(renderedRows[2]?.classList.contains("fp-row-enter")).toBe(false);
+  });
+
   it("renders empty state when rows are empty", () => {
     render(
       <DataTable
@@ -55,6 +74,24 @@ describe("DataTable", () => {
       />,
     );
     expect(screen.getByText("No users")).toBeTruthy();
+  });
+
+  it("keeps the toolbar when a filter leaves the table empty", () => {
+    render(
+      <DataTable
+        columns={[{ field: "email" }]}
+        rows={[]}
+        total={0}
+        page={1}
+        pageSize={10}
+        rowKey="id"
+        emptyTitle="No users"
+        exportable
+        showDensityToggle
+      />,
+    );
+    expect(screen.getByText("No users")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Export" })).toBeTruthy();
   });
 
   it("renders skeleton rows when loading", () => {
@@ -154,11 +191,32 @@ describe("DataTable", () => {
       />,
     );
     const tbody = container.querySelector("tbody")!;
+    // Focusing the table puts the cursor on row 0, so one `j` reaches row 1.
     tbody.focus();
-    fireEvent.keyDown(tbody, { key: "j" });
     fireEvent.keyDown(tbody, { key: "j" });
     fireEvent.keyDown(tbody, { key: "Enter" });
     expect(onRowClick).toHaveBeenCalledWith(rows[1]);
+  });
+
+  it("keyboard nav: the cursor row is exposed as aria-current", () => {
+    const { container } = render(
+      <DataTable
+        columns={[{ field: "email" }]}
+        rows={rows}
+        total={rows.length}
+        page={1}
+        pageSize={10}
+        rowKey="id"
+      />,
+    );
+    const tbody = container.querySelector("tbody")!;
+    tbody.focus();
+    fireEvent.keyDown(tbody, { key: "j" });
+    const bodyRows = Array.from(tbody.querySelectorAll("tr"));
+    expect(bodyRows[1]?.getAttribute("aria-current")).toBe("true");
+    expect(bodyRows[0]?.hasAttribute("aria-current")).toBe(false);
+    fireEvent.keyDown(tbody, { key: "Escape" });
+    expect(bodyRows[1]?.hasAttribute("aria-current")).toBe(false);
   });
 
   it("keyboard nav: Escape clears cursor", () => {

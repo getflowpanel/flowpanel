@@ -1,24 +1,80 @@
-/* FlowPanel design tokens — 30 CSS custom properties + motion + theme map */
-:root {
+/* FlowPanel design tokens — CSS custom properties + motion + theme map. */
+@import "tailwindcss";
+
+/* Relative to this file ({{SOURCE_UP}} is the hop back to the app root), and
+   listed twice because only `@flowpanel/kit` is a direct dependency: the
+   packages that carry the class strings sit in pnpm's virtual store. */
+@source "{{SOURCE_UP}}node_modules/@flowpanel/*/dist";
+@source "{{SOURCE_UP}}node_modules/.pnpm/node_modules/@flowpanel/*/dist";
+
+[data-flowpanel-root],
+[data-flowpanel-portal] {
+  color-scheme: light;
+
   /* Color (HSL triplets) */
   --fp-bg-1: 0 0% 100%;
-  --fp-bg-2: 220 14% 96%;
-  --fp-bg-3: 220 14% 92%;
-  --fp-text-1: 220 10% 15%;
-  --fp-text-2: 220 10% 40%;
-  --fp-text-3: 220 10% 60%;
-  --fp-border-1: 220 13% 91%;
-  --fp-border-2: 220 13% 86%;
-  --fp-accent: 220 90% 56%;
+  --fp-bg-2: 220 20% 97%;
+  --fp-bg-3: 220 16% 93.5%;
+  --fp-text-1: 224 25% 11%;
+  --fp-text-2: 220 10% 38%;
+  /* 45% (not 60%) so muted text on --fp-bg-1/2 clears WCAG AA 4.5:1. */
+  --fp-text-3: 220 10% 45%;
+  --fp-border-1: 220 14% 90%;
+  --fp-border-2: 220 12% 84%;
+  /* 50% (not 56%) so accent-text (#f5f8ff) on accent clears WCAG AA 4.5:1. */
+  --fp-accent: 220 90% 50%;
   --fp-accent-text: 220 100% 98%;
+  /* Focus rings follow the accent unless overridden. */
+  --fp-ring: var(--fp-accent);
+  /* Modal/drawer scrim — dark even in light mode. */
+  --fp-overlay: 224 35% 7%;
   --fp-ok: 142 70% 45%;
   --fp-warn: 38 92% 50%;
   --fp-err: 0 84% 60%;
+  /* Neutral-informational tone. Cyan rather than blue so an `info` badge
+     never collides with a blue --fp-accent sitting in the next column. */
+  --fp-info: 199 89% 48%;
+
+  /* Dedicated badge-text tokens: same hue/saturation as the base tone,
+     lightness lowered so full-strength text on the tone's own `/10` tinted
+     background (e.g. `bg-fp-ok/10 text-fp-ok-text`) clears WCAG AA 4.5:1
+     with worst case measured on --fp-bg-2-tinted hover/active surfaces.
+     The base --fp-ok/--fp-warn/--fp-err tokens still drive solid fills
+     (StatusDot, buttons). */
+  --fp-ok-text: 142 70% 27%;
+  --fp-warn-text: 38 92% 28%;
+  --fp-err-text: 0 84% 42%;
+  --fp-info-text: 199 89% 30%;
+  --fp-accent-badge-text: 220 90% 46%;
+
+  /* Categorical chart palette — consumed by @flowpanel/charts as
+     hsl(var(--fp-chart-N)). Re-tuned per scheme in `.dark` below. */
+  --fp-chart-1: 221 83% 53%;
+  --fp-chart-2: 173 80% 36%;
+  --fp-chart-3: 38 92% 50%;
+  --fp-chart-4: 262 83% 58%;
+  --fp-chart-5: 350 89% 60%;
+  --fp-chart-6: 192 91% 36%;
+  --fp-chart-7: 84 81% 44%;
+
+  /* Elevation — layered, color-tokenized so dark mode can strengthen it. */
+  --fp-shadow-color: 224 40% 8%;
+  --fp-shadow-xs: 0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.06);
+  --fp-shadow-sm:
+    0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.05),
+    0 2px 8px -2px hsl(var(--fp-shadow-color) / 0.07);
+  --fp-shadow-md:
+    0 2px 4px -2px hsl(var(--fp-shadow-color) / 0.07),
+    0 10px 24px -6px hsl(var(--fp-shadow-color) / 0.14);
+  --fp-shadow-lg:
+    0 8px 16px -8px hsl(var(--fp-shadow-color) / 0.14),
+    0 28px 64px -12px hsl(var(--fp-shadow-color) / 0.26);
 
   /* Radius */
-  --fp-radius-sm: 0.25rem;
+  --fp-radius-sm: 0.375rem;
   --fp-radius: 0.5rem;
   --fp-radius-lg: 0.75rem;
+  --fp-radius-xl: 1rem;
 
   /* Spacing base (4pt grid) */
   --fp-space-unit: 4px;
@@ -37,26 +93,351 @@
   --fp-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.dark {
-  --fp-bg-1: 220 15% 10%;
-  --fp-bg-2: 220 15% 14%;
-  --fp-bg-3: 220 15% 18%;
-  --fp-text-1: 220 10% 96%;
-  --fp-text-2: 220 10% 78%;
-  --fp-text-3: 220 10% 60%;
-  --fp-border-1: 220 13% 22%;
-  --fp-border-2: 220 13% 28%;
+html[data-flowpanel-theme="dark"] [data-flowpanel-root],
+html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
+[data-flowpanel-root][data-theme="dark"],
+[data-flowpanel-portal][data-theme="dark"] {
+  color-scheme: dark;
+
+  --fp-bg-1: 222 18% 8%;
+  --fp-bg-2: 222 16% 11.5%;
+  --fp-bg-3: 222 14% 15.5%;
+  --fp-text-1: 220 20% 96%;
+  --fp-text-2: 220 11% 72%;
+  --fp-text-3: 220 9% 58%;
+  --fp-border-1: 222 14% 19%;
+  --fp-border-2: 222 13% 25%;
+  /* Default accent re-lightened for dark surfaces (4.5:1+ on --fp-bg-1/2);
+     accent-text flips dark so on-accent labels keep AA on the lighter fill.
+     Apps overriding `theme.accent` should pair it with `theme.accentDark`. */
+  --fp-accent: 217 91% 65%;
+  --fp-accent-text: 224 30% 10%;
+
+  /* Badge-text tokens re-checked against the dark surfaces above (worst
+     case --fp-bg-2 tint). ok/warn base tones already clear 4.5:1 on dark,
+     err/accent need re-lightening. */
+  --fp-ok-text: 142 70% 45%;
+  --fp-warn-text: 38 92% 50%;
+  --fp-err-text: 0 84% 68%;
+  --fp-info-text: 199 89% 60%;
+  --fp-accent-badge-text: 217 91% 68%;
+
+  --fp-chart-1: 213 94% 68%;
+  --fp-chart-2: 172 66% 50%;
+  --fp-chart-3: 43 96% 56%;
+  --fp-chart-4: 255 92% 76%;
+  --fp-chart-5: 351 95% 71%;
+  --fp-chart-6: 188 86% 53%;
+  --fp-chart-7: 83 78% 55%;
+
+  --fp-shadow-color: 240 40% 2%;
+  --fp-shadow-xs: 0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.5);
+  --fp-shadow-sm:
+    0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.5), 0 2px 8px -2px hsl(var(--fp-shadow-color) / 0.45);
+  --fp-shadow-md:
+    0 2px 4px -2px hsl(var(--fp-shadow-color) / 0.5),
+    0 10px 24px -6px hsl(var(--fp-shadow-color) / 0.5);
+  --fp-shadow-lg:
+    0 8px 16px -8px hsl(var(--fp-shadow-color) / 0.55),
+    0 28px 64px -12px hsl(var(--fp-shadow-color) / 0.7);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root {
+  [data-flowpanel-root],
+  [data-flowpanel-portal] {
     --fp-duration-fast: 0ms;
     --fp-duration: 0ms;
     --fp-duration-slow: 0ms;
   }
 }
 
-@theme {
+/* ---------------------------------------------------------------------------
+   Motion. Radix primitives set data-state="open|closed" on their content and
+   overlay nodes and keep the node mounted until the exit animation finishes,
+   so a single fp-anim-* class gives a primitive both directions.
+   Exits run faster than entries (~60%). */
+
+@keyframes fp-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fp-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fp-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-3px);
+  }
+}
+@keyframes fp-pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/* Centred dialogs animate `scale`, never `transform`. Tailwind centres them
+   with the standalone `translate` property, and a `transform: translate(…)`
+   in a keyframe does not replace it — the two compose, so the panel spends the
+   whole animation at -100%/-100% and snaps back when it ends. `translate`,
+   `rotate` and `scale` are independent properties, so scaling here leaves the
+   centring alone. Travel stays small: a wide jump reads as a snap. */
+@keyframes fp-dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes fp-dialog-out {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+
+@keyframes fp-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes fp-slide-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes fp-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes fp-slide-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+/* Scrim behind dialogs, sheets, drawers. */
+.fp-anim-overlay[data-state="open"] {
+  animation: fp-fade-in var(--fp-duration-slow) var(--fp-ease-out);
+  will-change: opacity;
+}
+.fp-anim-overlay[data-state="closed"] {
+  animation: fp-fade-out var(--fp-duration) var(--fp-ease-in-out) forwards;
+  will-change: opacity;
+}
+
+/* Dropdowns, popovers, selects, tooltips — scale from the trigger edge. */
+.fp-anim-pop[data-state="open"],
+.fp-anim-pop[data-state="delayed-open"] {
+  animation: fp-pop-in var(--fp-duration) var(--fp-ease-out);
+  transform-origin: var(
+    --radix-popover-content-transform-origin,
+    var(
+      --radix-dropdown-menu-content-transform-origin,
+      var(
+        --radix-select-content-transform-origin,
+        var(--radix-tooltip-content-transform-origin, center top)
+      )
+    )
+  );
+}
+.fp-anim-pop[data-state="closed"] {
+  animation: fp-pop-out var(--fp-duration-fast) var(--fp-ease-in-out) forwards;
+}
+/* Radix keeps content mounted until the exit animation reports `animationend`.
+   Inside Popover's portal that animation never starts, so the panel stays in
+   the DOM — invisible in places, but still painting and still swallowing the
+   clicks underneath it. Opting Popover out of the exit lets Presence see no
+   animation and unmount at once. Select/Dropdown/Dialog are unaffected. */
+.fp-anim-pop.fp-anim-no-exit[data-state="closed"] {
+  animation: none;
+}
+
+/* Centered dialogs — keyframes carry the centering translate because the
+   animation's `transform` overrides the utility-composed one. */
+/* `will-change` names exactly what the keyframes touch, so the panel gets its
+   own layer and is composited instead of repainting against the scrim. */
+.fp-anim-dialog[data-state="open"] {
+  animation: fp-dialog-in var(--fp-duration-slow) var(--fp-ease-out);
+  will-change: scale, opacity;
+}
+.fp-anim-dialog[data-state="closed"] {
+  animation: fp-dialog-out var(--fp-duration) var(--fp-ease-in-out) forwards;
+  will-change: scale, opacity;
+}
+
+/* Edge-anchored sheets and drawers. */
+.fp-anim-sheet-right[data-state="open"] {
+  animation: fp-slide-in-right var(--fp-duration-slow) var(--fp-ease-out);
+}
+.fp-anim-sheet-right[data-state="closed"] {
+  animation: fp-slide-out-right var(--fp-duration) var(--fp-ease-in-out) forwards;
+}
+.fp-anim-sheet-left[data-state="open"] {
+  animation: fp-slide-in-left var(--fp-duration-slow) var(--fp-ease-out);
+}
+.fp-anim-sheet-left[data-state="closed"] {
+  animation: fp-slide-out-left var(--fp-duration) var(--fp-ease-in-out) forwards;
+}
+
+/* BulkBar slide-up when selection becomes non-empty. */
+@keyframes fp-slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+.fp-bulkbar[data-state="open"] {
+  animation: fp-slide-up var(--fp-duration) var(--fp-ease-spring);
+}
+
+/* Entry animation for newly created rows. */
+@keyframes fp-row-enter {
+  from {
+    opacity: 0.45;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fp-row-enter-surface {
+  from {
+    background-color: hsl(var(--fp-accent) / 0.09);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.fp-row-enter {
+  animation: fp-row-enter 240ms var(--fp-ease-out) both;
+}
+li.fp-row-enter {
+  animation:
+    fp-row-enter 240ms var(--fp-ease-out) both,
+    fp-row-enter-surface 240ms var(--fp-ease-out);
+}
+tr.fp-row-enter > td {
+  animation: fp-row-enter-surface 240ms var(--fp-ease-out);
+}
+
+/* Press feedback for buttons and tappable chips — transform only, so it
+   never shifts layout. Longhands, so the same class also drives the color
+   transition without fighting Tailwind's transition utilities. */
+/* `box-shadow` is deliberately absent: Tailwind draws focus rings as box-shadow,
+   and transitioning it makes the ring fade in — slow feedback for a keyboard
+   affordance, and long enough to see the offset ring resolve to its colour. */
+.fp-press {
+  transition-property: color, background-color, border-color, opacity, transform;
+  transition-duration: var(--fp-duration-fast);
+  transition-timing-function: var(--fp-ease-out);
+}
+.fp-press:active {
+  transform: scale(0.97);
+}
+
+/* Skeleton shimmer (replaces Tailwind animate-pulse for FlowPanel's primitive). */
+@keyframes fp-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.fp-skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--fp-bg-2)) 0%,
+    hsl(var(--fp-bg-3)) 50%,
+    hsl(var(--fp-bg-2)) 100%
+  );
+  background-size: 200% 100%;
+  animation: fp-shimmer 1.5s linear infinite;
+}
+
+/* Hide scrollbars while keeping scroll behavior (tabs shell overflow). */
+.fp-scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.fp-scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fades the clipped edges of a horizontal scroller so cut-off tabs read as
+   "there is more" instead of as a rendering glitch. The side is driven by
+   data-overflow, set from the scroll position, so a strip that fits — or one
+   scrolled hard against an end — keeps that edge crisp. */
+.fp-scroll-fade-x {
+  --fp-scroll-fade: 1.5rem;
+}
+.fp-scroll-fade-x[data-overflow="start"] {
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fp-scroll-fade));
+}
+.fp-scroll-fade-x[data-overflow="end"] {
+  mask-image: linear-gradient(to left, transparent 0, #000 var(--fp-scroll-fade));
+}
+.fp-scroll-fade-x[data-overflow="both"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--fp-scroll-fade),
+    #000 calc(100% - var(--fp-scroll-fade)),
+    transparent 100%
+  );
+}
+
+/* Reduce-motion: the duration tokens above already collapse to 0ms; the
+   explicit cancellation below covers the fixed-duration shimmer and keeps
+   intent obvious for animation-name rules. */
+@media (prefers-reduced-motion: reduce) {
+  .fp-skeleton,
+  .fp-anim-overlay[data-state="open"],
+  .fp-anim-overlay[data-state="closed"],
+  .fp-anim-pop[data-state="open"],
+  .fp-anim-pop[data-state="delayed-open"],
+  .fp-anim-pop[data-state="closed"],
+  .fp-anim-dialog[data-state="open"],
+  .fp-anim-dialog[data-state="closed"],
+  .fp-anim-sheet-right[data-state="open"],
+  .fp-anim-sheet-right[data-state="closed"],
+  .fp-anim-sheet-left[data-state="open"],
+  .fp-anim-sheet-left[data-state="closed"],
+  .fp-bulkbar[data-state="open"],
+  .fp-row-enter,
+  tr.fp-row-enter > td {
+    animation: none;
+  }
+  .fp-press:active {
+    transform: none;
+  }
+}
+
+/* Keyboard focus ring for the shell navigation (tab strip + sidebar). Every
+   other interactive primitive carries its own :focus-visible style, but the
+   raw nav links did not. Scoped to FlowPanel's own nav so it never restyles
+   the host app's links. */
+[data-flowpanel-root] nav[aria-label="Admin"] a:focus-visible {
+  outline: 2px solid hsl(var(--fp-ring));
+  outline-offset: 2px;
+  border-radius: var(--fp-radius-sm);
+}
+
+@theme inline {
   --color-fp-bg-1: hsl(var(--fp-bg-1));
   --color-fp-bg-2: hsl(var(--fp-bg-2));
   --color-fp-bg-3: hsl(var(--fp-bg-3));
@@ -67,10 +448,35 @@
   --color-fp-border-2: hsl(var(--fp-border-2));
   --color-fp-accent: hsl(var(--fp-accent));
   --color-fp-accent-text: hsl(var(--fp-accent-text));
+  --color-fp-focus: hsl(var(--fp-ring));
+  --color-fp-overlay: hsl(var(--fp-overlay));
   --color-fp-ok: hsl(var(--fp-ok));
   --color-fp-warn: hsl(var(--fp-warn));
   --color-fp-err: hsl(var(--fp-err));
+  --color-fp-info: hsl(var(--fp-info));
+  --color-fp-ok-text: hsl(var(--fp-ok-text));
+  --color-fp-warn-text: hsl(var(--fp-warn-text));
+  --color-fp-err-text: hsl(var(--fp-err-text));
+  --color-fp-info-text: hsl(var(--fp-info-text));
+  --color-fp-accent-badge-text: hsl(var(--fp-accent-badge-text));
+  --color-fp-chart-1: hsl(var(--fp-chart-1));
+  --color-fp-chart-2: hsl(var(--fp-chart-2));
+  --color-fp-chart-3: hsl(var(--fp-chart-3));
+  --color-fp-chart-4: hsl(var(--fp-chart-4));
+  --color-fp-chart-5: hsl(var(--fp-chart-5));
+  --color-fp-chart-6: hsl(var(--fp-chart-6));
+  --color-fp-chart-7: hsl(var(--fp-chart-7));
   --radius-fp: var(--fp-radius);
   --radius-fp-sm: var(--fp-radius-sm);
   --radius-fp-lg: var(--fp-radius-lg);
+  --radius-fp-xl: var(--fp-radius-xl);
+  --shadow-fp-xs: var(--fp-shadow-xs);
+  --shadow-fp-sm: var(--fp-shadow-sm);
+  --shadow-fp-md: var(--fp-shadow-md);
+  --shadow-fp-lg: var(--fp-shadow-lg);
+  --font-fp-sans: var(--fp-font-sans);
+  --font-fp-mono: var(--fp-font-mono);
+  --ease-fp-out: var(--fp-ease-out);
+  --ease-fp-in-out: var(--fp-ease-in-out);
+  --ease-fp-spring: var(--fp-ease-spring);
 }

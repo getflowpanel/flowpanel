@@ -1,30 +1,12 @@
 "use client";
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { cn } from "../lib/cn.js";
-import type { RealtimeStatus } from "../realtime/context.js";
-import { useRealtimeStats } from "../realtime/hooks.js";
-import { formatTime, LOG_LIMIT, useStatusLog } from "./useStatusLog.js";
+import { cn } from "../lib/cn";
+import type { RealtimeStatus } from "../realtime/context";
+import { useRealtimeStats } from "../realtime/hooks";
+import { formatTime, LOG_LIMIT, useStatusLog } from "./useStatusLog";
 
-/**
- * Dev-only floating panel for debugging a FlowPanel dashboard.
- *
- * Primary pain it targets: the realtime "freeze" (several SSE connections
- * contending for the browser's per-origin slot cap). The panel surfaces the
- * live state of the shared realtime bus — current status plus a rolling log
- * of status transitions — so a developer can see at a glance whether the
- * single `EventSource` is healthy, reconnecting, or stuck.
- *
- * Rendering. Mounts via `createPortal` into `document.body` so it never
- * depends on the dashboard layout / `_shell` and always sits on top.
- *
- * Dev gate. Renders `null` under `process.env.NODE_ENV === "production"`,
- * so a host can mount `<DevToolsPanel />` unconditionally and ship it.
- *
- * Styling. Uses FlowPanel design-token utility classes (`fp-*`), which map
- * to CSS custom properties declared on `:root`, so they resolve even though
- * the portal target (`document.body`) lives outside the dashboard subtree.
- */
+/** Dev-only floating panel for debugging a FlowPanel dashboard. */
 
 const STATUS_DOT_CLASS: Record<RealtimeStatus, string> = {
   idle: "bg-fp-text-3",
@@ -83,13 +65,7 @@ export interface DevToolsPanelProps {
   defaultOpen?: boolean;
 }
 
-/**
- * Floating "fp" button (bottom-right) that toggles the DevTools panel.
- *
- * @example
- * // In a dev layout — safe to leave mounted; null in production.
- * <DevToolsPanel />
- */
+/** Floating "fp" button (bottom-right) that toggles the DevTools panel. */
 export function DevToolsPanel({
   defaultOpen = false,
 }: DevToolsPanelProps): React.JSX.Element | null {
@@ -98,20 +74,18 @@ export function DevToolsPanel({
   const { status, log } = useStatusLog();
   const { channels, eventCount } = useRealtimeStats();
 
-  // Portal target only exists on the client; gate the first render so SSR
-  // and hydration agree (server renders nothing).
   React.useEffect(() => setMounted(true), []);
 
   if (process.env.NODE_ENV === "production") return null;
   if (!mounted || typeof document === "undefined") return null;
 
   const node = (
-    <div className="fixed bottom-4 right-4 z-50 font-mono text-fp-text-1">
+    <div data-flowpanel-portal="" className="fixed bottom-4 right-4 z-50 font-mono text-fp-text-1">
       {open ? (
         <div
           role="dialog"
           aria-label="FlowPanel DevTools"
-          className="mb-2 max-h-[70vh] w-80 overflow-auto rounded-fp border border-fp-border-1 bg-fp-bg-1 shadow-lg"
+          className="mb-2 max-h-[70vh] w-80 overflow-auto rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-md"
         >
           <div className="flex items-center justify-between px-3 py-2.5">
             <strong className="text-xs">FlowPanel DevTools</strong>
@@ -119,7 +93,7 @@ export function DevToolsPanel({
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close DevTools"
-              className="cursor-pointer border-none bg-transparent text-sm leading-none text-fp-text-2"
+              className="-mr-2 inline-flex size-11 cursor-pointer items-center justify-center border-none bg-transparent text-sm leading-none text-fp-text-2 sm:size-9"
             >
               ×
             </button>
@@ -173,7 +147,7 @@ export function DevToolsPanel({
         onClick={() => setOpen((v) => !v)}
         aria-label="Toggle FlowPanel DevTools"
         aria-expanded={open}
-        className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-full border border-fp-border-1 bg-fp-bg-1 px-3 py-1.5 text-xs font-semibold text-fp-text-1 shadow-lg"
+        className="ml-auto flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-fp-border-1 bg-fp-bg-1 px-3 py-1.5 text-xs font-semibold text-fp-text-1 shadow-fp-md"
       >
         <StatusDot status={status} />
         fp

@@ -1,0 +1,143 @@
+---
+title: Typed client
+description: Call the protected FlowPanel HTTP API from custom React UI, then add mutation state where needed.
+kind: reference
+---
+
+`@flowpanel/client` is the framework-neutral browser client. Use it when the
+generated admin is mostly right, but one screen needs custom UI. Calls still go
+through the same auth, resource access, field policy, tenant scope, validation,
+audit and adapter pipeline as generated pages.
+
+```ts excerpt
+import {
+  createFlowpanelClient,
+  isFlowpanelErrorCode,
+  isFlowpanelErrorResult,
+  type CreateFlowpanelClientOptions,
+  type FlowpanelClient,
+  type FlowpanelClientMetadata,
+  type FlowpanelFetchOptions,
+  type FlowpanelListOptions,
+  type FlowpanelResourceClient,
+} from "@flowpanel/client";
+```
+
+The same surface is available from `@flowpanel/kit/client` when your project
+installs the umbrella package.
+
+## Create a client
+
+<ApiSignature path="../../packages/client/src/client.ts" name="createFlowpanelClient" />
+
+The server runtime exposes serializable metadata; pass it to the browser
+client instead of duplicating API paths.
+
+```ts excerpt
+// server module
+import { createFlowpanel } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
+export const flowpanel = createFlowpanel(config);
+export const flowpanelMetadata = flowpanel.client;
+```
+
+```tsx excerpt
+"use client";
+
+import { createFlowpanelClient } from "@flowpanel/kit/client";
+import { flowpanelMetadata } from "./runtime";
+
+const client = createFlowpanelClient(flowpanelMetadata);
+const orders = client.resource<Order>("orders");
+const result = await orders.list({
+  page: 1,
+  pageSize: 25,
+  search: "acme",
+  filters: { status: "open" },
+});
+
+if (!result.ok) {
+  console.error(result.error.code, result.error.message);
+}
+```
+
+`createFlowpanelClient(metadata, options?)` returns a frozen
+`FlowpanelClient`. `CreateFlowpanelClientOptions.fetch` lets tests, React
+Native shells or instrumented apps provide their own fetch implementation.
+Every request uses `credentials: "same-origin"` and validates the response
+envelope before returning it.
+
+`FlowpanelClientMetadata` contains the runtime id, admin/API paths and protocol
+version. Treat it as public configuration, not a secret. The client rejects an
+unsupported protocol version immediately.
+
+## Resource methods
+
+`client.resource<Row>(name)` returns a `FlowpanelResourceClient<Row>`:
+
+| Method | HTTP request | Result |
+| --- | --- | --- |
+| `list(options?)` | `GET /<resource>` | Paginated rows |
+| `get(id, options?)` | `GET /<resource>/<id>` | One projected row |
+| `create(input, options?)` | `POST /<resource>` | Created row |
+| `update(id, input, options?)` | `PATCH /<resource>/<id>` | Updated row |
+| `delete(id, options?)` | `DELETE /<resource>/<id>` | `null` on success |
+
+`FlowpanelListOptions` accepts `page`, `pageSize`, `search`, and a flat
+`filters` record. It extends `FlowpanelFetchOptions`, so list calls and item
+calls both accept `signal` and extra `headers`. IDs and resource names are
+encoded as individual URL segments; empty, `.` and `..` segments are rejected.
+
+Network errors and malformed responses become a typed `internal` failure.
+An `AbortError` is rethrown so your component can distinguish cancellation
+from a failed request.
+
+## Narrowing errors
+
+`isFlowpanelErrorResult(result)` narrows a `FlowpanelResult<T>` to its error
+branch. `isFlowpanelErrorCode(value)` validates unknown data against the stable
+error-code union.
+
+```ts excerpt
+import { isFlowpanelErrorCode, isFlowpanelErrorResult } from "@flowpanel/kit/client";
+
+if (isFlowpanelErrorResult(result) && result.error.code === "field_forbidden") {
+  // Hide or disable the corresponding control.
+}
+
+isFlowpanelErrorCode("rate_limited"); // true
+isFlowpanelErrorCode("anything"); // false
+```
+
+## Mutation state hook
+
+`useAdminMutation` remains available for custom UI that calls a Server Action
+rather than the HTTP client.
+
+```tsx excerpt
+"use client";
+import { useAdminMutation } from "@flowpanel/kit/client";
+import { archiveOrder } from "./actions";
+
+export function ArchiveButton({ id }: { id: string }) {
+  const { run, pending, error, reset } = useAdminMutation(archiveOrder);
+  return (
+    <>
+      <button type="button" onClick={() => run(id)} disabled={pending}>
+        Archive
+      </button>
+      {error ? <button onClick={reset}>{error}</button> : null}
+    </>
+  );
+}
+```
+
+<AutoTypeTable path="../../packages/client/src/mutation.ts" name="UseAdminMutation" />
+
+<AutoTypeTable path="../../packages/client/src/mutation.ts" name="UseAdminMutationOptions" />
+
+`run` never throws: rejected actions and `{ ok: false }` results both become a
+failure result and update `error`. `reset()` clears local pending/error state.
+For optimistic values, use
+[`useOptimisticAction`](/docs/reference/react-components#hooks).

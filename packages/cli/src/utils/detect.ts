@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { readTsconfigOptions } from "./tsconfig";
 
 export interface Stack {
   nextjs: string | null;
@@ -38,6 +39,14 @@ function majorOf(v: string | undefined): number | null {
   return m?.[1] ? Number(m[1]) : null;
 }
 
+/** True when the declared range names a Next.js release FlowPanel supports. */
+export function isSupportedNextVersion(version: string | null): boolean {
+  if (!version) return false;
+  const match = /(\d+)\.(\d+)/.exec(version);
+  if (!match?.[1] || !match[2]) return false;
+  return Number(match[1]) === 16 && Number(match[2]) >= 3;
+}
+
 export async function detectStack(cwd: string): Promise<Stack> {
   const pkg = await readPkg(cwd);
   const deps: Record<string, string> = {
@@ -57,53 +66,30 @@ export async function detectStack(cwd: string): Promise<Stack> {
   };
 }
 
-/**
- * How the project maps `@/*` to filesystem paths in `tsconfig.json`.
- * - `strip-src` — `paths: { "@/*": ["src/*"] }` (or `"./src/*"`). The `src/`
- *   prefix is stripped when emitting an import alias (`src/db/x` → `@/db/x`).
- * - `root` — `paths: { "@/*": ["./*"] }` (or `"*"`). The alias keeps the full
- *   path (`src/db/x` → `@/src/db/x`).
- * - `none` — no `@/*` alias, or unreadable tsconfig. Caller should fall back
- *   to a relative path from the cwd-root config file.
- */
+/** How the project maps `@/*` to filesystem paths in `tsconfig.json`. */
 export type PathAliasMode = "strip-src" | "root" | "none";
 
 export async function detectPathAlias(cwd: string): Promise<PathAliasMode> {
-  let raw: string;
-  try {
-    raw = await fs.readFile(path.join(cwd, "tsconfig.json"), "utf8");
-  } catch {
-    return "none";
-  }
-  // Tolerate trailing commas and `//` comments — Next.js scaffolds emit both.
-  const stripped = raw.replace(/\/\/[^\n]*/g, "").replace(/,(\s*[}\]])/g, "$1");
-  let parsed: { compilerOptions?: { paths?: Record<string, string[]> } };
-  try {
-    parsed = JSON.parse(stripped) as typeof parsed;
-  } catch {
-    return "none";
-  }
-  const targets = parsed.compilerOptions?.paths?.["@/*"];
+  const compilerOptions = await readTsconfigOptions(cwd);
+  const targets = compilerOptions?.paths?.["@/*"];
   if (!targets || targets.length === 0) return "none";
-  // Normalize: strip leading `./`.
   const first = targets[0]?.replace(/^\.\//, "");
   if (first === "src/*") return "strip-src";
   if (first === "*" || first === "./*") return "root";
-  // Anything exotic — fall back to relative paths.
   return "none";
 }
 
-/**
- * Resolves a relative source path (`src/db/client.ts`) to the import string the
- * scaffold should emit, given the project's tsconfig alias setup.
- */
 export function aliasOf(relPath: string, mode: PathAliasMode): string {
   const noExt = relPath.replace(/\.tsx?$/, "");
   if (mode === "strip-src") return `@/${noExt.replace(/^src\//, "")}`;
   if (mode === "root") return `@/${noExt}`;
-  // `mode === "none"`: fall back to a relative path from cwd root (where
-  // flowpanel.config.ts lives). Keep the `./` prefix to make it explicit.
   return `./${noExt}`;
+}
+
+export function configImportFor(fileDir: string, mode: PathAliasMode): string {
+  if (mode === "root") return "@/flowpanel.config";
+  const rel = path.relative(fileDir, ".").split(path.sep).join("/");
+  return rel === "" ? "./flowpanel.config" : `${rel}/flowpanel.config`;
 }
 
 async function firstMatch(
@@ -132,6 +118,8 @@ export async function detectDbClient(cwd: string, mode?: PathAliasMode): Promise
       "src/db.ts",
       "db/client.ts",
       "db/index.ts",
+      "src/lib/prisma.ts",
+      "lib/prisma.ts",
     ],
     mode ?? (await detectPathAlias(cwd)),
   );
@@ -167,17 +155,90 @@ export async function detectAuth(cwd: string, mode?: PathAliasMode): Promise<str
   );
 }
 
-/**
- * Where the Next.js App Router root lives in this project.
- * - `"app"` — `app/` at the repo root (default Next.js scaffold).
- * - `"src/app"` — `src/app/` (also officially supported by Next.js).
- *
- * Resolution order: if `app/` exists at the root → `"app"`. Otherwise, if
- * `src/app/` exists → `"src/app"`. Otherwise `"app"` (so a fresh project gets
- * the standard scaffold).
- */
+/** Where the Next.js App Router root lives in this project. */
 export async function detectAppDir(cwd: string): Promise<"app" | "src/app"> {
   if (await fileExists(path.join(cwd, "app"))) return "app";
   if (await fileExists(path.join(cwd, "src", "app"))) return "src/app";
   return "app";
+}
+
+export type PackageManager = "pnpm" | "npm" | "yarn" | "bun";
+
+export async function detectPackageManager(cwd: string): Promise<PackageManager> {
+  const ua = process.env.npm_config_user_agent ?? "";
+  if (ua.startsWith("pnpm")) return "pnpm";
+  if (ua.startsWith("yarn")) return "yarn";
+  if (ua.startsWith("bun")) return "bun";
+  if (ua.startsWith("npm")) return "npm";
+  if (await fileExists(path.join(cwd, "pnpm-lock.yaml"))) return "pnpm";
+  if (await fileExists(path.join(cwd, "yarn.lock"))) return "yarn";
+  if (
+    (await fileExists(path.join(cwd, "bun.lockb"))) ||
+    (await fileExists(path.join(cwd, "bun.lock")))
+  )
+    return "bun";
+  if (await fileExists(path.join(cwd, "package-lock.json"))) return "npm";
+  return "npm";
+}
+
+/** How to add a dependency and run a local binary / script for each manager. */
+interface PmCommands {
+  /** `add ["-D"] <pkg>` argv for the install spawn. */
+  add(pkg: string, dev: boolean): string[];
+  /** The displayed command to add a dependency manually (outro fallback). */
+  addDisplay(pkg: string, dev: boolean): string;
+  /** Runs a project-local binary, e.g. `pnpm flowpanel` / `npx flowpanel`. */
+  exec: string;
+  /** Runs a published package's binary without installing it, e.g. `pnpm dlx <pkg>`. */
+  dlx: string;
+  /** argv passed to `exec` to run a project-local binary with arguments. */
+  execArgs(bin: string, args: string[]): string[];
+  /** Runs a package.json script, e.g. `pnpm dev` / `npm run dev`. */
+  run: string;
+}
+
+/** The spawnable name of a package-manager binary: Windows needs the `.cmd` shim. */
+export function platformBin(bin: string): string {
+  return process.platform === "win32" ? `${bin}.cmd` : bin;
+}
+
+export function pmCommands(pm: PackageManager): PmCommands {
+  switch (pm) {
+    case "npm":
+      return {
+        add: (pkg, dev) => ["install", dev ? "--save-dev" : "--save", pkg],
+        addDisplay: (pkg, dev) => `npm install ${dev ? "--save-dev " : ""}${pkg}`,
+        exec: "npx",
+        dlx: "npx",
+        execArgs: (bin, args) => [bin, ...args],
+        run: "npm run",
+      };
+    case "yarn":
+      return {
+        add: (pkg, dev) => (dev ? ["add", "-D", pkg] : ["add", pkg]),
+        addDisplay: (pkg, dev) => `yarn add ${dev ? "-D " : ""}${pkg}`,
+        exec: "yarn",
+        dlx: "yarn dlx",
+        execArgs: (bin, args) => [bin, ...args],
+        run: "yarn",
+      };
+    case "bun":
+      return {
+        add: (pkg, dev) => (dev ? ["add", "-d", pkg] : ["add", pkg]),
+        addDisplay: (pkg, dev) => `bun add ${dev ? "-d " : ""}${pkg}`,
+        exec: "bunx",
+        dlx: "bunx",
+        execArgs: (bin, args) => [bin, ...args],
+        run: "bun run",
+      };
+    default:
+      return {
+        add: (pkg, dev) => (dev ? ["add", "-D", pkg] : ["add", pkg]),
+        addDisplay: (pkg, dev) => `pnpm add ${dev ? "-D " : ""}${pkg}`,
+        exec: "pnpm",
+        dlx: "pnpm dlx",
+        execArgs: (bin, args) => ["exec", bin, ...args],
+        run: "pnpm",
+      };
+  }
 }

@@ -1,7 +1,12 @@
 import { Popup, PopupContent, PopupTrigger } from "fumadocs-twoslash/ui";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
+import { AutoTypeTable } from "@/shared/lib/type-table";
 import { AdapterTab, AdapterTabs } from "@/shared/ui/adapter-tabs";
+import { ApiSignature } from "@/shared/ui/api-signature";
+import { CliReference } from "@/shared/ui/cli-reference";
+import { Compatibility } from "@/shared/ui/compatibility";
+import { ThemeSlots } from "@/shared/ui/theme-slots";
 
 /**
  * Registry of components available inside MDX content.
@@ -17,6 +22,12 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     ...(defaultMdxComponents as MDXComponents),
     AdapterTabs,
     AdapterTab,
+    ApiSignature,
+    CliReference,
+    Compatibility,
+    ThemeSlots,
+    // Property tables generated from the packages' own TypeScript declarations.
+    AutoTypeTable,
     // Twoslash hover popups — rendered for ` ```ts twoslash ` blocks.
     Popup,
     PopupContent,

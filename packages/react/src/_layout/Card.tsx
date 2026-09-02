@@ -1,9 +1,12 @@
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export function Card({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...p} className={cn("rounded-fp border border-fp-border-1 bg-fp-bg-1", className)} />
+    <div
+      {...p}
+      className={cn("rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-xs", className)}
+    />
   );
 }
 

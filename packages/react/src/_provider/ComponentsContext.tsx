@@ -1,38 +1,22 @@
 "use client";
 import type { FlowpanelComponentSlots } from "@flowpanel/core";
 import { createContext, type JSX, type ReactNode, useContext, useMemo } from "react";
-// Import only the pure renderer (no context dependency) to avoid circular refs.
-import { type AvatarProps, DefaultAvatar } from "../_atoms/AvatarDefault.js";
-import { type BadgeProps, DefaultBadge } from "../_atoms/BadgeDefault.js";
-import { DefaultStatusBadge, type StatusBadgeProps } from "../_atoms/StatusBadgeDefault.js";
-import { DefaultPagination, type PaginationProps } from "../_data/PaginationDefault.js";
-import {
-  type ConfirmDialogProps,
-  DefaultConfirmDialog,
-} from "../_feedback/ConfirmDialogDefault.js";
-import { DefaultEmptyState, type EmptyStateProps } from "../_feedback/EmptyStateDefault.js";
-import {
-  DefaultSkeletonTable,
-  type SkeletonTableProps,
-} from "../_feedback/SkeletonTableDefault.js";
-import { DefaultPageHeader, type PageHeaderProps } from "../_shell/PageHeaderDefault.js";
-import { DefaultMetricCard, type MetricCardProps } from "../_widgets/MetricCardDefault.js";
-import { type ButtonProps, DefaultButton } from "../ui/buttonDefault.js";
+import type { AvatarProps } from "../_atoms/AvatarDefault";
+import type { BadgeProps } from "../_atoms/BadgeDefault";
+import type { StatusBadgeProps } from "../_atoms/StatusBadgeDefault";
+import type { PaginationProps } from "../_data/PaginationDefault";
+import type { ConfirmDialogProps } from "../_feedback/ConfirmDialogDefault";
+import type { EmptyStateProps } from "../_feedback/EmptyStateDefault";
+import type { SkeletonTableProps } from "../_feedback/SkeletonTableDefault";
+import type { PageHeaderProps } from "../_shell/PageHeaderDefault";
+import type { MetricCardProps } from "../_widgets/MetricCardDefault";
+import type { ButtonProps } from "../ui/buttonDefault";
 
-/**
- * Augment the core slot registry with the 10 shipped React slots. Keeps the
- * prop interfaces (`MetricCardProps`, `ButtonProps`, …) co-located with the
- * components themselves; `theme.components` resolves through this interface
- * so typos in slot keys and prop mismatches fail at compile time.
- *
- * Per invariant I-11, these keys are append-only across minors.
- */
+/** Augment the core slot registry with the 10 shipped React slots. */
 declare module "@flowpanel/core" {
   interface FlowpanelComponentSlots {
     EmptyState: import("react").ComponentType<EmptyStateProps>;
     MetricCard: import("react").ComponentType<MetricCardProps>;
-    /** Override the Button component. Your override SHOULD be forwardRef-aware
-     *  to avoid warnings from Radix UI when Button is used with asChild. */
     Button: import("react").ComponentType<ButtonProps>;
     Badge: import("react").ComponentType<BadgeProps>;
     Avatar: import("react").ComponentType<AvatarProps>;
@@ -46,20 +30,9 @@ declare module "@flowpanel/core" {
 
 export type { FlowpanelComponentSlots };
 
-const DEFAULTS: FlowpanelComponentSlots = {
-  EmptyState: DefaultEmptyState,
-  MetricCard: DefaultMetricCard,
-  Button: DefaultButton,
-  Badge: DefaultBadge,
-  Avatar: DefaultAvatar,
-  StatusBadge: DefaultStatusBadge,
-  PageHeader: DefaultPageHeader,
-  Pagination: DefaultPagination,
-  ConfirmDialog: DefaultConfirmDialog,
-  SkeletonTable: DefaultSkeletonTable,
-};
+const NO_OVERRIDES: Partial<FlowpanelComponentSlots> = {};
 
-const Ctx = createContext<FlowpanelComponentSlots>(DEFAULTS);
+const Ctx = createContext<Partial<FlowpanelComponentSlots>>(NO_OVERRIDES);
 
 export function ComponentsProvider({
   value,
@@ -68,10 +41,18 @@ export function ComponentsProvider({
   value?: Partial<FlowpanelComponentSlots>;
   children: ReactNode;
 }): JSX.Element {
-  const merged = useMemo(() => ({ ...DEFAULTS, ...(value ?? {}) }), [value]);
+  const merged = useMemo(() => value ?? NO_OVERRIDES, [value]);
   return <Ctx.Provider value={merged}>{children}</Ctx.Provider>;
 }
 
-export function useComponents(): FlowpanelComponentSlots {
+export function useComponentOverrides(): Partial<FlowpanelComponentSlots> {
   return useContext(Ctx);
+}
+
+/** Resolve one slot. The caller passes its own default so a slot nobody renders stays out of the graph. */
+export function useComponent<K extends keyof FlowpanelComponentSlots>(
+  slot: K,
+  fallback: FlowpanelComponentSlots[K],
+): FlowpanelComponentSlots[K] {
+  return (useContext(Ctx)[slot] ?? fallback) as FlowpanelComponentSlots[K];
 }

@@ -2,11 +2,7 @@
 import type { ActionResult } from "@flowpanel/core";
 import { useCallback, useState } from "react";
 
-export interface UseAdminMutationOptions<Prev = unknown> {
-  /** Produce the optimistic next state from the previous state and the call args. */
-  optimistic?: (prev: Prev | null, ...args: unknown[]) => Prev;
-  /** Rollback strategy when the action returns { ok: false } or throws. Defaults to "error". */
-  rollbackOn?: "error";
+export interface UseAdminMutationOptions {
   onSuccess?: (result: Extract<ActionResult, { ok: true }>) => void;
   onError?: (message: string) => void;
 }
@@ -18,16 +14,7 @@ export interface UseAdminMutation<Args extends unknown[]> {
   reset: () => void;
 }
 
-/**
- * Client hook wrapping a Server Action that returns an `ActionResult`.
- *
- * @example
- *   const update = useAdminMutation(admin.users.update, {
- *     onSuccess: (r) => toast(r.message ?? "Saved"),
- *     onError: (e) => toast.error(e),
- *   });
- *   <button onClick={() => update.run(user.id, { role: "admin" })}>Promote</button>
- */
+/** Client hook wrapping an async action that returns an `ActionResult`. */
 export function useAdminMutation<Args extends unknown[]>(
   action: (...args: Args) => Promise<ActionResult>,
   options: UseAdminMutationOptions = {},
@@ -57,7 +44,9 @@ export function useAdminMutation<Args extends unknown[]>(
         setPending(false);
       }
     },
-    [action, options],
+    // Inline `options` literals must not defeat the memo; the two callbacks are
+    // the only values `run` reads from it.
+    [action, options.onSuccess, options.onError],
   );
 
   const reset = useCallback(() => {

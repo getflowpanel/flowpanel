@@ -1,5 +1,78 @@
 import { describe, expect, it } from "vitest";
-import { tpl } from "../../utils/template.js";
+import { tpl } from "../../utils/template";
+import { guessedAuthFile, guessedPaths, initErrorPayload } from "../init";
+
+describe("init JSON errors", () => {
+  it("uses the same stable machine-readable envelope for preflight failures", () => {
+    expect(initErrorPayload("Next.js is missing")).toEqual({
+      command: "init",
+      applied: false,
+      error: "Next.js is missing",
+    });
+  });
+});
+
+describe("guessedPaths", () => {
+  it("uses the @/ alias when the project has one", () => {
+    expect(guessedPaths("drizzle", "strip-src")).toEqual({
+      db: "@/server/lib/db",
+      schema: "@/server/lib/db/schema",
+      auth: "@/server/lib/auth",
+    });
+    expect(guessedPaths("drizzle", "root").db).toBe("@/server/lib/db");
+  });
+
+  it("guesses relative specifiers when the project has no @/ alias", () => {
+    expect(guessedPaths("drizzle", "none")).toEqual({
+      db: "./server/lib/db",
+      schema: "./server/lib/db/schema",
+      auth: "./server/lib/auth",
+    });
+  });
+
+  it("points Prisma projects at the prisma client, alias or not", () => {
+    expect(guessedPaths("prisma", "strip-src").db).toBe("@/lib/prisma");
+    expect(guessedPaths("prisma", "none").db).toBe("./lib/prisma");
+  });
+});
+
+describe("guessedAuthFile", () => {
+  it("lands where the guessed auth specifier resolves", () => {
+    // guessedPaths(...).auth is what flowpanel.config.ts imports; the scaffolded
+    // stub has to be written to the file that specifier actually resolves to.
+    expect(guessedPaths("drizzle", "strip-src").auth).toBe("@/server/lib/auth");
+    expect(guessedAuthFile("strip-src")).toBe("src/server/lib/auth.ts");
+    expect(guessedPaths("drizzle", "root").auth).toBe("@/server/lib/auth");
+    expect(guessedAuthFile("root")).toBe("server/lib/auth.ts");
+    expect(guessedPaths("drizzle", "none").auth).toBe("./server/lib/auth");
+    expect(guessedAuthFile("none")).toBe("server/lib/auth.ts");
+  });
+});
+
+describe("dev-session template", () => {
+  it("exports the getSession the config imports", async () => {
+    const out = await tpl("dev-session.ts.txt");
+    expect(out).toContain("export async function getSession()");
+  });
+
+  it("returns a static session the config's role mapper reads as admin", async () => {
+    const out = await tpl("dev-session.ts.txt");
+    expect(out).toContain('role: "admin"');
+  });
+
+  it("says loudly that it must be replaced, in both the JSDoc and its output", async () => {
+    const out = await tpl("dev-session.ts.txt");
+    expect(out).toContain("DEVELOPMENT STUB — REPLACE BEFORE PRODUCTION.");
+    expect(out).toMatch(/console\.warn\(/);
+    expect(out).toContain("before deploying");
+  });
+
+  it("refuses to run in production instead of signing everyone in as admin", async () => {
+    const out = await tpl("dev-session.ts.txt");
+    expect(out).toContain('nodeEnv === "production"');
+    expect(out).toMatch(/throw new Error\(/);
+  });
+});
 
 describe("init templates (resolution)", () => {
   it("substitutes DB/SCHEMA/AUTH/APP_NAME into config template", async () => {
@@ -15,17 +88,28 @@ describe("init templates (resolution)", () => {
     expect(out).toContain('brand: { name: "Acme" }');
   });
 
-  it("api-route template is static and valid", async () => {
-    const out = await tpl("api-route.ts.txt");
+  it("api-route template substitutes CONFIG_IMPORT", async () => {
+    const out = await tpl("api-route.ts.txt", { CONFIG_IMPORT: "../../../../flowpanel.config" });
     expect(out).toContain('from "@flowpanel/kit/next"');
-    expect(out).toContain("export const { GET, POST } = handlers(config)");
+    expect(out).toContain('import config from "../../../../flowpanel.config"');
+    expect(out).toContain(
+      "export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers",
+    );
     expect(out).toContain('runtime = "nodejs"');
   });
 
-  it("sse-route template is static and valid", async () => {
-    const out = await tpl("sse-route.ts.txt");
+  it("sse-route template substitutes CONFIG_IMPORT", async () => {
+    const out = await tpl("sse-route.ts.txt", { CONFIG_IMPORT: "@/flowpanel.config" });
+    expect(out).toContain('import config from "@/flowpanel.config"');
     expect(out).toContain("export const GET = stream(config)");
     expect(out).toContain('dynamic = "force-dynamic"');
+  });
+
+  it("admin-page template substitutes CONFIG_IMPORT", async () => {
+    const out = await tpl("admin-page.tsx.txt", { CONFIG_IMPORT: "../../../flowpanel.config" });
+    expect(out).toContain('from "@flowpanel/kit/next"');
+    expect(out).toContain('import config from "../../../flowpanel.config"');
+    expect(out).toContain("export default flowpanel.page");
   });
 
   it("app-layout template substitutes APP_NAME + CSS_IMPORT", async () => {
@@ -36,6 +120,8 @@ describe("init templates (resolution)", () => {
     expect(out).toContain('import "@/styles/admin.css";');
     expect(out).toContain('title: "Acme — Admin"');
     expect(out).toContain('<html lang="en" suppressHydrationWarning>');
+    expect(out).toContain('import { ThemeScript } from "@flowpanel/kit/react"');
+    expect(out).toContain('<ThemeScript defaultMode="auto" />');
   });
 
   it("tailwind v3 config template exposes the fp-* color map", async () => {
@@ -57,5 +143,26 @@ describe("init templates (resolution)", () => {
     expect(out).not.toMatch(/^@theme\b/m);
     expect(out).toContain("--fp-bg-1");
     expect(out).toContain("--fp-radius:");
+  });
+
+  it("admin.css (v4) invokes Tailwind and scans the @flowpanel packages at the styles/ depth", async () => {
+    // styles/admin.css → app root is one level up.
+    const out = await tpl("admin.css.txt", { SOURCE_UP: "../" });
+    expect(out).toContain('@import "tailwindcss";');
+    expect(out).toContain('@source "../node_modules/@flowpanel/*/dist";');
+    expect(out).toContain('@source "../node_modules/.pnpm/node_modules/@flowpanel/*/dist";');
+  });
+
+  it("admin.css (v4) @source depth adjusts for the src/styles/ scaffold layout", async () => {
+    // src/styles/admin.css (strip-src aliasMode) → app root is two levels up.
+    const out = await tpl("admin.css.txt", { SOURCE_UP: "../../" });
+    expect(out).toContain('@source "../../node_modules/@flowpanel/*/dist";');
+    expect(out).toContain('@source "../../node_modules/.pnpm/node_modules/@flowpanel/*/dist";');
+  });
+
+  it("tailwind v3 config template scans the @flowpanel packages' dist output", async () => {
+    const out = await tpl("tailwind.config.v3.ts.txt");
+    expect(out).toContain('"./node_modules/@flowpanel/*/dist/**/*.{js,mjs}"');
+    expect(out).toContain('"./node_modules/.pnpm/node_modules/@flowpanel/*/dist/**/*.{js,mjs}"');
   });
 });

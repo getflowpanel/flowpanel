@@ -1,8 +1,8 @@
-// Pure labels surface — no node:* imports. Safe to bundle into client code.
+export { humanize, resolveFieldLabel } from "./humanize";
 export {
   DEFAULT_LABELS,
   formatLabel,
   type LabelsConfig,
   mergeLabels,
   type ResolvedLabels,
-} from "./types/labels.js";
+} from "./types/labels";

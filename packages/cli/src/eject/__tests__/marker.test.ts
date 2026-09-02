@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasMarker, MARKER_REGEX, stampMarker } from "../marker.js";
+import { hasMarker, MARKER_REGEX, stampMarker } from "../marker";
 
 describe("eject marker helpers", () => {
   it("stampMarker prepends the marker line", () => {

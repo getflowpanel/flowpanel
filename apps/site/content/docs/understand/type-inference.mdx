@@ -1,0 +1,47 @@
+---
+title: Type inference and registries
+description: Understand what FlowPanel infers from Drizzle and Prisma and when to augment its registries.
+kind: explanation
+---
+
+FlowPanel's types connect resource references to row shapes and application services. Runtime introspection checks the same configuration against the live adapter metadata.
+
+## Drizzle infers from the table
+
+`resource(schema.users, …)` carries the table type, so `InferRow<typeof schema.users>` resolves through `$inferSelect`. Columns, filters, form fields, renderers, and row actions autocomplete actual properties.
+
+## Prisma needs a string registry
+
+`resource("User", …)` receives only a string at compile time. Augment `FlowpanelResources` to map that name to the generated Prisma type:
+
+```ts excerpt
+declare module "@flowpanel/kit" {
+  interface FlowpanelResources {
+    User: import("@prisma/client").User;
+  }
+}
+```
+
+The same registry supports string-named custom resources and cross-resource references. Keep keys aligned with the resource registry name used in config.
+
+## Type application services once
+
+`FlowpanelTypes` supplies shared application types, most importantly the database client available as `ctx.db`:
+
+```ts excerpt
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+```
+
+`InferDB` and `InferRow` let application modules derive those types without copying them. Put augmentation in a server-owned module included by the application's TypeScript program.
+
+## Types and runtime checks complement each other
+
+TypeScript catches known field typos while editing. Admin compilation compares configured names with adapter introspection, which also covers untyped JavaScript boundaries, stale generated clients, and custom adapters. Zod/resource schemas validate write values at runtime.
+
+Types do not prove authorization, tenant isolation, database constraints, or serializability. Those remain runtime policies and tests.
+
+See [Type registry reference](/docs/reference/registry) for exact utilities.

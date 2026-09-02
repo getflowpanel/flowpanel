@@ -1,12 +1,12 @@
 "use client";
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
-import { ArrayCell } from "./ArrayCell.js";
-import type { DataTableColumn } from "./data-table-types.js";
-import { ALIGN_CLASS, renderCellValue } from "./format-cell.js";
-import { InlineEditCell } from "./InlineEditCell.js";
-import { JsonCell } from "./JsonCell.js";
-import type { PinMeta } from "./useColumnLayout.js";
+import { cn } from "../lib/cn";
+import { Checkbox } from "../ui/checkbox";
+import type { DataTableColumn } from "./data-table-types";
+import { ALIGN_CLASS } from "./format-cell";
+import { InlineEditCell } from "./InlineEditCell";
+import { renderDefaultCell } from "./render-default-cell";
+import type { PinMeta } from "./useColumnLayout";
 
 function renderCellContent<Row extends Record<string, unknown>>(
   c: DataTableColumn<Row>,
@@ -16,9 +16,6 @@ function renderCellContent<Row extends Record<string, unknown>>(
   inlineEditResource: string | undefined,
 ): React.ReactNode {
   if (c.editable && inlineEditResource) {
-    // Inline-edit wins over prerendered / specialized renderers — the user
-    // opted in via `editable: true` and expects the cell to behave like a
-    // spreadsheet input, not a chip / link / popover.
     const rowId = String(r[rowKey] ?? "");
     return (
       <InlineEditCell
@@ -32,18 +29,14 @@ function renderCellContent<Row extends Record<string, unknown>>(
   }
   if (prerendered !== undefined) return prerendered;
   if (c.render) return c.render(r);
-  if (c.type === "array") {
-    const v = r[c.field];
-    return <ArrayCell value={Array.isArray(v) ? (v as ReadonlyArray<unknown>) : null} />;
-  }
-  if (c.type === "json") return <JsonCell value={r[c.field]} />;
-  return renderCellValue(r[c.field]);
+  return renderDefaultCell(c, r);
 }
 
 export interface DataTableRowProps<Row extends Record<string, unknown>> {
   row: Row;
   rowIndex: number;
   rowKeyValue: string;
+  entering?: boolean;
   rowKey: keyof Row & string;
   active: boolean;
   orderedVisible: DataTableColumn<Row>[];
@@ -64,6 +57,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   row,
   rowIndex,
   rowKeyValue,
+  entering,
   rowKey,
   active,
   orderedVisible,
@@ -82,27 +76,28 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   const isSelected = selectionEnabled && selectionSet.has(rowKeyValue);
   return (
     <tr
-      aria-rowindex={rowIndex + 1}
-      aria-selected={selectionEnabled ? isSelected : undefined}
+      aria-rowindex={rowIndex + 2}
+      aria-current={active ? "true" : undefined}
       onClick={() => onRowClick?.(row)}
       className={cn(
-        "border-t border-fp-border-1 text-fp-text-1 transition-colors",
-        onRowClick && "cursor-pointer hover:bg-fp-bg-2",
-        active && "bg-fp-bg-2",
+        // Not `transition-colors`: that list includes `outline-color`, and the
+        // cursor outline flips from style:none to solid instantly while its
+        // colour interpolates from the inherited near-white — a white ring that
+        // fades to the accent on every cursor move.
+        "border-t border-fp-border-1 text-fp-text-1 transition-[background-color]",
+        onRowClick && "cursor-pointer hover:bg-fp-bg-2/70",
+        isSelected && "bg-fp-accent/5",
+        active && "bg-fp-accent/5 outline outline-2 -outline-offset-2 outline-fp-focus/60",
+        entering && "fp-row-enter",
       )}
     >
       {selectionEnabled ? (
         <td className={cn("px-4", rowPadding)}>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={selectionSet.has(rowKeyValue)}
             aria-label={`Select row ${rowKeyValue}`}
-            onChange={(e) => {
-              e.stopPropagation();
-              onToggleRow(rowKeyValue);
-            }}
+            onCheckedChange={() => onToggleRow(rowKeyValue)}
             onClick={(e) => e.stopPropagation()}
-            className="h-4 w-4 accent-fp-accent"
           />
         </td>
       ) : null}
@@ -126,6 +121,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
               rowPadding,
               cellText,
               ALIGN_CLASS[c.align ?? "left"],
+              c.align === "right" && "tabular-nums",
               meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-1 z-[1]",
               meta.side === "right" && "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-1 z-[1]",
               c.className,

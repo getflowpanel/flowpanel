@@ -26,9 +26,9 @@
 
 - [ ] `pnpm changeset` ran and the entry is committed
 
-<!-- If this is a docs-only / internal-only change with no user-visible
-     effect, you can skip the changeset and add the `skip-changeset`
-     label after opening the PR. -->
+<!-- Changes that don't affect published package behavior (docs, CI,
+     internal tooling) don't need a changeset — say so in the summary.
+     CI only validates the changesets that exist (`pnpm check:changesets`). -->
 
 ## Checklist
 

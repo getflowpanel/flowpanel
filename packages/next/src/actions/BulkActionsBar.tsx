@@ -6,37 +6,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  triggerDownload,
-  useToast,
+  FlowpanelIcon,
+  useApiBase,
 } from "@flowpanel/react";
-import { useRouter } from "next/navigation";
 import * as React from "react";
-import type { SerializedBulkAction } from "./bulk-action.js";
+import { ActionFormDialog } from "./ActionFormDialog";
+import type { ActionFormFieldErrors } from "./action-form-field";
+import type { SerializedBulkAction } from "./bulk-action";
+import { useActionRunner } from "./use-action-runner";
 
-/**
- * Floating bar rendered above a resource list when one or more rows are
- * selected and `resource.options.bulkActions` is non-empty.
- *
- *   ┌─────────────────────────────────────────────────────────────┐
- *   │  N selected      [Action ▾]      [Clear]                    │
- *   └─────────────────────────────────────────────────────────────┘
- *
- * On selecting an action:
- *
- * 1. If `action.confirm` is set → AlertDialog confirm.
- * 2. POST `/api/flowpanel/<resource>/bulk-actions/<key>` with
- *    `{ ids: selection }` as JSON.
- * 3. Surface the `ActionResult`:
- *    - `ok: true` + `message` → success toast (fallback to "Done")
- *    - `ok: true` + `download` → browser download
- *    - `ok: true` + `redirect` → navigate
- *    - `ok: false` → error toast
- * 4. Clear the selection and `router.refresh()` unless we navigated away.
- *
- * The action body is sent JSON-only by this component — bulk actions with
- * `form` (interactive inputs collected before run) land alongside row-action
- * form support in the same follow-up.
- */
 export interface BulkActionsBarProps {
   resource: string;
   selection: string[];
@@ -44,52 +22,31 @@ export interface BulkActionsBarProps {
   actions: SerializedBulkAction[];
 }
 
-type ServerResult =
-  | {
-      ok: true;
-      message?: string;
-      redirect?: string;
-      download?: { filename: string; data: string; mime?: string };
-    }
-  | { ok: false; error: string };
-
 export function BulkActionsBar({ resource, selection, onClear, actions }: BulkActionsBarProps) {
-  const router = useRouter();
-  const toast = useToast();
+  const apiBase = useApiBase();
+  const runAction = useActionRunner();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedBulkAction | null>(null);
+  const [formAction, setFormAction] = React.useState<SerializedBulkAction | null>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   if (selection.length === 0 || actions.length === 0) return null;
 
-  async function execute(action: SerializedBulkAction): Promise<void> {
+  async function execute(
+    action: SerializedBulkAction,
+    input: Record<string, unknown> = {},
+  ): Promise<ActionFormFieldErrors | null> {
     setPending(action.key);
     try {
-      const res = await fetch(`/api/flowpanel/${resource}/bulk-actions/${action.key}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids: selection }),
-      });
-      const result = (await res.json()) as ServerResult;
-
-      if (!result.ok) {
-        toast.error(result.error || `${action.label} failed`);
-        return;
-      }
-
-      toast.success(result.message ?? `${action.label} ran on ${selection.length}`);
-
-      if (result.download) {
-        triggerDownload(result.download);
-      }
-      if (result.redirect) {
-        router.push(result.redirect);
-        return;
-      }
-      onClear();
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Network error");
+      return await runAction(
+        `${apiBase}/${encodeURIComponent(resource)}/bulk-actions/${encodeURIComponent(action.key)}`,
+        { ids: selection, input },
+        {
+          successMessage: `${action.label} ran on ${selection.length}`,
+          failureMessage: `${action.label} failed`,
+          onRefreshed: onClear,
+        },
+      );
     } finally {
       setPending(null);
     }
@@ -97,6 +54,10 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
 
   function onActionPick(action: SerializedBulkAction): void {
     setMenuOpen(false);
+    if (action.hasForm) {
+      setFormAction(action);
+      return;
+    }
     if (action.confirm) {
       setConfirming(action);
       return;
@@ -125,8 +86,9 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
                 key={a.key}
                 disabled={pending === a.key}
                 onSelect={() => onActionPick(a)}
-                className={a.variant === "destructive" ? "text-fp-danger" : undefined}
+                className={a.variant === "destructive" ? "text-fp-err" : undefined}
               >
+                {a.icon ? <FlowpanelIcon name={a.icon} className="mr-2 h-4 w-4" /> : null}
                 {a.label}
               </DropdownMenuItem>
             ))}
@@ -146,12 +108,32 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
           {...(confirming.confirm?.description
             ? { description: confirming.confirm.description }
             : {})}
-          confirmLabel={`${confirming.label} (${selection.length})`}
+          confirmLabel={
+            confirming.confirm?.confirmLabel ?? `${confirming.label} (${selection.length})`
+          }
           variant={confirming.variant === "destructive" ? "destructive" : "default"}
           onConfirm={async () => {
             const action = confirming;
             setConfirming(null);
             await execute(action);
+          }}
+        />
+      ) : null}
+
+      {formAction ? (
+        <ActionFormDialog
+          title={formAction.confirm?.title ?? formAction.label}
+          {...(formAction.confirm?.description
+            ? { description: formAction.confirm.description }
+            : {})}
+          submitLabel={`${formAction.label} (${selection.length})`}
+          {...(formAction.variant === "destructive" ? { variant: "destructive" as const } : {})}
+          fields={formAction.form ?? []}
+          onCancel={() => setFormAction(null)}
+          onSubmit={async (input) => {
+            const fieldErrors = await execute(formAction, input);
+            if (!fieldErrors) setFormAction(null);
+            return fieldErrors;
           }}
         />
       ) : null}

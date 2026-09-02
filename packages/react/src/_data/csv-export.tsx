@@ -1,16 +1,18 @@
 "use client";
-import { resolveFieldLabel } from "../lib/humanize.js";
-import { triggerDownload } from "../lib/trigger-download.js";
-import { Button } from "../ui/button.js";
-import type { DataTableColumn } from "./data-table-types.js";
-import { formatCell } from "./format-cell.js";
+import { resolveFieldLabel } from "../lib/humanize";
+import { triggerDownload } from "../lib/trigger-download";
+import { Button } from "../ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import type { DataTableColumn } from "./data-table-types";
+import { formatCell } from "./format-cell";
 
-/**
- * Neutralize spreadsheet formula injection: if the field starts with a
- * formula trigger (`= + - @`) or a control char (tab/CR) that some
- * spreadsheets treat as a leading separator, prefix a single quote so the
- * value is parsed as literal text. Applied before RFC-4180 quoting.
- */
+export type ExportFormat = "csv" | "json";
+
 function neutralizeFormula(value: string): string {
   if (/^[=+\-@\t\r]/.test(value)) {
     return `'${value}`;
@@ -18,11 +20,6 @@ function neutralizeFormula(value: string): string {
   return value;
 }
 
-/**
- * RFC 4180 field escaping: wrap in double quotes and double any embedded
- * quotes when the value contains a comma, quote, CR, or LF. Formula-injection
- * neutralization runs first so the `'` prefix is inside the quoted field.
- */
 function escapeCsvField(value: string): string {
   const safe = neutralizeFormula(value);
   if (/[",\r\n]/.test(safe)) {
@@ -31,11 +28,7 @@ function escapeCsvField(value: string): string {
   return safe;
 }
 
-/**
- * Coerce a cell value to a CSV string. We reuse `formatCell` for its
- * date/boolean normalization; when it yields a non-string React node we
- * fall back to `String(value)` (the raw cell value), never the node.
- */
+/** Coerce a cell value to a CSV string. */
 function cellToCsvString(value: unknown): string {
   const formatted = formatCell(value);
   if (typeof formatted === "string") return formatted;
@@ -43,21 +36,41 @@ function cellToCsvString(value: unknown): string {
   return String(value);
 }
 
+/** `__cell_<i>` columns are server-rendered cells — no row property stands behind them. */
+const SYNTHETIC_FIELD = /^__cell_\d+$/;
+
+function exportable<Row extends Record<string, unknown>>(
+  columns: DataTableColumn<Row>[],
+): DataTableColumn<Row>[] {
+  return columns.filter((c) => !SYNTHETIC_FIELD.test(c.field));
+}
+
 export function rowsToCsv<Row extends Record<string, unknown>>(
   columns: DataTableColumn<Row>[],
   rows: Row[],
 ): string {
-  const header = columns.map((c) => escapeCsvField(resolveFieldLabel(c.label, c.field)));
+  const cols = exportable(columns);
+  const header = cols.map((c) => escapeCsvField(resolveFieldLabel(c.label, c.field)));
   const body = rows.map((row) =>
-    columns.map((c) => escapeCsvField(cellToCsvString(row[c.field]))).join(","),
+    cols.map((c) => escapeCsvField(cellToCsvString(row[c.field]))).join(","),
   );
   return [header.join(","), ...body].join("\r\n");
 }
 
-/**
- * Build a filesystem-friendly slug from a table/resource label, falling back
- * to `"export"` when nothing usable remains.
- */
+/** Serialize rows to JSON, one object per row keyed by field. */
+export function rowsToJson<Row extends Record<string, unknown>>(
+  columns: DataTableColumn<Row>[],
+  rows: Row[],
+): string {
+  const cols = exportable(columns);
+  const data = rows.map((row) => {
+    const obj: Record<string, unknown> = {};
+    for (const c of cols) obj[c.field] = row[c.field] ?? null;
+    return obj;
+  });
+  return JSON.stringify(data, null, 2);
+}
+
 function slugify(label: string): string {
   const slug = label
     .trim()
@@ -67,35 +80,82 @@ function slugify(label: string): string {
   return slug || "export";
 }
 
-export interface CsvExportButtonProps<Row extends Record<string, unknown>> {
+function downloadRows<Row extends Record<string, unknown>>(
+  format: ExportFormat,
+  columns: DataTableColumn<Row>[],
+  rows: Row[],
+  tableLabel: string,
+): void {
+  const slug = slugify(tableLabel);
+  if (format === "json") {
+    triggerDownload({
+      filename: `${slug}-${rows.length}-rows.json`,
+      data: rowsToJson(columns, rows),
+      mime: "application/json;charset=utf-8",
+    });
+    return;
+  }
+  triggerDownload({
+    filename: `${slug}-${rows.length}-rows.csv`,
+    data: rowsToCsv(columns, rows),
+    mime: "text/csv;charset=utf-8",
+  });
+}
+
+export interface ExportButtonProps<Row extends Record<string, unknown>> {
+  /** Columns to include in the export. */
   columns: DataTableColumn<Row>[];
   rows: Row[];
   label: string;
   /** Label used for the download filename slug. */
   tableLabel: string;
+  /** File formats the button offers. */
+  formats: ExportFormat[];
 }
 
-export function CsvExportButton<Row extends Record<string, unknown>>({
+const FORMAT_LABEL: Record<ExportFormat, string> = {
+  csv: "Export as CSV",
+  json: "Export as JSON",
+};
+
+export function ExportButton<Row extends Record<string, unknown>>({
   columns,
   rows,
   label,
   tableLabel,
-}: CsvExportButtonProps<Row>) {
+  formats,
+}: ExportButtonProps<Row>) {
+  if (formats.length <= 1) {
+    const format = formats[0] ?? "csv";
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => downloadRows(format, columns, rows, tableLabel)}
+      >
+        {label}
+      </Button>
+    );
+  }
+
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      onClick={() => {
-        const csv = rowsToCsv(columns, rows);
-        triggerDownload({
-          filename: `${slugify(tableLabel)}-${rows.length}-rows.csv`,
-          data: csv,
-          mime: "text/csv;charset=utf-8",
-        });
-      }}
-    >
-      {label}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="sm">
+          {label}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {formats.map((format) => (
+          <DropdownMenuItem
+            key={format}
+            onSelect={() => downloadRows(format, columns, rows, tableLabel)}
+          >
+            {FORMAT_LABEL[format]}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

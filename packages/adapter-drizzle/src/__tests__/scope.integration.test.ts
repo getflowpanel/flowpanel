@@ -1,11 +1,11 @@
 import type { ItemQueryContext, ListQueryContext, MutationContext } from "@flowpanel/core";
-import { FlowpanelAccessError } from "@flowpanel/core";
+import { bindAdapterScope, FlowpanelAccessError } from "@flowpanel/core";
 import Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { drizzleAdapter } from "../index.js";
+import { drizzleAdapter } from "../index";
 
 const items = sqliteTable("items", {
   id: text("id").primaryKey(),
@@ -98,6 +98,14 @@ describe("drizzleAdapter tenant scope enforcement (sqlite)", () => {
     expect((r.rows as { id: string }[]).map((x) => x.id).sort()).toEqual(["i1", "i2"]);
   });
 
+  it("accepts the opaque v2 bound scope without legacy flags", async () => {
+    const result = await adapter.list(
+      items,
+      listCtx({ boundScope: bindAdapterScope(applyScopeC1) }),
+    );
+    expect(result.rows.map((row: any) => row.companyId)).toEqual(["c1", "c1"]);
+  });
+
   it("list scope is AND-ed with filters", async () => {
     const r = await adapter.list(
       items,
@@ -152,6 +160,12 @@ describe("drizzleAdapter tenant scope enforcement (sqlite)", () => {
     await expect(adapter.list(items, listCtx({ scopeRequired: true }))).rejects.toBeInstanceOf(
       FlowpanelAccessError,
     );
+  });
+
+  it("FAIL-CLOSED: list throws when a bound scope predicate adds no where clause", async () => {
+    await expect(
+      adapter.list(items, listCtx({ scopeRequired: true, applyScope: (query: unknown) => query })),
+    ).rejects.toThrow(/added no where clause/);
   });
 
   it("FAIL-CLOSED: get throws when scopeRequired && no applyScope", async () => {
@@ -215,5 +229,60 @@ describe("drizzleAdapter tenant scope enforcement (sqlite)", () => {
         mutCtx("i1", {}, { scopeRequired: true, softDelete: { column: "deletedAt" } }),
       ),
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
+  });
+
+  it("create with an in-scope tenant value succeeds", async () => {
+    const row = await adapter.create(items, {
+      req: new Request("http://localhost/admin/items"),
+      session: null,
+      role: "admin",
+      scope: { companyId: "c1" },
+      ip: null,
+      userAgent: null,
+      db,
+      input: { id: "c1new", name: "New in c1", companyId: "c1" },
+      applyScope: applyScopeC1,
+    } as unknown as MutationContext<unknown>);
+    expect(row).toMatchObject({ id: "c1new", companyId: "c1" });
+    const raw = sqlite.prepare("SELECT id FROM items WHERE id = ?").get("c1new");
+    expect(raw).toBeDefined();
+  });
+
+  it("SECURITY: create with a cross-tenant value is refused and rolled back, not written", async () => {
+    await expect(
+      adapter.create(items, {
+        req: new Request("http://localhost/admin/items"),
+        session: null,
+        role: "admin",
+        scope: { companyId: "c1" },
+        ip: null,
+        userAgent: null,
+        db,
+        // Attacker-controlled input hand-crafts a row for a DIFFERENT tenant.
+        input: { id: "hacked1", name: "Cross-tenant", companyId: "c2" },
+        applyScope: applyScopeC1,
+      } as unknown as MutationContext<unknown>),
+    ).rejects.toBeInstanceOf(FlowpanelAccessError);
+    // The row must not have been left behind by the rollback.
+    const raw = sqlite.prepare("SELECT id FROM items WHERE id = ?").get("hacked1");
+    expect(raw).toBeUndefined();
+  });
+
+  it("FAIL-CLOSED: create throws when scopeRequired && no applyScope, before writing anything", async () => {
+    await expect(
+      adapter.create(items, {
+        req: new Request("http://localhost/admin/items"),
+        session: null,
+        role: "admin",
+        scope: { companyId: "c1" },
+        ip: null,
+        userAgent: null,
+        db,
+        input: { id: "shouldnotexist", name: "X", companyId: "c1" },
+        scopeRequired: true,
+      } as unknown as MutationContext<unknown>),
+    ).rejects.toBeInstanceOf(FlowpanelAccessError);
+    const raw = sqlite.prepare("SELECT id FROM items WHERE id = ?").get("shouldnotexist");
+    expect(raw).toBeUndefined();
   });
 });

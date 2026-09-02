@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Input } from "../ui/input.js";
+import { Input } from "../ui/input";
 
 export interface TagInputProps {
   value: string[];
@@ -8,9 +8,23 @@ export interface TagInputProps {
   placeholder?: string;
   max?: number;
   className?: string;
+  id?: string;
+  "aria-invalid"?: true;
+  "aria-describedby"?: string;
+  "aria-required"?: true;
 }
 
-export function TagInput({ value, onChange, placeholder = "Add…", max, className }: TagInputProps) {
+export function TagInput({
+  value,
+  onChange,
+  placeholder = "Add…",
+  max,
+  className,
+  id,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": describedBy,
+  "aria-required": ariaRequired,
+}: TagInputProps) {
   const [draft, setDraft] = React.useState("");
 
   const push = () => {
@@ -27,12 +41,12 @@ export function TagInput({ value, onChange, placeholder = "Add…", max, classNa
 
   return (
     <div
-      className={`flex flex-wrap items-center gap-1.5 rounded-fp border border-fp-border-1 bg-fp-bg-1 p-1.5 focus-within:ring-2 focus-within:ring-fp-accent ${className ?? ""}`}
+      className={`flex flex-wrap items-center gap-1.5 rounded-fp border border-fp-border-1 bg-fp-bg-1 p-1.5 shadow-fp-xs transition-colors focus-within:border-fp-focus focus-within:ring-2 focus-within:ring-fp-focus/25 ${className ?? ""}`}
     >
       {value.map((t) => (
         <span
           key={t}
-          className="inline-flex items-center gap-1 rounded-sm bg-fp-bg-2 px-2 py-0.5 text-xs text-fp-text-1"
+          className="inline-flex items-center gap-1 rounded-fp-sm bg-fp-bg-2 px-2 py-0.5 text-xs text-fp-text-1"
         >
           {t}
           <button
@@ -46,6 +60,7 @@ export function TagInput({ value, onChange, placeholder = "Add…", max, classNa
         </span>
       ))}
       <Input
+        id={id}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
@@ -58,6 +73,9 @@ export function TagInput({ value, onChange, placeholder = "Add…", max, classNa
         }}
         onBlur={push}
         placeholder={value.length === 0 ? placeholder : undefined}
+        aria-invalid={ariaInvalid}
+        {...(describedBy ? { "aria-describedby": describedBy } : {})}
+        {...(ariaRequired ? { "aria-required": true as const } : {})}
         className="h-7 flex-1 min-w-[80px] border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
       />
     </div>

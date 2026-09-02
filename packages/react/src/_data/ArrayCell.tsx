@@ -1,17 +1,6 @@
 "use client";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
-/**
- * Renders an array (typically `jsonb<string[]>`) as a row of pill chips with
- * a "+N more" overflow indicator. The full list is reachable on hover via
- * the native `title` attribute — keeps the cell compact and avoids
- * blowing up row height. Clicking on the "+N more" chip toggles inline
- * expansion if the consumer wires `expandable`.
- *
- * `max` controls how many entries to inline before collapsing into the "+N
- * more" affordance. Defaults to 3 — a sane fit for the table row height
- * grid without horizontal scroll.
- */
 export interface ArrayCellProps {
   value: ReadonlyArray<unknown> | null | undefined;
   /** Max chips inlined before "+N more". Default 3. */
@@ -37,7 +26,7 @@ export function ArrayCell({ value, max = 3, className }: ArrayCellProps) {
         <span
           // biome-ignore lint/suspicious/noArrayIndexKey: chip slot identity is positional within the cell.
           key={i}
-          className="inline-flex max-w-[10rem] truncate rounded-full bg-fp-bg-2 px-2 py-0.5 text-xs text-fp-text-2"
+          className="inline-flex max-w-[10rem] truncate rounded-full border border-fp-border-1 bg-fp-bg-3/50 px-2 py-0.5 text-xs text-fp-text-2"
         >
           {formatChipValue(v)}
         </span>
@@ -45,7 +34,7 @@ export function ArrayCell({ value, max = 3, className }: ArrayCellProps) {
       {overflow > 0 ? (
         <span
           role="img"
-          className="inline-flex rounded-full bg-fp-bg-3 px-2 py-0.5 text-xs text-fp-text-3"
+          className="inline-flex rounded-full border border-fp-border-1 bg-fp-bg-3/50 px-2 py-0.5 text-xs font-medium text-fp-text-2"
           aria-label={`${overflow} more`}
         >
           +{overflow}

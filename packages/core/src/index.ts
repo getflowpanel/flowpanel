@@ -1,58 +1,80 @@
-export { dashboard, page } from "./builders/dashboard.js";
-export { queue } from "./builders/queue.js";
-export { resource } from "./builders/resource.js";
-export { custom, metric, statGroup, table } from "./builders/widget.js";
-export { defineAdmin } from "./define-admin.js";
-export { emitAudit } from "./runtime/audit.js";
-export { checkRequireRole, type RequireRole } from "./runtime/auth.js";
-export { createPublisher, type Publisher, type PublisherOptions } from "./runtime/publish.js";
+export { type AdapterScopeContext, resolveScopeApplier } from "./adapter-scope";
+export { devAuth } from "./auth/dev";
+export { dashboard, page } from "./builders/dashboard";
+export { queue } from "./builders/queue";
+export { resource } from "./builders/resource";
+export { custom, metric, statGroup, table } from "./builders/widget";
+export { isBuiltinBulkDelete } from "./compiler/builtin-bulk-delete";
+export { defineAdmin } from "./define-admin";
+export { formatColumnValue } from "./format-column";
+export { humanize, resolveFieldLabel } from "./humanize";
+export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";
+export { assertWritableInput, filterReadableProjection } from "./policy/fields";
+export { resolveResourceName } from "./resource-name";
+export { emitAudit } from "./runtime/audit";
+export { checkRequireRole, type RequireRole } from "./runtime/auth";
+export { createPublisher, type Publisher, type PublisherOptions } from "./runtime/publish";
 export {
   createRateLimiter,
   type RateLimiter,
   type RateLimitOptions,
-} from "./runtime/rate-limit.js";
+} from "./runtime/rate-limit";
 export {
   getRequestContext,
   runWithRequestContext,
   tryGetRequestContext,
-} from "./runtime/request-context.js";
-export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope.js";
+} from "./runtime/request-context";
+export { errorResult, reportUnexpectedError, resultResponse } from "./runtime/result";
+export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope";
 export type {
+  ActionConfirm,
+  ActionInput,
   ActionResult,
+  ActionVariant,
   BulkAction,
   DashboardAction,
   RowAction,
-} from "./types/action.js";
+} from "./types/action";
+export { bulkAction, dashboardAction, rowAction } from "./types/action";
 export type {
   Adapter,
+  AdapterKind,
   ColumnMeta,
   ResourceIntrospection,
-} from "./types/adapter.js";
+} from "./types/adapter";
+export { type BoundAdapterScope, bindAdapterScope } from "./types/bound-scope";
 export type {
   CommandGroup,
   CommandItem,
   CommandPaletteConfig,
-} from "./types/command.js";
+} from "./types/command";
 export type {
   AdminConfig,
+  AdminDefinition,
   AuditConfig,
   AuditEvent,
   AuthConfig,
   FlowpanelComponentSlots,
   RateLimitConfig,
   ResolvedAdminConfig,
+  SecurityConfig,
   ShellConfig,
   ShellMode,
   ThemeConfig,
-} from "./types/config.js";
+} from "./types/config";
 export type {
   ActionContext,
+  ErrorContext,
+  FilterInValue,
+  FilterRangeValue,
   ItemQueryContext,
   ListQueryContext,
   MutationContext,
   QueryContext,
   RequestContext,
-} from "./types/context.js";
+  StructuredFilterValue,
+} from "./types/context";
+export { isFilterInValue, isFilterRangeValue } from "./types/context";
 export type {
   DashboardConfig,
   DateRangeConfig,
@@ -60,39 +82,63 @@ export type {
   PageConfig,
   ResolvedDateRange,
   SectionConfig,
-  UrlParamSpec,
-} from "./types/dashboard.js";
+} from "./types/dashboard";
 export type {
   DrawerAction,
   DrawerConfig,
   DrawerFieldFormSpec,
+  DrawerFieldList,
   DrawerTab,
   DrawerTabFields,
   DrawerTabResource,
   DrawerTabWidgets,
   DrawerWidth,
-} from "./types/drawer.js";
+} from "./types/drawer";
 export {
   FlowpanelAccessError,
   FlowpanelAuthError,
   FlowpanelConflictError,
   FlowpanelError,
+  FlowpanelFieldAccessError,
   FlowpanelNotFoundError,
+  FlowpanelOperationDisabledError,
   FlowpanelRateLimitError,
+  FlowpanelUnknownFieldError,
   FlowpanelValidationError,
-} from "./types/error.js";
+} from "./types/error";
+export type { IconName } from "./types/icon";
 export {
   DEFAULT_LABELS,
   formatLabel,
   type LabelsConfig,
   mergeLabels,
   type ResolvedLabels,
-} from "./types/labels.js";
-export type { QueueConfig, QueueOptions } from "./types/queue.js";
-export type { RealtimeConfig } from "./types/realtime.js";
-export type { FlowpanelTypes, InferDB, InferRow } from "./types/registry.js";
+} from "./types/labels";
+export type { AdminPaths, AdminPathsInput } from "./types/paths";
 export type {
+  AccessContext,
+  AccessRule,
+  FieldAccess,
+  FieldAccessMap,
+  FieldWriteContext,
+  JsonValue,
+  ResourceAccess,
+  ResourceOperation,
+} from "./types/policy";
+export type { QueueConfig, QueueOptions } from "./types/queue";
+export type { RealtimeConfig } from "./types/realtime";
+export type {
+  FlowpanelResources,
+  FlowpanelTypes,
+  InferDB,
+  InferRow,
+  ReferenceSpec,
+  ResourceName,
+} from "./types/registry";
+export type {
+  AnyResourceConfig,
   ColumnDef,
+  ColumnFormat,
   DetailTab,
   FieldDef,
   FieldType,
@@ -102,8 +148,17 @@ export type {
   ResourceConfig,
   ResourceOptions,
   SelectOption,
-} from "./types/resource.js";
-export type { Scope, ScopeContext, Session } from "./types/session.js";
+} from "./types/resource";
+export {
+  FLOWPANEL_ERROR_STATUS,
+  type FlowpanelErrorCode,
+  type FlowpanelResult,
+  type FlowpanelResultError,
+  type FlowpanelResultMeta,
+  type FlowpanelWarning,
+  type FlowpanelWarningCode,
+} from "./types/result";
+export type { Scope, ScopeContext, Session } from "./types/session";
 export type {
   AreaChartOptions,
   AreaChartWidget,
@@ -121,13 +176,15 @@ export type {
   NumericFormat,
   PieChartOptions,
   PieChartWidget,
+  RowKey,
   Span,
   StatGroupOptions,
   StatGroupWidget,
   StatItem,
+  StatValue,
   TableWidget,
   TableWidgetOptions,
   Tone,
   WidgetConfig,
   WidgetContext,
-} from "./types/widget.js";
+} from "./types/widget";

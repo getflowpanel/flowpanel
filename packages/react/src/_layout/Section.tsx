@@ -1,5 +1,6 @@
+import type { Span } from "@flowpanel/core";
 import type * as React from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 export interface SectionLabelProps {
   label: string;
@@ -10,7 +11,7 @@ export interface SectionLabelProps {
 export function SectionLabel({ label, description, className }: SectionLabelProps) {
   return (
     <div className={className}>
-      <h2 className="text-sm font-medium text-fp-text-2 uppercase tracking-wide">{label}</h2>
+      <h2 className="text-base font-medium text-fp-text-1">{label}</h2>
       {description ? <p className="text-xs text-fp-text-3 mt-0.5">{description}</p> : null}
     </div>
   );
@@ -41,10 +42,24 @@ const colClass: Record<number, string> = {
   12: "grid-cols-12",
 };
 
+export const spanClass: Record<Span, string> = {
+  1: "col-span-12 sm:col-span-1",
+  2: "col-span-12 sm:col-span-2",
+  3: "col-span-12 sm:col-span-3",
+  4: "col-span-12 sm:col-span-4",
+  6: "col-span-12 sm:col-span-6",
+  8: "col-span-12 sm:col-span-8",
+  12: "col-span-12",
+};
+
 export function Section({ label, description, columns = 1, className, children }: SectionProps) {
   return (
     <section className={cn("space-y-3", className)} data-columns={columns}>
-      {label ? <SectionLabel label={label} {...(description ? { description } : {})} /> : null}
+      {label ? (
+        <SectionLabel label={label} {...(description ? { description } : {})} />
+      ) : description ? (
+        <p className="text-xs text-fp-text-3">{description}</p>
+      ) : null}
       <div className={cn("grid gap-3", colClass[columns] ?? "grid-cols-1")}>{children}</div>
     </section>
   );

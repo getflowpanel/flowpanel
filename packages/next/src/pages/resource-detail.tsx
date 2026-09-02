@@ -1,22 +1,70 @@
 import type {
   ColumnDef,
+  ColumnFormat,
   DetailTab,
   FieldDef,
   ItemQueryContext,
-  ListQueryContext,
+  RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { assertResourceScope, checkRequireRole, runWithRequestContext } from "@flowpanel/core";
+import {
+  assertResourceScope,
+  authorizeOperation,
+  checkRequireRole,
+  resolveFieldLabel,
+  resolveOperationAccess,
+  runWithRequestContext,
+} from "@flowpanel/core";
 import { DetailTabsClient } from "@flowpanel/next/client";
 import { Button, DataTable, KV, KVRow, PageHeader } from "@flowpanel/react";
 import type * as React from "react";
-import { formatFieldValue } from "../runtime/format-field-value.js";
-import { buildHref } from "../runtime/href.js";
-import { prerenderResourceCells } from "../runtime/prerender-cells.js";
-import { buildRequestContext } from "../runtime/request-setup.js";
-import { scopeBinding } from "../runtime/scope-binding.js";
-import { NotFound } from "./not-found.js";
+import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { formatFieldValue } from "../runtime/format-field-value";
+import { buildHref } from "../runtime/href";
+import { prerenderResourceCells } from "../runtime/prerender-cells";
+import { projectAuthorizedRow } from "../runtime/project-row";
+import { renderColumnFormat } from "../runtime/render-column-format";
+import { buildRequestContext } from "../runtime/request-setup";
+import { readRelatedRows } from "../runtime/require-authorized";
+import { singularLabel } from "../runtime/resource-title";
+import { scopeBinding } from "../runtime/scope-binding";
+import { NotFound } from "./not-found";
+
+const RELATED_TAB_PAGE_SIZE = 25;
+
+interface DetailCell {
+  label?: string;
+  format?: ColumnFormat;
+  node?: React.ReactNode;
+}
+
+/** Field → the list page's own label / render / format for that column. */
+function buildDetailCells<Row extends Record<string, unknown>>(
+  resource: ResourceConfig,
+  row: Row,
+  reqCtx: RequestContext,
+): Map<string, DetailCell> {
+  const out = new Map<string, DetailCell>();
+  const defs = resource.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>> | undefined;
+  if (!defs || defs.length === 0) return out;
+  const { columns, prerenderedCells } = prerenderResourceCells<Row>(defs, [row], reqCtx);
+  columns.forEach((c, i) => {
+    const cell: DetailCell = {};
+    if (c.label !== undefined) cell.label = c.label;
+    if (c.format !== undefined) cell.format = c.format;
+    const node = prerenderedCells?.[0]?.[i];
+    if (node !== undefined) cell.node = node;
+    out.set(c.field as string, cell);
+  });
+  return out;
+}
+
+function detailValue(value: unknown, cell: DetailCell | undefined): React.ReactNode {
+  if (cell?.node !== undefined) return cell.node;
+  if (cell?.format !== undefined) return renderColumnFormat(cell.format, value);
+  return formatFieldValue(value);
+}
 
 export interface ResourceDetailPageProps {
   config: ResolvedAdminConfig;
@@ -24,6 +72,7 @@ export interface ResourceDetailPageProps {
   name: string;
   id: string;
   req: Request;
+  reqCtx?: RequestContext;
 }
 
 export async function ResourceDetailPage({
@@ -32,9 +81,14 @@ export async function ResourceDetailPage({
   name,
   id,
   req,
+  reqCtx: providedReqCtx,
 }: ResourceDetailPageProps) {
-  const reqCtx = await buildRequestContext({ req, config });
+  const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
   checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
+  await authorizeOperation(
+    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
+    reqCtx,
+  );
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
@@ -56,8 +110,11 @@ export async function ResourceDetailPage({
 
   if (!row) return <NotFound config={config} />;
 
-  const pk = (resource.options.rowKey as string | undefined) ?? "id";
-  const title = `${resource.options.label ?? name} · ${String(row[pk])}`;
+  const projectedRow = await projectAuthorizedRow(resource, row, reqCtx);
+
+  const pk = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const label = singularLabel(resource, name);
+  const title = projectedRow[pk] === undefined ? label : `${label} · ${String(projectedRow[pk])}`;
 
   const editAction = (
     <Button asChild>
@@ -66,9 +123,8 @@ export async function ResourceDetailPage({
   );
 
   const tabs = resource.options.detail?.tabs;
-  // No `detail.tabs` → preserve the original "all fields in a single KV"
-  // rendering so existing detail pages don't change shape.
   const hasTabs = Array.isArray(tabs) && tabs.length > 0;
+  const cells = hasTabs ? null : buildDetailCells(resource, projectedRow, reqCtx);
 
   return (
     <>
@@ -79,13 +135,25 @@ export async function ResourceDetailPage({
       )}
       {hasTabs ? (
         <DetailTabsClient
-          tabs={await renderTabs(config, reqCtx, resource, row, tabs as DetailTab<typeof row>[])}
+          tabs={
+            await renderTabs(
+              config,
+              reqCtx,
+              resource,
+              projectedRow,
+              tabs as DetailTab<typeof projectedRow>[],
+            )
+          }
         />
       ) : (
         <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
           <KV>
-            {Object.entries(row).map(([k, v]) => (
-              <KVRow key={k} label={k} value={formatFieldValue(v)} />
+            {Object.entries(projectedRow).map(([k, v]) => (
+              <KVRow
+                key={k}
+                label={resolveFieldLabel(cells?.get(k)?.label, k)}
+                value={detailValue(v, cells?.get(k))}
+              />
             ))}
           </KV>
         </div>
@@ -94,21 +162,7 @@ export async function ResourceDetailPage({
   );
 }
 
-/**
- * Server-prerender each `DetailTab` into a React node. The client only
- * receives a serialized `{ key, label, content }[]` payload — function refs
- * (`render`, `hidden`, `filter`) stay on the server.
- *
- * Tab kinds:
- *
- * - **fields**: render KV pairs for the listed fields (or all when `"*"`).
- * - **resource**: fetch a related resource list via `adapter.list` and
- *   render a read-only `<DataTable>` (no row click / no actions).
- * - **render**: invoke the user's render callback server-side.
- *
- * The order in the result matches the declaration order. `hidden` filters
- * are applied server-side so the client never sees a tab it can't show.
- */
+/** Server-prerender each `DetailTab` into a React node. */
 async function renderTabs<Row extends Record<string, unknown>>(
   config: ResolvedAdminConfig,
   reqCtx: Awaited<ReturnType<typeof buildRequestContext>>,
@@ -131,7 +185,7 @@ async function renderTabs<Row extends Record<string, unknown>>(
 async function renderTab<Row extends Record<string, unknown>>(
   config: ResolvedAdminConfig,
   reqCtx: Awaited<ReturnType<typeof buildRequestContext>>,
-  _resource: ResourceConfig,
+  resource: ResourceConfig,
   row: Row,
   tab: DetailTab<Row>,
 ): Promise<React.ReactNode> {
@@ -142,47 +196,28 @@ async function renderTab<Row extends Record<string, unknown>>(
     if (!target) {
       return <div className="text-fp-text-3">Unknown resource: {tab.resource}</div>;
     }
-    // Role-gate the related resource the same way its own list page would —
-    // a tab must not surface rows the viewer can't read. Throws
-    // FlowpanelAccessError, handled by the page boundary.
-    checkRequireRole(target.options.requireRole, reqCtx.role, reqCtx.session);
-    const filterValues = tab.filter ? tab.filter(row) : {};
-    const listCtx: ListQueryContext<unknown> = {
-      ...reqCtx,
-      db: config.adapter.db,
-      dateRange: { from: new Date(0), to: new Date() },
-      searchParams: new URLSearchParams(),
-      signal: new AbortController().signal,
-      filters: filterValues,
-      sort: null,
-      page: 1,
-      pageSize: 25,
-      search: "",
-      ...scopeBinding(config, target, reqCtx),
-    };
-    const list = await runWithRequestContext(reqCtx, () =>
-      config.adapter.list(target.ref, listCtx),
-    );
+    const rows = (await readRelatedRows(config, target, reqCtx, {
+      filters: tab.filter ? tab.filter(row) : {},
+      pageSize: RELATED_TAB_PAGE_SIZE,
+    })) as Row[] | null;
+    if (!rows || rows.length === 0) {
+      return <div className="px-2 py-6 text-sm text-fp-text-3">No related rows</div>;
+    }
     const targetCols = target.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>>;
     const intro = config.adapter.introspect(target.ref);
     const metaByField = new Map(intro.columns.map((c) => [c.name, c]));
-    const { columns, prerenderedCells } = prerenderResourceCells<Row>(
-      targetCols,
-      list.rows as Row[],
-      reqCtx,
-      { defaultSortable: false, metaByField },
-    );
-    if (list.rows.length === 0) {
-      return <div className="px-2 py-6 text-sm text-fp-text-3">No related rows</div>;
-    }
-    const rowKey = (target.options.rowKey as string | undefined) ?? "id";
+    const { columns, prerenderedCells } = prerenderResourceCells<Row>(targetCols, rows, reqCtx, {
+      defaultSortable: false,
+      metaByField,
+    });
+    const rowKey = (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
     return (
       <DataTable
         columns={columns}
-        rows={list.rows as Row[]}
-        total={list.total}
-        page={list.page}
-        pageSize={list.pageSize}
+        rows={rows}
+        total={rows.length}
+        page={1}
+        pageSize={RELATED_TAB_PAGE_SIZE}
         rowKey={rowKey as keyof Row & string}
         {...(prerenderedCells ? { prerenderedCells } : {})}
         emptyTitle="No related rows"
@@ -190,14 +225,28 @@ async function renderTab<Row extends Record<string, unknown>>(
     );
   }
 
-  // `fields` mode (default): render selected fields as KV.
   const selected = tab.fields;
-  const fieldList = selectFields(row, selected);
+  const projectedRow = await projectAuthorizedRow(
+    resource,
+    row,
+    reqCtx,
+    Array.isArray(selected)
+      ? selected.map((entry) =>
+          typeof entry === "object" && entry !== null ? String(entry.name) : String(entry),
+        )
+      : undefined,
+  );
+  const fieldList = selectFields(projectedRow, selected);
+  const cells = buildDetailCells(resource, row, reqCtx);
   return (
     <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
       <KV>
         {fieldList.map(({ name, label }) => (
-          <KVRow key={name} label={label} value={formatFieldValue(row[name as keyof Row])} />
+          <KVRow
+            key={name}
+            label={resolveFieldLabel(label ?? cells.get(name)?.label, name)}
+            value={detailValue(projectedRow[name as keyof Row], cells.get(name))}
+          />
         ))}
       </KV>
     </div>
@@ -207,15 +256,17 @@ async function renderTab<Row extends Record<string, unknown>>(
 function selectFields<Row extends Record<string, unknown>>(
   row: Row,
   fields: DetailTab<Row>["fields"],
-): Array<{ name: string; label: string }> {
+): Array<{ name: string; label?: string }> {
   if (fields === undefined || fields === "*") {
-    return Object.keys(row).map((k) => ({ name: k, label: k }));
+    return Object.keys(row).map((k) => ({ name: k }));
   }
   return fields.map((f) => {
     if (typeof f === "string" || typeof f === "number" || typeof f === "symbol") {
-      return { name: String(f), label: String(f) };
+      return { name: String(f) };
     }
     const def = f as FieldDef<Row>;
-    return { name: String(def.name), label: def.label ?? String(def.name) };
+    return def.label !== undefined
+      ? { name: String(def.name), label: def.label }
+      : { name: String(def.name) };
   });
 }

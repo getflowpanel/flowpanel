@@ -1,0 +1,52 @@
+/**
+ * Serializable icon names understood by FlowPanel's built-in UI.
+ *
+ * The names intentionally follow Lucide's kebab-case vocabulary. Keeping the
+ * value serializable means the same config works across the React Server
+ * Component boundary; consumers never need to pass component functions.
+ */
+export type IconName =
+  | "activity"
+  | "archive"
+  | "badge-dollar-sign"
+  | "ban"
+  | "bar-chart"
+  | "bell"
+  | "book-open"
+  | "box"
+  | "boxes"
+  | "briefcase"
+  | "calendar"
+  | "check"
+  | "circle-dollar-sign"
+  | "circle-help"
+  | "clipboard-list"
+  | "command"
+  | "credit-card"
+  | "database"
+  | "file-text"
+  | "gauge"
+  | "heart-pulse"
+  | "home"
+  | "inbox"
+  | "layout-dashboard"
+  | "list"
+  | "lock"
+  | "mail"
+  | "moon"
+  | "package"
+  | "play"
+  | "refresh"
+  | "search"
+  | "settings"
+  | "shield"
+  | "shopping-cart"
+  | "sparkles"
+  | "tags"
+  | "trash-2"
+  | "user"
+  | "user-cog"
+  | "users"
+  | "workflow"
+  | "wrench"
+  | "x";

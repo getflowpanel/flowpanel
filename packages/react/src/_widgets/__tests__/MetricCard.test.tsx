@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { MetricCard } from "../MetricCard.js";
+import { MetricCard } from "../MetricCard";
 
 afterEach(() => cleanup());
 
@@ -25,8 +25,8 @@ describe("MetricCard", () => {
   });
 
   it("applies tone data-attribute", () => {
-    const { container } = render(<MetricCard label="X" value={1} tone="warning" />);
-    expect(container.querySelector("[data-tone='warning']")).toBeTruthy();
+    const { container } = render(<MetricCard label="X" value={1} tone="warn" />);
+    expect(container.querySelector("[data-tone='warn']")).toBeTruthy();
   });
 
   it("renders string value as-is", () => {
@@ -38,5 +38,15 @@ describe("MetricCard", () => {
     render(<MetricCard label="Visits" value={100} delta={{ value: 0.123, vs: "prev week" }} />);
     expect(screen.getByText(/▲/)).toBeTruthy();
     expect(screen.getByText(/prev week/)).toBeTruthy();
+  });
+
+  it("renders icon when given", () => {
+    render(<MetricCard label="Users" value={1} icon="👥" />);
+    expect(screen.getByText("👥")).toBeTruthy();
+  });
+
+  it("omits any icon markup when not given", () => {
+    const { container } = render(<MetricCard label="Users" value={1} />);
+    expect(container.querySelector("[aria-hidden]")).toBeNull();
   });
 });

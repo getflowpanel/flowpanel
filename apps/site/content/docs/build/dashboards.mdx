@@ -1,0 +1,54 @@
+---
+title: Dashboards
+description: Compose metrics, tables, charts, and custom widgets into operational dashboards.
+kind: how-to
+---
+
+A dashboard combines server-side queries into an operational view. Use it to answer a small set of related questions; use a custom page when the screen is primarily an interactive workflow rather than a grid of data.
+
+## Add a first metric
+
+```ts excerpt
+import { dashboard, metric } from "@flowpanel/kit";
+
+export const overview = dashboard({
+  path: "/",
+  label: "Overview",
+  sections: [
+    {
+      columns: 3,
+      widgets: [
+        metric("Active users", async ({ db }) => countActiveUsers(db), {
+          format: "number",
+        }),
+      ],
+    },
+  ],
+});
+```
+
+Register it in `dashboards`. The root path renders at `/admin`; another path such as `/sales` renders at `/admin/sales`.
+
+## Compose sections and layout
+
+Each section chooses a column count and contains widgets with optional spans. Group widgets by the decision they support, not by their implementation type. A short label above a section is useful when the relationship would otherwise be unclear.
+
+FlowPanel includes metric, table, stat group, chart, and custom widget builders. Table widgets reuse a registered resource surface. A custom widget receives a component and props for cases that remain self-contained but do not fit a built-in visualization.
+
+## Add a date range
+
+Configure a dashboard date range when several queries should use the same interval. The resolved range arrives in each widget context. Treat it as a query input, not as authorization; tenant and role constraints still belong in their own policies.
+
+## Add actions
+
+Dashboard actions appear in the page header and receive typed form input plus action context. Use them for operations that affect the dashboard domain rather than one visible row. See [Add actions](/docs/build/actions).
+
+## Keep queries server-only
+
+Widget functions run on the server with the configured database client, session, scope, and resolved date range. Return only the value or rows the widget needs. Do not pass database clients, sessions, or arbitrary server objects into custom client components.
+
+## Handle failure as part of the view
+
+Plan empty, loading, and error states for every custom widget. Keep expensive independent queries independent so one failure does not erase unrelated operational context. Add realtime only to widgets where a refresh changes a user decision; polling every metric through live events creates noise without improving the workflow.
+
+See [Widgets and dashboards reference](/docs/reference/widgets) for generated builders and option types, and [Charts](/docs/customization/charts) for presentation guidance.

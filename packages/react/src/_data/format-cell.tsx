@@ -1,6 +1,6 @@
 import type * as React from "react";
 
-import { LocalTime } from "../_atoms/LocalTime.js";
+import { LocalTime } from "../_atoms/LocalTime";
 
 const dateFmt = new Intl.DateTimeFormat("en-CA", {
   year: "numeric",
@@ -22,14 +22,7 @@ export function formatCell(v: unknown): React.ReactNode {
   return String(v);
 }
 
-/**
- * Render a cell value as React content. Identical to {@link formatCell} for
- * non-temporal values, but renders `Date` / ISO-datetime strings through
- * {@link LocalTime} so they display in the VIEWER's timezone rather than the
- * server's (the classic "the table clock is hours off" bug). Use this for
- * on-screen rendering; keep `formatCell` for plain-string contexts (CSV export,
- * prerender-to-string).
- */
+/** Render a cell value as React content. */
 export function renderCellValue(v: unknown): React.ReactNode {
   if (v instanceof Date) return <LocalTime date={v} />;
   if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {

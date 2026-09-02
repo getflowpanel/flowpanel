@@ -1,5 +1,5 @@
-// LOC-OK: drizzle adapter — list/get/create/update/delete plus filter, sort and
-// dialect handling form one cohesive query builder; splitting fragments it.
+// LOC-OK: one adapter contract implementation — the dialect branches inside
+// list/create/update only make sense read together.
 import type {
   Adapter,
   ItemQueryContext,
@@ -7,7 +7,12 @@ import type {
   ListResult,
   MutationContext,
 } from "@flowpanel/core";
-import { FlowpanelAccessError } from "@flowpanel/core";
+import {
+  FlowpanelAccessError,
+  isFilterInValue,
+  isFilterRangeValue,
+  resolveScopeApplier,
+} from "@flowpanel/core";
 import {
   type AnyColumn,
   and,
@@ -15,26 +20,22 @@ import {
   desc,
   eq,
   getTableColumns,
-  ilike,
+  gte,
+  inArray,
   isNotNull,
   isNull,
-  like,
+  lte,
   or,
   type SQL,
   sql,
   type Table,
 } from "drizzle-orm";
-import { introspect } from "./introspect.js";
-import { inferSchema } from "./schema.js";
+import { type DrizzleDialect, resolveDialect } from "./dialect";
+import { introspect } from "./introspect";
+import { createMigrationMethods } from "./migration-executor";
+import type { MigrationDb } from "./migrations";
+import { inferSchema } from "./schema";
 
-/**
- * Loose shape of a drizzle DB instance. Every dialect-specific class
- * (`NodePgDatabase`, `BetterSQLite3Database`, `MySql2Database`, …) implements
- * these methods, but their generic parameters differ enough that we'd need
- * the user's exact import to type them precisely. We keep `DB` user-supplied
- * via the `drizzleAdapter<DB>(...)` factory and use this internal shape only
- * for the query-builder erasure inside helpers.
- */
 interface DrizzleLikeDb {
   select: (...args: unknown[]) => {
     from: (ref: Table) => {
@@ -57,17 +58,15 @@ interface DrizzleLikeDb {
     };
   };
   delete: (ref: Table) => { where: (w: SQL) => Promise<unknown> };
-  execute: (q: SQL) => Promise<unknown>;
+  transaction: <T>(fn: (tx: DrizzleLikeDb) => Promise<T>) => Promise<T>;
 }
 
-/**
- * Drizzle column metadata we read in helpers. The public `AnyColumn` type
- * declares these as `readonly` instance fields, but the structural subset
- * we touch (`primary`, `dataType`, `columnType`, `enumValues`, `notNull`,
- * `isUnique`) is a runtime-only contract — not all of these surface in the
- * declared type. We narrow via an intersection rather than `extends` so
- * the read-side helpers don't have to satisfy the full `Column` shape.
- */
+interface ScopeContext {
+  boundScope?: { apply(query: unknown): unknown };
+  applyScope?: (query: unknown) => unknown;
+  scopeRequired?: boolean;
+}
+
 type DrizzleColumnLike = AnyColumn & {
   primary?: boolean;
   notNull?: boolean;
@@ -82,16 +81,13 @@ type ColumnsRecord = Record<string, DrizzleColumnLike>;
 export interface DrizzleAdapterOptions<DB = unknown> {
   db: DB;
   schema: Record<string, unknown>;
-  dialect?: "pg" | "mysql" | "sqlite";
+  /** Inferred from `schema` when omitted. */
+  dialect?: DrizzleDialect;
 }
 
-export function drizzleAdapter<DB>(opts: {
-  db: DB;
-  schema: Record<string, unknown>;
-  dialect?: "pg" | "mysql" | "sqlite";
-}): Adapter<DB, Table> {
-  const dialect = opts.dialect ?? "pg";
-  const likeOp = dialect === "pg" ? ilike : like;
+export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB, Table> {
+  const dialect = resolveDialect(opts);
+  const migrationMethods = createMigrationMethods(opts.db as MigrationDb, dialect);
 
   function getDb(ctx: { db?: unknown }): DrizzleLikeDb {
     return (ctx.db ?? opts.db) as DrizzleLikeDb;
@@ -102,31 +98,10 @@ export function drizzleAdapter<DB>(opts: {
     return entry?.[0] ?? "id";
   }
 
-  /**
-   * Capture the SQL condition(s) a resource's tenant `scope` predicate would
-   * apply. The user's predicate is shaped `(scope, query) => query.where(cond)`
-   * — we hand it a *probe* standing in for the query builder, record every
-   * `cond` passed to `.where(...)`, and return them so the caller can AND them
-   * into its real WHERE. This keeps scope leak-proof: the same captured
-   * condition guards `list`, `get`, `update`, and `delete`.
-   *
-   * Fail-closed: when `ctx.scopeRequired` is set but `ctx.applyScope` is
-   * missing, throw rather than run an unscoped query for a scope-required
-   * resource.
-   */
-  function captureScopeClauses(ctx: {
-    applyScope?: (q: unknown) => unknown;
-    scopeRequired?: boolean;
-  }): SQL[] {
-    if (!ctx.applyScope) {
-      if (ctx.scopeRequired) {
-        throw new FlowpanelAccessError(
-          "scope required but not bound: a scope predicate is declared and global scope " +
-            "is active, but the adapter received no applyScope. Refusing to run an unscoped query.",
-        );
-      }
-      return [];
-    }
+  /** Runs the tenant predicate against a probe to collect the conditions it applies. */
+  function captureScopeClauses(ctx: ScopeContext): SQL[] {
+    const applyScope = resolveScopeApplier(ctx);
+    if (!applyScope) return [];
     const captured: SQL[] = [];
     const probe = {
       where(cond: SQL) {
@@ -134,8 +109,81 @@ export function drizzleAdapter<DB>(opts: {
         return probe;
       },
     };
-    ctx.applyScope(probe);
+    applyScope(probe);
+    if (ctx.scopeRequired && captured.length === 0) {
+      throw new FlowpanelAccessError(
+        "scope required but the bound Drizzle predicate added no where clause. " +
+          "Refusing to run an unscoped query.",
+      );
+    }
     return captured;
+  }
+
+  function projection(cols: ColumnsRecord, select: readonly string[] | undefined) {
+    if (select === undefined) return undefined;
+    if (select.length === 0) throw new Error("drizzleAdapter: select must contain a column");
+    if (select.length > 1024) throw new Error("drizzleAdapter: select exceeds 1024 columns");
+    const selected: ColumnsRecord = {};
+    for (const name of new Set(select)) {
+      const column = cols[name];
+      if (!column) throw new Error(`drizzleAdapter: select contains unknown column "${name}"`);
+      selected[name] = column;
+    }
+    return selected;
+  }
+
+  function selectFrom(db: DrizzleLikeDb, ref: Table, selected: ColumnsRecord | undefined) {
+    return (selected ? db.select(selected) : db.select()).from(ref);
+  }
+
+  /** mysql has no RETURNING, so the row is read back by its caller-supplied id. */
+  async function insertRow(
+    handle: DrizzleLikeDb,
+    ref: Table,
+    pk: string,
+    pkCol: DrizzleColumnLike | undefined,
+    input: Record<string, unknown>,
+  ): Promise<Record<string, unknown> | undefined> {
+    if (dialect === "mysql") {
+      await handle.insert(ref).values(input);
+      const id = input[pk];
+      if (id === undefined || id === null) {
+        throw new Error(
+          `drizzleAdapter: create requires explicit primary key on dialect "mysql" ` +
+            `(auto-generated PKs not yet supported for mysql, which has no RETURNING). ` +
+            `Provide input.${pk}, or use dialect "pg" / "sqlite", both of which support RETURNING.`,
+        );
+      }
+      if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
+      const rows = (await (
+        handle.select().from(ref) as unknown as {
+          where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
+        }
+      )
+        .where(eq(pkCol, id))
+        .limit(1)) as Record<string, unknown>[];
+      return rows[0];
+    }
+    const rows = await handle.insert(ref).values(input).returning();
+    return rows[0];
+  }
+
+  async function rowSatisfiesScope(
+    handle: DrizzleLikeDb,
+    ref: Table,
+    pkCol: DrizzleColumnLike,
+    id: unknown,
+    scopeClauses: SQL[],
+  ): Promise<boolean> {
+    const scopedWhere = and(eq(pkCol, id), ...scopeClauses) as SQL;
+    const check = (await (
+      handle.select().from(ref) as unknown as {
+        where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
+      }
+    )
+      .where(scopedWhere)
+      .limit(1)) as unknown[];
+    return check.length > 0;
   }
 
   function buildWhere(cols: ColumnsRecord, ctx: ListQueryContext<unknown>): SQL | undefined {
@@ -144,8 +192,6 @@ export function drizzleAdapter<DB>(opts: {
       if (v === undefined || v === null || v === "") continue;
       const col = cols[k];
       if (!col) continue;
-      // Reserved sentinels for IS NULL / IS NOT NULL filters. See
-      // `FilterDef` JSDoc in `@flowpanel/core` types/resource.ts.
       if (v === "__null__") {
         clauses.push(isNull(col));
         continue;
@@ -154,34 +200,51 @@ export function drizzleAdapter<DB>(opts: {
         clauses.push(isNotNull(col));
         continue;
       }
+      if (isFilterRangeValue(v)) {
+        if (v.gte !== undefined) clauses.push(gte(col, v.gte));
+        if (v.lte !== undefined) clauses.push(lte(col, v.lte));
+        continue;
+      }
+      if (isFilterInValue(v)) {
+        if (v.values.length > 0) clauses.push(inArray(col, v.values));
+        continue;
+      }
       clauses.push(eq(col, v));
     }
-    if (ctx.search) {
-      const textCols = Object.values(cols).filter((c) => {
-        const dt = String(c.dataType ?? "").toLowerCase();
-        const ct = String(c.columnType ?? "").toLowerCase();
-        return (
-          (dt.includes("string") ||
-            dt.includes("text") ||
-            ct.includes("text") ||
-            ct.includes("varchar")) &&
-          !c.enumValues
-        );
-      });
+    if (ctx.search && ctx.searchFields?.length) {
+      const textCols = ctx.searchFields
+        .map((f) => cols[f])
+        .filter((c): c is DrizzleColumnLike => {
+          if (!c) return false;
+          const dt = String(c.dataType ?? "").toLowerCase();
+          const ct = String(c.columnType ?? "").toLowerCase();
+          return (
+            (dt.includes("string") ||
+              dt.includes("text") ||
+              ct.includes("text") ||
+              ct.includes("varchar")) &&
+            !c.enumValues
+          );
+        });
       if (textCols.length) {
-        const ors = textCols.map((c) => likeOp(c, `%${ctx.search}%`));
-        // drizzle's `or(...)` typing wants at least one arg; runtime accepts the spread
+        // `%`/`_` in user input are literals, not wildcards; `!` needs no
+        // dialect-specific quoting as the ESCAPE character.
+        const escaped = ctx.search.replace(/[!%_]/g, "!$&");
+        const pattern = `%${escaped}%`;
+        const ors = textCols.map((c) =>
+          dialect === "pg"
+            ? sql`${c} ILIKE ${pattern} ESCAPE '!'`
+            : sql`${c} LIKE ${pattern} ESCAPE '!'`,
+        );
         const orClause = or(...ors);
         if (orClause) clauses.push(orClause);
       }
     }
     const softCol = ctx.softDelete?.column;
-    if (softCol) {
+    if (softCol && !ctx.includeDeleted) {
       const col = cols[softCol];
-      if (col) clauses.push(sql`${col} IS NULL`);
+      if (col) clauses.push(isNull(col));
     }
-    // Tenant scope: AND the captured scope condition(s) with the filters so
-    // the single `and(...clauses)` covers both. Fail-closed inside the helper.
     for (const c of captureScopeClauses(ctx)) clauses.push(c);
     return clauses.length ? and(...clauses) : undefined;
   }
@@ -189,6 +252,7 @@ export function drizzleAdapter<DB>(opts: {
   return {
     kind: "drizzle",
     db: opts.db,
+    transaction: (run) => (opts.db as DrizzleLikeDb).transaction((tx) => run(tx as unknown as DB)),
 
     introspect: (ref) => introspect(ref),
     inferSchema: (ref) => inferSchema(ref),
@@ -196,6 +260,7 @@ export function drizzleAdapter<DB>(opts: {
     async list(ref, ctx): Promise<ListResult<unknown>> {
       const cols = getTableColumns(ref) as ColumnsRecord;
       const db = getDb(ctx);
+      const selected = projection(cols, ctx.select);
       const where = buildWhere(cols, ctx);
       const sortField = ctx.sort?.field;
       const sortCol = sortField ? cols[sortField] : undefined;
@@ -205,9 +270,7 @@ export function drizzleAdapter<DB>(opts: {
           : desc(sortCol)
         : undefined;
 
-      // drizzle's chain API is dialect-erased here — successive `.where/.orderBy/.limit`
-      // calls return chain objects whose type union we don't reconstruct.
-      let q: unknown = db.select().from(ref);
+      let q: unknown = selectFrom(db, ref, selected);
       if (where) q = (q as { where: (w: SQL) => unknown }).where(where);
       if (orderBy) q = (q as { orderBy: (o: SQL | AnyColumn) => unknown }).orderBy(orderBy);
       const offset = (ctx.page - 1) * ctx.pageSize;
@@ -232,11 +295,10 @@ export function drizzleAdapter<DB>(opts: {
       const pk = pkFor(cols);
       const pkCol = cols[pk];
       if (!pkCol) return null;
-      // AND the tenant scope into the by-id WHERE so a `get` of an
-      // out-of-scope id returns null instead of leaking the row.
+      const selected = projection(cols, ctx.select);
       const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
       const rows = (await (
-        db.select().from(ref) as unknown as {
+        selectFrom(db, ref, selected) as unknown as {
           where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
         }
       )
@@ -249,30 +311,37 @@ export function drizzleAdapter<DB>(opts: {
       const cols = getTableColumns(ref) as ColumnsRecord;
       const db = getDb(ctx);
       const input = ctx.input as Record<string, unknown>;
-      if (dialect === "mysql" || dialect === "sqlite") {
-        await db.insert(ref).values(input);
-        const pk = pkFor(cols);
-        const id = input[pk];
-        if (id === undefined || id === null) {
-          throw new Error(
-            `drizzleAdapter: create requires explicit primary key on dialect "${dialect}" ` +
-              `(auto-generated PKs not yet supported for non-RETURNING dialects). ` +
-              `Provide input.${pk}, or use dialect "pg" which supports RETURNING.`,
+      const pk = pkFor(cols);
+      const pkCol = cols[pk];
+      const scopeClauses = captureScopeClauses(ctx);
+
+      if (scopeClauses.length > 0 && (dialect === "pg" || dialect === "mysql")) {
+        return db.transaction(async (tx) => {
+          const row = await insertRow(tx, ref, pk, pkCol, input);
+          if (row && pkCol && !(await rowSatisfiesScope(tx, ref, pkCol, row[pk], scopeClauses))) {
+            throw new FlowpanelAccessError(
+              "create refused: the created row does not satisfy the resource's tenant scope. " +
+                "Ensure the create form/schema supplies a tenant column value matching the current scope.",
+            );
+          }
+          return row;
+        });
+      }
+
+      const row = await insertRow(db, ref, pk, pkCol, input);
+
+      if (scopeClauses.length > 0 && dialect === "sqlite" && row && pkCol) {
+        const id = row[pk];
+        if (!(await rowSatisfiesScope(db, ref, pkCol, id, scopeClauses))) {
+          await db.delete(ref).where(eq(pkCol, id));
+          throw new FlowpanelAccessError(
+            "create refused: the created row does not satisfy the resource's tenant scope. " +
+              "Ensure the create form/schema supplies a tenant column value matching the current scope.",
           );
         }
-        const pkCol = cols[pk];
-        if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
-        const rows = (await (
-          db.select().from(ref) as unknown as {
-            where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
-          }
-        )
-          .where(eq(pkCol, id))
-          .limit(1)) as unknown[];
-        return rows[0];
       }
-      const rows = await db.insert(ref).values(input).returning();
-      return rows[0];
+
+      return row;
     },
 
     async update(ref, ctx: MutationContext<unknown>) {
@@ -283,8 +352,6 @@ export function drizzleAdapter<DB>(opts: {
       const pkCol = cols[pk];
       if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
       const input = ctx.input as Record<string, unknown>;
-      // AND the tenant scope into the by-id WHERE so an update of an
-      // out-of-scope id affects 0 rows (returns undefined).
       const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
       if (dialect === "mysql" || dialect === "sqlite") {
         await db.update(ref).set(input).where(where);
@@ -308,8 +375,6 @@ export function drizzleAdapter<DB>(opts: {
       if (!ctx.id) throw new Error("delete requires ctx.id");
       const pkCol = cols[pk];
       if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
-      // AND the tenant scope into the by-id WHERE so a delete of an
-      // out-of-scope id affects 0 rows.
       const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
       const softCol = ctx.softDelete?.column;
       if (softCol && cols[softCol]) {
@@ -331,47 +396,12 @@ export function drizzleAdapter<DB>(opts: {
       if (!ctx.id) throw new Error("restore requires ctx.id");
       const pkCol = cols[pk];
       if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
-      // AND the tenant scope into the by-id WHERE so a restore of an
-      // out-of-scope id affects 0 rows (mirrors `delete`). `captureScopeClauses`
-      // fail-closes when scopeRequired && !applyScope.
       const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
       await db
         .update(ref)
         .set({ [softCol]: null })
         .where(where);
     },
-
-    // ── Migration bookkeeping (used by `flowpanel migrate`) ──────────────
-    // We use drizzle's `sql` template tag for safe parameter binding.
-    // `db.execute(sql, params)` is NOT honored by drizzle — Postgres saw
-    // a literal `$1` and crashed with "there is no parameter $1".
-
-    async runMigrationSql(rawSql: string): Promise<void> {
-      const db = opts.db as DrizzleLikeDb;
-      await db.execute(sql.raw(rawSql));
-    },
-
-    async listAppliedMigrations(): Promise<Set<string>> {
-      const db = opts.db as DrizzleLikeDb;
-      await db.execute(
-        sql.raw(
-          `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
-            id text PRIMARY KEY,
-            applied_at timestamptz NOT NULL DEFAULT now()
-          )`,
-        ),
-      );
-      const result: unknown = await db.execute(sql.raw(`SELECT id FROM _flowpanel_migrations`));
-      const rows =
-        (result as { rows?: Array<{ id: string }> }).rows ?? (result as Array<{ id: string }>);
-      const ids = new Set<string>();
-      for (const r of rows) ids.add(r.id);
-      return ids;
-    },
-
-    async markMigrationApplied(id: string): Promise<void> {
-      const db = opts.db as DrizzleLikeDb;
-      await db.execute(sql`INSERT INTO _flowpanel_migrations (id) VALUES (${id})`);
-    },
+    ...migrationMethods,
   };
 }

@@ -1,0 +1,56 @@
+---
+title: Drawers
+description: Turn a row into a focused detail view with fields, related data, widgets, and actions.
+kind: how-to
+---
+
+A drawer shows one row without losing the current list, filters, selection, or scroll position. Use it for quick inspection and compact operations; use a full detail or custom page when the workflow needs more space or navigation.
+
+## Open a drawer from the list
+
+```ts excerpt
+resource(schema.orders, {
+  columns: ["number", "customerEmail", "status", "total"],
+  rowClick: "drawer",
+  drawer: {
+    header: (order) => `Order ${order.number}`,
+    fields: ["number", "customerEmail", "status", "total", "createdAt"],
+  },
+})
+```
+
+`rowClick: "drawer"` requires a drawer config. Field labels and renderers reuse the matching column definition, so formatted values stay consistent between the list and drawer.
+
+## Organize the detail into tabs
+
+Use tabs when fields, related rows, or widgets have distinct purposes:
+
+```ts excerpt
+drawer: {
+  width: "xl",
+  header: (order) => `Order ${order.number}`,
+  tabs: [
+    { key: "summary", label: "Summary", fields: "*" },
+    {
+      key: "items",
+      label: "Items",
+      resource: "orderItems",
+      filter: (order) => ({ orderId: order.id }),
+    },
+  ],
+}
+```
+
+A related-resource tab applies the target resource's authorization and scope. It shows the first page rather than an unbounded relation; link to the full filtered resource when users need pagination or bulk work.
+
+Widget tabs are useful for compact metrics, tables, and charts derived from the open row. Their queries run on the server before a serializable payload reaches the browser. Custom React widgets do not cross this boundary; use a server-rendered detail tab or custom page instead.
+
+## Add drawer actions
+
+Drawer actions appear in the footer and receive the open row, validated form input, and action context. Apply the same rules as other [actions](/docs/build/actions): stable keys, server-side authorization, explicit confirmation for destructive work, and a clear success or failure result.
+
+## Choose width and title deliberately
+
+Use the smallest width that keeps values and controls readable. A drawer should answer a focused question; a full-width drawer containing several independent workflows is usually a sign that the row needs a detail page.
+
+See [Drawer reference](/docs/reference/drawer) for generated tab, action, width, and payload types.

@@ -1,12 +1,12 @@
 "use client";
-import { Button } from "../ui/button.js";
+import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu.js";
+} from "../ui/dropdown-menu";
 
 export type PinSide = "left" | "right" | null;
 
@@ -25,6 +25,7 @@ export function ColumnPinMenu({ field, currentPin, onPin }: ColumnPinMenuProps) 
           size="sm"
           aria-label={`Column options for ${field}`}
           className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+          onClick={(e) => e.stopPropagation()}
         >
           ⋮
         </Button>

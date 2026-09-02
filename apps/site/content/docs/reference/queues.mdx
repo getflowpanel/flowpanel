@@ -1,0 +1,110 @@
+---
+title: queue()
+description: The queue builder, its options, and how a queue key becomes a route.
+kind: reference
+---
+
+`queue(ref, options)` registers one BullMQ queue as a nav entry and a page in
+the admin. FlowPanel does not implement a queue UI of its own — the page
+embeds [bull-board](https://github.com/felixmosh/bull-board) in an iframe. For
+the security consequences of that split, read
+[Queues](/docs/guides/queues) first; this page is the type surface.
+
+<ApiSignature path="../../packages/core/src/builders/queue.ts" name="queue" />
+
+```ts excerpt
+import { defineAdmin, queue } from "@flowpanel/kit";
+import { emailQueue } from "@/lib/queues";
+
+export default defineAdmin({
+  // …adapter, auth…
+  queues: [
+    queue(emailQueue, {
+      label: "Email",
+      boardUrl: `http://localhost:3001/queue/email?token=${process.env.BOARD_TOKEN}`,
+      requireRole: "admin",
+    }),
+  ],
+});
+```
+
+`ref` is typed `unknown` on purpose: FlowPanel never calls into BullMQ itself,
+so it does not need the `Queue` type and does not force `bullmq` into your
+type graph. The only thing it reads off the ref is `.name`, and only when
+`options.key` is absent.
+
+## QueueOptions
+
+<AutoTypeTable path="../../packages/core/src/types/queue.ts" name="QueueOptions" />
+
+`requireRole` here is `string | string[]` — **no predicate**, unlike a
+resource's or a dashboard's. That is the same restriction actions carry.
+
+## QueueConfig
+
+What `queue()` returns. You pass it to `defineAdmin`; you rarely read it.
+
+<AutoTypeTable path="../../packages/core/src/types/queue.ts" name="QueueConfig" />
+
+## The key, and the URL it produces
+
+`key` defaults to `ref.name` — the name you gave the BullMQ `Queue`. It is
+what the admin's own route uses:
+
+```text
+<basePath>/queues/<key>
+```
+
+`basePath` already carries its leading slash, so at the default the URL is
+`/admin/queues/email`, and under `basePath: "/internal/admin"` it is
+`/internal/admin/queues/email`.
+
+Three ways `defineAdmin` rejects a queue:
+
+| Condition | Error |
+| --- | --- |
+| No `.name` on the ref **and** no `options.key` | `queue() requires options.key when the queue has no .name` |
+| Two queues resolve to the same key | `Duplicate queue key: "<key>". Each queue key must be unique.` |
+| The key is `dashboards`, `drawer` or `queues` | `queue "<key>" uses a name FlowPanel's routing reserves…` |
+
+The third is the same reserved-segment rule resources are held to — those
+three segments are matched by the admin's own routing before it ever looks at
+your names. Set `options.key` to something else.
+
+## Reading queue state from your own code
+
+`queue()` only mounts the page. To count jobs for a dashboard widget, wrap the
+same `Queue` instances with `bullmqAdapter` and read through the returned map:
+
+```ts excerpt
+import { bullmqAdapter } from "@flowpanel/kit/bullmq";
+import { emailQueue, scrapeQueue } from "@/lib/queues";
+
+export const jobs = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
+```
+
+```ts excerpt
+import { metric } from "@flowpanel/kit";
+import { jobs } from "@/lib/queue-adapter";
+
+metric("Failed jobs", async () => jobs.queues.email.getJobCountByTypes("failed"), {
+  tone: "err",
+  drilldown: "/admin/queues/email",
+});
+```
+
+`BullMQAdapter` is `{ kind: "bullmq"; queues: Record<string, Queue> }` — a
+named map and nothing more. `BullMQAdapterOptions` is exported for symmetry
+with the other adapters; `bullmqAdapter` takes the map directly, so nothing
+consumes it.
+
+## Peer dependencies
+
+`bullmq` and `ioredis` are optional peers, as are `@bull-board/api`,
+`@bull-board/express` and `express` for `@flowpanel/kit/bullmq/board`. Install
+them only if you use queues:
+
+```bash
+pnpm add bullmq ioredis
+pnpm add @bull-board/api @bull-board/express express
+```

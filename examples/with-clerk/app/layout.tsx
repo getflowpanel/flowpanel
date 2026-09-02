@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * `ClerkProvider` wraps the app so client components see the user, while
- * `clerkMiddleware()` (see `middleware.ts`) populates `auth()` for server
+ * `clerkMiddleware()` (see `proxy.ts`) populates `auth()` for server
  * components — which is what `withClerk()` calls inside `flowpanel.config.ts`.
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {

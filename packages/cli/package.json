@@ -1,34 +1,37 @@
 {
   "name": "@flowpanel/cli",
   "version": "0.1.0",
-  "description": "CLI for FlowPanel — init, migrate, doctor",
+  "description": "CLI for FlowPanel \u2014 init, dev, new, migrate, doctor and eject",
   "keywords": [
     "flowpanel",
     "cli",
     "admin",
-    "nextjs"
+    "admin-panel",
+    "nextjs",
+    "scaffolding"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/cli"
   },
+  "homepage": "https://github.com/getflowpanel/flowpanel",
   "sideEffects": false,
+  "type": "module",
   "engines": {
     "node": ">=20"
   },
   "bin": {
     "flowpanel": "./dist/index.mjs"
   },
-  "main": "./dist/index.mjs",
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
     "dev": "tsx src/index.ts",
+    "lint:attw": "attw --pack .",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack ."
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
@@ -39,11 +42,14 @@
   },
   "files": [
     "dist",
-    "package.json",
     "README.md"
   ],
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
     "@types/node": "catalog:",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.0",
+    "tailwindcss3": "npm:tailwindcss@^3.4.0",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

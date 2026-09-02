@@ -18,7 +18,8 @@ export function buildDocBreadcrumbs(slug: string[], pageTitle: string): Breadcru
     return [{ label: sectionName }];
   }
 
-  return [{ label: sectionName, href: `/docs/${sectionSlug}` }, { label: pageTitle }];
+  // Section folders have no index pages, so the section crumb is a plain label.
+  return [{ label: sectionName }, { label: pageTitle }];
 }
 
 function lookupSectionName(sectionSlug: string): string | null {

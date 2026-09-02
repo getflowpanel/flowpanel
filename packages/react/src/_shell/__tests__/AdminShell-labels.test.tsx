@@ -9,8 +9,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
 }));
 
-import { useLabels } from "../../_provider/LabelsContext.js";
-import { FlowpanelGlobals } from "../FlowpanelGlobals.js";
+import { useLabels } from "../../_provider/LabelsContext";
+import { FlowpanelGlobals } from "../FlowpanelGlobals";
 
 afterEach(() => cleanup());
 

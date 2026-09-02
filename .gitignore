@@ -1,6 +1,8 @@
-# Claude Code
+# Local agent tooling
+AGENTS.md
 CLAUDE.md
 .claude/
+.superpowers/
 
 # Local-only internal notes (invariants, ADRs, specs) — never committed.
 # Anchored to repo root so it does NOT match apps/site/content/docs/.
@@ -12,6 +14,8 @@ node_modules/
 # Build outputs
 dist/
 build/
+!apps/site/content/docs/build/
+!apps/site/content/docs/build/**
 .turbo/
 *.tsbuildinfo
 
@@ -22,6 +26,7 @@ next-env.d.ts
 
 # Fumadocs MDX generated source
 .source/
+/apps/site/src/generated/
 
 # Build artifacts in public/
 apps/site/public/stars.json
@@ -45,9 +50,8 @@ test-results/
 *.swo
 Thumbs.db
 
-# Tooling (internal)
-.claude/
-.superpowers/
+# Design-audit scratch output (design-is skill) — local only, never shipped
+DESIGN-IS-*/
 
 # Logs
 *.log

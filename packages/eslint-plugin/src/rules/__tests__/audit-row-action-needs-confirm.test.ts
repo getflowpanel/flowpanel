@@ -1,5 +1,5 @@
-import rule from "../audit-row-action-needs-confirm.js";
-import { ruleTester } from "./setup.js";
+import rule from "../audit-row-action-needs-confirm";
+import { ruleTester } from "./setup";
 
 ruleTester().run("audit-row-action-needs-confirm", rule, {
   valid: [

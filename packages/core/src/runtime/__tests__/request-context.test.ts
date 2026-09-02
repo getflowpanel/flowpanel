@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { RequestContext } from "../../types/context.js";
-import {
-  getRequestContext,
-  runWithRequestContext,
-  tryGetRequestContext,
-} from "../request-context.js";
+import type { RequestContext } from "../../types/context";
+import { getRequestContext, runWithRequestContext, tryGetRequestContext } from "../request-context";
 
 function makeCtx(): RequestContext {
   return {

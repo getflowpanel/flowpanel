@@ -1,0 +1,177 @@
+---
+title: Adapter contract
+description: What FlowPanel needs from a database layer, method by method.
+kind: reference
+---
+
+The adapter is the only part of FlowPanel that talks to your database.
+Implement this interface to support an ORM that has no shipped adapter — nothing
+else in the framework issues a query.
+
+Shipped adapters: [`drizzleAdapter`](/docs/introduction/drizzle) and
+[`prismaAdapter`](/docs/introduction/prisma).
+
+## Adapter
+
+<AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="Adapter" />
+
+`Ref` is whatever you accept in `resource(ref, …)` — a Drizzle table object, a
+Prisma delegate, or your own descriptor. `DB` is the client you expose as
+`ctx.db` everywhere.
+
+`kind` is `AdapterKind` — `"drizzle" | "prisma" | (string & {})`. The shipped
+kinds autocomplete; a third-party adapter picks its own label. Nothing in
+FlowPanel branches on it.
+
+`kind`, `db`, `introspect`, `inferSchema`, `list`, `get`, `create`, `update`
+and `delete` are required. `restore` is optional — an adapter without it makes
+the admin hide the restore button rather than fail at runtime. `applyMigration`
+and `listAppliedMigrations` are optional too and power `flowpanel migrate`;
+without both, that command exits before executing SQL. The older
+`runMigrationSql` and `markMigrationApplied` hooks remain typed for adapter
+compatibility. The CLI can compose both as a temporary upgrade path and prints
+a warning because that legacy pair cannot keep SQL and its bookkeeping record
+atomic. Implement `applyMigration(id, sql)` before relying on rollback safety.
+
+Both shipped adapters execute a migration and write its applied ID through one
+adapter operation. The CLI's earlier applied-ID list is only a snapshot, so an
+adapter that permits concurrent migrators must serialize and recheck the ID at
+the database boundary. A duplicate ID becomes a no-op only after that recheck.
+
+PostgreSQL and SQLite keep every statement and the marker in one transaction —
+Drizzle and Prisma both take a lock inside it (a PostgreSQL advisory lock, a
+SQLite write lock) and recheck the ID before executing anything.
+
+MySQL implicitly commits DDL, so no tool can promise rollback for an arbitrary
+MySQL file: review migrations, make DDL restart-safe, back up production data,
+and apply them in a controlled release step. Drizzle pins one connection and
+holds a `GET_LOCK` advisory lock. Prisma cannot pin a connection, so it claims
+a durable row in `_flowpanel_migration_claims` instead: the claim serializes
+migrators, survives a crashed one, and records the statement a failed run
+stopped at. A failed claim stops later runs until you repair the schema and
+delete that row, so a half-applied file is never silently retried.
+
+Because the lock protocol and the SQL dialect differ per provider,
+`prismaAdapter` takes a required `provider` — the same value as the
+`datasource` block in `schema.prisma`.
+
+Both adapters split ordinary multi-statement SQL safely. They reject
+dialect-specific procedural scripts (for example SQLite/MySQL trigger bodies or
+stored procedures) before execution unless the body uses PostgreSQL dollar
+quoting, and Prisma also rejects MySQL executable comments and client
+directives such as `DELIMITER`, `SOURCE` and `.read`. Apply those files through
+the ORM's native migration workflow or a dialect-native runner; a rejected file
+is never recorded as applied.
+
+## ResourceIntrospection
+
+Returned by `introspect`. This is what lets a resource declare `columns: ["id",
+"email"]` and get working controls, filters and validation for free.
+
+<AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="ResourceIntrospection" />
+
+## ColumnMeta
+
+<AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="ColumnMeta" />
+
+`type` is consulted in exactly one place: the fully generated form a resource
+gets when it declares neither `create.fields` nor `update.fields`. The mapping
+is short, and everything not listed falls through to a text input:
+
+| `ColumnMeta.type` | Generated form control |
+| --- | --- |
+| `number` | `number` |
+| `boolean` | `checkbox` |
+| `date` | `datetime-local` |
+| `json` | `json` |
+| `string`, `enum`, `array`, `reference` | `text` |
+
+Two things this table does **not** promise:
+
+- **There is no filter inference.** A bare string in `filters` always resolves
+  to a `text` filter regardless of the column's type — declare a `FilterDef`
+  with an explicit `type` for anything else.
+- **A declared field is not inferred either.** A `FieldDef` without `type`
+  renders as `"text"`, or `"reference"` when it sets `reference`. `enum`,
+  `array` and `reference` columns therefore need an explicit `FieldDef.type`
+  (plus `options` / `reference`) to get a richer control.
+
+`enumValues` and `references` are reported for your own use — nothing in the
+framework turns them into controls on their own.
+
+## What an implementation must honor
+
+The interface is small, but three of its obligations are load-bearing. Get them
+wrong and the admin is still functional — just unsafe.
+
+**Tenant scope.** When `ctx.scopeRequired` is true, every method must constrain
+its query with `ctx.applyScope`. `create` included: writing a row outside the
+caller's scope is as much a leak as reading one.
+
+**The search allowlist.** `list` may only search columns in `ctx.searchFields`.
+Searching every text column turns the search box into a way to confirm values in
+columns the operator was never shown.
+
+**Soft delete.** When `ctx.softDelete` is set, `list` and `get` must exclude
+stamped rows unless `ctx.includeDeleted` is set, and `delete` must stamp the
+column rather than remove the row.
+
+## Declared columns are the boundary
+
+FlowPanel projects every row through the resource's declared surface before it
+crosses to the client. An adapter that returns extra columns is not a leak by
+itself — but the projection is what makes that safe, so do not bypass it in
+custom routes of your own.
+
+## Adapter options
+
+Each shipped adapter takes its own options shape.
+
+<ApiSignature path="../../packages/adapter-drizzle/src/adapter.ts" name="drizzleAdapter" />
+
+<ApiSignature path="../../packages/adapter-prisma/src/adapter.ts" name="prismaAdapter" />
+
+<ApiSignature path="../../packages/adapter-bullmq/src/adapter.ts" name="bullmqAdapter" />
+
+<AutoTypeTable path="../../packages/adapter-drizzle/src/adapter.ts" name="DrizzleAdapterOptions" />
+
+<AutoTypeTable path="../../packages/adapter-prisma/src/adapter.ts" name="PrismaAdapterOptions" />
+
+<AutoTypeTable path="../../packages/adapter-bullmq/src/adapter.ts" name="BullMQAdapterOptions" />
+
+`bullmqAdapter` is the exception: it takes the queue map itself, not an
+options object — `bullmqAdapter({ email: emailQueue, scrape: scrapeQueue })`.
+`BullMQAdapterOptions` is exported for symmetry and nothing consumes it.
+
+## Also exported
+
+Each adapter package exposes the pieces its own `Adapter` is assembled from, so
+you can reuse one without adopting the whole adapter — a script that only needs
+column metadata, or a custom adapter that wants Drizzle's schema inference.
+
+| Package | Also exports |
+| --- | --- |
+| `@flowpanel/kit/drizzle` | `introspect`, `inferSchema`, `toCsv`, `toJson` |
+| `@flowpanel/kit/prisma` | `introspect`, `inferSchema`, `PrismaDmmf` (type) |
+| `@flowpanel/kit/bullmq` | `BullMQAdapter` (type) |
+
+`introspect(ref)` returns the same `ResourceIntrospection` the framework reads;
+`inferSchema(ref)` returns the `{ create, update, select }` Zod trio a resource
+falls back to when it declares no `schema`. `PrismaDmmf` is the shape
+`prismaAdapter`'s optional `dmmf` option accepts.
+
+## Export helpers
+
+`@flowpanel/kit/drizzle` also exports `toCsv` and `toJson` — standalone
+row serializers, not wired into any route by default.
+
+<ApiSignature path="../../packages/adapter-drizzle/src/export.ts" name="toCsv" />
+
+<ApiSignature path="../../packages/adapter-drizzle/src/export.ts" name="toJson" />
+
+Both project each row down to `fields` before serializing, the same
+declared-columns discipline as the rest of the framework. `toCsv` quotes
+values containing a comma, quote, or newline and stringifies `Date`s to ISO
+and objects to JSON; `toJson` returns a JSON string of the projected rows.
+Use them from a custom export route when `DataTable`'s built-in `exportable`
+option — which downloads only the rows currently on screen — isn't enough.

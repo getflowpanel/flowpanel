@@ -1,5 +1,5 @@
 "use client";
-import type { LiveStatus } from "../hooks/useLiveChannel.js";
+import type { LiveStatus } from "../hooks/useLiveChannel";
 
 export interface LiveIndicatorProps {
   status: LiveStatus;
@@ -17,8 +17,8 @@ const LABEL: Record<LiveStatus, string> = {
 const DOT: Record<LiveStatus, string> = {
   idle: "bg-fp-text-3",
   connecting: "bg-fp-text-3 animate-pulse",
-  live: "bg-green-500",
-  reconnecting: "bg-yellow-500 animate-pulse",
+  live: "bg-fp-ok",
+  reconnecting: "bg-fp-warn animate-pulse",
   offline: "bg-fp-text-3",
 };
 

@@ -2,10 +2,18 @@
   "name": "@flowpanel/charts",
   "version": "0.1.0",
   "description": "Recharts-backed chart widgets for FlowPanel dashboards",
+  "keywords": [
+    "flowpanel",
+    "admin",
+    "dashboard",
+    "charts",
+    "recharts",
+    "react"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/charts"
   },
   "homepage": "https://github.com/getflowpanel/flowpanel",
@@ -21,6 +29,7 @@
     },
     "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "files": [
     "dist",
     "README.md"
@@ -30,9 +39,10 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*",
@@ -47,6 +57,7 @@
     "react": "^19.0.0",
     "recharts": "^3.0.0",
     "tsup": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

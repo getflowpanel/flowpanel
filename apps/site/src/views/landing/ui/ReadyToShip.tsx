@@ -1,42 +1,47 @@
-import { ArrowRight, Github } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { siteConfig } from "@/shared/lib/site-config";
+import { CopyButton } from "@/shared/ui/copy-button";
+
+const INSTALL_CMD = "pnpm dlx @flowpanel/cli init";
 
 export function ReadyToShip() {
   return (
-    <section aria-labelledby="ready-title" className="py-28 text-center md:py-40">
-      <div className="mx-auto max-w-[760px] px-6">
-        <h2
-          id="ready-title"
-          className="text-balance text-4xl font-semibold tracking-tight md:text-5xl"
-        >
-          Ready to ship.
-        </h2>
-        <p className="mt-5 text-lg text-[var(--color-fg-muted)]">
-          Open{" "}
-          <code className="rounded bg-[var(--color-bg-subtle)] px-1.5 py-0.5 font-mono text-[0.85em] text-[var(--color-fg)]">
-            localhost:3000/admin
-          </code>{" "}
-          in about a minute.
-        </p>
+    <section aria-labelledby="ready-title" className="py-20 md:py-24">
+      <div className="mx-auto max-w-[1120px] px-6">
+        <div className="grid gap-10 md:grid-cols-[minmax(0,0.85fr)_minmax(360px,1fr)] md:items-end md:gap-20">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+              Get started
+            </p>
+            <h2
+              id="ready-title"
+              className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] md:text-4xl"
+            >
+              Start with the CLI.
+            </h2>
+            <p className="mt-4 max-w-[48ch] text-[var(--color-fg-muted)]">
+              Run the initializer in your Next.js app. It detects Drizzle or Prisma, installs the
+              packages, and writes your first typed config.
+            </p>
+          </div>
 
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <Link
-            href="/docs"
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-fg)] px-5 py-3 font-mono text-sm text-[var(--color-bg)] transition-opacity hover:opacity-90"
-          >
-            <span>Read the docs</span>
-            <ArrowRight aria-hidden className="h-4 w-4" />
-          </Link>
-          <a
-            href={siteConfig.links.github}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-5 py-3 font-mono text-sm text-[var(--color-fg)] transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-bg-subtle)]"
-          >
-            <Github aria-hidden className="h-4 w-4" />
-            <span>Star on GitHub</span>
-          </a>
+          <div className="min-w-0">
+            <p className="font-mono text-xs text-[var(--color-fg-subtle)]">In your project</p>
+            <div className="mt-3 flex min-h-14 items-center justify-between gap-4 border-y border-[var(--color-border)] py-3 font-mono text-sm">
+              <span className="min-w-0 break-words text-[var(--color-fg)]">
+                <span className="text-[var(--color-fg-subtle)]">$ </span>
+                {INSTALL_CMD}
+              </span>
+              <CopyButton text={INSTALL_CMD} />
+            </div>
+            <Link
+              href="/docs/introduction/getting-started"
+              className="mt-3 inline-flex min-h-11 touch-manipulation items-center gap-2 font-mono text-sm text-[var(--color-fg-muted)] transition-colors duration-200 hover:text-[var(--color-fg)]"
+            >
+              <span>Read the getting started guide</span>
+              <ArrowRight aria-hidden className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </div>
     </section>

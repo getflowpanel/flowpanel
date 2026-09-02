@@ -1,0 +1,87 @@
+name: Coolify deploy
+description: >-
+  Trigger a Coolify deployment for one application and wait for it to finish.
+  Coolify is bound to the server's loopback interface, so the API call runs on
+  the server itself over SSH.
+
+inputs:
+  app-uuid:
+    description: UUID of the Coolify application to deploy.
+    required: true
+  ssh-key:
+    description: Private key authorised on the Coolify host.
+    required: true
+  ssh-target:
+    description: user@host of the Coolify server.
+    required: true
+  api-token:
+    description: Coolify API token.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        APP_UUID: ${{ inputs.app-uuid }}
+        SSH_KEY: ${{ inputs.ssh-key }}
+        SSH_TARGET: ${{ inputs.ssh-target }}
+        API_TOKEN: ${{ inputs.api-token }}
+      run: |
+        set -euo pipefail
+
+        # Fail closed: a missing secret must be a red run, not a phantom deploy.
+        for name in APP_UUID SSH_KEY SSH_TARGET API_TOKEN; do
+          if [ -z "${!name}" ]; then
+            echo "::error::$name is empty — nothing was deployed"
+            exit 1
+          fi
+        done
+
+        key="$RUNNER_TEMP/coolify_key"
+        # Not $RUNNER_TEMP: a unix socket path is capped at ~104 bytes.
+        socket="/tmp/coolify-deploy-$$.sock"
+        umask 077
+        printf '%s\n' "$SSH_KEY" > "$key"
+        trap 'ssh -O exit -o ControlPath="$socket" "$SSH_TARGET" 2>/dev/null || true; rm -f "$key"' EXIT
+
+        # The token is piped in on stdin so it never reaches the server's process list.
+        api() {
+          printf '%s\n%s\n' "$API_TOKEN" "$1" |
+            ssh -i "$key" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              -o ControlMaster=auto -o ControlPath="$socket" -o ControlPersist=120 \
+              "$SSH_TARGET" \
+              'read -r token; read -r path;
+               curl --fail-with-body -sS -m 30 -H "Authorization: Bearer $token" "http://localhost:8000$path"'
+        }
+
+        response="$(api "/api/v1/deploy?uuid=$APP_UUID&force=false")" || {
+          echo "::error::Coolify refused the deploy request: $response"
+          exit 1
+        }
+        deployment="$(printf '%s' "$response" | jq -r '.deployments[0].deployment_uuid // empty')"
+        if [ -z "$deployment" ]; then
+          echo "::error::Coolify started no deployment: $response"
+          exit 1
+        fi
+        echo "Deployment $deployment queued for $APP_UUID"
+
+        status=""
+        for _ in $(seq 1 90); do
+          sleep 10
+          status="$(api "/api/v1/deployments/$deployment" | jq -r '.status // empty' || true)"
+          echo "  $deployment: ${status:-unreachable}"
+          case "$status" in
+            finished)
+              echo "::notice::$APP_UUID deployed"
+              exit 0
+              ;;
+            failed | cancelled | error)
+              echo "::error::Coolify reported deployment status \"$status\" for $APP_UUID"
+              exit 1
+              ;;
+          esac
+        done
+
+        echo "::error::deployment $deployment never reached a terminal status (last: ${status:-unknown})"
+        exit 1

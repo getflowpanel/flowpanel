@@ -1,24 +1,8 @@
 "use client";
 import * as React from "react";
-import { cn } from "../lib/cn.js";
-import { Skeleton } from "../ui/skeleton.js";
+import { cn } from "../lib/cn";
+import { Skeleton } from "../ui/skeleton";
 
-/**
- * Drop-in skeleton for the resource list page, designed to be the default
- * export of a Next.js `loading.tsx` file or wrapped in a `<Suspense>`
- * fallback.
- *
- * @example
- * ```tsx
- * // app/(dashboard)/admin/[[...rest]]/loading.tsx
- * export { ResourceListSkeleton as default } from "@flowpanel/react";
- * ```
- *
- * Renders the same chrome as the real list (page header + filter bar +
- * table) but with `<Skeleton>` placeholders. Layout matches the loaded
- * state pixel-for-pixel so the transition is invisible — no content
- * shift, no flash.
- */
 export interface ResourceListSkeletonProps {
   /** Number of skeleton rows; defaults to 8. */
   rows?: number;
@@ -34,18 +18,15 @@ export function ResourceListSkeleton({
 }: ResourceListSkeletonProps) {
   return (
     <div className={cn("space-y-4", className)} aria-busy="true" aria-live="polite">
-      {/* Page header skeleton */}
       <div className="flex items-center justify-between">
         <Skeleton className="h-7 w-48" />
         <Skeleton className="h-9 w-28" />
       </div>
-      {/* Filter bar skeleton */}
       <div className="flex flex-wrap gap-2">
         <Skeleton className="h-9 w-64" />
         <Skeleton className="h-9 w-32" />
         <Skeleton className="h-9 w-32" />
       </div>
-      {/* Table skeleton */}
       <div className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1">
         <table className="w-full text-sm">
           <thead className="bg-fp-bg-2">
@@ -77,10 +58,7 @@ export function ResourceListSkeleton({
   );
 }
 
-/**
- * Skeleton for a single resource detail page. Mirrors the page header +
- * KV-block layout the real `<ResourceDetailPage>` renders.
- */
+/** Skeleton for a single resource detail page. */
 export interface ResourceDetailSkeletonProps {
   rows?: number;
   className?: string;
@@ -110,11 +88,6 @@ export function ResourceDetailSkeleton({ rows = 8, className }: ResourceDetailSk
   );
 }
 
-/**
- * Skeleton for a dashboard page — a row of metric cards followed by
- * a single full-width widget placeholder. Pair with `<Suspense>` if your
- * dashboard contains independent widgets that benefit from streaming.
- */
 export interface DashboardSkeletonProps {
   metrics?: number;
   className?: string;

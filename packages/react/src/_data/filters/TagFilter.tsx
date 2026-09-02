@@ -1,9 +1,10 @@
 "use client";
 import * as React from "react";
-import { Input } from "../../ui/input.js";
+import { cn } from "../../lib/cn";
+import { Input } from "../../ui/input";
+import { BARE_CONTROL, FilterField } from "./FilterField";
 
 export interface TagFilterProps {
-  field: string;
   label?: string;
   value: string | null;
   onChange: (value: string | null) => void;
@@ -15,16 +16,15 @@ export function TagFilter({ label, value, onChange, placeholder = "tag1, tag2" }
   const [local, setLocal] = React.useState(value ?? "");
   React.useEffect(() => setLocal(value ?? ""), [value]);
   return (
-    <label htmlFor={id} className="flex flex-col gap-1">
-      {label ? <span className="text-xs text-fp-text-3">{label}</span> : null}
+    <FilterField label={label} htmlFor={id} active={Boolean(value)}>
       <Input
         id={id}
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         onBlur={() => onChange(local.trim() === "" ? null : local.trim())}
         placeholder={placeholder}
-        className="h-8 w-48"
+        className={cn(BARE_CONTROL, "w-40")}
       />
-    </label>
+    </FilterField>
   );
 }

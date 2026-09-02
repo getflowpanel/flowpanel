@@ -1,4 +1,4 @@
-import { Skeleton } from "../ui/skeleton.js";
+import { Skeleton } from "../ui/skeleton";
 
 export interface SkeletonTableProps {
   rows?: number;

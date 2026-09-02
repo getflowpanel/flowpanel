@@ -1,7 +1,12 @@
 import type { ColumnMeta, ResourceIntrospection } from "@flowpanel/core";
 import { getTableColumns, getTableName } from "drizzle-orm";
 
+const memo = new WeakMap<object, ResourceIntrospection>();
+
 export function introspect(table: unknown): ResourceIntrospection {
+  const cached = memo.get(table as object);
+  if (cached) return cached;
+
   // biome-ignore lint/suspicious/noExplicitAny: drizzle Table internals are not publicly typed; the value is a runtime Drizzle table guarded by getTableColumns.
   const cols = getTableColumns(table as any);
   const columns: ColumnMeta[] = [];
@@ -15,6 +20,10 @@ export function introspect(table: unknown): ResourceIntrospection {
       nullable: !raw.notNull,
       unique: !!raw.isUnique,
       primaryKey: !!raw.primary,
+      readable: true,
+      writableOnCreate: raw.generated === undefined,
+      writableOnUpdate: raw.generated === undefined && !raw.primary,
+      generated: raw.generated !== undefined,
     };
     if (raw.enumValues) meta.enumValues = raw.enumValues;
     if (raw.primary) primaryKey = name;
@@ -22,7 +31,16 @@ export function introspect(table: unknown): ResourceIntrospection {
   }
 
   // biome-ignore lint/suspicious/noExplicitAny: drizzle Table internals are not publicly typed; the value is a runtime Drizzle table guarded by getTableName.
-  return { name: getTableName(table as any), columns, primaryKey };
+  const result = freeze({ name: getTableName(table as any), columns, primaryKey });
+  memo.set(table as object, result);
+  return result;
+}
+
+// Memoized: one object is shared by every caller, so it must not be mutable.
+function freeze(intro: ResourceIntrospection): ResourceIntrospection {
+  for (const column of intro.columns) Object.freeze(column);
+  Object.freeze(intro.columns);
+  return Object.freeze(intro);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: drizzle column internals are not publicly typed; col.dataType / col.columnType are read via runtime-guarded String() coercion.

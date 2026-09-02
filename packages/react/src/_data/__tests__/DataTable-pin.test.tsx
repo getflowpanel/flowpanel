@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/users",
 }));
 
-import { DataTable } from "../DataTable.js";
+import { DataTable } from "../DataTable";
 
 afterEach(cleanup);
 
@@ -60,5 +60,25 @@ describe("DataTable column pin", () => {
     const pinLeft = await screen.findByRole("menuitem", { name: /pin left/i });
     fireEvent.click(pinLeft);
     expect(onChange).toHaveBeenCalledWith({ left: ["a"], right: [] });
+  });
+
+  it("clicking the pin menu trigger does not also toggle sort on the header", () => {
+    // Regression: the whole <th> has onClick={() => onHeaderClick(c)}; the
+    // pin trigger sits inside it and must swallow the click.
+    const onSortChange = vi.fn();
+    const sortableProps = {
+      ...baseProps,
+      columns: baseProps.columns.map((c) => ({ ...c, sortable: true })),
+    };
+    render(
+      <DataTable
+        {...sortableProps}
+        onPinnedColumnsChange={() => undefined}
+        onSortChange={onSortChange}
+      />,
+    );
+    const trigger = screen.getAllByRole("button", { name: /column options for a/i })[0]!;
+    fireEvent.click(trigger);
+    expect(onSortChange).not.toHaveBeenCalled();
   });
 });

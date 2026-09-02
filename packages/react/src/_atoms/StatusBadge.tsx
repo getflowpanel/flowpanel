@@ -1,18 +1,17 @@
 "use client";
 import type * as React from "react";
-import { useComponents } from "../_provider/ComponentsContext.js";
+import { useComponent } from "../_provider/ComponentsContext";
+import { DefaultStatusBadge } from "./StatusBadgeDefault";
 
 export {
   DefaultStatusBadge,
   type StatusBadgeProps,
   type StatusBadgeTone,
-} from "./StatusBadgeDefault.js";
+} from "./StatusBadgeDefault";
 
-/** Renders whatever override the user registered via theme.components.StatusBadge,
- *  falling back to DefaultStatusBadge. */
 export function StatusBadge(
-  props: import("./StatusBadgeDefault.js").StatusBadgeProps,
+  props: import("./StatusBadgeDefault").StatusBadgeProps,
 ): React.JSX.Element {
-  const Slot = useComponents().StatusBadge;
+  const Slot = useComponent("StatusBadge", DefaultStatusBadge);
   return <Slot {...props} />;
 }

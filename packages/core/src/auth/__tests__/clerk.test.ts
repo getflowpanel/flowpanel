@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withClerk } from "../clerk.js";
+import { withClerk } from "../clerk";
 
 describe("withClerk", () => {
   it("returns AuthConfig with default role extractor (publicMetadata.role)", () => {
@@ -31,10 +31,24 @@ describe("withClerk", () => {
     expect(cfg.role(null)).toBe("owner");
   });
 
+  it("default userId extractor reads the top-level Clerk id", () => {
+    const cfg = withClerk();
+    expect(cfg.userId?.({ id: "user_123" })).toBe("user_123");
+    expect(cfg.userId?.(null)).toBeNull();
+    expect(cfg.userId?.({})).toBeNull();
+  });
+
+  it("custom userId override replaces default", () => {
+    const cfg = withClerk({ userId: () => "fixed" });
+    expect(cfg.userId?.({ id: "user_123" })).toBe("fixed");
+  });
+
   it("session() throws a clear error when @clerk/nextjs is not installed", async () => {
     const cfg = withClerk();
     // The dynamic import will resolve to null (module not found in this env);
     // we can't easily mock import() so we just assert it errors descriptively.
-    await expect(cfg.session()).rejects.toThrow(/@clerk\/nextjs is not installed/);
+    await expect(cfg.session(new Request("http://localhost/admin"))).rejects.toThrow(
+      /@clerk\/nextjs is not installed/,
+    );
   });
 });

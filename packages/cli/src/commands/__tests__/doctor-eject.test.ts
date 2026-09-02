@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { checkEjectMarker } from "../doctor.js";
+import { checkEjectMarker } from "../../doctor/probes";
 
 let tmp: string;
 beforeEach(async () => {
@@ -29,5 +29,16 @@ describe("checkEjectMarker", () => {
     await fs.writeFile(path.join(tmp, "app/admin/users/page.tsx"), "export default () => null;\n");
     const w = await checkEjectMarker(tmp, "users");
     expect(w).toMatch(/lacks the eject marker/);
+  });
+
+  it("looks under src/app on a src/app project", async () => {
+    await fs.mkdir(path.join(tmp, "src/app/admin/users"), { recursive: true });
+    await fs.writeFile(
+      path.join(tmp, "src/app/admin/users/page.tsx"),
+      "export default () => null;\n",
+    );
+    const w = await checkEjectMarker(tmp, "users");
+    expect(w).toMatch(/lacks the eject marker/);
+    expect(w).toContain(path.join("src", "app", "admin", "users", "page.tsx"));
   });
 });

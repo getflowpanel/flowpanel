@@ -5,12 +5,15 @@
   "keywords": [
     "flowpanel",
     "admin",
-    "nextjs"
+    "admin-panel",
+    "nextjs",
+    "react",
+    "hooks"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getflowpanel/flowpanel",
+    "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/client"
   },
   "homepage": "https://github.com/getflowpanel/flowpanel",
@@ -24,6 +27,7 @@
     },
     "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "files": [
     "dist",
     "README.md"
@@ -33,10 +37,10 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
+    "lint:attw": "attw --pack . --profile esm-only",
     "lint:publish": "publint --strict",
-    "lint:attw": "attw --pack . --profile esm-only"
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*"

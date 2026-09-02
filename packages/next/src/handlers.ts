@@ -1,62 +1,207 @@
-import type { ResolvedAdminConfig } from "@flowpanel/core";
-import { bulkActionRoute } from "./actions/bulk-action.js";
-import { dashboardActionRoute } from "./actions/dashboard-action.js";
-import { inlineUpdateRoute } from "./actions/inline-update.js";
-import { rowActionRoute } from "./actions/row-action.js";
-import { drawerActionRoute, drawerRoute } from "./drawer/drawer-route.js";
+import type { RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
+import { errorResult, FlowpanelNotFoundError } from "@flowpanel/core";
+import { bulkActionRoute } from "./actions/bulk-action";
+import { dashboardActionRoute } from "./actions/dashboard-action";
+import { inlineUpdateRoute } from "./actions/inline-update";
+import { referenceSearchRoute } from "./actions/reference-search";
+import { resourceCreateRoute, resourceUpdateRoute } from "./actions/resource-form";
+import { importRoute } from "./actions/resource-import";
+import { restoreRoute } from "./actions/restore";
+import { rowActionRoute } from "./actions/row-action";
+import { createResourceController } from "./controllers/resource-controller";
+import { drawerActionRoute, drawerRoute } from "./drawer/drawer-route";
+import {
+  declaredFieldSet,
+  resolveFilterSpecs,
+  sanitizeFilterValues,
+} from "./runtime/parse-list-params";
+import { filterReadableDeclarations, resolveReadableFieldSet } from "./runtime/readable-fields";
+import { readJsonObject } from "./runtime/request-body";
+import { withGuards } from "./runtime/with-guards";
+import { methodNotAllowed, wireResponse } from "./wire/response";
 
-/**
- * The catch-all `/api/flowpanel/[...route]/route.ts` handler.
- *
- * Routes (relative to `/api/flowpanel/`):
- *
- *   GET  drawer/<resource>/<id>                    → drawerRoute
- *   POST drawer/<resource>/<id>/actions/<action>   → drawerActionRoute
- *   POST <resource>/<id>/actions/<action>          → rowActionRoute
- *   POST <resource>/<id>/update                    → inlineUpdateRoute
- *   POST <resource>/bulk-actions/<action>          → bulkActionRoute
- *   POST dashboards/<encoded-path>/actions/<key>   → dashboardActionRoute
- *
- * The `drawer/` prefix on the drawer routes disambiguates them from the
- * row-action route (same trailing shape). The `bulk-actions/` segment
- * distinguishes bulk from row at length 3.
- *
- * Anything else returns 404. The `/api/flowpanel/stream` endpoint is wired
- * separately via `stream(config)` because it has a long-running SSE response
- * that can't share a runtime with regular request/response handlers.
- *
- * Server Actions (resource create/update/delete from the auto-form pages)
- * do NOT route through here — they use Next.js Server Actions directly,
- * called as functions from React components.
- */
-export function handlers(config: ResolvedAdminConfig): {
-  GET: (req: Request, ctx: { params: Promise<{ route?: string[] }> }) => Promise<Response>;
-  POST: (req: Request, ctx: { params: Promise<{ route?: string[] }> }) => Promise<Response>;
-} {
-  // Build the inner handlers once. Each factory internally calls
-  // `bindPublisher(config)` (idempotent), so re-binding per request is fine.
+export interface RouteContext {
+  params: Promise<{ route?: string[] }>;
+}
+
+export type RouteHandler = (req: Request, ctx: RouteContext) => Promise<Response>;
+
+export interface FlowpanelHandlers {
+  GET: RouteHandler;
+  POST: RouteHandler;
+  PUT: RouteHandler;
+  PATCH: RouteHandler;
+  DELETE: RouteHandler;
+  OPTIONS: RouteHandler;
+}
+
+const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] as const;
+function badTransport(
+  code: "bad_request" | "payload_too_large" | "unsupported_media_type",
+  message: string,
+  status: number,
+): Response {
+  return Response.json({ ok: false, error: { code, message } }, { status });
+}
+
+async function readJsonRequest(req: Request): Promise<Record<string, unknown> | Response> {
+  const type = req.headers.get("content-type") ?? "";
+  if (!type.toLowerCase().includes("application/json")) {
+    return badTransport("unsupported_media_type", "Expected application/json.", 415);
+  }
+  const parsed = await readJsonObject(req);
+  if (parsed.ok) return parsed.value;
+  if (parsed.reason === "payload-too-large") {
+    return badTransport("payload_too_large", "JSON body exceeds 1 MiB.", 413);
+  }
+  if (parsed.reason === "object-required") {
+    return badTransport("bad_request", "JSON body must be an object.", 400);
+  }
+  return badTransport("bad_request", "Invalid JSON body.", 400);
+}
+
+type RouteHandlerWith<Params> = (
+  req: Request,
+  ctx: { params: Promise<Params> },
+) => Promise<Response>;
+
+interface RoutePattern<Params> {
+  /** Literal segments, or `:name` for a captured one. */
+  segments: readonly string[];
+  handler: RouteHandlerWith<Params>;
+}
+
+/** A pattern described the route but a captured segment was empty. */
+const MALFORMED = Symbol("malformed-route");
+
+/** Capture a route's named segments, or `null` when the pattern does not describe it. */
+function matchRoute(
+  segments: readonly string[],
+  route: readonly string[],
+): Record<string, string> | typeof MALFORMED | null {
+  if (segments.length !== route.length) return null;
+  const params: Record<string, string> = {};
+  let malformed = false;
+  for (const [i, segment] of segments.entries()) {
+    const value = route[i];
+    if (segment.startsWith(":")) {
+      if (value) params[segment.slice(1)] = value;
+      else malformed = true;
+    } else if (segment !== value) return null;
+  }
+  return malformed ? MALFORMED : params;
+}
+
+/** Dispatch to the first pattern that describes `route`. */
+function dispatch(
+  routes: ReadonlyArray<RoutePattern<never>>,
+  req: Request,
+  route: readonly string[],
+): Promise<Response> | Response | null {
+  for (const { segments, handler } of routes) {
+    const params = matchRoute(segments, route);
+    if (params === null) continue;
+    if (params === MALFORMED) {
+      return Response.json({ ok: false, error: "bad request" }, { status: 400 });
+    }
+    return handler(req, { params: Promise.resolve(params as never) });
+  }
+  return null;
+}
+
+function resourceResult(
+  config: ResolvedAdminConfig,
+  req: Request,
+  resourceName: string,
+  operation: "read" | "create" | "update" | "delete",
+  run: (
+    controller: ReturnType<typeof createResourceController>,
+    ctx: RequestContext,
+  ) => Promise<Response>,
+): Promise<Response> {
+  return withGuards(
+    config,
+    req,
+    { operation, write: operation !== "read", route: resourceName, envelope: "result" },
+    async (ctx) => {
+      const resource = config.resourcesByName.get(resourceName);
+      if (!resource) {
+        return wireResponse(errorResult(new FlowpanelNotFoundError(), ctx.requestId ?? "unknown"));
+      }
+      return run(createResourceController(config, resource, ctx), ctx);
+    },
+  );
+}
+
+/** The catch-all `/api/flowpanel/[...route]/route.ts` handler. */
+export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
   const getDrawer = drawerRoute(config);
+  const getReferenceSearch = referenceSearchRoute(config);
   const postDrawerAction = drawerActionRoute(config);
   const postRowAction = rowActionRoute(config);
   const postBulkAction = bulkActionRoute(config);
   const postInlineUpdate = inlineUpdateRoute(config);
+  const postRestore = restoreRoute(config);
   const postDashboardAction = dashboardActionRoute(config);
+  const postImport = importRoute(config);
+  const postResourceCreate = resourceCreateRoute(config);
+  const postResourceUpdate = resourceUpdateRoute(config);
 
   async function GET(
     req: Request,
     ctx: { params: Promise<{ route?: string[] }> },
   ): Promise<Response> {
     const { route = [] } = await ctx.params;
-    // GET drawer/<resource>/<id>
-    if (route.length === 3 && route[0] === "drawer") {
-      const resource = route[1];
-      const id = route[2];
-      if (!resource || !id) {
-        return Response.json({ error: "bad request" }, { status: 400 });
-      }
-      return getDrawer(req, { params: Promise.resolve({ resource, id }) });
+    const matched = dispatch(
+      [
+        { segments: ["drawer", ":resource", ":id"], handler: getDrawer },
+        { segments: [":resource", "reference", ":field"], handler: getReferenceSearch },
+      ] as ReadonlyArray<RoutePattern<never>>,
+      req,
+      route,
+    );
+    if (matched) return matched;
+    const listed =
+      route.length === 1 && route[0] ? config.resourcesByName.get(route[0]) : undefined;
+    if (listed && route[0]) {
+      const resource = route[0];
+      const url = new URL(req.url);
+      return resourceResult(config, req, resource, "read", async (controller, ctx) => {
+        const declared = declaredFieldSet(listed.options);
+        const readable = await resolveReadableFieldSet(declared, listed.options.fieldAccess, ctx);
+        const raw: Record<string, unknown> = {};
+        for (const [key, value] of url.searchParams) {
+          if (!key.startsWith("filter.")) continue;
+          const field = key.slice("filter.".length);
+          if (readable.has(field)) raw[field] = value;
+        }
+        const readableFilterDefs = filterReadableDeclarations(listed.options.filters, readable);
+        const specs = await resolveFilterSpecs(readableFilterDefs, {
+          db: config.adapter.db,
+          session: ctx.session,
+        });
+        const readableSearchFields = (listed.options.search ?? [])
+          .map(String)
+          .filter((field) => readable.has(field));
+        return wireResponse(
+          await controller.list({
+            page: Number(url.searchParams.get("page") ?? 1),
+            pageSize: Number(url.searchParams.get("pageSize") ?? 20),
+            search: readableSearchFields.length > 0 ? (url.searchParams.get("search") ?? "") : "",
+            filters: sanitizeFilterValues(raw, specs),
+          }),
+        );
+      });
     }
-    return Response.json({ error: "not found" }, { status: 404 });
+    if (route.length === 2 && route[0] && route[1]) {
+      return resourceResult(config, req, route[0], "read", async (controller) =>
+        wireResponse(await controller.get(route[1] as string)),
+      );
+    }
+    return Response.json(
+      { ok: false, error: { code: "not_found", message: "not found" } },
+      { status: 404 },
+    );
   }
 
   async function POST(
@@ -64,59 +209,71 @@ export function handlers(config: ResolvedAdminConfig): {
     ctx: { params: Promise<{ route?: string[] }> },
   ): Promise<Response> {
     const { route = [] } = await ctx.params;
-    // POST drawer/<resource>/<id>/actions/<action>
-    if (route.length === 5 && route[0] === "drawer" && route[3] === "actions") {
-      const resource = route[1];
-      const id = route[2];
-      const action = route[4];
-      if (!resource || !id || !action) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postDrawerAction(req, { params: Promise.resolve({ resource, id, action }) });
+    const matched = dispatch(
+      [
+        {
+          segments: ["drawer", ":resource", ":id", "actions", ":action"],
+          handler: postDrawerAction,
+        },
+        {
+          segments: ["dashboards", ":dashboard", "actions", ":action"],
+          handler: postDashboardAction,
+        },
+        { segments: [":resource", ":id", "actions", ":action"], handler: postRowAction },
+        { segments: [":resource", "bulk-actions", ":action"], handler: postBulkAction },
+        { segments: [":resource", "import"], handler: postImport },
+        { segments: [":resource", "create"], handler: postResourceCreate },
+        { segments: [":resource", ":id", "update"], handler: postInlineUpdate },
+        { segments: [":resource", ":id", "edit"], handler: postResourceUpdate },
+        { segments: [":resource", ":id", "restore"], handler: postRestore },
+      ] as ReadonlyArray<RoutePattern<never>>,
+      req,
+      route,
+    );
+    if (matched) return matched;
+    if (route.length === 1 && route[0] && config.resourcesByName.has(route[0])) {
+      const input = await readJsonRequest(req);
+      if (input instanceof Response) return input;
+      return resourceResult(config, req, route[0], "create", async (controller) =>
+        wireResponse(await controller.create(input)),
+      );
     }
-    // POST dashboards/<encoded-path>/actions/<key> — dashboard-level action.
-    // MUST precede the row-action branch below (same length / shape; the
-    // `dashboards` literal is the disambiguator).
-    if (route.length === 4 && route[0] === "dashboards" && route[2] === "actions") {
-      const dashboard = route[1];
-      const action = route[3];
-      if (!dashboard || !action) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postDashboardAction(req, {
-        params: Promise.resolve({ dashboard, action }),
-      });
-    }
-    // POST <resource>/<id>/actions/<action> — row action menu / inline button
-    if (route.length === 4 && route[2] === "actions") {
-      const resource = route[0];
-      const id = route[1];
-      const action = route[3];
-      if (!resource || !id || !action) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postRowAction(req, { params: Promise.resolve({ resource, id, action }) });
-    }
-    // POST <resource>/bulk-actions/<action> — bar above table
-    if (route.length === 3 && route[1] === "bulk-actions") {
-      const resource = route[0];
-      const action = route[2];
-      if (!resource || !action) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postBulkAction(req, { params: Promise.resolve({ resource, action }) });
-    }
-    // POST <resource>/<id>/update — inline cell save
-    if (route.length === 3 && route[2] === "update") {
-      const resource = route[0];
-      const id = route[1];
-      if (!resource || !id) {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
-      }
-      return postInlineUpdate(req, { params: Promise.resolve({ resource, id }) });
-    }
-    return Response.json({ error: "not found" }, { status: 404 });
+    return Response.json(
+      { ok: false, error: { code: "not_found", message: "not found" } },
+      { status: 404 },
+    );
   }
 
-  return { GET, POST };
+  async function update(req: Request, ctx: RouteContext): Promise<Response> {
+    const { route = [] } = await ctx.params;
+    if (route.length !== 2 || !route[0] || !route[1]) {
+      return methodNotAllowed(METHODS);
+    }
+    const input = await readJsonRequest(req);
+    if (input instanceof Response) return input;
+    return resourceResult(config, req, route[0], "update", async (controller) =>
+      wireResponse(await controller.update(route[1] as string, input)),
+    );
+  }
+
+  async function DELETE(req: Request, ctx: RouteContext): Promise<Response> {
+    const { route = [] } = await ctx.params;
+    if (route.length !== 2 || !route[0] || !route[1]) return methodNotAllowed(METHODS);
+    return resourceResult(config, req, route[0], "delete", async (controller) =>
+      wireResponse(await controller.delete(route[1] as string)),
+    );
+  }
+
+  async function OPTIONS(): Promise<Response> {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        Allow: METHODS.join(", "),
+        "Access-Control-Allow-Methods": METHODS.join(", "),
+        "Access-Control-Allow-Headers": "content-type, x-request-id",
+      },
+    });
+  }
+
+  return { GET, POST, PUT: update, PATCH: update, DELETE, OPTIONS };
 }

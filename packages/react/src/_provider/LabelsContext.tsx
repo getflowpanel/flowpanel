@@ -1,7 +1,4 @@
 "use client";
-// Import from the dedicated /labels subpath, not "@flowpanel/core" — the
-// main entry pulls node:async_hooks via runtime/request-context, which
-// breaks client-side webpack bundles.
 import {
   DEFAULT_LABELS,
   type LabelsConfig,

@@ -1,0 +1,38 @@
+---
+title: Server and client boundaries
+description: Know which FlowPanel values stay on the server and what reaches browser components.
+kind: explanation
+---
+
+FlowPanel uses React Server Components and route handlers to keep database and policy work on the server. Client components receive a narrow serializable model for interaction.
+
+| Value | Boundary |
+| --- | --- |
+| Adapter, database client, auth config, secrets | Server only |
+| Resource policies, scope predicates, action `run`, widget queries | Server only |
+| Server column renderers | Execute on server; rendered result may cross |
+| Declared row fields and client metadata | Serialized when needed by the current surface |
+| Table/form/drawer state and client hooks | Browser |
+| SSE event channel and payload | Browser after server authorization |
+
+## Config is not client data
+
+Do not import `flowpanel.config.ts` from a `"use client"` module. It can close over database clients, environment variables, functions, and React server renderers. The Next runtime derives a serializable client metadata view instead.
+
+## Renderers can bridge intentionally
+
+A column renderer runs on the server and may return ordinary server-rendered content. It can also return a client component, provided its props are serializable. Pass the minimum display/interaction model—not the complete row or request context.
+
+## Forms resolve server values before rendering
+
+Dynamic choices, field visibility, roles, and create defaults are resolved on the server. Non-serializable validators and default functions are not sent to the browser. Submission repeats policy and validation instead of trusting the rendered form.
+
+## Client hooks call public boundaries
+
+Table, mutation, and realtime hooks use the configured API base and stream path. Providers can change those mount points without exposing the server config. Errors returned to clients should be safe for operators; unexpected internal detail belongs in server logs.
+
+## SSE is a notification boundary
+
+Realtime payloads must be serializable and size-bounded. Prefer an action and ID that causes an authorized refetch over broadcasting row data. Every subscriber to a channel can receive its payload after stream authorization.
+
+When a customization needs browser state, isolate the client component and keep its data/mutation functions behind an authorized server route. See [Column renderers](/docs/customization/column-renderers) and [Typed client reference](/docs/reference/client).

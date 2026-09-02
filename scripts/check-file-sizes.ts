@@ -39,10 +39,7 @@ if (offenders.length > 0) {
       `  1. Split the file into smaller modules.\n` +
       `  2. Add \`// LOC-OK: <one-line reason>\` somewhere in the file if the size is justified.\n`,
   );
-  // Non-fatal in CI while we split existing offenders; the workflow's
-  // `continue-on-error: true` is being flipped off in the same PR that
-  // resolves the last legitimate over-threshold file. Until then, this
-  // print serves as a warning instead of a build failure.
+  process.exitCode = 1;
 } else {
   console.log(`✔ All files at or under ${THRESHOLD} lines (or carrying a LOC-OK directive).`);
 }

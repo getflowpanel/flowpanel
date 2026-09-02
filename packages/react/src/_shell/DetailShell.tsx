@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import type { BreadcrumbItem } from "./Breadcrumbs.js";
-import { PageHeader } from "./PageHeader.js";
+import type { BreadcrumbItem } from "./Breadcrumbs";
+import { PageHeader } from "./PageHeader";
 
 export interface DetailShellProps {
   title: string;

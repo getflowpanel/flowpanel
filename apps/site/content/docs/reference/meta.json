@@ -1,4 +1,22 @@
 {
   "title": "Reference",
-  "pages": ["define-config", "cli"]
+  "pages": [
+    "define-config",
+    "resources",
+    "actions",
+    "drawer",
+    "widgets",
+    "queues",
+    "contexts",
+    "registry",
+    "react-components",
+    "next-runtime",
+    "client",
+    "runtime-contracts",
+    "adapters",
+    "scope-realtime",
+    "errors",
+    "cli",
+    "eslint-plugin"
+  ]
 }

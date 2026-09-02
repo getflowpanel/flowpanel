@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ErrorState } from "../ErrorState.js";
+import { ErrorState } from "../ErrorState";
 
 afterEach(cleanup);
 

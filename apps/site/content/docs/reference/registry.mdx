@@ -1,0 +1,170 @@
+---
+title: Type registry
+description: FlowpanelTypes, FlowpanelResources, and the types that resolve through them.
+kind: reference
+---
+
+FlowPanel ships no code generator and reads no schema file. Everything it
+knows about *your* types, it learns from two empty interfaces you augment:
+
+```ts excerpt
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+  interface FlowpanelResources {
+    users: typeof schema.users.$inferSelect;
+    orders: typeof schema.orders.$inferSelect;
+  }
+}
+```
+
+Both are declared in `@flowpanel/core` and re-exported by `@flowpanel/kit`.
+Augment whichever specifier you actually import — declaration merging targets
+the module you name, and for a kit install that is `"@flowpanel/kit"`.
+
+Everything on this page is **opt-in**. Leave both interfaces empty and the
+framework still runs; the types simply degrade to `unknown` / `string` /
+`Record<string, unknown>`, and the checks move from compile time to
+`defineAdmin`'s
+[introspect-time validation](/docs/build/resources#typos-and-column-validation).
+
+## FlowpanelTypes
+
+A one-key registry for framework-wide type bindings. Today it carries `db`.
+
+```ts excerpt
+interface FlowpanelTypes {}
+```
+
+### InferDB
+
+```ts excerpt
+type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;
+```
+
+`InferDB` is the **default** `Db` parameter on three declarations, which is
+where augmenting it pays off:
+
+| Declaration | Reached from |
+| --- | --- |
+| `WidgetContext<DB = InferDB>` | every widget `query`, a `StatItem.value` resolver, a `custom()` widget's `props` resolver |
+| `ActionContext<Db = InferDB>` | every row / bulk / dashboard / drawer action `run` — those signatures name `ActionContext<InferDB>` explicitly |
+| `Adapter<DB = InferDB, Ref>` | the adapter's own `db` property |
+
+Augment `FlowpanelTypes["db"]` once and all three carry your real client with
+no per-callsite annotation; skip it and they are `unknown`, so every use needs
+a cast.
+
+```ts excerpt
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+```
+
+The adapter-facing contexts — `QueryContext<Db = unknown>` and the
+`ListQueryContext` / `ItemQueryContext` / `MutationContext` built on it —
+default their `Db` to `unknown` instead, and take it as an explicit parameter.
+An adapter binds it once (`ListQueryContext<Row, MyDb>`); a `FieldDef.options`
+or `defaultValue` resolver, which receives a bare `QueryContext`, sees
+`ctx.db` as `unknown` and has to narrow it.
+
+## FlowpanelResources
+
+A map of **resolved resource name → row type**. "Resolved" is the name
+`defineAdmin` keys the resource by: a Drizzle table declared
+`pgTable("ai_usage", …)` is `"ai_usage"` even when the exported variable is
+`aiUsage`, unless the resource sets `options.name`.
+
+```ts excerpt
+interface FlowpanelResources {}
+```
+
+### InferRow
+
+```ts excerpt
+type InferRow<Ref> = Ref extends { $inferSelect: infer R }
+  ? R
+  : Ref extends keyof FlowpanelResources
+    ? FlowpanelResources[Ref]
+    : Record<string, unknown>;
+```
+
+This is what turns `resource(ref, options)` into
+`ResourceOptions<InferRow<Ref>>`, and therefore what makes `columns`,
+`search`, `filters[].field`, `defaultSort.field`, `rowKey`, and every
+`FieldDef.name` type-check against real column names. Three cases, in order:
+
+1. **A Drizzle table** — anything with `$inferSelect` — resolves through it,
+   with no registry entry needed.
+2. **A string ref** that is a key of `FlowpanelResources` resolves to that row
+   type. This is the Prisma path: `resource("User", …)` needs
+   `interface FlowpanelResources { User: User }`.
+3. **Anything else** falls back to `Record<string, unknown>`, whose keys are
+   `string` — loose, but it compiles.
+
+### ResourceName
+
+```ts excerpt
+type ResourceName = [keyof FlowpanelResources] extends [never]
+  ? string
+  : keyof FlowpanelResources & string;
+```
+
+The type of every place one config points at *another* resource by name: a
+drawer or detail tab's `resource`, and a `table({ resource })` widget. While
+the registry is empty it is plain `string`, so nothing breaks for apps that
+never augment it. Add one entry and every such string is checked against the
+registry — with a "Did you mean?" suggestion from `defineAdmin` on top, which
+runs whether or not the compiler caught it.
+
+### ReferenceSpec
+
+```ts excerpt
+type ReferenceSpec = [keyof FlowpanelResources] extends [never]
+  ? { resource: string; labelField: string }
+  : {
+      [R in keyof FlowpanelResources]: {
+        resource: R;
+        labelField: keyof FlowpanelResources[R] & string;
+      };
+    }[keyof FlowpanelResources];
+```
+
+A foreign-key target, used by `ColumnDef.reference` (renders the FK as a
+looked-up label linking to the target row) and `FieldDef.reference` (renders a
+searchable picker).
+
+The augmented form is a **distributed** union, which is the point: it pairs
+each resource name with that resource's *own* keys, so `labelField` cannot
+name a column of a different table.
+
+```ts excerpt
+{ field: "userId", reference: { resource: "users", labelField: "email" } }
+//                                                  ^ keyof users row, not of orders
+```
+
+Unaugmented, both members are plain `string` and nothing is checked at compile
+time.
+
+## What this buys you, per level
+
+| Augmented | `ctx.db` | Column names | Cross-resource names |
+| --- | --- | --- | --- |
+| Nothing | `unknown` | Drizzle: checked. Prisma: `string` | `string` |
+| `FlowpanelTypes.db` | your client | unchanged | unchanged |
+| `FlowpanelResources` | unchanged | checked for string refs too | checked, with suggestions |
+
+`defineAdmin` re-checks resource names and column names at config time in
+every row of that table, so the registry buys you *earlier* errors, not the
+only errors.
+
+## Where to put the augmentation
+
+One place. `declare module` merges globally, so repeating the block per
+resource file only risks conflicting entries — keep it in
+`flowpanel.config.ts`, or in a dedicated `flowpanel.d.ts` that is included by
+your `tsconfig.json`. See
+[One resource per file](/docs/build/configuration#one-resource-per-file).

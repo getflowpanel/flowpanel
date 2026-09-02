@@ -1,5 +1,4 @@
 import type { Root as PageTreeRoot } from "fumadocs-core/page-tree";
-import { ChevronDown } from "lucide-react";
 import { type Adapter, AdapterToggle } from "@/features/adapter-switcher";
 import { flowpanelVersion } from "@/shared/lib/version";
 import { PageTreeNav } from "./PageTreeNav";
@@ -42,28 +41,19 @@ interface SelectorChipProps {
   caption: string;
 }
 
-/**
- * Static disclosure-styled chip used for the Adapter and Version
- * selectors. Renders as a button to communicate "this will be
- * interactive eventually", but takes no action in v1.
- */
+/** Static chip used for the Version display. Versioned docs are out of scope for v1. */
 function SelectorChip({ label, value, caption }: SelectorChipProps) {
   return (
     <div>
       <p className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
         {label}
       </p>
-      <button
-        type="button"
-        className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-left transition-colors hover:border-[var(--color-border-strong)]"
-        aria-label={`${label}: ${value}`}
-      >
+      <div className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-left">
         <span className="flex items-baseline gap-2 font-mono">
           <span className="font-medium text-[var(--color-fg)]">{value}</span>
           <span className="text-xs text-[var(--color-fg-subtle)]">· {caption}</span>
         </span>
-        <ChevronDown aria-hidden className="h-4 w-4 text-[var(--color-fg-subtle)]" />
-      </button>
+      </div>
     </div>
   );
 }

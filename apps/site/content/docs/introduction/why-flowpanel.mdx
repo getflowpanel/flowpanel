@@ -1,37 +1,31 @@
 ---
-title: Why flowpanel
-description: A typed admin panel that lives inside your Next.js codebase, not a separate service.
+title: Why FlowPanel
+description: Decide whether an embedded, schema-aware admin is the right fit for your application.
+kind: explanation
 ---
 
-Most admin tools force you to choose between two bad options: build the
-whole thing yourself, or run a SaaS in a separate browser tab. flowpanel
-is the middle path — a typed dashboard that lives at `/admin` in your
-Next.js app, built from one config file.
+FlowPanel is for teams that already have a Next.js application and need a reliable internal interface without building the common admin plumbing from scratch.
 
-## The premises
+## The problem it solves
 
-**Your schema is the contract.** Adding a column to a Drizzle table or
-Prisma model should add a column to the admin. Renaming a field should
-be a type-error in the config, not a silent visual bug. flowpanel
-infers the row type from your `resource(ref, ...)` ref — `$inferSelect`
-on Drizzle tables, the augmented model map on Prisma — so the admin
-stays type-checked against the source of truth.
+An admin usually repeats information the application already knows: tables, row types, validation, database access, authentication, and deployment. FlowPanel connects those pieces through a typed config and provides the list, form, drawer, action, dashboard, import, queue, and realtime workflows around them.
 
-**Config first, source last.** Most resources need a typed CRUD UI with
-filters, sort, and pagination. Some need a custom column renderer. A
-few need a fully custom drawer. flowpanel ships three customization
-layers — config props, theme slots, and eject — so you reach for the
-heaviest tool only when the lighter ones won't do.
+The schema is a starting point, not permission to expose everything. Only resources and fields named in config appear in the admin.
 
-**Self-hostable, MIT.** No platform lock-in. The admin runs in your
-existing Next.js process. You can self-host it, eject it, or remove it
-without rewriting the rest of your app.
+## What stays in your application
 
-## What flowpanel is _not_
+FlowPanel runs inside the host Next.js process. Your repository owns the config and routes; your database client executes queries; your auth provider creates the session; and your deployment serves the UI and API. There is no separate control plane receiving database credentials or application rows.
 
-- **Not a no-code platform.** flowpanel produces typed React code; you
-  read and modify TypeScript, not JSON in a UI builder.
-- **Not a CMS.** It doesn't model your content schema for you — it
-  introspects the schema you already have.
-- **Not a replacement for prod tooling.** Use Datadog, Sentry, Better
-  Stack for ops. flowpanel is for the team's everyday CRUD surface.
+This also means production concerns remain yours: authorization, tenant scope, migrations, observability, scaling the SSE publisher, and testing custom UI.
+
+## How far customization goes
+
+Most changes stay declarative: choose fields, format values, add actions, arrange widgets, or override design tokens. A renderer handles a special value. A custom widget or page handles a composed workflow. Theme slots replace shared visual primitives.
+
+If config is no longer the right abstraction, `flowpanel eject` writes a resource, dashboard, or layout into the application. The generated source becomes yours and no longer receives FlowPanel behavior changes automatically. See [Choose an extension point](/docs/customization/overview) before ejecting.
+
+## When another tool is a better fit
+
+Choose something else when you need a hosted no-code admin, a frontend outside Next.js, Pages Router support, a broad catalog of REST or GraphQL data providers, or an unsupported database without maintaining an adapter. FlowPanel also should not replace a purpose-built product workflow merely because both interfaces can edit the same records.
+
+If the fit is right, continue with [Getting started](/docs/introduction/getting-started). If you need to understand the runtime boundary first, read [How FlowPanel works](/docs/understand/how-flowpanel-works). Before deployment, use the [Production readiness checklist](/docs/guides/production-readiness) as the canonical review of ownership, security, scaling, and release responsibilities.

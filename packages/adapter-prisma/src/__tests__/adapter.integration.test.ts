@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { prismaAdapter } from "../adapter.js";
+import { prismaAdapter } from "../adapter";
 
 const require = createRequire(import.meta.url);
 
@@ -50,6 +50,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     });
     await prisma.$connect();
     await prisma.$executeRawUnsafe(CREATE_TABLE_SQL);
+    await prisma.$executeRawUnsafe(`DELETE FROM "TestUser"`);
   });
 
   afterAll(async () => {
@@ -63,7 +64,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
       await prisma.testUser.create({ data: { email: `seed${i}@example.com`, name: `User ${i}` } });
     }
 
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
     const result = await adapter.list("TestUser", {
       page: 1,
       pageSize: 3,
@@ -77,12 +78,116 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     expect(result.pageSize).toBe(3);
   });
 
+  it("list search executes against the real SQLite client and matches case-insensitively", async () => {
+    await prisma.testUser.create({ data: { email: "findme@example.com", name: "Search Target" } });
+
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    const result = await adapter.list("TestUser", {
+      page: 1,
+      pageSize: 10,
+      filters: {},
+      search: "SEARCH TAR",
+      searchFields: ["name"],
+      db: undefined,
+    } as any);
+
+    expect(result.rows.map((row: any) => row.name)).toEqual(["Search Target"]);
+  });
+
+  it("numeric-range filter: `gte`/`lte` return only in-range rows, never throws", async () => {
+    // Reproduces the reported bug class: an undecoded "min:max" string used
+    // to reach the query layer verbatim and blow up (or, for prisma, throw
+    // a validation error) instead of filtering. `age` is untouched by every
+    // other test in this file (always NULL there), so a distinctive range
+    // isolates these rows regardless of test order.
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    for (let i = 0; i < 5; i++) {
+      await adapter.create("TestUser", {
+        input: { email: `range${i}@filtertest.com`, age: 1000 + i },
+        db: undefined,
+      } as any);
+    }
+
+    const r = await adapter.list("TestUser", {
+      page: 1,
+      pageSize: 50,
+      filters: { age: { op: "range", gte: 1001, lte: 1003 } },
+      db: undefined,
+    } as any);
+    expect(r.total).toBe(3);
+    expect(
+      (r.rows as TestRow[]).every(
+        (row) => (row.age as number) >= 1001 && (row.age as number) <= 1003,
+      ),
+    ).toBe(true);
+
+    const gteOnly = await adapter.list("TestUser", {
+      page: 1,
+      pageSize: 50,
+      filters: { age: { op: "range", gte: 1004 } },
+      db: undefined,
+    } as any);
+    expect(gteOnly.total).toBe(1);
+  });
+
+  it("daterange filter: `gte`/`lte` return only in-range rows, never throws", async () => {
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    const inRange = (await adapter.create("TestUser", {
+      input: { email: "daterange-in@filtertest.com", createdAt: new Date("2020-02-01T00:00:00Z") },
+      db: undefined,
+    } as any)) as TestRow;
+    await adapter.create("TestUser", {
+      input: { email: "daterange-out@filtertest.com", createdAt: new Date("2021-06-15T00:00:00Z") },
+      db: undefined,
+    } as any);
+
+    const r = await adapter.list("TestUser", {
+      page: 1,
+      pageSize: 50,
+      filters: {
+        createdAt: {
+          op: "range",
+          gte: new Date("2020-01-01T00:00:00Z"),
+          lte: new Date("2020-03-01T00:00:00Z"),
+        },
+      },
+      db: undefined,
+    } as any);
+    expect(r.total).toBe(1);
+    expect((r.rows[0] as TestRow).id).toBe(inRange.id);
+  });
+
+  it("multiselect filter: returns the UNION of matching rows, never matches nothing", async () => {
+    // Reproduces the reported bug: an undecoded CSV string used to silently
+    // match zero rows — worse than a crash because nobody notices. Filters
+    // on `email` (String) rather than `id` (Int) — a `multiselect` value is
+    // always `string[]`, and prisma validates arg types against the schema.
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    const a = (await adapter.create("TestUser", {
+      input: { email: "in-a@filtertest.com" },
+      db: undefined,
+    } as any)) as TestRow;
+    const b = (await adapter.create("TestUser", {
+      input: { email: "in-b@filtertest.com" },
+      db: undefined,
+    } as any)) as TestRow;
+
+    const r = await adapter.list("TestUser", {
+      page: 1,
+      pageSize: 50,
+      filters: { email: { op: "in", values: [a.email, b.email, "nope@filtertest.com"] } },
+      db: undefined,
+    } as any);
+    expect(r.total).toBe(2);
+    expect((r.rows as TestRow[]).map((row) => row.email).sort()).toEqual([a.email, b.email].sort());
+  });
+
   it("get returns row or null", async () => {
     const created = await prisma.testUser.create({
       data: { email: "get-test@example.com" },
     });
 
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
     const found = (await adapter.get("TestUser", {
       id: String(created.id),
       db: undefined,
@@ -95,7 +200,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
   });
 
   it("create + update + delete roundtrip", async () => {
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
 
     const created = (await adapter.create("TestUser", {
       input: { email: "crud@example.com", active: true },
@@ -117,7 +222,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
   });
 
   it("soft-delete + restore roundtrip", async () => {
-    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf });
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
 
     const created = (await adapter.create("TestUser", {
       input: { email: "softdel@example.com" },
@@ -158,5 +263,32 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     } as any)) as TestRow;
     expect(restored).not.toBeNull();
     expect(restored.deletedAt).toBeNull();
+  });
+
+  it("rolls back the first delete when a later delete in the transaction fails", async () => {
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    if (!adapter.transaction) throw new Error("Prisma adapter did not expose transactions");
+
+    const first = await prisma.testUser.create({
+      data: { email: "tx-rollback-first@example.com" },
+    });
+
+    await expect(
+      adapter.transaction(async (tx) => {
+        await adapter.delete!("TestUser", {
+          id: String(first.id),
+          input: {},
+          db: tx,
+        } as any);
+        await adapter.delete!("TestUser", {
+          id: "2147483647",
+          input: {},
+          db: tx,
+        } as any);
+      }),
+    ).rejects.toThrow();
+
+    const preserved = await prisma.testUser.findUnique({ where: { id: first.id } });
+    expect(preserved?.email).toBe("tx-rollback-first@example.com");
   });
 });

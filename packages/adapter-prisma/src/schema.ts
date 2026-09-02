@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { PrismaDmmf, PrismaDmmfField } from "./introspect.js";
+import type { PrismaDmmf, PrismaDmmfField } from "./introspect";
 
-export type { PrismaDmmf } from "./introspect.js";
+export type { PrismaDmmf } from "./introspect";
 
 function fieldToZod(field: PrismaDmmfField, dmmf: PrismaDmmf): z.ZodTypeAny {
   if (field.isList) return z.array(z.unknown());
@@ -44,7 +44,6 @@ export function inferSchema(
 
   const scalarFields = model.fields.filter((f) => f.kind !== "object");
 
-  // create: required fields required, optional optional — but omit id field
   const createShape: Record<string, z.ZodTypeAny> = {};
   const updateShape: Record<string, z.ZodTypeAny> = {};
   const selectShape: Record<string, z.ZodTypeAny> = {};

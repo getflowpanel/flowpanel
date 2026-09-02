@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Breadcrumbs } from "../Breadcrumbs.js";
+import { Breadcrumbs } from "../Breadcrumbs";
 
 afterEach(cleanup);
 

@@ -2,8 +2,8 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Card, CardContent, CardHeader } from "../Card.js";
-import { Section } from "../Section.js";
+import { Card, CardContent, CardHeader } from "../Card";
+import { Section, spanClass } from "../Section";
 
 afterEach(() => cleanup());
 
@@ -36,6 +36,17 @@ describe("Section", () => {
     expect(screen.getByText("Last 7 days")).toBeTruthy();
   });
 
+  it("renders supporting copy without forcing a redundant section heading", () => {
+    const { container } = render(
+      <Section description="Monitor customer catalogs and marketplace coverage.">
+        <div>metrics</div>
+      </Section>,
+    );
+
+    expect(container.querySelector("h2")).toBeNull();
+    expect(screen.getByText("Monitor customer catalogs and marketplace coverage.")).toBeTruthy();
+  });
+
   it("omits label block when no label", () => {
     const { container } = render(
       <Section>
@@ -44,6 +55,20 @@ describe("Section", () => {
     );
     expect(container.querySelector("h2")).toBeNull();
     expect(screen.getByText("only-child")).toBeTruthy();
+  });
+});
+
+describe("spanClass", () => {
+  it("stacks widgets on phones and restores every declared span from sm", () => {
+    expect(spanClass).toEqual({
+      1: "col-span-12 sm:col-span-1",
+      2: "col-span-12 sm:col-span-2",
+      3: "col-span-12 sm:col-span-3",
+      4: "col-span-12 sm:col-span-4",
+      6: "col-span-12 sm:col-span-6",
+      8: "col-span-12 sm:col-span-8",
+      12: "col-span-12",
+    });
   });
 });
 
