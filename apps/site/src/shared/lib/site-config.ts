@@ -36,12 +36,18 @@ export const siteConfig = {
       summary:
         "An AI scraping SaaS ops admin: resources, dashboards, BullMQ queues and realtime, on Drizzle + Postgres.",
       url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper",
+      config:
+        "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper/src/admin/config",
+      readme: "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper#run-locally",
     },
     {
       name: "with-clerk",
       summary:
         "A minimal users/posts admin gated behind Clerk — middleware, provider, one line of config.",
       url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk",
+      config:
+        "https://github.com/getflowpanel/flowpanel/blob/main/examples/with-clerk/src/flowpanel.config.ts",
+      readme: "https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk#run-it",
     },
   ],
 

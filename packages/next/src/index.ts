@@ -58,6 +58,7 @@ export type {
 } from "./runtime/controller-factory";
 export { buildNav, resourceNavName } from "./runtime/nav";
 export { bindPublisher, publish, publishResource, subscribe } from "./runtime/publish";
+export { browserOrigin } from "./runtime/request-origin";
 export { type BuildRequestCtxArgs, buildRequestContext } from "./runtime/request-setup";
 export { type StreamOptions, stream } from "./stream";
 export type { FlowpanelClientMetadata, WireValue } from "./wire/serialize";

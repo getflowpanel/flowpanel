@@ -1,12 +1,8 @@
 import { ArrowUpRight } from "lucide-react";
 import { siteConfig } from "@/shared/lib/site-config";
-import { CodeBlock, PromptLine } from "@/shared/ui/code-block";
 
-const CLONE_STEPS = [
-  "git clone https://github.com/getflowpanel/flowpanel && cd flowpanel",
-  'pnpm install && pnpm --filter "./packages/*" build',
-  "cd examples/ai-scraper && pnpm docker:up && pnpm db:push && pnpm db:seed && pnpm dev",
-];
+const linkClass =
+  "inline-flex min-h-11 touch-manipulation items-center gap-1.5 font-mono text-sm text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]";
 
 export function SeeItRunning() {
   const demo = siteConfig.links.demo;
@@ -25,63 +21,51 @@ export function SeeItRunning() {
           See it running.
         </h2>
         <p className="mt-4 max-w-[58ch] text-lg text-[var(--color-fg-muted)]">
-          Two complete admins live in the repo, seeded and runnable. Read the config, or start one
-          locally — Postgres comes up in Docker.
+          Two complete admins live in the repo, seeded and runnable. Read the config that produced
+          them, or follow each README to start one locally.
         </p>
 
-        <div className="mt-12 grid gap-10 md:grid-cols-[1fr_1.25fr] md:items-start">
-          <ul className="space-y-5">
-            {siteConfig.examples.map((example) => (
-              <li key={example.name}>
-                <a
-                  href={example.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group block rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-5 shadow-[var(--shadow-card)] transition-colors hover:border-[var(--color-border-strong)]"
-                >
-                  <span className="inline-flex items-center gap-2 font-mono text-sm font-medium text-[var(--color-fg)]">
-                    examples/{example.name}
-                    <ArrowUpRight
-                      aria-hidden
-                      className="h-4 w-4 text-[var(--color-fg-subtle)] transition-colors group-hover:text-[var(--color-fg)]"
-                    />
-                  </span>
-                  <span className="mt-2 block max-w-[46ch] text-sm text-[var(--color-fg-muted)]">
-                    {example.summary}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
+        {demo ? (
+          <a
+            href={demo}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 py-3 font-mono text-sm font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
+          >
+            <span>Open the live demo</span>
+            <ArrowUpRight aria-hidden className="h-4 w-4" />
+          </a>
+        ) : null}
 
-          <div className="min-w-0">
-            <CodeBlock className="overflow-x-auto">
-              {CLONE_STEPS.map((command, i) => (
-                <span key={command}>
-                  {i > 0 ? "\n" : null}
-                  <PromptLine command={command} />
-                </span>
-              ))}
-            </CodeBlock>
-            <p className="mt-3 text-sm text-[var(--color-fg-muted)]">
-              The admin lands on{" "}
-              <span className="font-mono text-[var(--color-fg)]">localhost:3000/admin</span>. Docker
-              Desktop has to be running; no <span className="font-mono">.env</span> is needed for
-              the local run.
-            </p>
-            {demo ? (
+        <ul className="mt-12 grid gap-6 md:grid-cols-2">
+          {siteConfig.examples.map((example) => (
+            <li
+              key={example.name}
+              className="flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-6 shadow-[var(--shadow-card)]"
+            >
               <a
-                href={demo}
+                href={example.url}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 py-3 font-mono text-sm font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
+                className="inline-flex items-center gap-2 font-mono text-sm font-medium text-[var(--color-fg)] transition-opacity hover:opacity-80"
               >
-                <span>Open the live demo</span>
-                <ArrowUpRight aria-hidden className="h-4 w-4" />
+                examples/{example.name}
+                <ArrowUpRight aria-hidden className="h-4 w-4 text-[var(--color-fg-subtle)]" />
               </a>
-            ) : null}
-          </div>
-        </div>
+              <p className="mt-3 flex-1 text-sm text-[var(--color-fg-muted)]">{example.summary}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-x-6 border-t border-[var(--color-border)] pt-1">
+                <a href={example.config} target="_blank" rel="noreferrer" className={linkClass}>
+                  Read the config
+                  <ArrowUpRight aria-hidden className="h-4 w-4" />
+                </a>
+                <a href={example.readme} target="_blank" rel="noreferrer" className={linkClass}>
+                  Run it locally
+                  <ArrowUpRight aria-hidden className="h-4 w-4" />
+                </a>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

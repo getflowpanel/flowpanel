@@ -2,6 +2,7 @@ import { ThemeScript } from "@flowpanel/kit/react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { DEMO_ROLE_COOKIE, toDemoRole } from "@/src/demo/auth/role";
+import { demoLinks } from "@/src/demo/links";
 import { isEnabledFlag } from "@/src/demo/sandbox/config";
 import { DemoPersonaGuide } from "@/src/demo/ui/DemoPersonaGuide";
 import { DemoSandboxNotice } from "@/src/demo/ui/DemoSandboxNotice";
@@ -11,10 +12,6 @@ export const metadata: Metadata = {
   title: "ScrapeAI — FlowPanel demo",
   description: "Competitive price-intelligence operations, built with FlowPanel",
 };
-
-const REPO = "https://github.com/getflowpanel/flowpanel";
-const SOURCE = `${REPO}/tree/main/examples/ai-scraper`;
-const CONFIG = `${SOURCE}/src/admin/config`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const demoMode = isEnabledFlag(process.env.DEMO_MODE);
@@ -46,7 +43,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 text-xs text-fp-text-3 sm:px-6">
             <span>Built with FlowPanel.</span>
             <a
-              href={CONFIG}
+              href={demoLinks.config}
               target="_blank"
               rel="noreferrer"
               className="font-medium text-fp-text-2 hover:text-fp-text-1"

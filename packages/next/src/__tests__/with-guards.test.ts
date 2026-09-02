@@ -96,6 +96,24 @@ describe("withGuards — cross-site writes", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("accepts a write whose origin matches the forwarded host", async () => {
+    const { config, resource } = makeConfig({});
+    const handler = vi.fn(async () => Response.json({ ok: true }));
+    const req = new Request("http://localhost:3000/x", {
+      method: "POST",
+      headers: {
+        origin: "https://demo.example.com",
+        "x-forwarded-host": "demo.example.com",
+        "x-forwarded-proto": "https",
+      },
+    });
+
+    const res = await withGuards(config, req, { resource }, handler);
+
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
   it("rejects cross-site Fetch Metadata when Origin is absent", async () => {
     const { config, resource } = makeConfig({});
     const handler = vi.fn(async () => Response.json({ ok: true }));

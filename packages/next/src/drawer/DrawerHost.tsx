@@ -96,7 +96,7 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
           <tr>
             {cols.map((c) => (
               <th key={c} scope="col" className="px-4 py-2 text-left font-medium">
-                {c}
+                {humanize(c)}
               </th>
             ))}
           </tr>

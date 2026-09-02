@@ -49,7 +49,12 @@ export function useDataTableKeyboard<Row>(params: {
       e.preventDefault();
       setCursor(rows.length - 1);
     } else if (e.key === "Enter") {
-      if (focusedRow !== undefined) onRowClick?.(focusedRow);
+      if (focusedRow !== undefined) {
+        // The row opens now, so the drawer's first focusable element must not also
+        // receive this key and act on it.
+        e.preventDefault();
+        onRowClick?.(focusedRow);
+      }
     } else if (e.key === "e" && focusedRow !== undefined && onEditRow) {
       e.preventDefault();
       onEditRow(focusedRow);

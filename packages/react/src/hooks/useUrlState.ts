@@ -1,5 +1,5 @@
 "use client";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
 
 export interface UrlState {
@@ -8,8 +8,13 @@ export interface UrlState {
   params: URLSearchParams;
 }
 
+/**
+ * Query state for surfaces that fetch their own data — the drawer and the create
+ * panel. Writes go through the History API rather than the router: Next syncs
+ * `useSearchParams` from it, so the URL stays shareable without paying for a
+ * server round-trip the caller does not read anything from.
+ */
 export function useUrlState(): UrlState {
-  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -23,9 +28,9 @@ export function useUrlState(): UrlState {
         else next.set(k, String(v));
       }
       const query = next.toString();
-      router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      window.history.pushState(null, "", query ? `${pathname}?${query}` : pathname);
     },
-    [params, pathname, router],
+    [params, pathname],
   );
 
   return useMemo(

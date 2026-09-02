@@ -18,7 +18,7 @@ interface AdapterToggleProps {
  * Client island that exposes the adapter as a small button group.
  *
  * On mount we mirror `document.documentElement.dataset.adapter` (set by
- * the layout from the cookie) into state, then keep both in sync on
+ * AdapterScript from the cookie) into state, then keep both in sync on
  * every change. The dataset attribute drives CSS visibility of
  * <AdapterTabs> branches across the whole page — no re-render needed.
  *
@@ -40,7 +40,7 @@ export function AdapterToggle({ initial }: AdapterToggleProps) {
     setAdapter(next);
     document.documentElement.dataset.adapter = next;
     // 1-year persistence; SameSite=Lax avoids leakage and works on top-level navs.
-    // biome-ignore lint/suspicious/noDocumentCookie: state must round-trip to the SSR layout, which reads it via next/headers cookies().
+    // biome-ignore lint/suspicious/noDocumentCookie: AdapterScript reads it back on the next page load.
     document.cookie = `${ADAPTER_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
   }
 

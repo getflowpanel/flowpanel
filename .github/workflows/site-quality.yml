@@ -60,3 +60,6 @@ jobs:
 
       - name: Build
         run: pnpm --filter @flowpanel/site build
+
+      - name: Docs are prerendered, not read from the repo at request time
+        run: pnpm --filter @flowpanel/site check:prerendered

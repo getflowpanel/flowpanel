@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { readAdapterCookie } from "@/features/adapter-switcher";
+import { AdapterScript, DEFAULT_ADAPTER } from "@/features/adapter-switcher";
 import { siteConfig } from "@/shared/lib/site-config";
 
 export const metadata: Metadata = {
@@ -35,15 +35,17 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const adapter = await readAdapterCookie();
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      data-adapter={adapter}
+      data-adapter={DEFAULT_ADAPTER}
       className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
+      <head>
+        <AdapterScript />
+      </head>
       <body>
         <RootProvider>{children}</RootProvider>
       </body>
