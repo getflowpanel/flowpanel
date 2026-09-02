@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Client-side hooks for FlowPanel — useAdminMutation and helpers for building custom admin UIs",
   "keywords": [
     "flowpanel",
