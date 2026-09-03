@@ -49,13 +49,13 @@
     "@flowpanel/react": "workspace:*"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
+    "react": "^19.2.8",
     "recharts": "^2.15.0 || ^3.0.0"
   },
   "devDependencies": {
     "@types/react": "catalog:",
-    "react": "^19.0.0",
-    "recharts": "^3.0.0",
+    "react": "^19.2.8",
+    "recharts": "^3.10.1",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
