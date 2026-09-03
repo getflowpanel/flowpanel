@@ -49,8 +49,8 @@
   "peerDependencies": {
     "@bull-board/api": "^6.0.0",
     "@bull-board/express": "^6.0.0",
-    "bullmq": "^5.0.0",
-    "express": "^4.19.0"
+    "bullmq": "^5.81.4",
+    "express": "^4.22.2"
   },
   "peerDependenciesMeta": {
     "@bull-board/api": {
@@ -67,8 +67,8 @@
     "@bull-board/api": "^6.0.0",
     "@bull-board/express": "^6.0.0",
     "@types/express": "^4.17.0",
-    "bullmq": "^5.0.0",
-    "express": "^4.19.0",
+    "bullmq": "^5.81.4",
+    "express": "^4.22.2",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
