@@ -20,6 +20,12 @@ async function seedPkg(deps: Record<string, string>): Promise<Check> {
     path.join(tmp, "package.json"),
     JSON.stringify({ dependencies: { next: "15.0.0", ...deps }, devDependencies: {} }),
   );
+  for (const [name, specifier] of Object.entries(deps)) {
+    const version = specifier.match(/\d+(?:\.\d+){0,2}/)?.[0] ?? "0.0.0";
+    const dir = path.join(tmp, "node_modules", ...name.split("/"));
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "package.json"), JSON.stringify({ name, version }));
+  }
   const { checks } = await runDoctorChecks(tmp, false);
   const ormCheck = checks.find((c) => c.name.startsWith("ORM adapter"));
   expect(ormCheck).toBeDefined();
@@ -28,7 +34,7 @@ async function seedPkg(deps: Record<string, string>): Promise<Check> {
 
 describe("doctor — ORM adapter check", () => {
   it("passes on a Drizzle project", async () => {
-    const check = await seedPkg({ "drizzle-orm": "^0.30.0" });
+    const check = await seedPkg({ "drizzle-orm": "^0.45.2" });
     expect(check.ok).toBe(true);
     expect(check.name).toBe("ORM adapter (Drizzle)");
   });

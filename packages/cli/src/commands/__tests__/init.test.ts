@@ -124,45 +124,11 @@ describe("init templates (resolution)", () => {
     expect(out).toContain('<ThemeScript defaultMode="auto" />');
   });
 
-  it("tailwind v3 config template exposes the fp-* color map", async () => {
-    const out = await tpl("tailwind.config.v3.ts.txt");
-    expect(out).toContain('"fp-bg-1"');
-    expect(out).toContain('"fp-text-1"');
-    expect(out).toContain('"fp-accent"');
-    expect(out).toContain("borderRadius:");
-    expect(out).toContain('fp: "var(--fp-radius)"');
-  });
-
-  it("admin.css.v3 template omits @theme (v4 syntax) and includes v3 directives", async () => {
-    const out = await tpl("admin.css.v3.txt");
-    expect(out).toContain("@tailwind base;");
-    expect(out).toContain("@tailwind components;");
-    expect(out).toContain("@tailwind utilities;");
-    // The v3 sheet must not contain the v4 `@theme {}` directive at the
-    // start of a line. (A `@theme` mention in a comment is fine.)
-    expect(out).not.toMatch(/^@theme\b/m);
-    expect(out).toContain("--fp-bg-1");
-    expect(out).toContain("--fp-radius:");
-  });
-
-  it("admin.css (v4) invokes Tailwind and scans the @flowpanel packages at the styles/ depth", async () => {
-    // styles/admin.css → app root is one level up.
-    const out = await tpl("admin.css.txt", { SOURCE_UP: "../" });
-    expect(out).toContain('@import "tailwindcss";');
-    expect(out).toContain('@source "../node_modules/@flowpanel/*/dist";');
-    expect(out).toContain('@source "../node_modules/.pnpm/node_modules/@flowpanel/*/dist";');
-  });
-
-  it("admin.css (v4) @source depth adjusts for the src/styles/ scaffold layout", async () => {
-    // src/styles/admin.css (strip-src aliasMode) → app root is two levels up.
-    const out = await tpl("admin.css.txt", { SOURCE_UP: "../../" });
-    expect(out).toContain('@source "../../node_modules/@flowpanel/*/dist";');
-    expect(out).toContain('@source "../../node_modules/.pnpm/node_modules/@flowpanel/*/dist";');
-  });
-
-  it("tailwind v3 config template scans the @flowpanel packages' dist output", async () => {
-    const out = await tpl("tailwind.config.v3.ts.txt");
-    expect(out).toContain('"./node_modules/@flowpanel/*/dist/**/*.{js,mjs}"');
-    expect(out).toContain('"./node_modules/.pnpm/node_modules/@flowpanel/*/dist/**/*.{js,mjs}"');
+  it("writes a compiler-free stylesheet import regardless of the host Tailwind version", async () => {
+    for (const template of ["admin.css.txt", "admin.css.v3.txt"]) {
+      const out = await tpl(template);
+      expect(out).toContain('@import "@flowpanel/kit/styles/admin.css";');
+      expect(out).not.toMatch(/^@(tailwind|source|theme)\b/m);
+    }
   });
 });

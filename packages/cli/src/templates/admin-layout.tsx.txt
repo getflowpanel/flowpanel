@@ -1,0 +1,8 @@
+import "{{CSS_IMPORT}}";
+
+// Styles are loaded by the admin route. The host owns its root layout, CSP
+// nonce and pre-hydration theme policy; FlowPanel's theme runtime works here
+// without injecting another script into the host's <head>.
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}

@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
@@ -8,24 +8,30 @@ import {
   fixPrecondition,
   staleEjectMarkers,
 } from "../doctor/probes";
+import { FIXABLE_FILES, MIGRATION_REL_DEST, makeFix } from "../doctor/templates";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent, FilesystemPlan } from "../plan/types";
+import {
+  type AdminMount,
+  findAdminRouteConflicts,
+  normalizeAdminPath,
+  readAdminMount,
+} from "../utils/admin-path";
+import { inspectProjectCompatibility } from "../utils/compatibility";
 import { findDestructiveWithoutConfirm } from "../utils/config-scan";
 import {
   configImportFor,
   detectAppDir,
   detectPackageManager,
   detectPathAlias,
-  detectStack,
   fileExists,
-  isSupportedNextVersion,
   pmCommands,
 } from "../utils/detect";
 import { kitCompatibilityError } from "../utils/kit";
 import { log } from "../utils/log";
 import { writeJson } from "../utils/output";
-import { tpl } from "../utils/template";
+import { inspectDependency } from "../utils/project-packages";
 
 export interface Check {
   name: string;
@@ -35,63 +41,27 @@ export interface Check {
   fix?: () => Promise<FileIntent>;
 }
 
-const FIXABLE_FILES: ReadonlyArray<{
-  relToAppDir: string | null;
-  templateName: string;
-  label: string;
-  needsConfigImport: boolean;
-}> = [
-  {
-    relToAppDir: "api/flowpanel/[...route]/route.ts",
-    templateName: "api-route.ts.txt",
-    label: "API route",
-    needsConfigImport: true,
-  },
-  {
-    relToAppDir: "api/flowpanel/stream/route.ts",
-    templateName: "sse-route.ts.txt",
-    label: "SSE route",
-    needsConfigImport: true,
-  },
-  {
-    relToAppDir: null,
-    templateName: "migration.sql.txt",
-    label: "Seed migration (flowpanel/migrations)",
-    needsConfigImport: false,
-  },
-  {
-    relToAppDir: "admin/[[...slug]]/page.tsx",
-    templateName: "admin-page.tsx.txt",
-    label: "Catch-all admin page",
-    needsConfigImport: true,
-  },
-];
-
-/** `relToAppDir === null` files (currently just the seed migration) live at a fixed repo-root path. */
-const MIGRATION_REL_DEST = "flowpanel/migrations/0001_init.sql";
-
-async function makeFix(
-  relDest: string,
-  templateName: string,
-  configImport: string | null,
-): Promise<FileIntent> {
-  const content = configImport
-    ? await tpl(templateName, { CONFIG_IMPORT: configImport })
-    : await tpl(templateName);
-  return { path: relDest, content };
-}
-
 export async function runDoctorChecks(
   cwd: string,
   fix: boolean,
-  options: { applyFixes?: boolean; quiet?: boolean } = {},
+  options: { applyFixes?: boolean; quiet?: boolean; adminPath?: string } = {},
 ): Promise<{ checks: Check[]; bad: number; plan?: FilesystemPlan; fixBlocked?: string }> {
-  const stack = await detectStack(cwd);
   const pm = await detectPackageManager(cwd);
   const pmc = pmCommands(pm);
   const appDir = await detectAppDir(cwd);
   const aliasMode = await detectPathAlias(cwd);
+  const mount: AdminMount = options.adminPath
+    ? { path: normalizeAdminPath(options.adminPath) }
+    : await readAdminMount(cwd);
+  const overlapsGeneratedApi =
+    mount.path &&
+    (mount.path === "/api/flowpanel" ||
+      mount.path.startsWith("/api/flowpanel/") ||
+      "/api/flowpanel".startsWith(`${mount.path}/`));
   const checks: Check[] = [];
+  const compatibilityReport = await inspectProjectCompatibility(cwd);
+  const compatibility = compatibilityReport.findings;
+  const compatible = (name: string) => compatibility.find((finding) => finding.name === name);
 
   const add = (
     name: string,
@@ -104,20 +74,42 @@ export async function runDoctorChecks(
     checks.push(c);
   };
 
+  const next = compatible("next");
+  const react = compatible("react");
+  const reactDom = compatible("react-dom");
+  const reactPair = compatible("React and React DOM versions match");
+  const typescript = compatible("typescript");
+  const node = compatible("Node.js");
   const nextDeps = "next@^16.3.0 react@^19 react-dom@^19";
   add(
     "Next.js ≥ 16.3 < 17",
-    isSupportedNextVersion(stack.nextjs),
-    stack.nextjs === null
+    next?.ok ?? false,
+    next?.dependency.declaration === null
       ? `Next.js is not in package.json. Install: ${pmc.addDisplay(nextDeps, false)}`
-      : `Upgrade: ${pmc.addDisplay(nextDeps, false)}`,
+      : `Found ${next?.observed}. Required ${next?.required}. ${next?.recovery}`,
   );
-  add("TypeScript installed", stack.typescript, `Install: ${pmc.addDisplay("typescript", true)}`);
-  const orm = stack.drizzle ? "Drizzle" : stack.prisma ? "Prisma" : null;
+  add("React 19 installed", react?.ok ?? false, react?.recovery);
+  add("React DOM 19 installed", reactDom?.ok ?? false, reactDom?.recovery);
+  add("React and React DOM versions match", reactPair?.ok ?? false, reactPair?.recovery);
+  add("Node.js supported", node?.ok ?? false, node?.recovery);
+  add(
+    "TypeScript installed",
+    typescript?.ok ?? false,
+    `Install: ${pmc.addDisplay("typescript", true)}`,
+  );
+  const ormFinding = compatibilityReport.ormFinding;
+  const orm =
+    compatibilityReport.orm === "drizzle"
+      ? "Drizzle"
+      : compatibilityReport.orm === "prisma"
+        ? "Prisma"
+        : null;
   add(
     orm === null ? "ORM adapter (Drizzle or Prisma)" : `ORM adapter (${orm})`,
-    orm !== null,
-    `Install one: ${pmc.addDisplay("drizzle-orm", false)} or ${pmc.addDisplay("@prisma/client", false)}`,
+    ormFinding?.ok ?? false,
+    orm === null
+      ? `Install one: ${pmc.addDisplay("drizzle-orm", false)} or ${pmc.addDisplay("@prisma/client", false)}`
+      : `Found ${ormFinding?.observed}. Required ${ormFinding?.required}. ${ormFinding?.recovery}`,
   );
   add(
     "flowpanel.config.ts",
@@ -126,14 +118,33 @@ export async function runDoctorChecks(
   );
   const kitMismatch = await kitCompatibilityError(cwd);
   add("@flowpanel/kit matches this CLI", kitMismatch === null, kitMismatch ?? undefined);
+  add("Admin mount configuration", !mount.error, mount.error);
 
   for (const { relToAppDir, templateName, label, needsConfigImport } of FIXABLE_FILES) {
-    const relDest = relToAppDir === null ? MIGRATION_REL_DEST : `${appDir}/${relToAppDir}`;
+    const isAdmin = templateName === "admin-page.tsx.txt";
+    if (isAdmin && !mount.path) continue;
+    const relDest =
+      relToAppDir === null
+        ? MIGRATION_REL_DEST
+        : isAdmin
+          ? `${appDir}${mount.path}/[[...slug]]/page.tsx`
+          : `${appDir}/${relToAppDir}`;
     const dest = path.join(cwd, relDest);
     const exists = await fileExists(dest);
     const configImport = needsConfigImport
       ? configImportFor(path.dirname(relDest), aliasMode)
       : null;
+
+    const collisions =
+      isAdmin && mount.path ? await findAdminRouteConflicts(cwd, appDir, mount.path, relDest) : [];
+    if (collisions.length) {
+      add(
+        label,
+        false,
+        `Route overlaps ${collisions.join(", ")}. Choose a free mount; automatic repair is unsafe.`,
+      );
+      continue;
+    }
 
     add(
       label,
@@ -150,8 +161,8 @@ export async function runDoctorChecks(
         "Single @flowpanel/core instance",
         coreCount <= 1,
         coreCount > 1
-          ? `Found ${coreCount} @flowpanel/core copies in node_modules. ` +
-              `Pin peers via pnpm.peerDependencyRules.allowedVersions or align peer ranges.`
+          ? `Found ${coreCount} active @flowpanel/core installations. ` +
+              `Align FlowPanel versions and peer dependency ranges, then reinstall with your lockfile.`
           : undefined,
       );
     }
@@ -179,25 +190,41 @@ export async function runDoctorChecks(
     );
   } catch {}
 
-  const tscCmd = `${pmc.exec} tsc --noEmit`;
-  try {
-    execSync(tscCmd, { cwd, stdio: ["ignore", "pipe", "pipe"] });
-    add("tsc --noEmit", true);
-  } catch (e: unknown) {
-    const diagnostics = firstDiagnostics(e);
-    add(
-      "tsc --noEmit",
-      false,
-      diagnostics
-        ? `${diagnostics}\n    Run for the full list: ${tscCmd}`
-        : `TypeScript errors in project. Run: ${tscCmd}`,
-    );
-  }
+  const tsc = await inspectDependency(cwd, "typescript");
+  const tscBin = tsc.installed?.manifest.bin;
+  const tscEntry =
+    typeof tscBin === "string" ? tscBin : typeof tscBin?.tsc === "string" ? tscBin.tsc : null;
+  if (!tsc.installed || !tscEntry) {
+    add("tsc --noEmit", false, "TypeScript is not installed with a tsc binary in this project.");
+  } else
+    try {
+      const absoluteBin = path.resolve(tsc.installed.directory, tscEntry);
+      execFileSync(process.execPath, [absoluteBin, "--noEmit"], {
+        cwd,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      add("tsc --noEmit", true);
+    } catch (e: unknown) {
+      const diagnostics = firstDiagnostics(e);
+      add(
+        "tsc --noEmit",
+        false,
+        diagnostics
+          ? `${diagnostics}\n    Full list: ${[pmc.exec, ...pmc.execArgs("tsc", ["--noEmit"])].join(" ")}`
+          : "TypeScript errors in project.",
+      );
+    }
 
   let plan: FilesystemPlan | undefined;
   let fixBlocked: string | undefined;
   if (fix) {
-    fixBlocked = kitMismatch ?? (await fixPrecondition(cwd));
+    fixBlocked =
+      kitMismatch ??
+      mount.error ??
+      (overlapsGeneratedApi
+        ? "Admin mount overlaps the generated API routes; automatic repair is unsafe."
+        : undefined) ??
+      (await fixPrecondition(cwd));
     if (fixBlocked) {
       if (!options.quiet) process.stderr.write(pc.red(`  ✘ --fix refused: ${fixBlocked}\n`));
     } else {
@@ -239,11 +266,13 @@ export function doctorCommand(cli: Command): void {
     .option("--fix", "Auto-fix missing route files from templates")
     .option("--dry-run", "Show fixes without writing (use with --fix)")
     .option("--json", "Emit machine-readable JSON")
-    .action(async (opts: { fix?: boolean; dryRun?: boolean; json?: boolean }) => {
+    .option("--path <url>", "Resolved admin URL when the config uses a dynamic path")
+    .action(async (opts: { fix?: boolean; dryRun?: boolean; json?: boolean; path?: string }) => {
       const cwd = process.cwd();
       const { checks, bad, plan, fixBlocked } = await runDoctorChecks(cwd, opts.fix ?? false, {
         applyFixes: !opts.dryRun,
         quiet: opts.json ?? false,
+        ...(opts.path ? { adminPath: opts.path } : {}),
       });
 
       if (opts.json) {

@@ -73,9 +73,11 @@ export async function detectPathAlias(cwd: string): Promise<PathAliasMode> {
   const compilerOptions = await readTsconfigOptions(cwd);
   const targets = compilerOptions?.paths?.["@/*"];
   if (!targets || targets.length === 0) return "none";
-  const first = targets[0]?.replace(/^\.\//, "");
-  if (first === "src/*") return "strip-src";
-  if (first === "*" || first === "./*") return "root";
+  const first = targets[0];
+  if (!first) return "none";
+  const target = path.resolve(cwd, compilerOptions?.baseUrl ?? ".", first);
+  if (target === path.join(cwd, "src", "*")) return "strip-src";
+  if (target === path.join(cwd, "*")) return "root";
   return "none";
 }
 
@@ -97,7 +99,10 @@ async function firstMatch(
   candidates: string[],
   mode: PathAliasMode,
 ): Promise<string | null> {
-  for (const c of candidates) {
+  for (const c of candidates.flatMap((candidate) => [
+    candidate,
+    candidate.replace(/\.ts$/, "/index.ts"),
+  ])) {
     if (await fileExists(path.join(cwd, c))) {
       return aliasOf(c, mode);
     }
@@ -110,6 +115,7 @@ export async function detectDbClient(cwd: string, mode?: PathAliasMode): Promise
     cwd,
     [
       "src/server/lib/db.ts",
+      "src/shared/lib/db.ts",
       "src/lib/db.ts",
       "server/lib/db.ts",
       "lib/db.ts",
@@ -130,6 +136,7 @@ export async function detectSchema(cwd: string, mode?: PathAliasMode): Promise<s
     cwd,
     [
       "src/server/lib/db/schema.ts",
+      "src/shared/lib/db/schema.ts",
       "src/lib/db/schema.ts",
       "server/lib/db/schema.ts",
       "lib/db/schema.ts",
@@ -164,25 +171,63 @@ export async function detectAppDir(cwd: string): Promise<"app" | "src/app"> {
 
 export type PackageManager = "pnpm" | "npm" | "yarn" | "bun";
 
+export interface PackageManagerDetection {
+  manager: PackageManager;
+  source: "packageManager" | "lockfile" | "user-agent" | "default";
+  error?: string;
+}
+
 export async function detectPackageManager(cwd: string): Promise<PackageManager> {
+  return (await detectPackageManagerDetails(cwd)).manager;
+}
+
+export async function detectPackageManagerDetails(cwd: string): Promise<PackageManagerDetection> {
+  const manifest = await readPkg(cwd);
+  const declared =
+    typeof manifest.packageManager === "string" ? manifest.packageManager.split("@")[0] : null;
+  if (declared === "pnpm" || declared === "npm" || declared === "yarn" || declared === "bun") {
+    return { manager: declared, source: "packageManager" };
+  }
+  const locks = await Promise.all([
+    ["pnpm", "pnpm-lock.yaml"],
+    ["yarn", "yarn.lock"],
+    ["bun", "bun.lockb"],
+    ["bun", "bun.lock"],
+    ["npm", "package-lock.json"],
+  ] as const).then(async (entries) => {
+    const found = await Promise.all(
+      entries.map(async ([manager, file]) =>
+        (await fileExists(path.join(cwd, file))) ? manager : null,
+      ),
+    );
+    return [...new Set(found.filter((value): value is PackageManager => value !== null))];
+  });
+  if (locks.length === 1) {
+    const [manager] = locks;
+    if (manager) return { manager, source: "lockfile" };
+  }
+  if (locks.length > 1) {
+    const ua = process.env.npm_config_user_agent ?? "";
+    const fromUa = (["pnpm", "yarn", "bun", "npm"] as PackageManager[]).find((manager) =>
+      ua.startsWith(manager),
+    );
+    if (fromUa && locks.includes(fromUa)) return { manager: fromUa, source: "user-agent" };
+    return {
+      manager: "npm",
+      source: "default",
+      error: `Conflicting project lockfiles (${locks.join(", ")}). Remove the stale lockfile or set packageManager in package.json before running init.`,
+    };
+  }
   const ua = process.env.npm_config_user_agent ?? "";
-  if (ua.startsWith("pnpm")) return "pnpm";
-  if (ua.startsWith("yarn")) return "yarn";
-  if (ua.startsWith("bun")) return "bun";
-  if (ua.startsWith("npm")) return "npm";
-  if (await fileExists(path.join(cwd, "pnpm-lock.yaml"))) return "pnpm";
-  if (await fileExists(path.join(cwd, "yarn.lock"))) return "yarn";
-  if (
-    (await fileExists(path.join(cwd, "bun.lockb"))) ||
-    (await fileExists(path.join(cwd, "bun.lock")))
-  )
-    return "bun";
-  if (await fileExists(path.join(cwd, "package-lock.json"))) return "npm";
-  return "npm";
+  if (ua.startsWith("pnpm")) return { manager: "pnpm", source: "user-agent" };
+  if (ua.startsWith("yarn")) return { manager: "yarn", source: "user-agent" };
+  if (ua.startsWith("bun")) return { manager: "bun", source: "user-agent" };
+  if (ua.startsWith("npm")) return { manager: "npm", source: "user-agent" };
+  return { manager: "npm", source: "default" };
 }
 
 /** How to add a dependency and run a local binary / script for each manager. */
-interface PmCommands {
+export interface PmCommands {
   /** `add ["-D"] <pkg>` argv for the install spawn. */
   add(pkg: string, dev: boolean): string[];
   /** The displayed command to add a dependency manually (outro fallback). */

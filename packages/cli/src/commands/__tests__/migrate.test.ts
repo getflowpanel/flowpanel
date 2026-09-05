@@ -2,9 +2,36 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { Command } from "commander";
+import { createJiti } from "jiti";
 import { describe, expect, it, vi } from "vitest";
 import { type PackageManager, pmCommands } from "../../utils/detect";
-import { migrateCommand, resolveMigrationExecutor } from "../migrate";
+import { migrateCommand, readTsconfigAliases, resolveMigrationExecutor } from "../migrate";
+
+it("loads an alias rooted at inherited baseUrl without appending a literal wildcard", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "fp-migrate-alias-"));
+  try {
+    await fs.mkdir(path.join(root, "config"));
+    await fs.mkdir(path.join(root, "src"));
+    await fs.writeFile(
+      path.join(root, "config/base.json"),
+      JSON.stringify({ compilerOptions: { baseUrl: "../src" } }),
+    );
+    await fs.writeFile(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        extends: "./config/base.json",
+        compilerOptions: { paths: { "@/*": ["*"] } },
+      }),
+    );
+    await fs.writeFile(path.join(root, "src/db.ts"), 'export const db = "local-fixture";');
+    await fs.writeFile(path.join(root, "flowpanel.config.ts"), 'export { db } from "@/db";');
+    const jiti = createJiti(root, { alias: await readTsconfigAliases(root) });
+    const loaded = await jiti.import<{ db: string }>(path.join(root, "flowpanel.config.ts"));
+    expect(loaded.db).toBe("local-fixture");
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
 
 describe("migrate — install hints", () => {
   it("renders the jiti hint in each manager's dialect", () => {

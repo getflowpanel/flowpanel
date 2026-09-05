@@ -24,7 +24,6 @@ FlowPanel is not a hosted database browser or a general React admin framework. I
 | Node.js | `>=20` |
 | Next.js | `^16.3.0` |
 | React | `^19.0.0` |
-| Tailwind CSS | `^3.0.0 || ^4.0.0` |
 | Drizzle ORM | `>=0.45.2 <1.0.0` |
 | Prisma Client | `>=5.0.0 <7.0.0` |
 <!-- flowpanel:compatibility:end -->

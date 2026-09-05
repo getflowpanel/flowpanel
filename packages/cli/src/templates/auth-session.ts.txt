@@ -1,0 +1,14 @@
+/**
+ * Connect your application's authentication here.
+ *
+ * FlowPanel could not detect a getSession export. Until this function returns
+ * your real session, the admin rejects every request. Do not replace this with
+ * a static admin identity. Map the role in flowpanel.config.ts to your provider
+ * or database and keep requireRole enabled.
+ *
+ * better-auth example (after importing your auth instance):
+ * return auth.api.getSession({ headers: req.headers });
+ */
+export async function getSession(_req: Request): Promise<null> {
+  return null;
+}

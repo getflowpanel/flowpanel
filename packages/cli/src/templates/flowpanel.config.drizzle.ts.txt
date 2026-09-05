@@ -18,6 +18,7 @@ declare module "@flowpanel/kit" {
 }
 
 export default defineAdmin({
+  paths: { admin: "{{ADMIN_PATH}}", api: "/api/flowpanel" },
   adapter: drizzleAdapter({ db, schema }),
 
   auth: {

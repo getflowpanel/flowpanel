@@ -81,8 +81,8 @@ export const DEFAULT_DOC_CONTRACTS = [
     typeName: "CommandPaletteConfig",
     member: "placeholder",
     value: '"Search resources, actions…"',
-    consumerFile: "packages/react/src/_shell/CommandPalette.tsx",
-    consumerExpression: 'placeholder = "Search resources, actions…"',
+    consumerFile: "packages/core/src/types/labels.ts",
+    consumerExpression: 'placeholder: "Search resources, actions…"',
   },
   {
     typeName: "UseRealtimeRefreshOptions",

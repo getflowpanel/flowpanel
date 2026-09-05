@@ -190,6 +190,10 @@ jobs:
           pnpm --filter ai-scraper db:push
           pnpm --filter ai-scraper test:integration
 
+      - name: Verify scoped admin presentation
+        working-directory: packages/e2e
+        run: pnpm test:e2e:presentation
+
       - name: Run Playwright (prepares DB, then boots ai-scraper)
         working-directory: packages/e2e
         run: pnpm exec playwright test
@@ -234,11 +238,31 @@ jobs:
       - run: pnpm --filter @flowpanel/cli test:unit
       - run: pnpm check:cli-package
 
+  next-onboarding:
+    name: Packed Next onboarding (${{ matrix.package-manager }}, Tailwind ${{ matrix.tailwind }})
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package-manager: [npm, pnpm]
+        tailwind: [none, 4]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: ./.github/actions/setup
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: packages/*/dist
+          key: dist-${{ github.sha }}
+          fail-on-cache-miss: true
+      - run: pnpm check:next-onboarding ${{ matrix.package-manager }} ${{ matrix.tailwind }}
+
   # ── Aggregate gate: a single required status for branch protection ───────
   ci-success:
     name: CI success
     if: always()
-    needs: [check, e2e, macos, windows-cli]
+    needs: [check, e2e, macos, windows-cli, next-onboarding]
     runs-on: ubuntu-latest
     steps:
       - name: All required jobs passed

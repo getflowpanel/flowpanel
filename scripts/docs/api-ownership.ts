@@ -115,6 +115,18 @@ export const API_OWNERSHIP_RULES = [
     guidance: false,
   },
   {
+    sourcePrefix: "packages/core/src/theme-init.ts",
+    page: "/docs/customization/styling",
+    anchor: "initialize-the-theme-under-csp",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/dist/theme.d.ts",
+    page: "/docs/customization/styling",
+    anchor: "initialize-the-theme-under-csp",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/policy/",
     page: "/docs/reference/resources",
     anchor: "access-control",
@@ -193,6 +205,12 @@ export const API_OWNERSHIP_RULES = [
     page: "/docs/reference/define-config",
     anchor: "labels",
     guidance: false,
+  },
+  {
+    sourcePrefix: "packages/core/src/locales/",
+    page: "/docs/reference/define-config",
+    anchor: "labelsconfig",
+    guidance: true,
   },
   {
     sourcePrefix: "packages/core/src/types/paths.ts",
