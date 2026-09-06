@@ -1,5 +1,6 @@
 "use client";
 import type { FilterType } from "@flowpanel/core";
+import { useLabels } from "../_provider/LabelsContext";
 import { humanize } from "../lib/humanize";
 import { BooleanFilter } from "./filters/BooleanFilter";
 import { DateRangeFilter } from "./filters/DateRangeFilter";
@@ -26,12 +27,13 @@ export interface FilterBarProps {
 }
 
 export function FilterBar({ filters, values, onChange, onClear, className }: FilterBarProps) {
+  const labels = useLabels();
   const hasAny = Object.keys(values).length > 0;
   return (
     <div
       className={`flex flex-wrap items-center gap-2 ${className ?? ""}`}
       role="toolbar"
-      aria-label="Filters"
+      aria-label={labels.filters.label}
     >
       {filters.map((f) => {
         const v = values[f.field] ?? null;
@@ -39,7 +41,7 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
           value: v,
           onChange: (nv: string | null) => onChange(f.field, nv),
           label: f.label ?? humanize(f.field),
-          ...(f.placeholder ? { placeholder: f.placeholder } : {}),
+          ...(f.placeholder !== undefined ? { placeholder: f.placeholder } : {}),
         } as const;
         switch (f.type) {
           case "text":
@@ -68,7 +70,7 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
           onClick={onClear}
           className="fp-press ml-1 rounded-fp-sm px-1 text-sm text-fp-text-2 underline underline-offset-4 transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
         >
-          Clear filters
+          {labels.filters.clear}
         </button>
       ) : null}
     </div>

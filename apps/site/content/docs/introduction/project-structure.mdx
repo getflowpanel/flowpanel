@@ -10,7 +10,9 @@ kind: explanation
 your-app/
 ├── flowpanel.config.ts
 ├── app/
-│   ├── admin/[[...slug]]/page.tsx
+│   ├── admin/
+│   │   ├── layout.tsx
+│   │   └── [[...slug]]/page.tsx
 │   └── api/flowpanel/
 │       ├── [...route]/route.ts
 │       └── stream/route.ts
@@ -22,7 +24,7 @@ your-app/
 
 `flowpanel.config.ts` is application-owned. It selects resources and defines auth, access, scope, dashboards, actions, realtime, labels, and theme options. Most FlowPanel work happens here or in modules imported by it.
 
-`styles/admin.css` is also application-owned. The CLI creates the correct Tailwind v3 or v4 entry and imports FlowPanel styles. Change tokens and safe overrides there; preserve the source/content directives needed to discover FlowPanel classes.
+`styles/admin.css` is application-owned. The CLI creates a thin import of FlowPanel's precompiled, isolated stylesheet, so it does not need Tailwind, PostCSS, source directives, or content globs. Change safe local overrides there. Projects that deliberately compile the legacy `@flowpanel/react/styles/admin.css` source export must maintain their own Tailwind configuration.
 
 Review every SQL file before applying it. The initial migration creates FlowPanel's migration and audit tables. It does not configure an audit sink for you.
 
@@ -32,10 +34,11 @@ The catch-all admin page passes every `/admin/...` request to `createFlowpanel(c
 
 These files are intentionally small. Edit them only when changing mount paths or integrating custom route behavior. `flowpanel doctor --fix` can restore missing route templates, but does not overwrite an existing conflicting file.
 
-The CLI may also add the stylesheet import, pre-hydration `ThemeScript`, and
-`suppressHydrationWarning` to an existing root layout. If no layout exists, it
-creates one with all three. Tailwind v3 projects may receive a config file when
-none exists.
+The CLI imports the stylesheet from the admin segment's layout and preserves the
+host root layout. When no shared root layout exists, the admin segment receives
+its own root layout. Pre-hydration theme and CSP integration in an existing host
+remain application-owned; `ThemeScript` accepts a host-supplied nonce. Routes and
+config use the same mount chosen with `--path` or inferred from existing routes.
 
 ## Files created later
 

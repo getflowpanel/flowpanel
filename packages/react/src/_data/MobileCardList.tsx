@@ -1,4 +1,5 @@
 "use client";
+import { formatLabel } from "@flowpanel/core/labels";
 import * as React from "react";
 import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
@@ -145,7 +146,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                         onSelectionChange?.(Array.from(next));
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      aria-label={`Select row ${key}`}
+                      aria-label={formatLabel(labels.table.selectRow, { id: key })}
                       className="-ml-3 -mt-2 h-11 w-11 shrink-0 sm:ml-0 sm:mt-1 sm:h-5 sm:w-5"
                     />
                   ) : null}

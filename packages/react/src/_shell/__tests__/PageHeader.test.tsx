@@ -7,6 +7,20 @@ import { PageHeader } from "../PageHeader";
 afterEach(cleanup);
 
 describe("PageHeader", () => {
+  it("renders custom inline heading content as one accessible h1", () => {
+    render(
+      <PageHeader
+        title={
+          <span>
+            Ada Lovelace <small>Customer</small>
+          </span>
+        }
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Ada Lovelace Customer", level: 1 })).toBeTruthy();
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
+  });
+
   it("renders title and optional description", () => {
     render(<PageHeader title="Users" description="12 active" />);
     expect(screen.getByRole("heading", { name: "Users", level: 1 })).toBeTruthy();

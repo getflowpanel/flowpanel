@@ -21,31 +21,59 @@ function addFieldList(fields: Set<string>, list: unknown): void {
   for (const entry of list) addField(fields, entry);
 }
 
+/** Fields a list may load or send to its client table. */
 export function declaredRowFields(resource: ResourceConfig): Set<string> {
   const fields = new Set<string>();
   const options = resource.options as {
     columns?: unknown[];
     expose?: unknown[];
     rowKey?: string;
-    drawer?: { fields?: unknown; tabs?: ReadonlyArray<{ fields?: unknown }> };
-    detail?: { fields?: unknown; tabs?: ReadonlyArray<{ fields?: unknown }> };
   };
 
   for (const c of options.columns ?? []) addField(fields, c);
   addFieldList(fields, options.expose);
   fields.add(options.rowKey ?? DEFAULT_RESOURCE_ROW_KEY);
 
-  if (options.drawer) {
-    addFieldList(fields, options.drawer.fields);
-    for (const tab of options.drawer.tabs ?? []) addFieldList(fields, tab?.fields);
-  }
-
-  if (options.detail) {
-    addFieldList(fields, options.detail.fields);
-    for (const tab of options.detail.tabs ?? []) addFieldList(fields, tab?.fields);
-  }
-
   return fields;
+}
+
+/** Fields a drawer may load without widening its parent list. */
+export function declaredDrawerRowFields(resource: ResourceConfig): Set<string> {
+  const fields = declaredRowFields(resource);
+  const drawer = resource.options.drawer as
+    | { fields?: unknown; tabs?: ReadonlyArray<{ fields?: unknown }> }
+    | undefined;
+  addFieldList(fields, drawer?.fields);
+  for (const tab of drawer?.tabs ?? []) addFieldList(fields, tab?.fields);
+  return fields;
+}
+
+/** Stable detail header and fallback presentation dependencies. */
+export function declaredDetailBaseFields(resource: ResourceConfig): Set<string> {
+  const fields = declaredRowFields(resource);
+  const detail = resource.options.detail as { expose?: unknown[]; fields?: unknown } | undefined;
+  addFieldList(fields, detail?.expose);
+  addFieldList(fields, detail?.fields);
+  return fields;
+}
+
+/** Every declared detail field, used only to resolve read policy once per request. */
+export function declaredDetailPolicyFields(resource: ResourceConfig): Set<string> {
+  const fields = declaredDetailBaseFields(resource);
+  const detail = resource.options.detail as
+    | { tabs?: ReadonlyArray<{ fields?: unknown }> }
+    | undefined;
+  for (const tab of detail?.tabs ?? []) addFieldList(fields, tab?.fields);
+  return fields;
+}
+
+/** Intersect a requested projection with adapter introspection without ever omitting `select`. */
+export function selectKnownFields(
+  fields: Iterable<string>,
+  columns: ReadonlyArray<{ name: string }>,
+): string[] {
+  const known = new Set(columns.map((column) => column.name));
+  return [...new Set(fields)].filter((field) => known.has(field));
 }
 
 /** Project a row through a read-policy result that was resolved before its adapter query. */

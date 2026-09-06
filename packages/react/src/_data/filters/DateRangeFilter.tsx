@@ -1,6 +1,8 @@
 "use client";
+import { formatLabel } from "@flowpanel/core/labels";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import * as React from "react";
+import { useLabels } from "../../_provider/LabelsContext";
 import { cn } from "../../lib/cn";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import {
@@ -38,6 +40,7 @@ const NAV_BUTTON =
   "fp-press inline-flex h-7 w-7 items-center justify-center rounded-fp-sm text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40";
 
 export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps) {
+  const { dateRange } = useLabels();
   const committed = parseValue(value);
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<CalendarRange>(committed);
@@ -95,7 +98,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
     }
   };
 
-  const locale = typeof navigator !== "undefined" ? navigator.language : "en-US";
+  const locale = dateRange.locale;
   const trigger = React.useMemo(() => {
     const fmt = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
     const withYear = new Intl.DateTimeFormat(locale, {
@@ -106,10 +109,10 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
     const thisYear = new Date().getFullYear();
     const show = (d: Date) => (d.getFullYear() === thisYear ? fmt : withYear).format(d);
     if (committed.from && committed.to) return `${show(committed.from)} – ${show(committed.to)}`;
-    if (committed.from) return `From ${show(committed.from)}`;
-    if (committed.to) return `Until ${show(committed.to)}`;
+    if (committed.from) return formatLabel(dateRange.from, { date: show(committed.from) });
+    if (committed.to) return formatLabel(dateRange.until, { date: show(committed.to) });
     return null;
-  }, [committed.from, committed.to, locale]);
+  }, [committed.from, committed.to, locale, dateRange.from, dateRange.until]);
 
   // Which preset the committed range corresponds to, if any — so reopening the
   // picker shows what is applied rather than an unmarked list.
@@ -120,7 +123,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
       RANGE_PRESETS.find((p) => {
         const r = p.range();
         return r.from && r.to && `${toISODate(r.from)}:${toISODate(r.to)}` === key;
-      })?.label ?? null
+      })?.key ?? null
     );
   }, [committed.from, committed.to]);
 
@@ -162,10 +165,10 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
       >
         <PopoverTrigger
           className="fp-press flex h-11 min-w-0 items-center gap-2 rounded-full text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:h-8"
-          aria-label={label ? `${label}: date range` : "Date range"}
+          aria-label={label ? formatLabel(dateRange.fieldLabel, { label }) : dateRange.label}
         >
           <span className={cn("truncate", trigger ? "text-fp-text-1" : "text-fp-text-3")}>
-            {trigger ?? "Any date"}
+            {trigger ?? dateRange.any}
           </span>
           {/* Matches the chevron on the Select pills beside it; the label
               already says what the field is, so a calendar glyph is noise. */}
@@ -175,7 +178,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
           <button
             type="button"
             onClick={clear}
-            aria-label="Clear date range"
+            aria-label={dateRange.clear}
             className="fp-press -mr-3 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fp-text-3 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:mr-0 sm:h-6 sm:w-6"
           >
             <X aria-hidden className="h-3.5 w-3.5" />
@@ -192,9 +195,9 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
           <div className="flex flex-col sm:flex-row">
             <ul className="flex shrink-0 gap-1 overflow-x-auto border-fp-border-1 p-2 sm:w-40 sm:flex-col sm:gap-0.5 sm:border-r sm:p-2.5">
               {RANGE_PRESETS.map((p) => {
-                const isActive = activePreset === p.label;
+                const isActive = activePreset === p.key;
                 return (
-                  <li key={p.label}>
+                  <li key={p.key}>
                     <button
                       type="button"
                       onClick={() => commit(p.range())}
@@ -206,7 +209,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                           : "text-fp-text-2 hover:bg-fp-bg-3/60 hover:text-fp-text-1",
                       )}
                     >
-                      {p.label}
+                      {dateRange[p.key]}
                       {isActive ? <Check aria-hidden className="h-4 w-4 shrink-0" /> : null}
                     </button>
                   </li>
@@ -219,7 +222,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                 <button
                   type="button"
                   onClick={() => setMonth(addMonths(month, -1))}
-                  aria-label="Previous month"
+                  aria-label={dateRange.previousMonth}
                   className={NAV_BUTTON}
                 >
                   <ChevronLeft aria-hidden className="h-4 w-4" />
@@ -235,7 +238,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                 <button
                   type="button"
                   onClick={() => setMonth(addMonths(month, 1))}
-                  aria-label="Next month"
+                  aria-label={dateRange.nextMonth}
                   className={NAV_BUTTON}
                 >
                   <ChevronRight aria-hidden className="h-4 w-4" />
@@ -251,7 +254,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                   onHover={setHovered}
                   onKeyDown={handleKeyDown}
                   locale={locale}
-                  label="First month"
+                  label={dateRange.firstMonth}
                 />
                 <div className="hidden sm:block">
                   <Calendar
@@ -263,7 +266,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                     onHover={setHovered}
                     onKeyDown={handleKeyDown}
                     locale={locale}
-                    label="Second month"
+                    label={dateRange.secondMonth}
                   />
                 </div>
               </div>
@@ -272,7 +275,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
 
           <div className="flex items-center justify-between gap-3 border-t border-fp-border-1 px-3 py-2">
             <span className="text-xs text-fp-text-3">
-              {draft.from && !draft.to ? "Pick an end date" : (trigger ?? "No range selected")}
+              {draft.from && !draft.to ? dateRange.pickEnd : (trigger ?? dateRange.noSelection)}
             </span>
             <button
               type="button"
@@ -282,7 +285,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
               }}
               className="fp-press rounded-fp-sm px-2 py-1 text-xs font-medium text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
             >
-              Clear
+              {dateRange.clearAction}
             </button>
           </div>
         </PopoverContent>

@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useLabels } from "../../_provider/LabelsContext";
 import { cn } from "../../lib/cn";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { BARE_CONTROL, FilterField } from "./FilterField";
@@ -24,8 +25,10 @@ export function SelectFilter({
   value,
   onChange,
   options,
-  placeholder = "All",
+  placeholder: override,
 }: SelectFilterProps) {
+  const labels = useLabels();
+  const placeholder = override ?? labels.allOption;
   const id = React.useId();
   return (
     <FilterField label={label} htmlFor={id} active={Boolean(value)}>

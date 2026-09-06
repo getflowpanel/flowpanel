@@ -1,4 +1,5 @@
 "use client";
+import { formatLabel } from "@flowpanel/core/labels";
 import {
   Button,
   Dialog,
@@ -13,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
+  useLabels,
   useToast,
 } from "@flowpanel/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -49,11 +51,17 @@ function loadUserViews(resource: string): Array<Omit<SavedView, "source">> {
   }
 }
 
-function persistUserViews(resource: string, views: ReadonlyArray<Omit<SavedView, "source">>): void {
-  if (typeof window === "undefined") return;
+function persistUserViews(
+  resource: string,
+  views: ReadonlyArray<Omit<SavedView, "source">>,
+): boolean {
+  if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(`${LS_PREFIX}:${resource}`, JSON.stringify(views));
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function searchParamsToViewKey(params: URLSearchParams): string {
@@ -79,6 +87,8 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const toast = useToast();
+  const labels = useLabels();
+  const copy = labels.savedViews;
 
   const [userViews, setUserViews] = React.useState<Array<Omit<SavedView, "source">>>([]);
   const [open, setOpen] = React.useState(false);
@@ -141,28 +151,35 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
     };
     // Same name replaces the existing view; duplicates would collide as React keys.
     const next = [...userViews.filter((v) => v.name !== name), view];
+    if (!persistUserViews(resource, next)) {
+      toast.error(copy.storageError);
+      return;
+    }
     setUserViews(next);
-    persistUserViews(resource, next);
     setNameOpen(false);
-    toast.success(`Saved view "${name}"`);
+    toast.success(formatLabel(copy.saved, { name }));
   }
 
   function deleteView(name: string): void {
     const next = userViews.filter((v) => v.name !== name);
+    if (!persistUserViews(resource, next)) {
+      toast.error(copy.storageError);
+      return;
+    }
     setUserViews(next);
-    persistUserViews(resource, next);
-    toast.success(`Deleted view "${name}"`);
+    toast.success(formatLabel(copy.deleted, { name }));
   }
 
   const nameDialog = (
     <Dialog open={nameOpen} onOpenChange={setNameOpen}>
-      <DialogContent>
+      <DialogContent aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>Save view</DialogTitle>
+          <DialogTitle>{copy.save}</DialogTitle>
         </DialogHeader>
         <Input
           autoFocus
-          placeholder="Name this view"
+          placeholder={copy.name}
+          aria-label={copy.name}
           value={draftName}
           onChange={(e) => setDraftName(e.target.value)}
           onKeyDown={(e) => {
@@ -171,10 +188,10 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
         />
         <DialogFooter>
           <Button size="sm" variant="outline" onClick={() => setNameOpen(false)}>
-            Cancel
+            {labels.actions.cancel}
           </Button>
           <Button size="sm" onClick={commitSave} disabled={!draftName.trim()}>
-            Save
+            {labels.actions.save}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -185,7 +202,7 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
     return (
       <>
         <Button variant="outline" onClick={saveCurrent} className="rounded-full">
-          Save view…
+          {copy.saveTrigger}
         </Button>
         {nameDialog}
       </>
@@ -198,11 +215,11 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className="rounded-full">
-            View: {activeView?.name ?? "All"}
+            {formatLabel(copy.current, { name: activeView?.name ?? labels.allOption })}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>Views</DropdownMenuLabel>
+          <DropdownMenuLabel>{copy.label}</DropdownMenuLabel>
           {staticViews.length > 0
             ? staticViews.map((v) => (
                 <DropdownMenuItem key={`static:${v.name}`} onSelect={() => applyView(v)}>
@@ -214,7 +231,7 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
           {userViews.length > 0 ? (
             <>
               {staticViews.length > 0 ? <DropdownMenuSeparator /> : null}
-              <DropdownMenuLabel className="text-xs text-fp-text-3">Yours</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs text-fp-text-3">{copy.yours}</DropdownMenuLabel>
               {userViews.map((v) => (
                 <DropdownMenuItem
                   key={`user:${v.name}`}
@@ -229,7 +246,7 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
                       e.stopPropagation();
                       deleteView(v.name);
                     }}
-                    aria-label={`Delete view ${v.name}`}
+                    aria-label={formatLabel(copy.delete, { name: v.name })}
                   >
                     ✕
                   </button>
@@ -238,7 +255,7 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
             </>
           ) : null}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={saveCurrent}>Save current view…</DropdownMenuItem>
+          <DropdownMenuItem onSelect={saveCurrent}>{copy.saveCurrent}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </>

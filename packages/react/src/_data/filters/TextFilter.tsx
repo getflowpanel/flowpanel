@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useLabels } from "../../_provider/LabelsContext";
 import { cn } from "../../lib/cn";
 import { Input } from "../../ui/input";
 import { BARE_CONTROL, FilterField } from "./FilterField";
@@ -19,6 +20,7 @@ export function TextFilter({
   placeholder,
   debounceMs = 300,
 }: TextFilterProps) {
+  const labels = useLabels();
   const id = React.useId();
   const [local, setLocal] = React.useState(value ?? "");
   const committed = React.useRef(value ?? "");
@@ -44,7 +46,7 @@ export function TextFilter({
         id={id}
         value={local}
         onChange={(e) => setLocal(e.target.value)}
-        placeholder={placeholder ?? "Search…"}
+        placeholder={placeholder ?? labels.filters.searchPlaceholder}
         className={cn(BARE_CONTROL, "w-36")}
       />
     </FilterField>

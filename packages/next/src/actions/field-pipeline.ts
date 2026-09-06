@@ -52,12 +52,18 @@ export function declaredWriteFields(
 /** The generated form may only offer columns a write is allowed to carry. */
 export function writableColumns<Column extends { name: string; primaryKey?: boolean }>(
   resource: ResourceConfig,
-  columns: Column[],
+  columns: Array<
+    Column & { generated?: boolean; writableOnCreate?: boolean; writableOnUpdate?: boolean }
+  >,
   fields: FieldDef<Record<string, unknown>>[] | undefined,
+  mode?: "update",
 ): Column[] {
   if (fields) return columns;
   const writable = new Set(declaredWriteFields(resource, undefined));
-  return columns.filter((c) => writable.has(c.name));
+  if (mode !== "update") return columns.filter((c) => writable.has(c.name));
+  return columns.filter(
+    (c) => writable.has(c.name) && !c.primaryKey && !c.generated && c.writableOnUpdate !== false,
+  );
 }
 
 function effectiveFieldPolicies(

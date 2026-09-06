@@ -10,7 +10,7 @@ import {
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { declaredRowFields, projectRowFields } from "./project-row";
+import { declaredRowFields, projectRowFields, selectKnownFields } from "./project-row";
 import { resolveReadableFieldSet } from "./readable-fields";
 import { scopeBinding } from "./scope-binding";
 
@@ -89,10 +89,7 @@ export async function readRelatedRows(
   if (requestedSearchFields.length > 0 && searchFields.length === 0) return [];
   const sort = opts.sort && readable.has(opts.sort.field) ? opts.sort : null;
   const projectedFields = [...outputFields].filter((field) => readable.has(field));
-  const knownColumns = new Set(
-    config.adapter.introspect(target.ref).columns.map((column) => column.name),
-  );
-  const select = projectedFields.filter((field) => knownColumns.has(field));
+  const select = selectKnownFields(projectedFields, config.adapter.introspect(target.ref).columns);
 
   const softDelete = target.options.delete?.softDelete;
   const listCtx: ListQueryContext<unknown> = {
@@ -107,7 +104,7 @@ export async function readRelatedRows(
     pageSize: opts.pageSize ?? 20,
     search: searchFields.length > 0 ? (opts.search ?? "") : "",
     ...(searchFields.length > 0 ? { searchFields } : {}),
-    ...(select.length > 0 ? { select } : {}),
+    select,
     ...(softDelete
       ? { softDelete: { column: String(softDelete) }, includeDeleted: opts.includeDeleted }
       : {}),

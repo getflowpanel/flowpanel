@@ -1,4 +1,4 @@
-import type { Adapter, ListQueryContext } from "@flowpanel/core";
+import type { Adapter, LabelsConfig, ListQueryContext } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import {
   DataTableWithDrawerRows,
@@ -60,6 +60,36 @@ function mkConfig() {
 }
 
 describe("ResourceListPage — row projection", () => {
+  it.each([
+    { labels: undefined, expected: "Search Пользователи…" },
+    // JavaScript consumers and optional translation maps can supply an explicit undefined.
+    {
+      labels: { searchPlaceholder: undefined } as unknown as LabelsConfig,
+      expected: "Search Пользователи…",
+    },
+    { labels: { searchPlaceholder: "Поиск: {label}…" }, expected: "Поиск: Пользователи…" },
+    { labels: { searchPlaceholder: "" }, expected: "" },
+  ])("uses the configured search label: $labels", async ({ labels, expected }) => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "admin" },
+      ...(labels ? { labels } : {}),
+      resources: [
+        resource(
+          { __name: "users" },
+          { label: "Пользователи", columns: ["id", "email"], search: ["email"] },
+        ),
+      ],
+    });
+    const node = await ResourceListPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      searchParams: new URLSearchParams(),
+      req: new Request("http://localhost/admin/users"),
+    });
+    expect(findElement(node, ResourceListSearch)?.placeholder).toBe(expected);
+  });
+
   it("forwards the one-shot created row marker to the client table", async () => {
     const config = mkConfig();
     const resourceCfg = config.resourcesByName.get("users");
@@ -98,6 +128,206 @@ describe("ResourceListPage — row projection", () => {
     expect(props?.rows).toEqual([{ id: "1", email: "a@b.co" }]);
     expect(props?.rows[0]).not.toHaveProperty("passwordHash");
     expect(props?.rows[0]).not.toHaveProperty("internalFlag");
+  });
+
+  it("selects only the readable list surface and re-projects an adapter's wider row", async () => {
+    let query: ListQueryContext<unknown> | undefined;
+    const config = defineAdmin({
+      adapter: {
+        ...fakeAdapter,
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: ["id", "email", "internalFlag", "detailOnly", "token"].map((name) => ({
+            name,
+            type: "string" as const,
+            nullable: false,
+            unique: false,
+            primaryKey: name === "id",
+          })),
+        }),
+        list: async (_ref, ctx) => {
+          query = ctx;
+          return {
+            rows: [
+              {
+                id: "1",
+                email: "a@b.co",
+                internalFlag: "render dependency",
+                detailOnly: "must stay out of the list",
+                token: "never exposed",
+              },
+            ],
+            total: 1,
+            page: ctx.page,
+            pageSize: ctx.pageSize,
+          };
+        },
+      },
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            expose: ["internalFlag"],
+            detail: { fields: ["detailOnly"] },
+            fieldAccess: { token: { sensitive: true } },
+          },
+        ),
+      ],
+    });
+
+    const node = await ResourceListPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      searchParams: new URLSearchParams(),
+      req: new Request("http://localhost/admin/users"),
+    });
+
+    expect(query?.select).toEqual(["id", "email", "internalFlag"]);
+    expect(query?.select).not.toContain("detailOnly");
+    expect(query?.select).not.toContain("token");
+    expect(findElement(node, DataTableWithDrawerRows)?.rows).toEqual([
+      { id: "1", email: "a@b.co", internalFlag: "render dependency" },
+    ]);
+  });
+
+  it("selects a readable soft-delete marker only for server-side deleted-row metadata", async () => {
+    let policyCalls = 0;
+    let query: ListQueryContext<unknown> | undefined;
+    const storedRows = [
+      { id: "1", email: "live@example.com", deletedAt: null },
+      { id: "2", email: "deleted@example.com", deletedAt: "2026-09-08T00:00:00.000Z" },
+    ];
+    const config = defineAdmin({
+      adapter: {
+        ...fakeAdapter,
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: ["id", "email", "deletedAt"].map((name) => ({
+            name,
+            type: "string" as const,
+            nullable: name === "deletedAt",
+            unique: false,
+            primaryKey: name === "id",
+          })),
+        }),
+        list: async (_ref, ctx) => {
+          query = ctx;
+          const select = new Set(ctx.select);
+          return {
+            rows: storedRows.map((row) =>
+              Object.fromEntries(Object.entries(row).filter(([field]) => select.has(field))),
+            ),
+            total: storedRows.length,
+            page: ctx.page,
+            pageSize: ctx.pageSize,
+          };
+        },
+      },
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            delete: { softDelete: "deletedAt" },
+            fieldAccess: {
+              deletedAt: {
+                read: () => {
+                  policyCalls += 1;
+                  return true;
+                },
+              },
+            },
+          },
+        ),
+      ],
+    });
+
+    const node = await ResourceListPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      searchParams: new URLSearchParams("deleted=1"),
+      req: new Request("http://localhost/admin/users?deleted=1"),
+    });
+
+    const table = findElement(node, DataTableWithDrawerRows) as
+      | { deletedRowKeys?: string[]; rows: Record<string, unknown>[] }
+      | undefined;
+    expect(query?.select).toEqual(["id", "email", "deletedAt"]);
+    expect(policyCalls).toBe(1);
+    expect(table?.deletedRowKeys).toEqual(["2"]);
+    expect(table?.rows).toEqual([
+      { id: "1", email: "live@example.com" },
+      { id: "2", email: "deleted@example.com" },
+    ]);
+    expect(table?.rows.flatMap((row) => Object.keys(row))).not.toContain("deletedAt");
+  });
+
+  it("does not select or surface a denied soft-delete marker", async () => {
+    let policyCalls = 0;
+    let query: ListQueryContext<unknown> | undefined;
+    const config = defineAdmin({
+      adapter: {
+        ...fakeAdapter,
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: ["id", "email", "deletedAt"].map((name) => ({
+            name,
+            type: "string" as const,
+            nullable: name === "deletedAt",
+            unique: false,
+            primaryKey: name === "id",
+          })),
+        }),
+        list: async (_ref, ctx) => {
+          query = ctx;
+          return {
+            rows: [{ id: "2", email: "deleted@example.com" }],
+            total: 1,
+            page: ctx.page,
+            pageSize: ctx.pageSize,
+          };
+        },
+      },
+      auth: { session: async () => null, role: () => "operator" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            delete: { softDelete: "deletedAt" },
+            fieldAccess: {
+              deletedAt: {
+                read: () => {
+                  policyCalls += 1;
+                  return false;
+                },
+              },
+            },
+          },
+        ),
+      ],
+    });
+
+    const node = await ResourceListPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      searchParams: new URLSearchParams("deleted=1"),
+      req: new Request("http://localhost/admin/users?deleted=1"),
+    });
+
+    const table = findElement(node, DataTableWithDrawerRows) as
+      | { deletedRowKeys?: string[]; rows: Record<string, unknown>[] }
+      | undefined;
+    expect(query?.select).toEqual(["id", "email"]);
+    expect(policyCalls).toBe(1);
+    expect(table?.deletedRowKeys).toBeUndefined();
+    expect(table?.rows).toEqual([{ id: "2", email: "deleted@example.com" }]);
   });
 
   it("removes read-restricted columns as well as their row values", async () => {

@@ -80,12 +80,16 @@ export function DefaultMetricCard(props: MetricCardProps) {
       </CardContent>
     </>
   );
-  const card = <Card data-tone={tone}>{body}</Card>;
+  const card = (
+    <Card className="h-full w-full" data-tone={tone}>
+      {body}
+    </Card>
+  );
   if (drilldown) {
     return (
       <a
         href={drilldown}
-        className="group block rounded-fp-lg transition-shadow hover:shadow-fp-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+        className="group block h-full w-full rounded-fp-lg transition-shadow hover:shadow-fp-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
         aria-label={label}
       >
         {card}

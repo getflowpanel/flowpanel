@@ -21,5 +21,6 @@ describe("AdminNav", () => {
     expect(screen.getByRole("link", { name: /users/i }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: /invoices/i }).getAttribute("aria-current")).toBeNull();
     expect(document.querySelector('[data-flowpanel-icon="users"]')).toBeTruthy();
+    expect(screen.getByRole("navigation").getAttribute("data-flowpanel-nav")).toBe("");
   });
 });

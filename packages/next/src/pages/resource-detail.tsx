@@ -9,9 +9,12 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import {
+  accessAllows,
   assertResourceScope,
   authorizeOperation,
   checkRequireRole,
+  DEFAULT_LABELS,
+  filterReadableProjection,
   resolveFieldLabel,
   resolveOperationAccess,
   runWithRequestContext,
@@ -23,7 +26,12 @@ import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { formatFieldValue } from "../runtime/format-field-value";
 import { buildHref } from "../runtime/href";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
-import { projectAuthorizedRow } from "../runtime/project-row";
+import {
+  declaredDetailBaseFields,
+  declaredDetailPolicyFields,
+  projectRowFields,
+  selectKnownFields,
+} from "../runtime/project-row";
 import { renderColumnFormat } from "../runtime/render-column-format";
 import { buildRequestContext } from "../runtime/request-setup";
 import { readRelatedRows } from "../runtime/require-authorized";
@@ -32,6 +40,7 @@ import { scopeBinding } from "../runtime/scope-binding";
 import { NotFound } from "./not-found";
 
 const RELATED_TAB_PAGE_SIZE = 25;
+type Row = Record<string, unknown>;
 
 interface DetailCell {
   label?: string;
@@ -94,6 +103,27 @@ export async function ResourceDetailPage({
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
   });
 
+  const baseFields = declaredDetailBaseFields(resource);
+  // Resolve every declared detail field once before adapter work. The query only
+  // receives the visible tab's fields, but policy callbacks cannot disagree
+  // between the base and optional second read.
+  const readable = new Set(
+    await filterReadableProjection(
+      [...declaredDetailPolicyFields(resource)],
+      resource.options.fieldAccess,
+      reqCtx,
+    ),
+  );
+  const readableBaseFields = [...baseFields].filter((field) => readable.has(field));
+  const knownColumns = config.adapter.introspect(resource.ref).columns;
+  const tabs = resource.options.detail?.tabs as DetailTab<Row>[] | undefined;
+  const hasTabs = Array.isArray(tabs) && tabs.length > 0;
+  const requestedTab = new URL(req.url).searchParams.get("tab");
+  const initiallyActive = initialActiveTab(tabs ?? [], requestedTab);
+  const initialFields = initiallyActive
+    ? detailFieldsForTab(baseFields, initiallyActive)
+    : baseFields;
+  const readableInitialFields = [...initialFields].filter((field) => readable.has(field));
   const ctx: ItemQueryContext = {
     ...reqCtx,
     db: config.adapter.db,
@@ -101,6 +131,7 @@ export async function ResourceDetailPage({
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,
     id,
+    select: selectKnownFields(readableInitialFields, knownColumns),
     ...scopeBinding(config, resource, reqCtx),
   };
 
@@ -110,45 +141,50 @@ export async function ResourceDetailPage({
 
   if (!row) return <NotFound config={config} />;
 
-  const projectedRow = await projectAuthorizedRow(resource, row, reqCtx);
+  const baseRow = projectRowFields(row, readableBaseFields);
+  const visibleTabs = hasTabs ? (tabs ?? []).filter((tab) => !tab.hidden?.(baseRow)) : [];
+  const active = hasTabs ? activeTab(visibleTabs, requestedTab) : undefined;
+  const activeFields = active ? detailFieldsForTab(baseFields, active) : baseFields;
+  const readableActiveFields = [...activeFields].filter((field) => readable.has(field));
+  const initiallyReadable = new Set(readableInitialFields);
+  const needsActiveRead = readableActiveFields.some((field) => !initiallyReadable.has(field));
+  const activeRow = needsActiveRead
+    ? await readDetailRow(config, resource, reqCtx, id, knownColumns, readableActiveFields)
+    : projectRowFields(row, readableActiveFields);
+  if (!activeRow) return <NotFound config={config} />;
 
   const pk = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
   const label = singularLabel(resource, name);
-  const title = projectedRow[pk] === undefined ? label : `${label} · ${String(projectedRow[pk])}`;
+  const fallbackTitle = baseRow[pk] === undefined ? label : `${label} · ${String(baseRow[pk])}`;
+  const title = (await resource.options.detail?.header?.(baseRow)) ?? fallbackTitle;
+  const canEdit =
+    !resource.options.update?.disabled &&
+    (await accessAllows(
+      resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
+      reqCtx,
+    ));
 
   const editAction = (
     <Button asChild>
-      <a href={buildHref(config, name, id, "edit")}>Edit</a>
+      <a href={buildHref(config, name, id, "edit")}>
+        {config.labels?.actions?.edit ?? DEFAULT_LABELS.actions.edit}
+      </a>
     </Button>
   );
 
-  const tabs = resource.options.detail?.tabs;
-  const hasTabs = Array.isArray(tabs) && tabs.length > 0;
-  const cells = hasTabs ? null : buildDetailCells(resource, projectedRow, reqCtx);
+  const cells = hasTabs ? null : buildDetailCells(resource, baseRow, reqCtx);
 
   return (
     <>
-      {resource.options.update?.disabled ? (
-        <PageHeader title={title} />
-      ) : (
-        <PageHeader title={title} actions={editAction} />
-      )}
+      {!canEdit ? <PageHeader title={title} /> : <PageHeader title={title} actions={editAction} />}
       {hasTabs ? (
         <DetailTabsClient
-          tabs={
-            await renderTabs(
-              config,
-              reqCtx,
-              resource,
-              projectedRow,
-              tabs as DetailTab<typeof projectedRow>[],
-            )
-          }
+          tabs={await renderTabs(config, reqCtx, resource, activeRow, visibleTabs, active)}
         />
       ) : (
         <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
           <KV>
-            {Object.entries(projectedRow).map(([k, v]) => (
+            {Object.entries(baseRow).map(([k, v]) => (
               <KVRow
                 key={k}
                 label={resolveFieldLabel(cells?.get(k)?.label, k)}
@@ -162,21 +198,76 @@ export async function ResourceDetailPage({
   );
 }
 
-/** Server-prerender each `DetailTab` into a React node. */
+/** Build a tab's explicitly declared field dependencies without interpreting `*` as a DB wildcard. */
+function detailFieldsForTab<Row>(baseFields: Set<string>, tab: DetailTab<Row>): Set<string> {
+  const fields = new Set(baseFields);
+  if (!Array.isArray(tab.fields)) return fields;
+  for (const entry of tab.fields) {
+    if (typeof entry === "string" || typeof entry === "number" || typeof entry === "symbol") {
+      fields.add(String(entry));
+    } else if (entry && typeof entry === "object" && typeof entry.name === "string") {
+      fields.add(entry.name);
+    }
+  }
+  return fields;
+}
+
+function activeTab<Row>(
+  tabs: DetailTab<Row>[],
+  requestedTab: string | null,
+): DetailTab<Row> | undefined {
+  return tabs.find((tab) => tab.key === requestedTab) ?? tabs[0];
+}
+
+/** Return an active tab only when its identity is known before hidden predicates run. */
+function initialActiveTab<Row>(
+  tabs: DetailTab<Row>[],
+  requestedTab: string | null,
+): DetailTab<Row> | undefined {
+  const requested = tabs.find((tab) => tab.key === requestedTab);
+  if (requested) return requested.hidden ? undefined : requested;
+  return tabs[0]?.hidden ? undefined : tabs[0];
+}
+
+async function readDetailRow(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+  id: string,
+  knownColumns: ReadonlyArray<{ name: string }>,
+  readableFields: Iterable<string>,
+): Promise<Record<string, unknown> | null> {
+  const ctx: ItemQueryContext = {
+    ...reqCtx,
+    db: config.adapter.db,
+    dateRange: { from: new Date(0), to: new Date() },
+    searchParams: new URLSearchParams(),
+    signal: new AbortController().signal,
+    id,
+    select: selectKnownFields(readableFields, knownColumns),
+    ...scopeBinding(config, resource, reqCtx),
+  };
+  const row = (await runWithRequestContext(reqCtx, () =>
+    config.adapter.get(resource.ref, ctx),
+  )) as Record<string, unknown> | null;
+  return row ? projectRowFields(row, readableFields) : null;
+}
+
+/** Keep the tab list, but execute only the selected visible tab on the server. */
 async function renderTabs<Row extends Record<string, unknown>>(
   config: ResolvedAdminConfig,
   reqCtx: Awaited<ReturnType<typeof buildRequestContext>>,
   resource: ResourceConfig,
-  row: Row,
-  tabs: DetailTab<Row>[],
+  activeRow: Row,
+  visible: DetailTab<Row>[],
+  active: DetailTab<Row> | undefined,
 ): Promise<Array<{ key: string; label: string; content: React.ReactNode }>> {
   const out: Array<{ key: string; label: string; content: React.ReactNode }> = [];
-  for (const tab of tabs) {
-    if (tab.hidden?.(row)) continue;
+  for (const tab of visible) {
     out.push({
       key: tab.key,
       label: tab.label,
-      content: await renderTab(config, reqCtx, resource, row, tab),
+      content: tab === active ? await renderTab(config, reqCtx, resource, activeRow, tab) : null,
     });
   }
   return out;
@@ -226,17 +317,7 @@ async function renderTab<Row extends Record<string, unknown>>(
   }
 
   const selected = tab.fields;
-  const projectedRow = await projectAuthorizedRow(
-    resource,
-    row,
-    reqCtx,
-    Array.isArray(selected)
-      ? selected.map((entry) =>
-          typeof entry === "object" && entry !== null ? String(entry.name) : String(entry),
-        )
-      : undefined,
-  );
-  const fieldList = selectFields(projectedRow, selected);
+  const fieldList = selectFields(row, selected);
   const cells = buildDetailCells(resource, row, reqCtx);
   return (
     <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
@@ -245,7 +326,7 @@ async function renderTab<Row extends Record<string, unknown>>(
           <KVRow
             key={name}
             label={resolveFieldLabel(label ?? cells.get(name)?.label, name)}
-            value={detailValue(projectedRow[name as keyof Row], cells.get(name))}
+            value={detailValue(row[name as keyof Row], cells.get(name))}
           />
         ))}
       </KV>

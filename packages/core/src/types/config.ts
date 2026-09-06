@@ -23,7 +23,7 @@ export interface AuthConfig {
    */
   session: (req: Request) => Promise<Session | null>;
   /** Maps a session to a role string, which every `requireRole` gate compares against. */
-  role: (session: Session | null) => string;
+  role: (session: Session | null) => string | Promise<string>;
   /** Admin-wide gate. Blocks every route and page before anything else runs. */
   requireRole?: string | string[] | ((s: Session | null) => boolean);
   /** Where to send an unauthenticated visitor. Without it they get an inline notice. */
@@ -61,6 +61,11 @@ export interface ThemeConfig {
   mode?: "light" | "dark" | "auto";
   /** Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. */
   cssVars?: Record<string, string>;
+  /**
+   * Dark-mode token overrides, scoped to FlowPanel's dark roots and portals.
+   * Choose foreground tokens for contrast against the actual dark background.
+   */
+  cssVarsDark?: Record<string, string>;
   /** Replace built-in components. See the theme-slots guide. */
   components?: Partial<FlowpanelComponentSlots>;
   /**

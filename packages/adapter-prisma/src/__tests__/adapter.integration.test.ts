@@ -199,6 +199,37 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     expect(notFound).toBeNull();
   });
 
+  it("returns value-free rows and existence for an explicit empty projection", async () => {
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    const first = await adapter.list("TestUser", {
+      page: 1,
+      pageSize: 2,
+      filters: {},
+      select: [],
+      db: undefined,
+    } as any);
+    expect(first.total).toBeGreaterThan(0);
+    expect(first.rows).toEqual([{}, {}]);
+
+    const outOfRange = await adapter.list("TestUser", {
+      page: first.total + 1,
+      pageSize: 1,
+      filters: {},
+      select: [],
+      db: undefined,
+    } as any);
+    expect(outOfRange.rows).toEqual([]);
+
+    const existing = await prisma.testUser.findFirst();
+    expect(existing).toBeDefined();
+    expect(
+      await adapter.get("TestUser", { id: String(existing!.id), select: [], db: undefined } as any),
+    ).toEqual({});
+    expect(
+      await adapter.get("TestUser", { id: "99999", select: [], db: undefined } as any),
+    ).toBeNull();
+  });
+
   it("create + update + delete roundtrip", async () => {
     const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
 

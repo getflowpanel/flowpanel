@@ -259,6 +259,18 @@ describe("defineAdmin — introspect-time column validation", () => {
     ).toThrow(/points at column "emial" via update\.fields\[0\]\.name/);
   });
 
+  it("rejects an unknown update.expose name", () => {
+    expect(() =>
+      defineAdmin({
+        adapter,
+        auth,
+        resources: [
+          resource({ __name: "users" }, { columns: ["id"], update: { expose: ["emial"] } }),
+        ],
+      }),
+    ).toThrow(/points at column "emial" via update\.expose\[0\]/);
+  });
+
   it("skips validation when the adapter reports no columns", () => {
     const config = defineAdmin({
       adapter: blind,

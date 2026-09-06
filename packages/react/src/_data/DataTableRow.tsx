@@ -1,5 +1,7 @@
 "use client";
+import { formatLabel } from "@flowpanel/core/labels";
 import type * as React from "react";
+import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 import { Checkbox } from "../ui/checkbox";
 import type { DataTableColumn } from "./data-table-types";
@@ -73,6 +75,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   onToggleRow,
   rowEndCell,
 }: DataTableRowProps<Row>) {
+  const labels = useLabels();
   const isSelected = selectionEnabled && selectionSet.has(rowKeyValue);
   return (
     <tr
@@ -95,7 +98,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
         <td className={cn("px-4", rowPadding)}>
           <Checkbox
             checked={selectionSet.has(rowKeyValue)}
-            aria-label={`Select row ${rowKeyValue}`}
+            aria-label={formatLabel(labels.table.selectRow, { id: rowKeyValue })}
             onCheckedChange={() => onToggleRow(rowKeyValue)}
             onClick={(e) => e.stopPropagation()}
           />

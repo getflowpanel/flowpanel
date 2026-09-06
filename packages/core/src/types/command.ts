@@ -22,7 +22,7 @@ export interface CommandGroup {
 export interface CommandPaletteConfig {
   /** Your own groups, listed after the built-in ones. */
   groups?: CommandGroup[];
-  /** Placeholder text for the input.
+  /** Placeholder text for the input. Defaults to `labels.palette.placeholder`.
    * @defaultValue "Search resources, actions…"
    */
   placeholder?: string;

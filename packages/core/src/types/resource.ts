@@ -143,7 +143,7 @@ export interface FieldDef<Row> {
 }
 
 export interface DetailTab<Row> {
-  /** Stable identifier, used as the tab's URL fragment. */
+  /** Stable identifier, stored in the URL's `?tab=` search parameter. */
   key: string;
   /** Tab label. */
   label: string;
@@ -187,7 +187,10 @@ export interface ResourceOptions<Row> {
   /** Keep the resource out of the navigation — its routes still work. */
   hidden?: boolean;
 
-  /** Additional fields that may cross the generated server/client boundary. */
+  /**
+   * Additional fields shared by list and detail presentation. Declare render
+   * dependencies explicitly; callbacks never receive an undeclared DB row.
+   */
   expose?: (keyof Row & string)[];
 
   /**
@@ -221,6 +224,12 @@ export interface ResourceOptions<Row> {
   drawer?: DrawerConfig<Row>;
   /** Full-page view at `/<basePath>/<resource>/<id>`. */
   detail?: {
+    /**
+     * Extra fields used only by detail headers, hidden-tab predicates, related
+     * filters, or custom detail renderers. They never widen list rows.
+     */
+    expose?: (keyof Row & string)[];
+    /** Heading content (inside h1). Receives declared, readable detail fields; nullish output uses the default title. */
     header?: (row: Row) => ReactNode;
     tabs?: DetailTab<Row>[];
     fields?: (keyof Row | FieldDef<Row>)[] | "*";
@@ -231,7 +240,16 @@ export interface ResourceOptions<Row> {
   /** Create form. `disabled` removes the route, not just the button. */
   create?: { disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> };
   /** Edit form. `disabled` removes the route, not just the button. */
-  update?: { disabled?: boolean; fields?: FieldDef<Row>[] };
+  update?: {
+    disabled?: boolean;
+    fields?: FieldDef<Row>[];
+    /**
+     * Additional readable values available to edit-form hidden/readOnly
+     * predicates. This never creates a control, default value, or write
+     * permission.
+     */
+    expose?: (keyof Row & string)[];
+  };
   /** Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. */
   delete?: { disabled?: boolean; softDelete?: keyof Row & string; confirm?: string };
 

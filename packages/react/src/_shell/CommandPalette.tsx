@@ -1,6 +1,7 @@
 "use client";
 import { Command } from "cmdk";
 import type * as React from "react";
+import { useLabels } from "../_provider/LabelsContext";
 import { DialogDescription, DialogTitle } from "../ui/dialog";
 
 export interface CommandGroupUI {
@@ -28,33 +29,34 @@ export function CommandPalette({
   open,
   onOpenChange,
   groups,
-  placeholder = "Search resources, actions…",
+  placeholder,
   onSearch,
   itemsLoading,
 }: CommandPaletteProps) {
+  const { palette } = useLabels();
   return (
     <Command.Dialog
       open={open}
       onOpenChange={onOpenChange}
-      label="Command palette"
+      label={palette.title}
       className="fp-anim-overlay fixed inset-0 z-50 grid place-items-start bg-fp-overlay/60 pt-20 backdrop-blur-[2px]"
     >
-      <DialogTitle className="sr-only">Command palette</DialogTitle>
-      <DialogDescription className="sr-only">Search and run admin commands</DialogDescription>
+      <DialogTitle className="sr-only">{palette.title}</DialogTitle>
+      <DialogDescription className="sr-only">{palette.description}</DialogDescription>
       <div className="mx-auto w-[600px] max-w-[92vw] overflow-hidden rounded-fp-xl border border-fp-border-1 bg-fp-bg-1 shadow-fp-lg">
         <Command.Input
-          placeholder={placeholder}
+          placeholder={placeholder ?? palette.placeholder}
           {...(onSearch ? { onValueChange: onSearch } : {})}
           className="h-12 w-full border-b border-fp-border-1 bg-transparent px-4 text-sm text-fp-text-1 outline-none placeholder:text-fp-text-3"
         />
         <Command.List className="max-h-[380px] overflow-y-auto p-2">
           {itemsLoading ? (
             <Command.Loading className="px-3 py-6 text-center text-sm text-fp-text-3">
-              Loading…
+              {palette.loading}
             </Command.Loading>
           ) : null}
           <Command.Empty className="px-3 py-6 text-center text-sm text-fp-text-3">
-            No results.
+            {palette.noResults}
           </Command.Empty>
           {groups.map((g) => (
             <Command.Group key={g.label} heading={g.label}>

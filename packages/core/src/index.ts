@@ -8,6 +8,7 @@ export { isBuiltinBulkDelete } from "./compiler/builtin-bulk-delete";
 export { defineAdmin } from "./define-admin";
 export { formatColumnValue } from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
+export { RU_LABELS } from "./locales/ru";
 export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";
 export { assertWritableInput, filterReadableProjection } from "./policy/fields";
 export { resolveResourceName } from "./resource-name";
@@ -26,6 +27,7 @@ export {
 } from "./runtime/request-context";
 export { errorResult, reportUnexpectedError, resultResponse } from "./runtime/result";
 export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope";
+export { buildThemeInitScript, THEME_STORAGE_KEY, type ThemeMode } from "./theme-init";
 export type {
   ActionConfirm,
   ActionInput,

@@ -47,7 +47,7 @@ async function resolveRequestContext({
   requestId,
 }: BuildRequestCtxArgs): Promise<RequestContext> {
   const session: Session | null = await config.auth.session(req);
-  const role = config.auth.role(session);
+  const role = await config.auth.role(session);
   checkRequireRole(config.auth.requireRole, role, session);
 
   let scope: Scope = null;

@@ -2,6 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LabelsProvider } from "../../../_provider/LabelsContext";
 import { DateRangeFilter } from "../DateRangeFilter";
 
 afterEach(() => cleanup());
@@ -19,6 +20,26 @@ const openPicker = () => fireEvent.click(screen.getByRole("button", { name: /^da
 const day = (label: string) => screen.getAllByRole("button", { name: label })[0] as HTMLElement;
 
 describe("DateRangeFilter", () => {
+  it("keeps preset identity when different presets have the same translation", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onChange = vi.fn();
+    try {
+      render(
+        <LabelsProvider value={{ dateRange: { today: "Период", last7d: "Период" } }}>
+          <DateRangeFilter value={null} onChange={onChange} />
+        </LabelsProvider>,
+      );
+      openPicker();
+      fireEvent.click(screen.getAllByRole("button", { name: "Период" })[0] as HTMLElement);
+      expect(onChange).toHaveBeenLastCalledWith("2026-08-12:2026-08-12");
+      openPicker();
+      fireEvent.click(screen.getAllByRole("button", { name: "Период" })[1] as HTMLElement);
+      expect(onChange).toHaveBeenLastCalledWith("2026-08-06:2026-08-12");
+      expect(error.mock.calls.some((args) => args.join(" ").includes("same key"))).toBe(false);
+    } finally {
+      error.mockRestore();
+    }
+  });
   it("keeps the actual mobile trigger at least 44px tall", () => {
     render(<DateRangeFilter value={null} onChange={vi.fn()} />);
 

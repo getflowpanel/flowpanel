@@ -318,6 +318,61 @@ describe("field rules on the write path", () => {
     expect(seen).not.toHaveBeenCalled();
   });
 
+  it("uses the full scoped current row for dynamic write policy even when that value is read-denied", async () => {
+    const { config, resource } = makeConfig({});
+    (config as { scope?: unknown }).scope = () => ({ tenantId: "t1" });
+    (
+      resource.options as {
+        scope?: unknown;
+        update?: unknown;
+        fieldAccess?: unknown;
+      }
+    ).scope = (scope: unknown, query: unknown) => ({ scope, query });
+    (resource.options as { update?: unknown }).update = {
+      fields: [
+        {
+          name: "email",
+          readOnly: (current: { internalLock?: boolean }) => current.internalLock === true,
+        },
+      ],
+    };
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = {
+      internalLock: { read: false },
+    };
+    const get = vi.fn(
+      async (
+        _ref: unknown,
+        _ctx: {
+          select?: readonly string[];
+          scopeRequired?: boolean;
+          applyScope?: (query: unknown) => unknown;
+        },
+      ) => ({ id: "u1", email: "a@b.com", internalLock: true }),
+    );
+    (config.adapter as { get: unknown }).get = get;
+    const actions = makeActions(config, resource, {
+      reqCtx: {
+        req: new Request("http://localhost/admin/users/u1/edit"),
+        role: "admin",
+        session: null,
+        scope: { tenantId: "t1" },
+        ip: null,
+        userAgent: null,
+      } as never,
+    });
+
+    await expect(actions.update("u1", { email: "new@b.com" })).rejects.toMatchObject({
+      code: "field_forbidden",
+      field: "email",
+    });
+    expect(get.mock.calls[0]?.[1].select).toBeUndefined();
+    expect(get.mock.calls[0]?.[1].scopeRequired).toBe(true);
+    expect(get.mock.calls[0]?.[1].applyScope?.("query")).toEqual({
+      scope: { tenantId: "t1" },
+      query: "query",
+    });
+  });
+
   it("reports a required gated field as an access error, not a phantom validation error", async () => {
     const { config, resource } = makeConfig({});
     (resource.options as { create?: unknown }).create = {

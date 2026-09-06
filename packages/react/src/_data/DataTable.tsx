@@ -1,4 +1,5 @@
 "use client";
+import { formatLabel } from "@flowpanel/core/labels";
 // LOC-OK: table render orchestrator — coordinates column layout, selection, inline
 // edit, realtime refresh and the mobile card view in one place.
 import { useRouter } from "next/navigation";
@@ -62,7 +63,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   onPinnedColumnsChange,
   realtime,
   rowEndCell,
-  rowEndCellLabel = "Actions",
+  rowEndCellLabel: rowEndCellLabelOverride,
   onEditRow,
   onDeleteRow,
   onFocusSearch,
@@ -76,6 +77,7 @@ export function DataTable<Row extends Record<string, unknown>>({
 }: DataTableProps<Row>) {
   const router = useRouter();
   const labels = useLabels();
+  const rowEndCellLabel = rowEndCellLabelOverride ?? labels.table.actions;
   const effectiveEmptyTitle = emptyTitle ?? labels.noResults;
 
   const layout = useColumnLayout<Row>({
@@ -192,7 +194,9 @@ export function DataTable<Row extends Record<string, unknown>>({
       {/* The row count was only readable at the very bottom of the page, while
           the left half of this bar sat empty. */}
       <span className="mr-auto text-xs tabular-nums text-fp-text-3">
-        {total.toLocaleString()} {total === 1 ? "result" : "results"}
+        {formatLabel(total === 1 ? labels.table.result : labels.table.results, {
+          n: new Intl.NumberFormat(labels.dateRange.locale).format(total),
+        })}
       </span>
       {realtimeCfg ? <LiveIndicator status={liveStatus} /> : null}
       {showDensityToggle ? (
@@ -323,7 +327,7 @@ export function DataTable<Row extends Record<string, unknown>>({
           // the table is tabbed to rather than only after an arrow press.
           onFocus={() => setCursor((c) => (c < 0 ? 0 : c))}
           tabIndex={0}
-          aria-label="Rows. Arrow keys or j and k move, Enter opens."
+          aria-label={onRowClick ? labels.table.rowsHint : labels.table.rowsReadOnlyHint}
           className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 focus-visible:ring-inset"
         >
           {rows.map((r, idx) => (

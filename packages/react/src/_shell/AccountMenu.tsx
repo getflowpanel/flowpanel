@@ -1,5 +1,6 @@
 "use client";
 import { ChevronsUpDown, LogOut } from "lucide-react";
+import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 import {
   DropdownMenu,
@@ -63,12 +64,13 @@ function Avatar({ user }: { user: AccountMenuUser }) {
 
 /** Account dropdown driven by `theme.user`. */
 export function AccountMenu({ user, align = "start", className, compact }: AccountMenuProps) {
-  const label = user.name ?? user.email ?? "Account";
+  const { navigation } = useLabels();
+  const label = user.name ?? user.email ?? navigation.account;
   const items = user.items ?? [];
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
-        aria-label="Account menu"
+        aria-label={navigation.accountMenu}
         className={cn(
           "flex min-h-11 w-full items-center gap-2 rounded-fp-sm px-2 py-1.5 text-left text-sm text-fp-text-1 hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:min-h-9",
           className,
@@ -113,7 +115,7 @@ export function AccountMenu({ user, align = "start", className, compact }: Accou
             <DropdownMenuItem asChild>
               <a href={user.signOut}>
                 <LogOut className="h-4 w-4" aria-hidden="true" />
-                Sign out
+                {navigation.signOut}
               </a>
             </DropdownMenuItem>
           </>

@@ -26,7 +26,11 @@ import { parseActionInputSchema, validateActionOutput } from "../runtime/action-
 import { applyActionResult } from "../runtime/apply-action-result";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { buildHref } from "../runtime/href";
-import { declaredRowFields, projectRowFields } from "../runtime/project-row";
+import {
+  declaredDrawerRowFields,
+  projectRowFields,
+  selectKnownFields,
+} from "../runtime/project-row";
 import { bindPublisher } from "../runtime/publish";
 import {
   filterColumnsByReadableFields,
@@ -256,14 +260,14 @@ export function drawerRoute(config: ResolvedAdminConfig) {
       { resource, operation: "read", write: false },
       async (reqCtx) => {
         const readableRowFields = await resolveReadableFieldSet(
-          declaredRowFields(resource),
+          declaredDrawerRowFields(resource),
           resource.options.fieldAccess,
           reqCtx,
         );
-        const knownColumns = new Set(
-          config.adapter.introspect(resource.ref).columns.map((column) => column.name),
+        const select = selectKnownFields(
+          readableRowFields,
+          config.adapter.introspect(resource.ref).columns,
         );
-        const select = [...readableRowFields].filter((field) => knownColumns.has(field));
         const itemCtx: ItemQueryContext = {
           ...reqCtx,
           db: config.adapter.db,
@@ -271,7 +275,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
           searchParams: new URLSearchParams(),
           signal: new AbortController().signal,
           id,
-          ...(select.length > 0 ? { select } : {}),
+          select,
           ...scopeBinding(config, resource, reqCtx),
         };
         const row = (await runWithRequestContext(reqCtx, () =>

@@ -125,6 +125,21 @@ describe("drizzleAdapter tenant scope enforcement (sqlite)", () => {
     expect(row).toBeNull();
   });
 
+  it("empty projections retain scope without returning tenant values", async () => {
+    const listed = await adapter.list(
+      items,
+      listCtx({ select: [], applyScope: applyScopeC1, scopeRequired: true }),
+    );
+    expect(listed.total).toBe(2);
+    expect(listed.rows).toEqual([{}, {}]);
+    expect(
+      await adapter.get(items, itemCtx("i1", { select: [], applyScope: applyScopeC1 })),
+    ).toEqual({});
+    expect(
+      await adapter.get(items, itemCtx("i3", { select: [], applyScope: applyScopeC1 })),
+    ).toBeNull();
+  });
+
   it("update of an OUT-of-scope id affects 0 rows (returns undefined, row unchanged)", async () => {
     const result = await adapter.update(
       items,

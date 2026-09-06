@@ -2,7 +2,7 @@ import type * as React from "react";
 import { type BreadcrumbItem, Breadcrumbs } from "./Breadcrumbs";
 
 export interface PageHeaderProps {
-  title: string;
+  title: React.ReactNode;
   description?: string;
   actions?: React.ReactNode;
   breadcrumbs?: BreadcrumbItem[];
@@ -16,11 +16,13 @@ export function DefaultPageHeader({ title, description, actions, breadcrumbs }: 
         <Breadcrumbs items={breadcrumbs} className="mb-2" />
       ) : null}
       <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-fp-text-1">{title}</h1>
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-semibold tracking-tight text-fp-text-1">
+            {title}
+          </h1>
           {description ? <p className="mt-1 text-sm text-fp-text-3">{description}</p> : null}
         </div>
-        {actions ? <div className="flex gap-2">{actions}</div> : null}
+        {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
       </div>
     </header>
   );

@@ -77,6 +77,7 @@ type DrizzleColumnLike = AnyColumn & {
 };
 
 type ColumnsRecord = Record<string, DrizzleColumnLike>;
+const EMPTY_PROJECTION = Symbol("flowpanel.emptyProjection");
 
 export interface DrizzleAdapterOptions<DB = unknown> {
   db: DB;
@@ -121,7 +122,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
 
   function projection(cols: ColumnsRecord, select: readonly string[] | undefined) {
     if (select === undefined) return undefined;
-    if (select.length === 0) throw new Error("drizzleAdapter: select must contain a column");
+    if (select.length === 0) return EMPTY_PROJECTION;
     if (select.length > 1024) throw new Error("drizzleAdapter: select exceeds 1024 columns");
     const selected: ColumnsRecord = {};
     for (const name of new Set(select)) {
@@ -132,7 +133,12 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     return selected;
   }
 
-  function selectFrom(db: DrizzleLikeDb, ref: Table, selected: ColumnsRecord | undefined) {
+  function selectFrom(
+    db: DrizzleLikeDb,
+    ref: Table,
+    selected: ColumnsRecord | typeof EMPTY_PROJECTION | undefined,
+  ) {
+    if (selected === EMPTY_PROJECTION) return db.select({ __fp_exists: sql<number>`1` }).from(ref);
     return (selected ? db.select(selected) : db.select()).from(ref);
   }
 
@@ -286,7 +292,12 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
       const [countRow] = (await (countQ as Promise<Array<{ c: number }>>)) ?? [];
       const total = Number(countRow?.c ?? 0);
 
-      return { rows, total, page: ctx.page, pageSize: ctx.pageSize };
+      return {
+        rows: selected === EMPTY_PROJECTION ? rows.map(() => ({})) : rows,
+        total,
+        page: ctx.page,
+        pageSize: ctx.pageSize,
+      };
     },
 
     async get(ref, ctx: ItemQueryContext) {
@@ -304,6 +315,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
       )
         .where(where)
         .limit(1)) as unknown[];
+      if (selected === EMPTY_PROJECTION) return rows[0] ? {} : null;
       return rows[0] ?? null;
     },
 

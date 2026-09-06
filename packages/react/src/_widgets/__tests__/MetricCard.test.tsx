@@ -22,6 +22,13 @@ describe("MetricCard", () => {
     const link = screen.getByRole("link", { name: /x/i });
     expect(link).toBeTruthy();
     expect((link as HTMLAnchorElement).getAttribute("href")).toBe("/x");
+    expect(link.className).toContain("h-full");
+    expect(link.firstElementChild?.className).toContain("h-full");
+  });
+
+  it("fills the grid slot when it is not a drilldown link", () => {
+    const { container } = render(<MetricCard label="X" value={1} />);
+    expect(container.firstElementChild?.className).toContain("h-full");
   });
 
   it("applies tone data-attribute", () => {

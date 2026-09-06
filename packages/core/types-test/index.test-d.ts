@@ -8,6 +8,7 @@ import {
   type BarChartOptions,
   type BoundAdapterScope,
   bindAdapterScope,
+  buildThemeInitScript,
   custom,
   type DrawerConfig,
   type DrawerTabWidgets,
@@ -20,6 +21,7 @@ import {
   type RealtimeConfig,
   type ResolvedAdminConfig,
   type ResourceConfig,
+  type ResourceOptions,
   type RowAction,
   resource,
   rowAction,
@@ -33,6 +35,9 @@ import {
   tokenizeMigrationSql,
 } from "@flowpanel/core/internal/migration-sql";
 import { expectAssignable, expectError, expectType } from "tsd";
+
+expectType<string>(buildThemeInitScript("dark"));
+expectError(buildThemeInitScript("system"));
 
 declare module "@flowpanel/core" {
   interface FlowpanelResources {
@@ -119,6 +124,8 @@ expectAssignable<DrawerConfig<User>>({ fields: "*" });
 expectAssignable<DrawerConfig<User>>({ tabs: [{ key: "p", label: "Profile", fields: ["email"] }] });
 expectError<DrawerConfig<User>>({ fields: ["emial"] });
 expectError<DrawerConfig<User>>({ tabs: [{ key: "p", label: "Profile", fields: ["emial"] }] });
+expectAssignable<ResourceOptions<User>>({ update: { expose: ["email"] } });
+expectError<ResourceOptions<User>>({ update: { expose: ["emial"] } });
 
 // ── action forms describe their own payload, not properties of the row ──────
 type SuspendInput = { reason: string; notify: boolean };

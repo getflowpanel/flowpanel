@@ -1,8 +1,7 @@
-export type ThemeMode = "light" | "dark" | "auto";
-export type ThemeChoice = "light" | "dark";
+import { THEME_STORAGE_KEY, type ThemeMode } from "@flowpanel/core/theme";
 
-/** localStorage key. Keep stable — referenced by both runtime and head script. */
-export const THEME_STORAGE_KEY = "fp-theme";
+export { buildThemeInitScript, THEME_STORAGE_KEY, type ThemeMode } from "@flowpanel/core/theme";
+export type ThemeChoice = "light" | "dark";
 
 /** Resolve the effective light/dark choice given a stored value + system pref. */
 export function resolveTheme(
@@ -15,10 +14,18 @@ export function resolveTheme(
   return systemPrefersDark ? "dark" : "light";
 }
 
+/**
+ * The browser's own storage. Node exposes a global `localStorage` of its own, so
+ * the bare identifier would make a server render believe storage is available.
+ */
+function browserStorage(): Storage | null {
+  return typeof window === "undefined" ? null : (window.localStorage ?? null);
+}
+
 /** Read the stored theme without throwing if localStorage is unavailable. */
 export function readStoredTheme(): string | null {
   try {
-    return typeof localStorage !== "undefined" ? localStorage.getItem(THEME_STORAGE_KEY) : null;
+    return browserStorage()?.getItem(THEME_STORAGE_KEY) ?? null;
   } catch {
     return null;
   }
@@ -27,9 +34,7 @@ export function readStoredTheme(): string | null {
 /** Write the chosen theme to localStorage, ignoring storage errors. */
 export function writeStoredTheme(value: ThemeChoice): void {
   try {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(THEME_STORAGE_KEY, value);
-    }
+    browserStorage()?.setItem(THEME_STORAGE_KEY, value);
   } catch {}
 }
 
@@ -50,9 +55,4 @@ export function toggleTheme(): ThemeChoice {
   writeStoredTheme(next);
   applyThemeClass(next);
   return next;
-}
-
-/** Inline script body that runs before React hydration. */
-export function buildThemeInitScript(defaultMode: ThemeMode = "auto"): string {
-  return `(function(){try{var s=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var m=${JSON.stringify(defaultMode)};var sys=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;var d=s==='dark'||s==='light'?s:(m==='dark'||(m==='auto'&&sys)?'dark':'light');document.documentElement.dataset.flowpanelTheme=d;}catch(e){}})();`;
 }

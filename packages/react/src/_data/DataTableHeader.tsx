@@ -1,6 +1,7 @@
 "use client";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import type * as React from "react";
+import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 import { resolveFieldLabel } from "../lib/humanize";
 import { Checkbox } from "../ui/checkbox";
@@ -49,6 +50,7 @@ export function DataTableHeader<Row>({
   rowEndCell,
   rowEndCellLabel,
 }: DataTableHeaderProps<Row>) {
+  const labels = useLabels();
   return (
     <thead className="text-fp-text-3 text-[11px] uppercase tracking-wider">
       <tr className="border-b border-fp-border-1">
@@ -56,11 +58,7 @@ export function DataTableHeader<Row>({
           <th scope="col" className="w-10 px-4 py-2">
             <Checkbox
               checked={allOnPageSelected}
-              aria-label={
-                allOnPageSelected
-                  ? "Deselect all rows on this page"
-                  : "Select all rows on this page"
-              }
+              aria-label={allOnPageSelected ? labels.table.deselectAll : labels.table.selectAll}
               onCheckedChange={() => onToggleAll()}
             />
           </th>

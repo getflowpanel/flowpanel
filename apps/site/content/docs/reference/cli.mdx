@@ -54,8 +54,7 @@ than always writing to the repo root.
 │  app/api/flowpanel/stream/route.ts                      │
 │  styles/admin.css                                       │
 │  flowpanel/migrations/0001_init.sql                     │
-│  app/layout.tsx (added the admin stylesheet import and  │
-│  suppressHydrationWarning and ThemeScript)              │
+│  app/admin/layout.tsx (imports the admin stylesheet)    │
 ├─────────────────────────────────────────────────────────╯
 ◇  Installed @flowpanel/kit, @flowpanel/cli
 ```
@@ -64,19 +63,19 @@ What varies:
 
 - **`src/`** — every `app/` path becomes `src/app/`, and `styles/admin.css`
   becomes `src/styles/admin.css`, when the project uses a `src/` layout.
-- **`app/layout.tsx`** — scaffolded when the project has none; otherwise the
-  existing layout is patched with the stylesheet import. If that layout
-  already imports some other CSS bundle, `init` leaves that part alone and
-  prints the import line for you to add.
-- **`ThemeScript` + `suppressHydrationWarning`** — the pre-hydration script is
-  added to `<head>`, and the attribute is added to the existing layout's
-  `<html>` tag whether or not the stylesheet import was. `mode: "auto"`
-  resolves the theme before hydration and sets the namespaced
-  `data-flowpanel-theme` marker, which the server render cannot predict;
-  together they avoid both a light-theme flash and a React hydration warning.
-- **`tailwind.config.ts`** — written only on Tailwind v3, and only when the
-  file does not already exist. The v3 run also gets the `admin.css` v3
-  variant (`@tailwind` directives instead of `@import "tailwindcss"`).
+- **Admin mount** — `/admin` by default, `/flowpanel` when `/admin` is occupied,
+  or an explicit `--path /ops/admin`. Route groups are included in collision checks;
+  a busy fallback stops installation before any writes.
+- **Admin layout** — imports the stylesheet under the chosen route. The existing
+  root layout is never patched. Without a shared root layout, the admin segment
+  receives its own root layout. Existing host theme/CSP integration is left to the
+  application; `ThemeScript` accepts its nonce.
+- **Authentication** — a missing helper produces a closed `getSession` adapter.
+  Connect your provider and role mapping; async role lookups are supported. Use
+  `--dev-auth` only to explicitly opt into an open development-only identity.
+- **Stylesheet** — `admin.css` imports `@flowpanel/kit/styles/admin.css`, the
+  precompiled and isolated FlowPanel stylesheet. It does not require Tailwind,
+  a Tailwind config, source/content directives, or a PostCSS plugin.
 - **The install step** uses the package manager it detected — npm, pnpm, yarn
   or bun — and is skipped for packages already in your `package.json`.
 - **The next-steps outro** is written in that manager's own vocabulary
@@ -87,9 +86,6 @@ What varies:
 - **No Next.js in `package.json`** — aborts, exit `1`, with the install
   command for your package manager.
 - **No Drizzle and no Prisma** — aborts, exit `1`, same treatment.
-- **No Tailwind** — interactive only: a confirm that defaults to **No**;
-  declining aborts with exit `1` and nothing written. Under `--yes` the run
-  continues.
 - **No TTY and no `--yes`, `--dry-run` or `--json`** — `init` asks questions, so a non-interactive run
   without `--yes` exits `1` immediately: *"init asks questions and this run
   has no interactive terminal. Re-run with --yes to accept the detected
@@ -97,6 +93,11 @@ What varies:
 - **A failed dependency install** does not roll back the files. It prints the
   package manager's own last lines, the commands to run by hand, and sets
   exit code `1` so the run is not mistaken for a success.
+- **A dependency that installs but cannot be used** is treated the same way. A
+  `@flowpanel/kit` from another minor, or a project-local `@flowpanel/cli` from
+  another minor than the one you ran, is listed in `dependencies.failed` with
+  its own recovery command and exits `1`. A different patch or a matching
+  preview of the same minor is accepted.
 
 Re-running `init` is idempotent: matching generated files become `skip`.
 If any target exists with different content, the plan reports a conflict and
@@ -171,10 +172,18 @@ Run the wiring checks, in this order:
 - `flowpanel.config.ts` exists
 - the four generated files exist: the API route, the SSE route, the seed
   migration, and the catch-all admin page
-- only one `@flowpanel/core` copy in `node_modules/.pnpm` (skipped on
-  layouts without that directory rather than reported as passing)
+- only one reachable `@flowpanel/core` installation across the installed
+  dependency graph, including package-local peers and third-party plugins.
+  Stale pnpm store entries are ignored; uninstalled projects skip this check
 - no destructive row/bulk action declared without a `confirm`
 - `tsc --noEmit` passes
+
+Mount checks follow URL segments through route groups, parallel slots, and
+intercepting routes. Existing pages inside the selected admin branch remain
+protected. Sibling dynamic routes such as `[locale]` and parent catch-all fallbacks
+can coexist with a static admin branch; Next gives the static branch precedence.
+The selected admin URL is therefore reserved for FlowPanel even if a fallback
+previously matched it.
 
 ```bash
 $ pnpm flowpanel doctor

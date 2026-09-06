@@ -4,6 +4,7 @@ export default defineConfig({
   esbuild: { jsx: "automatic" },
   test: {
     ...sharedTestConfig,
+    setupFiles: ["../../vitest.browser-storage.ts"],
     environment: "node",
     include: ["src/**/__tests__/**/*.test.{ts,tsx}"],
   },

@@ -15,9 +15,14 @@ const users = sqliteTable("users", {
 
 let db: ReturnType<typeof drizzle>;
 let sqlite: InstanceType<typeof Database>;
+const sqlLog: string[] = [];
 
 beforeAll(() => {
-  sqlite = new Database(":memory:");
+  sqlite = new Database(":memory:", {
+    verbose: (query) => {
+      if (typeof query === "string") sqlLog.push(query);
+    },
+  });
   db = drizzle(sqlite);
   sqlite.exec(`
     CREATE TABLE users (
@@ -81,6 +86,30 @@ describe("drizzleAdapter SQLite CRUD", () => {
     expect(Object.keys(item as object).sort()).toEqual(["id", "name"]);
     await expect(adapter.list(users, ctx({ db, select: ["missing"] }))).rejects.toThrow(
       /unknown column "missing"/,
+    );
+    await expect(
+      adapter.list(users, ctx({ db, select: Array.from({ length: 1025 }, () => "id") })),
+    ).rejects.toThrow(/select exceeds 1024 columns/);
+  });
+
+  it("returns value-free rows and existence for an explicit empty projection", async () => {
+    const firstQuery = sqlLog.length;
+    const first = await adapter.list(users, ctx({ db, page: 1, pageSize: 2, select: [] }));
+    expect(first).toMatchObject({ total: 25, page: 1, pageSize: 2 });
+    expect(first.rows).toEqual([{}, {}]);
+
+    const partial = await adapter.list(users, ctx({ db, page: 13, pageSize: 2, select: [] }));
+    expect(partial.rows).toEqual([{}]);
+    const outOfRange = await adapter.list(users, ctx({ db, page: 14, pageSize: 2, select: [] }));
+    expect(outOfRange.rows).toEqual([]);
+
+    expect(await adapter.get(users, { ...ctx({ db }), id: "u3", select: [] } as any)).toEqual({});
+    expect(await adapter.get(users, { ...ctx({ db }), id: "nope", select: [] } as any)).toBeNull();
+
+    const emptyProjectionQueries = sqlLog.slice(firstQuery).join("\n").toLowerCase();
+    expect(emptyProjectionQueries).toContain("select 1");
+    expect(emptyProjectionQueries).not.toMatch(
+      /select\s+(?:"users"\.)?"(?:email|name|active|age)"/,
     );
   });
 

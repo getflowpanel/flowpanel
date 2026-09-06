@@ -1,8 +1,8 @@
-import type { Adapter } from "@flowpanel/core";
+import type { Adapter, ItemQueryContext } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { DetailTabsClient } from "@flowpanel/next/client";
 import { DataTable, KVRow, PageHeader } from "@flowpanel/react";
-import { isValidElement, type ReactElement, type ReactNode } from "react";
+import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ResourceDetailPage } from "../pages/resource-detail";
 
@@ -52,6 +52,354 @@ function mkAdapter(getRow: Record<string, unknown>, listRows: Record<string, unk
 }
 
 describe("ResourceDetailPage — row projection", () => {
+  it("loads base dependencies then only the active tab fields with scoped, readable selects", async () => {
+    const queries: ItemQueryContext[] = [];
+    const rendered: Record<string, unknown>[] = [];
+    let statusPolicyCalls = 0;
+    const adapter: Adapter = {
+      ...mkAdapter(
+        {
+          id: "1",
+          email: "a@b.co",
+          status: "active",
+          overviewOnly: "overview",
+          activityOnly: "activity",
+          token: "never selected or serialized",
+        },
+        [],
+      ),
+      introspect: () => ({
+        name: "users",
+        primaryKey: "id",
+        columns: ["id", "email", "status", "overviewOnly", "activityOnly", "token"].map((name) => ({
+          name,
+          type: "string" as const,
+          nullable: false,
+          unique: false,
+          primaryKey: name === "id",
+        })),
+      }),
+      get: async (_ref, ctx) => {
+        queries.push(ctx);
+        return {
+          id: "1",
+          email: "a@b.co",
+          status: "active",
+          overviewOnly: "overview",
+          activityOnly: "activity",
+          token: "never selected or serialized",
+        };
+      },
+    };
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => ({ id: "operator" }), role: () => "operator" },
+      scope: () => ({ tenantId: "tenant-1" }),
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            scope: () => ({ tenantId: "tenant-1" }),
+            fieldAccess: {
+              status: {
+                read: () => {
+                  statusPolicyCalls += 1;
+                  return true;
+                },
+              },
+              token: { sensitive: true },
+            },
+            detail: {
+              expose: ["status"],
+              tabs: [
+                {
+                  key: "overview",
+                  label: "Overview",
+                  hidden: (row: Record<string, unknown>) => row.status !== "active",
+                  fields: ["overviewOnly"],
+                  render: (row: Record<string, unknown>) => {
+                    rendered.push(row);
+                    return null;
+                  },
+                },
+                { key: "activity", label: "Activity", fields: ["activityOnly"] },
+              ],
+            },
+          },
+        ),
+      ],
+    });
+
+    await ResourceDetailPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      name: "users",
+      id: "1",
+      req: new Request("http://localhost/admin/users/1?tab=overview"),
+    });
+
+    expect(queries).toHaveLength(2);
+    expect(queries.map((query) => query.select)).toEqual([
+      ["id", "email", "status"],
+      ["id", "email", "status", "overviewOnly"],
+    ]);
+    expect(queries.every((query) => query.boundScope !== undefined)).toBe(true);
+    expect(queries.flatMap((query) => query.select ?? [])).not.toContain("activityOnly");
+    expect(queries.flatMap((query) => query.select ?? [])).not.toContain("token");
+    expect(statusPolicyCalls).toBe(1);
+    expect(rendered).toEqual([
+      { id: "1", email: "a@b.co", status: "active", overviewOnly: "overview" },
+    ]);
+  });
+
+  it("chooses the default tab for an unknown key without loading inactive fields", async () => {
+    const queries: ItemQueryContext[] = [];
+    const config = defineAdmin({
+      adapter: {
+        ...mkAdapter(
+          { id: "1", email: "a@b.co", overviewOnly: "overview", activityOnly: "activity" },
+          [],
+        ),
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: ["id", "email", "overviewOnly", "activityOnly"].map((name) => ({
+            name,
+            type: "string" as const,
+            nullable: false,
+            unique: false,
+            primaryKey: name === "id",
+          })),
+        }),
+        get: async (_ref, ctx) => {
+          queries.push(ctx);
+          return { id: "1", email: "a@b.co", overviewOnly: "overview", activityOnly: "activity" };
+        },
+      },
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            detail: {
+              tabs: [
+                { key: "overview", label: "Overview", fields: ["overviewOnly"] },
+                { key: "activity", label: "Activity", fields: ["activityOnly"] },
+              ],
+            },
+          },
+        ),
+      ],
+    });
+
+    await ResourceDetailPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      name: "users",
+      id: "1",
+      req: new Request("http://localhost/admin/users/1?tab=missing"),
+    });
+
+    expect(queries).toHaveLength(1);
+    expect(queries[0]?.select).toEqual(["id", "email", "overviewOnly"]);
+    expect(queries[0]?.select).not.toContain("activityOnly");
+  });
+
+  it.each([
+    { query: "?tab=overview", label: "a requested unconditional tab" },
+    { query: "?tab=missing", label: "the first unconditional tab for an unknown key" },
+  ])("loads active fields in one read for $label despite other hidden predicates", async ({
+    query,
+  }) => {
+    const queries: ItemQueryContext[] = [];
+    const config = defineAdmin({
+      adapter: {
+        ...mkAdapter(
+          { id: "1", email: "a@b.co", overviewOnly: "overview", guardedOnly: "guarded" },
+          [],
+        ),
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: ["id", "email", "overviewOnly", "guardedOnly"].map((name) => ({
+            name,
+            type: "string" as const,
+            nullable: false,
+            unique: false,
+            primaryKey: name === "id",
+          })),
+        }),
+        get: async (_ref, ctx) => {
+          queries.push(ctx);
+          return { id: "1", email: "a@b.co", overviewOnly: "overview", guardedOnly: "guarded" };
+        },
+      },
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            detail: {
+              tabs: [
+                { key: "overview", label: "Overview", fields: ["overviewOnly"] },
+                {
+                  key: "guarded",
+                  label: "Guarded",
+                  hidden: () => true,
+                  fields: ["guardedOnly"],
+                },
+              ],
+            },
+          },
+        ),
+      ],
+    });
+
+    await ResourceDetailPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      name: "users",
+      id: "1",
+      req: new Request(`http://localhost/admin/users/1${query}`),
+    });
+
+    expect(queries).toHaveLength(1);
+    expect(queries[0]?.select).toEqual(["id", "email", "overviewOnly"]);
+    expect(queries[0]?.select).not.toContain("guardedOnly");
+  });
+
+  it("uses the configured heading with only authorized row fields", async () => {
+    const seenRows: Record<string, unknown>[] = [];
+    const config = defineAdmin({
+      adapter: mkAdapter({ id: "1", name: "Ada", secret: "private", adapterOnly: "hidden" }, []),
+      auth: { session: async () => ({ id: "support" }), role: () => "support" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "name", "secret"],
+            fieldAccess: { secret: { read: "admin" } },
+            detail: {
+              header: (row: Record<string, unknown>) => {
+                seenRows.push(row);
+                return createElement("span", null, String(row.name));
+              },
+            },
+          },
+        ),
+      ],
+    });
+    const node = await ResourceDetailPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      name: "users",
+      id: "1",
+      req: new Request("http://localhost/admin/users/1"),
+    });
+    expect(seenRows).toEqual([{ id: "1", name: "Ada" }]);
+    const title = findAllElements(node, PageHeader)[0]?.title as ReactElement<{ children: string }>;
+    expect(isValidElement(title)).toBe(true);
+    expect(title.props.children).toBe("Ada");
+  });
+
+  it.each([
+    { update: false, disabled: false, shown: false },
+    { update: async () => false, disabled: false, shown: false },
+    { update: "admin", disabled: false, shown: false },
+    { update: async () => true, disabled: false, shown: true },
+    { update: true, disabled: true, shown: false },
+  ])("gates the edit action with update access and disabled: $shown", async ({
+    update,
+    disabled,
+    shown,
+  }) => {
+    const config = defineAdmin({
+      adapter: mkAdapter({ id: "1" }, []),
+      auth: { session: async () => ({ id: "support" }), role: () => "support" },
+      labels: { actions: { edit: "Редактировать" } },
+      resources: [
+        resource(
+          { __name: "users" },
+          { columns: ["id"], access: { read: true, update }, update: { disabled } },
+        ),
+      ],
+    });
+    const node = await ResourceDetailPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      name: "users",
+      id: "1",
+      req: new Request("http://localhost/admin/users/1"),
+    });
+    const actions = findAllElements(node, PageHeader)[0]?.actions as ReactNode;
+    const links = findAllElements(actions, "a");
+    expect(links).toHaveLength(shown ? 1 : 0);
+    if (shown) {
+      expect(links[0]?.children).toBe("Редактировать");
+      expect(links[0]?.href).toBe("/admin/users/1/edit");
+    }
+  });
+
+  it.each([
+    undefined,
+    "activity",
+    "missing",
+    "hidden",
+  ])("renders only the active visible tab for ?tab=%s", async (tab) => {
+    const rendered: string[] = [];
+    const config = defineAdmin({
+      adapter: mkAdapter({ id: "1", email: "user@example.com" }, []),
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            detail: {
+              tabs: [
+                {
+                  key: "overview",
+                  label: "Overview",
+                  render: () => {
+                    rendered.push("overview");
+                    return null;
+                  },
+                },
+                {
+                  key: "activity",
+                  label: "Activity",
+                  render: () => {
+                    rendered.push("activity");
+                    return null;
+                  },
+                },
+                {
+                  key: "hidden",
+                  label: "Hidden",
+                  hidden: () => true,
+                  render: () => {
+                    throw new Error("private tab executed");
+                  },
+                },
+              ],
+            },
+          },
+        ),
+      ],
+    });
+    await ResourceDetailPage({
+      config,
+      resource: config.resourcesByName.get("users")!,
+      name: "users",
+      id: "1",
+      req: new Request(`http://localhost/admin/users/1${tab ? `?tab=${tab}` : ""}`),
+    });
+    expect(rendered).toEqual([tab === "activity" ? "activity" : "overview"]);
+  });
+
   it("no detail.tabs: KV fallback drops undeclared fields (declared surface only)", async () => {
     const adapter = mkAdapter(
       { id: "1", email: "a@b.co", passwordHash: "secret", internalFlag: true },

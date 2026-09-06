@@ -75,9 +75,12 @@
       "types": "./dist/auth.d.ts",
       "import": "./dist/auth.js"
     },
+    "./styles/admin.css": "./dist/styles/admin.css",
     "./package.json": "./package.json"
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "files": [
     "dist",
     "README.md"
@@ -86,8 +89,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only",
+    "build": "pnpm run build:js && pnpm run build:styles",
+    "build:js": "tsup",
+    "build:styles": "node scripts/build-styles.mjs",
+    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./styles/admin.css",
     "lint:publish": "publint --strict",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -114,7 +119,6 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0 || ^3.0.0",
-    "tailwindcss": "^3.0.0 || ^4.0.0",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
@@ -144,6 +148,10 @@
     }
   },
   "devDependencies": {
+    "postcss": "^8.5.26",
+    "postcss-selector-parser": "^6.1.2",
+    "postcss-value-parser": "^4.2.0",
+    "tailwindcss3": "npm:tailwindcss@^3.4.0",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

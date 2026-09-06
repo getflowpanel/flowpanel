@@ -11,6 +11,8 @@ import {
   assertResourceScope,
   authorizeOperation,
   checkRequireRole,
+  DEFAULT_LABELS,
+  formatLabel,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
@@ -33,7 +35,7 @@ import {
   sanitizeFilterValues,
 } from "../runtime/parse-list-params";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
-import { projectRowFields } from "../runtime/project-row";
+import { projectRowFields, selectKnownFields } from "../runtime/project-row";
 import { resolveReadableListSurface } from "../runtime/readable-list";
 import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
@@ -83,7 +85,13 @@ export async function ResourceListPage({
   const pageSize = pageSizeOptions.includes(requestedPageSize)
     ? requestedPageSize
     : configuredPageSize;
-  const readable = await resolveReadableListSurface(resource, reqCtx, searchParams);
+  const softDelete = resource.options.delete?.softDelete;
+  const readable = await resolveReadableListSurface(
+    resource,
+    reqCtx,
+    searchParams,
+    softDelete ? [String(softDelete)] : [],
+  );
   const {
     page,
     search,
@@ -101,7 +109,6 @@ export async function ResourceListPage({
   const filters = sanitizeFilterValues(rawFilters, filterSpecs);
   const effectiveSearch = readable.searchFields.length > 0 ? search : "";
 
-  const softDelete = resource.options.delete?.softDelete;
   const includeDeleted = !!softDelete && searchParams.get("deleted") === "1";
   const ctx: ListQueryContext<unknown> = {
     ...reqCtx,
@@ -114,6 +121,10 @@ export async function ResourceListPage({
     page,
     pageSize,
     search: effectiveSearch,
+    select: selectKnownFields(
+      [...readable.rowFields, ...readable.operationalFields],
+      config.adapter.introspect(resource.ref).columns,
+    ),
     ...(readable.searchFields.length > 0 ? { searchFields: readable.searchFields } : {}),
     ...(softDelete ? { softDelete: { column: String(softDelete) }, includeDeleted } : {}),
     ...scopeBinding(config, resource, reqCtx),
@@ -148,11 +159,12 @@ export async function ResourceListPage({
   const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
   const useDrawerRowClick = resource.options.rowClick === "drawer" && !!resource.options.drawer;
 
-  const deletedRowKeys: string[] | undefined = softDelete
-    ? (result.rows as Row[])
-        .filter((row) => row[String(softDelete)] != null)
-        .map((row) => String(row[rowKey]))
-    : undefined;
+  const deletedRowKeys: string[] | undefined =
+    softDelete && readable.operationalFields.includes(String(softDelete))
+      ? (result.rows as Row[])
+          .filter((row) => row[String(softDelete)] != null)
+          .map((row) => String(row[rowKey]))
+      : undefined;
 
   const rawActions = await filterActionsByAccess(
     resource.options.actions as RowAction<Row>[] | undefined,
@@ -193,7 +205,14 @@ export async function ResourceListPage({
       {/* Search sits in the filter row, not above it — one band of chrome. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {readable.searchFields.length > 0 ? (
-          <ResourceListSearch placeholder={`Search ${displayPlural}…`} />
+          <ResourceListSearch
+            placeholder={formatLabel(
+              config.labels?.searchPlaceholder ?? DEFAULT_LABELS.searchPlaceholder,
+              {
+                label: displayPlural,
+              },
+            )}
+          />
         ) : null}
         <div className="flex-1">
           <ResourceListFilters filters={filterSpecs} />

@@ -2,6 +2,7 @@
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LabelsProvider } from "../../_provider/LabelsContext";
 import { useAdminCommand } from "../../hooks/useAdminCommand";
 import { type CommandGroupUI, CommandPalette } from "../CommandPalette";
 
@@ -26,6 +27,41 @@ function makeGroups(onSelectA: () => void): CommandGroupUI[] {
 }
 
 describe("CommandPalette", () => {
+  it("keeps the default English search and empty copy without a provider", () => {
+    render(<CommandPalette open onOpenChange={() => {}} groups={[]} />);
+    expect(screen.getByRole("combobox").getAttribute("placeholder")).toBe(
+      "Search resources, actions…",
+    );
+    expect(screen.getByText("No results.")).toBeTruthy();
+  });
+  it("uses configured search, empty and accessible text with explicit placeholder precedence", () => {
+    const labels = {
+      palette: {
+        placeholder: "Найти команду…",
+        noResults: "Ничего не найдено",
+        title: "Команды",
+        description: "Поиск команд админки",
+        loading: "Загрузка…",
+      },
+    };
+    const { rerender } = render(
+      <LabelsProvider value={labels}>
+        <CommandPalette open onOpenChange={() => {}} groups={[]} itemsLoading />
+      </LabelsProvider>,
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Команды", description: "Поиск команд админки" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("combobox").getAttribute("placeholder")).toBe("Найти команду…");
+    expect(screen.getByText("Загрузка…")).toBeTruthy();
+    expect(screen.getByText("Ничего не найдено")).toBeTruthy();
+    rerender(
+      <LabelsProvider value={labels}>
+        <CommandPalette open onOpenChange={() => {}} groups={[]} placeholder="" />
+      </LabelsProvider>,
+    );
+    expect(screen.getByRole("combobox").getAttribute("placeholder")).toBe("");
+  });
   it("renders groups and items when open", () => {
     render(<CommandPalette open onOpenChange={() => {}} groups={makeGroups(() => {})} />);
     expect(

@@ -44,11 +44,13 @@ function columnSites(resource: ResourceConfig): ColumnSite[] {
   pushColumnSites(o.columns, "columns", out);
   pushColumnSites(o.filters, "filters", out);
   pushColumnSites(o.expose, "expose", out);
+  pushColumnSites(o.detail?.expose, "detail.expose", out);
   if (o.defaultSort && typeof o.defaultSort.field === "string") {
     out.push({ target: o.defaultSort.field, where: "defaultSort.field" });
   }
   pushFormFieldSites(o.create?.fields, "create.fields", out);
   pushFormFieldSites(o.update?.fields, "update.fields", out);
+  pushColumnSites(o.update?.expose, "update.expose", out);
   return out;
 }
 

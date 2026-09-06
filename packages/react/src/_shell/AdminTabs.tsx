@@ -2,9 +2,11 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { FlowpanelIcon } from "../_atoms/FlowpanelIcon";
+import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 import { AccountMenu, type AccountMenuUser } from "./AccountMenu";
 import type { NavGroup } from "./AdminNav";
+import { activeNavHref } from "./active-nav";
 import { Brand, type ShellBrand } from "./Brand";
 
 /** Horizontal tab strip variant of the admin nav. */
@@ -19,6 +21,8 @@ export function AdminTabs({
   user?: AccountMenuUser | undefined;
   currentPath: string;
 }) {
+  const { navigation } = useLabels();
+  const activeHref = activeNavHref(groups, currentPath);
   const hasBrand = Boolean(brand?.name ?? brand?.logo);
   const items = groups.flatMap((g) => g.items);
   const activeRef = useRef<HTMLAnchorElement | null>(null);
@@ -56,11 +60,11 @@ export function AdminTabs({
 
   return (
     <nav
-      aria-label="Admin"
+      aria-label={navigation.admin}
       className="sticky top-0 z-40 border-b border-fp-border-1 bg-fp-bg-1/85 backdrop-blur-md"
     >
       <p id="admin-tabs-scroll-hint" className="sr-only">
-        More destinations are available by horizontal scrolling.
+        {navigation.scrollHint}
       </p>
       <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
         {hasBrand ? <Brand brand={brand} className="hidden flex-shrink-0 py-3 sm:flex" /> : null}
@@ -73,7 +77,7 @@ export function AdminTabs({
           )}
         >
           {items.map((it) => {
-            const active = currentPath === it.href;
+            const active = activeHref === it.href;
             return (
               <li key={it.href} className="flex-shrink-0">
                 <Link

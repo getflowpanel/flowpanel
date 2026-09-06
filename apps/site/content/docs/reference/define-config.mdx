@@ -74,9 +74,11 @@ to register your own.
 `accent` and `cssVars` are emitted only on `[data-flowpanel-root]` and
 `[data-flowpanel-portal]`. Dialogs and drawers carry the portal marker, so they
 receive the theme without changing the host application's tokens.
-`accentDark` targets the same namespaced roots when
+`accentDark` and `cssVarsDark` target the same namespaced roots when
 `html[data-flowpanel-theme="dark"]` or a FlowPanel root's `data-theme="dark"`
-is active. Set it whenever a custom `accent` is tuned for light surfaces.
+is active. Set `accentDark` whenever a custom `accent` is tuned for light surfaces;
+use `cssVarsDark` when custom foreground or border tokens need dark-surface values.
+Choose foreground values for contrast against the actual tinted background.
 Every `--fp-*` token is overridable:
 
 ```ts excerpt
@@ -85,6 +87,7 @@ theme: {
   accent: "262 83% 58%",
   accentDark: "262 90% 72%",
   cssVars: { "--fp-radius": "0.25rem" },
+  cssVarsDark: { "--fp-text-1": "0 0% 98%" },
 }
 ```
 
@@ -169,8 +172,34 @@ production. See [Realtime in production](/docs/guides/realtime).
 
 ## LabelsConfig
 
-Every user-facing string in the built-in chrome, so you can translate the admin
-without ejecting.
+Overrides for built-in chrome. Set `labels` once in `defineConfig`; list filters,
+pagination and the command palette use the same provider as action buttons.
+Nested groups merge with English defaults. Undefined values keep their defaults;
+empty strings are intentional overrides. A component's explicit placeholder or
+boolean label takes precedence over configuration.
+
+`allOption` controls the unfiltered choice in select, multiselect and boolean
+filters. `filters` controls toolbar/reset text, boolean choices and text search.
+`pagination.page` and `pagination.pageSize` accept `{n}`; `bulkBar.selected`
+accepts `{n}` for selection counts. Pagination registry overrides receive these
+strings in their `labels` prop; `DefaultPagination` remains usable standalone.
+
+`navigation`, `table`, `savedViews` and `dateRange` also cover the built-in menu,
+table controls, saved-view dialog and calendar. `dateRange.locale` controls
+calendar and table-count presentation, with a deterministic `en-US` fallback on
+both server and client. It does not change stored dates, query boundaries or
+your custom column formatters.
+
+For a Russian admin, import `RU_LABELS` from `@flowpanel/kit` and pass
+`labels: RU_LABELS` to `defineConfig`. The preset is a complete object of plain
+strings, safe across the server/client boundary. Customize a nested group by
+spreading it, for example `labels: { ...RU_LABELS, actions: {
+...RU_LABELS.actions, new: "Добавить" } }`. Browser-only consumers can import the
+same preset from `@flowpanel/core/labels`.
+
+Resource names, domain actions, custom renderers and validation messages supplied
+by your application remain application-owned. The preset does not translate
+arbitrary content or server errors.
 
 <AutoTypeTable path="../../packages/core/src/types/labels.ts" name="LabelsConfig" />
 

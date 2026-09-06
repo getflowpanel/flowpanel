@@ -28,12 +28,30 @@ export const ordersResource = resource(orders, {
   search: ["customerEmail"],
   filters: ["status", { field: "createdAt", type: "daterange" }],
   defaultSort: { field: "createdAt", dir: "desc" },
+  detail: { header: (row) => `Order · ${row.customerEmail}` },
 });
 ```
 
 ## ResourceOptions
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceOptions" />
+
+### Detail headings and editing
+
+`detail.header(row)` supplies the content of the detail page's `h1`. Return text
+or inline React elements, rather than another heading or a complete page header.
+The callback runs on the server and receives the same authorized row projection
+as detail tabs: declared readable fields and permitted `expose` fields. It never
+receives undeclared adapter fields or fields denied by `fieldAccess`.
+
+Omit the callback, or return `null`/`undefined`, to keep the default resource label
+and readable row identifier. The generated edit action remains beside the heading;
+it is omitted when `update.disabled` is true or the resource's update access policy
+denies the request, including asynchronous policies. Set `labels.actions.edit` to
+translate its text. The edit route enforces its own authorization as well.
+
+Custom `PageHeader` slots should use the exported `PageHeaderProps` type: `title`
+accepts React content as well as strings.
 
 ### Icons
 

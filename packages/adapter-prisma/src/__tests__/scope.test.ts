@@ -90,6 +90,52 @@ describe("prismaAdapter tenant scope enforcement", () => {
     await expect(
       adapter.list("Item", { ...baseCtx, select: ["missing"] } as never),
     ).rejects.toThrow(/unknown field "missing"/);
+    await expect(
+      adapter.list("Item", {
+        ...baseCtx,
+        select: Array.from({ length: 1025 }, () => "id"),
+      } as never),
+    ).rejects.toThrow(/select exceeds 1024 fields/);
+  });
+
+  it("uses scoped counts, never row reads, for an explicit empty projection", async () => {
+    const { item, _d } = makeMock();
+    _d.count.mockResolvedValue(3);
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
+
+    const listed = await adapter.list("Item", {
+      ...baseCtx,
+      page: 2,
+      pageSize: 2,
+      select: [],
+      filters: { name: "A" },
+      applyScope: applyScopeC1,
+      scopeRequired: true,
+    } as never);
+    expect(listed).toEqual({ rows: [{}], total: 3, page: 2, pageSize: 2 });
+    expect(_d.count).toHaveBeenCalledWith({ where: { name: "A", companyId: "c1" } });
+    expect(_d.findMany).not.toHaveBeenCalled();
+
+    _d.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+    expect(
+      await adapter.get("Item", {
+        id: "i1",
+        db: undefined,
+        select: [],
+        applyScope: applyScopeC1,
+      } as never),
+    ).toEqual({});
+    expect(
+      await adapter.get("Item", {
+        id: "i3",
+        db: undefined,
+        select: [],
+        applyScope: applyScopeC1,
+      } as never),
+    ).toBeNull();
+    expect(_d.count).toHaveBeenLastCalledWith({ where: { id: "i3", companyId: "c1" } });
+    expect(_d.findFirst).not.toHaveBeenCalled();
+    expect(_d.findUnique).not.toHaveBeenCalled();
   });
 
   it("list merges scope keys into where (and count)", async () => {

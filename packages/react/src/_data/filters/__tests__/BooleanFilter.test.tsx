@@ -10,8 +10,8 @@ describe("BooleanFilter", () => {
   it("renders the current state via SelectValue", () => {
     const onChange = vi.fn();
     const { rerender } = render(<BooleanFilter value={null} onChange={onChange} />);
-    // Placeholder 'Any' visible when no value
-    expect(screen.getByText("Any")).toBeTruthy();
+    // Every select filter uses the configured allOption sentinel.
+    expect(screen.getByText("All")).toBeTruthy();
 
     rerender(<BooleanFilter value="true" onChange={onChange} />);
     expect(screen.getByText("Yes")).toBeTruthy();
