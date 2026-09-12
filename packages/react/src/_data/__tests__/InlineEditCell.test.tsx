@@ -69,3 +69,19 @@ describe("InlineEditCell", () => {
     expect(onRowKeyDown).not.toHaveBeenCalled();
   });
 });
+
+describe("InlineEditCell request URL", () => {
+  it("escapes the resource and the identifier instead of routing on them", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ json: async () => ({ ok: true }) } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<InlineEditCell resource="user profile" id="a/b#c" field="name" value="Alice" />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit name" }));
+    fireEvent.change(screen.getByDisplayValue("Alice"), { target: { value: "Bob" } });
+    fireEvent.blur(screen.getByDisplayValue("Bob"));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/flowpanel/user%20profile/a%2Fb%23c/update");
+    vi.unstubAllGlobals();
+  });
+});

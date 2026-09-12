@@ -1,4 +1,9 @@
-import { type ColumnFormat, formatColumnValue } from "@flowpanel/core";
+import {
+  type ColumnFormat,
+  DEFAULT_FORMATTING,
+  formatColumnValue,
+  type ResolvedFormatting,
+} from "@flowpanel/core";
 import { StatusBadge } from "@flowpanel/react";
 import type { ReactNode } from "react";
 
@@ -7,7 +12,11 @@ import type { ReactNode } from "react";
 // is mirrored here; the string formatting comes from core.
 
 /** Render a declarative `ColumnFormat` cell on the server. */
-export function renderColumnFormat(format: ColumnFormat, value: unknown): ReactNode {
+export function renderColumnFormat(
+  format: ColumnFormat,
+  value: unknown,
+  formatting: ResolvedFormatting = DEFAULT_FORMATTING,
+): ReactNode {
   if (format === "badge" || (typeof format === "object" && format.kind === "badge")) {
     if (value === null || value === undefined || value === "") return "—";
     const status = String(value);
@@ -20,5 +29,5 @@ export function renderColumnFormat(format: ColumnFormat, value: unknown): ReactN
       />
     );
   }
-  return formatColumnValue(value, format);
+  return formatColumnValue(value, format, formatting);
 }

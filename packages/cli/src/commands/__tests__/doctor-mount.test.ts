@@ -51,3 +51,42 @@ it("does not invent a route for dynamic paths", async () => {
   expect(result.checks.find((c) => c.name === "Admin mount configuration")?.ok).toBe(false);
   await expect(fs.stat(path.join(root, "app/admin/[[...slug]]/page.tsx"))).rejects.toThrow();
 });
+
+it("repairs the configured API and SSE pair, not the default one", async () => {
+  await write("src/app/layout.tsx", "export default () => null;");
+  await write(
+    "flowpanel.config.ts",
+    'export default defineAdmin({ paths: { admin: "/ops/admin", api: "/internal/fp" } });',
+  );
+  const result = await runDoctorChecks(root, true, { quiet: true });
+  expect(result.fixBlocked).toBeUndefined();
+  expect(result.checks.find((c) => c.name === "API route")?.ok).toBe(true);
+  expect(result.checks.find((c) => c.name === "SSE route")?.ok).toBe(true);
+  expect(await fs.stat(path.join(root, "src/app/internal/fp/[...route]/route.ts"))).toBeDefined();
+  expect(await fs.stat(path.join(root, "src/app/internal/fp/stream/route.ts"))).toBeDefined();
+  await expect(
+    fs.stat(path.join(root, "src/app/api/flowpanel/[...route]/route.ts")),
+  ).rejects.toThrow();
+});
+
+it("does not repair a default API mount the config never points at", async () => {
+  await write(
+    "flowpanel.config.ts",
+    'export default defineAdmin({ paths: { admin: "/ops", api: process.env.API_PATH } });',
+  );
+  const result = await runDoctorChecks(root, true, { quiet: true, adminPath: "/ops" });
+  expect(result.checks.find((c) => c.name === "API route")?.ok).toBe(false);
+  expect(result.checks.find((c) => c.name === "API route")?.hint).toContain("not a static string");
+  await expect(
+    fs.stat(path.join(root, "src/app/api/flowpanel/[...route]/route.ts")),
+  ).rejects.toThrow();
+});
+
+it("reports an admin mount that would swallow the configured API routes", async () => {
+  await write(
+    "flowpanel.config.ts",
+    'export default defineAdmin({ paths: { admin: "/internal", api: "/internal/fp" } });',
+  );
+  const result = await runDoctorChecks(root, true, { quiet: true });
+  expect(result.fixBlocked).toContain("overlaps the generated API");
+});

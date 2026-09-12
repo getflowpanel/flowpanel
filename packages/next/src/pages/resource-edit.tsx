@@ -9,13 +9,15 @@ import {
   authorizeOperation,
   checkRequireRole,
   filterReadableProjection,
+  formatLabel,
+  mergeLabels,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
 import { roleAllows } from "../runtime/action-helpers";
-import { buildHref } from "../runtime/href";
+import { buildApiHref, buildHref } from "../runtime/href";
 import { projectRowFields, selectKnownFields } from "../runtime/project-row";
 import { buildRequestContext } from "../runtime/request-setup";
 import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
@@ -110,7 +112,7 @@ export async function ResourceEditPage({
   )) as Record<string, unknown> | null;
   if (!row) return <NotFound />;
 
-  const action = `${config.paths.api}/${name}/${id}/edit`;
+  const action = buildApiHref(config, name, id, "edit");
   const projectedValues = projectRowFields(row, select);
   const fields = declared
     ? await resolveFormFields(config, declared, reqCtx, projectedValues)
@@ -125,16 +127,20 @@ export async function ResourceEditPage({
       .map((field) => [field, projectedValues[field]]),
   );
 
+  const labels = mergeLabels(config.labels);
   return (
     <>
-      <PageHeader title={`Edit ${singularLabel(resource, name)}`} />
+      <PageHeader
+        title={formatLabel(labels.form.editTitle, { label: singularLabel(resource, name) })}
+      />
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
           columns={columns}
           defaultValues={defaultValues}
           {...(fields ? { fields } : {})}
-          submitLabel="Save"
+          submitLabel={labels.actions.save}
+          cancelHref={buildHref(config, name, id)}
           redirectTo={buildHref(config, name, id)}
         />
       </div>

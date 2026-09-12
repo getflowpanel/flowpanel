@@ -115,6 +115,18 @@ export const API_OWNERSHIP_RULES = [
     guidance: false,
   },
   {
+    sourcePrefix: "packages/core/src/types/formatting.ts",
+    page: "/docs/reference/define-config",
+    anchor: "formatting",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/paths.ts",
+    page: "/docs/reference/define-config",
+    anchor: "basepath-and-a-nextjs-deployment-basepath",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/theme-init.ts",
     page: "/docs/customization/styling",
     anchor: "initialize-the-theme-under-csp",

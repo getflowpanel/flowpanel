@@ -116,6 +116,53 @@ describe("init mount integration", () => {
     await expect(fs.stat(path.join(root, "src/app/admin/[[...slug]]/page.tsx"))).rejects.toThrow();
   });
 
+  it("plans the API pair where an existing config mounts it", async () => {
+    await write(
+      "flowpanel.config.ts",
+      'export default defineAdmin({ paths: { admin: "/ops/admin", api: "/internal/fp" } });',
+    );
+    const out: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      out.push(String(chunk));
+      return true;
+    });
+    // The existing config is a conflict, so the run stops — but the plan it
+    // printed is exactly the question here: where do the route handlers go?
+    vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("init refused");
+    });
+    await expect(
+      createProgram().parseAsync(["node", "flowpanel", "init", "--dry-run", "--json"]),
+    ).rejects.toThrow("init refused");
+    const plan = JSON.parse(out.join("")) as { plan: { operations: { path: string }[] } };
+    const paths = plan.plan.operations.map((operation) => operation.path);
+    expect(paths).toContain("src/app/internal/fp/[...route]/route.ts");
+    expect(paths).toContain("src/app/internal/fp/stream/route.ts");
+    expect(paths.some((value) => value.startsWith("src/app/api/flowpanel/"))).toBe(false);
+  });
+
+  it("writes nothing when an existing config mounts the API dynamically", async () => {
+    await write(
+      "flowpanel.config.ts",
+      'export default defineAdmin({ paths: { admin: "/ops", api: process.env.API_PATH } });',
+    );
+    vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("init refused");
+    });
+    await expect(
+      createProgram().parseAsync(["node", "flowpanel", "init", "--yes", "--json"]),
+    ).rejects.toThrow("init refused");
+    await expect(
+      fs.stat(path.join(root, "src/app/api/flowpanel/[...route]/route.ts")),
+    ).rejects.toThrow();
+  });
+
+  it("records the API mount it scaffolded in the generated config", async () => {
+    await createProgram().parseAsync(["node", "flowpanel", "init", "--yes", "--json"]);
+    const config = await fs.readFile(path.join(root, "flowpanel.config.ts"), "utf8");
+    expect(config).toContain('api: "/api/flowpanel"');
+  });
+
   it("uses an explicit nested mount for both config and route imports", async () => {
     await createProgram().parseAsync([
       "node",

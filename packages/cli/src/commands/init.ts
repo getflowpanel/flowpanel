@@ -8,7 +8,12 @@ import pc from "picocolors";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent } from "../plan/types";
-import { findAdminRouteConflicts, normalizeAdminPath, readAdminMount } from "../utils/admin-path";
+import {
+  DEFAULT_API_PATH,
+  findAdminRouteConflicts,
+  normalizeAdminPath,
+  readAdminMount,
+} from "../utils/admin-path";
 import { firstCompatibilityFailure, inspectProjectCompatibility } from "../utils/compatibility";
 import {
   aliasOf,
@@ -299,7 +304,15 @@ export function initCommand(cli: Command): void {
       const configuredMount = await readAdminMount(cwd);
       if (!opts.path && configuredMount.error) failInit(opts, configuredMount.error);
       let adminPath = normalizeAdminPath(opts.path ?? configuredMount.path ?? "/admin");
-      const apiPath = "/api/flowpanel";
+      // An existing config may mount the handlers elsewhere; a dynamic value is
+      // unknown, and scaffolding the default over it would be a guess.
+      if (configuredMount.api === null) {
+        failInit(
+          opts,
+          "Nothing was written. paths.api in flowpanel.config.ts is not a static string, so init cannot tell where the route handlers belong.",
+        );
+      }
+      const apiPath = configuredMount.api ?? DEFAULT_API_PATH;
       if (
         adminPath === apiPath ||
         adminPath.startsWith(`${apiPath}/`) ||
@@ -342,8 +355,8 @@ export function initCommand(cli: Command): void {
         p.note(adminPath, "Admin URL");
       }
       const adminPageDir = `${appDir}${adminPath}/[[...slug]]`;
-      const apiRouteDir = `${appDir}/api/flowpanel/[...route]`;
-      const sseRouteDir = `${appDir}/api/flowpanel/stream`;
+      const apiRouteDir = `${appDir}${apiPath}/[...route]`;
+      const sseRouteDir = `${appDir}${apiPath}/stream`;
 
       const files: Record<string, string> = {
         "flowpanel.config.ts": await tpl(configTemplate, {
@@ -352,6 +365,7 @@ export function initCommand(cli: Command): void {
           AUTH: auth,
           APP_NAME: appName,
           ADMIN_PATH: adminPath,
+          API_PATH: apiPath,
         }),
         [`${adminPageDir}/page.tsx`]: await tpl("admin-page.tsx.txt", {
           CONFIG_IMPORT: configImportFor(adminPageDir, aliasMode),

@@ -153,6 +153,14 @@ type FilterType =
 
 A tab on the full-page detail view at `/<basePath>/<resource>/<id>`.
 
+Only the selected tab runs on the server, and the tab in view is `?tab=<key>`.
+A tab with a `resource` renders that resource's list columns, sorted by its
+`defaultSort` and otherwise by its primary key, and paginates under its own URL
+key `relatedPage.<key>` — so two tabs page independently and Back, Forward and
+reload restore the page the reader was on. The tab's `filter` is a constraint,
+not a refinement: an undefined parent value or a field the reader may not read
+yields no rows and no query.
+
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="DetailTab" />
 
 ## SelectOption

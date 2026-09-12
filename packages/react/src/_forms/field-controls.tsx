@@ -11,6 +11,7 @@ import { ChevronDown } from "lucide-react";
 import * as React from "react";
 import { JsonEditor } from "../_data/JsonEditor";
 import { TagInput } from "../_data/TagInput";
+import { useLabels } from "../_provider/LabelsContext";
 import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
@@ -334,6 +335,7 @@ export function SelectField({
   options,
   rawValue,
 }: SelectFieldProps) {
+  const labels = useLabels();
   const control = useStringControl(field);
   return (
     <>
@@ -349,7 +351,7 @@ export function SelectField({
           {...aria}
           className={SELECT_CLASS}
         >
-          <option value="">{placeholder ?? "Select…"}</option>
+          <option value="">{placeholder ?? labels.form.selectPlaceholder}</option>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}

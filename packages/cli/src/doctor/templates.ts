@@ -1,32 +1,41 @@
 import type { FileIntent } from "../plan/types";
 import { tpl } from "../utils/template";
 
-export const FIXABLE_FILES: ReadonlyArray<{
-  relToAppDir: string | null;
+export interface FixableFile {
+  /** `"admin"` and `"api"` follow the configured mount; `null` is a repo-root path. */
+  mount: "admin" | "api" | null;
+  /** Appended to the configured mount, for the two route handlers. */
+  relToMount: string;
   templateName: string;
   label: string;
   needsConfigImport: boolean;
-}> = [
+}
+
+export const FIXABLE_FILES: ReadonlyArray<FixableFile> = [
   {
-    relToAppDir: "api/flowpanel/[...route]/route.ts",
+    mount: "api",
+    relToMount: "[...route]/route.ts",
     templateName: "api-route.ts.txt",
     label: "API route",
     needsConfigImport: true,
   },
   {
-    relToAppDir: "api/flowpanel/stream/route.ts",
+    mount: "api",
+    relToMount: "stream/route.ts",
     templateName: "sse-route.ts.txt",
     label: "SSE route",
     needsConfigImport: true,
   },
   {
-    relToAppDir: null,
+    mount: null,
+    relToMount: "",
     templateName: "migration.sql.txt",
     label: "Seed migration (flowpanel/migrations)",
     needsConfigImport: false,
   },
   {
-    relToAppDir: "admin/[[...slug]]/page.tsx",
+    mount: "admin",
+    relToMount: "[[...slug]]/page.tsx",
     templateName: "admin-page.tsx.txt",
     label: "Catch-all admin page",
     needsConfigImport: true,

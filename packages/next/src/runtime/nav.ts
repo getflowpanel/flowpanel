@@ -3,7 +3,7 @@ import { accessAllows, resolveOperationAccess, resolveResourceName } from "@flow
 import { mergeLabels } from "@flowpanel/core/labels";
 import type { NavEntry, NavGroup } from "@flowpanel/react";
 import { roleAllows } from "./action-helpers";
-import { buildHref } from "./href";
+import { buildHref, buildPath } from "./href";
 import { pluralLabel } from "./resource-title";
 
 /** Extract the URL slug for a resource. */
@@ -31,7 +31,7 @@ export async function buildNav(
     .filter((d) => !reqCtx || roleAllows(d.requireRole, reqCtx))
     .map((d) => ({
       label: d.label,
-      href: d.path === "/" ? buildHref(config) : buildHref(config, d.path),
+      href: d.path === "/" ? buildHref(config) : buildPath(config, d.path),
       ...(d.icon ? { icon: d.icon } : {}),
     }));
   if (dashboardItems.length) groups.push({ label: navigation.dashboards, items: dashboardItems });
@@ -44,8 +44,8 @@ export async function buildNav(
         p.component !== undefined
           ? p.path === "/"
             ? buildHref(config)
-            : buildHref(config, p.path)
-          : (p.href ?? buildHref(config, p.path)),
+            : buildPath(config, p.path)
+          : (p.href ?? buildPath(config, p.path)),
       ...(p.icon ? { icon: p.icon } : {}),
     }));
   if (pageItems.length) groups.push({ label: navigation.pages, items: pageItems });

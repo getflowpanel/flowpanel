@@ -11,6 +11,7 @@ import {
 import { redirect } from "next/navigation";
 import type * as React from "react";
 import { buildServerRequest } from "./runtime/build-server-request";
+import { decodeAtom, encodeAtom } from "./runtime/href";
 import { buildNav } from "./runtime/nav";
 import { bindPublisher } from "./runtime/publish";
 import { renderContent } from "./runtime/render-content";
@@ -73,7 +74,9 @@ function resolveShell(
 export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = {}) {
   bindPublisher(config);
   return async function FlowpanelPage({ params, searchParams }: PageProps) {
-    const slug = resolveCatchAllSegments(await params);
+    // Next hands page catch-all segments over still percent-encoded, so an
+    // identifier carrying `/` or `%` only becomes itself after one decode.
+    const slug = resolveCatchAllSegments(await params).map(decodeAtom);
     const spRaw = await searchParams;
     const sp = new URLSearchParams();
     for (const [k, v] of Object.entries(spRaw)) {
@@ -84,7 +87,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
       }
     }
 
-    const slugPath = `/${slug.join("/")}`;
+    const slugPath = `/${slug.map(encodeAtom).join("/")}`;
     const currentPath = slugPath === "/" ? config.basePath || "/" : `${config.basePath}${slugPath}`;
     const url = new URL(`http://localhost${config.basePath}${slugPath}`);
     for (const [k, v] of sp.entries()) url.searchParams.append(k, v);
@@ -150,6 +153,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
     return (
       <FlowpanelGlobals
         apiBase={config.paths.api}
+        {...(config.formatting ? { formatting: config.formatting } : {})}
         {...(themeComponents ? { themeComponents } : {})}
         {...(themeMode ? { themeMode } : {})}
         {...(labels ? { labels } : {})}

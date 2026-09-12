@@ -1,6 +1,7 @@
 "use client";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "cmdk";
 import * as React from "react";
+import { useLabels } from "../_provider/LabelsContext";
 import { Button } from "../ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
@@ -30,8 +31,8 @@ export function AsyncSelect({
   value,
   onChange,
   loadOptions,
-  placeholder = "Select…",
-  emptyText = "No options",
+  placeholder: placeholderProp,
+  emptyText: emptyTextProp,
   debounceMs = 200,
   className,
   initialLabel = null,
@@ -41,6 +42,10 @@ export function AsyncSelect({
   "aria-describedby": describedBy,
   "aria-required": ariaRequired,
 }: AsyncSelectProps) {
+  const labels = useLabels();
+  // An explicit prop wins, including an empty string.
+  const placeholder = placeholderProp ?? labels.form.selectPlaceholder;
+  const emptyText = emptyTextProp ?? labels.form.noOptions;
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [opts, setOpts] = React.useState<AsyncSelectOption[]>([]);
@@ -108,11 +113,11 @@ export function AsyncSelect({
           <CommandList className="max-h-60 overflow-auto p-1">
             {loading ? (
               <div role="status" className="px-3 py-4 text-center text-sm text-fp-text-3">
-                Searching…
+                {labels.form.searching}
               </div>
             ) : error ? (
               <div role="alert" className="px-3 py-4 text-center text-sm text-fp-err-text">
-                Couldn't load options — please try again.
+                {labels.form.loadFailed}
               </div>
             ) : (
               <CommandEmpty className="px-3 py-4 text-center text-sm text-fp-text-3">

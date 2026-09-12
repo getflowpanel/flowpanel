@@ -6,6 +6,7 @@ import type {
   ItemQueryContext,
   RequestContext,
   ResolvedAdminConfig,
+  ResolvedFormatting,
   ResourceConfig,
 } from "@flowpanel/core";
 import {
@@ -15,16 +16,20 @@ import {
   checkRequireRole,
   DEFAULT_LABELS,
   filterReadableProjection,
+  mergeLabels,
   resolveFieldLabel,
+  resolveFormatting,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { DetailTabsClient } from "@flowpanel/next/client";
-import { Button, DataTable, KV, KVRow, PageHeader } from "@flowpanel/react";
+import { DetailTabsClient, RelatedTabTable } from "@flowpanel/next/client";
+import { Button, KV, KVRow, PageHeader } from "@flowpanel/react";
+import Link from "next/link";
 import type * as React from "react";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { formatFieldValue } from "../runtime/format-field-value";
 import { buildHref } from "../runtime/href";
+import { parsePage } from "../runtime/parse-list-params";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
 import {
   declaredDetailBaseFields,
@@ -34,12 +39,14 @@ import {
 } from "../runtime/project-row";
 import { renderColumnFormat } from "../runtime/render-column-format";
 import { buildRequestContext } from "../runtime/request-setup";
-import { readRelatedRows } from "../runtime/require-authorized";
+import { readRelatedPage } from "../runtime/require-authorized";
 import { singularLabel } from "../runtime/resource-title";
 import { scopeBinding } from "../runtime/scope-binding";
 import { NotFound } from "./not-found";
 
 const RELATED_TAB_PAGE_SIZE = 25;
+/** Each related tab paginates under its own URL key. */
+const RELATED_PAGE_PREFIX = "relatedPage.";
 type Row = Record<string, unknown>;
 
 interface DetailCell {
@@ -69,9 +76,13 @@ function buildDetailCells<Row extends Record<string, unknown>>(
   return out;
 }
 
-function detailValue(value: unknown, cell: DetailCell | undefined): React.ReactNode {
+function detailValue(
+  value: unknown,
+  cell: DetailCell | undefined,
+  formatting: ResolvedFormatting,
+): React.ReactNode {
   if (cell?.node !== undefined) return cell.node;
-  if (cell?.format !== undefined) return renderColumnFormat(cell.format, value);
+  if (cell?.format !== undefined) return renderColumnFormat(cell.format, value, formatting);
   return formatFieldValue(value);
 }
 
@@ -166,20 +177,31 @@ export async function ResourceDetailPage({
 
   const editAction = (
     <Button asChild>
-      <a href={buildHref(config, name, id, "edit")}>
+      <Link href={buildHref(config, name, id, "edit")}>
         {config.labels?.actions?.edit ?? DEFAULT_LABELS.actions.edit}
-      </a>
+      </Link>
     </Button>
   );
 
   const cells = hasTabs ? null : buildDetailCells(resource, baseRow, reqCtx);
+  const formatting = resolveFormatting(config.formatting);
 
   return (
     <>
       {!canEdit ? <PageHeader title={title} /> : <PageHeader title={title} actions={editAction} />}
       {hasTabs ? (
         <DetailTabsClient
-          tabs={await renderTabs(config, reqCtx, resource, activeRow, visibleTabs, active)}
+          tabs={
+            await renderTabs(
+              config,
+              reqCtx,
+              resource,
+              activeRow,
+              visibleTabs,
+              active,
+              new URL(req.url).searchParams,
+            )
+          }
         />
       ) : (
         <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
@@ -188,7 +210,7 @@ export async function ResourceDetailPage({
               <KVRow
                 key={k}
                 label={resolveFieldLabel(cells?.get(k)?.label, k)}
-                value={detailValue(v, cells?.get(k))}
+                value={detailValue(v, cells?.get(k), formatting)}
               />
             ))}
           </KV>
@@ -261,13 +283,15 @@ async function renderTabs<Row extends Record<string, unknown>>(
   activeRow: Row,
   visible: DetailTab<Row>[],
   active: DetailTab<Row> | undefined,
+  sp: URLSearchParams,
 ): Promise<Array<{ key: string; label: string; content: React.ReactNode }>> {
   const out: Array<{ key: string; label: string; content: React.ReactNode }> = [];
   for (const tab of visible) {
     out.push({
       key: tab.key,
       label: tab.label,
-      content: tab === active ? await renderTab(config, reqCtx, resource, activeRow, tab) : null,
+      content:
+        tab === active ? await renderTab(config, reqCtx, resource, activeRow, tab, sp) : null,
     });
   }
   return out;
@@ -279,39 +303,61 @@ async function renderTab<Row extends Record<string, unknown>>(
   resource: ResourceConfig,
   row: Row,
   tab: DetailTab<Row>,
+  sp: URLSearchParams,
 ): Promise<React.ReactNode> {
   if (tab.render) return tab.render(row);
 
   if (tab.resource) {
     const target = config.resourcesByName.get(tab.resource);
     if (!target) {
+      // A configuration mistake, not a reader-facing state: name it plainly.
       return <div className="text-fp-text-3">Unknown resource: {tab.resource}</div>;
     }
-    const rows = (await readRelatedRows(config, target, reqCtx, {
-      filters: tab.filter ? tab.filter(row) : {},
-      pageSize: RELATED_TAB_PAGE_SIZE,
-    })) as Row[] | null;
-    if (!rows || rows.length === 0) {
-      return <div className="px-2 py-6 text-sm text-fp-text-3">No related rows</div>;
-    }
-    const targetCols = target.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>>;
+    const pageParam = `${RELATED_PAGE_PREFIX}${tab.key}`;
     const intro = config.adapter.introspect(target.ref);
+    const rowKey = (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+    // The fallback has to be a column the adapter will accept, so it is the
+    // introspected primary key rather than the configured display key.
+    const sort = (target.options.defaultSort as
+      | { field: string; dir: "asc" | "desc" }
+      | undefined) ?? { field: intro.primaryKey, dir: "asc" };
+    const filters = tab.filter ? tab.filter(row) : {};
+    const read = (page: number) =>
+      readRelatedPage(config, target, reqCtx, {
+        filters,
+        page,
+        pageSize: RELATED_TAB_PAGE_SIZE,
+        sort,
+      });
+
+    const requested = parsePage(sp.get(pageParam));
+    let result = await read(requested);
+    // A page past the end still has to lead back to the records that exist.
+    if (result && result.rows.length === 0 && result.total > 0) {
+      const last = Math.max(1, Math.ceil(result.total / result.pageSize));
+      if (last !== requested) result = await read(last);
+    }
+    const labels = mergeLabels(config.labels);
+    if (!result) {
+      return <div className="px-2 py-6 text-sm text-fp-text-3">{labels.noResults}</div>;
+    }
+    const rows = result.rows as Row[];
+    const targetCols = target.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>>;
     const metaByField = new Map(intro.columns.map((c) => [c.name, c]));
     const { columns, prerenderedCells } = prerenderResourceCells<Row>(targetCols, rows, reqCtx, {
       defaultSortable: false,
       metaByField,
     });
-    const rowKey = (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
     return (
-      <DataTable
+      <RelatedTabTable<Row>
+        pageParam={pageParam}
         columns={columns}
         rows={rows}
-        total={rows.length}
-        page={1}
-        pageSize={RELATED_TAB_PAGE_SIZE}
+        total={result.total}
+        page={result.page}
+        pageSize={result.pageSize}
         rowKey={rowKey as keyof Row & string}
         {...(prerenderedCells ? { prerenderedCells } : {})}
-        emptyTitle="No related rows"
       />
     );
   }
@@ -319,6 +365,7 @@ async function renderTab<Row extends Record<string, unknown>>(
   const selected = tab.fields;
   const fieldList = selectFields(row, selected);
   const cells = buildDetailCells(resource, row, reqCtx);
+  const formatting = resolveFormatting(config.formatting);
   return (
     <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
       <KV>
@@ -326,7 +373,7 @@ async function renderTab<Row extends Record<string, unknown>>(
           <KVRow
             key={name}
             label={resolveFieldLabel(label ?? cells.get(name)?.label, name)}
-            value={detailValue(row[name as keyof Row], cells.get(name))}
+            value={detailValue(row[name as keyof Row], cells.get(name), formatting)}
           />
         ))}
       </KV>

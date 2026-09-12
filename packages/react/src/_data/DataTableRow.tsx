@@ -1,6 +1,8 @@
 "use client";
+import type { ResolvedFormatting } from "@flowpanel/core/format";
 import { formatLabel } from "@flowpanel/core/labels";
 import type * as React from "react";
+import { useFormatting } from "../_provider/FormattingContext";
 import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 import { Checkbox } from "../ui/checkbox";
@@ -13,12 +15,13 @@ import type { PinMeta } from "./useColumnLayout";
 function renderCellContent<Row extends Record<string, unknown>>(
   c: DataTableColumn<Row>,
   r: Row,
-  rowKey: keyof Row & string,
+  rowId: string | null,
   prerendered: React.ReactNode | undefined,
   inlineEditResource: string | undefined,
+  formatting: ResolvedFormatting,
 ): React.ReactNode {
-  if (c.editable && inlineEditResource) {
-    const rowId = String(r[rowKey] ?? "");
+  // Without an identifier the update request has no row to address.
+  if (c.editable && inlineEditResource && rowId !== null) {
     return (
       <InlineEditCell
         resource={inlineEditResource}
@@ -31,15 +34,14 @@ function renderCellContent<Row extends Record<string, unknown>>(
   }
   if (prerendered !== undefined) return prerendered;
   if (c.render) return c.render(r);
-  return renderDefaultCell(c, r);
+  return renderDefaultCell(c, r, formatting);
 }
 
 export interface DataTableRowProps<Row extends Record<string, unknown>> {
   row: Row;
   rowIndex: number;
-  rowKeyValue: string;
+  rowKeyValue: string | null;
   entering?: boolean;
-  rowKey: keyof Row & string;
   active: boolean;
   orderedVisible: DataTableColumn<Row>[];
   pinMeta: Map<string, PinMeta>;
@@ -60,7 +62,6 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   rowIndex,
   rowKeyValue,
   entering,
-  rowKey,
   active,
   orderedVisible,
   pinMeta,
@@ -76,7 +77,8 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   rowEndCell,
 }: DataTableRowProps<Row>) {
   const labels = useLabels();
-  const isSelected = selectionEnabled && selectionSet.has(rowKeyValue);
+  const formatting = useFormatting();
+  const isSelected = selectionEnabled && rowKeyValue !== null && selectionSet.has(rowKeyValue);
   return (
     <tr
       aria-rowindex={rowIndex + 2}
@@ -97,9 +99,10 @@ export function DataTableRow<Row extends Record<string, unknown>>({
       {selectionEnabled ? (
         <td className={cn("px-4", rowPadding)}>
           <Checkbox
-            checked={selectionSet.has(rowKeyValue)}
-            aria-label={formatLabel(labels.table.selectRow, { id: rowKeyValue })}
-            onCheckedChange={() => onToggleRow(rowKeyValue)}
+            checked={isSelected}
+            disabled={rowKeyValue === null}
+            aria-label={formatLabel(labels.table.selectRow, { id: rowKeyValue ?? "" })}
+            onCheckedChange={() => rowKeyValue !== null && onToggleRow(rowKeyValue)}
             onClick={(e) => e.stopPropagation()}
           />
         </td>
@@ -114,7 +117,14 @@ export function DataTableRow<Row extends Record<string, unknown>>({
           prerenderedCells && originalColIdx !== undefined
             ? prerenderedCells[rowIndex]?.[originalColIdx]
             : undefined;
-        const cellContent = renderCellContent(c, row, rowKey, prerendered, inlineEditResource);
+        const cellContent = renderCellContent(
+          c,
+          row,
+          rowKeyValue,
+          prerendered,
+          inlineEditResource,
+          formatting,
+        );
         return (
           <td
             key={c.field}

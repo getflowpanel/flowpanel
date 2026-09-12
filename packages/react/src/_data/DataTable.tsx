@@ -144,16 +144,30 @@ export function DataTable<Row extends Record<string, unknown>>({
     ...(onSelectionChange ? { onSelectionChange } : {}),
     ...(getRowKey ? { getRowKey } : {}),
   });
-  const { selectionEnabled, keyOf, selectionSet, allOnPageSelected, toggleRow, toggleAll } =
+  const { selectionEnabled, identityOf, selectionSet, allOnPageSelected, toggleRow, toggleAll } =
     selectionApi;
   const enteringKeySet = React.useMemo(() => new Set(enteringRowKeys), [enteringRowKeys]);
 
   const tbodyRef = React.useRef<HTMLTableSectionElement>(null);
+  // Every keyboard shortcut acts on a row, so each obeys the identity rule the
+  // pointer already obeys: a row with no identifier is not a row to act on.
+  const onIdentified = React.useCallback(
+    (handler: ((row: Row) => void) | undefined) =>
+      handler
+        ? (row: Row) => {
+            if (identityOf(row) !== null) handler(row);
+          }
+        : undefined,
+    [identityOf],
+  );
+  const activateRow = React.useMemo(() => onIdentified(onRowClick), [onIdentified, onRowClick]);
+  const editRow = React.useMemo(() => onIdentified(onEditRow), [onIdentified, onEditRow]);
+  const deleteRow = React.useMemo(() => onIdentified(onDeleteRow), [onIdentified, onDeleteRow]);
   const keyboard = useDataTableKeyboard<Row>({
     rows,
-    ...(onRowClick ? { onRowClick } : {}),
-    ...(onEditRow ? { onEditRow } : {}),
-    ...(onDeleteRow ? { onDeleteRow } : {}),
+    ...(activateRow ? { onRowClick: activateRow } : {}),
+    ...(editRow ? { onEditRow: editRow } : {}),
+    ...(deleteRow ? { onDeleteRow: deleteRow } : {}),
     ...(onFocusSearch ? { onFocusSearch } : {}),
     ...(onShowShortcuts ? { onShowShortcuts } : {}),
   });
@@ -256,6 +270,17 @@ export function DataTable<Row extends Record<string, unknown>>({
           ) : null}
           {emptyAction ? <div className="mt-4">{emptyAction}</div> : null}
         </div>
+        {/* An empty page of a non-empty set still needs a way back to the rows. */}
+        {total > 0 ? (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            {...(onPageChange ? { onChange: onPageChange } : {})}
+            {...(pageSizeOptions ? { pageSizeOptions } : {})}
+            {...(onPageSizeChange ? { onPageSizeChange } : {})}
+          />
+        ) : null}
       </div>
     );
   }
@@ -327,39 +352,47 @@ export function DataTable<Row extends Record<string, unknown>>({
           // the table is tabbed to rather than only after an arrow press.
           onFocus={() => setCursor((c) => (c < 0 ? 0 : c))}
           tabIndex={0}
-          aria-label={onRowClick ? labels.table.rowsHint : labels.table.rowsReadOnlyHint}
+          aria-label={
+            activateRow && rows.some((row) => identityOf(row) !== null)
+              ? labels.table.rowsHint
+              : labels.table.rowsReadOnlyHint
+          }
           className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 focus-visible:ring-inset"
         >
-          {rows.map((r, idx) => (
-            <DataTableRow<Row>
-              key={keyOf(r)}
-              row={r}
-              rowIndex={(page - 1) * pageSize + idx}
-              rowKeyValue={keyOf(r)}
-              entering={enteringKeySet.has(keyOf(r))}
-              rowKey={rowKey}
-              active={idx === cursor}
-              orderedVisible={orderedVisible}
-              pinMeta={pinMeta}
-              colIndexByField={colIndexByField}
-              {...(prerenderedCells ? { prerenderedCells } : {})}
-              rowPadding={rowPadding}
-              cellText={cellText}
-              selectionEnabled={selectionEnabled}
-              selectionSet={selectionSet}
-              {...(inlineEditResource ? { inlineEditResource } : {})}
-              {...(onRowClick
-                ? {
-                    onRowClick: (row: Row) => {
-                      setCursor(idx);
-                      onRowClick(row);
-                    },
-                  }
-                : {})}
-              onToggleRow={toggleRow}
-              {...(rowEndCell ? { rowEndCell } : {})}
-            />
-          ))}
+          {rows.map((r, idx) => {
+            // A row the projection could not identify still renders, but nothing
+            // that would send its identity anywhere is offered on it.
+            const identity = identityOf(r);
+            return (
+              <DataTableRow<Row>
+                key={identity ?? `\u0000${idx}`}
+                row={r}
+                rowIndex={(page - 1) * pageSize + idx}
+                rowKeyValue={identity}
+                entering={identity !== null && enteringKeySet.has(identity)}
+                active={idx === cursor}
+                orderedVisible={orderedVisible}
+                pinMeta={pinMeta}
+                colIndexByField={colIndexByField}
+                {...(prerenderedCells ? { prerenderedCells } : {})}
+                rowPadding={rowPadding}
+                cellText={cellText}
+                selectionEnabled={selectionEnabled}
+                selectionSet={selectionSet}
+                {...(inlineEditResource ? { inlineEditResource } : {})}
+                {...(onRowClick && identity !== null
+                  ? {
+                      onRowClick: (row: Row) => {
+                        setCursor(idx);
+                        onRowClick(row);
+                      },
+                    }
+                  : {})}
+                onToggleRow={toggleRow}
+                {...(rowEndCell ? { rowEndCell } : {})}
+              />
+            );
+          })}
         </tbody>
       </table>
       <Pagination

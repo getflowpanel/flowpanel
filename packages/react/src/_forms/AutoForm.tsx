@@ -1,8 +1,10 @@
 "use client";
 import type { ColumnMeta } from "@flowpanel/core";
+import Link from "next/link";
 import * as React from "react";
 import { z } from "zod";
 import { DEFAULT_API_BASE, useApiBase } from "../_provider/ApiBaseContext";
+import { useLabels } from "../_provider/LabelsContext";
 import { humanize } from "../lib/humanize";
 import { Field } from "./Field";
 import { Form } from "./Form";
@@ -91,10 +93,13 @@ export interface AutoFormProps {
   columns?: ColumnMeta[];
   hide?: string[];
   defaultValues?: Record<string, unknown>;
+  /** Defaults to `labels.actions.save`. An explicit value wins, including `""`. */
   submitLabel?: string;
   className?: string;
   /** Client-side navigation target on a successful submit — see `FormProps.redirectTo`. */
   redirectTo?: string;
+  /** Renders a cancel link back to this record or its list. It never submits. */
+  cancelHref?: string;
 }
 
 export function AutoForm({
@@ -103,10 +108,12 @@ export function AutoForm({
   columns = [],
   hide = [],
   defaultValues,
-  submitLabel = "Save",
+  submitLabel,
   className,
   redirectTo,
+  cancelHref,
 }: AutoFormProps) {
+  const labels = useLabels();
   const introspected = columns.filter((c) => !c.primaryKey && !hide.includes(c.name));
   const names = fields ? fields.map((f) => f.name) : introspected.map((c) => c.name);
   const key = names.join(",");
@@ -169,7 +176,17 @@ export function AutoForm({
         </div>
       )}
       <FormError />
-      <FormSubmit>{submitLabel}</FormSubmit>
+      <div className="flex items-center gap-3">
+        <FormSubmit>{submitLabel ?? labels.actions.save}</FormSubmit>
+        {cancelHref ? (
+          <Link
+            href={cancelHref}
+            className="text-sm text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline"
+          >
+            {labels.actions.cancel}
+          </Link>
+        ) : null}
+      </div>
     </Form>
   );
 }

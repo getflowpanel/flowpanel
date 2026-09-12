@@ -24,7 +24,7 @@ describe("admin mount preflight", () => {
       'const opsConfig = defineAdmin({ paths: { admin: "/wrong" } }); export { actual as opsConfig } from "./actual";',
     );
     await write("actual.ts", 'export const actual = defineAdmin({ paths: { admin: "/ops" } });');
-    expect(await readAdminMount(root)).toEqual({ path: "/ops" });
+    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
   });
 
   it("uses the runtime legacy fallback when paths only configures the API", async () => {
@@ -32,7 +32,7 @@ describe("admin mount preflight", () => {
       "flowpanel.config.ts",
       'export default defineAdmin({ basePath: "/ops", paths: { api: "/api/internal" } });',
     );
-    expect(await readAdminMount(root)).toEqual({ path: "/ops" });
+    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/internal" });
   });
 
   it("never selects another default when a named config is re-exported", async () => {
@@ -41,7 +41,7 @@ describe("admin mount preflight", () => {
       "configs.ts",
       'export const opsConfig = defineAdmin({ paths: { admin: "/ops" } }); export default defineAdmin({ paths: { admin: "/elsewhere" } });',
     );
-    expect(await readAdminMount(root)).toEqual({ path: "/ops" });
+    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
   });
 
   it("finds a route-group collision before generating an optional catch-all", async () => {
@@ -115,7 +115,22 @@ describe("admin mount preflight", () => {
       "admin/config/index.ts",
       'throw new Error("must not execute"); export default defineAdmin({ paths: { admin: "/ops" } });',
     );
-    expect(await readAdminMount(root)).toEqual({ path: "/ops" });
+    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
+  });
+
+  it("reports a dynamic API mount as unknown rather than as the default", async () => {
+    await write(
+      "flowpanel.config.ts",
+      'export default defineAdmin({ paths: { admin: "/ops", api: process.env.API_PATH } });',
+    );
+    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: null });
+  });
+
+  it("defaults the API mount only when the config declares none", async () => {
+    await write("flowpanel.config.ts", 'export default defineAdmin({ paths: { admin: "/ops" } });');
+    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
+    await write("flowpanel.config.ts", 'export default defineAdmin({ basePath: "/ops" });');
+    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
   });
 
   it("does not guess /admin for a dynamic configured mount", async () => {
@@ -133,7 +148,7 @@ describe("admin mount preflight", () => {
       "admin/unrelated.test.ts",
       'const fixture = defineAdmin({ paths: { admin: "/different" } });',
     );
-    expect(await readAdminMount(root)).toEqual({ path: "/ops" });
+    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
   });
 
   it("refuses to infer a mount from an unresolved re-export or spread", async () => {

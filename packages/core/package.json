@@ -91,6 +91,16 @@
       }
     },
     "./package.json": "./package.json",
+    "./paths": {
+      "import": {
+        "types": "./dist/paths.d.ts",
+        "default": "./dist/paths.mjs"
+      },
+      "require": {
+        "types": "./dist/paths.d.cts",
+        "default": "./dist/paths.cjs"
+      }
+    },
     "./theme": {
       "import": {
         "types": "./dist/theme.d.ts",

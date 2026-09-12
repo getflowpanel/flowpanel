@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveCatchAllSegments } from "../flowpanel-page";
+import { decodeAtom, encodeAtom } from "../runtime/href";
 
 describe("resolveCatchAllSegments", () => {
   it("reads `slug` first when present", () => {
@@ -29,5 +30,30 @@ describe("resolveCatchAllSegments", () => {
 
   it("ignores non-array param values when probing", () => {
     expect(resolveCatchAllSegments({ id: "42", rest: ["edit"] })).toEqual(["edit"]);
+  });
+});
+
+describe("page catch-all segments", () => {
+  it("decodes exactly once, so an identifier arrives as itself", () => {
+    // Next hands page params over still encoded; the API catch-all does not.
+    const decoded = resolveCatchAllSegments({ slug: ["order", "a%2Fb"] }).map(decodeAtom);
+    expect(decoded).toEqual(["order", "a/b"]);
+    expect(decoded.map(decodeAtom)).toEqual(["order", "a/b"]);
+  });
+
+  it("keeps a literal percent sign addressable rather than throwing", () => {
+    expect(resolveCatchAllSegments({ slug: ["order", "100%25"] }).map(decodeAtom)).toEqual([
+      "order",
+      "100%",
+    ]);
+    expect(resolveCatchAllSegments({ slug: ["order", "100%"] }).map(decodeAtom)).toEqual([
+      "order",
+      "100%",
+    ]);
+  });
+
+  it("re-encodes to the URL the browser asked for", () => {
+    const slug = resolveCatchAllSegments({ slug: ["order", "caf%C3%A9"] }).map(decodeAtom);
+    expect(`/${slug.map(encodeAtom).join("/")}`).toBe("/order/caf%C3%A9");
   });
 });

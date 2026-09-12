@@ -12,7 +12,7 @@ export interface ListParams {
 export const MAX_PAGE = 100_000;
 
 /** Clamp `?page=` to a positive integer no larger than `MAX_PAGE`; non-finite/garbage → 1. */
-function parsePage(raw: string | null): number {
+export function parsePage(raw: string | null): number {
   const n = Number(raw);
   if (!Number.isFinite(n)) return 1;
   return Math.min(Math.max(Math.trunc(n), 1), MAX_PAGE);

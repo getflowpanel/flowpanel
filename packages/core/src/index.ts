@@ -6,7 +6,13 @@ export { resource } from "./builders/resource";
 export { custom, metric, statGroup, table } from "./builders/widget";
 export { isBuiltinBulkDelete } from "./compiler/builtin-bulk-delete";
 export { defineAdmin } from "./define-admin";
-export { formatColumnValue } from "./format-column";
+export {
+  DEFAULT_FORMATTING,
+  type FormattingConfig,
+  formatColumnValue,
+  type ResolvedFormatting,
+  resolveFormatting,
+} from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
 export { RU_LABELS } from "./locales/ru";
 export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";

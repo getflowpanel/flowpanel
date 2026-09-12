@@ -1,6 +1,6 @@
-import type { Adapter, ResourceOptions } from "@flowpanel/core";
+import type { Adapter, LabelsConfig, ResourceOptions } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
-import { PageHeader } from "@flowpanel/react";
+import { AutoForm, PageHeader } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ResourceCreatePage } from "../pages/resource-create";
@@ -36,10 +36,14 @@ const adapter: Adapter = {
   delete: async () => undefined,
 };
 
-async function titleFor(options: ResourceOptions<Record<string, unknown>>): Promise<unknown> {
+async function titleFor(
+  options: ResourceOptions<Record<string, unknown>>,
+  labels?: LabelsConfig,
+): Promise<unknown> {
   const config = defineAdmin({
     adapter,
     auth: { session: async () => null, role: () => "admin" },
+    ...(labels ? { labels } : {}),
     resources: [resource({ __name: "customers" }, options)],
   });
   const r = config.resourcesByName.get("customers");
@@ -86,5 +90,36 @@ describe("ResourceCreatePage title", () => {
 
   it("falls back to the resource name", async () => {
     await expect(titleFor({ columns: ["id"] })).resolves.toBe("New customers");
+  });
+
+  it("uses the configured heading template and its {label} slot", async () => {
+    await expect(
+      titleFor(
+        { columns: ["id"], labelOne: "Клиент" },
+        { form: { createTitle: "Новая запись: {label}" } },
+      ),
+    ).resolves.toBe("Новая запись: Клиент");
+  });
+});
+
+describe("ResourceCreatePage chrome", () => {
+  it("labels the submit button and the cancel link from the configuration", async () => {
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => null, role: () => "admin" },
+      labels: { actions: { create: "Создать", cancel: "Отмена" } },
+      resources: [resource({ __name: "customers" }, { columns: ["id"], labelOne: "Клиент" })],
+    });
+    const r = config.resourcesByName.get("customers");
+    if (!r) throw new Error("fixture: resource not registered");
+    const tree = await ResourceCreatePage({
+      config,
+      resource: r,
+      name: "customers",
+      req: new Request("http://localhost/admin/customers/new"),
+    });
+    const form = findElement(tree, AutoForm);
+    expect(form?.submitLabel).toBe("Создать");
+    expect(form?.cancelHref).toBe("/admin/customers");
   });
 });

@@ -33,7 +33,7 @@ export function ImportButton({ resource, formats, label }: ImportButtonProps) {
     setBusy(true);
     try {
       const content = await file.text();
-      const res = await fetch(`${apiBase}/${resource}/import`, {
+      const res = await fetch(`${apiBase}/${encodeURIComponent(resource)}/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ format, content }),

@@ -223,6 +223,7 @@ export {
 export { type UseTheme, type UseThemeOptions, useTheme } from "./hooks/useTheme";
 export { type UrlState, useUrlState } from "./hooks/useUrlState";
 export { cn } from "./lib/cn";
+export { withDeploymentBasePath } from "./lib/deployment-base";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format";
 export { humanize, resolveFieldLabel } from "./lib/humanize";
 export {

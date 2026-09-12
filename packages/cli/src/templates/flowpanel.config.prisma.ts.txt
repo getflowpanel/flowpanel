@@ -18,7 +18,7 @@ declare module "@flowpanel/kit" {
 }
 
 export default defineAdmin({
-  paths: { admin: "{{ADMIN_PATH}}", api: "/api/flowpanel" },
+  paths: { admin: "{{ADMIN_PATH}}", api: "{{API_PATH}}" },
   adapter: prismaAdapter({ prisma }),
 
   auth: {

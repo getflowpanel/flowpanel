@@ -190,6 +190,13 @@ calendar and table-count presentation, with a deterministic `en-US` fallback on
 both server and client. It does not change stored dates, query boundaries or
 your custom column formatters.
 
+`form` covers the generated create and edit pages: `createTitle` and `editTitle`
+accept `{label}` for the resource's singular label, and `selectPlaceholder`,
+`noOptions`, `searching` and `loadFailed` name the states of a select or a
+reference search. The submit button uses `actions.create` on a create form and
+`actions.save` on an edit form, and both pages offer a cancel link labelled with
+`actions.cancel` that returns to the record or its list without submitting.
+
 For a Russian admin, import `RU_LABELS` from `@flowpanel/kit` and pass
 `labels: RU_LABELS` to `defineConfig`. The preset is a complete object of plain
 strings, safe across the server/client boundary. Customize a nested group by
@@ -293,3 +300,54 @@ checking it:
 
 None of it is I/O: `introspect` is a synchronous
 read of a table object or DMMF, not a database round trip.
+
+### `basePath` and a Next.js deployment `basePath`
+
+`basePath` and `paths.api` are app-relative: they say where the admin sits inside
+your app, not where the app sits under a domain. If `next.config` sets its own
+`basePath`, leave both alone — Next serves and links everything under that prefix
+already.
+
+FlowPanel adds the deployment prefix for you to the requests the browser issues
+by itself: the client fetches built from `paths.api`, the generated form actions
+and the SSE endpoint. `Link`, router navigation and `revalidatePath` are prefixed
+by Next and are left untouched. Only a fetch you write yourself against
+`paths.api` needs the helper:
+
+```ts excerpt
+import { withDeploymentBasePath } from "@flowpanel/kit/react"; // or "@flowpanel/core/paths" on the server
+
+await fetch(`${withDeploymentBasePath(config.paths.api)}/user/u1/actions/verify`, {
+  method: "POST",
+});
+```
+
+### Formatting
+
+`formatting` decides how the admin renders values, on the server and in the
+browser alike:
+
+```ts excerpt
+formatting: { locale: "ru-RU", timeZone: "Europe/Moscow", currency: "RUB" },
+```
+
+`locale` governs the `number` and `money` column formats and the date shape;
+`currency` is the default for a `money` column that names none, and a column's own
+`currency` still wins. `timeZone` is what the server and the first paint use — after
+hydration a timestamp shows in the reader's own zone, which is what a
+`LocalTime` has always done.
+
+With no `locale`, dates keep the sortable `YYYY-MM-DD HH:mm` shape they had
+before, and numbers keep `en-US` grouping.
+
+### Identifiers in URLs
+
+Record identifiers are percent-encoded into the URL and decoded once when the page
+route reads them back, so an id containing `/`, `%`, `?`, `#` or a space addresses
+the record it names. Configured dashboard and page paths keep their separators —
+`/reports/weekly` stays two segments.
+
+A row whose projection did not include the key column is displayed but not treated
+as addressable: no selection, no inline editing, no row activation. Keep the key
+column in `columns`, or in `detail.tabs[].fields`, wherever the table has to act
+on rows.

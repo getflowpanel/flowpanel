@@ -3,11 +3,13 @@ import {
   assertResourceScope,
   authorizeOperation,
   checkRequireRole,
+  formatLabel,
+  mergeLabels,
   resolveOperationAccess,
 } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
-import { buildHref } from "../runtime/href";
+import { buildApiHref, buildHref } from "../runtime/href";
 import { buildRequestContext } from "../runtime/request-setup";
 import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
 import { singularLabel } from "../runtime/resource-title";
@@ -43,19 +45,23 @@ export async function ResourceCreatePage({
   }
 
   const intro = config.adapter.introspect(resource.ref);
-  const action = `${config.paths.api}/${name}/create`;
+  const action = buildApiHref(config, name, "create");
   const declared = declaredFormFields(resource, "create");
   const fields = declared ? await resolveFormFields(config, declared, reqCtx) : undefined;
 
+  const labels = mergeLabels(config.labels);
   return (
     <>
-      <PageHeader title={`New ${singularLabel(resource, name)}`} />
+      <PageHeader
+        title={formatLabel(labels.form.createTitle, { label: singularLabel(resource, name) })}
+      />
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
           columns={writableColumns(resource, intro.columns, declared)}
           {...(fields ? { fields } : {})}
-          submitLabel="Create"
+          submitLabel={labels.actions.create}
+          cancelHref={buildHref(config, name)}
           redirectTo={buildHref(config, name)}
         />
       </div>

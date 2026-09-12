@@ -41,6 +41,7 @@ import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
 import { resolveReferences } from "../runtime/resolve-references";
 import { pluralLabel } from "../runtime/resource-title";
+import { rowIdentity } from "../runtime/row-identity";
 import { scopeBinding } from "../runtime/scope-binding";
 import { buildResourceListCreateAction } from "./resource-list-create-action";
 
@@ -163,7 +164,10 @@ export async function ResourceListPage({
     softDelete && readable.operationalFields.includes(String(softDelete))
       ? (result.rows as Row[])
           .filter((row) => row[String(softDelete)] != null)
-          .map((row) => String(row[rowKey]))
+          .flatMap((row) => {
+            const id = rowIdentity(row, rowKey);
+            return id === null ? [] : [id];
+          })
       : undefined;
 
   const rawActions = await filterActionsByAccess(
@@ -175,6 +179,8 @@ export async function ResourceListPage({
   if (rawActions?.some((a) => a.hidden)) {
     const entries = await Promise.all(
       clientRows.map(async (row) => {
+        const id = rowIdentity(row, rowKey);
+        if (id === null) return null;
         const visible: SerializedRowAction[] = [];
         for (const [i, a] of rawActions.entries()) {
           const h = a.hidden;
@@ -182,10 +188,10 @@ export async function ResourceListPage({
           const s = serializedActions[i];
           if (s) visible.push(s);
         }
-        return [String(row[rowKey]), visible] as const;
+        return [id, visible] as const;
       }),
     );
-    rowActionsById = Object.fromEntries(entries);
+    rowActionsById = Object.fromEntries(entries.filter((entry) => entry !== null));
   }
   const rawBulkActions = await filterActionsByAccess(
     resource.options.bulkActions as BulkAction<Row>[] | undefined,

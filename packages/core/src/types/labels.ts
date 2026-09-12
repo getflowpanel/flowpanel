@@ -106,13 +106,35 @@ export interface LabelsConfig {
     delete?: string;
     restore?: string;
     new?: string;
+    create?: string;
     export?: string;
     import?: string;
+  };
+  /** Generated create and edit form chrome. */
+  form?: {
+    /** Edit page heading. Use `{label}` for the resource's singular label. */
+    editTitle?: string;
+    /** Create page heading. Use `{label}` for the resource's singular label. */
+    createTitle?: string;
+    /** The empty choice in a select control. */
+    selectPlaceholder?: string;
+    /** A reference search with nothing to offer. */
+    noOptions?: string;
+    /** A reference search still in flight. */
+    searching?: string;
+    /** A reference search that failed. */
+    loadFailed?: string;
   };
   /** Drawer chrome. */
   drawer?: {
     close?: string;
     viewDetails?: string;
+  };
+  /** The admin's own not-found page, for a URL no resource or dashboard matches. */
+  notFound?: {
+    title?: string;
+    description?: string;
+    back?: string;
   };
   /** Form-level error summary banner. */
   formError?: string;
@@ -145,6 +167,8 @@ export const DEFAULT_LABELS: {
   bulkBar: Required<NonNullable<LabelsConfig["bulkBar"]>>;
   searchPlaceholder: string;
   actions: Required<NonNullable<LabelsConfig["actions"]>>;
+  form: Required<NonNullable<LabelsConfig["form"]>>;
+  notFound: Required<NonNullable<LabelsConfig["notFound"]>>;
   drawer: Required<NonNullable<LabelsConfig["drawer"]>>;
   formError: string;
   confirm: Required<NonNullable<LabelsConfig["confirm"]>>;
@@ -242,10 +266,24 @@ export const DEFAULT_LABELS: {
     delete: "Delete",
     restore: "Restore",
     new: "New",
+    create: "Create",
     export: "Export",
     import: "Import",
   },
   drawer: { close: "Close", viewDetails: "Open full page →" },
+  form: {
+    editTitle: "Edit {label}",
+    createTitle: "New {label}",
+    selectPlaceholder: "Select…",
+    noOptions: "No options",
+    searching: "Searching…",
+    loadFailed: "Couldn't load options — please try again.",
+  },
+  notFound: {
+    title: "Page not found",
+    description: "The resource or dashboard you requested doesn't exist.",
+    back: "Back to admin",
+  },
   formError: "Please fix the errors above.",
   confirm: { title: "Are you sure?", ok: "Confirm", cancel: "Cancel" },
   palette: {
@@ -280,6 +318,8 @@ export function mergeLabels(user?: LabelsConfig): ResolvedLabels {
     filters: { ...DEFAULT_LABELS.filters, ...defined(user.filters ?? {}) },
     bulkBar: { ...DEFAULT_LABELS.bulkBar, ...defined(user.bulkBar ?? {}) },
     actions: { ...DEFAULT_LABELS.actions, ...defined(user.actions ?? {}) },
+    form: { ...DEFAULT_LABELS.form, ...defined(user.form ?? {}) },
+    notFound: { ...DEFAULT_LABELS.notFound, ...defined(user.notFound ?? {}) },
     drawer: { ...DEFAULT_LABELS.drawer, ...defined(user.drawer ?? {}) },
     confirm: { ...DEFAULT_LABELS.confirm, ...defined(user.confirm ?? {}) },
     palette: { ...DEFAULT_LABELS.palette, ...defined(user.palette ?? {}) },

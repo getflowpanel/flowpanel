@@ -3,6 +3,7 @@ import type { Adapter } from "./adapter";
 import type { CommandPaletteConfig } from "./command";
 import type { ErrorContext } from "./context";
 import type { DashboardConfig, PageConfig } from "./dashboard";
+import type { FormattingConfig } from "./formatting";
 import type { LabelsConfig } from "./labels";
 import type { AdminPaths, AdminPathsInput } from "./paths";
 import type { QueueConfig } from "./queue";
@@ -148,6 +149,8 @@ export interface AdminDefinition<
   shell?: ShellConfig | ShellMode;
   /** Override built-in UI strings. */
   labels?: LabelsConfig;
+  /** Locale, timezone and currency for numbers, money and timestamps. */
+  formatting?: FormattingConfig;
   /** Tables the admin manages. */
   resources?: Resources;
   /** Widget dashboards. */

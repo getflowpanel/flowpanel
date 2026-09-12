@@ -16,6 +16,7 @@ import type { SerializedBulkAction } from "../actions/bulk-action";
 import { RestoreButton } from "../actions/RestoreButton";
 import { RowActionsMenu } from "../actions/RowActionsMenu";
 import type { SerializedRowAction } from "../actions/row-action";
+import { rowIdentity } from "../runtime/row-identity";
 
 /** Thin wrapper around `<DataTable>` that wires realtime refresh and row-click drawer interaction. */
 export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown>> {
@@ -129,18 +130,17 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
         {...(openDrawerOnRowClick
           ? {
               onRowClick: (row: Row) => {
-                const id = row[rowKey];
-                if (id === undefined || id === null) return;
-                open({ resource, id: String(id) });
+                const id = rowIdentity(row, rowKey);
+                if (id === null) return;
+                open({ resource, id });
               },
             }
           : {})}
         {...(hasRowActions || hasRestore
           ? {
               rowEndCell: (row: Row) => {
-                const id = row[rowKey];
-                if (id === undefined || id === null) return null;
-                const idStr = String(id);
+                const idStr = rowIdentity(row, rowKey);
+                if (idStr === null) return null;
                 const acts = hasRowActions
                   ? (rowActionsById?.[idStr] ?? (rowActions as SerializedRowAction[]))
                   : [];

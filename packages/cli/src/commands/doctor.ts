@@ -50,14 +50,17 @@ export async function runDoctorChecks(
   const pmc = pmCommands(pm);
   const appDir = await detectAppDir(cwd);
   const aliasMode = await detectPathAlias(cwd);
+  const configured = await readAdminMount(cwd);
   const mount: AdminMount = options.adminPath
-    ? { path: normalizeAdminPath(options.adminPath) }
-    : await readAdminMount(cwd);
+    ? { path: normalizeAdminPath(options.adminPath), api: configured.api ?? null }
+    : configured;
+  const apiPath = mount.api ?? null;
   const overlapsGeneratedApi =
-    mount.path &&
-    (mount.path === "/api/flowpanel" ||
-      mount.path.startsWith("/api/flowpanel/") ||
-      "/api/flowpanel".startsWith(`${mount.path}/`));
+    mount.path !== undefined &&
+    apiPath !== null &&
+    (mount.path === apiPath ||
+      mount.path.startsWith(`${apiPath}/`) ||
+      apiPath.startsWith(`${mount.path}/`));
   const checks: Check[] = [];
   const compatibilityReport = await inspectProjectCompatibility(cwd);
   const compatibility = compatibilityReport.findings;
@@ -120,15 +123,24 @@ export async function runDoctorChecks(
   add("@flowpanel/kit matches this CLI", kitMismatch === null, kitMismatch ?? undefined);
   add("Admin mount configuration", !mount.error, mount.error);
 
-  for (const { relToAppDir, templateName, label, needsConfigImport } of FIXABLE_FILES) {
-    const isAdmin = templateName === "admin-page.tsx.txt";
+  for (const {
+    mount: mountKind,
+    relToMount,
+    templateName,
+    label,
+    needsConfigImport,
+  } of FIXABLE_FILES) {
+    const isAdmin = mountKind === "admin";
     if (isAdmin && !mount.path) continue;
+    // A configured but dynamic `paths.api` names files this run cannot know.
+    if (mountKind === "api" && apiPath === null) {
+      add(label, false, "paths.api is not a static string; pass its resolved URL to repair it.");
+      continue;
+    }
     const relDest =
-      relToAppDir === null
+      mountKind === null
         ? MIGRATION_REL_DEST
-        : isAdmin
-          ? `${appDir}${mount.path}/[[...slug]]/page.tsx`
-          : `${appDir}/${relToAppDir}`;
+        : `${appDir}${mountKind === "admin" ? mount.path : apiPath}/${relToMount}`;
     const dest = path.join(cwd, relDest);
     const exists = await fileExists(dest);
     const configImport = needsConfigImport

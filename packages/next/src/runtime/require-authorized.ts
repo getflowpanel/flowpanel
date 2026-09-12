@@ -46,12 +46,33 @@ export interface RelatedReadOptions {
  * `null` means the caller may not read `target` — each site decides whether
  * that degrades to empty or answers with an error.
  */
+export interface RelatedPage {
+  rows: Record<string, unknown>[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Rows only, for reference, drawer and widget consumers that never paginate. */
 export async function readRelatedRows(
   config: ResolvedAdminConfig,
   target: ResourceConfig,
   reqCtx: RequestContext,
   opts: RelatedReadOptions = {},
 ): Promise<Record<string, unknown>[] | null> {
+  return (await readRelatedPage(config, target, reqCtx, opts))?.rows ?? null;
+}
+
+/**
+ * The same authorized related read, with the adapter's own total, so a history
+ * longer than one page stays reachable.
+ */
+export async function readRelatedPage(
+  config: ResolvedAdminConfig,
+  target: ResourceConfig,
+  reqCtx: RequestContext,
+  opts: RelatedReadOptions = {},
+): Promise<RelatedPage | null> {
   try {
     requireAuthorized(config, target, reqCtx);
     await authorizeOperation(
@@ -63,11 +84,14 @@ export async function readRelatedRows(
     throw err;
   }
 
+  const page = opts.page ?? 1;
+  const pageSize = opts.pageSize ?? 20;
+  const empty: RelatedPage = { rows: [], total: 0, page, pageSize };
   const filters = opts.filters ?? {};
   const filterFields = Object.keys(filters);
   // A missing projected relationship value must not turn a related query into
   // an unfiltered list.
-  if (Object.values(filters).some((value) => value === undefined)) return [];
+  if (Object.values(filters).some((value) => value === undefined)) return empty;
   const requestedSearchFields = opts.searchFields ?? [];
   const requestedSortField = opts.sort?.field;
   const outputFields = declaredRowFields(target);
@@ -84,9 +108,9 @@ export async function readRelatedRows(
   );
   // Relationship filters are constraints, not optional user refinements. If
   // policy removes one, fail closed instead of widening the related result.
-  if (filterFields.some((field) => !readable.has(field))) return [];
+  if (filterFields.some((field) => !readable.has(field))) return empty;
   const searchFields = requestedSearchFields.filter((field) => readable.has(field));
-  if (requestedSearchFields.length > 0 && searchFields.length === 0) return [];
+  if (requestedSearchFields.length > 0 && searchFields.length === 0) return empty;
   const sort = opts.sort && readable.has(opts.sort.field) ? opts.sort : null;
   const projectedFields = [...outputFields].filter((field) => readable.has(field));
   const select = selectKnownFields(projectedFields, config.adapter.introspect(target.ref).columns);
@@ -100,8 +124,8 @@ export async function readRelatedRows(
     signal: new AbortController().signal,
     filters,
     sort: sort as ListQueryContext<unknown>["sort"],
-    page: opts.page ?? 1,
-    pageSize: opts.pageSize ?? 20,
+    page,
+    pageSize,
     search: searchFields.length > 0 ? (opts.search ?? "") : "",
     ...(searchFields.length > 0 ? { searchFields } : {}),
     select,
@@ -114,7 +138,13 @@ export async function readRelatedRows(
   const result = await runWithRequestContext(reqCtx, () =>
     config.adapter.list(target.ref, listCtx),
   );
-  return (result.rows as Record<string, unknown>[]).map((row) =>
+  const rows = (result.rows as Record<string, unknown>[]).map((row) =>
     projectRowFields(row, projectedFields),
   );
+  return {
+    rows,
+    total: result.total ?? rows.length,
+    page: result.page ?? page,
+    pageSize: result.pageSize ?? pageSize,
+  };
 }

@@ -1,7 +1,8 @@
 import type { Adapter, ItemQueryContext } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
-import { DetailTabsClient } from "@flowpanel/next/client";
-import { DataTable, KVRow, PageHeader } from "@flowpanel/react";
+import { DetailTabsClient, RelatedTabTable } from "@flowpanel/next/client";
+import { KVRow, PageHeader } from "@flowpanel/react";
+import Link from "next/link";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ResourceDetailPage } from "../pages/resource-detail";
@@ -335,7 +336,8 @@ describe("ResourceDetailPage — row projection", () => {
       req: new Request("http://localhost/admin/users/1"),
     });
     const actions = findAllElements(node, PageHeader)[0]?.actions as ReactNode;
-    const links = findAllElements(actions, "a");
+    // A Next Link, not a bare anchor: it carries the deployment basePath.
+    const links = findAllElements(actions, Link);
     expect(links).toHaveLength(shown ? 1 : 0);
     if (shown) {
       expect(links[0]?.children).toBe("Редактировать");
@@ -477,7 +479,7 @@ describe("ResourceDetailPage — row projection", () => {
     });
 
     // DetailTabsClient receives pre-rendered `content` per tab; walk into it.
-    const dataTables = findAllElements(node, DataTable) as {
+    const dataTables = findAllElements(node, RelatedTabTable) as {
       rows: Record<string, unknown>[];
     }[];
     expect(dataTables).toHaveLength(1);
@@ -520,7 +522,7 @@ describe("ResourceDetailPage — row projection", () => {
       req: new Request("http://localhost/admin/users/1"),
     });
 
-    expect(findAllElements(node, DataTable)).toHaveLength(0);
+    expect(findAllElements(node, RelatedTabTable)).toHaveLength(0);
   });
 
   it("detail tab with fields: '*' (no tab.resource) drops undeclared fields", async () => {
