@@ -5,8 +5,9 @@ import {
   resolveFormatting,
 } from "./types/formatting";
 import type { ColumnFormat } from "./types/resource";
+import type { NumericFormat } from "./types/widget";
 
-export type { ColumnFormat, FormattingConfig, ResolvedFormatting };
+export type { ColumnFormat, FormattingConfig, NumericFormat, ResolvedFormatting };
 export { DEFAULT_FORMATTING, resolveFormatting };
 
 const NUMBER_FMTS = new Map<string, Intl.NumberFormat>();
@@ -53,4 +54,49 @@ export function formatColumnValue(
     return moneyFmt(locale, format.currency ?? currency).format(n / scale);
   }
   return String(value);
+}
+
+/**
+ * Format the `NumericFormat` variants a widget declares. Locale and currency both
+ * come from the admin's resolved `formatting`, so one dashboard never prints two
+ * currencies for the same money.
+ */
+export function formatNumber(
+  value: number,
+  format: NumericFormat = "number",
+  formatting: ResolvedFormatting = DEFAULT_FORMATTING,
+): string {
+  if (!Number.isFinite(value)) return String(value);
+  const { locale, currency } = formatting;
+  switch (format) {
+    case "currency":
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+      }).format(value);
+    case "percent":
+      return new Intl.NumberFormat(locale, {
+        style: "percent",
+        maximumFractionDigits: 1,
+      }).format(value);
+    case "bytes": {
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let i = 0;
+      let n = value;
+      while (n >= 1024 && i < units.length - 1) {
+        n /= 1024;
+        i++;
+      }
+      return `${n.toFixed(n >= 10 ? 0 : 1)} ${units[i]}`;
+    }
+    case "duration": {
+      const s = Math.round(value / 1000);
+      if (s < 60) return `${s}s`;
+      if (s < 3600) return `${Math.round(s / 60)}m`;
+      return `${(s / 3600).toFixed(1)}h`;
+    }
+    default:
+      return numberFmt(locale).format(value);
+  }
 }

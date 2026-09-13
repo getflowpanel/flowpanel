@@ -1,6 +1,8 @@
 import type {
+  MetricResult,
   RequestContext,
   ResolvedAdminConfig,
+  TableWidgetOptions,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
@@ -12,6 +14,12 @@ import {
   resolveReadableFieldSet,
 } from "../runtime/readable-fields";
 import { readRelatedRows } from "../runtime/require-authorized";
+import { type SerializedCardWidget, serializeCardWidget } from "./serialize-cards";
+
+/** A widget column is a bare key or an object naming one; the wire needs the key. */
+function columnFields(columns: TableWidgetOptions["columns"]): string[] {
+  return (columns ?? []).map((column) => (typeof column === "string" ? column : column.field));
+}
 
 /** Wire-safe shape of a drawer widget. */
 export type SerializedWidget =
@@ -41,6 +49,7 @@ export type SerializedWidget =
       span?: number;
       realtime?: string | string[];
     }
+  | SerializedCardWidget
   | {
       kind: "chart";
       subkind: "area" | "bar" | "line" | "pie";
@@ -60,14 +69,18 @@ export async function serializeWidget(
   try {
     switch (w.kind) {
       case "metric": {
-        const value = await runWithRequestContext(reqCtx, () => w.query(widgetCtx));
+        const produced = await runWithRequestContext(reqCtx, () => w.query(widgetCtx));
+        const result: MetricResult =
+          typeof produced === "object" && produced !== null ? produced : { value: produced };
+        const sublabel = result.sublabel ?? w.options.sublabel;
+        const tone = result.tone ?? w.options.tone;
         return {
           kind: "metric",
           label: w.label,
-          value,
+          value: result.value,
           ...(w.options.format ? { format: w.options.format } : {}),
-          ...(w.options.sublabel ? { sublabel: w.options.sublabel } : {}),
-          ...(w.options.tone ? { tone: w.options.tone } : {}),
+          ...(sublabel ? { sublabel } : {}),
+          ...(tone ? { tone } : {}),
           ...(w.options.span ? { span: w.options.span } : {}),
           ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
         };
@@ -85,13 +98,16 @@ export async function serializeWidget(
           const related = target
             ? await readRelatedRows(config, target, reqCtx, {
                 pageSize: w.options.limit ?? 10,
-                extraFields: w.options.columns ?? [],
+                extraFields: columnFields(w.options.columns),
               })
             : null;
           if (!target || !related) {
             readableResourceFields = new Set();
           } else {
-            const candidates = [...(target.options.columns ?? []), ...(w.options.columns ?? [])]
+            const candidates = [
+              ...(target.options.columns ?? []),
+              ...columnFields(w.options.columns),
+            ]
               .map(declaredFieldName)
               .filter((field): field is string => field !== null);
             readableResourceFields = await resolveReadableFieldSet(
@@ -116,7 +132,7 @@ export async function serializeWidget(
           }
         }
         if (w.options.columns && w.options.columns.length > 0) {
-          columns = w.options.columns
+          columns = columnFields(w.options.columns)
             .filter((field) => !readableResourceFields || readableResourceFields.has(field))
             .map((field) => ({ field }));
         } else if (columns.length === 0 && rows[0]) {
@@ -176,11 +192,14 @@ export async function serializeWidget(
           ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
         };
       }
-      default:
+      default: {
+        const card = await serializeCardWidget(w, config, reqCtx, widgetCtx);
+        if (card) return card;
         return {
           kind: "unsupported",
-          reason: "custom widgets are not supported in drawer tabs",
+          reason: `${w.kind} widgets are not supported in drawers yet`,
         };
+      }
     }
   } catch (err) {
     return {

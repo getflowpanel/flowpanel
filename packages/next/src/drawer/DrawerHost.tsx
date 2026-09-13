@@ -29,7 +29,9 @@ import type { ActionFormField, ActionFormFieldErrors } from "../actions/action-f
 import { useActionRunner } from "../actions/use-action-runner";
 import { formatFieldValue } from "../runtime/format-field-value";
 import { toWireOptions } from "../runtime/select-options";
+import { DrawerCard, isCardWidget } from "./DrawerCard";
 import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route";
+import type { SerializedField, SerializedFieldList } from "./serialize-fields";
 
 function toActionFormFields(form: SerializedDrawerAction["form"]): ActionFormField[] {
   if (!form) return [];
@@ -42,10 +44,10 @@ function toActionFormFields(form: SerializedDrawerAction["form"]): ActionFormFie
 
 function resolveFieldEntries(
   row: Record<string, unknown>,
-  fields: "*" | string[],
-): [string, unknown][] {
-  if (fields === "*") return Object.entries(row);
-  return fields.map((k) => [k, row[k]]);
+  fields: SerializedFieldList,
+): SerializedField[] {
+  if (fields === "*") return Object.keys(row).map((name) => ({ name }));
+  return fields;
 }
 
 function FieldsView({
@@ -56,7 +58,7 @@ function FieldsView({
   formats,
 }: {
   row: Record<string, unknown>;
-  fields: "*" | string[];
+  fields: SerializedFieldList;
   prerendered: Record<string, string>;
   labels: Record<string, string>;
   formats: Record<string, ColumnFormat>;
@@ -64,18 +66,18 @@ function FieldsView({
   const entries = resolveFieldEntries(row, fields);
   return (
     <KV>
-      {entries.map(([k, v]) => (
+      {entries.map(({ name: k, label }) => (
         <KVRow
           key={k}
-          label={labels[k] ?? humanize(k)}
+          label={label ?? labels[k] ?? humanize(k)}
           value={
             prerendered[k] !== undefined ? (
               // biome-ignore lint/security/noDangerouslySetInnerHtml: server-prerendered from the resource's own column render
               <span dangerouslySetInnerHTML={{ __html: prerendered[k] }} />
             ) : formats[k] !== undefined ? (
-              renderFormatCell(formats[k], v)
+              renderFormatCell(formats[k], row[k])
             ) : (
-              formatFieldValue(v)
+              formatFieldValue(row[k])
             )
           }
         />
@@ -216,6 +218,14 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
                   ))}
                 </div>
               </div>
+              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
+            </Fragment>
+          );
+        }
+        if (isCardWidget(w)) {
+          return (
+            <Fragment key={key}>
+              <DrawerCard widget={w} />
               {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
             </Fragment>
           );

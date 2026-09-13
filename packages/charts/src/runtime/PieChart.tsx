@@ -20,7 +20,7 @@ export function PieChart({ data, options }: { data: unknown[]; options: PieChart
         {options.tooltip !== false ? (
           <Tooltip {...buildTooltipProps(options.format, options.tooltip)} />
         ) : null}
-        {options.showLegend ? <Legend {...LEGEND_PROPS} /> : null}
+        {options.showLegend !== false ? <Legend {...LEGEND_PROPS} /> : null}
         <Pie
           data={data as object[]}
           dataKey={options.value}

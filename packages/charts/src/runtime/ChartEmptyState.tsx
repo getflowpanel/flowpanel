@@ -1,8 +1,10 @@
 "use client";
+import { useLabels } from "@flowpanel/react";
 
 /** Rendered by every runtime chart when the query returns zero rows —
     a blank axis frame reads as a bug, this reads as a state. */
 export function ChartEmptyState({ height }: { height: number }) {
+  const labels = useLabels();
   return (
     <div
       className="flex w-full flex-col items-center justify-center gap-2 rounded-fp border border-dashed border-fp-border-2 text-fp-text-3"
@@ -20,7 +22,7 @@ export function ChartEmptyState({ height }: { height: number }) {
         <rect x="11" y="6" width="5" height="13" rx="1.5" fill="currentColor" opacity="0.7" />
         <rect x="21" y="1" width="5" height="18" rx="1.5" fill="currentColor" />
       </svg>
-      <span className="text-xs font-medium">No data yet</span>
+      <span className="text-xs font-medium">{labels.widget.empty}</span>
     </div>
   );
 }

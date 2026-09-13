@@ -61,9 +61,12 @@ export function declaredDetailBaseFields(resource: ResourceConfig): Set<string> 
 export function declaredDetailPolicyFields(resource: ResourceConfig): Set<string> {
   const fields = declaredDetailBaseFields(resource);
   const detail = resource.options.detail as
-    | { tabs?: ReadonlyArray<{ fields?: unknown }> }
+    | { tabs?: ReadonlyArray<{ fields?: unknown; sections?: ReadonlyArray<{ fields?: unknown }> }> }
     | undefined;
-  for (const tab of detail?.tabs ?? []) addFieldList(fields, tab?.fields);
+  for (const tab of detail?.tabs ?? []) {
+    addFieldList(fields, tab?.fields);
+    for (const section of tab?.sections ?? []) addFieldList(fields, section?.fields);
+  }
   return fields;
 }
 

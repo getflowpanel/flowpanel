@@ -46,7 +46,7 @@ export const DEFAULT_DOC_CONTRACTS = [
     typeName: "TableWidgetOptions",
     member: "limit",
     value: "10",
-    consumerFile: "packages/next/src/runtime/render-widget.tsx",
+    consumerFile: "packages/next/src/runtime/render-table-widget.tsx",
     consumerExpression: "pageSize: widget.options.limit ?? 10",
   },
   {
@@ -66,9 +66,9 @@ export const DEFAULT_DOC_CONTRACTS = [
   {
     typeName: "PieChartOptions",
     member: "showLegend",
-    value: "false",
+    value: "true",
     consumerFile: "packages/charts/src/runtime/PieChart.tsx",
-    consumerExpression: "options.showLegend ? <Legend",
+    consumerExpression: "options.showLegend !== false ? <Legend",
   },
   {
     typeName: "DrawerConfig",
@@ -78,10 +78,24 @@ export const DEFAULT_DOC_CONTRACTS = [
     consumerExpression: 'drawer.width ?? "lg"',
   },
   {
+    typeName: "KvOptions",
+    member: "columns",
+    value: "2",
+    consumerFile: "packages/react/src/_widgets/KvCard.tsx",
+    consumerExpression: "columns = 2",
+  },
+  {
+    typeName: "MetricDelta",
+    member: "goodWhen",
+    value: '"up"',
+    consumerFile: "packages/react/src/_widgets/MetricCardDefault.tsx",
+    consumerExpression: 'delta.goodWhen === "down" ? delta.value <= 0 : delta.value >= 0',
+  },
+  {
     typeName: "CommandPaletteConfig",
     member: "placeholder",
     value: '"Search resources, actions…"',
-    consumerFile: "packages/core/src/types/labels.ts",
+    consumerFile: "packages/core/src/types/labels/defaults.ts",
     consumerExpression: 'placeholder: "Search resources, actions…"',
   },
   {

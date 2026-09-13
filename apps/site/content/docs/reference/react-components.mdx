@@ -161,8 +161,14 @@ resolves into.
 | Export | Purpose |
 | --- | --- |
 | `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. |
+| `StatCard` | Renders a `stat()` widget — one number, a hint and an optional link. |
 | `StatGroupCard` | Renders a `statGroup()` widget. |
+| `KvCard` | Renders a `kv()` widget as a label/value grid. |
+| `BarsCard` | Renders a `bars()` widget, sizing each bar against the largest row. |
+| `FunnelCard` | Renders a `funnel()` widget, deriving each step's share and drop-off. |
+| `ListCard` | Renders a `list()` widget as a short feed. |
 | `TableWidget` | Renders a `table()` widget, reusing `DataTable`. |
+| `DashboardRefresh` | Re-renders a dashboard on its `refresh` interval and stamps the numbers' age. |
 | `CustomWidget` | Wraps a `custom()` widget's component with the shared widget frame. |
 
 ### Layout primitives
@@ -257,6 +263,10 @@ the URL state a drawer's open/closed state and active tab live in.
 
 **`useDashboardParam(key, schema, fallback)`** — type-safe reader/writer for
 one dashboard URL search param, validated against a Zod schema.
+
+**`useRowNavigation()`** — returns `(href: string) => void`, the push a clicked
+table row performs. `TableWidget` uses it for `table()`'s `rowHref`; use it for
+your own row navigation so every table pushes the same way.
 
 **`useMediaQuery(query)`** — subscribes to a CSS media query via
 `useSyncExternalStore`, with a server snapshot of `false` so SSR and first

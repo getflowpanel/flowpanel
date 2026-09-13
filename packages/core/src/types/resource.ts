@@ -9,7 +9,7 @@ import type { IconName } from "./icon";
 import type { FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec, ResourceName } from "./registry";
 import type { Scope, Session } from "./session";
-import type { Tone } from "./widget";
+import type { Tone, WidgetConfig, WidgetContext } from "./widget";
 
 export type { DrawerConfig };
 
@@ -142,6 +142,13 @@ export interface FieldDef<Row> {
   group?: string;
 }
 
+/**
+ * What a `DetailTab.render` callback is handed alongside the row: the widget
+ * context minus the parts a detail tab has no business with.
+ */
+export interface DetailTabContext
+  extends Pick<WidgetContext, "db" | "session" | "dateRange" | "href" | "labels" | "query"> {}
+
 export interface DetailTab<Row> {
   /** Stable identifier, stored in the URL's `?tab=` search parameter. */
   key: string;
@@ -151,12 +158,24 @@ export interface DetailTab<Row> {
   hidden?: (row: Row) => boolean;
   /** Field list to render as a key/value view. `"*"` shows every column. */
   fields?: (keyof Row | FieldDef<Row>)[] | "*";
+  /** Grouped key/value fields, one block per entry. Wins over `fields`. */
+  sections?: Array<{ label: string; fields: (keyof Row | FieldDef<Row>)[] }>;
   /** Render rows of a related resource instead of fields. */
   resource?: ResourceName;
   /** Filter applied to `resource`, derived from the row being viewed. */
   filter?: (row: Row) => Record<string, unknown>;
-  /** Render arbitrary content instead of fields or a related resource. */
-  render?: (row: Row) => ReactNode;
+  /** Related-tab columns to omit, typically the parent foreign key. */
+  hide?: string[];
+  /** Related-tab default sort; falls back to the target's `defaultSort`, then its primary key. */
+  sort?: { field: string; dir: "asc" | "desc" };
+  /** Dashboard widgets with `ctx.row` set to the record being viewed. */
+  widgets?: WidgetConfig[];
+  /** Grid columns for `widgets`.
+   * @defaultValue 2
+   */
+  columns?: 1 | 2 | 3 | 4 | 6 | 12;
+  /** Render arbitrary content instead of fields, widgets or a related resource. */
+  render?: (row: Row, ctx: DetailTabContext) => ReactNode;
 }
 
 /** One page of rows, as returned by `Adapter.list`. */
@@ -229,8 +248,14 @@ export interface ResourceOptions<Row> {
      * filters, or custom detail renderers. They never widen list rows.
      */
     expose?: (keyof Row & string)[];
-    /** Heading content (inside h1). Receives declared, readable detail fields; nullish output uses the default title. */
+    /** Heading content (inside h1). Receives declared, readable detail fields; nullish output uses `<label> · <pk>`. */
+    title?: (row: Row) => ReactNode | string | null | undefined;
+    /** @deprecated Use `title`. Removed in 1.0. */
     header?: (row: Row) => ReactNode;
+    /** One line under the heading, for the fact that identifies the record. */
+    subtitle?: (row: Row) => string | null | undefined;
+    /** Status pill beside the heading. */
+    badge?: (row: Row) => { label: string; tone?: Tone } | null | undefined;
     tabs?: DetailTab<Row>[];
     fields?: (keyof Row | FieldDef<Row>)[] | "*";
   };

@@ -7,3 +7,5 @@ expectType<ResolvedLabels>(rootLabels);
 expectAssignable<LabelsConfig>(RU_LABELS);
 expectType<string>(RU_LABELS.dateRange.today);
 expectType<string>(RU_LABELS.navigation.accountMenu);
+expectType<string>(RU_LABELS.related.openList);
+expectType<string>(RU_LABELS.detail.unknownResource);

@@ -46,6 +46,12 @@ export interface DashboardConfig {
   dateRange?: DateRangeConfig;
   /** SSE channel(s) the whole dashboard subscribes to, independent of any widget. */
   realtime?: string | string[];
+  /**
+   * Re-render the whole dashboard on an interval, e.g. `"60s"` or `"5m"`, and
+   * show how old the numbers are next to the date picker. Paused while the tab
+   * is hidden.
+   */
+  refresh?: `${number}s` | `${number}m`;
   /** Widget bands, rendered top to bottom. */
   sections: SectionConfig[];
   /** Optional top-bar action buttons rendered in the dashboard page header. */

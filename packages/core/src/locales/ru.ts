@@ -100,6 +100,11 @@ export const RU_LABELS: ResolvedLabels = {
     import: "Импорт",
   },
   drawer: { close: "Закрыть", viewDetails: "Открыть страницу →" },
+  detail: {
+    noFields: "Нет полей для показа",
+    unknownResource: "Неизвестный ресурс: {resource}",
+  },
+  related: { openList: "Открыть список →" },
   form: {
     editTitle: "Редактирование: {label}",
     createTitle: "Новая запись: {label}",
@@ -115,6 +120,15 @@ export const RU_LABELS: ResolvedLabels = {
   },
   formError: "Исправьте ошибки в форме.",
   confirm: { title: "Подтвердите действие", ok: "Подтвердить", cancel: "Отмена" },
+  widget: {
+    empty: "Пока нет данных",
+    seeAll: "Показать все",
+    updated: "Обновлено {ago}",
+    justNow: "только что",
+    secondsAgo: "{n} с назад",
+    minutesAgo: "{n} мин назад",
+    chartsMissing: "Пакет charts не установлен — выполните `pnpm add @flowpanel/charts`.",
+  },
   palette: {
     placeholder: "Команда или раздел…",
     noResults: "Ничего не найдено",

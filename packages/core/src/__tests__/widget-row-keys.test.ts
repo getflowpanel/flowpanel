@@ -1,6 +1,12 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { table } from "../builders/widget";
-import type { BarChartOptions, PieChartOptions, RowKey, TableWidgetOptions } from "../index";
+import type {
+  BarChartOptions,
+  PieChartOptions,
+  RowKey,
+  TableWidgetOptions,
+  WidgetColumn,
+} from "../index";
 
 type Row = { model: string; confidence: number };
 
@@ -17,13 +23,25 @@ describe("RowKey", () => {
 describe("table()", () => {
   it("infers the row type from `query` and keys `columns` to it", () => {
     expectTypeOf<TableWidgetOptions<Row>["columns"]>().toEqualTypeOf<
-      ("model" | "confidence")[] | undefined
+      Array<"model" | "confidence" | WidgetColumn<Row>> | undefined
     >();
   });
 
   it("accepts any column string when no `query` supplies a row type", () => {
-    expectTypeOf<TableWidgetOptions["columns"]>().toEqualTypeOf<string[] | undefined>();
+    expectTypeOf<TableWidgetOptions["columns"]>().toEqualTypeOf<
+      Array<string | WidgetColumn> | undefined
+    >();
     const w = table({ resource: "runs", columns: ["id"], limit: 10 });
+    expectTypeOf(w.kind).toEqualTypeOf<"table">();
+  });
+
+  it("keys a column object's `field` to the row type too", () => {
+    expectTypeOf<WidgetColumn<Row>["field"]>().toEqualTypeOf<"model" | "confidence">();
+    const w = table<Row>({
+      query: async () => [],
+      columns: ["model", { field: "confidence", label: "Confidence", format: "number" }],
+      rowKey: "model",
+    });
     expectTypeOf(w.kind).toEqualTypeOf<"table">();
   });
 });

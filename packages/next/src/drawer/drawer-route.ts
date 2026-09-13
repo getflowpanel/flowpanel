@@ -4,7 +4,6 @@ import type {
   ColumnFormat,
   DrawerAction,
   DrawerConfig,
-  DrawerFieldList,
   DrawerTab,
   ItemQueryContext,
   RequestContext,
@@ -39,10 +38,12 @@ import {
 } from "../runtime/readable-fields";
 import { readRelatedRows } from "../runtime/require-authorized";
 import { scopeBinding } from "../runtime/scope-binding";
+import { buildWidgetContext } from "../runtime/widget-context";
 import { withGuards } from "../runtime/with-guards";
+import { type SerializedFieldList, serializeFields } from "./serialize-fields";
 import { type SerializedWidget, serializeWidget } from "./serialize-widget";
 
-export type { SerializedWidget };
+export type { SerializedFieldList, SerializedWidget };
 
 /** Wire-safe shape of `DrawerAction`. */
 export interface SerializedDrawerAction {
@@ -55,7 +56,7 @@ export interface SerializedDrawerAction {
 }
 
 export type SerializedDrawerTab =
-  | { kind: "fields"; key: string; label: string; fields: "*" | string[] }
+  | { kind: "fields"; key: string; label: string; fields: SerializedFieldList }
   | {
       kind: "resource";
       key: string;
@@ -77,7 +78,7 @@ export interface DrawerPayload {
   /** The resource's display label, so the drawer never shows the raw registry name. */
   resourceLabel: string;
   width: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
-  fields: "*" | string[];
+  fields: SerializedFieldList;
   tabs: SerializedDrawerTab[] | null;
   actions: SerializedDrawerAction[];
   /** Field → HTML for fields whose column declares a `render`. */
@@ -147,17 +148,6 @@ async function prerenderRowFields(
   return out;
 }
 
-/** Flatten a declared drawer field list and apply the request's canonical read policy. */
-function serializeFields(
-  fields: DrawerFieldList<Record<string, unknown>>,
-  readable: ReadonlySet<string>,
-): "*" | string[] {
-  if (fields === "*") return "*";
-  return fields
-    .map((f) => (typeof f === "object" && f !== null ? f.name : String(f)))
-    .filter((field) => field !== "" && readable.has(field));
-}
-
 function serializeAction(a: DrawerAction): SerializedDrawerAction {
   const out: SerializedDrawerAction = { key: a.key, label: a.label };
   if (a.variant !== undefined) out.variant = a.variant;
@@ -184,12 +174,13 @@ async function serializeTab(
     };
   }
   if ("widgets" in tab) {
-    const widgetCtx: WidgetContext = {
-      db: config.adapter.db,
-      session: reqCtx.session,
-      dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
+    const widgetCtx: WidgetContext = buildWidgetContext(
+      config,
+      reqCtx,
       req,
-    };
+      { from: new Date(0), to: new Date(), preset: "custom" },
+      row,
+    );
     const widgets: SerializedWidget[] = [];
     for (const w of tab.widgets) {
       widgets.push(await serializeWidget(w, config, reqCtx, widgetCtx));

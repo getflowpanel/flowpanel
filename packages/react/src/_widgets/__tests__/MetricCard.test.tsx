@@ -47,6 +47,29 @@ describe("MetricCard", () => {
     expect(screen.getByText(/prev week/)).toBeTruthy();
   });
 
+  it("reads a fall as good news for goodWhen: down", () => {
+    const { container } = render(
+      <MetricCard
+        label="Churn"
+        value={3}
+        delta={{ value: -0.2, vs: "prev week", goodWhen: "down" }}
+      />,
+    );
+    expect(container.querySelector(".text-fp-ok-text")).toBeTruthy();
+    expect(screen.getByText(/▼/)).toBeTruthy();
+  });
+
+  it("reads a rise as bad news for goodWhen: down", () => {
+    const { container } = render(
+      <MetricCard
+        label="Churn"
+        value={3}
+        delta={{ value: 0.2, vs: "prev week", goodWhen: "down" }}
+      />,
+    );
+    expect(container.querySelector(".text-fp-err-text")).toBeTruthy();
+  });
+
   it("renders icon when given", () => {
     render(<MetricCard label="Users" value={1} icon="👥" />);
     expect(screen.getByText("👥")).toBeTruthy();

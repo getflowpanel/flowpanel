@@ -46,4 +46,26 @@ describe("PageHeader", () => {
     render(<PageHeader title="X" breadcrumbs={[]} />);
     expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
   });
+
+  it("renders a toned badge beside the title without adding a heading", () => {
+    const { container } = render(
+      <PageHeader title="Ada" badge={{ label: "Churned", tone: "warn" }} />,
+    );
+    expect(screen.getByText("Churned")).toBeTruthy();
+    expect(container.querySelector("[data-tone='warn']")).toBeTruthy();
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
+  });
+
+  it("defaults a badge without a tone rather than dropping it", () => {
+    const { container } = render(<PageHeader title="Ada" badge={{ label: "Active" }} />);
+    expect(container.querySelector("[data-tone='default']")).toBeTruthy();
+  });
+
+  it("lets actions wrap below the title at narrow widths", () => {
+    const { container } = render(
+      <PageHeader title="Ada" actions={<button type="button">E</button>} />,
+    );
+    const row = container.querySelector("header > div");
+    expect(row?.className).toContain("flex-wrap");
+  });
 });

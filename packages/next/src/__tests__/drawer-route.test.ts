@@ -255,7 +255,7 @@ describe("drawerRoute", () => {
     const body = (await res.json()) as {
       row: Record<string, unknown>;
       header: string;
-      fields: string[];
+      fields: { name: string; label?: string }[];
       prerendered: Record<string, string>;
       labels: Record<string, string>;
       formats: Record<string, unknown>;
@@ -263,7 +263,7 @@ describe("drawerRoute", () => {
 
     expect(body.row).toEqual({ id: "abc", email: "a@b.c" });
     expect(body.header).toBe("safe");
-    expect(body.fields).toEqual(["id", "email"]);
+    expect(body.fields).toEqual([{ name: "id" }, { name: "email" }]);
     expect(body.prerendered).toEqual({ email: "redacted" });
     expect(body.labels).toEqual({ email: "Email" });
     expect(body.formats).toEqual({});

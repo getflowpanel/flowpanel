@@ -1,8 +1,9 @@
-import type { ColumnDef, ResolvedAdminConfig } from "@flowpanel/core";
+import type { ColumnDef, RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { ReferenceCell } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { buildHref } from "./href";
 import type { PrerenderedColumn } from "./prerender-cells";
+import { resolveReferences } from "./resolve-references";
 
 /** Overlay resolved foreign-key labels on the server-prerendered cell matrix. */
 export function applyReferenceCells<Row extends Record<string, unknown>>(
@@ -55,4 +56,30 @@ export function applyReferenceCells<Row extends Record<string, unknown>>(
   });
 
   return cells;
+}
+
+/** Replace a widget table's foreign-key cells with the referenced row's label. */
+export async function withReferenceCells<Row extends Record<string, unknown>>(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  columnDefs: ReadonlyArray<string | ColumnDef<Row>>,
+  rows: Row[],
+  columns: PrerenderedColumn<Row>[],
+  prerenderedCells: (ReactNode | undefined)[][] | undefined,
+): Promise<(ReactNode | undefined)[][] | undefined> {
+  const labelsByField = await resolveReferences<Row>(
+    config,
+    reqCtx,
+    columnDefs as ReadonlyArray<keyof Row | ColumnDef<Row>>,
+    rows,
+  );
+  if (labelsByField.size === 0) return prerenderedCells;
+  return applyReferenceCells<Row>(
+    config,
+    columnDefs as ReadonlyArray<keyof Row | ColumnDef<Row>>,
+    columns,
+    rows,
+    prerenderedCells,
+    labelsByField,
+  );
 }

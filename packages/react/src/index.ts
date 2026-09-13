@@ -186,9 +186,19 @@ export {
   type ShortcutsCheatsheetProps,
 } from "./_shell/ShortcutsCheatsheet";
 export { ThemeScript, type ThemeScriptProps } from "./_shell/ThemeScript";
+export { BarsCard, type BarsCardProps, type BarsCardRow } from "./_widgets/BarsCard";
 export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget";
+export { DashboardRefresh, type DashboardRefreshProps } from "./_widgets/DashboardRefresh";
+export {
+  FunnelCard,
+  type FunnelCardProps,
+  type FunnelCardStep,
+} from "./_widgets/FunnelCard";
+export { KvCard, type KvCardItem, type KvCardProps } from "./_widgets/KvCard";
+export { ListCard, type ListCardProps, type ListCardRow } from "./_widgets/ListCard";
 export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard";
 export { DefaultMetricCard } from "./_widgets/MetricCardDefault";
+export { StatCard, type StatCardProps } from "./_widgets/StatCard";
 export { StatGroupCard, type StatGroupCardProps } from "./_widgets/StatGroupCard";
 export { TableWidget, type TableWidgetProps } from "./_widgets/TableWidget";
 export { DevToolsPanel, type DevToolsPanelProps } from "./devtools/DevToolsPanel";
@@ -220,6 +230,7 @@ export {
   type UseRealtimeRefreshOptions,
   useRealtimeRefresh,
 } from "./hooks/useRealtimeRefresh";
+export { useRowNavigation } from "./hooks/useRowNavigation";
 export { type UseTheme, type UseThemeOptions, useTheme } from "./hooks/useTheme";
 export { type UrlState, useUrlState } from "./hooks/useUrlState";
 export { cn } from "./lib/cn";

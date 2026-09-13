@@ -24,17 +24,24 @@ function dateFmt({ dateLocale, timeZone }: ResolvedFormatting): Intl.DateTimeFor
   return fmt;
 }
 
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+/** The instant a cell value stands for, or `null` when it is not a timestamp. */
+function asDate(v: unknown): Date | null {
+  if (v instanceof Date) return v;
+  if (typeof v !== "string" || !ISO_TIMESTAMP.test(v)) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 /** Plain-text rendering, for exports and for content that is not a React tree. */
 export function formatCell(
   v: unknown,
   formatting: ResolvedFormatting = DEFAULT_FORMATTING,
 ): React.ReactNode {
   if (v === null || v === undefined) return "";
-  if (v instanceof Date) return dateFmt(formatting).format(v).replace(",", "");
-  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
-    const d = new Date(v);
-    if (!Number.isNaN(d.getTime())) return dateFmt(formatting).format(d).replace(",", "");
-  }
+  const date = asDate(v);
+  if (date) return dateFmt(formatting).format(date).replace(",", "");
   if (typeof v === "boolean") return v ? "Yes" : "No";
   return String(v);
 }
@@ -44,11 +51,7 @@ export function renderCellValue(
   v: unknown,
   formatting: ResolvedFormatting = DEFAULT_FORMATTING,
 ): React.ReactNode {
-  if (v instanceof Date) return <LocalTime date={v} />;
-  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
-    const d = new Date(v);
-    if (!Number.isNaN(d.getTime())) return <LocalTime date={v} />;
-  }
+  if (asDate(v)) return <LocalTime date={v as string | Date} />;
   return formatCell(v, formatting);
 }
 

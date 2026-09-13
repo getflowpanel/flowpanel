@@ -7,6 +7,7 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
+import { DEFAULT_LABELS } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
 import { serializeWidget } from "../drawer/serialize-widget";
 
@@ -60,6 +61,9 @@ const widgetCtx: WidgetContext = {
   session: null,
   dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
   req: new Request("http://localhost/"),
+  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
+  query: (_key, fn) => fn(),
+  labels: DEFAULT_LABELS,
 };
 
 describe("serializeWidget — metric", () => {
@@ -251,6 +255,19 @@ describe("serializeWidget — chart variants", () => {
 });
 
 describe("serializeWidget — error & unknown", () => {
+  it("names the kind a drawer cannot render yet", async () => {
+    const out = await serializeWidget(
+      { kind: "custom", Component: () => null, props: {}, options: {} } as never,
+      mkConfig(),
+      reqCtx,
+      widgetCtx,
+    );
+    expect(out).toEqual({
+      kind: "unsupported",
+      reason: "custom widgets are not supported in drawers yet",
+    });
+  });
+
   it("returns unsupported on unknown widget kind", async () => {
     const widget = { kind: "weirdo", options: {} } as unknown as WidgetConfig;
     const out = await serializeWidget(widget, mkConfig(), reqCtx, widgetCtx);

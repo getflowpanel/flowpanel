@@ -55,6 +55,34 @@ describe("paging a related tab", () => {
     expect(screen.getByRole("button", { name: /previous/i })).toBeTruthy();
   });
 
+  it("sorts through its own URL key and keeps the reader in place", () => {
+    render(
+      <RelatedTabTable
+        {...props}
+        columns={[{ field: "value" as const, sortable: true }]}
+        sortParam="relatedSort.scores"
+        sort={{ field: "value", dir: "asc" }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /value/i }));
+    const [url, options] = push.mock.calls[0] as [string, { scroll?: boolean }];
+    expect(url).toContain("relatedSort.scores=value.desc");
+    expect(url).toContain("tab=scores");
+    expect(options).toEqual({ scroll: false });
+  });
+
+  it("offers the target's full list when given an open-list href", () => {
+    render(
+      <RelatedTabTable
+        {...props}
+        openListHref="/admin/scores?f_userId=u1"
+        openListLabel="Open list →"
+      />,
+    );
+    const link = screen.getByRole("link", { name: "Open list →" });
+    expect(link.getAttribute("href")).toBe("/admin/scores?f_userId=u1");
+  });
+
   it("renders the rows it was given rather than keeping its own copy", () => {
     const { rerender } = render(<RelatedTabTable {...props} rows={[{ id: "s7", value: 7 }]} />);
     expect(screen.getByRole("cell", { name: "7" })).toBeTruthy();

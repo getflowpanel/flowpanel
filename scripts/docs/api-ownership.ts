@@ -133,6 +133,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/dist/format.d.ts",
+    page: "/docs/reference/resources",
+    anchor: "formatting-values-yourself",
+    guidance: false,
+  },
+  {
     sourcePrefix: "packages/core/dist/theme.d.ts",
     page: "/docs/customization/styling",
     anchor: "initialize-the-theme-under-csp",
@@ -213,7 +219,7 @@ export const API_OWNERSHIP_RULES = [
     guidance: false,
   },
   {
-    sourcePrefix: "packages/core/src/types/labels.ts",
+    sourcePrefix: "packages/core/src/types/labels/",
     page: "/docs/reference/define-config",
     anchor: "labels",
     guidance: false,
@@ -270,6 +276,12 @@ export const API_OWNERSHIP_RULES = [
   {
     sourcePrefix: "packages/core/src/types/widget.ts",
     page: "/docs/reference/widgets",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-cards.ts",
+    page: "/docs/reference/widgets",
+    anchor: "cards",
     guidance: true,
   },
   {
