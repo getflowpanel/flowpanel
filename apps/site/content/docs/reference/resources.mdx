@@ -76,6 +76,32 @@ accepts React content as well as strings, and `badge` takes the same
 Without `detail.tabs`, the page renders one key/value block. `detail.fields`
 chooses and orders the fields in it; omitted, every readable declared field shows.
 
+### Opening a row
+
+`rowClick` decides what a click on a row — and Enter on the focused row — does.
+
+| Value | Effect |
+| --- | --- |
+| `"detail"` | Navigates to the row's own page under the admin's `basePath`. |
+| `"drawer"` | Opens the [drawer](/docs/reference/drawer). Requires a `drawer` config; `defineAdmin` refuses the combination without one. |
+| `false` | Rows render, but a click does nothing. |
+
+Omitted, it follows the resource: `"detail"` when `detail` is configured and
+`drawer` is not, `"drawer"` when only a drawer is, and `false` when neither is.
+An explicit value always wins, so `rowClick: "detail"` on a resource that also
+has a drawer sends the click to the page and leaves the drawer to its own
+affordances.
+
+A row the projection could not identify never navigates — the row identity rule
+applies to the keyboard exactly as it does to the pointer, and the table's
+"Enter opens" hint (`labels.table.rowsHint`) is announced only when some row on
+the page can be opened. The mobile card list follows the same rule.
+
+Navigation is a router push on the row, not a link: cmd-click, middle-click and
+"open in new tab" do not open a second tab from a row. Reach the same page as a
+real link through the detail page's own URL, or add a column whose `render`
+returns an anchor.
+
 ### Icons
 
 `ResourceOptions.icon`, dashboard/page/queue icons, action icons and

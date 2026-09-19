@@ -8,6 +8,7 @@ import type {
 } from "@flowpanel/core";
 import { mergeLabels } from "@flowpanel/core";
 import { buildHref } from "./href";
+import { readRelatedCount } from "./require-authorized";
 
 type HrefOptions = { filter?: Record<string, unknown>; tab?: string };
 
@@ -27,6 +28,37 @@ function widgetHref(
   if (opts?.tab) params.set("tab", opts.tab);
   const query = params.toString();
   return query === "" ? base : `${base}?${query}`;
+}
+
+function adapterSql<Row>(
+  config: ResolvedAdminConfig,
+  strings: TemplateStringsArray,
+  values: unknown[],
+): Promise<Row[]> {
+  const run = config.adapter.sql;
+  if (!run) {
+    throw new Error(
+      `flowpanel: ctx.sql is unavailable — the "${config.adapter.kind}" adapter implements no ` +
+        "`sql` capability. Query through ctx.db, or use an adapter that supports raw SQL.",
+    );
+  }
+  return run<Row>(strings, ...values);
+}
+
+async function widgetCount(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  resource: ResourceName,
+  where: Record<string, unknown> | undefined,
+): Promise<number> {
+  const target = config.resourcesByName.get(resource);
+  if (!target) {
+    throw new Error(
+      `flowpanel: ctx.count("${resource}") — no such resource. Registered: ` +
+        `${[...config.resourcesByName.keys()].join(", ") || "none"}.`,
+    );
+  }
+  return (await readRelatedCount(config, target, reqCtx, where ?? {})) ?? 0;
 }
 
 /**
@@ -57,6 +89,9 @@ export function buildWidgetContext(
       return started;
     },
     labels: mergeLabels(config.labels),
+    sql: <Row = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]) =>
+      adapterSql<Row>(config, strings, values),
+    count: (resource, where) => widgetCount(config, reqCtx, resource, where),
   };
 }
 
@@ -84,5 +119,7 @@ export function buildDetailTabContext(
     href: ctx.href,
     labels: ctx.labels,
     query: ctx.query,
+    sql: ctx.sql,
+    count: ctx.count,
   };
 }

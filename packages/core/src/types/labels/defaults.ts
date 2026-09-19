@@ -21,6 +21,7 @@ export const DEFAULT_LABELS: {
   formError: string;
   confirm: Required<NonNullable<LabelsConfig["confirm"]>>;
   widget: Required<NonNullable<LabelsConfig["widget"]>>;
+  errors: Required<NonNullable<LabelsConfig["errors"]>>;
   palette: Required<NonNullable<LabelsConfig["palette"]>>;
 } = {
   noResults: "No results",
@@ -132,6 +133,10 @@ export const DEFAULT_LABELS: {
     noOptions: "No options",
     searching: "Searching…",
     loadFailed: "Couldn't load options — please try again.",
+    required: "{label} is required",
+    invalidNumber: "{label} must be a number",
+    invalidBoolean: "{label} must be yes or no",
+    invalidDate: "{label} must be a date",
   },
   notFound: {
     title: "Page not found",
@@ -148,6 +153,14 @@ export const DEFAULT_LABELS: {
     secondsAgo: "{n}s ago",
     minutesAgo: "{n}m ago",
     chartsMissing: "Charts package not installed — run `pnpm add @flowpanel/charts`.",
+  },
+  errors: {
+    queryTitle: "{resource}: {operation} failed",
+    queryHint: "Check the column list and the database schema. Details are in the server log.",
+    requestId: "Request {id}",
+    widgetTitle: "Widget failed",
+    widgetHint: "Couldn't load this widget.",
+    retry: "Retry",
   },
   palette: {
     placeholder: "Search resources, actions…",

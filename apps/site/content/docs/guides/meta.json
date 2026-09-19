@@ -2,6 +2,7 @@
   "title": "Production",
   "pages": [
     "production-readiness",
+    "auth-with-better-auth",
     "auth-with-clerk",
     "permissions",
     "multi-tenant-scope",

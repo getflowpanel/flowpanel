@@ -232,6 +232,50 @@ describe("drizzleAdapter SQLite CRUD", () => {
 // Regression: sqlite is NOT a non-RETURNING dialect (better-sqlite3 and
 // libsql both support `.returning()`), so `create` must accept an
 // auto-generated primary key instead of demanding an explicit one.
+describe("drizzleAdapter SQLite sql and count capabilities", () => {
+  function capabilities() {
+    const adapter = drizzleAdapter({ db, schema: { users }, dialect: "sqlite" });
+    if (!adapter.sql || !adapter.count) throw new Error("fixture: capabilities missing");
+    return { sql: adapter.sql, count: adapter.count };
+  }
+
+  it("runs a bound statement and returns its rows", async () => {
+    const { sql: query } = capabilities();
+    const rows = await query<{ id: string }>`
+      select id from users where email = ${"u3@e.co"}
+    `;
+    expect(rows).toEqual([{ id: "u3" }]);
+  });
+
+  it("binds a hostile value instead of letting it end the statement", async () => {
+    const { sql: query, count } = capabilities();
+    const before = await count(users);
+    const rows = await query<{ id: string }>`
+      select id from users where email = ${"u3@e.co'; drop table users; --"}
+    `;
+    expect(rows).toEqual([]);
+    expect(await count(users)).toBe(before);
+  });
+
+  it("keeps a timestamp-shaped string a string when parseDates is off", async () => {
+    const { sql: parsing } = capabilities();
+    const raw = drizzleAdapter({ db, schema: { users }, dialect: "sqlite", parseDates: false }).sql;
+    if (!raw) throw new Error("fixture: capabilities missing");
+    const [parsed] = await parsing<{ at: unknown }>`select '2026-01-02 03:04:05' as at`;
+    const [kept] = await raw<{ at: unknown }>`select '2026-01-02 03:04:05' as at`;
+    expect(parsed?.at).toBeInstanceOf(Date);
+    expect(kept?.at).toBe("2026-01-02 03:04:05");
+  });
+
+  it("counts every row, and the rows one filter matches", async () => {
+    const { sql: query, count } = capabilities();
+    const [total] = await query<{ n: number }>`select count(*) as n from users`;
+    expect(await count(users)).toBe(total?.n);
+    expect(await count(users, { id: "u3" })).toBe(1);
+    expect(await count(users, { email: "nobody@e.co" })).toBe(0);
+  });
+});
+
 describe("drizzleAdapter SQLite auto-generated primary key", () => {
   const posts = sqliteTable("posts", {
     id: integer("id").primaryKey({ autoIncrement: true }),

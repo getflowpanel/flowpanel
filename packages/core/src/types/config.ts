@@ -199,4 +199,10 @@ export interface ResolvedAdminConfig<
   readonly basePath: string;
   /** Normalized mount points with leading slashes and no trailing slash. */
   readonly paths: AdminPaths;
+  /**
+   * Config problems that do not stop the admin from booting — a create form that
+   * cannot satisfy a required column, so far. `flowpanel doctor` prints them, and
+   * development prints each one once.
+   */
+  readonly warnings: readonly string[];
 }

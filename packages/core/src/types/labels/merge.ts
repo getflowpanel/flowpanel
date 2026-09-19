@@ -28,6 +28,7 @@ export function mergeLabels(user?: LabelsConfig): ResolvedLabels {
     related: { ...DEFAULT_LABELS.related, ...defined(user.related ?? {}) },
     confirm: { ...DEFAULT_LABELS.confirm, ...defined(user.confirm ?? {}) },
     widget: { ...DEFAULT_LABELS.widget, ...defined(user.widget ?? {}) },
+    errors: { ...DEFAULT_LABELS.errors, ...defined(user.errors ?? {}) },
     palette: { ...DEFAULT_LABELS.palette, ...defined(user.palette ?? {}) },
   };
 }

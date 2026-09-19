@@ -34,6 +34,12 @@
       "labels": [
         "./dist/labels.d.ts"
       ],
+      "paths": [
+        "./dist/paths.d.ts"
+      ],
+      "publish": [
+        "./dist/publish.d.ts"
+      ],
       "theme": [
         "./dist/theme.d.ts"
       ]
@@ -99,6 +105,16 @@
       "require": {
         "types": "./dist/paths.d.cts",
         "default": "./dist/paths.cjs"
+      }
+    },
+    "./publish": {
+      "import": {
+        "types": "./dist/publish.d.ts",
+        "default": "./dist/publish.mjs"
+      },
+      "require": {
+        "types": "./dist/publish.d.cts",
+        "default": "./dist/publish.cjs"
       }
     },
     "./theme": {

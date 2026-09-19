@@ -199,7 +199,7 @@ describe("resourceCreateRoute", () => {
     expect(res.status).toBe(422);
     const body = (await res.json()) as { ok: boolean; fieldErrors?: Record<string, string> };
     expect(body.ok).toBe(false);
-    expect(body.fieldErrors?.priceCents).toMatch(/not a valid number/);
+    expect(body.fieldErrors?.priceCents).toBe("Price cents must be a number");
   });
 
   it("returns a generic 500 error (not the raw adapter error) on an unrelated throw", async () => {

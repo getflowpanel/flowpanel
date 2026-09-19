@@ -259,6 +259,27 @@ describe("defineAdmin — introspect-time column validation", () => {
     ).toThrow(/points at column "emial" via update\.fields\[0\]\.name/);
   });
 
+  it("rejects an unknown rowKey and suggests the real one", () => {
+    expect(() =>
+      defineAdmin({
+        adapter,
+        auth,
+        resources: [resource({ __name: "users" }, { columns: ["id"], rowKey: "idd" })],
+      }),
+    ).toThrow(/points at column "idd" via rowKey, .*Did you mean "id"\?/s);
+  });
+
+  it("suggests a near miss on filters and defaultSort too", () => {
+    for (const options of [
+      { columns: ["id"], filters: ["emial"] },
+      { columns: ["id"], defaultSort: { field: "emial", dir: "asc" as const } },
+    ]) {
+      expect(() =>
+        defineAdmin({ adapter, auth, resources: [resource({ __name: "users" }, options)] }),
+      ).toThrow(/Did you mean "email"\?/);
+    }
+  });
+
   it("rejects an unknown update.expose name", () => {
     expect(() =>
       defineAdmin({

@@ -156,8 +156,65 @@ export const API_OWNERSHIP_RULES = [
     guidance: false,
   },
   {
-    sourcePrefix: "packages/core/src/runtime/",
+    sourcePrefix: "packages/core/src/runtime/audit.ts",
     page: "/docs/reference/runtime-contracts",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/auth.ts",
+    page: "/docs/reference/runtime-contracts",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/envelope.ts",
+    page: "/docs/reference/scope-realtime",
+    anchor: "publisher",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/publish.ts",
+    page: "/docs/reference/scope-realtime",
+    anchor: "publisher",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/rate-limit.ts",
+    page: "/docs/reference/scope-realtime",
+    anchor: "ratelimiter",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/redis-publisher.ts",
+    page: "/docs/reference/scope-realtime",
+    anchor: "publishing-from-a-worker",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/request-context.ts",
+    page: "/docs/reference/runtime-contracts",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/result.ts",
+    page: "/docs/reference/runtime-contracts",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/scope.ts",
+    page: "/docs/reference/scope-realtime",
+    anchor: "scope",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/sql-params.ts",
+    page: "/docs/reference/adapters",
+    anchor: "raw-sql",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/series.ts",
+    page: "/docs/reference/widgets",
+    anchor: "series-helpers",
     guidance: true,
   },
   {
@@ -418,6 +475,12 @@ export const API_OWNERSHIP_RULES = [
 ] as const satisfies readonly ApiOwnershipRule[];
 
 export const API_EXCLUSIONS = [
+  {
+    sourcePrefix: "packages/core/src/internal/write-fields.ts",
+    category: "internal-plumbing",
+    reason:
+      "One definition of the field set a write may carry, shared by core's create warning and @flowpanel/next's generated forms so they cannot disagree.",
+  },
   {
     sourcePrefix: "packages/core/src/internal/",
     category: "internal-plumbing",

@@ -39,6 +39,7 @@ export interface PrismaClientLike {
   $transaction?: <T>(run: (tx: PrismaClientLike) => Promise<T>) => Promise<T>;
   $executeRaw: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
   $executeRawUnsafe: (sql: string, ...values: unknown[]) => Promise<number>;
+  $queryRaw: <T = unknown>(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>;
   $queryRawUnsafe: <T = unknown>(sql: string, ...values: unknown[]) => Promise<T>;
   [delegateName: string]: unknown;
 }

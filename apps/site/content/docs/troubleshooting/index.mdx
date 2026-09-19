@@ -146,9 +146,9 @@ Start with `pnpm flowpanel doctor`. It checks package compatibility, generated w
 
 ### “A worker publishes but no browser refreshes”
 
-**Cause:** the worker never bound the admin's publisher or uses a different Redis prefix.
+**Cause:** the worker publishes through an in-memory publisher, or uses a different Redis prefix.
 
-**Fix:** call `bindPublisher(config)` once during worker startup before publishing.
+**Fix:** publish through `createPublisher({ redis: process.env.REDIS_URL! })` from `@flowpanel/kit/publish`, with the admin's `keyPrefix`.
 
 **Verify:** publish from the worker while a browser is connected through another app instance.
 

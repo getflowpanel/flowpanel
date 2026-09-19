@@ -35,6 +35,7 @@ import { introspect } from "./introspect";
 import { createMigrationMethods } from "./migration-executor";
 import type { MigrationDb } from "./migrations";
 import { inferSchema } from "./schema";
+import { rawSqlRows } from "./sql-params";
 
 interface DrizzleLikeDb {
   select: (...args: unknown[]) => {
@@ -61,6 +62,13 @@ interface DrizzleLikeDb {
   transaction: <T>(fn: (tx: DrizzleLikeDb) => Promise<T>) => Promise<T>;
 }
 
+/** Everything `buildWhere` reads: a `list` context satisfies it, and so does a bare filter map. */
+type WhereContext = Pick<ListQueryContext<unknown>, "filters"> &
+  Partial<
+    Pick<ListQueryContext<unknown>, "search" | "searchFields" | "softDelete" | "includeDeleted">
+  > &
+  ScopeContext;
+
 interface ScopeContext {
   boundScope?: { apply(query: unknown): unknown };
   applyScope?: (query: unknown) => unknown;
@@ -84,6 +92,13 @@ export interface DrizzleAdapterOptions<DB = unknown> {
   schema: Record<string, unknown>;
   /** Inferred from `schema` when omitted. */
   dialect?: DrizzleDialect;
+  /**
+   * Read zoneless `YYYY-MM-DD HH:mm:ss` strings in a `ctx.sql` result as UTC
+   * `Date`s. Turn it off when a text column of your own holds timestamp-shaped
+   * strings that `select *` cannot cast.
+   * @defaultValue true
+   */
+  parseDates?: boolean;
 }
 
 export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB, Table> {
@@ -192,7 +207,15 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     return check.length > 0;
   }
 
-  function buildWhere(cols: ColumnsRecord, ctx: ListQueryContext<unknown>): SQL | undefined {
+  async function countRows(db: DrizzleLikeDb, ref: Table, where: SQL | undefined): Promise<number> {
+    const expr = dialect === "pg" ? sql<number>`count(*)::int` : sql<number>`count(*)`;
+    let q: unknown = db.select({ c: expr }).from(ref);
+    if (where) q = (q as { where: (w: SQL) => unknown }).where(where);
+    const [row] = (await (q as Promise<Array<{ c: number }>>)) ?? [];
+    return Number(row?.c ?? 0);
+  }
+
+  function buildWhere(cols: ColumnsRecord, ctx: WhereContext): SQL | undefined {
     const clauses: SQL[] = [];
     for (const [k, v] of Object.entries(ctx.filters)) {
       if (v === undefined || v === null || v === "") continue;
@@ -286,11 +309,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
         .limit(ctx.pageSize)
         .offset(offset)) as unknown[];
 
-      const countExpr = dialect === "pg" ? sql<number>`count(*)::int` : sql<number>`count(*)`;
-      let countQ: unknown = db.select({ c: countExpr }).from(ref);
-      if (where) countQ = (countQ as { where: (w: SQL) => unknown }).where(where);
-      const [countRow] = (await (countQ as Promise<Array<{ c: number }>>)) ?? [];
-      const total = Number(countRow?.c ?? 0);
+      const total = await countRows(db, ref, where);
 
       return {
         rows: selected === EMPTY_PROJECTION ? rows.map(() => ({})) : rows,
@@ -413,6 +432,16 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
         .update(ref)
         .set({ [softCol]: null })
         .where(where);
+    },
+
+    sql: <Row = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]) =>
+      rawSqlRows<Row>(opts.db as MigrationDb, dialect, strings, values, {
+        parseDates: opts.parseDates ?? true,
+      }),
+
+    async count(ref, where): Promise<number> {
+      const cols = getTableColumns(ref) as ColumnsRecord;
+      return countRows(opts.db as DrizzleLikeDb, ref, buildWhere(cols, { filters: where ?? {} }));
     },
     ...migrationMethods,
   };

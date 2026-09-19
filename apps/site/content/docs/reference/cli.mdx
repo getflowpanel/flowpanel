@@ -70,8 +70,16 @@ What varies:
   root layout is never patched. Without a shared root layout, the admin segment
   receives its own root layout. Existing host theme/CSP integration is left to the
   application; `ThemeScript` accepts its nonce.
-- **Authentication** — a missing helper produces a closed `getSession` adapter.
-  Connect your provider and role mapping; async role lookups are supported. Use
+- **Authentication** — `init` reads `package.json` for `better-auth`, `next-auth`,
+  `@clerk/nextjs` or `lucia` and names what it recognised in the detected-stack
+  note and the outro. When the auth module it found exports that provider's own
+  instance rather than a `getSession`, it writes
+  `server/lib/flowpanel-session.ts` built on the matching preset
+  ([`withBetterAuth`](/docs/guides/auth-with-better-auth),
+  [`withClerk`](/docs/guides/auth-with-clerk), `withNextAuth`, `withLucia`) and
+  points the config at it. A module that already exports `getSession` is left
+  alone, and an unrecognised project still gets the closed `getSession` adapter.
+  Connect your role mapping either way; async role lookups are supported. Use
   `--dev-auth` only to explicitly opt into an open development-only identity.
 - **Stylesheet** — `admin.css` imports `@flowpanel/kit/styles/admin.css`, the
   precompiled and isolated FlowPanel stylesheet. It does not require Tailwind,

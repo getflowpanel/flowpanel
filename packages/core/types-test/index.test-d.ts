@@ -107,8 +107,15 @@ expectAssignable<RealtimeConfig>({
   keyPrefix: "fp:",
 });
 
-// driver: "redis" requires url
-expectError<RealtimeConfig>({ driver: "redis" });
+// driver: "redis" takes a host's own client instead of a url
+expectAssignable<RealtimeConfig>({
+  driver: "redis",
+  client: { publish: async () => 1, on: () => undefined },
+});
+
+// url and client are both optional in the type; createPublisher requires one of them
+expectError<RealtimeConfig>({ driver: "redis", url: 6379 });
+expectError<RealtimeConfig>({ driver: "memory", url: "redis://localhost:6379" });
 
 // ── queues may stay routable while omitted from primary navigation ───────
 expectAssignable<QueueOptions>({

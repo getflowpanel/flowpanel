@@ -147,7 +147,10 @@ export interface FieldDef<Row> {
  * context minus the parts a detail tab has no business with.
  */
 export interface DetailTabContext
-  extends Pick<WidgetContext, "db" | "session" | "dateRange" | "href" | "labels" | "query"> {}
+  extends Pick<
+    WidgetContext,
+    "db" | "session" | "dateRange" | "href" | "labels" | "query" | "sql" | "count"
+  > {}
 
 export interface DetailTab<Row> {
   /** Stable identifier, stored in the URL's `?tab=` search parameter. */
@@ -232,8 +235,13 @@ export interface ResourceOptions<Row> {
    * @defaultValue "comfortable"
    */
   density?: "comfortable" | "compact";
-  /** Open the row's drawer when its row is clicked. Requires `drawer`. */
-  rowClick?: "drawer" | false;
+  /**
+   * What a row click — and Enter on the focused row — does. `"detail"` navigates
+   * to the row's own page, `"drawer"` opens the drawer and requires `drawer`, and
+   * `false` leaves rows inert. A row the projection cannot identify never acts.
+   * @defaultValue `"detail"` when `detail` is configured and `drawer` is not, `"drawer"` when only `drawer` is, otherwise `false`
+   */
+  rowClick?: "detail" | "drawer" | false;
   /** Property holding each row's unique id.
    * @defaultValue "id"
    */

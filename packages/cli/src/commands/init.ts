@@ -14,6 +14,7 @@ import {
   normalizeAdminPath,
   readAdminMount,
 } from "../utils/admin-path";
+import { type AuthProvider, detectAuthProvider } from "../utils/auth-provider";
 import { firstCompatibilityFailure, inspectProjectCompatibility } from "../utils/compatibility";
 import {
   aliasOf,
@@ -34,6 +35,7 @@ import { validateProjectImport } from "../utils/module-path";
 import { writeJson, writePlanJson } from "../utils/output";
 import { inspectDependency } from "../utils/project-packages";
 import { tpl } from "../utils/template";
+import { type AuthSessionPlan, planAuthSession } from "./init-auth";
 import {
   type DependencyRequirement,
   dependencyReport,
@@ -193,11 +195,14 @@ export function initCommand(cli: Command): void {
 
       const orm: "drizzle" | "prisma" = compatibility.orm;
 
+      const authProvider: AuthProvider | null = await detectAuthProvider(cwd);
+
       const parts = [
         `Next.js ${compatibility.findings.find((finding) => finding.name === "next")?.observed}`,
         `React ${compatibility.findings.find((finding) => finding.name === "react")?.observed}`,
         "TypeScript",
         orm === "drizzle" ? "Drizzle" : "Prisma",
+        authProvider,
       ].filter(Boolean) as string[];
       if (humanOutput) p.note(parts.join(" · "), "Detected stack");
 
@@ -207,11 +212,20 @@ export function initCommand(cli: Command): void {
         schema: await detectSchema(cwd, aliasMode),
         auth: await detectAuth(cwd, aliasMode),
       };
+      let authPlan: AuthSessionPlan | null = opts.auth
+        ? null
+        : await planAuthSession({
+            cwd,
+            provider: authProvider,
+            detectedAuth: detected.auth,
+            aliasMode,
+            devAuth: !!opts.devAuth,
+          });
       const guesses = guessedPaths(orm, aliasMode);
       const defaults = {
         db: detected.db ?? guesses.db,
         schema: detected.schema ?? guesses.schema,
-        auth: detected.auth ?? guesses.auth,
+        auth: authPlan?.specifier ?? detected.auth ?? guesses.auth,
         appName: path.basename(cwd),
       };
       const guessed = [
@@ -279,11 +293,12 @@ export function initCommand(cli: Command): void {
         auth = authAns;
       }
 
+      if (authPlan && auth !== authPlan.specifier) authPlan = null;
       const sessionStub = detected.auth === null && auth === guesses.auth;
       for (const [specifier, exportName, flag] of [
         [db, orm === "prisma" ? "prisma" : "db", "--db"],
         ...(orm === "drizzle" ? [[schemaPath, undefined, "--schema"]] : []),
-        ...(!sessionStub ? [[auth, "getSession", "--auth"]] : []),
+        ...(!sessionStub && !authPlan ? [[auth, "getSession", "--auth"]] : []),
       ] as Array<[string, string | undefined, string]>) {
         const problem = await validateProjectImport(cwd, specifier, exportName);
         if (problem)
@@ -382,8 +397,9 @@ export function initCommand(cli: Command): void {
 
       // Nothing on disk exports getSession, so the config above imports a path
       // that has to be created too — otherwise every later step dies on it.
-      const sessionStubFile = guessedAuthFile(aliasMode);
-      if (sessionStub)
+      const sessionStubFile = authPlan?.file ?? guessedAuthFile(aliasMode);
+      if (authPlan) files[sessionStubFile] = await tpl(authPlan.template, authPlan.vars);
+      else if (sessionStub)
         files[sessionStubFile] = await tpl(
           opts.devAuth ? "dev-session.ts.txt" : "auth-session.ts.txt",
         );
@@ -531,7 +547,13 @@ export function initCommand(cli: Command): void {
           "",
         );
       }
-      if (sessionStub && depsOk) {
+      if (authPlan && depsOk) {
+        outroLines.unshift(
+          "",
+          `  ${pc.green("✔")} Recognised ${authPlan.provider}: ${pc.cyan(sessionStubFile)}`,
+          "    Built on the matching preset. Map auth.role to your own roles before deploying.",
+        );
+      } else if (sessionStub && depsOk) {
         outroLines.unshift(
           "",
           `  ${pc.yellow("!")} Authentication setup: ${pc.cyan(sessionStubFile)}`,
@@ -561,11 +583,14 @@ export function initCommand(cli: Command): void {
           },
           adminPath,
           warnings: mountWarnings,
-          authentication: sessionStub
-            ? opts.devAuth
-              ? "development"
-              : "setup-required"
-            : "existing-helper",
+          authentication: authPlan
+            ? `preset:${authPlan.provider}`
+            : sessionStub
+              ? opts.devAuth
+                ? "development"
+                : "setup-required"
+              : "existing-helper",
+          ...(authProvider ? { authProvider } : {}),
           plan: publicPlan(plan),
         });
       } else if (humanOutput) p.outro(outroLines.join("\n"));

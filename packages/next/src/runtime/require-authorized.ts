@@ -39,6 +39,8 @@ export interface RelatedReadOptions {
   extraFields?: Iterable<string>;
   /** Reach soft-deleted rows too, so a reference to one still resolves its label. */
   includeDeleted?: boolean;
+  /** Ask the adapter for the total with no columns selected — `ctx.count`'s read. */
+  countOnly?: boolean;
 }
 
 /**
@@ -51,6 +53,54 @@ export interface RelatedPage {
   total: number;
   page: number;
   pageSize: number;
+}
+
+/**
+ * How many rows of `target` match `filters`, under the same role, access, field
+ * and scope checks as a related read. `null` means the caller may not read it.
+ * `adapter.count` answers directly only when no tenant predicate has to be
+ * applied — that capability takes a filter map, not a scope binding, so a
+ * scoped resource is counted through the authorized `list` path instead. Every
+ * other guard is applied on both paths, so which one runs never changes the
+ * answer.
+ */
+export async function readRelatedCount(
+  config: ResolvedAdminConfig,
+  target: ResourceConfig,
+  reqCtx: RequestContext,
+  filters: Record<string, unknown> = {},
+): Promise<number | null> {
+  // A missing projected value must not turn a filtered count into a total.
+  if (Object.values(filters).some((value) => value === undefined)) return 0;
+  const direct = config.adapter.count;
+  if (!direct || scopeBinding(config, target, reqCtx).applyScope) {
+    const page = await readRelatedPage(config, target, reqCtx, {
+      filters,
+      page: 1,
+      pageSize: 1,
+      countOnly: true,
+    });
+    return page?.total ?? null;
+  }
+
+  try {
+    requireAuthorized(config, target, reqCtx);
+    await authorizeOperation(
+      resolveOperationAccess(target.options.access, target.options.requireRole, "read"),
+      reqCtx,
+    );
+  } catch (err) {
+    if (err instanceof FlowpanelAccessError) return null;
+    throw err;
+  }
+  const filterFields = Object.keys(filters);
+  const readable = await resolveReadableFieldSet(filterFields, target.options.fieldAccess, reqCtx);
+  // Counting by a field the role cannot read is an oracle over its values.
+  if (filterFields.some((field) => !readable.has(field))) return 0;
+
+  const softDelete = target.options.delete?.softDelete;
+  const where = softDelete ? { [String(softDelete)]: "__null__", ...filters } : filters;
+  return runWithRequestContext(reqCtx, () => direct(target.ref, where));
 }
 
 /** Rows only, for reference, drawer and widget consumers that never paginate. */
@@ -112,8 +162,12 @@ export async function readRelatedPage(
   const searchFields = requestedSearchFields.filter((field) => readable.has(field));
   if (requestedSearchFields.length > 0 && searchFields.length === 0) return empty;
   const sort = opts.sort && readable.has(opts.sort.field) ? opts.sort : null;
-  const projectedFields = [...outputFields].filter((field) => readable.has(field));
-  const select = selectKnownFields(projectedFields, config.adapter.introspect(target.ref).columns);
+  const projectedFields = opts.countOnly
+    ? []
+    : [...outputFields].filter((field) => readable.has(field));
+  const select = opts.countOnly
+    ? []
+    : selectKnownFields(projectedFields, config.adapter.introspect(target.ref).columns);
 
   const softDelete = target.options.delete?.softDelete;
   const listCtx: ListQueryContext<unknown> = {

@@ -26,6 +26,8 @@ const ctx: WidgetContext = {
   href: () => "/admin",
   query: (_key, fn) => fn(),
   labels: DEFAULT_LABELS,
+  sql: async () => [],
+  count: async () => 0,
 };
 
 const serialize = (w: WidgetConfig) => serializeCardWidget(w, config, reqCtx, ctx);

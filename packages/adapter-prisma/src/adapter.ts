@@ -1,11 +1,13 @@
-import type {
-  Adapter,
-  ItemQueryContext,
-  ListQueryContext,
-  ListResult,
-  MutationContext,
+import {
+  type Adapter,
+  type ItemQueryContext,
+  type ListQueryContext,
+  type ListResult,
+  type MutationContext,
+  parseSqlRows,
+  sanitizeSqlParams,
 } from "@flowpanel/core";
-import { isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
+import { buildFilterWhere } from "./filters";
 import type { PrismaDmmf } from "./introspect";
 import { introspect } from "./introspect";
 import { createMigrationMethods } from "./migration-executor";
@@ -25,6 +27,13 @@ export interface PrismaAdapterOptions<P = unknown> {
   /** The `datasource` provider from schema.prisma; migrations are dialect-specific. */
   provider: PrismaProvider;
   dmmf?: PrismaDmmf;
+  /**
+   * Read zoneless `YYYY-MM-DD HH:mm:ss` strings in a `ctx.sql` result as UTC
+   * `Date`s. Turn it off when a text column of your own holds timestamp-shaped
+   * strings that `select *` cannot cast.
+   * @defaultValue true
+   */
+  parseDates?: boolean;
 }
 
 export { MIGRATIONS_TABLE_DDL } from "./runtime";
@@ -90,31 +99,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const dmmf = getDmmf();
       const select = projection(modelName, ctx.select);
 
-      const where: Record<string, unknown> = {};
-
-      for (const [k, v] of Object.entries(ctx.filters ?? {})) {
-        if (v === undefined || v === null || v === "") continue;
-        if (v === "__null__") {
-          where[k] = null;
-          continue;
-        }
-        if (v === "__notnull__") {
-          where[k] = { not: null };
-          continue;
-        }
-        if (isFilterRangeValue(v)) {
-          const cond: Record<string, unknown> = {};
-          if (v.gte !== undefined) cond.gte = v.gte;
-          if (v.lte !== undefined) cond.lte = v.lte;
-          if (Object.keys(cond).length > 0) where[k] = cond;
-          continue;
-        }
-        if (isFilterInValue(v)) {
-          if (v.values.length > 0) where[k] = { in: v.values };
-          continue;
-        }
-        where[k] = v;
-      }
+      const where = buildFilterWhere(ctx.filters);
 
       if (ctx.search && ctx.searchFields?.length) {
         const intro = introspect(modelName, dmmf);
@@ -232,6 +217,20 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       } else {
         await delegate.update({ where: baseWhere, data: { [softCol]: null } });
       }
+    },
+
+    async sql<Row = Record<string, unknown>>(
+      strings: TemplateStringsArray,
+      ...values: unknown[]
+    ): Promise<Row[]> {
+      const rows = await prisma.$queryRaw(strings, ...sanitizeSqlParams(values));
+      return parseSqlRows<Row>(rows as Array<Record<string, unknown>>, {
+        parseDates: opts.parseDates ?? true,
+      });
+    },
+
+    async count(modelName, where): Promise<number> {
+      return resolveDelegate(prisma, modelName).count({ where: buildFilterWhere(where) });
     },
 
     ...createMigrationMethods(prisma, opts.provider),

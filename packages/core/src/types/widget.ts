@@ -36,6 +36,26 @@ export interface WidgetContext<DB = InferDB> {
   query: <T>(key: string, fn: () => Promise<T>) => Promise<T>;
   /** The admin's resolved chrome strings, so a widget never hard-codes English. */
   labels: ResolvedLabels;
+  /**
+   * One read-only statement, as a tagged template. Every interpolated value is
+   * bound as a parameter, so `${input}` can never change the statement.
+   * `Date` binds as an ISO-8601 string and `bigint` as decimal text. Throws when
+   * the configured adapter implements no `sql` capability.
+   *
+   * Runs exactly the statement you write: no tenant scope, no access rule and no
+   * soft-delete filter are applied. Add those predicates yourself, or use
+   * `count` and resource reads, which do.
+   */
+  sql: <Row = Record<string, unknown>>(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ) => Promise<Row[]>;
+  /**
+   * How many rows of a registered resource match `where`, through the same role,
+   * access and tenant-scope checks as any other cross-resource read. A resource
+   * the current session may not read counts `0`.
+   */
+  count: (resource: ResourceName, where?: Record<string, unknown>) => Promise<number>;
 }
 
 export type NumericFormat = "number" | "currency" | "percent" | "bytes" | "duration";

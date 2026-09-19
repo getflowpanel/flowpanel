@@ -1,5 +1,5 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { FlowpanelError, FlowpanelValidationError } from "@flowpanel/core";
+import { FlowpanelError, FlowpanelValidationError, mergeLabels } from "@flowpanel/core";
 import { notFoundResponse } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
@@ -52,7 +52,7 @@ function coerceFormData(
   for (const [k, v] of fd.entries()) raw[k] = v;
   Object.assign(raw, readFormValues(renderedFieldShapes(resource, config, mode), fd));
   const { columns } = config.adapter.introspect(resource.ref);
-  const { values, fieldErrors } = coerceRowByColumns(columns, raw);
+  const { values, fieldErrors } = coerceRowByColumns(columns, raw, mergeLabels(config.labels));
   for (const [k, v] of Object.entries(values)) {
     if (v === "") values[k] = null;
   }

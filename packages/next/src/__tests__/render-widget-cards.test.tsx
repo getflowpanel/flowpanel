@@ -38,6 +38,8 @@ const ctx: WidgetContext = {
   href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
   query: (_key, fn) => fn(),
   labels: DEFAULT_LABELS,
+  sql: async () => [],
+  count: async () => 0,
 };
 
 function findProps(tree: ReactNode, target: unknown): Record<string, unknown> | undefined {

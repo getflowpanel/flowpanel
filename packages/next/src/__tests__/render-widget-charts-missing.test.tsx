@@ -42,6 +42,8 @@ function ctx(labels: WidgetContext["labels"]): WidgetContext {
     href: (resource) => `/admin/${resource}`,
     query: (_key, fn) => fn(),
     labels,
+    sql: async () => [],
+    count: async () => 0,
   };
 }
 

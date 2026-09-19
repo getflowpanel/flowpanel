@@ -24,6 +24,7 @@ export function introspect(table: unknown): ResourceIntrospection {
       writableOnCreate: raw.generated === undefined,
       writableOnUpdate: raw.generated === undefined && !raw.primary,
       generated: raw.generated !== undefined,
+      hasDefault: raw.hasDefault === true || raw.default !== undefined,
     };
     if (raw.enumValues) meta.enumValues = raw.enumValues;
     if (raw.primary) primaryKey = name;

@@ -57,11 +57,29 @@ implement the interface yourself to sit on a bus FlowPanel does not ship.
 
 <ApiSignature path="../../packages/core/src/runtime/publish.ts" name="createPublisher" />
 
+```ts excerpt
+type PublisherOptions =
+  | { driver: "memory" }
+  | { driver: "redis"; url?: string; client?: RedisLike; keyPrefix?: string };
+```
+
 The memory driver only reaches the process that published, so a second instance
 never sees the message. That is fine locally and wrong in production — use the
 Redis driver whenever more than one instance serves the admin. The Redis
 driver loads `ioredis` on first use and throws if it is not installed; it is an
 optional peer dependency.
+
+The redis driver needs one of `url` or `client`, and says which is missing if it
+gets neither. `client` takes an `ioredis`-compatible instance you already
+configured — TLS, a sentinel, a retry strategy — and FlowPanel then opens no
+connection of its own for publishing; it calls `duplicate()` only when something
+subscribes, because a subscribed Redis connection can run no other command.
+Whichever you pass, nothing connects until the first publish or subscribe:
+`defineAdmin` stays pure.
+
+Every connection gets an `error` listener, because an unhandled `error` on a
+Redis connection is what takes a Node process down. It logs one line per error
+kind rather than one per reconnect attempt, and never rethrows.
 
 `keyPrefix` namespaces channels when several admins share a Redis, and it
 defaults to `"flowpanel"` — the wire channel for `resource.orders` is
@@ -69,11 +87,73 @@ defaults to `"flowpanel"` — the wire channel for `resource.orders` is
 channel name application code sees. The rate limiter has its own, unrelated
 default prefix: `"fp:rl:"`.
 
-Routing is by channel: one channel carries one payload shape, and the SSE layer
-adds the `{ channel, payload }` envelope on the way to the browser — and only
-there — so a subscriber always knows which channel a message came from without
-inspecting it. Use a distinct channel per event kind rather than multiplexing
-shapes onto one.
+Routing is by channel: one channel carries one payload shape, so use a distinct
+channel per event kind rather than multiplexing shapes onto one. On the Redis hop
+the message body is the payload as JSON — an empty string when there is no
+payload — and the channel is the Redis channel name; the `{ channel, payload }`
+envelope is added by `stream()` on the way to the browser, and only there. A
+payload is serialized in every driver, so the memory driver delivers what Redis
+would: a `Date` arrives as an ISO string in development too, and a payload that
+cannot be JSON-encoded is rejected with the channel and the reason named,
+whether or not this process has a subscriber.
+
+`close()` releases the connections a publisher opened; a `client` you passed in
+stays yours, and the `error` listener FlowPanel added to it is removed. A closed
+publisher stays closed: `subscribe` opens no connection and hands back a no-op
+disposer, and `publish` throws rather than returning quietly.
+
+### Publishing from a worker
+
+A process that only publishes — a worker, a cron job, a script — imports
+`@flowpanel/kit/publish` and nothing else. It needs no admin config, no adapter
+and no Next.js, and it opens exactly one connection.
+
+<ApiSignature path="../../packages/core/src/runtime/redis-publisher.ts" name="createPublisher" />
+
+<AutoTypeTable path="../../packages/core/src/runtime/redis-publisher.ts" name="PublisherClient" />
+
+<AutoTypeTable path="../../packages/core/src/runtime/redis-publisher.ts" name="RedisLike" />
+
+```ts excerpt
+import { createPublisher } from "@flowpanel/kit/publish";
+
+const events = createPublisher({ redis: process.env.REDIS_URL! });
+await events.publish(events.channelFor("orders"), { action: "update", id });
+```
+
+The SSE envelope is exported next to it, for a consumer that reads the stream
+without going through FlowPanel's own client:
+
+<ApiSignature path="../../packages/core/src/runtime/envelope.ts" name="encodeEnvelope" />
+
+<ApiSignature path="../../packages/core/src/runtime/envelope.ts" name="decodeEnvelope" />
+
+`decodeEnvelope` returns `null` for a frame that is not a channelled envelope,
+which is how the browser bus drops a foreign frame instead of handing a
+subscriber something it cannot read.
+
+See [Realtime with Redis](/docs/guides/realtime-with-redis#publish-from-an-external-worker).
+
+### The memory driver in a Redis deployment
+
+The publisher is bound per process from `config.realtime`, and rebinds when those
+options change, including a `client` that is a different instance than the bound
+one — an HMR edit to `realtime` takes effect without restarting the dev server,
+while the same config arriving as a different object from another route bundle
+does not disturb subscribers that are already connected.
+
+Binding also warns, once per process, when the driver resolves to `memory` while
+`REDIS_URL` or `FLOWPANEL_REDIS_URL` is set in the environment:
+
+```
+[flowpanel] realtime driver is memory while REDIS_URL is set — other instances
+and workers will not receive events; set realtime: { driver: 'redis', url:
+process.env.REDIS_URL } in defineAdmin
+```
+
+That is the one misconfiguration that looks entirely healthy: every publish
+succeeds, the tab that made the change refreshes, and no other instance or tab
+ever hears about it.
 
 See [Realtime in production](/docs/guides/realtime).
 

@@ -1,11 +1,9 @@
 import type {
-  BulkAction,
   FilterDef,
   ListQueryContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
-  RowAction,
 } from "@flowpanel/core";
 import {
   assertResourceScope,
@@ -24,9 +22,6 @@ import {
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
 import { Button, FlowpanelIcon, PageHeader } from "@flowpanel/react";
-import { serializeBulkAction } from "../actions/bulk-action";
-import { type SerializedRowAction, serializeRowAction } from "../actions/row-action";
-import { filterActionsByAccess } from "../runtime/action-helpers";
 import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { resourceNavName } from "../runtime/nav";
 import {
@@ -36,13 +31,16 @@ import {
 } from "../runtime/parse-list-params";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
 import { projectRowFields, selectKnownFields } from "../runtime/project-row";
+import { readOrCard } from "../runtime/query-error";
 import { resolveReadableListSurface } from "../runtime/readable-list";
 import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
 import { resolveReferences } from "../runtime/resolve-references";
 import { pluralLabel } from "../runtime/resource-title";
+import { detailRowHrefs, resolveRowClick } from "../runtime/row-click";
 import { rowIdentity } from "../runtime/row-identity";
 import { scopeBinding } from "../runtime/scope-binding";
+import { resolveResourceListActions } from "./resource-list-actions";
 import { buildResourceListCreateAction } from "./resource-list-create-action";
 
 export interface ResourceListPageProps {
@@ -131,7 +129,17 @@ export async function ResourceListPage({
     ...scopeBinding(config, resource, reqCtx),
   };
 
-  const result = await runWithRequestContext(reqCtx, () => config.adapter.list(resource.ref, ctx));
+  const listed = await readOrCard(
+    {
+      config,
+      resource: name,
+      operation: "list",
+      ...(reqCtx.requestId ? { requestId: reqCtx.requestId } : {}),
+    },
+    async () => runWithRequestContext(reqCtx, () => config.adapter.list(resource.ref, ctx)),
+  );
+  if (listed.failed) return listed.card;
+  const result = listed.value;
   const clientRows = (result.rows as Row[]).map((row) => projectRowFields(row, readable.rowFields));
 
   const intro = config.adapter.introspect(resource.ref);
@@ -158,7 +166,9 @@ export async function ResourceListPage({
   );
 
   const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
-  const useDrawerRowClick = resource.options.rowClick === "drawer" && !!resource.options.drawer;
+  const rowClick = resolveRowClick(resource);
+  const rowHrefs =
+    rowClick === "detail" ? detailRowHrefs(config, name, clientRows, rowKey) : undefined;
 
   const deletedRowKeys: string[] | undefined =
     softDelete && readable.operationalFields.includes(String(softDelete))
@@ -170,34 +180,12 @@ export async function ResourceListPage({
           })
       : undefined;
 
-  const rawActions = await filterActionsByAccess(
-    resource.options.actions as RowAction<Row>[] | undefined,
+  const { rowActions, rowActionsById, bulkActions } = await resolveResourceListActions<Row>(
+    resource,
+    clientRows,
+    rowKey,
     reqCtx,
   );
-  const serializedActions = rawActions?.map(serializeRowAction) ?? [];
-  let rowActionsById: Record<string, SerializedRowAction[]> | undefined;
-  if (rawActions?.some((a) => a.hidden)) {
-    const entries = await Promise.all(
-      clientRows.map(async (row) => {
-        const id = rowIdentity(row, rowKey);
-        if (id === null) return null;
-        const visible: SerializedRowAction[] = [];
-        for (const [i, a] of rawActions.entries()) {
-          const h = a.hidden;
-          if (h && (await h(row, reqCtx))) continue;
-          const s = serializedActions[i];
-          if (s) visible.push(s);
-        }
-        return [id, visible] as const;
-      }),
-    );
-    rowActionsById = Object.fromEntries(entries.filter((entry) => entry !== null));
-  }
-  const rawBulkActions = await filterActionsByAccess(
-    resource.options.bulkActions as BulkAction<Row>[] | undefined,
-    reqCtx,
-  );
-  const serializedBulkActions = rawBulkActions?.map(serializeBulkAction) ?? [];
   const displayPlural = pluralLabel(resource, name);
   const createdRowKeyParam = searchParams.get("fp_created");
   const createdRowKey =
@@ -255,11 +243,12 @@ export async function ResourceListPage({
           : {})}
         {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
         {...(cellsWithRefs ? { prerenderedCells: cellsWithRefs } : {})}
-        {...(serializedActions.length > 0 ? { rowActions: serializedActions } : {})}
+        {...(rowActions.length > 0 ? { rowActions } : {})}
         {...(rowActionsById ? { rowActionsById } : {})}
-        {...(serializedBulkActions.length > 0 ? { bulkActions: serializedBulkActions } : {})}
+        {...(bulkActions.length > 0 ? { bulkActions } : {})}
         {...(deletedRowKeys && deletedRowKeys.length > 0 ? { deletedRowKeys } : {})}
-        {...(useDrawerRowClick ? { openDrawerOnRowClick: true } : {})}
+        {...(rowClick === "drawer" ? { openDrawerOnRowClick: true } : {})}
+        {...(rowHrefs ? { rowHrefs } : {})}
         {...(resource.options.realtime
           ? {
               realtime:

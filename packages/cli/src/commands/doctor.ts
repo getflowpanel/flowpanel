@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { printConfigWarnings, readConfigWarnings } from "../doctor/config-warnings";
 import {
   countCoreInstances,
   firstDiagnostics,
@@ -313,6 +314,7 @@ export function doctorCommand(cli: Command): void {
         }
       }
 
+      printConfigWarnings(await readConfigWarnings(cwd));
       process.stdout.write("\n");
       if (bad === 0) log.ok(pc.bold("All checks passed."));
       else log.err(pc.bold(`${bad} issue${bad === 1 ? "" : "s"} found.`));

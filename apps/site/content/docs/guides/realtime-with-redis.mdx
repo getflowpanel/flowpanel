@@ -33,19 +33,39 @@ Use a distinct key prefix for every application and environment sharing the same
 
 ## Publish from an external worker
 
-```ts excerpt
-import { bindPublisher, publishResource } from "@flowpanel/kit/server";
-import config from "@/flowpanel.config";
+A worker, a cron job or a one-off script publishes through `@flowpanel/kit/publish`. It is the whole realtime client: no admin config, no adapter, no Next.js — one connection and the wire format.
 
-bindPublisher(config);
-await publishResource("orders", { action: "update", id: orderId });
+```ts excerpt
+import { createPublisher } from "@flowpanel/kit/publish";
+
+const events = createPublisher({ redis: process.env.REDIS_URL! });
+
+await events.publish(events.channelFor("orders"), { action: "update", id: orderId });
+await events.close();
 ```
 
-Bind once during worker startup, after environment variables are available. A worker that skips binding has no config-selected publisher. Do not bind on every job.
+`channelFor("orders")` returns `resource.orders`, the channel a resource subscribes to when it sets `realtime: true`; any other string is a channel of your own. Use the same `keyPrefix` the admin uses, or neither side sees the other:
+
+```ts excerpt
+const events = createPublisher({ redis: process.env.REDIS_URL!, keyPrefix: "myapp-production" });
+```
+
+Create the publisher once per process and `close()` it on shutdown. A publish-only process opens exactly one connection, on the first publish — nothing connects while the module is merely imported.
+
+When the worker already owns a configured Redis client — TLS, a sentinel, a retry strategy, a BullMQ connection — hand that over instead of a URL, and it stays yours to close:
+
+```ts excerpt
+import { createPublisher } from "@flowpanel/kit/publish";
+import { redis } from "./redis";
+
+const events = createPublisher({ redis });
+```
+
+Inside the admin itself nothing changes: `ctx.publish` in an action, or `publishResource` from `@flowpanel/kit/server`, already use the publisher `defineAdmin` configured.
 
 ## Verify across instances
 
-Run two application instances against the same Redis key prefix. Connect a browser to one, perform a mutation through the other, and confirm the browser refetches. Repeat with a worker publication. If local same-instance updates work but this test fails, inspect the prefix, Redis URL, network/TLS settings, and whether the worker called `bindPublisher`.
+Run two application instances against the same Redis key prefix. Connect a browser to one, perform a mutation through the other, and confirm the browser refetches. Repeat with a worker publication. If local same-instance updates work but this test fails, inspect the prefix, the Redis URL, and network/TLS settings. FlowPanel also warns on startup when it resolves the memory driver while `REDIS_URL` is set in the environment, which is the configuration that produces exactly this symptom.
 
 ## Production notes
 

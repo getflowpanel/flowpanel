@@ -1,3 +1,4 @@
+import { didYouMean } from "./suggest";
 import type { DashboardConfig } from "./types/dashboard";
 import type { ResourceConfig } from "./types/resource";
 
@@ -60,12 +61,6 @@ function resourceRefSites(resource: ResourceConfig): RefSite[] {
   pushFieldRefs(o.drawer?.fields, "drawer.fields", out);
   pushTabRefs(o.drawer?.tabs, "drawer.tabs", out);
   return out;
-}
-
-export function didYouMean(target: string, known: readonly string[]): string {
-  const squashed = target.toLowerCase().replace(/[_-]/g, "");
-  const near = known.find((k) => k.toLowerCase().replace(/[_-]/g, "") === squashed);
-  return near ? ` Did you mean "${near}"?` : "";
 }
 
 function assertKnown(sites: readonly RefSite[], owner: string, known: readonly string[]): void {

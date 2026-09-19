@@ -112,6 +112,10 @@ export const RU_LABELS: ResolvedLabels = {
     noOptions: "Ничего не найдено",
     searching: "Поиск…",
     loadFailed: "Не удалось загрузить варианты",
+    required: "Заполните поле «{label}»",
+    invalidNumber: "«{label}»: нужно число",
+    invalidBoolean: "«{label}»: нужно да или нет",
+    invalidDate: "«{label}»: нужна дата",
   },
   notFound: {
     title: "Страница не найдена",
@@ -128,6 +132,14 @@ export const RU_LABELS: ResolvedLabels = {
     secondsAgo: "{n} с назад",
     minutesAgo: "{n} мин назад",
     chartsMissing: "Пакет charts не установлен — выполните `pnpm add @flowpanel/charts`.",
+  },
+  errors: {
+    queryTitle: "{resource}: операция «{operation}» не выполнена",
+    queryHint: "Проверьте список колонок и схему базы данных. Подробности — в логе сервера.",
+    requestId: "Запрос {id}",
+    widgetTitle: "Виджет не загрузился",
+    widgetHint: "Не удалось загрузить данные виджета.",
+    retry: "Повторить",
   },
   palette: {
     placeholder: "Команда или раздел…",

@@ -28,6 +28,7 @@ import {
   projectRowFields,
   selectKnownFields,
 } from "../runtime/project-row";
+import { type QueryOutcome, type QuerySite, readOrCard } from "../runtime/query-error";
 import { buildRequestContext } from "../runtime/request-setup";
 import { singularLabel } from "../runtime/resource-title";
 import { scopeBinding } from "../runtime/scope-binding";
@@ -88,14 +89,18 @@ export async function ResourceDetailPage({
     : baseFields;
   const readableInitialFields = [...initialFields].filter((field) => readable.has(field));
 
-  const row = await readDetailRow(
+  const site: QuerySite = {
     config,
-    resource,
-    reqCtx,
-    id,
-    knownColumns,
-    readableInitialFields,
-  );
+    resource: name,
+    operation: "get",
+    ...(reqCtx.requestId ? { requestId: reqCtx.requestId } : {}),
+  };
+  const first = await readDetailRow(config, resource, reqCtx, id, knownColumns, {
+    fields: readableInitialFields,
+    site,
+  });
+  if (first.failed) return first.card;
+  const row = first.value;
   if (!row) return <NotFound config={config} />;
 
   const baseRow = projectRowFields(row, readableBaseFields);
@@ -105,9 +110,15 @@ export async function ResourceDetailPage({
   const readableActiveFields = [...activeFields].filter((field) => readable.has(field));
   const initiallyReadable = new Set(readableInitialFields);
   const needsActiveRead = readableActiveFields.some((field) => !initiallyReadable.has(field));
-  const activeRow = needsActiveRead
-    ? await readDetailRow(config, resource, reqCtx, id, knownColumns, readableActiveFields)
-    : projectRowFields(row, readableActiveFields);
+  let activeRow: Row | null = projectRowFields(row, readableActiveFields);
+  if (needsActiveRead) {
+    const second = await readDetailRow(config, resource, reqCtx, id, knownColumns, {
+      fields: readableActiveFields,
+      site,
+    });
+    if (second.failed) return second.card;
+    activeRow = second.value;
+  }
   if (!activeRow) return <NotFound config={config} />;
 
   const header = await detailHeader(resource, name, baseRow);
@@ -211,8 +222,8 @@ async function readDetailRow(
   reqCtx: RequestContext,
   id: string,
   knownColumns: ReadonlyArray<{ name: string }>,
-  readableFields: Iterable<string>,
-): Promise<Row | null> {
+  { fields, site }: { fields: Iterable<string>; site: QuerySite },
+): Promise<QueryOutcome<Row | null>> {
   const ctx: ItemQueryContext = {
     ...reqCtx,
     db: config.adapter.db,
@@ -220,11 +231,13 @@ async function readDetailRow(
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,
     id,
-    select: selectKnownFields(readableFields, knownColumns),
+    select: selectKnownFields(fields, knownColumns),
     ...scopeBinding(config, resource, reqCtx),
   };
-  const row = (await runWithRequestContext(reqCtx, () =>
-    config.adapter.get(resource.ref, ctx),
-  )) as Row | null;
-  return row ? projectRowFields(row, readableFields) : null;
+  const got = await readOrCard(site, async () =>
+    runWithRequestContext(reqCtx, () => config.adapter.get(resource.ref, ctx)),
+  );
+  if (got.failed) return got;
+  const row = got.value as Row | null;
+  return { failed: false, value: row ? projectRowFields(row, fields) : null };
 }

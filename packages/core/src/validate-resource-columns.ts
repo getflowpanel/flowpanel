@@ -1,6 +1,6 @@
+import { didYouMean } from "./suggest";
 import type { ColumnMeta } from "./types/adapter";
 import type { ResourceConfig } from "./types/resource";
-import { didYouMean } from "./validate-resource-refs";
 
 interface ColumnSite {
   /** Column name the config points at. */
@@ -48,6 +48,7 @@ function columnSites(resource: ResourceConfig): ColumnSite[] {
   if (o.defaultSort && typeof o.defaultSort.field === "string") {
     out.push({ target: o.defaultSort.field, where: "defaultSort.field" });
   }
+  if (typeof o.rowKey === "string") out.push({ target: o.rowKey, where: "rowKey" });
   pushFormFieldSites(o.create?.fields, "create.fields", out);
   pushFormFieldSites(o.update?.fields, "update.fields", out);
   pushColumnSites(o.update?.expose, "update.expose", out);

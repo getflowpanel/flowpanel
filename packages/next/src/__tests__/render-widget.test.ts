@@ -48,6 +48,8 @@ const ctx: WidgetContext = {
   href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
   query: (_key, fn) => fn(),
   labels: DEFAULT_LABELS,
+  sql: async () => [],
+  count: async () => 0,
 };
 
 const reqCtx: RequestContext = {

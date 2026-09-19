@@ -12,6 +12,7 @@ import { DEFAULT_RESOURCE_ROW_KEY } from "../../runtime/defaults";
 import { declaredFieldSet, parsePage } from "../../runtime/parse-list-params";
 import { prerenderResourceCells } from "../../runtime/prerender-cells";
 import { projectRowFields } from "../../runtime/project-row";
+import { readOrCard } from "../../runtime/query-error";
 import { withReferenceCells } from "../../runtime/reference-cells";
 import { readRelatedPage } from "../../runtime/require-authorized";
 import { buildDetailTabContext } from "../../runtime/widget-context";
@@ -114,12 +115,25 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
     });
 
   const requested = parsePage(sp.get(pageParam));
-  let result = await read(requested);
-  // A page past the end still has to lead back to the records that exist.
-  if (result && result.rows.length === 0 && result.total > 0) {
-    const last = Math.max(1, Math.ceil(result.total / result.pageSize));
-    if (last !== requested) result = await read(last);
-  }
+  const listed = await readOrCard(
+    {
+      config,
+      resource: String(tab.resource),
+      operation: "list",
+      ...(reqCtx.requestId ? { requestId: reqCtx.requestId } : {}),
+    },
+    async () => {
+      const first = await read(requested);
+      // A page past the end still has to lead back to the records that exist.
+      if (first && first.rows.length === 0 && first.total > 0) {
+        const last = Math.max(1, Math.ceil(first.total / first.pageSize));
+        if (last !== requested) return read(last);
+      }
+      return first;
+    },
+  );
+  if (listed.failed) return listed.card;
+  const result = listed.value;
   if (!result) {
     return <div className="px-2 py-6 text-sm text-fp-text-3">{labels.noResults}</div>;
   }

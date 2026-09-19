@@ -10,6 +10,7 @@ export default defineConfig({
     client: "src/client.ts",
     bullmq: "src/bullmq.ts",
     "bullmq-board": "src/bullmq-board.ts",
+    publish: "src/publish.ts",
     server: "src/server.ts",
     charts: "src/charts.ts",
     "charts-runtime": "src/charts-runtime.ts",

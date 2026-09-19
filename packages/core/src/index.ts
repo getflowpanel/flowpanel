@@ -15,6 +15,7 @@ export {
   resolveFormatting,
 } from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
+export { declaredWriteFields } from "./internal/write-fields";
 export { RU_LABELS } from "./locales/ru";
 export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";
 export { assertWritableInput, filterReadableProjection } from "./policy/fields";
@@ -35,6 +36,11 @@ export {
 export { errorResult, reportUnexpectedError, resultResponse } from "./runtime/result";
 export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope";
 export { fillDays, previousRange } from "./runtime/series";
+export {
+  type ParseSqlRowsOptions,
+  parseSqlRows,
+  sanitizeSqlParams,
+} from "./runtime/sql-params";
 export { buildThemeInitScript, THEME_STORAGE_KEY, type ThemeMode } from "./theme-init";
 export type {
   ActionConfirm,

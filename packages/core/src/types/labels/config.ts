@@ -124,6 +124,14 @@ export interface LabelsConfig {
     searching?: string;
     /** A reference search that failed. */
     loadFailed?: string;
+    /** An empty value the write needs. Use `{label}` for the field's label. */
+    required?: string;
+    /** A value that is not a number. Use `{label}`. */
+    invalidNumber?: string;
+    /** A value that is neither true nor false. Use `{label}`. */
+    invalidBoolean?: string;
+    /** A value that is not a date. Use `{label}`. */
+    invalidDate?: string;
   };
   /** Drawer chrome. */
   drawer?: {
@@ -171,6 +179,20 @@ export interface LabelsConfig {
     minutesAgo?: string;
     /** Shown where a chart would be when @flowpanel/charts is missing. */
     chartsMissing?: string;
+  };
+  /** FlowPanel's own failure surfaces, shown in place of the data that did not load. */
+  errors?: {
+    /** Failed page read. Use `{resource}` and `{operation}`. */
+    queryTitle?: string;
+    /** What to check after a failed page read. */
+    queryHint?: string;
+    /** Correlation line tying the card to the server log. Use `{id}`. */
+    requestId?: string;
+    /** Failed widget, shown in the widget's own frame. */
+    widgetTitle?: string;
+    widgetHint?: string;
+    /** Button that re-runs a failed widget. */
+    retry?: string;
   };
   /** ⌘K palette. */
   palette?: {

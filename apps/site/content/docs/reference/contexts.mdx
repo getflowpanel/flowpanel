@@ -80,6 +80,68 @@ for (const [field, value] of Object.entries(ctx.filters)) {
 }
 ```
 
+## Raw SQL and counts
+
+A widget query's [`WidgetContext`](/docs/reference/widgets#widgetcontext) — and a
+detail tab's `DetailTabContext` — carries two reads the ORM cannot express
+comfortably: `ctx.sql` and `ctx.count`.
+
+### ctx.sql
+
+`ctx.sql` runs exactly the statement you write. It applies no tenant scope, no
+access rule and no soft-delete filter — add those predicates yourself, or use
+`ctx.count` and resource reads, which do.
+
+```ts excerpt
+metric("New signups", async (ctx) => {
+  const [row] = await ctx.sql<{ n: number }>`
+    select count(*)::int as n
+    from users
+    where created_at >= ${ctx.dateRange.from}
+  `;
+  return row?.n ?? 0;
+});
+```
+
+In a multi-tenant admin that means writing the predicate in the statement:
+`where tenant_id = ${ctx.session?.tenantId}`. A resource read — `ctx.count`, a
+table widget's `resource`, a related tab — is the scoped primitive; a raw
+statement is not one.
+
+`ctx.sql` is a tagged template. Every interpolated value is bound as a parameter,
+so `${filter}` from a search box can never change the statement — there is no
+string-concatenating form of this API, on purpose. A `Date` binds as an ISO-8601
+string and a `bigint` as decimal text, so the same value works on Postgres, MySQL
+and SQLite. An array is a single value to the driver, and each adapter binds one
+its own way — see [the adapter reference](/docs/reference/adapters#raw-sql) before
+writing an `IN` list.
+
+Results come back as plain objects. Because a free-form statement carries no
+column types to consult, every string shaped exactly like a zoneless
+`YYYY-MM-DD HH:mm:ss` (with an optional `T` separator and fractional seconds) is
+returned as a UTC `Date` — that is what the drivers returning them mean. A text
+column of your own holding such a string is parsed too. Cast it in the query, or,
+when `select *` gives you no place to cast, turn the pass off for the whole
+adapter with `parseDates: false` — `drizzleAdapter({ db, schema, parseDates: false })`
+or `prismaAdapter({ prisma, provider, parseDates: false })`. It defaults to `true`.
+
+`ctx.sql` throws when the configured adapter implements no `sql` capability. The
+error names the adapter kind; query through `ctx.db` instead.
+
+### ctx.count
+
+`ctx.count(resource, where)` counts rows of a registered resource through the
+same role, access and tenant-scope checks as any other cross-resource read, so a
+resource the current session may not read counts `0` rather than leaking a total.
+`where` takes the filter shapes `ctx.filters` uses, and soft-deleted rows are
+excluded unless `where` says otherwise. A filter on a field the role may not read
+counts `0`, and so does an `undefined` filter value — a missing value narrows to
+nothing rather than widening to every row.
+
+```ts excerpt
+stat("Open tickets", (ctx) => ctx.count("tickets", { status: "open" }));
+```
+
 ## Request-scoped access
 
 When you cannot thread a context through — a helper several calls deep, say —
