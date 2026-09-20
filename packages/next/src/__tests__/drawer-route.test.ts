@@ -175,6 +175,33 @@ describe("drawerRoute", () => {
     expect(body.resourceLabel).toBe("Customer");
   });
 
+  it("carries no detail link for a resource with no detail page", async () => {
+    const handler = drawerRoute(mkConfig());
+    const res = await handler(mkReq(), {
+      params: Promise.resolve({ resource: "users", id: "abc" }),
+    });
+    const body = (await res.json()) as { detailHref: string | null };
+    expect(body.detailHref).toBeNull();
+  });
+
+  it("links the drawer to the record's own page when the resource configures detail", async () => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "users" },
+          { columns: ["id"], drawer: { fields: "*" }, detail: { fields: "*" } },
+        ),
+      ],
+    });
+    const res = await drawerRoute(config)(mkReq(), {
+      params: Promise.resolve({ resource: "users", id: "abc" }),
+    });
+    const body = (await res.json()) as { detailHref: string | null };
+    expect(body.detailHref).toBe("/admin/users/abc");
+  });
+
   it("projects payload.row to the declared surface — an undeclared column never reaches the wire", async () => {
     // `fakeAdapter.get` returns `name` in addition to `id`/`email`.
     // `columns: ["id", "email"]` is the only declaration on this resource —

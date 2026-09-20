@@ -61,6 +61,7 @@ export function AdminTabs({
   return (
     <nav
       aria-label={navigation.admin}
+      data-flowpanel-nav=""
       className="sticky top-0 z-40 border-b border-fp-border-1 bg-fp-bg-1/85 backdrop-blur-md"
     >
       <p id="admin-tabs-scroll-hint" className="sr-only">

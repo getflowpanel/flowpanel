@@ -10,14 +10,14 @@ export interface DateRangePickerProps {
   onChange: (next: { preset?: DateRangePreset; from?: Date; to?: Date }) => void;
 }
 
-const PRESETS: Array<{ key: DateRangePreset; label: string }> = [
-  { key: "today", label: "Today" },
-  { key: "yesterday", label: "Yesterday" },
-  { key: "last7d", label: "Last 7 days" },
-  { key: "last30d", label: "Last 30 days" },
-  { key: "MTD", label: "Month to date" },
-  { key: "QTD", label: "Quarter to date" },
-  { key: "YTD", label: "Year to date" },
+const PRESETS: Array<{ key: DateRangePreset }> = [
+  { key: "today" },
+  { key: "yesterday" },
+  { key: "last7d" },
+  { key: "last30d" },
+  { key: "MTD" },
+  { key: "QTD" },
+  { key: "YTD" },
 ];
 
 export function DateRangePicker({ value, onChange }: DateRangePickerProps) {

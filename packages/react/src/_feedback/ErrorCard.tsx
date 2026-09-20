@@ -7,7 +7,7 @@ export function ErrorCard({ error, onRetry }: { error: Error; onRetry?: () => vo
   const { errors } = useLabels();
   const detail = process.env.NODE_ENV === "production" ? null : error.message;
   return (
-    <Card className="border-fp-err/40">
+    <Card className="border-fp-err/40" data-fp-error="">
       <CardHeader>{errors.widgetTitle}</CardHeader>
       <CardContent>
         <p className="text-xs text-fp-text-3">{errors.widgetHint}</p>

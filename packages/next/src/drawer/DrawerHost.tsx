@@ -22,6 +22,7 @@ import {
   type Tone,
   useAdminDrawer,
   useApiBase,
+  useLabels,
 } from "@flowpanel/react";
 import { Fragment, useEffect, useState } from "react";
 import { ActionFormDialog } from "../actions/ActionFormDialog";
@@ -404,6 +405,7 @@ function ActionButton({
 export function DrawerHost() {
   const { state, close } = useAdminDrawer();
   const apiBase = useApiBase();
+  const labels = useLabels();
   const [payload, setPayload] = useState<DrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -467,12 +469,23 @@ export function DrawerHost() {
               {payload?.resourceLabel ?? humanize(resource)} · {id}
             </p>
           ) : null}
+          {payload?.detailHref ? (
+            <a
+              href={payload.detailHref}
+              className="mt-1 inline-block text-xs text-fp-accent underline-offset-4 hover:underline"
+            >
+              {labels.drawer.viewDetails}
+            </a>
+          ) : null}
         </div>
       </DrawerHeader>
       <DrawerContent>
         {loading ? <div className="text-sm text-fp-text-3">Loading…</div> : null}
         {error ? (
-          <div className="rounded-fp-sm border border-fp-err/40 bg-fp-err/10 p-3 text-sm text-fp-err">
+          <div
+            data-fp-error=""
+            className="rounded-fp-sm border border-fp-err/40 bg-fp-err/10 p-3 text-sm text-fp-err"
+          >
             {error}
           </div>
         ) : null}

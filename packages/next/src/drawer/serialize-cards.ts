@@ -18,6 +18,7 @@ import {
   resolveFormatting,
   runWithRequestContext,
 } from "@flowpanel/core";
+import { statDisplay, statResultOf } from "../runtime/stat-result";
 
 /** Wire-safe shape of the card widgets a drawer renders with the dashboard's own components. */
 export type SerializedCardWidget =
@@ -109,15 +110,23 @@ export async function serializeCardWidget(
   });
   switch (w.kind) {
     case "stat": {
-      const value = await resolveStat(w.value, reqCtx, ctx);
+      const resolver = w.value;
+      const produced =
+        typeof resolver === "function"
+          ? await runWithRequestContext(reqCtx, () => resolver(ctx))
+          : resolver;
+      const result = statResultOf(produced);
+      const hint = result.hint ?? w.options.hint;
+      const href = result.href ?? w.options.href;
+      const tone = result.tone ?? w.options.tone;
       return {
         kind: "stat",
         label: w.label,
-        value: typeof value === "number" ? value : String(value ?? "—"),
+        value: statDisplay(result.value),
         ...(w.options.format ? { format: w.options.format } : {}),
-        ...(w.options.hint ? { hint: w.options.hint } : {}),
-        ...(w.options.href ? { href: w.options.href } : {}),
-        ...(w.options.tone ? { tone: w.options.tone } : {}),
+        ...(hint ? { hint } : {}),
+        ...(href ? { href } : {}),
+        ...(tone ? { tone } : {}),
         ...common(w.options),
       };
     }

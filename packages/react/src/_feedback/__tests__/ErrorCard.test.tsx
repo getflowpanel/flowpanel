@@ -26,6 +26,11 @@ describe("the card a failed widget leaves behind", () => {
     expect(screen.getByRole("button", { name: "Повторить" })).toBeTruthy();
   });
 
+  it("marks itself as a FlowPanel error surface", () => {
+    const { container } = render(<ErrorCard error={new Error("boom")} />);
+    expect(container.querySelector("[data-fp-error]")).toBeTruthy();
+  });
+
   it("offers the retry it was given", () => {
     const onRetry = vi.fn();
     render(<ErrorCard error={new Error("boom")} onRetry={onRetry} />);

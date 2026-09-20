@@ -45,4 +45,15 @@ describe("AdminTabs", () => {
       "page",
     );
   });
+
+  it("marks its navigation the way every shell variant does", () => {
+    render(
+      <AdminTabs
+        groups={[{ items: [{ label: "Overview", href: "/admin" }] }]}
+        currentPath="/admin"
+      />,
+    );
+
+    expect(screen.getByRole("navigation").getAttribute("data-flowpanel-nav")).toBe("");
+  });
 });

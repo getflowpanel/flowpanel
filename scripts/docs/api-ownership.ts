@@ -133,18 +133,6 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
-    sourcePrefix: "packages/core/dist/format.d.ts",
-    page: "/docs/reference/resources",
-    anchor: "formatting-values-yourself",
-    guidance: false,
-  },
-  {
-    sourcePrefix: "packages/core/dist/theme.d.ts",
-    page: "/docs/customization/styling",
-    anchor: "initialize-the-theme-under-csp",
-    guidance: true,
-  },
-  {
     sourcePrefix: "packages/core/src/policy/",
     page: "/docs/reference/resources",
     anchor: "access-control",
@@ -472,6 +460,7 @@ export const API_OWNERSHIP_RULES = [
     anchor: "realtime",
     guidance: true,
   },
+  { sourcePrefix: "packages/test/src/", page: "/docs/reference/testing", guidance: true },
 ] as const satisfies readonly ApiOwnershipRule[];
 
 export const API_EXCLUSIONS = [

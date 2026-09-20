@@ -4,20 +4,8 @@ import { disableCustomer } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { readSandboxConfig } from "@/src/demo/sandbox/config";
 import { sandboxField, sandboxImportConfig, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
-
-const PLANS = [
-  { label: "Free", value: "free" },
-  { label: "Starter", value: "starter" },
-  { label: "Pro", value: "pro" },
-  { label: "Business", value: "business" },
-];
-
-const STATUSES = [
-  { label: "Active", value: "active" },
-  { label: "Trialing", value: "trialing" },
-  { label: "Past due", value: "past_due" },
-  { label: "Canceled", value: "canceled" },
-];
+import { PLANS, STATUSES } from "./customer-enums";
+import { customerBadge, customerSubtitle, customerTabs, customerTitle } from "./customers-detail";
 
 const fields: FieldDef<InferRow<typeof schema.customers>>[] = [
   {
@@ -74,6 +62,13 @@ export const customers = resource(schema.customers, {
   create: { fields: [...fields, sandboxField<InferRow<typeof schema.customers>>()] },
   update: { fields },
   delete: { softDelete: "deletedAt" },
+  detail: {
+    expose: ["lastSeenAt"],
+    title: customerTitle,
+    subtitle: customerSubtitle,
+    badge: customerBadge,
+    tabs: customerTabs,
+  },
   rowClick: "drawer",
   realtime: true,
   export: {

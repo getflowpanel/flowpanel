@@ -122,7 +122,7 @@ export const RU_LABELS: ResolvedLabels = {
     description: "Такого раздела или записи нет.",
     back: "В админку",
   },
-  formError: "Исправьте ошибки в форме.",
+  formError: "Что-то пошло не так — попробуйте ещё раз.",
   confirm: { title: "Подтвердите действие", ok: "Подтвердить", cancel: "Отмена" },
   widget: {
     empty: "Пока нет данных",

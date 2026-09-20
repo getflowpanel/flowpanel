@@ -19,6 +19,7 @@ export function GET(): Response {
     `Source: ${siteConfig.repo.url}`,
     `Docs:   ${siteConfig.url}/docs`,
     `Full:   ${siteConfig.url}/llms-full.txt`,
+    "Local:  node_modules/@flowpanel/kit/llms.txt — the same reference, shipped in the package",
     "",
     "## Sections",
     "",

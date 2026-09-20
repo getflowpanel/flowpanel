@@ -41,6 +41,9 @@ jobs:
 
       - run: pnpm test:unit
 
+      - name: Docs-checker tests (scripts/__tests__)
+        run: pnpm test:scripts
+
       - name: Production dependency audit (high/critical)
         run: pnpm audit --prod --audit-level high
 

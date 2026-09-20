@@ -74,6 +74,8 @@ export function DefaultPagination({
 }: PaginationProps) {
   const labels = resolvePaginationLabels(overrides);
   const pages = Math.max(1, Math.ceil(total / pageSize));
+  const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const last = Math.min(total, page * pageSize);
   const sizePicker = pageSizeOptions?.length && onPageSizeChange ? pageSizeOptions : null;
   if (pages <= 1 && !sizePicker) return null;
 
@@ -89,6 +91,10 @@ export function DefaultPagination({
         className,
       )}
     >
+      <span className="mr-2 tabular-nums text-fp-text-3">
+        {`${first}–${last} ${labels.of} ${total}`}
+      </span>
+
       <button
         type="button"
         disabled={page <= 1}

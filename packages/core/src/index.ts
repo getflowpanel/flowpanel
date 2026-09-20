@@ -220,6 +220,8 @@ export type {
   StatGroupWidget,
   StatItem,
   StatOptions,
+  StatResolver,
+  StatResult,
   StatValue,
   StatWidget,
 } from "./types/widget-cards";

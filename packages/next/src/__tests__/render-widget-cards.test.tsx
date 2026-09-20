@@ -134,6 +134,43 @@ describe("stat widget", () => {
       href: "/admin/users",
     });
   });
+
+  it("takes tone, hint and href from a StatResult the query produced", async () => {
+    const props = await rendered(
+      {
+        kind: "stat",
+        label: "Open invoices",
+        value: async (c: WidgetContext) => ({
+          value: 4,
+          tone: "warn",
+          hint: "awaiting payment",
+          href: c.href("invoices"),
+        }),
+        options: { hint: "static", tone: "default" },
+      } as never,
+      StatCard,
+    );
+    expect(props).toMatchObject({
+      value: 4,
+      tone: "warn",
+      hint: "awaiting payment",
+      href: "/admin/invoices",
+    });
+  });
+
+  it("keeps a Date a value rather than reading it as a result object", async () => {
+    const props = await rendered(
+      {
+        kind: "stat",
+        label: "Last run",
+        value: async () => new Date("2026-03-04T00:00:00.000Z"),
+        options: {},
+      } as never,
+      StatCard,
+    );
+    expect(props?.value).toContain("2026");
+    expect(props?.href).toBeUndefined();
+  });
 });
 
 describe("kv widget", () => {

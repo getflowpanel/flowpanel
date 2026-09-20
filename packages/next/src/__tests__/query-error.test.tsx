@@ -182,4 +182,13 @@ describe("QueryErrorCard", () => {
     expect(text).toContain("orders: get failed");
     expect(text).toContain("Request r1");
   });
+
+  it("marks itself as a FlowPanel error surface for smoke tests", () => {
+    const config = admin(adapterThatFails("list", null));
+    const card = QueryErrorCard({
+      site: { config, resource: "orders", operation: "get", requestId: "r1" },
+      cause: new Error("boom"),
+    });
+    expect((card.props as { "data-fp-error"?: string })["data-fp-error"]).toBe("");
+  });
 });

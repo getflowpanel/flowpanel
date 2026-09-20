@@ -9,7 +9,9 @@ import type {
   RequestContext,
   ResolvedAdminConfig,
   ResolvedFormatting,
+  StatResult,
   StatValue,
+  StatWidget,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
@@ -27,9 +29,14 @@ import {
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { ServerCard } from "./_server-card";
 import { renderTableWidget } from "./render-table-widget";
+import { statDisplay, statResultOf } from "./stat-result";
 
 function isMetricResult(value: number | string | MetricResult): value is MetricResult {
   return typeof value === "object" && value !== null;
+}
+
+async function resolveStat(value: StatWidget["value"], ctx: WidgetContext): Promise<StatResult> {
+  return statResultOf(typeof value === "function" ? await value(ctx) : value);
 }
 
 async function resolveStatValue(
@@ -119,15 +126,18 @@ export async function renderWidget(
       );
     }
     case "stat": {
-      const value = await resolveStatValue(widget.value, ctx);
+      const result = await resolveStat(widget.value, ctx);
+      const hint = result.hint ?? widget.options.hint;
+      const href = result.href ?? widget.options.href;
+      const tone = result.tone ?? widget.options.tone;
       return withRealtime(
         <StatCard
           label={widget.label}
-          value={typeof value === "number" ? value : String(value ?? "—")}
+          value={statDisplay(result.value)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
-          {...(widget.options.hint ? { hint: widget.options.hint } : {})}
-          {...(widget.options.href ? { href: widget.options.href } : {})}
-          {...(widget.options.tone ? { tone: widget.options.tone } : {})}
+          {...(hint ? { hint } : {})}
+          {...(href ? { href } : {})}
+          {...(tone ? { tone } : {})}
         />,
         widget.options.realtime,
       );

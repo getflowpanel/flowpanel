@@ -87,6 +87,8 @@ export interface DrawerPayload {
   labels: Record<string, string>;
   /** Field → column `format`. Plain data, rendered client-side exactly as the table does. */
   formats: Record<string, ColumnFormat>;
+  /** The record's own page, when the resource configures `detail`. */
+  detailHref: string | null;
 }
 
 /** Map of field → column `format`, so drawer rows format like their table cells. */
@@ -312,6 +314,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
           prerendered: await prerenderRowFields(columns, projectedRow, reqCtx),
           labels: buildFieldLabels(columns),
           formats: buildFieldFormats(columns),
+          detailHref: resource.options.detail ? buildHref(config, String(resourceName), id) : null,
         };
         return Response.json(payload);
       },

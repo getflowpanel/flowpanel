@@ -143,7 +143,7 @@ export const DEFAULT_LABELS: {
     description: "The resource or dashboard you requested doesn't exist.",
     back: "Back to admin",
   },
-  formError: "Please fix the errors above.",
+  formError: "Something went wrong — please try again.",
   confirm: { title: "Are you sure?", ok: "Confirm", cancel: "Cancel" },
   widget: {
     empty: "No data yet",

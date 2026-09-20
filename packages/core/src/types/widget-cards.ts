@@ -44,11 +44,28 @@ export interface StatOptions {
   realtime?: string | string[];
 }
 
+/**
+ * What a `stat()` resolver may return instead of a bare value, so a card computed
+ * from data can carry its own tone, caption and link — `MetricResult` for `stat()`.
+ */
+export interface StatResult {
+  value: StatValue;
+  /** Semantic color of the value. */
+  tone?: Tone;
+  /** Small caption under the value. */
+  hint?: string;
+  /** Turns the whole card into a link to this path. */
+  href?: string;
+}
+
+/** A `stat()` value resolved per request. */
+export type StatResolver = (ctx: WidgetContext) => Promise<StatValue | StatResult>;
+
 /** One number with a label — a `metric()` without the delta and sparkline machinery. */
 export interface StatWidget {
   kind: "stat";
   label: string;
-  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue>);
+  value: StatValue | StatResolver;
   options: StatOptions;
 }
 

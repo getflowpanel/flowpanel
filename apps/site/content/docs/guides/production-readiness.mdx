@@ -83,6 +83,10 @@ Queue boards expose operational and potentially destructive controls. Protect th
 
 Use [Errors](/docs/reference/errors) and [Troubleshooting](/docs/troubleshooting) during incident preparation.
 
+## Browser smoke test
+
+Run one browser pass over the whole admin in CI. `@flowpanel/test` walks the navigation, every dashboard and list, and the first row of each list, and fails when a route answers 4xx/5xx, something writes to `console.error`, a FlowPanel error surface renders, or axe reports a WCAG 2.2 AA violation. It catches the failures that only appear against a real database — a missing column, a widget query that throws, a detail route that 500s — which unit tests and typecheck cannot see. See [Smoke testing](/docs/reference/testing).
+
 ## Release checklist
 
 Before sending production traffic:
@@ -95,7 +99,7 @@ Before sending production traffic:
 - [ ] Audit storage, rate limiting, logs, request IDs, alerts, and retention are configured.
 - [ ] Pending migrations were reviewed with `--dry-run`; backup and recovery steps are documented.
 - [ ] Realtime and queues use deployment-appropriate drivers and protected origins.
-- [ ] The application passes unit tests, typecheck, lint, production build, and critical browser journeys.
+- [ ] The application passes unit tests, typecheck, lint, production build, `smokeAdmin`, and critical browser journeys.
 - [ ] The [upgrade guide](/docs/guides/upgrade) and package changelog were reviewed; rollback or forward-fix ownership is explicit.
 
 If any item is intentionally omitted, record why and who owns the risk. A transparent boundary is more reliable than a hidden default.

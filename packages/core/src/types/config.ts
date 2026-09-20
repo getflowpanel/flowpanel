@@ -106,8 +106,6 @@ export interface AuditConfig {
   enabled?: boolean;
   /** Where events go — your table, your log pipeline, anywhere. */
   sink?: (event: AuditEvent) => Promise<void>;
-  /** Advisory retention window for your own sink, e.g. `"90d"`. */
-  retention?: string;
 }
 
 /** How FlowPanel renders surrounding chrome around the content area. */

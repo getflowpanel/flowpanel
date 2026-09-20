@@ -180,6 +180,23 @@ value is a literal or a resolver.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="StatOptions" />
 
+#### StatResult
+
+A resolver may return a `StatResult` instead of a bare value, so a card computed
+from data carries its own tone, caption and link — the same arrangement
+`MetricResult` gives `metric()`. A result field wins over the matching static
+option, which stays as the fallback. A `Date` is still a value, not a result.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="StatResult" />
+
+```ts excerpt
+stat("Open invoices", async (ctx) => {
+  const filter = { customerId: ctx.row?.id, status: "open" };
+  const value = await ctx.count("invoices", filter);
+  return { value, href: ctx.href("invoices", undefined, { filter }), tone: value > 0 ? "warn" : "ok" };
+});
+```
+
 ### kv
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="kv" />

@@ -15,7 +15,7 @@ async function main(): Promise<void> {
     process.exitCode = 1;
   } else {
     console.log(
-      `✔ documentation verified — ${report.pages} canonical pages; content, API, CLI, defaults, compatibility, and links agree`,
+      `✔ documentation verified — ${report.pages} canonical pages; content, API, CLI, options, llms.txt, defaults, compatibility, and links agree`,
     );
   }
 }

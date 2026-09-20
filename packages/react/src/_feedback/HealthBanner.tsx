@@ -17,6 +17,7 @@ export function HealthBanner({ tone, title, description, action }: HealthBannerP
   return (
     <div
       role={tone === "error" ? "alert" : "status"}
+      {...(tone === "error" ? { "data-fp-error": "" } : {})}
       className={`flex items-start gap-3 rounded-fp border px-4 py-3 text-sm ${TONE_CLASS[tone]}`}
     >
       <div className="flex-1">

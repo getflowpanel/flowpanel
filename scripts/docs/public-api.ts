@@ -41,6 +41,15 @@ function entryBaseName(target: string): string {
     .replace(/\.(?:ts|tsx|mts|cts)$/, "");
 }
 
+function prefixedSourceEntry(packageDir: string, name: string): string | null {
+  const directory = join(packageDir, "src");
+  if (!existsSync(directory)) return null;
+  const matches = readdirSync(directory).filter(
+    (entry) => /\.tsx?$/.test(entry) && entry.startsWith(`${name}-`),
+  );
+  return matches.length === 1 ? join(directory, matches[0] as string) : null;
+}
+
 function resolveSourceEntry(packageDir: string, exportPath: string, target: string): string | null {
   const base = entryBaseName(target);
   const subpath = exportPath === "." ? "index" : exportPath.slice(2);
@@ -51,7 +60,57 @@ function resolveSourceEntry(packageDir: string, exportPath: string, target: stri
     join(packageDir, "src", name, "index.ts"),
     join(packageDir, "src", name, "index.tsx"),
   ]);
-  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+  return (
+    candidates.find((candidate) => existsSync(candidate)) ??
+    names.reduce<string | null>(
+      (found, name) => found ?? prefixedSourceEntry(packageDir, name),
+      null,
+    )
+  );
+}
+
+interface PackageEntry {
+  packageName: string;
+  exportPath: string;
+  entryPath: string;
+}
+
+function workspaceEntries(packagesDir: string): PackageEntry[] {
+  const entries: PackageEntry[] = [];
+  const packageDirs = readdirSync(packagesDir)
+    .map((name) => join(packagesDir, name))
+    .filter((path) => statSync(path).isDirectory())
+    .sort(compareText);
+  for (const packageDir of packageDirs) {
+    const packageJsonPath = join(packageDir, "package.json");
+    if (!existsSync(packageJsonPath)) continue;
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as PackageJson;
+    if (!packageJson.name || packageJson.private || !packageJson.exports) continue;
+    for (const exportPath of Object.keys(packageJson.exports).sort(compareText)) {
+      if (exportPath === "./package.json") continue;
+      const target = findTypesTarget(packageJson.exports[exportPath]);
+      if (!target) continue;
+      const entryPath = resolveSourceEntry(packageDir, exportPath, target);
+      if (entryPath) entries.push({ packageName: packageJson.name, exportPath, entryPath });
+    }
+  }
+  return entries;
+}
+
+/**
+ * Workspace specifiers resolve to source, not to a sibling package's `dist`
+ * types, so a re-exported symbol is read from the declaration its author wrote.
+ */
+function sourcePaths(entries: PackageEntry[]): Record<string, string[]> {
+  const paths: Record<string, string[]> = {};
+  for (const entry of entries) {
+    const specifier =
+      entry.exportPath === "."
+        ? entry.packageName
+        : `${entry.packageName}${entry.exportPath.slice(1)}`;
+    paths[specifier] = [entry.entryPath];
+  }
+  return paths;
 }
 
 function declarationKind(node: Node): PublicSymbolKind {
@@ -138,14 +197,29 @@ function compareText(a: string, b: string): number {
   return a < b ? -1 : 1;
 }
 
+function configuredPaths(tsconfigPath: string): Record<string, string[]> {
+  if (!existsSync(tsconfigPath)) return {};
+  const parsed: unknown = JSON.parse(readFileSync(tsconfigPath, "utf8"));
+  const options =
+    parsed && typeof parsed === "object"
+      ? (parsed as { compilerOptions?: { paths?: Record<string, string[]> } }).compilerOptions
+      : undefined;
+  return options?.paths ?? {};
+}
+
 export function collectPublicSymbols(root: string): PublicSymbol[] {
   const packagesDir = join(root, "packages");
   if (!existsSync(packagesDir)) return [];
 
   const tsconfigPath = join(root, "tsconfig.base.json");
+  const entries = workspaceEntries(packagesDir);
   const project = new Project({
     ...(existsSync(tsconfigPath) ? { tsConfigFilePath: tsconfigPath } : {}),
     skipAddingFilesFromTsConfig: true,
+    compilerOptions: {
+      baseUrl: root,
+      paths: { ...configuredPaths(tsconfigPath), ...sourcePaths(entries) },
+    },
   });
   project.addSourceFilesAtPaths([
     join(packagesDir, "*/src/**/*.ts"),
@@ -153,49 +227,28 @@ export function collectPublicSymbols(root: string): PublicSymbol[] {
   ]);
 
   const result: PublicSymbol[] = [];
-  const packageDirs = readdirSync(packagesDir)
-    .map((name) => join(packagesDir, name))
-    .filter((path) => statSync(path).isDirectory())
-    .sort(compareText);
 
-  for (const packageDir of packageDirs) {
-    const packageJsonPath = join(packageDir, "package.json");
-    if (!existsSync(packageJsonPath)) continue;
-    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as PackageJson;
-    if (!packageJson.name || packageJson.private || !packageJson.exports) continue;
+  for (const { packageName, exportPath, entryPath } of entries) {
+    const entry = project.getSourceFile(entryPath) ?? project.addSourceFileAtPath(entryPath);
 
-    for (const exportPath of Object.keys(packageJson.exports).sort(compareText)) {
-      if (exportPath === "./package.json") continue;
-      const target = findTypesTarget(packageJson.exports[exportPath]);
-      if (!target) continue;
-      const entryPath = resolveSourceEntry(packageDir, exportPath, target);
-      if (!entryPath) continue;
-      const entry = project.getSourceFile(entryPath) ?? project.addSourceFileAtPath(entryPath);
-
-      for (const exported of entry.getExportSymbols()) {
-        const exportName = exported.getName();
-        if (exportName === "default") continue;
-        const resolved = actualSymbol(exported);
-        const resolvedDeclaration = resolved.getDeclarations()[0] ?? exported.getDeclarations()[0];
-        if (!resolvedDeclaration) continue;
-        const declaration = sourceDeclaration(
-          project,
-          root,
-          resolvedDeclaration,
-          resolved.getName(),
-        );
-        const kind = declarationKind(declaration);
-        result.push({
-          packageName: packageJson.name,
-          exportPath,
-          exportName,
-          kind,
-          declarationPath: normalizePath(relative(root, declaration.getSourceFile().getFilePath())),
-          declarationName: declarationName(declaration, resolved.getName()),
-          isTypeOnly:
-            kind === "interface" || kind === "type" || isExplicitTypeExport(entry, exportName),
-        });
-      }
+    for (const exported of entry.getExportSymbols()) {
+      const exportName = exported.getName();
+      if (exportName === "default") continue;
+      const resolved = actualSymbol(exported);
+      const resolvedDeclaration = resolved.getDeclarations()[0] ?? exported.getDeclarations()[0];
+      if (!resolvedDeclaration) continue;
+      const declaration = sourceDeclaration(project, root, resolvedDeclaration, resolved.getName());
+      const kind = declarationKind(declaration);
+      result.push({
+        packageName,
+        exportPath,
+        exportName,
+        kind,
+        declarationPath: normalizePath(relative(root, declaration.getSourceFile().getFilePath())),
+        declarationName: declarationName(declaration, resolved.getName()),
+        isTypeOnly:
+          kind === "interface" || kind === "type" || isExplicitTypeExport(entry, exportName),
+      });
     }
   }
 

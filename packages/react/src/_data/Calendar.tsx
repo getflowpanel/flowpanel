@@ -83,27 +83,22 @@ export function monthTitle(d: Date, locale: string): string {
 /** Ranges are built on demand so "today" is read at click time, not at import time. */
 export const RANGE_PRESETS: {
   key: "today" | "last7d" | "last30d" | "thisMonth" | "lastMonth";
-  label: string;
   range: () => CalendarRange;
 }[] = [
   {
     key: "today",
-    label: "Today",
     range: () => ({ from: startOfDay(new Date()), to: startOfDay(new Date()) }),
   },
   {
     key: "last7d",
-    label: "Last 7 days",
     range: () => ({ from: addDays(startOfDay(new Date()), -6), to: startOfDay(new Date()) }),
   },
   {
     key: "last30d",
-    label: "Last 30 days",
     range: () => ({ from: addDays(startOfDay(new Date()), -29), to: startOfDay(new Date()) }),
   },
   {
     key: "thisMonth",
-    label: "This month",
     range: () => {
       const now = new Date();
       return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: startOfDay(now) };
@@ -111,7 +106,6 @@ export const RANGE_PRESETS: {
   },
   {
     key: "lastMonth",
-    label: "Last month",
     range: () => {
       const now = new Date();
       return {

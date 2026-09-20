@@ -156,7 +156,7 @@ export interface LabelsConfig {
     description?: string;
     back?: string;
   };
-  /** Form-level error summary banner. */
+  /** Form-level banner shown when a submit fails with no field errors of its own. */
   formError?: string;
   /** Confirm dialog. */
   confirm?: {

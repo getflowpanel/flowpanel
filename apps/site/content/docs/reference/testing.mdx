@@ -1,0 +1,111 @@
+---
+title: Smoke testing
+description: Walk every page of a generated admin in one Playwright call and fail on errors, broken links and accessibility violations.
+kind: reference
+---
+
+`@flowpanel/test` is a dev-time package: one function that walks a running
+admin the way an operator does and fails the build when a page is broken. It
+is not part of `@flowpanel/kit` and never reaches your application bundle.
+
+```sh
+pnpm add -D @flowpanel/test @playwright/test
+```
+
+`@playwright/test` is a required peer. `@axe-core/playwright` is an optional
+one — install it to turn the accessibility assertions on.
+
+## smokeAdmin
+
+```ts excerpt
+import { test } from "@playwright/test";
+import { smokeAdmin } from "@flowpanel/test";
+
+test("the admin is healthy", async ({ page }) => {
+  await smokeAdmin(page, { basePath: "/admin", a11y: true });
+});
+```
+
+<ApiSignature path="../../packages/test/src/smoke-admin.ts" name="smokeAdmin" />
+
+The walk starts at `basePath`, reads the navigation — `[data-flowpanel-nav]`,
+which both shell modes render, and opens every
+dashboard and resource list it links to. On each list it activates the first
+row and follows wherever that resource sends it — the row's own detail page
+when `rowClick: "detail"`, the URL-synced drawer when `rowClick: "drawer"`. A
+row the projection cannot identify is inert, and the walk leaves it alone
+rather than failing.
+
+## What it asserts
+
+| Assertion | How it fails |
+| --- | --- |
+| Every navigation answers below 400 | `<route>: responded 500` |
+| Nothing wrote to `console.error` | `console.error: <text>` |
+| No page rendered `[data-fp-error]` | `<route>: rendered a FlowPanel error surface` |
+| Zero WCAG 2.2 AA violations, with `a11y` | `<route>: axe <rule> (<impact>)` |
+| The navigation has at least one route | `smokeAdmin found no navigation under <basePath> …` |
+
+`[data-fp-error]` is the attribute FlowPanel's own error surfaces carry: the card
+a failed widget leaves behind, the card a failed adapter read renders, a drawer
+whose payload read failed, and the error tone of the health banner. Finding one
+means the page rendered, so no navigation failed, but a read underneath it did.
+
+A walk that discovers no routes beyond the entry page is a failure, not a pass. A
+`basePath` that points at the wrong mount, an unsigned-in session or a shell whose
+navigation carries no `data-flowpanel-nav` would otherwise produce a green report
+about a page nobody walked.
+
+The walk waits for the `main` landmark to become visible rather than for the
+network to go idle: an admin holding a realtime connection never reaches
+`networkidle`.
+
+## Options and report
+
+<AutoTypeTable path="../../packages/test/src/types.ts" name="SmokeAdminOptions" />
+
+<AutoTypeTable path="../../packages/test/src/types.ts" name="SmokeAdminReport" />
+
+<AutoTypeTable path="../../packages/test/src/types.ts" name="A11yViolation" />
+
+`A11yViolation` is the element type of `SmokeAdminReport.a11yViolations`: one axe
+rule, and the route it was found on.
+
+`smokeAdmin` resolves with the report when everything passed, and throws an
+`Error` whose message lists each problem and then the whole report as JSON, so
+a failing run tells you which route broke without a second pass.
+
+```ts excerpt
+import { smokeAdmin } from "@flowpanel/test";
+
+const report = await smokeAdmin(page, {
+  basePath: "/admin",
+  cookie: { name: "session", value: process.env.E2E_SESSION ?? "" },
+  resources: ["/", "customers", "orders"],
+  maxRows: 3,
+  a11y: true,
+});
+
+console.log(`${report.visited.length} routes visited`);
+```
+
+`resources` takes nav segments, not paths: `"/"` is the landing dashboard and
+`"customers"` is `/admin/customers`. `cookie` is added against the admin's own
+origin unless you give it an explicit `domain`.
+
+## Authentication
+
+An admin behind a session cookie needs that cookie before the walk can see
+anything. Pass it as `cookie`, or sign in with your project's own Playwright
+fixture first — `smokeAdmin` reuses whatever context the page already has.
+
+```ts excerpt
+import { smokeAdmin } from "@flowpanel/test";
+
+await page.goto("/login");
+await page.getByLabel("Email").fill("admin@example.com");
+await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
+await page.getByRole("button", { name: "Sign in" }).click();
+
+await smokeAdmin(page);
+```

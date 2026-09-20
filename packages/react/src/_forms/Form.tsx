@@ -8,9 +8,11 @@ import {
   useForm,
 } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod/v4";
+import { DEFAULT_LABELS } from "@flowpanel/core/labels";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import type { $ZodType, output as zOutput } from "zod/v4/core";
+import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 
 export interface FormActionResult {
@@ -81,6 +83,7 @@ export function Form<S extends $ZodType>({
   redirectTo,
 }: FormProps<S>) {
   const router = useRouter();
+  const labels = useLabels();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const serverAction: ServerAction = React.useCallback(
     async (_prev, formData) => {
@@ -102,9 +105,9 @@ export function Form<S extends $ZodType>({
         setIsSubmitting(false);
       }
       if (res.ok && redirectTo) router.push(redirectWithCreatedKey(redirectTo, res.createdKey));
-      return buildSubmissionReply(submission, res);
+      return buildSubmissionReply(submission, res, labels.formError);
     },
-    [action, schema, redirectTo, router],
+    [action, schema, redirectTo, router, labels.formError],
   );
 
   const [lastResult, formAction] = React.useActionState(serverAction, null);
@@ -145,17 +148,15 @@ export function Form<S extends $ZodType>({
   );
 }
 
-/** Shown when a failed submit's JSON body carries neither `error` nor `fieldErrors`. */
-const GENERIC_FAILURE_MESSAGE = "Something went wrong — please try again.";
-
 /** Turn the JSON `{ ok, error?, fieldErrors? }` response into a conform SubmissionResult. */
 export function buildSubmissionReply(
   submission: { reply: (options?: ReplyShapeOptions) => SubmissionResult<string[]> },
   res: FormActionResult,
+  genericMessage: string = DEFAULT_LABELS.formError,
 ): SubmissionResult<string[]> {
   if (!res.ok) {
     const hasFieldErrors = Boolean(res.fieldErrors && Object.keys(res.fieldErrors).length > 0);
-    const message = res.error ?? (hasFieldErrors ? undefined : GENERIC_FAILURE_MESSAGE);
+    const message = res.error ?? (hasFieldErrors ? undefined : genericMessage);
     return submission.reply({
       ...(message ? { formErrors: [message] } : {}),
       ...(hasFieldErrors
