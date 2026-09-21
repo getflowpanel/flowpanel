@@ -121,7 +121,18 @@ describe("init templates (resolution)", () => {
     expect(out).toContain('title: "Acme — Admin"');
     expect(out).toContain('<html lang="en" suppressHydrationWarning>');
     expect(out).toContain('import { ThemeScript } from "@flowpanel/kit/react"');
-    expect(out).toContain('<ThemeScript defaultMode="auto" />');
+    expect(out).toContain('<ThemeScript defaultMode="auto" nonce={nonce ?? undefined} />');
+  });
+
+  it("app-layout passes the host's CSP nonce to the theme script from a server component", async () => {
+    const out = await tpl("app-layout.tsx.txt", {
+      APP_NAME: "Acme",
+      CSS_IMPORT: "@/styles/admin.css",
+    });
+    expect(out).toContain('import { headers } from "next/headers";');
+    expect(out).toContain('const nonce = (await headers()).get("x-nonce");');
+    expect(out).toContain("export default async function RootLayout");
+    expect(out).not.toContain('"use client"');
   });
 
   it("writes a compiler-free stylesheet import regardless of the host Tailwind version", async () => {

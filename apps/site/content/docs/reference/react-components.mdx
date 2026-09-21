@@ -57,6 +57,7 @@ content.
 | `useComponent` | Resolves a single slot — `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
 | `useComponentOverrides` | The raw override map from the nearest `ComponentsProvider`, without defaults filled in. |
 | `LabelsProvider`, `useLabels` | Provider/reader for label overrides (pluralization, field labels). |
+| `FormattingProvider`, `useFormatting` | Provider/reader for the resolved locale, timezone and currency. `FlowpanelGlobals` fills it from `formatting`, so a widget, a table cell and a chart tooltip print the same number the same way. Read it when you render your own number and want the admin's currency rather than the default. |
 | `ApiBaseProvider`, `useApiBase` | Provider/reader for the route handlers' mount point. `FlowpanelGlobals` fills it from `paths.api`, so every client fetch — drawer, actions, inline edit, import, reference search, SSE — follows the admin wherever it is mounted. Standalone components fall back to `/api/flowpanel`. A Next.js deployment `basePath` is added here, because the browser does not add it to a fetch. |
 
 <AutoTypeTable path="../../packages/react/src/_shell/AdminShell.tsx" name="AdminShellProps" />

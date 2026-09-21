@@ -84,8 +84,13 @@ function runInstall(
   cwd: string,
 ): Promise<{ code: number; output: string }> {
   return new Promise((resolve) => {
-    const cmd = process.platform === "win32" ? `${bin}.cmd` : bin;
-    const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], env: process.env });
+    const windows = process.platform === "win32";
+    const child = spawn(windows ? `${bin}.cmd` : bin, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+      shell: windows,
+    });
     let output = "";
     let pending = "";
     let discardLine = false;

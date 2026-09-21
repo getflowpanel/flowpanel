@@ -1,6 +1,15 @@
+import { DEFAULT_FORMATTING, type ResolvedFormatting } from "@flowpanel/core/format";
 import { isValidElement, type ReactElement } from "react";
 import { Tooltip } from "recharts";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+let formatting: ResolvedFormatting = DEFAULT_FORMATTING;
+
+vi.mock("@flowpanel/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@flowpanel/react")>()),
+  useFormatting: () => formatting,
+}));
+
 import { ChartTooltip, type ChartTooltipProps } from "../ChartTooltip";
 import { PieChart } from "../PieChart";
 
@@ -48,6 +57,30 @@ describe("PieChart", () => {
       payload: [{ name: "success", value: 1234, color: "#000", dataKey: "count" }],
     });
     expect(textOf(rendered)).toContain("$1,234");
+  });
+
+  it("prints a currency tooltip in the admin's configured currency, not the default", () => {
+    formatting = { ...DEFAULT_FORMATTING, locale: "de-DE", currency: "EUR" };
+    try {
+      const el = PieChart({
+        data,
+        options: { category: "status", value: "count", format: "currency" },
+      });
+      const [tooltip] = findElements(el, Tooltip) as {
+        props: { content?: ReactElement<ChartTooltipProps> };
+      }[];
+      const rendered = ChartTooltip({
+        ...(tooltip?.props.content as ReactElement<ChartTooltipProps>).props,
+        active: true,
+        label: "success",
+        payload: [{ name: "success", value: 1234, color: "#000", dataKey: "count" }],
+      });
+      const text = textOf(rendered);
+      expect(text).toContain("€");
+      expect(text).not.toContain("$");
+    } finally {
+      formatting = DEFAULT_FORMATTING;
+    }
   });
 
   it("renders no Tooltip element when tooltip is false", () => {

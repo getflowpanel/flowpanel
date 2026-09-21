@@ -142,6 +142,7 @@ export {
   useComponent,
   useComponentOverrides,
 } from "./_provider/ComponentsContext";
+export { FormattingProvider, useFormatting } from "./_provider/FormattingContext";
 export { LabelsProvider, useLabels } from "./_provider/LabelsContext";
 export { useComponents } from "./_provider/useComponents";
 export {

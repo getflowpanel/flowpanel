@@ -1,5 +1,6 @@
 "use client";
 import type { PieChartOptions } from "@flowpanel/core";
+import { useFormatting } from "@flowpanel/react";
 import { Cell, Legend, Pie, PieChart as RcPie, ResponsiveContainer, Tooltip } from "recharts";
 import { ChartEmptyState } from "./ChartEmptyState";
 import {
@@ -12,13 +13,14 @@ import {
 import { DEFAULT_CHART_HEIGHT } from "./defaults";
 
 export function PieChart({ data, options }: { data: unknown[]; options: PieChartOptions }) {
+  const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
   if (data.length === 0) return <ChartEmptyState height={height} />;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RcPie {...CHART_SURFACE_PROPS}>
         {options.tooltip !== false ? (
-          <Tooltip {...buildTooltipProps(options.format, options.tooltip)} />
+          <Tooltip {...buildTooltipProps(options.format, options.tooltip, formatting)} />
         ) : null}
         {options.showLegend !== false ? <Legend {...LEGEND_PROPS} /> : null}
         <Pie

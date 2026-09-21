@@ -1,5 +1,6 @@
 "use client";
 import type { BarChartOptions } from "@flowpanel/core";
+import { useFormatting } from "@flowpanel/react";
 import {
   Bar,
   CartesianGrid,
@@ -27,6 +28,7 @@ import { DEFAULT_CHART_HEIGHT } from "./defaults";
 import { buildTickFormatter } from "./format-tick";
 
 export function BarChart({ data, options }: { data: unknown[]; options: BarChartOptions }) {
+  const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
   if (data.length === 0) return <ChartEmptyState height={height} />;
   const ys = Array.isArray(options.y) ? options.y : [options.y];
@@ -37,7 +39,7 @@ export function BarChart({ data, options }: { data: unknown[]; options: BarChart
     options.x,
     options.bucket,
   );
-  const valueTickFormatter = buildValueTickFormatter(options.format);
+  const valueTickFormatter = buildValueTickFormatter(options.format, formatting);
   // Stacked bars only round the outer segment cleanly, so keep them square.
   const radius: [number, number, number, number] = options.stacked
     ? [0, 0, 0, 0]
@@ -86,7 +88,7 @@ export function BarChart({ data, options }: { data: unknown[]; options: BarChart
         {options.tooltip !== false ? (
           <Tooltip
             cursor={BAR_TOOLTIP_CURSOR}
-            {...buildTooltipProps(options.format, options.tooltip)}
+            {...buildTooltipProps(options.format, options.tooltip, formatting)}
           />
         ) : null}
         {multiSeries ? <Legend {...LEGEND_PROPS} /> : null}

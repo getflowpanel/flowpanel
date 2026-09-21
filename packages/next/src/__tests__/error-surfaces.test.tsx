@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type { Adapter } from "@flowpanel/core";
-import { defineAdmin, resource } from "@flowpanel/core";
+import { defineAdmin, FlowpanelAccessError, FlowpanelAuthError, resource } from "@flowpanel/core";
 import { ErrorCard, HealthBanner, ToastProvider } from "@flowpanel/react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +13,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { DrawerHost } from "../drawer/DrawerHost";
+import { handleRenderError } from "../flowpanel-page";
 import { QueryErrorCard } from "../runtime/query-error";
 import { WidgetErrorBoundary } from "../runtime/WidgetErrorBoundary";
 
@@ -83,6 +84,41 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
     cleanup();
     const { container: warn } = render(<HealthBanner tone="warn" title="Slow" />);
     expect(warn.querySelector("[data-fp-error]")).toBeNull();
+  });
+
+  const signedIn = defineAdmin({
+    adapter,
+    auth: { session: async () => ({ user: { role: "viewer" } }), role: () => "viewer" },
+    resources: [resource({ __name: "users" }, { columns: ["id"] })],
+  });
+
+  it.each([
+    { label: "signed out", site: config, error: new FlowpanelAuthError("no session") },
+    { label: "wrong role", site: signedIn, error: new FlowpanelAccessError("forbidden") },
+  ])("tags the admin an unauthorized render leaves behind ($label)", async ({ site, error }) => {
+    const rendered = await handleRenderError(error, site, new Request("http://localhost/admin"));
+    const { container } = render(rendered);
+    expect(container.querySelector("[data-fp-error]")).toBeTruthy();
+  });
+
+  it("names which of the two refusals it is", async () => {
+    render(
+      await handleRenderError(
+        new FlowpanelAccessError("forbidden"),
+        signedIn,
+        new Request("http://localhost/admin"),
+      ),
+    );
+    expect(screen.getByText(/access denied/i)).toBeTruthy();
+    cleanup();
+    render(
+      await handleRenderError(
+        new FlowpanelAuthError("no session"),
+        config,
+        new Request("http://localhost/admin"),
+      ),
+    );
+    expect(screen.getByText(/sign in required/i)).toBeTruthy();
   });
 
   it("tags a drawer whose payload read failed", async () => {

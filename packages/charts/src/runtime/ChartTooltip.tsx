@@ -1,4 +1,5 @@
 "use client";
+import { DEFAULT_FORMATTING, type ResolvedFormatting } from "@flowpanel/core/format";
 import { formatNumber, type NumericFormat } from "@flowpanel/react";
 import type { ReactNode } from "react";
 
@@ -16,11 +17,17 @@ export interface ChartTooltipProps {
   format?: NumericFormat | undefined;
   /** Drops the header row — for sparkline-sized charts where it is noise. */
   compact?: boolean;
+  /** Locale and currency, injected by the chart that owns the `useFormatting()` hook. */
+  formatting?: ResolvedFormatting;
 }
 
-const show = (value: number | string | undefined, format: NumericFormat | undefined): string => {
+const show = (
+  value: number | string | undefined,
+  format: NumericFormat | undefined,
+  formatting: ResolvedFormatting,
+): string => {
   if (value === undefined || value === null) return "—";
-  return typeof value === "number" ? formatNumber(value, format) : String(value);
+  return typeof value === "number" ? formatNumber(value, format, formatting) : String(value);
 };
 
 /**
@@ -28,7 +35,14 @@ const show = (value: number | string | undefined, format: NumericFormat | undefi
  * renderer inlines the value after the name, so numbers of different widths
  * never line up and the panel cannot be scanned down its right edge.
  */
-export function ChartTooltip({ active, payload, label, format, compact }: ChartTooltipProps) {
+export function ChartTooltip({
+  active,
+  payload,
+  label,
+  format,
+  compact,
+  formatting = DEFAULT_FORMATTING,
+}: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
   const total = payload.reduce((sum, p) => (typeof p.value === "number" ? sum + p.value : sum), 0);
   return (
@@ -37,7 +51,9 @@ export function ChartTooltip({ active, payload, label, format, compact }: ChartT
         <div className="flex items-baseline justify-between gap-6 pb-1.5 font-medium text-fp-text-1">
           <span>{label}</span>
           {/* A total beside a single series would just print the same number twice. */}
-          {payload.length > 1 ? <span className="tabular-nums">{show(total, format)}</span> : null}
+          {payload.length > 1 ? (
+            <span className="tabular-nums">{show(total, format, formatting)}</span>
+          ) : null}
         </div>
       )}
       <div className="flex flex-col gap-1">
@@ -55,7 +71,7 @@ export function ChartTooltip({ active, payload, label, format, compact }: ChartT
               <span className="truncate">{p.name}</span>
             </span>
             <span className="shrink-0 tabular-nums font-medium text-fp-text-1">
-              {show(p.value, format)}
+              {show(p.value, format, formatting)}
             </span>
           </div>
         ))}

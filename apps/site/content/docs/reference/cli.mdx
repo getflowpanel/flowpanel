@@ -68,8 +68,15 @@ What varies:
   a busy fallback stops installation before any writes.
 - **Admin layout** — imports the stylesheet under the chosen route. The existing
   root layout is never patched. Without a shared root layout, the admin segment
-  receives its own root layout. Existing host theme/CSP integration is left to the
-  application; `ThemeScript` accepts its nonce.
+  receives its own root layout. That layout reads the `x-nonce` request header and
+  forwards it to `ThemeScript`, so the pre-hydration theme script survives a strict
+  `script-src` policy — but only when your own middleware sets `x-nonce` on the
+  request and emits the matching `script-src 'nonce-…'` header. FlowPanel does not
+  write that middleware, and with no `x-nonce` present the header read returns
+  `null` and the script is rendered without a nonce, exactly as before. Reading
+  `headers()` makes the admin segment dynamically rendered; it already was, because
+  `auth.session` reads the request. Existing host theme/CSP integration is left to
+  the application; `ThemeScript` accepts its nonce.
 - **Authentication** — `init` reads `package.json` for `better-auth`, `next-auth`,
   `@clerk/nextjs` or `lucia` and names what it recognised in the detected-stack
   note and the outro. When the auth module it found exports that provider's own

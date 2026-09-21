@@ -4,7 +4,7 @@ import * as fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CLI_VERSION } from "../../utils/kit";
@@ -13,7 +13,8 @@ const run = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const entry = path.join(here, "../../index.ts");
 // The child runs with cwd inside the fixture, so the loader needs an absolute specifier.
-const tsxLoader = createRequire(import.meta.url).resolve("tsx");
+const tsxLoader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
+const pathKey = Object.keys(process.env).find((key) => key.toLowerCase() === "path") ?? "PATH";
 
 const INSTALLED = {
   next: { version: "16.3.4", engines: { node: ">=20.9.0" } },
@@ -114,6 +115,7 @@ async function fakeNpm(dir: string) {
   const file = path.join(dir, "npm");
   await fs.writeFile(file, `${FAKE_NPM}\n`);
   await fs.chmod(file, 0o755);
+  await fs.writeFile(path.join(dir, "npm.cmd"), `@node "%~dp0npm" %*\r\n`);
 }
 
 async function initRun(env: NodeJS.ProcessEnv = {}, args: string[] = ["init", "--json"]) {
@@ -125,7 +127,7 @@ async function initRun(env: NodeJS.ProcessEnv = {}, args: string[] = ["init", "-
         cwd: project,
         env: {
           ...process.env,
-          PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}`,
+          [pathKey]: `${bin}${path.delimiter}${process.env[pathKey] ?? ""}`,
           NO_COLOR: "1",
           npm_config_user_agent: "",
           ...env,

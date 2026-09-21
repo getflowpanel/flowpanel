@@ -1,5 +1,4 @@
 "use client";
-import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "cmdk";
 import * as React from "react";
 import { useLabels } from "../_provider/LabelsContext";
 import { Button } from "../ui/button";
@@ -27,6 +26,9 @@ export interface AsyncSelectProps {
   "aria-required"?: true;
 }
 
+const ITEM_CLASS = "cursor-pointer rounded-fp-sm px-2 py-1.5 text-sm aria-selected:bg-fp-bg-2";
+const MESSAGE_CLASS = "px-3 py-4 text-center text-sm";
+
 export function AsyncSelect({
   value,
   onChange,
@@ -46,9 +48,11 @@ export function AsyncSelect({
   // An explicit prop wins, including an empty string.
   const placeholder = placeholderProp ?? labels.form.selectPlaceholder;
   const emptyText = emptyTextProp ?? labels.form.noOptions;
+  const listId = React.useId();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [opts, setOpts] = React.useState<AsyncSelectOption[]>([]);
+  const [active, setActive] = React.useState(0);
   const [label, setLabel] = React.useState<string | null>(initialLabel);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(false);
@@ -69,6 +73,7 @@ export function AsyncSelect({
         const r = await loadOptions(query);
         if (cancelled) return;
         setOpts(r);
+        setActive(0);
         setLoading(false);
       } catch {
         if (cancelled) return;
@@ -82,6 +87,61 @@ export function AsyncSelect({
       clearTimeout(t);
     };
   }, [query, open, debounceMs, loadOptions]);
+
+  const pick = (option: AsyncSelectOption): void => {
+    onChange(option.value);
+    setLabel(option.label);
+    setOpen(false);
+  };
+
+  const showList = !loading && !error && opts.length > 0;
+  const message = loading
+    ? labels.form.searching
+    : error
+      ? labels.form.loadFailed
+      : opts.length === 0
+        ? emptyText
+        : null;
+
+  React.useEffect(() => {
+    if (!showList) return;
+    const option = document.getElementById(`${listId}-${active}`);
+    option?.scrollIntoView?.({ block: "nearest" });
+  }, [active, listId, showList]);
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    // Tab leaves the picker the way it found it: nothing selected, focus moving on.
+    if (event.key === "Tab") {
+      setOpen(false);
+      return;
+    }
+    if (!showList) return;
+    const last = opts.length - 1;
+    // An open picker owns its keys: `Ctrl+K` must move up here, not reach the ⌘K palette.
+    const claim = () => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.nativeEvent.stopImmediatePropagation();
+    };
+    const move = (next: number) => {
+      claim();
+      setActive(next < 0 ? 0 : next > last ? last : next);
+    };
+    const vim = event.ctrlKey && !event.altKey;
+    const down = event.key === "ArrowDown" || (vim && (event.key === "n" || event.key === "j"));
+    const up = event.key === "ArrowUp" || (vim && (event.key === "p" || event.key === "k"));
+    if (down) move(event.metaKey ? last : active + 1);
+    else if (up) move(event.metaKey ? 0 : active - 1);
+    else if (event.key === "Home") move(0);
+    else if (event.key === "End") move(last);
+    else if (event.key === "Enter") {
+      const option = opts[active];
+      if (option) {
+        claim();
+        pick(option);
+      }
+    }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -103,45 +163,59 @@ export function AsyncSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="p-0">
-        <Command shouldFilter={false} className="rounded-fp border border-fp-border-1 bg-fp-bg-1">
-          <CommandInput
+        <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1">
+          <input
+            id={`${listId}-search`}
+            type="text"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-label={placeholder}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            {...(showList ? { "aria-activedescendant": `${listId}-${active}` } : {})}
             value={query}
-            onValueChange={setQuery}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onKeyDown}
             placeholder={placeholder}
             className="h-9 w-full border-b border-fp-border-1 bg-transparent px-3 text-sm outline-none placeholder:text-fp-text-3"
           />
-          <CommandList className="max-h-60 overflow-auto p-1">
-            {loading ? (
-              <div role="status" className="px-3 py-4 text-center text-sm text-fp-text-3">
-                {labels.form.searching}
-              </div>
-            ) : error ? (
-              <div role="alert" className="px-3 py-4 text-center text-sm text-fp-err-text">
-                {labels.form.loadFailed}
-              </div>
-            ) : (
-              <CommandEmpty className="px-3 py-4 text-center text-sm text-fp-text-3">
-                {emptyText}
-              </CommandEmpty>
-            )}
-            {!loading && !error
-              ? opts.map((o) => (
-                  <CommandItem
+          {/* The scroll port is the listbox itself: only then is it exempt from `scrollable-region-focusable`. */}
+          <div
+            id={listId}
+            role="listbox"
+            aria-label={placeholder}
+            className={`max-h-60 overflow-auto ${showList ? "p-1" : ""}`}
+          >
+            {showList
+              ? opts.map((o, i) => (
+                  // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard selection runs on the search box, which owns aria-activedescendant
+                  <div
                     key={o.value}
-                    value={o.label}
-                    onSelect={() => {
-                      onChange(o.value);
-                      setLabel(o.label);
-                      setOpen(false);
-                    }}
-                    className="cursor-pointer rounded-fp-sm px-2 py-1.5 text-sm aria-selected:bg-fp-bg-2"
+                    id={`${listId}-${i}`}
+                    role="option"
+                    tabIndex={-1}
+                    aria-selected={i === active}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => pick(o)}
+                    className={ITEM_CLASS}
                   >
                     {o.label}
-                  </CommandItem>
+                  </div>
                 ))
               : null}
-          </CommandList>
-        </Command>
+          </div>
+          {message !== null ? (
+            <div
+              role={error ? "alert" : "status"}
+              className={`${MESSAGE_CLASS} ${error ? "text-fp-err-text" : "text-fp-text-3"}`}
+            >
+              {message}
+            </div>
+          ) : null}
+        </div>
       </PopoverContent>
     </Popover>
   );

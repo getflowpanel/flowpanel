@@ -1,9 +1,12 @@
+import { DEFAULT_FORMATTING } from "@flowpanel/core/format";
 import { isValidElement } from "react";
 import { Legend } from "recharts";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@flowpanel/react", () => ({
   useLabels: () => ({ widget: { empty: "No data yet" } }),
+  useFormatting: () => DEFAULT_FORMATTING,
+  formatNumber: (v: number) => String(v),
   Card: ({ children }: { children?: unknown }) => children,
   CardHeader: ({ children }: { children?: unknown }) => children,
 }));
