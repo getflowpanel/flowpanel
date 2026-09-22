@@ -58,8 +58,8 @@
     }
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.11.1",
-    "@playwright/test": "^1.59.1",
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
