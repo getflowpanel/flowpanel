@@ -1,5 +1,16 @@
 # @flowpanel/adapter-prisma
 
+## 0.3.0
+
+### Minor Changes
+
+- 072f37b: Implements the `sql` and `count` capabilities through `$queryRaw` with bound parameters, and reports `hasDefault` per column.
+
+### Patch Changes
+
+- Updated dependencies [072f37b]
+  - @flowpanel/core@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

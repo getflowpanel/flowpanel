@@ -1,5 +1,14 @@
 # ai-scraper
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [072f37b]
+- Updated dependencies [072f37b]
+  - @flowpanel/kit@0.3.0
+  - @flowpanel/react@0.3.0
+
 ## 0.0.5
 
 ### Patch Changes

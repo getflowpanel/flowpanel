@@ -1,5 +1,28 @@
 # @flowpanel/kit
 
+## 0.3.0
+
+### Minor Changes
+
+- 072f37b: Ships `llms.txt`, the reference documentation as one file, and `@flowpanel/kit/publish` for publishing realtime events from workers.
+
+### Patch Changes
+
+- Updated dependencies [072f37b]
+- Updated dependencies [072f37b]
+- Updated dependencies [072f37b]
+- Updated dependencies [072f37b]
+- Updated dependencies [072f37b]
+- Updated dependencies [072f37b]
+  - @flowpanel/adapter-drizzle@0.3.0
+  - @flowpanel/adapter-prisma@0.3.0
+  - @flowpanel/charts@0.3.0
+  - @flowpanel/core@0.3.0
+  - @flowpanel/next@0.3.0
+  - @flowpanel/react@0.3.0
+  - @flowpanel/client@0.3.0
+  - @flowpanel/adapter-bullmq@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
