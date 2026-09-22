@@ -1,6 +1,6 @@
 {
   "name": "@flowpanel/test",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Playwright smoke test for a FlowPanel admin — one call walks every page and fails on errors",
   "keywords": [
     "flowpanel",
