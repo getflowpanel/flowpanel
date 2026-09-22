@@ -1,0 +1,17 @@
+/**
+ * FlowPanel's session module, on the NextAuth (Auth.js v5) preset.
+ *
+ * `flowpanel init` found next-auth in package.json and wired this file to the
+ * `auth()` helper it detected. flowpanel.config.ts imports `getSession` from
+ * here. To let the preset own the role mapping, the sign-in redirect and the
+ * audit actor id as well, replace the config's `auth` block with `flowpanelAuth`.
+ */
+import { withNextAuth } from "@flowpanel/kit/auth";
+import { auth } from "{{AUTH_MODULE}}";
+
+export const flowpanelAuth = withNextAuth({
+  auth,
+  requireRole: "admin",
+});
+
+export const getSession = flowpanelAuth.session;

@@ -1,8 +1,11 @@
+"use client";
 import type { WidgetConfig } from "@flowpanel/core";
 import { Card, CardHeader } from "@flowpanel/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { AreaChart } from "./AreaChart";
 import { BarChart } from "./BarChart";
+import { ChartSkeleton } from "./ChartSkeleton";
+import { DEFAULT_CHART_HEIGHT } from "./defaults";
 import { LineChart } from "./LineChart";
 import { PieChart } from "./PieChart";
 
@@ -15,34 +18,46 @@ export interface ChartRendererProps {
   data: unknown[];
 }
 
-export function ChartRenderer({ kind, label, options, data }: ChartRendererProps) {
-  let body: ReactNode;
+/**
+ * Recharts measures its container, which the server has none of. Until the chart
+ * mounts the card holds a skeleton of the same height, so the first paint is a
+ * placeholder rather than an empty frame that collapses on hydration.
+ */
+export function chartBody(
+  { kind, options, data }: ChartRendererProps,
+  mounted: boolean,
+): ReactNode {
+  if (!mounted) return <ChartSkeleton height={options.height ?? DEFAULT_CHART_HEIGHT} />;
   switch (kind) {
     case "areaChart":
-      body = <AreaChart data={data} options={options as never} />;
-      break;
+      return <AreaChart data={data} options={options as never} />;
     case "barChart":
-      body = <BarChart data={data} options={options as never} />;
-      break;
+      return <BarChart data={data} options={options as never} />;
     case "lineChart":
-      body = <LineChart data={data} options={options as never} />;
-      break;
+      return <LineChart data={data} options={options as never} />;
     case "pieChart":
-      body = <PieChart data={data} options={options as never} />;
-      break;
+      return <PieChart data={data} options={options as never} />;
   }
+}
+
+export function ChartRenderer(props: ChartRendererProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const card = (
     <Card>
-      <CardHeader>{label}</CardHeader>
-      <div className="p-3">{body}</div>
+      <CardHeader>{props.label}</CardHeader>
+      <div className="p-3">{chartBody(props, mounted)}</div>
     </Card>
   );
-  if (options.drilldown) {
+  if (props.options.drilldown) {
     return (
       <a
-        href={options.drilldown}
+        href={props.options.drilldown}
         className="block hover:opacity-90 transition-opacity"
-        {...(label ? { "aria-label": label } : {})}
+        {...(props.label ? { "aria-label": props.label } : {})}
       >
         {card}
       </a>

@@ -8,6 +8,7 @@ import type { QueueConfig } from "../types/queue";
 import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
 import { validateResourceColumns } from "../validate-resource-columns";
 import { validateResourceRefs } from "../validate-resource-refs";
+import { createFieldWarnings, warnCreateFieldsOnce } from "../warn-create-fields";
 import { warnIfNoAccessControl } from "../warn-open-admin";
 import { createBuiltinBulkDelete } from "./builtin-bulk-delete";
 import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
@@ -70,6 +71,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   const resourcesByName = new Map<string, ResourceConfig>();
   const compiledResourcesByName = new Map<string, CompiledResource>();
   const routeNames = new RouteNameRegistry();
+  const warnings: string[] = [];
 
   for (const raw of config.resources ?? []) {
     const name = resolveResourceName(raw);
@@ -122,6 +124,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
       };
     }
     if (columns !== null) validateResourceColumns(name, resource, columns);
+    if (introspection) warnings.push(...createFieldWarnings(name, resource, introspection));
     assertCanonicalFieldAccess(resource, name, introspection);
 
     resources.push(resource);
@@ -171,6 +174,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
 
   validateResourceRefs(resourcesByName, config.dashboards ?? []);
   warnIfNoAccessControl(config, resources);
+  warnCreateFieldsOnce(warnings);
 
   const basePath = normalizeRoutePath(config.paths?.admin ?? config.basePath ?? "/admin");
   const paths = {
@@ -187,6 +191,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     queuesByKey,
     basePath,
     paths,
+    warnings,
   };
 
   return {

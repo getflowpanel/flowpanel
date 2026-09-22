@@ -156,6 +156,16 @@ describe("introspect", () => {
     expect(byName.createdAt).toMatchObject({ name: "createdAt", type: "date", nullable: false });
   });
 
+  it("reports which columns Prisma fills when the create omits them", () => {
+    const byName = Object.fromEntries(introspect("User", testDmmf).columns.map((c) => [c.name, c]));
+    expect(byName.id?.hasDefault).toBe(true);
+    expect(byName.active?.hasDefault).toBe(true);
+    expect(byName.role?.hasDefault).toBe(true);
+    expect(byName.createdAt?.hasDefault).toBe(true);
+    expect(byName.email?.hasDefault).toBe(false);
+    expect(byName.tags?.hasDefault).toBe(false);
+  });
+
   it("throws for an unknown model, including the list of available models", () => {
     expect(() => introspect("NonExistent", testDmmf)).toThrowError(/NonExistent/);
     expect(() => introspect("NonExistent", testDmmf)).toThrowError(/User/);

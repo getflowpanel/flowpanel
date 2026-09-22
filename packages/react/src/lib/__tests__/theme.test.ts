@@ -12,12 +12,12 @@ import {
 describe("theme runtime", () => {
   beforeEach(() => {
     delete document.documentElement.dataset.flowpanelTheme;
-    localStorage.clear();
+    window.localStorage.clear();
   });
 
   afterEach(() => {
     delete document.documentElement.dataset.flowpanelTheme;
-    localStorage.clear();
+    window.localStorage.clear();
   });
 
   describe("resolveTheme", () => {
@@ -45,7 +45,7 @@ describe("theme runtime", () => {
     it("round-trips light/dark through localStorage", () => {
       writeStoredTheme("dark");
       expect(readStoredTheme()).toBe("dark");
-      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
+      expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
       writeStoredTheme("light");
       expect(readStoredTheme()).toBe("light");
     });
@@ -67,12 +67,12 @@ describe("theme runtime", () => {
       const first = toggleTheme();
       expect(first).toBe("dark");
       expect(document.documentElement.dataset.flowpanelTheme).toBe("dark");
-      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
+      expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
 
       const second = toggleTheme();
       expect(second).toBe("light");
       expect(document.documentElement.dataset.flowpanelTheme).toBe("light");
-      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
+      expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
     });
   });
 

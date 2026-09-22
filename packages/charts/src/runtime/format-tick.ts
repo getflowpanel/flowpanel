@@ -1,13 +1,31 @@
 import type { ChartBucket } from "@flowpanel/core";
+import {
+  DEFAULT_FORMATTING,
+  formatDateValue,
+  formatDayValue,
+  type ResolvedFormatting,
+} from "@flowpanel/core/format";
 
-/** Format an x-axis tick value. */
-export function formatTick(value: unknown, bucket: ChartBucket = "auto"): string {
-  const date = toDate(value);
-  if (date === null) {
+/**
+ * An x-value is either a calendar day (a `YYYY-MM-DD` string, which belongs to no
+ * zone) or an instant. Only an instant is read in the admin's `timeZone`.
+ */
+type Tick = { date: Date; calendar: boolean };
+
+/** Format an x-axis tick value in the admin's `dateLocale` and `timeZone`. */
+export function formatTick(
+  value: unknown,
+  bucket: ChartBucket = "auto",
+  formatting: ResolvedFormatting = DEFAULT_FORMATTING,
+): string {
+  const tick = toTick(value);
+  if (tick === null) {
     return value == null ? "" : String(value);
   }
-
-  return bucket === "hour" || bucket === "minute" ? formatToMinute(date) : formatDateOnly(date);
+  const zone = tick.calendar ? "UTC" : formatting.timeZone;
+  return bucket === "hour" || bucket === "minute"
+    ? formatDateValue(tick.date, formatting, zone)
+    : formatDayValue(tick.date, formatting, zone);
 }
 
 /** Build a tick formatter closure for a chart. */
@@ -15,12 +33,13 @@ export function buildTickFormatter(
   data: ReadonlyArray<Record<string, unknown>>,
   xKey: string,
   bucket: ChartBucket | undefined,
+  formatting: ResolvedFormatting = DEFAULT_FORMATTING,
 ): (value: unknown) => string {
   const resolved = bucket && bucket !== "auto" ? bucket : inferBucket(data, xKey);
   if (resolved === null) {
     return (value) => (value == null ? "" : String(value));
   }
-  return (value) => formatTick(value, resolved);
+  return (value) => formatTick(value, resolved, formatting);
 }
 
 /** Infer `"day"` vs `"hour"` from the spacing between the first few x-values. */
@@ -51,6 +70,19 @@ function inferBucket(
   return everyGapDaily ? "day" : "hour";
 }
 
+function toTick(value: unknown): Tick | null {
+  if (typeof value === "string") {
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (dateOnly) {
+      const [, y, m, d] = dateOnly;
+      const utc = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+      return Number.isNaN(utc.getTime()) ? null : { date: utc, calendar: true };
+    }
+  }
+  const date = toDate(value);
+  return date === null ? null : { date, calendar: false };
+}
+
 function toDate(value: unknown): Date | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
   if (typeof value === "string") {
@@ -58,8 +90,8 @@ function toDate(value: unknown): Date | null {
     const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
     if (dateOnly) {
       const [, y, m, d] = dateOnly;
-      const local = new Date(Number(y), Number(m) - 1, Number(d));
-      return Number.isNaN(local.getTime()) ? null : local;
+      const utc = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+      return Number.isNaN(utc.getTime()) ? null : utc;
     }
     const d = new Date(value);
     return Number.isNaN(d.getTime()) ? null : d;
@@ -71,16 +103,4 @@ function toDate(value: unknown): Date | null {
     }
   }
   return null;
-}
-
-function pad(n: number): string {
-  return n < 10 ? `0${n}` : String(n);
-}
-
-function formatDateOnly(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function formatToMinute(d: Date): string {
-  return `${formatDateOnly(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

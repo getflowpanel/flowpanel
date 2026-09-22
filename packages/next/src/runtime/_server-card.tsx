@@ -5,11 +5,13 @@ import { cn } from "../utils/cn";
 export interface ServerCardProps {
   children: ReactNode;
   className?: string;
+  /** Marks the card as a FlowPanel error surface, which smoke tests look for. */
+  "data-fp-error"?: "";
 }
 
-export function ServerCard({ children, className }: ServerCardProps) {
+export function ServerCard({ children, className, ...rest }: ServerCardProps) {
   return (
-    <div className={cn("rounded-fp border border-fp-border-1 bg-fp-bg-1", className)}>
+    <div {...rest} className={cn("rounded-fp border border-fp-border-1 bg-fp-bg-1", className)}>
       <div className="p-4">{children}</div>
     </div>
   );

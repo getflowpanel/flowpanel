@@ -73,6 +73,11 @@ flowpanel eject     Take ownership of a resource / dashboard / layout
 @flowpanel/kit/server          Server-only utilities
 ```
 
+## For agents
+
+This package ships `llms.txt` — the whole API reference as one plain-text file.
+Read `node_modules/@flowpanel/kit/llms.txt` instead of guessing at the DSL.
+
 ## Documentation
 
 <https://flowpanel.tech>

@@ -1,4 +1,4 @@
-import type { WidgetContext } from "@flowpanel/kit";
+import type { MetricResult, WidgetContext } from "@flowpanel/kit";
 import { type AnyColumn, and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { ReviewQueueProps } from "@/src/admin/ReviewQueue";
 import type { db } from "@/src/db/client";
@@ -13,7 +13,7 @@ const inRange = (column: AnyColumn, { from, to }: QueryContext["dateRange"]) =>
 const sandboxIdFor = (context: QueryContext) =>
   requireSandboxId(context.session as AdminSession | null);
 
-export async function activeMonitorCount(context: QueryContext): Promise<number> {
+export async function activeMonitorCount(context: QueryContext): Promise<MetricResult> {
   const { db } = context;
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -24,10 +24,11 @@ export async function activeMonitorCount(context: QueryContext): Promise<number>
         eq(schema.monitors.status, "active"),
       ),
     );
-  return Number(row?.count ?? 0);
+  const value = Number(row?.count ?? 0);
+  return { value, href: context.href("monitors"), tone: value === 0 ? "warn" : "default" };
 }
 
-export async function offersDiscovered(context: QueryContext): Promise<number> {
+export async function offersDiscovered(context: QueryContext): Promise<MetricResult> {
   const { db, dateRange } = context;
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -38,10 +39,10 @@ export async function offersDiscovered(context: QueryContext): Promise<number> {
         inRange(schema.listings.scrapedAt, dateRange),
       ),
     );
-  return Number(row?.count ?? 0);
+  return { value: Number(row?.count ?? 0), href: context.href("listings") };
 }
 
-export async function crawlSuccessRate(context: QueryContext): Promise<string> {
+export async function crawlSuccessRate(context: QueryContext): Promise<MetricResult> {
   const { db, dateRange } = context;
   const [row] = await db
     .select({
@@ -58,10 +59,13 @@ export async function crawlSuccessRate(context: QueryContext): Promise<string> {
     );
 
   const completed = Number(row?.completed ?? 0);
-  return completed === 0 ? "—" : `${Math.round((Number(row?.successful ?? 0) / completed) * 100)}%`;
+  const href = context.href("runs");
+  if (completed === 0) return { value: "—", href, tone: "muted" };
+  const rate = Math.round((Number(row?.successful ?? 0) / completed) * 100);
+  return { value: `${rate}%`, href, tone: rate >= 90 ? "ok" : rate >= 70 ? "warn" : "err" };
 }
 
-export async function reviewBacklog(context: QueryContext): Promise<number> {
+async function pendingReviews(context: QueryContext): Promise<number> {
   const { db } = context;
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -75,10 +79,19 @@ export async function reviewBacklog(context: QueryContext): Promise<number> {
   return Number(row?.count ?? 0);
 }
 
+export async function reviewBacklog(context: QueryContext): Promise<MetricResult> {
+  const value = await pendingReviews(context);
+  return {
+    value,
+    tone: value === 0 ? "ok" : "warn",
+    href: context.href("matches", undefined, { filter: { status: "needs_review" } }),
+  };
+}
+
 export async function reviewQueueSummary(context: QueryContext): Promise<ReviewQueueProps> {
   const { db, dateRange } = context;
   const [pending, rows] = await Promise.all([
-    reviewBacklog(context),
+    pendingReviews(context),
     db
       .select({ status: schema.matches.status, count: sql<number>`count(*)::int` })
       .from(schema.matches)

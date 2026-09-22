@@ -24,7 +24,6 @@ FlowPanel is not a hosted database browser or a general React admin framework. I
 | Node.js | `>=20` |
 | Next.js | `^16.3.0` |
 | React | `^19.0.0` |
-| Tailwind CSS | `^3.0.0 || ^4.0.0` |
 | Drizzle ORM | `>=0.45.2 <1.0.0` |
 | Prisma Client | `>=5.0.0 <7.0.0` |
 <!-- flowpanel:compatibility:end -->
@@ -99,6 +98,7 @@ The [customization guide](https://flowpanel.tech/docs/customization/overview) ex
 | [`@flowpanel/adapter-drizzle`](packages/adapter-drizzle) | Drizzle resource adapter |
 | [`@flowpanel/adapter-prisma`](packages/adapter-prisma) | Prisma resource adapter |
 | [`@flowpanel/adapter-bullmq`](packages/adapter-bullmq) | BullMQ queue adapter and board integration |
+| [`@flowpanel/test`](packages/test) | `smokeAdmin` — a Playwright smoke walk over every admin route |
 
 Lower-level core, Next.js, React, charts, client, and ESLint packages are available for advanced integrations. All workspace packages are released together while FlowPanel is pre-1.0.
 

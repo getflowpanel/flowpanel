@@ -33,11 +33,37 @@ Register it in `dashboards`. The root path renders at `/admin`; another path suc
 
 Each section chooses a column count and contains widgets with optional spans. Group widgets by the decision they support, not by their implementation type. A short label above a section is useful when the relationship would otherwise be unclear.
 
-FlowPanel includes metric, table, stat group, chart, and custom widget builders. Table widgets reuse a registered resource surface. A custom widget receives a component and props for cases that remain self-contained but do not fit a built-in visualization.
+FlowPanel includes metric, stat, kv, bars, funnel, list, table, stat group, chart, and custom widget builders. Table widgets reuse a registered resource surface. The small cards take counts and labels and derive their own geometry. A custom widget receives a component and props for cases that remain self-contained but do not fit a built-in visualization.
+
+## Widgets in detail tabs
+
+The same widgets render inside a detail tab. Give a `DetailTab` a `widgets` array instead of `fields`, and the tab draws them in the dashboard's grid; `columns` sets the grid width and defaults to 2.
+
+```ts excerpt
+detail: {
+  tabs: [
+    {
+      key: "activity",
+      label: "Activity",
+      columns: 2,
+      widgets: [
+        stat("Orders", async (ctx) => countOrders(ctx.db, ctx.row?.id)),
+        bars({ label: "Spend by month", query: (ctx) => spendByMonth(ctx.db, ctx.row?.id) }),
+      ],
+    },
+  ],
+}
+```
+
+The one difference is `ctx.row`: on a detail tab it is the projected record being viewed, so a widget query scopes itself to that row. Everything else is the widget context a dashboard hands out — `db`, `session`, `href`, `labels` and the per-request `query` memo, so two widgets in the tab asking the same question query once. A detail tab has no date picker, so `ctx.dateRange` spans the record's whole lifetime.
 
 ## Add a date range
 
 Configure a dashboard date range when several queries should use the same interval. The resolved range arrives in each widget context. Treat it as a query input, not as authorization; tenant and role constraints still belong in their own policies.
+
+## Keep the numbers fresh
+
+Set `refresh` to `"60s"` or `"5m"` when the dashboard is something an operator leaves open. FlowPanel re-renders the page on that interval, pauses while the browser tab is hidden, and shows how old the numbers are next to the date picker. Prefer it to per-widget `realtime` when the whole screen ages together; prefer `realtime` when one widget changes and the rest should stay put.
 
 ## Add actions
 

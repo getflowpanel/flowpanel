@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { LabelsProvider } from "../../_provider/LabelsContext";
 import { Field } from "../Field";
 import { buildSubmissionReply, Form, FormActionDispatchContext } from "../Form";
 import { FormError } from "../FormError";
@@ -331,5 +332,39 @@ describe("Form — a non-2xx response with an empty JSON body still surfaces a m
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     expect(screen.getByRole("alert").textContent).toBe("Something went wrong — please try again.");
+  });
+
+  it("takes that message from `labels.formError`", async () => {
+    fetchMock.mockResolvedValue({ ok: false, json: async () => ({}) });
+
+    let dispatch: ((fd: FormData) => void) | null = null;
+    render(
+      <LabelsProvider value={{ formError: "Что-то пошло не так." }}>
+        <Form
+          action="/api/flowpanel/products/create"
+          schema={z.object({ sku: z.unknown().optional() })}
+        >
+          <ActionCapture
+            onReady={(fn) => {
+              dispatch = fn;
+            }}
+          />
+          <Field name="sku" label="SKU" />
+          <FormError />
+          <FormSubmit>Create</FormSubmit>
+        </Form>
+      </LabelsProvider>,
+    );
+
+    const fd = new FormData();
+    fd.set("sku", "SKU-1");
+    await act(async () => {
+      React.startTransition(() => {
+        dispatch?.(fd);
+      });
+    });
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toBe("Что-то пошло не так.");
   });
 });

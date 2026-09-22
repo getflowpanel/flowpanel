@@ -9,7 +9,7 @@ import type { IconName } from "./icon";
 import type { FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec, ResourceName } from "./registry";
 import type { Scope, Session } from "./session";
-import type { Tone } from "./widget";
+import type { Tone, WidgetConfig, WidgetContext } from "./widget";
 
 export type { DrawerConfig };
 
@@ -142,8 +142,18 @@ export interface FieldDef<Row> {
   group?: string;
 }
 
+/**
+ * What a `DetailTab.render` callback is handed alongside the row: the widget
+ * context minus the parts a detail tab has no business with.
+ */
+export interface DetailTabContext
+  extends Pick<
+    WidgetContext,
+    "db" | "session" | "dateRange" | "href" | "labels" | "query" | "sql" | "count"
+  > {}
+
 export interface DetailTab<Row> {
-  /** Stable identifier, used as the tab's URL fragment. */
+  /** Stable identifier, stored in the URL's `?tab=` search parameter. */
   key: string;
   /** Tab label. */
   label: string;
@@ -151,12 +161,24 @@ export interface DetailTab<Row> {
   hidden?: (row: Row) => boolean;
   /** Field list to render as a key/value view. `"*"` shows every column. */
   fields?: (keyof Row | FieldDef<Row>)[] | "*";
+  /** Grouped key/value fields, one block per entry. Wins over `fields`. */
+  sections?: Array<{ label: string; fields: (keyof Row | FieldDef<Row>)[] }>;
   /** Render rows of a related resource instead of fields. */
   resource?: ResourceName;
   /** Filter applied to `resource`, derived from the row being viewed. */
   filter?: (row: Row) => Record<string, unknown>;
-  /** Render arbitrary content instead of fields or a related resource. */
-  render?: (row: Row) => ReactNode;
+  /** Related-tab columns to omit, typically the parent foreign key. */
+  hide?: string[];
+  /** Related-tab default sort; falls back to the target's `defaultSort`, then its primary key. */
+  sort?: { field: string; dir: "asc" | "desc" };
+  /** Dashboard widgets with `ctx.row` set to the record being viewed. */
+  widgets?: WidgetConfig[];
+  /** Grid columns for `widgets`.
+   * @defaultValue 2
+   */
+  columns?: 1 | 2 | 3 | 4 | 6 | 12;
+  /** Render arbitrary content instead of fields, widgets or a related resource. */
+  render?: (row: Row, ctx: DetailTabContext) => ReactNode;
 }
 
 /** One page of rows, as returned by `Adapter.list`. */
@@ -187,7 +209,10 @@ export interface ResourceOptions<Row> {
   /** Keep the resource out of the navigation — its routes still work. */
   hidden?: boolean;
 
-  /** Additional fields that may cross the generated server/client boundary. */
+  /**
+   * Additional fields shared by list and detail presentation. Declare render
+   * dependencies explicitly; callbacks never receive an undeclared DB row.
+   */
   expose?: (keyof Row & string)[];
 
   /**
@@ -210,8 +235,13 @@ export interface ResourceOptions<Row> {
    * @defaultValue "comfortable"
    */
   density?: "comfortable" | "compact";
-  /** Open the row's drawer when its row is clicked. Requires `drawer`. */
-  rowClick?: "drawer" | false;
+  /**
+   * What a row click — and Enter on the focused row — does. `"detail"` navigates
+   * to the row's own page, `"drawer"` opens the drawer and requires `drawer`, and
+   * `false` leaves rows inert. A row the projection cannot identify never acts.
+   * @defaultValue `"detail"` when `detail` is configured and `drawer` is not, `"drawer"` when only `drawer` is, otherwise `false`
+   */
+  rowClick?: "detail" | "drawer" | false;
   /** Property holding each row's unique id.
    * @defaultValue "id"
    */
@@ -221,7 +251,25 @@ export interface ResourceOptions<Row> {
   drawer?: DrawerConfig<Row>;
   /** Full-page view at `/<basePath>/<resource>/<id>`. */
   detail?: {
+    /**
+     * Extra fields used only by detail headers, hidden-tab predicates, related
+     * filters, or custom detail renderers. They never widen list rows.
+     */
+    expose?: (keyof Row & string)[];
+    /** Heading content (inside h1). Receives declared, readable detail fields; nullish output uses `<label> · <pk>`. */
+    title?: (row: Row) => ReactNode | string | null | undefined;
+    /** @deprecated Use `title`. Removed in 1.0. */
     header?: (row: Row) => ReactNode;
+    /** One line under the heading, for the fact that identifies the record. May be async. */
+    subtitle?: (row: Row) => string | null | undefined | Promise<string | null | undefined>;
+    /** Status pill beside the heading. May be async. */
+    badge?: (
+      row: Row,
+    ) =>
+      | { label: string; tone?: Tone }
+      | null
+      | undefined
+      | Promise<{ label: string; tone?: Tone } | null | undefined>;
     tabs?: DetailTab<Row>[];
     fields?: (keyof Row | FieldDef<Row>)[] | "*";
   };
@@ -231,7 +279,16 @@ export interface ResourceOptions<Row> {
   /** Create form. `disabled` removes the route, not just the button. */
   create?: { disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> };
   /** Edit form. `disabled` removes the route, not just the button. */
-  update?: { disabled?: boolean; fields?: FieldDef<Row>[] };
+  update?: {
+    disabled?: boolean;
+    fields?: FieldDef<Row>[];
+    /**
+     * Additional readable values available to edit-form hidden/readOnly
+     * predicates. This never creates a control, default value, or write
+     * permission.
+     */
+    expose?: (keyof Row & string)[];
+  };
   /** Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. */
   delete?: { disabled?: boolean; softDelete?: keyof Row & string; confirm?: string };
 

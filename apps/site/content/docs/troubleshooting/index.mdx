@@ -20,9 +20,9 @@ Start with `pnpm flowpanel doctor`. It checks package compatibility, generated w
 
 ### “The admin renders without styles”
 
-**Cause:** the root layout does not import `admin.css`, or Tailwind does not scan installed FlowPanel package output.
+**Cause:** the admin route layout does not import the generated `admin.css`, or a local override prevents the precompiled FlowPanel stylesheet from loading.
 
-**Fix:** restore the generated stylesheet import. For Tailwind v4, check both `@source` paths; for v3, check the package globs in `content`.
+**Fix:** restore the generated `@import "@flowpanel/kit/styles/admin.css";` line. The default stylesheet does not require Tailwind scanning or a PostCSS plugin. If your project intentionally uses the legacy `@flowpanel/react/styles/admin.css` source export, restore its own Tailwind source/content configuration instead.
 
 **Verify:** restart Next.js and confirm utilities, tokens, and the drawer portal are styled.
 
@@ -146,9 +146,9 @@ Start with `pnpm flowpanel doctor`. It checks package compatibility, generated w
 
 ### “A worker publishes but no browser refreshes”
 
-**Cause:** the worker never bound the admin's publisher or uses a different Redis prefix.
+**Cause:** the worker publishes through an in-memory publisher, or uses a different Redis prefix.
 
-**Fix:** call `bindPublisher(config)` once during worker startup before publishing.
+**Fix:** publish through `createPublisher({ redis: process.env.REDIS_URL! })` from `@flowpanel/kit/publish`, with the admin's `keyPrefix`.
 
 **Verify:** publish from the worker while a browser is connected through another app instance.
 

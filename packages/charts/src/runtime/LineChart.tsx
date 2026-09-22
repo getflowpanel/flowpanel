@@ -1,5 +1,6 @@
 "use client";
 import type { LineChartOptions } from "@flowpanel/core";
+import { useFormatting } from "@flowpanel/react";
 import {
   CartesianGrid,
   Legend,
@@ -28,6 +29,7 @@ import { DEFAULT_CHART_HEIGHT } from "./defaults";
 import { buildTickFormatter } from "./format-tick";
 
 export function LineChart({ data, options }: { data: unknown[]; options: LineChartOptions }) {
+  const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
   if (data.length === 0) return <ChartEmptyState height={height} />;
   const ys = Array.isArray(options.y) ? options.y : [options.y];
@@ -36,8 +38,9 @@ export function LineChart({ data, options }: { data: unknown[]; options: LineCha
     data as Record<string, unknown>[],
     options.x,
     options.bucket,
+    formatting,
   );
-  const valueTickFormatter = buildValueTickFormatter(options.format);
+  const valueTickFormatter = buildValueTickFormatter(options.format, formatting);
   const seriesColor = (i: number) => (multiSeries ? chartColor(i) : "hsl(var(--fp-accent))");
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -57,7 +60,7 @@ export function LineChart({ data, options }: { data: unknown[]; options: LineCha
         {options.tooltip !== false ? (
           <Tooltip
             cursor={LINE_TOOLTIP_CURSOR}
-            {...buildTooltipProps(options.format, options.tooltip)}
+            {...buildTooltipProps(options.format, options.tooltip, formatting)}
           />
         ) : null}
         {multiSeries ? <Legend {...LEGEND_PROPS} /> : null}

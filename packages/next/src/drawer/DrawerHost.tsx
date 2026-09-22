@@ -22,6 +22,7 @@ import {
   type Tone,
   useAdminDrawer,
   useApiBase,
+  useLabels,
 } from "@flowpanel/react";
 import { Fragment, useEffect, useState } from "react";
 import { ActionFormDialog } from "../actions/ActionFormDialog";
@@ -29,7 +30,9 @@ import type { ActionFormField, ActionFormFieldErrors } from "../actions/action-f
 import { useActionRunner } from "../actions/use-action-runner";
 import { formatFieldValue } from "../runtime/format-field-value";
 import { toWireOptions } from "../runtime/select-options";
+import { DrawerCard, isCardWidget } from "./DrawerCard";
 import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route";
+import type { SerializedField, SerializedFieldList } from "./serialize-fields";
 
 function toActionFormFields(form: SerializedDrawerAction["form"]): ActionFormField[] {
   if (!form) return [];
@@ -42,10 +45,10 @@ function toActionFormFields(form: SerializedDrawerAction["form"]): ActionFormFie
 
 function resolveFieldEntries(
   row: Record<string, unknown>,
-  fields: "*" | string[],
-): [string, unknown][] {
-  if (fields === "*") return Object.entries(row);
-  return fields.map((k) => [k, row[k]]);
+  fields: SerializedFieldList,
+): SerializedField[] {
+  if (fields === "*") return Object.keys(row).map((name) => ({ name }));
+  return fields;
 }
 
 function FieldsView({
@@ -56,7 +59,7 @@ function FieldsView({
   formats,
 }: {
   row: Record<string, unknown>;
-  fields: "*" | string[];
+  fields: SerializedFieldList;
   prerendered: Record<string, string>;
   labels: Record<string, string>;
   formats: Record<string, ColumnFormat>;
@@ -64,18 +67,18 @@ function FieldsView({
   const entries = resolveFieldEntries(row, fields);
   return (
     <KV>
-      {entries.map(([k, v]) => (
+      {entries.map(({ name: k, label }) => (
         <KVRow
           key={k}
-          label={labels[k] ?? humanize(k)}
+          label={label ?? labels[k] ?? humanize(k)}
           value={
             prerendered[k] !== undefined ? (
               // biome-ignore lint/security/noDangerouslySetInnerHtml: server-prerendered from the resource's own column render
               <span dangerouslySetInnerHTML={{ __html: prerendered[k] }} />
             ) : formats[k] !== undefined ? (
-              renderFormatCell(formats[k], v)
+              renderFormatCell(formats[k], row[k])
             ) : (
-              formatFieldValue(v)
+              formatFieldValue(row[k])
             )
           }
         />
@@ -220,6 +223,14 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
             </Fragment>
           );
         }
+        if (isCardWidget(w)) {
+          return (
+            <Fragment key={key}>
+              <DrawerCard widget={w} />
+              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
+            </Fragment>
+          );
+        }
         if (w.kind === "chart") {
           return (
             <Fragment key={key}>
@@ -236,6 +247,7 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
         return (
           <div
             key={key}
+            {...(w.failed ? { "data-fp-error": "" } : {})}
             className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2"
           >
             {w.reason}
@@ -394,6 +406,7 @@ function ActionButton({
 export function DrawerHost() {
   const { state, close } = useAdminDrawer();
   const apiBase = useApiBase();
+  const labels = useLabels();
   const [payload, setPayload] = useState<DrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -457,12 +470,23 @@ export function DrawerHost() {
               {payload?.resourceLabel ?? humanize(resource)} · {id}
             </p>
           ) : null}
+          {payload?.detailHref ? (
+            <a
+              href={payload.detailHref}
+              className="mt-1 inline-block text-xs text-fp-accent underline-offset-4 hover:underline"
+            >
+              {labels.drawer.viewDetails}
+            </a>
+          ) : null}
         </div>
       </DrawerHeader>
       <DrawerContent>
         {loading ? <div className="text-sm text-fp-text-3">Loading…</div> : null}
         {error ? (
-          <div className="rounded-fp-sm border border-fp-err/40 bg-fp-err/10 p-3 text-sm text-fp-err">
+          <div
+            data-fp-error=""
+            className="rounded-fp-sm border border-fp-err/40 bg-fp-err/10 p-3 text-sm text-fp-err"
+          >
             {error}
           </div>
         ) : null}

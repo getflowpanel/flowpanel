@@ -321,6 +321,24 @@ describe("defineAdmin cross-resource references", () => {
     ).toThrow(/drawer\.tabs\[0\]\.resource/);
   });
 
+  it("suggests the registered resource a detail tab nearly named", () => {
+    expect(() =>
+      defineAdmin({
+        ...base,
+        resources: [
+          resource(
+            { __name: "users" },
+            {
+              columns: ["email"],
+              detail: { tabs: [{ key: "o", label: "Orders", resource: "order" }] },
+            },
+          ),
+          resource({ __name: "orders" }, { columns: ["email"] }),
+        ],
+      }),
+    ).toThrow(/detail\.tabs\[0\]\.resource.*Did you mean "orders"\?/s);
+  });
+
   it("throws on a detail tab pointing at an unregistered resource", () => {
     expect(() =>
       defineAdmin({

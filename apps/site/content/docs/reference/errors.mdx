@@ -99,6 +99,45 @@ Each names the config path at fault and, where it can, the near match. See
 [Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots)
 for the full table.
 
+### Did you mean
+
+A name that is not registered but is close to one that is gets the suggestion
+appended to the error: an exact match once casing and `_`/`-` are ignored, else
+the closest name within an edit distance of two.
+
+```text
+resource "users" points at column "emial" via columns[0], but the adapter
+reports no such column. Did you mean "email"? Known columns: "id", "email".
+```
+
+It applies to `columns`, `filters`, `expose`, `defaultSort.field`, `rowKey`,
+`create.fields` / `update.fields` names, and to the resource a
+`detail.tabs[]` / `drawer.tabs[]` entry or a `reference` points at.
+
+### Warnings that do not stop the boot
+
+Some config problems are real but do not justify refusing to start. `defineAdmin`
+collects them on the resolved config as `warnings: readonly string[]`, prints each
+one once per process in development, and `flowpanel doctor` lists them. (`doctor`
+evaluates `flowpanel.config.ts` to read them; if that fails — a missing
+`DATABASE_URL`, say — it prints one line saying the warnings were not checked
+instead of passing silently.)
+
+The one warning today is a create form that cannot succeed:
+
+```text
+resource users: create is enabled but required column `email` has no field;
+creation will always fail
+```
+
+It fires for a column the adapter reports as non-nullable, not generated, not
+defaulted (`ColumnMeta.hasDefault`, which both shipped adapters populate) and not
+the primary key, when nothing a create write carries would fill it: not
+`create.fields`, not `columns` when `create.fields` is absent, and not
+`create.defaultValues`. An adapter that does not report `hasDefault` makes a
+defaulted column look required; declare it in `create.fields` or
+`create.defaultValues` to say otherwise.
+
 ## On the page render path
 
 `FlowpanelAuthError` and `FlowpanelAccessError` thrown while rendering a page are
@@ -108,7 +147,33 @@ caught by the shell, not surfaced as a crash:
 - `auth.forbiddenUrl` is set and the visitor is signed in → redirect there.
 - Neither → an inline "Sign in required" or "Access denied" panel.
 
-Other errors propagate to your Next.js error boundary.
+Other errors propagate to your Next.js error boundary — except for a failed
+adapter read, which has a surface of its own.
+
+### A query that failed
+
+When the adapter's `list` or `get` throws while a list page, a detail page or a
+related tab renders, FlowPanel renders its own card in place of the data instead
+of letting the page crash into the host's error boundary. The card names the
+resource and the operation through `labels.errors.queryTitle`, adds
+`labels.errors.queryHint`, and carries the request id the failure was logged
+under:
+
+```text
+users: list failed
+Check the column list and the database schema. Details are in the server log.
+Request 5f3c…
+```
+
+The cause always goes to `console.error` with that same id, and outside
+production the card shows the message too. Nothing else about it changes with the
+environment. A `FlowpanelError` — an access denial, a not-found — keeps
+travelling, so the auth boundary above still sees it, and so does a `redirect()`
+thrown from your own code.
+
+Dashboard and detail-tab widgets already have their own boundary: a widget whose
+query or render throws becomes one failed card, with its copy from
+`labels.errors.widgetTitle`, `widgetHint` and `retry`.
 
 ## Returning versus throwing
 

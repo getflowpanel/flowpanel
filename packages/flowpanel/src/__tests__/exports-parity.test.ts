@@ -8,6 +8,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CORE_INDEX = path.join(HERE, "../../../core/src/index.ts");
 const KIT_INDEX = path.join(HERE, "../index.ts");
 const KIT_NEXT_CLIENT = path.join(HERE, "../next-client.ts");
+const KIT_PUBLISH = path.join(HERE, "../publish.ts");
 const KIT_PACKAGE_JSON = path.join(HERE, "../../package.json");
 const KIT_TSUP_CONFIG = path.join(HERE, "../../tsup.config.ts");
 
@@ -92,5 +93,35 @@ describe("@flowpanel/kit exposes a ./next/client subpath re-exporting @flowpanel
   it("tsup.config.ts builds the next-client entry from src/next-client.ts", () => {
     const source = readFileSync(KIT_TSUP_CONFIG, "utf8");
     expect(source).toMatch(/"next-client":\s*"src\/next-client\.ts"/);
+  });
+});
+
+describe("@flowpanel/kit exposes a ./publish subpath re-exporting @flowpanel/core/publish", () => {
+  it("src/publish.ts re-exports @flowpanel/core/publish", () => {
+    const source = readFileSync(KIT_PUBLISH, "utf8");
+    expect(source).toContain('export * from "@flowpanel/core/publish"');
+  });
+
+  it("package.json wires ./publish to dist/publish", () => {
+    const pkg = JSON.parse(readFileSync(KIT_PACKAGE_JSON, "utf8")) as {
+      exports: Record<string, { types?: string; import?: string }>;
+    };
+    expect(pkg.exports["./publish"]).toEqual({
+      types: "./dist/publish.d.ts",
+      import: "./dist/publish.js",
+    });
+  });
+
+  it("tsup.config.ts builds the publish entry from src/publish.ts", () => {
+    const source = readFileSync(KIT_TSUP_CONFIG, "utf8");
+    expect(source).toMatch(/publish:\s*"src\/publish\.ts"/);
+  });
+
+  it("re-exports the same symbols @flowpanel/core/publish declares", async () => {
+    const [kit, core] = await Promise.all([
+      import("../publish"),
+      import("@flowpanel/core/publish"),
+    ]);
+    expect(Object.keys(kit).sort()).toEqual(Object.keys(core).sort());
   });
 });

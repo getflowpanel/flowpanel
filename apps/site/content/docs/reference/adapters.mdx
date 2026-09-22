@@ -25,7 +25,9 @@ FlowPanel branches on it.
 
 `kind`, `db`, `introspect`, `inferSchema`, `list`, `get`, `create`, `update`
 and `delete` are required. `restore` is optional — an adapter without it makes
-the admin hide the restore button rather than fail at runtime. `applyMigration`
+the admin hide the restore button rather than fail at runtime. `sql` and `count`
+are optional too, and back [`ctx.sql` and `ctx.count`](/docs/reference/contexts#raw-sql-and-counts)
+in a widget query. `applyMigration`
 and `listAppliedMigrations` are optional too and power `flowpanel migrate`;
 without both, that command exits before executing SQL. The older
 `runMigrationSql` and `markMigrationApplied` hooks remain typed for adapter
@@ -62,6 +64,53 @@ quoting, and Prisma also rejects MySQL executable comments and client
 directives such as `DELIMITER`, `SOURCE` and `.read`. Apply those files through
 the ORM's native migration workflow or a dialect-native runner; a rejected file
 is never recorded as applied.
+
+## Raw SQL
+
+`sql` is a tagged template, not a string API: it receives the literal parts and
+the interpolated values separately, and every value must reach the database as a
+bound parameter. An implementation that assembles a string is wrong — that is
+the injection this capability exists to avoid.
+
+`count(ref, where)` takes the same filter shape `list` reads from `ctx.filters`,
+including `"__null__"` and `"__notnull__"`. It carries no scope binding, so
+FlowPanel only calls it when the resource has no tenant predicate to apply; a
+scoped resource is counted through `list` with an empty projection instead. Every
+other guard — `requireRole`, `access`, `fieldAccess` and the soft-delete term — is
+applied before the call, so which path runs never changes the answer. Implement
+`count` anyway: it saves a query on every unscoped count.
+
+Both capabilities run on the adapter's own `db`, never a per-request handle: they
+are outside any open `adapter.transaction` and outside session settings a host
+applies per request, such as the `SET` a row-level-security scheme relies on.
+
+Two helpers keep a third-party adapter's behaviour identical to the shipped ones:
+
+```ts excerpt
+import { parseSqlRows, sanitizeSqlParams } from "@flowpanel/kit";
+
+async function sql<Row>(strings: TemplateStringsArray, ...values: unknown[]) {
+  const rows = await driver.query(strings, sanitizeSqlParams(values));
+  return parseSqlRows<Row>(rows);
+}
+```
+
+`sanitizeSqlParams` turns a `Date` into an ISO-8601 string and a `bigint` into
+decimal text, and does the same to an array's own values. `parseSqlRows` reads
+every string shaped exactly like a zoneless `YYYY-MM-DD HH:mm:ss` as a UTC `Date`,
+because a free-form statement has no column types to consult; pass
+`{ parseDates: false }` to hand every value through as the driver returned it,
+which is what both shipped adapters' `parseDates` option does.
+
+An array is one value to a driver, and the two shipped adapters disagree about it.
+Drizzle expands `${ids}` into a placeholder list, so `where id in (${ids})` works.
+Prisma binds the array as a single parameter, so the same template fails and the
+Postgres form is `where id = any(${ids})` — or build the list with `Prisma.join`.
+Portable configs pass one value per placeholder.
+
+Both shipped adapters normalise the driver's own row shape first: node-postgres
+answers `{ rows }`, postgres-js and the SQLite drivers the array itself, and
+mysql2 `[rows, fields]`.
 
 ## ResourceIntrospection
 

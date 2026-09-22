@@ -7,7 +7,7 @@ interface PackageMetadata {
 }
 
 export interface CompatibilityItem {
-  id: "node" | "next" | "react" | "tailwind" | "drizzle" | "prisma";
+  id: "node" | "next" | "react" | "drizzle" | "prisma";
   requirement: string;
   range: string;
   note: string;
@@ -69,16 +69,6 @@ export function readCompatibility(root: string): CompatibilityItem[] {
       ),
       note: "React DOM uses the same major version.",
       source: "packages/react/package.json#peerDependencies.react",
-    },
-    {
-      id: "tailwind",
-      requirement: "Tailwind CSS",
-      range: requireValue(
-        react.peerDependencies?.tailwindcss,
-        "packages/react/package.json#peerDependencies.tailwindcss",
-      ),
-      note: "The CLI generates the matching v3 or v4 stylesheet.",
-      source: "packages/react/package.json#peerDependencies.tailwindcss",
     },
     {
       id: "drizzle",

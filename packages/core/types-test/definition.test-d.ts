@@ -21,11 +21,13 @@ declare const adapter: Adapter;
 const customers = resource(customersTable, {
   name: "customers",
   columns: ["email", "plan"],
+  detail: { expose: ["email"] },
 });
 
 expectType<"customers">(customers.options.name);
 expectAssignable<keyof Customer | ColumnDef<Customer> | undefined>(customers.options.columns?.[0]);
 expectError(resource(customersTable, { name: "broken", columns: ["emial"] }));
+expectError(resource(customersTable, { name: "broken-detail", detail: { expose: ["emial"] } }));
 
 const admin = defineAdmin({
   id: "acme-ops",

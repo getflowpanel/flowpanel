@@ -47,11 +47,12 @@ purpose — behind a VPN or an authenticating proxy — sets
 stricter: a config without `auth.requireRole` refuses to compile unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
-Four presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
+Five presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
 (`devAuth` is also on the package root):
 
 | Preset | Session source | Role read from |
 | --- | --- | --- |
+| `withBetterAuth(opts)` | the better-auth instance you pass, via `auth.api.getSession` | `session.user.role` |
 | `withClerk(opts?)` | Clerk's `auth()` helper, loaded lazily | `sessionClaims.publicMetadata.role` |
 | `withNextAuth(opts)` | the `auth()` / `getServerSession` you pass | `session.user.role` |
 | `withLucia(opts)` | the Lucia instance you pass | `user.role` |
@@ -61,7 +62,8 @@ Four presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
 nobody, sets no `requireRole`, and leaves the "no access control" warning
 firing.
 
-See [Auth with Clerk](/docs/guides/auth-with-clerk) for the worked setup.
+See [Auth with better-auth](/docs/guides/auth-with-better-auth) and
+[Auth with Clerk](/docs/guides/auth-with-clerk) for the worked setups.
 
 ## ThemeConfig
 
@@ -74,9 +76,11 @@ to register your own.
 `accent` and `cssVars` are emitted only on `[data-flowpanel-root]` and
 `[data-flowpanel-portal]`. Dialogs and drawers carry the portal marker, so they
 receive the theme without changing the host application's tokens.
-`accentDark` targets the same namespaced roots when
+`accentDark` and `cssVarsDark` target the same namespaced roots when
 `html[data-flowpanel-theme="dark"]` or a FlowPanel root's `data-theme="dark"`
-is active. Set it whenever a custom `accent` is tuned for light surfaces.
+is active. Set `accentDark` whenever a custom `accent` is tuned for light surfaces;
+use `cssVarsDark` when custom foreground or border tokens need dark-surface values.
+Choose foreground values for contrast against the actual tinted background.
 Every `--fp-*` token is overridable:
 
 ```ts excerpt
@@ -85,6 +89,7 @@ theme: {
   accent: "262 83% 58%",
   accentDark: "262 90% 72%",
   cssVars: { "--fp-radius": "0.25rem" },
+  cssVarsDark: { "--fp-text-1": "0 0% 98%" },
 }
 ```
 
@@ -169,10 +174,43 @@ production. See [Realtime in production](/docs/guides/realtime).
 
 ## LabelsConfig
 
-Every user-facing string in the built-in chrome, so you can translate the admin
-without ejecting.
+Overrides for built-in chrome. Set `labels` once in `defineConfig`; list filters,
+pagination and the command palette use the same provider as action buttons.
+Nested groups merge with English defaults. Undefined values keep their defaults;
+empty strings are intentional overrides. A component's explicit placeholder or
+boolean label takes precedence over configuration.
 
-<AutoTypeTable path="../../packages/core/src/types/labels.ts" name="LabelsConfig" />
+`allOption` controls the unfiltered choice in select, multiselect and boolean
+filters. `filters` controls toolbar/reset text, boolean choices and text search.
+`pagination.page` and `pagination.pageSize` accept `{n}`; `bulkBar.selected`
+accepts `{n}` for selection counts. Pagination registry overrides receive these
+strings in their `labels` prop; `DefaultPagination` remains usable standalone.
+
+`navigation`, `table`, `savedViews` and `dateRange` also cover the built-in menu,
+table controls, saved-view dialog and calendar. `dateRange.locale` controls
+calendar and table-count presentation, with a deterministic `en-US` fallback on
+both server and client. It does not change stored dates, query boundaries or
+your custom column formatters.
+
+`form` covers the generated create and edit pages: `createTitle` and `editTitle`
+accept `{label}` for the resource's singular label, and `selectPlaceholder`,
+`noOptions`, `searching` and `loadFailed` name the states of a select or a
+reference search. The submit button uses `actions.create` on a create form and
+`actions.save` on an edit form, and both pages offer a cancel link labelled with
+`actions.cancel` that returns to the record or its list without submitting.
+
+For a Russian admin, import `RU_LABELS` from `@flowpanel/kit` and pass
+`labels: RU_LABELS` to `defineConfig`. The preset is a complete object of plain
+strings, safe across the server/client boundary. Customize a nested group by
+spreading it, for example `labels: { ...RU_LABELS, actions: {
+...RU_LABELS.actions, new: "Добавить" } }`. Browser-only consumers can import the
+same preset from `@flowpanel/core/labels`.
+
+Resource names, domain actions, custom renderers and validation messages supplied
+by your application remain application-owned. The preset does not translate
+arbitrary content or server errors.
+
+<AutoTypeTable path="../../packages/core/src/types/labels/config.ts" name="LabelsConfig" />
 
 ## CommandPaletteConfig
 
@@ -264,3 +302,54 @@ checking it:
 
 None of it is I/O: `introspect` is a synchronous
 read of a table object or DMMF, not a database round trip.
+
+### `basePath` and a Next.js deployment `basePath`
+
+`basePath` and `paths.api` are app-relative: they say where the admin sits inside
+your app, not where the app sits under a domain. If `next.config` sets its own
+`basePath`, leave both alone — Next serves and links everything under that prefix
+already.
+
+FlowPanel adds the deployment prefix for you to the requests the browser issues
+by itself: the client fetches built from `paths.api`, the generated form actions
+and the SSE endpoint. `Link`, router navigation and `revalidatePath` are prefixed
+by Next and are left untouched. Only a fetch you write yourself against
+`paths.api` needs the helper:
+
+```ts excerpt
+import { withDeploymentBasePath } from "@flowpanel/kit/react"; // or "@flowpanel/core/paths" on the server
+
+await fetch(`${withDeploymentBasePath(config.paths.api)}/user/u1/actions/verify`, {
+  method: "POST",
+});
+```
+
+### Formatting
+
+`formatting` decides how the admin renders values, on the server and in the
+browser alike:
+
+```ts excerpt
+formatting: { locale: "ru-RU", timeZone: "Europe/Moscow", currency: "RUB" },
+```
+
+`locale` governs the `number` and `money` column formats and the date shape;
+`currency` is the default for a `money` column that names none, and a column's own
+`currency` still wins. `timeZone` is what the server and the first paint use — after
+hydration a timestamp shows in the reader's own zone, which is what a
+`LocalTime` has always done.
+
+With no `locale`, dates keep the sortable `YYYY-MM-DD HH:mm` shape they had
+before, and numbers keep `en-US` grouping.
+
+### Identifiers in URLs
+
+Record identifiers are percent-encoded into the URL and decoded once when the page
+route reads them back, so an id containing `/`, `%`, `?`, `#` or a space addresses
+the record it names. Configured dashboard and page paths keep their separators —
+`/reports/weekly` stays two segments.
+
+A row whose projection did not include the key column is displayed but not treated
+as addressable: no selection, no inline editing, no row activation. Keep the key
+column in `columns`, or in `detail.tabs[].fields`, wherever the table has to act
+on rows.

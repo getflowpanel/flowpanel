@@ -42,6 +42,27 @@ Ejected files contain a version stamp and are application-owned. The upgrade doe
 
 If a newer config, renderer, page, or slot now covers the customization, consider returning that surface to generated behavior. Re-enabling config also requires removing the explicit Next.js route.
 
+## Upgrading from 0.2 to 0.3
+
+0.3 changes a few defaults and removes one dead option. Read this list against your `flowpanel.config.ts` before you upgrade.
+
+- **Rows open the detail page.** A resource that configures `detail` and no `drawer` now navigates on row click and on Enter. Set `rowClick: false` to keep rows inert, or `rowClick: "drawer"` where a drawer exists.
+- **Pie charts show their legend.** `pieChart({ showLegend: false })` restores the previous look.
+- **`table()` honours `emptyState` and `limit`.** Both were declared and ignored; a table that relied on seeing every row of a `query` should drop `limit`.
+- **`detail.header` is deprecated.** Move it to `detail.title`; `subtitle` and `badge` are new slots beside it. `title` wins when both are set.
+- **Validation messages come from `labels.form`.** An empty required field reads `"{label} is required"` (`labels.form.required`) instead of a Zod type message; custom messages still pass through. Override the key to change the wording.
+- **`audit.retention` is removed.** It was never applied; delete the line and keep retention where the rows live.
+- **Drawer field payload shape.** A drawer's serialized `fields` are `{ name, label? }` objects instead of bare names. Only a host reading the drawer payload directly is affected.
+- **Workers publish through `@flowpanel/kit/publish`.** `createPublisher({ redis })` replaces `bindPublisher(config)` in a publish-only process. The Redis wire is unchanged, so 0.2 and 0.3 instances interoperate during a rolling deploy.
+- **`formatNumber`'s third argument.** It is now the resolved `formatting` object (`useFormatting()` in a client component, `resolveFormatting(config.formatting)` on the server), not a locale string. A bare locale string still works and keeps 0.2's `USD`/`UTC`, so an ejected widget compiles either way.
+- **`Date` values in cards and ticks.** A `Date` in a `stat`, `statGroup` or `kv` value, and every chart x-axis tick, now renders through the admin's `formatting` (`locale`, `timeZone`) like a table cell instead of the server's own clock. Drop any hand-rolled `toISOString().slice(0, 10)` in a widget resolver.
+- **`ctx.count` rejects an unknown `where` key.** A key the adapter does not report as a column throws a config error naming the field and the resource, on both count paths, instead of silently counting the whole table on Drizzle and throwing inside Prisma.
+- **`HealthBanner`'s error tone is `"err"`.** The component now speaks the shared `Tone` vocabulary; rename `tone="error"` to `tone="err"`.
+- **`StatItem.value` takes only `ctx`.** Its never-passed second `row` parameter is gone; the record is `ctx.row`.
+- **The memory realtime driver serialises payloads.** Like Redis, it now JSON-encodes on publish and decodes on delivery, so a `Date` in a payload arrives as a string and a non-serialisable payload throws in development too, with or without a subscriber.
+- **`ctx.db` stays.** Its deprecation notice now names 1.0 as the removal target; `ctx.sql` and `ctx.count` are the supported way to query from a widget.
+- **New package.** Add `@flowpanel/test` as a dev dependency next to `@playwright/test` to run `smokeAdmin` in your browser suite.
+
 ## Pre-1.0 expectations
 
 Before 1.0, minor releases may contain breaking changes. Types and deprecation notes are part of the migration path, but they do not replace the changelog and application tests. Upgrade in a reviewable branch and avoid mixing unrelated dependency changes.

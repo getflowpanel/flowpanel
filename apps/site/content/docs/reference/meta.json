@@ -17,6 +17,7 @@
     "scope-realtime",
     "errors",
     "cli",
+    "testing",
     "eslint-plugin"
   ]
 }

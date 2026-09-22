@@ -2,8 +2,10 @@
 import type { IconName } from "@flowpanel/core";
 import Link from "next/link";
 import { FlowpanelIcon } from "../_atoms/FlowpanelIcon";
+import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 import { AccountMenu, type AccountMenuUser } from "./AccountMenu";
+import { activeNavHref } from "./active-nav";
 import { Brand, type ShellBrand } from "./Brand";
 
 export interface NavEntry {
@@ -28,9 +30,12 @@ export function AdminNav({
   user?: AccountMenuUser | undefined;
   currentPath: string;
 }) {
+  const { navigation } = useLabels();
+  const activeHref = activeNavHref(groups, currentPath);
   return (
     <nav
-      aria-label="Admin"
+      aria-label={navigation.admin}
+      data-flowpanel-nav=""
       className="flex h-full w-64 flex-shrink-0 flex-col border-r border-fp-border-1 bg-fp-bg-1"
     >
       <Brand brand={brand} className="px-4 py-4" />
@@ -42,7 +47,7 @@ export function AdminNav({
             ) : null}
             <ul className="mt-1 space-y-0.5">
               {g.items.map((it) => {
-                const active = currentPath === it.href;
+                const active = activeHref === it.href;
                 return (
                   <li key={it.href}>
                     <Link

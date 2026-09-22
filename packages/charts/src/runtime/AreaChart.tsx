@@ -1,5 +1,6 @@
 "use client";
 import type { AreaChartOptions } from "@flowpanel/core";
+import { useFormatting } from "@flowpanel/react";
 import { useId } from "react";
 import {
   Area,
@@ -31,6 +32,7 @@ import { buildTickFormatter } from "./format-tick";
 
 export function AreaChart({ data, options }: { data: unknown[]; options: AreaChartOptions }) {
   const gradientId = useId();
+  const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
   if (data.length === 0) return <ChartEmptyState height={height} />;
   const ys = Array.isArray(options.y) ? options.y : [options.y];
@@ -39,8 +41,9 @@ export function AreaChart({ data, options }: { data: unknown[]; options: AreaCha
     data as Record<string, unknown>[],
     options.x,
     options.bucket,
+    formatting,
   );
-  const valueTickFormatter = buildValueTickFormatter(options.format);
+  const valueTickFormatter = buildValueTickFormatter(options.format, formatting);
   const seriesColor = (i: number) => (multiSeries ? chartColor(i) : "hsl(var(--fp-accent))");
   const seriesFade = (i: number, a: number) =>
     multiSeries ? chartColorAlpha(i, a) : `hsl(var(--fp-accent) / ${a})`;
@@ -70,7 +73,7 @@ export function AreaChart({ data, options }: { data: unknown[]; options: AreaCha
         {options.tooltip !== false ? (
           <Tooltip
             cursor={LINE_TOOLTIP_CURSOR}
-            {...buildTooltipProps(options.format, options.tooltip)}
+            {...buildTooltipProps(options.format, options.tooltip, formatting)}
           />
         ) : null}
         {multiSeries ? <Legend {...LEGEND_PROPS} /> : null}

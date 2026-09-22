@@ -1,9 +1,17 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import semver from "semver";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import cliPkg from "../../../package.json" with { type: "json" };
-import { CLI_VERSION, installedKitVersion, kitCompatibilityError, pinnedSpec } from "../kit";
+import { pmCommands } from "../detect";
+import {
+  CLI_VERSION,
+  cliCompatibilityError,
+  installedKitVersion,
+  kitCompatibilityError,
+  pinnedSpec,
+} from "../kit";
 
 let tmp: string;
 beforeEach(async () => {
@@ -30,8 +38,13 @@ describe("pinnedSpec", () => {
   });
 
   it("uses a range that cannot resolve to an older minor", () => {
-    // `~x.y.z` is >=x.y.z <x.(y+1).0 — never an earlier minor, unlike a bare name.
-    expect(pinnedSpec("@flowpanel/kit")).toMatch(/@~\d+\.\d+\.\d/);
+    const range = pinnedSpec("@flowpanel/kit").split("@").pop() as string;
+    const [major, minor, patch] = CLI_VERSION.split(".").map(Number) as [number, number, number];
+    expect(semver.satisfies(CLI_VERSION, range)).toBe(true);
+    expect(semver.satisfies(`${major}.${minor}.${patch + 1}`, range)).toBe(true);
+    expect(semver.satisfies(`${major}.${minor + 1}.0`, range)).toBe(false);
+    if (minor > 0) expect(semver.satisfies(`${major}.${minor - 1}.99`, range)).toBe(false);
+    if (major > 0) expect(semver.satisfies(`${major - 1}.99.99`, range)).toBe(false);
   });
 });
 
@@ -43,6 +56,12 @@ describe("installedKitVersion", () => {
 
   it("is null when the kit is not installed", async () => {
     expect(await installedKitVersion(tmp)).toBeNull();
+  });
+
+  it("uses the installed kit's version when suggesting a matching CLI", async () => {
+    await installKit(tmp, "9.8.7");
+    const message = await kitCompatibilityError(tmp);
+    expect(message).toContain("@flowpanel/cli@~9.8.7");
   });
 });
 
@@ -62,6 +81,14 @@ describe("kitCompatibilityError", () => {
     expect(await kitCompatibilityError(tmp)).toBeNull();
   });
 
+  it("accepts a same-minor FlowPanel preview but rejects an invalid kit manifest version", async () => {
+    const [major, minor] = CLI_VERSION.split(".");
+    await installKit(tmp, `${major}.${minor}.1-quality.0`);
+    expect(await kitCompatibilityError(tmp)).toBeNull();
+    await installKit(tmp, "invalid");
+    expect(await kitCompatibilityError(tmp)).toContain("invalid installed version");
+  });
+
   it("names both versions and the upgrade command on a minor mismatch", async () => {
     const bumped = `${Number(CLI_VERSION.split(".")[0]) + 1}.0.0`;
     await installKit(tmp, bumped);
@@ -69,5 +96,40 @@ describe("kitCompatibilityError", () => {
     expect(message).toContain(`@flowpanel/kit ${bumped}`);
     expect(message).toContain(`@flowpanel/cli ${CLI_VERSION}`);
     expect(message).toContain(pinnedSpec("@flowpanel/kit"));
+  });
+});
+
+describe("cliCompatibilityError", () => {
+  const pmc = pmCommands("pnpm");
+
+  it("passes when no project-local CLI is installed", () => {
+    expect(cliCompatibilityError(null, pmc)).toBeNull();
+  });
+
+  it("passes on the running version, another patch, and a same-minor preview", () => {
+    const [major, minor] = CLI_VERSION.split(".");
+    expect(cliCompatibilityError(CLI_VERSION, pmc)).toBeNull();
+    expect(cliCompatibilityError(`${major}.${minor}.99`, pmc)).toBeNull();
+    expect(cliCompatibilityError(`${major}.${minor}.1-quality.20260908`, pmc)).toBeNull();
+  });
+
+  it("names both versions and two ways out on a minor mismatch", () => {
+    const bumped = `${Number(CLI_VERSION.split(".")[0]) + 1}.0.0`;
+    const message = cliCompatibilityError(bumped, pmc);
+    expect(message).toContain(`@flowpanel/cli ${bumped}`);
+    expect(message).toContain(`this run is ${CLI_VERSION}`);
+    expect(message).toContain(`pnpm add -D ${pinnedSpec("@flowpanel/cli")}`);
+    expect(message).toContain("pnpm exec flowpanel init");
+  });
+
+  it("uses each manager's own way to run the project CLI", () => {
+    const bumped = `${Number(CLI_VERSION.split(".")[0]) + 1}.0.0`;
+    expect(cliCompatibilityError(bumped, pmCommands("npm"))).toContain("npx flowpanel init");
+    expect(cliCompatibilityError(bumped, pmCommands("yarn"))).toContain("yarn flowpanel init");
+    expect(cliCompatibilityError(bumped, pmCommands("bun"))).toContain("bunx flowpanel init");
+  });
+
+  it("reports an unreadable installed version instead of comparing it", () => {
+    expect(cliCompatibilityError("not-a-version", pmc)).toContain("invalid installed version");
   });
 });

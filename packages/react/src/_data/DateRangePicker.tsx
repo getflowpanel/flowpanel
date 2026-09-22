@@ -2,6 +2,7 @@
 import type { DateRangePreset } from "@flowpanel/core";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Calendar } from "lucide-react";
+import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 
 export interface DateRangePickerProps {
@@ -9,23 +10,24 @@ export interface DateRangePickerProps {
   onChange: (next: { preset?: DateRangePreset; from?: Date; to?: Date }) => void;
 }
 
-const PRESETS: Array<{ key: DateRangePreset; label: string }> = [
-  { key: "today", label: "Today" },
-  { key: "yesterday", label: "Yesterday" },
-  { key: "last7d", label: "Last 7 days" },
-  { key: "last30d", label: "Last 30 days" },
-  { key: "MTD", label: "Month to date" },
-  { key: "QTD", label: "Quarter to date" },
-  { key: "YTD", label: "Year to date" },
+const PRESETS: Array<{ key: DateRangePreset }> = [
+  { key: "today" },
+  { key: "yesterday" },
+  { key: "last7d" },
+  { key: "last30d" },
+  { key: "MTD" },
+  { key: "QTD" },
+  { key: "YTD" },
 ];
 
 export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
+  const { dateRange } = useLabels();
   const active = PRESETS.find((p) => p.key === value.preset) ?? PRESETS[2];
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger className="inline-flex h-11 items-center gap-2 rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 text-sm text-fp-text-1 hover:bg-fp-bg-2 sm:h-9">
         <Calendar className="h-3.5 w-3.5 text-fp-text-3" aria-hidden />
-        {active?.label}
+        {active ? dateRange[active.key] : null}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
@@ -42,7 +44,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
               )}
               onSelect={() => onChange({ preset: p.key })}
             >
-              {p.label}
+              {dateRange[p.key]}
             </DropdownMenu.Item>
           ))}
         </DropdownMenu.Content>

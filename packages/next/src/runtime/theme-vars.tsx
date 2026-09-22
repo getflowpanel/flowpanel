@@ -18,10 +18,9 @@ export function normalizeAccent(accent: string): string {
 
 const UNSAFE = /[<>{};]/g;
 
-function declarations(theme: ThemeConfig): string[] {
+function declarations(values: Record<string, string> | undefined): string[] {
   const out: string[] = [];
-  if (theme.accent) out.push(`--fp-accent:${normalizeAccent(theme.accent).replace(UNSAFE, "")}`);
-  for (const [rawName, rawValue] of Object.entries(theme.cssVars ?? {})) {
+  for (const [rawName, rawValue] of Object.entries(values ?? {})) {
     const name = rawName.startsWith("--") ? rawName : `--${rawName}`;
     if (!/^--[\w-]+$/.test(name)) continue;
     out.push(`${name}:${String(rawValue).replace(UNSAFE, "").trim()}`);
@@ -35,13 +34,17 @@ function declarations(theme: ThemeConfig): string[] {
  */
 export function ThemeVars({ theme }: { theme: ThemeConfig | undefined }) {
   if (!theme) return null;
-  const decls = declarations(theme);
+  const decls = declarations(theme.cssVars);
+  if (theme.accent)
+    decls.unshift(`--fp-accent:${normalizeAccent(theme.accent).replace(UNSAFE, "")}`);
   const targets = "[data-flowpanel-root],[data-flowpanel-portal]";
   const darkTargets =
     'html[data-flowpanel-theme="dark"] [data-flowpanel-root],html[data-flowpanel-theme="dark"] [data-flowpanel-portal],[data-flowpanel-root][data-theme="dark"],[data-flowpanel-portal][data-theme="dark"]';
-  const dark = theme.accentDark
-    ? `${darkTargets}{--fp-accent:${normalizeAccent(theme.accentDark).replace(UNSAFE, "")}}`
-    : "";
+  const darkDecls = declarations(theme.cssVarsDark);
+  if (theme.accentDark) {
+    darkDecls.unshift(`--fp-accent:${normalizeAccent(theme.accentDark).replace(UNSAFE, "")}`);
+  }
+  const dark = darkDecls.length > 0 ? `${darkTargets}{${darkDecls.join(";")}}` : "";
   if (decls.length === 0 && !dark) return null;
   const root = decls.length > 0 ? `${targets}{${decls.join(";")}}` : "";
   return <style>{`${root}${dark}`}</style>;

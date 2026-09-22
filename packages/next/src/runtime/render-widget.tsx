@@ -1,91 +1,56 @@
 import type {
-  ColumnDef,
+  BarRow,
+  FunnelStep,
+  KvItem,
+  ListRow,
+  MetricResult,
   RequestContext,
   ResolvedAdminConfig,
+  StatResult,
+  StatValue,
+  StatWidget,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
+import { resolveFormatting } from "@flowpanel/core";
 import {
+  BarsCard,
+  FunnelCard,
+  KvCard,
+  ListCard,
   MetricCard,
   RealtimeRefresh,
-  ReferenceCell,
+  StatCard,
   StatGroupCard,
-  TableWidget as TableWidgetRenderer,
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { ServerCard } from "./_server-card";
-import { buildHref } from "./href";
-import { type PrerenderedColumn, prerenderResourceCells } from "./prerender-cells";
-import { readRelatedRows } from "./require-authorized";
-import { resolveReferences } from "./resolve-references";
+import { kvDisplay } from "./kv-display";
+import { renderTableWidget } from "./render-table-widget";
+import { statDisplay, statResultOf } from "./stat-result";
 
-type WidgetRow = Record<string, unknown>;
+function isMetricResult(value: number | string | MetricResult): value is MetricResult {
+  return typeof value === "object" && value !== null;
+}
 
-/** Resource column defs, narrowed and reordered to an explicit widget column list. */
-function pickWidgetColumns(
-  declared: ReadonlyArray<string | ColumnDef<WidgetRow>>,
-  wanted: string[] | undefined,
-): ReadonlyArray<string | ColumnDef<WidgetRow>> {
-  if (!wanted || wanted.length === 0) return declared;
-  return wanted.map(
-    (field) =>
-      declared.find((c) => typeof c === "object" && c.field === field) ??
-      declared.find((c) => c === field) ??
-      field,
+async function resolveStat(value: StatWidget["value"], ctx: WidgetContext): Promise<StatResult> {
+  return statResultOf(typeof value === "function" ? await value(ctx) : value);
+}
+
+async function resolveStatValue(
+  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue>),
+  ctx: WidgetContext,
+): Promise<StatValue> {
+  return typeof value === "function" ? await value(ctx) : value;
+}
+
+function withRealtime(node: ReactNode, channels: string | string[] | undefined): ReactNode {
+  return (
+    <Fragment>
+      {node}
+      {channels ? <RealtimeRefresh channels={channels} /> : null}
+    </Fragment>
   );
-}
-
-/** A dashboard table has no sort handler and no inline-edit target — strip both affordances. */
-function toWidgetColumn(c: PrerenderedColumn<WidgetRow>): PrerenderedColumn<WidgetRow> {
-  const out: PrerenderedColumn<WidgetRow> = { field: c.field };
-  if (c.label !== undefined) out.label = c.label;
-  if (c.width !== undefined) out.width = c.width;
-  if (c.align !== undefined) out.align = c.align;
-  if (c.className !== undefined) out.className = c.className;
-  if (c.type !== undefined) out.type = c.type;
-  if (c.format !== undefined) out.format = c.format;
-  return out;
-}
-
-/** Replace foreign-key cells with the referenced row's label, as the list page does. */
-async function withReferenceCells(
-  config: ResolvedAdminConfig,
-  reqCtx: RequestContext,
-  defs: ReadonlyArray<string | ColumnDef<WidgetRow>>,
-  rows: WidgetRow[],
-  columns: PrerenderedColumn<WidgetRow>[],
-  prerenderedCells: (ReactNode | undefined)[][] | undefined,
-): Promise<(ReactNode | undefined)[][] | undefined> {
-  const fkLabels = await resolveReferences<WidgetRow>(config, reqCtx, defs, rows);
-  if (fkLabels.size === 0) return prerenderedCells;
-  const cells = prerenderedCells
-    ? prerenderedCells.map((r) => r.slice())
-    : rows.map(() => Array<ReactNode | undefined>(columns.length).fill(undefined));
-  const colIdxByField = new Map(columns.map((c, i) => [c.field, i]));
-  for (const def of defs) {
-    if (typeof def !== "object") continue;
-    const ref = def.reference;
-    const field = String(def.field ?? "");
-    if (!ref || !field) continue;
-    const labelMap = fkLabels.get(field);
-    const colIdx = colIdxByField.get(field);
-    if (!labelMap || colIdx === undefined) continue;
-    rows.forEach((row, rowIdx) => {
-      const rowCells = cells[rowIdx];
-      if (!rowCells) return;
-      const raw = row[field];
-      if (raw === null || raw === undefined) {
-        rowCells[colIdx] = <span className="text-fp-text-3">—</span>;
-        return;
-      }
-      const label = labelMap.get(String(raw));
-      if (label === undefined) return;
-      rowCells[colIdx] = (
-        <ReferenceCell label={String(label)} href={buildHref(config, ref.resource, String(raw))} />
-      );
-    });
-  }
-  return cells;
 }
 
 /** Render a widget on the server. */
@@ -97,51 +62,119 @@ export async function renderWidget(
 ): Promise<ReactNode> {
   switch (widget.kind) {
     case "metric": {
-      const [value, delta] = await Promise.all([
+      const [produced, queriedDelta] = await Promise.all([
         widget.query(ctx),
         widget.options.delta ? widget.options.delta(ctx) : Promise.resolve(null),
       ]);
+      const result = isMetricResult(produced) ? produced : { value: produced };
       const sparkline = widget.options.sparkline ? await widget.options.sparkline(ctx) : undefined;
-      return (
-        <Fragment>
-          <MetricCard
-            label={widget.label}
-            value={value}
-            {...(widget.options.format ? { format: widget.options.format } : {})}
-            {...(widget.options.sublabel ? { sublabel: widget.options.sublabel } : {})}
-            delta={delta}
-            {...(sparkline ? { sparkline } : {})}
-            {...(widget.options.tone ? { tone: widget.options.tone } : {})}
-            {...(widget.options.drilldown ? { drilldown: widget.options.drilldown } : {})}
-            {...(widget.options.icon ? { icon: widget.options.icon } : {})}
-          />
-          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
-        </Fragment>
+      const delta = result.delta ?? queriedDelta;
+      const sublabel = result.sublabel ?? widget.options.sublabel;
+      const tone = result.tone ?? widget.options.tone;
+      const drilldown = result.href ?? widget.options.drilldown;
+      return withRealtime(
+        <MetricCard
+          label={widget.label}
+          value={result.value}
+          {...(widget.options.format ? { format: widget.options.format } : {})}
+          {...(sublabel ? { sublabel } : {})}
+          delta={delta}
+          {...(sparkline ? { sparkline } : {})}
+          {...(tone ? { tone } : {})}
+          {...(drilldown ? { drilldown } : {})}
+          {...(widget.options.icon ? { icon: widget.options.icon } : {})}
+        />,
+        widget.options.realtime,
       );
     }
     case "statGroup": {
+      const groupFormatting = resolveFormatting(config.formatting);
       const stats = await Promise.all(
-        widget.options.stats.map(async (s) => {
-          const value =
-            typeof s.value === "function"
-              ? await (s.value as (c: WidgetContext) => Promise<unknown>)(ctx)
-              : s.value;
-          return {
-            label: s.label,
-            value,
-            ...(s.format ? { format: s.format } : {}),
-            ...(s.tone ? { tone: s.tone } : {}),
-          };
-        }),
+        widget.options.stats.map(async (s) => ({
+          label: s.label,
+          value: statDisplay(await resolveStatValue(s.value, ctx), groupFormatting),
+          ...(s.format ? { format: s.format } : {}),
+          ...(s.tone ? { tone: s.tone } : {}),
+        })),
       );
-      return (
-        <Fragment>
-          <StatGroupCard
-            {...(widget.options.label ? { label: widget.options.label } : {})}
-            stats={stats}
-          />
-          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
-        </Fragment>
+      return withRealtime(
+        <StatGroupCard
+          {...(widget.options.label ? { label: widget.options.label } : {})}
+          stats={stats}
+        />,
+        widget.options.realtime,
+      );
+    }
+    case "stat": {
+      const result = await resolveStat(widget.value, ctx);
+      const statFormatting = resolveFormatting(config.formatting);
+      const hint = result.hint ?? widget.options.hint;
+      const href = result.href ?? widget.options.href;
+      const tone = result.tone ?? widget.options.tone;
+      return withRealtime(
+        <StatCard
+          label={widget.label}
+          value={statDisplay(result.value, statFormatting)}
+          {...(widget.options.format ? { format: widget.options.format } : {})}
+          {...(hint ? { hint } : {})}
+          {...(href ? { href } : {})}
+          {...(tone ? { tone } : {})}
+        />,
+        widget.options.realtime,
+      );
+    }
+    case "kv": {
+      const formatting = resolveFormatting(config.formatting);
+      const items = await Promise.all(
+        widget.options.items.map(async (item: KvItem) => ({
+          label: item.label,
+          value: kvDisplay(await resolveStatValue(item.value, ctx), item.format, formatting),
+          ...(item.tone ? { tone: item.tone } : {}),
+          ...(item.href ? { href: item.href } : {}),
+        })),
+      );
+      return withRealtime(
+        <KvCard
+          {...(widget.options.label ? { label: widget.options.label } : {})}
+          items={items}
+          {...(widget.options.columns ? { columns: widget.options.columns } : {})}
+        />,
+        widget.options.realtime,
+      );
+    }
+    case "bars": {
+      const rows: BarRow[] = await widget.options.query(ctx);
+      return withRealtime(
+        <BarsCard
+          {...(widget.options.label ? { label: widget.options.label } : {})}
+          rows={rows}
+          {...(widget.options.format ? { format: widget.options.format } : {})}
+          emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
+        />,
+        widget.options.realtime,
+      );
+    }
+    case "funnel": {
+      const steps: FunnelStep[] = await widget.options.query(ctx);
+      return withRealtime(
+        <FunnelCard
+          {...(widget.options.label ? { label: widget.options.label } : {})}
+          steps={steps}
+          {...(widget.options.format ? { format: widget.options.format } : {})}
+          emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
+        />,
+        widget.options.realtime,
+      );
+    }
+    case "list": {
+      const rows: ListRow[] = await widget.options.query(ctx);
+      return withRealtime(
+        <ListCard
+          {...(widget.options.label ? { label: widget.options.label } : {})}
+          rows={rows}
+          emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
+        />,
+        widget.options.realtime,
       );
     }
     case "custom": {
@@ -152,75 +185,10 @@ export async function renderWidget(
       const Component = widget.Component as ComponentType<unknown>;
       const inner = createElement(Component, props as Record<string, unknown>);
       const framed = widget.options.frame === false ? inner : <ServerCard>{inner}</ServerCard>;
-      return (
-        <Fragment>
-          {framed}
-          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
-        </Fragment>
-      );
+      return withRealtime(framed, widget.options.realtime);
     }
-    case "table": {
-      type Row = WidgetRow;
-      let rows: Row[] = [];
-      let columns: PrerenderedColumn<Row>[] = [];
-      let prerenderedCells: (ReactNode | undefined)[][] | undefined;
-
-      const explicit = widget.options.columns;
-
-      if (widget.options.query) {
-        rows = (await widget.options.query(ctx)) as Row[];
-      } else if (widget.options.resource) {
-        const res = config.resourcesByName.get(widget.options.resource);
-        if (res) {
-          const related = await readRelatedRows(config, res, reqCtx, {
-            dateRange: ctx.dateRange,
-            pageSize: widget.options.limit ?? 10,
-            extraFields: [...(explicit ?? []), "id"],
-          });
-          rows = (related ?? []) as Row[];
-
-          if (related) {
-            const defs = pickWidgetColumns(
-              res.options.columns as ReadonlyArray<string | ColumnDef<Row>>,
-              explicit,
-            );
-            const intro = config.adapter.introspect(res.ref);
-            const metaByField = new Map(intro.columns.map((c) => [c.name, c]));
-            const prerendered = prerenderResourceCells<Row>(defs, rows, reqCtx, {
-              dropHidden: !explicit || explicit.length === 0,
-              metaByField,
-            });
-            columns = prerendered.columns.map(toWidgetColumn);
-            prerenderedCells = await withReferenceCells(
-              config,
-              reqCtx,
-              defs,
-              rows,
-              columns,
-              prerendered.prerenderedCells,
-            );
-          }
-        }
-      }
-
-      if (columns.length === 0 && explicit && explicit.length > 0) {
-        columns = explicit.map((k) => ({ field: k }));
-      } else if (columns.length === 0 && rows[0]) {
-        columns = Object.keys(rows[0]).map((k) => ({ field: k }));
-      }
-
-      return (
-        <TableWidgetRenderer
-          {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={rows}
-          columns={columns}
-          rowKey={"id"}
-          {...(prerenderedCells ? { prerenderedCells } : {})}
-          {...(widget.options.realtime ? { realtime: widget.options.realtime } : {})}
-          {...(widget.options.emptyState ? { emptyState: widget.options.emptyState } : {})}
-        />
-      );
-    }
+    case "table":
+      return renderTableWidget(widget, ctx, config, reqCtx);
     case "areaChart":
     case "barChart":
     case "lineChart":
@@ -236,18 +204,19 @@ export async function renderWidget(
       } catch (e) {
         console.error("[flowpanel/charts] dynamic import failed:", e);
         return (
-          <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 text-xs text-fp-text-3">
-            Charts package not installed — run `pnpm add @flowpanel/charts`.
+          <div
+            data-fp-error=""
+            className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 text-xs text-fp-text-3"
+          >
+            {ctx.labels.widget.chartsMissing}
           </div>
         );
       }
       const data = await widget.query(ctx);
       const Renderer = chartsMod.ChartRenderer;
-      return (
-        <Fragment>
-          <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />
-          {widget.options.realtime ? <RealtimeRefresh channels={widget.options.realtime} /> : null}
-        </Fragment>
+      return withRealtime(
+        <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />,
+        widget.options.realtime,
       );
     }
   }

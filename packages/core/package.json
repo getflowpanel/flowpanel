@@ -33,6 +33,15 @@
       ],
       "labels": [
         "./dist/labels.d.ts"
+      ],
+      "paths": [
+        "./dist/paths.d.ts"
+      ],
+      "publish": [
+        "./dist/publish.d.ts"
+      ],
+      "theme": [
+        "./dist/theme.d.ts"
       ]
     }
   },
@@ -87,7 +96,37 @@
         "default": "./dist/labels.cjs"
       }
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./paths": {
+      "import": {
+        "types": "./dist/paths.d.ts",
+        "default": "./dist/paths.mjs"
+      },
+      "require": {
+        "types": "./dist/paths.d.cts",
+        "default": "./dist/paths.cjs"
+      }
+    },
+    "./publish": {
+      "import": {
+        "types": "./dist/publish.d.ts",
+        "default": "./dist/publish.mjs"
+      },
+      "require": {
+        "types": "./dist/publish.d.cts",
+        "default": "./dist/publish.cjs"
+      }
+    },
+    "./theme": {
+      "import": {
+        "types": "./dist/theme.d.ts",
+        "default": "./dist/theme.mjs"
+      },
+      "require": {
+        "types": "./dist/theme.d.cts",
+        "default": "./dist/theme.cjs"
+      }
+    }
   },
   "scripts": {
     "build": "tsup",
@@ -113,6 +152,9 @@
         ],
         "@flowpanel/core/labels": [
           "./dist/labels.d.ts"
+        ],
+        "@flowpanel/core/theme": [
+          "./dist/theme.d.ts"
         ]
       }
     }

@@ -1,4 +1,5 @@
 import type { ColumnFormat } from "@flowpanel/core";
+import { resolveFormatting } from "@flowpanel/core";
 import { renderFormatCell, StatusBadge } from "@flowpanel/react";
 import { isValidElement, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -36,6 +37,13 @@ describe("renderColumnFormat", () => {
   it("stringifies under an unrecognized format instead of guessing money", () => {
     const future = "duration" as unknown as ColumnFormat;
     expect(renderColumnFormat(future, 0.42)).toBe("0.42");
+  });
+
+  it("follows the configured locale and currency", () => {
+    const ru = resolveFormatting({ locale: "ru-RU", currency: "RUB" });
+    expect(renderColumnFormat("number", 1774, ru)).toMatch(/1\s?774/);
+    expect(renderColumnFormat("money", 12, ru)).toContain("\u20BD");
+    expect(renderColumnFormat({ kind: "money", currency: "EUR" }, 12, ru)).toContain("\u20AC");
   });
 });
 

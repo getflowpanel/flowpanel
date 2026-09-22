@@ -1,11 +1,13 @@
 "use client";
 import type { CommandPaletteConfig, IconName } from "@flowpanel/core";
+import { DEFAULT_LABELS, type ResolvedLabels } from "@flowpanel/core/labels";
 import {
   type CommandGroupUI,
   CommandPalette,
   FlowpanelIcon,
   toggleTheme,
   useAdminCommand,
+  useLabels,
 } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import { createElement, useMemo } from "react";
@@ -31,12 +33,13 @@ export function buildCommandGroups(
   navItems: CommandHostNavItem[],
   config: CommandPaletteConfig | undefined,
   nav: CommandNav,
+  labels: ResolvedLabels = DEFAULT_LABELS,
 ): CommandGroupUI[] {
   const out: CommandGroupUI[] = [];
 
   if (!config?.disableNavigation && navItems.length > 0) {
     out.push({
-      label: "Navigation",
+      label: labels.navigation.title,
       items: navItems.map((n) => ({
         label: n.label,
         ...(n.icon
@@ -72,10 +75,10 @@ export function buildCommandGroups(
 
   if (!config?.disableTheme) {
     out.push({
-      label: "Theme",
+      label: labels.navigation.theme,
       items: [
         {
-          label: "Toggle dark mode",
+          label: labels.navigation.toggleTheme,
           icon: createElement(FlowpanelIcon, { name: "moon", className: "h-4 w-4" }),
           onSelect: () => {
             nav.close();
@@ -90,12 +93,13 @@ export function buildCommandGroups(
 }
 
 export function CommandHost({ navItems, config }: CommandHostProps) {
+  const labels = useLabels();
   const router = useRouter();
   const { open, setOpen, close } = useAdminCommand();
 
   const groups = useMemo<CommandGroupUI[]>(
-    () => buildCommandGroups(navItems, config, { push: router.push, close }),
-    [navItems, config, router, close],
+    () => buildCommandGroups(navItems, config, { push: router.push, close }, labels),
+    [navItems, config, router, close, labels],
   );
 
   return (

@@ -68,7 +68,14 @@ export interface QueryContext<Db = unknown> extends RequestContext {
   searchParams: URLSearchParams;
   /** Aborted when the request is cancelled. Pass it to long queries. */
   signal: AbortSignal;
-  /** Explicit adapter projection. Omitted only by the deprecated v1 bridge. */
+  /**
+   * Explicit adapter projection. Omitted preserves the legacy full-row read;
+   * a non-empty list returns exactly those fields; `[]` returns no values.
+   * For `get`, an empty selection yields `{}` when an in-scope row exists or
+   * `null` when it does not. For `list`, it yields a fresh `{}` for each row
+   * on the requested page while retaining scoped `total`, `page`, and
+   * `pageSize`. Adapters must not substitute a primary key or full row.
+   */
   select?: readonly string[];
   /** Opaque request-bound tenant policy. */
   boundScope?: BoundAdapterScope;

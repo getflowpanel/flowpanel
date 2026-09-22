@@ -2,6 +2,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Menu } from "lucide-react";
 import * as React from "react";
+import { useLabels } from "../_provider/LabelsContext";
 import { AccountMenu, type AccountMenuUser } from "./AccountMenu";
 import { AdminNav, type NavGroup } from "./AdminNav";
 import { AdminTabs } from "./AdminTabs";
@@ -30,6 +31,7 @@ export function AdminShell({
   showSkipLink = true,
   children,
 }: AdminShellProps) {
+  const { navigation } = useLabels();
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: currentPath is the intentional trigger — the effect re-runs to dismiss the drawer whenever the route changes.
@@ -42,7 +44,7 @@ export function AdminShell({
       href="#main"
       className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-fp-sm focus:bg-fp-accent focus:px-3 focus:py-1 focus:text-fp-accent-text"
     >
-      Skip to main content
+      {navigation.skipToContent}
     </a>
   );
 
@@ -69,7 +71,7 @@ export function AdminShell({
       <div className="flex shrink-0 items-center gap-2 border-b border-fp-border-1 bg-fp-bg-1 px-3 py-2 md:hidden">
         <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <DialogPrimitive.Trigger
-            aria-label="Open navigation"
+            aria-label={navigation.open}
             className="inline-flex h-11 w-11 items-center justify-center rounded-fp-sm text-fp-text-2 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
@@ -86,7 +88,7 @@ export function AdminShell({
               aria-describedby={undefined}
               className="fp-anim-sheet-left fixed left-0 top-0 z-50 flex h-dvh w-[min(80vw,288px)] flex-col border-r border-fp-border-1 bg-fp-bg-1 shadow-fp-lg focus:outline-none"
             >
-              <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
+              <DialogPrimitive.Title className="sr-only">{navigation.title}</DialogPrimitive.Title>
               <AdminNav
                 groups={navGroups}
                 currentPath={currentPath}

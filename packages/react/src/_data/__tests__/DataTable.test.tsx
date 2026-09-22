@@ -23,6 +23,39 @@ const rows: User[] = [
 ];
 
 describe("DataTable", () => {
+  it("translates table controls and only advertises opening when rows can open", () => {
+    render(
+      <LabelsProvider
+        value={{
+          table: {
+            results: "Записей: {n}",
+            actions: "Действия",
+            selectRow: "Выбрать {id}",
+            selectAll: "Выбрать страницу",
+            rowsReadOnlyHint: "Строки. Стрелки — перемещение.",
+          },
+        }}
+      >
+        <DataTable
+          columns={[{ field: "name", label: "Имя" }]}
+          rows={rows}
+          total={3}
+          page={1}
+          pageSize={10}
+          rowKey="id"
+          exportable
+          selection={[]}
+          onSelectionChange={vi.fn()}
+          rowEndCell={() => <span>…</span>}
+        />
+      </LabelsProvider>,
+    );
+    expect(screen.getByText("Записей: 3")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Действия" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Выбрать страницу" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Выбрать 1" })).toBeTruthy();
+    expect(screen.getByRole("rowgroup", { name: "Строки. Стрелки — перемещение." })).toBeTruthy();
+  });
   it("renders column headers and rows", () => {
     render(
       <DataTable

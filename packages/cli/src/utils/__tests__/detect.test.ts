@@ -9,6 +9,7 @@ import {
   detectAuth,
   detectDbClient,
   detectPackageManager,
+  detectPackageManagerDetails,
   detectPathAlias,
   detectSchema,
   detectStack,
@@ -269,13 +270,13 @@ describe("detectPackageManager", () => {
     else process.env.npm_config_user_agent = origUA;
   });
 
-  it("prefers npm_config_user_agent over any lockfile", async () => {
+  it("prefers a single project lockfile over the invoking user agent", async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-pm-"));
     try {
-      // A yarn.lock on disk must not override the agent that actually invoked us.
+      // A single project lock is a stronger signal than the invoking shell.
       await fs.writeFile(path.join(tmp, "yarn.lock"), "");
       process.env.npm_config_user_agent = "pnpm/8.15.0 npm/? node/v20";
-      expect(await detectPackageManager(tmp)).toBe("pnpm");
+      expect(await detectPackageManager(tmp)).toBe("yarn");
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
     }
@@ -296,6 +297,21 @@ describe("detectPackageManager", () => {
       } finally {
         await fs.rm(tmp, { recursive: true, force: true });
       }
+    }
+  });
+
+  it("refuses ambiguous lockfiles unless the invoking manager matches one", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-pm-ambiguous-"));
+    try {
+      await Promise.all([
+        fs.writeFile(path.join(tmp, "pnpm-lock.yaml"), ""),
+        fs.writeFile(path.join(tmp, "yarn.lock"), ""),
+      ]);
+      expect((await detectPackageManagerDetails(tmp)).error).toContain("Conflicting");
+      process.env.npm_config_user_agent = "pnpm/10";
+      expect(await detectPackageManager(tmp)).toBe("pnpm");
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
     }
   });
 

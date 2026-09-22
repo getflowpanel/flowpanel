@@ -9,12 +9,16 @@ import {
   authorizeOperation,
   checkRequireRole,
   filterReadableProjection,
+  formatLabel,
+  mergeLabels,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
-import { buildHref } from "../runtime/href";
+import { roleAllows } from "../runtime/action-helpers";
+import { buildApiHref, buildHref } from "../runtime/href";
+import { projectRowFields, selectKnownFields } from "../runtime/project-row";
 import { buildRequestContext } from "../runtime/request-setup";
 import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
 import { singularLabel } from "../runtime/resource-title";
@@ -28,6 +32,39 @@ export interface ResourceEditPageProps {
   id: string;
   req: Request;
   reqCtx?: RequestContext;
+}
+
+/**
+ * The edit page's only row-read surface. Exposed values are dependencies for
+ * dynamic form predicates; they are deliberately not form controls or defaults.
+ */
+function editProjectionCandidates(
+  resource: ResourceConfig,
+  fields: ReturnType<typeof declaredFormFields>,
+  columns: ReadonlyArray<{
+    name: string;
+    primaryKey?: boolean;
+    generated?: boolean;
+    writableOnUpdate?: boolean;
+  }>,
+  reqCtx: RequestContext,
+): string[] {
+  const candidates = new Set<string>();
+  const definitions = new Map((fields ?? []).map((field) => [field.name, field]));
+  if (fields) {
+    for (const field of fields) {
+      if (roleAllows(field.requireRole, reqCtx)) candidates.add(field.name);
+    }
+  } else {
+    for (const column of writableColumns(resource, [...columns], undefined, "update")) {
+      candidates.add(column.name);
+    }
+  }
+  for (const name of resource.options.update?.expose ?? []) {
+    const definition = definitions.get(name);
+    if (!definition || roleAllows(definition.requireRole, reqCtx)) candidates.add(name);
+  }
+  return [...candidates];
 }
 
 export async function ResourceEditPage({
@@ -53,6 +90,13 @@ export async function ResourceEditPage({
     return <div className="text-fp-text-3">Editing is disabled for this resource.</div>;
   }
 
+  const intro = config.adapter.introspect(resource.ref);
+  const declared = declaredFormFields(resource, "update");
+  const candidates = editProjectionCandidates(resource, declared, intro.columns, reqCtx);
+  // Resolve policy before adapter work. The resulting selection and the local
+  // projection below share this one decision even for dynamic policies.
+  const readable = await filterReadableProjection(candidates, resource.options.fieldAccess, reqCtx);
+  const select = selectKnownFields(readable, intro.columns);
   const ctx: ItemQueryContext = {
     ...reqCtx,
     db: config.adapter.db,
@@ -60,6 +104,7 @@ export async function ResourceEditPage({
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,
     id,
+    select,
     ...scopeBinding(config, resource, reqCtx),
   };
   const row = (await runWithRequestContext(reqCtx, () =>
@@ -67,35 +112,35 @@ export async function ResourceEditPage({
   )) as Record<string, unknown> | null;
   if (!row) return <NotFound />;
 
-  const intro = config.adapter.introspect(resource.ref);
-  const action = `${config.paths.api}/${name}/${id}/edit`;
-  const declared = declaredFormFields(resource, "update");
-  const fields = declared ? await resolveFormFields(config, declared, reqCtx, row) : undefined;
-  const columns = writableColumns(resource, intro.columns, declared);
+  const action = buildApiHref(config, name, id, "edit");
+  const projectedValues = projectRowFields(row, select);
+  const fields = declared
+    ? await resolveFormFields(config, declared, reqCtx, projectedValues)
+    : undefined;
+  const columns = writableColumns(resource, intro.columns, declared, "update");
   const defaultFields = fields
     ? fields.map((field) => field.name)
-    : columns.filter((column) => !column.primaryKey).map((column) => column.name);
-  const readableDefaults = await filterReadableProjection(
-    defaultFields,
-    resource.options.fieldAccess,
-    reqCtx,
-  );
+    : columns.map((column) => column.name);
   const defaultValues = Object.fromEntries(
-    readableDefaults
-      .filter((field) => Object.hasOwn(row, field))
-      .map((field) => [field, row[field]]),
+    defaultFields
+      .filter((field) => readable.includes(field) && Object.hasOwn(projectedValues, field))
+      .map((field) => [field, projectedValues[field]]),
   );
 
+  const labels = mergeLabels(config.labels);
   return (
     <>
-      <PageHeader title={`Edit ${singularLabel(resource, name)}`} />
+      <PageHeader
+        title={formatLabel(labels.form.editTitle, { label: singularLabel(resource, name) })}
+      />
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
           columns={columns}
           defaultValues={defaultValues}
           {...(fields ? { fields } : {})}
-          submitLabel="Save"
+          submitLabel={labels.actions.save}
+          cancelHref={buildHref(config, name, id)}
           redirectTo={buildHref(config, name, id)}
         />
       </div>

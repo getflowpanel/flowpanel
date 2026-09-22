@@ -82,6 +82,18 @@ for (const [file, forbidden] of facadeRules) {
   if (forbidden.test(src)) violations.push(`${file}: crosses its public package boundary`);
 }
 
+// React code ships to browsers. Runtime helpers must use a pure core subpath:
+// the root barrel also exports Node request-context code (async_hooks).
+for (const file of globSync("packages/react/src/**/*.{ts,tsx}", {
+  exclude: ["**/__tests__/**", "**/*.test.*"],
+  cwd: process.cwd(),
+})) {
+  const src = readFileSync(file, "utf-8");
+  if (/^(?:import|export)(?!\s+type\b)[^;]*from\s+["']@flowpanel\/core["']/m.test(src)) {
+    violations.push(`${file}: runtime core root import in browser code (use a pure subpath)`);
+  }
+}
+
 if (violations.length > 0) {
   console.error("Import boundary violations:");
   for (const v of violations) console.error(`  ${v}`);

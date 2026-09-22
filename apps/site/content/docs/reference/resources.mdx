@@ -28,12 +28,79 @@ export const ordersResource = resource(orders, {
   search: ["customerEmail"],
   filters: ["status", { field: "createdAt", type: "daterange" }],
   defaultSort: { field: "createdAt", dir: "desc" },
+  detail: { header: (row) => `Order · ${row.customerEmail}` },
 });
 ```
 
 ## ResourceOptions
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceOptions" />
+
+### Detail headings and editing
+
+Three callbacks fill the detail page's header, and each one receives the same
+authorized row projection as detail tabs: declared readable fields plus permitted
+`detail.expose` fields, never undeclared adapter fields and never fields denied by
+`fieldAccess`.
+
+- `detail.title(row)` is the content of the `h1`. Return text or inline React
+  elements, not another heading or a complete page header.
+- `detail.subtitle(row)` is the line under it, rendered through the header's
+  `description` slot. Return a string.
+- `detail.badge(row)` is a status pill beside the title: `{ label, tone }`, with
+  `tone` from the shared `Tone` vocabulary.
+
+```ts excerpt
+detail: {
+  title: (row) => row.email,
+  subtitle: (row) => `Customer since ${row.createdAt}`,
+  badge: (row) => (row.churned ? { label: "Churned", tone: "warn" } : null),
+}
+```
+
+Return `null` or `undefined` from any of them and that slot is simply absent; a
+nullish `title` falls back to the resource's singular label and the readable row
+identifier. `detail.header` still works and still wins nothing: `title` takes
+precedence when both are declared, and `header` is deprecated for removal in 1.0.
+
+The generated edit action sits beside the heading; it is omitted when
+`update.disabled` is true or the resource's update access policy denies the
+request, including asynchronous policies. Set `labels.actions.edit` to translate
+its text. The edit route enforces its own authorization as well. At narrow widths
+the actions wrap below the title rather than squeezing it.
+
+Custom `PageHeader` slots should use the exported `PageHeaderProps` type: `title`
+accepts React content as well as strings, and `badge` takes the same
+`{ label, tone }` object.
+
+Without `detail.tabs`, the page renders one key/value block. `detail.fields`
+chooses and orders the fields in it; omitted, every readable declared field shows.
+
+### Opening a row
+
+`rowClick` decides what a click on a row — and Enter on the focused row — does.
+
+| Value | Effect |
+| --- | --- |
+| `"detail"` | Navigates to the row's own page under the admin's `basePath`. |
+| `"drawer"` | Opens the [drawer](/docs/reference/drawer). Requires a `drawer` config; `defineAdmin` refuses the combination without one. |
+| `false` | Rows render, but a click does nothing. |
+
+Omitted, it follows the resource: `"detail"` when `detail` is configured and
+`drawer` is not, `"drawer"` when only a drawer is, and `false` when neither is.
+An explicit value always wins, so `rowClick: "detail"` on a resource that also
+has a drawer sends the click to the page and leaves the drawer to its own
+affordances.
+
+A row the projection could not identify never navigates — the row identity rule
+applies to the keyboard exactly as it does to the pointer, and the table's
+"Enter opens" hint (`labels.table.rowsHint`) is announced only when some row on
+the page can be opened. The mobile card list follows the same rule.
+
+Navigation is a router push on the row, not a link: cmd-click, middle-click and
+"open in new tab" do not open a second tab from a row. Reach the same page as a
+real link through the detail page's own URL, or add a column whose `render`
+returns an anchor.
 
 ### Icons
 
@@ -85,6 +152,20 @@ The object form of `badge` maps each cell value to a tone:
 { field: "status", format: { kind: "badge", tones: { paid: "ok", failed: "err" } } }
 ```
 
+### Formatting values yourself
+
+Two formatters back every cell, card and export, and both take the admin's
+resolved `formatting`, so locale, currency and time zone come from one place.
+
+<ApiSignature path="../../packages/core/src/format-column.ts" name="formatColumnValue" />
+
+<ApiSignature path="../../packages/core/src/format-column.ts" name="formatNumber" />
+
+`formatColumnValue` renders the string variants of `ColumnFormat`; `formatNumber`
+renders a widget's `NumericFormat` (`number`, `currency`, `percent`, `bytes`,
+`duration`). Both live in `@flowpanel/core`, so a server component may call them —
+`@flowpanel/react` only re-exports `formatNumber` for client code.
+
 ## FieldDef
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
@@ -135,7 +216,94 @@ type FilterType =
 
 A tab on the full-page detail view at `/<basePath>/<resource>/<id>`.
 
+The tab in view is the `?tab=<key>` search parameter — a real query parameter the
+server reads, not a URL fragment — so a tab is linkable, bookmarkable and survives
+a reload. Only the selected tab runs on the server; the others render their label
+and nothing else.
+
+A tab declares exactly one kind of content, and they resolve in this order:
+`render`, `widgets`, `resource`, then fields.
+
+### Fields and sections
+
+`fields` renders a flat key/value view; `"*"` shows every readable field. Each
+entry is a bare field name or a `FieldDef`, whose `label` overrides the column
+header the list page uses. Column `format` and `render` from `columns` apply here
+too, so a value reads the same on both pages.
+
+`sections` groups those fields into titled blocks and wins over `fields` on the
+same tab:
+
+```ts excerpt
+{
+  key: "overview",
+  label: "Overview",
+  sections: [
+    { label: "Identity", fields: ["email", "name"] },
+    { label: "Billing", fields: [{ name: "mrr", label: "MRR" }, "plan"] },
+  ],
+}
+```
+
+Fields named by `fields` or by any `sections` entry are declared dependencies:
+they are added to the tab's projection and loaded when that tab is the one in
+view. A tab that ends up with nothing the reader may see shows
+`labels.detail.noFields`.
+
+### Widgets
+
+`widgets` puts dashboard widgets in a detail tab, in the dashboard's own grid —
+see [widgets in detail tabs](/docs/build/dashboards#widgets-in-detail-tabs).
+`columns` sets the grid width, defaulting to 2. Each widget's `ctx.row` is the
+record being viewed, and each one renders inside its own error boundary, so a
+query that fails costs you that card and not the page. Declaring `widgets: []` is
+still a widgets tab — it renders empty rather than falling through to the other
+modes, because an empty array is a typo, not a choice.
+
+### Related rows
+
+A tab with a `resource` renders that resource's list columns and paginates under
+its own URL key `relatedPage.<key>` — so two tabs page independently and Back,
+Forward and reload restore the page the reader was on. Reference columns resolve
+to the referenced row's label, exactly as they do on a list page and in a table
+widget.
+
+`hide` drops columns before anything is rendered, and the hidden fields are also
+projected out of the rows sent to the browser; the parent foreign key is the usual
+candidate, since every row in the tab shares it. The tab's own row key is always
+kept, since the table needs it for row identity. A hidden column cannot be sorted
+from the URL either.
+
+An "Open list →" link appears only when it would tell the truth: every filter
+value has to be a scalar (`string`, `number`, `boolean` or `bigint`) and every
+filter field has to be one the target resource declares, since the list page
+accepts `?f_<field>=<value>` on no other terms. A tab filtered on a range, an `in`
+set, or an undeclared field keeps its rows and drops the link. `sort` sets the tab's
+default order, falling back to the target's `defaultSort` and then to its primary
+key. Clicking a header re-sorts through the URL key `relatedSort.<key>`, written
+as `<field>.<asc|desc>` and accepted only for a visible column the target
+resource really has. Above the table, an "Open list →" link
+(`labels.related.openList`) leads to the target's own list page with the
+relationship already applied as `?f_<field>=<value>`, so the full paginated list
+is one click away.
+
+The tab's `filter` is a constraint, not a refinement: an undefined parent value or
+a field the reader may not read yields no rows and no query.
+
+### Custom content
+
+`render(row, ctx)` returns whatever you like. `row` is the projected row — the
+declared and `detail.expose` fields, nothing else — and `ctx` is a
+[`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `href`,
+`labels` and the per-request `query` memo, the same pieces a widget query gets.
+
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="DetailTab" />
+
+## DetailTabContext
+
+What `DetailTab.render` receives as its second argument.
+
+<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="DetailTabContext" />
 
 ## SelectOption
 

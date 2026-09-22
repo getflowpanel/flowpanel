@@ -57,11 +57,14 @@ export function InlineEditCell({
     }
     setPending(true);
     try {
-      const res = await fetch(`${apiBase}/${resource}/${id}/update`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ field, value: parsed }),
-      });
+      const res = await fetch(
+        `${apiBase}/${encodeURIComponent(resource)}/${encodeURIComponent(id)}/update`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ field, value: parsed }),
+        },
+      );
       const result = (await res.json()) as { ok: true } | { ok: false; error: string };
       if (!result.ok) {
         toast.error(result.error || "Update failed");

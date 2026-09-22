@@ -8,6 +8,7 @@ import {
   RealtimeRefresh,
   useAdminDrawer,
   useAdminTable,
+  useRowNavigation,
 } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import * as React from "react";
@@ -16,6 +17,7 @@ import type { SerializedBulkAction } from "../actions/bulk-action";
 import { RestoreButton } from "../actions/RestoreButton";
 import { RowActionsMenu } from "../actions/RowActionsMenu";
 import type { SerializedRowAction } from "../actions/row-action";
+import { rowIdentity } from "../runtime/row-identity";
 
 /** Thin wrapper around `<DataTable>` that wires realtime refresh and row-click drawer interaction. */
 export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown>> {
@@ -50,6 +52,8 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   deletedRowKeys?: string[];
   /** Open the URL-synced drawer when a row is clicked. */
   openDrawerOnRowClick?: boolean;
+  /** Per-row detail destinations, indexed like `rows`. `null` leaves that row inert. */
+  rowHrefs?: (string | null)[];
   /** SSE channel(s) to subscribe to for live refresh. */
   realtime?: RealtimeChannels;
   /** Keys that receive the subtle one-shot created-row entry treatment. */
@@ -63,6 +67,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
 ) {
   const {
     resource,
+    rows,
     rowKey,
     sort,
     emptyTitle,
@@ -75,12 +80,29 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
     bulkActions,
     deletedRowKeys,
     openDrawerOnRowClick,
+    rowHrefs,
     realtime,
     createdRowKey,
     ...rest
   } = props;
   const { open } = useAdminDrawer();
   const table = useAdminTable();
+  const navigate = useRowNavigation();
+  const hrefByRow = React.useMemo(
+    () => new Map(rowHrefs ? rows.map((row, index) => [row, rowHrefs[index] ?? null]) : []),
+    [rows, rowHrefs],
+  );
+  const onRowClick = openDrawerOnRowClick
+    ? (row: Row) => {
+        const id = rowIdentity(row, rowKey);
+        if (id !== null) open({ resource, id });
+      }
+    : rowHrefs
+      ? (row: Row) => {
+          const href = hrefByRow.get(row);
+          if (href) navigate(href);
+        }
+      : undefined;
 
   const hasRowActions = rowActions && rowActions.length > 0;
   const hasBulkActions = bulkActions && bulkActions.length > 0;
@@ -114,6 +136,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
       ) : null}
       <DataTable
         {...rest}
+        rows={rows}
         rowKey={rowKey}
         {...(sort ? { sort } : {})}
         {...(emptyTitle ? { emptyTitle } : {})}
@@ -126,21 +149,12 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
         onPageSizeChange={(n) => table.setPageSize(n)}
         inlineEditResource={resource}
         {...(hasBulkActions ? { selection, onSelectionChange: setSelection } : {})}
-        {...(openDrawerOnRowClick
-          ? {
-              onRowClick: (row: Row) => {
-                const id = row[rowKey];
-                if (id === undefined || id === null) return;
-                open({ resource, id: String(id) });
-              },
-            }
-          : {})}
+        {...(onRowClick ? { onRowClick } : {})}
         {...(hasRowActions || hasRestore
           ? {
               rowEndCell: (row: Row) => {
-                const id = row[rowKey];
-                if (id === undefined || id === null) return null;
-                const idStr = String(id);
+                const idStr = rowIdentity(row, rowKey);
+                if (idStr === null) return null;
                 const acts = hasRowActions
                   ? (rowActionsById?.[idStr] ?? (rowActions as SerializedRowAction[]))
                   : [];

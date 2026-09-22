@@ -1,8 +1,9 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { accessAllows, resolveOperationAccess, resolveResourceName } from "@flowpanel/core";
+import { mergeLabels } from "@flowpanel/core/labels";
 import type { NavEntry, NavGroup } from "@flowpanel/react";
 import { roleAllows } from "./action-helpers";
-import { buildHref } from "./href";
+import { buildHref, buildPath } from "./href";
 import { pluralLabel } from "./resource-title";
 
 /** Extract the URL slug for a resource. */
@@ -24,15 +25,16 @@ export async function buildNav(
   reqCtx?: RequestContext,
 ): Promise<NavGroup[]> {
   const groups: NavGroup[] = [];
+  const { navigation } = mergeLabels(config.labels);
 
   const dashboardItems = [...config.dashboardsByPath.values()]
     .filter((d) => !reqCtx || roleAllows(d.requireRole, reqCtx))
     .map((d) => ({
       label: d.label,
-      href: d.path === "/" ? buildHref(config) : buildHref(config, d.path),
+      href: d.path === "/" ? buildHref(config) : buildPath(config, d.path),
       ...(d.icon ? { icon: d.icon } : {}),
     }));
-  if (dashboardItems.length) groups.push({ label: "Dashboards", items: dashboardItems });
+  if (dashboardItems.length) groups.push({ label: navigation.dashboards, items: dashboardItems });
 
   const pageItems = [...config.pagesByPath.values()]
     .filter((p) => !reqCtx || roleAllows(p.requireRole, reqCtx))
@@ -42,11 +44,11 @@ export async function buildNav(
         p.component !== undefined
           ? p.path === "/"
             ? buildHref(config)
-            : buildHref(config, p.path)
-          : (p.href ?? buildHref(config, p.path)),
+            : buildPath(config, p.path)
+          : (p.href ?? buildPath(config, p.path)),
       ...(p.icon ? { icon: p.icon } : {}),
     }));
-  if (pageItems.length) groups.push({ label: "Pages", items: pageItems });
+  if (pageItems.length) groups.push({ label: navigation.pages, items: pageItems });
 
   const resourceItems: NavEntry[] = [];
   for (const r of config.resourcesByName.values()) {
@@ -59,7 +61,7 @@ export async function buildNav(
       ...(r.options.icon ? { icon: r.options.icon } : {}),
     });
   }
-  if (resourceItems.length) groups.push({ label: "Resources", items: resourceItems });
+  if (resourceItems.length) groups.push({ label: navigation.resources, items: resourceItems });
 
   const queueItems = [...config.queuesByKey.entries()]
     .filter(([, q]) => !q.options.hidden && (!reqCtx || roleAllows(q.options.requireRole, reqCtx)))
@@ -68,7 +70,7 @@ export async function buildNav(
       href: buildHref(config, "queues", key),
       ...(q.options.icon ? { icon: q.options.icon } : {}),
     }));
-  if (queueItems.length) groups.push({ label: "Queues", items: queueItems });
+  if (queueItems.length) groups.push({ label: navigation.queues, items: queueItems });
 
   return groups;
 }

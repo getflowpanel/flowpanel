@@ -3,11 +3,23 @@ export { devAuth } from "./auth/dev";
 export { dashboard, page } from "./builders/dashboard";
 export { queue } from "./builders/queue";
 export { resource } from "./builders/resource";
-export { custom, metric, statGroup, table } from "./builders/widget";
+export { bars, custom, funnel, kv, list, metric, stat, statGroup, table } from "./builders/widget";
 export { isBuiltinBulkDelete } from "./compiler/builtin-bulk-delete";
 export { defineAdmin } from "./define-admin";
-export { formatColumnValue } from "./format-column";
+export {
+  DEFAULT_FORMATTING,
+  type FormattingConfig,
+  formatColumnValue,
+  formatDateValue,
+  formatDayValue,
+  formatNumber,
+  type ResolvedFormatting,
+  resolveFormatting,
+} from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
+export { assertCountWhereColumns } from "./internal/count-where";
+export { declaredWriteFields } from "./internal/write-fields";
+export { RU_LABELS } from "./locales/ru";
 export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";
 export { assertWritableInput, filterReadableProjection } from "./policy/fields";
 export { resolveResourceName } from "./resource-name";
@@ -26,6 +38,13 @@ export {
 } from "./runtime/request-context";
 export { errorResult, reportUnexpectedError, resultResponse } from "./runtime/result";
 export { assertResourceScope, type ScopeCheckInput } from "./runtime/scope";
+export { fillDays, previousRange } from "./runtime/series";
+export {
+  type ParseSqlRowsOptions,
+  parseSqlRows,
+  sanitizeSqlParams,
+} from "./runtime/sql-params";
+export { buildThemeInitScript, THEME_STORAGE_KEY, type ThemeMode } from "./theme-init";
 export type {
   ActionConfirm,
   ActionInput,
@@ -140,6 +159,7 @@ export type {
   ColumnDef,
   ColumnFormat,
   DetailTab,
+  DetailTabContext,
   FieldDef,
   FieldType,
   FilterDef,
@@ -172,19 +192,39 @@ export type {
   LineChartWidget,
   MetricDelta,
   MetricOptions,
+  MetricResult,
   MetricWidget,
   NumericFormat,
   PieChartOptions,
   PieChartWidget,
   RowKey,
   Span,
-  StatGroupOptions,
-  StatGroupWidget,
-  StatItem,
-  StatValue,
   TableWidget,
   TableWidgetOptions,
   Tone,
+  WidgetColumn,
   WidgetConfig,
   WidgetContext,
 } from "./types/widget";
+export type {
+  BarRow,
+  BarsOptions,
+  BarsWidget,
+  FunnelOptions,
+  FunnelStep,
+  FunnelWidget,
+  KvItem,
+  KvOptions,
+  KvWidget,
+  ListOptions,
+  ListRow,
+  ListWidget,
+  StatGroupOptions,
+  StatGroupWidget,
+  StatItem,
+  StatOptions,
+  StatResolver,
+  StatResult,
+  StatValue,
+  StatWidget,
+} from "./types/widget-cards";

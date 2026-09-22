@@ -1,7 +1,8 @@
 "use client";
 import type * as React from "react";
 import { useComponent } from "../_provider/ComponentsContext";
-import { DefaultPagination } from "./PaginationDefault";
+import { useLabels } from "../_provider/LabelsContext";
+import { DefaultPagination, resolvePaginationLabels } from "./PaginationDefault";
 
 export { DefaultPagination, type PaginationProps } from "./PaginationDefault";
 
@@ -9,5 +10,6 @@ export function Pagination(
   props: import("./PaginationDefault").PaginationProps,
 ): React.JSX.Element {
   const Slot = useComponent("Pagination", DefaultPagination);
-  return <Slot {...props} />;
+  const labels = useLabels();
+  return <Slot {...props} labels={resolvePaginationLabels(props.labels, labels.pagination)} />;
 }

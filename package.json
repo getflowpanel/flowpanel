@@ -9,8 +9,10 @@
     "check:cli-package": "node scripts/check-cli-package.mjs",
     "check:cycles": "madge --circular --extensions ts,tsx packages/*/src",
     "check:docs": "node --import tsx scripts/check-docs.ts && pnpm --filter @flowpanel/site check:snippets",
+    "check:next-onboarding": "node scripts/check-next-onboarding.mjs",
     "check:release": "node scripts/check-release-consistency.mjs",
     "docs:generate": "node --import tsx scripts/docs/generate-cli-reference.ts",
+    "docs:llms": "node --import tsx scripts/generate-llms.ts",
     "format": "biome check --write .",
     "lint": "biome check .",
     "precheck:docs": "pnpm docs:generate",
@@ -18,6 +20,7 @@
     "release": "turbo run build && changeset publish",
     "sync:licenses": "node scripts/sync-licenses.mjs",
     "test:e2e": "pnpm --filter @flowpanel/e2e test:e2e",
+    "test:scripts": "vitest run scripts/__tests__",
     "test:types": "turbo run test:types",
     "test:unit": "turbo run test:unit",
     "typecheck": "turbo run typecheck",
@@ -48,10 +51,12 @@
       "brace-expansion@<2": "1.1.18",
       "brace-expansion@>=3 <5.0.9": "5.0.9",
       "esbuild@>=0.27.3 <0.28.1": "0.28.2",
-      "js-yaml@>=4 <5": "4.3.1",
+      "js-yaml@>=4 <5": "4.3.2",
       "nanoid@>=3 <4": "3.3.18",
+      "next@>=16 <16.3.5": "16.3.5",
       "postcss@<8.5.18": "8.5.26",
       "qs@>=6.11.1 <6.15.2": "6.15.2",
+      "sharp@<0.35.4": "0.35.4",
       "uuid@<11.1.1": "11.1.1"
     }
   }

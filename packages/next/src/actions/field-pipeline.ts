@@ -4,10 +4,19 @@ import type {
   QueryContext,
   RequestContext,
   ResolvedAdminConfig,
+  ResolvedLabels,
   ResourceConfig,
 } from "@flowpanel/core";
-import { assertWritableInput, humanize, runWithRequestContext } from "@flowpanel/core";
+import {
+  assertWritableInput,
+  declaredWriteFields,
+  formatLabel,
+  humanize,
+  runWithRequestContext,
+} from "@flowpanel/core";
 import type { z } from "zod";
+
+export { declaredWriteFields };
 
 export interface Schemas {
   create: z.ZodTypeAny;
@@ -34,30 +43,21 @@ export function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig
   return { create: inferred.create, update: inferred.update };
 }
 
-/** The field names a write may carry: the declared form fields, else the resource's columns. */
-export function declaredWriteFields(
-  resource: ResourceConfig,
-  fields: FieldDef<Record<string, unknown>>[] | undefined,
-): string[] {
-  if (fields) return fields.map((field) => field.name);
-  const names: string[] = [];
-  for (const column of resource.options.columns ?? []) {
-    if (typeof column === "string") names.push(column);
-    else if (typeof column === "number" || typeof column === "symbol") names.push(String(column));
-    else if (column.field) names.push(column.field);
-  }
-  return names;
-}
-
 /** The generated form may only offer columns a write is allowed to carry. */
 export function writableColumns<Column extends { name: string; primaryKey?: boolean }>(
   resource: ResourceConfig,
-  columns: Column[],
+  columns: Array<
+    Column & { generated?: boolean; writableOnCreate?: boolean; writableOnUpdate?: boolean }
+  >,
   fields: FieldDef<Record<string, unknown>>[] | undefined,
+  mode?: "update",
 ): Column[] {
   if (fields) return columns;
   const writable = new Set(declaredWriteFields(resource, undefined));
-  return columns.filter((c) => writable.has(c.name));
+  if (mode !== "update") return columns.filter((c) => writable.has(c.name));
+  return columns.filter(
+    (c) => writable.has(c.name) && !c.primaryKey && !c.generated && c.writableOnUpdate !== false,
+  );
 }
 
 function effectiveFieldPolicies(
@@ -162,10 +162,23 @@ export async function runFieldValidators(
   return Object.keys(out).length > 0 ? out : null;
 }
 
+/** A missing value, as the schema reports one — never an author's own message. */
+function isMissingValueIssue(issue: z.core.$ZodIssue): boolean {
+  if (issue.code === "invalid_type") return true;
+  // Zod's own ">=1 characters" wording; an authored `.min(1, "…")` passes through.
+  return issue.code === "too_small" && issue.minimum === 1 && issue.message.startsWith("Too small");
+}
+
+/**
+ * Turn a schema rejection into per-field messages a reader can act on: a value
+ * the write needs but did not get reads as `labels.form.required` under the
+ * field's own label, and every other issue keeps the message it came with.
+ */
 export function friendlyFieldErrors(
   fields: FieldDef<Record<string, unknown>>[] | undefined,
   input: unknown,
   err: z.ZodError,
+  labels: ResolvedLabels,
 ): Record<string, string> {
   const fieldByName = new Map((fields ?? []).map((f) => [f.name, f]));
   const values = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -177,7 +190,9 @@ export function friendlyFieldErrors(
     const isEmpty = value === undefined || value === null || value === "";
     const field = fieldByName.get(key);
     out[key] =
-      isEmpty && field ? `${field.label ?? humanize(field.name)} is required` : issue.message;
+      isEmpty && isMissingValueIssue(issue)
+        ? formatLabel(labels.form.required, { label: field?.label ?? humanize(field?.name ?? key) })
+        : issue.message;
   }
   return out;
 }

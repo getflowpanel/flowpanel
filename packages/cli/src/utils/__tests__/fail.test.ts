@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { messageChain, reportFatal } from "../fail";
+import { messageChain, redactDiagnostic, reportFatal } from "../fail";
 
 describe("messageChain", () => {
   it("walks every cause", () => {
@@ -61,5 +61,50 @@ describe("reportFatal", () => {
     reportFatal(new Error('relation "users" does not exist'));
     expect(err.join("")).toContain('relation "users" does not exist');
     expect(err.join("")).not.toContain("DATABASE_URL is not set");
+  });
+
+  it("shows a nested driver cause even when DATABASE_URL is already set, without URL credentials", () => {
+    process.env.DATABASE_URL = "postgres://private:secret@db.example/test";
+    reportFatal(
+      new Error("Failed query: connection", {
+        cause: new Error("ECONNREFUSED postgres://private:secret@db.example/test"),
+      }),
+    );
+    const output = err.join("") + out.join("");
+    expect(output).toContain("ECONNREFUSED");
+    expect(output).not.toContain("private:secret");
+    expect(output).not.toContain("DATABASE_URL is not set");
+  });
+});
+
+describe("redactDiagnostic", () => {
+  it("hides credentials embedded in a connection or registry URL", () => {
+    expect(redactDiagnostic("connect postgres://admin:hunter2@db:5432/app")).toBe(
+      "connect postgres://[redacted]@db:5432/app",
+    );
+    expect(redactDiagnostic("GET https://user:tok@registry.internal/pkg")).not.toContain("tok@");
+  });
+
+  it("hides a bare token the package manager printed outside a query string", () => {
+    expect(redactDiagnostic("npm error _authToken=abcd1234 was rejected")).toBe(
+      "npm error _authToken=[redacted] was rejected",
+    );
+    expect(redactDiagnostic('{"password": "hunter2"}')).not.toContain("hunter2");
+    expect(redactDiagnostic("api_key: sk-live-1")).toBe("api_key: [redacted]");
+  });
+
+  it("still hides query-string and authorization-header forms", () => {
+    expect(redactDiagnostic("https://host/x?access_token=abc&page=2")).toBe(
+      "https://host/x?access_token=[redacted]&page=2",
+    );
+    expect(redactDiagnostic("authorization: Bearer abc.def")).toBe(
+      "authorization: Bearer [redacted]",
+    );
+  });
+
+  it("leaves diagnostics that carry no credential alone", () => {
+    const message = "npm error 404 Not Found - GET https://registry.npmjs.org/@flowpanel%2fkit";
+    expect(redactDiagnostic(message)).toBe(message);
+    expect(redactDiagnostic("relation users does not exist")).toBe("relation users does not exist");
   });
 });

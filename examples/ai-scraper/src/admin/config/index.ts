@@ -1,13 +1,12 @@
 import { defineAdmin } from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
-import { MetricCard } from "@/src/admin/MetricCard";
 import { queues } from "@/src/admin/queues";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 import { type AdminSession, getDemoSession } from "@/src/demo/auth/session";
 import { readSandboxConfig } from "@/src/demo/sandbox/config";
 import { requireSandboxId } from "@/src/demo/sandbox/scope";
-import { overview } from "./overview";
+import { overview } from "./dashboards/overview";
 import { aiUsage } from "./resources/ai-usage";
 import { customers } from "./resources/customers";
 import { invoices } from "./resources/invoices";
@@ -57,7 +56,6 @@ export default defineAdmin({
   },
   shell: { mode: "tabs", brand: false, skipLink: false },
   theme: {
-    components: { MetricCard },
     accent: "217 91% 50%",
     accentDark: "217 91% 65%",
     user: (s) => {

@@ -38,6 +38,19 @@ describe("DefaultPagination", () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it("summarises the visible range with the `of` label", () => {
+    const { unmount } = render(<DefaultPagination page={3} pageSize={25} total={200} />);
+    expect(screen.getByText("51–75 of 200")).toBeTruthy();
+    unmount();
+    render(<DefaultPagination page={3} pageSize={25} total={200} labels={{ of: "из" }} />);
+    expect(screen.getByText("51–75 из 200")).toBeTruthy();
+  });
+
+  it("counts the last, short page from the real total", () => {
+    render(<DefaultPagination page={4} pageSize={25} total={80} />);
+    expect(screen.getByText("76–80 of 80")).toBeTruthy();
+  });
+
   it("jumps straight to a numbered page", () => {
     const onChange = vi.fn();
     render(<DefaultPagination page={1} pageSize={10} total={100} onChange={onChange} />);

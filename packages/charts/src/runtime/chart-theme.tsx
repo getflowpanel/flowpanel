@@ -1,3 +1,4 @@
+import type { ResolvedFormatting } from "@flowpanel/core/format";
 import { formatNumber, type NumericFormat } from "@flowpanel/react";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -41,18 +42,23 @@ export const ACTIVE_DOT_PROPS = { r: 4, strokeWidth: 2, stroke: "hsl(var(--fp-bg
 
 export function buildValueTickFormatter(
   format: NumericFormat | undefined,
+  formatting: ResolvedFormatting,
 ): ((value: unknown) => string) | undefined {
   if (!format) return undefined;
-  return (value) => (typeof value === "number" ? formatNumber(value, format) : String(value));
+  return (value) =>
+    typeof value === "number" ? formatNumber(value, format, formatting) : String(value);
 }
 
 /** Resolve the extra `<Tooltip>` props driven by `ChartOptionsBase.format` and `.tooltip`. */
 export function buildTooltipProps(
   format: NumericFormat | undefined,
   tooltip: "default" | "compact" | false | undefined,
+  formatting: ResolvedFormatting,
 ) {
   return {
-    content: <ChartTooltip format={format} compact={tooltip === "compact"} />,
+    content: (
+      <ChartTooltip format={format} compact={tooltip === "compact"} formatting={formatting} />
+    ),
   };
 }
 

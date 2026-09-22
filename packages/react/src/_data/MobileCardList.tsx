@@ -1,5 +1,8 @@
 "use client";
+import type { ResolvedFormatting } from "@flowpanel/core/format";
+import { formatLabel } from "@flowpanel/core/labels";
 import * as React from "react";
+import { useFormatting } from "../_provider/FormattingContext";
 import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 import { resolveFieldLabel } from "../lib/humanize";
@@ -45,6 +48,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   enteringRowKeys = [],
 }: MobileCardListProps<Row>) {
   const labels = useLabels();
+  const formatting = useFormatting();
   const visible = React.useMemo(() => columns.filter((c) => !c.hidden), [columns]);
   const colIndex = React.useMemo(() => {
     if (colIndexByField) return colIndexByField;
@@ -59,8 +63,16 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   const selectionSet = React.useMemo(() => new Set(selection ?? []), [selection]);
   const enteringKeySet = React.useMemo(() => new Set(enteringRowKeys), [enteringRowKeys]);
 
-  const keyOf = React.useCallback(
-    (row: Row) => (getRowKey ? getRowKey(row) : String(row[rowKey])),
+  // Same identity rule as the table: a row without an identifier still renders,
+  // but nothing that would send its identity anywhere is offered on it.
+  const identityOf = React.useCallback(
+    (row: Row): string | null => {
+      if (getRowKey) return getRowKey(row) || null;
+      const raw = row[rowKey];
+      if (typeof raw === "string") return raw || null;
+      if (typeof raw === "number" || typeof raw === "bigint") return String(raw);
+      return null;
+    },
     [getRowKey, rowKey],
   );
 
@@ -94,11 +106,12 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   return (
     <ul className={cn("space-y-2", className)}>
       {rows.map((r, idx) => {
-        const key = keyOf(r);
-        const entering = enteringKeySet.has(key);
-        const isSelected = selectionEnabled && selectionSet.has(key);
+        const identity = identityOf(r);
+        const key = identity ?? `\u0000${idx}`;
+        const entering = identity !== null && enteringKeySet.has(identity);
+        const isSelected = selectionEnabled && identity !== null && selectionSet.has(identity);
 
-        const interactive = Boolean(onRowClick);
+        const interactive = Boolean(onRowClick) && identity !== null;
         const onKeyDown = interactive
           ? (e: React.KeyboardEvent<HTMLDivElement>) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -124,7 +137,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                     tabIndex: 0,
                     onClick: () => onRowClick?.(r),
                     onKeyDown,
-                    "aria-label": `Open ${titleCol ? String(r[titleCol.field]) : key}`,
+                    "aria-label": `Open ${titleCol ? String(r[titleCol.field]) : (identity ?? key)}`,
                   }
                 : {})}
               className={cn(
@@ -138,21 +151,23 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                   {selectionEnabled ? (
                     <Checkbox
                       checked={isSelected}
+                      disabled={identity === null}
                       onCheckedChange={() => {
+                        if (identity === null) return;
                         const next = new Set(selectionSet);
-                        if (next.has(key)) next.delete(key);
-                        else next.add(key);
+                        if (next.has(identity)) next.delete(identity);
+                        else next.add(identity);
                         onSelectionChange?.(Array.from(next));
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      aria-label={`Select row ${key}`}
+                      aria-label={formatLabel(labels.table.selectRow, { id: identity ?? "" })}
                       className="-ml-3 -mt-2 h-11 w-11 shrink-0 sm:ml-0 sm:mt-1 sm:h-5 sm:w-5"
                     />
                   ) : null}
                   <div className="min-w-0 flex-1">
                     {titleCol ? (
                       <div className="truncate text-base font-medium text-fp-text-1">
-                        {renderCell(titleCol, r, idx, prerenderedCells, colIndex)}
+                        {renderCell(titleCol, r, idx, prerenderedCells, colIndex, formatting)}
                       </div>
                     ) : null}
                     {restCols.length > 0 ? (
@@ -163,7 +178,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                               {resolveFieldLabel(c.label, c.field)}
                             </dt>
                             <dd className="min-w-0 truncate text-fp-text-1">
-                              {renderCell(c, r, idx, prerenderedCells, colIndex)}
+                              {renderCell(c, r, idx, prerenderedCells, colIndex, formatting)}
                             </dd>
                           </React.Fragment>
                         ))}
@@ -197,6 +212,7 @@ function renderCell<Row extends Record<string, unknown>>(
   rowIdx: number,
   prerenderedCells: MobileCardListProps<Row>["prerenderedCells"],
   colIndexByField: Map<string, number>,
+  formatting: ResolvedFormatting,
 ): React.ReactNode {
   const originalIdx = colIndexByField.get(c.field);
   const pre =
@@ -205,5 +221,5 @@ function renderCell<Row extends Record<string, unknown>>(
       : undefined;
   if (pre !== undefined) return pre;
   if (c.render) return c.render(r);
-  return renderDefaultCell(c, r);
+  return renderDefaultCell(c, r, formatting);
 }

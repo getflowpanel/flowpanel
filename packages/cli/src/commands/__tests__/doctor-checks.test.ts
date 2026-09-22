@@ -18,10 +18,17 @@ afterEach(async () => {
 });
 
 async function seedPkg(deps: Record<string, string>): Promise<void> {
+  const all = { "drizzle-orm": "^0.30.0", ...deps };
   await fs.writeFile(
     path.join(tmp, "package.json"),
-    JSON.stringify({ dependencies: { "drizzle-orm": "^0.30.0", ...deps }, devDependencies: {} }),
+    JSON.stringify({ dependencies: all, devDependencies: {} }),
   );
+  for (const [name, specifier] of Object.entries(all)) {
+    const version = specifier.match(/\d+(?:\.\d+){0,2}/)?.[0] ?? "0.0.0";
+    const dir = path.join(tmp, "node_modules", ...name.split("/"));
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "package.json"), JSON.stringify({ name, version }));
+  }
   await fs.writeFile(path.join(tmp, "flowpanel.config.ts"), "export default {};\n");
 }
 
@@ -45,7 +52,7 @@ describe("doctor — Next.js check", () => {
     await seedPkg({ next: "15.0.0" });
     const nextCheck = await check("Next.js ≥ 16.3 < 17");
     expect(nextCheck.ok).toBe(false);
-    expect(nextCheck.hint).toContain("Upgrade:");
+    expect(nextCheck.hint).toContain("Found 15.0.0");
   });
 });
 

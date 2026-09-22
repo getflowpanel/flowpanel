@@ -1,4 +1,5 @@
 "use client";
+import { DEFAULT_LABELS, formatLabel, type LabelsConfig } from "@flowpanel/core/labels";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../lib/cn";
 
@@ -11,6 +12,21 @@ export interface PaginationProps {
   pageSizeOptions?: number[];
   onPageSizeChange?: (size: number) => void;
   className?: string;
+  /** Plain strings supplied by the wrapper; safe for standalone registry defaults. */
+  labels?: LabelsConfig["pagination"];
+}
+
+/** Preserve the inherited language when a JavaScript caller passes undefined. */
+export function resolvePaginationLabels(
+  overrides: PaginationProps["labels"],
+  base = DEFAULT_LABELS.pagination,
+): typeof DEFAULT_LABELS.pagination {
+  return {
+    ...base,
+    ...Object.fromEntries(
+      Object.entries(overrides ?? {}).filter(([, value]) => value !== undefined),
+    ),
+  };
 }
 
 /**
@@ -54,8 +70,12 @@ export function DefaultPagination({
   pageSizeOptions,
   onPageSizeChange,
   className,
+  labels: overrides,
 }: PaginationProps) {
+  const labels = resolvePaginationLabels(overrides);
   const pages = Math.max(1, Math.ceil(total / pageSize));
+  const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const last = Math.min(total, page * pageSize);
   const sizePicker = pageSizeOptions?.length && onPageSizeChange ? pageSizeOptions : null;
   if (pages <= 1 && !sizePicker) return null;
 
@@ -65,18 +85,22 @@ export function DefaultPagination({
 
   return (
     <nav
-      aria-label="Pagination"
+      aria-label={labels.label}
       className={cn(
         "flex flex-wrap items-center justify-center gap-1 border-t border-fp-border-1 px-4 py-3 text-sm",
         className,
       )}
     >
+      <span className="mr-2 tabular-nums text-fp-text-3">
+        {`${first}–${last} ${labels.of} ${total}`}
+      </span>
+
       <button
         type="button"
         disabled={page <= 1}
         onClick={() => go(page - 1)}
         className={STEP}
-        aria-label="Previous page"
+        aria-label={labels.previous}
       >
         <ChevronLeft aria-hidden className="h-4 w-4" />
       </button>
@@ -96,7 +120,7 @@ export function DefaultPagination({
             key={item}
             type="button"
             onClick={() => go(item)}
-            aria-label={`Page ${item}`}
+            aria-label={formatLabel(labels.page, { n: item })}
             aria-current={item === page ? "page" : undefined}
             className={cn(
               "fp-press inline-flex h-11 min-w-11 items-center justify-center rounded-fp px-1.5 tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:h-8 sm:min-w-8",
@@ -115,7 +139,7 @@ export function DefaultPagination({
         disabled={page >= pages}
         onClick={() => go(page + 1)}
         className={STEP}
-        aria-label="Next page"
+        aria-label={labels.next}
       >
         <ChevronRight aria-hidden className="h-4 w-4" />
       </button>
@@ -126,14 +150,14 @@ export function DefaultPagination({
       {sizePicker ? (
         <div className="relative ml-2">
           <select
-            aria-label="Rows per page"
+            aria-label={labels.rowsPerPage}
             value={pageSize}
             onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
             className="h-11 appearance-none rounded-fp border border-fp-border-1 bg-fp-bg-1 pl-3 pr-8 text-sm text-fp-text-1 shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25 sm:h-8"
           >
             {sizePicker.map((n) => (
               <option key={n} value={n}>
-                {n} / page
+                {formatLabel(labels.pageSize, { n })}
               </option>
             ))}
           </select>

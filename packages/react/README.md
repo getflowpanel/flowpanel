@@ -20,13 +20,16 @@ UI primitives for FlowPanel — shadcn-style components built on Radix UI + Tail
 
 ## Styles
 
-Import once in your root layout:
+For the default setup, import the precompiled stylesheet from `@flowpanel/kit` in
+the FlowPanel admin layout:
 
 ```ts
-import "@flowpanel/react/styles/admin.css";
+import "@flowpanel/kit/styles/admin.css";
 ```
 
-47 design tokens (color, radius, spacing, motion, type), light + dark, `prefers-reduced-motion` aware, Tailwind v4 `@theme` mapping.
+It is isolated to FlowPanel roots and portals and does not require Tailwind. The
+raw `@flowpanel/react/styles/admin.css` export is a legacy opt-in source stylesheet
+for applications that intentionally compile it with their own Tailwind pipeline.
 
 ## Documentation
 

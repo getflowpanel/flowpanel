@@ -7,6 +7,7 @@ import {
   reportUnexpectedError,
   resolveOperationAccess,
 } from "@flowpanel/core";
+import { encodeEnvelope } from "@flowpanel/core/publish";
 import { bindPublisher, subscribe } from "./runtime/publish";
 import { buildRequestContext } from "./runtime/request-setup";
 
@@ -123,8 +124,7 @@ export function stream(
 
         for (const ch of channels) {
           const dispose = subscribe(ch, (payload) => {
-            const envelope = payload === undefined ? { channel: ch } : { channel: ch, payload };
-            safeEnqueue(`event: message\ndata: ${JSON.stringify(envelope)}\n\n`);
+            safeEnqueue(`event: message\ndata: ${encodeEnvelope(ch, payload)}\n\n`);
           });
           disposers.push(dispose);
         }

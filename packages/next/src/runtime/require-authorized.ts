@@ -1,4 +1,5 @@
 import {
+  assertCountWhereColumns,
   assertResourceScope,
   authorizeOperation,
   checkRequireRole,
@@ -8,9 +9,10 @@ import {
   type ResolvedAdminConfig,
   type ResourceConfig,
   resolveOperationAccess,
+  resolveResourceName,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { declaredRowFields, projectRowFields } from "./project-row";
+import { declaredRowFields, projectRowFields, selectKnownFields } from "./project-row";
 import { resolveReadableFieldSet } from "./readable-fields";
 import { scopeBinding } from "./scope-binding";
 
@@ -39,6 +41,8 @@ export interface RelatedReadOptions {
   extraFields?: Iterable<string>;
   /** Reach soft-deleted rows too, so a reference to one still resolves its label. */
   includeDeleted?: boolean;
+  /** Ask the adapter for the total with no columns selected — `ctx.count`'s read. */
+  countOnly?: boolean;
 }
 
 /**
@@ -46,12 +50,86 @@ export interface RelatedReadOptions {
  * `null` means the caller may not read `target` — each site decides whether
  * that degrades to empty or answers with an error.
  */
+export interface RelatedPage {
+  rows: Record<string, unknown>[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * How many rows of `target` match `filters`, under the same role, access, field
+ * and scope checks as a related read. `null` means the caller may not read it.
+ * `adapter.count` answers directly only when no tenant predicate has to be
+ * applied — that capability takes a filter map, not a scope binding, so a
+ * scoped resource is counted through the authorized `list` path instead. Every
+ * other guard is applied on both paths, so which one runs never changes the
+ * answer.
+ */
+export async function readRelatedCount(
+  config: ResolvedAdminConfig,
+  target: ResourceConfig,
+  reqCtx: RequestContext,
+  filters: Record<string, unknown> = {},
+): Promise<number | null> {
+  assertCountWhereColumns(
+    resolveResourceName(target),
+    filters,
+    config.adapter.introspect(target.ref).columns.map((column) => column.name),
+  );
+  // A missing projected value must not turn a filtered count into a total.
+  if (Object.values(filters).some((value) => value === undefined)) return 0;
+  const direct = config.adapter.count;
+  if (!direct || scopeBinding(config, target, reqCtx).applyScope) {
+    const page = await readRelatedPage(config, target, reqCtx, {
+      filters,
+      page: 1,
+      pageSize: 1,
+      countOnly: true,
+    });
+    return page?.total ?? null;
+  }
+
+  try {
+    requireAuthorized(config, target, reqCtx);
+    await authorizeOperation(
+      resolveOperationAccess(target.options.access, target.options.requireRole, "read"),
+      reqCtx,
+    );
+  } catch (err) {
+    if (err instanceof FlowpanelAccessError) return null;
+    throw err;
+  }
+  const filterFields = Object.keys(filters);
+  const readable = await resolveReadableFieldSet(filterFields, target.options.fieldAccess, reqCtx);
+  // Counting by a field the role cannot read is an oracle over its values.
+  if (filterFields.some((field) => !readable.has(field))) return 0;
+
+  const softDelete = target.options.delete?.softDelete;
+  const where = softDelete ? { [String(softDelete)]: "__null__", ...filters } : filters;
+  return runWithRequestContext(reqCtx, () => direct(target.ref, where));
+}
+
+/** Rows only, for reference, drawer and widget consumers that never paginate. */
 export async function readRelatedRows(
   config: ResolvedAdminConfig,
   target: ResourceConfig,
   reqCtx: RequestContext,
   opts: RelatedReadOptions = {},
 ): Promise<Record<string, unknown>[] | null> {
+  return (await readRelatedPage(config, target, reqCtx, opts))?.rows ?? null;
+}
+
+/**
+ * The same authorized related read, with the adapter's own total, so a history
+ * longer than one page stays reachable.
+ */
+export async function readRelatedPage(
+  config: ResolvedAdminConfig,
+  target: ResourceConfig,
+  reqCtx: RequestContext,
+  opts: RelatedReadOptions = {},
+): Promise<RelatedPage | null> {
   try {
     requireAuthorized(config, target, reqCtx);
     await authorizeOperation(
@@ -63,11 +141,14 @@ export async function readRelatedRows(
     throw err;
   }
 
+  const page = opts.page ?? 1;
+  const pageSize = opts.pageSize ?? 20;
+  const empty: RelatedPage = { rows: [], total: 0, page, pageSize };
   const filters = opts.filters ?? {};
   const filterFields = Object.keys(filters);
   // A missing projected relationship value must not turn a related query into
   // an unfiltered list.
-  if (Object.values(filters).some((value) => value === undefined)) return [];
+  if (Object.values(filters).some((value) => value === undefined)) return empty;
   const requestedSearchFields = opts.searchFields ?? [];
   const requestedSortField = opts.sort?.field;
   const outputFields = declaredRowFields(target);
@@ -84,15 +165,16 @@ export async function readRelatedRows(
   );
   // Relationship filters are constraints, not optional user refinements. If
   // policy removes one, fail closed instead of widening the related result.
-  if (filterFields.some((field) => !readable.has(field))) return [];
+  if (filterFields.some((field) => !readable.has(field))) return empty;
   const searchFields = requestedSearchFields.filter((field) => readable.has(field));
-  if (requestedSearchFields.length > 0 && searchFields.length === 0) return [];
+  if (requestedSearchFields.length > 0 && searchFields.length === 0) return empty;
   const sort = opts.sort && readable.has(opts.sort.field) ? opts.sort : null;
-  const projectedFields = [...outputFields].filter((field) => readable.has(field));
-  const knownColumns = new Set(
-    config.adapter.introspect(target.ref).columns.map((column) => column.name),
-  );
-  const select = projectedFields.filter((field) => knownColumns.has(field));
+  const projectedFields = opts.countOnly
+    ? []
+    : [...outputFields].filter((field) => readable.has(field));
+  const select = opts.countOnly
+    ? []
+    : selectKnownFields(projectedFields, config.adapter.introspect(target.ref).columns);
 
   const softDelete = target.options.delete?.softDelete;
   const listCtx: ListQueryContext<unknown> = {
@@ -103,11 +185,11 @@ export async function readRelatedRows(
     signal: new AbortController().signal,
     filters,
     sort: sort as ListQueryContext<unknown>["sort"],
-    page: opts.page ?? 1,
-    pageSize: opts.pageSize ?? 20,
+    page,
+    pageSize,
     search: searchFields.length > 0 ? (opts.search ?? "") : "",
     ...(searchFields.length > 0 ? { searchFields } : {}),
-    ...(select.length > 0 ? { select } : {}),
+    select,
     ...(softDelete
       ? { softDelete: { column: String(softDelete) }, includeDeleted: opts.includeDeleted }
       : {}),
@@ -117,7 +199,13 @@ export async function readRelatedRows(
   const result = await runWithRequestContext(reqCtx, () =>
     config.adapter.list(target.ref, listCtx),
   );
-  return (result.rows as Record<string, unknown>[]).map((row) =>
+  const rows = (result.rows as Record<string, unknown>[]).map((row) =>
     projectRowFields(row, projectedFields),
   );
+  return {
+    rows,
+    total: result.total ?? rows.length,
+    page: result.page ?? page,
+    pageSize: result.pageSize ?? pageSize,
+  };
 }

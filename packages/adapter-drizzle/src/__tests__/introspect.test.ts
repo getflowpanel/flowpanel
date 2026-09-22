@@ -37,6 +37,16 @@ describe("introspect(drizzle pg table)", () => {
     expect(byName.createdAt).toMatchObject({ type: "date", nullable: false });
   });
 
+  it("reports which columns the database fills when the insert omits them", () => {
+    const byName = Object.fromEntries(introspect(users).columns.map((c) => [c.name, c]));
+    expect(byName.id?.hasDefault).toBe(true);
+    expect(byName.role?.hasDefault).toBe(true);
+    expect(byName.active?.hasDefault).toBe(true);
+    expect(byName.createdAt?.hasDefault).toBe(true);
+    expect(byName.email?.hasDefault).toBe(false);
+    expect(byName.name?.hasDefault).toBe(false);
+  });
+
   it("memoizes per table ref: a repeated call does not re-scan the columns", () => {
     const other = pgTable("other", { id: uuid("id").primaryKey() });
 

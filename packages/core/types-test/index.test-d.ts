@@ -8,6 +8,7 @@ import {
   type BarChartOptions,
   type BoundAdapterScope,
   bindAdapterScope,
+  buildThemeInitScript,
   custom,
   type DrawerConfig,
   type DrawerTabWidgets,
@@ -20,6 +21,7 @@ import {
   type RealtimeConfig,
   type ResolvedAdminConfig,
   type ResourceConfig,
+  type ResourceOptions,
   type RowAction,
   resource,
   rowAction,
@@ -33,6 +35,9 @@ import {
   tokenizeMigrationSql,
 } from "@flowpanel/core/internal/migration-sql";
 import { expectAssignable, expectError, expectType } from "tsd";
+
+expectType<string>(buildThemeInitScript("dark"));
+expectError(buildThemeInitScript("system"));
 
 declare module "@flowpanel/core" {
   interface FlowpanelResources {
@@ -102,8 +107,15 @@ expectAssignable<RealtimeConfig>({
   keyPrefix: "fp:",
 });
 
-// driver: "redis" requires url
-expectError<RealtimeConfig>({ driver: "redis" });
+// driver: "redis" takes a host's own client instead of a url
+expectAssignable<RealtimeConfig>({
+  driver: "redis",
+  client: { publish: async () => 1, on: () => undefined },
+});
+
+// url and client are both optional in the type; createPublisher requires one of them
+expectError<RealtimeConfig>({ driver: "redis", url: 6379 });
+expectError<RealtimeConfig>({ driver: "memory", url: "redis://localhost:6379" });
 
 // ── queues may stay routable while omitted from primary navigation ───────
 expectAssignable<QueueOptions>({
@@ -119,6 +131,8 @@ expectAssignable<DrawerConfig<User>>({ fields: "*" });
 expectAssignable<DrawerConfig<User>>({ tabs: [{ key: "p", label: "Profile", fields: ["email"] }] });
 expectError<DrawerConfig<User>>({ fields: ["emial"] });
 expectError<DrawerConfig<User>>({ tabs: [{ key: "p", label: "Profile", fields: ["emial"] }] });
+expectAssignable<ResourceOptions<User>>({ update: { expose: ["email"] } });
+expectError<ResourceOptions<User>>({ update: { expose: ["emial"] } });
 
 // ── action forms describe their own payload, not properties of the row ──────
 type SuspendInput = { reason: string; notify: boolean };
@@ -156,6 +170,13 @@ statGroup({
     },
   ],
 });
+
+// a stat resolver takes the context and nothing else — the record is ctx.row
+expectError(
+  statGroup({
+    stats: [{ label: "Users", value: async (_ctx: WidgetContext, _row: unknown) => 1 }],
+  }),
+);
 
 // ── drawer widget tabs reject custom() widgets ───────────────────────────
 expectAssignable<DrawerTabWidgets>({

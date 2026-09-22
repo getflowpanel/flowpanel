@@ -34,6 +34,18 @@ export declare function defineAdmin(config: {
 export declare function resource(ref: unknown, options?: unknown): unknown;
 `;
 
+const KIT_AUTH_STUB = `
+export interface AuthConfig {
+  session: (req: Request) => Promise<unknown>;
+  role: (s: unknown) => string | Promise<string>;
+  requireRole?: string | string[];
+}
+export declare function withBetterAuth(o: { auth: unknown; requireRole?: string }): AuthConfig;
+export declare function withNextAuth(o: { auth: unknown; requireRole?: string }): AuthConfig;
+export declare function withClerk(o?: { requireRole?: string }): AuthConfig;
+export declare function withLucia(o: { lucia: unknown; requireRole?: string }): AuthConfig;
+`;
+
 const KIT_INDEX_STUB = `
 export type { FlowpanelResources, FlowpanelTypes, InferDB, ResourceName } from "@flowpanel/core";
 export { defineAdmin, resource } from "@flowpanel/core";
@@ -60,9 +72,11 @@ function kitOnlyApp(): string {
         ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
         "./drizzle": { types: "./dist/drizzle.d.ts", import: "./dist/drizzle.js" },
         "./prisma": { types: "./dist/prisma.d.ts", import: "./dist/prisma.js" },
+        "./auth": { types: "./dist/auth.d.ts", import: "./dist/auth.js" },
       },
     }),
   );
+  write(path.join(kit, "dist/auth.d.ts"), KIT_AUTH_STUB);
   write(path.join(kit, "dist/index.d.ts"), KIT_INDEX_STUB);
   write(
     path.join(kit, "dist/drizzle.d.ts"),
@@ -94,6 +108,10 @@ function kitOnlyApp(): string {
   write(
     path.join(dir, "src/auth.ts"),
     "export async function getSession(): Promise<{ user?: { role?: string } } | null> { return null; }\n",
+  );
+  write(
+    path.join(dir, "src/provider.ts"),
+    "export const auth = { api: { getSession: async () => null } };\nexport const lucia = {} as { sessionCookieName: string };\n",
   );
   return dir;
 }
@@ -211,6 +229,41 @@ describe("generated flowpanel.config.ts type-checks in a kit-only scaffold", () 
     },
     TYPECHECK_TIMEOUT_MS,
   );
+});
+
+describe("the preset session module init writes per auth provider", () => {
+  for (const provider of ["better-auth", "next-auth", "clerk", "lucia"] as const) {
+    it(
+      `${provider} compiles and satisfies the config's getSession import`,
+      async () => {
+        const root = kitOnlyApp();
+        write(
+          path.join(root, "src/session.ts"),
+          await tpl(`auth-session.${provider}.ts.txt`, { AUTH_MODULE: "@/provider" }),
+        );
+        write(
+          path.join(root, "flowpanel.config.ts"),
+          await tpl("flowpanel.config.drizzle.ts.txt", {
+            DB: "@/db",
+            SCHEMA: "@/schema",
+            AUTH: "@/session",
+            APP_NAME: "Fixture",
+          }),
+        );
+        expect(typecheck(root, ["flowpanel.config.ts", "src/session.ts"])).toEqual([]);
+      },
+      TYPECHECK_TIMEOUT_MS,
+    );
+  }
+
+  it("every provider template exports getSession off the preset", async () => {
+    for (const provider of ["better-auth", "next-auth", "clerk", "lucia"] as const) {
+      const rendered = await tpl(`auth-session.${provider}.ts.txt`, { AUTH_MODULE: "@/provider" });
+      expect(rendered).toContain("export const getSession = flowpanelAuth.session;");
+      expect(rendered).toContain('from "@flowpanel/kit/auth"');
+      expect(rendered).not.toContain("{{");
+    }
+  });
 });
 
 describe("generated config templates", () => {

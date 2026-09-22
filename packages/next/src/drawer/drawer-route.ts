@@ -4,7 +4,6 @@ import type {
   ColumnFormat,
   DrawerAction,
   DrawerConfig,
-  DrawerFieldList,
   DrawerTab,
   ItemQueryContext,
   RequestContext,
@@ -26,7 +25,11 @@ import { parseActionInputSchema, validateActionOutput } from "../runtime/action-
 import { applyActionResult } from "../runtime/apply-action-result";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { buildHref } from "../runtime/href";
-import { declaredRowFields, projectRowFields } from "../runtime/project-row";
+import {
+  declaredDrawerRowFields,
+  projectRowFields,
+  selectKnownFields,
+} from "../runtime/project-row";
 import { bindPublisher } from "../runtime/publish";
 import {
   filterColumnsByReadableFields,
@@ -35,10 +38,12 @@ import {
 } from "../runtime/readable-fields";
 import { readRelatedRows } from "../runtime/require-authorized";
 import { scopeBinding } from "../runtime/scope-binding";
+import { buildWidgetContext } from "../runtime/widget-context";
 import { withGuards } from "../runtime/with-guards";
+import { type SerializedFieldList, serializeFields } from "./serialize-fields";
 import { type SerializedWidget, serializeWidget } from "./serialize-widget";
 
-export type { SerializedWidget };
+export type { SerializedFieldList, SerializedWidget };
 
 /** Wire-safe shape of `DrawerAction`. */
 export interface SerializedDrawerAction {
@@ -51,7 +56,7 @@ export interface SerializedDrawerAction {
 }
 
 export type SerializedDrawerTab =
-  | { kind: "fields"; key: string; label: string; fields: "*" | string[] }
+  | { kind: "fields"; key: string; label: string; fields: SerializedFieldList }
   | {
       kind: "resource";
       key: string;
@@ -73,7 +78,7 @@ export interface DrawerPayload {
   /** The resource's display label, so the drawer never shows the raw registry name. */
   resourceLabel: string;
   width: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
-  fields: "*" | string[];
+  fields: SerializedFieldList;
   tabs: SerializedDrawerTab[] | null;
   actions: SerializedDrawerAction[];
   /** Field → HTML for fields whose column declares a `render`. */
@@ -82,6 +87,8 @@ export interface DrawerPayload {
   labels: Record<string, string>;
   /** Field → column `format`. Plain data, rendered client-side exactly as the table does. */
   formats: Record<string, ColumnFormat>;
+  /** The record's own page, when the resource configures `detail`. */
+  detailHref: string | null;
 }
 
 /** Map of field → column `format`, so drawer rows format like their table cells. */
@@ -143,17 +150,6 @@ async function prerenderRowFields(
   return out;
 }
 
-/** Flatten a declared drawer field list and apply the request's canonical read policy. */
-function serializeFields(
-  fields: DrawerFieldList<Record<string, unknown>>,
-  readable: ReadonlySet<string>,
-): "*" | string[] {
-  if (fields === "*") return "*";
-  return fields
-    .map((f) => (typeof f === "object" && f !== null ? f.name : String(f)))
-    .filter((field) => field !== "" && readable.has(field));
-}
-
 function serializeAction(a: DrawerAction): SerializedDrawerAction {
   const out: SerializedDrawerAction = { key: a.key, label: a.label };
   if (a.variant !== undefined) out.variant = a.variant;
@@ -180,12 +176,13 @@ async function serializeTab(
     };
   }
   if ("widgets" in tab) {
-    const widgetCtx: WidgetContext = {
-      db: config.adapter.db,
-      session: reqCtx.session,
-      dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
+    const widgetCtx: WidgetContext = buildWidgetContext(
+      config,
+      reqCtx,
       req,
-    };
+      { from: new Date(0), to: new Date(), preset: "custom" },
+      row,
+    );
     const widgets: SerializedWidget[] = [];
     for (const w of tab.widgets) {
       widgets.push(await serializeWidget(w, config, reqCtx, widgetCtx));
@@ -256,14 +253,14 @@ export function drawerRoute(config: ResolvedAdminConfig) {
       { resource, operation: "read", write: false },
       async (reqCtx) => {
         const readableRowFields = await resolveReadableFieldSet(
-          declaredRowFields(resource),
+          declaredDrawerRowFields(resource),
           resource.options.fieldAccess,
           reqCtx,
         );
-        const knownColumns = new Set(
-          config.adapter.introspect(resource.ref).columns.map((column) => column.name),
+        const select = selectKnownFields(
+          readableRowFields,
+          config.adapter.introspect(resource.ref).columns,
         );
-        const select = [...readableRowFields].filter((field) => knownColumns.has(field));
         const itemCtx: ItemQueryContext = {
           ...reqCtx,
           db: config.adapter.db,
@@ -271,7 +268,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
           searchParams: new URLSearchParams(),
           signal: new AbortController().signal,
           id,
-          ...(select.length > 0 ? { select } : {}),
+          select,
           ...scopeBinding(config, resource, reqCtx),
         };
         const row = (await runWithRequestContext(reqCtx, () =>
@@ -317,6 +314,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
           prerendered: await prerenderRowFields(columns, projectedRow, reqCtx),
           labels: buildFieldLabels(columns),
           formats: buildFieldFormats(columns),
+          detailHref: resource.options.detail ? buildHref(config, String(resourceName), id) : null,
         };
         return Response.json(payload);
       },

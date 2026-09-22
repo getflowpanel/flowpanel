@@ -1,6 +1,8 @@
 /* FlowPanel design tokens — CSS custom properties + motion + theme map.
    Every visual decision routes through a --fp-* token so host apps can
    re-theme the admin without touching component code. */
+@layer theme, base, components, utilities;
+
 [data-flowpanel-root],
 [data-flowpanel-portal] {
   color-scheme: light;
@@ -142,6 +144,111 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
     --fp-duration-fast: 0ms;
     --fp-duration: 0ms;
     --fp-duration-slow: 0ms;
+  }
+}
+
+/* The generated v4 stylesheet intentionally omits Tailwind Preflight and the
+   v3 template intentionally omits `@tailwind base`: neither may reset host
+   content. These are the small defaults FlowPanel components need, limited to
+   their roots and portals. The native sublayer sits below utilities in v4 and
+   below v3's unlayered utilities, so a utility or host override still wins. */
+@layer base.flowpanel {
+  [data-flowpanel-root],
+  [data-flowpanel-portal] {
+    box-sizing: border-box;
+    font-family: var(--fp-font-sans);
+    line-height: 1.5;
+    /* v3 normally emits these with Preflight. Keep the transform and focus
+       utility prerequisites local when the generated stylesheet omits it. */
+    --tw-translate-x: 0;
+    --tw-translate-y: 0;
+    --tw-rotate: 0;
+    --tw-skew-x: 0;
+    --tw-skew-y: 0;
+    --tw-scale-x: 1;
+    --tw-scale-y: 1;
+    --tw-ring-inset: ;
+    --tw-ring-offset-width: 0px;
+    --tw-ring-offset-color: #fff;
+    --tw-ring-color: rgb(59 130 246 / 0.5);
+    --tw-ring-offset-shadow: 0 0 #0000;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+    --tw-backdrop-blur: ;
+    --tw-backdrop-brightness: ;
+    --tw-backdrop-contrast: ;
+    --tw-backdrop-grayscale: ;
+    --tw-backdrop-hue-rotate: ;
+    --tw-backdrop-invert: ;
+    --tw-backdrop-opacity: ;
+    --tw-backdrop-saturate: ;
+    --tw-backdrop-sepia: ;
+  }
+
+  [data-flowpanel-root],
+  [data-flowpanel-root]::before,
+  [data-flowpanel-root]::after,
+  [data-flowpanel-portal],
+  [data-flowpanel-portal]::before,
+  [data-flowpanel-portal]::after,
+  [data-flowpanel-root] *,
+  [data-flowpanel-root] *::before,
+  [data-flowpanel-root] *::after,
+  [data-flowpanel-portal] *,
+  [data-flowpanel-portal] *::before,
+  [data-flowpanel-portal] *::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: hsl(var(--fp-border-1));
+  }
+
+  [data-flowpanel-root] :where(h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd),
+  [data-flowpanel-portal] :where(h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd) {
+    margin: 0;
+  }
+
+  [data-flowpanel-root] :where(h1, h2, h3, h4, h5, h6),
+  [data-flowpanel-portal] :where(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  [data-flowpanel-root] :where(ol, ul, menu),
+  [data-flowpanel-portal] :where(ol, ul, menu) {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-flowpanel-root] :where(a),
+  [data-flowpanel-portal] :where(a) {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  [data-flowpanel-root] :where(button, input, select, textarea),
+  [data-flowpanel-portal] :where(button, input, select, textarea) {
+    margin: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+  }
+
+  [data-flowpanel-root] :where(button, select),
+  [data-flowpanel-portal] :where(button, select) {
+    text-transform: none;
+  }
+
+  [data-flowpanel-root] :where(button, [type="button"], [type="reset"], [type="submit"]),
+  [data-flowpanel-portal] :where(button, [type="button"], [type="reset"], [type="submit"]) {
+    appearance: button;
+    background-color: transparent;
+    background-image: none;
+    cursor: pointer;
   }
 }
 
@@ -425,7 +532,7 @@ tr.fp-row-enter > td {
    other interactive primitive carries its own :focus-visible style, but the
    raw nav links did not. Scoped to FlowPanel's own nav so it never restyles
    the host app's links. */
-[data-flowpanel-root] nav[aria-label="Admin"] a:focus-visible {
+[data-flowpanel-root] nav[data-flowpanel-nav] a:focus-visible {
   outline: 2px solid hsl(var(--fp-ring));
   outline-offset: 2px;
   border-radius: var(--fp-radius-sm);

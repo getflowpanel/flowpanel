@@ -3,6 +3,7 @@ import type { Adapter } from "./adapter";
 import type { CommandPaletteConfig } from "./command";
 import type { ErrorContext } from "./context";
 import type { DashboardConfig, PageConfig } from "./dashboard";
+import type { FormattingConfig } from "./formatting";
 import type { LabelsConfig } from "./labels";
 import type { AdminPaths, AdminPathsInput } from "./paths";
 import type { QueueConfig } from "./queue";
@@ -23,7 +24,7 @@ export interface AuthConfig {
    */
   session: (req: Request) => Promise<Session | null>;
   /** Maps a session to a role string, which every `requireRole` gate compares against. */
-  role: (session: Session | null) => string;
+  role: (session: Session | null) => string | Promise<string>;
   /** Admin-wide gate. Blocks every route and page before anything else runs. */
   requireRole?: string | string[] | ((s: Session | null) => boolean);
   /** Where to send an unauthenticated visitor. Without it they get an inline notice. */
@@ -61,6 +62,11 @@ export interface ThemeConfig {
   mode?: "light" | "dark" | "auto";
   /** Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. */
   cssVars?: Record<string, string>;
+  /**
+   * Dark-mode token overrides, scoped to FlowPanel's dark roots and portals.
+   * Choose foreground tokens for contrast against the actual dark background.
+   */
+  cssVarsDark?: Record<string, string>;
   /** Replace built-in components. See the theme-slots guide. */
   components?: Partial<FlowpanelComponentSlots>;
   /**
@@ -100,8 +106,6 @@ export interface AuditConfig {
   enabled?: boolean;
   /** Where events go — your table, your log pipeline, anywhere. */
   sink?: (event: AuditEvent) => Promise<void>;
-  /** Advisory retention window for your own sink, e.g. `"90d"`. */
-  retention?: string;
 }
 
 /** How FlowPanel renders surrounding chrome around the content area. */
@@ -143,6 +147,8 @@ export interface AdminDefinition<
   shell?: ShellConfig | ShellMode;
   /** Override built-in UI strings. */
   labels?: LabelsConfig;
+  /** Locale, timezone and currency for numbers, money and timestamps. */
+  formatting?: FormattingConfig;
   /** Tables the admin manages. */
   resources?: Resources;
   /** Widget dashboards. */
@@ -191,4 +197,10 @@ export interface ResolvedAdminConfig<
   readonly basePath: string;
   /** Normalized mount points with leading slashes and no trailing slash. */
   readonly paths: AdminPaths;
+  /**
+   * Config problems that do not stop the admin from booting — a create form that
+   * cannot satisfy a required column, so far. `flowpanel doctor` prints them, and
+   * development prints each one once.
+   */
+  readonly warnings: readonly string[];
 }

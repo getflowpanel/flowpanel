@@ -60,6 +60,10 @@ Adapter or resource schema validation is authoritative. A field `validate` rule 
 
 Use a server `defaultValue` for trusted values such as the current tenant or initial status. Do not render sensitive defaults into the client just to post them back.
 
+### What a rejection says
+
+A rejected write answers with one message per field, and every message a reader can see comes from `labels.form`. A value the write needs but did not get reads as `required` — `"{label} is required"` — under the field's own `label`, or the humanized column name when the form declares no fields, so a cleared input no longer reports a type mismatch it did not cause. A value that cannot be read as its column's type reads as `invalidNumber`, `invalidBoolean` or `invalidDate` under the same label. Every other message is the one your schema or your `validate` rule wrote, passed through unchanged — including on an empty value: only the schema's own "expected a value" and "at least one character" rejections become `required`, so `z.string().min(3, "Pick a longer slug")` still says what you wrote. Translate all of them by setting `labels.form` (`RU_LABELS` already does).
+
 ## Restrict fields
 
 `readOnly`, `hidden`, and `requireRole` affect rendering and writes. A submitted read-only or unauthorized field is rejected by the server rather than silently applied. Use field policies when the rule depends on the operation or session.

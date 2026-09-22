@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LABELS, formatLabel, mergeLabels } from "../labels";
+import { DEFAULT_LABELS, formatLabel, type LabelsConfig, mergeLabels } from "../labels";
 
 describe("mergeLabels", () => {
   it("returns the singleton DEFAULT_LABELS when user is undefined", () => {
@@ -24,6 +24,21 @@ describe("mergeLabels", () => {
     mergeLabels({ actions: { save: "X" }, bulkBar: { selected: "{n} sel" } });
     const after = JSON.stringify(DEFAULT_LABELS);
     expect(after).toBe(before);
+  });
+  it("keeps defaults for explicit undefined and preserves deliberate empty strings", () => {
+    const pagination = { next: "Далее" };
+    const config: LabelsConfig = {
+      searchPlaceholder: "",
+      pagination,
+    };
+    // A JavaScript caller is not constrained by exactOptionalPropertyTypes.
+    Object.assign(config, { noResults: undefined });
+    Object.assign(pagination, { previous: undefined });
+    const labels = mergeLabels(config);
+    expect(labels.noResults).toBe(DEFAULT_LABELS.noResults);
+    expect(labels.pagination.previous).toBe(DEFAULT_LABELS.pagination.previous);
+    expect(labels.pagination.next).toBe("Далее");
+    expect(labels.searchPlaceholder).toBe("");
   });
 });
 

@@ -78,7 +78,7 @@ export function resolveMigrationExecutor(
   };
 }
 
-async function readTsconfigAliases(cwd: string): Promise<Record<string, string>> {
+export async function readTsconfigAliases(cwd: string): Promise<Record<string, string>> {
   try {
     const compilerOptions = await readTsconfigOptions(cwd);
     const paths = compilerOptions?.paths ?? {};
@@ -89,7 +89,7 @@ async function readTsconfigAliases(cwd: string): Promise<Record<string, string>>
       const target = values?.[0];
       if (!target) continue;
       const cleanKey = key.replace(/\/\*$/, "");
-      const cleanTarget = target.replace(/\/\*$/, "");
+      const cleanTarget = target === "*" ? "." : target.replace(/\/\*$/, "");
       out[cleanKey] = path.resolve(baseDir, cleanTarget);
     }
     return out;

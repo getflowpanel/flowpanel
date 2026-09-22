@@ -1,3 +1,4 @@
+import type { ResolvedFormatting } from "@flowpanel/core/format";
 import type * as React from "react";
 import { Sparkline } from "../_atoms/Sparkline";
 import { Card, CardContent, CardHeader } from "../_layout/Card";
@@ -11,11 +12,18 @@ export interface MetricCardProps {
   /** Trails the value in muted type — "USD", "req/s". Not part of the number. */
   unit?: string;
   sublabel?: string;
-  delta?: { value: number; vs: string } | null;
+  delta?: { value: number; vs: string; goodWhen?: "up" | "down" } | null;
   sparkline?: number[];
   tone?: Tone;
   drilldown?: string;
   icon?: React.ReactNode;
+  /** Locale and currency, injected by `MetricCard` from `useFormatting()`. */
+  formatting?: ResolvedFormatting;
+}
+
+/** For a cost or a churn rate, a fall is the good news. */
+function isGoodDelta(delta: NonNullable<MetricCardProps["delta"]>): boolean {
+  return delta.goodWhen === "down" ? delta.value <= 0 : delta.value >= 0;
 }
 
 /** Pure renderer — no context dependency. Used as the registry default. */
@@ -31,8 +39,9 @@ export function DefaultMetricCard(props: MetricCardProps) {
     tone = "default",
     drilldown,
     icon,
+    formatting,
   } = props;
-  const display = typeof value === "number" ? formatNumber(value, format) : value;
+  const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
   const body = (
     <>
       <CardHeader className="flex items-center justify-between pb-1">
@@ -57,7 +66,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
               <div
                 className={cn(
                   "mt-1.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
-                  delta.value >= 0
+                  isGoodDelta(delta)
                     ? "bg-fp-ok/10 text-fp-ok-text"
                     : "bg-fp-err/10 text-fp-err-text",
                 )}
@@ -80,12 +89,16 @@ export function DefaultMetricCard(props: MetricCardProps) {
       </CardContent>
     </>
   );
-  const card = <Card data-tone={tone}>{body}</Card>;
+  const card = (
+    <Card className="h-full w-full" data-tone={tone}>
+      {body}
+    </Card>
+  );
   if (drilldown) {
     return (
       <a
         href={drilldown}
-        className="group block rounded-fp-lg transition-shadow hover:shadow-fp-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+        className="group block h-full w-full rounded-fp-lg transition-shadow hover:shadow-fp-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
         aria-label={label}
       >
         {card}

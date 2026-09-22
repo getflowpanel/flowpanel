@@ -50,6 +50,13 @@ describe("ThemeVars", () => {
     expect(css).not.toContain(":root");
   });
 
+  it("writes cssVarsDark only to namespaced dark roots and portals", () => {
+    const css = styleText({ cssVarsDark: { "--fp-text-1": "0 0% 100%", "fp-bg-1": "0 0% 10%" } });
+    expect(css).toContain('html[data-flowpanel-theme="dark"] [data-flowpanel-root]');
+    expect(css).toContain("--fp-text-1:0 0% 100%;--fp-bg-1:0 0% 10%");
+    expect(css).not.toContain(":root");
+  });
+
   it("refuses names and values that could break out of the rule", () => {
     expect(styleText({ cssVars: { "--fp-x': red }; body { display: none": "1" } })).toBeNull();
     expect(styleText({ cssVars: { "--fp-radius": "1rem} body{display:none" } })).toBe(

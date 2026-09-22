@@ -3,6 +3,8 @@ import * as path from "node:path";
 import { hasMarker } from "../eject/marker";
 import { detectAppDir, fileExists } from "../utils/detect";
 
+export { countCoreInstances } from "./installed-core";
+
 export async function checkEjectMarker(cwd: string, resourceName: string): Promise<string | null> {
   const appDir = await detectAppDir(cwd);
   const candidate = path.join(cwd, appDir, "admin", resourceName, "page.tsx");
@@ -35,21 +37,6 @@ export async function staleEjectMarkers(cwd: string, appDir: string): Promise<st
   if (names.length === 0) return null;
   const warnings = await Promise.all(names.map((name) => checkEjectMarker(cwd, name)));
   return warnings.filter((warning): warning is string => warning !== null);
-}
-
-/**
- * Counts `@flowpanel/core` copies in pnpm's store. `null` means the layout this
- * reads does not exist, so the check is skipped rather than reported as passing.
- */
-export async function countCoreInstances(cwd: string): Promise<number | null> {
-  const pnpmDir = path.join(cwd, "node_modules", ".pnpm");
-  let entries: string[];
-  try {
-    entries = await fs.readdir(pnpmDir);
-  } catch {
-    return null;
-  }
-  return entries.filter((name) => name.startsWith("@flowpanel+core@")).length;
 }
 
 /** The head of a failed `tsc` run — the compile is already paid for, so show what it found. */

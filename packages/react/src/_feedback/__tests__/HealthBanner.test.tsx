@@ -22,9 +22,7 @@ describe("HealthBanner", () => {
   });
 
   it("renders error tone with role=alert and optional action slot", () => {
-    render(
-      <HealthBanner tone="error" title="Down" action={<button type="button">Retry</button>} />,
-    );
+    render(<HealthBanner tone="err" title="Down" action={<button type="button">Retry</button>} />);
     expect(screen.getByRole("alert")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });

@@ -1,5 +1,5 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
-import { FlowpanelValidationError } from "@flowpanel/core";
+import { FlowpanelValidationError, mergeLabels } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
 import { notFoundResponse, safeErrorMessage } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
@@ -133,6 +133,7 @@ export function importRoute(config: ResolvedAdminConfig) {
 
       const allowed = importOpt.fields as string[] | undefined;
       const { columns } = config.adapter.introspect(resource.ref);
+      const labels = mergeLabels(config.labels);
       const actions = makeActions(config, resource, { reqCtx, publish: false });
       let imported = 0;
       const failed: { row: number; error: string }[] = [];
@@ -144,7 +145,7 @@ export function importRoute(config: ResolvedAdminConfig) {
         }
         try {
           const picked = allowed ? pick(rawRow, allowed) : rawRow;
-          const { values, fieldErrors } = coerceRowByColumns(columns, picked);
+          const { values, fieldErrors } = coerceRowByColumns(columns, picked, labels);
           if (Object.keys(fieldErrors).length > 0) throw new FlowpanelValidationError(fieldErrors);
           await actions.create(values);
           imported++;

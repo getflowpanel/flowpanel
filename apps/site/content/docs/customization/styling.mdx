@@ -4,22 +4,28 @@ description: Load FlowPanel styles, adjust design tokens, and integrate Tailwind
 kind: how-to
 ---
 
-FlowPanel styles are namespaced under its root and portal attributes. The CLI creates an application-owned `admin.css` that loads Tailwind, scans the installed FlowPanel packages, and defines `--fp-*` design tokens.
+FlowPanel styles are scoped to its root and portal attributes. The CLI creates an application-owned `admin.css` that imports FlowPanel's precompiled stylesheet; it does not require Tailwind or a PostCSS plugin.
 
 ## Use the generated stylesheet
 
-`flowpanel init` imports `styles/admin.css` or `src/styles/admin.css` from the root layout. Keep that import alongside the application's global stylesheet.
+`flowpanel init` imports `styles/admin.css` or `src/styles/admin.css` from the admin route's layout. The host root layout remains unchanged. Existing installations can move the import to that segment when adopting the new scaffold.
 
-For Tailwind v4, the file contains `@source` entries for normal and pnpm package layouts because FlowPanel class names live in compiled workspace packages. The CLI calculates the relative depth to `node_modules`.
+The generated stylesheet is a thin import:
 
 ```css
-@import "tailwindcss";
-
-@source "../node_modules/@flowpanel/*/dist";
-@source "../node_modules/.pnpm/node_modules/@flowpanel/*/dist";
+@import "@flowpanel/kit/styles/admin.css";
 ```
 
-For Tailwind v3, the generated Tailwind config adds the corresponding `@flowpanel/*/dist` globs to `content`, and `admin.css` uses the v3 Tailwind directives. If components render without styling, check these scan paths before adding manual CSS overrides.
+The package-built CSS scopes its utilities, element defaults, compiler variables,
+and keyframes to `[data-flowpanel-root]` and `[data-flowpanel-portal]`. It does
+not reset the host page or publish Tailwind theme variables. Keep this import in
+the admin route layout so the host root layout remains untouched.
+
+`@flowpanel/react/styles/admin.css` remains available as a legacy source
+stylesheet for applications that intentionally compile FlowPanel with their own
+Tailwind pipeline. It is not the default scaffold and can share Tailwind's
+global utility and theme namespace. Move an existing copied admin stylesheet to
+the one-line kit import when the application no longer needs that customization.
 
 ## Change design tokens
 
@@ -41,9 +47,35 @@ The full, current token list is the generated stylesheet or the package styleshe
 
 ## Support dark mode
 
-FlowPanel uses its namespaced theme attribute rather than recoloring the host `.dark` tree. Configure `theme.mode` as `light`, `dark`, or `auto`; use `theme.accentDark` when the light accent lacks contrast on dark surfaces.
+FlowPanel uses its namespaced theme attribute rather than recoloring the host `.dark` tree. Configure `theme.mode` as `light`, `dark`, or `auto`; use `theme.accentDark` when the light accent lacks contrast on dark surfaces. Use `theme.cssVarsDark` for dark-only semantic foreground, surface, and border tokens.
 
 Test custom text/background and status pairs in both modes. Theme tokens make visual consistency possible, but the application still owns contrast and accessibility for its chosen values and custom content.
+
+### Initialize the theme under CSP
+
+For an inline script rendered by a Server Component, import the pure builder from
+`@flowpanel/kit` (or `@flowpanel/core`). The React entry is a client boundary.
+Use the nonce issued by your application's CSP integration:
+
+```tsx excerpt
+import { buildThemeInitScript } from "@flowpanel/kit";
+
+export function AdminThemeHead({ nonce }: { nonce: string }) {
+  return (
+    <script
+      nonce={nonce}
+      dangerouslySetInnerHTML={{ __html: buildThemeInitScript("auto") }}
+    />
+  );
+}
+```
+
+Place it in the host-owned document head before hydration and use the same default
+mode as the admin config. Stored light/dark preference takes priority; when storage
+is blocked, the configured default or system preference still applies. The builder
+changes only `data-flowpanel-theme`, leaving the host's theme classes untouched.
+It does not generate CSP headers or nonces. Existing React `ThemeScript` callers
+can continue passing the same host-issued `nonce` prop.
 
 ## Apply targeted overrides safely
 

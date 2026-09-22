@@ -24,6 +24,8 @@ export interface ColumnMeta {
   writableOnUpdate?: boolean;
   /** Database-computed column that must not be accepted as input. */
   generated?: boolean;
+  /** The database or ORM fills the column when the insert omits it. */
+  hasDefault?: boolean;
   /** Adapter-discovered secret. Always excluded from generated read projections. */
   sensitive?: boolean;
 }
@@ -70,6 +72,21 @@ export interface Adapter<DB = InferDB, Ref = unknown> {
   delete(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
   /** Clear the soft-delete stamp. Without it, the admin hides the restore button. */
   restore?(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
+  /**
+   * Run one read-only statement and return its rows, as a tagged template.
+   * Every value arrives as a bound parameter; an implementation must never
+   * interpolate one into the SQL text. Without it, `ctx.sql` throws.
+   */
+  sql?<Row = Record<string, unknown>>(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<Row[]>;
+  /**
+   * Count matching rows without reading them. `where` is the same filter shape
+   * `list` receives. Without it, FlowPanel counts through `list` with an empty
+   * projection, which is one more query but never wrong.
+   */
+  count?(ref: Ref, where?: Record<string, unknown>): Promise<number>;
   /**
    * Optional migration support, used by `flowpanel migrate`.
    * The CLI's earlier `listAppliedMigrations` result may be stale. Implementations

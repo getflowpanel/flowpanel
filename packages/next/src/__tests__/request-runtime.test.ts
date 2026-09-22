@@ -16,6 +16,48 @@ const adapter: Adapter = {
 };
 
 describe("request runtime", () => {
+  it("awaits an async role before the admin gate and resolves it once", async () => {
+    const role = vi.fn(async () => "admin");
+    const config = defineAdmin({
+      adapter,
+      auth: {
+        session: async () => ({ id: "operator-1" }),
+        role,
+        requireRole: "admin",
+      },
+    });
+    const req = new Request("http://localhost/admin");
+    const [first, second] = await Promise.all([
+      buildRequestContext({ req, config }),
+      buildRequestContext({ req, config }),
+    ]);
+    expect(first.role).toBe("admin");
+    expect(second).toBe(first);
+    expect(role).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed before resolving scope when async role lookup rejects", async () => {
+    let scoped = false;
+    const config = defineAdmin({
+      adapter,
+      auth: {
+        session: async () => ({ id: "operator-1" }),
+        role: async () => {
+          throw new Error("Identity provider unavailable");
+        },
+        requireRole: "admin",
+      },
+      scope: () => {
+        scoped = true;
+        return null;
+      },
+    });
+    await expect(
+      buildRequestContext({ req: new Request("http://localhost/admin"), config }),
+    ).rejects.toThrow("Identity provider unavailable");
+    expect(scoped).toBe(false);
+  });
+
   it("resolves auth and scope once for the same Request and admin", async () => {
     const session = vi.fn(async () => ({ id: "operator-1" }));
     const scope = vi.fn(() => ({ tenantId: "acme" }));

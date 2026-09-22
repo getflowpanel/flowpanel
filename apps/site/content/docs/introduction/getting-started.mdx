@@ -12,9 +12,9 @@ This tutorial adds a working `/admin` route to an existing application. You will
 
 <Compatibility />
 
-You need a Next.js App Router project with Tailwind CSS and either Drizzle or Prisma already configured. Run the commands below from the project root. The Pages Router is not supported.
+You need a Next.js App Router project and either Drizzle or Prisma already configured. FlowPanel ships its default admin CSS precompiled, so Tailwind is optional. Run the commands below from the project root. The Pages Router is not supported.
 
-FlowPanel uses your existing database client and authentication. If the CLI cannot find an auth helper, it creates a development-only session stub that throws in production. Replace it before deployment.
+FlowPanel uses your existing database client and authentication. If the CLI cannot find a `getSession` helper, it creates a closed adapter: connect your provider and map `auth.role` before accessing the admin. Async role lookup is supported. An open development-only identity requires explicit `--dev-auth` and refuses production use.
 
 ## Initialize FlowPanel
 
@@ -22,9 +22,9 @@ FlowPanel uses your existing database client and authentication. If the CLI cann
 pnpm dlx @flowpanel/cli init
 ```
 
-The CLI detects the package manager, ORM, app directory, path alias, database client, schema, auth helper, and Tailwind version. Confirm the detected paths when prompted.
+The CLI detects the package manager, ORM, app directory, path alias, database client, schema, auth helper, and installed Tailwind version when present. Confirm the detected paths when prompted.
 
-It installs `@flowpanel/kit` and a version-aligned local `@flowpanel/cli`. Existing files are changed only when the CLI has a safe, targeted edit; conflicting files stop the operation. To inspect the plan without writing or installing anything, run:
+It validates local modules and named exports, then installs `@flowpanel/kit` and a version-aligned local `@flowpanel/cli`. The root layout is preserved. Conflicting files stop the operation; a busy `/admin` is replaced by the free `/flowpanel` mount, or choose `--path /ops/admin`. To inspect the plan without writing or installing anything, run:
 
 ```bash
 pnpm dlx @flowpanel/cli init --dry-run
@@ -79,7 +79,7 @@ The exact paths follow your `app` or `src/app` layout:
 | `app/admin/[[...slug]]/page.tsx` | Catch-all admin page | You change the mount path or eject page behavior |
 | `app/api/flowpanel/[...route]/route.ts` | Resource and action handlers | You change the API mount path |
 | `app/api/flowpanel/stream/route.ts` | Authenticated SSE endpoint | You change the stream mount path |
-| `styles/admin.css` | FlowPanel stylesheet and Tailwind entry | You customize tokens or content scanning |
+| `styles/admin.css` | Thin import of FlowPanel's precompiled, isolated stylesheet | You add safe local overrides |
 | `flowpanel/migrations/0001_init.sql` | FlowPanel-owned database tables | You review dialect-specific SQL |
 
 See [Project structure](/docs/introduction/project-structure) for ownership and generated-file details.

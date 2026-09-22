@@ -13,6 +13,8 @@ type Row = Record<string, unknown>;
 export interface ReadableListSurface {
   fields: ReadonlySet<string>;
   rowFields: string[];
+  /** Readable server-only metadata; it must never be added to client rows or list controls. */
+  operationalFields: string[];
   columns: ReadonlyArray<keyof Row | ColumnDef<Row>>;
   filters: unknown[];
   searchFields: string[];
@@ -25,6 +27,7 @@ export async function resolveReadableListSurface(
   resource: ResourceConfig,
   reqCtx: RequestContext,
   searchParams: URLSearchParams,
+  operationalFields: Iterable<string> = [],
 ): Promise<ReadableListSurface> {
   const defaultSortRaw = resource.options.defaultSort;
   const declared = declaredFieldSet({
@@ -36,8 +39,9 @@ export async function resolveReadableListSurface(
   // One resolution for the whole page: a field policy may be async, and the
   // list controls and the projected rows must never disagree about a field.
   const rowDeclared = declaredRowFields(resource);
+  const operational = [...new Set(operationalFields)];
   const readable = await resolveReadableFieldSet(
-    [...declared, ...rowDeclared],
+    [...declared, ...rowDeclared, ...operational],
     resource.options.fieldAccess,
     reqCtx,
   );
@@ -53,6 +57,7 @@ export async function resolveReadableListSurface(
   return {
     fields,
     rowFields: [...rowDeclared].filter((field) => readable.has(field)),
+    operationalFields: operational.filter((field) => readable.has(field)),
     columns: filterColumnsByReadableFields(
       resource.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>>,
       fields,

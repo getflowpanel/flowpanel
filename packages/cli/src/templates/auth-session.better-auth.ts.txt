@@ -1,0 +1,21 @@
+/**
+ * FlowPanel's session module, on the better-auth preset.
+ *
+ * `flowpanel init` found better-auth in package.json and wired this file to the
+ * auth instance it detected. flowpanel.config.ts imports `getSession` from here.
+ * To let the preset own the role mapping, the sign-in redirect and the audit
+ * actor id as well, replace the config's whole `auth` block with `flowpanelAuth`.
+ *
+ * `role` may return a promise, so the real role can come from your own table
+ * instead of whatever the session happens to carry.
+ */
+import { withBetterAuth } from "@flowpanel/kit/auth";
+import { auth } from "{{AUTH_MODULE}}";
+
+export const flowpanelAuth = withBetterAuth({
+  auth,
+  requireRole: "admin",
+  // role: async (session) => (await findMember(session?.user?.id))?.role ?? "guest",
+});
+
+export const getSession = flowpanelAuth.session;

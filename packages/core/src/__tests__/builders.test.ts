@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { custom, dashboard, metric, page, statGroup, table } from "../index";
+import {
+  bars,
+  custom,
+  dashboard,
+  funnel,
+  kv,
+  list,
+  metric,
+  page,
+  stat,
+  statGroup,
+  table,
+} from "../index";
 
 describe("M2 builders", () => {
   it("metric() produces MetricWidget with kind and defaults", () => {
@@ -33,6 +45,35 @@ describe("M2 builders", () => {
     const w = statGroup({ stats: [{ label: "A", value: 1 }] });
     expect(w.kind).toBe("statGroup");
     expect(w.options.stats).toHaveLength(1);
+  });
+
+  it("stat() keeps a literal value and its options", () => {
+    const w = stat("Signups", 42, { hint: "last 7 days", tone: "ok" });
+    expect(w.kind).toBe("stat");
+    expect(w.label).toBe("Signups");
+    expect(w.value).toBe(42);
+    expect(w.options.hint).toBe("last 7 days");
+  });
+
+  it("stat() keeps a resolver value unresolved", () => {
+    const w = stat("Signups", async () => 7);
+    expect(typeof w.value).toBe("function");
+    expect(w.options).toEqual({});
+  });
+
+  it("kv() wraps its items", () => {
+    const w = kv({ label: "Plan", items: [{ label: "Seats", value: 12 }], columns: 2 });
+    expect(w.kind).toBe("kv");
+    expect(w.options.items).toHaveLength(1);
+    expect(w.options.columns).toBe(2);
+  });
+
+  it("bars(), funnel() and list() tag their kind and keep the query", () => {
+    const query = async () => [];
+    expect(bars({ query }).kind).toBe("bars");
+    expect(funnel({ query }).kind).toBe("funnel");
+    expect(list({ query }).kind).toBe("list");
+    expect(bars({ query }).options.query).toBe(query);
   });
 
   it("dashboard() returns config as-is", () => {

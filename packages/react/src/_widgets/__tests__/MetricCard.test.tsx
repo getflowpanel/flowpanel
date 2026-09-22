@@ -22,6 +22,13 @@ describe("MetricCard", () => {
     const link = screen.getByRole("link", { name: /x/i });
     expect(link).toBeTruthy();
     expect((link as HTMLAnchorElement).getAttribute("href")).toBe("/x");
+    expect(link.className).toContain("h-full");
+    expect(link.firstElementChild?.className).toContain("h-full");
+  });
+
+  it("fills the grid slot when it is not a drilldown link", () => {
+    const { container } = render(<MetricCard label="X" value={1} />);
+    expect(container.firstElementChild?.className).toContain("h-full");
   });
 
   it("applies tone data-attribute", () => {
@@ -38,6 +45,29 @@ describe("MetricCard", () => {
     render(<MetricCard label="Visits" value={100} delta={{ value: 0.123, vs: "prev week" }} />);
     expect(screen.getByText(/▲/)).toBeTruthy();
     expect(screen.getByText(/prev week/)).toBeTruthy();
+  });
+
+  it("reads a fall as good news for goodWhen: down", () => {
+    const { container } = render(
+      <MetricCard
+        label="Churn"
+        value={3}
+        delta={{ value: -0.2, vs: "prev week", goodWhen: "down" }}
+      />,
+    );
+    expect(container.querySelector(".text-fp-ok-text")).toBeTruthy();
+    expect(screen.getByText(/▼/)).toBeTruthy();
+  });
+
+  it("reads a rise as bad news for goodWhen: down", () => {
+    const { container } = render(
+      <MetricCard
+        label="Churn"
+        value={3}
+        delta={{ value: 0.2, vs: "prev week", goodWhen: "down" }}
+      />,
+    );
+    expect(container.querySelector(".text-fp-err-text")).toBeTruthy();
   });
 
   it("renders icon when given", () => {

@@ -1,6 +1,10 @@
 import type { ColumnMeta } from "@flowpanel/core";
+import { DEFAULT_LABELS } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { coerceRowByColumns } from "../runtime/coerce-values";
+import { coerceRowByColumns as coerce } from "../runtime/coerce-values";
+
+const coerceRowByColumns = (columns: ColumnMeta[], row: Record<string, unknown>) =>
+  coerce(columns, row, DEFAULT_LABELS);
 
 const columns: ColumnMeta[] = [
   { name: "id", type: "string", nullable: false, unique: true, primaryKey: true },
@@ -52,7 +56,7 @@ describe("coerceRowByColumns", () => {
 
   it("produces a per-field error for an unparseable number instead of NaN", () => {
     const { values, fieldErrors } = coerceRowByColumns(columns, { age: "not-a-number" });
-    expect(fieldErrors.age).toMatch(/not a valid number/);
+    expect(fieldErrors.age).toBe("Age must be a number");
     // The raw, un-coerced value must NOT survive into `values` as NaN.
     expect(Number.isNaN(values.age)).toBe(false);
     expect(values.age).toBe("not-a-number");
@@ -60,12 +64,12 @@ describe("coerceRowByColumns", () => {
 
   it("produces a per-field error for an unparseable boolean", () => {
     const { fieldErrors } = coerceRowByColumns(columns, { active: "maybe" });
-    expect(fieldErrors.active).toMatch(/not a valid boolean/);
+    expect(fieldErrors.active).toBe("Active must be yes or no");
   });
 
   it("produces a per-field error for an unparseable date", () => {
     const { fieldErrors } = coerceRowByColumns(columns, { bornAt: "not-a-date" });
-    expect(fieldErrors.bornAt).toMatch(/not a valid date/);
+    expect(fieldErrors.bornAt).toBe("Born at must be a date");
   });
 
   it("leaves string/unknown-kind columns untouched", () => {

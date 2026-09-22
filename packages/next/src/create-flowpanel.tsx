@@ -1,5 +1,6 @@
 import type { AdminDefinition, AnyResourceConfig, ResolvedAdminConfig } from "@flowpanel/core";
 import { defineAdmin } from "@flowpanel/core";
+import { withDeploymentBasePath } from "@flowpanel/core/paths";
 import { Flowpanel } from "./flowpanel-page";
 import { handlers as createHandlers, type FlowpanelHandlers } from "./handlers";
 import type { FlowpanelRequest } from "./runtime/controller-factory";
@@ -48,7 +49,12 @@ export function createFlowpanel<const Resources extends readonly AnyResourceConf
     page: Flowpanel(config),
     handlers: createHandlers(config),
     request,
-    client: serializeClientMetadata(config),
+    // `api` is what a browser fetches, so it carries the deployment basePath;
+    // `admin` is what Link navigates to, and the router prefixes that itself.
+    client: serializeClientMetadata({
+      ...config,
+      paths: { ...config.paths, api: withDeploymentBasePath(config.paths.api) },
+    }),
     events: Object.freeze({
       async publish(channel: string, payload?: unknown) {
         if (disposed) throw new Error("This Flowpanel runtime has been disposed.");

@@ -13,7 +13,8 @@
       "@flowpanel/cli",
       "@flowpanel/charts",
       "@flowpanel/adapter-prisma",
-      "@flowpanel/eslint-plugin"
+      "@flowpanel/eslint-plugin",
+      "@flowpanel/test"
     ]
   ],
   "linked": [],

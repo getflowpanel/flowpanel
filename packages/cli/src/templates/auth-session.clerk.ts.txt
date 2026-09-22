@@ -1,0 +1,16 @@
+/**
+ * FlowPanel's session module, on the Clerk preset.
+ *
+ * `flowpanel init` found @clerk/nextjs in package.json. `withClerk` imports
+ * `@clerk/nextjs/server` itself, so there is nothing to point at. By default the
+ * role comes from the session's `publicMetadata.role`; pass your own `role` to
+ * read it from somewhere else. flowpanel.config.ts imports `getSession` from
+ * here — replace its `auth` block with `flowpanelAuth` to use the whole preset.
+ */
+import { withClerk } from "@flowpanel/kit/auth";
+
+export const flowpanelAuth = withClerk({
+  requireRole: "admin",
+});
+
+export const getSession = flowpanelAuth.session;

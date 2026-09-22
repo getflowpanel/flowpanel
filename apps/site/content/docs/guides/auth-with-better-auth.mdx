@@ -1,0 +1,87 @@
+---
+title: Authenticate with better-auth
+description: Connect a better-auth instance to FlowPanel and resolve the role from your own tables.
+kind: how-to
+---
+
+This guide connects an existing better-auth instance to FlowPanel and restricts the admin to users whose role is `admin`.
+
+## Prerequisites
+
+better-auth must already work in the host Next.js application, with its instance exported from a module of your own — usually `lib/auth.ts`:
+
+```ts excerpt
+import { betterAuth } from "better-auth";
+
+export const auth = betterAuth({
+  database: /* your adapter */,
+});
+```
+
+`flowpanel init` recognises `better-auth` in `package.json` and scaffolds the wiring below for you, pointed at the module it found.
+
+## Configure FlowPanel auth
+
+```ts excerpt
+import { defineAdmin } from "@flowpanel/kit";
+import { withBetterAuth } from "@flowpanel/kit/auth";
+import { auth } from "@/lib/auth";
+
+export default defineAdmin({
+  adapter,
+  auth: withBetterAuth({
+    auth,
+    requireRole: "admin",
+    signInUrl: "/sign-in",
+    forbiddenUrl: "/",
+  }),
+  resources,
+});
+```
+
+`withBetterAuth` calls `auth.api.getSession({ headers: req.headers })` with the request FlowPanel is actually serving, so cookie-based sessions work identically in page renders and API routes. By default the role comes from `session.user.role` and falls back to `guest`, and the actor id for audit rows and per-user rate limiting comes from `session.user.id`.
+
+## Resolve the role from the database
+
+better-auth's session carries whatever you put in it. If the role lives in your own table rather than the session, `role` may return a promise — FlowPanel awaits it before any role gate runs:
+
+```ts excerpt
+auth: withBetterAuth({
+  auth,
+  requireRole: "admin",
+  role: async (session) => {
+    const id = (session?.user as { id?: string } | undefined)?.id;
+    if (!id) return "guest";
+    const member = await db.query.members.findFirst({
+      where: (m, { eq }) => eq(m.userId, id),
+      columns: { role: true },
+    });
+    return member?.role ?? "guest";
+  },
+}),
+```
+
+This runs on every request and page render, so keep it to one indexed read. Cache it in your own layer if that read is expensive; FlowPanel does not cache it for you, because a stale role is an authorization bug.
+
+## Verify the boundary
+
+Test all three cases:
+
+1. no session: the admin page follows `signInUrl`, while API requests are rejected;
+2. signed in without `admin`: the page follows `forbiddenUrl`, while API requests return forbidden;
+3. signed in as `admin`: the page and resource API succeed.
+
+Also call one action route as a non-admin. A hidden button is not proof; the server response is.
+
+## Production notes and failure modes
+
+- Grant the admin role deliberately. `requireRole` is the admin-wide gate; per-resource `requireRole` and `access` narrow it further.
+- A `role` resolver that throws fails the request closed rather than falling back to `guest`.
+- An async `role` that reaches a database makes every admin request depend on it. If that database is the one the admin manages, an outage takes the sign-in path down with it.
+- Keep `allowUnauthenticated` off unless the deployment is already fronted by an authenticating proxy.
+
+## Related
+
+- [`AuthConfig` reference](/docs/reference/define-config#authconfig)
+- [Permissions](/docs/guides/permissions)
+- [Multi-tenant scope](/docs/guides/multi-tenant-scope)

@@ -42,6 +42,17 @@ describe("resourceNavName", () => {
 });
 
 describe("buildNav", () => {
+  it("uses configured group labels without changing resource links", async () => {
+    const cfg = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      labels: { navigation: { resources: "Данные" } },
+      resources: [resource({ __name: "users" }, { columns: [], plural: "Пользователи" })],
+    });
+    expect(await buildNav(cfg)).toEqual([
+      { label: "Данные", items: [{ label: "Пользователи", href: "/admin/users" }] },
+    ]);
+  });
   it("returns empty array when no resources", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,

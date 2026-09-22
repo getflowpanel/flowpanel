@@ -148,6 +148,15 @@ export function selectMigrationIdsDirect(
   return rowsOf(raw, dialect).map((row) => String(row.id));
 }
 
+/** Rows of one read: sqlite drivers answer `all`, pg and mysql `execute`. */
+export async function selectRaw(
+  db: MigrationDb,
+  dialect: DrizzleDialect,
+  query: SQL,
+): Promise<Array<Record<string, unknown>>> {
+  return rowsOf(await method(db, dialect === "sqlite" ? "all" : "execute")(query), dialect);
+}
+
 export function readMigrationScalar(raw: unknown, dialect: DrizzleDialect, key: string): unknown {
   return rowsOf(raw, dialect)[0]?.[key];
 }

@@ -8,6 +8,7 @@ export { DrawerHost } from "./drawer/DrawerHost";
 export { CreateDrawer, type CreateDrawerProps } from "./pages/CreateDrawer";
 export { DetailTabsClient, type DetailTabsClientProps } from "./pages/DetailTabsClient";
 export { DashboardDateRange } from "./pages/dashboard-date-range";
+export { RelatedTabTable, type RelatedTabTableProps } from "./pages/RelatedTabTable";
 export { ResourceListDeletedToggle } from "./pages/resource-list-deleted-toggle";
 export {
   ResourceListFilters,

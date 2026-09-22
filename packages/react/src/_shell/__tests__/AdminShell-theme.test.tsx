@@ -15,7 +15,7 @@ import { FlowpanelGlobals } from "../FlowpanelGlobals";
 
 afterEach(() => {
   cleanup();
-  localStorage.clear();
+  window.localStorage.clear();
   delete document.documentElement.dataset.flowpanelTheme;
 });
 
@@ -26,7 +26,7 @@ function Probe() {
 
 describe("FlowpanelGlobals — themeComponents prop", () => {
   it("applies the configured theme after a client-side mount", async () => {
-    localStorage.removeItem("fp-theme");
+    window.localStorage.removeItem("fp-theme");
     render(
       <FlowpanelGlobals themeMode="dark">
         <div>content</div>

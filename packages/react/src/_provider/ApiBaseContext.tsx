@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { withDeploymentBasePath } from "../lib/deployment-base";
 
 export const DEFAULT_API_BASE = "/api/flowpanel";
 
@@ -12,7 +13,13 @@ export function ApiBaseProvider({
   value?: string;
   children: React.ReactNode;
 }): React.JSX.Element {
-  return <Ctx.Provider value={value || DEFAULT_API_BASE}>{children}</Ctx.Provider>;
+  // The fallback is app-relative like `paths.api`, so it needs the same prefix:
+  // a shell that never passes `value` would otherwise fetch outside the deployment.
+  return (
+    <Ctx.Provider value={value || withDeploymentBasePath(DEFAULT_API_BASE)}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 /** Where the admin's route handlers are mounted — `paths.api`, defaulted for standalone use. */

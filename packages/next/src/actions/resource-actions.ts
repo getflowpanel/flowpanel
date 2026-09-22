@@ -13,6 +13,7 @@ import {
   FlowpanelNotFoundError,
   FlowpanelOperationDisabledError,
   FlowpanelValidationError,
+  mergeLabels,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
@@ -58,6 +59,7 @@ export function makeActions(
   bindPublisher(config);
   const name = resourceNavName(resource);
   const schemas = schemasFor(config, resource);
+  const labels = mergeLabels(config.labels);
 
   async function ctxFor(path: string): Promise<RequestContext> {
     if (opts.reqCtx) return opts.reqCtx;
@@ -122,7 +124,7 @@ export function makeActions(
       const withDefaults = await applyFieldDefaults(config, resource, fields, safe, reqCtx);
       const parsed = schemas.create.safeParse(withDefaults);
       if (!parsed.success) {
-        const fieldErrors = friendlyFieldErrors(fields, withDefaults, parsed.error);
+        const fieldErrors = friendlyFieldErrors(fields, withDefaults, parsed.error, labels);
         throw new FlowpanelValidationError(fieldErrors);
       }
       const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);
@@ -181,7 +183,7 @@ export function makeActions(
       const safe = await assertResourceWritableInput(resource, fields, input, current, reqCtx);
       const parsed = schemas.update.safeParse(safe);
       if (!parsed.success) {
-        const fieldErrors = friendlyFieldErrors(fields, safe, parsed.error);
+        const fieldErrors = friendlyFieldErrors(fields, safe, parsed.error, labels);
         throw new FlowpanelValidationError(fieldErrors);
       }
       const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);

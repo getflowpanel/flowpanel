@@ -1,11 +1,13 @@
-import type {
-  Adapter,
-  ItemQueryContext,
-  ListQueryContext,
-  ListResult,
-  MutationContext,
+import {
+  type Adapter,
+  type ItemQueryContext,
+  type ListQueryContext,
+  type ListResult,
+  type MutationContext,
+  parseSqlRows,
+  sanitizeSqlParams,
 } from "@flowpanel/core";
-import { isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
+import { buildFilterWhere } from "./filters";
 import type { PrismaDmmf } from "./introspect";
 import { introspect } from "./introspect";
 import { createMigrationMethods } from "./migration-executor";
@@ -25,12 +27,20 @@ export interface PrismaAdapterOptions<P = unknown> {
   /** The `datasource` provider from schema.prisma; migrations are dialect-specific. */
   provider: PrismaProvider;
   dmmf?: PrismaDmmf;
+  /**
+   * Read zoneless `YYYY-MM-DD HH:mm:ss` strings in a `ctx.sql` result as UTC
+   * `Date`s. Turn it off when a text column of your own holds timestamp-shaped
+   * strings that `select *` cannot cast.
+   * @defaultValue true
+   */
+  parseDates?: boolean;
 }
 
 export { MIGRATIONS_TABLE_DDL } from "./runtime";
 export type { PrismaProvider } from "./sql-statements";
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
+  const EMPTY_PROJECTION = Symbol("flowpanel.emptyProjection");
   let _dmmf: PrismaDmmf | undefined = opts.dmmf;
   const prisma = opts.prisma as PrismaClientLike;
 
@@ -53,7 +63,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
   function projection(modelName: string, select: readonly string[] | undefined) {
     if (select === undefined) return undefined;
-    if (select.length === 0) throw new Error("prismaAdapter: select must contain a field");
+    if (select.length === 0) return EMPTY_PROJECTION;
     if (select.length > 1024) throw new Error("prismaAdapter: select exceeds 1024 fields");
     const model = getDmmf().datamodel.models.find((entry) => entry.name === modelName);
     const known = new Set(
@@ -89,31 +99,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const dmmf = getDmmf();
       const select = projection(modelName, ctx.select);
 
-      const where: Record<string, unknown> = {};
-
-      for (const [k, v] of Object.entries(ctx.filters ?? {})) {
-        if (v === undefined || v === null || v === "") continue;
-        if (v === "__null__") {
-          where[k] = null;
-          continue;
-        }
-        if (v === "__notnull__") {
-          where[k] = { not: null };
-          continue;
-        }
-        if (isFilterRangeValue(v)) {
-          const cond: Record<string, unknown> = {};
-          if (v.gte !== undefined) cond.gte = v.gte;
-          if (v.lte !== undefined) cond.lte = v.lte;
-          if (Object.keys(cond).length > 0) where[k] = cond;
-          continue;
-        }
-        if (isFilterInValue(v)) {
-          if (v.values.length > 0) where[k] = { in: v.values };
-          continue;
-        }
-        where[k] = v;
-      }
+      const where = buildFilterWhere(ctx.filters);
 
       if (ctx.search && ctx.searchFields?.length) {
         const intro = introspect(modelName, dmmf);
@@ -143,6 +129,17 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const skip = (ctx.page - 1) * ctx.pageSize;
       const take = ctx.pageSize;
 
+      if (select === EMPTY_PROJECTION) {
+        const total = await delegate.count({ where: scopedWhere });
+        const rowCount = Math.max(0, Math.min(take, total - skip));
+        return {
+          rows: Array.from({ length: rowCount }, () => ({})),
+          total,
+          page: ctx.page,
+          pageSize: ctx.pageSize,
+        };
+      }
+
       const [rows, total] = await Promise.all([
         delegate.findMany({
           where: scopedWhere,
@@ -161,6 +158,9 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const delegate = getDelegate(modelName, ctx);
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       const select = projection(modelName, ctx.select);
+      if (select === EMPTY_PROJECTION) {
+        return (await delegate.count({ where: baseWhere })) > 0 ? {} : null;
+      }
       const args = { where: baseWhere, ...(select ? { select } : {}) };
       const result = hasScope(ctx)
         ? await delegate.findFirst(args)
@@ -217,6 +217,20 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       } else {
         await delegate.update({ where: baseWhere, data: { [softCol]: null } });
       }
+    },
+
+    async sql<Row = Record<string, unknown>>(
+      strings: TemplateStringsArray,
+      ...values: unknown[]
+    ): Promise<Row[]> {
+      const rows = await prisma.$queryRaw(strings, ...sanitizeSqlParams(values));
+      return parseSqlRows<Row>(rows as Array<Record<string, unknown>>, {
+        parseDates: opts.parseDates ?? true,
+      });
+    },
+
+    async count(modelName, where): Promise<number> {
+      return resolveDelegate(prisma, modelName).count({ where: buildFilterWhere(where) });
     },
 
     ...createMigrationMethods(prisma, opts.provider),

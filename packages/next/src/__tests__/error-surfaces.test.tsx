@@ -1,0 +1,195 @@
+// @vitest-environment happy-dom
+
+import type { Adapter } from "@flowpanel/core";
+import { defineAdmin, FlowpanelAccessError, FlowpanelAuthError, resource } from "@flowpanel/core";
+import { ErrorCard, HealthBanner, ToastProvider } from "@flowpanel/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/admin/users",
+  useSearchParams: () => new URLSearchParams("drawer=users:27"),
+}));
+
+import { DrawerHost } from "../drawer/DrawerHost";
+import { handleRenderError } from "../flowpanel-page";
+import { renderRelatedTab } from "../pages/detail-tabs/render-related-tab";
+import { QueryErrorCard } from "../runtime/query-error";
+import { WidgetErrorBoundary } from "../runtime/WidgetErrorBoundary";
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+const COLUMNS = [
+  { name: "id", type: "string" as const, nullable: false, unique: true, primaryKey: true },
+];
+
+const adapter: Adapter = {
+  kind: "drizzle",
+  db: {},
+  introspect: () => ({ name: "users", columns: COLUMNS, primaryKey: "id" }),
+  inferSchema: () => ({}) as never,
+  list: async () => ({ rows: [], total: 0, page: 1, pageSize: 20 }),
+  get: async () => ({ id: "u1" }),
+  create: async () => ({}),
+  update: async () => ({}),
+  delete: async () => undefined,
+};
+
+const config = defineAdmin({
+  adapter,
+  auth: { session: async () => null, role: () => "admin", requireRole: "admin" },
+  resources: [resource({ __name: "users" }, { columns: ["id"] })],
+});
+
+function Boom(): never {
+  throw new Error("widget exploded");
+}
+
+/**
+ * `@flowpanel/test`'s walk finds a page that rendered while the read under it
+ * failed by looking for `[data-fp-error]`. Every surface that says "this failed"
+ * has to carry it, or the smoke test reports a healthy admin.
+ */
+describe("every FlowPanel error surface is findable by data-fp-error", () => {
+  it("tags the card a failed adapter read renders", () => {
+    const card = QueryErrorCard({
+      site: { config, resource: "users", operation: "get", requestId: "r1" },
+      cause: new Error("boom"),
+    });
+    expect((card.props as { "data-fp-error"?: string })["data-fp-error"]).toBe("");
+  });
+
+  it("tags the card a failed widget leaves behind", () => {
+    const { container } = render(<ErrorCard error={new Error("boom")} />);
+    expect(container.querySelector("[data-fp-error]")).toBeTruthy();
+  });
+
+  it("tags what a widget error boundary renders in place of the widget", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { container } = render(
+      <WidgetErrorBoundary widgetId="w1">
+        <Boom />
+      </WidgetErrorBoundary>,
+    );
+    expect(container.querySelector("[data-fp-error]")).toBeTruthy();
+  });
+
+  it("tags the health banner's error tone and leaves its other tones alone", () => {
+    const { container: error } = render(<HealthBanner tone="err" title="Adapter unreachable" />);
+    expect(error.querySelector("[data-fp-error]")).toBeTruthy();
+
+    cleanup();
+    const { container: warn } = render(<HealthBanner tone="warn" title="Slow" />);
+    expect(warn.querySelector("[data-fp-error]")).toBeNull();
+  });
+
+  const signedIn = defineAdmin({
+    adapter,
+    auth: { session: async () => ({ user: { role: "viewer" } }), role: () => "viewer" },
+    resources: [resource({ __name: "users" }, { columns: ["id"] })],
+  });
+
+  it.each([
+    { label: "signed out", site: config, error: new FlowpanelAuthError("no session") },
+    { label: "wrong role", site: signedIn, error: new FlowpanelAccessError("forbidden") },
+  ])("tags the admin an unauthorized render leaves behind ($label)", async ({ site, error }) => {
+    const rendered = await handleRenderError(error, site, new Request("http://localhost/admin"));
+    const { container } = render(rendered);
+    expect(container.querySelector("[data-fp-error]")).toBeTruthy();
+  });
+
+  it("names which of the two refusals it is", async () => {
+    render(
+      await handleRenderError(
+        new FlowpanelAccessError("forbidden"),
+        signedIn,
+        new Request("http://localhost/admin"),
+      ),
+    );
+    expect(screen.getByText(/access denied/i)).toBeTruthy();
+    cleanup();
+    render(
+      await handleRenderError(
+        new FlowpanelAuthError("no session"),
+        config,
+        new Request("http://localhost/admin"),
+      ),
+    );
+    expect(screen.getByText(/sign in required/i)).toBeTruthy();
+  });
+
+  it("tags the card a related tab naming an unregistered resource renders", async () => {
+    const node = await renderRelatedTab(
+      config,
+      {
+        req: new Request("http://localhost/admin/users/u1"),
+        session: null,
+        role: "admin",
+        scope: null,
+        ip: null,
+        userAgent: null,
+      },
+      { id: "u1" },
+      { key: "invoices", label: "Invoices", resource: "invoics", on: "userId" } as never,
+      new Request("http://localhost/admin/users/u1"),
+      new URLSearchParams(),
+    );
+    const { container } = render(node);
+    expect(container.querySelector("[data-fp-error]")).toBeTruthy();
+  });
+
+  it("tags a drawer widget whose own query failed, beside the panel's other cards", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          row: { id: "27" },
+          header: "User 27",
+          resourceLabel: "Users",
+          width: "md",
+          fields: [],
+          tabs: [
+            {
+              key: "stats",
+              label: "Stats",
+              kind: "widgets",
+              widgets: [{ kind: "unsupported", reason: "widget query failed", failed: true }],
+            },
+          ],
+          actions: [],
+          prerendered: {},
+          labels: {},
+          formats: {},
+          detailHref: null,
+        }),
+      ),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    await waitFor(() => expect(document.querySelector("[data-fp-error]")).toBeTruthy());
+    expect(screen.getByText("widget query failed")).toBeTruthy();
+  });
+
+  it("tags a drawer whose payload read failed", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("nope", { status: 500, statusText: "Server Error" })),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+
+    // The drawer renders through a portal, so it is in the document, not in `container`.
+    await waitFor(() => expect(document.querySelector("[data-fp-error]")).toBeTruthy());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+});

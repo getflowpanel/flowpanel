@@ -28,7 +28,11 @@ export default defineConfig({
     "next",
     "next/navigation",
     "@flowpanel/core",
+    "@flowpanel/core/format",
     "@flowpanel/core/labels",
+    "@flowpanel/core/paths",
+    "@flowpanel/core/publish",
+    "@flowpanel/core/theme",
     "zod",
   ],
   // Preserve "use client" on bundled output so Next.js RSC pipelines treat

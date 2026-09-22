@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
   FlowpanelIcon,
   useApiBase,
+  useLabels,
 } from "@flowpanel/react";
 import * as React from "react";
 import { ActionFormDialog } from "./ActionFormDialog";
@@ -22,6 +23,7 @@ export interface RowActionsMenuProps {
 }
 
 export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
+  const labels = useLabels();
   const apiBase = useApiBase();
   const runAction = useActionRunner();
   const [pending, setPending] = React.useState<string | null>(null);
@@ -66,7 +68,7 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
   return (
     <div
       role="toolbar"
-      aria-label="Row actions"
+      aria-label={labels.table.rowActions}
       className="flex items-center justify-end gap-1"
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
@@ -90,7 +92,7 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label="Row actions"
+              aria-label={labels.table.rowActions}
               className="inline-flex h-7 w-7 items-center justify-center rounded-fp-sm text-fp-text-3 hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-accent"
               disabled={pending !== null}
             >

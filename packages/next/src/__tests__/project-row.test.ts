@@ -1,6 +1,12 @@
 import type { RequestContext, ResourceConfig } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { declaredRowFields, projectAuthorizedRow } from "../runtime/project-row";
+import {
+  declaredDetailBaseFields,
+  declaredDetailPolicyFields,
+  declaredDrawerRowFields,
+  declaredRowFields,
+  projectAuthorizedRow,
+} from "../runtime/project-row";
 
 function resourceWith(options: Record<string, unknown>): ResourceConfig {
   return { __kind: "resource", ref: { __name: "r" }, options } as never;
@@ -19,7 +25,7 @@ describe("declaredRowFields", () => {
     expect(declaredRowFields(r)).toContain("uuid");
   });
 
-  it("unions drawer.fields array + fields-kind tabs, but '*' contributes nothing extra", () => {
+  it("keeps drawer-only fields out of the list while declaring them for the drawer", () => {
     const r = resourceWith({
       columns: ["id"],
       drawer: {
@@ -31,15 +37,14 @@ describe("declaredRowFields", () => {
         ],
       },
     });
-    const fields = declaredRowFields(r);
-    expect(fields.has("email")).toBe(true);
-    expect(fields.has("plan")).toBe(true);
-    expect(fields.has("cardLast4")).toBe(true);
+    expect([...declaredRowFields(r)]).toEqual(["id"]);
+    const drawerFields = declaredDrawerRowFields(r);
+    expect([...drawerFields].sort()).toEqual(["cardLast4", "email", "id", "plan"]);
     // "*" (the profile tab) must NOT expand the set to every DB column.
-    expect(fields.size).toBe(4); // id, email, plan, cardLast4
+    expect(drawerFields.size).toBe(4);
   });
 
-  it("unions read surfaces without exposing write-only create/update fields", () => {
+  it("keeps inactive detail fields out of base projection but resolves them for one policy decision", () => {
     const r = resourceWith({
       columns: ["id"],
       detail: {
@@ -49,11 +54,9 @@ describe("declaredRowFields", () => {
       create: { fields: [{ name: "email" }] },
       update: { fields: [{ name: "plan" }] },
     });
-    const fields = declaredRowFields(r);
-    expect(fields.has("bio")).toBe(true);
-    expect(fields.has("notes")).toBe(true);
-    expect(fields.has("email")).toBe(false);
-    expect(fields.has("plan")).toBe(false);
+    expect([...declaredRowFields(r)]).toEqual(["id"]);
+    expect([...declaredDetailBaseFields(r)].sort()).toEqual(["bio", "id"]);
+    expect([...declaredDetailPolicyFields(r)].sort()).toEqual(["bio", "id", "notes"]);
   });
 
   it("never includes a field only present as raw adapter output — password hash stays undeclared", () => {

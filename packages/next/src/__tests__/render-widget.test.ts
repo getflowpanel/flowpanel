@@ -7,6 +7,7 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
+import { DEFAULT_LABELS } from "@flowpanel/core";
 import { MetricCard, RealtimeRefresh, TableWidget } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -44,6 +45,11 @@ const ctx: WidgetContext = {
   session: null,
   dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
   req: new Request("http://localhost/"),
+  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
+  query: (_key, fn) => fn(),
+  labels: DEFAULT_LABELS,
+  sql: async () => [],
+  count: async () => 0,
 };
 
 const reqCtx: RequestContext = {
@@ -158,14 +164,14 @@ describe("renderWidget — table emptyState", () => {
     expect(el.props.emptyState).toBe(empty);
   });
 
-  it("omits emptyState when unset", async () => {
+  it("falls back to the admin's own empty label when none is configured", async () => {
     const widget: WidgetConfig = {
       kind: "table",
       options: { query: async () => [] },
     } as never;
     const node = await renderWidget(widget, ctx, cfg, reqCtx);
     const el = node as ReactElement<{ emptyState?: ReactNode }>;
-    expect(el.props.emptyState).toBeUndefined();
+    expect(el.props.emptyState).toBe(DEFAULT_LABELS.widget.empty);
   });
 });
 

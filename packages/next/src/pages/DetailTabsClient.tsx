@@ -26,7 +26,7 @@ export function DetailTabsClient({ tabs }: DetailTabsClientProps) {
       onValueChange={(next) => {
         const params = new URLSearchParams(searchParams.toString());
         params.set("tab", next);
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
       }}
     >
       <TabsList>

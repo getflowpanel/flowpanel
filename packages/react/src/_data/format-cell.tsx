@@ -1,35 +1,41 @@
+import {
+  DEFAULT_FORMATTING,
+  formatDateValue,
+  type ResolvedFormatting,
+} from "@flowpanel/core/format";
 import type * as React from "react";
 
 import { LocalTime } from "../_atoms/LocalTime";
 
-const dateFmt = new Intl.DateTimeFormat("en-CA", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
-export function formatCell(v: unknown): React.ReactNode {
+/** The instant a cell value stands for, or `null` when it is not a timestamp. */
+function asDate(v: unknown): Date | null {
+  if (v instanceof Date) return v;
+  if (typeof v !== "string" || !ISO_TIMESTAMP.test(v)) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Plain-text rendering, for exports and for content that is not a React tree. */
+export function formatCell(
+  v: unknown,
+  formatting: ResolvedFormatting = DEFAULT_FORMATTING,
+): React.ReactNode {
   if (v === null || v === undefined) return "";
-  if (v instanceof Date) return dateFmt.format(v).replace(",", "");
-  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
-    const d = new Date(v);
-    if (!Number.isNaN(d.getTime())) return dateFmt.format(d).replace(",", "");
-  }
+  const date = asDate(v);
+  if (date) return formatDateValue(date, formatting);
   if (typeof v === "boolean") return v ? "Yes" : "No";
   return String(v);
 }
 
 /** Render a cell value as React content. */
-export function renderCellValue(v: unknown): React.ReactNode {
-  if (v instanceof Date) return <LocalTime date={v} />;
-  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
-    const d = new Date(v);
-    if (!Number.isNaN(d.getTime())) return <LocalTime date={v} />;
-  }
-  return formatCell(v);
+export function renderCellValue(
+  v: unknown,
+  formatting: ResolvedFormatting = DEFAULT_FORMATTING,
+): React.ReactNode {
+  if (asDate(v)) return <LocalTime date={v as string | Date} />;
+  return formatCell(v, formatting);
 }
 
 export const ALIGN_CLASS = {

@@ -3,7 +3,6 @@ import type {
   DateRangePreset,
   RequestContext,
   ResolvedAdminConfig,
-  Span,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
@@ -12,12 +11,14 @@ import {
   DashboardDateRange,
   WidgetErrorBoundary,
 } from "@flowpanel/next/client";
-import { RealtimeRefresh, Section, SkeletonCard } from "@flowpanel/react";
+import { DashboardRefresh, RealtimeRefresh, Section, SkeletonCard } from "@flowpanel/react";
 import { Suspense } from "react";
 import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action";
 import { filterActionsByAccess } from "../runtime/action-helpers";
 import { type DateRangeInput, resolveDateRange } from "../runtime/date-range";
 import { renderWidget } from "../runtime/render-widget";
+import { buildWidgetContext } from "../runtime/widget-context";
+import { widgetSlotClassName } from "./widget-slot";
 
 export interface DashboardPageProps {
   config: ResolvedAdminConfig;
@@ -40,6 +41,15 @@ const PRESETS: readonly DateRangePreset[] = [
 function parsePreset(value: string | null): DateRangePreset | undefined {
   if (!value) return undefined;
   return (PRESETS as readonly string[]).includes(value) ? (value as DateRangePreset) : undefined;
+}
+
+/** `"60s"` / `"5m"` as milliseconds; anything else means no automatic refresh. */
+export function dashboardRefreshMs(refresh: DashboardConfig["refresh"]): number | null {
+  if (!refresh) return null;
+  const match = /^(\d+(?:\.\d+)?)(s|m)$/.exec(refresh);
+  const amount = Number(match?.[1]);
+  if (!match || !Number.isFinite(amount) || amount <= 0) return null;
+  return match[2] === "m" ? amount * 60_000 : amount * 1000;
 }
 
 /** Whether the default `DashboardActionsBar` should render. */
@@ -78,12 +88,8 @@ export async function DashboardPage({
   const dateRangeInput = resolveDashboardDateRangeInput(dashboard.dateRange, searchParams);
   const effectivePreset = dateRangeInput.preset;
   const dateRange = resolveDateRange(dateRangeInput);
-  const ctx: WidgetContext = {
-    db: (config.adapter as { db: unknown }).db,
-    session: reqCtx.session,
-    dateRange,
-    req,
-  };
+  const ctx: WidgetContext = buildWidgetContext(config, reqCtx, req, dateRange);
+  const refreshMs = dashboardRefreshMs(dashboard.refresh);
 
   const actions = (await filterActionsByAccess(dashboard.actions, reqCtx)).map(
     serializeDashboardAction,
@@ -93,13 +99,16 @@ export async function DashboardPage({
   return (
     <div className="space-y-5">
       {dashboard.realtime ? <RealtimeRefresh channels={dashboard.realtime} /> : null}
-      <header className="flex items-center justify-between gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h1 className="text-xl font-semibold text-fp-text-1">{dashboard.label}</h1>
         <div className="flex items-center gap-3">
           {shouldRenderActionsBar(actions.length, dashboard.hideActionsBar) ? (
             <DashboardActionsBar encodedPath={encodedPath} actions={actions} />
           ) : null}
           <DashboardDateRange {...(effectivePreset ? { preset: effectivePreset } : {})} />
+          {refreshMs !== null ? (
+            <DashboardRefresh intervalMs={refreshMs} renderedAt={Date.now()} />
+          ) : null}
         </div>
       </header>
       {dashboard.sections.map((sec, idx) => (
@@ -143,9 +152,9 @@ function WidgetSlot({
   dashboardPath: string;
   widgetIndex: string;
 }) {
-  const className = widgetSpanClassName(widget);
+  const className = widgetSlotClassName(widget);
   return (
-    <div {...(className ? { className } : {})}>
+    <div className={className}>
       <WidgetErrorBoundary widgetId={widgetIndex} dashboardId={dashboardPath}>
         <Suspense fallback={<SkeletonCard />}>
           <WidgetAsync widget={widget} ctx={ctx} config={config} reqCtx={reqCtx} />
@@ -154,23 +163,6 @@ function WidgetSlot({
     </div>
   );
 }
-
-export function widgetSpanClassName(widget: WidgetConfig): string | undefined {
-  const span = widget.options.span;
-  return span ? widgetSpanClass[span] : undefined;
-}
-
-// Keep this server-side. The @flowpanel/react barrel is a client module, so
-// reading an exported object from it inside an RSC returns a client reference.
-const widgetSpanClass: Record<Span, string> = {
-  1: "col-span-12 sm:col-span-1",
-  2: "col-span-12 sm:col-span-2",
-  3: "col-span-12 sm:col-span-3",
-  4: "col-span-12 sm:col-span-4",
-  6: "col-span-12 sm:col-span-6",
-  8: "col-span-12 sm:col-span-8",
-  12: "col-span-12",
-};
 
 async function WidgetAsync({
   widget,

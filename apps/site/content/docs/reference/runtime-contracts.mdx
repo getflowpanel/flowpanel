@@ -99,6 +99,12 @@ adapters: it returns the bound predicate, `null` when the resource declares
 none, and throws `FlowpanelAccessError` when one is required but missing. An
 adapter that resolves scope by hand must refuse the query in the same case.
 
+## Series helpers
+
+`previousRange` and `fillDays` are pure date helpers for dashboard queries, and
+are documented with the widgets that consume them — see
+[Series helpers](/docs/reference/widgets#series-helpers).
+
 ## Post-commit effects
 
 Post-commit audit, realtime or revalidation failures do not turn a committed

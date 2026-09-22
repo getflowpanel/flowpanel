@@ -81,25 +81,31 @@ export function monthTitle(d: Date, locale: string): string {
 }
 
 /** Ranges are built on demand so "today" is read at click time, not at import time. */
-export const RANGE_PRESETS: { label: string; range: () => CalendarRange }[] = [
-  { label: "Today", range: () => ({ from: startOfDay(new Date()), to: startOfDay(new Date()) }) },
+export const RANGE_PRESETS: {
+  key: "today" | "last7d" | "last30d" | "thisMonth" | "lastMonth";
+  range: () => CalendarRange;
+}[] = [
   {
-    label: "Last 7 days",
+    key: "today",
+    range: () => ({ from: startOfDay(new Date()), to: startOfDay(new Date()) }),
+  },
+  {
+    key: "last7d",
     range: () => ({ from: addDays(startOfDay(new Date()), -6), to: startOfDay(new Date()) }),
   },
   {
-    label: "Last 30 days",
+    key: "last30d",
     range: () => ({ from: addDays(startOfDay(new Date()), -29), to: startOfDay(new Date()) }),
   },
   {
-    label: "This month",
+    key: "thisMonth",
     range: () => {
       const now = new Date();
       return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: startOfDay(now) };
     },
   },
   {
-    label: "Last month",
+    key: "lastMonth",
     range: () => {
       const now = new Date();
       return {
@@ -137,7 +143,7 @@ export function Calendar({
   locale,
   label,
 }: CalendarProps) {
-  const loc = locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
+  const loc = locale ?? "en-US";
   const weekStart = React.useMemo(() => firstWeekday(loc), [loc]);
   const days = React.useMemo(() => monthGrid(month, weekStart), [month, weekStart]);
   const weekdayFmt = React.useMemo(() => new Intl.DateTimeFormat(loc, { weekday: "short" }), [loc]);
