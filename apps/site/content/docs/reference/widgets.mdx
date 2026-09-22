@@ -4,9 +4,11 @@ description: Every widget builder and the options it accepts.
 kind: reference
 ---
 
-Widgets are the contents of a dashboard section, and of a drawer's widget tab.
-Each builder returns a `WidgetConfig`; every `query` runs on the server with a
-`WidgetContext`.
+Widgets are the contents of a dashboard section, of a detail page's widgets tab,
+and of a drawer's widget tab. Each builder returns a `WidgetConfig`; every
+`query` runs on the server with a `WidgetContext`. In a detail tab and in a
+drawer the record being viewed is `ctx.row`; a drawer renders its widgets as
+static cards (see [Drawers](/docs/reference/drawer#drawertabwidgets)).
 
 ```ts excerpt
 import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
@@ -91,7 +93,8 @@ registry described under [resource icons](/docs/reference/resources#icons).
 
 A `metric()` query may return a bare number or string, or a `MetricResult`
 carrying the presentation the value itself implies. A result field wins over the
-matching static option, which stays as the fallback.
+matching static option, which stays as the fallback: `MetricResult.href` renders
+as the card's `drilldown`, and `MetricResult.sublabel` as its caption.
 
 ### MetricResult
 
@@ -161,7 +164,21 @@ table({
 
 `StatValue` is `string | number | boolean | bigint | Date | null | undefined`.
 Keeping the literal side explicit preserves full `WidgetContext` autocomplete
-inside async `value` resolvers.
+inside async `value` resolvers. A `Date` is rendered through the admin's
+`formatting` — its `locale` and `timeZone` — like a table cell, so no resolver
+needs to format one by hand.
+
+```ts excerpt
+statGroup({
+  label: "Account",
+  span: 6,
+  stats: [
+    { label: "Plan", value: async (ctx) => planOf(ctx.row) },
+    { label: "Joined", value: async (ctx) => joinedAt(ctx.row) },
+    { label: "Open invoices", value: async (ctx) => ctx.count("invoices", { status: "open" }) },
+  ],
+});
+```
 
 ## Cards
 

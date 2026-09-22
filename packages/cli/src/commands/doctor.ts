@@ -24,6 +24,8 @@ export function doctorCommand(cli: Command): void {
         ...(opts.path ? { adminPath: opts.path } : {}),
       });
 
+      const configWarnings = await readConfigWarnings(cwd);
+
       if (opts.json) {
         writeJson({
           command: "doctor",
@@ -31,6 +33,9 @@ export function doctorCommand(cli: Command): void {
           checks: checks.map(({ name, ok, hint }) => ({ name, ok, ...(hint ? { hint } : {}) })),
           ...(plan ? { fixes: publicPlan(plan), applied: !opts.dryRun } : {}),
           ...(fixBlocked ? { fixBlocked } : {}),
+          ...("unreadable" in configWarnings
+            ? { configWarnings: [], configUnreadable: configWarnings.unreadable }
+            : { configWarnings: configWarnings.warnings }),
         });
         process.exit(bad === 0 ? 0 : 1);
       }
@@ -50,7 +55,7 @@ export function doctorCommand(cli: Command): void {
         }
       }
 
-      printConfigWarnings(await readConfigWarnings(cwd));
+      printConfigWarnings(configWarnings);
       process.stdout.write("\n");
       if (bad === 0) log.ok(pc.bold("All checks passed."));
       else log.err(pc.bold(`${bad} issue${bad === 1 ? "" : "s"} found.`));

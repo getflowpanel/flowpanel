@@ -190,8 +190,8 @@ async function detailHeader(
   const label = singularLabel(resource, name);
   const fallback = row[pk] === undefined ? label : `${label} · ${String(row[pk])}`;
   const declared = detail?.title ? await detail.title(row) : await detail?.header?.(row);
-  const subtitle = detail?.subtitle?.(row);
-  const badge = detail?.badge?.(row);
+  const subtitle = await detail?.subtitle?.(row);
+  const badge = await detail?.badge?.(row);
   return {
     title: declared ?? fallback,
     ...(subtitle ? { subtitle } : {}),

@@ -1,28 +1,11 @@
-import { DEFAULT_FORMATTING, type ResolvedFormatting } from "@flowpanel/core/format";
+import {
+  DEFAULT_FORMATTING,
+  formatDateValue,
+  type ResolvedFormatting,
+} from "@flowpanel/core/format";
 import type * as React from "react";
 
 import { LocalTime } from "../_atoms/LocalTime";
-
-const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-};
-
-const DATE_FMTS = new Map<string, Intl.DateTimeFormat>();
-
-function dateFmt({ dateLocale, timeZone }: ResolvedFormatting): Intl.DateTimeFormat {
-  const key = `${dateLocale}|${timeZone}`;
-  let fmt = DATE_FMTS.get(key);
-  if (!fmt) {
-    fmt = new Intl.DateTimeFormat(dateLocale, { ...DATE_OPTIONS, timeZone });
-    DATE_FMTS.set(key, fmt);
-  }
-  return fmt;
-}
 
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
@@ -41,7 +24,7 @@ export function formatCell(
 ): React.ReactNode {
   if (v === null || v === undefined) return "";
   const date = asDate(v);
-  if (date) return dateFmt(formatting).format(date).replace(",", "");
+  if (date) return formatDateValue(date, formatting);
   if (typeof v === "boolean") return v ? "Yes" : "No";
   return String(v);
 }

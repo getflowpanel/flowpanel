@@ -171,6 +171,13 @@ statGroup({
   ],
 });
 
+// a stat resolver takes the context and nothing else — the record is ctx.row
+expectError(
+  statGroup({
+    stats: [{ label: "Users", value: async (_ctx: WidgetContext, _row: unknown) => 1 }],
+  }),
+);
+
 // ── drawer widget tabs reject custom() widgets ───────────────────────────
 expectAssignable<DrawerTabWidgets>({
   key: "w",

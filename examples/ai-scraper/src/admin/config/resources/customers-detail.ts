@@ -9,9 +9,6 @@ function rowOf(ctx: WidgetContext): Partial<Customer> {
   return (ctx.row ?? {}) as Partial<Customer>;
 }
 
-const day = (value: Date | string | null | undefined): string =>
-  value == null ? "—" : new Date(value).toISOString().slice(0, 10);
-
 export const customerTitle = (row: Customer): string => row.company ?? row.email;
 
 export const customerSubtitle = (row: Customer): string =>
@@ -32,8 +29,8 @@ const account = kv({
     { label: "Email", value: async (ctx) => rowOf(ctx).email ?? "—" },
     { label: "Plan", value: async (ctx) => labelOf(PLANS, rowOf(ctx).plan ?? "") },
     { label: "Status", value: async (ctx) => labelOf(STATUSES, rowOf(ctx).status ?? "") },
-    { label: "Joined", value: async (ctx) => day(rowOf(ctx).createdAt) },
-    { label: "Last seen", value: async (ctx) => day(rowOf(ctx).lastSeenAt) },
+    { label: "Joined", value: async (ctx) => rowOf(ctx).createdAt },
+    { label: "Last seen", value: async (ctx) => rowOf(ctx).lastSeenAt },
   ],
 });
 

@@ -68,4 +68,10 @@ describe("renderWidget without @flowpanel/charts", () => {
       RU_LABELS.widget.chartsMissing,
     );
   });
+
+  it("marks the card as an error surface, so a smoke walk sees it", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const card = await renderWidget(widget, ctx(DEFAULT_LABELS), cfg, reqCtx);
+    expect((card as ReactElement<{ "data-fp-error"?: string }>).props["data-fp-error"]).toBe("");
+  });
 });

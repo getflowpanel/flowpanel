@@ -38,6 +38,7 @@ export function BarChart({ data, options }: { data: unknown[]; options: BarChart
     data as Record<string, unknown>[],
     options.x,
     options.bucket,
+    formatting,
   );
   const valueTickFormatter = buildValueTickFormatter(options.format, formatting);
   // Stacked bars only round the outer segment cleanly, so keep them square.

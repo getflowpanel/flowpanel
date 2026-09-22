@@ -2,11 +2,12 @@ import type {
   MetricResult,
   RequestContext,
   ResolvedAdminConfig,
+  StatValue,
   TableWidgetOptions,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
+import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
 import { safeErrorMessage } from "../runtime/action-helpers";
 import {
   declaredFieldName,
@@ -14,6 +15,7 @@ import {
   resolveReadableFieldSet,
 } from "../runtime/readable-fields";
 import { readRelatedRows } from "../runtime/require-authorized";
+import { statDisplay } from "../runtime/stat-result";
 import { type SerializedCardWidget, serializeCardWidget } from "./serialize-cards";
 
 /** A widget column is a bare key or an object naming one; the wire needs the key. */
@@ -45,7 +47,7 @@ export type SerializedWidget =
   | {
       kind: "statGroup";
       label?: string;
-      stats: { label: string; value: unknown; format?: string; tone?: string }[];
+      stats: { label: string; value: string | number; format?: string; tone?: string }[];
       span?: number;
       realtime?: string | string[];
     }
@@ -58,7 +60,7 @@ export type SerializedWidget =
       span?: number;
       realtime?: string | string[];
     }
-  | { kind: "unsupported"; label?: string; reason: string; span?: number };
+  | { kind: "unsupported"; label?: string; reason: string; failed?: true; span?: number };
 
 export async function serializeWidget(
   w: WidgetConfig,
@@ -148,15 +150,18 @@ export async function serializeWidget(
         };
       }
       case "statGroup": {
+        const formatting = resolveFormatting(config.formatting);
         const stats = await Promise.all(
           w.options.stats.map(async (s) => ({
             label: s.label,
-            value:
+            value: statDisplay(
               typeof s.value === "function"
                 ? await runWithRequestContext(reqCtx, () =>
-                    (s.value as (c: WidgetContext) => Promise<unknown>)(widgetCtx),
+                    (s.value as (c: WidgetContext) => Promise<StatValue>)(widgetCtx),
                   )
                 : s.value,
+              formatting,
+            ),
             ...(s.format ? { format: s.format } : {}),
             ...(s.tone ? { tone: s.tone } : {}),
           })),
@@ -205,6 +210,7 @@ export async function serializeWidget(
     return {
       kind: "unsupported",
       reason: safeErrorMessage(err, "widget query failed"),
+      failed: true,
     };
   }
 }

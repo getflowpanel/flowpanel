@@ -32,6 +32,56 @@ function moneyFmt(locale: string, currency: string): Intl.NumberFormat {
   return fmt;
 }
 
+const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+};
+const DAY_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+};
+const DATE_FMTS = new Map<string, Intl.DateTimeFormat>();
+
+function dateFmt(
+  locale: string,
+  timeZone: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const key = `${locale}|${timeZone}|${options === DAY_OPTIONS ? "day" : "minute"}`;
+  let fmt = DATE_FMTS.get(key);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(locale, { ...options, timeZone });
+    DATE_FMTS.set(key, fmt);
+  }
+  return fmt;
+}
+
+/**
+ * The timestamp shape every FlowPanel surface shows — table cells, stat and kv
+ * cards, chart ticks — in the admin's `dateLocale` and `timeZone`.
+ */
+export function formatDateValue(
+  value: Date,
+  formatting: ResolvedFormatting = DEFAULT_FORMATTING,
+  timeZone: string = formatting.timeZone,
+): string {
+  return dateFmt(formatting.dateLocale, timeZone, DATE_OPTIONS).format(value).replace(",", "");
+}
+
+/** The same date without the clock, for a label a full timestamp would crowd. */
+export function formatDayValue(
+  value: Date,
+  formatting: ResolvedFormatting = DEFAULT_FORMATTING,
+  timeZone: string = formatting.timeZone,
+): string {
+  return dateFmt(formatting.dateLocale, timeZone, DAY_OPTIONS).format(value);
+}
+
 /**
  * Format the `money` / `number` variants of {@link ColumnFormat} as a string.
  * Server- and client-rendered cells share it so the same value reads the same
@@ -59,15 +109,17 @@ export function formatColumnValue(
 /**
  * Format the `NumericFormat` variants a widget declares. Locale and currency both
  * come from the admin's resolved `formatting`, so one dashboard never prints two
- * currencies for the same money.
+ * currencies for the same money. A bare locale string is accepted as the 0.2
+ * signature and keeps that release's currency and zone.
  */
 export function formatNumber(
   value: number,
   format: NumericFormat = "number",
-  formatting: ResolvedFormatting = DEFAULT_FORMATTING,
+  formatting: string | ResolvedFormatting = DEFAULT_FORMATTING,
 ): string {
   if (!Number.isFinite(value)) return String(value);
-  const { locale, currency } = formatting;
+  const { locale, currency } =
+    typeof formatting === "string" ? { ...DEFAULT_FORMATTING, locale: formatting } : formatting;
   switch (format) {
     case "currency":
       return new Intl.NumberFormat(locale, {

@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createProgram } from "../../program";
+import { CLI_VERSION } from "../../utils/kit";
 
 let root: string;
 async function write(file: string, content: string) {
@@ -22,8 +23,8 @@ beforeEach(async () => {
         next: "16.3.0",
         "drizzle-orm": "0.45.2",
         tailwindcss: "4.3.0",
-        "@flowpanel/kit": "0.1.0",
-        "@flowpanel/cli": "0.1.0",
+        "@flowpanel/kit": CLI_VERSION,
+        "@flowpanel/cli": CLI_VERSION,
       },
     }),
   );
@@ -33,8 +34,8 @@ beforeEach(async () => {
     install("react-dom", "19.2.0"),
     install("drizzle-orm", "0.45.2"),
     install("typescript", "5.9.0", { bin: { tsc: "bin/tsc" } }),
-    install("@flowpanel/kit", "0.1.0"),
-    install("@flowpanel/cli", "0.1.0"),
+    install("@flowpanel/kit", CLI_VERSION),
+    install("@flowpanel/cli", CLI_VERSION),
   ]);
   await write(
     "src/app/layout.tsx",

@@ -260,10 +260,16 @@ export interface ResourceOptions<Row> {
     title?: (row: Row) => ReactNode | string | null | undefined;
     /** @deprecated Use `title`. Removed in 1.0. */
     header?: (row: Row) => ReactNode;
-    /** One line under the heading, for the fact that identifies the record. */
-    subtitle?: (row: Row) => string | null | undefined;
-    /** Status pill beside the heading. */
-    badge?: (row: Row) => { label: string; tone?: Tone } | null | undefined;
+    /** One line under the heading, for the fact that identifies the record. May be async. */
+    subtitle?: (row: Row) => string | null | undefined | Promise<string | null | undefined>;
+    /** Status pill beside the heading. May be async. */
+    badge?: (
+      row: Row,
+    ) =>
+      | { label: string; tone?: Tone }
+      | null
+      | undefined
+      | Promise<{ label: string; tone?: Tone } | null | undefined>;
     tabs?: DetailTab<Row>[];
     fields?: (keyof Row | FieldDef<Row>)[] | "*";
   };

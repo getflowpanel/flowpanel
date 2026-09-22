@@ -1,21 +1,18 @@
 import type {
   BarRow,
-  ColumnFormat,
   FunnelStep,
   KvItem,
   ListRow,
   MetricResult,
-  NumericFormat,
   RequestContext,
   ResolvedAdminConfig,
-  ResolvedFormatting,
   StatResult,
   StatValue,
   StatWidget,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { formatColumnValue, formatNumber, resolveFormatting } from "@flowpanel/core";
+import { resolveFormatting } from "@flowpanel/core";
 import {
   BarsCard,
   FunnelCard,
@@ -28,6 +25,7 @@ import {
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { ServerCard } from "./_server-card";
+import { kvDisplay } from "./kv-display";
 import { renderTableWidget } from "./render-table-widget";
 import { statDisplay, statResultOf } from "./stat-result";
 
@@ -44,25 +42,6 @@ async function resolveStatValue(
   ctx: WidgetContext,
 ): Promise<StatValue> {
   return typeof value === "function" ? await value(ctx) : value;
-}
-
-/** A `kv` item may name a column format or a numeric one; both resolve to a string here. */
-function kvDisplay(
-  value: StatValue,
-  format: ColumnFormat | NumericFormat | undefined,
-  formatting: ResolvedFormatting,
-): string {
-  if (value === null || value === undefined) return "—";
-  if (format === undefined) return String(value);
-  if (
-    format === "currency" ||
-    format === "percent" ||
-    format === "bytes" ||
-    format === "duration"
-  ) {
-    return typeof value === "number" ? formatNumber(value, format, formatting) : String(value);
-  }
-  return formatColumnValue(value, format, formatting);
 }
 
 function withRealtime(node: ReactNode, channels: string | string[] | undefined): ReactNode {
@@ -109,10 +88,11 @@ export async function renderWidget(
       );
     }
     case "statGroup": {
+      const groupFormatting = resolveFormatting(config.formatting);
       const stats = await Promise.all(
         widget.options.stats.map(async (s) => ({
           label: s.label,
-          value: await resolveStatValue(s.value, ctx),
+          value: statDisplay(await resolveStatValue(s.value, ctx), groupFormatting),
           ...(s.format ? { format: s.format } : {}),
           ...(s.tone ? { tone: s.tone } : {}),
         })),
@@ -127,13 +107,14 @@ export async function renderWidget(
     }
     case "stat": {
       const result = await resolveStat(widget.value, ctx);
+      const statFormatting = resolveFormatting(config.formatting);
       const hint = result.hint ?? widget.options.hint;
       const href = result.href ?? widget.options.href;
       const tone = result.tone ?? widget.options.tone;
       return withRealtime(
         <StatCard
           label={widget.label}
-          value={statDisplay(result.value)}
+          value={statDisplay(result.value, statFormatting)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
           {...(hint ? { hint } : {})}
           {...(href ? { href } : {})}
@@ -223,7 +204,10 @@ export async function renderWidget(
       } catch (e) {
         console.error("[flowpanel/charts] dynamic import failed:", e);
         return (
-          <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 text-xs text-fp-text-3">
+          <div
+            data-fp-error=""
+            className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 text-xs text-fp-text-3"
+          >
             {ctx.labels.widget.chartsMissing}
           </div>
         );

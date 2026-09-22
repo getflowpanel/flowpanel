@@ -98,6 +98,7 @@ The [customization guide](https://flowpanel.tech/docs/customization/overview) ex
 | [`@flowpanel/adapter-drizzle`](packages/adapter-drizzle) | Drizzle resource adapter |
 | [`@flowpanel/adapter-prisma`](packages/adapter-prisma) | Prisma resource adapter |
 | [`@flowpanel/adapter-bullmq`](packages/adapter-bullmq) | BullMQ queue adapter and board integration |
+| [`@flowpanel/test`](packages/test) | `smokeAdmin` — a Playwright smoke walk over every admin route |
 
 Lower-level core, Next.js, React, charts, client, and ESLint packages are available for advanced integrations. All workspace packages are released together while FlowPanel is pre-1.0.
 

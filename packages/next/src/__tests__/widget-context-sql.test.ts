@@ -174,6 +174,24 @@ describe("ctx.count", () => {
     expect(count).toHaveBeenCalledWith({ __name: "orders" }, { deletedAt: "__notnull__" });
   });
 
+  it("rejects a where key the target has no column for, before either path runs", async () => {
+    const withCapability = baseAdapter();
+    const count = vi.fn().mockResolvedValue(42);
+    withCapability.count = count;
+    await expect(contextFor(withCapability).count("orders", { tenntId: "t1" })).rejects.toThrow(
+      /ctx\.count\("orders"\) filters by "tenntId"/,
+    );
+    await expect(contextFor(withCapability).count("orders", { tenntId: "t1" })).rejects.toThrow(
+      /Did you mean "tenantId"\?/,
+    );
+    expect(count).not.toHaveBeenCalled();
+
+    await expect(contextFor(baseAdapter()).count("orders", { tenntId: "t1" })).rejects.toThrow(
+      /no such column on that resource/,
+    );
+    expect(lists).toHaveLength(0);
+  });
+
   it("names the registered resources when the name is unknown", async () => {
     const ctx = contextFor(baseAdapter());
     await expect(ctx.count("ordrs")).rejects.toThrow(/Registered: orders, secrets, people/);

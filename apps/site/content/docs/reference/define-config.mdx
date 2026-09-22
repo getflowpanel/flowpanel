@@ -47,11 +47,12 @@ purpose — behind a VPN or an authenticating proxy — sets
 stricter: a config without `auth.requireRole` refuses to compile unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
-Four presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
+Five presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
 (`devAuth` is also on the package root):
 
 | Preset | Session source | Role read from |
 | --- | --- | --- |
+| `withBetterAuth(opts)` | the better-auth instance you pass, via `auth.api.getSession` | `session.user.role` |
 | `withClerk(opts?)` | Clerk's `auth()` helper, loaded lazily | `sessionClaims.publicMetadata.role` |
 | `withNextAuth(opts)` | the `auth()` / `getServerSession` you pass | `session.user.role` |
 | `withLucia(opts)` | the Lucia instance you pass | `user.role` |
@@ -61,7 +62,8 @@ Four presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
 nobody, sets no `requireRole`, and leaves the "no access control" warning
 firing.
 
-See [Auth with Clerk](/docs/guides/auth-with-clerk) for the worked setup.
+See [Auth with better-auth](/docs/guides/auth-with-better-auth) and
+[Auth with Clerk](/docs/guides/auth-with-clerk) for the worked setups.
 
 ## ThemeConfig
 

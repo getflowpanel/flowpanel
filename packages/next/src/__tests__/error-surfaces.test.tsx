@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
 
 import { DrawerHost } from "../drawer/DrawerHost";
 import { handleRenderError } from "../flowpanel-page";
+import { renderRelatedTab } from "../pages/detail-tabs/render-related-tab";
 import { QueryErrorCard } from "../runtime/query-error";
 import { WidgetErrorBoundary } from "../runtime/WidgetErrorBoundary";
 
@@ -78,7 +79,7 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
   });
 
   it("tags the health banner's error tone and leaves its other tones alone", () => {
-    const { container: error } = render(<HealthBanner tone="error" title="Adapter unreachable" />);
+    const { container: error } = render(<HealthBanner tone="err" title="Adapter unreachable" />);
     expect(error.querySelector("[data-fp-error]")).toBeTruthy();
 
     cleanup();
@@ -119,6 +120,61 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
       ),
     );
     expect(screen.getByText(/sign in required/i)).toBeTruthy();
+  });
+
+  it("tags the card a related tab naming an unregistered resource renders", async () => {
+    const node = await renderRelatedTab(
+      config,
+      {
+        req: new Request("http://localhost/admin/users/u1"),
+        session: null,
+        role: "admin",
+        scope: null,
+        ip: null,
+        userAgent: null,
+      },
+      { id: "u1" },
+      { key: "invoices", label: "Invoices", resource: "invoics", on: "userId" } as never,
+      new Request("http://localhost/admin/users/u1"),
+      new URLSearchParams(),
+    );
+    const { container } = render(node);
+    expect(container.querySelector("[data-fp-error]")).toBeTruthy();
+  });
+
+  it("tags a drawer widget whose own query failed, beside the panel's other cards", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          row: { id: "27" },
+          header: "User 27",
+          resourceLabel: "Users",
+          width: "md",
+          fields: [],
+          tabs: [
+            {
+              key: "stats",
+              label: "Stats",
+              kind: "widgets",
+              widgets: [{ kind: "unsupported", reason: "widget query failed", failed: true }],
+            },
+          ],
+          actions: [],
+          prerendered: {},
+          labels: {},
+          formats: {},
+          detailHref: null,
+        }),
+      ),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    await waitFor(() => expect(document.querySelector("[data-fp-error]")).toBeTruthy());
+    expect(screen.getByText("widget query failed")).toBeTruthy();
   });
 
   it("tags a drawer whose payload read failed", async () => {

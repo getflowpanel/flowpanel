@@ -1,4 +1,5 @@
 import {
+  assertCountWhereColumns,
   assertResourceScope,
   authorizeOperation,
   checkRequireRole,
@@ -8,6 +9,7 @@ import {
   type ResolvedAdminConfig,
   type ResourceConfig,
   resolveOperationAccess,
+  resolveResourceName,
   runWithRequestContext,
 } from "@flowpanel/core";
 import { declaredRowFields, projectRowFields, selectKnownFields } from "./project-row";
@@ -70,6 +72,11 @@ export async function readRelatedCount(
   reqCtx: RequestContext,
   filters: Record<string, unknown> = {},
 ): Promise<number | null> {
+  assertCountWhereColumns(
+    resolveResourceName(target),
+    filters,
+    config.adapter.introspect(target.ref).columns.map((column) => column.name),
+  );
   // A missing projected value must not turn a filtered count into a total.
   if (Object.values(filters).some((value) => value === undefined)) return 0;
   const direct = config.adapter.count;

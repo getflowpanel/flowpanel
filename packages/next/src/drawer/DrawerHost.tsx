@@ -247,6 +247,7 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
         return (
           <div
             key={key}
+            {...(w.failed ? { "data-fp-error": "" } : {})}
             className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2"
           >
             {w.reason}

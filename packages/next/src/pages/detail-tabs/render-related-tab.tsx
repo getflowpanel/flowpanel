@@ -77,7 +77,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   const target = config.resourcesByName.get(resourceName);
   if (!target) {
     return (
-      <div className="text-fp-text-3">
+      <div data-fp-error="" className="text-fp-text-3">
         {labels.detail.unknownResource.replace("{resource}", String(resourceName))}
       </div>
     );

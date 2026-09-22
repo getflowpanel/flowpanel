@@ -46,6 +46,25 @@ describe("serializing card widgets for a drawer", () => {
     expect((out as { items: { value: string }[] }).items[0]?.value).toContain("25");
   });
 
+  it("renders a Date through the admin's formatting, in a stat and in a kv row", async () => {
+    const zoned = { formatting: { timeZone: "Asia/Bangkok" } } as unknown as ResolvedAdminConfig;
+    const joined = new Date("2026-09-22T23:30:00.000Z");
+    const statOut = await serializeCardWidget(
+      stat("Joined", async () => joined),
+      zoned,
+      reqCtx,
+      ctx,
+    );
+    expect(statOut).toMatchObject({ value: "2026-09-23 06:30" });
+    const kvOut = await serializeCardWidget(
+      kv({ items: [{ label: "Joined", value: joined }] }),
+      zoned,
+      reqCtx,
+      ctx,
+    );
+    expect((kvOut as { items: { value: string }[] }).items[0]?.value).toBe("2026-09-23 06:30");
+  });
+
   it("carries bars, funnel and list rows with a resolved empty state", async () => {
     const barsOut = await serialize(bars({ query: async () => [{ label: "pro", value: 2 }] }));
     expect(barsOut).toEqual({

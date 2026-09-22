@@ -7,8 +7,8 @@ export type StatValue = string | number | boolean | bigint | Date | null | undef
 /** One row of a `statGroup`. */
 export interface StatItem {
   label: string;
-  /** A literal, or a function resolved per request. */
-  value: StatValue | ((ctx: WidgetContext, row?: unknown) => Promise<StatValue>);
+  /** A literal, or a function resolved per request. The record, in a detail tab, is `ctx.row`. */
+  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue>);
   format?: NumericFormat;
   tone?: Tone;
 }

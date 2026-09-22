@@ -41,6 +41,7 @@ export function AreaChart({ data, options }: { data: unknown[]; options: AreaCha
     data as Record<string, unknown>[],
     options.x,
     options.bucket,
+    formatting,
   );
   const valueTickFormatter = buildValueTickFormatter(options.format, formatting);
   const seriesColor = (i: number) => (multiSeries ? chartColor(i) : "hsl(var(--fp-accent))");

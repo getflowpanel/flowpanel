@@ -1,23 +1,17 @@
 import type {
   BarRow,
-  ColumnFormat,
   FunnelStep,
   KvItem,
   ListRow,
   NumericFormat,
   RequestContext,
   ResolvedAdminConfig,
-  ResolvedFormatting,
   StatValue,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import {
-  formatColumnValue,
-  formatNumber,
-  resolveFormatting,
-  runWithRequestContext,
-} from "@flowpanel/core";
+import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
+import { kvDisplay } from "../runtime/kv-display";
 import { statDisplay, statResultOf } from "../runtime/stat-result";
 
 /** Wire-safe shape of the card widgets a drawer renders with the dashboard's own components. */
@@ -78,25 +72,6 @@ async function resolveStat(
     : value;
 }
 
-/** A `kv` item may name a column format or a numeric one; the wire carries a string. */
-function kvDisplay(
-  value: StatValue,
-  format: ColumnFormat | NumericFormat | undefined,
-  formatting: ResolvedFormatting,
-): string {
-  if (value === null || value === undefined) return "—";
-  if (format === undefined) return String(value);
-  if (
-    format === "currency" ||
-    format === "percent" ||
-    format === "bytes" ||
-    format === "duration"
-  ) {
-    return typeof value === "number" ? formatNumber(value, format, formatting) : String(value);
-  }
-  return formatColumnValue(value, format, formatting);
-}
-
 /** `null` for a widget kind this module does not own. */
 export async function serializeCardWidget(
   w: WidgetConfig,
@@ -110,6 +85,7 @@ export async function serializeCardWidget(
   });
   switch (w.kind) {
     case "stat": {
+      const formatting = resolveFormatting(config.formatting);
       const resolver = w.value;
       const produced =
         typeof resolver === "function"
@@ -122,7 +98,7 @@ export async function serializeCardWidget(
       return {
         kind: "stat",
         label: w.label,
-        value: statDisplay(result.value),
+        value: statDisplay(result.value, formatting),
         ...(w.options.format ? { format: w.options.format } : {}),
         ...(hint ? { hint } : {}),
         ...(href ? { href } : {}),

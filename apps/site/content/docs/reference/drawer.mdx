@@ -97,15 +97,24 @@ a discriminated union over `kind`, one variant per widget type.
 type SerializedWidget =
   | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
   | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }
-  | { kind: "statGroup"; stats: { label: string; value: unknown; /* … */ }[]; /* … */ }
+  | { kind: "statGroup"; stats: { label: string; value: string | number; /* … */ }[]; /* … */ }
   | { kind: "chart"; subkind: "area" | "bar" | "line" | "pie"; label: string; dataPoints: number; /* … */ }
-  | { kind: "unsupported"; label?: string; reason: string; span?: number };
+  | { kind: "unsupported"; label?: string; reason: string; failed?: true; span?: number };
 ```
 
 The queries have already run by then — a metric carries its resolved `value`,
 a chart carries only how many points it produced. A widget whose query throws
-comes back as `{ kind: "unsupported", reason }` with a client-safe message, so
-one failing widget does not take the panel down with it.
+comes back as `{ kind: "unsupported", reason, failed: true }` with a client-safe
+message and a `data-fp-error` marker, so one failing widget does not take the
+panel down with it and a smoke walk still sees the failure.
+
+A drawer-hosted widget is a static card, and the wire shape above is the whole
+of what it renders: a `metric` shows its label, value, format, `sublabel` and
+`tone` — its `delta`, `href`/`drilldown` and `sparkline` are not rendered here —
+and a `table` shows its rows and columns, without `rowKey`, `rowHref`, `seeAll`
+or `emptyState`, and without applying a `limit` to a `query`'s own rows. The same
+widget in a dashboard section or a detail tab renders all of them; put a widget
+that needs them in a `detail` tab, which renders on the server.
 
 ## Actions
 

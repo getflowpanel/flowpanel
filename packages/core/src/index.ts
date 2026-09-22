@@ -10,11 +10,14 @@ export {
   DEFAULT_FORMATTING,
   type FormattingConfig,
   formatColumnValue,
+  formatDateValue,
+  formatDayValue,
   formatNumber,
   type ResolvedFormatting,
   resolveFormatting,
 } from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
+export { assertCountWhereColumns } from "./internal/count-where";
 export { declaredWriteFields } from "./internal/write-fields";
 export { RU_LABELS } from "./locales/ru";
 export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";

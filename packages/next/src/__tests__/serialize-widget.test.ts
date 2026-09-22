@@ -286,7 +286,7 @@ describe("serializeWidget — error & unknown", () => {
       options: {},
     } as never;
     const out = await serializeWidget(widget, mkConfig(), reqCtx, widgetCtx);
-    expect(out).toEqual({ kind: "unsupported", reason: "widget query failed" });
+    expect(out).toEqual({ kind: "unsupported", reason: "widget query failed", failed: true });
   });
 });
 
@@ -375,5 +375,40 @@ describe("serializeWidget — cross-resource authorization", () => {
     expect((out as { rows: Record<string, unknown>[] }).rows).toEqual([
       { id: "p1", userId: "u1", amount: 10 },
     ]);
+  });
+});
+
+describe("serializeWidget — a failed widget and a Date", () => {
+  it("marks a widget whose query threw, so the drawer can flag it as an error", async () => {
+    const out = await serializeWidget(
+      {
+        kind: "stat",
+        label: "Open",
+        value: async () => {
+          throw new Error("db down");
+        },
+        options: {},
+      } as never,
+      mkConfig(),
+      reqCtx,
+      widgetCtx,
+    );
+    expect(out).toMatchObject({ kind: "unsupported", failed: true });
+  });
+
+  it("sends a statGroup Date over the wire already formatted in the admin's zone", async () => {
+    const cfg = { ...mkConfig(), formatting: { timeZone: "Asia/Bangkok" } } as ResolvedAdminConfig;
+    const out = await serializeWidget(
+      {
+        kind: "statGroup",
+        options: {
+          stats: [{ label: "Joined", value: async () => new Date("2026-09-22T23:30:00Z") }],
+        },
+      } as never,
+      cfg,
+      reqCtx,
+      widgetCtx,
+    );
+    expect((out as { stats: { value: unknown }[] }).stats[0]?.value).toBe("2026-09-23 06:30");
   });
 });

@@ -99,11 +99,12 @@ purpose — behind a VPN or an authenticating proxy — sets
 stricter: a config without `auth.requireRole` refuses to compile unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
-Four presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
+Five presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
 (`devAuth` is also on the package root):
 
 | Preset | Session source | Role read from |
 | --- | --- | --- |
+| `withBetterAuth(opts)` | the better-auth instance you pass, via `auth.api.getSession` | `session.user.role` |
 | `withClerk(opts?)` | Clerk's `auth()` helper, loaded lazily | `sessionClaims.publicMetadata.role` |
 | `withNextAuth(opts)` | the `auth()` / `getServerSession` you pass | `session.user.role` |
 | `withLucia(opts)` | the Lucia instance you pass | `user.role` |
@@ -113,7 +114,8 @@ Four presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
 nobody, sets no `requireRole`, and leaves the "no access control" warning
 firing.
 
-See [Auth with Clerk](/docs/guides/auth-with-clerk) for the worked setup.
+See [Auth with better-auth](/docs/guides/auth-with-better-auth) and
+[Auth with Clerk](/docs/guides/auth-with-clerk) for the worked setups.
 
 ### ThemeConfig
 
@@ -554,7 +556,7 @@ export const ordersResource = resource(orders, {
 | `rowClick?` | `"detail" \| "drawer" \| false` | What a row click — and Enter on the focused row — does. `"detail"` navigates to the row's own page, `"drawer"` opens the drawer and requires `drawer`, and `false` leaves rows inert. A row the projection cannot identify never acts. Default: ``"detail"` when `detail` is configured and `drawer` is not, `"drawer"` when only `drawer` is, otherwise `false``. |
 | `rowKey?` | `keyof Row & string` | Property holding each row's unique id. Default: `"id"`. |
 | `drawer?` | `DrawerConfig<Row>` | Side panel opened for a single row. |
-| `detail?` | `{ /** * Extra fields used only by detail headers, hidden-tab predicates, related * filters, or custom detail renderers. They never widen list rows. */ expose?: (keyof Row & string)[]; /** Heading content (inside h1). Receives declared, readable detail fields; nullish output uses `<label> · <pk>`. */ title?: (row: Row) => ReactNode \| string \| null \| undefined; /** @deprecated Use `title`. Removed in 1.0. */ header?: (row: Row) => ReactNode; /** One line under the heading, for the fact that identifies the record. */ subtitle?: (row: Row) => string \| null \| undefined; /** Status pill beside the heading. */ badge?: (row: Row) => { label: string; tone?: Tone } \| null \| undefined; tabs?: DetailTab<Row>[]; fields?: (keyof Row \| FieldDef<Row>)[] \| "*"; }` | Full-page view at `/<basePath>/<resource>/<id>`. |
+| `detail?` | `{ /** * Extra fields used only by detail headers, hidden-tab predicates, related * filters, or custom detail renderers. They never widen list rows. */ expose?: (keyof Row & string)[]; /** Heading content (inside h1). Receives declared, readable detail fields; nullish output uses `<label> · <pk>`. */ title?: (row: Row) => ReactNode \| string \| null \| undefined; /** @deprecated Use `title`. Removed in 1.0. */ header?: (row: Row) => ReactNode; /** One line under the heading, for the fact that identifies the record. May be async. */ subtitle?: (row: Row) => string \| null \| undefined \| Promise<string \| null \| undefined>; /** Status pill beside the heading. May be async. */ badge?: ( row: Row, ) => \| { label: string; tone?: Tone } \| null \| undefined \| Promise<{ label: string; tone?: Tone } \| null \| undefined>; tabs?: DetailTab<Row>[]; fields?: (keyof Row \| FieldDef<Row>)[] \| "*"; }` | Full-page view at `/<basePath>/<resource>/<id>`. |
 | `schema?` | `z.ZodTypeAny \| { create?: z.ZodTypeAny; update?: z.ZodTypeAny }` | Validation for writes. Overrides the schema inferred from the adapter. |
 | `create?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> }` | Create form. `disabled` removes the route, not just the button. |
 | `update?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; /** * Additional readable values available to edit-form hidden/readOnly * predicates. This never creates a control, default value, or write * permission. */ expose?: (keyof Row & string)[]; }` | Edit form. `disabled` removes the route, not just the button. |
@@ -1310,15 +1312,24 @@ a discriminated union over `kind`, one variant per widget type.
 type SerializedWidget =
   | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
   | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }
-  | { kind: "statGroup"; stats: { label: string; value: unknown; /* … */ }[]; /* … */ }
+  | { kind: "statGroup"; stats: { label: string; value: string | number; /* … */ }[]; /* … */ }
   | { kind: "chart"; subkind: "area" | "bar" | "line" | "pie"; label: string; dataPoints: number; /* … */ }
-  | { kind: "unsupported"; label?: string; reason: string; span?: number };
+  | { kind: "unsupported"; label?: string; reason: string; failed?: true; span?: number };
 ```
 
 The queries have already run by then — a metric carries its resolved `value`,
 a chart carries only how many points it produced. A widget whose query throws
-comes back as `{ kind: "unsupported", reason }` with a client-safe message, so
-one failing widget does not take the panel down with it.
+comes back as `{ kind: "unsupported", reason, failed: true }` with a client-safe
+message and a `data-fp-error` marker, so one failing widget does not take the
+panel down with it and a smoke walk still sees the failure.
+
+A drawer-hosted widget is a static card, and the wire shape above is the whole
+of what it renders: a `metric` shows its label, value, format, `sublabel` and
+`tone` — its `delta`, `href`/`drilldown` and `sparkline` are not rendered here —
+and a `table` shows its rows and columns, without `rowKey`, `rowHref`, `seeAll`
+or `emptyState`, and without applying a `limit` to a `query`'s own rows. The same
+widget in a dashboard section or a detail tab renders all of them; put a widget
+that needs them in a `detail` tab, which renders on the server.
 
 ### Actions
 
@@ -1383,9 +1394,11 @@ Docs: https://flowpanel.tech/docs/reference/widgets
 
 Documented types: WidgetContext, metric, MetricOptions, MetricResult, MetricDelta, table, TableWidgetOptions, WidgetColumn, statGroup, StatGroupOptions, StatItem, stat, StatOptions, StatResult, kv, KvOptions, KvItem, bars, BarsOptions, BarRow, funnel, FunnelOptions, FunnelStep, list, ListOptions, ListRow, custom, CustomOptions, ChartOptionsBase, areaChart, AreaChartOptions, barChart, BarChartOptions, lineChart, LineChartOptions, pieChart, PieChartOptions, previousRange, fillDays, dashboard, page, DashboardConfig, SectionConfig, DateRangeConfig, ResolvedDateRange, PageConfig
 
-Widgets are the contents of a dashboard section, and of a drawer's widget tab.
-Each builder returns a `WidgetConfig`; every `query` runs on the server with a
-`WidgetContext`.
+Widgets are the contents of a dashboard section, of a detail page's widgets tab,
+and of a drawer's widget tab. Each builder returns a `WidgetConfig`; every
+`query` runs on the server with a `WidgetContext`. In a detail tab and in a
+drawer the record being viewed is `ctx.row`; a drawer renders its widgets as
+static cards (see [Drawers](/docs/reference/drawer#drawertabwidgets)).
 
 ```ts excerpt
 import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
@@ -1493,7 +1506,8 @@ registry described under [resource icons](/docs/reference/resources#icons).
 
 A `metric()` query may return a bare number or string, or a `MetricResult`
 carrying the presentation the value itself implies. A result field wins over the
-matching static option, which stays as the fallback.
+matching static option, which stays as the fallback: `MetricResult.href` renders
+as the card's `drilldown`, and `MetricResult.sublabel` as its caption.
 
 #### MetricResult
 
@@ -1603,13 +1617,27 @@ table({
 | Property | Type | Notes |
 | --- | --- | --- |
 | `label` | `string` |  |
-| `value` | `StatValue \| ((ctx: WidgetContext, row?: unknown) => Promise<StatValue>)` | A literal, or a function resolved per request. |
+| `value` | `StatValue \| ((ctx: WidgetContext) => Promise<StatValue>)` | A literal, or a function resolved per request. The record, in a detail tab, is `ctx.row`. |
 | `format?` | `NumericFormat` |  |
 | `tone?` | `Tone` |  |
 
 `StatValue` is `string | number | boolean | bigint | Date | null | undefined`.
 Keeping the literal side explicit preserves full `WidgetContext` autocomplete
-inside async `value` resolvers.
+inside async `value` resolvers. A `Date` is rendered through the admin's
+`formatting` — its `locale` and `timeZone` — like a table cell, so no resolver
+needs to format one by hand.
+
+```ts excerpt
+statGroup({
+  label: "Account",
+  span: 6,
+  stats: [
+    { label: "Plan", value: async (ctx) => planOf(ctx.row) },
+    { label: "Joined", value: async (ctx) => joinedAt(ctx.row) },
+    { label: "Open invoices", value: async (ctx) => ctx.count("invoices", { status: "open" }) },
+  ],
+});
+```
 
 ### Cards
 

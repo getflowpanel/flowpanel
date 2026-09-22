@@ -72,6 +72,19 @@ describe("the detail heading as configuration", () => {
     expect(absent?.badge).toBeUndefined();
   });
 
+  it("awaits an async subtitle and badge, like title", async () => {
+    const props = await header({
+      label: "Customer",
+      columns: ["id", "email"],
+      detail: {
+        subtitle: async (row: Row) => `id ${String(row.id)}`,
+        badge: async () => ({ label: "pro", tone: "ok" as const }),
+      },
+    });
+    expect(props?.description).toBe("id u1");
+    expect(props?.badge).toEqual({ label: "pro", tone: "ok" });
+  });
+
   it("gives subtitle and badge the projected row, not the adapter's", async () => {
     const seen: Row[] = [];
     await header({
