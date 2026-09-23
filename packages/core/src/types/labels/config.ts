@@ -1,3 +1,17 @@
+/**
+ * A count template per `Intl.PluralRules` category of the admin's
+ * `formatting.locale`; a missing category falls back to `other`. Use `{n}`.
+ * @example { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записи" }
+ */
+export interface PluralLabel {
+  zero?: string;
+  one?: string;
+  two?: string;
+  few?: string;
+  many?: string;
+  other: string;
+}
+
 /** Localizable strings for FlowPanel's built-in chrome. */
 export interface LabelsConfig {
   /** Empty list state — used when a resource list returns 0 rows. */
@@ -95,6 +109,17 @@ export interface LabelsConfig {
     /** Use `{n}` for the selection count. Default: `"{n} selected"`. */
     selected?: string;
     clear?: string;
+  };
+  /**
+   * Count templates with one form per `Intl.PluralRules` category of
+   * `formatting.locale`. When set, they win over `table.result`/`table.results`
+   * and `bulkBar.selected`.
+   */
+  plurals?: {
+    /** The table's row count, every count `1` included. */
+    results?: PluralLabel;
+    /** The bulk bar's and a multi-select filter's selection count. */
+    selected?: PluralLabel;
   };
   /** Resource search input placeholder. Use `{label}` for the resource's label. */
   searchPlaceholder?: string;

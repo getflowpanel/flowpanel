@@ -1,7 +1,8 @@
 "use client";
-import { formatLabel } from "@flowpanel/core/labels";
+import { formatCount } from "@flowpanel/core/labels";
 import { ChevronDown } from "lucide-react";
 import * as React from "react";
+import { useFormatting } from "../../_provider/FormattingContext";
 import { useLabels } from "../../_provider/LabelsContext";
 import { cn } from "../../lib/cn";
 import { Button } from "../../ui/button";
@@ -30,6 +31,7 @@ export function MultiSelectFilter({
   placeholder: override,
 }: MultiSelectFilterProps) {
   const labels = useLabels();
+  const { locale } = useFormatting();
   const placeholder = override ?? labels.allOption;
   const id = React.useId();
   const selected = React.useMemo(() => (value ? value.split(",").filter(Boolean) : []), [value]);
@@ -42,7 +44,7 @@ export function MultiSelectFilter({
       ? placeholder
       : selected.length === 1
         ? (options.find((o) => o.value === selected[0])?.label ?? selected[0])
-        : formatLabel(labels.bulkBar.selected, { n: selected.length });
+        : formatCount(labels.plurals?.selected ?? labels.bulkBar.selected, selected.length, locale);
   return (
     <FilterField label={label} active={selected.length > 0}>
       <Popover>

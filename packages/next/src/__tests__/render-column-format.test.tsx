@@ -18,6 +18,24 @@ describe("renderColumnFormat", () => {
     expect(node.props.tone).toBe("err");
   });
 
+  it("shows a badge's label while tones stay keyed by the raw value", () => {
+    const format: ColumnFormat = {
+      kind: "badge",
+      tones: { freelancer: "info" },
+      labels: { freelancer: "Фрилансер" },
+    };
+    const node = renderColumnFormat(format, "freelancer") as ReactElement<{
+      status: string;
+      label?: string;
+      tone?: string;
+      className?: string;
+    }>;
+    expect(node.props.status).toBe("freelancer");
+    expect(node.props.label).toBe("Фрилансер");
+    expect(node.props.tone).toBe("info");
+    expect(node.props.className).toBeUndefined();
+  });
+
   it("renders money and number the way the table does", () => {
     expect(renderColumnFormat("number", 1234)).toBe("1,234");
     expect(renderColumnFormat("money", 12)).toBe("$12.00");
@@ -70,6 +88,7 @@ describe("renderColumnFormat / renderFormatCell parity", () => {
     ["badge with no tone for the value", { kind: "badge", tones: { paid: "ok" } }, "past_due"],
     ["badge without a tones map", { kind: "badge" }, "past_due"],
     ["badge, empty value", "badge", null],
+    ["badge with a label", { kind: "badge", labels: { admin: "Админ" } }, "admin"],
   ];
 
   // The two copies used to guard the tone lookup differently — `typeof format
@@ -79,7 +98,7 @@ describe("renderColumnFormat / renderFormatCell parity", () => {
   it.each(
     badgeCases,
   )("server and client resolve the %s tone identically", (_name, format, value) => {
-    type BadgeProps = { status: string; tone?: string };
+    type BadgeProps = { status: string; tone?: string; label?: string };
     const server = renderColumnFormat(format, value);
     const client = renderFormatCell(format, value);
     if (!isValidElement(server)) {
@@ -90,5 +109,6 @@ describe("renderColumnFormat / renderFormatCell parity", () => {
     const b = (client as ReactElement<BadgeProps>).props;
     expect(a.status).toBe(b.status);
     expect(a.tone).toBe(b.tone);
+    expect(a.label).toBe(b.label);
   });
 });

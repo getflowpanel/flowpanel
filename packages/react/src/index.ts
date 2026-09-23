@@ -231,7 +231,7 @@ export {
   type UseRealtimeRefreshOptions,
   useRealtimeRefresh,
 } from "./hooks/useRealtimeRefresh";
-export { useRowNavigation } from "./hooks/useRowNavigation";
+export { useRowHrefClick, useRowNavigation } from "./hooks/useRowNavigation";
 export { type UseTheme, type UseThemeOptions, useTheme } from "./hooks/useTheme";
 export { type UrlState, useUrlState } from "./hooks/useUrlState";
 export { cn } from "./lib/cn";

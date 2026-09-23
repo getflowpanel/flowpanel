@@ -4,6 +4,9 @@ import { Sparkline } from "../_atoms/Sparkline";
 import { Card, CardContent, CardHeader } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
+import { formatPercent } from "../lib/percent";
+import { toneTextClass } from "../lib/tone-classes";
+import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface MetricCardProps {
   label: string;
@@ -56,12 +59,24 @@ export function DefaultMetricCard(props: MetricCardProps) {
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-baseline gap-1.5">
-              <span className="truncate text-[2rem] font-semibold leading-tight tracking-tight text-fp-text-1 tabular-nums">
+              <span
+                className={cn(
+                  "truncate text-[2rem] font-semibold leading-tight tracking-tight tabular-nums",
+                  toneTextClass[tone],
+                )}
+              >
                 {display}
               </span>
               {unit ? <span className="shrink-0 text-sm text-fp-text-3">{unit}</span> : null}
             </div>
-            {sublabel ? <div className="mt-0.5 text-xs text-fp-text-3">{sublabel}</div> : null}
+            {sublabel ? (
+              <div
+                className={cn(TWO_LINES, "mt-0.5 text-xs text-fp-text-3")}
+                {...fullTextTitle(sublabel)}
+              >
+                {sublabel}
+              </div>
+            ) : null}
             {delta ? (
               <div
                 className={cn(
@@ -71,8 +86,8 @@ export function DefaultMetricCard(props: MetricCardProps) {
                     : "bg-fp-err/10 text-fp-err-text",
                 )}
               >
-                {delta.value >= 0 ? "▲" : "▼"} {Math.abs(delta.value * 100).toFixed(1)}% ·{" "}
-                {delta.vs}
+                {delta.value >= 0 ? "▲" : "▼"} {formatPercent(Math.abs(delta.value), 1, formatting)}{" "}
+                · {delta.vs}
               </div>
             ) : null}
           </div>

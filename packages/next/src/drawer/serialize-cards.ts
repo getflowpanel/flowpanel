@@ -1,18 +1,16 @@
 import type {
   BarRow,
   FunnelStep,
-  KvItem,
   ListRow,
   NumericFormat,
   RequestContext,
   ResolvedAdminConfig,
-  StatValue,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
 import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
-import { kvDisplay } from "../runtime/kv-display";
-import { statDisplay, statResultOf } from "../runtime/stat-result";
+import { statDisplay } from "../runtime/stat-result";
+import { kvItemOf, resolveItem } from "../runtime/widget-items";
 
 /** Wire-safe shape of the card widgets a drawer renders with the dashboard's own components. */
 export type SerializedCardWidget =
@@ -40,6 +38,7 @@ export type SerializedCardWidget =
       label?: string;
       rows: BarRow[];
       format?: NumericFormat;
+      max?: number;
       emptyState: string;
       span?: number;
       realtime?: string | string[];
@@ -49,6 +48,7 @@ export type SerializedCardWidget =
       label?: string;
       steps: FunnelStep[];
       format?: NumericFormat;
+      alertDrop?: number;
       emptyState: string;
       span?: number;
       realtime?: string | string[];
@@ -61,16 +61,6 @@ export type SerializedCardWidget =
       span?: number;
       realtime?: string | string[];
     };
-
-async function resolveStat(
-  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue>),
-  reqCtx: RequestContext,
-  ctx: WidgetContext,
-): Promise<StatValue> {
-  return typeof value === "function"
-    ? await runWithRequestContext(reqCtx, () => value(ctx))
-    : value;
-}
 
 /** `null` for a widget kind this module does not own. */
 export async function serializeCardWidget(
@@ -86,12 +76,7 @@ export async function serializeCardWidget(
   switch (w.kind) {
     case "stat": {
       const formatting = resolveFormatting(config.formatting);
-      const resolver = w.value;
-      const produced =
-        typeof resolver === "function"
-          ? await runWithRequestContext(reqCtx, () => resolver(ctx))
-          : resolver;
-      const result = statResultOf(produced);
+      const result = await resolveItem(w.value, ctx, reqCtx);
       const hint = result.hint ?? w.options.hint;
       const href = result.href ?? w.options.href;
       const tone = result.tone ?? w.options.tone;
@@ -109,12 +94,7 @@ export async function serializeCardWidget(
     case "kv": {
       const formatting = resolveFormatting(config.formatting);
       const items = await Promise.all(
-        w.options.items.map(async (item: KvItem) => ({
-          label: item.label,
-          value: kvDisplay(await resolveStat(item.value, reqCtx, ctx), item.format, formatting),
-          ...(item.tone ? { tone: item.tone } : {}),
-          ...(item.href ? { href: item.href } : {}),
-        })),
+        w.options.items.map((item) => kvItemOf(item, ctx, formatting, reqCtx)),
       );
       return {
         kind: "kv",
@@ -130,6 +110,7 @@ export async function serializeCardWidget(
         ...(w.options.label ? { label: w.options.label } : {}),
         rows: await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
         ...(w.options.format ? { format: w.options.format } : {}),
+        ...(w.options.max !== undefined ? { max: w.options.max } : {}),
         emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
         ...common(w.options),
       };
@@ -139,6 +120,7 @@ export async function serializeCardWidget(
         ...(w.options.label ? { label: w.options.label } : {}),
         steps: await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
         ...(w.options.format ? { format: w.options.format } : {}),
+        ...(w.options.alertDrop !== undefined ? { alertDrop: w.options.alertDrop } : {}),
         emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
         ...common(w.options),
       };

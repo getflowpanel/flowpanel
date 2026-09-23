@@ -1,4 +1,5 @@
 import {
+  badgeProps,
   type ColumnFormat,
   DEFAULT_FORMATTING,
   formatColumnValue,
@@ -18,16 +19,8 @@ export function renderColumnFormat(
   formatting: ResolvedFormatting = DEFAULT_FORMATTING,
 ): ReactNode {
   if (format === "badge" || (typeof format === "object" && format.kind === "badge")) {
-    if (value === null || value === undefined || value === "") return "—";
-    const status = String(value);
-    const tone = typeof format === "object" ? format.tones?.[status] : undefined;
-    return (
-      <StatusBadge
-        status={status.replace(/_/g, " ")}
-        className="capitalize"
-        {...(tone ? { tone } : {})}
-      />
-    );
+    const props = badgeProps(format, value);
+    return props ? <StatusBadge {...props} /> : "—";
   }
   return formatColumnValue(value, format, formatting);
 }

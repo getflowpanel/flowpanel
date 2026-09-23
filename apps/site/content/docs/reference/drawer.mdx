@@ -51,7 +51,25 @@ in the table.
 
 `fields` is `DrawerFieldList<Row>` — the same shape as `detail.fields`:
 `(keyof Row | FieldDef<Row>)[] | "*"`. A key your row does not have is a compile
-error, not an empty row in the panel.
+error, not an empty row in the panel. A `FieldDef` with its own `render` shows the computed
+value, prerendered on the server, and wins over the column's `render` —
+see [fields and sections](/docs/reference/resources#fields-and-sections).
+
+### Server-rendered cells
+
+Column and field renders in a drawer run concurrently on the server and become
+static HTML in the route handler, so return text or plain elements there. A
+render must not depend on a database handle that allows one query at a time,
+such as a single transaction client; use a pooled client.
+A client component such as `LocalTime` does not render in the drawer, although
+the same `render` does on the detail page.
+
+A render that throws — or returns something the server cannot render — costs only
+its own cell. The server logs `[flowpanel] drawer render failed for "<field>"`
+with the error, and the reader sees the plain formatted value (the column's
+`format`, or the raw value). A field render that throws falls back to the column's
+`render` for the same field first. Both rules apply to column renders and
+`FieldDef.render` alike.
 
 ## Tabs
 

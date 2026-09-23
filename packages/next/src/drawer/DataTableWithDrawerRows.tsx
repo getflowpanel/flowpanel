@@ -8,7 +8,7 @@ import {
   RealtimeRefresh,
   useAdminDrawer,
   useAdminTable,
-  useRowNavigation,
+  useRowHrefClick,
 } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import * as React from "react";
@@ -87,22 +87,13 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
   } = props;
   const { open } = useAdminDrawer();
   const table = useAdminTable();
-  const navigate = useRowNavigation();
-  const hrefByRow = React.useMemo(
-    () => new Map(rowHrefs ? rows.map((row, index) => [row, rowHrefs[index] ?? null]) : []),
-    [rows, rowHrefs],
-  );
+  const hrefClick = useRowHrefClick(rows, rowHrefs);
   const onRowClick = openDrawerOnRowClick
     ? (row: Row) => {
         const id = rowIdentity(row, rowKey);
         if (id !== null) open({ resource, id });
       }
-    : rowHrefs
-      ? (row: Row) => {
-          const href = hrefByRow.get(row);
-          if (href) navigate(href);
-        }
-      : undefined;
+    : hrefClick;
 
   const hasRowActions = rowActions && rowActions.length > 0;
   const hasBulkActions = bulkActions && bulkActions.length > 0;

@@ -44,4 +44,35 @@ describe("documentation API checks", () => {
     );
     expect(codes).toEqual(expect.arrayContaining(["api-import-symbol", "api-component-symbol"]));
   });
+
+  it("flags a builder named in prose that no package exports", () => {
+    const root = mkdtempSync(join(tmpdir(), "flowpanel-docs-api-builder-"));
+    fixtures.push(root);
+    mkdirSync(join(root, "packages/example/src"), { recursive: true });
+    mkdirSync(join(root, "apps/site/content/docs/reference"), { recursive: true });
+    writeFileSync(
+      join(root, "tsconfig.base.json"),
+      JSON.stringify({ compilerOptions: { module: "ESNext", moduleResolution: "Bundler" } }),
+    );
+    writeFileSync(
+      join(root, "packages/example/package.json"),
+      JSON.stringify({
+        name: "@fixture/example",
+        exports: { ".": { types: "./dist/index.d.ts" } },
+      }),
+    );
+    writeFileSync(
+      join(root, "packages/example/src/index.ts"),
+      "export function defineAdmin(): void {}\n",
+    );
+    writeFileSync(
+      join(root, "apps/site/content/docs/reference/api.mdx"),
+      "---\ntitle: API\ndescription: API.\nkind: reference\n---\nSet it once in `defineAdmin()`, not in `defineConfig`.\n",
+    );
+
+    const problems = checkApi(root, { ownership: false, contracts: false });
+    expect(problems.map((problem) => [problem.code, problem.message])).toEqual([
+      ["api-inline-builder", "defineConfig is not exported by any FlowPanel package."],
+    ]);
+  });
 });

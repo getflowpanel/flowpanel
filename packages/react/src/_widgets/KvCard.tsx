@@ -2,6 +2,8 @@ import type * as React from "react";
 import { Card, CardContent, CardHeader } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
+import { toneTextClass } from "../lib/tone-classes";
+import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface KvCardItem {
   label: string;
@@ -25,12 +27,20 @@ export function KvCard({ label, items, columns = 2 }: KvCardProps) {
       {label ? <CardHeader>{label}</CardHeader> : null}
       <CardContent className={label ? "pt-0" : ""}>
         <dl className={cn("grid gap-3", columns === 1 ? "grid-cols-1" : "grid-cols-2")}>
-          {items.map((item) => (
-            <div key={item.label} data-tone={item.tone}>
+          {items.map((item, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: items are ordered and labels may repeat
+            <div key={index} data-tone={item.tone}>
               <dt className="truncate text-xs uppercase tracking-wide text-fp-text-3">
                 {item.label}
               </dt>
-              <dd className="mt-0.5 truncate text-sm font-medium tabular-nums text-fp-text-1">
+              <dd
+                className={cn(
+                  TWO_LINES,
+                  "mt-0.5 text-sm font-medium tabular-nums",
+                  toneTextClass[item.tone ?? "default"],
+                )}
+                {...fullTextTitle(item.value)}
+              >
                 {item.href ? (
                   <a href={item.href} className="hover:underline">
                     {item.value}

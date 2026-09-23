@@ -11,7 +11,6 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import { humanize, runWithRequestContext } from "@flowpanel/core";
-import { createElement, Fragment, type ReactNode } from "react";
 import {
   buildActionContext,
   buildAuditEvent,
@@ -40,7 +39,8 @@ import { readRelatedRows } from "../runtime/require-authorized";
 import { scopeBinding } from "../runtime/scope-binding";
 import { buildWidgetContext } from "../runtime/widget-context";
 import { withGuards } from "../runtime/with-guards";
-import { type SerializedFieldList, serializeFields } from "./serialize-fields";
+import { prerenderDrawerCells } from "./prerender";
+import { fieldRenders, type SerializedFieldList, serializeFields } from "./serialize-fields";
 import { type SerializedWidget, serializeWidget } from "./serialize-widget";
 
 export type { SerializedFieldList, SerializedWidget };
@@ -109,43 +109,6 @@ function buildFieldLabels(columns: ReadonlyArray<unknown>): Record<string, strin
     if (typeof c !== "object" || c === null) continue;
     const col = c as { field?: string; label?: string };
     if (col.field && col.label) out[col.field] = col.label;
-  }
-  return out;
-}
-
-let renderToStaticMarkupFn: ((node: ReactNode) => string) | null = null;
-async function getRenderToStaticMarkup(): Promise<(node: ReactNode) => string> {
-  if (!renderToStaticMarkupFn) {
-    // @ts-expect-error -- runtime export exists; ./server declarations don't resolve here
-    const mod = (await import("react-dom/server")) as {
-      renderToStaticMarkup: (node: ReactNode) => string;
-    };
-    renderToStaticMarkupFn = mod.renderToStaticMarkup;
-  }
-  return renderToStaticMarkupFn;
-}
-
-async function prerenderRowFields(
-  columns: ReadonlyArray<unknown>,
-  row: Record<string, unknown>,
-  reqCtx: unknown,
-): Promise<Record<string, string>> {
-  const withRender = columns.filter(
-    (c): c is { field: string; render: (row: unknown, ctx?: unknown) => ReactNode } =>
-      typeof c === "object" &&
-      c !== null &&
-      typeof (c as { field?: unknown }).field === "string" &&
-      typeof (c as { render?: unknown }).render === "function",
-  );
-  if (withRender.length === 0) return {};
-  const renderToStaticMarkup = await getRenderToStaticMarkup();
-  const out: Record<string, string> = {};
-  for (const col of withRender) {
-    try {
-      out[col.field] = renderToStaticMarkup(createElement(Fragment, null, col.render(row, reqCtx)));
-    } catch (error) {
-      console.error(`[flowpanel] drawer cell render failed for "${col.field}"`, error);
-    }
   }
   return out;
 }
@@ -311,7 +274,18 @@ export function drawerRoute(config: ResolvedAdminConfig) {
           fields: serializeFields(drawer.fields ?? "*", readableRowFields),
           tabs,
           actions: (await filterActionsByAccess(drawer.actions, reqCtx)).map(serializeAction),
-          prerendered: await prerenderRowFields(columns, projectedRow, reqCtx),
+          prerendered: await prerenderDrawerCells(
+            columns,
+            fieldRenders(
+              [
+                drawer.fields,
+                ...(drawer.tabs ?? []).map((t) => ("fields" in t ? t.fields : undefined)),
+              ],
+              readableRowFields,
+            ),
+            projectedRow,
+            reqCtx,
+          ),
           labels: buildFieldLabels(columns),
           formats: buildFieldFormats(columns),
           detailHref: resource.options.detail ? buildHref(config, String(resourceName), id) : null,

@@ -7,6 +7,8 @@ export { bars, custom, funnel, kv, list, metric, stat, statGroup, table } from "
 export { isBuiltinBulkDelete } from "./compiler/builtin-bulk-delete";
 export { defineAdmin } from "./define-admin";
 export {
+  type BadgeCellProps,
+  badgeProps,
   DEFAULT_FORMATTING,
   type FormattingConfig,
   formatColumnValue,
@@ -128,9 +130,11 @@ export {
 export type { IconName } from "./types/icon";
 export {
   DEFAULT_LABELS,
+  formatCount,
   formatLabel,
   type LabelsConfig,
   mergeLabels,
+  type PluralLabel,
   type ResolvedLabels,
 } from "./types/labels";
 export type { AdminPaths, AdminPathsInput } from "./types/paths";
@@ -215,6 +219,7 @@ export type {
   FunnelWidget,
   KvItem,
   KvOptions,
+  KvResult,
   KvWidget,
   ListOptions,
   ListRow,

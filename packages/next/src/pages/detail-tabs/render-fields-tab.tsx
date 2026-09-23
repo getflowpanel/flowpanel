@@ -13,6 +13,7 @@ import {
   type DetailCell,
   type DetailField,
   detailValue,
+  renderDetailFields,
   selectFields,
 } from "./detail-cells";
 
@@ -21,6 +22,7 @@ interface BlockArgs<Row> {
   fields: DetailField[];
   cells: Map<string, DetailCell>;
   formatting: ResolvedFormatting;
+  rendered: Map<string, ReactNode>;
   emptyState: string;
 }
 
@@ -30,6 +32,7 @@ function fieldsBlock<Row extends Record<string, unknown>>({
   fields,
   cells,
   formatting,
+  rendered,
   emptyState,
 }: BlockArgs<Row>): ReactNode {
   return (
@@ -42,7 +45,11 @@ function fieldsBlock<Row extends Record<string, unknown>>({
             <KVRow
               key={name}
               label={resolveFieldLabel(label ?? cells.get(name)?.label, name)}
-              value={detailValue(row[name as keyof Row], cells.get(name), formatting)}
+              value={
+                rendered.has(name)
+                  ? rendered.get(name)
+                  : detailValue(row[name as keyof Row], cells.get(name), formatting)
+              }
             />
           ))}
         </KV>
@@ -54,32 +61,42 @@ function fieldsBlock<Row extends Record<string, unknown>>({
 export interface FieldsTabSpec<Row> {
   fields?: DetailTab<Row>["fields"];
   sections?: DetailTab<Row>["sections"];
+  emptyState?: string;
 }
 
 /** A key/value tab, either one flat block or one block per declared section. */
-export function renderFieldsTab<Row extends Record<string, unknown>>(
+export async function renderFieldsTab<Row extends Record<string, unknown>>(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
   resource: ResourceConfig,
   row: Row,
   spec: FieldsTabSpec<Row>,
-): ReactNode {
+): Promise<ReactNode> {
   const cells = buildDetailCells(resource, row, reqCtx);
   const formatting = resolveFormatting(config.formatting);
-  const emptyState = mergeLabels(config.labels).detail.noFields;
+  const emptyState = spec.emptyState ?? mergeLabels(config.labels).detail.noFields;
+  const sections = spec.sections?.length
+    ? spec.sections.map((section) => ({ ...section, list: selectFields(row, section.fields) }))
+    : null;
+  const flat = sections ? [] : selectFields(row, spec.fields);
+  const rendered = await renderDetailFields(
+    row,
+    sections ? sections.flatMap((section) => section.list) : flat,
+    reqCtx,
+  );
   const block = (fields: DetailField[]) =>
-    fieldsBlock<Row>({ row, fields, cells, formatting, emptyState });
+    fieldsBlock<Row>({ row, fields, cells, formatting, rendered, emptyState });
 
-  if (spec.sections && spec.sections.length > 0) {
+  if (sections) {
     return (
       <div className="space-y-5">
-        {spec.sections.map((section) => (
+        {sections.map((section) => (
           <Section key={section.label} label={section.label}>
-            {block(selectFields(row, section.fields))}
+            {block(section.list)}
           </Section>
         ))}
       </div>
     );
   }
-  return block(selectFields(row, spec.fields));
+  return block(flat);
 }

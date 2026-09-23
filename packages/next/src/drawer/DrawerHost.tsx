@@ -15,6 +15,7 @@ import {
   type NumericFormat,
   RealtimeRefresh,
   renderFormatCell,
+  StatGroupCard,
   Tabs,
   TabsContent,
   TabsList,
@@ -201,23 +202,15 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
         if (w.kind === "statGroup") {
           return (
             <Fragment key={key}>
-              <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 md:col-span-2">
-                {w.label ? (
-                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
-                    {w.label}
-                  </div>
-                ) : null}
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                  {w.stats.map((s, j) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: stable order inside widget
-                    <div key={j}>
-                      <div className="text-xs text-fp-text-3">{s.label}</div>
-                      <div className="text-lg font-semibold text-fp-text-1 tabular-nums">
-                        {formatFieldValue(s.value)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="md:col-span-2">
+                <StatGroupCard
+                  {...(w.label ? { label: w.label } : {})}
+                  stats={w.stats.map(({ format, tone, ...stat }) => ({
+                    ...stat,
+                    ...(format ? { format: format as NumericFormat } : {}),
+                    ...(tone ? { tone: tone as Tone } : {}),
+                  }))}
+                />
               </div>
               {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
             </Fragment>

@@ -1,5 +1,6 @@
 "use client";
 import {
+  badgeProps,
   type ColumnFormat,
   DEFAULT_FORMATTING,
   formatColumnValue,
@@ -15,16 +16,8 @@ export function renderFormatCell(
   formatting: ResolvedFormatting = DEFAULT_FORMATTING,
 ): React.ReactNode {
   if (format === "badge" || (typeof format === "object" && format.kind === "badge")) {
-    if (value === null || value === undefined || value === "") return "—";
-    const s = String(value);
-    const tone = typeof format === "object" ? format.tones?.[s] : undefined;
-    return (
-      <StatusBadge
-        status={s.replace(/_/g, " ")}
-        className="capitalize"
-        {...(tone ? { tone } : {})}
-      />
-    );
+    const props = badgeProps(format, value);
+    return props ? <StatusBadge {...props} /> : "—";
   }
   return formatColumnValue(value, format, formatting);
 }

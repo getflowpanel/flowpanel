@@ -2,7 +2,6 @@ import type {
   MetricResult,
   RequestContext,
   ResolvedAdminConfig,
-  StatValue,
   TableWidgetOptions,
   WidgetConfig,
   WidgetContext,
@@ -15,7 +14,7 @@ import {
   resolveReadableFieldSet,
 } from "../runtime/readable-fields";
 import { readRelatedRows } from "../runtime/require-authorized";
-import { statDisplay } from "../runtime/stat-result";
+import { statItemOf } from "../runtime/widget-items";
 import { type SerializedCardWidget, serializeCardWidget } from "./serialize-cards";
 
 /** A widget column is a bare key or an object naming one; the wire needs the key. */
@@ -47,7 +46,13 @@ export type SerializedWidget =
   | {
       kind: "statGroup";
       label?: string;
-      stats: { label: string; value: string | number; format?: string; tone?: string }[];
+      stats: {
+        label: string;
+        value: string | number;
+        format?: string;
+        tone?: string;
+        href?: string;
+      }[];
       span?: number;
       realtime?: string | string[];
     }
@@ -152,19 +157,7 @@ export async function serializeWidget(
       case "statGroup": {
         const formatting = resolveFormatting(config.formatting);
         const stats = await Promise.all(
-          w.options.stats.map(async (s) => ({
-            label: s.label,
-            value: statDisplay(
-              typeof s.value === "function"
-                ? await runWithRequestContext(reqCtx, () =>
-                    (s.value as (c: WidgetContext) => Promise<StatValue>)(widgetCtx),
-                  )
-                : s.value,
-              formatting,
-            ),
-            ...(s.format ? { format: s.format } : {}),
-            ...(s.tone ? { tone: s.tone } : {}),
-          })),
+          w.options.stats.map((s) => statItemOf(s, widgetCtx, formatting, reqCtx)),
         );
         return {
           kind: "statGroup",

@@ -1,9 +1,11 @@
+import { RU_LABELS } from "../locales/ru";
 import { reservedNameError } from "../reserved-names";
 import { resolveResourceName } from "../resource-name";
 import type { Adapter, ResourceIntrospection } from "../types/adapter";
 import type { CompiledAdmin, CompiledResource } from "../types/compiled";
 import type { AdminConfig, ResolvedAdminConfig } from "../types/config";
 import type { DashboardConfig, PageConfig } from "../types/dashboard";
+import { type LabelsConfig, mergeLabels } from "../types/labels";
 import type { QueueConfig } from "../types/queue";
 import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
 import { validateResourceColumns } from "../validate-resource-columns";
@@ -61,6 +63,14 @@ function normalizeDeclaredRoutePath(raw: string): string {
     throw new Error('Declare the root route explicitly as "/" instead of an empty path.');
   }
   return normalizeRoutePath(raw);
+}
+
+/** A Russian `formatting.locale` makes `RU_LABELS` the base the host's labels merge over. */
+function localeLabels(
+  locale: string | undefined,
+  labels: LabelsConfig | undefined,
+): LabelsConfig | undefined {
+  return locale && /^ru(?:-|$)/i.test(locale) ? mergeLabels(labels, RU_LABELS) : labels;
 }
 
 export function compileAdmin<const Resources extends readonly AnyResourceConfig[]>(
@@ -181,8 +191,10 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     admin: basePath,
     api: normalizeRoutePath(config.paths?.api ?? "/api/flowpanel"),
   };
+  const labels = localeLabels(config.formatting?.locale, config.labels);
   const resolved: ResolvedAdminConfig<Resources> = {
     ...config,
+    ...(labels ? { labels } : {}),
     resources: resources as unknown as Resources,
     __resolved: true,
     resourcesByName,

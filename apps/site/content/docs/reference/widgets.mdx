@@ -166,7 +166,8 @@ table({
 Keeping the literal side explicit preserves full `WidgetContext` autocomplete
 inside async `value` resolvers. A `Date` is rendered through the admin's
 `formatting` — its `locale` and `timeZone` — like a table cell, so no resolver
-needs to format one by hand.
+needs to format one by hand. A resolver may return a [`KvResult`](#kvresult)
+instead, so the stat carries its own tone and link.
 
 ```ts excerpt
 statGroup({
@@ -185,8 +186,11 @@ statGroup({
 Five small cards cover most of what a founder dashboard shows between its metrics
 and its tables. Each takes counts and labels only; the card derives the geometry,
 formats values through the admin's `formatting` — locale *and* currency, so one
-dashboard never prints two currencies for the same money — and marks a `tone` on
-the item it belongs to.
+dashboard never prints two currencies for the same money — and colors an item by
+its `tone`: a stat, metric or kv value takes the tone's text color, a bar its
+fill, and a list row gets a leading dot, with colored text for `warn` and `err`.
+Hints, kv values, list text and meta, and bar and funnel labels wrap to two lines
+and show the full text on hover; headings, kv labels and numbers stay on one line.
 
 ### stat
 
@@ -227,12 +231,40 @@ The facts about one thing. Each item's `format` accepts a `ColumnFormat` or a
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="KvItem" />
 
+#### KvResult
+
+An item resolver may return a `KvResult` instead of a bare value, so a value
+computed from data carries its own tone and link — what `StatResult` does for
+`stat()`. A result field wins over the item's static `tone` or `href`, which stays
+as the fallback. `statGroup` items take the same result.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="KvResult" />
+
+```ts excerpt
+kv({
+  items: [
+    {
+      label: "Failed runs",
+      value: async (ctx) => {
+        const value = await ctx.count("runs", { status: "failed" });
+        return { value, tone: value > 0 ? "err" : "ok", href: ctx.href("runs") };
+      },
+    },
+  ],
+});
+```
+
 ### bars
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="bars" />
 
 A ranked breakdown. The query returns labels and values; the card sizes every bar
-against the largest one.
+against the largest one, or against `max` when you give it. A rate should set
+`max`, or its best row always draws as a full bar:
+
+```ts excerpt
+bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), format: "percent", max: 1 });
+```
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="BarsOptions" />
 
@@ -245,7 +277,9 @@ against the largest one.
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="funnel" />
 
 Stages in order. Give counts only: the card computes each step's share of the
-first step and its drop-off from the one before.
+first step and its drop-off from the one before. The step with the largest drop-off is
+marked with the `warn` tone — label and bar — when it loses more than `alertDrop`
+of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="FunnelOptions" />
 
@@ -264,6 +298,9 @@ A short feed — latest signups, failing jobs — where a table would be too muc
 #### ListRow
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="ListRow" />
+
+Rows are keyed by their position, so two rows with the same text are both shown.
+Give `key` — a record id — when rows are reordered by realtime updates.
 
 ```ts excerpt
 import { bars, funnel, kv, list, stat } from "@flowpanel/kit";

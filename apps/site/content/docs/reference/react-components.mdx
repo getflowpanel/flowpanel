@@ -165,8 +165,8 @@ resolves into.
 | `StatCard` | Renders a `stat()` widget — one number, a hint and an optional link. |
 | `StatGroupCard` | Renders a `statGroup()` widget. |
 | `KvCard` | Renders a `kv()` widget as a label/value grid. |
-| `BarsCard` | Renders a `bars()` widget, sizing each bar against the largest row. |
-| `FunnelCard` | Renders a `funnel()` widget, deriving each step's share and drop-off. |
+| `BarsCard` | Renders a `bars()` widget, sizing each bar against `max` or the largest row. |
+| `FunnelCard` | Renders a `funnel()` widget, deriving each step's share and drop-off and marking the worst drop past `alertDrop` in `warn`. |
 | `ListCard` | Renders a `list()` widget as a short feed. |
 | `TableWidget` | Renders a `table()` widget, reusing `DataTable`. |
 | `DashboardRefresh` | Re-renders a dashboard on its `refresh` interval and stamps the numbers' age. |
@@ -190,10 +190,10 @@ Small, single-purpose display components.
 | --- | --- |
 | `Avatar`, `DefaultAvatar` | User/entity avatar and its default renderer. |
 | `Badge`, `DefaultBadge` | Toned inline badge and its default renderer. |
-| `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. |
+| `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
 | `StatusDot` | Small toned dot, e.g. for realtime/queue status. |
 | `LiveIndicator` | Realtime connection status indicator (see `LiveStatus`). |
-| `LocalTime` | Absolute timestamp rendered in the viewer's timezone. |
+| `LocalTime` | Absolute timestamp in the configured `formatting.timeZone`, or the viewer's zone after hydration when none is set. |
 | `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
 | `Sparkline` | Minimal inline trend line for a numeric series. |
 | `Mono` | Monospace inline text, for IDs and code-like values. |
@@ -268,6 +268,11 @@ one dashboard URL search param, validated against a Zod schema.
 **`useRowNavigation()`** — returns `(href: string) => void`, the push a clicked
 table row performs. `TableWidget` uses it for `table()`'s `rowHref`; use it for
 your own row navigation so every table pushes the same way.
+
+**`useRowHrefClick(rows, rowHrefs)`** — the `DataTable` `onRowClick` for per-row
+hrefs indexed like `rows`: it pushes the clicked row's href, leaves a `null` entry
+inert and returns `undefined` when there are no hrefs. Enter on the focused row
+calls it too.
 
 **`useMediaQuery(query)`** — subscribes to a CSS media query via
 `useSyncExternalStore`, with a server snapshot of `false` so SSR and first

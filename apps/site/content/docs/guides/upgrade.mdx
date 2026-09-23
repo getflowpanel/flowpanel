@@ -42,6 +42,18 @@ Ejected files contain a version stamp and are application-owned. The upgrade doe
 
 If a newer config, renderer, page, or slot now covers the customization, consider returning that surface to generated behavior. Re-enabling config also requires removing the explicit Next.js route.
 
+## Upgrading from 0.3.0 to 0.3.1
+
+0.3.1 is a patch, but a few defaults change what an admin shows. Each has an opt-out.
+
+- **A configured `timeZone` holds after hydration.** With `formatting.timeZone` set, every `LocalTime` keeps that zone instead of switching to the reader's own after hydration, so a page shows one clock. Give a `LocalTime` its own `fallbackTimeZone` to keep the old switch for it, or leave `timeZone` unset to keep it everywhere.
+- **Related detail-tab rows open.** A row in a related tab opens the way it does on the target's own list: its detail page, or the target's list with its drawer open. To keep them inert, set `rowClick: false` on the target resource — that also makes the rows of the target's own list inert.
+- **A Russian locale switches the chrome to Russian.** With `formatting.locale` set to `"ru"` or `"ru-*"`, the built-in labels come from `RU_LABELS` and your `labels` merge over them. Pass `labels: DEFAULT_LABELS` to keep English chrome.
+- **Russian counts inflect.** `RU_LABELS` now carries `plurals`, so the row count reads «1 333 записи» instead of «Записей: 1 333» and the bulk bar «Выбрано 3 элемента». Setting `table.results` or `bulkBar.selected` yourself keeps your template.
+- **Funnels mark their worst drop.** The step with the largest drop-off turns `warn` when it loses more than half of the step before. `funnel({ alertDrop: 1 })` turns the mark off; another fraction moves the threshold.
+- **Unreadable detail fields are left out.** A field listed in a detail `fields` or `sections` entry that the reader may not read no longer shows as an empty row.
+- **Visual only.** A `stat` card's title uses the `metric` card's sentence case; hints, `kv` values, `list` text and meta, and bar and funnel labels wrap to two lines instead of one; widget `tone`s now color their values, bars and list rows; card percentages use the admin's locale; the drawer renders a `statGroup` with the dashboard's card. None of these has a switch.
+
 ## Upgrading from 0.2 to 0.3
 
 0.3 changes a few defaults and removes one dead option. Read this list against your `flowpanel.config.ts` before you upgrade.

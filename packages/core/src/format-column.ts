@@ -5,9 +5,39 @@ import {
   resolveFormatting,
 } from "./types/formatting";
 import type { ColumnFormat } from "./types/resource";
-import type { NumericFormat } from "./types/widget";
+import type { NumericFormat, Tone } from "./types/widget";
 
 export type { ColumnFormat, FormattingConfig, NumericFormat, ResolvedFormatting };
+
+/** The props a `badge` cell hands its `StatusBadge`. */
+export interface BadgeCellProps {
+  /** The raw value with `_` spaced out; the tone is inferred from it. */
+  status: string;
+  /** `format.labels[value]`, shown instead of `status`. */
+  label?: string;
+  /** `format.tones[value]`. */
+  tone?: Tone;
+  /** `"capitalize"` when there is no label. */
+  className?: string;
+}
+
+/**
+ * A `badge` cell's props for `value`, or `null` for an empty value. Server and
+ * client renderers share it; tones and labels stay keyed by the raw value.
+ */
+export function badgeProps(format: ColumnFormat, value: unknown): BadgeCellProps | null {
+  if (value === null || value === undefined || value === "") return null;
+  const raw = String(value);
+  const tone =
+    typeof format === "object" && format.kind === "badge" ? format.tones?.[raw] : undefined;
+  const label =
+    typeof format === "object" && format.kind === "badge" ? format.labels?.[raw] : undefined;
+  return {
+    status: raw.replace(/_/g, " "),
+    ...(label === undefined ? { className: "capitalize" } : { label }),
+    ...(tone ? { tone } : {}),
+  };
+}
 export { DEFAULT_FORMATTING, resolveFormatting };
 
 const NUMBER_FMTS = new Map<string, Intl.NumberFormat>();
@@ -85,7 +115,8 @@ export function formatDayValue(
 /**
  * Format the `money` / `number` variants of {@link ColumnFormat} as a string.
  * Server- and client-rendered cells share it so the same value reads the same
- * on both; the `badge` variant is JSX and stays with each renderer.
+ * on both; the `badge` variant is JSX and stays with each renderer, and here
+ * reads as its label.
  */
 export function formatColumnValue(
   value: unknown,
@@ -93,6 +124,9 @@ export function formatColumnValue(
   formatting: ResolvedFormatting = DEFAULT_FORMATTING,
 ): string {
   if (value === null || value === undefined || value === "") return "—";
+  if (typeof format === "object" && format.kind === "badge") {
+    return format.labels?.[String(value)] ?? String(value);
+  }
   if (typeof value !== "number" && typeof value !== "string") return String(value);
   const n = typeof value === "number" ? value : Number(value);
   if (Number.isNaN(n)) return String(value);

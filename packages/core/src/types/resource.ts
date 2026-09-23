@@ -20,7 +20,13 @@ export type ColumnFormat =
   | "badge"
   | "money"
   | "number"
-  | { kind: "badge"; tones?: Record<string, Tone> }
+  | {
+      kind: "badge";
+      /** Tone per raw value. */
+      tones?: Record<string, Tone>;
+      /** Display text per raw value, e.g. `{ admin: "Админ" }`; tones stay keyed by the raw value. */
+      labels?: Record<string, string>;
+    }
   | { kind: "money"; currency?: string; scale?: number };
 
 export interface ColumnDef<Row> {
@@ -140,6 +146,12 @@ export interface FieldDef<Row> {
   span?: 1 | 2 | 3 | 4 | 6 | 12;
   /** Fieldset heading this field is grouped under. */
   group?: string;
+  /**
+   * Detail pages and drawers only: what the field shows instead of its value — a
+   * join or a computed label. Runs on the server with the projected row, and only
+   * when the reader may read `name`.
+   */
+  render?: (row: Row, ctx: RequestContext) => ReactNode | Promise<ReactNode>;
 }
 
 /**
@@ -179,6 +191,11 @@ export interface DetailTab<Row> {
   columns?: 1 | 2 | 3 | 4 | 6 | 12;
   /** Render arbitrary content instead of fields, widgets or a related resource. */
   render?: (row: Row, ctx: DetailTabContext) => ReactNode;
+  /**
+   * Shown instead of the generic label when the tab has nothing to show: no related
+   * rows, no widgets, or no fields the reader may see.
+   */
+  emptyState?: string;
 }
 
 /** One page of rows, as returned by `Adapter.list`. */

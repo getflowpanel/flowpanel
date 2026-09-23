@@ -89,10 +89,22 @@ export function checkApi(root: string, options: CheckApiOptions = {}): DocsProbl
     join(root, "packages/*/src/**/*.tsx"),
   ]);
   const problems: DocsProblem[] = [];
+  const exportedNames = new Set(symbols.map((symbol) => symbol.exportName));
 
   for (const file of files) {
     const source = readFileSync(file, "utf8");
     const display = displayPath(root, file);
+    for (const match of source.matchAll(/`(define[A-Z]\w*)(?:\(\))?`/g)) {
+      const name = match[1] ?? "";
+      if (!exportedNames.has(name))
+        problems.push({
+          code: "api-inline-builder",
+          file: display,
+          line: lineAt(source, match.index),
+          message: `${name} is not exported by any FlowPanel package.`,
+          suggestion: "Name the builder the packages export, such as defineAdmin.",
+        });
+    }
     for (const match of source.matchAll(
       /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+["'](@[^"']+)["']/gs,
     )) {

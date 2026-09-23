@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatColumnValue, formatDateValue, formatDayValue, formatNumber } from "../format-column";
+import {
+  badgeProps,
+  formatColumnValue,
+  formatDateValue,
+  formatDayValue,
+  formatNumber,
+} from "../format-column";
 import { resolveFormatting } from "../types/formatting";
 
 describe("formatColumnValue", () => {
@@ -75,5 +81,30 @@ describe("formatDateValue / formatDayValue", () => {
     expect(formatDayValue(value, resolveFormatting({ timeZone: "Asia/Bangkok" }), "UTC")).toBe(
       "2026-09-22",
     );
+  });
+});
+
+describe("badgeProps", () => {
+  const format = {
+    kind: "badge" as const,
+    tones: { past_due: "err" as const },
+    labels: { admin: "Админ" },
+  };
+
+  it("spaces the raw value, capitalizes it and carries its tone", () => {
+    expect(badgeProps(format, "past_due")).toEqual({
+      status: "past due",
+      className: "capitalize",
+      tone: "err",
+    });
+  });
+
+  it("shows the label instead, without capitalizing it", () => {
+    expect(badgeProps(format, "admin")).toEqual({ status: "admin", label: "Админ" });
+  });
+
+  it("returns null for an empty value", () => {
+    expect(badgeProps("badge", "")).toBeNull();
+    expect(badgeProps("badge", null)).toBeNull();
   });
 });

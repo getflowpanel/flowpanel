@@ -153,7 +153,7 @@ export async function ResourceDetailPage({
           }
         />
       ) : (
-        renderFieldsTab<Row>(config, reqCtx, resource, baseRow, {
+        await renderFieldsTab<Row>(config, reqCtx, resource, baseRow, {
           ...(resource.options.detail?.fields
             ? { fields: resource.options.detail.fields as DetailTab<Row>["fields"] }
             : {}),

@@ -1,5 +1,10 @@
 "use client";
-import { DataTable, type DataTableColumn, type DataTableSort } from "@flowpanel/react";
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTableSort,
+  useRowHrefClick,
+} from "@flowpanel/react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type * as React from "react";
@@ -20,6 +25,10 @@ export interface RelatedTabTableProps<Row extends Record<string, unknown>> {
   /** Target resource's own list, with this relationship already filtered. */
   openListHref?: string;
   openListLabel?: string;
+  /** Per-row destinations, indexed like `rows`. `null` leaves that row inert. */
+  rowHrefs?: (string | null)[];
+  /** Shown instead of the generic label when there are no rows. */
+  emptyTitle?: string;
 }
 
 /**
@@ -39,10 +48,13 @@ export function RelatedTabTable<Row extends Record<string, unknown>>({
   prerenderedCells,
   openListHref,
   openListLabel,
+  rowHrefs,
+  emptyTitle,
 }: RelatedTabTableProps<Row>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const onRowClick = useRowHrefClick(rows, rowHrefs);
 
   const push = (mutate: (params: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -72,6 +84,8 @@ export function RelatedTabTable<Row extends Record<string, unknown>>({
         rowKey={rowKey}
         sort={sort}
         {...(prerenderedCells ? { prerenderedCells } : {})}
+        {...(emptyTitle ? { emptyTitle } : {})}
+        {...(onRowClick ? { onRowClick } : {})}
         {...(sortParam
           ? {
               onSortChange: (next) => {

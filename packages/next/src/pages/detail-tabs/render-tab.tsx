@@ -38,6 +38,7 @@ export async function renderDetailTab<Row extends Record<string, unknown>>({
   return renderFieldsTab<Row>(config, reqCtx, resource, row, {
     ...(tab.fields ? { fields: tab.fields } : {}),
     ...(tab.sections ? { sections: tab.sections } : {}),
+    ...(tab.emptyState ? { emptyState: tab.emptyState } : {}),
   });
 }
 

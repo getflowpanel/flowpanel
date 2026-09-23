@@ -4,12 +4,29 @@ import type { NumericFormat, Span, Tone, WidgetContext } from "./widget";
 /** Display-safe literal returned by a stat resolver. */
 export type StatValue = string | number | boolean | bigint | Date | null | undefined;
 
+/**
+ * What a `kv` or `statGroup` item resolver may return instead of a bare value, so
+ * the value carries its own tone and link, as `StatResult` does for `stat()`. A
+ * field set here wins over the item's static `tone` or `href`.
+ */
+export interface KvResult {
+  value: StatValue;
+  /** Semantic color of the value. */
+  tone?: Tone;
+  /** Renders the value as a link to this path. */
+  href?: string;
+}
+
 /** One row of a `statGroup`. */
 export interface StatItem {
   label: string;
-  /** A literal, or a function resolved per request. The record, in a detail tab, is `ctx.row`. */
-  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue>);
+  /**
+   * A literal, or a function resolved per request that may return a `KvResult`.
+   * The record, in a detail tab, is `ctx.row`.
+   */
+  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue | KvResult>);
   format?: NumericFormat;
+  /** Semantic color of the value. */
   tone?: Tone;
 }
 
@@ -72,9 +89,10 @@ export interface StatWidget {
 /** One labelled row of a `kv()` card. */
 export interface KvItem {
   label: string;
-  /** A literal, or a function resolved per request. */
-  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue>);
+  /** A literal, or a function resolved per request that may return a `KvResult`. */
+  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue | KvResult>);
   format?: ColumnFormat | NumericFormat;
+  /** Semantic color of the value. */
   tone?: Tone;
   /** Renders the value as a link to this path. */
   href?: string;
@@ -101,11 +119,12 @@ export interface KvWidget {
   options: KvOptions;
 }
 
-/** One bar of a `bars()` card. The card sizes it against the largest value. */
+/** One bar of a `bars()` card, sized against `BarsOptions.max` or the largest value. */
 export interface BarRow {
   label: string;
   value: number;
   href?: string;
+  /** Fill color of the bar. */
   tone?: Tone;
 }
 
@@ -115,6 +134,11 @@ export interface BarsOptions {
   query: (ctx: WidgetContext) => Promise<BarRow[]>;
   /** How bar values are rendered. */
   format?: NumericFormat;
+  /**
+   * The value a full bar stands for — `1` for a rate with `format: "percent"`.
+   * Default, and for a value of `0` or less: the largest value in the rows.
+   */
+  max?: number;
   /** Shown instead of the bars when the query returns nothing. */
   emptyState?: string;
   /** Width in the dashboard's 12-column grid. */
@@ -142,6 +166,12 @@ export interface FunnelOptions {
   query: (ctx: WidgetContext) => Promise<FunnelStep[]>;
   /** How step values are rendered. */
   format?: NumericFormat;
+  /**
+   * Share lost from the step before, as a fraction, past which the step with the
+   * largest drop is marked with the `warn` tone. `1` turns the mark off.
+   * @defaultValue 0.5
+   */
+  alertDrop?: number;
   /** Shown instead of the steps when the query returns nothing. */
   emptyState?: string;
   /** Width in the dashboard's 12-column grid. */
@@ -158,9 +188,12 @@ export interface FunnelWidget {
 
 /** One line of a `list()` card. */
 export interface ListRow {
+  /** Stable identity for the row, such as a record id. Default: its position. */
+  key?: string;
   text: string;
   /** Trailing detail — a timestamp, a count, an owner. */
   meta?: string;
+  /** A leading dot in this color; `warn` and `err` also color the text. */
   tone?: Tone;
   href?: string;
 }
