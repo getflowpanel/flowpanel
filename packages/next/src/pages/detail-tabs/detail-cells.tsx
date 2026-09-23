@@ -52,9 +52,24 @@ export function detailValue(
 export interface DetailField {
   name: string;
   label?: string;
+  render?: (row: never, ctx: RequestContext) => React.ReactNode | Promise<React.ReactNode>;
 }
 
-/** Flatten a declared field list; `"*"` and an omitted list mean every readable key. */
+/** Each field's own `render`, run concurrently and only for a field the projected row carries. */
+export async function renderDetailFields(
+  row: Record<string, unknown>,
+  fields: DetailField[],
+  reqCtx: RequestContext,
+): Promise<Map<string, React.ReactNode>> {
+  const rendered = await Promise.all(
+    fields
+      .filter((field) => field.render && Object.hasOwn(row, field.name))
+      .map(async (field) => [field.name, await field.render?.(row as never, reqCtx)] as const),
+  );
+  return new Map(rendered);
+}
+
+/** Flatten a declared field list to the fields the row carries; `"*"` or none means all of them. */
 export function selectFields<Row extends Record<string, unknown>>(
   row: Row,
   fields: DetailTab<Row>["fields"],
@@ -62,13 +77,17 @@ export function selectFields<Row extends Record<string, unknown>>(
   if (fields === undefined || fields === "*") {
     return Object.keys(row).map((k) => ({ name: k }));
   }
-  return fields.map((f) => {
-    if (typeof f === "string" || typeof f === "number" || typeof f === "symbol") {
-      return { name: String(f) };
-    }
-    const def = f as FieldDef<Row>;
-    return def.label !== undefined
-      ? { name: String(def.name), label: def.label }
-      : { name: String(def.name) };
-  });
+  return fields
+    .map((f) => {
+      if (typeof f === "string" || typeof f === "number" || typeof f === "symbol") {
+        return { name: String(f) };
+      }
+      const def = f as FieldDef<Row>;
+      return {
+        name: String(def.name),
+        ...(def.label !== undefined ? { label: def.label } : {}),
+        ...(def.render ? { render: def.render as DetailField["render"] } : {}),
+      } as DetailField;
+    })
+    .filter((field) => Object.hasOwn(row, field.name));
 }

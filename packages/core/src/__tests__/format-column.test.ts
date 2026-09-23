@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { formatColumnValue, formatDateValue, formatDayValue, formatNumber } from "../format-column";
+import { describe, expect, it, vi } from "vitest";
+import {
+  badgeProps,
+  formatColumnValue,
+  formatDateValue,
+  formatDayValue,
+  formatNumber,
+} from "../format-column";
 import { resolveFormatting } from "../types/formatting";
 
 describe("formatColumnValue", () => {
@@ -75,5 +81,98 @@ describe("formatDateValue / formatDayValue", () => {
     expect(formatDayValue(value, resolveFormatting({ timeZone: "Asia/Bangkok" }), "UTC")).toBe(
       "2026-09-22",
     );
+  });
+});
+
+describe("badgeProps", () => {
+  const format = {
+    kind: "badge" as const,
+    tones: { past_due: "err" as const },
+    labels: { admin: "Админ" },
+  };
+
+  it("spaces the raw value, capitalizes it and carries its tone", () => {
+    expect(badgeProps(format, "past_due")).toEqual({
+      status: "past due",
+      className: "capitalize",
+      tone: "err",
+    });
+  });
+
+  it("shows the label instead, without capitalizing it", () => {
+    expect(badgeProps(format, "admin")).toEqual({ status: "admin", label: "Админ" });
+  });
+
+  it("returns null for an empty value", () => {
+    expect(badgeProps("badge", "")).toBeNull();
+    expect(badgeProps("badge", null)).toBeNull();
+  });
+});
+
+describe("formatColumnValue — dates, relative time, percent, duration, boolean, url", () => {
+  const utc = resolveFormatting();
+
+  it("renders a day, or a day and a clock", () => {
+    expect(formatColumnValue(new Date("2026-09-23T21:30:00Z"), "date", utc)).toBe("2026-09-23");
+    expect(formatColumnValue("2026-09-23T21:30:00Z", { kind: "date", time: true }, utc)).toBe(
+      "2026-09-23 21:30",
+    );
+  });
+
+  it("reads a zoneless timestamp as UTC whatever the process zone, as ctx.sql rows do", () => {
+    try {
+      for (const zone of ["UTC", "Asia/Bangkok", "America/New_York"]) {
+        vi.stubEnv("TZ", zone);
+        for (const naive of ["2026-09-23 21:30:00", "2026-09-23T21:30:00"]) {
+          expect(formatColumnValue(naive, { kind: "date", time: true }, utc)).toBe(
+            formatColumnValue(`${naive.replace(" ", "T")}Z`, { kind: "date", time: true }, utc),
+          );
+          expect(formatColumnValue(naive, { kind: "date", time: true }, utc)).toBe(
+            "2026-09-23 21:30",
+          );
+        }
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("reads a timestamp with an offset, and leaves a string that is no ISO date as text", () => {
+    const withTime = { kind: "date", time: true } as const;
+    expect(formatColumnValue("2026-09-24 04:30:00+07", withTime, utc)).toBe("2026-09-23 21:30");
+    expect(formatColumnValue("2026-09-24T04:30+07:00", withTime, utc)).toBe("2026-09-23 21:30");
+    expect(formatColumnValue("5", "date", utc)).toBe("5");
+    expect(formatColumnValue("Sep 23, 2026", "date", utc)).toBe("Sep 23, 2026");
+    expect(formatColumnValue("5", "relative", utc)).toBe("5");
+  });
+
+  it("keeps a YYYY-MM-DD value on its own day in any zone", () => {
+    const newYork = resolveFormatting({ timeZone: "America/New_York" });
+    expect(formatColumnValue("2026-09-23", "date", newYork)).toBe("2026-09-23");
+  });
+
+  it("renders a percent, a duration in ms or s, a boolean and a url", () => {
+    expect(formatColumnValue(0.4231, { kind: "percent", digits: 2 }, utc)).toBe("42.31%");
+    expect(formatColumnValue(0.4231, { kind: "percent", digits: -1 }, utc)).toBe("42%");
+    expect(formatColumnValue("0.5", "percent", utc)).toBe("50%");
+    expect(formatColumnValue(4200, "duration", utc)).toBe("4.2 sec");
+    expect(formatColumnValue(300, { kind: "duration", unit: "s" }, utc)).toBe("5 min");
+    expect(formatColumnValue(false, "boolean", utc)).toBe("✕");
+    expect(formatColumnValue(0, "boolean", utc)).toBe("✕");
+    expect(formatColumnValue("https://kwork.ru", "url", utc)).toBe("https://kwork.ru");
+  });
+
+  it("renders a relative time against the current clock", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-23T12:00:00Z"));
+    expect(formatColumnValue(new Date("2026-09-23T10:00:00Z"), "relative", utc)).toBe(
+      "2 hours ago",
+    );
+    vi.useRealTimers();
+  });
+
+  it("gives a widget's numeric percent and duration the same text", () => {
+    expect(formatNumber(4200, "duration", utc)).toBe("4.2 sec");
+    expect(formatNumber(0.423, "percent", utc)).toBe("42.3%");
   });
 });

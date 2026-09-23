@@ -11,6 +11,7 @@ export const DEFAULT_LABELS: {
   pagination: Required<NonNullable<LabelsConfig["pagination"]>>;
   filters: Required<NonNullable<LabelsConfig["filters"]>>;
   bulkBar: Required<NonNullable<LabelsConfig["bulkBar"]>>;
+  plurals?: NonNullable<LabelsConfig["plurals"]>;
   searchPlaceholder: string;
   actions: Required<NonNullable<LabelsConfig["actions"]>>;
   form: Required<NonNullable<LabelsConfig["form"]>>;

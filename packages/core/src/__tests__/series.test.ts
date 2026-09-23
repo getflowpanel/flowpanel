@@ -78,4 +78,17 @@ describe("fillDays", () => {
     expect(filled.every((d) => d.value === 0)).toBe(true);
     expect(filled).toHaveLength(4);
   });
+
+  it("buckets in the range's own zone when no timeZone is passed", () => {
+    const rows = [{ day: new Date("2026-09-01T22:30:00Z"), n: 2 }];
+    const moscow = {
+      from: new Date("2026-09-01T00:00:00Z"),
+      to: new Date("2026-09-02T12:00:00Z"),
+      timeZone: "Europe/Moscow",
+    };
+    expect(fillDays(rows, moscow, { dateField: "day", valueField: "n" })).toEqual([
+      { date: "2026-09-01", value: 0 },
+      { date: "2026-09-02", value: 2 },
+    ]);
+  });
 });

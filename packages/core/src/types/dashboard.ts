@@ -22,6 +22,17 @@ export interface ResolvedDateRange {
   preset: DateRangePreset | "custom";
 }
 
+/** The range a widget query receives: the picked range, the one it is compared with, and the zone. */
+export interface WidgetDateRange extends ResolvedDateRange {
+  /**
+   * The period compared against: the same stretch a day, month, quarter or year back for a
+   * calendar preset, else the span before it. `null` when there is no earlier period to query.
+   */
+  previous: { from: Date; to: Date } | null;
+  /** IANA zone the admin renders and buckets in — `formatting.timeZone`, else `"UTC"`. */
+  timeZone: string;
+}
+
 /** A titled band of widgets on a dashboard. */
 export interface SectionConfig {
   /** Section heading. Omit for an untitled band. */

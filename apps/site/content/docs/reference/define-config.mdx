@@ -174,7 +174,7 @@ production. See [Realtime in production](/docs/guides/realtime).
 
 ## LabelsConfig
 
-Overrides for built-in chrome. Set `labels` once in `defineConfig`; list filters,
+Overrides for built-in chrome. Set `labels` once in `defineAdmin`; list filters,
 pagination and the command palette use the same provider as action buttons.
 Nested groups merge with English defaults. Undefined values keep their defaults;
 empty strings are intentional overrides. A component's explicit placeholder or
@@ -185,6 +185,29 @@ filters. `filters` controls toolbar/reset text, boolean choices and text search.
 `pagination.page` and `pagination.pageSize` accept `{n}`; `bulkBar.selected`
 accepts `{n}` for selection counts. Pagination registry overrides receive these
 strings in their `labels` prop; `DefaultPagination` remains usable standalone.
+
+`plurals` holds count templates for languages whose count words change with the
+number: a `PluralLabel` has one template per `Intl.PluralRules` category of
+`formatting.locale`, with `other` as the fallback. `plurals.results` wins over
+`table.result` and `table.results` for every count, `1` included, and
+`plurals.selected` wins over `bulkBar.selected`; the string templates stay strings:
+
+```ts excerpt
+labels: {
+  plurals: {
+    results: { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записи" },
+    selected: { one: "Выбрана {n}", few: "Выбраны {n}", other: "Выбрано {n}" },
+  },
+},
+```
+
+`formatCount(label, count, locale)` from `@flowpanel/core/labels` picks the form
+the same way for your own components, and takes a plain string template too.
+`RU_LABELS` ships both plurals («1 запись», «3 записи», «5 записей»). A preset's
+plural gives way when your `labels` set the string template for the same count,
+so `table: { results: "Всего: {n}" }` shows your template.
+
+<AutoTypeTable path="../../packages/core/src/types/labels/config.ts" name="PluralLabel" />
 
 `navigation`, `table`, `savedViews` and `dateRange` also cover the built-in menu,
 table controls, saved-view dialog and calendar. `dateRange.locale` controls
@@ -199,12 +222,15 @@ reference search. The submit button uses `actions.create` on a create form and
 `actions.save` on an edit form, and both pages offer a cancel link labelled with
 `actions.cancel` that returns to the record or its list without submitting.
 
-For a Russian admin, import `RU_LABELS` from `@flowpanel/kit` and pass
-`labels: RU_LABELS` to `defineConfig`. The preset is a complete object of plain
-strings, safe across the server/client boundary. Customize a nested group by
-spreading it, for example `labels: { ...RU_LABELS, actions: {
-...RU_LABELS.actions, new: "Добавить" } }`. Browser-only consumers can import the
-same preset from `@flowpanel/core/labels`.
+A Russian `formatting.locale` (`"ru"`, `"ru-RU"`, …) switches the built-in chrome
+to Russian: `RU_LABELS` becomes the base that `labels` merges over, so a Russian
+admin sets only the strings it wants different, for example
+`labels: { actions: { new: "Добавить" } }`. Every other locale keeps English as the
+base. The preset is a complete object of plain strings, safe across the
+server/client boundary; import `RU_LABELS` from `@flowpanel/kit`, or from
+`@flowpanel/core/labels` in browser-only code, to use it with another locale. To
+keep English chrome under a Russian locale, pass `labels: DEFAULT_LABELS` (from
+the same modules); a complete label set leaves nothing for the preset to fill.
 
 Resource names, domain actions, custom renderers and validation messages supplied
 by your application remain application-owned. The preset does not translate
@@ -335,9 +361,11 @@ formatting: { locale: "ru-RU", timeZone: "Europe/Moscow", currency: "RUB" },
 
 `locale` governs the `number` and `money` column formats and the date shape;
 `currency` is the default for a `money` column that names none, and a column's own
-`currency` still wins. `timeZone` is what the server and the first paint use — after
-hydration a timestamp shows in the reader's own zone, which is what a
-`LocalTime` has always done.
+`currency` still wins. A set `timeZone` is the one clock of the admin: server
+strings, chart ticks and every `LocalTime` render in it, before and after
+hydration. Left unset, the server and the first paint use UTC and a `LocalTime`
+switches to the reader's own zone after hydration. A `LocalTime` given its own
+`fallbackTimeZone` keeps that switch either way.
 
 With no `locale`, dates keep the sortable `YYYY-MM-DD HH:mm` shape they had
 before, and numbers keep `en-US` grouping.

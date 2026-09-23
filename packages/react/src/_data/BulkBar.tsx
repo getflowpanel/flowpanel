@@ -1,5 +1,6 @@
 "use client";
-import { formatLabel } from "@flowpanel/core/labels";
+import { formatCount } from "@flowpanel/core/labels";
+import { useFormatting } from "../_provider/FormattingContext";
 import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 import { Button } from "../ui/button";
@@ -20,19 +21,23 @@ export interface BulkBarProps {
 
 export function BulkBar({ selection, actions, onClear }: BulkBarProps) {
   const labels = useLabels();
+  const { locale } = useFormatting();
   if (selection.length === 0) return null;
+  const count = formatCount(
+    labels.plurals?.selected ?? labels.bulkBar.selected,
+    selection.length,
+    locale,
+  );
   return (
     <section
       data-state={selection.length > 0 ? "open" : "closed"}
-      aria-label={formatLabel(labels.bulkBar.selected, { n: selection.length })}
+      aria-label={count}
       className={cn(
         "fp-bulkbar",
         "sticky bottom-4 z-30 mx-auto mt-3 flex w-fit items-center gap-3 rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 py-2 pl-4 pr-2 shadow-fp-lg",
       )}
     >
-      <span className="text-sm font-medium tabular-nums text-fp-text-1">
-        {formatLabel(labels.bulkBar.selected, { n: selection.length })}
-      </span>
+      <span className="text-sm font-medium tabular-nums text-fp-text-1">{count}</span>
       <span aria-hidden className="h-5 w-px bg-fp-border-1" />
       {actions.map((a) => (
         <Button

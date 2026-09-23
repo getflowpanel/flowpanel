@@ -41,6 +41,16 @@ export {
 } from "./_data/DensityToggle";
 export { FilterBar, type FilterBarProps, type FilterBarSpec } from "./_data/FilterBar";
 export {
+  BooleanCell,
+  type BooleanCellProps,
+  HeatCell,
+  type HeatCellProps,
+  RelativeTimeCell,
+  type RelativeTimeCellProps,
+  UrlCell,
+  type UrlCellProps,
+} from "./_data/FormatCells";
+export {
   BooleanFilter,
   type BooleanFilterProps,
 } from "./_data/filters/BooleanFilter";
@@ -231,7 +241,7 @@ export {
   type UseRealtimeRefreshOptions,
   useRealtimeRefresh,
 } from "./hooks/useRealtimeRefresh";
-export { useRowNavigation } from "./hooks/useRowNavigation";
+export { useRowHrefClick, useRowNavigation } from "./hooks/useRowNavigation";
 export { type UseTheme, type UseThemeOptions, useTheme } from "./hooks/useTheme";
 export { type UrlState, useUrlState } from "./hooks/useUrlState";
 export { cn } from "./lib/cn";

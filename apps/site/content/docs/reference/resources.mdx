@@ -138,11 +138,15 @@ Declarative cell rendering — reach for this before writing a `render` function
 
 ```ts excerpt
 type ColumnFormat =
-  | "badge"
-  | "money"
-  | "number"
-  | { kind: "badge"; tones?: Record<string, Tone> }
-  | { kind: "money"; currency?: string; scale?: number };
+  | "badge" | "money" | "number"
+  | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
+  | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
+  | { kind: "money"; currency?: string; scale?: number }
+  | { kind: "date"; time?: boolean }
+  | { kind: "percent"; digits?: number; heat?: boolean }
+  | { kind: "duration"; unit?: "ms" | "s" }
+  | { kind: "boolean"; labels?: { true?: string; false?: string } }
+  | { kind: "url"; label?: string };
 ```
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
@@ -151,6 +155,48 @@ The object form of `badge` maps each cell value to a tone:
 ```ts excerpt
 { field: "status", format: { kind: "badge", tones: { paid: "ok", failed: "err" } } }
 ```
+
+`labels` gives each raw value its display text — an enum code shown in the admin's
+language. Tones stay keyed by the raw value, and a value with no label shows as
+before. Table cells, widget tables, detail fields, the drawer and a `kv` item with
+this format all use the label.
+
+```ts excerpt
+{
+  field: "role",
+  format: {
+    kind: "badge",
+    tones: { admin: "warn" },
+    labels: { admin: "Админ", freelancer: "Фрилансер" },
+  },
+}
+```
+
+The remaining kinds read a raw value the way a founder reads it:
+
+- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the clock. A `YYYY-MM-DD` value is a calendar day and shows as itself in any zone. A zoneless `YYYY-MM-DD HH:mm:ss`, which SQLite and a Postgres `timestamp` return, is UTC, as in `ctx.sql` rows; a string that is not an ISO date stays text.
+- `relative` shows how long ago — `5 minutes ago`, `yesterday` — in the admin's `locale`.
+- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, so a retention grid reads at a glance and still sorts by number.
+- `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
+- `boolean` prints `✓` and `✕`, or `labels: { true: "да", false: "нет" }`. SQLite's `1` and `0` read as true and false.
+- `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
+
+```ts excerpt
+columns: [
+  { field: "week", label: "Cohort" },
+  { field: "w1", label: "Week 1", format: { kind: "percent", heat: true } },
+  { field: "p95Ms", label: "p95", format: "duration" },
+  { field: "url", format: "url" },
+  { field: "lastSeenAt", label: "Last seen", format: "relative" },
+]
+```
+
+A table cell, a widget table, a detail field and a drawer field render the rich kinds the
+same way on the server and in the browser, in the admin's locale and zone: `relative` as a
+`<time>` with the exact timestamp in its tooltip, `url` as a link that opens an absolute URL
+in a new tab and never opens the row by click or Enter, a `heat` percent as a cell shaded in
+five steps, and a `boolean` glyph with a spoken yes or no. A `kv` item reads the text form
+from `formatColumnValue`.
 
 ### Formatting values yourself
 
@@ -161,10 +207,22 @@ resolved `formatting`, so locale, currency and time zone come from one place.
 
 <ApiSignature path="../../packages/core/src/format-column.ts" name="formatNumber" />
 
+<ApiSignature path="../../packages/core/src/format-column.ts" name="badgeProps" />
+
 `formatColumnValue` renders the string variants of `ColumnFormat`; `formatNumber`
 renders a widget's `NumericFormat` (`number`, `currency`, `percent`, `bytes`,
 `duration`). Both live in `@flowpanel/core`, so a server component may call them —
-`@flowpanel/react` only re-exports `formatNumber` for client code.
+`@flowpanel/react` only re-exports `formatNumber` for client code. `badgeProps(format, value)` gives
+the props a `badge` cell hands its `StatusBadge` — spaced status, label and tone —
+or `null` for an empty value, so a custom cell renders a badge the way the table does.
+
+`formatDurationValue`, `formatPercentValue`, `formatRelativeValue` and `formatBooleanValue`
+print one kind each, and `columnFormatKind`, `percentHeatLevel` and `urlCellParts` tell a
+custom cell what a format asks for. `toDateValue` and `toBooleanValue` read a raw value the
+way a `date` and a `boolean` cell do, so a zoneless timestamp is UTC and SQLite's `1` is
+true. `formatNumber`'s `percent` and `duration` use the same formatters, so a card and a
+cell print one value alike. `formatDurationCompact` keeps only the largest unit — `2.1h`,
+`42s` — and is what a chart's value axis prints.
 
 ## FieldDef
 
@@ -231,6 +289,26 @@ entry is a bare field name or a `FieldDef`, whose `label` overrides the column
 header the list page uses. Column `format` and `render` from `columns` apply here
 too, so a value reads the same on both pages.
 
+A `FieldDef` with its own `render(row, ctx)` shows what that returns instead of the
+value — a join or a computed label — here and in the drawer. It runs on the server,
+may be async, receives the projected row, and runs only when the reader may read
+the field `name`, which stays the field's access-control key. The renders of one
+tab run concurrently, so a render must not depend on a database handle that
+allows one query at a time. In the drawer the output becomes static HTML; see
+[server-rendered cells](/docs/reference/drawer#server-rendered-cells) for what the
+reader sees when a render fails there:
+
+```ts excerpt
+{
+  name: "categoryId",
+  label: "Category",
+  render: async (job, ctx) => {
+    const category = await findCategory(ctx, job.categoryId);
+    return `${category.title} (${category.openJobs})`;
+  },
+}
+```
+
 `sections` groups those fields into titled blocks and wins over `fields` on the
 same tab:
 
@@ -247,8 +325,9 @@ same tab:
 
 Fields named by `fields` or by any `sections` entry are declared dependencies:
 they are added to the tab's projection and loaded when that tab is the one in
-view. A tab that ends up with nothing the reader may see shows
-`labels.detail.noFields`.
+view. A declared field the reader may not read is left out rather than shown
+empty, and a tab that ends up with nothing the reader may see shows
+`labels.detail.noFields` (or the tab's `emptyState`).
 
 ### Widgets
 
@@ -289,6 +368,25 @@ is one click away.
 
 The tab's `filter` is a constraint, not a refinement: an undefined parent value or
 a field the reader may not read yields no rows and no query.
+
+A row opens the way it does on the target's own list, by the target's
+[`rowClick`](#resourceoptions): with `"detail"` it navigates to the row's detail
+page; with `"drawer"` it navigates to the target's list with that row's drawer
+open (`?drawer=<resource>:<id>`), since the detail page's own `?tab=` would clash
+with the drawer's tab; with `false` — or no `detail` and no `drawer` — the rows
+stay inert. Enter on the focused row opens it, as on the list.
+
+### Empty state
+
+`emptyState` replaces the generic label when a tab has nothing to show: a related
+tab with no rows (instead of `labels.noResults`), a widgets tab with no widgets
+(instead of `labels.widget.empty`) and a fields tab with no field the reader may
+see (instead of `labels.detail.noFields`). A custom `render` tab owns its own
+empty state.
+
+```ts excerpt
+{ key: "runs", label: "Runs", resource: "runs", filter: (u) => ({ userId: u.id }), emptyState: "No runs yet" }
+```
 
 ### Custom content
 

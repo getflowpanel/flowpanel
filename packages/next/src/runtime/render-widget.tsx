@@ -1,14 +1,10 @@
 import type {
   BarRow,
   FunnelStep,
-  KvItem,
   ListRow,
   MetricResult,
   RequestContext,
   ResolvedAdminConfig,
-  StatResult,
-  StatValue,
-  StatWidget,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
@@ -25,23 +21,13 @@ import {
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { ServerCard } from "./_server-card";
-import { kvDisplay } from "./kv-display";
 import { renderTableWidget } from "./render-table-widget";
-import { statDisplay, statResultOf } from "./stat-result";
+import { linkRows, resolveLink } from "./resolve-link";
+import { statDisplay } from "./stat-result";
+import { kvItemOf, resolveItem, statItemOf } from "./widget-items";
 
 function isMetricResult(value: number | string | MetricResult): value is MetricResult {
   return typeof value === "object" && value !== null;
-}
-
-async function resolveStat(value: StatWidget["value"], ctx: WidgetContext): Promise<StatResult> {
-  return statResultOf(typeof value === "function" ? await value(ctx) : value);
-}
-
-async function resolveStatValue(
-  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue>),
-  ctx: WidgetContext,
-): Promise<StatValue> {
-  return typeof value === "function" ? await value(ctx) : value;
 }
 
 function withRealtime(node: ReactNode, channels: string | string[] | undefined): ReactNode {
@@ -71,7 +57,7 @@ export async function renderWidget(
       const delta = result.delta ?? queriedDelta;
       const sublabel = result.sublabel ?? widget.options.sublabel;
       const tone = result.tone ?? widget.options.tone;
-      const drilldown = result.href ?? widget.options.drilldown;
+      const drilldown = resolveLink(config, ctx, result.href ?? widget.options.drilldown);
       return withRealtime(
         <MetricCard
           label={widget.label}
@@ -90,12 +76,7 @@ export async function renderWidget(
     case "statGroup": {
       const groupFormatting = resolveFormatting(config.formatting);
       const stats = await Promise.all(
-        widget.options.stats.map(async (s) => ({
-          label: s.label,
-          value: statDisplay(await resolveStatValue(s.value, ctx), groupFormatting),
-          ...(s.format ? { format: s.format } : {}),
-          ...(s.tone ? { tone: s.tone } : {}),
-        })),
+        widget.options.stats.map((s) => statItemOf(s, ctx, groupFormatting, config)),
       );
       return withRealtime(
         <StatGroupCard
@@ -106,10 +87,10 @@ export async function renderWidget(
       );
     }
     case "stat": {
-      const result = await resolveStat(widget.value, ctx);
+      const result = await resolveItem(widget.value, ctx);
       const statFormatting = resolveFormatting(config.formatting);
       const hint = result.hint ?? widget.options.hint;
-      const href = result.href ?? widget.options.href;
+      const href = resolveLink(config, ctx, result.href ?? widget.options.href);
       const tone = result.tone ?? widget.options.tone;
       return withRealtime(
         <StatCard
@@ -126,12 +107,7 @@ export async function renderWidget(
     case "kv": {
       const formatting = resolveFormatting(config.formatting);
       const items = await Promise.all(
-        widget.options.items.map(async (item: KvItem) => ({
-          label: item.label,
-          value: kvDisplay(await resolveStatValue(item.value, ctx), item.format, formatting),
-          ...(item.tone ? { tone: item.tone } : {}),
-          ...(item.href ? { href: item.href } : {}),
-        })),
+        widget.options.items.map((item) => kvItemOf(item, ctx, formatting, config)),
       );
       return withRealtime(
         <KvCard
@@ -147,8 +123,9 @@ export async function renderWidget(
       return withRealtime(
         <BarsCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={rows}
+          rows={linkRows(config, ctx, rows)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
+          {...(widget.options.max !== undefined ? { max: widget.options.max } : {})}
           emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
         />,
         widget.options.realtime,
@@ -159,8 +136,11 @@ export async function renderWidget(
       return withRealtime(
         <FunnelCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          steps={steps}
+          steps={linkRows(config, ctx, steps)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
+          {...(widget.options.alertDrop !== undefined
+            ? { alertDrop: widget.options.alertDrop }
+            : {})}
           emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
         />,
         widget.options.realtime,
@@ -171,7 +151,7 @@ export async function renderWidget(
       return withRealtime(
         <ListCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={rows}
+          rows={linkRows(config, ctx, rows)}
           emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
         />,
         widget.options.realtime,
@@ -213,9 +193,17 @@ export async function renderWidget(
         );
       }
       const data = await widget.query(ctx);
+      const drilldown = resolveLink(config, ctx, widget.options.drilldown);
+      const { drilldown: _drilldown, ...options } = widget.options;
       const Renderer = chartsMod.ChartRenderer;
       return withRealtime(
-        <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />,
+        <Renderer
+          kind={widget.kind}
+          label={widget.label}
+          options={options}
+          data={data}
+          {...(drilldown ? { drilldown } : {})}
+        />,
         widget.options.realtime,
       );
     }

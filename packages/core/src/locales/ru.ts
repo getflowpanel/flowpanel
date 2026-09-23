@@ -87,6 +87,15 @@ export const RU_LABELS: ResolvedLabels = {
     searchPlaceholder: "Поиск…",
   },
   bulkBar: { selected: "Выбрано: {n}", clear: "Снять выбор" },
+  plurals: {
+    results: { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записей" },
+    selected: {
+      one: "Выбран {n} элемент",
+      few: "Выбрано {n} элемента",
+      many: "Выбрано {n} элементов",
+      other: "Выбрано {n} элементов",
+    },
+  },
   searchPlaceholder: "Поиск: {label}…",
   actions: {
     edit: "Редактировать",

@@ -1,5 +1,6 @@
 export { type AdapterScopeContext, resolveScopeApplier } from "./adapter-scope";
 export { devAuth } from "./auth/dev";
+export { bindFormat } from "./bind-format";
 export { dashboard, page } from "./builders/dashboard";
 export { queue } from "./builders/queue";
 export { resource } from "./builders/resource";
@@ -7,14 +8,27 @@ export { bars, custom, funnel, kv, list, metric, stat, statGroup, table } from "
 export { isBuiltinBulkDelete } from "./compiler/builtin-bulk-delete";
 export { defineAdmin } from "./define-admin";
 export {
+  type BadgeCellProps,
+  badgeProps,
+  type ColumnFormatKind,
+  columnFormatKind,
   DEFAULT_FORMATTING,
   type FormattingConfig,
+  formatBooleanValue,
   formatColumnValue,
   formatDateValue,
   formatDayValue,
+  formatDurationCompact,
+  formatDurationValue,
   formatNumber,
+  formatPercentValue,
+  formatRelativeValue,
+  percentHeatLevel,
   type ResolvedFormatting,
   resolveFormatting,
+  toBooleanValue,
+  toDateValue,
+  urlCellParts,
 } from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
 export { assertCountWhereColumns } from "./internal/count-where";
@@ -101,6 +115,7 @@ export type {
   PageConfig,
   ResolvedDateRange,
   SectionConfig,
+  WidgetDateRange,
 } from "./types/dashboard";
 export type {
   DrawerAction,
@@ -128,9 +143,11 @@ export {
 export type { IconName } from "./types/icon";
 export {
   DEFAULT_LABELS,
+  formatCount,
   formatLabel,
   type LabelsConfig,
   mergeLabels,
+  type PluralLabel,
   type ResolvedLabels,
 } from "./types/labels";
 export type { AdminPaths, AdminPathsInput } from "./types/paths";
@@ -204,7 +221,6 @@ export type {
   Tone,
   WidgetColumn,
   WidgetConfig,
-  WidgetContext,
 } from "./types/widget";
 export type {
   BarRow,
@@ -215,6 +231,7 @@ export type {
   FunnelWidget,
   KvItem,
   KvOptions,
+  KvResult,
   KvWidget,
   ListOptions,
   ListRow,
@@ -228,3 +245,11 @@ export type {
   StatValue,
   StatWidget,
 } from "./types/widget-cards";
+export type {
+  DashboardLink,
+  Link,
+  LinkTarget,
+  ResourceLink,
+  WidgetContext,
+  WidgetFormat,
+} from "./types/widget-context";

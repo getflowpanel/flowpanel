@@ -6,6 +6,8 @@ export type StatusBadgeTone = BadgeTone;
 
 export interface StatusBadgeProps {
   status: string;
+  /** Text shown instead of `status`; the tone is still inferred from `status`. */
+  label?: string;
   tone?: StatusBadgeTone;
   className?: string;
 }
@@ -33,12 +35,12 @@ const TONE_MAP: Record<string, BadgeTone> = {
 };
 
 /** Pure renderer — no context dependency. Used as the registry default. */
-export function DefaultStatusBadge({ status, tone, className }: StatusBadgeProps) {
+export function DefaultStatusBadge({ status, label, tone, className }: StatusBadgeProps) {
   const resolved = tone ?? TONE_MAP[status.toLowerCase()] ?? "muted";
   const compactClassName = cn("px-1.5 py-px text-[11px] leading-4", className);
   return (
     <DefaultBadge tone={resolved} className={compactClassName}>
-      {status}
+      {label ?? status}
     </DefaultBadge>
   );
 }

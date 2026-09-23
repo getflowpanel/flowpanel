@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
 import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat } from "../lib/format";
+import { formatPercent } from "../lib/percent";
+import { toneFillClass, toneTextClass } from "../lib/tone-classes";
 import { barWidthClass } from "./bar-width";
+import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface FunnelCardStep {
   label: string;
@@ -16,18 +19,27 @@ export interface FunnelCardProps {
   label?: string;
   steps: FunnelCardStep[];
   format?: NumericFormat;
+  /** Share lost from the step before past which the worst drop is marked `warn`. Default `0.5`. */
+  alertDrop?: number;
   /** Rendered instead of the steps when `steps` is empty. */
   emptyState?: React.ReactNode;
 }
 
-function percent(share: number): string {
-  return `${Math.round(share * 100)}%`;
-}
-
 /** Stages with their share of the first step and the drop-off from the one before. */
-export function FunnelCard({ label, steps, format, emptyState }: FunnelCardProps) {
+export function FunnelCard({ label, steps, format, alertDrop = 0.5, emptyState }: FunnelCardProps) {
   const formatting = useFormatting();
   const top = steps[0]?.value ?? 0;
+  const drops = steps.map((step, index) => {
+    const previous = steps[index - 1]?.value;
+    return previous !== undefined && previous > 0 && step.value >= 0
+      ? (previous - step.value) / previous
+      : null;
+  });
+  const worst = drops.reduce<number>(
+    (at, drop, index) =>
+      drop !== null && drop > alertDrop && drop > (drops[at] ?? -1) ? index : at,
+    -1,
+  );
   return (
     <Card className="h-full">
       {label ? <CardHeader>{label}</CardHeader> : null}
@@ -37,13 +49,25 @@ export function FunnelCard({ label, steps, format, emptyState }: FunnelCardProps
         ) : (
           steps.map((step, index) => {
             const share = top > 0 ? step.value / top : 0;
-            const previous = steps[index - 1]?.value;
-            const dropOff =
-              previous !== undefined && previous > 0 ? (previous - step.value) / previous : null;
+            const dropOff = drops[index] ?? null;
+            const alert = index === worst;
             return (
-              <div key={step.label} className="space-y-1">
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: steps are ordered and labels may repeat
+                key={index}
+                data-step=""
+                {...(alert ? { "data-tone": "warn" } : {})}
+                className="space-y-1"
+              >
                 <div className="flex items-baseline justify-between gap-3 text-xs">
-                  <span className="min-w-0 truncate text-fp-text-2">
+                  <span
+                    className={cn(
+                      TWO_LINES,
+                      "min-w-0",
+                      alert ? toneTextClass.warn : "text-fp-text-2",
+                    )}
+                    {...fullTextTitle(step.label)}
+                  >
                     {step.href ? (
                       <a href={step.href} className="hover:underline">
                         {step.label}
@@ -56,14 +80,22 @@ export function FunnelCard({ label, steps, format, emptyState }: FunnelCardProps
                     <span className="text-fp-text-1">
                       {formatNumber(step.value, format, formatting)}
                     </span>
-                    <span className="text-fp-text-3">{percent(share)}</span>
-                    {dropOff !== null ? (
-                      <span className="text-fp-err-text">{`−${percent(dropOff)}`}</span>
-                    ) : null}
+                    <span className="text-fp-text-3">{formatPercent(share, 0, formatting)}</span>
+                    {dropOff === null ? null : dropOff < 0 ? (
+                      <span className="text-fp-ok-text">{`+${formatPercent(-dropOff, 0, formatting)}`}</span>
+                    ) : (
+                      <span className="text-fp-err-text">{`−${formatPercent(dropOff, 0, formatting)}`}</span>
+                    )}
                   </span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-fp-bg-3">
-                  <div className={cn("h-full rounded-full bg-fp-accent", barWidthClass(share))} />
+                  <div
+                    className={cn(
+                      "h-full rounded-full",
+                      toneFillClass[alert ? "warn" : "default"],
+                      barWidthClass(share),
+                    )}
+                  />
                 </div>
               </div>
             );

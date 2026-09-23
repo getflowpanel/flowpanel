@@ -5,11 +5,10 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
   WidgetConfig,
-  WidgetContext,
 } from "@flowpanel/core";
-import { DEFAULT_LABELS } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
 import { serializeWidget } from "../drawer/serialize-widget";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",
@@ -56,17 +55,7 @@ const reqCtx: RequestContext = {
   ip: null,
   userAgent: null,
 };
-const widgetCtx: WidgetContext = {
-  db: {},
-  session: null,
-  dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-  req: new Request("http://localhost/"),
-  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
-  query: (_key, fn) => fn(),
-  labels: DEFAULT_LABELS,
-  sql: async () => [],
-  count: async () => 0,
-};
+const widgetCtx = fakeWidgetContext();
 
 describe("serializeWidget — metric", () => {
   it("invokes query and returns wire-safe metric payload", async () => {
@@ -410,5 +399,21 @@ describe("serializeWidget — a failed widget and a Date", () => {
       widgetCtx,
     );
     expect((out as { stats: { value: unknown }[] }).stats[0]?.value).toBe("2026-09-23 06:30");
+  });
+});
+
+describe("serializeWidget — table column formats", () => {
+  it("carries a query table's column labels and formats to the drawer", async () => {
+    const widget: WidgetConfig = {
+      kind: "table",
+      options: {
+        query: async () => [{ stage: "score", p95: 7_500_000 }],
+        columns: ["stage", { field: "p95", label: "p95", format: "duration" }],
+      },
+    };
+    expect(await serializeWidget(widget, mkConfig(), reqCtx, widgetCtx)).toMatchObject({
+      kind: "table",
+      columns: [{ field: "stage" }, { field: "p95", label: "p95", format: "duration" }],
+    });
   });
 });

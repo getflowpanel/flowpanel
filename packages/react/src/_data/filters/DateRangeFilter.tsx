@@ -2,6 +2,7 @@
 import { formatLabel } from "@flowpanel/core/labels";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import * as React from "react";
+import { useFormatting } from "../../_provider/FormattingContext";
 import { useLabels } from "../../_provider/LabelsContext";
 import { cn } from "../../lib/cn";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
@@ -10,12 +11,12 @@ import {
   addMonths,
   Calendar,
   type CalendarRange,
-  fromISODate,
   monthTitle,
   RANGE_PRESETS,
   startOfDay,
   toISODate,
 } from "../Calendar";
+import { parseDateRangeValue, serializeDateRange } from "./date-range-value";
 import { FilterField } from "./FilterField";
 
 export interface DateRangeFilterProps {
@@ -24,24 +25,13 @@ export interface DateRangeFilterProps {
   onChange: (value: string | null) => void;
 }
 
-/** `[from, to]` as local dates. Either side may be absent — the wire format allows one-sided ranges. */
-function parseValue(value: string | null): CalendarRange {
-  const [from = "", to = ""] = (value ?? "").split(":");
-  return { from: fromISODate(from), to: fromISODate(to) };
-}
-
-function serialize(range: CalendarRange): string | null {
-  const from = range.from ? toISODate(range.from) : "";
-  const to = range.to ? toISODate(range.to) : "";
-  return from === "" && to === "" ? null : `${from}:${to}`;
-}
-
 const NAV_BUTTON =
   "fp-press inline-flex h-7 w-7 items-center justify-center rounded-fp-sm text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40";
 
 export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps) {
   const { dateRange } = useLabels();
-  const committed = parseValue(value);
+  const { timeZone } = useFormatting();
+  const committed = parseDateRangeValue(value, timeZone);
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<CalendarRange>(committed);
   const [hovered, setHovered] = React.useState<Date | null>(null);
@@ -129,7 +119,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
 
   const commit = (next: CalendarRange) => {
     setDraft(next);
-    onChange(serialize(next));
+    onChange(serializeDateRange(next));
     setHovered(null);
     setOpen(false);
   };

@@ -1,5 +1,5 @@
 import { DEFAULT_FORMATTING } from "@flowpanel/core/format";
-import { isValidElement } from "react";
+import { isValidElement, type ReactElement } from "react";
 import { Legend } from "recharts";
 import { describe, expect, it, vi } from "vitest";
 
@@ -14,7 +14,7 @@ vi.mock("@flowpanel/react", () => ({
 import { ChartEmptyState } from "../ChartEmptyState";
 import { ChartSkeleton } from "../ChartSkeleton";
 import { PieChart } from "../PieChart";
-import { chartBody } from "../render-chart";
+import { chartBody, chartFrame } from "../render-chart";
 
 function textOf(node: unknown): string {
   if (node == null || typeof node === "boolean") return "";
@@ -86,5 +86,22 @@ describe("chartBody", () => {
       true,
     ) as { type: unknown };
     expect(body.type).toBe(PieChart);
+  });
+});
+
+describe("chartFrame", () => {
+  it("links the card to the drilldown the server resolved", () => {
+    const framed = chartFrame(<div>card</div>, {
+      label: "Runs",
+      drilldown: "/admin/ai_run",
+    }) as ReactElement<{ href: string; "aria-label"?: string }>;
+    expect(framed.type).toBe("a");
+    expect(framed.props.href).toBe("/admin/ai_run");
+    expect(framed.props["aria-label"]).toBe("Runs");
+  });
+
+  it("leaves a card without a drilldown unlinked", () => {
+    const card = <div>card</div>;
+    expect(chartFrame(card, { label: "Runs" })).toBe(card);
   });
 });

@@ -1,13 +1,65 @@
 import {
+  columnFormatKind,
+  formatBooleanValue,
+  formatDurationValue,
+  formatPercentValue,
+  formatRelativeValue,
+  isCalendarDay,
+  toDateValue,
+} from "./format-values";
+import {
   DEFAULT_FORMATTING,
   type FormattingConfig,
   type ResolvedFormatting,
   resolveFormatting,
 } from "./types/formatting";
 import type { ColumnFormat } from "./types/resource";
-import type { NumericFormat } from "./types/widget";
+import type { NumericFormat, Tone } from "./types/widget";
 
 export type { ColumnFormat, FormattingConfig, NumericFormat, ResolvedFormatting };
+
+/** The props a `badge` cell hands its `StatusBadge`. */
+export interface BadgeCellProps {
+  /** The raw value with `_` spaced out; the tone is inferred from it. */
+  status: string;
+  /** `format.labels[value]`, shown instead of `status`. */
+  label?: string;
+  /** `format.tones[value]`. */
+  tone?: Tone;
+  /** `"capitalize"` when there is no label. */
+  className?: string;
+}
+
+/**
+ * A `badge` cell's props for `value`, or `null` for an empty value. Server and
+ * client renderers share it; tones and labels stay keyed by the raw value.
+ */
+export function badgeProps(format: ColumnFormat, value: unknown): BadgeCellProps | null {
+  if (value === null || value === undefined || value === "") return null;
+  const raw = String(value);
+  const tone =
+    typeof format === "object" && format.kind === "badge" ? format.tones?.[raw] : undefined;
+  const label =
+    typeof format === "object" && format.kind === "badge" ? format.labels?.[raw] : undefined;
+  return {
+    status: raw.replace(/_/g, " "),
+    ...(label === undefined ? { className: "capitalize" } : { label }),
+    ...(tone ? { tone } : {}),
+  };
+}
+export {
+  type ColumnFormatKind,
+  columnFormatKind,
+  formatBooleanValue,
+  formatDurationCompact,
+  formatDurationValue,
+  formatPercentValue,
+  formatRelativeValue,
+  percentHeatLevel,
+  toBooleanValue,
+  toDateValue,
+  urlCellParts,
+} from "./format-values";
 export { DEFAULT_FORMATTING, resolveFormatting };
 
 const NUMBER_FMTS = new Map<string, Intl.NumberFormat>();
@@ -83,9 +135,10 @@ export function formatDayValue(
 }
 
 /**
- * Format the `money` / `number` variants of {@link ColumnFormat} as a string.
+ * Format every string-shaped variant of {@link ColumnFormat}.
  * Server- and client-rendered cells share it so the same value reads the same
- * on both; the `badge` variant is JSX and stays with each renderer.
+ * on both; the `badge` variant is JSX and stays with each renderer, and here
+ * reads as its label.
  */
 export function formatColumnValue(
   value: unknown,
@@ -93,10 +146,26 @@ export function formatColumnValue(
   formatting: ResolvedFormatting = DEFAULT_FORMATTING,
 ): string {
   if (value === null || value === undefined || value === "") return "—";
+  if (typeof format === "object" && format.kind === "badge") {
+    return format.labels?.[String(value)] ?? String(value);
+  }
+  const kind = columnFormatKind(format);
+  if (kind === "date" || kind === "relative") return formatMoment(value, format, formatting);
+  if (kind === "boolean") return formatBooleanValue(value, format);
+  if (kind === "url") return String(value);
   if (typeof value !== "number" && typeof value !== "string") return String(value);
   const n = typeof value === "number" ? value : Number(value);
   if (Number.isNaN(n)) return String(value);
   const { locale, currency } = formatting;
+  if (kind === "percent") {
+    const digits =
+      typeof format === "object" && format.kind === "percent" ? format.digits : undefined;
+    return formatPercentValue(n, formatting, digits);
+  }
+  if (kind === "duration") {
+    const seconds = typeof format === "object" && format.kind === "duration" && format.unit === "s";
+    return formatDurationValue(seconds ? n * 1000 : n, formatting);
+  }
   if (format === "number") return numberFmt(locale).format(n);
   if (format === "money") return moneyFmt(locale, currency).format(n);
   if (typeof format === "object" && format.kind === "money") {
@@ -104,6 +173,19 @@ export function formatColumnValue(
     return moneyFmt(locale, format.currency ?? currency).format(n / scale);
   }
   return String(value);
+}
+
+function formatMoment(
+  value: unknown,
+  format: ColumnFormat,
+  formatting: ResolvedFormatting,
+): string {
+  const date = toDateValue(value);
+  if (date === null) return String(value);
+  if (columnFormatKind(format) === "relative") return formatRelativeValue(date, formatting);
+  if (isCalendarDay(value)) return formatDayValue(date, formatting, "UTC");
+  const withTime = typeof format === "object" && format.kind === "date" && format.time === true;
+  return withTime ? formatDateValue(date, formatting) : formatDayValue(date, formatting);
 }
 
 /**
@@ -118,8 +200,9 @@ export function formatNumber(
   formatting: string | ResolvedFormatting = DEFAULT_FORMATTING,
 ): string {
   if (!Number.isFinite(value)) return String(value);
-  const { locale, currency } =
+  const resolved =
     typeof formatting === "string" ? { ...DEFAULT_FORMATTING, locale: formatting } : formatting;
+  const { locale, currency } = resolved;
   switch (format) {
     case "currency":
       return new Intl.NumberFormat(locale, {
@@ -128,10 +211,7 @@ export function formatNumber(
         maximumFractionDigits: 0,
       }).format(value);
     case "percent":
-      return new Intl.NumberFormat(locale, {
-        style: "percent",
-        maximumFractionDigits: 1,
-      }).format(value);
+      return formatPercentValue(value, resolved);
     case "bytes": {
       const units = ["B", "KB", "MB", "GB", "TB"];
       let i = 0;
@@ -142,12 +222,8 @@ export function formatNumber(
       }
       return `${n.toFixed(n >= 10 ? 0 : 1)} ${units[i]}`;
     }
-    case "duration": {
-      const s = Math.round(value / 1000);
-      if (s < 60) return `${s}s`;
-      if (s < 3600) return `${Math.round(s / 60)}m`;
-      return `${(s / 3600).toFixed(1)}h`;
-    }
+    case "duration":
+      return formatDurationValue(value, resolved);
     default:
       return numberFmt(locale).format(value);
   }

@@ -1,4 +1,4 @@
-const NAIVE_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?$/;
+import { parseNaiveTimestamp } from "../naive-timestamp";
 
 function sanitizeSqlParam(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString();
@@ -40,10 +40,7 @@ export function parseSqlRows<Row>(
   return rows.map((row) => {
     const parsed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(row)) {
-      parsed[key] =
-        typeof value === "string" && NAIVE_TIMESTAMP.test(value)
-          ? new Date(`${value.replace(" ", "T")}Z`)
-          : value;
+      parsed[key] = typeof value === "string" ? (parseNaiveTimestamp(value) ?? value) : value;
     }
     return parsed as Row;
   });

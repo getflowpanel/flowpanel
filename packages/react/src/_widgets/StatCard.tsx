@@ -1,7 +1,10 @@
 "use client";
 import { Card, CardContent } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
+import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
+import { toneTextClass } from "../lib/tone-classes";
+import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface StatCardProps {
   label: string;
@@ -21,11 +24,20 @@ export function StatCard({ label, value, format, hint, href, tone = "default" }:
   const card = (
     <Card className="h-full w-full" data-tone={tone}>
       <CardContent className="space-y-1">
-        <div className="truncate text-xs uppercase tracking-wide text-fp-text-3">{label}</div>
-        <div className="truncate text-xl font-semibold leading-tight tabular-nums text-fp-text-1">
+        <div className="truncate text-sm font-medium text-fp-text-2">{label}</div>
+        <div
+          className={cn(
+            "truncate text-xl font-semibold leading-tight tabular-nums",
+            toneTextClass[tone],
+          )}
+        >
           {display}
         </div>
-        {hint ? <div className="truncate text-xs text-fp-text-3">{hint}</div> : null}
+        {hint ? (
+          <div className={cn(TWO_LINES, "text-xs text-fp-text-3")} {...fullTextTitle(hint)}>
+            {hint}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -25,9 +25,10 @@ RBAC, global read-only mode, the CLI (`init`, `migrate`, `doctor`, `eject`,
   pub/sub driver, no extra infra.
 - **More examples.** `examples/multi-tenant`, `examples/with-prisma` — beyond
   the shipped `ai-scraper` showcase and `with-clerk` auth example.
-- **Trim the react bundle back under 70 KB.** It measures 69.93 KB against a
-  72 KB budget after growing 3.72 KB in 0.2.0; ADR 0017 records the raise and
-  makes the trim explicit debt rather than a moved goalpost.
+- **Trim the react bundle back under 70 KB.** It measures 72.65 KB against a
+  73 KB budget since 0.3.1 measures the Radix versions a fresh host install
+  resolves (about 3.3 KB more than the older lockfile pins); the trim is
+  explicit debt rather than a moved goalpost.
 
 ## 1.x — longer
 

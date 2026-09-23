@@ -22,6 +22,27 @@ export function resolveRowClick(resource: ResourceConfig): RowClickMode {
   return hasDrawer ? "drawer" : false;
 }
 
+/** Where each related row opens, following the target list's `rowClick`; `undefined` when none can. */
+export function openRowHrefs(
+  config: ResolvedAdminConfig,
+  name: string,
+  resource: ResourceConfig,
+  rows: ReadonlyArray<Record<string, unknown>>,
+  rowKey: string,
+): (string | null)[] | undefined {
+  const mode = resolveRowClick(resource);
+  if (mode === false) return undefined;
+  const list = buildHref(config, name);
+  const hrefs =
+    mode === "detail"
+      ? detailRowHrefs(config, name, rows, rowKey)
+      : rows.map((row) => {
+          const id = rowIdentity(row, rowKey);
+          return id === null ? null : `${list}?${new URLSearchParams({ drawer: `${name}:${id}` })}`;
+        });
+  return hrefs.some((href) => href !== null) ? hrefs : undefined;
+}
+
 /** Per-row detail URLs, indexed like `rows`. A row with no identity gets `null`. */
 export function detailRowHrefs(
   config: ResolvedAdminConfig,

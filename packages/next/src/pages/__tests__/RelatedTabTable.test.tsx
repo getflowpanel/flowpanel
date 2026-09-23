@@ -91,3 +91,42 @@ describe("paging a related tab", () => {
     expect(screen.queryByRole("cell", { name: "7" })).toBeNull();
   });
 });
+
+describe("opening a related row", () => {
+  const rows = [
+    { id: "s1", value: 1 },
+    { id: "s2", value: 2 },
+  ];
+
+  it("navigates to the row's href on click", () => {
+    render(<RelatedTabTable {...props} rows={rows} rowHrefs={["/admin/scores/s1", null]} />);
+    fireEvent.click(screen.getByRole("cell", { name: "1" }));
+    expect(push).toHaveBeenCalledWith("/admin/scores/s1");
+  });
+
+  it("opens the focused row on Enter, like the target's list", () => {
+    render(
+      <RelatedTabTable
+        {...props}
+        rows={rows}
+        rowHrefs={["/admin/scores/s1", "/admin/scores/s2"]}
+      />,
+    );
+    const body = screen.getAllByRole("rowgroup").at(-1) as HTMLElement;
+    fireEvent.keyDown(body, { key: "ArrowDown" });
+    fireEvent.keyDown(body, { key: "ArrowDown" });
+    fireEvent.keyDown(body, { key: "Enter" });
+    expect(push).toHaveBeenCalledWith("/admin/scores/s2");
+  });
+
+  it("leaves a row without an href inert", () => {
+    render(<RelatedTabTable {...props} rows={rows} rowHrefs={["/admin/scores/s1", null]} />);
+    fireEvent.click(screen.getByRole("cell", { name: "2" }));
+    expect(push).not.toHaveBeenCalled();
+  });
+});
+
+it("shows the tab's own empty-state text", () => {
+  render(<RelatedTabTable {...props} rows={[]} total={0} emptyTitle="No scores yet" />);
+  expect(screen.getByText("No scores yet")).toBeTruthy();
+});

@@ -1,5 +1,5 @@
 import type { RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
-import { errorResult, FlowpanelNotFoundError } from "@flowpanel/core";
+import { errorResult, FlowpanelNotFoundError, resolveFormatting } from "@flowpanel/core";
 import { bulkActionRoute } from "./actions/bulk-action";
 import { dashboardActionRoute } from "./actions/dashboard-action";
 import { inlineUpdateRoute } from "./actions/inline-update";
@@ -188,7 +188,11 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
             page: Number(url.searchParams.get("page") ?? 1),
             pageSize: Number(url.searchParams.get("pageSize") ?? 20),
             search: readableSearchFields.length > 0 ? (url.searchParams.get("search") ?? "") : "",
-            filters: sanitizeFilterValues(raw, specs),
+            filters: sanitizeFilterValues(
+              raw,
+              specs,
+              resolveFormatting(config.formatting).timeZone,
+            ),
           }),
         );
       });

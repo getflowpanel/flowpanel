@@ -1,8 +1,8 @@
 import type {
+  ColumnFormat,
   MetricResult,
   RequestContext,
   ResolvedAdminConfig,
-  StatValue,
   TableWidgetOptions,
   WidgetConfig,
   WidgetContext,
@@ -15,12 +15,24 @@ import {
   resolveReadableFieldSet,
 } from "../runtime/readable-fields";
 import { readRelatedRows } from "../runtime/require-authorized";
-import { statDisplay } from "../runtime/stat-result";
+import { statItemOf } from "../runtime/widget-items";
 import { type SerializedCardWidget, serializeCardWidget } from "./serialize-cards";
 
 /** A widget column is a bare key or an object naming one; the wire needs the key. */
 function columnFields(columns: TableWidgetOptions["columns"]): string[] {
   return (columns ?? []).map((column) => (typeof column === "string" ? column : column.field));
+}
+
+type DrawerColumn = { field: string; label?: string; format?: ColumnFormat };
+
+/** A widget column as the drawer wire carries it: its key, label and format. */
+function wireColumn(column: NonNullable<TableWidgetOptions["columns"]>[number]): DrawerColumn {
+  if (typeof column === "string") return { field: column };
+  return {
+    field: column.field,
+    ...(column.label ? { label: column.label } : {}),
+    ...(column.format ? { format: column.format } : {}),
+  };
 }
 
 /** Wire-safe shape of a drawer widget. */
@@ -40,14 +52,20 @@ export type SerializedWidget =
       label?: string;
       rows: Record<string, unknown>[];
       /** Column descriptors. */
-      columns: { field: string; label?: string }[];
+      columns: DrawerColumn[];
       span?: number;
       realtime?: string | string[];
     }
   | {
       kind: "statGroup";
       label?: string;
-      stats: { label: string; value: string | number; format?: string; tone?: string }[];
+      stats: {
+        label: string;
+        value: string | number;
+        format?: string;
+        tone?: string;
+        href?: string;
+      }[];
       span?: number;
       realtime?: string | string[];
     }
@@ -89,7 +107,7 @@ export async function serializeWidget(
       }
       case "table": {
         let rows: Record<string, unknown>[] = [];
-        let columns: { field: string; label?: string }[] = [];
+        let columns: DrawerColumn[] = [];
         let readableResourceFields: ReadonlySet<string> | null = null;
         const queryFn = w.options.query;
         if (queryFn) {
@@ -124,19 +142,30 @@ export async function serializeWidget(
             )
               .map((c) => {
                 if (typeof c === "string") return { field: c };
-                const col = c as { field?: string; label?: string; hidden?: boolean };
+                const col = c as {
+                  field?: string;
+                  label?: string;
+                  format?: ColumnFormat;
+                  hidden?: boolean;
+                };
                 if (col.hidden) return null;
                 const field = String(col.field ?? "");
                 if (!field) return null;
-                return col.label ? { field, label: col.label } : { field };
+                return {
+                  field,
+                  ...(col.label ? { label: col.label } : {}),
+                  ...(col.format ? { format: col.format } : {}),
+                };
               })
-              .filter((x): x is { field: string; label?: string } => x !== null);
+              .filter((x): x is DrawerColumn => x !== null);
           }
         }
         if (w.options.columns && w.options.columns.length > 0) {
-          columns = columnFields(w.options.columns)
-            .filter((field) => !readableResourceFields || readableResourceFields.has(field))
-            .map((field) => ({ field }));
+          columns = w.options.columns
+            .map(wireColumn)
+            .filter(
+              (column) => !readableResourceFields || readableResourceFields.has(column.field),
+            );
         } else if (columns.length === 0 && rows[0]) {
           columns = Object.keys(rows[0]).map((k) => ({ field: k }));
         }
@@ -152,19 +181,7 @@ export async function serializeWidget(
       case "statGroup": {
         const formatting = resolveFormatting(config.formatting);
         const stats = await Promise.all(
-          w.options.stats.map(async (s) => ({
-            label: s.label,
-            value: statDisplay(
-              typeof s.value === "function"
-                ? await runWithRequestContext(reqCtx, () =>
-                    (s.value as (c: WidgetContext) => Promise<StatValue>)(widgetCtx),
-                  )
-                : s.value,
-              formatting,
-            ),
-            ...(s.format ? { format: s.format } : {}),
-            ...(s.tone ? { tone: s.tone } : {}),
-          })),
+          w.options.stats.map((s) => statItemOf(s, widgetCtx, formatting, config, reqCtx)),
         );
         return {
           kind: "statGroup",

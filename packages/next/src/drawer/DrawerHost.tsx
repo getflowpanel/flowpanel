@@ -15,6 +15,7 @@ import {
   type NumericFormat,
   RealtimeRefresh,
   renderFormatCell,
+  StatGroupCard,
   Tabs,
   TabsContent,
   TabsList,
@@ -22,6 +23,7 @@ import {
   type Tone,
   useAdminDrawer,
   useApiBase,
+  useFormatting,
   useLabels,
 } from "@flowpanel/react";
 import { Fragment, useEffect, useState } from "react";
@@ -64,6 +66,7 @@ function FieldsView({
   labels: Record<string, string>;
   formats: Record<string, ColumnFormat>;
 }) {
+  const formatting = useFormatting();
   const entries = resolveFieldEntries(row, fields);
   return (
     <KV>
@@ -76,7 +79,7 @@ function FieldsView({
               // biome-ignore lint/security/noDangerouslySetInnerHtml: server-prerendered from the resource's own column render
               <span dangerouslySetInnerHTML={{ __html: prerendered[k] }} />
             ) : formats[k] !== undefined ? (
-              renderFormatCell(formats[k], row[k])
+              renderFormatCell(formats[k], row[k], formatting)
             ) : (
               formatFieldValue(row[k])
             )
@@ -125,6 +128,7 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
 }
 
 function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "widgets" }> }) {
+  const formatting = useFormatting();
   if (tab.widgets.length === 0) {
     return <div className="py-6 text-sm text-fp-text-3">No widgets configured.</div>;
   }
@@ -155,7 +159,7 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
               </Fragment>
             );
           }
-          const cols: { field: string; label?: string }[] =
+          const cols: { field: string; label?: string; format?: ColumnFormat }[] =
             w.columns.length > 0
               ? w.columns
               : Object.keys(w.rows[0] ?? {}).map((f) => ({ field: f }));
@@ -186,7 +190,9 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
                       >
                         {cols.map((c) => (
                           <td key={c.field} className="px-4 py-2">
-                            {formatFieldValue(r[c.field])}
+                            {c.format
+                              ? renderFormatCell(c.format, r[c.field], formatting)
+                              : formatFieldValue(r[c.field])}
                           </td>
                         ))}
                       </tr>
@@ -201,23 +207,15 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
         if (w.kind === "statGroup") {
           return (
             <Fragment key={key}>
-              <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 md:col-span-2">
-                {w.label ? (
-                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
-                    {w.label}
-                  </div>
-                ) : null}
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                  {w.stats.map((s, j) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: stable order inside widget
-                    <div key={j}>
-                      <div className="text-xs text-fp-text-3">{s.label}</div>
-                      <div className="text-lg font-semibold text-fp-text-1 tabular-nums">
-                        {formatFieldValue(s.value)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="md:col-span-2">
+                <StatGroupCard
+                  {...(w.label ? { label: w.label } : {})}
+                  stats={w.stats.map(({ format, tone, ...stat }) => ({
+                    ...stat,
+                    ...(format ? { format: format as NumericFormat } : {}),
+                    ...(tone ? { tone: tone as Tone } : {}),
+                  }))}
+                />
               </div>
               {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
             </Fragment>

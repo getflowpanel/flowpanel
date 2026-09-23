@@ -1,10 +1,11 @@
 "use client";
-import { formatLabel } from "@flowpanel/core/labels";
+import { formatCount } from "@flowpanel/core/labels";
 // LOC-OK: table render orchestrator — coordinates column layout, selection, inline
 // edit, realtime refresh and the mobile card view in one place.
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { LiveIndicator } from "../_atoms/LiveIndicator";
+import { useFormatting } from "../_provider/FormattingContext";
 import { useLabels } from "../_provider/LabelsContext";
 import { useLiveChannel } from "../hooks/useLiveChannel";
 import { useMediaQuery } from "../hooks/useMediaQuery";
@@ -77,6 +78,7 @@ export function DataTable<Row extends Record<string, unknown>>({
 }: DataTableProps<Row>) {
   const router = useRouter();
   const labels = useLabels();
+  const { locale } = useFormatting();
   const rowEndCellLabel = rowEndCellLabelOverride ?? labels.table.actions;
   const effectiveEmptyTitle = emptyTitle ?? labels.noResults;
 
@@ -208,9 +210,12 @@ export function DataTable<Row extends Record<string, unknown>>({
       {/* The row count was only readable at the very bottom of the page, while
           the left half of this bar sat empty. */}
       <span className="mr-auto text-xs tabular-nums text-fp-text-3">
-        {formatLabel(total === 1 ? labels.table.result : labels.table.results, {
-          n: new Intl.NumberFormat(labels.dateRange.locale).format(total),
-        })}
+        {formatCount(
+          labels.plurals?.results ?? (total === 1 ? labels.table.result : labels.table.results),
+          total,
+          locale,
+          new Intl.NumberFormat(labels.dateRange.locale).format(total),
+        )}
       </span>
       {realtimeCfg ? <LiveIndicator status={liveStatus} /> : null}
       {showDensityToggle ? (

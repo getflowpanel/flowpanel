@@ -1,9 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
-import type { ResolvedDateRange } from "./dashboard";
-import type { ResolvedLabels } from "./labels";
-import type { InferDB, ResourceName } from "./registry";
+import type { ResourceName } from "./registry";
 import type { ColumnFormat } from "./resource";
-import type { Session } from "./session";
 import type {
   BarsWidget,
   FunnelWidget,
@@ -12,55 +9,11 @@ import type {
   StatGroupWidget,
   StatWidget,
 } from "./widget-cards";
-
-/** Server-side context passed to every widget `query` function. */
-export interface WidgetContext<DB = InferDB> {
-  /** Your database client, exactly as handed to the adapter. */
-  db: DB;
-  session: Session | null;
-  /** Range chosen in the dashboard's date picker, already resolved to dates. */
-  dateRange: ResolvedDateRange;
-  req: Request;
-  /** Row of the record being viewed when the widget sits in a detail tab. */
-  row?: Record<string, unknown>;
-  /** Mount-aware link builder; never hand-type `"/admin/…"` in a config. */
-  href: (
-    resource: ResourceName,
-    id?: string | number,
-    opts?: { filter?: Record<string, unknown>; tab?: string },
-  ) => string;
-  /**
-   * Memoises `fn` for the current request so two widgets share one query. A
-   * failure is memoised too — the request does not retry under the same key.
-   */
-  query: <T>(key: string, fn: () => Promise<T>) => Promise<T>;
-  /** The admin's resolved chrome strings, so a widget never hard-codes English. */
-  labels: ResolvedLabels;
-  /**
-   * One read-only statement, as a tagged template. Every interpolated value is
-   * bound as a parameter, so `${input}` can never change the statement.
-   * `Date` binds as an ISO-8601 string and `bigint` as decimal text. Throws when
-   * the configured adapter implements no `sql` capability.
-   *
-   * Runs exactly the statement you write: no tenant scope, no access rule and no
-   * soft-delete filter are applied. Add those predicates yourself, or use
-   * `count` and resource reads, which do.
-   */
-  sql: <Row = Record<string, unknown>>(
-    strings: TemplateStringsArray,
-    ...values: unknown[]
-  ) => Promise<Row[]>;
-  /**
-   * How many rows of a registered resource match `where`, through the same role,
-   * access and tenant-scope checks as any other cross-resource read. A resource
-   * the current session may not read counts `0`.
-   */
-  count: (resource: ResourceName, where?: Record<string, unknown>) => Promise<number>;
-}
+import type { Link, LinkTarget, WidgetContext } from "./widget-context";
 
 export type NumericFormat = "number" | "currency" | "percent" | "bytes" | "duration";
 export type Tone = "default" | "accent" | "ok" | "warn" | "err" | "info" | "muted";
-export type Span = 1 | 2 | 3 | 4 | 6 | 8 | 12;
+export type Span = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
 /** Period-over-period change shown under a metric. */
 export interface MetricDelta {
@@ -80,8 +33,8 @@ export interface MetricResult {
   tone?: Tone;
   sublabel?: string;
   delta?: MetricDelta;
-  /** Turns the whole card into a link to this path. */
-  href?: string;
+  /** Turns the whole card into a link — a path or a named target. */
+  href?: LinkTarget;
 }
 
 export interface MetricOptions {
@@ -97,8 +50,8 @@ export interface MetricOptions {
   sparkline?: (ctx: WidgetContext) => Promise<number[]>;
   /** Semantic color of the value. */
   tone?: Tone;
-  /** Turns the whole card into a link to this path. */
-  drilldown?: string;
+  /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
+  drilldown?: Link;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Re-run the query when any of these channels fire. */
@@ -142,13 +95,13 @@ export interface TableWidgetOptions<R = unknown> {
    * `"id"` for a `query`. A row without one renders but is never acted on.
    */
   rowKey?: RowKey<R>;
-  /** Turn each row into a link. Return `null` to leave a row inert. */
-  rowHref?: (row: R, ctx: WidgetContext) => string | null;
+  /** Turn each row into a link — a path or a named target. Return `null` to leave a row inert. */
+  rowHref?: (row: R, ctx: WidgetContext) => LinkTarget | null;
   /**
-   * Link the card heading to the resource's list. `true` needs a `resource`;
-   * a string is used as the href verbatim.
+   * Link the card heading. `true` links the `resource`'s own list; a `Link` names
+   * any target, and a string is used as written.
    */
-  seeAll?: boolean | string;
+  seeAll?: boolean | Link;
   /**
    * Row cap. An explicit value caps both paths; the default applies to the
    * `resource` read, while a `query`'s own rows are left alone unless you set it.
@@ -203,8 +156,8 @@ export interface ChartOptionsBase<R = unknown> {
   format?: NumericFormat;
   /** `false` omits the `<Tooltip>` entirely. */
   tooltip?: "default" | "compact" | false;
-  /** Wraps the whole chart card in a link, mirroring MetricCard's whole-card drilldown. */
-  drilldown?: string;
+  /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
+  drilldown?: Link;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Re-run the query when any of these channels fire. */
@@ -246,8 +199,8 @@ export interface PieChartOptions<R = unknown> {
   height?: number;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
-  /** Wraps the whole chart card in a link, mirroring MetricCard's whole-card drilldown. */
-  drilldown?: string;
+  /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
+  drilldown?: Link;
   /** Re-run the query when any of these channels fire. */
   realtime?: string | string[];
   /** Pin specific slices to a color, keyed by category value. */

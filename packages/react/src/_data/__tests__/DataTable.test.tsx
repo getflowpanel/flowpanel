@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 
+import { resolveFormatting } from "@flowpanel/core/format";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { FormattingProvider } from "../../_provider/FormattingContext";
 import { LabelsProvider } from "../../_provider/LabelsContext";
 
 vi.mock("next/navigation", () => ({
@@ -55,6 +57,36 @@ describe("DataTable", () => {
     expect(screen.getByRole("checkbox", { name: "Выбрать страницу" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "Выбрать 1" })).toBeTruthy();
     expect(screen.getByRole("rowgroup", { name: "Строки. Стрелки — перемещение." })).toBeTruthy();
+  });
+  it("picks the plural form of the row count for the admin's locale", () => {
+    render(
+      <FormattingProvider value={resolveFormatting({ locale: "ru-RU" })}>
+        <LabelsProvider
+          value={{
+            dateRange: { locale: "ru-RU" },
+            plurals: {
+              results: {
+                one: "{n} запись",
+                few: "{n} записи",
+                many: "{n} записей",
+                other: "{n} записи",
+              },
+            },
+          }}
+        >
+          <DataTable
+            columns={[{ field: "name", label: "Имя" }]}
+            rows={rows}
+            total={1333}
+            page={1}
+            pageSize={10}
+            rowKey="id"
+            exportable
+          />
+        </LabelsProvider>
+      </FormattingProvider>,
+    );
+    expect(screen.getByText("1 333 записи")).toBeTruthy();
   });
   it("renders column headers and rows", () => {
     render(

@@ -11,7 +11,14 @@ Column definitions control table cells and are reused by drawer/detail field ren
 ```ts excerpt
 columns: [
   "email",
-  { field: "status", format: { kind: "badge", tones: { active: "ok", blocked: "danger" } } },
+  {
+    field: "status",
+    format: {
+      kind: "badge",
+      tones: { active: "ok", blocked: "err" },
+      labels: { active: "Active", blocked: "Blocked by support" },
+    },
+  },
   { field: "balance", label: "Balance", format: { kind: "money", currency: "USD" }, align: "right" },
 ]
 ```

@@ -1,12 +1,23 @@
 // @vitest-environment happy-dom
 
+import { resolveFormatting } from "@flowpanel/core/format";
 import { cleanup, render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { FormattingProvider } from "../../_provider/FormattingContext";
 import { LocalTime } from "../LocalTime";
 
 afterEach(() => cleanup());
+
+const hostZone = process.env.TZ;
+beforeAll(() => {
+  process.env.TZ = "Asia/Bangkok";
+});
+afterAll(() => {
+  if (hostZone === undefined) delete process.env.TZ;
+  else process.env.TZ = hostZone;
+});
 
 describe("LocalTime", () => {
   it("renders the placeholder for a null date", () => {
@@ -89,5 +100,58 @@ describe("LocalTime", () => {
     const d = new Date("2026-01-15T08:00:00.000Z");
     const { container } = render(<LocalTime date={d} />);
     expect(container.querySelector("time")?.getAttribute("dateTime")).toBe(d.toISOString());
+  });
+
+  describe("with a configured formatting.timeZone", () => {
+    const iso = "2026-05-29T12:34:56.000Z";
+    const moscow = resolveFormatting({ timeZone: "Europe/Moscow" });
+    const tree = (
+      <FormattingProvider value={moscow}>
+        <LocalTime date={iso} />
+      </FormattingProvider>
+    );
+
+    it("renders the same text before and after mount", () => {
+      const before = renderToStaticMarkup(tree);
+      expect(before).toContain("2026-05-29 15:34");
+      const { container } = render(tree);
+      expect(container.querySelector("time")?.textContent).toBe("2026-05-29 15:34");
+    });
+
+    it("still switches to the viewer's zone when a fallbackTimeZone is passed", () => {
+      const options: Intl.DateTimeFormatOptions = {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      };
+      const { container } = render(
+        <FormattingProvider value={moscow}>
+          <LocalTime date={iso} options={options} fallbackTimeZone="Europe/Moscow" />
+        </FormattingProvider>,
+      );
+      const expected = new Intl.DateTimeFormat("en-CA", options).format(new Date(iso));
+      expect(container.querySelector("time")?.textContent).toBe(expected);
+    });
+  });
+
+  it("switches to the viewer's zone after mount when no time zone is configured", () => {
+    const iso = "2026-05-29T12:34:56.000Z";
+    const options: Intl.DateTimeFormatOptions = {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    };
+    const tree = (
+      <FormattingProvider value={resolveFormatting({ locale: "en-CA" })}>
+        <LocalTime date={iso} options={options} />
+      </FormattingProvider>
+    );
+    expect(renderToStaticMarkup(tree)).toContain(
+      new Intl.DateTimeFormat("en-CA", { ...options, timeZone: "UTC" }).format(new Date(iso)),
+    );
+    const { container } = render(tree);
+    expect(container.querySelector("time")?.textContent).toBe(
+      new Intl.DateTimeFormat("en-CA", options).format(new Date(iso)),
+    );
   });
 });

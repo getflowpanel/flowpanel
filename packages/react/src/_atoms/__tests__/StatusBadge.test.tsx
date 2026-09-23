@@ -22,6 +22,13 @@ describe("StatusBadge", () => {
     expect(container.querySelector("span")?.className).toMatch(/fp-ok/);
   });
 
+  it("shows a label while inferring the tone from the status", () => {
+    const { container } = render(<StatusBadge status="active" label="Активен" />);
+    expect(screen.getByText("Активен")).toBeTruthy();
+    expect(container.textContent).not.toContain("active");
+    expect(container.querySelector("span")?.className).toMatch(/fp-ok/);
+  });
+
   it("honours an explicit tone override", () => {
     const { container } = render(<StatusBadge status="whatever" tone="err" />);
     expect(container.querySelector("span")?.className).toMatch(/fp-err/);

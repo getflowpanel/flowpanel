@@ -1,10 +1,10 @@
 "use client";
-import * as React from "react";
+import type * as React from "react";
 import { DataTable, type DataTableColumn } from "../_data/DataTable";
 import { Card, CardContent, CardHeader } from "../_layout/Card";
 import type { RealtimeChannels } from "../hooks/useRealtimeRefresh";
 import { RealtimeRefresh } from "../hooks/useRealtimeRefresh";
-import { useRowNavigation } from "../hooks/useRowNavigation";
+import { useRowHrefClick } from "../hooks/useRowNavigation";
 
 export interface TableWidgetProps<Row extends Record<string, unknown>> {
   label?: string;
@@ -26,18 +26,8 @@ export interface TableWidgetProps<Row extends Record<string, unknown>> {
 }
 
 export function TableWidget<Row extends Record<string, unknown>>(props: TableWidgetProps<Row>) {
-  const navigate = useRowNavigation();
   const { hrefs, rows, emptyState } = props;
-  const hrefByRow = React.useMemo(
-    () => new Map(hrefs ? rows.map((row, index) => [row, hrefs[index] ?? null]) : []),
-    [rows, hrefs],
-  );
-  const onRowClick = hrefs
-    ? (row: Row) => {
-        const href = hrefByRow.get(row);
-        if (href) navigate(href);
-      }
-    : props.onRowClick;
+  const onRowClick = useRowHrefClick(rows, hrefs) ?? props.onRowClick;
   const customEmpty =
     rows.length === 0 && emptyState !== undefined && typeof emptyState !== "string";
 

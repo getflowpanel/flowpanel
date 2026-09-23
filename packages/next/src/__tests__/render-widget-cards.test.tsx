@@ -9,6 +9,7 @@ import { BarsCard, FunnelCard, KvCard, ListCard, MetricCard, StatCard } from "@f
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { renderWidget } from "../runtime/render-widget";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 const cfg: ResolvedAdminConfig = {
   basePath: "/admin",
@@ -30,17 +31,7 @@ const reqCtx: RequestContext = {
   userAgent: null,
 };
 
-const ctx: WidgetContext = {
-  db: {},
-  session: null,
-  dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-  req: new Request("http://localhost/"),
-  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
-  query: (_key, fn) => fn(),
-  labels: DEFAULT_LABELS,
-  sql: async () => [],
-  count: async () => 0,
-};
+const ctx = fakeWidgetContext();
 
 function findProps(tree: ReactNode, target: unknown): Record<string, unknown> | undefined {
   if (tree === null || tree === undefined || typeof tree !== "object") return undefined;

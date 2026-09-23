@@ -1,4 +1,5 @@
 import type { FilterDef, FilterInValue, FilterRangeValue, FilterType } from "@flowpanel/core";
+import { dayBoundsIn } from "./date-range";
 import { toWireOptions } from "./select-options";
 
 export interface ListParams {
@@ -124,14 +125,25 @@ function decodeNumericBound(raw: string): number | undefined {
 }
 
 /** Parse one side of a `daterange` value; `undefined` if empty or not a valid `YYYY-MM-DD`. */
-function decodeDateBound(raw: string, endOfDay: boolean): Date | undefined {
-  if (!DATE_ONLY_RE.test(raw)) return undefined;
-  const d = new Date(`${raw}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
+function decodeDateBound(raw: string, endOfDay: boolean, timeZone: string): Date | undefined {
+  if (!DATE_ONLY_RE.test(raw) || Number.isNaN(Date.parse(raw))) return undefined;
+  const bounds = dayBoundsIn(raw, timeZone);
+  return endOfDay ? bounds.end : bounds.start;
+}
+
+/** Parse one side of a `from~to` daterange value: an ISO-8601 instant. */
+function decodeInstant(raw: string): Date | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(raw)) return undefined;
+  const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 /** Coerce/validate/decode a single filter value against its resolved `FilterDef`. */
-function sanitizeFilterValue(value: string, spec: ResolvedFilterSpec | undefined): unknown {
+function sanitizeFilterValue(
+  value: string,
+  spec: ResolvedFilterSpec | undefined,
+  timeZone: string,
+): unknown {
   if (FILTER_NULL_SENTINELS.has(value)) return value;
   if (!spec) return value;
 
@@ -168,9 +180,10 @@ function sanitizeFilterValue(value: string, spec: ResolvedFilterSpec | undefined
       } satisfies FilterRangeValue;
     }
     case "daterange": {
-      const [fromRaw = "", toRaw = ""] = value.split(":");
-      const gte = decodeDateBound(fromRaw, false);
-      const lte = decodeDateBound(toRaw, true);
+      const instants = value.includes("~");
+      const [fromRaw = "", toRaw = ""] = value.split(instants ? "~" : ":");
+      const gte = instants ? decodeInstant(fromRaw) : decodeDateBound(fromRaw, false, timeZone);
+      const lte = instants ? decodeInstant(toRaw) : decodeDateBound(toRaw, true, timeZone);
       if (gte === undefined && lte === undefined) return undefined;
       return {
         op: "range",
@@ -186,6 +199,7 @@ function sanitizeFilterValue(value: string, spec: ResolvedFilterSpec | undefined
 export function sanitizeFilterValues(
   filters: Record<string, unknown>,
   specs: ReadonlyArray<ResolvedFilterSpec>,
+  timeZone = "UTC",
 ): Record<string, unknown> {
   const byField = new Map(specs.map((s) => [s.field, s]));
   const out: Record<string, unknown> = {};
@@ -194,7 +208,7 @@ export function sanitizeFilterValues(
       out[field] = raw;
       continue;
     }
-    const kept = sanitizeFilterValue(raw, byField.get(field));
+    const kept = sanitizeFilterValue(raw, byField.get(field), timeZone);
     if (kept !== undefined) out[field] = kept;
   }
   return out;

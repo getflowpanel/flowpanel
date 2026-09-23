@@ -9,7 +9,8 @@ import type { IconName } from "./icon";
 import type { FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec, ResourceName } from "./registry";
 import type { Scope, Session } from "./session";
-import type { Tone, WidgetConfig, WidgetContext } from "./widget";
+import type { Tone, WidgetConfig } from "./widget";
+import type { WidgetContext } from "./widget-context";
 
 export type { DrawerConfig };
 
@@ -20,8 +21,55 @@ export type ColumnFormat =
   | "badge"
   | "money"
   | "number"
-  | { kind: "badge"; tones?: Record<string, Tone> }
-  | { kind: "money"; currency?: string; scale?: number };
+  | "date"
+  | "relative"
+  | "percent"
+  | "duration"
+  | "boolean"
+  | "url"
+  | {
+      kind: "badge";
+      /** Tone per raw value. */
+      tones?: Record<string, Tone>;
+      /** Display text per raw value, e.g. `{ admin: "Админ" }`; tones stay keyed by the raw value. */
+      labels?: Record<string, string>;
+    }
+  | { kind: "money"; currency?: string; scale?: number }
+  | {
+      kind: "date";
+      /** Show the clock as well as the day. */
+      time?: boolean;
+    }
+  | {
+      kind: "percent";
+      /** Most decimals shown, a whole number from 0 to 20.
+       * @defaultValue 1
+       */
+      digits?: number;
+      /** Shade the cell by its value from 0 to 1, as a retention grid does. */
+      heat?: boolean;
+    }
+  | {
+      kind: "duration";
+      /** What the stored number counts.
+       * @defaultValue "ms"
+       */
+      unit?: "ms" | "s";
+    }
+  | {
+      kind: "boolean";
+      /** Words for true and false.
+       * @defaultValue `✓` and `✕`
+       */
+      labels?: { true?: string; false?: string };
+    }
+  | {
+      kind: "url";
+      /** Link text for every row.
+       * @defaultValue the URL's host and path
+       */
+      label?: string;
+    };
 
 export interface ColumnDef<Row> {
   /** Row property this column reads. Omit only when `render` supplies the cell. */
@@ -140,6 +188,12 @@ export interface FieldDef<Row> {
   span?: 1 | 2 | 3 | 4 | 6 | 12;
   /** Fieldset heading this field is grouped under. */
   group?: string;
+  /**
+   * Detail pages and drawers only: what the field shows instead of its value — a
+   * join or a computed label. Runs on the server with the projected row, and only
+   * when the reader may read `name`.
+   */
+  render?: (row: Row, ctx: RequestContext) => ReactNode | Promise<ReactNode>;
 }
 
 /**
@@ -149,7 +203,17 @@ export interface FieldDef<Row> {
 export interface DetailTabContext
   extends Pick<
     WidgetContext,
-    "db" | "session" | "dateRange" | "href" | "labels" | "query" | "sql" | "count"
+    | "db"
+    | "session"
+    | "dateRange"
+    | "href"
+    | "labels"
+    | "query"
+    | "sql"
+    | "count"
+    | "id"
+    | "format"
+    | "link"
   > {}
 
 export interface DetailTab<Row> {
@@ -179,6 +243,11 @@ export interface DetailTab<Row> {
   columns?: 1 | 2 | 3 | 4 | 6 | 12;
   /** Render arbitrary content instead of fields, widgets or a related resource. */
   render?: (row: Row, ctx: DetailTabContext) => ReactNode;
+  /**
+   * Shown instead of the generic label when the tab has nothing to show: no related
+   * rows, no widgets, or no fields the reader may see.
+   */
+  emptyState?: string;
 }
 
 /** One page of rows, as returned by `Adapter.list`. */

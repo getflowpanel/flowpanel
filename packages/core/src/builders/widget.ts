@@ -7,7 +7,6 @@ import type {
   MetricWidget,
   TableWidget,
   TableWidgetOptions,
-  WidgetContext,
 } from "../types/widget";
 import type {
   BarsOptions,
@@ -23,6 +22,7 @@ import type {
   StatOptions,
   StatWidget,
 } from "../types/widget-cards";
+import type { WidgetContext } from "../types/widget-context";
 
 /** A single big-number widget. */
 export function metric(

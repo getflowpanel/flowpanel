@@ -9,7 +9,11 @@ export interface LocalTimeProps {
   locale?: string;
   /** `Intl.DateTimeFormat` options for the rendered text. Default: date + HH:mm. */
   options?: Intl.DateTimeFormatOptions;
-  /** Timezone for the server / first-paint render. Defaults to the configured one. */
+  /**
+   * Zone for the server and first-paint render; after hydration the reader's
+   * zone takes over. Without it the configured `formatting.timeZone` is used,
+   * and when the admin set one it stays after hydration too.
+   */
   fallbackTimeZone?: string;
   /** Rendered when `date` is null/invalid. Default `"—"`. */
   placeholder?: string;
@@ -25,7 +29,7 @@ const DEFAULT_OPTIONS: Intl.DateTimeFormatOptions = {
   hour12: false,
 };
 
-/** Absolute timestamp rendered in the VIEWER's timezone. */
+/** Absolute timestamp in the admin's configured time zone, or the viewer's when none is set. */
 export function LocalTime({
   date,
   locale,
@@ -46,16 +50,26 @@ export function LocalTime({
 
   const resolvedLocale = locale ?? formatting.dateLocale;
   const resolvedFallbackZone = fallbackTimeZone ?? formatting.timeZone;
+  const fixedZone = fallbackTimeZone === undefined && formatting.timeZoneSource === "config";
   const usingDefaults = locale === undefined && options === undefined;
 
   const text = React.useMemo(() => {
     if (!target) return placeholder;
     const formatted = new Intl.DateTimeFormat(resolvedLocale, {
       ...(options ?? DEFAULT_OPTIONS),
-      ...(mounted ? {} : { timeZone: resolvedFallbackZone }),
+      ...(mounted && !fixedZone ? {} : { timeZone: resolvedFallbackZone }),
     }).format(target);
     return usingDefaults ? formatted.replace(", ", " ") : formatted;
-  }, [target, resolvedLocale, options, mounted, resolvedFallbackZone, placeholder, usingDefaults]);
+  }, [
+    target,
+    resolvedLocale,
+    options,
+    mounted,
+    fixedZone,
+    resolvedFallbackZone,
+    placeholder,
+    usingDefaults,
+  ]);
 
   if (!target) return <span {...(className ? { className } : {})}>{placeholder}</span>;
   return (

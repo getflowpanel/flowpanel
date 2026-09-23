@@ -41,13 +41,21 @@ function entryBaseName(target: string): string {
     .replace(/\.(?:ts|tsx|mts|cts)$/, "");
 }
 
+function bundlerEntries(packageDir: string, files: string[]): string[] {
+  const configPath = join(packageDir, "tsup.config.ts");
+  if (!existsSync(configPath)) return [];
+  const config = readFileSync(configPath, "utf8");
+  return files.filter((file) => config.includes(`"src/${file}"`));
+}
+
 function prefixedSourceEntry(packageDir: string, name: string): string | null {
   const directory = join(packageDir, "src");
   if (!existsSync(directory)) return null;
   const matches = readdirSync(directory).filter(
     (entry) => /\.tsx?$/.test(entry) && entry.startsWith(`${name}-`),
   );
-  return matches.length === 1 ? join(directory, matches[0] as string) : null;
+  const [only, ...rest] = matches.length > 1 ? bundlerEntries(packageDir, matches) : matches;
+  return only !== undefined && rest.length === 0 ? join(directory, only) : null;
 }
 
 function resolveSourceEntry(packageDir: string, exportPath: string, target: string): string | null {

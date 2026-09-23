@@ -211,4 +211,18 @@ describe("MobileCardList", () => {
     expect(checkbox.querySelector("span")?.className).toContain("h-4");
     expect(checkbox.querySelector("span")?.className).toContain("w-4");
   });
+
+  it("does not open the card when Enter lands on a link inside it", () => {
+    const onRowClick = vi.fn();
+    render(
+      <MobileCardList
+        columns={[{ field: "name" }, { field: "site", format: "url" }]}
+        rows={[{ id: "1", name: "Alice", site: "https://kwork.ru" }]}
+        rowKey="id"
+        onRowClick={onRowClick}
+      />,
+    );
+    fireEvent.keyDown(screen.getByRole("link"), { key: "Enter" });
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
 });

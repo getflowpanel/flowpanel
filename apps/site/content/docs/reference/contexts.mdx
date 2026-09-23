@@ -56,6 +56,14 @@ structured, and ship with runtime guards so you can narrow `unknown` safely.
 
 Produced by `daterange` and `numeric-range` filters.
 
+A `daterange` side written as a day, `2026-09-23`, covers that whole day in
+`formatting.timeZone` (UTC when it is not set): `gte` is its first millisecond and `lte`
+its last.
+
+A widget link's `range` writes both sides as ISO instants joined by `~` —
+`2026-09-22T21:00:00.000Z~2026-09-23T07:00:00.000Z` — and they arrive as exactly those
+instants, so the list shows the rows the widget counted.
+
 <AutoTypeTable path="../../packages/core/src/types/context.ts" name="FilterRangeValue" />
 
 ### FilterInValue

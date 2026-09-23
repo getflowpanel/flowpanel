@@ -1,4 +1,4 @@
-import type { ResolvedFormatting } from "@flowpanel/core/format";
+import { formatDurationCompact, type ResolvedFormatting } from "@flowpanel/core/format";
 import { formatNumber, type NumericFormat } from "@flowpanel/react";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -45,8 +45,12 @@ export function buildValueTickFormatter(
   formatting: ResolvedFormatting,
 ): ((value: unknown) => string) | undefined {
   if (!format) return undefined;
-  return (value) =>
-    typeof value === "number" ? formatNumber(value, format, formatting) : String(value);
+  return (value) => {
+    if (typeof value !== "number") return String(value);
+    return format === "duration"
+      ? formatDurationCompact(value, formatting)
+      : formatNumber(value, format, formatting);
+  };
 }
 
 /** Resolve the extra `<Tooltip>` props driven by `ChartOptionsBase.format` and `.tooltip`. */

@@ -15,6 +15,7 @@ import { projectRowFields } from "../../runtime/project-row";
 import { readOrCard } from "../../runtime/query-error";
 import { withReferenceCells } from "../../runtime/reference-cells";
 import { readRelatedPage } from "../../runtime/require-authorized";
+import { openRowHrefs } from "../../runtime/row-click";
 import { buildDetailTabContext } from "../../runtime/widget-context";
 
 const RELATED_TAB_PAGE_SIZE = 25;
@@ -135,7 +136,9 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   if (listed.failed) return listed.card;
   const result = listed.value;
   if (!result) {
-    return <div className="px-2 py-6 text-sm text-fp-text-3">{labels.noResults}</div>;
+    return (
+      <div className="px-2 py-6 text-sm text-fp-text-3">{tab.emptyState ?? labels.noResults}</div>
+    );
   }
 
   const rows = result.rows as Row[];
@@ -160,10 +163,9 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   const ctx = buildDetailTabContext(config, reqCtx, req, row);
   const openList = openListFilter(filters, declaredFieldSet(target.options));
   // A hidden column is hidden from the payload too, not just from the header.
-  const visible = new Set<string>([
-    ...columns.map((column) => column.field as string),
-    (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY,
-  ]);
+  const rowKey = (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const visible = new Set<string>([...columns.map((column) => column.field as string), rowKey]);
+  const rowHrefs = openRowHrefs(config, resourceName, target, rows, rowKey);
 
   return (
     <RelatedTabTable<Row>
@@ -175,10 +177,9 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
       total={result.total}
       page={result.page}
       pageSize={result.pageSize}
-      rowKey={
-        ((target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY) as keyof Row &
-          string
-      }
+      rowKey={rowKey as keyof Row & string}
+      {...(rowHrefs ? { rowHrefs } : {})}
+      {...(tab.emptyState ? { emptyTitle: tab.emptyState } : {})}
       {...(openList
         ? {
             openListHref: ctx.href(resourceName, undefined, { filter: openList }),
