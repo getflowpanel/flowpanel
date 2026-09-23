@@ -13,6 +13,7 @@ vi.mock("@flowpanel/charts/runtime", () => {
 });
 
 import { renderWidget } from "../runtime/render-widget";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 const cfg: ResolvedAdminConfig = {
   basePath: "/admin",
@@ -34,17 +35,7 @@ const reqCtx: RequestContext = {
 };
 
 function ctx(labels: WidgetContext["labels"]): WidgetContext {
-  return {
-    db: {},
-    session: null,
-    dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-    req: new Request("http://localhost/"),
-    href: (resource) => `/admin/${resource}`,
-    query: (_key, fn) => fn(),
-    labels,
-    sql: async () => [],
-    count: async () => 0,
-  };
+  return fakeWidgetContext({ labels });
 }
 
 const widget: WidgetConfig = {

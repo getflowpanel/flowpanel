@@ -109,6 +109,18 @@ export const API_OWNERSHIP_RULES = [
     guidance: false,
   },
   {
+    sourcePrefix: "packages/core/src/format-values.ts",
+    page: "/docs/reference/resources",
+    anchor: "formatting-values-yourself",
+    guidance: false,
+  },
+  {
+    sourcePrefix: "packages/core/src/bind-format.ts",
+    page: "/docs/reference/widgets",
+    anchor: "widgetformat",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/humanize.ts",
     page: "/docs/reference/define-config",
     anchor: "labels",
@@ -327,6 +339,12 @@ export const API_OWNERSHIP_RULES = [
     sourcePrefix: "packages/core/src/types/widget-cards.ts",
     page: "/docs/reference/widgets",
     anchor: "cards",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-context.ts",
+    page: "/docs/reference/widgets",
+    anchor: "widgetcontext",
     guidance: true,
   },
   {

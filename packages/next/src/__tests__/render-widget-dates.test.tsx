@@ -1,14 +1,9 @@
-import type {
-  RequestContext,
-  ResolvedAdminConfig,
-  WidgetConfig,
-  WidgetContext,
-} from "@flowpanel/core";
-import { DEFAULT_LABELS } from "@flowpanel/core";
+import type { RequestContext, ResolvedAdminConfig, WidgetConfig } from "@flowpanel/core";
 import { KvCard, StatCard, StatGroupCard } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { renderWidget } from "../runtime/render-widget";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 const JOINED = new Date("2026-09-22T23:30:00.000Z");
 
@@ -34,17 +29,7 @@ const reqCtx: RequestContext = {
   userAgent: null,
 };
 
-const ctx: WidgetContext = {
-  db: {},
-  session: null,
-  dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-  req: new Request("http://localhost/"),
-  href: (resource) => `/admin/${resource}`,
-  query: (_key, fn) => fn(),
-  labels: DEFAULT_LABELS,
-  sql: async () => [],
-  count: async () => 0,
-};
+const ctx = fakeWidgetContext();
 
 function findProps(tree: ReactNode, target: unknown): Record<string, unknown> | undefined {
   if (tree === null || tree === undefined || typeof tree !== "object") return undefined;

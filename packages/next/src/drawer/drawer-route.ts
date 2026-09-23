@@ -129,6 +129,7 @@ async function serializeTab(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
   req: Request,
+  rowKey: string,
 ): Promise<SerializedDrawerTab> {
   if ("fields" in tab) {
     return {
@@ -145,6 +146,7 @@ async function serializeTab(
       req,
       { from: new Date(0), to: new Date(), preset: "custom" },
       row,
+      rowKey,
     );
     const widgets: SerializedWidget[] = [];
     for (const w of tab.widgets) {
@@ -242,19 +244,16 @@ export function drawerRoute(config: ResolvedAdminConfig) {
         }
         const projectedRow = projectRowFields(row, readableRowFields);
 
+        const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
         const header =
           typeof drawer.header === "function"
             ? String(drawer.header(projectedRow) ?? "")
-            : String(
-                projectedRow[
-                  (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY
-                ] ?? "",
-              );
+            : String(projectedRow[rowKey] ?? "");
 
         const tabs: SerializedDrawerTab[] | null = drawer.tabs
           ? await Promise.all(
               drawer.tabs.map((t) =>
-                serializeTab(t, projectedRow, readableRowFields, config, reqCtx, req),
+                serializeTab(t, projectedRow, readableRowFields, config, reqCtx, req, rowKey),
               ),
             )
           : null;

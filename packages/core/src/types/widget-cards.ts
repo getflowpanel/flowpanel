@@ -1,5 +1,6 @@
 import type { ColumnFormat } from "./resource";
-import type { NumericFormat, Span, Tone, WidgetContext } from "./widget";
+import type { NumericFormat, Span, Tone } from "./widget";
+import type { Link, LinkTarget, WidgetContext } from "./widget-context";
 
 /** Display-safe literal returned by a stat resolver. */
 export type StatValue = string | number | boolean | bigint | Date | null | undefined;
@@ -13,8 +14,8 @@ export interface KvResult {
   value: StatValue;
   /** Semantic color of the value. */
   tone?: Tone;
-  /** Renders the value as a link to this path. */
-  href?: string;
+  /** Renders the value as a link — a path or a named target. */
+  href?: LinkTarget;
 }
 
 /** One row of a `statGroup`. */
@@ -49,8 +50,8 @@ export interface StatGroupWidget {
 export interface StatOptions {
   /** Small caption under the value. */
   hint?: string;
-  /** Turns the whole card into a link to this path. */
-  href?: string;
+  /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
+  href?: Link;
   /** Semantic color of the value. */
   tone?: Tone;
   /** How a numeric value is rendered. */
@@ -71,8 +72,8 @@ export interface StatResult {
   tone?: Tone;
   /** Small caption under the value. */
   hint?: string;
-  /** Turns the whole card into a link to this path. */
-  href?: string;
+  /** Turns the whole card into a link — a path or a named target. */
+  href?: LinkTarget;
 }
 
 /** A `stat()` value resolved per request. */
@@ -94,8 +95,8 @@ export interface KvItem {
   format?: ColumnFormat | NumericFormat;
   /** Semantic color of the value. */
   tone?: Tone;
-  /** Renders the value as a link to this path. */
-  href?: string;
+  /** Renders the value as a link — a path, a named target, or one computed from the context. */
+  href?: Link;
 }
 
 export interface KvOptions {
@@ -123,7 +124,8 @@ export interface KvWidget {
 export interface BarRow {
   label: string;
   value: number;
-  href?: string;
+  /** Links the bar's label — a path or a named target. */
+  href?: LinkTarget;
   /** Fill color of the bar. */
   tone?: Tone;
 }
@@ -157,7 +159,8 @@ export interface BarsWidget {
 export interface FunnelStep {
   label: string;
   value: number;
-  href?: string;
+  /** Links the step's label — a path or a named target. */
+  href?: LinkTarget;
 }
 
 export interface FunnelOptions {
@@ -195,7 +198,8 @@ export interface ListRow {
   meta?: string;
   /** A leading dot in this color; `warn` and `err` also color the text. */
   tone?: Tone;
-  href?: string;
+  /** Links the line's text — a path or a named target. */
+  href?: LinkTarget;
 }
 
 export interface ListOptions {

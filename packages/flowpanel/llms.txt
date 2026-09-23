@@ -728,11 +728,15 @@ Declarative cell rendering — reach for this before writing a `render` function
 
 ```ts excerpt
 type ColumnFormat =
-  | "badge"
-  | "money"
-  | "number"
+  | "badge" | "money" | "number"
+  | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
-  | { kind: "money"; currency?: string; scale?: number };
+  | { kind: "money"; currency?: string; scale?: number }
+  | { kind: "date"; time?: boolean }
+  | { kind: "percent"; digits?: number; heat?: boolean }
+  | { kind: "duration"; unit?: "ms" | "s" }
+  | { kind: "boolean"; labels?: { true?: string; false?: string } }
+  | { kind: "url"; label?: string };
 ```
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
@@ -758,6 +762,32 @@ this format all use the label.
 }
 ```
 
+The remaining kinds read a raw value the way a founder reads it:
+
+- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the clock. A `YYYY-MM-DD` value is a calendar day and shows as itself in any zone. A zoneless `YYYY-MM-DD HH:mm:ss`, which SQLite and a Postgres `timestamp` return, is UTC, as in `ctx.sql` rows; a string that is not an ISO date stays text.
+- `relative` shows how long ago — `5 minutes ago`, `yesterday` — in the admin's `locale`.
+- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, so a retention grid reads at a glance and still sorts by number.
+- `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
+- `boolean` prints `✓` and `✕`, or `labels: { true: "да", false: "нет" }`. SQLite's `1` and `0` read as true and false.
+- `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
+
+```ts excerpt
+columns: [
+  { field: "week", label: "Cohort" },
+  { field: "w1", label: "Week 1", format: { kind: "percent", heat: true } },
+  { field: "p95Ms", label: "p95", format: "duration" },
+  { field: "url", format: "url" },
+  { field: "lastSeenAt", label: "Last seen", format: "relative" },
+]
+```
+
+A table cell, a widget table, a detail field and a drawer field render the rich kinds the
+same way on the server and in the browser, in the admin's locale and zone: `relative` as a
+`<time>` with the exact timestamp in its tooltip, `url` as a link that opens an absolute URL
+in a new tab and never opens the row by click or Enter, a `heat` percent as a cell shaded in
+five steps, and a `boolean` glyph with a spoken yes or no. A `kv` item reads the text form
+from `formatColumnValue`.
+
 #### Formatting values yourself
 
 Two formatters back every cell, card and export, and both take the admin's
@@ -769,6 +799,14 @@ renders a widget's `NumericFormat` (`number`, `currency`, `percent`, `bytes`,
 `@flowpanel/react` only re-exports `formatNumber` for client code. `badgeProps(format, value)` gives
 the props a `badge` cell hands its `StatusBadge` — spaced status, label and tone —
 or `null` for an empty value, so a custom cell renders a badge the way the table does.
+
+`formatDurationValue`, `formatPercentValue`, `formatRelativeValue` and `formatBooleanValue`
+print one kind each, and `columnFormatKind`, `percentHeatLevel` and `urlCellParts` tell a
+custom cell what a format asks for. `toDateValue` and `toBooleanValue` read a raw value the
+way a `date` and a `boolean` cell do, so a zoneless timestamp is UTC and SQLite's `1` is
+true. `formatNumber`'s `percent` and `duration` use the same formatters, so a card and a
+cell print one value alike. `formatDurationCompact` keeps only the largest unit — `2.1h`,
+`42s` — and is what a chart's value axis prints.
 
 ### FieldDef
 
@@ -997,12 +1035,15 @@ What `DetailTab.render` receives as its second argument.
 | --- | --- | --- |
 | `db` | `DB` | Your database client, exactly as handed to the adapter. |
 | `session` | `Session \| null` |  |
-| `dateRange` | `ResolvedDateRange` | Range chosen in the dashboard's date picker, already resolved to dates. |
+| `dateRange` | `WidgetDateRange` | The picked range, the period before it and the admin's zone, resolved to dates. |
 | `href` | `( resource: ResourceName, id?: string \| number, opts?: { filter?: Record<string, unknown>; tab?: string }, ) => string` | Mount-aware link builder; never hand-type `"/admin/…"` in a config. |
 | `labels` | `ResolvedLabels` | The admin's resolved chrome strings, so a widget never hard-codes English. |
-| `query` | `<T>(key: string, fn: () => Promise<T>) => Promise<T>` | Memoises `fn` for the current request so two widgets share one query. A failure is memoised too — the request does not retry under the same key. |
+| `query` | `{ <T>(key: string, fn: () => Promise<T>): Promise<T>; <A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>; }` | Memoises a query per request: a key and a thunk, or a function and its arguments. Arguments match by value for strings, numbers, booleans and dates, by identity otherwise. |
 | `sql` | `<Row = Record<string, unknown>>( strings: TemplateStringsArray, ...values: unknown[] ) => Promise<Row[]>` | One read-only statement, as a tagged template. Every interpolated value is bound as a parameter, so `${input}` can never change the statement. `Date` binds as an ISO-8601 string and `bigint` as decimal text. Throws when the configured adapter implements no `sql` capability. Runs exactly the statement you write: no tenant scope, no access rule and no soft-delete filter are applied. Add those predicates yourself, or use `count` and resource reads, which do. |
-| `count` | `(resource: ResourceName, where?: Record<string, unknown>) => Promise<number>` | How many rows of a registered resource match `where`, through the same role, access and tenant-scope checks as any other cross-resource read. A resource the current session may not read counts `0`. |
+| `count` | `(resource: ResourceName, where?: Record<string, unknown>) => Promise<number>` | Rows of a registered resource matching `where`, under the same role, access and scope checks. Memoised per request by resource and `where`; a resource the session may not read counts `0`. |
+| `id?` | `string` | The viewed record's key as a string — `row[rowKey]`, `rowKey` defaulting to `"id"`. Absent on a dashboard, and when the key is not a string or a number. |
+| `format` | `WidgetFormat` | The admin's formatters — locale, zone and currency from `formatting`. |
+| `link` | `(target: LinkTarget) => string` | Resolve a link target to an href, for the props of a custom widget. |
 
 ### SelectOption
 
@@ -1508,7 +1549,7 @@ Every widget builder and the options it accepts.
 
 Docs: https://flowpanel.tech/docs/reference/widgets
 
-Documented types: WidgetContext, metric, MetricOptions, MetricResult, MetricDelta, table, TableWidgetOptions, WidgetColumn, statGroup, StatGroupOptions, StatItem, stat, StatOptions, StatResult, kv, KvOptions, KvItem, KvResult, bars, BarsOptions, BarRow, funnel, FunnelOptions, FunnelStep, list, ListOptions, ListRow, custom, CustomOptions, ChartOptionsBase, areaChart, AreaChartOptions, barChart, BarChartOptions, lineChart, LineChartOptions, pieChart, PieChartOptions, previousRange, fillDays, dashboard, page, DashboardConfig, SectionConfig, DateRangeConfig, ResolvedDateRange, PageConfig
+Documented types: WidgetContext, WidgetFormat, ResourceLink, DashboardLink, metric, MetricOptions, MetricResult, MetricDelta, table, TableWidgetOptions, WidgetColumn, statGroup, StatGroupOptions, StatItem, stat, StatOptions, StatResult, kv, KvOptions, KvItem, KvResult, bars, BarsOptions, BarRow, funnel, FunnelOptions, FunnelStep, list, ListOptions, ListRow, custom, CustomOptions, ChartOptionsBase, areaChart, AreaChartOptions, barChart, BarChartOptions, lineChart, LineChartOptions, pieChart, PieChartOptions, previousRange, fillDays, dashboard, page, DashboardConfig, SectionConfig, DateRangeConfig, ResolvedDateRange, WidgetDateRange, PageConfig
 
 Widgets are the contents of a dashboard section, of a detail page's widgets tab,
 and of a drawer's widget tab. Each builder returns a `WidgetConfig`; every
@@ -1555,14 +1596,17 @@ What every widget `query` receives.
 | --- | --- | --- |
 | `db` | `DB` | Your database client, exactly as handed to the adapter. |
 | `session` | `Session \| null` |  |
-| `dateRange` | `ResolvedDateRange` | Range chosen in the dashboard's date picker, already resolved to dates. |
+| `dateRange` | `WidgetDateRange` | The picked range, the period before it and the admin's zone, resolved to dates. |
 | `req` | `Request` |  |
 | `row?` | `Record<string, unknown>` | Row of the record being viewed when the widget sits in a detail tab. |
+| `id?` | `string` | The viewed record's key as a string — `row[rowKey]`, `rowKey` defaulting to `"id"`. Absent on a dashboard, and when the key is not a string or a number. |
 | `href` | `( resource: ResourceName, id?: string \| number, opts?: { filter?: Record<string, unknown>; tab?: string }, ) => string` | Mount-aware link builder; never hand-type `"/admin/…"` in a config. |
-| `query` | `<T>(key: string, fn: () => Promise<T>) => Promise<T>` | Memoises `fn` for the current request so two widgets share one query. A failure is memoised too — the request does not retry under the same key. |
+| `link` | `(target: LinkTarget) => string` | Resolve a link target to an href, for the props of a custom widget. |
+| `query` | `{ <T>(key: string, fn: () => Promise<T>): Promise<T>; <A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>; }` | Memoises a query per request: a key and a thunk, or a function and its arguments. Arguments match by value for strings, numbers, booleans and dates, by identity otherwise. |
 | `labels` | `ResolvedLabels` | The admin's resolved chrome strings, so a widget never hard-codes English. |
+| `format` | `WidgetFormat` | The admin's formatters — locale, zone and currency from `formatting`. |
 | `sql` | `<Row = Record<string, unknown>>( strings: TemplateStringsArray, ...values: unknown[] ) => Promise<Row[]>` | One read-only statement, as a tagged template. Every interpolated value is bound as a parameter, so `${input}` can never change the statement. `Date` binds as an ISO-8601 string and `bigint` as decimal text. Throws when the configured adapter implements no `sql` capability. Runs exactly the statement you write: no tenant scope, no access rule and no soft-delete filter are applied. Add those predicates yourself, or use `count` and resource reads, which do. |
-| `count` | `(resource: ResourceName, where?: Record<string, unknown>) => Promise<number>` | How many rows of a registered resource match `where`, through the same role, access and tenant-scope checks as any other cross-resource read. A resource the current session may not read counts `0`. |
+| `count` | `(resource: ResourceName, where?: Record<string, unknown>) => Promise<number>` | Rows of a registered resource matching `where`, under the same role, access and scope checks. Memoised per request by resource and `where`; a resource the session may not read counts `0`. |
 
 `href` builds a link under the admin's own `basePath`, so a config never
 hand-types `/admin/…`. `href("orders")` is the list, `href("orders", id)` one
@@ -1570,10 +1614,27 @@ record, and the third argument adds the list page's own query keys —
 `{ filter: { status: "paid" } }` becomes `?f_status=paid` and `{ tab: "activity" }`
 becomes `?tab=activity`.
 
-`query(key, fn)` memoises for the request. Two widgets that need the same figure
-pass the same key and the query runs once; the memo is per page render, so the
-next request queries again. The memo holds the promise, so a failure is shared
-too — the request does not retry under that key.
+`query` memoises for the request, so two widgets that need the same figure run it
+once and the next request queries again. Pass a key and a thunk —
+`query("mrr", () => mrr(db))` — or the function and its arguments —
+`query(mrr, db, ctx.dateRange)` — to key the call by the function and its
+arguments: strings, numbers, booleans and dates by value, objects by identity. The
+memo holds the promise, so a failure is shared too — the request does not retry.
+Pass a function declared once, like `mrr`: one written inline —
+`query(async () => …)` — is a new function on every call and never shares.
+
+`count` is memoised the same way: one resource and `where`, written in any key
+order, count once per request. `id` is the viewed record's key as a string, read
+through the resource's `rowKey`; a dashboard widget has none.
+
+`dateRange` is a `WidgetDateRange`: the picked range, `previous` and `timeZone`, the
+admin's `formatting.timeZone`. `previous` is the period a founder compares with. For
+`today`, `yesterday`, `MTD`, `QTD` and `YTD` it is the same stretch one day, month,
+quarter or year back at the same clock time, so today at 10:00 compares with yesterday
+until 10:00. For `last7d`, `last30d` and a custom range it is the span of the same length
+before it, and over a detail tab's whole history it is `null`. Query the previous period
+with `ctx.dateRange.previous`; hand `ctx.dateRange` to `fillDays` and days bucket in the
+admin's zone.
 
 `labels` is the admin's resolved `LabelsConfig`, which is where a widget's own
 wording should come from. `row` is present only when the widget sits in a detail
@@ -1586,10 +1647,40 @@ metric("Paid orders", async (ctx) => ({
 }));
 ```
 
+#### WidgetFormat
+
+`WidgetFormat`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `date` | `(value: MomentInput) => string` | The calendar day in the admin's zone; a `YYYY-MM-DD` string is that day. |
+| `dateTime` | `(value: MomentInput) => string` | Day and clock, as a table cell shows a timestamp. |
+| `relative` | `(value: MomentInput, now?: Date) => string` | How long ago — `5 minutes ago`, `yesterday`. `now` defaults to the current time. |
+| `number` | `(value: NumberInput, digits?: number) => string` | A number with the locale's grouping and at most `digits` decimals. |
+| `money` | `(value: NumberInput, options?: { currency?: string; digits?: number; scale?: number }) => string` | An amount divided by `scale`, in `currency` (default `formatting.currency`), `digits` decimals (0). |
+| `percent` | `(value: NumberInput, digits?: number) => string` | A fraction as a percentage — `0.42` is `42%`. |
+| `duration` | `(ms: NumberInput) => string` | Milliseconds as the largest units that fit — `2 hr 5 min`. |
+| `plural` | `(count: number, label: string \| PluralLabel) => string` | A count in the plural form the locale picks; `{n}` is the formatted count. |
+
+`ctx.format` is `bindFormat(formatting)`: every method reads the admin's `locale`,
+`timeZone` and `currency`, so a hint or a list line prints the same day, amount and
+duration as a table cell, and a Russian admin never shows `"3 записей"`.
+
+```ts excerpt
+stat("Latency", async (ctx) => {
+  const s = await ctx.query(latencyStages, ctx.db, ctx.dateRange);
+  return {
+    value: ctx.format.duration(s.p50Ms),
+    hint: `p95 ${ctx.format.duration(s.p95Ms)} · ${ctx.format.plural(s.n, { one: "{n} order", other: "{n} orders" })}`,
+  };
+});
+```
+
 ### Shared option types
 
-`Span` is `1 | 2 | 3 | 4 | 6 | 8 | 12` — the widget's width in the section's
-12-column grid.
+`Span` is any whole number from `1` to `12` — the widget's width in a
+`columns: 12` section. Below the `sm` breakpoint every widget takes the full
+row.
 
 `NumericFormat` is `"number" | "currency" | "percent" | "bytes" | "duration"`.
 
@@ -1597,6 +1688,67 @@ metric("Paid orders", async (ctx) => ({
 
 Every widget accepts `realtime`, a channel name or list. When one fires, that
 widget re-runs its query — the rest of the dashboard stays put.
+
+### Links
+
+A widget link names where it goes instead of spelling a path, so a renamed
+`basePath` never breaks it.
+
+`ResourceLink`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `resource` | `ResourceName` |  |
+| `id?` | `string \| number` | One record's page instead of the list. |
+| `filter?` | `Record<string, unknown>` | List filters, as the list's own `f_<field>` URL keys. |
+| `view?` | `string` | A view from the resource's `views`, applied by name before `filter`. |
+| `tab?` | `string` | A detail tab, with `id`. |
+| `range?` | `string` | A `daterange` filter field that receives the widget's range, bound for bound. |
+
+`DashboardLink`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `dashboard` | `string` |  |
+| `range?` | `boolean` | Carry the widget's range: the preset, or `from` and `to` for a custom range. Default: `true`. |
+
+A `LinkTarget` is a string, a `ResourceLink` or a `DashboardLink`. A string is used as
+written — an external URL or a route of your own app; in development FlowPanel warns
+once about a string that starts with the admin's own `basePath`.
+
+- `{ resource: "order" }` is the list, `{ resource: "order", id }` one record, and `tab`
+  a detail tab of it.
+- `filter` becomes the list's own `f_<field>` keys, and `view` applies one of the
+  resource's `views` by name — its search, sort and filters — before them.
+- `range` names a `daterange` filter that receives the widget's range bound for bound,
+  as `from~to` instants, so the list shows exactly the rows the number counted; the
+  filter chip shows the two days in the admin's zone. A detail tab's whole history
+  carries no range.
+- A `Date` in `filter` is written as its day in the admin's zone.
+- `{ dashboard: "/system" }` is a dashboard or page by its configured `path`. It
+  carries the widget's range — the preset, or `from` and `to` for a custom range —
+  unless `range: false`.
+
+A name that is not registered — resource, view, dashboard — throws when the widget
+renders and lists what is, so the widget's error card says what to fix.
+
+`ctx.link(target)` resolves the same targets to a string, for the props of a custom
+widget:
+
+```ts excerpt
+custom(PlatformGrid, async (ctx) => ({
+  platforms: (await platforms(ctx.db)).map((p) => ({
+    ...p,
+    runsHref: ctx.link({ resource: "scraper_run", filter: { platform: p.key }, range: "startedAt" }),
+  })),
+}));
+```
+
+Every link a widget carries takes a `LinkTarget`: a metric's `drilldown` and
+`MetricResult.href`, a stat's `href` and `StatResult.href`, a `kv` item's `href` and
+`KvResult.href`, a table's `seeAll` and `rowHref`, a chart's `drilldown`, and the
+`href` of a `bars`, `funnel` or `list` row. An option set once in the config may also
+be a function of the widget context that returns one — or `null` for no link.
 
 ### metric
 
@@ -1610,7 +1762,7 @@ widget re-runs its query — the rest of the dashboard stays put.
 | `delta?` | `(ctx: WidgetContext) => Promise<MetricDelta \| null>` | Period-over-period change, queried alongside the value. |
 | `sparkline?` | `(ctx: WidgetContext) => Promise<number[]>` | Trend line drawn inside the card. |
 | `tone?` | `Tone` | Semantic color of the value. |
-| `drilldown?` | `string` | Turns the whole card into a link to this path. |
+| `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
 
@@ -1635,7 +1787,7 @@ as the card's `drilldown`, and `MetricResult.sublabel` as its caption.
 | `tone?` | `Tone` |  |
 | `sublabel?` | `string` |  |
 | `delta?` | `MetricDelta` |  |
-| `href?` | `string` | Turns the whole card into a link to this path. |
+| `href?` | `LinkTarget` | Turns the whole card into a link — a path or a named target. |
 
 #### MetricDelta
 
@@ -1671,8 +1823,8 @@ and format; an object overrides them.
 | `query?` | `(ctx: WidgetContext) => Promise<R[]>` | Supply rows yourself instead of reading a resource. |
 | `columns?` | `Array<RowKey<R> \| WidgetColumn<R>>` | Columns to show. Defaults to the resource's own list columns. A bare key takes the resource's declared header, or a humanised one; give an object to name and format a column the query produced itself. |
 | `rowKey?` | `RowKey<R>` | Which field identifies a row. Defaults to the resource's own key, and to `"id"` for a `query`. A row without one renders but is never acted on. |
-| `rowHref?` | `(row: R, ctx: WidgetContext) => string \| null` | Turn each row into a link. Return `null` to leave a row inert. |
-| `seeAll?` | `boolean \| string` | Link the card heading to the resource's list. `true` needs a `resource`; a string is used as the href verbatim. |
+| `rowHref?` | `(row: R, ctx: WidgetContext) => LinkTarget \| null` | Turn each row into a link — a path or a named target. Return `null` to leave a row inert. |
+| `seeAll?` | `boolean \| Link` | Link the card heading. `true` links the `resource`'s own list; a `Link` names any target, and a string is used as written. |
 | `limit?` | `number` | Row cap. An explicit value caps both paths; the default applies to the `resource` read, while a `query`'s own rows are left alone unless you set it. Default: `10`. |
 | `emptyState?` | `ReactNode` | Rendered in place of the table body when there are zero rows. |
 | `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
@@ -1777,7 +1929,7 @@ value is a literal or a resolver.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `hint?` | `string` | Small caption under the value. |
-| `href?` | `string` | Turns the whole card into a link to this path. |
+| `href?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `tone?` | `Tone` | Semantic color of the value. |
 | `format?` | `NumericFormat` | How a numeric value is rendered. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
@@ -1797,7 +1949,7 @@ option, which stays as the fallback. A `Date` is still a value, not a result.
 | `value` | `StatValue` |  |
 | `tone?` | `Tone` | Semantic color of the value. |
 | `hint?` | `string` | Small caption under the value. |
-| `href?` | `string` | Turns the whole card into a link to this path. |
+| `href?` | `LinkTarget` | Turns the whole card into a link — a path or a named target. |
 
 ```ts excerpt
 stat("Open invoices", async (ctx) => {
@@ -1832,7 +1984,7 @@ The facts about one thing. Each item's `format` accepts a `ColumnFormat` or a
 | `value` | `StatValue \| ((ctx: WidgetContext) => Promise<StatValue \| KvResult>)` | A literal, or a function resolved per request that may return a `KvResult`. |
 | `format?` | `ColumnFormat \| NumericFormat` |  |
 | `tone?` | `Tone` | Semantic color of the value. |
-| `href?` | `string` | Renders the value as a link to this path. |
+| `href?` | `Link` | Renders the value as a link — a path, a named target, or one computed from the context. |
 
 ##### KvResult
 
@@ -1847,7 +1999,7 @@ as the fallback. `statGroup` items take the same result.
 | --- | --- | --- |
 | `value` | `StatValue` |  |
 | `tone?` | `Tone` | Semantic color of the value. |
-| `href?` | `string` | Renders the value as a link to this path. |
+| `href?` | `LinkTarget` | Renders the value as a link — a path or a named target. |
 
 ```ts excerpt
 kv({
@@ -1893,7 +2045,7 @@ bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), form
 | --- | --- | --- |
 | `label` | `string` |  |
 | `value` | `number` |  |
-| `href?` | `string` |  |
+| `href?` | `LinkTarget` | Links the bar's label — a path or a named target. |
 | `tone?` | `Tone` | Fill color of the bar. |
 
 #### funnel
@@ -1923,7 +2075,7 @@ of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
 | --- | --- | --- |
 | `label` | `string` |  |
 | `value` | `number` |  |
-| `href?` | `string` |  |
+| `href?` | `LinkTarget` | Links the step's label — a path or a named target. |
 
 #### list
 
@@ -1949,7 +2101,7 @@ A short feed — latest signups, failing jobs — where a table would be too muc
 | `text` | `string` |  |
 | `meta?` | `string` | Trailing detail — a timestamp, a count, an owner. |
 | `tone?` | `Tone` | A leading dot in this color; `warn` and `err` also color the text. |
-| `href?` | `string` |  |
+| `href?` | `LinkTarget` | Links the line's text — a path or a named target. |
 
 Rows are keyed by their position, so two rows with the same text are both shown.
 Give `key` — a record id — when rows are reordered by realtime updates.
@@ -2012,7 +2164,7 @@ Shared by area, bar and line charts.
 | `height?` | `number` | Chart height in px. Default: `240`. |
 | `format?` | `NumericFormat` | How y-values are rendered in ticks and tooltips. |
 | `tooltip?` | `"default" \| "compact" \| false` | `false` omits the `<Tooltip>` entirely. |
-| `drilldown?` | `string` | Wraps the whole chart card in a link, mirroring MetricCard's whole-card drilldown. |
+| `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
 | `bucket?` | `ChartBucket` | X-axis aggregation bucket. |
@@ -2061,7 +2213,7 @@ unless you pass `showLegend: false`.
 | `showLegend?` | `boolean` | Show the slice legend. Default: `true`. |
 | `height?` | `number` | Chart height in px. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
-| `drilldown?` | `string` | Wraps the whole chart card in a link, mirroring MetricCard's whole-card drilldown. |
+| `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
 | `colors?` | `Record<string, string>` | Pin specific slices to a color, keyed by category value. |
 | `format?` | `NumericFormat` | How slice values are rendered in the tooltip. |
@@ -2079,10 +2231,11 @@ wall clock.
 
 Turns sparse grouped rows into one point per day across the range, so a chart
 draws a flat stretch where nothing happened instead of skipping the day. Days are
-bucketed in `timeZone`, which defaults to UTC. There is one bucket per calendar day
-the range touches, both ends included, so the `last7d` preset — `now - 7d … now` —
-yields eight buckets and the first one is a partial day. Narrow the range, or slice
-the result, if a chart should show exactly seven bars.
+bucketed in `timeZone`, else the range's own `timeZone` — pass `ctx.dateRange` and the
+admin's zone applies — else UTC. There is one bucket per calendar day the range
+touches, both ends included, so the `last7d` preset — `now - 7d … now` — yields
+eight buckets and the first one is a partial day. Narrow the range, or slice the
+result, if a chart should show exactly seven bars.
 
 ```ts excerpt
 import { fillDays, previousRange } from "@flowpanel/kit";
@@ -2142,6 +2295,9 @@ are next to the date picker from `labels.widget.updated`.
 
 `DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD"`.
 
+`today`, `yesterday`, `MTD`, `QTD` and `YTD` start at midnight in `formatting.timeZone`
+(UTC when it is not set); `last7d` and `last30d` are the last 7 × 24 and 30 × 24 hours.
+
 #### ResolvedDateRange
 
 `ResolvedDateRange`
@@ -2151,6 +2307,15 @@ are next to the date picker from `labels.widget.updated`.
 | `from` | `Date` |  |
 | `to` | `Date` |  |
 | `preset` | `DateRangePreset \| "custom"` | `"custom"` once the operator picks their own dates. |
+
+#### WidgetDateRange
+
+`WidgetDateRange`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `previous` | `{ from: Date; to: Date } \| null` | The period compared against: the same stretch a day, month, quarter or year back for a calendar preset, else the span before it. `null` when there is no earlier period to query. |
+| `timeZone` | `string` | IANA zone the admin renders and buckets in — `formatting.timeZone`, else `"UTC"`. |
 
 #### PageConfig
 
@@ -2404,6 +2569,14 @@ structured, and ship with runtime guards so you can narrow `unknown` safely.
 #### FilterRangeValue
 
 Produced by `daterange` and `numeric-range` filters.
+
+A `daterange` side written as a day, `2026-09-23`, covers that whole day in
+`formatting.timeZone` (UTC when it is not set): `gte` is its first millisecond and `lte`
+its last.
+
+A widget link's `range` writes both sides as ISO instants joined by `~` —
+`2026-09-22T21:00:00.000Z~2026-09-23T07:00:00.000Z` — and they arrive as exactly those
+instants, so the list shows the rows the widget counted.
 
 `FilterRangeValue`
 
@@ -2811,6 +2984,7 @@ cell renderers.
 | `MobileCardList` | Card layout `DataTable` switches to under the mobile breakpoint. |
 | `KV`, `KVRow` | Key/value list layout, used by card and drawer field views. |
 | `renderFormatCell` | Renders a declarative `ColumnFormat` value — the function `DataTable` cells call internally. |
+| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time and a boolean — use them in a custom cell to match the table. |
 
 `DataTableProps`
 

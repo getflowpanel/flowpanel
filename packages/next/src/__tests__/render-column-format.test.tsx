@@ -1,6 +1,13 @@
 import type { ColumnFormat } from "@flowpanel/core";
 import { resolveFormatting } from "@flowpanel/core";
-import { renderFormatCell, StatusBadge } from "@flowpanel/react";
+import {
+  BooleanCell,
+  HeatCell,
+  RelativeTimeCell,
+  renderFormatCell,
+  StatusBadge,
+  UrlCell,
+} from "@flowpanel/react";
 import { isValidElement, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { renderColumnFormat } from "../runtime/render-column-format";
@@ -53,7 +60,7 @@ describe("renderColumnFormat", () => {
   });
 
   it("stringifies under an unrecognized format instead of guessing money", () => {
-    const future = "duration" as unknown as ColumnFormat;
+    const future = "sparkline" as unknown as ColumnFormat;
     expect(renderColumnFormat(future, 0.42)).toBe("0.42");
   });
 
@@ -110,5 +117,40 @@ describe("renderColumnFormat / renderFormatCell parity", () => {
     expect(a.status).toBe(b.status);
     expect(a.tone).toBe(b.tone);
     expect(a.label).toBe(b.label);
+  });
+});
+
+describe("renderColumnFormat / renderFormatCell parity — date, percent, duration, boolean, url, relative", () => {
+  const textCases: Array<[string, ColumnFormat, unknown]> = [
+    ["date", "date", new Date("2026-09-23T21:30:00Z")],
+    ["date with time", { kind: "date", time: true }, "2026-09-23T21:30:00Z"],
+    ["percent", "percent", 0.423],
+    ["duration", "duration", 4200],
+    ["boolean with words", { kind: "boolean", labels: { true: "да" } }, true],
+    ["url that cannot be a link", "url", "javascript:alert(1)"],
+  ];
+
+  it.each(textCases)("server and client render %s as the same text", (_name, format, value) => {
+    const server = renderColumnFormat(format, value);
+    expect(typeof server).toBe("string");
+    expect(server).toBe(renderFormatCell(format, value));
+  });
+
+  const elementCases: Array<[string, ColumnFormat, unknown, unknown]> = [
+    ["heat percent", { kind: "percent", heat: true }, 0.42, HeatCell],
+    ["url", "url", "https://kwork.ru/projects/1", UrlCell],
+    ["relative time", "relative", "2026-09-23T11:55:00Z", RelativeTimeCell],
+    ["boolean", "boolean", true, BooleanCell],
+  ];
+
+  it.each(
+    elementCases,
+  )("server and client render a %s as the same element", (_name, format, value, type) => {
+    const server = renderColumnFormat(format, value) as ReactElement<Record<string, unknown>>;
+    const client = renderFormatCell(format, value) as ReactElement<Record<string, unknown>>;
+    expect(isValidElement(server)).toBe(true);
+    expect(server.type).toBe(type);
+    expect(client.type).toBe(type);
+    expect(server.props).toEqual(client.props);
   });
 });

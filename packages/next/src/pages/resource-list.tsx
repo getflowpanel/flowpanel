@@ -11,6 +11,7 @@ import {
   checkRequireRole,
   DEFAULT_LABELS,
   formatLabel,
+  resolveFormatting,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
@@ -105,7 +106,11 @@ export async function ResourceListPage({
       session: reqCtx.session,
     },
   );
-  const filters = sanitizeFilterValues(rawFilters, filterSpecs);
+  const filters = sanitizeFilterValues(
+    rawFilters,
+    filterSpecs,
+    resolveFormatting(config.formatting).timeZone,
+  );
   const effectiveSearch = readable.searchFields.length > 0 ? search : "";
 
   const includeDeleted = !!softDelete && searchParams.get("deleted") === "1";

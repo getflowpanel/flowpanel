@@ -138,11 +138,15 @@ Declarative cell rendering — reach for this before writing a `render` function
 
 ```ts excerpt
 type ColumnFormat =
-  | "badge"
-  | "money"
-  | "number"
+  | "badge" | "money" | "number"
+  | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
-  | { kind: "money"; currency?: string; scale?: number };
+  | { kind: "money"; currency?: string; scale?: number }
+  | { kind: "date"; time?: boolean }
+  | { kind: "percent"; digits?: number; heat?: boolean }
+  | { kind: "duration"; unit?: "ms" | "s" }
+  | { kind: "boolean"; labels?: { true?: string; false?: string } }
+  | { kind: "url"; label?: string };
 ```
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
@@ -168,6 +172,32 @@ this format all use the label.
 }
 ```
 
+The remaining kinds read a raw value the way a founder reads it:
+
+- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the clock. A `YYYY-MM-DD` value is a calendar day and shows as itself in any zone. A zoneless `YYYY-MM-DD HH:mm:ss`, which SQLite and a Postgres `timestamp` return, is UTC, as in `ctx.sql` rows; a string that is not an ISO date stays text.
+- `relative` shows how long ago — `5 minutes ago`, `yesterday` — in the admin's `locale`.
+- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, so a retention grid reads at a glance and still sorts by number.
+- `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
+- `boolean` prints `✓` and `✕`, or `labels: { true: "да", false: "нет" }`. SQLite's `1` and `0` read as true and false.
+- `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
+
+```ts excerpt
+columns: [
+  { field: "week", label: "Cohort" },
+  { field: "w1", label: "Week 1", format: { kind: "percent", heat: true } },
+  { field: "p95Ms", label: "p95", format: "duration" },
+  { field: "url", format: "url" },
+  { field: "lastSeenAt", label: "Last seen", format: "relative" },
+]
+```
+
+A table cell, a widget table, a detail field and a drawer field render the rich kinds the
+same way on the server and in the browser, in the admin's locale and zone: `relative` as a
+`<time>` with the exact timestamp in its tooltip, `url` as a link that opens an absolute URL
+in a new tab and never opens the row by click or Enter, a `heat` percent as a cell shaded in
+five steps, and a `boolean` glyph with a spoken yes or no. A `kv` item reads the text form
+from `formatColumnValue`.
+
 ### Formatting values yourself
 
 Two formatters back every cell, card and export, and both take the admin's
@@ -185,6 +215,14 @@ renders a widget's `NumericFormat` (`number`, `currency`, `percent`, `bytes`,
 `@flowpanel/react` only re-exports `formatNumber` for client code. `badgeProps(format, value)` gives
 the props a `badge` cell hands its `StatusBadge` — spaced status, label and tone —
 or `null` for an empty value, so a custom cell renders a badge the way the table does.
+
+`formatDurationValue`, `formatPercentValue`, `formatRelativeValue` and `formatBooleanValue`
+print one kind each, and `columnFormatKind`, `percentHeatLevel` and `urlCellParts` tell a
+custom cell what a format asks for. `toDateValue` and `toBooleanValue` read a raw value the
+way a `date` and a `boolean` cell do, so a zoneless timestamp is UTC and SQLite's `1` is
+true. `formatNumber`'s `percent` and `duration` use the same formatters, so a card and a
+cell print one value alike. `formatDurationCompact` keeps only the largest unit — `2.1h`,
+`42s` — and is what a chart's value axis prints.
 
 ## FieldDef
 

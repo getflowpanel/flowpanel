@@ -125,6 +125,36 @@ describe("collectPublicSymbols", () => {
     ]);
   });
 
+  it("reads a subpath from the source file its bundler config names among prefixed files", () => {
+    const root = mkdtempSync(join(tmpdir(), "flowpanel-docs-api-"));
+    fixtures.push(root);
+    const pkg = join(root, "packages/example");
+    mkdirSync(join(pkg, "src"), { recursive: true });
+    writeFileSync(
+      join(pkg, "package.json"),
+      JSON.stringify({
+        name: "@fixture/example",
+        exports: { "./format": { types: "./dist/format.d.ts" } },
+      }),
+    );
+    writeFileSync(
+      join(pkg, "tsup.config.ts"),
+      'export default { entry: { format: "src/format-column.ts" } };\n',
+    );
+    writeFileSync(
+      join(pkg, "src/format-column.ts"),
+      'export { formatValue } from "./format-values";\n',
+    );
+    writeFileSync(
+      join(pkg, "src/format-values.ts"),
+      "export function formatValue(): string { return ''; }\n",
+    );
+
+    expect(
+      collectPublicSymbols(root).map((symbol) => [symbol.exportName, symbol.declarationPath]),
+    ).toEqual([["formatValue", "packages/example/src/format-values.ts"]]);
+  });
+
   it("discovers the current workspace public surface", () => {
     const root = join(import.meta.dirname, "../..");
 

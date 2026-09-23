@@ -31,16 +31,17 @@ function dayOf(value: unknown, timeZone: string): string | null {
 /**
  * Turn sparse grouped rows into one point per day across `range`, so a chart
  * draws a flat stretch where nothing happened instead of skipping the day.
- * Bucketing is done in `timeZone`, which defaults to UTC. There is one bucket per
- * calendar day the range touches, both ends included, so the `last7d` preset —
- * `now - 7d … now` — yields eight buckets whose first is a partial day.
+ * Bucketing is done in `timeZone`, else the range's own `timeZone` — so `ctx.dateRange`
+ * buckets in the admin's zone — else UTC. There is one bucket per calendar day the
+ * range touches, both ends included, so the `last7d` preset — `now - 7d … now` —
+ * yields eight buckets whose first is a partial day.
  */
 export function fillDays<R>(
   rows: R[],
-  range: { from: Date; to: Date },
+  range: { from: Date; to: Date; timeZone?: string },
   opts: { dateField: keyof R & string; valueField: keyof R & string; timeZone?: string },
 ): Array<{ date: string; value: number }> {
-  const timeZone = opts.timeZone ?? "UTC";
+  const timeZone = opts.timeZone ?? range.timeZone ?? "UTC";
   const totals = new Map<string, number>();
   for (const row of rows) {
     const day = dayOf((row as Record<string, unknown>)[opts.dateField], timeZone);

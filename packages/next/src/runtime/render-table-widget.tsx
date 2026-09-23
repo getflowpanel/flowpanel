@@ -14,6 +14,7 @@ import { buildHref } from "./href";
 import { type PrerenderedColumn, prerenderResourceCells } from "./prerender-cells";
 import { withReferenceCells } from "./reference-cells";
 import { readRelatedRows } from "./require-authorized";
+import { resolveLink } from "./resolve-link";
 import { rowIdentity } from "./row-identity";
 
 type WidgetRow = Record<string, unknown>;
@@ -70,10 +71,15 @@ function applySpecs(
   });
 }
 
-function seeAllHref(config: ResolvedAdminConfig, options: TableWidgetOptions): string | undefined {
-  if (typeof options.seeAll === "string") return options.seeAll;
-  if (options.seeAll === true && options.resource) return buildHref(config, options.resource);
-  return undefined;
+function seeAllHref(
+  config: ResolvedAdminConfig,
+  options: TableWidgetOptions,
+  ctx: WidgetContext,
+): string | undefined {
+  if (options.seeAll === true)
+    return options.resource ? buildHref(config, options.resource) : undefined;
+  if (options.seeAll === false || options.seeAll === undefined) return undefined;
+  return resolveLink(config, ctx, options.seeAll);
 }
 
 /** Render a `table()` widget on the server. */
@@ -137,9 +143,13 @@ export async function renderTableWidget(
 
   const rowHref = options.rowHref;
   const hrefs = rowHref
-    ? rows.map((row) => (rowIdentity(row, rowKey) === null ? null : (rowHref(row, ctx) ?? null)))
+    ? rows.map((row) =>
+        rowIdentity(row, rowKey) === null
+          ? null
+          : (resolveLink(config, ctx, rowHref(row, ctx)) ?? null),
+      )
     : undefined;
-  const seeAll = seeAllHref(config, options);
+  const seeAll = seeAllHref(config, options, ctx);
 
   return (
     <TableWidgetRenderer

@@ -5,6 +5,7 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import type { ReactNode } from "react";
+import { DEFAULT_RESOURCE_ROW_KEY } from "../../runtime/defaults";
 import { buildDetailTabContext } from "../../runtime/widget-context";
 import { renderFieldsTab } from "./render-fields-tab";
 import { renderRelatedTab } from "./render-related-tab";
@@ -32,8 +33,9 @@ export async function renderDetailTab<Row extends Record<string, unknown>>({
   req,
   searchParams,
 }: DetailTabArgs<Row>): Promise<ReactNode> {
-  if (tab.render) return tab.render(row, buildDetailTabContext(config, reqCtx, req, row));
-  if (tab.widgets !== undefined) return renderWidgetsTab(config, reqCtx, row, tab, req);
+  const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  if (tab.render) return tab.render(row, buildDetailTabContext(config, reqCtx, req, row, rowKey));
+  if (tab.widgets !== undefined) return renderWidgetsTab(config, reqCtx, row, tab, req, rowKey);
   if (tab.resource) return renderRelatedTab(config, reqCtx, row, tab, req, searchParams);
   return renderFieldsTab<Row>(config, reqCtx, resource, row, {
     ...(tab.fields ? { fields: tab.fields } : {}),

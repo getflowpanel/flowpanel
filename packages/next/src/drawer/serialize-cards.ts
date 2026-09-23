@@ -9,6 +9,7 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
+import { type LinkedRow, linkRows, resolveLink } from "../runtime/resolve-link";
 import { statDisplay } from "../runtime/stat-result";
 import { kvItemOf, resolveItem } from "../runtime/widget-items";
 
@@ -36,7 +37,7 @@ export type SerializedCardWidget =
   | {
       kind: "bars";
       label?: string;
-      rows: BarRow[];
+      rows: LinkedRow<BarRow>[];
       format?: NumericFormat;
       max?: number;
       emptyState: string;
@@ -46,7 +47,7 @@ export type SerializedCardWidget =
   | {
       kind: "funnel";
       label?: string;
-      steps: FunnelStep[];
+      steps: LinkedRow<FunnelStep>[];
       format?: NumericFormat;
       alertDrop?: number;
       emptyState: string;
@@ -56,7 +57,7 @@ export type SerializedCardWidget =
   | {
       kind: "list";
       label?: string;
-      rows: ListRow[];
+      rows: LinkedRow<ListRow>[];
       emptyState: string;
       span?: number;
       realtime?: string | string[];
@@ -78,7 +79,7 @@ export async function serializeCardWidget(
       const formatting = resolveFormatting(config.formatting);
       const result = await resolveItem(w.value, ctx, reqCtx);
       const hint = result.hint ?? w.options.hint;
-      const href = result.href ?? w.options.href;
+      const href = resolveLink(config, ctx, result.href ?? w.options.href);
       const tone = result.tone ?? w.options.tone;
       return {
         kind: "stat",
@@ -94,7 +95,7 @@ export async function serializeCardWidget(
     case "kv": {
       const formatting = resolveFormatting(config.formatting);
       const items = await Promise.all(
-        w.options.items.map((item) => kvItemOf(item, ctx, formatting, reqCtx)),
+        w.options.items.map((item) => kvItemOf(item, ctx, formatting, config, reqCtx)),
       );
       return {
         kind: "kv",
@@ -108,7 +109,11 @@ export async function serializeCardWidget(
       return {
         kind: "bars",
         ...(w.options.label ? { label: w.options.label } : {}),
-        rows: await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
+        rows: linkRows(
+          config,
+          ctx,
+          await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
+        ),
         ...(w.options.format ? { format: w.options.format } : {}),
         ...(w.options.max !== undefined ? { max: w.options.max } : {}),
         emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
@@ -118,7 +123,11 @@ export async function serializeCardWidget(
       return {
         kind: "funnel",
         ...(w.options.label ? { label: w.options.label } : {}),
-        steps: await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
+        steps: linkRows(
+          config,
+          ctx,
+          await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
+        ),
         ...(w.options.format ? { format: w.options.format } : {}),
         ...(w.options.alertDrop !== undefined ? { alertDrop: w.options.alertDrop } : {}),
         emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
@@ -128,7 +137,11 @@ export async function serializeCardWidget(
       return {
         kind: "list",
         ...(w.options.label ? { label: w.options.label } : {}),
-        rows: await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
+        rows: linkRows(
+          config,
+          ctx,
+          await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
+        ),
         emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
         ...common(w.options),
       };

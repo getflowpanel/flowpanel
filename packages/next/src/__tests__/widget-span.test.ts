@@ -1,4 +1,4 @@
-import type { WidgetConfig } from "@flowpanel/core";
+import type { Span, WidgetConfig } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
 import { widgetSlotClassName, widgetSpanClassName } from "../pages/widget-slot";
 
@@ -68,5 +68,14 @@ describe("widgetSpanClassName", () => {
     };
     expect(widgetSlotClassName(chart)).toBeUndefined();
     expect(widgetSlotClassName(custom)).toBeUndefined();
+  });
+
+  it("maps every span from 1 to 11 to its column count from sm, and 12 to the full row", () => {
+    for (let span = 1; span <= 11; span++) {
+      const widget = { kind: "table", options: { span: span as Span } } as WidgetConfig;
+      expect(widgetSpanClassName(widget)).toBe(`col-span-12 sm:col-span-${span}`);
+    }
+    const full = { kind: "table", options: { span: 12 } } as WidgetConfig;
+    expect(widgetSpanClassName(full)).toBe("col-span-12");
   });
 });

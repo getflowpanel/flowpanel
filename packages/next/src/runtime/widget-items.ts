@@ -1,6 +1,7 @@
 import type {
   KvItem,
   RequestContext,
+  ResolvedAdminConfig,
   ResolvedFormatting,
   StatItem,
   StatResult,
@@ -9,6 +10,7 @@ import type {
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
 import { kvDisplay } from "./kv-display";
+import { resolveLink } from "./resolve-link";
 import { statDisplay, statResultOf } from "./stat-result";
 
 /** A `stat`, `kv` or `statGroup` value, bare or a result object, as one result shape. */
@@ -28,11 +30,12 @@ export async function kvItemOf(
   item: KvItem,
   ctx: WidgetContext,
   formatting: ResolvedFormatting,
+  config: ResolvedAdminConfig,
   reqCtx?: RequestContext,
 ) {
   const result = await resolveItem(item.value, ctx, reqCtx);
   const tone = result.tone ?? item.tone;
-  const href = result.href ?? item.href;
+  const href = resolveLink(config, ctx, result.href ?? item.href);
   return {
     label: item.label,
     value: kvDisplay(result.value, item.format, formatting),
@@ -46,15 +49,17 @@ export async function statItemOf(
   item: StatItem,
   ctx: WidgetContext,
   formatting: ResolvedFormatting,
+  config: ResolvedAdminConfig,
   reqCtx?: RequestContext,
 ) {
   const result = await resolveItem(item.value, ctx, reqCtx);
   const tone = result.tone ?? item.tone;
+  const href = resolveLink(config, ctx, result.href);
   return {
     label: item.label,
     value: statDisplay(result.value, formatting),
     ...(item.format ? { format: item.format } : {}),
     ...(tone ? { tone } : {}),
-    ...(result.href ? { href: result.href } : {}),
+    ...(href ? { href } : {}),
   };
 }

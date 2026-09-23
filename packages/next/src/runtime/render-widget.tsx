@@ -22,6 +22,7 @@ import {
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { ServerCard } from "./_server-card";
 import { renderTableWidget } from "./render-table-widget";
+import { linkRows, resolveLink } from "./resolve-link";
 import { statDisplay } from "./stat-result";
 import { kvItemOf, resolveItem, statItemOf } from "./widget-items";
 
@@ -56,7 +57,7 @@ export async function renderWidget(
       const delta = result.delta ?? queriedDelta;
       const sublabel = result.sublabel ?? widget.options.sublabel;
       const tone = result.tone ?? widget.options.tone;
-      const drilldown = result.href ?? widget.options.drilldown;
+      const drilldown = resolveLink(config, ctx, result.href ?? widget.options.drilldown);
       return withRealtime(
         <MetricCard
           label={widget.label}
@@ -75,7 +76,7 @@ export async function renderWidget(
     case "statGroup": {
       const groupFormatting = resolveFormatting(config.formatting);
       const stats = await Promise.all(
-        widget.options.stats.map((s) => statItemOf(s, ctx, groupFormatting)),
+        widget.options.stats.map((s) => statItemOf(s, ctx, groupFormatting, config)),
       );
       return withRealtime(
         <StatGroupCard
@@ -89,7 +90,7 @@ export async function renderWidget(
       const result = await resolveItem(widget.value, ctx);
       const statFormatting = resolveFormatting(config.formatting);
       const hint = result.hint ?? widget.options.hint;
-      const href = result.href ?? widget.options.href;
+      const href = resolveLink(config, ctx, result.href ?? widget.options.href);
       const tone = result.tone ?? widget.options.tone;
       return withRealtime(
         <StatCard
@@ -106,7 +107,7 @@ export async function renderWidget(
     case "kv": {
       const formatting = resolveFormatting(config.formatting);
       const items = await Promise.all(
-        widget.options.items.map((item) => kvItemOf(item, ctx, formatting)),
+        widget.options.items.map((item) => kvItemOf(item, ctx, formatting, config)),
       );
       return withRealtime(
         <KvCard
@@ -122,7 +123,7 @@ export async function renderWidget(
       return withRealtime(
         <BarsCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={rows}
+          rows={linkRows(config, ctx, rows)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
           {...(widget.options.max !== undefined ? { max: widget.options.max } : {})}
           emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
@@ -135,7 +136,7 @@ export async function renderWidget(
       return withRealtime(
         <FunnelCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          steps={steps}
+          steps={linkRows(config, ctx, steps)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
           {...(widget.options.alertDrop !== undefined
             ? { alertDrop: widget.options.alertDrop }
@@ -150,7 +151,7 @@ export async function renderWidget(
       return withRealtime(
         <ListCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={rows}
+          rows={linkRows(config, ctx, rows)}
           emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
         />,
         widget.options.realtime,
@@ -192,9 +193,17 @@ export async function renderWidget(
         );
       }
       const data = await widget.query(ctx);
+      const drilldown = resolveLink(config, ctx, widget.options.drilldown);
+      const { drilldown: _drilldown, ...options } = widget.options;
       const Renderer = chartsMod.ChartRenderer;
       return withRealtime(
-        <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />,
+        <Renderer
+          kind={widget.kind}
+          label={widget.label}
+          options={options}
+          data={data}
+          {...(drilldown ? { drilldown } : {})}
+        />,
         widget.options.realtime,
       );
     }

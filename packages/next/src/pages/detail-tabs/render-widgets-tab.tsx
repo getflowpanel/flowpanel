@@ -18,6 +18,7 @@ export async function renderWidgetsTab<Row extends Record<string, unknown>>(
   row: Row,
   tab: DetailTab<Row>,
   req: Request,
+  rowKey: string,
 ): Promise<ReactNode> {
   const widgets = tab.widgets ?? [];
   if (widgets.length === 0) {
@@ -30,7 +31,7 @@ export async function renderWidgetsTab<Row extends Record<string, unknown>>(
     );
   }
 
-  const ctx = buildWidgetContext(config, reqCtx, req, detailTabDateRange(), row);
+  const ctx = buildWidgetContext(config, reqCtx, req, detailTabDateRange(), row, rowKey);
   // The tab payload is awaited before it reaches the client, so one rejected
   // query has to become one card here rather than reject the whole page.
   const rendered = await Promise.all(

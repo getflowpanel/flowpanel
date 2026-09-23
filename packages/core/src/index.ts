@@ -1,5 +1,6 @@
 export { type AdapterScopeContext, resolveScopeApplier } from "./adapter-scope";
 export { devAuth } from "./auth/dev";
+export { bindFormat } from "./bind-format";
 export { dashboard, page } from "./builders/dashboard";
 export { queue } from "./builders/queue";
 export { resource } from "./builders/resource";
@@ -9,14 +10,25 @@ export { defineAdmin } from "./define-admin";
 export {
   type BadgeCellProps,
   badgeProps,
+  type ColumnFormatKind,
+  columnFormatKind,
   DEFAULT_FORMATTING,
   type FormattingConfig,
+  formatBooleanValue,
   formatColumnValue,
   formatDateValue,
   formatDayValue,
+  formatDurationCompact,
+  formatDurationValue,
   formatNumber,
+  formatPercentValue,
+  formatRelativeValue,
+  percentHeatLevel,
   type ResolvedFormatting,
   resolveFormatting,
+  toBooleanValue,
+  toDateValue,
+  urlCellParts,
 } from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
 export { assertCountWhereColumns } from "./internal/count-where";
@@ -103,6 +115,7 @@ export type {
   PageConfig,
   ResolvedDateRange,
   SectionConfig,
+  WidgetDateRange,
 } from "./types/dashboard";
 export type {
   DrawerAction,
@@ -208,7 +221,6 @@ export type {
   Tone,
   WidgetColumn,
   WidgetConfig,
-  WidgetContext,
 } from "./types/widget";
 export type {
   BarRow,
@@ -233,3 +245,11 @@ export type {
   StatValue,
   StatWidget,
 } from "./types/widget-cards";
+export type {
+  DashboardLink,
+  Link,
+  LinkTarget,
+  ResourceLink,
+  WidgetContext,
+  WidgetFormat,
+} from "./types/widget-context";

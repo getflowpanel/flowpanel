@@ -214,6 +214,38 @@ describe("sanitizeFilterValues", () => {
     expect((out.createdAt as { gte: Date }).gte).toBeInstanceOf(Date);
   });
 
+  it("daterange filter: reads each day in the admin's zone", () => {
+    const specs = [{ field: "createdAt", type: "daterange" as const }];
+    const out = sanitizeFilterValues(
+      { createdAt: "2026-09-23:2026-09-23" },
+      specs,
+      "Europe/Moscow",
+    );
+    const range = out.createdAt as { gte: Date; lte: Date };
+    expect(range.gte.toISOString()).toBe("2026-09-22T21:00:00.000Z");
+    expect(range.lte.toISOString()).toBe("2026-09-23T20:59:59.999Z");
+  });
+
+  it("daterange filter: reads a from~to pair as exact instants", () => {
+    const specs = [{ field: "startedAt", type: "daterange" as const }];
+    const out = sanitizeFilterValues(
+      { startedAt: "2026-09-22T21:00:00.000Z~2026-09-23T07:00:00.000Z" },
+      specs,
+      "Europe/Moscow",
+    );
+    const range = out.startedAt as { gte: Date; lte: Date };
+    expect(range.gte.toISOString()).toBe("2026-09-22T21:00:00.000Z");
+    expect(range.lte.toISOString()).toBe("2026-09-23T07:00:00.000Z");
+    expect(sanitizeFilterValues({ startedAt: "yesterday~now" }, specs)).toEqual({});
+  });
+
+  it("daterange filter: drops a month the calendar does not have in any zone", () => {
+    const specs = [{ field: "createdAt", type: "daterange" as const }];
+    expect(
+      sanitizeFilterValues({ createdAt: "2026-13-01:2026-00-10" }, specs, "Europe/Moscow"),
+    ).toEqual({});
+  });
+
   it("preserves the __null__ / __notnull__ sentinels regardless of declared type", () => {
     const out = sanitizeFilterValues(
       { status: "__null__", confidence: "__notnull__", createdAt: "__null__", tags: "__null__" },

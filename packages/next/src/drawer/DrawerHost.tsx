@@ -23,6 +23,7 @@ import {
   type Tone,
   useAdminDrawer,
   useApiBase,
+  useFormatting,
   useLabels,
 } from "@flowpanel/react";
 import { Fragment, useEffect, useState } from "react";
@@ -65,6 +66,7 @@ function FieldsView({
   labels: Record<string, string>;
   formats: Record<string, ColumnFormat>;
 }) {
+  const formatting = useFormatting();
   const entries = resolveFieldEntries(row, fields);
   return (
     <KV>
@@ -77,7 +79,7 @@ function FieldsView({
               // biome-ignore lint/security/noDangerouslySetInnerHtml: server-prerendered from the resource's own column render
               <span dangerouslySetInnerHTML={{ __html: prerendered[k] }} />
             ) : formats[k] !== undefined ? (
-              renderFormatCell(formats[k], row[k])
+              renderFormatCell(formats[k], row[k], formatting)
             ) : (
               formatFieldValue(row[k])
             )
@@ -126,6 +128,7 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
 }
 
 function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "widgets" }> }) {
+  const formatting = useFormatting();
   if (tab.widgets.length === 0) {
     return <div className="py-6 text-sm text-fp-text-3">No widgets configured.</div>;
   }
@@ -156,7 +159,7 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
               </Fragment>
             );
           }
-          const cols: { field: string; label?: string }[] =
+          const cols: { field: string; label?: string; format?: ColumnFormat }[] =
             w.columns.length > 0
               ? w.columns
               : Object.keys(w.rows[0] ?? {}).map((f) => ({ field: f }));
@@ -187,7 +190,9 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
                       >
                         {cols.map((c) => (
                           <td key={c.field} className="px-4 py-2">
-                            {formatFieldValue(r[c.field])}
+                            {c.format
+                              ? renderFormatCell(c.format, r[c.field], formatting)
+                              : formatFieldValue(r[c.field])}
                           </td>
                         ))}
                       </tr>

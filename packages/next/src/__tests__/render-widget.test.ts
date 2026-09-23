@@ -5,7 +5,6 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
   WidgetConfig,
-  WidgetContext,
 } from "@flowpanel/core";
 import { DEFAULT_LABELS } from "@flowpanel/core";
 import { MetricCard, RealtimeRefresh, TableWidget } from "@flowpanel/react";
@@ -13,6 +12,7 @@ import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ServerCard } from "../runtime/_server-card";
 import { renderWidget } from "../runtime/render-widget";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",
@@ -40,17 +40,7 @@ const cfg: ResolvedAdminConfig = {
   __resolved: true,
 } as never;
 
-const ctx: WidgetContext = {
-  db: {},
-  session: null,
-  dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-  req: new Request("http://localhost/"),
-  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
-  query: (_key, fn) => fn(),
-  labels: DEFAULT_LABELS,
-  sql: async () => [],
-  count: async () => 0,
-};
+const ctx = fakeWidgetContext();
 
 const reqCtx: RequestContext = {
   req: new Request("http://localhost/"),

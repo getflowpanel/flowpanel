@@ -6,6 +6,7 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
+import { resolveFormatting } from "@flowpanel/core";
 import {
   DashboardActionsBar,
   DashboardDateRange,
@@ -87,7 +88,7 @@ export async function DashboardPage({
 }: DashboardPageProps) {
   const dateRangeInput = resolveDashboardDateRangeInput(dashboard.dateRange, searchParams);
   const effectivePreset = dateRangeInput.preset;
-  const dateRange = resolveDateRange(dateRangeInput);
+  const dateRange = resolveDateRange(dateRangeInput, resolveFormatting(config.formatting).timeZone);
   const ctx: WidgetContext = buildWidgetContext(config, reqCtx, req, dateRange);
   const refreshMs = dashboardRefreshMs(dashboard.refresh);
 

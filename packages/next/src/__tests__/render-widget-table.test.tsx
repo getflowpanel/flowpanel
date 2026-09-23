@@ -10,6 +10,7 @@ import { DEFAULT_LABELS } from "@flowpanel/core";
 import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { renderWidget } from "../runtime/render-widget";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 interface TableProps {
   rows: Record<string, unknown>[];
@@ -71,17 +72,7 @@ const reqCtx: RequestContext = {
   userAgent: null,
 };
 
-const ctx: WidgetContext = {
-  db: {},
-  session: null,
-  dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-  req: new Request("http://localhost/"),
-  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
-  query: (_key, fn) => fn(),
-  labels: DEFAULT_LABELS,
-  sql: async () => [],
-  count: async () => 0,
-};
+const ctx = fakeWidgetContext();
 
 async function props(widget: WidgetConfig): Promise<TableProps> {
   const node = (await renderWidget(widget, ctx, cfg, reqCtx)) as ReactElement<TableProps>;

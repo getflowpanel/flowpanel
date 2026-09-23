@@ -35,6 +35,19 @@ Each section chooses a column count and contains widgets with optional spans. Gr
 
 FlowPanel includes metric, stat, kv, bars, funnel, list, table, stat group, chart, and custom widget builders. Table widgets reuse a registered resource surface. The small cards take counts and labels and derive their own geometry. A custom widget receives a component and props for cases that remain self-contained but do not fit a built-in visualization.
 
+## Link a number to its rows
+
+Name the rows behind a number instead of spelling a path, so the link survives a
+renamed mount and carries the dashboard's period:
+
+```ts excerpt
+metric("Failed AI runs", failedRuns, {
+  drilldown: { resource: "ai_run", view: "Errors", range: "createdAt" },
+});
+```
+
+See [Links](/docs/reference/widgets#links) for every target.
+
 ## Widgets in detail tabs
 
 The same widgets render inside a detail tab. Give a `DetailTab` a `widgets` array instead of `fields`, and the tab draws them in the dashboard's grid; `columns` sets the grid width and defaults to 2.

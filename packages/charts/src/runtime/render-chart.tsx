@@ -16,6 +16,8 @@ export interface ChartRendererProps {
   label?: string;
   options: ChartWidget["options"];
   data: unknown[];
+  /** The card's link, resolved on the server from the widget's `drilldown`. */
+  drilldown?: string;
 }
 
 /**
@@ -40,28 +42,34 @@ export function chartBody(
   }
 }
 
+/** Wrap a chart card in its link when it has one. */
+export function chartFrame(
+  card: ReactNode,
+  { label, drilldown }: Pick<ChartRendererProps, "label" | "drilldown">,
+): ReactNode {
+  if (!drilldown) return card;
+  return (
+    <a
+      href={drilldown}
+      className="block hover:opacity-90 transition-opacity"
+      {...(label ? { "aria-label": label } : {})}
+    >
+      {card}
+    </a>
+  );
+}
+
 export function ChartRenderer(props: ChartRendererProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const card = (
+  return chartFrame(
     <Card>
       <CardHeader>{props.label}</CardHeader>
       <div className="p-3">{chartBody(props, mounted)}</div>
-    </Card>
+    </Card>,
+    props,
   );
-  if (props.options.drilldown) {
-    return (
-      <a
-        href={props.options.drilldown}
-        className="block hover:opacity-90 transition-opacity"
-        {...(props.label ? { "aria-label": props.label } : {})}
-      >
-        {card}
-      </a>
-    );
-  }
-  return card;
 }

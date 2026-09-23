@@ -9,7 +9,8 @@ import type { IconName } from "./icon";
 import type { FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec, ResourceName } from "./registry";
 import type { Scope, Session } from "./session";
-import type { Tone, WidgetConfig, WidgetContext } from "./widget";
+import type { Tone, WidgetConfig } from "./widget";
+import type { WidgetContext } from "./widget-context";
 
 export type { DrawerConfig };
 
@@ -20,6 +21,12 @@ export type ColumnFormat =
   | "badge"
   | "money"
   | "number"
+  | "date"
+  | "relative"
+  | "percent"
+  | "duration"
+  | "boolean"
+  | "url"
   | {
       kind: "badge";
       /** Tone per raw value. */
@@ -27,7 +34,42 @@ export type ColumnFormat =
       /** Display text per raw value, e.g. `{ admin: "Админ" }`; tones stay keyed by the raw value. */
       labels?: Record<string, string>;
     }
-  | { kind: "money"; currency?: string; scale?: number };
+  | { kind: "money"; currency?: string; scale?: number }
+  | {
+      kind: "date";
+      /** Show the clock as well as the day. */
+      time?: boolean;
+    }
+  | {
+      kind: "percent";
+      /** Most decimals shown, a whole number from 0 to 20.
+       * @defaultValue 1
+       */
+      digits?: number;
+      /** Shade the cell by its value from 0 to 1, as a retention grid does. */
+      heat?: boolean;
+    }
+  | {
+      kind: "duration";
+      /** What the stored number counts.
+       * @defaultValue "ms"
+       */
+      unit?: "ms" | "s";
+    }
+  | {
+      kind: "boolean";
+      /** Words for true and false.
+       * @defaultValue `✓` and `✕`
+       */
+      labels?: { true?: string; false?: string };
+    }
+  | {
+      kind: "url";
+      /** Link text for every row.
+       * @defaultValue the URL's host and path
+       */
+      label?: string;
+    };
 
 export interface ColumnDef<Row> {
   /** Row property this column reads. Omit only when `render` supplies the cell. */
@@ -161,7 +203,17 @@ export interface FieldDef<Row> {
 export interface DetailTabContext
   extends Pick<
     WidgetContext,
-    "db" | "session" | "dateRange" | "href" | "labels" | "query" | "sql" | "count"
+    | "db"
+    | "session"
+    | "dateRange"
+    | "href"
+    | "labels"
+    | "query"
+    | "sql"
+    | "count"
+    | "id"
+    | "format"
+    | "link"
   > {}
 
 export interface DetailTab<Row> {
