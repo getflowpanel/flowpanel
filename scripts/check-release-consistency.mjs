@@ -147,6 +147,24 @@ if (namedRelease?.match) {
   }
 }
 
+const coreDist = join(root, "packages/core/dist");
+if (!existsSync(coreDist)) {
+  problems.push("packages/core/dist: missing; run pnpm build before check:release");
+} else {
+  for (const file of readdirSync(coreDist)) {
+    if (!/\.d\.c?ts$/.test(file) || file.startsWith("index.")) continue;
+    if (
+      /\btype Session =|\binterface FlowpanelTypes\b/.test(
+        readFileSync(join(coreDist, file), "utf8"),
+      )
+    ) {
+      problems.push(
+        `packages/core/dist/${file}: declares its own Session or FlowpanelTypes, which a host's registration cannot reach; import them from "@flowpanel/core"`,
+      );
+    }
+  }
+}
+
 if (problems.length > 0) {
   console.error(`✗ ${problems.length} release consistency problem(s):`);
   for (const problem of problems) console.error(`  ${problem}`);

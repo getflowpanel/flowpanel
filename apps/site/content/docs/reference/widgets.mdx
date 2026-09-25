@@ -104,9 +104,10 @@ stat("Latency", async (ctx) => {
 
 ## Shared option types
 
-`Span` is any whole number from `1` to `12` — the widget's width in a
-`columns: 12` section. Below the `sm` breakpoint every widget takes the full
-row.
+`Span` is any whole number from `1` to `12` — the widget's width in a 12-column grid. A
+section or a widgets tab that declares no `columns` lays out on 12 as soon as one of its
+widgets sets `span`, and on its default of 1 or 2 otherwise. Below the `sm` breakpoint every
+widget takes the full row.
 
 `NumericFormat` is `"number" | "currency" | "percent" | "bytes" | "duration"`.
 
@@ -114,6 +115,17 @@ row.
 
 Every widget accepts `realtime`, a channel name or list. When one fires, that
 widget re-runs its query — the rest of the dashboard stays put.
+
+Every widget accepts `maxRange`, a whole number of days such as `"30d"`. When the picked
+range reaches further back, the widget queries only its last N days — the right cap for
+rows the app deletes after 30 days — and a detail tab's whole history becomes the last N
+days. The days are counted back from now as well as from the range's end, so a past range
+starts no earlier than N days ago, and a range that ended N or more days ago runs no query
+and shows the widget's empty state. A comparison never reaches past the cap either: when
+`compare` would query days older than N days before now, the card shows no change instead
+of growth from zero. The card does not say it was capped, so say so in its label —
+"Scores (30 days at most)". In development a limit that is not whole days, such as
+`"1.5d"`, warns once and caps nothing.
 
 ## Links
 
@@ -136,7 +148,11 @@ once about a string that starts with the admin's own `basePath`.
   as `from~to` instants, so the list shows exactly the rows the number counted; the
   filter chip shows the two days in the admin's zone. A detail tab's whole history
   carries no range.
-- A `Date` in `filter` is written as its day in the admin's zone.
+- `filter` is keyed by the target's own fields once the resource is typed. A value is
+  written as it is and a `Date` as its day in the admin's zone; `{ gte, lte }` becomes
+  `from~to` instants for dates and `min:max` for numbers, and an array becomes `a,b`.
+  An object with no URL form throws instead of writing `[object Object]`. `ctx.href`'s
+  `filter` is written the same way.
 - `{ dashboard: "/system" }` is a dashboard or page by its configured `path`. It
   carries the widget's range — the preset, or `from` and `to` for a custom range —
   unless `range: false`.
@@ -174,10 +190,47 @@ icon font resolves; a Lucide name renders as literal text. This differs from
 resource, action and command icons, which use the serializable `IconName`
 registry described under [resource icons](/docs/reference/resources#icons).
 
+The sparkline never squeezes the value. On a card too narrow for the value and the
+sparkline side by side — two metrics per row on a phone — the sparkline moves under
+the value. A value longer than the whole card ends in an ellipsis. A label that runs
+out of room stays on one line and shows the full text on hover.
+
 A `metric()` query may return a bare number or string, or a `MetricResult`
 carrying the presentation the value itself implies. A result field wins over the
 matching static option, which stays as the fallback: `MetricResult.href` renders
 as the card's `drilldown`, and `MetricResult.sublabel` as its caption.
+
+A metric that counts rows takes `{ count, where, range }` instead of a query. Its value
+is `ctx.count(count, where, { range })`, `compare` counts the period before with the same
+scope, and the card links to exactly the rows it counted — the same `where` as list
+filters and the same period as the `range` filter — unless you give it a `drilldown`.
+When a `where` value is missing, the card counts `0` and has no link, rather than
+linking the whole list.
+
+```ts excerpt
+metric("Visits", { count: "user_visit", where: (c) => ({ userId: c.id }), range: "startedAt" }, {
+  compare: true,
+});
+metric("Sign-ups", { count: "user", range: "createdAt" }, { compare: true });
+```
+
+`where` is keyed by the counted resource's fields and may be a function of the widget
+context. For the link to open the same rows, every `where` field must be a column or a
+filter of that resource's list and `range` must be one of its `daterange` filters;
+`defineAdmin` checks both. Pass `drilldown: () => null` for a card without a link.
+
+`compare: true` queries the period before the picked one as well — the same query
+with `ctx.dateRange` set to `ctx.dateRange.previous` — and shows the change against
+it with the compared value and the delta rules of `MetricDelta`. For `today` that is
+yesterday up to the same clock time; `compare: { against: "weekAgo" }` compares with the
+same range seven days earlier instead, so today reads against the same weekday last week.
+Pass `compare: { goodWhen: "down" }` for a cost or an error count. It needs a numeric
+value, does nothing over a detail tab's whole history or past a widget's `maxRange`, and
+yields to a `delta` the query or the `delta` option returns.
+
+```ts excerpt
+metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
+```
 
 ### MetricResult
 
@@ -187,8 +240,14 @@ as the card's `drilldown`, and `MetricResult.sublabel` as its caption.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricDelta" />
 
-`goodWhen: "down"` colours a fall green — for churn, cost or latency a drop is
-the good news.
+The card reads a change the way a founder does. Inside ±1 % it shows no arrow and no
+colour, and the percentage prints in the admin's locale. With `previous` set it shows
+that value muted beside the change (`labels.widget.previous`, `"was {value}"`). A count
+whose `previous` is under 20 shows the absolute change — `+3` rather than `+150%` — and a
+`format: "percent"` metric shows its change in percentage points (`+3 pp`,
+`labels.widget.points`), so 40 % → 43 % never reads as a relative 3 %. `goodWhen: "down"`
+colours a fall green — for churn, cost or latency a drop is the good news — and
+`"neutral"` never colours.
 
 ## table
 
@@ -223,6 +282,14 @@ empty state's title, any other node is rendered in the card instead of the table
 With none set the admin's `labels.widget.empty` is used. `limit` caps the rows: it
 defaults to 10 on the `resource` path and applies to a `query`'s own rows only
 when you set it.
+
+`where` narrows the `resource` read — a filter keyed by its fields, or a function of the
+context such as `(c) => ({ userId: c.id })`. Values take the
+[`ctx.read` shorthand](/docs/reference/contexts#where-values); a missing value throws
+instead of reading every row, and an empty list reads nothing. `range` names a timestamp
+field of the resource that the picked range bounds, so "Signups today" is
+`table({ resource: "user", range: "createdAt" })`. `defineAdmin` checks both against the
+resource's columns and refuses them on a `query` table, which filters its own rows.
 
 ```ts excerpt
 table({
@@ -295,7 +362,7 @@ option, which stays as the fallback. A `Date` is still a value, not a result.
 
 ```ts excerpt
 stat("Open invoices", async (ctx) => {
-  const filter = { customerId: ctx.row?.id, status: "open" };
+  const filter = { customerId: ctx.id, status: "open" };
   const value = await ctx.count("invoices", filter);
   return { value, href: ctx.href("invoices", undefined, { filter }), tone: value > 0 ? "warn" : "ok" };
 });
@@ -307,6 +374,18 @@ stat("Open invoices", async (ctx) => {
 
 The facts about one thing. Each item's `format` accepts a `ColumnFormat` or a
 `NumericFormat`, resolved on the server so the card renders a finished string.
+
+An item with `field` shows a field of the card's `record` instead of a `value`. `record`
+runs once per card; on a record page it defaults to the viewed row, whose `field`s join the
+page's projection, so a profile needs no closure per fact. Its type narrows `field`:
+
+```ts excerpt
+kv({
+  label: "Feed filters",
+  record: (c) => c.read("freelancer_profile", { where: { userId: c.id }, limit: 1 }).then((r) => r[0]),
+  items: [{ label: "Rate", field: "hourlyRate", format: "number" }],
+});
+```
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="KvOptions" />
 
@@ -350,6 +429,13 @@ bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), form
 ```
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="BarsOptions" />
+
+`share: true` shows each row's part of the total beside its value — the Plausible
+sources box. By default that is its part of the rows' sum; a top-N query, whose rows
+leave the rest out, returns each row's `share` of the real total instead. A row's
+`previous` marks its change against the period before with the `MetricDelta` rules: no
+arrow inside ±1 %, a count's absolute change below a base of 20, a rate's change in
+points, and colour by `goodWhen`.
 
 #### BarRow
 
@@ -409,6 +495,8 @@ const widgets = [
 
 Renders your own component in the grid. `props` may be a value or a function
 resolved on the server per request, which is how you feed it query results.
+`label` titles the card when it is framed, and names the widget in its error and in
+the development slow-widget line.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="CustomOptions" />
 
@@ -430,7 +518,7 @@ as `unknown[]` leaves them as plain strings.
 
 Shared by area, bar and line charts.
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="ChartOptionsBase" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="ChartOptionsBase" />
 
 `ChartBucket` is `"minute" | "hour" | "day" | "week" | "month" | "year" | "auto"`.
 
@@ -438,19 +526,19 @@ Shared by area, bar and line charts.
 
 <ApiSignature path="../../packages/charts/src/builders/areaChart.ts" name="areaChart" />
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="AreaChartOptions" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="AreaChartOptions" />
 
 ### barChart
 
 <ApiSignature path="../../packages/charts/src/builders/barChart.ts" name="barChart" />
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="BarChartOptions" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="BarChartOptions" />
 
 ### lineChart
 
 <ApiSignature path="../../packages/charts/src/builders/lineChart.ts" name="lineChart" />
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="LineChartOptions" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="LineChartOptions" />
 
 ### pieChart
 
@@ -459,7 +547,7 @@ Shared by area, bar and line charts.
 Pie charts take `category` / `value` instead of `x` / `y`. The slice legend is on
 unless you pass `showLegend: false`.
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="PieChartOptions" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="PieChartOptions" />
 
 ## Series helpers
 
@@ -514,6 +602,18 @@ are next to the date picker from `labels.widget.updated`.
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="SectionConfig" />
 
+`variant: "strip"` draws a section's `metric` and `stat` widgets as one band divided by
+hairlines, with no card around each — the KPI row at the top of a founder screen. Deltas,
+the previous value, sparklines and links stay. `columns` sets the cells per line from the
+`md` breakpoint (default, and for `columns: 12`: one line of up to six); below it the strip
+shows two per line.
+Another widget kind in a strip keeps its own card and warns once in development. A record
+page's [`detail.stats`](/docs/reference/resources#record-page) renders the same strip.
+
+```ts excerpt
+{ variant: "strip", widgets: [newOrders, runs, successRate, bans] }
+```
+
 ### DateRangeConfig
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DateRangeConfig" />
@@ -522,6 +622,12 @@ are next to the date picker from `labels.widget.updated`.
 
 `today`, `yesterday`, `MTD`, `QTD` and `YTD` start at midnight in `formatting.timeZone`
 (UTC when it is not set); `last7d` and `last30d` are the last 7 × 24 and 30 × 24 hours.
+
+`presets` narrows the picker to the periods a dashboard's data can answer — an
+order-linked page whose rows live 30 days offers `["today", "yesterday", "last7d",
+"last30d"]`. A `?preset=` outside the list is ignored and dropped from the URL, and
+`preset` defaults to the first entry. A range given as `?from=…&to=…`, as a link from a
+custom period carries it, shows as its two days in the picker.
 
 ### ResolvedDateRange
 

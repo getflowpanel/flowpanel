@@ -1,7 +1,8 @@
 import type { WidgetDateRange } from "./dashboard";
 import type { PluralLabel, ResolvedLabels } from "./labels";
-import type { InferDB, ResourceName } from "./registry";
+import type { InferDB, ResourceName, RowOf } from "./registry";
 import type { Session } from "./session";
+import type { CountOptions, ReadOptions, Where } from "./where";
 
 type MomentInput = Date | string | number | null | undefined;
 type NumberInput = number | null | undefined;
@@ -32,20 +33,29 @@ export interface WidgetFormat {
   plural(count: number, label: string | PluralLabel): string;
 }
 
+/** `true` while `N` is still a union of names, as in a bare `ResourceLink`. */
+type ManyNames<N, All = N> = N extends unknown ? ([All] extends [N] ? false : true) : never;
+
 /** A registered resource's list or record, named instead of spelled as a path. */
-export interface ResourceLink {
-  resource: ResourceName;
+export interface ResourceLink<N extends ResourceName = ResourceName> {
+  resource: N;
   /** One record's page instead of the list. */
   id?: string | number;
-  /** List filters, as the list's own `f_<field>` URL keys. */
-  filter?: Record<string, unknown>;
+  /**
+   * List filters keyed by the target's fields: a value, `{ gte, lte }` or an array, written as
+   * the list's own `f_<field>` URL keys. Any keys while the link does not name one resource.
+   */
+  filter?: true extends ManyNames<N> ? Record<string, unknown> : Where<RowOf<N>>;
   /** A view from the resource's `views`, applied by name before `filter`. */
   view?: string;
   /** A detail tab, with `id`. */
   tab?: string;
   /** A `daterange` filter field that receives the widget's range, bound for bound. */
-  range?: string;
+  range?: true extends ManyNames<N> ? string : keyof RowOf<N> & string;
 }
+
+/** A `ResourceLink` whose `filter` and `range` are keyed by its own resource's row. */
+export type AnyResourceLink = { [N in ResourceName]: ResourceLink<N> }[ResourceName];
 
 /** A dashboard or page, named by its configured `path`. */
 export interface DashboardLink {
@@ -58,10 +68,10 @@ export interface DashboardLink {
 }
 
 /**
- * Where a link goes. A string is used as written — an external URL or a route of
- * the host app; an object is resolved under the admin's mount.
+ * Where a link goes. A string is used as written — an external URL or a route of the host app;
+ * an object is resolved under the admin's mount.
  */
-export type LinkTarget = string | ResourceLink | DashboardLink;
+export type LinkTarget = string | AnyResourceLink | DashboardLink;
 
 /** A link on a widget option: a target, or one computed from the widget context. */
 export type Link = LinkTarget | ((ctx: WidgetContext) => LinkTarget | null | undefined);
@@ -116,8 +126,31 @@ export interface WidgetContext<DB = InferDB> {
     ...values: unknown[]
   ) => Promise<Row[]>;
   /**
-   * Rows of a registered resource matching `where`, under the same role, access and scope checks.
-   * Memoised per request by resource and `where`; a resource the session may not read counts `0`.
+   * Rows of a registered resource matching `where`, under the same role, access and scope
+   * checks as its list; `range` bounds a timestamp field by `ctx.dateRange`. Memoised per request
+   * by resource, `where` and range; a resource the session may not read counts `0`, and so does an
+   * `undefined`, `null` or `""` value, with a development warning. A misspelt field throws,
+   * whatever its value.
    */
-  count: (resource: ResourceName, where?: Record<string, unknown>) => Promise<number>;
+  count: <N extends ResourceName>(
+    resource: N,
+    where?: Where<RowOf<N>>,
+    options?: CountOptions<RowOf<N>>,
+  ) => Promise<number>;
+  /**
+   * Rows of a registered resource under the same role, access, scope, field and soft-delete
+   * rules as its list. Memoised per request by resource and options; a resource the session may
+   * not read returns `[]`. A misspelt field, an `undefined`, `null` or `""` value, or an unknown
+   * resource throws instead of widening the read. Rows carry the list's declared columns,
+   * `expose` and `fields`; any other property is `undefined`, even though the row type lists it.
+   */
+  read: <N extends ResourceName>(
+    resource: N,
+    options?: ReadOptions<RowOf<N>>,
+  ) => Promise<RowOf<N>[]>;
+  /**
+   * The record this card shows, typed by its resource. Throws on a dashboard, which has no
+   * record, and on another resource's card; the message names both.
+   */
+  rowOf: <N extends ResourceName>(resource: N) => RowOf<N>;
 }

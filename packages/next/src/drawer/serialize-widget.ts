@@ -14,8 +14,11 @@ import {
   filterReadableDeclarations,
   resolveReadableFieldSet,
 } from "../runtime/readable-fields";
+import { scopedCountMetric } from "../runtime/record-scope";
 import { readRelatedRows } from "../runtime/require-authorized";
+import { tableFilters } from "../runtime/table-filters";
 import { statItemOf } from "../runtime/widget-items";
+import { expiredCard, retainedRange } from "../runtime/widget-range";
 import { type SerializedCardWidget, serializeCardWidget } from "./serialize-cards";
 
 /** A widget column is a bare key or an object naming one; the wire needs the key. */
@@ -84,12 +87,25 @@ export async function serializeWidget(
   w: WidgetConfig,
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
-  widgetCtx: WidgetContext,
+  pickedCtx: WidgetContext,
 ): Promise<SerializedWidget> {
+  const kept = retainedRange(w, pickedCtx);
+  if (kept.expired) {
+    const { label, emptyState } = expiredCard(w, pickedCtx);
+    return {
+      kind: "list",
+      ...(label ? { label } : {}),
+      rows: [],
+      emptyState: typeof emptyState === "string" ? emptyState : pickedCtx.labels.widget.empty,
+      ...(w.options.span ? { span: w.options.span } : {}),
+    };
+  }
+  const widgetCtx = kept.ctx;
   try {
     switch (w.kind) {
       case "metric": {
-        const produced = await runWithRequestContext(reqCtx, () => w.query(widgetCtx));
+        const scoped = scopedCountMetric(w, widgetCtx, config);
+        const produced = await runWithRequestContext(reqCtx, () => scoped.query(widgetCtx));
         const result: MetricResult =
           typeof produced === "object" && produced !== null ? produced : { value: produced };
         const sublabel = result.sublabel ?? w.options.sublabel;
@@ -115,12 +131,17 @@ export async function serializeWidget(
           rows = raw as Record<string, unknown>[];
         } else if (w.options.resource) {
           const target = config.resourcesByName.get(w.options.resource);
-          const related = target
-            ? await readRelatedRows(config, target, reqCtx, {
-                pageSize: w.options.limit ?? 10,
-                extraFields: columnFields(w.options.columns),
-              })
-            : null;
+          const filters = target ? tableFilters(w.options, widgetCtx, config, target) : null;
+          const related = !target
+            ? null
+            : filters === null
+              ? []
+              : await readRelatedRows(config, target, reqCtx, {
+                  filters,
+                  dateRange: widgetCtx.dateRange,
+                  pageSize: w.options.limit ?? 10,
+                  extraFields: columnFields(w.options.columns),
+                });
           if (!target || !related) {
             readableResourceFields = new Set();
           } else {

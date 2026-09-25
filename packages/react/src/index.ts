@@ -146,6 +146,7 @@ export {
   type SectionProps,
   spanClass,
 } from "./_layout/Section";
+export { StatStrip, type StatStripProps } from "./_layout/StatStrip";
 export { ApiBaseProvider, useApiBase } from "./_provider/ApiBaseContext";
 export {
   ComponentsProvider,

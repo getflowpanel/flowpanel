@@ -19,7 +19,7 @@ export type QueryOutcome<T> =
   | { failed: true; card: React.JSX.Element };
 
 /** Next signals redirect and not-found by throwing; those throws are not failures. */
-function isControlFlow(err: unknown): boolean {
+export function isControlFlow(err: unknown): boolean {
   return typeof (err as { digest?: unknown } | null)?.digest === "string";
 }
 

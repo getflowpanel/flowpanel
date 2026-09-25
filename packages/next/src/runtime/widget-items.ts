@@ -1,10 +1,12 @@
 import type {
   KvItem,
+  KvOptions,
   RequestContext,
   ResolvedAdminConfig,
   ResolvedFormatting,
   StatItem,
   StatResult,
+  StatValue,
   StatWidget,
   WidgetContext,
 } from "@flowpanel/core";
@@ -32,8 +34,12 @@ export async function kvItemOf(
   formatting: ResolvedFormatting,
   config: ResolvedAdminConfig,
   reqCtx?: RequestContext,
+  record?: Record<string, unknown> | null,
 ) {
-  const result = await resolveItem(item.value, ctx, reqCtx);
+  const result: StatResult =
+    item.field !== undefined
+      ? { value: (record?.[item.field] ?? null) as StatValue }
+      : await resolveItem(item.value, ctx, reqCtx);
   const tone = result.tone ?? item.tone;
   const href = resolveLink(config, ctx, result.href ?? item.href);
   return {
@@ -62,4 +68,30 @@ export async function statItemOf(
     ...(tone ? { tone } : {}),
     ...(href ? { href } : {}),
   };
+}
+
+/** A `kv` card's items; `field` items read the card's `record`, else the viewed row. */
+export async function kvItems(
+  options: KvOptions,
+  ctx: WidgetContext,
+  formatting: ResolvedFormatting,
+  config: ResolvedAdminConfig,
+  reqCtx?: RequestContext,
+) {
+  const load = options.record;
+  const record = load
+    ? await (reqCtx ? runWithRequestContext(reqCtx, async () => load(ctx)) : load(ctx))
+    : ctx.row;
+  return Promise.all(
+    options.items.map((item) =>
+      kvItemOf(
+        item,
+        ctx,
+        formatting,
+        config,
+        reqCtx,
+        (record ?? null) as Record<string, unknown> | null,
+      ),
+    ),
+  );
 }

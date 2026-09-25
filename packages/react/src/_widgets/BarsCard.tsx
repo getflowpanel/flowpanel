@@ -2,10 +2,13 @@
 import type * as React from "react";
 import { Card, CardContent, CardHeader } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
+import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
-import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
+import type { NumericFormat, Tone } from "../lib/format";
 import { toneFillClass } from "../lib/tone-classes";
+import { BarTrail } from "./BarTrail";
 import { barWidthClass, shareOfMax } from "./bar-width";
+import type { GoodWhen } from "./delta";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface BarsCardRow {
@@ -13,6 +16,10 @@ export interface BarsCardRow {
   value: number;
   href?: string;
   tone?: Tone;
+  /** The same row's value in the period before, for a change mark. */
+  previous?: number;
+  /** This row's part of the real total, 0 to 1. */
+  share?: number;
 }
 
 export interface BarsCardProps {
@@ -21,17 +28,31 @@ export interface BarsCardProps {
   format?: NumericFormat;
   /** The value a full bar stands for. Default: the largest row. */
   max?: number;
+  /** Show each row's part of the total: its own share, else of the rows' sum. */
+  share?: boolean;
+  /** Which direction of a row's change is good news. Default: "up". */
+  goodWhen?: GoodWhen;
   /** Rendered instead of the bars when `rows` is empty. */
   emptyState?: React.ReactNode;
 }
 
 /** A ranked breakdown, as a `bars()` widget. Bars are sized against `max` or the largest row. */
-export function BarsCard({ label, rows, format, max: fullBar, emptyState }: BarsCardProps) {
+export function BarsCard({
+  label,
+  rows,
+  format,
+  max: fullBar,
+  share,
+  goodWhen,
+  emptyState,
+}: BarsCardProps) {
   const formatting = useFormatting();
+  const { widget } = useLabels();
   const max =
     fullBar !== undefined && fullBar > 0
       ? fullBar
       : rows.reduce((acc, row) => Math.max(acc, row.value), 0);
+  const total = rows.reduce((acc, row) => acc + row.value, 0);
   return (
     <Card className="h-full">
       {label ? <CardHeader>{label}</CardHeader> : null}
@@ -55,9 +76,17 @@ export function BarsCard({ label, rows, format, max: fullBar, emptyState }: Bars
                     row.label
                   )}
                 </span>
-                <span className="shrink-0 tabular-nums text-fp-text-1">
-                  {formatNumber(row.value, format, formatting)}
-                </span>
+                <BarTrail
+                  value={row.value}
+                  previous={row.previous}
+                  share={
+                    share ? (row.share ?? (total > 0 ? row.value / total : undefined)) : undefined
+                  }
+                  format={format}
+                  goodWhen={goodWhen}
+                  formatting={formatting}
+                  pointsLabel={widget.points}
+                />
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-fp-bg-3">
                 <div

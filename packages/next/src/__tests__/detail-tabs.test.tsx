@@ -269,7 +269,9 @@ describe("a widgets tab that fails", () => {
       },
       "?tab=activity",
     );
-    expect(findAll(tree, WidgetErrorBoundary)[0]?.widgetId).toBe("activity.w0");
+    expect(findAll(tree, WidgetErrorBoundary)[0]?.widgetId).toBe(
+      '«Record» (stat, users tab "activity" widget 1)',
+    );
   });
 
   it("treats an empty widgets array as a widgets tab with nothing in it", async () => {

@@ -1,5 +1,5 @@
 import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
+import { runWithRequestContext, writeTarget } from "@flowpanel/core";
 import { buildAuditEvent, maybeEmitAudit, notFoundResponse } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { buildHref } from "../runtime/href";
@@ -62,7 +62,7 @@ export function restoreRoute(config: ResolvedAdminConfig) {
         softDelete: { column: softDeleteColumn },
         ...scopeBinding(config, resource, reqCtx),
       };
-      await runWithRequestContext(reqCtx, () => restore(resource.ref, mctx));
+      await runWithRequestContext(reqCtx, () => restore(writeTarget(resource), mctx));
 
       await maybeEmitAudit(
         { ok: true },

@@ -15,30 +15,51 @@ export interface StatCardProps {
   /** Turns the whole card into a link. */
   href?: string;
   tone?: Tone;
+  /** Drop the card frame, for a cell of a `StatStrip`. */
+  plain?: boolean;
 }
 
 /** One number with a label — a `stat()` widget. */
-export function StatCard({ label, value, format, hint, href, tone = "default" }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  format,
+  hint,
+  href,
+  tone = "default",
+  plain,
+}: StatCardProps) {
   const formatting = useFormatting();
   const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
-  const card = (
-    <Card className="h-full w-full" data-tone={tone}>
-      <CardContent className="space-y-1">
-        <div className="truncate text-sm font-medium text-fp-text-2">{label}</div>
-        <div
-          className={cn(
-            "truncate text-xl font-semibold leading-tight tabular-nums",
-            toneTextClass[tone],
-          )}
-        >
-          {display}
+  const content = (
+    <CardContent className="space-y-1">
+      <div className="truncate text-sm font-medium text-fp-text-2">{label}</div>
+      <div
+        className={cn(
+          "truncate text-xl font-semibold leading-tight tabular-nums",
+          toneTextClass[tone],
+        )}
+      >
+        {display}
+      </div>
+      {hint ? (
+        <div className={cn(TWO_LINES, "text-xs text-fp-text-3")} {...fullTextTitle(hint)}>
+          {hint}
         </div>
-        {hint ? (
-          <div className={cn(TWO_LINES, "text-xs text-fp-text-3")} {...fullTextTitle(hint)}>
-            {hint}
-          </div>
-        ) : null}
-      </CardContent>
+      ) : null}
+    </CardContent>
+  );
+  const card = plain ? (
+    <div
+      className="h-full w-full bg-fp-bg-1 transition-colors group-hover:bg-fp-bg-2"
+      data-tone={tone}
+      data-plain=""
+    >
+      {content}
+    </div>
+  ) : (
+    <Card className="h-full w-full" data-tone={tone}>
+      {content}
     </Card>
   );
   if (!href) return card;
@@ -46,7 +67,10 @@ export function StatCard({ label, value, format, hint, href, tone = "default" }:
     <a
       href={href}
       aria-label={label}
-      className="block h-full w-full rounded-fp-lg transition-shadow hover:shadow-fp-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+      className={cn(
+        "group block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+        plain ? "focus-visible:ring-inset" : "rounded-fp-lg transition-shadow hover:shadow-fp-sm",
+      )}
     >
       {card}
     </a>

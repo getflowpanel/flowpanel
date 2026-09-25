@@ -1,5 +1,4 @@
-import type { AuthConfig } from "../types/config";
-import type { Session } from "../types/session";
+import type { AuthConfig, Session } from "@flowpanel/core";
 
 export interface ClerkAuthOptions {
   /** Roles allowed into the admin. Pass a single role, an array, or a custom predicate. */

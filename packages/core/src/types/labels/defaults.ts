@@ -16,6 +16,7 @@ export const DEFAULT_LABELS: {
   actions: Required<NonNullable<LabelsConfig["actions"]>>;
   form: Required<NonNullable<LabelsConfig["form"]>>;
   notFound: Required<NonNullable<LabelsConfig["notFound"]>>;
+  access: Required<NonNullable<LabelsConfig["access"]>>;
   drawer: Required<NonNullable<LabelsConfig["drawer"]>>;
   detail: Required<NonNullable<LabelsConfig["detail"]>>;
   related: Required<NonNullable<LabelsConfig["related"]>>;
@@ -125,6 +126,7 @@ export const DEFAULT_LABELS: {
   detail: {
     noFields: "No fields to show",
     unknownResource: "Unknown resource: {resource}",
+    tabCount: "{label} · {count}",
   },
   related: { openList: "Open list →" },
   form: {
@@ -144,6 +146,12 @@ export const DEFAULT_LABELS: {
     description: "The resource or dashboard you requested doesn't exist.",
     back: "Back to admin",
   },
+  access: {
+    signInTitle: "Sign in required",
+    signInDescription: "You need to sign in to view this admin.",
+    deniedTitle: "Access denied",
+    deniedDescription: "Your account doesn't have permission to view this admin.",
+  },
   formError: "Something went wrong — please try again.",
   confirm: { title: "Are you sure?", ok: "Confirm", cancel: "Cancel" },
   widget: {
@@ -154,6 +162,10 @@ export const DEFAULT_LABELS: {
     secondsAgo: "{n}s ago",
     minutesAgo: "{n}m ago",
     chartsMissing: "Charts package not installed — run `pnpm add @flowpanel/charts`.",
+    previous: "was {value}",
+    points: "{value} pp",
+    vsPrevious: "vs previous period",
+    vsWeekAgo: "vs a week earlier",
   },
   errors: {
     queryTitle: "{resource}: {operation} failed",

@@ -1,3 +1,5 @@
+import type { WidgetLabels } from "./widget-labels";
+
 /**
  * A count template per `Intl.PluralRules` category of the admin's
  * `formatting.locale`; a missing category falls back to `other`. Use `{n}`.
@@ -169,6 +171,8 @@ export interface LabelsConfig {
     noFields?: string;
     /** A tab naming a resource that is not registered. Use `{resource}`. */
     unknownResource?: string;
+    /** A counted tab's label. Use `{label}` and `{count}`. */
+    tabCount?: string;
   };
   /** Related detail-tab chrome. */
   related?: {
@@ -181,6 +185,15 @@ export interface LabelsConfig {
     description?: string;
     back?: string;
   };
+  /** The screens shown in place of the admin when `auth.signInUrl` or `auth.forbiddenUrl` is not set. */
+  access?: {
+    /** No session: the reader has to sign in. */
+    signInTitle?: string;
+    signInDescription?: string;
+    /** A session whose role the admin does not allow. */
+    deniedTitle?: string;
+    deniedDescription?: string;
+  };
   /** Form-level banner shown when a submit fails with no field errors of its own. */
   formError?: string;
   /** Confirm dialog. */
@@ -190,21 +203,7 @@ export interface LabelsConfig {
     cancel?: string;
   };
   /** Dashboard and detail-tab widget chrome. */
-  widget?: {
-    /** Zero-row state shared by tables, cards and charts. */
-    empty?: string;
-    /** Link from a card heading to the full list. */
-    seeAll?: string;
-    /** Freshness stamp on a refreshing dashboard. Use `{ago}`. */
-    updated?: string;
-    justNow?: string;
-    /** Use `{n}` for the second count. */
-    secondsAgo?: string;
-    /** Use `{n}` for the minute count. */
-    minutesAgo?: string;
-    /** Shown where a chart would be when @flowpanel/charts is missing. */
-    chartsMissing?: string;
-  };
+  widget?: WidgetLabels;
   /** FlowPanel's own failure surfaces, shown in place of the data that did not load. */
   errors?: {
     /** Failed page read. Use `{resource}` and `{operation}`. */

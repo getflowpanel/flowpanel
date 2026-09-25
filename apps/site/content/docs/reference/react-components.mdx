@@ -41,7 +41,7 @@ content.
 | Export | Purpose |
 | --- | --- |
 | `AdminShell` | Pure visual chrome — sidebar or tab-strip variant — around admin content. |
-| `AdminNav` | Renders `NavGroup[]` (Dashboards, Pages, Resources, Queues) as the sidebar/tab nav. |
+| `AdminNav` | Renders `NavGroup[]` as the sidebar nav; a `collapsible` group folds under its label until it holds the current page. |
 | `AdminTabs` | Tab-strip variant of the nav, used when `AdminShellVariant` is `"tabs"`. |
 | `AccountMenu` | User menu (avatar, name, sign-out) shown in the shell header. |
 | `Brand` | Renders a `ShellBrand` (logo/name) in the shell header. |
@@ -50,7 +50,7 @@ content.
 | `Drawer`, `DrawerHeader`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. |
 | `DetailShell` | Chrome around a resource detail page. |
 | `FlowpanelGlobals` | Mounts cross-cutting globals (toast host, theme script, shortcuts) once per admin. |
-| `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. |
+| `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. `badges` renders several pills in order, each an optional link. |
 | `ShortcutsCheatsheet`, `DEFAULT_SHORTCUTS` | The `?`-triggered keyboard shortcuts overlay and the shortcut list it ships with. |
 | `ThemeScript` | Inline script that applies the stored theme class before hydration, avoiding a flash. |
 | `ComponentsProvider`, `useComponents` | Provider/reader for the `FlowpanelComponentSlots` override map. |
@@ -80,7 +80,7 @@ cell renderers.
 | `DensityToggle` | Toggles `DataTableDensity` (row spacing) in the toolbar. |
 | `FilterBar` | Renders a `FilterBarSpec[]` as the filter row above the table. |
 | `BooleanFilter`, `DateRangeFilter`, `MultiSelectFilter`, `NumericRangeFilter`, `SelectFilter`, `TagFilter`, `TextFilter` | One filter control per `ColumnMeta.type`, each driven by `FilterBar`. `DateRangeFilter` opens a two-month range calendar with presets. |
-| `DateRangePicker` | Standalone preset dropdown (Today, Last 7 days, MTD, …) for dashboards. |
+| `DateRangePicker` | Standalone preset dropdown (Today, Last 7 days, MTD, …) for dashboards; `presets` narrows and orders the list, and a `from`/`to` value without a preset shows as its two days. |
 | `Pagination`, `DefaultPagination` | Page controls under the table and their default renderer. |
 | `ArrayCell`, `JsonCell`, `ReferenceCell` | Read-only cell renderers for array, JSON, and reference columns. |
 | `InlineEditCell` | Editable cell used when a column declares `editable: true`. |
@@ -162,8 +162,8 @@ resolves into.
 
 | Export | Purpose |
 | --- | --- |
-| `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. |
-| `StatCard` | Renders a `stat()` widget — one number, a hint and an optional link. |
+| `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. `plain` drops the card frame for a strip cell. |
+| `StatCard` | Renders a `stat()` widget — one number, a hint and an optional link. `plain` drops the card frame for a strip cell. |
 | `StatGroupCard` | Renders a `statGroup()` widget. |
 | `KvCard` | Renders a `kv()` widget as a label/value grid. |
 | `BarsCard` | Renders a `bars()` widget, sizing each bar against `max` or the largest row. |
@@ -182,6 +182,7 @@ Shared by widgets and by hand-built pages.
 | `Card`, `CardHeader`, `CardContent`, `CardDescription` | Generic card shell and its section slots. |
 | `MetricGrid` | Responsive grid for laying out `MetricCard`s. |
 | `Section`, `SectionLabel`, `Divider`, `spanClass` | Section wrapper with a label/description, a divider rule, and the `Span` → CSS class map dashboards use for widget width. |
+| `StatStrip` | A band of numbers divided by hairlines, two per line on a phone — what `section.variant: "strip"` and `detail.stats` render. |
 
 ## Atoms
 

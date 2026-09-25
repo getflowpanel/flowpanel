@@ -25,3 +25,7 @@ expectAssignable<LabelsConfig>({
 });
 expectError<LabelsConfig>({ table: { results: { other: "{n}" } } });
 expectType<string>(formatCount({ other: "{n}" } satisfies PluralLabel, 3, "ru-RU"));
+expectType<string>(DEFAULT_LABELS.access.signInTitle);
+expectType<string>(RU_LABELS.access.deniedDescription);
+expectAssignable<LabelsConfig>({ access: { deniedTitle: "Нет доступа" } });
+expectError<LabelsConfig>({ access: { deniedTitle: 403 } });

@@ -1,5 +1,5 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { formatLabel, mergeLabels } from "@flowpanel/core";
+import { formatLabel, mergeLabels, writeTarget } from "@flowpanel/core";
 import { CreateDrawer } from "@flowpanel/next/client";
 import { AutoForm } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
@@ -36,7 +36,7 @@ export async function buildResourceListCreateAction({
         action={buildApiHref(config, name, "create")}
         columns={writableColumns(
           resource,
-          config.adapter.introspect(resource.ref).columns,
+          config.adapter.introspect(writeTarget(resource)).columns,
           declared,
         )}
         {...(fields ? { fields } : {})}

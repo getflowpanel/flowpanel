@@ -117,6 +117,10 @@ mysql2 `[rows, fields]`.
 Returned by `introspect`. This is what lets a resource declare `columns: ["id",
 "email"]` and get working controls, filters and validation for free.
 
+`kind: "view"` marks a ref that reads a database view. FlowPanel then writes only through
+[`ResourceOptions.writeTo`](/docs/reference/resources#reading-a-view), and a resource over a
+view without it is read-only.
+
 <AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="ResourceIntrospection" />
 
 ## ColumnMeta

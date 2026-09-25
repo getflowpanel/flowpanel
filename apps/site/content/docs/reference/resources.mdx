@@ -70,8 +70,9 @@ its text. The edit route enforces its own authorization as well. At narrow width
 the actions wrap below the title rather than squeezing it.
 
 Custom `PageHeader` slots should use the exported `PageHeaderProps` type: `title`
-accepts React content as well as strings, and `badge` takes the same
-`{ label, tone }` object.
+accepts React content as well as strings, `badge` takes the same
+`{ label, tone }` object, and `badges` takes several of them, each with an optional
+`href`.
 
 Without `detail.tabs`, the page renders one key/value block. `detail.fields`
 chooses and orders the fields in it; omitted, every readable declared field shows.
@@ -102,6 +103,31 @@ Navigation is a router push on the row, not a link: cmd-click, middle-click and
 real link through the detail page's own URL, or add a column whose `render`
 returns an anchor.
 
+### Reading a view
+
+A resource's ref may be a database view. The list, the record page, counts, exports,
+reference labels, related tabs and `ctx.read` read the view; create, update, delete,
+restore, import and inline edits write to `writeTo`:
+
+```ts excerpt
+resource(adminUserRow, {
+  name: "user",
+  writeTo: user,
+  update: { fields: [{ name: "internal", type: "switch" }] },
+});
+```
+
+`writeTo` must be a table whose primary key the view selects. Every field a form or an
+inline `editable` column writes must be a column of both: form fields are typed against the view's row, so select each
+writable column in the view. `defineAdmin` checks both and names the missing column. The
+write schema is inferred from `writeTo`, the generated edit form offers the table's
+writable columns, and an update answers with the view's row, so computed columns are fresh
+after a save.
+
+Without `writeTo`, a resource over a view is read-only: its create, update and delete are
+disabled, and declaring any of them (or `import`, or an `editable` column) throws at
+`defineAdmin`.
+
 ### Icons
 
 `ResourceOptions.icon`, dashboard/page/queue icons, action icons and
@@ -120,6 +146,32 @@ import { FlowpanelIcon } from "@flowpanel/kit/react";
 
 <FlowpanelIcon name="workflow" className="size-4" />;
 ```
+
+### Saved views
+
+`views` puts named filter, sort and search presets in a menu above the list. Their
+filter values are values, keyed by the row's fields, and are written into the list's
+URL the same way link filters are:
+
+```ts excerpt
+views: [
+  { name: "New this week", filters: { createdAt: "last7d" } },
+  { name: "Paying, falling asleep", filters: { plan: ["starter", "pro"], daysSinceSeen: { gte: 7 } } },
+  { name: "No Telegram", filters: { telegramLinked: false } },
+],
+```
+
+A `daterange` filter also takes a preset name — `today`, `yesterday`, `last7d`,
+`last30d`, `MTD`, `QTD` or `YTD` — which is resolved on every request in the admin's
+zone, so "New this week" always means the seven days before now, and the filter chip
+shows the preset's name. A view filters only by fields the list declares in `columns`,
+`filters` or `search`.
+`defineAdmin` rejects any other key, and a value the list would read as other rows —
+an array without a `multiselect` filter, bounds without a `numeric-range` or
+`daterange` one, a single value on a range filter other than a preset name, a bare
+`Date` — because the list would drop or widen it.
+"Older than N days" is a column of a SQL view with a
+`numeric-range` filter, not a date filter.
 
 ## ColumnDef
 
@@ -224,6 +276,41 @@ true. `formatNumber`'s `percent` and `duration` use the same formatters, so a ca
 cell print one value alike. `formatDurationCompact` keeps only the largest unit — `2.1h`,
 `42s` — and is what a chart's value axis prints.
 
+## Enums
+
+`enumOf()` declares an enum's labels and tones once. Every surface that shows the
+value reads the same object: a column's `format`, a filter's or a form field's
+`options`, a detail badge, and later a timeline's chips.
+
+<ApiSignature path="../../packages/core/src/builders/enum-of.ts" name="enumOf" />
+
+```ts excerpt
+import { enumOf, resource } from "@flowpanel/kit";
+import { planEnum, users } from "@/db/schema";
+
+export const Plan = enumOf(planEnum.enumValues, {
+  free: ["Free", "muted"],
+  starter: ["Starter", "info"],
+  pro: { label: "Pro", tone: "accent" },
+});
+
+resource(users, {
+  columns: [{ field: "plan", format: Plan.format }],
+  filters: [{ field: "plan", type: "select", options: Plan.options }],
+  detail: { badge: (user) => Plan.badge(user.plan) },
+});
+```
+
+Pass the database enum's values first and a missing or extra label is a compile
+error; without them, the keys of the entries are the values, in the order they are
+written. An entry is a label, a `[label, tone]` pair or `{ label, tone }`, and the
+tone defaults to `"default"`. `format` and `options` are plain data, so they cross
+into the browser and a drawer unchanged. `label()` prints an unknown value as itself
+and a missing one as `—`, `tone()` answers `"default"` for an unknown value, and
+`badge()` returns `null` for a missing one, which hides the pill.
+
+<AutoTypeTable path="../../packages/core/src/builders/enum-of.ts" name="EnumDef" />
+
 ## FieldDef
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
@@ -269,6 +356,50 @@ type FilterType =
 `daterange` and `numeric-range` reach your adapter as a `FilterRangeValue`;
 `multiselect` as a `FilterInValue`. Both are documented under
 [Contexts](/docs/reference/contexts#filter-values).
+
+## Record page
+
+`detail` configures `/<basePath>/<resource>/<id>`. Type a card that lives in its own file
+with `DetailOptions<Row>`:
+
+```ts excerpt
+import { type DetailOptions, kv, metric, related, type RowOf } from "@flowpanel/kit";
+
+export const card = {
+  title: (u) => u.name ?? u.email,
+  subtitle: (u, { format }) => `with us since ${format.date(u.createdAt)}`,
+  badge: (u) => [Lifecycle.badge(u.lifecycle), Plan.badge(u.plan)],
+  dateRange: { preset: "last30d", presets: ["last7d", "last30d", "QTD"] },
+  stats: [metric("Visits", { count: "user_visit", range: "startedAt" }, { compare: true })],
+  aside: [kv({ label: "Profile", columns: 1, items: [{ label: "Email", field: "email" }] })],
+  tabs: [related("response")],
+} satisfies DetailOptions<RowOf<"user">>;
+```
+
+- `title`, `subtitle` and `badge` receive the row and a `DetailHeaderContext` — the
+  admin's `format`, `labels` and `link`. `badge` returns one pill or a list, in order;
+  `null` entries are dropped, and a pill with `href` is a link.
+- `stats` renders as a hairline strip under the header, on every tab.
+- `aside` is a column beside the tabs from the `lg` breakpoint and below them on a phone,
+  on every tab.
+- `dateRange` adds a date picker to the header. Its range, with `previous`, reaches
+  `stats`, `aside` and every widgets tab. Related rows list every row, a timeline pages
+  through the whole history and a heatmap shows its last `days` days. Without
+  `dateRange` the page has no picker and widgets see the record's whole history.
+
+The header, the strip, the aside and the open tab share one widget context, so the same
+`ctx.count`, `ctx.read` or `ctx.query` runs once per page. A widget that fails shows its
+own error card, named by its label and place.
+
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailOptions" />
+
+### DetailHeaderContext
+
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailHeaderContext" />
+
+### DetailBadge
+
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailBadge" />
 
 ## DetailTab
 
@@ -371,10 +502,43 @@ a field the reader may not read yields no rows and no query.
 
 A row opens the way it does on the target's own list, by the target's
 [`rowClick`](#resourceoptions): with `"detail"` it navigates to the row's detail
-page; with `"drawer"` it navigates to the target's list with that row's drawer
-open (`?drawer=<resource>:<id>`), since the detail page's own `?tab=` would clash
-with the drawer's tab; with `false` — or no `detail` and no `drawer` — the rows
-stay inert. Enter on the focused row opens it, as on the list.
+page; with `"drawer"` it opens the target's drawer over this record page
+(`?drawer=<resource>:<id>`), keeping the page's `?tab=` — the drawer keeps its own tab
+in `?drawerTab=`; with `false` — or no `detail` and no `drawer` — the rows stay inert.
+Enter on the focused row opens it, as on the list.
+
+`pageSize` sets the rows per page (25 by default). `count: true` shows the row count in the
+tab's label (`labels.detail.tabCount`, `"Scores · 3"`); the counts of every counted tab run
+while the open tab renders, share the page's count memo, and a count that fails leaves the
+plain label. A tab that sets both `resource` and `widgets` renders the widgets above its
+rows — a funnel above the responses it counts.
+
+`by` names the target's field that points at this record: it becomes `filter`, reading the
+record's `rowKey`, and `hide`, unless you give those yourself.
+
+### Related tabs in one line
+
+<ApiSignature path="../../packages/core/src/builders/related.ts" name="related" />
+
+`related(resource, options)` builds a counted related tab. Without `by`, `defineAdmin` finds
+the one column of the target whose `reference.resource` is this resource and uses it; none
+or several throw and ask for `by`. `by`, `hide` and `sort.field` are fields of the target's
+row, so a typo is a compile error once resources are typed, and `defineAdmin` names the
+closest column otherwise. The label defaults to the target's `plural`.
+
+```ts excerpt
+detail: {
+  tabs: [
+    related("response", { label: "Responses", widgets: [responseFunnel] }),
+    related("payment", { pageSize: 10, sort: { field: "createdAt", dir: "desc" } }),
+  ],
+}
+```
+
+A plain tab with neither `by` nor `filter` keeps reading every row of its target, as it
+did before `related()` existed.
+
+<AutoTypeTable path="../../packages/core/src/builders/related.ts" name="RelatedOptions" />
 
 ### Empty state
 
@@ -395,13 +559,13 @@ declared and `detail.expose` fields, nothing else — and `ctx` is a
 [`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `href`,
 `labels` and the per-request `query` memo, the same pieces a widget query gets.
 
-<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="DetailTab" />
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailTab" />
 
 ## DetailTabContext
 
 What `DetailTab.render` receives as its second argument.
 
-<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="DetailTabContext" />
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailTabContext" />
 
 ## SelectOption
 

@@ -130,6 +130,7 @@ async function serializeTab(
   reqCtx: RequestContext,
   req: Request,
   rowKey: string,
+  resource: string,
 ): Promise<SerializedDrawerTab> {
   if ("fields" in tab) {
     return {
@@ -147,6 +148,7 @@ async function serializeTab(
       { from: new Date(0), to: new Date(), preset: "custom" },
       row,
       rowKey,
+      resource,
     );
     const widgets: SerializedWidget[] = [];
     for (const w of tab.widgets) {
@@ -253,7 +255,16 @@ export function drawerRoute(config: ResolvedAdminConfig) {
         const tabs: SerializedDrawerTab[] | null = drawer.tabs
           ? await Promise.all(
               drawer.tabs.map((t) =>
-                serializeTab(t, projectedRow, readableRowFields, config, reqCtx, req, rowKey),
+                serializeTab(
+                  t,
+                  projectedRow,
+                  readableRowFields,
+                  config,
+                  reqCtx,
+                  req,
+                  rowKey,
+                  resourceName,
+                ),
               ),
             )
           : null;

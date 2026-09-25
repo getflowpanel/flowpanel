@@ -2,7 +2,6 @@ import type {
   BarRow,
   FunnelStep,
   ListRow,
-  MetricResult,
   RequestContext,
   ResolvedAdminConfig,
   WidgetConfig,
@@ -14,21 +13,19 @@ import {
   FunnelCard,
   KvCard,
   ListCard,
-  MetricCard,
   RealtimeRefresh,
   StatCard,
   StatGroupCard,
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { ServerCard } from "./_server-card";
+import { scopedCountMetric } from "./record-scope";
+import { renderMetric } from "./render-metric";
 import { renderTableWidget } from "./render-table-widget";
 import { linkRows, resolveLink } from "./resolve-link";
 import { statDisplay } from "./stat-result";
-import { kvItemOf, resolveItem, statItemOf } from "./widget-items";
-
-function isMetricResult(value: number | string | MetricResult): value is MetricResult {
-  return typeof value === "object" && value !== null;
-}
+import { kvItems, resolveItem, statItemOf } from "./widget-items";
+import { expiredCard, retainedRange } from "./widget-range";
 
 function withRealtime(node: ReactNode, channels: string | string[] | undefined): ReactNode {
   return (
@@ -39,40 +36,33 @@ function withRealtime(node: ReactNode, channels: string | string[] | undefined):
   );
 }
 
+/** How a slot frames its widget: `plain` drops the card, inside a `StatStrip`. */
+export interface WidgetFrame {
+  plain?: boolean;
+}
+
 /** Render a widget on the server. */
 export async function renderWidget(
   widget: WidgetConfig,
-  ctx: WidgetContext,
+  pickedCtx: WidgetContext,
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
+  frame: WidgetFrame = {},
 ): Promise<ReactNode> {
+  const kept = retainedRange(widget, pickedCtx);
+  if (kept.expired) return <ListCard {...expiredCard(widget, pickedCtx)} rows={[]} />;
+  const ctx = kept.ctx;
   switch (widget.kind) {
-    case "metric": {
-      const [produced, queriedDelta] = await Promise.all([
-        widget.query(ctx),
-        widget.options.delta ? widget.options.delta(ctx) : Promise.resolve(null),
-      ]);
-      const result = isMetricResult(produced) ? produced : { value: produced };
-      const sparkline = widget.options.sparkline ? await widget.options.sparkline(ctx) : undefined;
-      const delta = result.delta ?? queriedDelta;
-      const sublabel = result.sublabel ?? widget.options.sublabel;
-      const tone = result.tone ?? widget.options.tone;
-      const drilldown = resolveLink(config, ctx, result.href ?? widget.options.drilldown);
+    case "metric":
       return withRealtime(
-        <MetricCard
-          label={widget.label}
-          value={result.value}
-          {...(widget.options.format ? { format: widget.options.format } : {})}
-          {...(sublabel ? { sublabel } : {})}
-          delta={delta}
-          {...(sparkline ? { sparkline } : {})}
-          {...(tone ? { tone } : {})}
-          {...(drilldown ? { drilldown } : {})}
-          {...(widget.options.icon ? { icon: widget.options.icon } : {})}
-        />,
+        await renderMetric(
+          scopedCountMetric(widget, ctx, config),
+          ctx,
+          config,
+          frame.plain === true,
+        ),
         widget.options.realtime,
       );
-    }
     case "statGroup": {
       const groupFormatting = resolveFormatting(config.formatting);
       const stats = await Promise.all(
@@ -100,15 +90,14 @@ export async function renderWidget(
           {...(hint ? { hint } : {})}
           {...(href ? { href } : {})}
           {...(tone ? { tone } : {})}
+          {...(frame.plain ? { plain: true } : {})}
         />,
         widget.options.realtime,
       );
     }
     case "kv": {
       const formatting = resolveFormatting(config.formatting);
-      const items = await Promise.all(
-        widget.options.items.map((item) => kvItemOf(item, ctx, formatting, config)),
-      );
+      const items = await kvItems(widget.options, ctx, formatting, config);
       return withRealtime(
         <KvCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
@@ -126,6 +115,8 @@ export async function renderWidget(
           rows={linkRows(config, ctx, rows)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
           {...(widget.options.max !== undefined ? { max: widget.options.max } : {})}
+          {...(widget.options.share ? { share: true } : {})}
+          {...(widget.options.goodWhen ? { goodWhen: widget.options.goodWhen } : {})}
           emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
         />,
         widget.options.realtime,
@@ -164,7 +155,9 @@ export async function renderWidget(
           : widget.props;
       const Component = widget.Component as ComponentType<unknown>;
       const inner = createElement(Component, props as Record<string, unknown>);
-      const framed = widget.options.frame === false ? inner : <ServerCard>{inner}</ServerCard>;
+      const label = widget.options.label;
+      const card = <ServerCard {...(label ? { label } : {})}>{inner}</ServerCard>;
+      const framed = widget.options.frame === false ? inner : card;
       return withRealtime(framed, widget.options.realtime);
     }
     case "table":

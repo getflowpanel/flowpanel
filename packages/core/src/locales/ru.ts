@@ -112,6 +112,7 @@ export const RU_LABELS: ResolvedLabels = {
   detail: {
     noFields: "Нет полей для показа",
     unknownResource: "Неизвестный ресурс: {resource}",
+    tabCount: "{label} · {count}",
   },
   related: { openList: "Открыть список →" },
   form: {
@@ -131,6 +132,12 @@ export const RU_LABELS: ResolvedLabels = {
     description: "Такого раздела или записи нет.",
     back: "В админку",
   },
+  access: {
+    signInTitle: "Требуется вход",
+    signInDescription: "Войдите, чтобы открыть админку.",
+    deniedTitle: "Нет доступа",
+    deniedDescription: "У вашей учётной записи нет прав на эту админку.",
+  },
   formError: "Что-то пошло не так — попробуйте ещё раз.",
   confirm: { title: "Подтвердите действие", ok: "Подтвердить", cancel: "Отмена" },
   widget: {
@@ -141,6 +148,10 @@ export const RU_LABELS: ResolvedLabels = {
     secondsAgo: "{n} с назад",
     minutesAgo: "{n} мин назад",
     chartsMissing: "Пакет charts не установлен — выполните `pnpm add @flowpanel/charts`.",
+    previous: "было {value}",
+    points: "{value} п.п.",
+    vsPrevious: "к прошлому периоду",
+    vsWeekAgo: "к прошлой неделе",
   },
   errors: {
     queryTitle: "{resource}: операция «{operation}» не выполнена",

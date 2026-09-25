@@ -41,6 +41,7 @@ export function mergeLabels(
     actions: { ...base.actions, ...defined(user.actions ?? {}) },
     form: { ...base.form, ...defined(user.form ?? {}) },
     notFound: { ...base.notFound, ...defined(user.notFound ?? {}) },
+    access: { ...base.access, ...defined(user.access ?? {}) },
     drawer: { ...base.drawer, ...defined(user.drawer ?? {}) },
     detail: { ...base.detail, ...defined(user.detail ?? {}) },
     related: { ...base.related, ...defined(user.related ?? {}) },

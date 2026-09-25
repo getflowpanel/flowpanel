@@ -16,6 +16,7 @@ import {
   mergeLabels,
   resolveOperationAccess,
   runWithRequestContext,
+  writeTarget,
 } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
 import { actorIdFromSession } from "../runtime/action-helpers";
@@ -137,7 +138,7 @@ export function makeActions(
         ...scopeBinding(config, resource, reqCtx),
       };
       const row = (await runWithRequestContext(reqCtx, () =>
-        config.adapter.create(resource.ref, mctx),
+        config.adapter.create(writeTarget(resource), mctx),
       )) as Record<string, unknown> | null | undefined;
       const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
       const rowId = row && typeof row === "object" ? row[rowKey] : undefined;
@@ -196,10 +197,16 @@ export function makeActions(
         id,
         ...scopeBinding(config, resource, reqCtx),
       };
-      const row = await runWithRequestContext(reqCtx, () =>
-        config.adapter.update(resource.ref, mctx),
+      const written = await runWithRequestContext(reqCtx, () =>
+        config.adapter.update(writeTarget(resource), mctx),
       );
-      if (!row) throw new FlowpanelNotFoundError();
+      if (!written) throw new FlowpanelNotFoundError();
+      const row =
+        resource.options.writeTo === undefined
+          ? written
+          : ((await runWithRequestContext(reqCtx, () =>
+              config.adapter.get(resource.ref, itemCtx),
+            )) ?? written);
       await baseAudit(`${name}.update`, reqCtx, { targetId: id });
       await runPostCommitEffects({ action: "update", id }, [
         buildHref(config, name),

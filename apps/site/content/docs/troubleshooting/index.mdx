@@ -207,3 +207,21 @@ Start with `pnpm flowpanel doctor`. It checks package compatibility, generated w
 **Verify:** run `pnpm flowpanel doctor`, inspect `pnpm list @flowpanel/core`, and retry inside a generated request.
 
 **Related:** [Contexts reference](/docs/reference/contexts#request-scoped-access)
+
+## Performance
+
+### “Which widget is slow”
+
+**Cause:** one widget's query dominates the page, and dashboards render widgets in parallel, so the page is as slow as its slowest card.
+
+**Fix:** in development, every page render that has widgets taking 300 ms or more logs one line, slowest first, with the memo hits each widget got from queries another widget had already started:
+
+```text
+[flowpanel] slow widgets on /system: «Банов» (metric, /system section 1 widget 4) 1240 ms; «Конвейер» (custom, /system section 2 widget 1) 410 ms, 2 memo hits
+```
+
+Share the slow query through `ctx.query`, narrow it, or cap the widget's range with `maxRange`.
+
+**Verify:** reload the page; the line lists fewer widgets, or none.
+
+**Related:** [Contexts reference](/docs/reference/contexts#ctxread)

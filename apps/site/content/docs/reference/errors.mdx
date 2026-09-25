@@ -111,8 +111,19 @@ reports no such column. Did you mean "email"? Known columns: "id", "email".
 ```
 
 It applies to `columns`, `filters`, `expose`, `defaultSort.field`, `rowKey`,
-`create.fields` / `update.fields` names, and to the resource a
-`detail.tabs[]` / `drawer.tabs[]` entry or a `reference` points at.
+`create.fields` / `update.fields` names, the resource a `detail.tabs[]` /
+`drawer.tabs[]` entry or a `reference` points at, a related tab's `hide` and
+`sort.field`, a saved view's filter keys and `sort.field`, and every static link a
+widget carries — its resource, dashboard, view, tab, `filter` keys and `range` — as
+well as what a `metric({ count })` counts. A link, view or count `where` field must
+also be a field the target list declares, or the list would drop it and show every
+row, and its value must be one the list reads as the same rows: an array needs a
+`multiselect` filter, numeric `{ gte, lte }` a `numeric-range` one, date bounds a
+`daterange` one. A single value on a range filter (other than a preset name such as
+`last7d` on a `daterange` one) and a bare `Date` are rejected, because the list reads
+them as open-ended bounds; pass `{ gte, lte }`. Links computed by a function, `ctx.count`, `ctx.read` and
+`ctx.rowOf` are checked when they run, with the same suggestion; a count metric whose
+`where` is a function warns in development when its link would open other rows.
 
 ### Warnings that do not stop the boot
 
@@ -171,9 +182,21 @@ environment. A `FlowpanelError` — an access denial, a not-found — keeps
 travelling, so the auth boundary above still sees it, and so does a `redirect()`
 thrown from your own code.
 
-Dashboard and detail-tab widgets already have their own boundary: a widget whose
-query or render throws becomes one failed card, with its copy from
-`labels.errors.widgetTitle`, `widgetHint` and `retry`.
+### Widget failures
+
+Dashboard and detail-tab widgets have their own boundary: a widget whose query or
+render throws becomes one failed card, with its copy from `labels.errors.widgetTitle`,
+`widgetHint` and `retry`. The failure names the widget by its card title, its kind and
+its place, so you never count cards to find it:
+
+```text
+«Конвейер» (custom, /system section 2 widget 1): relation "pipeline_view" does not exist
+«Broken» (metric, user tab "summary" widget 1): boom
+```
+
+Outside production the card shows that line. In production it stays generic, and the
+server log line and the Sentry tag `widget.id` carry the same name. A `custom()` widget
+is named by its `label`.
 
 ## Returning versus throwing
 

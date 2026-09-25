@@ -7,6 +7,21 @@ export interface DateRangeInput {
   to?: Date | string;
 }
 
+/** Every preset a dashboard picker, a comparison and a `daterange` filter value understand. */
+export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = [
+  "today",
+  "yesterday",
+  "last7d",
+  "last30d",
+  "MTD",
+  "QTD",
+  "YTD",
+];
+
+export function isDateRangePreset(value: string): value is DateRangePreset {
+  return (DATE_RANGE_PRESETS as readonly string[]).includes(value);
+}
+
 interface CalendarDay {
   year: number;
   month: number;

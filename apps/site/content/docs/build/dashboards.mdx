@@ -74,6 +74,14 @@ The one difference is `ctx.row`: on a detail tab it is the projected record bein
 
 Configure a dashboard date range when several queries should use the same interval. The resolved range arrives in each widget context. Treat it as a query input, not as authorization; tenant and role constraints still belong in their own policies.
 
+## Compare with the previous period
+
+Give a metric `compare: true` and it runs its own query for the period before the
+picked one — yesterday up to now for Today, the same days of last month for Month to
+date — then shows the change, the value it compares against, and no colour for a
+change inside ±1 %. `compare: { against: "weekAgo" }` compares with the same range a
+week earlier. The query needs no second SQL statement and no `*Prev` field.
+
 ## Keep the numbers fresh
 
 Set `refresh` to `"60s"` or `"5m"` when the dashboard is something an operator leaves open. FlowPanel re-renders the page on that interval, pauses while the browser tab is hidden, and shows how old the numbers are next to the date picker. Prefer it to per-widget `realtime` when the whole screen ages together; prefer `realtime` when one widget changes and the rest should stay put.

@@ -11,3 +11,10 @@ Widget contexts carry the previous period and the admin's zone, and a context fo
 Every widget, drawer and detail-tab context carries `format`, built once per request from the admin's `formatting`.
 Named link targets resolve under `basePath`: a resource's list or record, a view applied by name, the widget's range carried to another dashboard or, bound for bound, into a `daterange` filter as a `from~to` pair of instants that the list reads exactly. An unknown resource, view or dashboard throws with the registered names, and development warns once about a literal link that spells `basePath`.
 Dashboards, detail tabs and drawers resolve every widget link on the server, so the browser only receives plain hrefs.
+A metric with `compare` runs its query a second time for `ctx.dateRange.previous` or the week before, in a context with its own query memo, and derives the change, the compared value and `goodWhen`; a delta the query or the `delta` option returns still wins.
+Dashboards and drawers hand `bars()` its `share`, `goodWhen` and each row's `previous`.
+A dashboard with `dateRange.presets` offers only those presets, and drops a `?preset=` outside them from the URL. When `from` and `to` decide the range, the picker shows those two days instead of naming a preset, and picking a preset clears them.
+A widget with `maxRange` queries only the last N days of the picked range, on dashboards, detail tabs and drawers, and never compares with a period that starts before those N days; development warns once about a limit that is not whole days.
+Those N days count back from now as well as from the range's end: a past range starts no earlier than N days ago, and one that ended N or more days ago runs no query and shows the widget's empty state instead of a 0 from deleted rows.
+`buildNav` places each entry in the group its `navGroup` names, orders groups by their first entry, and marks a group `collapsible` when a member asks for it.
+The screens shown to a signed-out reader or a role the admin does not allow read `labels.access`, so a Russian admin says «Требуется вход» and «Нет доступа» instead of English.

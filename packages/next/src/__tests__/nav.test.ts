@@ -142,3 +142,68 @@ describe("buildNav", () => {
     ).toEqual(["Overview", "Guide", "Users", "Jobs"]);
   });
 });
+
+describe("buildNav — named groups", () => {
+  it("puts entries into the group they name, ordered by each group's first entry", async () => {
+    const journals = { label: "Journals", collapsed: true } as const;
+    const cfg = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      dashboards: [
+        dashboard({ path: "/", label: "Pulse", sections: [] }),
+        dashboard({ path: "/parsing", label: "Parsing", sections: [] }),
+      ],
+      resources: [
+        resource({ __name: "users" }, { columns: [], plural: "Users" }),
+        resource(
+          { __name: "scraper_run" },
+          { columns: [], plural: "Scraper runs", navGroup: journals },
+        ),
+        resource(
+          { __name: "categories" },
+          { columns: [], plural: "Categories", navGroup: "Reference" },
+        ),
+        resource({ __name: "ai_run" }, { columns: [], plural: "AI runs", navGroup: journals }),
+      ],
+    });
+    expect(await buildNav(cfg)).toEqual([
+      {
+        label: "Dashboards",
+        items: [
+          { label: "Pulse", href: "/admin" },
+          { label: "Parsing", href: "/admin/parsing" },
+        ],
+      },
+      { label: "Resources", items: [{ label: "Users", href: "/admin/users" }] },
+      {
+        label: "Journals",
+        collapsible: true,
+        items: [
+          { label: "Scraper runs", href: "/admin/scraper_run" },
+          { label: "AI runs", href: "/admin/ai_run" },
+        ],
+      },
+      { label: "Reference", items: [{ label: "Categories", href: "/admin/categories" }] },
+    ]);
+  });
+
+  it("lets a dashboard join a resource group", async () => {
+    const cfg = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      dashboards: [
+        dashboard({ path: "/health", label: "Job health", sections: [], navGroup: "Ops" }),
+      ],
+      resources: [resource({ __name: "jobs" }, { columns: [], plural: "Jobs", navGroup: "Ops" })],
+    });
+    expect(await buildNav(cfg)).toEqual([
+      {
+        label: "Ops",
+        items: [
+          { label: "Job health", href: "/admin/health" },
+          { label: "Jobs", href: "/admin/jobs" },
+        ],
+      },
+    ]);
+  });
+});

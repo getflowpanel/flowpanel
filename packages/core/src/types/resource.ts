@@ -4,14 +4,23 @@ import type { ReactNode } from "react";
 import type { z } from "zod";
 import type { BulkAction, RowAction } from "./action";
 import type { QueryContext, RequestContext } from "./context";
+import type { NavGroupRef } from "./dashboard";
+import type { DetailOptions } from "./detail";
 import type { DrawerConfig } from "./drawer";
 import type { IconName } from "./icon";
 import type { FieldAccessMap, ResourceAccess } from "./policy";
-import type { ReferenceSpec, ResourceName } from "./registry";
+import type { ReferenceSpec } from "./registry";
 import type { Scope, Session } from "./session";
-import type { Tone, WidgetConfig } from "./widget";
-import type { WidgetContext } from "./widget-context";
+import type { Where } from "./where";
+import type { Tone } from "./widget";
 
+export type {
+  DetailBadge,
+  DetailHeaderContext,
+  DetailOptions,
+  DetailTab,
+  DetailTabContext,
+} from "./detail";
 export type { DrawerConfig };
 
 export type SelectOption = { label: string; value: string | number | boolean };
@@ -196,60 +205,6 @@ export interface FieldDef<Row> {
   render?: (row: Row, ctx: RequestContext) => ReactNode | Promise<ReactNode>;
 }
 
-/**
- * What a `DetailTab.render` callback is handed alongside the row: the widget
- * context minus the parts a detail tab has no business with.
- */
-export interface DetailTabContext
-  extends Pick<
-    WidgetContext,
-    | "db"
-    | "session"
-    | "dateRange"
-    | "href"
-    | "labels"
-    | "query"
-    | "sql"
-    | "count"
-    | "id"
-    | "format"
-    | "link"
-  > {}
-
-export interface DetailTab<Row> {
-  /** Stable identifier, stored in the URL's `?tab=` search parameter. */
-  key: string;
-  /** Tab label. */
-  label: string;
-  /** Hide the tab for rows that should not show it. */
-  hidden?: (row: Row) => boolean;
-  /** Field list to render as a key/value view. `"*"` shows every column. */
-  fields?: (keyof Row | FieldDef<Row>)[] | "*";
-  /** Grouped key/value fields, one block per entry. Wins over `fields`. */
-  sections?: Array<{ label: string; fields: (keyof Row | FieldDef<Row>)[] }>;
-  /** Render rows of a related resource instead of fields. */
-  resource?: ResourceName;
-  /** Filter applied to `resource`, derived from the row being viewed. */
-  filter?: (row: Row) => Record<string, unknown>;
-  /** Related-tab columns to omit, typically the parent foreign key. */
-  hide?: string[];
-  /** Related-tab default sort; falls back to the target's `defaultSort`, then its primary key. */
-  sort?: { field: string; dir: "asc" | "desc" };
-  /** Dashboard widgets with `ctx.row` set to the record being viewed. */
-  widgets?: WidgetConfig[];
-  /** Grid columns for `widgets`.
-   * @defaultValue 2
-   */
-  columns?: 1 | 2 | 3 | 4 | 6 | 12;
-  /** Render arbitrary content instead of fields, widgets or a related resource. */
-  render?: (row: Row, ctx: DetailTabContext) => ReactNode;
-  /**
-   * Shown instead of the generic label when the tab has nothing to show: no related
-   * rows, no widgets, or no fields the reader may see.
-   */
-  emptyState?: string;
-}
-
 /** One page of rows, as returned by `Adapter.list`. */
 export interface ListResult<Row> {
   rows: Row[];
@@ -277,6 +232,8 @@ export interface ResourceOptions<Row> {
   icon?: IconName;
   /** Keep the resource out of the navigation — its routes still work. */
   hidden?: boolean;
+  /** Sidebar group for this resource. Default: the Resources group. */
+  navGroup?: NavGroupRef;
 
   /**
    * Additional fields shared by list and detail presentation. Declare render
@@ -319,32 +276,17 @@ export interface ResourceOptions<Row> {
   /** Side panel opened for a single row. */
   drawer?: DrawerConfig<Row>;
   /** Full-page view at `/<basePath>/<resource>/<id>`. */
-  detail?: {
-    /**
-     * Extra fields used only by detail headers, hidden-tab predicates, related
-     * filters, or custom detail renderers. They never widen list rows.
-     */
-    expose?: (keyof Row & string)[];
-    /** Heading content (inside h1). Receives declared, readable detail fields; nullish output uses `<label> · <pk>`. */
-    title?: (row: Row) => ReactNode | string | null | undefined;
-    /** @deprecated Use `title`. Removed in 1.0. */
-    header?: (row: Row) => ReactNode;
-    /** One line under the heading, for the fact that identifies the record. May be async. */
-    subtitle?: (row: Row) => string | null | undefined | Promise<string | null | undefined>;
-    /** Status pill beside the heading. May be async. */
-    badge?: (
-      row: Row,
-    ) =>
-      | { label: string; tone?: Tone }
-      | null
-      | undefined
-      | Promise<{ label: string; tone?: Tone } | null | undefined>;
-    tabs?: DetailTab<Row>[];
-    fields?: (keyof Row | FieldDef<Row>)[] | "*";
-  };
+  detail?: DetailOptions<Row>;
 
   /** Validation for writes. Overrides the schema inferred from the adapter. */
   schema?: z.ZodTypeAny | { create?: z.ZodTypeAny; update?: z.ZodTypeAny };
+  /**
+   * The table that create, update, delete and restore write to, when the resource reads a
+   * view. Its primary key must be a column of the view, and every field a form writes must be
+   * selected by the view too. Omitted on a view: the resource is read-only, and a declared
+   * create, update, delete or import is an error at `defineAdmin`.
+   */
+  writeTo?: unknown;
   /** Create form. `disabled` removes the route, not just the button. */
   create?: { disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> };
   /** Edit form. `disabled` removes the route, not just the button. */
@@ -390,7 +332,8 @@ export interface ResourceOptions<Row> {
   views?: Array<{
     name: string;
     description?: string;
-    filters?: Record<string, unknown>;
+    /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */
+    filters?: Where<Row>;
     sort?: { field: keyof Row & string; dir: "asc" | "desc" };
     search?: string;
   }>;

@@ -1,3 +1,4 @@
+import type { NavGroupRef } from "./dashboard";
 import type { IconName } from "./icon";
 
 export interface QueueOptions {
@@ -7,6 +8,8 @@ export interface QueueOptions {
   icon?: IconName;
   /** Keep the queue route registered but omit it from primary navigation. */
   hidden?: boolean;
+  /** Sidebar group for this queue. Default: the Queues group. */
+  navGroup?: NavGroupRef;
   /** Full URL (e.g., http://localhost:3001/scraper) to the bull-board UI. */
   boardUrl: string;
   /** Optional explicit key; defaults to queue.name. */

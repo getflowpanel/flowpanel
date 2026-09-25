@@ -6,8 +6,10 @@ import type {
   ResourceConfig,
   WidgetConfig,
 } from "@flowpanel/core";
+import { metric, table } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
 import { serializeWidget } from "../drawer/serialize-widget";
+import { bindViewedRecord } from "../runtime/record-scope";
 import { fakeWidgetContext } from "./widget-context-fixture";
 
 const fakeAdapter: Adapter = {
@@ -415,5 +417,49 @@ describe("serializeWidget — table column formats", () => {
       kind: "table",
       columns: [{ field: "stage" }, { field: "p95", label: "p95", format: "duration" }],
     });
+  });
+});
+
+describe("serializeWidget — a drawer over a record", () => {
+  const responses: ResourceConfig = {
+    __kind: "resource",
+    ref: { __name: "responses" },
+    options: {
+      columns: ["id", { field: "userId", reference: { resource: "users", labelField: "id" } }],
+    },
+  } as never;
+
+  it("narrows a resource table by its where", async () => {
+    let filters: unknown = null;
+    const adapter: Adapter = {
+      ...fakeAdapter,
+      list: async (_ref, ctx) => {
+        filters = (ctx as { filters?: unknown }).filters;
+        return { rows: [], total: 0, page: 1, pageSize: 10 };
+      },
+    };
+    const cfg = { ...mkConfig([responses]), adapter } as ResolvedAdminConfig;
+    const widget = table({ resource: "responses", where: (c) => ({ userId: c.id }) });
+    await serializeWidget(widget, cfg, reqCtx, fakeWidgetContext({ id: "u1" }));
+    expect(filters).toMatchObject({ userId: "u1" });
+  });
+
+  it("counts only the record's rows in a count metric", async () => {
+    const counted: unknown[] = [];
+    const ctx = fakeWidgetContext({
+      count: async (_resource, where) => {
+        counted.push(where);
+        return 2;
+      },
+    });
+    bindViewedRecord(ctx, "users", "u1");
+    const out = await serializeWidget(
+      metric("Responses", { count: "responses" }),
+      mkConfig([responses]),
+      reqCtx,
+      ctx,
+    );
+    expect(counted).toEqual([{ userId: "u1" }]);
+    expect(out).toMatchObject({ kind: "metric", value: 2 });
   });
 });

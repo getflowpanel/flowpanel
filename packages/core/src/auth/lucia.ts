@@ -1,5 +1,4 @@
-import type { AuthConfig } from "../types/config";
-import type { Session } from "../types/session";
+import type { AuthConfig, Session } from "@flowpanel/core";
 
 /** Minimal duck-type for a Lucia v3+ instance. */
 export interface LuciaLike {

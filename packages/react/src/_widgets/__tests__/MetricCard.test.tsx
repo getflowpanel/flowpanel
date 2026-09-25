@@ -79,4 +79,45 @@ describe("MetricCard", () => {
     const { container } = render(<MetricCard label="Users" value={1} />);
     expect(container.querySelector("[aria-hidden]")).toBeNull();
   });
+
+  it("shows the value compared against, worded by the labels", () => {
+    render(
+      <MetricCard
+        label="Signups"
+        value={120}
+        delta={{ value: 0.2, vs: "vs last week", previous: 100 }}
+      />,
+    );
+    expect(screen.getByText("was 100")).toBeTruthy();
+  });
+
+  it("shows the absolute change for a small base", () => {
+    const { container } = render(
+      <MetricCard label="Replies" value={4} delta={{ value: 3, vs: "prev", previous: 1 }} />,
+    );
+    expect(screen.getByText(/\+3 · prev/)).toBeTruthy();
+    expect(screen.getByText("was 1")).toBeTruthy();
+    expect(container.querySelector("[data-delta='good']")).toBeTruthy();
+  });
+
+  it("reads a rate's change in percentage points", () => {
+    render(
+      <MetricCard
+        label="Conversion"
+        value={0.43}
+        format="percent"
+        delta={{ value: 0.075, vs: "prev", previous: 0.4 }}
+      />,
+    );
+    expect(screen.getByText(/\+3 pp · prev/)).toBeTruthy();
+    expect(screen.getByText("was 40%")).toBeTruthy();
+  });
+
+  it("renders a near-zero change without a glyph or a colour", () => {
+    const { container } = render(
+      <MetricCard label="Visits" value={100} delta={{ value: 0.001, vs: "prev" }} />,
+    );
+    expect(container.querySelector("[data-delta='flat']")?.className).toContain("text-fp-text-3");
+    expect(screen.queryByText(/▲|▼/)).toBeNull();
+  });
 });

@@ -111,7 +111,7 @@ function kitOnlyApp(): string {
   );
   write(
     path.join(dir, "src/provider.ts"),
-    "export const auth = { api: { getSession: async () => null } };\nexport const lucia = {} as { sessionCookieName: string };\n",
+    "export const auth = { api: { getSession: async () => null }, $Infer: {} as { Session: { user: { id: string; role?: string } } } };\nexport const lucia = {} as { sessionCookieName: string };\n",
   );
   return dir;
 }
@@ -267,9 +267,13 @@ describe("the preset session module init writes per auth provider", () => {
 });
 
 describe("generated config templates", () => {
-  it("both set up the FlowpanelResources registry", async () => {
+  it("register the schema, and the better-auth session, on FlowpanelTypes", async () => {
+    expect(await renderDrizzle()).toContain("schema: typeof schema;");
     expect(await renderDrizzle()).toContain("interface FlowpanelResources");
     expect(await renderPrisma()).toContain("interface FlowpanelResources");
+    expect(await tpl("auth-session.better-auth.ts.txt", { AUTH_MODULE: "@/provider" })).toContain(
+      "session: typeof auth.$Infer.Session;",
+    );
   });
 
   it("the prisma variant shows a row-type entry (a bare model name carries none)", async () => {

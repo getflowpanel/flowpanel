@@ -7,6 +7,7 @@ import type {
   ResourceLink,
   WidgetContext,
 } from "@flowpanel/core";
+import { didYouMean, encodeFilters } from "@flowpanel/core";
 import { buildHref, buildPath } from "./href";
 
 /** A row a query returned, with its link resolved to the href a card renders. */
@@ -30,22 +31,13 @@ function withQuery(base: string, params: URLSearchParams): string {
   return query === "" ? base : `${base}?${query}`;
 }
 
-const zoneDay = (date: Date, timeZone: string): string =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-
 function setFilters(
   params: URLSearchParams,
   filters: Record<string, unknown> | undefined,
   timeZone: string,
 ): void {
-  for (const [field, value] of Object.entries(filters ?? {})) {
-    if (value === undefined || value === null) continue;
-    params.set(`f_${field}`, value instanceof Date ? zoneDay(value, timeZone) : String(value));
+  for (const [field, value] of Object.entries(encodeFilters(filters, timeZone))) {
+    params.set(`f_${field}`, value);
   }
 }
 
@@ -59,7 +51,11 @@ function applyView(
   const view = views.find((candidate) => candidate.name === target.view);
   if (!view) {
     throw new Error(
-      `flowpanel: link to view "${target.view}" of "${target.resource}" — no such view. ` +
+      `flowpanel: link to view "${target.view}" of "${target.resource}" — no such view.` +
+        `${didYouMean(
+          String(target.view),
+          views.map((candidate) => candidate.name),
+        )} ` +
         `Views: ${views.map((candidate) => candidate.name).join(", ") || "none"}.`,
     );
   }
@@ -77,9 +73,10 @@ function resourceHref(
 ): string {
   const resource = config.resourcesByName.get(target.resource);
   if (!resource) {
+    const known = [...config.resourcesByName.keys()];
     throw new Error(
-      `flowpanel: link to resource "${target.resource}" — no such resource. ` +
-        `Registered: ${[...config.resourcesByName.keys()].join(", ") || "none"}.`,
+      `flowpanel: link to resource "${target.resource}" — no such resource.` +
+        `${didYouMean(target.resource, known)} Registered: ${known.join(", ") || "none"}.`,
     );
   }
   const { from, to, timeZone } = ctx.dateRange;
@@ -119,8 +116,8 @@ function dashboardHref(
   if (!config.dashboardsByPath.has(path) && !config.pagesByPath.has(path)) {
     const known = [...config.dashboardsByPath.keys(), ...config.pagesByPath.keys()];
     throw new Error(
-      `flowpanel: link to dashboard "${target.dashboard}" — no such dashboard or page. ` +
-        `Registered: ${known.join(", ") || "none"}.`,
+      `flowpanel: link to dashboard "${target.dashboard}" — no such dashboard or page.` +
+        `${didYouMean(path, known)} Registered: ${known.join(", ") || "none"}.`,
     );
   }
   const base = path === "/" ? buildHref(config) : buildPath(config, path);

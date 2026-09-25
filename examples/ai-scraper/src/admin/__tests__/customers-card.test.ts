@@ -1,4 +1,10 @@
-import type { InferRow } from "@flowpanel/kit";
+import {
+  bindFormat,
+  DEFAULT_LABELS,
+  type DetailHeaderContext,
+  type InferRow,
+  resolveFormatting,
+} from "@flowpanel/kit";
 import { describe, expect, it } from "vitest";
 import type * as schema from "@/src/db/schema";
 import { customers } from "../config/resources/customers";
@@ -22,19 +28,28 @@ const row = {
   seedKey: null,
 } as unknown as Customer;
 
+const headerCtx: DetailHeaderContext = {
+  format: bindFormat(resolveFormatting()),
+  labels: DEFAULT_LABELS,
+  link: String,
+};
+
 describe("the customer entity card", () => {
   it("heads the page with the company, falling back to the email", () => {
-    expect(detail.title?.(row)).toBe("Northwind Audio");
-    expect(detail.title?.({ ...row, company: null })).toBe("ops@northwind.test");
+    expect(detail.title?.(row, headerCtx)).toBe("Northwind Audio");
+    expect(detail.title?.({ ...row, company: null }, headerCtx)).toBe("ops@northwind.test");
   });
 
   it("identifies the account with its plan and status", () => {
-    expect(detail.subtitle?.(row)).toBe("Pro · Past due");
+    expect(detail.subtitle?.(row, headerCtx)).toBe("Pro · Past due");
   });
 
   it("tones the status pill by what the status means", () => {
-    expect(detail.badge?.(row)).toEqual({ label: "Past due", tone: "err" });
-    expect(detail.badge?.({ ...row, status: "active" })).toEqual({ label: "Active", tone: "ok" });
+    expect(detail.badge?.(row, headerCtx)).toEqual({ label: "Past due", tone: "err" });
+    expect(detail.badge?.({ ...row, status: "active" }, headerCtx)).toEqual({
+      label: "Active",
+      tone: "ok",
+    });
   });
 
   it("opens on a widgets tab of facts and counts", () => {

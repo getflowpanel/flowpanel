@@ -132,6 +132,25 @@ The shell includes a skip-to-content link by default. Set `skipLink: false`
 only when the host application layout already renders one for the same content
 target; this avoids duplicate keyboard stops without removing the affordance.
 
+### Navigation groups
+
+The sidebar groups dashboards, pages, resources and queues under their kind's label.
+`navGroup` on any of them moves the entry into a named group instead. Groups appear in
+the order their first entry does, and entries keep the order you declared them in.
+Name a group `{ label, collapsed: true }` to fold it under its label until it holds the
+current page — journals and reference data a founder opens once a week.
+
+```ts excerpt
+const journals = { label: "Журналы", collapsed: true } as const;
+
+resource(schema.scraperRun, { plural: "Прогоны парсера", navGroup: journals });
+resource(schema.aiRun, { plural: "ИИ-прогоны", navGroup: journals });
+resource(schema.category, { plural: "Категории", navGroup: "Справочники" });
+```
+
+With `shell: "tabs"` the groups flatten into one row of tabs, so a group's label
+and `collapsed` do not show there.
+
 ## AuditConfig
 
 <AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditConfig" />
@@ -221,6 +240,11 @@ accept `{label}` for the resource's singular label, and `selectPlaceholder`,
 reference search. The submit button uses `actions.create` on a create form and
 `actions.save` on an edit form, and both pages offer a cancel link labelled with
 `actions.cancel` that returns to the record or its list without submitting.
+
+`access` words the screens FlowPanel renders in place of the admin when it does
+not redirect: `signInTitle` and `signInDescription` for a reader with no session
+when `auth.signInUrl` is not set, `deniedTitle` and `deniedDescription` for a
+role the admin does not allow when `auth.forbiddenUrl` is not set.
 
 A Russian `formatting.locale` (`"ru"`, `"ru-RU"`, …) switches the built-in chrome
 to Russian: `RU_LABELS` becomes the base that `labels` merges over, so a Russian

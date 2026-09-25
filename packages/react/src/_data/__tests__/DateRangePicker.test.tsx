@@ -32,4 +32,25 @@ describe("DateRangePicker", () => {
 
     expect(onChange).toHaveBeenCalledWith({ preset: "today" });
   });
+
+  it("offers only the given presets, in order, and shows the first when none is picked", () => {
+    render(<DateRangePicker value={{}} onChange={() => {}} presets={["today", "yesterday"]} />);
+    const trigger = screen.getByRole("button");
+    expect(trigger.textContent).toBe("Today");
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "Today",
+      "Yesterday",
+    ]);
+  });
+
+  it("shows a custom range as its two days instead of a preset", () => {
+    render(
+      <DateRangePicker
+        value={{ from: new Date("2026-09-01T00:00:00Z"), to: new Date("2026-09-07T00:00:00Z") }}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole("button").textContent).toBe("2026-09-01 – 2026-09-07");
+  });
 });

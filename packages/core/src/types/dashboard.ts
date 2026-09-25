@@ -6,12 +6,23 @@ import type { WidgetConfig } from "./widget";
 
 export type DateRangePreset = "today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD";
 
+/**
+ * The sidebar group an entry joins: its label, or `{ label, collapsed: true }` for a
+ * group that folds under its label until it holds the current page.
+ */
+export type NavGroupRef = string | { label: string; collapsed?: boolean };
+
 /** Date picker offered above a dashboard. */
 export interface DateRangeConfig {
   /** Range selected on first load. */
   preset?: DateRangePreset;
   /** Explicit range used when no preset is given. */
   default?: { from: Date; to: Date };
+  /**
+   * Presets the picker offers, in order. A URL preset outside the list is ignored,
+   * and `preset` defaults to the first entry. Default: all seven.
+   */
+  presets?: DateRangePreset[];
 }
 
 /** The active range, as every widget query receives it. */
@@ -39,10 +50,17 @@ export interface SectionConfig {
   label?: string;
   /** Supporting copy under the heading. */
   description?: string;
-  /** Grid columns the widgets lay out across.
+  /** Grid columns the widgets lay out across; omitted, 12 when a widget sets `span`.
    * @defaultValue 1
    */
   columns?: 1 | 2 | 3 | 4 | 6 | 12;
+  /**
+   * `"strip"` draws the section's `metric` and `stat` widgets as one band divided by hairlines,
+   * with no card around each; another kind renders as its own card and warns in development.
+   * `columns` is the cells per line from `md` up.
+   * @defaultValue "cards"
+   */
+  variant?: "cards" | "strip";
   widgets: WidgetConfig[];
 }
 
@@ -53,6 +71,8 @@ export interface DashboardConfig {
   label: string;
   /** Serializable Lucide icon rendered in navigation and the command palette. */
   icon?: IconName;
+  /** Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. */
+  navGroup?: NavGroupRef;
   /** Adds a date picker whose value reaches every widget query. */
   dateRange?: DateRangeConfig;
   /** SSE channel(s) the whole dashboard subscribes to, independent of any widget. */
@@ -82,6 +102,8 @@ export interface PageConfig {
   label: string;
   /** Serializable Lucide icon rendered in navigation and the command palette. */
   icon?: IconName;
+  /** Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. */
+  navGroup?: NavGroupRef;
   /** Server or client React component rendered at `<basePath><path>`. */
   component?: ComponentType<Record<string, never>>;
   /** External href used when `component` is not provided. */

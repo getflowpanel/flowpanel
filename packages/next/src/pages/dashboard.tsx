@@ -12,14 +12,27 @@ import {
   DashboardDateRange,
   WidgetErrorBoundary,
 } from "@flowpanel/next/client";
-import { DashboardRefresh, RealtimeRefresh, Section, SkeletonCard } from "@flowpanel/react";
+import {
+  DashboardRefresh,
+  RealtimeRefresh,
+  Section,
+  SkeletonCard,
+  StatStrip,
+} from "@flowpanel/react";
 import { Suspense } from "react";
 import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action";
 import { filterActionsByAccess } from "../runtime/action-helpers";
-import { type DateRangeInput, resolveDateRange } from "../runtime/date-range";
+import { DATE_RANGE_PRESETS, type DateRangeInput, resolveDateRange } from "../runtime/date-range";
 import { renderWidget } from "../runtime/render-widget";
 import { buildWidgetContext } from "../runtime/widget-context";
-import { widgetSlotClassName } from "./widget-slot";
+import {
+  describeOwner,
+  type PageTimer,
+  pageTimer,
+  type WidgetOwner,
+  widgetOwner,
+} from "../runtime/widget-owner";
+import { sectionColumns, stripWidget, widgetSlotClassName } from "./widget-slot";
 
 export interface DashboardPageProps {
   config: ResolvedAdminConfig;
@@ -29,19 +42,12 @@ export interface DashboardPageProps {
   reqCtx: RequestContext;
 }
 
-const PRESETS: readonly DateRangePreset[] = [
-  "today",
-  "yesterday",
-  "last7d",
-  "last30d",
-  "MTD",
-  "QTD",
-  "YTD",
-];
-
-function parsePreset(value: string | null): DateRangePreset | undefined {
+function parsePreset(
+  value: string | null,
+  offered: readonly DateRangePreset[],
+): DateRangePreset | undefined {
   if (!value) return undefined;
-  return (PRESETS as readonly string[]).includes(value) ? (value as DateRangePreset) : undefined;
+  return (offered as readonly string[]).includes(value) ? (value as DateRangePreset) : undefined;
 }
 
 /** `"60s"` / `"5m"` as milliseconds; anything else means no automatic refresh. */
@@ -65,10 +71,14 @@ export function resolveDashboardDateRangeInput(
   dashboardDateRange: DashboardConfig["dateRange"],
   searchParams: URLSearchParams,
 ): DateRangeInput {
-  const urlPreset = parsePreset(searchParams.get("preset"));
+  const offered = dashboardDateRange?.presets ?? DATE_RANGE_PRESETS;
+  const urlPreset = parsePreset(searchParams.get("preset"), offered);
   const urlFrom = searchParams.get("from");
   const urlTo = searchParams.get("to");
-  const effectivePreset = urlPreset ?? dashboardDateRange?.preset;
+  const declared = dashboardDateRange?.preset;
+  const configured =
+    declared && offered.includes(declared) ? declared : dashboardDateRange?.presets?.[0];
+  const effectivePreset = urlPreset ?? configured;
   const defaultRange = dashboardDateRange?.default;
   const useDefaultRange = !effectivePreset && !urlFrom && !urlTo && defaultRange !== undefined;
   return {
@@ -87,9 +97,11 @@ export async function DashboardPage({
   reqCtx,
 }: DashboardPageProps) {
   const dateRangeInput = resolveDashboardDateRangeInput(dashboard.dateRange, searchParams);
-  const effectivePreset = dateRangeInput.preset;
   const dateRange = resolveDateRange(dateRangeInput, resolveFormatting(config.formatting).timeZone);
+  const shownPreset = dateRange.preset === "custom" ? undefined : dateRange.preset;
   const ctx: WidgetContext = buildWidgetContext(config, reqCtx, req, dateRange);
+  const widgets = dashboard.sections.reduce((total, section) => total + section.widgets.length, 0);
+  const timer = pageTimer(dashboard.path, widgets);
   const refreshMs = dashboardRefreshMs(dashboard.refresh);
 
   const actions = (await filterActionsByAccess(dashboard.actions, reqCtx)).map(
@@ -106,75 +118,91 @@ export async function DashboardPage({
           {shouldRenderActionsBar(actions.length, dashboard.hideActionsBar) ? (
             <DashboardActionsBar encodedPath={encodedPath} actions={actions} />
           ) : null}
-          <DashboardDateRange {...(effectivePreset ? { preset: effectivePreset } : {})} />
+          <DashboardDateRange
+            {...(shownPreset
+              ? { preset: shownPreset }
+              : { from: dateRange.from.toISOString(), to: dateRange.to.toISOString() })}
+            {...(dashboard.dateRange?.presets ? { presets: dashboard.dateRange.presets } : {})}
+          />
           {refreshMs !== null ? (
             <DashboardRefresh intervalMs={refreshMs} renderedAt={Date.now()} />
           ) : null}
         </div>
       </header>
-      {dashboard.sections.map((sec, idx) => (
-        <Section
-          // biome-ignore lint/suspicious/noArrayIndexKey: section order is stable
-          key={`${idx}-${sec.label ?? ""}`}
-          {...(sec.label ? { label: sec.label } : {})}
-          {...(sec.description ? { description: sec.description } : {})}
-          columns={sec.columns ?? 1}
-        >
-          {sec.widgets.map((w, wIdx) => (
-            <WidgetSlot
-              // biome-ignore lint/suspicious/noArrayIndexKey: widget order is stable
-              key={wIdx}
-              widget={w}
-              ctx={ctx}
-              config={config}
-              reqCtx={reqCtx}
-              dashboardPath={dashboard.path}
-              widgetIndex={`s${idx}.w${wIdx}`}
-            />
-          ))}
-        </Section>
-      ))}
+      {dashboard.sections.map((sec, idx) => {
+        const strip = sec.variant === "strip";
+        const slots = sec.widgets.map((w, wIdx) => (
+          <WidgetSlot
+            // biome-ignore lint/suspicious/noArrayIndexKey: widget order is stable
+            key={wIdx}
+            widget={w}
+            ctx={ctx}
+            config={config}
+            reqCtx={reqCtx}
+            dashboardPath={dashboard.path}
+            owner={widgetOwner(w, dashboard.path, `section ${idx + 1} widget ${wIdx + 1}`)}
+            timer={timer}
+            plain={strip && stripWidget(w, `dashboard "${dashboard.path}"`, idx + 1)}
+          />
+        ));
+        const heading = {
+          ...(sec.label ? { label: sec.label } : {}),
+          ...(sec.description ? { description: sec.description } : {}),
+        };
+        return strip ? (
+          <StatStrip
+            // biome-ignore lint/suspicious/noArrayIndexKey: section order is stable
+            key={`${idx}-${sec.label ?? ""}`}
+            {...heading}
+            {...(sec.columns !== undefined && sec.columns !== 12 ? { columns: sec.columns } : {})}
+          >
+            {slots}
+          </StatStrip>
+        ) : (
+          <Section
+            // biome-ignore lint/suspicious/noArrayIndexKey: section order is stable
+            key={`${idx}-${sec.label ?? ""}`}
+            {...heading}
+            columns={sectionColumns(sec.columns, sec.widgets, 1)}
+          >
+            {slots}
+          </Section>
+        );
+      })}
     </div>
   );
 }
 
-function WidgetSlot({
-  widget,
-  ctx,
-  config,
-  reqCtx,
-  dashboardPath,
-  widgetIndex,
-}: {
+interface SlotProps {
   widget: WidgetConfig;
   ctx: WidgetContext;
   config: ResolvedAdminConfig;
   reqCtx: RequestContext;
-  dashboardPath: string;
-  widgetIndex: string;
-}) {
-  const className = widgetSlotClassName(widget);
+  owner: WidgetOwner;
+  timer: PageTimer;
+  plain?: boolean;
+}
+
+function WidgetSlot({ dashboardPath, ...slot }: SlotProps & { dashboardPath: string }) {
   return (
-    <div className={className}>
-      <WidgetErrorBoundary widgetId={widgetIndex} dashboardId={dashboardPath}>
+    <div className={slot.plain ? "flex min-w-0" : widgetSlotClassName(slot.widget)}>
+      <WidgetErrorBoundary widgetId={describeOwner(slot.owner)} dashboardId={dashboardPath}>
         <Suspense fallback={<SkeletonCard />}>
-          <WidgetAsync widget={widget} ctx={ctx} config={config} reqCtx={reqCtx} />
+          <WidgetAsync {...slot} />
         </Suspense>
       </WidgetErrorBoundary>
     </div>
   );
 }
 
-async function WidgetAsync({
-  widget,
-  ctx,
-  config,
-  reqCtx,
-}: {
-  widget: WidgetConfig;
-  ctx: WidgetContext;
-  config: ResolvedAdminConfig;
-  reqCtx: RequestContext;
-}) {
-  return <>{await renderWidget(widget, ctx, config, reqCtx)}</>;
+async function WidgetAsync({ widget, ctx, config, reqCtx, owner, timer, plain }: SlotProps) {
+  return (
+    <>
+      {
+        await timer.run(owner, () =>
+          renderWidget(widget, ctx, config, reqCtx, { plain: plain === true }),
+        )
+      }
+    </>
+  );
 }

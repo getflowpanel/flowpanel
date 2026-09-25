@@ -11,7 +11,7 @@ import type {
 import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
 import { type LinkedRow, linkRows, resolveLink } from "../runtime/resolve-link";
 import { statDisplay } from "../runtime/stat-result";
-import { kvItemOf, resolveItem } from "../runtime/widget-items";
+import { kvItems, resolveItem } from "../runtime/widget-items";
 
 /** Wire-safe shape of the card widgets a drawer renders with the dashboard's own components. */
 export type SerializedCardWidget =
@@ -40,6 +40,8 @@ export type SerializedCardWidget =
       rows: LinkedRow<BarRow>[];
       format?: NumericFormat;
       max?: number;
+      share?: boolean;
+      goodWhen?: "up" | "down" | "neutral";
       emptyState: string;
       span?: number;
       realtime?: string | string[];
@@ -94,9 +96,7 @@ export async function serializeCardWidget(
     }
     case "kv": {
       const formatting = resolveFormatting(config.formatting);
-      const items = await Promise.all(
-        w.options.items.map((item) => kvItemOf(item, ctx, formatting, config, reqCtx)),
-      );
+      const items = await kvItems(w.options, ctx, formatting, config, reqCtx);
       return {
         kind: "kv",
         ...(w.options.label ? { label: w.options.label } : {}),
@@ -116,6 +116,8 @@ export async function serializeCardWidget(
         ),
         ...(w.options.format ? { format: w.options.format } : {}),
         ...(w.options.max !== undefined ? { max: w.options.max } : {}),
+        ...(w.options.share ? { share: true } : {}),
+        ...(w.options.goodWhen ? { goodWhen: w.options.goodWhen } : {}),
         emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
         ...common(w.options),
       };

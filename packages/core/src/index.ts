@@ -2,6 +2,7 @@ export { type AdapterScopeContext, resolveScopeApplier } from "./adapter-scope";
 export { devAuth } from "./auth/dev";
 export { bindFormat } from "./bind-format";
 export { dashboard, page } from "./builders/dashboard";
+export { type EnumDef, type EnumEntry, enumOf } from "./builders/enum-of";
 export { queue } from "./builders/queue";
 export { resource } from "./builders/resource";
 export { bars, custom, funnel, kv, list, metric, stat, statGroup, table } from "./builders/widget";
@@ -32,10 +33,15 @@ export {
 } from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
 export { assertCountWhereColumns } from "./internal/count-where";
+export { encodeFilters, encodeFilterValue } from "./internal/filter-encoding";
+export { filterShapeProblem } from "./internal/filter-shape";
+export { declaredListFields } from "./internal/list-fields";
+export { assertColumn, normalizeWhere, whereValue, withRange } from "./internal/where";
 export { declaredWriteFields } from "./internal/write-fields";
 export { RU_LABELS } from "./locales/ru";
 export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";
 export { assertWritableInput, filterReadableProjection } from "./policy/fields";
+export * from "./record-page";
 export { resolveResourceName } from "./resource-name";
 export { emitAudit } from "./runtime/audit";
 export { checkRequireRole, type RequireRole } from "./runtime/auth";
@@ -58,6 +64,7 @@ export {
   parseSqlRows,
   sanitizeSqlParams,
 } from "./runtime/sql-params";
+export { didYouMean } from "./suggest";
 export { buildThemeInitScript, THEME_STORAGE_KEY, type ThemeMode } from "./theme-init";
 export type {
   ActionConfirm,
@@ -112,6 +119,7 @@ export type {
   DashboardConfig,
   DateRangeConfig,
   DateRangePreset,
+  NavGroupRef,
   PageConfig,
   ResolvedDateRange,
   SectionConfig,
@@ -150,6 +158,7 @@ export {
   type PluralLabel,
   type ResolvedLabels,
 } from "./types/labels";
+export type { MetricCount, MetricCountSource } from "./types/metric-count";
 export type { AdminPaths, AdminPathsInput } from "./types/paths";
 export type {
   AccessContext,
@@ -164,12 +173,15 @@ export type {
 export type { QueueConfig, QueueOptions } from "./types/queue";
 export type { RealtimeConfig } from "./types/realtime";
 export type {
+  AllResources,
   FlowpanelResources,
   FlowpanelTypes,
   InferDB,
   InferRow,
   ReferenceSpec,
   ResourceName,
+  RowOf,
+  SchemaResources,
 } from "./types/registry";
 export type {
   AnyResourceConfig,
@@ -196,6 +208,7 @@ export {
   type FlowpanelWarningCode,
 } from "./types/result";
 export type { Scope, ScopeContext, Session } from "./types/session";
+export type { CountOptions, ReadOptions, Where, WhereValue } from "./types/where";
 export type {
   AreaChartOptions,
   AreaChartWidget,
@@ -214,6 +227,7 @@ export type {
   NumericFormat,
   PieChartOptions,
   PieChartWidget,
+  RangeLimit,
   RowKey,
   Span,
   TableWidget,
@@ -246,6 +260,7 @@ export type {
   StatWidget,
 } from "./types/widget-cards";
 export type {
+  AnyResourceLink,
   DashboardLink,
   Link,
   LinkTarget,

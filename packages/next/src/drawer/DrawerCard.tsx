@@ -36,6 +36,8 @@ export function DrawerCard({ widget }: { widget: SerializedCardWidget }): ReactN
           rows={widget.rows}
           {...(widget.format ? { format: widget.format } : {})}
           {...(widget.max !== undefined ? { max: widget.max } : {})}
+          {...(widget.share ? { share: true } : {})}
+          {...(widget.goodWhen ? { goodWhen: widget.goodWhen } : {})}
           emptyState={widget.emptyState}
         />
       );

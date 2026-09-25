@@ -77,6 +77,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/builders/enum-of.ts",
+    page: "/docs/reference/resources",
+    anchor: "enums",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/builders/queue.ts",
     page: "/docs/reference/queues",
     guidance: true,
@@ -84,6 +90,12 @@ export const API_OWNERSHIP_RULES = [
   {
     sourcePrefix: "packages/core/src/builders/resource.ts",
     page: "/docs/reference/resources",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/builders/related.ts",
+    page: "/docs/reference/resources",
+    anchor: "related-tabs-in-one-line",
     guidance: true,
   },
   {
@@ -260,6 +272,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/types/detail.ts",
+    page: "/docs/reference/resources",
+    anchor: "detailtab",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/types/drawer.ts",
     page: "/docs/reference/drawer",
     guidance: true,
@@ -336,6 +354,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/types/widget-charts.ts",
+    page: "/docs/reference/widgets",
+    anchor: "charts",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/types/widget-cards.ts",
     page: "/docs/reference/widgets",
     anchor: "cards",
@@ -346,6 +370,24 @@ export const API_OWNERSHIP_RULES = [
     page: "/docs/reference/widgets",
     anchor: "widgetcontext",
     guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/metric-count.ts",
+    page: "/docs/reference/widgets",
+    anchor: "metric",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/where.ts",
+    page: "/docs/reference/contexts",
+    anchor: "where-values",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/suggest.ts",
+    page: "/docs/reference/errors",
+    anchor: "did-you-mean",
+    guidance: false,
   },
   {
     sourcePrefix: "packages/eslint-plugin/src/",

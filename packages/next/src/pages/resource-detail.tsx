@@ -1,10 +1,10 @@
 import type {
+  DetailOptions,
   DetailTab,
   ItemQueryContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
-  Tone,
 } from "@flowpanel/core";
 import {
   accessAllows,
@@ -16,7 +16,7 @@ import {
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { DetailTabsClient } from "@flowpanel/next/client";
+import { DashboardDateRange, DetailTabsClient } from "@flowpanel/next/client";
 import { Button, PageHeader } from "@flowpanel/react";
 import Link from "next/link";
 import type * as React from "react";
@@ -30,8 +30,11 @@ import {
 } from "../runtime/project-row";
 import { type QueryOutcome, type QuerySite, readOrCard } from "../runtime/query-error";
 import { buildRequestContext } from "../runtime/request-setup";
-import { singularLabel } from "../runtime/resource-title";
 import { scopeBinding } from "../runtime/scope-binding";
+import { buildWidgetContext } from "../runtime/widget-context";
+import { recordAside, recordLayout, recordStrip } from "./detail-page/detail-body";
+import { headerBadges, recordHeader } from "./detail-page/detail-header";
+import { recordRange } from "./detail-page/record-context";
 import { renderFieldsTab } from "./detail-tabs/render-fields-tab";
 import { detailFieldsForTab, renderDetailTabs } from "./detail-tabs/render-tab";
 import { NotFound } from "./not-found";
@@ -121,44 +124,61 @@ export async function ResourceDetailPage({
   }
   if (!activeRow) return <NotFound config={config} />;
 
-  const header = await detailHeader(resource, name, baseRow);
+  const detail = resource.options.detail as DetailOptions<Row> | undefined;
+  const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const range = recordRange(config, detail, searchParams);
+  const ctx = buildWidgetContext(config, reqCtx, req, range, activeRow, rowKey, name);
   const canEdit =
     !resource.options.update?.disabled &&
     (await accessAllows(
       resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
       reqCtx,
     ));
+  const [header, strip, aside, main] = await Promise.all([
+    recordHeader(resource, name, baseRow, ctx, config),
+    recordStrip(detail, ctx, config, reqCtx, name),
+    recordAside(detail, ctx, config, reqCtx, name),
+    hasTabs
+      ? renderDetailTabs<Row>({
+          config,
+          reqCtx,
+          resource,
+          row: activeRow,
+          req,
+          searchParams,
+          visible: visibleTabs,
+          active,
+          ctx,
+        }).then((tabs) => <DetailTabsClient tabs={tabs} />)
+      : renderFieldsTab<Row>(config, reqCtx, resource, baseRow, {
+          ...(detail?.fields ? { fields: detail.fields as DetailTab<Row>["fields"] } : {}),
+        }),
+  ]);
+  const picker = detail?.dateRange ? (
+    <DashboardDateRange
+      {...(range.preset === "custom"
+        ? { from: range.from.toISOString(), to: range.to.toISOString() }
+        : { preset: range.preset })}
+      {...(detail.dateRange.presets ? { presets: detail.dateRange.presets } : {})}
+    />
+  ) : null;
+  const actions =
+    picker || canEdit ? (
+      <>
+        {picker}
+        {canEdit ? editAction(config, name, id) : null}
+      </>
+    ) : null;
 
   return (
     <>
       <PageHeader
         title={header.title}
         {...(header.subtitle ? { description: header.subtitle } : {})}
-        {...(header.badge ? { badge: header.badge } : {})}
-        {...(canEdit ? { actions: editAction(config, name, id) } : {})}
+        {...headerBadges(header.badges)}
+        {...(actions ? { actions } : {})}
       />
-      {hasTabs ? (
-        <DetailTabsClient
-          tabs={
-            await renderDetailTabs<Row>({
-              config,
-              reqCtx,
-              resource,
-              row: activeRow,
-              req,
-              searchParams,
-              visible: visibleTabs,
-              active,
-            })
-          }
-        />
-      ) : (
-        await renderFieldsTab<Row>(config, reqCtx, resource, baseRow, {
-          ...(resource.options.detail?.fields
-            ? { fields: resource.options.detail.fields as DetailTab<Row>["fields"] }
-            : {}),
-        })
-      )}
+      {recordLayout(strip, main, aside)}
     </>
   );
 }
@@ -171,32 +191,6 @@ function editAction(config: ResolvedAdminConfig, name: string, id: string): Reac
       </Link>
     </Button>
   );
-}
-
-interface DetailHeader {
-  title: React.ReactNode;
-  subtitle?: string;
-  badge?: { label: string; tone?: Tone };
-}
-
-/** `title` wins over the deprecated `header`; nullish output falls back to label · key. */
-async function detailHeader(
-  resource: ResourceConfig,
-  name: string,
-  row: Row,
-): Promise<DetailHeader> {
-  const detail = resource.options.detail;
-  const pk = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
-  const label = singularLabel(resource, name);
-  const fallback = row[pk] === undefined ? label : `${label} · ${String(row[pk])}`;
-  const declared = detail?.title ? await detail.title(row) : await detail?.header?.(row);
-  const subtitle = await detail?.subtitle?.(row);
-  const badge = await detail?.badge?.(row);
-  return {
-    title: declared ?? fallback,
-    ...(subtitle ? { subtitle } : {}),
-    ...(badge ? { badge } : {}),
-  };
 }
 
 function activeTab<Row>(

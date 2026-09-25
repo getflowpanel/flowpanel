@@ -1,4 +1,9 @@
-import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import type {
+  NavGroupRef,
+  RequestContext,
+  ResolvedAdminConfig,
+  ResourceConfig,
+} from "@flowpanel/core";
 import { accessAllows, resolveOperationAccess, resolveResourceName } from "@flowpanel/core";
 import { mergeLabels } from "@flowpanel/core/labels";
 import type { NavEntry, NavGroup } from "@flowpanel/react";
@@ -20,57 +25,72 @@ export function readableByCaller(
   );
 }
 
+function groupBuilder() {
+  const groups: NavGroup[] = [];
+  const byLabel = new Map<string, NavGroup>();
+  const place = (fallback: string, ref: NavGroupRef | undefined, entry: NavEntry): void => {
+    const label = ref === undefined ? fallback : typeof ref === "string" ? ref : ref.label;
+    let group = byLabel.get(label);
+    if (!group) {
+      group = { label, items: [] };
+      byLabel.set(label, group);
+      groups.push(group);
+    }
+    if (typeof ref === "object" && ref.collapsed) group.collapsible = true;
+    group.items.push(entry);
+  };
+  return { groups, place };
+}
+
+/**
+ * Sidebar groups in the order their first entry arrives. An entry without
+ * `navGroup` joins its kind's own group — Dashboards, Pages, Resources or Queues.
+ */
 export async function buildNav(
   config: ResolvedAdminConfig,
   reqCtx?: RequestContext,
 ): Promise<NavGroup[]> {
-  const groups: NavGroup[] = [];
   const { navigation } = mergeLabels(config.labels);
+  const { groups, place } = groupBuilder();
 
-  const dashboardItems = [...config.dashboardsByPath.values()]
-    .filter((d) => !reqCtx || roleAllows(d.requireRole, reqCtx))
-    .map((d) => ({
+  for (const d of config.dashboardsByPath.values()) {
+    if (reqCtx && !roleAllows(d.requireRole, reqCtx)) continue;
+    place(navigation.dashboards, d.navGroup, {
       label: d.label,
       href: d.path === "/" ? buildHref(config) : buildPath(config, d.path),
       ...(d.icon ? { icon: d.icon } : {}),
-    }));
-  if (dashboardItems.length) groups.push({ label: navigation.dashboards, items: dashboardItems });
+    });
+  }
 
-  const pageItems = [...config.pagesByPath.values()]
-    .filter((p) => !reqCtx || roleAllows(p.requireRole, reqCtx))
-    .map((p) => ({
+  for (const p of config.pagesByPath.values()) {
+    if (reqCtx && !roleAllows(p.requireRole, reqCtx)) continue;
+    const own = p.path === "/" ? buildHref(config) : buildPath(config, p.path);
+    place(navigation.pages, p.navGroup, {
       label: p.label,
-      href:
-        p.component !== undefined
-          ? p.path === "/"
-            ? buildHref(config)
-            : buildPath(config, p.path)
-          : (p.href ?? buildPath(config, p.path)),
+      href: p.component !== undefined ? own : (p.href ?? buildPath(config, p.path)),
       ...(p.icon ? { icon: p.icon } : {}),
-    }));
-  if (pageItems.length) groups.push({ label: navigation.pages, items: pageItems });
+    });
+  }
 
-  const resourceItems: NavEntry[] = [];
   for (const r of config.resourcesByName.values()) {
     if (r.options.hidden) continue;
     if (reqCtx && !(await readableByCaller(r, reqCtx))) continue;
     const name = resourceNavName(r);
-    resourceItems.push({
+    place(navigation.resources, r.options.navGroup, {
       label: pluralLabel(r, name),
       href: buildHref(config, name),
       ...(r.options.icon ? { icon: r.options.icon } : {}),
     });
   }
-  if (resourceItems.length) groups.push({ label: navigation.resources, items: resourceItems });
 
-  const queueItems = [...config.queuesByKey.entries()]
-    .filter(([, q]) => !q.options.hidden && (!reqCtx || roleAllows(q.options.requireRole, reqCtx)))
-    .map(([key, q]) => ({
+  for (const [key, q] of config.queuesByKey.entries()) {
+    if (q.options.hidden || (reqCtx && !roleAllows(q.options.requireRole, reqCtx))) continue;
+    place(navigation.queues, q.options.navGroup, {
       label: q.options.label,
       href: buildHref(config, "queues", key),
       ...(q.options.icon ? { icon: q.options.icon } : {}),
-    }));
-  if (queueItems.length) groups.push({ label: navigation.queues, items: queueItems });
+    });
+  }
 
   return groups;
 }

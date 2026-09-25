@@ -16,6 +16,7 @@ import { withReferenceCells } from "./reference-cells";
 import { readRelatedRows } from "./require-authorized";
 import { resolveLink } from "./resolve-link";
 import { rowIdentity } from "./row-identity";
+import { tableFilters } from "./table-filters";
 
 type WidgetRow = Record<string, unknown>;
 type ColumnSpec = string | WidgetColumn;
@@ -104,11 +105,16 @@ export async function renderTableWidget(
     const produced = (await options.query(ctx)) as WidgetRow[];
     rows = options.limit === undefined ? produced : produced.slice(0, options.limit);
   } else if (resource) {
-    const related = await readRelatedRows(config, resource, reqCtx, {
-      dateRange: ctx.dateRange,
-      pageSize: widget.options.limit ?? 10,
-      extraFields: [...(wanted ?? []), rowKey],
-    });
+    const filters = tableFilters(options, ctx, config, resource);
+    const related =
+      filters === null
+        ? []
+        : await readRelatedRows(config, resource, reqCtx, {
+            filters,
+            dateRange: ctx.dateRange,
+            pageSize: widget.options.limit ?? 10,
+            extraFields: [...(wanted ?? []), rowKey],
+          });
     rows = (related ?? []) as WidgetRow[];
     if (related) {
       const defs = pickWidgetColumns(

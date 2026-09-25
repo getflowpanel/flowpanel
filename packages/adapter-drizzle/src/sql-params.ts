@@ -1,7 +1,36 @@
 import { type ParseSqlRowsOptions, parseSqlRows, sanitizeSqlParams } from "@flowpanel/core";
-import { type SQL, sql } from "drizzle-orm";
+import { is, SQL, sql } from "drizzle-orm";
 import type { DrizzleDialect } from "./dialect";
 import { type MigrationDb, selectRaw } from "./migrations";
+
+function copyWith<T extends object>(source: T, change: Partial<T>): T {
+  return Object.assign(Object.create(Object.getPrototypeOf(source)) as T, source, change);
+}
+
+function bindableAll(values: readonly unknown[]): readonly unknown[] {
+  const mapped = values.map(bindable);
+  return mapped.every((value, i) => value === values[i]) ? values : mapped;
+}
+
+function bindable(value: unknown): unknown {
+  if (is(value, SQL)) return fragment(value);
+  if (is(value, SQL.Aliased)) {
+    const inner = fragment(value.sql);
+    return inner === value.sql ? value : copyWith(value, { sql: inner });
+  }
+  if (Array.isArray(value)) return bindableAll(value);
+  return sanitizeSqlParams([value])[0];
+}
+
+/**
+ * A nested fragment with every `Date` and `bigint` inside it bindable, at any depth: the same
+ * fragment when nothing changes, else a copy that keeps its `inlineParams()` and decoder.
+ */
+function fragment(query: SQL): SQL {
+  const chunks = bindableAll(query.queryChunks);
+  if (chunks === query.queryChunks) return query;
+  return copyWith(query, { queryChunks: chunks as SQL["queryChunks"] });
+}
 
 /** One bound read-only statement, with the driver's row shape normalised away. */
 export async function rawSqlRows<Row>(
@@ -11,6 +40,6 @@ export async function rawSqlRows<Row>(
   values: readonly unknown[],
   options: ParseSqlRowsOptions = {},
 ): Promise<Row[]> {
-  const query: SQL = sql(strings, ...sanitizeSqlParams(values));
+  const query: SQL = sql(strings, ...values.map(bindable));
   return parseSqlRows<Row>(await selectRaw(db, dialect, query), options);
 }

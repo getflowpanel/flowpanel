@@ -10,6 +10,12 @@ FlowPanel's types connect resource references to row shapes and application serv
 
 `resource(schema.users, …)` carries the table type, so `InferRow<typeof schema.users>` resolves through `$inferSelect`. Columns, filters, form fields, renderers, and row actions autocomplete actual properties.
 
+Register the schema module itself — `FlowpanelTypes["schema"]` — and names work the
+same way: every table and view becomes a resource name with its row, so string
+references such as `ctx.count("user_visit")`, a related tab's `resource` and a
+`reference` are checked too, with no hand-written registry. See
+[the type registry](/docs/reference/registry#schema).
+
 ## Prisma needs a string registry
 
 `resource("User", …)` receives only a string at compile time. Augment `FlowpanelResources` to map that name to the generated Prisma type:

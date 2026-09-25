@@ -13,6 +13,7 @@ import {
   formatLabel,
   humanize,
   runWithRequestContext,
+  writeTarget,
 } from "@flowpanel/core";
 import type { z } from "zod";
 
@@ -31,7 +32,7 @@ export function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig
   const userSchema = resource.options.schema;
   if (userSchema) {
     if (isSchemaPair(userSchema)) {
-      const inferred = config.adapter.inferSchema(resource.ref);
+      const inferred = config.adapter.inferSchema(writeTarget(resource));
       return {
         create: userSchema.create ?? inferred.create,
         update: userSchema.update ?? inferred.update,
@@ -39,7 +40,7 @@ export function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig
     }
     return { create: userSchema, update: userSchema };
   }
-  const inferred = config.adapter.inferSchema(resource.ref);
+  const inferred = config.adapter.inferSchema(writeTarget(resource));
   return { create: inferred.create, update: inferred.update };
 }
 

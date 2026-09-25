@@ -38,4 +38,16 @@ describe("countKey", () => {
     );
     expect(countKey("orders", undefined)).toBe(countKey("orders", {}));
   });
+
+  it("tells apart a count over another range field or other bounds", () => {
+    const a = { from: new Date(1), to: new Date(2) };
+    const b = { from: new Date(1), to: new Date(3) };
+    expect(countKey("orders", {}, { field: "at", ...a })).not.toBe(countKey("orders", {}));
+    expect(countKey("orders", {}, { field: "at", ...a })).not.toBe(
+      countKey("orders", {}, { field: "at", ...b }),
+    );
+    expect(countKey("orders", {}, { field: "at", ...a })).not.toBe(
+      countKey("orders", {}, { field: "createdAt", ...a }),
+    );
+  });
 });

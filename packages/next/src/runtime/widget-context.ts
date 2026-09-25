@@ -1,5 +1,7 @@
 import type {
+  CountOptions,
   DetailTabContext,
+  ReadOptions,
   RequestContext,
   ResolvedAdminConfig,
   ResolvedDateRange,
@@ -7,14 +9,16 @@ import type {
   WidgetContext,
   WidgetDateRange,
 } from "@flowpanel/core";
-import { bindFormat, mergeLabels, resolveFormatting } from "@flowpanel/core";
-import { previousRangeFor } from "./date-range";
+import { bindFormat, encodeFilters, mergeLabels, resolveFormatting } from "@flowpanel/core";
+import { previousRangeFor, shiftRange } from "./date-range";
 import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
 import { buildHref } from "./href";
-import { callKey, countKey } from "./memo-key";
-import { readRelatedCount } from "./require-authorized";
+import { callKey, countKey, readKey } from "./memo-key";
+import { bindViewedRecord } from "./record-scope";
 import { resolveLink } from "./resolve-link";
 import { rowIdentity } from "./row-identity";
+import { noteMemoHit } from "./widget-owner";
+import { recordOf, widgetCount, widgetRead } from "./widget-reads";
 
 type HrefOptions = { filter?: Record<string, unknown>; tab?: string };
 type Thunk = () => Promise<unknown>;
@@ -22,6 +26,7 @@ type Call = (...args: unknown[]) => Promise<unknown>;
 
 function widgetHref(
   config: ResolvedAdminConfig,
+  timeZone: string,
   resource: ResourceName,
   id: string | number | undefined,
   opts: HrefOptions | undefined,
@@ -29,9 +34,8 @@ function widgetHref(
   const base =
     id === undefined ? buildHref(config, resource) : buildHref(config, resource, String(id));
   const params = new URLSearchParams();
-  for (const [field, value] of Object.entries(opts?.filter ?? {})) {
-    if (value === undefined || value === null) continue;
-    params.set(`f_${field}`, String(value));
+  for (const [field, value] of Object.entries(encodeFilters(opts?.filter, timeZone))) {
+    params.set(`f_${field}`, value);
   }
   if (opts?.tab) params.set("tab", opts.tab);
   const query = params.toString();
@@ -53,29 +57,16 @@ function adapterSql<Row>(
   return run<Row>(strings, ...values);
 }
 
-async function widgetCount(
-  config: ResolvedAdminConfig,
-  reqCtx: RequestContext,
-  resource: ResourceName,
-  where: Record<string, unknown> | undefined,
-): Promise<number> {
-  const target = config.resourcesByName.get(resource);
-  if (!target) {
-    throw new Error(
-      `flowpanel: ctx.count("${resource}") — no such resource. Registered: ` +
-        `${[...config.resourcesByName.keys()].join(", ") || "none"}.`,
-    );
-  }
-  return (await readRelatedCount(config, target, reqCtx, where ?? {})) ?? 0;
-}
-
 function memoQuery(memo: Map<string, Promise<unknown>>): WidgetContext["query"] {
   function query<T>(key: string, fn: () => Promise<T>): Promise<T>;
   function query<A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>;
   function query(first: string | Call, ...rest: unknown[]): Promise<unknown> {
     const key = typeof first === "string" ? `k:${first}` : callKey(first, rest);
     const running = memo.get(key);
-    if (running) return running;
+    if (running) {
+      noteMemoHit();
+      return running;
+    }
     const started = typeof first === "string" ? (rest[0] as Thunk)() : first(...rest);
     memo.set(key, started);
     return started;
@@ -87,29 +78,71 @@ function memoCount(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
   counts: Map<string, Promise<number>>,
+  range: ResolvedDateRange,
 ): WidgetContext["count"] {
-  return (resource, where) => {
-    const key = countKey(resource, where);
+  const count = (resource: string, where?: Record<string, unknown>, options?: CountOptions) => {
+    const field = options?.range;
+    const key = countKey(resource, where, field ? { field, from: range.from, to: range.to } : null);
     const running = counts.get(key);
-    if (running) return running;
-    const started = widgetCount(config, reqCtx, resource, where);
+    if (running) {
+      noteMemoHit();
+      return running;
+    }
+    const started = widgetCount(config, reqCtx, range, resource, where, options);
     counts.set(key, started);
     return started;
   };
+  return count as WidgetContext["count"];
 }
 
-/** A range as widgets receive it: the range, the one before it, and the admin's zone. */
-export function widgetDateRange(range: ResolvedDateRange, timeZone: string): WidgetDateRange {
+function memoRead(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  reads: Map<string, Promise<Record<string, unknown>[]>>,
+  range: ResolvedDateRange,
+): WidgetContext["read"] {
+  const read = (resource: string, options?: ReadOptions) => {
+    const key = readKey(resource, options, options?.range ? range : null);
+    const running = reads.get(key);
+    if (running) {
+      noteMemoHit();
+      return running;
+    }
+    const started = widgetRead(config, reqCtx, range, resource, options);
+    reads.set(key, started);
+    return started;
+  };
+  return read as WidgetContext["read"];
+}
+
+const DAY_MS = 86_400_000;
+const RETAINED = new WeakMap<WidgetContext, number>();
+const NOW = new WeakMap<WidgetContext, number>();
+
+function retained<T extends { from: Date }>(range: T | null, since: number | undefined): T | null {
+  return range !== null && since !== undefined && range.from.getTime() < since ? null : range;
+}
+
+/** A range as widgets receive it; `previous` is `null` when it starts before `retainedSince`. */
+export function widgetDateRange(
+  range: ResolvedDateRange,
+  timeZone: string,
+  retainedSince?: number,
+): WidgetDateRange {
+  const previous = range.from.getTime() <= 0 ? null : previousRangeFor(range, timeZone);
   return {
     from: range.from,
     to: range.to,
     preset: range.preset,
-    previous: range.from.getTime() <= 0 ? null : previousRangeFor(range, timeZone),
+    previous: retained(previous, retainedSince),
     timeZone,
   };
 }
 
-const DERIVE = new WeakMap<WidgetContext, (range: ResolvedDateRange) => WidgetContext>();
+const DERIVE = new WeakMap<
+  WidgetContext,
+  (range: ResolvedDateRange, keepDays?: number) => WidgetContext
+>();
 
 /** The context a widget query receives: one per range, all sharing the request's `count` memo. */
 export function buildWidgetContext(
@@ -119,6 +152,7 @@ export function buildWidgetContext(
   dateRange: ResolvedDateRange,
   row?: Record<string, unknown>,
   rowKey: string = DEFAULT_RESOURCE_ROW_KEY,
+  resource?: string,
 ): WidgetContext {
   const labels = mergeLabels(config.labels);
   const formatting = resolveFormatting(config.formatting);
@@ -126,51 +160,105 @@ export function buildWidgetContext(
   const format = bindFormat(formatting);
   const id = row ? rowIdentity(row, rowKey) : null;
   const counts = new Map<string, Promise<number>>();
+  const reads = new Map<string, Promise<Record<string, unknown>[]>>();
+  const requestTime = Date.now();
   const ranges = new Map<string, WidgetContext>();
-  const forRange = (range: ResolvedDateRange): WidgetContext => {
-    const key = `${range.preset}|${range.from.getTime()}|${range.to.getTime()}`;
+  const forRange = (range: ResolvedDateRange, keepDays?: number): WidgetContext => {
+    const retainedSince = keepDays === undefined ? undefined : requestTime - keepDays * DAY_MS;
+    const key = `${range.preset}|${range.from.getTime()}|${range.to.getTime()}|${keepDays ?? ""}`;
     const known = ranges.get(key);
     if (known) return known;
     const ctx: WidgetContext = {
       db: config.adapter.db,
       session: reqCtx.session,
-      dateRange: widgetDateRange(range, timeZone),
+      dateRange: widgetDateRange(range, timeZone, retainedSince),
       req,
       ...(row ? { row } : {}),
       ...(id !== null ? { id } : {}),
-      href: (resource, recordId, opts) => widgetHref(config, resource, recordId, opts),
+      href: (resource, recordId, opts) => widgetHref(config, timeZone, resource, recordId, opts),
       link: (target) => resolveLink(config, ctx, target) ?? "",
       query: memoQuery(new Map()),
       labels,
       format,
       sql: <Row = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]) =>
         adapterSql<Row>(config, strings, values),
-      count: memoCount(config, reqCtx, counts),
+      count: memoCount(config, reqCtx, counts, range),
+      read: memoRead(config, reqCtx, reads, range),
+      rowOf: recordOf(row, resource),
     };
+    if (resource !== undefined && row) bindViewedRecord(ctx, resource, row[rowKey]);
     ranges.set(key, ctx);
     DERIVE.set(ctx, forRange);
+    NOW.set(ctx, requestTime);
+    if (retainedSince !== undefined) RETAINED.set(ctx, retainedSince);
     return ctx;
   };
   return forRange(dateRange);
 }
 
-/**
- * The same request's context over another date range: the same record, key and
- * `count` memo, and a `query` memo of its own. One context per range.
- */
-export function rangedContext(ctx: WidgetContext, range: ResolvedDateRange): WidgetContext {
+/** The same request's context over another range, with the same record and `count` memo. */
+export function rangedContext(
+  ctx: WidgetContext,
+  range: ResolvedDateRange,
+  keepDays?: number,
+): WidgetContext {
   const derive = DERIVE.get(ctx);
-  if (derive) return derive(range);
-  return { ...ctx, dateRange: widgetDateRange(range, ctx.dateRange.timeZone) };
+  if (derive) return derive(range, keepDays);
+  const now = requestNow(ctx);
+  const retainedSince = keepDays === undefined ? undefined : now - keepDays * DAY_MS;
+  const derived = {
+    ...ctx,
+    dateRange: widgetDateRange(range, ctx.dateRange.timeZone, retainedSince),
+  };
+  NOW.set(derived, now);
+  if (retainedSince !== undefined) RETAINED.set(derived, retainedSince);
+  return derived;
+}
+
+/** The moment the request built its first widget context; every context it derives shares it. */
+export function requestNow(ctx: WidgetContext): number {
+  return NOW.get(ctx) ?? Date.now();
+}
+
+/** The period `compare` queries: `previous`, or the same range seven calendar days back. */
+export function comparisonRange(
+  ctx: WidgetContext,
+  against: "previous" | "weekAgo" = "previous",
+): { from: Date; to: Date } | null {
+  const range = ctx.dateRange;
+  if (against === "previous") return range.previous;
+  const week = range.from.getTime() <= 0 ? null : shiftRange(range, range.timeZone, { days: -7 });
+  return retained(week, RETAINED.get(ctx));
 }
 
 /**
- * The whole record's lifetime, since a detail tab has no date picker. Built per
+ * The whole record's lifetime, used when `detail.dateRange` sets no picker. Built per
  * call: a shared object would freeze `to` at process start and let one widget's
  * mutation leak into every later request.
  */
 export function detailTabDateRange(): ResolvedDateRange {
   return { from: new Date(0), to: new Date(), preset: "custom" };
+}
+
+/** The narrower context a `DetailTab.render` callback receives, from a page's shared one. */
+export function tabContextOf(ctx: WidgetContext): DetailTabContext {
+  const { db, session, dateRange, href, link, labels, format, query, sql, count, read, rowOf, id } =
+    ctx;
+  return {
+    db,
+    session,
+    dateRange,
+    href,
+    link,
+    labels,
+    format,
+    query,
+    sql,
+    count,
+    read,
+    rowOf,
+    ...(id !== undefined ? { id } : {}),
+  };
 }
 
 /** The narrower context a `DetailTab.render` callback receives. */
@@ -180,19 +268,9 @@ export function buildDetailTabContext(
   req: Request,
   row: Record<string, unknown>,
   rowKey: string = DEFAULT_RESOURCE_ROW_KEY,
+  resource?: string,
 ): DetailTabContext {
-  const ctx = buildWidgetContext(config, reqCtx, req, detailTabDateRange(), row, rowKey);
-  return {
-    db: ctx.db,
-    session: ctx.session,
-    dateRange: ctx.dateRange,
-    ...(ctx.id !== undefined ? { id: ctx.id } : {}),
-    href: ctx.href,
-    link: ctx.link,
-    labels: ctx.labels,
-    format: ctx.format,
-    query: ctx.query,
-    sql: ctx.sql,
-    count: ctx.count,
-  };
+  return tabContextOf(
+    buildWidgetContext(config, reqCtx, req, detailTabDateRange(), row, rowKey, resource),
+  );
 }

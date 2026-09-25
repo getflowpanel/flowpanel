@@ -1,5 +1,6 @@
 import type { ColumnMeta, ResourceIntrospection } from "@flowpanel/core";
-import { getTableColumns, getTableName } from "drizzle-orm";
+import { isView } from "drizzle-orm";
+import { columnsOf, refName } from "./columns";
 
 const memo = new WeakMap<object, ResourceIntrospection>();
 
@@ -7,8 +8,8 @@ export function introspect(table: unknown): ResourceIntrospection {
   const cached = memo.get(table as object);
   if (cached) return cached;
 
-  // biome-ignore lint/suspicious/noExplicitAny: drizzle Table internals are not publicly typed; the value is a runtime Drizzle table guarded by getTableColumns.
-  const cols = getTableColumns(table as any);
+  const view = isView(table);
+  const cols = columnsOf(table);
   const columns: ColumnMeta[] = [];
   let primaryKey = "id";
 
@@ -21,8 +22,8 @@ export function introspect(table: unknown): ResourceIntrospection {
       unique: !!raw.isUnique,
       primaryKey: !!raw.primary,
       readable: true,
-      writableOnCreate: raw.generated === undefined,
-      writableOnUpdate: raw.generated === undefined && !raw.primary,
+      writableOnCreate: !view && raw.generated === undefined,
+      writableOnUpdate: !view && raw.generated === undefined && !raw.primary,
       generated: raw.generated !== undefined,
       hasDefault: raw.hasDefault === true || raw.default !== undefined,
     };
@@ -31,8 +32,12 @@ export function introspect(table: unknown): ResourceIntrospection {
     columns.push(meta);
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: drizzle Table internals are not publicly typed; the value is a runtime Drizzle table guarded by getTableName.
-  const result = freeze({ name: getTableName(table as any), columns, primaryKey });
+  const result = freeze({
+    name: refName(table),
+    columns,
+    primaryKey,
+    ...(view ? { kind: "view" as const } : {}),
+  });
   memo.set(table as object, result);
   return result;
 }

@@ -36,6 +36,10 @@ export function fakeWidgetContext(overrides: Partial<WidgetContext> = {}): Widge
     format: bindFormat(DEFAULT_FORMATTING),
     sql: async () => [],
     count: async () => 0,
+    read: async () => [],
+    rowOf: (() => {
+      throw new Error("fakeWidgetContext: no record; pass rowOf in the overrides");
+    }) as WidgetContext["rowOf"],
     ...overrides,
   };
 }

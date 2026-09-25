@@ -46,6 +46,12 @@
       "paths": {
         "@flowpanel/adapter-drizzle": [
           "./dist/index.d.ts"
+        ],
+        "@flowpanel/core": [
+          "../core/dist/index.d.ts"
+        ],
+        "@flowpanel/core/auth": [
+          "../core/dist/auth.d.ts"
         ]
       }
     }

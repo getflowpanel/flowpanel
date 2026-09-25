@@ -9,12 +9,11 @@ import { getSession } from "{{AUTH}}";
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
+    // Every table and view in the schema becomes a typed resource name and row.
+    schema: typeof schema;
   }
-  // resource name -> row type. Fill one entry per resource to get
-  // compile-checked columns, filters and cross-resource references.
-  interface FlowpanelResources {
-    // users: typeof schema.users.$inferSelect;
-  }
+  // Only for a resource renamed with options.name, e.g. one over a SQL view:
+  // interface FlowpanelResources { user: typeof schema.adminUserRow.$inferSelect }
 }
 
 export default defineAdmin({
