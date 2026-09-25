@@ -1,9 +1,11 @@
 "use client";
+import type { WidgetCaption } from "@flowpanel/core";
 import { Card, CardContent } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
 import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
+import { CaptionLine } from "./CaptionLine";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface StatCardProps {
@@ -17,6 +19,8 @@ export interface StatCardProps {
   tone?: Tone;
   /** Drop the card frame, for a cell of a `StatStrip`. */
   plain?: boolean;
+  /** The line under the title: a cut range, freshness or coverage. */
+  caption?: WidgetCaption;
 }
 
 /** One number with a label — a `stat()` widget. */
@@ -28,12 +32,14 @@ export function StatCard({
   href,
   tone = "default",
   plain,
+  caption,
 }: StatCardProps) {
   const formatting = useFormatting();
   const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
   const content = (
     <CardContent className="space-y-1">
       <div className="truncate text-sm font-medium text-fp-text-2">{label}</div>
+      <CaptionLine caption={caption} />
       <div
         className={cn(
           "truncate text-xl font-semibold leading-tight tabular-nums",

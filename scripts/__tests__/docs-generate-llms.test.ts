@@ -3,6 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkLlms, generateLlmsText, LLMS_FILE } from "../docs/generate-llms";
+import {
+  checkLlmsTopics,
+  generateLlmsTopics,
+  LLMS_TOPIC_MAX_LINES,
+  LLMS_TOPICS_DIR,
+} from "../docs/generate-llms-topics";
 
 const fixtures: string[] = [];
 afterEach(() => {
@@ -133,5 +139,85 @@ describe("llms.txt generation", () => {
     writeFileSync(join(root, LLMS_FILE), `${generateLlmsText(root).trimEnd()}\n\n\n`);
 
     expect(checkLlms(root)).toEqual([]);
+  });
+});
+
+function topicRoot(): string {
+  const root = fixtureRoot();
+  writeFileSync(
+    join(root, "apps/site/content/docs/meta.json"),
+    JSON.stringify({ pages: ["reference"] }),
+  );
+  writeFileSync(
+    join(root, "apps/site/content/docs/reference/meta.json"),
+    JSON.stringify({ title: "Reference", pages: ["widgets"] }),
+  );
+  return root;
+}
+
+describe("llms by topic", () => {
+  it("writes a short section as one file, and an index naming each file", () => {
+    const files = generateLlmsTopics(topicRoot());
+    expect([...files.keys()]).toEqual(["reference.txt", "index.txt"]);
+    expect(files.get("reference.txt")).toMatch(/^# .+ — Reference\n/);
+    expect(files.get("reference.txt")).toContain("## Widgets");
+    expect(files.get("index.txt")).toContain("- llms/reference.txt — Reference: Widgets");
+    expect(files.get("index.txt")).toContain("This directory is canonical");
+  });
+
+  it("writes a section longer than the limit one page per file", () => {
+    const root = topicRoot();
+    writeFileSync(
+      join(root, "apps/site/content/docs/reference/meta.json"),
+      JSON.stringify({ title: "Reference", pages: ["widgets", "tabs"] }),
+    );
+    writeFileSync(
+      join(root, "apps/site/content/docs/reference/tabs.mdx"),
+      "---\ntitle: Tabs\n---\n\nOne tab.\n",
+    );
+    const page = generateLlmsTopics(root).get("reference.txt")?.split("## Tabs")[0] ?? "";
+    const files = generateLlmsTopics(root, page.split("\n").length + 2);
+    expect([...files.keys()]).toEqual(["reference-widgets.txt", "reference-tabs.txt", "index.txt"]);
+    expect(files.get("reference-widgets.txt")).toMatch(/^# .+ — Reference — Widgets\n/);
+    expect(files.get("index.txt")).toContain(
+      "- llms/reference-widgets.txt — Reference: Widgets. Every widget builder and the options it accepts.",
+    );
+  });
+
+  it("splits a page longer than the limit at its sections, naming them in the index", () => {
+    const files = generateLlmsTopics(topicRoot(), 5);
+    const parts = [...files.keys()].filter((file) => file.startsWith("reference-widgets-"));
+    expect(parts.length).toBeGreaterThan(1);
+    expect(files.get("reference-widgets-1.txt")).toMatch(
+      /^# .+ — Reference — Widgets \(part 1\)\n/,
+    );
+    const text = parts.map((file) => files.get(file)).join("\n");
+    for (const heading of text.match(/^### .+$/gm) ?? []) {
+      expect(files.get("index.txt")).toContain(heading.slice(4));
+    }
+  });
+
+  it("keeps every whole-section file within the limit", () => {
+    for (const [file, text] of generateLlmsTopics(topicRoot())) {
+      if (file.includes("-") || file === "index.txt") continue;
+      expect(text.split("\n").length).toBeLessThanOrEqual(LLMS_TOPIC_MAX_LINES);
+    }
+  });
+
+  it("reports missing, stale and leftover topic files", () => {
+    const root = topicRoot();
+    expect(checkLlmsTopics(root).map((problem) => problem.file)).toEqual([
+      `${LLMS_TOPICS_DIR}/reference.txt`,
+      `${LLMS_TOPICS_DIR}/index.txt`,
+    ]);
+    mkdirSync(join(root, LLMS_TOPICS_DIR), { recursive: true });
+    for (const [file, text] of generateLlmsTopics(root)) {
+      writeFileSync(join(root, LLMS_TOPICS_DIR, file), text);
+    }
+    expect(checkLlmsTopics(root)).toEqual([]);
+    writeFileSync(join(root, LLMS_TOPICS_DIR, "old.txt"), "gone");
+    expect(checkLlmsTopics(root).map((problem) => problem.file)).toEqual([
+      `${LLMS_TOPICS_DIR}/old.txt`,
+    ]);
   });
 });

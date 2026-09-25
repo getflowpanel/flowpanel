@@ -1,4 +1,11 @@
 {
   "title": "Getting started",
-  "pages": ["getting-started", "why-flowpanel", "drizzle", "prisma", "project-structure"]
+  "pages": [
+    "getting-started",
+    "founder-admin",
+    "why-flowpanel",
+    "drizzle",
+    "prisma",
+    "project-structure"
+  ]
 }

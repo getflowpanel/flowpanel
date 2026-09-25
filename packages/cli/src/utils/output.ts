@@ -5,6 +5,11 @@ export function writeJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
-export function writePlanJson(command: string, plan: FilesystemPlan, applied: boolean): void {
-  writeJson({ command, applied, plan: publicPlan(plan) });
+export function writePlanJson(
+  command: string,
+  plan: FilesystemPlan,
+  applied: boolean,
+  extra: Record<string, unknown> = {},
+): void {
+  writeJson({ command, applied, plan: publicPlan(plan), ...extra });
 }

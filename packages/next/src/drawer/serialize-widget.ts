@@ -14,11 +14,15 @@ import {
   filterReadableDeclarations,
   resolveReadableFieldSet,
 } from "../runtime/readable-fields";
+import { realtimeProp } from "../runtime/realtime-channels";
 import { scopedCountMetric } from "../runtime/record-scope";
 import { readRelatedRows } from "../runtime/require-authorized";
 import { tableFilters } from "../runtime/table-filters";
+import { thresholdTone } from "../runtime/threshold-tone";
+import { expiredCaption } from "../runtime/widget-caption";
 import { statItemOf } from "../runtime/widget-items";
-import { expiredCard, retainedRange } from "../runtime/widget-range";
+import { widgetLabel } from "../runtime/widget-owner";
+import { retainedRange } from "../runtime/widget-range";
 import { type SerializedCardWidget, serializeCardWidget } from "./serialize-cards";
 
 /** A widget column is a bare key or an object naming one; the wire needs the key. */
@@ -91,12 +95,12 @@ export async function serializeWidget(
 ): Promise<SerializedWidget> {
   const kept = retainedRange(w, pickedCtx);
   if (kept.expired) {
-    const { label, emptyState } = expiredCard(w, pickedCtx);
+    const label = widgetLabel(w);
     return {
       kind: "list",
       ...(label ? { label } : {}),
       rows: [],
-      emptyState: typeof emptyState === "string" ? emptyState : pickedCtx.labels.widget.empty,
+      emptyState: expiredCaption(pickedCtx, kept.days).text,
       ...(w.options.span ? { span: w.options.span } : {}),
     };
   }
@@ -109,7 +113,10 @@ export async function serializeWidget(
         const result: MetricResult =
           typeof produced === "object" && produced !== null ? produced : { value: produced };
         const sublabel = result.sublabel ?? w.options.sublabel;
-        const tone = result.tone ?? w.options.tone;
+        const tone =
+          result.tone ??
+          w.options.tone ??
+          thresholdTone(result.value, w.options.tones, result.volume);
         return {
           kind: "metric",
           label: w.label,
@@ -118,7 +125,7 @@ export async function serializeWidget(
           ...(sublabel ? { sublabel } : {}),
           ...(tone ? { tone } : {}),
           ...(w.options.span ? { span: w.options.span } : {}),
-          ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
+          ...realtimeProp(w.options.realtime),
         };
       }
       case "table": {
@@ -196,7 +203,7 @@ export async function serializeWidget(
           rows,
           columns,
           ...(w.options.span ? { span: w.options.span } : {}),
-          ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
+          ...realtimeProp(w.options.realtime),
         };
       }
       case "statGroup": {
@@ -209,7 +216,7 @@ export async function serializeWidget(
           ...(w.options.label ? { label: w.options.label } : {}),
           stats,
           ...(w.options.span ? { span: w.options.span } : {}),
-          ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
+          ...realtimeProp(w.options.realtime),
         };
       }
       case "areaChart":
@@ -232,7 +239,7 @@ export async function serializeWidget(
           label: w.label,
           dataPoints: data.length,
           ...(w.options.span ? { span: w.options.span } : {}),
-          ...(w.options.realtime ? { realtime: w.options.realtime } : {}),
+          ...realtimeProp(w.options.realtime),
         };
       }
       default: {

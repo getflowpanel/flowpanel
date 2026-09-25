@@ -1,0 +1,151 @@
+---
+title: Analytics from one query
+description: Turn one SQL statement per screen area into strips, bars, charts, trackers and banners, in the admin's zone.
+kind: how-to
+---
+
+A founder dashboard answers a few questions a day: is it healthy, what changed, and what
+needs attention. Write one SQL statement per screen area that returns plain rows, and let
+FlowPanel bucket, pivot, rank and compare them. The reference for every helper is under
+[Series helpers](/docs/reference/widgets#series-helpers).
+
+## From one query to a dashboard
+
+1. Select raw rows for the picked range, with a timestamp and the fields you group by.
+   Bind `ctx.dateRange.from` and `to` as parameters; do no zone math in SQL.
+2. Share the statement between widgets with `ctx.query(fn, ctx)`, so the page runs it once.
+3. Fold it per card: `series()` for a chart over time, `breakdown()` for ranked bars.
+
+```ts excerpt
+import { barChart } from "@flowpanel/kit/charts";
+import { bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
+
+type HourRow = { at: Date; platform: string; runs: number; failed: number; orders: number };
+
+const hourly = (c: WidgetContext) => c.sql<HourRow>`
+  select hour as at, platform, runs_total as runs, runs_failed as failed, orders_new as orders
+  from scraper_hourly_stats where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
+
+const byPlatform = bars({
+  label: "New orders by marketplace",
+  share: true,
+  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", labels: Platform }),
+});
+
+const byDay = barChart(
+  "New orders by day",
+  async (c) => series(await c.query(hourly, c), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
+  { x: "date", labels: Platform, stacked: true },
+);
+```
+
+Leave the chart's `y` out: it plots every column `series({ by })` returned, and `labels`
+names them in the legend. A ratio is a function of a bucket's rows, such as
+`(rows) => sum(rows, "failed") / sum(rows, "runs")`; return `null` for a bucket with no
+rows so the chart shows a gap instead of a zero. Above about 50,000 rows, group by hour
+in SQL first.
+
+## Compare bars with the previous period
+
+Give the bars `compare: true`, or `compare: { against: "weekAgo" }` for "the same
+weekday last week". FlowPanel runs the same query for the compared period in a context
+of its own, joins the rows by `key` (which `breakdown()` fills) and shows each row's
+change. Pass `keys` to `breakdown()` so a marketplace with no orders today still
+compares against yesterday's number instead of disappearing.
+
+```ts excerpt
+bars({
+  label: "New orders by marketplace",
+  share: true,
+  compare: { against: "weekAgo" },
+  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", keys: PLATFORMS }),
+});
+```
+
+## Colour numbers by a threshold
+
+Declare each threshold once, next to the product rule it encodes, and pass it wherever the
+number shows: a strip metric, a bar, a tracker block or a table column. Give `min` so an
+hour with three runs does not turn red on one failure, and return the observations as
+`volume` from a metric's query.
+
+```ts excerpt
+import type { Threshold } from "@flowpanel/kit";
+
+export const RUN_ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
+export const SUCCESS: Threshold = { warn: 0.9, err: 0.8, goodWhen: "up" };
+```
+
+## Say how old and how complete the numbers are
+
+A number is only honest with its context. Give `maxRange` to anything over a table the
+app trims, `freshness` to anything read from a rollup a job writes, and `coverage` to a
+number that only covers some users. The card shows the one caption that matters most:
+a cut range, then the data's age, then its coverage.
+
+```ts excerpt
+const lastRollupHour = async (c: WidgetContext) =>
+  (await c.sql<{ at: Date | null }>`select max(hour) as at from scraper_hourly_stats`)[0]?.at ?? null;
+
+metric("Bans", bans, { maxRange: "1d", compare: true });
+metric("New orders", newOrders, { freshness: { at: lastRollupHour, warnAfter: "2h" } });
+```
+
+## Show status over time
+
+A `tracker()` answers "is it healthy right now" per key: 24 hourly blocks per
+marketplace, each coloured by a `Threshold`, folded from the same rows a chart reads. It
+ignores the date picker; its window always ends now, and the row's dot is the worst of
+its last three hours.
+
+```ts excerpt
+const errorRate = (rows: HourRow[]) => {
+  const runs = rows.reduce((sum, row) => sum + row.runs, 0);
+  return runs === 0 ? null : rows.reduce((sum, row) => sum + row.failed, 0) / runs;
+};
+
+tracker({
+  label: "Marketplaces · 24 h",
+  query: hourly,
+  at: "at",
+  by: "platform",
+  labels: Platform,
+  value: errorRate,
+  volume: "runs",
+  tones: RUN_ERRORS,
+  format: "percent",
+  span: 12,
+});
+```
+
+## Show what needs attention
+
+Open the landing dashboard with a `banner()`: the host query returns one `ListRow` per
+problem with a tone, a `count` and a `since`, and FlowPanel orders them by severity and
+impact, shows the first few, and folds the rest into one "N more" line. With nothing
+wrong, it says so.
+
+```ts excerpt
+banner({
+  query: priorities,
+  limit: 3,
+  more: { dashboard: "/system" },
+  allClear: "Nothing on fire",
+});
+```
+
+## Filter the whole dashboard
+
+Declare a filter once and every widget can read it as `ctx.filters`. Bind it in the
+shared statement, give the per-key widgets `filter`, and one dashboard replaces a list
+link per marketplace: clicking a bar, a tracker row or a table row narrows the whole
+page, keeping the range, and the comparison reads the same slice.
+
+```ts excerpt
+import type { DashboardFilter } from "@flowpanel/kit";
+
+const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
+```
+
+Pass `filters: [byPlatform]` to the dashboard, and `filter: "platform"` to the bars, the
+tracker and the table.

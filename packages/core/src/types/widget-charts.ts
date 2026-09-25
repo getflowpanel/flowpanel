@@ -1,15 +1,23 @@
+import type { EnumDef } from "../builders/enum-of";
+import type { RealtimeOption } from "./realtime";
 import type { NumericFormat, RangeLimit, RowKey, Span } from "./widget";
+import type { CaptionOptions } from "./widget-caption";
 import type { Link, WidgetContext } from "./widget-context";
 
-/** Aggregation bucket for the chart's x-axis. */
+/** How the x-axis prints a date key. */
 export type ChartBucket = "minute" | "hour" | "day" | "week" | "month" | "year" | "auto";
 
 /** Charts are defined in @flowpanel/charts but their config lives in core. */
-export interface ChartOptionsBase<R = unknown> {
+export interface ChartOptionsBase<R = unknown> extends CaptionOptions {
   /** Row key plotted on the x-axis. */
   x: RowKey<R>;
-  /** Row key(s) plotted on the y-axis. An array draws one series per key. */
-  y: RowKey<R> | RowKey<R>[];
+  /**
+   * Row key(s) plotted on the y-axis; an array draws one series per key. Default: every
+   * key of the first row except `x`, in its order — the columns a `series({ by })` returns.
+   */
+  y?: RowKey<R> | RowKey<R>[];
+  /** Legend and tooltip name per series key: a map or an `enumOf()`. Default: the key. */
+  labels?: Readonly<Record<string, string>> | EnumDef;
   /** Chart height in px.
    * @defaultValue 240
    */
@@ -24,9 +32,9 @@ export interface ChartOptionsBase<R = unknown> {
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
   maxRange?: RangeLimit;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
-  /** X-axis aggregation bucket. */
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
+  /** How x-axis ticks print a date key. It does not aggregate: fold rows with `series({ grain })`. */
   bucket?: ChartBucket;
 }
 
@@ -48,7 +56,7 @@ export interface LineChartOptions<R = unknown> extends ChartOptionsBase<R> {
   /** Show a dot at every data point. */
   markers?: boolean;
 }
-export interface PieChartOptions<R = unknown> {
+export interface PieChartOptions<R = unknown> extends CaptionOptions {
   /** Row key naming each slice. */
   category: RowKey<R>;
   /** Row key holding each slice's magnitude. */
@@ -67,8 +75,8 @@ export interface PieChartOptions<R = unknown> {
   maxRange?: RangeLimit;
   /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
   drilldown?: Link;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
   /** Pin specific slices to a color, keyed by category value. */
   colors?: Record<string, string>;
   /** How slice values are rendered in the tooltip. */

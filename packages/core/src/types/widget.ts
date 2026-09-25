@@ -1,7 +1,11 @@
 import type { ComponentType, ReactNode } from "react";
 import type { MetricCountSource } from "./metric-count";
+import type { RealtimeOption } from "./realtime";
 import type { ResourceName } from "./registry";
 import type { ColumnFormat } from "./resource";
+import type { Threshold } from "./threshold";
+import type { ChecklistWidget, HeatmapWidget } from "./widget-activity";
+import type { CaptionOptions } from "./widget-caption";
 import type {
   BarsWidget,
   FunnelWidget,
@@ -17,6 +21,8 @@ import type {
   PieChartWidget,
 } from "./widget-charts";
 import type { Link, LinkTarget, WidgetContext } from "./widget-context";
+import type { TimelineWidget } from "./widget-timeline";
+import type { TrackerWidget } from "./widget-tracker";
 
 export type NumericFormat = "number" | "currency" | "percent" | "bytes" | "duration";
 export type Tone = "default" | "accent" | "ok" | "warn" | "err" | "info" | "muted";
@@ -49,9 +55,11 @@ export interface MetricResult {
   delta?: MetricDelta;
   /** Turns the whole card into a link — a path or a named target. */
   href?: LinkTarget;
+  /** Observations behind the value, compared with `tones.min`. */
+  volume?: number;
 }
 
-export interface MetricOptions {
+export interface MetricOptions extends CaptionOptions {
   /** Rendered as-is next to the label. Any string — an emoji, a ligature. No icon-name lookup exists. */
   icon?: string;
   /** How the number is rendered. */
@@ -69,14 +77,16 @@ export interface MetricOptions {
   sparkline?: (ctx: WidgetContext) => Promise<number[]>;
   /** Semantic color of the value. */
   tone?: Tone;
+  /** Tone the value against a threshold; an explicit `tone` wins. */
+  tones?: Threshold;
   /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
   drilldown?: Link;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
   maxRange?: RangeLimit;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
 }
 
 export interface MetricWidget {
@@ -100,9 +110,11 @@ export interface WidgetColumn<R = unknown> {
   width?: number | string;
 }
 
-export interface TableWidgetOptions<R = unknown> {
+export interface TableWidgetOptions<R = unknown> extends CaptionOptions {
   /** Card heading. */
   label?: string;
+  /** A dashboard filter key: a row's `rowKey` value sets it on the current dashboard. */
+  filter?: string;
   /** Registered resource to pull rows and columns from. */
   resource?: ResourceName;
   /** Supply rows yourself instead of reading a resource. */
@@ -141,8 +153,8 @@ export interface TableWidgetOptions<R = unknown> {
   limit?: number;
   /** Rendered in place of the table body when there are zero rows. */
   emptyState?: ReactNode;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
@@ -154,13 +166,13 @@ export interface TableWidget {
   options: TableWidgetOptions;
 }
 
-export interface CustomOptions {
+export interface CustomOptions extends CaptionOptions {
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
   maxRange?: RangeLimit;
-  /** Re-render when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
   /** Wrap the component in the standard widget card.
    * @defaultValue true
    */
@@ -202,4 +214,8 @@ export type WidgetConfig =
   | AreaChartWidget
   | BarChartWidget
   | LineChartWidget
-  | PieChartWidget;
+  | PieChartWidget
+  | TimelineWidget
+  | HeatmapWidget
+  | ChecklistWidget
+  | TrackerWidget;

@@ -74,6 +74,9 @@ The one difference is `ctx.row`: on a detail tab it is the projected record bein
 
 Configure a dashboard date range when several queries should use the same interval. The resolved range arrives in each widget context. Treat it as a query input, not as authorization; tenant and role constraints still belong in their own policies.
 
+To narrow the whole page to one marketplace or source as well, declare dashboard
+filters; see [Filter the whole dashboard](/docs/build/analytics#filter-the-whole-dashboard).
+
 ## Compare with the previous period
 
 Give a metric `compare: true` and it runs its own query for the period before the
@@ -81,6 +84,10 @@ picked one — yesterday up to now for Today, the same days of last month for Mo
 date — then shows the change, the value it compares against, and no colour for a
 change inside ±1 %. `compare: { against: "weekAgo" }` compares with the same range a
 week earlier. The query needs no second SQL statement and no `*Prev` field.
+
+`bars()` takes the same `compare`: each row shows its change against the same row in
+the earlier period, matched by `key` or `label`. See
+[Analytics from one query](/docs/build/analytics#compare-bars-with-the-previous-period).
 
 ## Keep the numbers fresh
 

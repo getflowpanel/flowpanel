@@ -3,6 +3,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { type ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "../lib/cn";
+import { named } from "../lib/named";
 
 export const buttonVariants = cva(
   "fp-press inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-fp text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 focus-visible:ring-offset-1 focus-visible:ring-offset-fp-bg-1 disabled:pointer-events-none disabled:opacity-50",
@@ -36,12 +37,14 @@ export interface ButtonProps
 }
 
 /** Pure renderer — no context dependency. Used as the registry default. */
-export const DefaultButton = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
-    return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
-    );
-  },
+export const DefaultButton = /* @__PURE__ */ named(
+  /* @__PURE__ */ forwardRef<HTMLButtonElement, ButtonProps>(
+    ({ className, variant, size, asChild, ...props }, ref) => {
+      const Comp = asChild ? Slot : "button";
+      return (
+        <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      );
+    },
+  ),
+  "DefaultButton",
 );
-DefaultButton.displayName = "DefaultButton";

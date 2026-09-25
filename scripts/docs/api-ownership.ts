@@ -99,6 +99,28 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/builders/timeline.ts",
+    page: "/docs/reference/widgets",
+    anchor: "timeline",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/builders/activity.ts",
+    page: "/docs/reference/widgets",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-activity.ts",
+    page: "/docs/reference/widgets",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-timeline.ts",
+    page: "/docs/reference/widgets",
+    anchor: "timeline",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/builders/widget.ts",
     page: "/docs/reference/widgets",
     guidance: true,
@@ -125,6 +147,12 @@ export const API_OWNERSHIP_RULES = [
     page: "/docs/reference/resources",
     anchor: "formatting-values-yourself",
     guidance: false,
+  },
+  {
+    sourcePrefix: "packages/core/src/tone-for.ts",
+    page: "/docs/reference/widgets",
+    anchor: "thresholds",
+    guidance: true,
   },
   {
     sourcePrefix: "packages/core/src/bind-format.ts",
@@ -155,6 +183,12 @@ export const API_OWNERSHIP_RULES = [
     page: "/docs/customization/styling",
     anchor: "initialize-the-theme-under-csp",
     guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/tone-classes.ts",
+    page: "/docs/reference/react-components",
+    anchor: "theme-utilities",
+    guidance: false,
   },
   {
     sourcePrefix: "packages/core/src/policy/",
@@ -224,7 +258,25 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/runtime/worker-publisher.ts",
+    page: "/docs/reference/scope-realtime",
+    anchor: "publishing-from-a-worker",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/runtime/series.ts",
+    page: "/docs/reference/widgets",
+    anchor: "series-helpers",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/breakdown.ts",
+    page: "/docs/reference/widgets",
+    anchor: "series-helpers",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/preset-range.ts",
     page: "/docs/reference/widgets",
     anchor: "series-helpers",
     guidance: true,
@@ -349,8 +401,20 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/types/threshold.ts",
+    page: "/docs/reference/widgets",
+    anchor: "thresholds",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/types/widget.ts",
     page: "/docs/reference/widgets",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-caption.ts",
+    page: "/docs/reference/widgets",
+    anchor: "captions",
     guidance: true,
   },
   {
@@ -366,9 +430,21 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/types/widget-list.ts",
+    page: "/docs/reference/widgets",
+    anchor: "list",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/types/widget-context.ts",
     page: "/docs/reference/widgets",
     anchor: "widgetcontext",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-tracker.ts",
+    page: "/docs/reference/widgets",
+    anchor: "tracker",
     guidance: true,
   },
   {

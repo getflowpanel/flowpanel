@@ -1,5 +1,6 @@
 import type { SelectOption } from "../types/resource";
 import type { Tone } from "../types/widget";
+import type { LinkTarget } from "../types/widget-context";
 
 /** A label, a `[label, tone]` pair, or `{ label, tone }`. The tone defaults to `"default"`. */
 export type EnumEntry =
@@ -25,8 +26,11 @@ export interface EnumDef<K extends string = string> {
   label(value: unknown): string;
   /** The tone; `"default"` for an unknown value. */
   tone(value: unknown): Tone;
-  /** A header badge, or `null` for a missing value. */
-  badge(value: unknown): { label: string; tone: Tone } | null;
+  /** A header badge, or `null` for a nullish value; `href` links it, e.g. to the filtered list. */
+  badge(
+    value: unknown,
+    options?: { href?: LinkTarget },
+  ): { label: string; tone: Tone; href?: LinkTarget } | null;
 }
 
 type Pair = readonly [label: string, tone?: Tone];
@@ -75,7 +79,10 @@ export function enumOf(
     options: values.map((value) => ({ label: labels[value] as string, value })),
     label,
     tone,
-    badge: (value) =>
-      value === null || value === undefined ? null : { label: label(value), tone: tone(value) },
+    badge(value, options = {}) {
+      if (value === null || value === undefined) return null;
+      const pill = { label: label(value), tone: tone(value) };
+      return options.href === undefined ? pill : { ...pill, href: options.href };
+    },
   };
 }

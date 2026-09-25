@@ -3,7 +3,7 @@ import type * as React from "react";
 
 import { ArrayCell } from "./ArrayCell";
 import type { DataTableColumn } from "./data-table-types";
-import { renderCellValue } from "./format-cell";
+import { formatCell, renderCellValue } from "./format-cell";
 import { JsonCell } from "./JsonCell";
 import { renderFormatCell } from "./render-format";
 
@@ -19,4 +19,21 @@ export function renderDefaultCell<Row extends Record<string, unknown>>(
   }
   if (c.type === "json") return <JsonCell value={r[c.field]} />;
   return renderCellValue(r[c.field], formatting);
+}
+
+/** A cell with its column's `secondary` field as a muted second line, when the row has one. */
+export function withSecondary<Row extends Record<string, unknown>>(
+  c: DataTableColumn<Row>,
+  r: Row,
+  cell: React.ReactNode,
+  formatting?: ResolvedFormatting,
+): React.ReactNode {
+  const second = c.secondary === undefined ? "" : formatCell(r[c.secondary], formatting);
+  if (second === "") return cell;
+  return (
+    <>
+      <span className="block truncate">{cell}</span>
+      <span className="block truncate text-xs text-fp-text-3">{second}</span>
+    </>
+  );
 }

@@ -16,3 +16,7 @@ expectNotAssignable<ColumnFormat>({ kind: "duration", unit: "h" });
 expectNotAssignable<ColumnFormat>("sparkline");
 expectType<string>(formatDurationValue(1000, resolveFormatting()));
 expectType<string>(formatRelativeValue(new Date(), resolveFormatting()));
+
+expectAssignable<ColumnFormat>({ kind: "number", tones: { warn: 10, err: 20 } });
+expectAssignable<ColumnFormat>({ kind: "percent", tones: { warn: 0.9, err: 0.8, goodWhen: "up" } });
+expectNotAssignable<ColumnFormat>({ kind: "percent", tones: { warn: 0.3 } });

@@ -1,10 +1,12 @@
 "use client";
+import type { WidgetCaption } from "@flowpanel/core";
 import type * as React from "react";
 import { DataTable, type DataTableColumn } from "../_data/DataTable";
 import { Card, CardContent, CardHeader } from "../_layout/Card";
 import type { RealtimeChannels } from "../hooks/useRealtimeRefresh";
 import { RealtimeRefresh } from "../hooks/useRealtimeRefresh";
 import { useRowHrefClick } from "../hooks/useRowNavigation";
+import { CaptionLine } from "./CaptionLine";
 
 export interface TableWidgetProps<Row extends Record<string, unknown>> {
   label?: string;
@@ -23,6 +25,8 @@ export interface TableWidgetProps<Row extends Record<string, unknown>> {
   prerenderedCells?: (React.ReactNode | undefined)[][];
   /** SSE channel(s) to subscribe to. */
   realtime?: RealtimeChannels;
+  /** The line under the title: a cut range, freshness or coverage. */
+  caption?: WidgetCaption;
 }
 
 export function TableWidget<Row extends Record<string, unknown>>(props: TableWidgetProps<Row>) {
@@ -33,9 +37,12 @@ export function TableWidget<Row extends Record<string, unknown>>(props: TableWid
 
   return (
     <Card className="h-full overflow-hidden">
-      {props.label || props.seeAllHref ? (
+      {props.label || props.seeAllHref || props.caption ? (
         <CardHeader className="flex items-center justify-between gap-3">
-          <span className="truncate">{props.label}</span>
+          <span className="min-w-0">
+            <span className="block truncate">{props.label}</span>
+            <CaptionLine caption={props.caption} />
+          </span>
           {props.seeAllHref ? (
             <a
               href={props.seeAllHref}
@@ -48,7 +55,9 @@ export function TableWidget<Row extends Record<string, unknown>>(props: TableWid
       ) : null}
       {customEmpty ? (
         <CardContent
-          className={props.label ? "pt-0 text-xs text-fp-text-3" : "text-xs text-fp-text-3"}
+          className={
+            props.label || props.caption ? "pt-0 text-xs text-fp-text-3" : "text-xs text-fp-text-3"
+          }
         >
           {emptyState}
         </CardContent>

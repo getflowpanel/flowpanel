@@ -23,6 +23,8 @@ export interface FakeRoute {
   dom?: FakeNode[];
   /** What this route serves once a cookie has been added — the signed-in page. */
   signedIn?: FakeRoute;
+  /** Detail tab keys, rendered as `[data-fp-tab]` triggers inside `main`; the first is open. */
+  tabs?: string[];
 }
 
 const ORIGIN = "http://localhost:3000";
@@ -41,6 +43,11 @@ function documentOf(route: FakeRoute): FakeNode[] {
     main.push(element("table", {}, [element("tbody", { tabindex: "0" }, rows)]));
   }
   if (route.errorSurface) main.push(element("div", { "data-fp-error": "" }));
+  for (const [index, key] of (route.tabs ?? []).entries()) {
+    main.push(
+      element("button", { "data-fp-tab": key, "data-state": index === 0 ? "active" : "inactive" }),
+    );
+  }
   nodes.push(element("main", { id: "main" }, main));
   if (route.dialog) nodes.push(element("div", { role: "dialog" }));
   return nodes;

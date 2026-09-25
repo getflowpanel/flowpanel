@@ -30,7 +30,11 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
     rowKey?: string;
   };
 
-  for (const c of options.columns ?? []) addField(fields, c);
+  for (const c of options.columns ?? []) {
+    addField(fields, c);
+    const secondary = (c as { secondary?: unknown } | null)?.secondary;
+    if (typeof secondary === "string" && secondary) fields.add(secondary);
+  }
   addFieldList(fields, options.expose);
   fields.add(options.rowKey ?? DEFAULT_RESOURCE_ROW_KEY);
 

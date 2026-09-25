@@ -1,16 +1,19 @@
 import {
+  banner,
   bars,
   custom,
   funnel,
   type KvResult,
   kv,
   type ListRow,
+  type ListWidget,
   list,
   type MetricDelta,
   metric,
+  stat,
   statGroup,
 } from "@flowpanel/core";
-import { expectAssignable, expectError, expectNotAssignable } from "tsd";
+import { expectAssignable, expectError, expectNotAssignable, expectType } from "tsd";
 
 expectAssignable<ListRow>({ key: "run-1", text: "Payout failed" });
 expectNotAssignable<ListRow>({ key: 1, text: "Payout failed" });
@@ -59,3 +62,42 @@ bars({
 expectError(bars({ share: "yes", query: async () => [] }));
 
 custom(() => null, {}, { label: "Pipeline", frame: true });
+
+kv({
+  items: [
+    { label: "About", value: "Hi", long: true, empty: "Not filled" },
+    { label: "Resume", value: null, long: { lines: 10 } },
+  ],
+});
+expectError(kv({ items: [{ label: "About", value: "Hi", long: "yes" }] }));
+expectError(kv({ items: [{ label: "About", value: "Hi", long: { rows: 3 } }] }));
+expectError(kv({ items: [{ label: "About", value: "Hi", empty: 0 }] }));
+
+bars({ compare: true, query: async () => [{ key: "kwork", label: "Kwork", value: 3 }] });
+bars({ compare: { against: "weekAgo" }, query: async () => [] });
+expectError(bars({ compare: { against: "yesterday" }, query: async () => [] }));
+
+metric("Errors", async () => ({ value: 0.4, volume: 30 }), {
+  tones: { warn: 0.3, err: 0.5, min: 20 },
+});
+stat("Errors", 0.4, { tones: { warn: 0.3, err: 0.5 } });
+bars({ tones: { warn: 0.3, err: 0.5 }, query: async () => [] });
+expectError(bars({ tones: { warn: 0.3, err: 0.5, goodWhen: "sideways" }, query: async () => [] }));
+
+stat("Runs", 1, { freshness: { at: async () => new Date(), warnAfter: "2h" }, coverage: "sample" });
+bars({ coverage: "sample", query: async () => [] });
+expectError(stat("Runs", 1, { freshness: { at: async () => new Date(), warnAfter: "2 hours" } }));
+
+expectType<ListWidget>(
+  banner({
+    query: async () => [
+      { text: "Scraper down", tone: "err" as const, count: 3, since: new Date() },
+    ],
+    limit: 3,
+    more: { dashboard: "/system" },
+    allClear: "Ничего не горит",
+  }),
+);
+list({ variant: "banner", query: async () => [] });
+expectError(list({ variant: "alert", query: async () => [] }));
+expectError(banner({ variant: "list", query: async () => [] }));

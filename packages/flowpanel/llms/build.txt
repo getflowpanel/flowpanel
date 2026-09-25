@@ -1,0 +1,795 @@
+# flowpanel — Build your admin
+
+## Configuration
+
+Compose a typed FlowPanel config from resources, dashboards, pages, and runtime policies.
+
+Docs: https://flowpanel.tech/docs/build/configuration
+
+`flowpanel.config.ts` is the server-side definition of the admin. Keep it declarative at the top and move individual resources, dashboards, and policies into focused modules as the admin grows.
+
+### Start with the smallest config
+
+The complete first-resource configs are compiled with the docs:
+
+    <include>../../snippets/getting-started/drizzle-config.ts</include>
+
+    <include>../../snippets/getting-started/prisma-config.ts</include>
+
+The adapter and auth are server-only. `resources`, `dashboards`, and `pages` describe what FlowPanel exposes. Features omitted from config remain unavailable.
+
+### One resource per file
+
+Large inline arrays become difficult to review. Export each resource from a normal TypeScript module and compose them in the root config:
+
+```ts excerpt
+// src/admin/resources/users.ts
+import { resource } from "@flowpanel/kit";
+import { users } from "@/server/lib/db/schema";
+
+export const usersResource = resource(users, {
+  columns: ["email", "name", "role", "createdAt"],
+  search: ["email", "name"],
+});
+```
+
+```ts excerpt
+// flowpanel.config.ts
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth,
+  resources: [usersResource, ordersResource],
+  dashboards: [overviewDashboard],
+});
+```
+
+Use the root file for composition, not a second configuration abstraction. A reader should be able to see every registered surface from its imports and arrays.
+
+### Type database contexts
+
+Augment `FlowpanelTypes` once so `ctx.db` in actions, widgets, filters, and policy callbacks is your actual client:
+
+```ts excerpt
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+```
+
+Drizzle resources infer rows from table objects. Prisma and string-named custom resources use `FlowpanelResources`; see [Type inference and registries](/docs/understand/type-inference).
+
+### Keep policies close to their boundary
+
+Admin-wide auth and tenant resolution belong at the root. Resource access, field policies, action roles, and per-resource scope belong beside the resource they protect. Hiding navigation or a button is never the security boundary—the generated handlers repeat these checks on the server.
+
+Cross-origin write protection is enabled by default. Configure `security.trustedOrigins` only when a trusted origin must submit writes; do not use it as authentication.
+
+### Reload changes
+
+The config is evaluated on the server. Restart the dev process after changing module augmentation, adapter setup, or environment-dependent initialization. Ordinary config edits are normally picked up by Next.js development reload.
+
+Next, add list behavior in [Resources](/docs/build/resources). The exhaustive generated shape is in [Configuration reference](/docs/reference/define-config).
+
+## Resources
+
+Turn a Drizzle table or Prisma model into a focused CRUD workflow.
+
+Docs: https://flowpanel.tech/docs/build/resources
+
+A resource is one managed data surface: list, create, edit, detail or drawer, actions, and optional import/export. Start with the smallest useful list, then expose capabilities deliberately.
+
+### Add a minimal resource
+
+```ts excerpt
+resource(schema.users, {
+  columns: ["email", "name", "createdAt"],
+})
+```
+
+```ts excerpt
+resource("User", {
+  name: "users",
+  columns: ["email", "name", "createdAt"],
+})
+```
+
+`columns` controls order and exposure in the list. When omitted, FlowPanel uses every scalar column returned by adapter introspection. Explicit columns are safer for production because a new database field does not automatically become visible.
+
+### Choose labels and URLs
+
+`name` is the stable registry key and URL segment. `label` names one row; `plural` names the navigation and list. Set them when automatic humanization is ambiguous, and avoid changing `name` after links or saved views depend on it.
+
+```ts excerpt
+resource(schema.people, {
+  name: "customers",
+  label: "Customer",
+  plural: "Customers",
+  columns: ["email", "company", "createdAt"],
+})
+```
+
+### Add search, filters, and sorting
+
+Search is disabled until you name allowed fields. Filters are also explicit; their values live in the URL with sorting and pagination, so a filtered list can be shared.
+
+```ts excerpt
+resource(schema.orders, {
+  columns: ["number", "customerEmail", "status", "total", "createdAt"],
+  search: ["number", "customerEmail"],
+  filters: [
+    { field: "status", type: "select", options: ["open", "paid", "cancelled"] },
+    { field: "createdAt", type: "daterange" },
+  ],
+  defaultSort: { field: "createdAt", dir: "desc" },
+})
+```
+
+Only configured search and filter fields reach the adapter. Do not treat the query string as permission to access an arbitrary column.
+
+### Add operations intentionally
+
+Use `actions` for one row and `bulkActions` for a selection. When delete is enabled and `bulkActions` is omitted, FlowPanel injects its built-in bulk delete; set `bulkActions: []` to opt out. See [Add actions](/docs/build/actions) for typed input, confirmation, authorization, and results.
+
+Create and update forms are generated from introspection when their field lists are absent. In production, explicit [form fields](/docs/build/forms) make the write surface easier to audit. Configure [import and export](/docs/build/import-export) separately.
+
+### Protect the resource
+
+`requireRole` gates the entire resource on the server. Use `access` and field policies for more specific read or write rules, and `scope` for tenant predicates. Start with [Roles and permissions](/docs/guides/permissions); use [Multi-tenant scope](/docs/guides/multi-tenant-scope) for tenant isolation.
+
+### Typos and column validation
+
+Drizzle table references provide field names directly to TypeScript. Prisma and other string-named resources become equally strict after you augment `FlowpanelResources`. FlowPanel also validates configured columns against adapter introspection during admin compilation, so a stale field fails near startup instead of rendering an empty cell.
+
+Keep that validation enabled. A custom renderer may omit `field` when it computes a cell, but ordinary columns, filters, search fields, form fields, and sort keys should always name real row properties.
+
+### Know the boundary
+
+FlowPanel CRUD targets one adapter resource at a time. Joined fields, aggregate views, and workflows spanning several resources usually belong in a renderer, action, dashboard, or custom page. Adapter introspection supplies metadata—it does not replace domain-level validation or authorization.
+
+See [Resources reference](/docs/reference/resources) for the generated option surface and defaults.
+
+## Forms
+
+Configure safe create and edit forms with typed fields, validation, defaults, and relations.
+
+Docs: https://flowpanel.tech/docs/build/forms
+
+FlowPanel can generate forms from adapter metadata. Declare the field lists when you need a predictable write surface, different create and update behavior, or controls the adapter cannot infer.
+
+### Start with explicit fields
+
+```ts excerpt
+resource(schema.users, {
+  columns: ["email", "name", "role", "createdAt"],
+  create: {
+    fields: [
+      { name: "email", type: "email", required: true },
+      { name: "name", required: true },
+      { name: "role", type: "select", options: ["member", "admin"] },
+    ],
+  },
+  update: {
+    fields: [
+      { name: "name", required: true },
+      { name: "role", type: "select", options: ["member", "admin"] },
+    ],
+  },
+})
+```
+
+The create form can collect fields that should never be editable later. Omitted fields remain outside that form; they are not silently accepted by the write route.
+
+### Choose controls
+
+Use `type` for the intended input: text, textarea, number, email, password, URL, date/time, boolean controls, select variants, JSON, Markdown, tags, reference, hidden, or color. Add `label`, `help`, and `placeholder` only when the field name and control do not explain the task.
+
+`options` accepts static strings, `{ label, value }` pairs, or a server-side function. Dynamic options receive the typed query context and are resolved per request. Leave `options` out on a field whose column uses an `enumOf` badge format, and the field lists the enum's labels.
+
+### Relation fields
+
+A reference field stores the foreign key while showing a searchable label from another registered resource:
+
+```ts excerpt
+{
+  name: "customerId",
+  label: "Customer",
+  reference: {
+    resource: "customers",
+    valueField: "id",
+    labelField: "email",
+  },
+  required: true,
+}
+```
+
+The target resource's access, tenant scope, and searchable label field apply to the lookup. Register string-named resources in `FlowpanelResources` so the names and fields are checked.
+
+### Validate on the server
+
+Adapter or resource schema validation is authoritative. A field `validate` rule runs afterward and can use a Zod schema or return a message. `required` also improves browser feedback, but a handcrafted request still passes through the same server checks.
+
+Use a server `defaultValue` for trusted values such as the current tenant or initial status. Do not render sensitive defaults into the client just to post them back.
+
+#### What a rejection says
+
+A rejected write answers with one message per field, and every message a reader can see comes from `labels.form`. A value the write needs but did not get reads as `required` — `"{label} is required"` — under the field's own `label`, or the humanized column name when the form declares no fields, so a cleared input no longer reports a type mismatch it did not cause. A value that cannot be read as its column's type reads as `invalidNumber`, `invalidBoolean` or `invalidDate` under the same label. Every other message is the one your schema or your `validate` rule wrote, passed through unchanged — including on an empty value: only the schema's own "expected a value" and "at least one character" rejections become `required`, so `z.string().min(3, "Pick a longer slug")` still says what you wrote. Translate all of them by setting `labels.form` (`RU_LABELS` already does).
+
+### Restrict fields
+
+`readOnly`, `hidden`, and `requireRole` affect rendering and writes. A submitted read-only or unauthorized field is rejected by the server rather than silently applied. Use field policies when the rule depends on the operation or session.
+
+### Understand submission
+
+Generated forms post to FlowPanel route handlers. A successful create returns to the resource list; a successful update returns to the row. Writes pass through auth, resource access, scope, field policy, validation, the adapter, then post-commit audit/realtime/revalidation.
+
+Use a custom page when the operation needs a multi-step transaction, several resources, or client state that does not fit a resource form. See [Request and mutation lifecycle](/docs/understand/request-lifecycle) and the generated [Resources reference](/docs/reference/resources).
+
+## Add actions
+
+Add row, bulk, drawer, and dashboard operations with typed input and authorization.
+
+Docs: https://flowpanel.tech/docs/build/actions
+
+An action is a server-side operation triggered from the admin. Row, bulk, drawer, and dashboard actions share the same design: stable key, visible label, optional input and confirmation, authorization, a `run` function, and a result the UI can apply.
+
+### Add a row action
+
+```ts excerpt
+import { resource, rowAction } from "@flowpanel/kit";
+
+type SuspendInput = { reason: string };
+
+const suspend = rowAction<User, SuspendInput>({
+  key: "suspend",
+  label: "Suspend",
+  variant: "destructive",
+  confirm: { title: "Suspend this user?", confirmLabel: "Suspend" },
+  requireRole: "admin",
+  form: [{ name: "reason", type: "textarea", required: true }],
+  disabled: (user) => (user.status === "suspended" ? "Already suspended" : false),
+  run: async (user, input, ctx) => {
+    await suspendUser(ctx.db, user.id, input.reason);
+    return { ok: true, message: "User suspended", refresh: true };
+  },
+});
+
+resource(schema.users, { columns: ["email", "status"], actions: [suspend] });
+```
+
+The helper ties form field names to `SuspendInput` and types the row. The handler receives your database client, session, scope, audit, publish, and revalidation utilities through `ctx`.
+
+### Choose the placement
+
+- A row action receives one resolved row.
+- A bulk action receives selected IDs. Requests above the configured hard cap are rejected, never truncated.
+- A drawer action stays beside the row detail while the list remains open.
+- A dashboard action receives input without a row and appears in the dashboard header.
+
+Keep the operation where the user has the context to understand it. Reuse a domain service inside multiple actions instead of sharing a UI-specific definition.
+
+### Authorize before input work
+
+The admin and resource gates run before the action gate; input validation runs only after authorization. `requireRole` is enforced on the POST route as well as in the rendered action list. Use `hidden` for row-specific availability and `disabled` when the operator should see why an action cannot run.
+
+### Return an actionable result
+
+Return `{ ok: true }` for success and add `message`, `redirect`, or `refresh` only when the next UI state needs them. Return `{ ok: false, error }` for an expected domain failure. Keep internal details out of user-visible messages.
+
+Thrown `FlowpanelError` values retain their mapped status; unexpected errors become a generic server response and should be captured by application logging.
+
+### Verify the operation
+
+Test the handler or route for an authorized success, an unauthorized request, invalid input, and a domain failure. For mutations, also verify the intended audit and realtime effects.
+
+See [Actions reference](/docs/reference/actions) for generated types and [Request and mutation lifecycle](/docs/understand/request-lifecycle) for execution order.
+
+## Drawers
+
+Turn a row into a focused detail view with fields, related data, widgets, and actions.
+
+Docs: https://flowpanel.tech/docs/build/drawers
+
+A drawer shows one row without losing the current list, filters, selection, or scroll position. Use it for quick inspection and compact operations; use a full detail or custom page when the workflow needs more space or navigation.
+
+### Open a drawer from the list
+
+```ts excerpt
+resource(schema.orders, {
+  columns: ["number", "customerEmail", "status", "total"],
+  rowClick: "drawer",
+  drawer: {
+    header: (order) => `Order ${order.number}`,
+    fields: ["number", "customerEmail", "status", "total", "createdAt"],
+  },
+})
+```
+
+`rowClick: "drawer"` requires a drawer config. Field labels and renderers reuse the matching column definition, so formatted values stay consistent between the list and drawer.
+
+### Organize the detail into tabs
+
+Use tabs when fields, related rows, or widgets have distinct purposes:
+
+```ts excerpt
+drawer: {
+  width: "xl",
+  header: (order) => `Order ${order.number}`,
+  tabs: [
+    { key: "summary", label: "Summary", fields: "*" },
+    {
+      key: "items",
+      label: "Items",
+      resource: "orderItems",
+      filter: (order) => ({ orderId: order.id }),
+    },
+  ],
+}
+```
+
+A related-resource tab applies the target resource's authorization and scope. It shows the first page rather than an unbounded relation; link to the full filtered resource when users need pagination or bulk work.
+
+Widget tabs are useful for compact metrics, tables, and charts derived from the open row. Their queries run on the server before a serializable payload reaches the browser. Custom React widgets do not cross this boundary; use a server-rendered detail tab or custom page instead.
+
+### Add drawer actions
+
+Drawer actions appear in the footer and receive the open row, validated form input, and action context. Apply the same rules as other [actions](/docs/build/actions): stable keys, server-side authorization, explicit confirmation for destructive work, and a clear success or failure result.
+
+### Choose width and title deliberately
+
+Use the smallest width that keeps values and controls readable. A drawer should answer a focused question; a full-width drawer containing several independent workflows is usually a sign that the row needs a detail page.
+
+See [Drawer reference](/docs/reference/drawer) for generated tab, action, width, and payload types.
+
+## Dashboards
+
+Compose metrics, tables, charts, and custom widgets into operational dashboards.
+
+Docs: https://flowpanel.tech/docs/build/dashboards
+
+A dashboard combines server-side queries into an operational view. Use it to answer a small set of related questions; use a custom page when the screen is primarily an interactive workflow rather than a grid of data.
+
+### Add a first metric
+
+```ts excerpt
+import { dashboard, metric } from "@flowpanel/kit";
+
+export const overview = dashboard({
+  path: "/",
+  label: "Overview",
+  sections: [
+    {
+      columns: 3,
+      widgets: [
+        metric("Active users", async ({ db }) => countActiveUsers(db), {
+          format: "number",
+        }),
+      ],
+    },
+  ],
+});
+```
+
+Register it in `dashboards`. The root path renders at `/admin`; another path such as `/sales` renders at `/admin/sales`.
+
+### Compose sections and layout
+
+Each section chooses a column count and contains widgets with optional spans. Group widgets by the decision they support, not by their implementation type. A short label above a section is useful when the relationship would otherwise be unclear.
+
+FlowPanel includes metric, stat, kv, bars, funnel, list, table, stat group, chart, and custom widget builders. Table widgets reuse a registered resource surface. The small cards take counts and labels and derive their own geometry. A custom widget receives a component and props for cases that remain self-contained but do not fit a built-in visualization.
+
+### Link a number to its rows
+
+Name the rows behind a number instead of spelling a path, so the link survives a
+renamed mount and carries the dashboard's period:
+
+```ts excerpt
+metric("Failed AI runs", failedRuns, {
+  drilldown: { resource: "ai_run", view: "Errors", range: "createdAt" },
+});
+```
+
+See [Links](/docs/reference/widgets#links) for every target.
+
+### Widgets in detail tabs
+
+The same widgets render inside a detail tab. Give a `DetailTab` a `widgets` array instead of `fields`, and the tab draws them in the dashboard's grid; `columns` sets the grid width and defaults to 2.
+
+```ts excerpt
+detail: {
+  tabs: [
+    {
+      key: "activity",
+      label: "Activity",
+      columns: 2,
+      widgets: [
+        stat("Orders", async (ctx) => countOrders(ctx.db, ctx.row?.id)),
+        bars({ label: "Spend by month", query: (ctx) => spendByMonth(ctx.db, ctx.row?.id) }),
+      ],
+    },
+  ],
+}
+```
+
+The one difference is `ctx.row`: on a detail tab it is the projected record being viewed, so a widget query scopes itself to that row. Everything else is the widget context a dashboard hands out — `db`, `session`, `href`, `labels` and the per-request `query` memo, so two widgets in the tab asking the same question query once. A detail tab has no date picker, so `ctx.dateRange` spans the record's whole lifetime.
+
+### Add a date range
+
+Configure a dashboard date range when several queries should use the same interval. The resolved range arrives in each widget context. Treat it as a query input, not as authorization; tenant and role constraints still belong in their own policies.
+
+To narrow the whole page to one marketplace or source as well, declare dashboard
+filters; see [Filter the whole dashboard](/docs/build/analytics#filter-the-whole-dashboard).
+
+### Compare with the previous period
+
+Give a metric `compare: true` and it runs its own query for the period before the
+picked one — yesterday up to now for Today, the same days of last month for Month to
+date — then shows the change, the value it compares against, and no colour for a
+change inside ±1 %. `compare: { against: "weekAgo" }` compares with the same range a
+week earlier. The query needs no second SQL statement and no `*Prev` field.
+
+`bars()` takes the same `compare`: each row shows its change against the same row in
+the earlier period, matched by `key` or `label`. See
+[Analytics from one query](/docs/build/analytics#compare-bars-with-the-previous-period).
+
+### Keep the numbers fresh
+
+Set `refresh` to `"60s"` or `"5m"` when the dashboard is something an operator leaves open. FlowPanel re-renders the page on that interval, pauses while the browser tab is hidden, and shows how old the numbers are next to the date picker. Prefer it to per-widget `realtime` when the whole screen ages together; prefer `realtime` when one widget changes and the rest should stay put.
+
+### Add actions
+
+Dashboard actions appear in the page header and receive typed form input plus action context. Use them for operations that affect the dashboard domain rather than one visible row. See [Add actions](/docs/build/actions).
+
+### Keep queries server-only
+
+Widget functions run on the server with the configured database client, session, scope, and resolved date range. Return only the value or rows the widget needs. Do not pass database clients, sessions, or arbitrary server objects into custom client components.
+
+### Handle failure as part of the view
+
+Plan empty, loading, and error states for every custom widget. Keep expensive independent queries independent so one failure does not erase unrelated operational context. Add realtime only to widgets where a refresh changes a user decision; polling every metric through live events creates noise without improving the workflow.
+
+See [Widgets and dashboards reference](/docs/reference/widgets) for generated builders and option types, and [Charts](/docs/customization/charts) for presentation guidance.
+
+## Build a record page
+
+Give a record a header, a strip of numbers, a side column and tabs for related rows, activity and milestones.
+
+Docs: https://flowpanel.tech/docs/build/detail-cards
+
+A record page answers "who is this and what have they done" in one screen. This guide builds a
+customer page; every piece is optional.
+
+### Keep the card in its own file
+
+```ts excerpt
+import { type DetailOptions, type RowOf } from "@flowpanel/kit";
+
+export const customerCard = {
+  title: (c) => c.company ?? c.email,
+} satisfies DetailOptions<RowOf<"customers">>;
+```
+
+`DetailOptions<Row>` types every callback by the row, and the resource takes it as
+`detail: customerCard`.
+
+### Say who it is in the header
+
+`title`, `subtitle` and `badge` receive the row and a second argument with the admin's
+formatters and a link builder, so no header needs its own date or plural helper:
+
+```ts excerpt
+subtitle: (c, { format }) => `Customer since ${format.date(c.createdAt)}`,
+badge: (c) => [
+  AccountStatus.badge(c.status, { href: { resource: "customers", filter: { status: c.status } } }),
+  Plan.badge(c.plan),
+  c.deletedAt ? { label: "Deleted", tone: "err" } : null,
+],
+```
+
+A nullish badge is dropped, and `href` makes a badge a link to the list it belongs to.
+
+### Pick the period
+
+`dateRange` puts a picker in the header. Its range, and the period before it, reach `stats`,
+`aside` and every widget tab. Related rows, the timeline and the heatmap keep their own span —
+related tabs list every row, the timeline pages through the whole history, and the heatmap
+shows its last 13 weeks — because a record's history does not stop at the picked month.
+Without `dateRange` the page shows the whole history and no picker.
+
+### Put the key numbers under the header
+
+```ts excerpt
+export const paidInvoices = metric(
+  "Paid invoices",
+  { count: "invoices", where: { status: "paid" }, range: "paidAt" },
+  { compare: true },
+);
+
+stats: [metric("Monitors", { count: "monitors" }), paidInvoices],
+```
+
+`stats` renders as one hairline strip on every tab. On a record page `{ count }` also filters
+to rows that point at this record, through the target's `reference`, and the number links to
+exactly those rows for the same period. `range` names a `daterange` filter of the counted
+resource, as on a dashboard.
+
+### Keep the facts beside the tabs
+
+```ts excerpt
+aside: [
+  kv({
+    label: "Account",
+    columns: 1,
+    items: [
+      { label: "Email", field: "email" },
+      { label: "Last seen", field: "lastSeenAt", format: "relative" },
+    ],
+  }),
+  checklist({ label: "Profile", items: async (c) => filled(c.rowOf("customers"), { name: "Name", company: "Company" }) }),
+],
+```
+
+A `kv` item with `field` reads the viewed row; pass `record: (c) => …` to read another row, such
+as a profile table, once for every item. `filled(row, labels)` turns labelled fields into
+checklist items that are done when they hold a value. On narrow screens the side column moves
+below the tabs.
+
+### List related rows
+
+```ts excerpt
+tabs: [
+  related("monitors", { count: true }),
+  related("invoices", { count: true, pageSize: 10, sort: { field: "createdAt", dir: "desc" } }),
+],
+```
+
+`related` finds the filter from the one column of the target whose `reference` points at this
+resource, and hides that column. When there are none or several, `defineAdmin` says which and
+asks for `by`. `count: true` shows the number in the tab label. `widgets` render above the rows —
+a funnel over the related rows, for example.
+
+### Show what happened
+
+```ts excerpt
+timeline({
+  kinds: Activity,
+  sources: [
+    timeline.source("monitors", { kind: "monitor", at: "createdAt", title: (m) => m.name }),
+    timeline.source("customer_events", { kind: { field: "kind" }, at: "at" }),
+  ],
+});
+```
+
+Each source reads one resource, filtered to this record and AND-ed with its own `where`, so a
+source can narrow but never widen. `kind: { field }` reads the kind from an event-log column;
+the chips then filter in the query. Events merge in time order, group by day in the admin's
+zone and page with "Older".
+
+### Show how often and how far
+
+`heatmap({ source: { resource: "user_visit", at: "startedAt" } })` shows activity per day over
+13 weeks. `checklist({ ordered: true, items })` shows milestones with their dates and the gap
+between each; `layout: "steps"` lays them out in a row.
+
+### A page over a SQL view
+
+A resource can read a view that computes per-record numbers — lifecycle, last seen, counts — so
+the list can sort and filter by them. Set `writeTo` to the table edits go to. Every column a form
+writes must also be selected by the view, because form fields are typed against the view's row.
+
+### Test the card
+
+```ts excerpt
+import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
+import admin from "@/src/admin/config";
+import { paidInvoices } from "@/src/admin/config/resources/customer-card";
+
+const ctx = widgetContext({ admin, resource: "customers", row: customer, rows: { invoices } });
+const { props } = await resolveWidget(paidInvoices, ctx);
+expect(props.value).toBe(2);
+```
+
+Pass `admin` here: the count finds its "points at this customer" filter through the `reference`
+your `invoices` resource declares, and only the admin knows it. Give the metric a name of its
+own, as `paidInvoices` has, rather than reaching into `customerCard.stats`. See
+[Testing](/docs/reference/testing#unit-test-a-widget), and
+[Run it in Vitest](/docs/reference/testing#run-it-in-vitest) for the one line of Vitest config the
+entry needs.
+
+## Analytics from one query
+
+Turn one SQL statement per screen area into strips, bars, charts, trackers and banners, in the admin's zone.
+
+Docs: https://flowpanel.tech/docs/build/analytics
+
+A founder dashboard answers a few questions a day: is it healthy, what changed, and what
+needs attention. Write one SQL statement per screen area that returns plain rows, and let
+FlowPanel bucket, pivot, rank and compare them. The reference for every helper is under
+[Series helpers](/docs/reference/widgets#series-helpers).
+
+### From one query to a dashboard
+
+1. Select raw rows for the picked range, with a timestamp and the fields you group by.
+   Bind `ctx.dateRange.from` and `to` as parameters; do no zone math in SQL.
+2. Share the statement between widgets with `ctx.query(fn, ctx)`, so the page runs it once.
+3. Fold it per card: `series()` for a chart over time, `breakdown()` for ranked bars.
+
+```ts excerpt
+import { barChart } from "@flowpanel/kit/charts";
+import { bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
+
+type HourRow = { at: Date; platform: string; runs: number; failed: number; orders: number };
+
+const hourly = (c: WidgetContext) => c.sql<HourRow>`
+  select hour as at, platform, runs_total as runs, runs_failed as failed, orders_new as orders
+  from scraper_hourly_stats where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
+
+const byPlatform = bars({
+  label: "New orders by marketplace",
+  share: true,
+  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", labels: Platform }),
+});
+
+const byDay = barChart(
+  "New orders by day",
+  async (c) => series(await c.query(hourly, c), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
+  { x: "date", labels: Platform, stacked: true },
+);
+```
+
+Leave the chart's `y` out: it plots every column `series({ by })` returned, and `labels`
+names them in the legend. A ratio is a function of a bucket's rows, such as
+`(rows) => sum(rows, "failed") / sum(rows, "runs")`; return `null` for a bucket with no
+rows so the chart shows a gap instead of a zero. Above about 50,000 rows, group by hour
+in SQL first.
+
+### Compare bars with the previous period
+
+Give the bars `compare: true`, or `compare: { against: "weekAgo" }` for "the same
+weekday last week". FlowPanel runs the same query for the compared period in a context
+of its own, joins the rows by `key` (which `breakdown()` fills) and shows each row's
+change. Pass `keys` to `breakdown()` so a marketplace with no orders today still
+compares against yesterday's number instead of disappearing.
+
+```ts excerpt
+bars({
+  label: "New orders by marketplace",
+  share: true,
+  compare: { against: "weekAgo" },
+  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", keys: PLATFORMS }),
+});
+```
+
+### Colour numbers by a threshold
+
+Declare each threshold once, next to the product rule it encodes, and pass it wherever the
+number shows: a strip metric, a bar, a tracker block or a table column. Give `min` so an
+hour with three runs does not turn red on one failure, and return the observations as
+`volume` from a metric's query.
+
+```ts excerpt
+import type { Threshold } from "@flowpanel/kit";
+
+export const RUN_ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
+export const SUCCESS: Threshold = { warn: 0.9, err: 0.8, goodWhen: "up" };
+```
+
+### Say how old and how complete the numbers are
+
+A number is only honest with its context. Give `maxRange` to anything over a table the
+app trims, `freshness` to anything read from a rollup a job writes, and `coverage` to a
+number that only covers some users. The card shows the one caption that matters most:
+a cut range, then the data's age, then its coverage.
+
+```ts excerpt
+const lastRollupHour = async (c: WidgetContext) =>
+  (await c.sql<{ at: Date | null }>`select max(hour) as at from scraper_hourly_stats`)[0]?.at ?? null;
+
+metric("Bans", bans, { maxRange: "1d", compare: true });
+metric("New orders", newOrders, { freshness: { at: lastRollupHour, warnAfter: "2h" } });
+```
+
+### Show status over time
+
+A `tracker()` answers "is it healthy right now" per key: 24 hourly blocks per
+marketplace, each coloured by a `Threshold`, folded from the same rows a chart reads. It
+ignores the date picker; its window always ends now, and the row's dot is the worst of
+its last three hours.
+
+```ts excerpt
+const errorRate = (rows: HourRow[]) => {
+  const runs = rows.reduce((sum, row) => sum + row.runs, 0);
+  return runs === 0 ? null : rows.reduce((sum, row) => sum + row.failed, 0) / runs;
+};
+
+tracker({
+  label: "Marketplaces · 24 h",
+  query: hourly,
+  at: "at",
+  by: "platform",
+  labels: Platform,
+  value: errorRate,
+  volume: "runs",
+  tones: RUN_ERRORS,
+  format: "percent",
+  span: 12,
+});
+```
+
+### Show what needs attention
+
+Open the landing dashboard with a `banner()`: the host query returns one `ListRow` per
+problem with a tone, a `count` and a `since`, and FlowPanel orders them by severity and
+impact, shows the first few, and folds the rest into one "N more" line. With nothing
+wrong, it says so.
+
+```ts excerpt
+banner({
+  query: priorities,
+  limit: 3,
+  more: { dashboard: "/system" },
+  allClear: "Nothing on fire",
+});
+```
+
+### Filter the whole dashboard
+
+Declare a filter once and every widget can read it as `ctx.filters`. Bind it in the
+shared statement, give the per-key widgets `filter`, and one dashboard replaces a list
+link per marketplace: clicking a bar, a tracker row or a table row narrows the whole
+page, keeping the range, and the comparison reads the same slice.
+
+```ts excerpt
+import type { DashboardFilter } from "@flowpanel/kit";
+
+const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
+```
+
+Pass `filters: [byPlatform]` to the dashboard, and `filter: "platform"` to the bars, the
+tracker and the table.
+
+## Import and export
+
+Add bounded CSV or JSON transfer to a resource without bypassing its policies.
+
+Docs: https://flowpanel.tech/docs/build/import-export
+
+Import and export are resource capabilities. Enable them only for fields users are expected to move outside the admin, and treat imported files as untrusted input.
+
+### Export visible data
+
+```ts excerpt
+resource(schema.users, {
+  columns: ["email", "name", "role", "createdAt"],
+  export: {
+    formats: ["csv", "json"],
+    fields: ["email", "name", "role", "createdAt"],
+  },
+})
+```
+
+The export action uses the resource's authorized list surface and the configured field allowlist. Keep secrets and internal fields out even when they exist on the row type. Export is for the current supported result boundary, not an unbounded database dump.
+
+### Import through the normal write path
+
+```ts excerpt
+resource(schema.users, {
+  columns: ["email", "name", "role"],
+  import: {
+    formats: ["csv", "json"],
+    fields: ["email", "name", "role"],
+  },
+})
+```
+
+Every row goes through create validation, field access, scope, adapter execution, audit, and realtime publication. Read-only or role-restricted fields cannot be smuggled in by a crafted file.
+
+Match CSV headers or JSON keys to configured field names. Prefer stable machine values for select fields and document date/number formats for operators preparing files outside the app.
+
+### Operate it safely
+
+FlowPanel enforces request and row caps and reports rejected rows rather than silently truncating the file. For large migrations, use a dedicated background job with resumability, idempotency, and progress reporting instead of an admin upload.
+
+Before enabling import in production, test a valid file, duplicate data, a missing required field, an unauthorized field, malformed CSV or JSON, and a file above the cap. Confirm whether your domain operation is atomic per row or requires an application-level transaction.
+
+See [Resources reference](/docs/reference/resources) for exact option types and [Roles and permissions](/docs/guides/permissions) for the write boundaries.

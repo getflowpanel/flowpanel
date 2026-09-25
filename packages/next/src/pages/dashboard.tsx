@@ -10,6 +10,7 @@ import { resolveFormatting } from "@flowpanel/core";
 import {
   DashboardActionsBar,
   DashboardDateRange,
+  DashboardFilters,
   WidgetErrorBoundary,
 } from "@flowpanel/next/client";
 import {
@@ -22,7 +23,9 @@ import {
 import { Suspense } from "react";
 import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action";
 import { filterActionsByAccess } from "../runtime/action-helpers";
+import { activeFilters, filterChoices } from "../runtime/dashboard-filters";
 import { DATE_RANGE_PRESETS, type DateRangeInput, resolveDateRange } from "../runtime/date-range";
+import { realtimeChannels } from "../runtime/realtime-channels";
 import { renderWidget } from "../runtime/render-widget";
 import { buildWidgetContext } from "../runtime/widget-context";
 import {
@@ -99,7 +102,18 @@ export async function DashboardPage({
   const dateRangeInput = resolveDashboardDateRangeInput(dashboard.dateRange, searchParams);
   const dateRange = resolveDateRange(dateRangeInput, resolveFormatting(config.formatting).timeZone);
   const shownPreset = dateRange.preset === "custom" ? undefined : dateRange.preset;
-  const ctx: WidgetContext = buildWidgetContext(config, reqCtx, req, dateRange);
+  const filters = activeFilters(dashboard, searchParams);
+  const ctx: WidgetContext = buildWidgetContext(
+    config,
+    reqCtx,
+    req,
+    dateRange,
+    undefined,
+    undefined,
+    undefined,
+    filters,
+  );
+  const choices = await filterChoices(dashboard, ctx);
   const widgets = dashboard.sections.reduce((total, section) => total + section.widgets.length, 0);
   const timer = pageTimer(dashboard.path, widgets);
   const refreshMs = dashboardRefreshMs(dashboard.refresh);
@@ -111,13 +125,16 @@ export async function DashboardPage({
 
   return (
     <div className="space-y-5">
-      {dashboard.realtime ? <RealtimeRefresh channels={dashboard.realtime} /> : null}
+      {dashboard.realtime ? (
+        <RealtimeRefresh channels={realtimeChannels(dashboard.realtime)} />
+      ) : null}
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h1 className="text-xl font-semibold text-fp-text-1">{dashboard.label}</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {shouldRenderActionsBar(actions.length, dashboard.hideActionsBar) ? (
             <DashboardActionsBar encodedPath={encodedPath} actions={actions} />
           ) : null}
+          {choices.length > 0 ? <DashboardFilters filters={choices} /> : null}
           <DashboardDateRange
             {...(shownPreset
               ? { preset: shownPreset }

@@ -11,6 +11,7 @@ import type { IconName } from "./icon";
 import type { FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec } from "./registry";
 import type { Scope, Session } from "./session";
+import type { Threshold } from "./threshold";
 import type { Where } from "./where";
 import type { Tone } from "./widget";
 
@@ -45,6 +46,11 @@ export type ColumnFormat =
     }
   | { kind: "money"; currency?: string; scale?: number }
   | {
+      kind: "number";
+      /** Colour the cell by value. */
+      tones?: Threshold;
+    }
+  | {
       kind: "date";
       /** Show the clock as well as the day. */
       time?: boolean;
@@ -57,6 +63,8 @@ export type ColumnFormat =
       digits?: number;
       /** Shade the cell by its value from 0 to 1, as a retention grid does. */
       heat?: boolean;
+      /** Colour the cell by value, compared with the stored number. */
+      tones?: Threshold;
     }
   | {
       kind: "duration";
@@ -64,6 +72,8 @@ export type ColumnFormat =
        * @defaultValue "ms"
        */
       unit?: "ms" | "s";
+      /** Colour the cell by value, compared with the stored number. */
+      tones?: Threshold;
     }
   | {
       kind: "boolean";
@@ -83,6 +93,12 @@ export type ColumnFormat =
 export interface ColumnDef<Row> {
   /** Row property this column reads. Omit only when `render` supplies the cell. */
   field?: keyof Row & string;
+  /**
+   * Another field of the row, shown as a muted second line under the cell — the email under
+   * a name. It is loaded with the row; sort and search still use `field`. Ignored on a
+   * `reference` column.
+   */
+  secondary?: keyof Row & string;
   /** Header text. Defaults to a humanized `field`. */
   label?: string;
   /** Custom cell renderer. Runs on the server; receives the request context. */

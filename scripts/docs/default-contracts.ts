@@ -141,4 +141,25 @@ export const DEFAULT_DOC_CONTRACTS = [
     consumerFile: "packages/next/src/runtime/widget-reads.ts",
     consumerExpression: "export const READ_LIMIT = 100;",
   },
+  {
+    typeName: "Threshold",
+    member: "goodWhen",
+    value: '"down"',
+    consumerFile: "packages/core/src/tone-for.ts",
+    consumerExpression: 'if (t.goodWhen === "up")',
+  },
+  {
+    typeName: "TrackerOptions",
+    member: "window",
+    value: '"24h"',
+    consumerFile: "packages/next/src/runtime/tracker-rows.ts",
+    consumerExpression: 'amount * (match[2] === "d" ? 24 : 1) : 24',
+  },
+  {
+    typeName: "ListOptions",
+    member: "variant",
+    value: '"list"',
+    consumerFile: "packages/next/src/runtime/list-rows.ts",
+    consumerExpression: 'options.variant === "banner"',
+  },
 ] as const satisfies readonly DefaultDocContract[];

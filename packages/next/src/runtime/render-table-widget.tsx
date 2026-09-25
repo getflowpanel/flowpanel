@@ -9,14 +9,18 @@ import type {
 } from "@flowpanel/core";
 import { TableWidget as TableWidgetRenderer } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { filterHref } from "./dashboard-filters";
 import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
+import { filteredEmptyState } from "./filtered-empty";
 import { buildHref } from "./href";
 import { type PrerenderedColumn, prerenderResourceCells } from "./prerender-cells";
+import { realtimeProp } from "./realtime-channels";
 import { withReferenceCells } from "./reference-cells";
 import { readRelatedRows } from "./require-authorized";
 import { resolveLink } from "./resolve-link";
 import { rowIdentity } from "./row-identity";
 import { tableFilters } from "./table-filters";
+import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
 
 type WidgetRow = Record<string, unknown>;
 type ColumnSpec = string | WidgetColumn;
@@ -89,6 +93,7 @@ export async function renderTableWidget(
   ctx: WidgetContext,
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
+  caption: CaptionPromise = NO_CAPTION,
 ): Promise<ReactNode> {
   const options = widget.options;
   const specs = options.columns as ColumnSpec[] | undefined;
@@ -147,15 +152,22 @@ export async function renderTableWidget(
   }
   columns = applySpecs(columns, specs);
 
+  const filter = options.filter;
   const rowHref = options.rowHref;
-  const hrefs = rowHref
-    ? rows.map((row) =>
-        rowIdentity(row, rowKey) === null
-          ? null
-          : (resolveLink(config, ctx, rowHref(row, ctx)) ?? null),
-      )
-    : undefined;
+  const hrefs = filter
+    ? rows.map((row) => {
+        const id = rowIdentity(row, rowKey);
+        return id === null ? null : filterHref(ctx, filter, id);
+      })
+    : rowHref
+      ? rows.map((row) =>
+          rowIdentity(row, rowKey) === null
+            ? null
+            : (resolveLink(config, ctx, rowHref(row, ctx)) ?? null),
+        )
+      : undefined;
   const seeAll = seeAllHref(config, options, ctx);
+  const captionLine = await caption;
 
   return (
     <TableWidgetRenderer
@@ -164,10 +176,11 @@ export async function renderTableWidget(
       columns={columns}
       rowKey={rowKey}
       {...(prerenderedCells ? { prerenderedCells } : {})}
-      {...(options.realtime ? { realtime: options.realtime } : {})}
-      emptyState={options.emptyState ?? ctx.labels.widget.empty}
+      {...realtimeProp(options.realtime)}
+      emptyState={filteredEmptyState(ctx) ?? options.emptyState ?? ctx.labels.widget.empty}
       {...(hrefs ? { hrefs } : {})}
       {...(seeAll ? { seeAllHref: seeAll, seeAllLabel: ctx.labels.widget.seeAll } : {})}
+      {...(captionLine ? { caption: captionLine } : {})}
     />
   );
 }

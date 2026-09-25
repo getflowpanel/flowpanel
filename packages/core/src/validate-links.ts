@@ -1,7 +1,7 @@
 import { normalizeRoutePath } from "./compiler/route-graph";
 import { filterShapeProblem } from "./internal/filter-shape";
 import { declaredListFields } from "./internal/list-fields";
-import { didYouMean } from "./suggest";
+import { checkColumn, missing } from "./internal/validate-shared";
 import type { DashboardConfig } from "./types/dashboard";
 import type { MetricCountSource } from "./types/metric-count";
 import type { ResourceConfig } from "./types/resource";
@@ -14,6 +14,8 @@ export interface LinkCheck {
   columnsOf: (resource: string) => readonly string[];
   /** Every dashboard and page path, normalised. */
   paths: ReadonlySet<string>;
+  /** Every dashboard's declared filter keys, by normalised path. */
+  dashboardFilters: ReadonlyMap<string, readonly string[]>;
 }
 
 interface StaticLink {
@@ -23,29 +25,7 @@ interface StaticLink {
   tab?: unknown;
   filter?: unknown;
   range?: unknown;
-}
-
-const quoted = (names: readonly string[]): string =>
-  names.map((name) => `"${name}"`).join(", ") || "(none)";
-
-function missing(
-  site: string,
-  kind: string,
-  name: string,
-  known: readonly string[],
-  on?: string,
-): never {
-  throw new Error(
-    `flowpanel: ${site} names ${kind} "${name}"${on ? ` on "${on}"` : ""}, which does not exist.` +
-      `${didYouMean(name, known)} Known: ${quoted(known)}.`,
-  );
-}
-
-function checkColumn(site: string, resource: string, field: string, check: LinkCheck): boolean {
-  const columns = check.columnsOf(resource);
-  if (columns.length === 0) return false;
-  if (!columns.includes(field)) missing(site, "column", field, columns, resource);
-  return true;
+  filters?: unknown;
 }
 
 function checkListField(site: string, resource: string, field: string, check: LinkCheck): void {
@@ -91,6 +71,14 @@ function checkTarget(site: string, target: unknown, check: LinkCheck): void {
   if (typeof link.dashboard === "string") {
     if (!check.paths.has(normalizeRoutePath(link.dashboard))) {
       missing(site, "dashboard", link.dashboard, [...check.paths]);
+    }
+    if (typeof link.filters === "object" && link.filters !== null) {
+      const declared = check.dashboardFilters.get(normalizeRoutePath(link.dashboard)) ?? [];
+      for (const key of Object.keys(link.filters)) {
+        if (!declared.includes(key)) {
+          missing(`${site}.filters`, "dashboard filter", key, declared, link.dashboard);
+        }
+      }
     }
     return;
   }
@@ -154,11 +142,13 @@ function checkWidgets(site: string, widgets: readonly WidgetConfig[], check: Lin
       drilldown?: unknown;
       href?: unknown;
       seeAll?: unknown;
+      more?: unknown;
       items?: unknown;
     };
     checkTarget(`${at}.options.drilldown`, options.drilldown, check);
     checkTarget(`${at}.options.href`, options.href, check);
     checkTarget(`${at}.options.seeAll`, options.seeAll, check);
+    checkTarget(`${at}.options.more`, options.more, check);
     if (Array.isArray(options.items)) {
       options.items.forEach((item, i) => {
         const href = (item as { href?: unknown } | null)?.href;

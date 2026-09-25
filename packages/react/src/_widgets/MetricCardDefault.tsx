@@ -1,4 +1,4 @@
-import type { MetricDelta } from "@flowpanel/core";
+import type { MetricDelta, WidgetCaption } from "@flowpanel/core";
 import type { ResolvedFormatting } from "@flowpanel/core/format";
 import { DEFAULT_LABELS, formatLabel } from "@flowpanel/core/labels";
 import type * as React from "react";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
+import { CaptionLine } from "./CaptionLine";
 import { type DeltaMood, deltaPrint, describeDelta } from "./delta";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
@@ -30,6 +31,8 @@ export interface MetricCardProps {
   previousLabel?: string;
   /** How a rate's change in points reads, `{value}` filled — injected by `MetricCard`. */
   pointsLabel?: string;
+  /** The line under the label: a cut range, freshness or coverage. */
+  caption?: WidgetCaption;
 }
 
 const MOOD_PILL: Record<DeltaMood, string> = {
@@ -97,13 +100,17 @@ export function DefaultMetricCard(props: MetricCardProps) {
     formatting,
     previousLabel,
     pointsLabel,
+    caption,
   } = props;
   const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
   const body = (
     <>
       <CardHeader className="flex items-center justify-between pb-1">
-        <span className="truncate text-sm text-fp-text-2" {...fullTextTitle(label)}>
-          {label}
+        <span className="min-w-0">
+          <span className="block truncate text-sm text-fp-text-2" {...fullTextTitle(label)}>
+            {label}
+          </span>
+          <CaptionLine caption={caption} />
         </span>
         {icon ? (
           <span className="text-fp-text-3" aria-hidden>

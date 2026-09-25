@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error Build tooling is executed as JavaScript and deliberately has no public types.
-import { isolateCss } from "../../scripts/build-styles.mjs";
+import { isolateCss, tailwindBridge } from "../../scripts/build-styles.mjs";
 
 describe("precompiled admin stylesheet isolation", () => {
   it("qualifies the styled subject of complex selectors, including portal roots and pseudo-elements", () => {
@@ -67,5 +70,36 @@ describe("precompiled admin stylesheet isolation", () => {
   it("leaves harmless empty at-rules alone and rejects global selectors", () => {
     expect(() => isolateCss("@media screen {}")).not.toThrow();
     expect(() => isolateCss(":root { --spacing: 1rem }")).toThrow("unsafe global selector");
+  });
+});
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const CANONICAL = readFileSync(resolve(HERE, "../../../react/src/styles/admin.css"), "utf8");
+const BUILD_SCRIPT = readFileSync(resolve(HERE, "../../scripts/build-styles.mjs"), "utf8");
+const KIT_PACKAGE = JSON.parse(readFileSync(resolve(HERE, "../../package.json"), "utf8")) as {
+  exports: Record<string, unknown>;
+};
+
+describe("Tailwind v4 token bridge", () => {
+  const bridge: string = tailwindBridge(CANONICAL);
+
+  it("is exactly one inline @theme block", () => {
+    expect(bridge.startsWith("@theme inline {")).toBe(true);
+    expect(bridge.match(/@theme/g)).toHaveLength(1);
+  });
+
+  it("maps every colour token the precompiled stylesheet knows", () => {
+    const colours = [...BUILD_SCRIPT.matchAll(/fpColor\("([\w-]+)"\)/g)].map(([, name]) => name);
+    expect(colours.length).toBeGreaterThan(20);
+    for (const name of colours) expect(bridge).toContain(`hsl(var(--fp-${name}))`);
+  });
+
+  it("maps radius and shadow tokens", () => {
+    expect(bridge).toContain("--radius-fp: var(--fp-radius);");
+    expect(bridge).toContain("--shadow-fp-sm: var(--fp-shadow-sm);");
+  });
+
+  it("is published as @flowpanel/kit/styles/tailwind.css", () => {
+    expect(KIT_PACKAGE.exports["./styles/tailwind.css"]).toBe("./dist/styles/tailwind.css");
   });
 });

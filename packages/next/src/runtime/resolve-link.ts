@@ -14,10 +14,19 @@ import { buildHref, buildPath } from "./href";
 export type LinkedRow<T> = Omit<T, "href"> & { href?: string };
 
 const warned = new Set<string>();
+const frameworkHrefs = new Set<string>();
+
+/** Mark an href the framework itself built (e.g. a drawer/detail row link) so it never
+ * triggers the "spells the admin's mount path" warning meant for a host's own literal string. */
+export function frameworkHref(href: string): string {
+  if (process.env.NODE_ENV !== "production") frameworkHrefs.add(href);
+  return href;
+}
 
 function warnMountLiteral(config: ResolvedAdminConfig, href: string): void {
   const base = config.basePath;
   if (process.env.NODE_ENV === "production" || !base || base === "/" || warned.has(href)) return;
+  if (frameworkHrefs.has(href)) return;
   if (href !== base && !href.startsWith(`${base}/`) && !href.startsWith(`${base}?`)) return;
   warned.add(href);
   console.warn(
@@ -121,7 +130,18 @@ function dashboardHref(
     );
   }
   const base = path === "/" ? buildHref(config) : buildPath(config, path);
-  return withQuery(base, target.range === false ? new URLSearchParams() : rangeParams(ctx));
+  const params = target.range === false ? new URLSearchParams() : rangeParams(ctx);
+  const declared = (config.dashboardsByPath.get(path)?.filters ?? []).map((filter) => filter.key);
+  for (const [key, value] of Object.entries(target.filters ?? {})) {
+    if (!declared.includes(key)) {
+      throw new Error(
+        `flowpanel: link to dashboard "${target.dashboard}" sets the filter "${key}", which it does ` +
+          `not declare.${didYouMean(key, declared)} Declared: ${declared.join(", ") || "none"}.`,
+      );
+    }
+    params.set(`f_${key}`, value);
+  }
+  return withQuery(base, params);
 }
 
 /**

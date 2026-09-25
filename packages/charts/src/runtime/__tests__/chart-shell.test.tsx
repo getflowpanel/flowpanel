@@ -9,6 +9,7 @@ vi.mock("@flowpanel/react", () => ({
   formatNumber: (v: number) => String(v),
   Card: ({ children }: { children?: unknown }) => children,
   CardHeader: ({ children }: { children?: unknown }) => children,
+  CaptionLine: () => null,
 }));
 
 import { ChartEmptyState } from "../ChartEmptyState";

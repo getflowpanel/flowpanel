@@ -5,7 +5,7 @@ import type {
   WidgetConfig,
 } from "@flowpanel/core";
 import { list, metric, stat } from "@flowpanel/core";
-import { ListCard, MetricCard } from "@flowpanel/react";
+import { ExpiredCard, MetricCard } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { serializeWidget } from "../drawer/serialize-widget";
@@ -140,29 +140,62 @@ describe("a past range under a cap", () => {
     ).toMatchObject({ expired: false });
   });
 
-  it("runs no query when expired and shows the empty state, on a dashboard and in a drawer", async () => {
+  it("runs no query when expired and says why, on a dashboard and in a drawer", async () => {
     const past = onRange("2026-07-01T00:00:00Z", "2026-08-10T00:00:00Z");
     const count = vi.fn(async () => 5);
     const orders = stat("Orders", count, { maxRange: "30d" });
     const tree = (await renderWidget(orders, past, config, reqCtx)) as ReactElement<
       Record<string, unknown>
     >;
-    expect(tree.type).toBe(ListCard);
-    expect(tree.props).toEqual({ label: "Orders", rows: [], emptyState: "No data yet" });
+    expect(tree.type).toBe(ExpiredCard);
+    expect(tree.props).toEqual({ label: "Orders", caption: { text: "No data: kept for 30 days" } });
     expect(await serializeWidget(orders, config, reqCtx, past)).toEqual({
       kind: "list",
       label: "Orders",
       rows: [],
-      emptyState: "No data yet",
+      emptyState: "No data: kept for 30 days",
     });
     const rows = vi.fn(async () => []);
     const scores = list({ label: "Scores", query: rows, maxRange: "30d", emptyState: "Gone" });
     const scoresTree = (await renderWidget(scores, past, config, reqCtx)) as ReactElement<
       Record<string, unknown>
     >;
-    expect(scoresTree.props).toEqual({ label: "Scores", rows: [], emptyState: "Gone" });
+    expect(scoresTree.props).toEqual({
+      label: "Scores",
+      caption: { text: "No data: kept for 30 days" },
+    });
     expect(count).not.toHaveBeenCalled();
     expect(rows).not.toHaveBeenCalled();
+  });
+});
+
+describe("where a capped range was cut", () => {
+  const onRange = (from: string, to: string) =>
+    buildWidgetContext(config, reqCtx, reqCtx.req, {
+      from: new Date(from),
+      to: new Date(to),
+      preset: "custom",
+    });
+
+  it("reports the retention horizon a past range was cut at", () => {
+    const kept = retainedRange(
+      capped("30d"),
+      onRange("2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z"),
+    );
+    expect(kept.expired).toBe(false);
+    if (kept.expired) return;
+    expect(kept.keptSince).toEqual(new Date("2026-08-22T00:00:00Z"));
+    expect(kept.ctx.dateRange.from).toEqual(new Date("2026-08-22T00:00:00Z"));
+  });
+
+  it("reports nothing when the range fits, or when there is no cap", () => {
+    const onWeek = buildWidgetContext(config, reqCtx, reqCtx.req, week);
+    expect(retainedRange(capped("30d"), onWeek)).toMatchObject({ expired: false, keptSince: null });
+    expect(retainedRange(capped(), onWeek)).toEqual({
+      expired: false,
+      ctx: onWeek,
+      keptSince: null,
+    });
   });
 });
 

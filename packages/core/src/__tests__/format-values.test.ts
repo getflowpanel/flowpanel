@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { formatColumnValue } from "../format-column";
 import {
+  cellTone,
   columnFormatKind,
   formatBooleanValue,
   formatDurationCompact,
@@ -181,5 +183,26 @@ describe("column format helpers", () => {
     expect([true, "true", 1].map(toBooleanValue)).toEqual([true, true, true]);
     expect([false, "false", 0].map(toBooleanValue)).toEqual([false, false, false]);
     expect([2, "yes", null, undefined].map(toBooleanValue)).toEqual([null, null, null, null]);
+  });
+});
+
+describe("cellTone", () => {
+  const tones = { warn: 0.3, err: 0.5 };
+
+  it("tones a numeric cell against its format's threshold", () => {
+    expect(cellTone(0.6, { kind: "percent", tones })).toBe("err");
+    expect(cellTone("0.35", { kind: "number", tones })).toBe("warn");
+    expect(cellTone(100, { kind: "duration", tones: { warn: 200, err: 400 } })).toBe("ok");
+  });
+
+  it("leaves a cell without a threshold, a badge and a non-number alone", () => {
+    expect(cellTone(0.6, { kind: "percent" })).toBeNull();
+    expect(cellTone("err", { kind: "badge", tones: { err: "err" } })).toBeNull();
+    expect(cellTone(0.6, "percent")).toBeNull();
+    expect(cellTone("n/a", { kind: "number", tones })).toBe("muted");
+  });
+
+  it("prints an object number format like the string one", () => {
+    expect(formatColumnValue(1234.5, { kind: "number" })).toBe(formatColumnValue(1234.5, "number"));
   });
 });

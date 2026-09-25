@@ -1,8 +1,11 @@
+import type { WidgetCaption } from "@flowpanel/core";
 import type * as React from "react";
-import { Card, CardContent, CardHeader } from "../_layout/Card";
+import { Card, CardContent } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
 import { toneFillClass, toneTextClass } from "../lib/tone-classes";
+import { CardHeading } from "./CardHeading";
+import { ListBanner } from "./ListBanner";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface ListCardRow {
@@ -13,6 +16,10 @@ export interface ListCardRow {
   meta?: string;
   tone?: Tone;
   href?: string;
+  /** Impact, already formatted. */
+  count?: string;
+  /** When it started, already formatted. */
+  since?: string;
 }
 
 export interface ListCardProps {
@@ -20,6 +27,14 @@ export interface ListCardProps {
   rows: ListCardRow[];
   /** Rendered instead of the lines when `rows` is empty. */
   emptyState?: React.ReactNode;
+  /** The line under the title: a cut range, freshness or coverage. */
+  caption?: WidgetCaption;
+  /** `"banner"`: severity glyphs, a tint by the worst row, and `allClear` when empty. */
+  variant?: "list" | "banner";
+  /** A banner's line when there are no rows. */
+  allClear?: string;
+  /** The line that folds the rows past a limit. */
+  more?: { text: string; href?: string };
 }
 
 function listTextClass(tone: Tone | undefined): string {
@@ -27,11 +42,13 @@ function listTextClass(tone: Tone | undefined): string {
 }
 
 /** A short feed, as a `list()` widget. */
-export function ListCard({ label, rows, emptyState }: ListCardProps) {
+export function ListCard(props: ListCardProps) {
+  if (props.variant === "banner") return <ListBanner {...props} />;
+  const { label, rows, emptyState, caption, more } = props;
   return (
     <Card className="h-full">
-      {label ? <CardHeader>{label}</CardHeader> : null}
-      <CardContent className={label ? "pt-0" : ""}>
+      <CardHeading label={label} caption={caption} />
+      <CardContent className={label || caption ? "pt-0" : ""}>
         {rows.length === 0 ? (
           <p className="text-xs text-fp-text-3">{emptyState}</p>
         ) : (
@@ -66,21 +83,32 @@ export function ListCard({ label, rows, emptyState }: ListCardProps) {
                     )}
                   </span>
                 </span>
-                {row.meta ? (
+                {row.count || row.since || row.meta ? (
                   <span
                     className={cn(
                       TWO_LINES,
                       "max-w-[45%] shrink-0 text-right text-xs tabular-nums text-fp-text-3",
                     )}
-                    {...fullTextTitle(row.meta)}
+                    {...fullTextTitle([row.count, row.since, row.meta].filter(Boolean).join(" · "))}
                   >
-                    {row.meta}
+                    {[row.count, row.since, row.meta].filter(Boolean).join(" · ")}
                   </span>
                 ) : null}
               </li>
             ))}
           </ul>
         )}
+        {more ? (
+          <div className="mt-2 text-xs">
+            {more.href ? (
+              <a href={more.href} className="text-fp-accent hover:underline">
+                {more.text}
+              </a>
+            ) : (
+              <span className="text-fp-text-3">{more.text}</span>
+            )}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

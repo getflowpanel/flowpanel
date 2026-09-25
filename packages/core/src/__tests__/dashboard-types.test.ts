@@ -11,6 +11,7 @@ import type {
   DrawerTab,
   FieldDef,
   MetricWidget,
+  RealtimeOption,
   ResolvedDateRange,
   SectionConfig,
   StatGroupWidget,
@@ -24,7 +25,7 @@ describe("M2 public types", () => {
       path: string;
       label: string;
       icon?: string;
-      realtime?: string | string[];
+      realtime?: RealtimeOption;
       sections: SectionConfig[];
     }>();
   });
@@ -59,6 +60,10 @@ describe("M2 public types", () => {
       | "barChart"
       | "lineChart"
       | "pieChart"
+      | "tracker"
+      | "timeline"
+      | "heatmap"
+      | "checklist"
     >();
   });
 

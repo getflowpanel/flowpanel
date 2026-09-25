@@ -1,6 +1,7 @@
 "use client";
+import type { WidgetCaption } from "@flowpanel/core";
 import type * as React from "react";
-import { Card, CardContent, CardHeader } from "../_layout/Card";
+import { Card, CardContent } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
 import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
@@ -8,6 +9,7 @@ import type { NumericFormat, Tone } from "../lib/format";
 import { toneFillClass } from "../lib/tone-classes";
 import { BarTrail } from "./BarTrail";
 import { barWidthClass, shareOfMax } from "./bar-width";
+import { CardHeading } from "./CardHeading";
 import type { GoodWhen } from "./delta";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
@@ -34,6 +36,8 @@ export interface BarsCardProps {
   goodWhen?: GoodWhen;
   /** Rendered instead of the bars when `rows` is empty. */
   emptyState?: React.ReactNode;
+  /** The line under the title: a cut range, freshness or coverage. */
+  caption?: WidgetCaption;
 }
 
 /** A ranked breakdown, as a `bars()` widget. Bars are sized against `max` or the largest row. */
@@ -45,6 +49,7 @@ export function BarsCard({
   share,
   goodWhen,
   emptyState,
+  caption,
 }: BarsCardProps) {
   const formatting = useFormatting();
   const { widget } = useLabels();
@@ -55,8 +60,8 @@ export function BarsCard({
   const total = rows.reduce((acc, row) => acc + row.value, 0);
   return (
     <Card className="h-full">
-      {label ? <CardHeader>{label}</CardHeader> : null}
-      <CardContent className={cn("space-y-2.5", label ? "pt-0" : "")}>
+      <CardHeading label={label} caption={caption} />
+      <CardContent className={cn("space-y-2.5", label || caption ? "pt-0" : "")}>
         {rows.length === 0 ? (
           <p className="text-xs text-fp-text-3">{emptyState}</p>
         ) : (

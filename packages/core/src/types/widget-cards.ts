@@ -1,5 +1,8 @@
+import type { RealtimeOption } from "./realtime";
 import type { ColumnFormat } from "./resource";
+import type { Threshold } from "./threshold";
 import type { NumericFormat, RangeLimit, Span, Tone } from "./widget";
+import type { CaptionOptions } from "./widget-caption";
 import type { Link, LinkTarget, WidgetContext } from "./widget-context";
 
 /** Display-safe literal returned by a stat resolver. */
@@ -31,7 +34,7 @@ export interface StatItem {
   tone?: Tone;
 }
 
-export interface StatGroupOptions {
+export interface StatGroupOptions extends CaptionOptions {
   /** Card heading. */
   label?: string;
   /** Rows of the group, in order. */
@@ -40,8 +43,8 @@ export interface StatGroupOptions {
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
   maxRange?: RangeLimit;
-  /** Re-run the queries when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
 }
 
 export interface StatGroupWidget {
@@ -49,21 +52,23 @@ export interface StatGroupWidget {
   options: StatGroupOptions;
 }
 
-export interface StatOptions {
+export interface StatOptions extends CaptionOptions {
   /** Small caption under the value. */
   hint?: string;
   /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
   href?: Link;
   /** Semantic color of the value. */
   tone?: Tone;
+  /** Tone the value against a threshold; an explicit `tone` wins. */
+  tones?: Threshold;
   /** How a numeric value is rendered. */
   format?: NumericFormat;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
   maxRange?: RangeLimit;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
 }
 
 /**
@@ -78,6 +83,8 @@ export interface StatResult {
   hint?: string;
   /** Turns the whole card into a link — a path or a named target. */
   href?: LinkTarget;
+  /** Observations behind the value, compared with `tones.min`. */
+  volume?: number;
 }
 
 /** A `stat()` value resolved per request. */
@@ -103,9 +110,17 @@ export interface KvItem<R = Record<string, unknown>> {
   tone?: Tone;
   /** Renders the value as a link — a path, a named target, or one computed from the context. */
   href?: Link;
+  /**
+   * A paragraph across the card: line breaks kept, and past `lines` lines — or about 120
+   * characters a line — the rest folded under "Show all".
+   * @defaultValue false; `lines` defaults to 6
+   */
+  long?: boolean | { lines?: number };
+  /** Printed instead of "—" when the value is missing or blank. */
+  empty?: string;
 }
 
-export interface KvOptions<R = Record<string, unknown>> {
+export interface KvOptions<R = Record<string, unknown>> extends CaptionOptions {
   /** Card heading. */
   label?: string;
   /** Rows of the card, in order. */
@@ -123,8 +138,8 @@ export interface KvOptions<R = Record<string, unknown>> {
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
   maxRange?: RangeLimit;
-  /** Re-run the queries when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
 }
 
 /** A label/value card — the facts about one thing, not a table. */
@@ -135,6 +150,8 @@ export interface KvWidget {
 
 /** One bar of a `bars()` card, sized against `BarsOptions.max` or the largest value. */
 export interface BarRow {
+  /** Stable identity: `compare` joins the previous period by it, and a filter sets it. `breakdown()` fills it. */
+  key?: string;
   label: string;
   value: number;
   /** Links the bar's label — a path or a named target. */
@@ -147,9 +164,11 @@ export interface BarRow {
   share?: number;
 }
 
-export interface BarsOptions {
+export interface BarsOptions extends CaptionOptions {
   /** Card heading. */
   label?: string;
+  /** A dashboard filter key: a row's key sets it on the current dashboard. */
+  filter?: string;
   query: (ctx: WidgetContext) => Promise<BarRow[]>;
   /** How bar values are rendered. */
   format?: NumericFormat;
@@ -164,14 +183,23 @@ export interface BarsOptions {
    * @defaultValue "up"
    */
   goodWhen?: "up" | "down" | "neutral";
+  /** Tone each bar against a threshold by its value; a row's own `tone` wins. */
+  tones?: Threshold;
+  /**
+   * Run the query for the compared period too and fill each row's `previous`: the period
+   * before, or `against: "weekAgo"` for the same range seven days back. Rows join by `key`,
+   * else by `label`; a row's own `previous` wins. No change shows past `maxRange` or over a
+   * whole history.
+   */
+  compare?: boolean | { against?: "previous" | "weekAgo" };
   /** Shown instead of the bars when the query returns nothing. */
   emptyState?: string;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
   maxRange?: RangeLimit;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
 }
 
 /** A ranked breakdown — "top five plans by revenue" — without a chart bundle. */
@@ -188,7 +216,7 @@ export interface FunnelStep {
   href?: LinkTarget;
 }
 
-export interface FunnelOptions {
+export interface FunnelOptions extends CaptionOptions {
   /** Card heading. */
   label?: string;
   query: (ctx: WidgetContext) => Promise<FunnelStep[]>;
@@ -206,8 +234,8 @@ export interface FunnelOptions {
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
   maxRange?: RangeLimit;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
 }
 
 /** Stages with a share of the first step and the drop-off from the one before. */
@@ -216,35 +244,4 @@ export interface FunnelWidget {
   options: FunnelOptions;
 }
 
-/** One line of a `list()` card. */
-export interface ListRow {
-  /** Stable identity for the row, such as a record id. Default: its position. */
-  key?: string;
-  text: string;
-  /** Trailing detail — a timestamp, a count, an owner. */
-  meta?: string;
-  /** A leading dot in this color; `warn` and `err` also color the text. */
-  tone?: Tone;
-  /** Links the line's text — a path or a named target. */
-  href?: LinkTarget;
-}
-
-export interface ListOptions {
-  /** Card heading. */
-  label?: string;
-  query: (ctx: WidgetContext) => Promise<ListRow[]>;
-  /** Shown instead of the lines when the query returns nothing. */
-  emptyState?: string;
-  /** Width in the dashboard's 12-column grid. */
-  span?: Span;
-  /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
-  maxRange?: RangeLimit;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
-}
-
-/** A short feed — latest signups, failing jobs — where a table would be too much. */
-export interface ListWidget {
-  kind: "list";
-  options: ListOptions;
-}
+export type { ListOptions, ListRow, ListWidget } from "./widget-list";

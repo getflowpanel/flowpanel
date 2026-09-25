@@ -11,7 +11,7 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { kvDisplay } from "./kv-display";
+import { foldLongText, isBlank, kvDisplay } from "./kv-display";
 import { resolveLink } from "./resolve-link";
 import { statDisplay, statResultOf } from "./stat-result";
 
@@ -40,13 +40,24 @@ export async function kvItemOf(
     item.field !== undefined
       ? { value: (record?.[item.field] ?? null) as StatValue }
       : await resolveItem(item.value, ctx, reqCtx);
-  const tone = result.tone ?? item.tone;
+  const emptyText = isBlank(result.value) ? item.empty : undefined;
+  const tone = result.tone ?? item.tone ?? (emptyText !== undefined ? "muted" : undefined);
   const href = resolveLink(config, ctx, result.href ?? item.href);
+  const text = emptyText ?? kvDisplay(result.value, item.format, formatting);
+  const fold = item.long
+    ? foldLongText(text, typeof item.long === "object" ? item.long.lines : undefined)
+    : null;
   return {
     label: item.label,
-    value: kvDisplay(result.value, item.format, formatting),
+    value: fold ? fold.head : text,
     ...(tone ? { tone } : {}),
     ...(href ? { href } : {}),
+    ...(fold
+      ? {
+          long: true as const,
+          ...(fold.rest ? { rest: fold.rest, more: ctx.labels.widget.showAll } : {}),
+        }
+      : {}),
   };
 }
 

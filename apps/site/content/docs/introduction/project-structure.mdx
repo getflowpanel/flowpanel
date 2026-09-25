@@ -36,9 +36,13 @@ These files are intentionally small. Edit them only when changing mount paths or
 
 The CLI imports the stylesheet from the admin segment's layout and preserves the
 host root layout. When no shared root layout exists, the admin segment receives
-its own root layout. Pre-hydration theme and CSP integration in an existing host
-remain application-owned; `ThemeScript` accepts a host-supplied nonce. Routes and
-config use the same mount chosen with `--path` or inferred from existing routes.
+its own root layout. Either layout renders `ThemeScript` with the nonce from the `x-nonce`
+request header, so the theme applies before hydration. Under a strict `script-src`, the host's
+middleware sets `x-nonce`; a host that sets none gets the script without a nonce. Your root
+layout's `<html>` needs `suppressHydrationWarning`, as the one `init` writes has, because the
+script marks `<html>` before React hydrates it; without it, development logs a hydration error
+and `smokeAdmin` fails on it. Routes and config use the same mount chosen with `--path` or
+inferred from existing routes.
 
 ## Files created later
 

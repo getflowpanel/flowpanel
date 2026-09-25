@@ -2,6 +2,7 @@ import {
   type ColumnFormat,
   type EnumDef,
   enumOf,
+  type LinkTarget,
   type SelectOption,
   type Tone,
 } from "@flowpanel/core";
@@ -18,7 +19,7 @@ expectType<EnumDef<"free" | "starter" | "pro">>(Plan);
 expectType<readonly ("free" | "starter" | "pro")[]>(Plan.values);
 expectType<string>(Plan.label(null));
 expectType<Tone>(Plan.tone("pro"));
-expectType<{ label: string; tone: Tone } | null>(Plan.badge("pro"));
+expectType<{ label: string; tone: Tone; href?: LinkTarget } | null>(Plan.badge("pro"));
 expectAssignable<ColumnFormat>(Plan.format);
 expectAssignable<SelectOption[]>(Plan.options);
 

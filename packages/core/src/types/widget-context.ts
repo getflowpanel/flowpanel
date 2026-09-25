@@ -65,6 +65,8 @@ export interface DashboardLink {
    * @defaultValue true
    */
   range?: boolean;
+  /** Dashboard filters the link sets, by key; a link carries no filter implicitly. */
+  filters?: Record<string, string>;
 }
 
 /**
@@ -83,6 +85,8 @@ export interface WidgetContext<DB = InferDB> {
   session: Session | null;
   /** The picked range, the period before it and the admin's zone, resolved to dates. */
   dateRange: WidgetDateRange;
+  /** The dashboard's active filters by key; `{}` on a record page or with none set. Bind them as parameters. */
+  filters: Readonly<Record<string, string>>;
   req: Request;
   /** Row of the record being viewed when the widget sits in a detail tab. */
   row?: Record<string, unknown>;
@@ -102,10 +106,13 @@ export interface WidgetContext<DB = InferDB> {
   /**
    * Memoises a query per request: a key and a thunk, or a function and its arguments.
    * Arguments match by value for strings, numbers, booleans and dates, by identity otherwise.
+   * A function passed alone that declares a parameter is called with this context:
+   * `query(hourly)` runs `hourly(ctx)` once per context.
    */
   query: {
     <T>(key: string, fn: () => Promise<T>): Promise<T>;
     <A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>;
+    <T>(fn: (ctx: WidgetContext<DB>) => Promise<T>): Promise<T>;
   };
   /** The admin's resolved chrome strings, so a widget never hard-codes English. */
   labels: ResolvedLabels;

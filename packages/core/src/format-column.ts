@@ -49,6 +49,7 @@ export function badgeProps(format: ColumnFormat, value: unknown): BadgeCellProps
 }
 export {
   type ColumnFormatKind,
+  cellTone,
   columnFormatKind,
   formatBooleanValue,
   formatDurationCompact,
@@ -60,6 +61,9 @@ export {
   toDateValue,
   urlCellParts,
 } from "./format-values";
+export { toneFillClass, toneTextClass } from "./tone-classes";
+export { toneFor } from "./tone-for";
+export type { Threshold } from "./types/threshold";
 export { DEFAULT_FORMATTING, resolveFormatting };
 
 const NUMBER_FMTS = new Map<string, Intl.NumberFormat>();
@@ -166,7 +170,7 @@ export function formatColumnValue(
     const seconds = typeof format === "object" && format.kind === "duration" && format.unit === "s";
     return formatDurationValue(seconds ? n * 1000 : n, formatting);
   }
-  if (format === "number") return numberFmt(locale).format(n);
+  if (kind === "number") return numberFmt(locale).format(n);
   if (format === "money") return moneyFmt(locale, currency).format(n);
   if (typeof format === "object" && format.kind === "money") {
     const scale = format.scale && format.scale > 0 ? format.scale : 1;

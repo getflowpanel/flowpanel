@@ -50,7 +50,7 @@ describe("chart options", () => {
   it("keys x/y to the row type", () => {
     expectTypeOf<BarChartOptions<Row>["x"]>().toEqualTypeOf<"model" | "confidence">();
     expectTypeOf<BarChartOptions<Row>["y"]>().toEqualTypeOf<
-      "model" | "confidence" | ("model" | "confidence")[]
+      "model" | "confidence" | ("model" | "confidence")[] | undefined
     >();
     expectTypeOf<PieChartOptions<Row>["category"]>().toEqualTypeOf<"model" | "confidence">();
     expectTypeOf<PieChartOptions<Row>["value"]>().toEqualTypeOf<"model" | "confidence">();
@@ -58,6 +58,6 @@ describe("chart options", () => {
 
   it("leaves x/y as strings when the row type is unknown", () => {
     expectTypeOf<BarChartOptions["x"]>().toEqualTypeOf<string>();
-    expectTypeOf<BarChartOptions["y"]>().toEqualTypeOf<string | string[]>();
+    expectTypeOf<BarChartOptions["y"]>().toEqualTypeOf<string | string[] | undefined>();
   });
 });

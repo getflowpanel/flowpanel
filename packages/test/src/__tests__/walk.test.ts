@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isUnderBasePath, noNavigation, normalizeBasePath, runSmoke } from "../walk";
+import { isUnderBasePath, noNavigation, normalizeBasePath, runSmoke, withTab } from "../walk";
 import { element, query } from "./fake-dom";
 import { FakePage, type FakeRoute } from "./fake-page";
 
@@ -202,5 +202,53 @@ describe("runSmoke", () => {
       "/admin/customers/1",
       "/admin/orders",
     ]);
+  });
+});
+
+describe("runSmoke — detail tabs", () => {
+  const USER_NAV = ["/admin", "/admin/user"];
+  const TABS = ["summary", "activity", "timeline"];
+
+  function withCard(overrides: Record<string, FakeRoute> = {}): Record<string, FakeRoute> {
+    return {
+      "/admin": { navLinks: USER_NAV },
+      "/admin/user": { navLinks: USER_NAV, rows: 1, rowTargets: ["/admin/user/1"] },
+      "/admin/user/1": { navLinks: USER_NAV, tabs: TABS },
+      "/admin/user/1?tab=activity": { navLinks: USER_NAV, tabs: TABS },
+      "/admin/user/1?tab=timeline": { navLinks: USER_NAV, tabs: TABS },
+      ...overrides,
+    };
+  }
+
+  it("opens every tab that is not already open, and reports each with its ?tab=", async () => {
+    const report = await runSmoke(new FakePage(withCard()), {}, null);
+    expect(report.visited).toEqual([
+      "/admin",
+      "/admin/user",
+      "/admin/user/1",
+      "/admin/user/1?tab=activity",
+      "/admin/user/1?tab=timeline",
+    ]);
+  });
+
+  it("names the tab whose widget failed", async () => {
+    const page = new FakePage(
+      withCard({
+        "/admin/user/1?tab=timeline": { navLinks: USER_NAV, tabs: TABS, errorSurface: true },
+      }),
+    );
+    await expect(runSmoke(page, {}, null)).rejects.toThrow(
+      "/admin/user/1?tab=timeline: rendered a FlowPanel error surface",
+    );
+  });
+
+  it("keeps the 0.3.0 walk with tabs: false", async () => {
+    const report = await runSmoke(new FakePage(withCard()), { tabs: false }, null);
+    expect(report.visited).toEqual(["/admin", "/admin/user", "/admin/user/1"]);
+  });
+
+  it("adds the tab to a route's own query", () => {
+    expect(withTab("/admin/user/1", "timeline")).toBe("/admin/user/1?tab=timeline");
+    expect(withTab("/admin/user/1?tab=summary", "money")).toBe("/admin/user/1?tab=money");
   });
 });

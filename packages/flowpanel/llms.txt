@@ -372,7 +372,7 @@ arbitrary content or server errors.
 | `pagination?` | `{ label?: string; previous?: string; next?: string; of?: string; rowsPerPage?: string; /** Accessible page button name. Use `{n}` for the page number. */ page?: string; /** Page-size option. Use `{n}` for the row count. */ pageSize?: string; }` | Pagination chrome. |
 | `filters?` | `{ label?: string; clear?: string; yes?: string; no?: string; searchPlaceholder?: string; }` |  |
 | `bulkBar?` | `{ /** Use `{n}` for the selection count. Default: `"{n} selected"`. */ selected?: string; clear?: string; }` | Bulk action bar. |
-| `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; }` | Count templates with one form per `Intl.PluralRules` category of `formatting.locale`. When set, they win over `table.result`/`table.results` and `bulkBar.selected`. |
+| `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */ events?: PluralLabel; }` | Count templates with one form per `Intl.PluralRules` category of `formatting.locale`. When set, they win over `table.result`/`table.results` and `bulkBar.selected`. |
 | `searchPlaceholder?` | `string` | Resource search input placeholder. Use `{label}` for the resource's label. |
 | `actions?` | `{ edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; }` | Generic action buttons. |
 | `form?` | `{ /** Edit page heading. Use `{label}` for the resource's singular label. */ editTitle?: string; /** Create page heading. Use `{label}` for the resource's singular label. */ createTitle?: string; /** The empty choice in a select control. */ selectPlaceholder?: string; /** A reference search with nothing to offer. */ noOptions?: string; /** A reference search still in flight. */ searching?: string; /** A reference search that failed. */ loadFailed?: string; /** An empty value the write needs. Use `{label}` for the field's label. */ required?: string; /** A value that is not a number. Use `{label}`. */ invalidNumber?: string; /** A value that is neither true nor false. Use `{label}`. */ invalidBoolean?: string; /** A value that is not a date. Use `{label}`. */ invalidDate?: string; }` | Generated create and edit form chrome. |
@@ -384,6 +384,9 @@ arbitrary content or server errors.
 | `formError?` | `string` | Form-level banner shown when a submit fails with no field errors of its own. |
 | `confirm?` | `{ title?: string; ok?: string; cancel?: string; }` | Confirm dialog. |
 | `widget?` | `WidgetLabels` | Dashboard and detail-tab widget chrome. |
+| `timeline?` | `TimelineLabels` | `timeline()` chrome. |
+| `heatmap?` | `HeatmapLabels` | `heatmap()` chrome. |
+| `checklist?` | `ChecklistLabels` | `checklist()` chrome. |
 | `errors?` | `{ /** Failed page read. Use `{resource}` and `{operation}`. */ queryTitle?: string; /** What to check after a failed page read. */ queryHint?: string; /** Correlation line tying the card to the server log. Use `{id}`. */ requestId?: string; /** Failed widget, shown in the widget's own frame. */ widgetTitle?: string; widgetHint?: string; /** Button that re-runs a failed widget. */ retry?: string; }` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
 | `palette?` | `{ placeholder?: string; noResults?: string; title?: string; description?: string; loading?: string; }` | ⌘K palette. |
 
@@ -785,6 +788,7 @@ An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `field?` | `keyof Row & string` | Row property this column reads. Omit only when `render` supplies the cell. |
+| `secondary?` | `keyof Row & string` | Another field of the row, shown as a muted second line under the cell — the email under a name. It is loaded with the row; sort and search still use `field`. Ignored on a `reference` column. |
 | `label?` | `string` | Header text. Defaults to a humanized `field`. |
 | `render?` | `(row: Row, ctx: RequestContext) => ReactNode` | Custom cell renderer. Runs on the server; receives the request context. |
 | `sortable?` | `boolean` | Allow clicking the header to sort by this column. |
@@ -801,6 +805,16 @@ join, something computed. Such a column must set both `render` and `label`,
 never sorts or filters, and is skipped by export; see
 [Joined or computed values](/docs/customization/column-renderers#joined-or-computed-values).
 
+`secondary` names another field of the row that shows as a muted second line under the
+cell — the email under a name — on the list page, in related tabs and in the phone card
+list. The field is loaded with the row and passes its read policy like any column; sort
+and search still use `field`. A `reference` column shows only its label, and a `table()`
+widget shows one line.
+
+```ts excerpt
+columns: [{ field: "name", label: "User", secondary: "email" }],
+```
+
 #### ColumnFormat
 
 Declarative cell rendering — reach for this before writing a `render` function.
@@ -811,9 +825,10 @@ type ColumnFormat =
   | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
   | { kind: "money"; currency?: string; scale?: number }
+  | { kind: "number"; tones?: Threshold }
   | { kind: "date"; time?: boolean }
-  | { kind: "percent"; digits?: number; heat?: boolean }
-  | { kind: "duration"; unit?: "ms" | "s" }
+  | { kind: "percent"; digits?: number; heat?: boolean; tones?: Threshold }
+  | { kind: "duration"; unit?: "ms" | "s"; tones?: Threshold }
   | { kind: "boolean"; labels?: { true?: string; false?: string } }
   | { kind: "url"; label?: string };
 ```
@@ -849,6 +864,7 @@ The remaining kinds read a raw value the way a founder reads it:
 - `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
 - `boolean` prints `✓` and `✕`, or `labels: { true: "да", false: "нет" }`. SQLite's `1` and `0` read as true and false.
 - `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
+- `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded. `cellTone(value, format)` returns the tone a cell gets.
 
 ```ts excerpt
 columns: [
@@ -917,6 +933,7 @@ tone defaults to `"default"`. `format` and `options` are plain data, so they cro
 into the browser and a drawer unchanged. `label()` prints an unknown value as itself
 and a missing one as `—`, `tone()` answers `"default"` for an unknown value, and
 `badge()` returns `null` for a missing one, which hides the pill.
+`badge(value, { href })` makes the pill a link — `Lifecycle.badge(u.lifecycle, { href: { resource: "user", filter: { lifecycle: u.lifecycle } } })` — and a nullish value still gives no pill.
 
 `EnumDef`
 
@@ -929,7 +946,7 @@ and a missing one as `—`, `tone()` answers `"default"` for an unknown value, a
 | `options` | `SelectOption[]` | `{ label, value }` in declaration order, for a filter, a form field or a dashboard filter. |
 | `label` | `(value: unknown) => string` | The label; an unknown value prints as itself, a missing one as `"—"`. |
 | `tone` | `(value: unknown) => Tone` | The tone; `"default"` for an unknown value. |
-| `badge` | `(value: unknown) => { label: string; tone: Tone } \| null` | A header badge, or `null` for a missing value. |
+| `badge` | `(value: unknown, options?: { href?: LinkTarget }) => { label: string; tone: Tone; href?: LinkTarget } \| null` | A header badge, or `null` for a nullish value; `href` links it, e.g. to the filtered list. |
 
 ### FieldDef
 
@@ -982,6 +999,11 @@ An entry in `filters`. A bare string is **always** a `text` filter — there is
 no inference from the column's type, so declare a `FilterDef` with an explicit
 `type` for a select, a date range, or anything else.
 
+A `select` or `multiselect` filter with no `options`, on a field whose column is formatted as a
+badge with `labels` — `format: Plan.format` from `enumOf` — lists those labels, in the order they
+were declared. So does a `select`, `multiselect` or `radio` form field. Declared `options` always
+win.
+
 `FilterDef`
 
 | Property | Type | Notes |
@@ -1031,9 +1053,10 @@ export const card = {
 - `aside` is a column beside the tabs from the `lg` breakpoint and below them on a phone,
   on every tab.
 - `dateRange` adds a date picker to the header. Its range, with `previous`, reaches
-  `stats`, `aside` and every widgets tab. Related rows list every row, a timeline pages
-  through the whole history and a heatmap shows its last `days` days. Without
-  `dateRange` the page has no picker and widgets see the record's whole history.
+  `stats`, `aside` and every widgets tab. Related rows list every row, a
+  [timeline](/docs/reference/widgets#timeline) pages through the whole history and a
+  heatmap shows its last `days` days. Without `dateRange` the page has no picker and
+  widgets see the record's whole history.
 
 The header, the strip, the aside and the open tab share one widget context, so the same
 `ctx.count`, `ctx.read` or `ctx.query` runs once per page. A widget that fails shows its
@@ -1278,7 +1301,7 @@ What `DetailTab.render` receives as its second argument.
 | `dateRange` | `WidgetDateRange` | The picked range, the period before it and the admin's zone, resolved to dates. |
 | `href` | `( resource: ResourceName, id?: string \| number, opts?: { filter?: Record<string, unknown>; tab?: string }, ) => string` | Mount-aware link builder; never hand-type `"/admin/…"` in a config. |
 | `labels` | `ResolvedLabels` | The admin's resolved chrome strings, so a widget never hard-codes English. |
-| `query` | `{ <T>(key: string, fn: () => Promise<T>): Promise<T>; <A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>; }` | Memoises a query per request: a key and a thunk, or a function and its arguments. Arguments match by value for strings, numbers, booleans and dates, by identity otherwise. |
+| `query` | `{ <T>(key: string, fn: () => Promise<T>): Promise<T>; <A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>; <T>(fn: (ctx: WidgetContext<DB>) => Promise<T>): Promise<T>; }` | Memoises a query per request: a key and a thunk, or a function and its arguments. Arguments match by value for strings, numbers, booleans and dates, by identity otherwise. A function passed alone that declares a parameter is called with this context: `query(hourly)` runs `hourly(ctx)` once per context. |
 | `sql` | `<Row = Record<string, unknown>>( strings: TemplateStringsArray, ...values: unknown[] ) => Promise<Row[]>` | One read-only statement, as a tagged template. Every interpolated value is bound as a parameter, so `${input}` can never change the statement. `Date` binds as an ISO-8601 string and `bigint` as decimal text. Throws when the configured adapter implements no `sql` capability. Runs exactly the statement you write: no tenant scope, no access rule and no soft-delete filter are applied. Add those predicates yourself, or use `count` and resource reads, which do. |
 | `count` | `<N extends ResourceName>( resource: N, where?: Where<RowOf<N>>, options?: CountOptions<RowOf<N>>, ) => Promise<number>` | Rows of a registered resource matching `where`, under the same role, access and scope checks as its list; `range` bounds a timestamp field by `ctx.dateRange`. Memoised per request by resource, `where` and range; a resource the session may not read counts `0`, and so does an `undefined`, `null` or `""` value, with a development warning. A misspelt field throws, whatever its value. |
 | `read` | `<N extends ResourceName>( resource: N, options?: ReadOptions<RowOf<N>>, ) => Promise<RowOf<N>[]>` | Rows of a registered resource under the same role, access, scope, field and soft-delete rules as its list. Memoised per request by resource and options; a resource the session may not read returns `[]`. A misspelt field, an `undefined`, `null` or `""` value, or an unknown resource throws instead of widening the read. Rows carry the list's declared columns, `expose` and `fields`; any other property is `undefined`, even though the row type lists it. |
@@ -1698,7 +1721,7 @@ Dashboard widgets, scoped to the open row.
 | --- | --- | --- |
 | `key` | `string` |  |
 | `label` | `string` |  |
-| `widgets` | `Exclude<WidgetConfig, CustomWidget>[]` | `custom()` widgets are not renderable here — the drawer serializes over the wire. |
+| `widgets` | `Exclude< WidgetConfig, CustomWidget \| TimelineWidget \| HeatmapWidget \| ChecklistWidget \| TrackerWidget >[]` | `custom()`, `tracker()` and page-rendered widgets (`timeline`, `heatmap`, `checklist`) are not renderable here — the drawer serializes over the wire. |
 
 `custom()` widgets are rejected here at compile time. The drawer payload is
 serialized over the wire, and a React component cannot cross it — use a widget
@@ -1791,7 +1814,7 @@ Every widget builder and the options it accepts.
 
 Docs: https://flowpanel.tech/docs/reference/widgets
 
-Documented types: WidgetContext, WidgetFormat, ResourceLink, DashboardLink, metric, MetricOptions, MetricResult, MetricDelta, table, TableWidgetOptions, WidgetColumn, statGroup, StatGroupOptions, StatItem, stat, StatOptions, StatResult, kv, KvOptions, KvItem, KvResult, bars, BarsOptions, BarRow, funnel, FunnelOptions, FunnelStep, list, ListOptions, ListRow, custom, CustomOptions, ChartOptionsBase, areaChart, AreaChartOptions, barChart, BarChartOptions, lineChart, LineChartOptions, pieChart, PieChartOptions, previousRange, fillDays, dashboard, page, DashboardConfig, SectionConfig, DateRangeConfig, ResolvedDateRange, WidgetDateRange, PageConfig
+Documented types: WidgetContext, WidgetFormat, CaptionOptions, Freshness, Threshold, ResourceLink, DashboardLink, metric, MetricOptions, MetricResult, MetricDelta, table, TableWidgetOptions, WidgetColumn, statGroup, StatGroupOptions, StatItem, stat, StatOptions, StatResult, kv, KvOptions, KvItem, KvResult, bars, BarsOptions, BarRow, funnel, FunnelOptions, FunnelStep, list, ListOptions, banner, ListRow, tracker, TrackerOptions, TrackerRow, timeline, TimelineOptions, TimelineSource, TimelineEvent, TimelinePage, heatmap, HeatmapOptions, HeatmapSource, checklist, ChecklistOptions, ChecklistItem, filled, custom, CustomOptions, ChartOptionsBase, areaChart, AreaChartOptions, barChart, BarChartOptions, lineChart, LineChartOptions, pieChart, PieChartOptions, series, SeriesOptions, breakdown, BreakdownOptions, presetRange, previousRange, fillDays, dashboard, page, DashboardConfig, SectionConfig, DateRangeConfig, DashboardFilter, ResolvedDateRange, WidgetDateRange, PageConfig
 
 Widgets are the contents of a dashboard section, of a detail page's widgets tab,
 and of a drawer's widget tab. Each builder returns a `WidgetConfig`; every
@@ -1839,12 +1862,13 @@ What every widget `query` receives.
 | `db` | `DB` | Your database client, exactly as handed to the adapter. |
 | `session` | `Session \| null` |  |
 | `dateRange` | `WidgetDateRange` | The picked range, the period before it and the admin's zone, resolved to dates. |
+| `filters` | `Readonly<Record<string, string>>` | The dashboard's active filters by key; `{}` on a record page or with none set. Bind them as parameters. |
 | `req` | `Request` |  |
 | `row?` | `Record<string, unknown>` | Row of the record being viewed when the widget sits in a detail tab. |
 | `id?` | `string` | The viewed record's key as a string — `row[rowKey]`, `rowKey` defaulting to `"id"`. Absent on a dashboard, and when the key is not a string or a number. |
 | `href` | `( resource: ResourceName, id?: string \| number, opts?: { filter?: Record<string, unknown>; tab?: string }, ) => string` | Mount-aware link builder; never hand-type `"/admin/…"` in a config. |
 | `link` | `(target: LinkTarget) => string` | Resolve a link target to an href, for the props of a custom widget. |
-| `query` | `{ <T>(key: string, fn: () => Promise<T>): Promise<T>; <A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>; }` | Memoises a query per request: a key and a thunk, or a function and its arguments. Arguments match by value for strings, numbers, booleans and dates, by identity otherwise. |
+| `query` | `{ <T>(key: string, fn: () => Promise<T>): Promise<T>; <A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>; <T>(fn: (ctx: WidgetContext<DB>) => Promise<T>): Promise<T>; }` | Memoises a query per request: a key and a thunk, or a function and its arguments. Arguments match by value for strings, numbers, booleans and dates, by identity otherwise. A function passed alone that declares a parameter is called with this context: `query(hourly)` runs `hourly(ctx)` once per context. |
 | `labels` | `ResolvedLabels` | The admin's resolved chrome strings, so a widget never hard-codes English. |
 | `format` | `WidgetFormat` | The admin's formatters — locale, zone and currency from `formatting`. |
 | `sql` | `<Row = Record<string, unknown>>( strings: TemplateStringsArray, ...values: unknown[] ) => Promise<Row[]>` | One read-only statement, as a tagged template. Every interpolated value is bound as a parameter, so `${input}` can never change the statement. `Date` binds as an ISO-8601 string and `bigint` as decimal text. Throws when the configured adapter implements no `sql` capability. Runs exactly the statement you write: no tenant scope, no access rule and no soft-delete filter are applied. Add those predicates yourself, or use `count` and resource reads, which do. |
@@ -1866,6 +1890,13 @@ arguments: strings, numbers, booleans and dates by value, objects by identity. T
 memo holds the promise, so a failure is shared too — the request does not retry.
 Pass a function declared once, like `mrr`: one written inline —
 `query(async () => …)` — is a new function on every call and never shares.
+A function passed alone that declares a parameter receives the context: `query(hourly)` runs
+`hourly(ctx)` once for this context, so several widgets built on one SQL statement share it
+without `query(hourly, ctx)`. A function with no parameter, or only defaulted ones such as
+`async (limit = 5) => …`, is called with no arguments, as before. A function whose first
+parameter is optional without a default (`days?: number`) now receives the context: give it a
+default (`days = 7`), or pass the argument. A context over another range — the `compare` period —
+runs it again with its own range.
 
 `count` is memoised the same way: one resource and `where`, written in any key
 order, count once per request. `id` is the viewed record's key as a string, read
@@ -1879,6 +1910,11 @@ until 10:00. For `last7d`, `last30d` and a custom range it is the span of the sa
 before it, and over a detail tab's whole history it is `null`. Query the previous period
 with `ctx.dateRange.previous`; hand `ctx.dateRange` to `fillDays` and days bucket in the
 admin's zone.
+
+`filters` holds the dashboard's active filters by key: `{ platform: "kwork" }` for
+`?f_platform=kwork`. It is `{}` on a record page and when none is set. Nothing filters
+implicitly, so read it in your own query and bind it as a parameter. The previous-period,
+capped and tracker contexts keep it, so a number and its change describe the same slice.
 
 `labels` is the admin's resolved `LabelsConfig`, which is where a widget's own
 wording should come from. `row` is present only when the widget sits in a detail
@@ -1931,19 +1967,86 @@ widget takes the full row.
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 
-Every widget accepts `realtime`, a channel name or list. When one fires, that
-widget re-runs its query — the rest of the dashboard stays put.
+Every widget, and a dashboard itself, accepts `realtime`: a channel name, `{ resource: "orders" }`
+for that resource's own changes, or a list of either. When one fires, that widget re-runs its
+query — the rest of the dashboard stays put. A `{ resource }` that names no registered resource
+fails at `defineAdmin` with the name that was probably meant.
 
-Every widget accepts `maxRange`, a whole number of days such as `"30d"`. When the picked
-range reaches further back, the widget queries only its last N days — the right cap for
-rows the app deletes after 30 days — and a detail tab's whole history becomes the last N
-days. The days are counted back from now as well as from the range's end, so a past range
-starts no earlier than N days ago, and a range that ended N or more days ago runs no query
-and shows the widget's empty state. A comparison never reaches past the cap either: when
-`compare` would query days older than N days before now, the card shows no change instead
-of growth from zero. The card does not say it was capped, so say so in its label —
-"Scores (30 days at most)". In development a limit that is not whole days, such as
-`"1.5d"`, warns once and caps nothing.
+Every widget accepts `maxRange`, a whole number of days such as `"30d"`, for rows the
+app deletes after that long. The widget queries from `max(from, to − N, now − N)`, so
+a range reaching past what is kept is cut, and a comparison never reaches past it
+either. When it is cut, the card says so: "Since 2026-08-26; older data is not kept". A
+range that ended before `now − N` runs no query at all: the card shows `—` and "No
+data: kept for 30 days". On a detail tab, a whole history becomes the last N days,
+with the same caption. In development a limit that is not whole days, such as `"1.5d"`,
+warns once and caps nothing.
+
+#### Captions
+
+Every card has one caption line under its title, computed on the server. In order of
+precedence, it shows:
+1. the expired state;
+2. where `maxRange` cut the range;
+3. `freshness`: when the data was last written, in the warn tone with a ▲ past
+   `warnAfter`;
+4. `coverage`: a note that the data is a sample.
+
+`freshness.at` runs beside the widget's query; one that fails is logged and skipped.
+Drawers show only the expired state, and a `custom` widget with `frame: false` has
+nowhere to show a caption.
+
+`CaptionOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `freshness?` | `Freshness` | Say under the title how old the data is. |
+| `coverage?` | `string` | Say under the title that the data is a sample, e.g. "users who accepted analytics". |
+
+`Freshness`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `at` | `(ctx: WidgetContext) => Promise<Date \| null>` | When the data was last written, e.g. the newest rollup row; `null` when unknown. |
+| `warnAfter?` | ``${number}m` \| `${number}h` \| `${number}d`` | Older than this shows in the warn tone with a ▲. |
+
+```ts excerpt
+metric("Runs today", runsToday, {
+  freshness: { at: async (c) => lastRollupHour(c), warnAfter: "2h" },
+});
+metric("With analytics consent", consentShare, {
+  format: "percent",
+  coverage: "users who accepted analytics",
+});
+```
+
+### Thresholds
+
+`Threshold`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `warn` | `number` | The value at which it is a warning. |
+| `err` | `number` | The value at which it is an error. |
+| `goodWhen?` | `"up" \| "down"` | `"down"`: lower is better, so at or above `warn` is bad, as for an error rate. `"up"`: higher is better, so at or below `warn` is bad, as for a success rate. Default: `"down"`. |
+| `min?` | `number` | Below this many observations the value is `muted`: too few to judge. |
+
+Declare where a number turns bad once, and hand the same object to every place that
+shows it: `tones` on `metric`, `stat` and `bars`, on a `tracker`, and on the `number`,
+`percent` and `duration` column formats. Within the good band the tone is `ok`, and
+past `warn` and `err` it is `warn` and `err`. Below `min` observations it is `muted`: a
+metric or stat returns its observations as `volume`, and a tracker folds them itself.
+`bars` rows carry no volume, so `min` is ignored there. An explicit `tone` always wins. `toneFor(value, threshold, volume)` gives the same
+answer for a custom widget or a list row.
+
+```ts excerpt
+import { type Threshold, metric, toneFor } from "@flowpanel/kit";
+
+const ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
+
+metric("Run errors", async (c) => ({ value: rate, volume: runs }), { format: "percent", tones: ERRORS });
+const column = { field: "errorRate", format: { kind: "percent", tones: ERRORS } };
+toneFor(rate, ERRORS, runs);
+```
 
 ### Links
 
@@ -1967,6 +2070,12 @@ A widget link names where it goes instead of spelling a path, so a renamed
 | --- | --- | --- |
 | `dashboard` | `string` |  |
 | `range?` | `boolean` | Carry the widget's range: the preset, or `from` and `to` for a custom range. Default: `true`. |
+| `filters?` | `Record<string, string>` | Dashboard filters the link sets, by key; a link carries no filter implicitly. |
+
+`filters` sets dashboard filters on the target, `{ dashboard: "/parsing", filters: { platform: "kwork" } }`.
+A key the target does not declare fails at `defineAdmin` (or when a function link
+renders), with the closest key. A link never carries the current page's filters on its
+own.
 
 A `LinkTarget` is a string, a `ResourceLink` or a `DashboardLink`. A string is used as
 written — an external URL or a route of your own app; in development FlowPanel warns
@@ -2023,10 +2132,11 @@ be a function of the widget context that returns one — or `null` for no link.
 | `compare?` | `boolean \| { goodWhen?: "up" \| "down" \| "neutral"; against?: "previous" \| "weekAgo" }` | Query the compared period too and show the change: `previous`, or `against: "weekAgo"` for the same range seven days back. Needs a numeric value; a `delta` the query returns wins. |
 | `sparkline?` | `(ctx: WidgetContext) => Promise<number[]>` | Trend line drawn inside the card. |
 | `tone?` | `Tone` | Semantic color of the value. |
+| `tones?` | `Threshold` | Tone the value against a threshold; an explicit `tone` wins. |
 | `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 
 `icon` is handed to the metric card as a React child and rendered verbatim.
 Metric icons are deliberately free-form: pass an emoji or a ligature your own
@@ -2087,6 +2197,7 @@ metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compar
 | `sublabel?` | `string` |  |
 | `delta?` | `MetricDelta` |  |
 | `href?` | `LinkTarget` | Turns the whole card into a link — a path or a named target. |
+| `volume?` | `number` | Observations behind the value, compared with `tones.min`. |
 
 #### MetricDelta
 
@@ -2125,6 +2236,7 @@ and format; an object overrides them.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `label?` | `string` | Card heading. |
+| `filter?` | `string` | A dashboard filter key: a row's `rowKey` value sets it on the current dashboard. |
 | `resource?` | `ResourceName` | Registered resource to pull rows and columns from. |
 | `query?` | `(ctx: WidgetContext) => Promise<R[]>` | Supply rows yourself instead of reading a resource. |
 | `where?` | `Record<string, unknown> \| ((ctx: WidgetContext) => Record<string, unknown>)` | Narrow the `resource` read: a filter keyed by its fields, or one computed from the context — `(c) => ({ userId: c.id })`. Values take the `ctx.read` shorthand; a missing value throws instead of reading every row. |
@@ -2135,7 +2247,7 @@ and format; an object overrides them.
 | `seeAll?` | `boolean \| Link` | Link the card heading. `true` links the `resource`'s own list; a `Link` names any target, and a string is used as written. |
 | `limit?` | `number` | Row cap. An explicit value caps both paths; the default applies to the `resource` read, while a `query`'s own rows are left alone unless you set it. Default: `10`. |
 | `emptyState?` | `ReactNode` | Rendered in place of the table body when there are zero rows. |
-| `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 
@@ -2194,7 +2306,7 @@ table({
 | `stats` | `StatItem[]` | Rows of the group, in order. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `string \| string[]` | Re-run the queries when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 
 #### StatItem
 
@@ -2249,10 +2361,11 @@ value is a literal or a resolver.
 | `hint?` | `string` | Small caption under the value. |
 | `href?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `tone?` | `Tone` | Semantic color of the value. |
+| `tones?` | `Threshold` | Tone the value against a threshold; an explicit `tone` wins. |
 | `format?` | `NumericFormat` | How a numeric value is rendered. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 
 ##### StatResult
 
@@ -2269,6 +2382,7 @@ option, which stays as the fallback. A `Date` is still a value, not a result.
 | `tone?` | `Tone` | Semantic color of the value. |
 | `hint?` | `string` | Small caption under the value. |
 | `href?` | `LinkTarget` | Turns the whole card into a link — a path or a named target. |
+| `volume?` | `number` | Observations behind the value, compared with `tones.min`. |
 
 ```ts excerpt
 stat("Open invoices", async (ctx) => {
@@ -2295,6 +2409,23 @@ kv({
 });
 ```
 
+An item with `long` is a paragraph across the card: line breaks are kept and nothing is
+clamped. Past `lines` lines (6 by default) — or about 120 characters a line — the rest
+folds under "Show all" (`labels.widget.showAll`), with no JavaScript. `empty` prints
+instead of "—", muted, when the value is missing or blank.
+
+```ts excerpt
+kv({
+  label: "Texts",
+  columns: 1,
+  record: profileOf,
+  items: [
+    { label: "About", field: "bio", long: true, empty: "Not filled" },
+    { label: "Resume", field: "resumeText", long: { lines: 10 }, empty: "Not uploaded" },
+  ],
+});
+```
+
 `KvOptions`
 
 | Property | Type | Notes |
@@ -2305,7 +2436,7 @@ kv({
 | `columns?` | `1 \| 2` | Rows per grid line. Default: `2`. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `string \| string[]` | Re-run the queries when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 
 ##### KvItem
 
@@ -2319,6 +2450,8 @@ kv({
 | `format?` | `ColumnFormat \| NumericFormat` |  |
 | `tone?` | `Tone` | Semantic color of the value. |
 | `href?` | `Link` | Renders the value as a link — a path, a named target, or one computed from the context. |
+| `long?` | `boolean \| { lines?: number }` | A paragraph across the card: line breaks kept, and past `lines` lines — or about 120 characters a line — the rest folded under "Show all". Default: `false; `lines` defaults to 6`. |
+| `empty?` | `string` | Printed instead of "—" when the value is missing or blank. |
 
 ##### KvResult
 
@@ -2364,15 +2497,18 @@ bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), form
 | Property | Type | Notes |
 | --- | --- | --- |
 | `label?` | `string` | Card heading. |
+| `filter?` | `string` | A dashboard filter key: a row's key sets it on the current dashboard. |
 | `query` | `(ctx: WidgetContext) => Promise<BarRow[]>` |  |
 | `format?` | `NumericFormat` | How bar values are rendered. |
 | `max?` | `number` | The value a full bar stands for — `1` for a rate with `format: "percent"`. Default, and for a value of `0` or less: the largest value in the rows. |
 | `share?` | `boolean` | Show each row's part of the total beside its value: its own `share`, else of the rows' sum. |
 | `goodWhen?` | `"up" \| "down" \| "neutral"` | Which direction of a row's change is good news. Default: `"up"`. |
+| `tones?` | `Threshold` | Tone each bar against a threshold by its value; a row's own `tone` wins. |
+| `compare?` | `boolean \| { against?: "previous" \| "weekAgo" }` | Run the query for the compared period too and fill each row's `previous`: the period before, or `against: "weekAgo"` for the same range seven days back. Rows join by `key`, else by `label`; a row's own `previous` wins. No change shows past `maxRange` or over a whole history. |
 | `emptyState?` | `string` | Shown instead of the bars when the query returns nothing. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 
 `share: true` shows each row's part of the total beside its value — the Plausible
 sources box. By default that is its part of the rows' sum; a top-N query, whose rows
@@ -2381,12 +2517,31 @@ leave the rest out, returns each row's `share` of the real total instead. A row'
 arrow inside ±1 %, a count's absolute change below a base of 20, a rate's change in
 points, and colour by `goodWhen`.
 
+`compare: true` runs the query a second time for the period before the picked one —
+`compare: { against: "weekAgo" }` for the same range seven days earlier — and fills
+each row's `previous`, so the change mark needs no `*_prev` query. Rows join by `key`,
+else by `label`, and a row's own `previous` wins. A row the earlier period did not
+return shows no change; return it with value `0`, or use `breakdown({ keys })`, when
+zero is the honest comparison. Nothing is compared over a whole history or past a
+widget's `maxRange`. With `top`, pass the compared rows to `breakdown({ previous })`
+instead of `compare`, so the rest folds the same keys in both periods.
+
+```ts excerpt
+bars({
+  label: "New orders by marketplace",
+  share: true,
+  compare: true,
+  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", keys: PLATFORMS }),
+});
+```
+
 ##### BarRow
 
 `BarRow`
 
 | Property | Type | Notes |
 | --- | --- | --- |
+| `key?` | `string` | Stable identity: `compare` joins the previous period by it, and a filter sets it. `breakdown()` fills it. |
 | `label` | `string` |  |
 | `value` | `number` |  |
 | `href?` | `LinkTarget` | Links the bar's label — a path or a named target. |
@@ -2412,7 +2567,7 @@ of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
 | `emptyState?` | `string` | Shown instead of the steps when the query returns nothing. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 
 ##### FunnelStep
 
@@ -2435,9 +2590,29 @@ A short feed — latest signups, failing jobs — where a table would be too muc
 | `label?` | `string` | Card heading. |
 | `query` | `(ctx: WidgetContext) => Promise<ListRow[]>` |  |
 | `emptyState?` | `string` | Shown instead of the lines when the query returns nothing. |
+| `variant?` | `"list" \| "banner"` | `"banner"`: a strip tinted by the worst row, rows ordered err → warn → info then by `count`, each with a glyph; with no rows it shows `allClear`. Default: `"list"`. |
+| `limit?` | `number` | Rows shown; the rest become one "N more" line. |
+| `more?` | `Link` | Where the "N more" line leads. |
+| `allClear?` | `string` | A banner's line when there are no rows. Default: `labels.widget.allClear`. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
+
+A row can carry `count`, its impact printed in the admin's locale, and `since`, when
+it started, printed relative ("3 hours ago"). `limit` shows that many rows and folds
+the rest into one "N more" line that leads to `more`.
+
+##### banner
+
+"Anything on fire": `list({ variant: "banner", span: 12 })`. Rows are ordered err, then
+warn, then info, and within each by `count`. Each carries a glyph as well as a colour
+(✕ ▲ ●), so it reads without colour vision, and the strip is tinted by its worst row.
+With no rows it shows one ✓ `allClear` line (`labels.widget.allClear`), which is the
+answer a founder wants.
+
+```ts excerpt
+banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
+```
 
 ##### ListRow
 
@@ -2450,6 +2625,8 @@ A short feed — latest signups, failing jobs — where a table would be too muc
 | `meta?` | `string` | Trailing detail — a timestamp, a count, an owner. |
 | `tone?` | `Tone` | A leading dot in this color; `warn` and `err` also color the text. |
 | `href?` | `LinkTarget` | Links the line's text — a path or a named target. |
+| `count?` | `number` | Impact, shown right-aligned in the admin's locale: "37". |
+| `since?` | `Date \| string` | When it started, shown relative in the admin's locale: "3 hours ago". |
 
 Rows are keyed by their position, so two rows with the same text are both shown.
 Give `key` — a record id — when rows are reordered by realtime updates.
@@ -2472,6 +2649,325 @@ const widgets = [
 ];
 ```
 
+#### tracker
+
+"Is it healthy right now, per marketplace": one row per key and one block per hour of a
+window ending now, whatever the date picker says. The window is 24 hours by default; up
+to 48 hours the blocks are hours, beyond that days, all in the admin's zone.
+
+The query receives the window as `ctx.dateRange`. `at` places each row in a block, `by`
+makes the rows, and `value` and `volume` fold each block like `series()`. `tones` colours
+a block by its value, and a block below `tones.min` observations is muted. A row's dot is
+the worst tone of its last three blocks. Each block's hover title and accessible name
+reads the time, the value in `format` and the observation count. `summary` may be async,
+to read a last success from another table. `rows` takes rows you built yourself instead;
+a block without a `title` is named by its row and position, such as "Sync 1/2".
+A tracker renders on dashboards and in detail tabs, not in drawers.
+
+`TrackerOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label?` | `string` | Card heading. |
+| `filter?` | `string` | A dashboard filter key: a row's key sets it on the current dashboard. |
+| `query?` | `(ctx: WidgetContext) => Promise<R[]>` | Rows over the window: `ctx.dateRange` is the window, not the picked range. |
+| `at?` | `keyof R & string` | The timestamp or `YYYY-MM-DD` field that places a row in a block. |
+| `by?` | `keyof R & string` | One tracker row per value of this field. |
+| `keys?` | `readonly string[]` | Values of `by` always shown, in this order. |
+| `labels?` | `Readonly<Record<string, string>> \| EnumDef` | Row names per value of `by`: a map or an `enumOf()`. |
+| `value?` | `Fold<R>` | A block's number: a field to sum or a function of its rows. Default: the row count. |
+| `volume?` | `Fold<R>` | Observations behind a block, compared with `tones.min`. Default: the row count. |
+| `tones?` | `Threshold` | Tone each block by its value; without it a block with data is `accent`. |
+| `format?` | `NumericFormat` | How a block's value prints in its hover title. |
+| `rows?` | `(ctx: WidgetContext) => Promise<TrackerRow[]>` | Rows you built yourself, instead of `query`, `at` and `by`. |
+| `window?` | ``${number}h` \| `${number}d`` | A window ending now, independent of the date picker: hourly blocks up to 48 hours, daily blocks beyond, so `"24h"` is 24 blocks and `"14d"` is 14. Default: `"24h"`. |
+| `summary?` | `(row: TrackerRowResult, ctx: WidgetContext) => string \| Promise<string>` | Right-hand text per row, e.g. the last success; may query. |
+| `rowHref?` | `(key: string, ctx: WidgetContext) => LinkTarget \| null` | Where a row's label leads. |
+| `emptyState?` | `string` | Shown instead of the rows when there are none. |
+| `span?` | `Span` | Width in the dashboard's 12-column grid. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
+
+```ts excerpt
+tracker({
+  label: "Marketplaces · 24 h",
+  query: hourly,
+  at: "at",
+  by: "platform",
+  labels: Platform,
+  value: errorRate,
+  volume: "runs",
+  tones: { warn: 0.3, err: 0.5, min: 20 },
+  format: "percent",
+  summary: async (row, c) => lastSuccess(await c.query(platformHealth, c), row.key, c.format),
+  span: 12,
+});
+```
+
+##### TrackerRow
+
+`TrackerRow`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` |  |
+| `label` | `string` |  |
+| `cells` | `TrackerCell[]` |  |
+| `summary?` | `string` | Right-hand text. |
+| `tone?` | `Tone` | Default: the worst tone of the last three blocks. |
+| `href?` | `LinkTarget` | Where the row's label leads. |
+
+### timeline
+
+What happened, newest first, grouped under days of the admin's zone ("Today",
+"Yesterday", then dates) with a count per day. Each line has a tone dot, its time (the
+full date in its tooltip), a linked title and a meta; a `body` folds under the line.
+Consecutive events of one day and one kind with the same `fold` key — the title by
+default — fold into one line such as "Orders in feed ×37 09:12–18:40", with the single
+events inside. A chip per kind (`kinds`, an `enumOf` or `{ key: [label, tone] }`) filters
+the page, and "Older →" pages back. Chips and paging are links under
+`?<id>.kind=` and `?<id>.before=`; `id` defaults to the detail tab's key, else
+`"timeline"`, so two timelines on one page need their own `id`. The card is rendered on
+the server and needs no JavaScript.
+
+`query(ctx, page)` returns events that are not rows of a resource. It receives the page:
+return events at or before `page.before` (all of them when it is `null`), at most
+`page.limit`, and only `page.kinds` when that is not `null`. FlowPanel merges every list
+by time, so a busy kind can never push another kind's newer events off the page.
+
+```ts excerpt
+timeline({
+  label: "Activity",
+  kinds: Activity,
+  query: async (ctx, page) => loadEvents(ctx.db, ctx.id, page),
+});
+```
+
+On a record page a timeline pages through the whole history; `detail.dateRange` does not
+narrow it. A timeline cannot sit in a drawer tab: `defineAdmin` points at a detail tab.
+"Older →" continues from the last event's moment and skips the events already shown at that
+exact moment by count, so when one source holds several rows with the same timestamp at a
+page boundary, a database that returns ties in no fixed order may repeat or drop one of them.
+
+`TimelineOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label?` | `string` | Card heading. |
+| `kinds` | `EnumDef \| Record<string, EnumEntry>` | The kinds — a chip each, with its label and tone. An `enumOf` works as is. |
+| `query?` | `(ctx: WidgetContext, page: TimelinePage) => Promise<TimelineEvent[]>` | Events that are not rows of a resource. |
+| `sources?` | `TimelineSource[]` | Resources read as events, merged with `query` by time; build each with `timeline.source`. |
+| `group?` | `"day" \| false` | Group lines under days of the admin's zone; `false` for one list. Default: `"day"`. |
+| `pageSize?` | `number` | Events per page, from 1 to 200. Default: `50`. |
+| `id?` | `string` | The URL namespace of the chips and the paging, `?<id>.kind=` and `?<id>.before=`. Default: `the detail tab's key, else "timeline"`. |
+| `emptyState?` | `string` | Shown instead of the lines when nothing happened. |
+| `span?` | `Span` | Width in the dashboard's 12-column grid. |
+| `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
+
+#### Sources
+
+`timeline.source(resource, source)` reads rows of a resource as events, one authorized read
+per page (the reader's role, access, scope and field rules apply; a source the reader may not
+read adds nothing). `at` is the timestamp; `kind` is a fixed kind or `{ field }`, the column
+that holds each row's kind, so one source covers an event log. `refs` names reference
+columns whose labels `title` and `meta` receive, resolved in one read per page. A line links
+to its first `refs` record, else to the row as its own list opens it; `href: false` leaves it
+plain.
+
+```ts excerpt
+timeline({
+  kinds: Bot,
+  sources: [
+    timeline.source("telegram_message_log", { kind: { field: "kind" }, at: "createdAt", title: (m) => m.text }),
+    timeline.source("notification_log", {
+      kind: "failed",
+      at: "createdAt",
+      tone: "err",
+      where: { failedReason: "__notnull__", deliveredAt: "__null__" },
+      title: "Delivery failed",
+    }),
+  ],
+});
+```
+
+On a record page every source reads only the rows that point at the viewed record: the one
+column whose `reference` names this resource, AND-ed with `where`, so a `where` can narrow a
+source but never widen it to every record. `by` picks the field when several columns point
+at this resource, as a related tab's `by` does; with none, or several and no `by`,
+`defineAdmin` throws. A static `where` that sets that field throws too, and a `where`
+function's value for it is replaced by the viewed record. On a dashboard a source reads the
+rows whose `at` lies in the picked range. `defineAdmin` also checks `resource`, `at`,
+`kind`, `by` and `refs`.
+
+`TimelineSource`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `resource` | `ResourceName` |  |
+| `kind` | `string \| { field: keyof R & string }` | A fixed kind, or the field that holds each row's kind. With a field the chips narrow the read to the picked kinds, and a missing `title` prints the kind's label. |
+| `at` | `keyof R & string` | The timestamp; a row without one is not an event. |
+| `by?` | `keyof R & string` | The field that points at the viewed record when several do; mirrors `DetailTab.by`. |
+| `where?` | `Where<R> \| ((ctx: WidgetContext) => Where<R>)` | Narrows the rows. On a record page the filter to the viewed record is always AND-ed in and `where` cannot set its field; on a dashboard the source reads the picked range. |
+| `title?` | `\| string \| ((row: R, refs: Readonly<Record<string, string \| null>>, ctx: WidgetContext) => string)` | The line's title. Default: the kind's label. |
+| `meta?` | `( row: R, refs: Readonly<Record<string, string \| null>>, ctx: WidgetContext, ) => string \| null \| undefined` | Trailing detail. |
+| `body?` | `(row: R, ctx: WidgetContext) => string \| null \| undefined` | Longer text, folded under the line. |
+| `tone?` | `Tone \| ((row: R) => Tone \| undefined)` | The dot's color. Default: the kind's tone. |
+| `refs?` | `(keyof R & string)[]` | Reference columns whose labels `title` and `meta` read, resolved in one read per page. |
+| `href?` | `false \| ((row: R, ctx: WidgetContext) => LinkTarget \| null)` | Default: the first `refs` record, else the row as its list opens it. `false`: no link. |
+| `fold?` | `string` | One fold key for every event of the source. |
+| `fields?` | `(keyof R & string)[]` | More fields the callbacks read, beyond the list's columns. |
+
+#### TimelineEvent
+
+`TimelineEvent`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `at` | `Date` |  |
+| `kind` | `string` | A key of the timeline's `kinds`. |
+| `title` | `string` |  |
+| `meta?` | `string` | Trailing detail — an amount, an owner, a platform. |
+| `body?` | `string` | Longer text, folded under the line. |
+| `tone?` | `Tone` | The dot's color. Default: the kind's tone. |
+| `href?` | `LinkTarget` | Links the title — a path or a named target. |
+| `fold?` | `string` | Consecutive events of one day and one kind with the same `fold` become one line. Default: the title. |
+| `key?` | `string` | A stable identity for the line. |
+
+#### TimelinePage
+
+`TimelinePage`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `before` | `Date \| null` | Events at or before this moment; `null` for the newest page. |
+| `limit` | `number` | Events to return at most: the page size, the ties already shown, and one more. |
+| `kinds` | `readonly string[] \| null` | The kinds the reader picked; `null` for every kind. |
+
+### heatmap
+
+How often, day by day: the last `days` days (91, about 13 weeks, by default) ending today,
+as weeks side by side and a 12-pixel cell per day, shaded in four steps by quartile, with
+month and weekday labels, a legend, a summary line and a tooltip per day. Days are
+calendar days of the admin's zone, and weeks start on the locale's first day. The card
+scrolls sideways on a phone and needs no JavaScript.
+
+`source` counts rows of a resource — or sums `value` — per day of `at`, a timestamp or a
+`YYYY-MM-DD` day. On a record page it reads only the rows that point at the viewed record,
+AND-ed with `where`, as a timeline source does: `by` picks the field when several point at
+it, and `where` cannot set that field. A source reads at most 10,000 rows; past
+that it throws and asks for `query`, which returns totals per day, so the grouping happens
+in SQL. A resource needs a single-column key, so a table keyed by `(userId, day)` is read
+through `query`.
+
+```ts excerpt
+heatmap({ label: "Visits, 13 weeks", source: { resource: "user_visit", at: "startedAt" }, unit: Visits });
+```
+
+The heatmap always ends today; a record page's `dateRange` and a dashboard's picker do not
+move it, and `maxRange` is ignored.
+
+`HeatmapOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label?` | `string` | Card heading. |
+| `source?` | `HeatmapSource<N>` | Rows of a resource over the last `days` days, at most 10,000; past that, use `query`. |
+| `query?` | `(ctx: WidgetContext) => Promise<Array<{ at: Date \| string; value: number }>>` | Totals per day instead of `source`: `at` is a `Date` or a `YYYY-MM-DD` day. |
+| `days?` | `number` | Days shown, ending today, from 7 to 371. Default: `91`. |
+| `unit?` | `string \| PluralLabel` | What a day's value counts, for the summary and each day's tooltip. |
+| `tone?` | `Tone` | The fill of a busy day. Default: `"accent"`. |
+| `href?` | `(day: { from: Date; to: Date }, ctx: WidgetContext) => LinkTarget \| null` | Makes each day a link; `from` and `to` bound the day in the admin's zone. |
+| `emptyState?` | `string` | Shown instead of the grid when every day is empty. |
+| `span?` | `Span` | Width in the dashboard's 12-column grid. |
+| `maxRange?` | `RangeLimit` | Ignored: a heatmap always shows its last `days` days, whatever the picked range. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these channels fire. |
+
+#### HeatmapSource
+
+`HeatmapSource`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `resource` | `N` |  |
+| `at` | `keyof RowOf<N> & string` | A timestamp, bucketed in the admin's zone, or a `YYYY-MM-DD` day. |
+| `value?` | `keyof RowOf<N> & string` | Sum this field instead of counting rows. |
+| `by?` | `keyof RowOf<N> & string` | The field that points at the viewed record when several do; mirrors `DetailTab.by`. |
+| `where?` | `Where<RowOf<N>> \| ((ctx: WidgetContext) => Where<RowOf<N>>)` | Narrows the rows. On a record page the filter to the viewed record is always AND-ed in. |
+
+### checklist
+
+What is done and what is not: a ✓ in the item's tone (`ok` by default) for a done item, a
+muted ○ for an open one and a "–" for an optional one not done. An item is done when
+`done` holds a value — anything but `null`, `undefined`, `false`, a blank string or an
+empty list; `0` counts. The summary, "7 of 12" with a bar, counts only items that are not
+`optional`; `summary: false` hides it.
+
+With `ordered`, each done item also shows when — `done` may be a `Date` or an ISO string —
+and the time since the previous done step, such as "+2 hr 5 min". An item with
+`precision: "day"`, or a bare `YYYY-MM-DD`, shows its day and measures no gap to or from
+it. Without `ordered`, no dates print. `layout: "steps"` lays the items out in a row from
+the `md` breakpoint and in a column on a phone. The card is rendered on the server and
+needs no JavaScript; like `timeline` and `heatmap`, it cannot go in a drawer.
+
+```ts excerpt
+checklist({
+  label: "Journey",
+  ordered: true,
+  layout: "steps",
+  items: async (c) => {
+    const user = c.rowOf("user");
+    return [
+      { label: "Signed up", done: user.createdAt },
+      { label: "Linked Telegram", done: user.telegramLinkedAt, optional: true },
+      { label: "First reply sent", done: user.firstSentAt },
+    ];
+  },
+});
+```
+
+`labels.checklist` words the summary, the gap and the marks' names for screen readers.
+
+`ChecklistOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label?` | `string` | Card heading. |
+| `items` | `ChecklistItem[] \| ((ctx: WidgetContext) => Promise<ChecklistItem[]>)` | The items, or a function that reads them per request. |
+| `ordered?` | `boolean` | Each done step shows when, and the time since the previous done step. |
+| `layout?` | `"list" \| "steps"` | `"steps"` lays the items out in a row from the `md` breakpoint. Default: `"list"`. |
+| `summary?` | `boolean` | "7 of 12" with a bar; optional items are not counted. Default: `true`. |
+| `emptyState?` | `string` | Shown instead of the items when there are none. |
+| `span?` | `Span` | Width in the dashboard's 12-column grid. |
+| `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
+| `realtime?` | `RealtimeOption` | Re-run when any of these channels fire. |
+
+#### ChecklistItem
+
+`ChecklistItem`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label` | `string` |  |
+| `done` | `unknown` | Done unless `null`, `undefined`, `false`, a blank string or an empty list; `0` counts. A `Date` or an ISO string also says when, shown by an `ordered` checklist. |
+| `hint?` | `string` | A muted note under the label. |
+| `optional?` | `boolean` | Not counted in the summary; muted while not done. |
+| `tone?` | `Tone` | The mark's color when done. Default: `"ok"`. |
+| `href?` | `LinkTarget` | Links the label — a path or a named target. |
+| `precision?` | `"day"` | The date has no clock: print the day, and measure no gap to or from it. A bare `YYYY-MM-DD` needs no flag. |
+
+#### filled
+
+One item per labelled field of a record, done when the field holds a value — a
+completeness card in one line. The labels are typed against the record, so a misspelt
+field does not compile.
+
+```ts excerpt
+checklist({
+  label: "Profile",
+  items: async (c) => filled(await profileOf(c), { bio: "About", hourlyRate: "Rate" }),
+});
+```
+
 ### custom
 
 Renders your own component in the grid. `props` may be a value or a function
@@ -2479,13 +2975,17 @@ resolved on the server per request, which is how you feed it query results.
 `label` titles the card when it is framed, and names the widget in its error and in
 the development slow-widget line.
 
+Build the component from kit atoms — `Card`, `StatusDot`, `Sparkline`, `EmptyState` — and the
+tone and token classes described in
+[Styling](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes).
+
 `CustomOptions`
 
 | Property | Type | Notes |
 | --- | --- | --- |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `string \| string[]` | Re-render when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `frame?` | `boolean` | Wrap the component in the standard widget card. Default: `true`. |
 | `label?` | `string` | The card's title when framed, and the name errors and slow-widget timings use. |
 
@@ -2512,17 +3012,25 @@ Shared by area, bar and line charts.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `x` | `RowKey<R>` | Row key plotted on the x-axis. |
-| `y` | `RowKey<R> \| RowKey<R>[]` | Row key(s) plotted on the y-axis. An array draws one series per key. |
+| `y?` | `RowKey<R> \| RowKey<R>[]` | Row key(s) plotted on the y-axis; an array draws one series per key. Default: every key of the first row except `x`, in its order — the columns a `series({ by })` returns. |
+| `labels?` | `Readonly<Record<string, string>> \| EnumDef` | Legend and tooltip name per series key: a map or an `enumOf()`. Default: the key. |
 | `height?` | `number` | Chart height in px. Default: `240`. |
 | `format?` | `NumericFormat` | How y-values are rendered in ticks and tooltips. |
 | `tooltip?` | `"default" \| "compact" \| false` | `false` omits the `<Tooltip>` entirely. |
 | `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
-| `bucket?` | `ChartBucket` | X-axis aggregation bucket. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
+| `bucket?` | `ChartBucket` | How x-axis ticks print a date key. It does not aggregate: fold rows with `series({ grain })`. |
 
 `ChartBucket` is `"minute" | "hour" | "day" | "week" | "month" | "year" | "auto"`.
+
+`y` may be left out: the chart then plots every numeric key of its first row except `x` —
+a number, or a bigint or a string that parses as one — which is exactly the columns
+`series({ by })` returns, the `top` rest included; a label or other non-numeric column is
+left out. `labels` names each series in the legend and the tooltip, from a map or an `enumOf()`.
+`bucket` only chooses how ticks print a date; it does not aggregate, so fold rows with
+`series({ grain })`.
 
 #### areaChart
 
@@ -2568,39 +3076,105 @@ unless you pass `showLegend: false`.
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
-| `realtime?` | `string \| string[]` | Re-run the query when any of these channels fire. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `colors?` | `Record<string, string>` | Pin specific slices to a color, keyed by category value. |
 | `format?` | `NumericFormat` | How slice values are rendered in the tooltip. |
 | `tooltip?` | `"default" \| "compact" \| false` | `false` omits the `<Tooltip>` entirely. |
 
 ### Series helpers
 
-Two pure helpers for the shape a dashboard query usually needs. Bucketing itself
-stays in SQL, where the dialect belongs.
+A founder screen is one SQL statement per area. These pure helpers turn its rows into
+what a card needs, in the admin's zone, so the SQL holds no zone math,
+`generate_series` joins, pivots or previous-period twins.
 
-The range of the same length ending where the given one begins — the comparison
-period a `MetricDelta` is measured against. The shift is elapsed time, not calendar
-days: the window before a week that crosses a DST boundary starts an hour off the
-wall clock.
+One point per bucket across the range: hours, days, ISO weeks starting on Monday, or
+months, bucketed in `range.timeZone`. Pass `ctx.dateRange` and the admin's zone
+applies. Keys are `YYYY-MM-DD`, or `YYYY-MM-DDTHH:00` for hours, which chart ticks
+already read. `grain: "auto"` picks hours up to 2 days, days up to 92, weeks up to
+400 and months beyond.
 
-Turns sparse grouped rows into one point per day across the range, so a chart
-draws a flat stretch where nothing happened instead of skipping the day. Days are
-bucketed in `timeZone`, else the range's own `timeZone` — pass `ctx.dateRange` and the
-admin's zone applies — else UTC. There is one bucket per calendar day the range
-touches, both ends included, so the `last7d` preset — `now - 7d … now` — yields
-eight buckets and the first one is a partial day. Narrow the range, or slice the
-result, if a chart should show exactly seven bars.
+- **Gaps.** Every bucket is present. A bucket with no rows is `0` for a count or a
+  sum, and whatever the `value` function returns for `[]`: return `null` for a ratio
+  with no data.
+- **Pivots.** Without `by` the one column is `value`, so a sparkline is
+  `series(…).map((p) => p.value)`. With `by`, each value of that field is a column;
+  `keys` fixes columns that must appear, in order. `top` keeps `keys` and the largest
+  other series and folds the rest into `OTHER_KEY`, which charts name
+  `labels.widget.other`.
+- **Values.** `"12"` strings, bigints and booleans read as numbers. A `YYYY-MM-DD`
+  value is that calendar day, and a zoneless timestamp such as `2026-09-21 09:00:00`
+  is UTC, as everywhere else in FlowPanel.
+- **Whole history.** A range starting at the epoch, such as a record page's
+  `ctx.dateRange` without `detail.dateRange`, starts at the first row's bucket; with no
+  rows there are no buckets.
+- **DST.** On the day clocks skip an hour, that hour has no bucket. On the day they
+  repeat one, both of its hours share one bucket.
+
+Folding happens in JavaScript. Above about 50,000 rows, group by hour in SQL first;
+development warns once when a fold passes that.
+
+`SeriesOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `at` | `keyof R & string` | The timestamp or `YYYY-MM-DD` field that places a row in a bucket. |
+| `value?` | `Fold<R>` | How a bucket's rows become its number. Default: the row count. |
+| `by?` | `keyof R & string` | One column per value of this field; without it the one column is `value`. |
+| `keys?` | `readonly string[]` | Values of `by` present as columns, in this order, even with no rows. |
+| `grain?` | `Grain` | `"auto"`: hours up to 2 days, days up to 92, weeks up to 400, else months. Default: `"auto"`. |
+| `top?` | `number` | Keep `keys` and the N largest other series; the rest fold into `OTHER_KEY`. |
+
+One ranked `BarRow` per value of `by`, with `key`, `share` of the real total, and —
+given the compared period's rows as `previous` — each row's `previous`. `top` folds
+the rest into one `OTHER_KEY` row, so the shares still add up to 1. `labels` takes a
+map, an `enumOf()` or a function. Shares only mean something for counts and sums.
+
+`BreakdownOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `by` | `keyof R & string` | One row per value of this field. |
+| `value?` | `Fold<R>` | How a value's rows become its number. Default: the row count. |
+| `keys?` | `readonly string[]` | Values always present, at zero when no row has them. |
+| `labels?` | `KeyLabels` | Row labels: a map, an `enumOf()`, or a function. Default: the value itself. |
+| `top?` | `number` | Keep `keys` and the N largest other rows; the rest fold into one `OTHER_KEY` row. |
+| `previous?` | `readonly R[]` | The compared period's rows, folded the same way into each row's `previous`. |
+| `href?` | `(key: string) => LinkTarget \| null` | Where a row's label leads. |
+
+A preset's bounds now, in the admin's zone: the same range the date picker would
+give it. It is for a query that needs a fixed window such as "today, 7 days and 30
+days" beside the picked one. Pass one `now` as the third argument when several
+widgets share a query, so their ranges match and the query runs once.
 
 ```ts excerpt
-import { fillDays, previousRange } from "@flowpanel/kit";
+import { barChart } from "@flowpanel/kit/charts";
+import { bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
 
-areaChart("Signups", async ({ db, dateRange }) => {
-  const rows = await signupsByDay(db, dateRange);
-  return fillDays(rows, dateRange, { dateField: "day", valueField: "total" });
-}, { x: "date", y: "value" });
+const hourly = (c: WidgetContext) => c.sql<{ at: Date; platform: string; orders: number }>`
+  select hour as at, platform, orders_new as orders
+  from scraper_hourly_stats where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
 
-const before = previousRange(dateRange);
+bars({
+  label: "New orders by marketplace",
+  share: true,
+  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", labels: Platform }),
+});
+barChart(
+  "New orders by day",
+  async (c) => series(await c.query(hourly, c), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
+  { x: "date", labels: Platform, stacked: true },
+);
 ```
+
+The range of the same length ending where the given one begins. The shift is elapsed
+time, not calendar days: the window before a week that crosses a DST boundary starts
+an hour off the wall clock. `ctx.dateRange.previous` is usually what you want.
+
+`series` with one day per bucket and one summed field, kept for existing code:
+`fillDays(rows, dateRange, { dateField: "day", valueField: "total" })` equals
+`series(rows, dateRange, { at: "day", value: "total", grain: "day" })`. There is one
+bucket per calendar day the range touches, both ends included, so `last7d` yields
+eight buckets whose first is a partial day.
 
 ### Dashboards
 
@@ -2617,7 +3191,8 @@ and `queue()`.
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
 | `navGroup?` | `NavGroupRef` | Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. |
 | `dateRange?` | `DateRangeConfig` | Adds a date picker whose value reaches every widget query. |
-| `realtime?` | `string \| string[]` | SSE channel(s) the whole dashboard subscribes to, independent of any widget. |
+| `filters?` | `DashboardFilter[]` | Selects beside the date picker; the values reach every widget as `ctx.filters`. |
+| `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `refresh?` | ``${number}s` \| `${number}m`` | Re-render the whole dashboard on an interval, e.g. `"60s"` or `"5m"`, and show how old the numbers are next to the date picker. Paused while the tab is hidden. |
 | `sections` | `SectionConfig[]` | Widget bands, rendered top to bottom. |
 | `actions?` | `DashboardAction<any, any>[]` | Optional top-bar action buttons rendered in the dashboard page header. |
@@ -2672,6 +3247,46 @@ order-linked page whose rows live 30 days offers `["today", "yesterday", "last7d
 "last30d"]`. A `?preset=` outside the list is ignored and dropped from the URL, and
 `preset` defaults to the first entry. A range given as `?from=…&to=…`, as a link from a
 custom period carries it, shows as its two days in the picker.
+
+#### DashboardFilter
+
+`DashboardFilter`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` | The URL key `f_<key>`, as a list's filters use, and the key in `ctx.filters`. |
+| `label` | `string` | The select's label. |
+| `options` | `SelectOption[] \| EnumDef \| ((ctx: WidgetContext) => Promise<SelectOption[]>)` | The choices: a list, an `enumOf()`, or a function of the context. |
+
+`filters` puts one select per entry beside the date picker. A picked value lands in
+the URL as `f_<key>`, the list convention, so a filtered dashboard is a link;
+choosing "All" drops one filter and "Clear filters" drops them all. `options` takes a
+list, an `enumOf()`, or a function of the context.
+
+`bars`, `tracker` and `table` take `filter: "<key>"`: clicking a bar, a tracker row or
+a table row sets that filter on the current dashboard, keeping the range. A bar sets
+the filter by its `key`; `breakdown()` fills it, and the folded rest is not a link.
+`filter` replaces the row's own `href` or the table's `rowHref`. `defineAdmin`
+rejects a `filter` the dashboard does not declare, with the closest key, and a `filter`
+on a record page or in a drawer. While a filter is set, an empty card says the filters
+left nothing (`labels.widget.filtered`) and links to clear them, and an empty banner
+says it instead of "All clear". A chart keeps its own empty text.
+
+```ts excerpt
+const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
+
+const hourly = (c: WidgetContext) => c.sql<HourRow>`
+  select hour as at, platform, runs_total as runs from scraper_hourly_stats
+  where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}
+    and (${c.filters.platform ?? null}::text is null or platform = ${c.filters.platform ?? null})`;
+
+dashboard({
+  path: "/parsing",
+  label: "Parsing",
+  filters: [byPlatform],
+  sections: [{ columns: 12, widgets: [tracker({ query: hourly, at: "at", by: "platform", filter: "platform", span: 12 })] }],
+});
+```
 
 #### ResolvedDateRange
 
@@ -3396,7 +4011,7 @@ Two neighbouring subpaths are worth knowing about, because their exports are
   mounts around this library: `DrawerHost`, `CommandHost`,
   `DashboardActionsBar`, `DataTableWithDrawerRows`, `CreateDrawer`,
   `DetailTabsClient`, `SavedViewsDropdown`, `ResourceListSearch`,
-  `ResourceListFilters`, `ResourceListDeletedToggle`, `DashboardDateRange`,
+  `ResourceListFilters`, `ResourceListDeletedToggle`, `DashboardDateRange`, `DashboardFilters`,
   `WidgetErrorBoundary`. Reach for it when you assemble a `"bare"`-shell
   layout by hand.
 - **`@flowpanel/kit/client`** — the standalone `useAdminMutation` hook, which
@@ -3488,7 +4103,7 @@ cell renderers.
 | `MobileCardList` | Card layout `DataTable` switches to under the mobile breakpoint. |
 | `KV`, `KVRow` | Key/value list layout, used by card and drawer field views. |
 | `renderFormatCell` | Renders a declarative `ColumnFormat` value — the function `DataTable` cells call internally. |
-| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time and a boolean — use them in a custom cell to match the table. |
+| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell`, `ToneText` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time, a boolean and a number coloured by its threshold — use them in a custom cell to match the table. |
 
 `DataTableProps`
 
@@ -3643,11 +4258,18 @@ resolves into.
 | `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. `plain` drops the card frame for a strip cell. |
 | `StatCard` | Renders a `stat()` widget — one number, a hint and an optional link. `plain` drops the card frame for a strip cell. |
 | `StatGroupCard` | Renders a `statGroup()` widget. |
-| `KvCard` | Renders a `kv()` widget as a label/value grid. |
+| `KvCard` | Renders a `kv()` widget as a label/value grid. `long` items span the card and fold the rest under `more`. |
 | `BarsCard` | Renders a `bars()` widget, sizing each bar against `max` or the largest row. |
 | `FunnelCard` | Renders a `funnel()` widget, deriving each step's share and drop-off and marking the worst drop past `alertDrop` in `warn`. |
-| `ListCard` | Renders a `list()` widget as a short feed. |
+| `ListCard`, `ListBanner` | Renders a `list()` widget as a short feed, or with `variant: "banner"` as a severity-ordered strip with glyphs, a "N more" line and an all-clear line. |
+| `TrackerCard` | Renders a `tracker()` widget: a toned dot, one block per hour or day, and a summary per row. |
+| `TimelineCard` | Renders a `timeline()` widget: kind chips, day groups, folded lines in `<details>`, and paging, all as links. |
+| `HeatmapCard` | Renders a `heatmap()` widget: weeks of day cells shaded by quartile, month and weekday labels, a legend and a summary. |
+| `ChecklistCard` | Renders a `checklist()` widget: a mark per item, dates and gaps when ordered, and a summary bar. |
 | `TableWidget` | Renders a `table()` widget, reusing `DataTable`. |
+| `CaptionLine` | The line under a card title: a cut range, how fresh the data is, or its coverage, with a ▲ when stale. |
+| `CardHeading` | A card's title and caption; renders nothing when it has neither. |
+| `ExpiredCard` | A widget whose whole range is older than its data is kept: its title, `—`, and why. |
 | `DashboardRefresh` | Re-renders a dashboard on its `refresh` interval and stamps the numbers' age. |
 | `CustomWidget` | Wraps a `custom()` widget's component with the shared widget frame. |
 
@@ -3671,7 +4293,7 @@ Small, single-purpose display components.
 | `Avatar`, `DefaultAvatar` | User/entity avatar and its default renderer. |
 | `Badge`, `DefaultBadge` | Toned inline badge and its default renderer. |
 | `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
-| `StatusDot` | Small toned dot, e.g. for realtime/queue status. |
+| `StatusDot` | Small dot in any `Tone` — `ok` by default. |
 | `LiveIndicator` | Realtime connection status indicator (see `LiveStatus`). |
 | `LocalTime` | Absolute timestamp in the configured `formatting.timeZone`, or the viewer's zone after hydration when none is set. |
 | `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
@@ -3831,7 +4453,9 @@ theme outside a component.
 `cn` (class name merge), `formatNumber`, `humanize`, `resolveFieldLabel`, and
 `triggerDownload` are general-purpose utilities exported alongside these for
 the same reason: components elsewhere in the package, and custom slots, both
-need them.
+need them. `toneTextClass` and `toneFillClass` map each `Tone` to the text and fill class the
+built-in cards use; `@flowpanel/kit` exports the same classes for server components, because
+this entry is a client boundary.
 
 ### Name collisions with `@flowpanel/kit`
 
@@ -3876,7 +4500,7 @@ createFlowpanel, generated pages, route handlers, protected controllers and real
 
 Docs: https://flowpanel.tech/docs/reference/next-runtime
 
-Documented types: createFlowpanel, Flowpanel, FlowpanelOptions, handlers, stream, ApplyActionResultOptions, ResourceActions, MakeActionsOptions, FormActionResult
+Documented types: createFlowpanel, Flowpanel, FlowpanelOptions, handlers, stream, ApplyActionResultOptions, ResourceActions, MakeActionsOptions, FormActionResult, adminWidgetContext, AdminWidgetContextOptions, resolveWidget
 
 `@flowpanel/kit/next` binds one config to every Next.js surface: the generated
 page, HTTP handlers, request-scoped protected controllers, client metadata and
@@ -4285,6 +4909,28 @@ try {
   return Response.json({ ok: false, error: err.safeMessage }, { status: err.status });
 }
 ```
+
+### Widget contexts in tests
+
+`AdminWidgetContextOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `session?` | `Session \| null` | The signed-in session widgets see as `ctx.session`. Default: `null`. |
+| `role?` | `string` | The role every access check compares. Default: `"admin"`. |
+| `range?` | `{ from: Date; to: Date; preset?: DateRangePreset }` | The picked period; its previous period follows. Default: `the whole history until now`. |
+| `row?` | `Record<string, unknown>` | The viewed record, for a record-page widget. |
+| `resource?` | `string` | The resource `row` belongs to: its `rowKey` names `ctx.id`, and `ctx.rowOf` checks it. |
+| `filters?` | `Readonly<Record<string, string>>` | The dashboard filters widgets read as `ctx.filters`. Default: `{}`. |
+| `url?` | `string` | Default: ``http://localhost` followed by the admin's mount`. |
+
+The context a widget receives in this admin — its memo, links, formatters, access checks and
+adapter — for a test that runs a widget's query without a request. It carries no tenant scope.
+
+Renders a widget against the admin its context was built for, exactly as a dashboard does, and
+returns its `kind` and the props its card receives — a custom widget's own props rather than its
+frame's. A failing query rejects, and a hand-built context is refused. Most tests reach both
+through `@flowpanel/test/widgets`; see [Testing](/docs/reference/testing#unit-test-a-widget).
 
 ### Navigation
 
@@ -4898,7 +5544,7 @@ Tenant scoping, the publisher contract, and the rate limiter.
 
 Docs: https://flowpanel.tech/docs/reference/scope-realtime
 
-Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher, createPublisher, PublisherClient, RedisLike, encodeEnvelope, decodeEnvelope, RateLimiter
+Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher, createPublisher, PublisherClient, RedisLike, ResourceChange, encodeEnvelope, decodeEnvelope, RateLimiter
 
 Three small contracts that sit under the rest of the framework: how a request is
 narrowed to a tenant, how realtime messages travel between instances, and how
@@ -5021,6 +5667,7 @@ and no Next.js, and it opens exactly one connection.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `publish` | `(channel: string, payload?: unknown) => Promise<void>` |  |
+| `resource` | `(name: string, change?: ResourceChange) => Promise<void>` | Tell every open list and record page of the resource named `name` that its rows changed, on `resource.<name>`. |
 | `channelFor` | `(resource: string) => string` | The channel a resource's own events travel on: `resource.<name>`. |
 | `close` | `() => Promise<void>` | Release the connections this client opened. Idempotent; a host's client is left open. |
 
@@ -5028,18 +5675,27 @@ and no Next.js, and it opens exactly one connection.
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `publish` | `(channel: string, message: string) => Promise<number>` |  |
+| `publish` | `(channel: string, message: string) => Promise<unknown>` |  |
 | `on` | `(event: "error", cb: (err: unknown) => void) => unknown` |  |
 | `off?` | `(event: "error", cb: (err: unknown) => void) => unknown` |  |
 | `removeListener?` | `(event: "error", cb: (err: unknown) => void) => unknown` |  |
-| `duplicate?` | `() => RedisLike & RedisSubscriber` |  |
+| `duplicate?` | `() => unknown` | A second connection for subscribing, checked at runtime for `subscribe`, `unsubscribe` and `on`. |
+
+`ResourceChange`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `action?` | `"create" \| "update" \| "delete"` | Default: `"update"`. |
+| `id?` | `string \| number` | The changed record's key, when one record changed. |
 
 ```ts excerpt
 import { createPublisher } from "@flowpanel/kit/publish";
 
-const events = createPublisher({ redis: process.env.REDIS_URL! });
-await events.publish(events.channelFor("orders"), { action: "update", id });
+const events = createPublisher({ redis: process.env.REDIS_URL!, onError: report });
+await events.resource("orders", { id });
 ```
+
+`createPublisher` also takes the admin's own `{ driver: "redis", url, keyPrefix }` options. A transport error resolves the call and reaches `onError` (or one log line per error kind); publishing after `close()` throws. A client's `duplicate()` is used for subscribing only when it returns a connection with `subscribe`, `unsubscribe` and `on`.
 
 The SSE envelope is exported next to it, for a consumer that reads the stream
 without going through FlowPanel's own client:
@@ -5410,10 +6066,12 @@ below use pnpm; substitute your own.
 - `--port <port>` Next.js dev port Default: `3000`.
 - `--no-board` Skip the bull-board server even if REDIS_URL is set
 
-`flowpanel new [options] <resource>` — Add a resource(...) entry to flowpanel.config.ts
+`flowpanel new [options] <resource>` — Add a resource(...) entry to the admin config
 - `<resource>`
 - `--table <expr>` First argument expression (default: schema.<resource>)
 - `--kind <kind>` Adapter kind: drizzle (default) or prisma Default: `drizzle`.
+- `--dir <dir>` Write the resource to <dir>/<name>.ts and add it to <dir>/index.ts
+- `--hidden` Register the resource without a navigation entry
 - `--dry-run` Print the filesystem plan without writing
 - `--json` Emit machine-readable JSON
 
@@ -5474,8 +6132,9 @@ What varies:
 - **Admin mount** — `/admin` by default, `/flowpanel` when `/admin` is occupied,
   or an explicit `--path /ops/admin`. Route groups are included in collision checks;
   a busy fallback stops installation before any writes.
-- **Admin layout** — imports the stylesheet under the chosen route. The existing
-  root layout is never patched. Without a shared root layout, the admin segment
+- **Admin layout** — imports the stylesheet under the chosen route and renders
+  `ThemeScript` with the `x-nonce` request header, whether or not the host has its own
+  root layout. The existing root layout is never patched. Without a shared root layout, the admin segment
   receives its own root layout. That layout reads the `x-nonce` request header and
   forwards it to `ThemeScript`, so the pre-hydration theme script survives a strict
   `script-src` policy — but only when your own middleware sets `x-nonce` on the
@@ -5483,8 +6142,11 @@ What varies:
   write that middleware, and with no `x-nonce` present the header read returns
   `null` and the script is rendered without a nonce, exactly as before. Reading
   `headers()` makes the admin segment dynamically rendered; it already was, because
-  `auth.session` reads the request. Existing host theme/CSP integration is left to
-  the application; `ThemeScript` accepts its nonce.
+  `auth.session` reads the request. The admin layout written into a host with its own root
+  layout reads `x-nonce` the same way. Under a strict `script-src`, your middleware must set
+  `x-nonce` there too; without it the browser blocks the theme script, and `smokeAdmin` fails
+  on the CSP console error. Your root layout's `<html>` needs `suppressHydrationWarning`, as the
+  one `init` writes has, because the script marks `<html>` before React hydrates it.
 - **Authentication** — `init` reads `package.json` for `better-auth`, `next-auth`,
   `@clerk/nextjs` or `lucia` and names what it recognised in the detected-stack
   note and the outro. When the auth module it found exports that provider's own
@@ -5674,15 +6336,16 @@ with a one-line note rather than an error.
 
 ### flowpanel new
 
-`flowpanel new [options] <resource>` — Add a resource(...) entry to flowpanel.config.ts
+`flowpanel new [options] <resource>` — Add a resource(...) entry to the admin config
 - `<resource>`
 - `--table <expr>` First argument expression (default: schema.<resource>)
 - `--kind <kind>` Adapter kind: drizzle (default) or prisma Default: `drizzle`.
+- `--dir <dir>` Write the resource to <dir>/<name>.ts and add it to <dir>/index.ts
+- `--hidden` Register the resource without a navigation entry
 - `--dry-run` Print the filesystem plan without writing
 - `--json` Emit machine-readable JSON
 
-Append a `resource(...)` entry to your existing
-`flowpanel.config.ts` without re-running `init`.
+Add a resource without re-running `init`: as a `resource(...)` entry in the config, or as its own file in a split config.
 
 ```bash
 $ pnpm flowpanel new posts
@@ -5704,6 +6367,57 @@ exit `1` and lists what the schema does export; an unverifiable case (no
 `import * as schema`, an unresolvable specifier) warns and writes anyway.
 A resource that already exists aborts with exit `1`.
 
+When `flowpanel.config.ts` is one line — `export { default } from "@/admin/config";` — the
+command follows it through your `tsconfig` paths and edits the file it points at.
+
+#### One file per resource
+
+```bash
+$ pnpm flowpanel new user_visit --dir admin/config/resources --hidden
+```
+
+`--dir` evaluates the Drizzle schema the config imports as `* as schema`, finds the table by
+its SQL name or its export name, and writes `admin/config/resources/user-visit.ts`:
+
+```ts excerpt
+import { enumOf, resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+
+const Surface = enumOf(schema.activitySurface.enumValues, { web: "web", tma: "tma" });
+
+export const userVisit = resource(schema.userVisit, {
+  hidden: true,
+  columns: [
+    "id",
+    { field: "userId", reference: { resource: "user", labelField: "name" } },
+    { field: "surface", format: Surface.format },
+    { field: "startedAt", format: { kind: "date", time: true } },
+    "touches",
+  ],
+  filters: [{ field: "surface", type: "select" }],
+  defaultSort: { field: "startedAt", dir: "desc" },
+});
+```
+
+It then imports `userVisit` in `admin/config/resources/index.ts` and appends it to the array
+that file exports, creating the index when there is none. Columns are chosen by type: a
+timestamp shows its date and time, a `date` column its day, a boolean a check mark, an enum a
+badge from an `enumOf` stub whose labels you then translate, and a foreign key — single or
+composite — becomes a `reference` labelled by the target's `name` column, else its `title`, else
+its `email`, which is what related tabs and timeline sources infer their filter from. A `reference`
+is written only when the target table already has a resource in `--dir`, because `defineAdmin`
+rejects a reference to a resource it does not know; otherwise the column stays plain and the
+command names it. The `reference` names the target the way it is registered: its own `name`
+when its file sets one, else its table name. Scaffold the tables a foreign key points at
+first. JSON, long text and `varchar` over 200 characters are left out of the list. `name`,
+`title` and `email` become search fields, and the list sorts newest first by `createdAt` or
+`startedAt`. `--hidden` keeps the resource out of the navigation; its pages and links still work.
+
+Running the command again changes nothing. A different file already at that path stops it
+before anything is written. `--dir` reads Drizzle only, so it takes neither `--table` nor
+`--kind prisma`. Without `--dir`, a config whose `resources` is imported rather than written as
+an array is left alone, and the command tells you to use `--dir`.
+
 Flags: `--table <expr>` overrides the first argument (default
 `schema.<resource>`, and skips the schema check); `--kind drizzle|prisma`
 toggles the template (default `drizzle`; `prisma` writes
@@ -5718,11 +6432,14 @@ Walk every page of a generated admin in one Playwright call and fail on errors, 
 
 Docs: https://flowpanel.tech/docs/reference/testing
 
-Documented types: smokeAdmin, SmokeAdminOptions, SmokeAdminReport, A11yViolation
+Documented types: smokeAdmin, SmokeAdminOptions, SmokeAdminReport, A11yViolation, widgetContext, WidgetContextOptions
 
 `@flowpanel/test` is a dev-time package: one function that walks a running
 admin the way an operator does and fails the build when a page is broken. It
 is not part of `@flowpanel/kit` and never reaches your application bundle.
+`@flowpanel/test/widgets` is its second entry: the context a widget receives
+in your admin, over rows you pass instead of a database, for a unit test of
+one widget's number.
 
 ```sh
 pnpm add -D @flowpanel/test @playwright/test
@@ -5749,6 +6466,13 @@ row and follows wherever that resource sends it — the row's own detail page
 when `rowClick: "detail"`, the URL-synced drawer when `rowClick: "drawer"`. A
 row the projection cannot identify is inert, and the walk leaves it alone
 rather than failing.
+
+On a record page the walk opens every other tab as well: it reads the `data-fp-tab` keys of the
+tab triggers and loads `?tab=<key>` for each tab that is not already open, so a widget that fails
+only on the third tab fails the run as
+`/admin/users/1?tab=activity: rendered a FlowPanel error surface`. Pass `tabs: false` to keep the
+0.3.0 walk. A record that opens in a drawer is checked as the drawer first shows it; its other
+tabs are not opened.
 
 ### What it asserts
 
@@ -5785,6 +6509,7 @@ network to go idle: an admin holding a realtime connection never reaches
 | `resources?` | `string[]` | Restrict the walk to these nav segments — `"customers"` for `/admin/customers`, `"/"` for the landing page. Every nav entry is visited when this is omitted. |
 | `a11y?` | `boolean` | Run axe against every visited route. Needs `@axe-core/playwright`; the walk skips the scan, rather than failing, when it does not resolve. Default: `false`. |
 | `maxRows?` | `number` | How many rows of each list the walk opens. Default: `1`. |
+| `tabs?` | `boolean` | On each record page the walk reaches, open every other detail tab as `?tab=<key>` and check it the way every other page is checked. Default: `true`. |
 
 `SmokeAdminReport`
 
@@ -5826,6 +6551,84 @@ console.log(`${report.visited.length} routes visited`);
 `resources` takes nav segments, not paths: `"/"` is the landing dashboard and
 `"customers"` is `/admin/customers`. `cookie` is added against the admin's own
 origin unless you give it an explicit `domain`.
+
+### Unit-test a widget
+
+`widgetContext` builds the context a widget's query receives in the admin, over rows you pass
+instead of a database. `resolveWidget` runs the widget the way the dashboard does and returns the
+props its card receives. The pair tests a number, a link or a custom widget's props in
+milliseconds, with the admin's own code.
+
+```ts excerpt
+import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
+import { expect, it } from "vitest";
+import { paidToday } from "@/admin/config/dashboards/money";
+
+it("counts only today's paid invoices", async () => {
+  const ctx = widgetContext({
+    rows: {
+      invoices: [
+        { status: "paid", paidAt: new Date("2026-09-25T09:00:00Z") },
+        { status: "paid", paidAt: new Date("2026-09-24T09:00:00Z") },
+      ],
+    },
+    range: { from: new Date("2026-09-25T00:00:00Z"), to: new Date("2026-09-25T23:59:59Z") },
+  });
+  const { props } = await resolveWidget(paidToday, ctx);
+  expect(props.value).toBe(1);
+  expect(props.drilldown).toContain("/admin/invoices?f_status=paid");
+});
+```
+
+`ctx.count`, `ctx.read`, `compare`, `ctx.link` and a count metric's link run exactly as in the
+admin: a misspelt field throws with the name that was probably meant, an `undefined` value
+counts `0` and makes `ctx.read` throw, and a filter link carries the same `f_<field>` values the
+list reads. Without `admin`, every key of `rows` is a resource whose columns are the keys its
+rows carry. Pass `admin` — your `defineAdmin` config — when the widget relies on what only the
+admin knows: a view it links to, a dashboard, or the `reference` a record-page count infers its
+filter from. Only the database is replaced then; your columns decide what a misspelling is.
+Access still applies: pass `session` and `role` as your admin's `auth` would resolve them, or a
+resource that checks the session reads no rows and counts `0`.
+
+`ctx.sql` returns `sql` rows, or calls your function with the statement and its bound values; a
+statement nothing answers throws. `row` and `resource` make a record-page context: `ctx.id`,
+`ctx.row` and `ctx.rowOf(resource)`. Formatting and labels come from `admin`, or from the
+`formatting` and `labels` options. `filters` sets `ctx.filters`, the dashboard filter values a
+widget branches on, as the dashboard reads them from its URL.
+
+`WidgetContextOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `rows?` | `Readonly<Record<string, readonly Row[]>>` | Rows per resource name. `ctx.count`, `ctx.read`, `compare` and count metrics read them. |
+| `admin?` | `ResolvedAdminConfig` | Your `defineAdmin` config. Its resources, columns, references, views, dashboards, labels, formatting and mount stay; only its database is replaced by `rows`. Without it, every key of `rows` is a resource whose columns are the keys its rows carry. |
+| `row?` | `Row` | The viewed record, for a record-page widget: `ctx.row`, `ctx.id` and `ctx.rowOf`. |
+| `resource?` | `string` | The resource `row` belongs to; `ctx.rowOf` of another name throws. |
+| `range?` | `{ from: Date; to: Date }` | The picked period; `compare` reads the one before it. Default: `the whole history until now`. |
+| `filters?` | `Readonly<Record<string, string>>` | The dashboard filters widgets read as `ctx.filters`. Default: `{}`. |
+| `sql?` | `SqlAnswer` | Rows every `ctx.sql` returns, or a function given the statement (`$1…$n`) and its values. |
+| `db?` | `unknown` | Handed to widgets as `ctx.db`. Default: `null`. |
+| `session?` | `Session \| null` | Default: `null`. |
+| `role?` | `string` | The role access checks compare. Default: `"admin"`. |
+| `formatting?` | `FormattingConfig` | Without `admin`: locale, zone and currency, as `defineAdmin` takes them. |
+| `labels?` | `LabelsConfig` | Without `admin`: overrides of the admin's strings. |
+| `basePath?` | `string` | Without `admin`: where the admin is mounted. Default: `"/admin"`. |
+
+`@flowpanel/test/widgets` is ESM-only, like `@flowpanel/next`, which it loads through
+`@flowpanel/kit/next` to render the widget; the Playwright entry stays CommonJS-compatible.
+
+#### Run it in Vitest
+
+The entry renders widgets with `@flowpanel/next`, which Next's bundler normally resolves. In
+Vitest, inline FlowPanel's packages so Vite resolves them too; otherwise the first run fails with
+`ERR_MODULE_NOT_FOUND` for `next/cache`:
+
+```ts excerpt
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({ test: { server: { deps: { inline: [/@flowpanel\//] } } } });
+```
 
 ### Authentication
 

@@ -5,6 +5,9 @@ import type { AccessRule, FieldWriteContext } from "./policy";
 import type { InferDB, ResourceName } from "./registry";
 import type { FieldDef } from "./resource";
 import type { CustomWidget, WidgetConfig } from "./widget";
+import type { ChecklistWidget, HeatmapWidget } from "./widget-activity";
+import type { TimelineWidget } from "./widget-timeline";
+import type { TrackerWidget } from "./widget-tracker";
 
 export type DrawerWidth = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 
@@ -34,8 +37,11 @@ export interface DrawerTabResource<Row = unknown> {
 export interface DrawerTabWidgets {
   key: string;
   label: string;
-  /** `custom()` widgets are not renderable here — the drawer serializes over the wire. */
-  widgets: Exclude<WidgetConfig, CustomWidget>[];
+  /** `custom()`, `tracker()` and page-rendered widgets (`timeline`, `heatmap`, `checklist`) are not renderable here — the drawer serializes over the wire. */
+  widgets: Exclude<
+    WidgetConfig,
+    CustomWidget | TimelineWidget | HeatmapWidget | ChecklistWidget | TrackerWidget
+  >[];
 }
 
 // Row defaults to an index signature, not `unknown`: `keyof unknown` is `never`,

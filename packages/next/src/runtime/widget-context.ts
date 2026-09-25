@@ -13,7 +13,8 @@ import { bindFormat, encodeFilters, mergeLabels, resolveFormatting } from "@flow
 import { previousRangeFor, shiftRange } from "./date-range";
 import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
 import { buildHref } from "./href";
-import { callKey, countKey, readKey } from "./memo-key";
+import { countKey, readKey } from "./memo-key";
+import { memoQuery } from "./memo-query";
 import { bindViewedRecord } from "./record-scope";
 import { resolveLink } from "./resolve-link";
 import { rowIdentity } from "./row-identity";
@@ -21,8 +22,6 @@ import { noteMemoHit } from "./widget-owner";
 import { recordOf, widgetCount, widgetRead } from "./widget-reads";
 
 type HrefOptions = { filter?: Record<string, unknown>; tab?: string };
-type Thunk = () => Promise<unknown>;
-type Call = (...args: unknown[]) => Promise<unknown>;
 
 function widgetHref(
   config: ResolvedAdminConfig,
@@ -55,23 +54,6 @@ function adapterSql<Row>(
     );
   }
   return run<Row>(strings, ...values);
-}
-
-function memoQuery(memo: Map<string, Promise<unknown>>): WidgetContext["query"] {
-  function query<T>(key: string, fn: () => Promise<T>): Promise<T>;
-  function query<A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>;
-  function query(first: string | Call, ...rest: unknown[]): Promise<unknown> {
-    const key = typeof first === "string" ? `k:${first}` : callKey(first, rest);
-    const running = memo.get(key);
-    if (running) {
-      noteMemoHit();
-      return running;
-    }
-    const started = typeof first === "string" ? (rest[0] as Thunk)() : first(...rest);
-    memo.set(key, started);
-    return started;
-  }
-  return query;
 }
 
 function memoCount(
@@ -153,6 +135,7 @@ export function buildWidgetContext(
   row?: Record<string, unknown>,
   rowKey: string = DEFAULT_RESOURCE_ROW_KEY,
   resource?: string,
+  filters: Readonly<Record<string, string>> = {},
 ): WidgetContext {
   const labels = mergeLabels(config.labels);
   const formatting = resolveFormatting(config.formatting);
@@ -172,12 +155,13 @@ export function buildWidgetContext(
       db: config.adapter.db,
       session: reqCtx.session,
       dateRange: widgetDateRange(range, timeZone, retainedSince),
+      filters,
       req,
       ...(row ? { row } : {}),
       ...(id !== null ? { id } : {}),
       href: (resource, recordId, opts) => widgetHref(config, timeZone, resource, recordId, opts),
       link: (target) => resolveLink(config, ctx, target) ?? "",
-      query: memoQuery(new Map()),
+      query: memoQuery(new Map(), () => ctx),
       labels,
       format,
       sql: <Row = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]) =>
@@ -206,9 +190,10 @@ export function rangedContext(
   if (derive) return derive(range, keepDays);
   const now = requestNow(ctx);
   const retainedSince = keepDays === undefined ? undefined : now - keepDays * DAY_MS;
-  const derived = {
+  const derived: WidgetContext = {
     ...ctx,
     dateRange: widgetDateRange(range, ctx.dateRange.timeZone, retainedSince),
+    query: memoQuery(new Map(), () => derived),
   };
   NOW.set(derived, now);
   if (retainedSince !== undefined) RETAINED.set(derived, retainedSince);

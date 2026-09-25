@@ -27,6 +27,7 @@ import type {
   StatWidget,
 } from "../types/widget-cards";
 import type { WidgetContext } from "../types/widget-context";
+import type { TrackerOptions, TrackerWidget } from "../types/widget-tracker";
 
 type MetricQuery = (ctx: WidgetContext) => Promise<number | string | MetricResult>;
 
@@ -136,4 +137,14 @@ export function funnel(options: FunnelOptions): FunnelWidget {
 /** A short feed of lines, each with optional trailing detail. */
 export function list(options: ListOptions): ListWidget {
   return { kind: "list", options };
+}
+
+/** "Anything on fire": a full-width `list()` ordered by severity, with an all-clear line. */
+export function banner(options: Omit<ListOptions, "variant">): ListWidget {
+  return { kind: "list", options: { span: 12, ...options, variant: "banner" } };
+}
+
+/** Status over time: one row per key, one block per hour or day of a window ending now. */
+export function tracker<R = Record<string, unknown>>(options: TrackerOptions<R>): TrackerWidget {
+  return { kind: "tracker", options: options as unknown as TrackerOptions };
 }

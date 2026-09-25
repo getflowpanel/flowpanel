@@ -23,6 +23,9 @@ export const DEFAULT_LABELS: {
   formError: string;
   confirm: Required<NonNullable<LabelsConfig["confirm"]>>;
   widget: Required<NonNullable<LabelsConfig["widget"]>>;
+  timeline: Required<NonNullable<LabelsConfig["timeline"]>>;
+  heatmap: Required<NonNullable<LabelsConfig["heatmap"]>>;
+  checklist: Required<NonNullable<LabelsConfig["checklist"]>>;
   errors: Required<NonNullable<LabelsConfig["errors"]>>;
   palette: Required<NonNullable<LabelsConfig["palette"]>>;
 } = {
@@ -157,6 +160,7 @@ export const DEFAULT_LABELS: {
   widget: {
     empty: "No data yet",
     seeAll: "See all",
+    showAll: "Show all",
     updated: "Updated {ago}",
     justNow: "just now",
     secondsAgo: "{n}s ago",
@@ -166,6 +170,37 @@ export const DEFAULT_LABELS: {
     points: "{value} pp",
     vsPrevious: "vs previous period",
     vsWeekAgo: "vs a week earlier",
+    other: "Other",
+    expired: "No data: kept for {days} days",
+    keptSince: "Since {date}; older data is not kept",
+    dataAsOf: "Data as of {time}",
+    observations: "{n} observed",
+    allClear: "All clear",
+    more: "{n} more",
+    filtered: "Nothing matches the current filters.",
+  },
+  timeline: {
+    all: "All",
+    today: "Today",
+    yesterday: "Yesterday",
+    event: "{n} event",
+    events: "{n} events",
+    folded: "×{n}",
+    older: "Older →",
+    newest: "← Newest",
+  },
+  heatmap: {
+    summary: "{total} in the last {days} days",
+    cell: "{date}: {value}",
+    less: "Less",
+    more: "More",
+  },
+  checklist: {
+    summary: "{done} of {total}",
+    gap: "+{duration}",
+    done: "Done",
+    todo: "Not done",
+    optional: "Optional",
   },
   errors: {
     queryTitle: "{resource}: {operation} failed",

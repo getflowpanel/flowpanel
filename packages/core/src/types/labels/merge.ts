@@ -15,6 +15,8 @@ function mergePlurals(user: LabelsConfig, base: ResolvedLabels): ResolvedLabels[
     delete plurals.results;
   }
   if (user.bulkBar?.selected !== undefined) delete plurals.selected;
+  if (user.timeline?.event !== undefined || user.timeline?.events !== undefined)
+    delete plurals.events;
   Object.assign(plurals, defined(user.plurals ?? {}));
   return Object.keys(plurals).length > 0 ? plurals : undefined;
 }
@@ -47,6 +49,9 @@ export function mergeLabels(
     related: { ...base.related, ...defined(user.related ?? {}) },
     confirm: { ...base.confirm, ...defined(user.confirm ?? {}) },
     widget: { ...base.widget, ...defined(user.widget ?? {}) },
+    timeline: { ...base.timeline, ...defined(user.timeline ?? {}) },
+    heatmap: { ...base.heatmap, ...defined(user.heatmap ?? {}) },
+    checklist: { ...base.checklist, ...defined(user.checklist ?? {}) },
     errors: { ...base.errors, ...defined(user.errors ?? {}) },
     palette: { ...base.palette, ...defined(user.palette ?? {}) },
   };

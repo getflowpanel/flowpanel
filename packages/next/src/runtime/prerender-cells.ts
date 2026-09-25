@@ -16,6 +16,8 @@ export interface PrerenderedColumn<Row> {
   editable?: boolean;
   /** Mirrors `ColumnDef.format`. Plain data, so it crosses to the client verbatim. */
   format?: ColumnFormat;
+  /** Mirrors `ColumnDef.secondary`; dropped on a `reference` column. */
+  secondary?: keyof Row & string;
 }
 
 export interface PrerenderResult<Row> {
@@ -88,6 +90,7 @@ export function prerenderResourceCells<Row>(
     if (!fieldless) {
       if (def.editable === true) out.editable = true;
       if (def.format !== undefined) out.format = def.format;
+      if (def.secondary !== undefined && !def.reference) out.secondary = def.secondary;
       if (def.reference) out.type = "reference";
       else {
         const meta = metaByField?.get(field);

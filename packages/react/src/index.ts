@@ -47,6 +47,8 @@ export {
   type HeatCellProps,
   RelativeTimeCell,
   type RelativeTimeCellProps,
+  ToneText,
+  type ToneTextProps,
   UrlCell,
   type UrlCellProps,
 } from "./_data/FormatCells";
@@ -199,20 +201,43 @@ export {
 } from "./_shell/ShortcutsCheatsheet";
 export { ThemeScript, type ThemeScriptProps } from "./_shell/ThemeScript";
 export { BarsCard, type BarsCardProps, type BarsCardRow } from "./_widgets/BarsCard";
+export { CaptionLine, type CaptionLineProps } from "./_widgets/CaptionLine";
+export { CardHeading, type CardHeadingProps } from "./_widgets/CardHeading";
+export {
+  ChecklistCard,
+  type ChecklistCardItem,
+  type ChecklistCardProps,
+} from "./_widgets/ChecklistCard";
 export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget";
 export { DashboardRefresh, type DashboardRefreshProps } from "./_widgets/DashboardRefresh";
+export { ExpiredCard, type ExpiredCardProps } from "./_widgets/ExpiredCard";
 export {
   FunnelCard,
   type FunnelCardProps,
   type FunnelCardStep,
 } from "./_widgets/FunnelCard";
+export { HeatmapCard, type HeatmapCardCell, type HeatmapCardProps } from "./_widgets/HeatmapCard";
 export { KvCard, type KvCardItem, type KvCardProps } from "./_widgets/KvCard";
+export { ListBanner } from "./_widgets/ListBanner";
 export { ListCard, type ListCardProps, type ListCardRow } from "./_widgets/ListCard";
 export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard";
 export { DefaultMetricCard } from "./_widgets/MetricCardDefault";
 export { StatCard, type StatCardProps } from "./_widgets/StatCard";
 export { StatGroupCard, type StatGroupCardProps } from "./_widgets/StatGroupCard";
 export { TableWidget, type TableWidgetProps } from "./_widgets/TableWidget";
+export {
+  TimelineCard,
+  type TimelineCardChip,
+  type TimelineCardGroup,
+  type TimelineCardLine,
+  type TimelineCardProps,
+} from "./_widgets/TimelineCard";
+export {
+  TrackerCard,
+  type TrackerCardCell,
+  type TrackerCardProps,
+  type TrackerCardRow,
+} from "./_widgets/TrackerCard";
 export { DevToolsPanel, type DevToolsPanelProps } from "./devtools/DevToolsPanel";
 export { type AdminCommand, useAdminCommand } from "./hooks/useAdminCommand";
 export {
@@ -260,6 +285,7 @@ export {
   toggleTheme,
   writeStoredTheme,
 } from "./lib/theme";
+export { toneFillClass, toneTextClass } from "./lib/tone-classes";
 export { type DownloadPayload, triggerDownload } from "./lib/trigger-download";
 export type {
   RealtimeBus,

@@ -153,6 +153,9 @@
         "@flowpanel/core/labels": [
           "./dist/labels.d.ts"
         ],
+        "@flowpanel/core/publish": [
+          "./dist/publish.d.ts"
+        ],
         "@flowpanel/core/theme": [
           "./dist/theme.d.ts"
         ]
@@ -180,6 +183,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "expect-type": "^0.20.0",
+    "ioredis": "^5.10.0",
     "react": "^19.0.0",
     "tsd": "catalog:",
     "tsup": "catalog:",

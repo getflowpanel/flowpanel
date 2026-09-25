@@ -1,15 +1,14 @@
 import { cn } from "../lib/cn";
+import type { Tone } from "../lib/format";
+import { toneFillClass } from "../lib/tone-classes";
 
-export type StatusTone = "ok" | "warn" | "err" | "muted";
+export type StatusTone = Tone;
 
-export function StatusDot({ tone = "ok", className }: { tone?: StatusTone; className?: string }) {
-  const colorClass = {
-    ok: "bg-fp-ok",
-    warn: "bg-fp-warn",
-    err: "bg-fp-err",
-    muted: "bg-fp-text-3",
-  }[tone];
+export function StatusDot({ tone = "ok", className }: { tone?: Tone; className?: string }) {
   return (
-    <span aria-hidden className={cn("inline-block h-2 w-2 rounded-full", colorClass, className)} />
+    <span
+      aria-hidden
+      className={cn("inline-block h-2 w-2 rounded-full", toneFillClass[tone], className)}
+    />
   );
 }

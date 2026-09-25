@@ -16,6 +16,8 @@ export interface DataTableColumn<Row> {
   editable?: boolean;
   /** Declarative formatter mirrored from `ColumnDef.format`. */
   format?: ColumnFormat;
+  /** A field of the row shown as a muted second line under the cell. */
+  secondary?: keyof Row & string;
 }
 
 export interface DataTableSort<Row> {

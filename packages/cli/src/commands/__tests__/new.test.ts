@@ -5,7 +5,7 @@ import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 import { editConfigToAddResource } from "../../eject/addResource";
 import { tpl } from "../../utils/template";
-import { parseAdapterKind } from "../new";
+import { checkSchemaExport, parseAdapterKind, unlinkedColumns } from "../new";
 
 const BASE_CONFIG = `import { defineAdmin, resource } from "@flowpanel/kit";
 import * as schema from "./db/schema";
@@ -50,6 +50,20 @@ describe("editConfigToAddResource", () => {
       table: "schema.purchases",
     });
     expect(out).toContain("resource(schema.purchases, {})");
+  });
+
+  it("refuses a config whose resources come from elsewhere, instead of adding a second key", () => {
+    const split = [
+      'import { defineAdmin } from "@flowpanel/kit";',
+      'import { resources } from "./resources";',
+      "export default defineAdmin({ resources });",
+      "",
+    ].join("\n");
+    expect(() => editConfigToAddResource(split, "orders", { filename: "index.ts" })).toThrow(
+      "new: index.ts takes its resources from `resources`, not an array literal",
+    );
+    const named = split.replace("({ resources })", "({ resources: adminResources })");
+    expect(() => editConfigToAddResource(named, "orders")).toThrow("from `adminResources`");
   });
 });
 
@@ -211,5 +225,67 @@ describe("parseAdapterKind", () => {
     expect(parseAdapterKind("mongoose")).toBeNull();
     expect(parseAdapterKind("Prisma")).toBeNull();
     expect(parseAdapterKind("")).toBeNull();
+  });
+});
+
+describe("checkSchemaExport", () => {
+  function project(): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fp-schema-"));
+    tmpRoots.push(dir);
+    return dir;
+  }
+  const CONFIG = 'import * as schema from "@/db/schema";\n';
+
+  it("still verifies @/… against src/ when the host declares no tsconfig paths", async () => {
+    const cwd = project();
+    fs.mkdirSync(path.join(cwd, "src/db"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, "src/db/schema.ts"), "export const users = {};\n");
+    const check = await checkSchemaExport(
+      cwd,
+      path.join(cwd, "flowpanel.config.ts"),
+      CONFIG,
+      "users",
+    );
+    expect(check.status).toBe("ok");
+  });
+
+  it("still verifies @/… against the project root when there is no src/ either", async () => {
+    const cwd = project();
+    fs.mkdirSync(path.join(cwd, "db"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, "db/schema.ts"), "export const users = {};\n");
+    const check = await checkSchemaExport(
+      cwd,
+      path.join(cwd, "flowpanel.config.ts"),
+      CONFIG,
+      "users",
+    );
+    expect(check.status).toBe("ok");
+  });
+
+  it("does not fall back once the host declares its own tsconfig paths", async () => {
+    const cwd = project();
+    fs.writeFileSync(
+      path.join(cwd, "tsconfig.json"),
+      '{"compilerOptions":{"paths":{"~/*":["lib/*"]}}}',
+    );
+    fs.mkdirSync(path.join(cwd, "src/db"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, "src/db/schema.ts"), "export const users = {};\n");
+    const check = await checkSchemaExport(
+      cwd,
+      path.join(cwd, "flowpanel.config.ts"),
+      CONFIG,
+      "users",
+    );
+    expect(check.status).toBe("unverified");
+  });
+});
+
+describe("unlinkedColumns", () => {
+  it("parses planNewIntoDir's arrow strings into the --json payload shape", () => {
+    expect(unlinkedColumns(["userId → user", "orderId → order"])).toEqual([
+      { table: "user", column: "userId" },
+      { table: "order", column: "orderId" },
+    ]);
+    expect(unlinkedColumns([])).toEqual([]);
   });
 });

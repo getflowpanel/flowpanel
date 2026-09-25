@@ -1,15 +1,16 @@
 import type {
-  BarRow,
   FunnelStep,
-  ListRow,
+  RealtimeOption,
   RequestContext,
   ResolvedAdminConfig,
+  WidgetCaption,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { resolveFormatting } from "@flowpanel/core";
+import { OTHER_KEY, resolveFormatting } from "@flowpanel/core";
 import {
   BarsCard,
+  ExpiredCard,
   FunnelCard,
   KvCard,
   ListCard,
@@ -19,15 +20,30 @@ import {
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { ServerCard } from "./_server-card";
+import { barRows } from "./bar-rows";
+import { withFilterHrefs } from "./dashboard-filters";
+import { filteredEmptyState } from "./filtered-empty";
+import { listCardData } from "./list-rows";
+import { realtimeChannels } from "./realtime-channels";
 import { scopedCountMetric } from "./record-scope";
+import { renderChartWidget } from "./render-chart-widget";
+import { renderChecklist } from "./render-checklist";
+import { renderHeatmap } from "./render-heatmap";
 import { renderMetric } from "./render-metric";
 import { renderTableWidget } from "./render-table-widget";
+import { renderTimeline } from "./render-timeline";
+import { renderTracker } from "./render-tracker";
 import { linkRows, resolveLink } from "./resolve-link";
 import { statDisplay } from "./stat-result";
+import { thresholdTone } from "./threshold-tone";
+import { type CaptionPromise, expiredCaption, NO_CAPTION, widgetCaption } from "./widget-caption";
+import { requestNow } from "./widget-context";
 import { kvItems, resolveItem, statItemOf } from "./widget-items";
-import { expiredCard, retainedRange } from "./widget-range";
+import { widgetLabel } from "./widget-owner";
+import { retainedRange } from "./widget-range";
 
-function withRealtime(node: ReactNode, channels: string | string[] | undefined): ReactNode {
+function withRealtime(node: ReactNode, value: RealtimeOption | undefined): ReactNode {
+  const channels = realtimeChannels(value);
   return (
     <Fragment>
       {node}
@@ -50,8 +66,24 @@ export async function renderWidget(
   frame: WidgetFrame = {},
 ): Promise<ReactNode> {
   const kept = retainedRange(widget, pickedCtx);
-  if (kept.expired) return <ListCard {...expiredCard(widget, pickedCtx)} rows={[]} />;
+  if (kept.expired) {
+    const title = widgetLabel(widget);
+    return (
+      <ExpiredCard
+        {...(title ? { label: title } : {})}
+        caption={expiredCaption(pickedCtx, kept.days)}
+      />
+    );
+  }
   const ctx = kept.ctx;
+  const pending: CaptionPromise =
+    widget.kind === "custom" && widget.options.frame === false
+      ? NO_CAPTION
+      : widgetCaption(widget, kept, requestNow(pickedCtx));
+  const captioned = async (): Promise<{ caption?: WidgetCaption }> => {
+    const caption = await pending;
+    return caption ? { caption } : {};
+  };
   switch (widget.kind) {
     case "metric":
       return withRealtime(
@@ -60,6 +92,7 @@ export async function renderWidget(
           ctx,
           config,
           frame.plain === true,
+          pending,
         ),
         widget.options.realtime,
       );
@@ -72,6 +105,7 @@ export async function renderWidget(
         <StatGroupCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
           stats={stats}
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
@@ -81,7 +115,10 @@ export async function renderWidget(
       const statFormatting = resolveFormatting(config.formatting);
       const hint = result.hint ?? widget.options.hint;
       const href = resolveLink(config, ctx, result.href ?? widget.options.href);
-      const tone = result.tone ?? widget.options.tone;
+      const tone =
+        result.tone ??
+        widget.options.tone ??
+        thresholdTone(result.value, widget.options.tones, result.volume);
       return withRealtime(
         <StatCard
           label={widget.label}
@@ -91,6 +128,7 @@ export async function renderWidget(
           {...(href ? { href } : {})}
           {...(tone ? { tone } : {})}
           {...(frame.plain ? { plain: true } : {})}
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
@@ -103,21 +141,27 @@ export async function renderWidget(
           {...(widget.options.label ? { label: widget.options.label } : {})}
           items={items}
           {...(widget.options.columns ? { columns: widget.options.columns } : {})}
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
     }
     case "bars": {
-      const rows: BarRow[] = await widget.options.query(ctx);
+      const rows = await barRows(widget, ctx);
       return withRealtime(
         <BarsCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={linkRows(config, ctx, rows)}
+          rows={withFilterHrefs(ctx, widget.options.filter, linkRows(config, ctx, rows), (row) =>
+            row.key === undefined || row.key === OTHER_KEY ? null : row.key,
+          )}
           {...(widget.options.format ? { format: widget.options.format } : {})}
           {...(widget.options.max !== undefined ? { max: widget.options.max } : {})}
           {...(widget.options.share ? { share: true } : {})}
           {...(widget.options.goodWhen ? { goodWhen: widget.options.goodWhen } : {})}
-          emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
+          emptyState={
+            filteredEmptyState(ctx) ?? widget.options.emptyState ?? ctx.labels.widget.empty
+          }
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
@@ -132,18 +176,27 @@ export async function renderWidget(
           {...(widget.options.alertDrop !== undefined
             ? { alertDrop: widget.options.alertDrop }
             : {})}
-          emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
+          emptyState={
+            filteredEmptyState(ctx) ?? widget.options.emptyState ?? ctx.labels.widget.empty
+          }
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
     }
     case "list": {
-      const rows: ListRow[] = await widget.options.query(ctx);
+      const data = await listCardData(widget, ctx, config);
+      const filteredQuiet =
+        data.variant && data.rows.length === 0 && Object.keys(ctx.filters).length > 0;
       return withRealtime(
         <ListCard
-          {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={linkRows(config, ctx, rows)}
-          emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
+          {...data}
+          {...(data.variant
+            ? filteredQuiet
+              ? { allClear: ctx.labels.widget.filtered }
+              : {}
+            : { emptyState: filteredEmptyState(ctx) ?? data.emptyState })}
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
@@ -156,49 +209,43 @@ export async function renderWidget(
       const Component = widget.Component as ComponentType<unknown>;
       const inner = createElement(Component, props as Record<string, unknown>);
       const label = widget.options.label;
-      const card = <ServerCard {...(label ? { label } : {})}>{inner}</ServerCard>;
+      const caption = await pending;
+      const card = (
+        <ServerCard {...(label ? { label } : {})} {...(caption ? { caption } : {})}>
+          {inner}
+        </ServerCard>
+      );
       const framed = widget.options.frame === false ? inner : card;
       return withRealtime(framed, widget.options.realtime);
     }
+    case "timeline":
+      return withRealtime(
+        await renderTimeline(widget, ctx, config, reqCtx, pending),
+        widget.options.realtime,
+      );
+    case "tracker":
+      return withRealtime(
+        await renderTracker(widget, ctx, config, pending),
+        widget.options.realtime,
+      );
+    case "heatmap":
+      return withRealtime(
+        await renderHeatmap(widget, ctx, config, reqCtx, pending),
+        widget.options.realtime,
+      );
+    case "checklist":
+      return withRealtime(
+        await renderChecklist(widget, ctx, config, pending),
+        widget.options.realtime,
+      );
     case "table":
-      return renderTableWidget(widget, ctx, config, reqCtx);
+      return renderTableWidget(widget, ctx, config, reqCtx, pending);
     case "areaChart":
     case "barChart":
     case "lineChart":
     case "pieChart": {
-      let chartsMod: {
-        // biome-ignore lint/suspicious/noExplicitAny: cross-package dynamic import
-        ChartRenderer: (props: any) => ReactNode;
-      };
-      try {
-        chartsMod =
-          // biome-ignore lint/suspicious/noExplicitAny: dynamic import surface not typed
-          (await import("@flowpanel/charts/runtime" as any)) as any;
-      } catch (e) {
-        console.error("[flowpanel/charts] dynamic import failed:", e);
-        return (
-          <div
-            data-fp-error=""
-            className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 text-xs text-fp-text-3"
-          >
-            {ctx.labels.widget.chartsMissing}
-          </div>
-        );
-      }
-      const data = await widget.query(ctx);
-      const drilldown = resolveLink(config, ctx, widget.options.drilldown);
-      const { drilldown: _drilldown, ...options } = widget.options;
-      const Renderer = chartsMod.ChartRenderer;
-      return withRealtime(
-        <Renderer
-          kind={widget.kind}
-          label={widget.label}
-          options={options}
-          data={data}
-          {...(drilldown ? { drilldown } : {})}
-        />,
-        widget.options.realtime,
-      );
+      const chart = await renderChartWidget(widget, ctx, config, pending);
+      return chart.missing ? chart.node : withRealtime(chart.node, widget.options.realtime);
     }
   }
 }

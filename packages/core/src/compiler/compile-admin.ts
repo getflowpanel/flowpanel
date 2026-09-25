@@ -9,12 +9,17 @@ import type { DashboardConfig, PageConfig } from "../types/dashboard";
 import { type LabelsConfig, mergeLabels } from "../types/labels";
 import type { QueueConfig } from "../types/queue";
 import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
-import { validateLinks } from "../validate-links";
+import { validateDashboardFilters } from "../validate-dashboard-filters";
+import { type LinkCheck, validateLinks } from "../validate-links";
+import { validateRealtime } from "../validate-realtime";
+import { validateRecordSources } from "../validate-record-sources";
 import { validateResourceColumns } from "../validate-resource-columns";
 import { validateResourceRefs } from "../validate-resource-refs";
 import { createFieldWarnings, warnCreateFieldsOnce } from "../warn-create-fields";
 import { warnIfNoAccessControl } from "../warn-open-admin";
 import { createBuiltinBulkDelete } from "./builtin-bulk-delete";
+import { resolveDetailWidgets } from "./detail-widgets";
+import { withEnumOptions } from "./enum-options";
 import { resolveRelatedTabs } from "./related-tabs";
 import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
 import {
@@ -149,6 +154,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     if (written) warnings.push(...createFieldWarnings(name, resource, written));
     assertCanonicalFieldAccess(resource, name, introspection);
 
+    resource = withEnumOptions(resource);
     resources.push(resource);
     resourcesByName.set(name, resource);
     compiledResourcesByName.set(name, {
@@ -195,7 +201,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   }
 
   for (const [name, current] of resourcesByName) {
-    const resolved = resolveRelatedTabs(name, current, resourcesByName);
+    const resolved = resolveDetailWidgets(name, resolveRelatedTabs(name, current, resourcesByName));
     if (resolved === current) continue;
     resources[resources.indexOf(current)] = resolved;
     resourcesByName.set(name, resolved);
@@ -203,16 +209,22 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     if (compiled) compiledResourcesByName.set(name, { ...compiled, definition: resolved });
   }
   validateResourceRefs(resourcesByName, config.dashboards ?? []);
-  validateLinks(
-    {
-      resourcesByName,
-      columnsOf: (name) =>
-        compiledResourcesByName.get(name)?.introspection?.columns.map((column) => column.name) ??
-        [],
-      paths: new Set([...dashboardsByPath.keys(), ...pagesByPath.keys()]),
-    },
-    config.dashboards ?? [],
-  );
+  validateRealtime(resourcesByName, config.dashboards ?? []);
+  validateDashboardFilters(config.dashboards ?? [], resourcesByName);
+  const linkCheck: LinkCheck = {
+    resourcesByName,
+    columnsOf: (name) =>
+      compiledResourcesByName.get(name)?.introspection?.columns.map((column) => column.name) ?? [],
+    paths: new Set([...dashboardsByPath.keys(), ...pagesByPath.keys()]),
+    dashboardFilters: new Map(
+      (config.dashboards ?? []).map((d) => [
+        normalizeRoutePath(d.path),
+        (d.filters ?? []).map((filter) => filter.key),
+      ]),
+    ),
+  };
+  validateLinks(linkCheck, config.dashboards ?? []);
+  validateRecordSources(linkCheck, config.dashboards ?? []);
   warnIfNoAccessControl(config, resources);
   warnCreateFieldsOnce(warnings);
 

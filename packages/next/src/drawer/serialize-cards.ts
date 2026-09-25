@@ -1,16 +1,20 @@
 import type {
   BarRow,
   FunnelStep,
-  ListRow,
   NumericFormat,
+  RealtimeOption,
   RequestContext,
   ResolvedAdminConfig,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
 import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
+import { barRows } from "../runtime/bar-rows";
+import { type ListCardData, listCardData } from "../runtime/list-rows";
+import { realtimeProp } from "../runtime/realtime-channels";
 import { type LinkedRow, linkRows, resolveLink } from "../runtime/resolve-link";
 import { statDisplay } from "../runtime/stat-result";
+import { thresholdTone } from "../runtime/threshold-tone";
 import { kvItems, resolveItem } from "../runtime/widget-items";
 
 /** Wire-safe shape of the card widgets a drawer renders with the dashboard's own components. */
@@ -29,7 +33,15 @@ export type SerializedCardWidget =
   | {
       kind: "kv";
       label?: string;
-      items: { label: string; value: string; tone?: string; href?: string }[];
+      items: {
+        label: string;
+        value: string;
+        tone?: string;
+        href?: string;
+        long?: true;
+        rest?: string;
+        more?: string;
+      }[];
       columns?: 1 | 2;
       span?: number;
       realtime?: string | string[];
@@ -56,14 +68,7 @@ export type SerializedCardWidget =
       span?: number;
       realtime?: string | string[];
     }
-  | {
-      kind: "list";
-      label?: string;
-      rows: LinkedRow<ListRow>[];
-      emptyState: string;
-      span?: number;
-      realtime?: string | string[];
-    };
+  | ({ kind: "list"; span?: number; realtime?: string | string[] } & ListCardData);
 
 /** `null` for a widget kind this module does not own. */
 export async function serializeCardWidget(
@@ -72,9 +77,9 @@ export async function serializeCardWidget(
   reqCtx: RequestContext,
   ctx: WidgetContext,
 ): Promise<SerializedCardWidget | null> {
-  const common = (options: { span?: number; realtime?: string | string[] }) => ({
+  const common = (options: { span?: number; realtime?: RealtimeOption }) => ({
     ...(options.span ? { span: options.span } : {}),
-    ...(options.realtime ? { realtime: options.realtime } : {}),
+    ...realtimeProp(options.realtime),
   });
   switch (w.kind) {
     case "stat": {
@@ -82,7 +87,10 @@ export async function serializeCardWidget(
       const result = await resolveItem(w.value, ctx, reqCtx);
       const hint = result.hint ?? w.options.hint;
       const href = resolveLink(config, ctx, result.href ?? w.options.href);
-      const tone = result.tone ?? w.options.tone;
+      const tone =
+        result.tone ??
+        w.options.tone ??
+        thresholdTone(result.value, w.options.tones, result.volume);
       return {
         kind: "stat",
         label: w.label,
@@ -109,11 +117,7 @@ export async function serializeCardWidget(
       return {
         kind: "bars",
         ...(w.options.label ? { label: w.options.label } : {}),
-        rows: linkRows(
-          config,
-          ctx,
-          await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
-        ),
+        rows: linkRows(config, ctx, await runWithRequestContext(reqCtx, () => barRows(w, ctx))),
         ...(w.options.format ? { format: w.options.format } : {}),
         ...(w.options.max !== undefined ? { max: w.options.max } : {}),
         ...(w.options.share ? { share: true } : {}),
@@ -138,13 +142,7 @@ export async function serializeCardWidget(
     case "list":
       return {
         kind: "list",
-        ...(w.options.label ? { label: w.options.label } : {}),
-        rows: linkRows(
-          config,
-          ctx,
-          await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
-        ),
-        emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
+        ...(await runWithRequestContext(reqCtx, () => listCardData(w, ctx, config))),
         ...common(w.options),
       };
     default:

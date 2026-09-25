@@ -9,7 +9,7 @@ import { Checkbox } from "../ui/checkbox";
 import type { DataTableColumn } from "./data-table-types";
 import { ALIGN_CLASS } from "./format-cell";
 import { InlineEditCell } from "./InlineEditCell";
-import { renderDefaultCell } from "./render-default-cell";
+import { renderDefaultCell, withSecondary } from "./render-default-cell";
 import type { PinMeta } from "./useColumnLayout";
 
 function renderCellContent<Row extends Record<string, unknown>>(
@@ -140,7 +140,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
               c.className,
             )}
           >
-            {cellContent}
+            {withSecondary(c, row, cellContent, formatting)}
           </td>
         );
       })}

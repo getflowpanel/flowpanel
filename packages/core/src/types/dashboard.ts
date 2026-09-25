@@ -1,8 +1,12 @@
 import type { ComponentType } from "react";
+import type { EnumDef } from "../builders/enum-of";
 import type { DashboardAction } from "./action";
 import type { IconName } from "./icon";
+import type { RealtimeOption } from "./realtime";
+import type { SelectOption } from "./resource";
 import type { Session } from "./session";
 import type { WidgetConfig } from "./widget";
+import type { WidgetContext } from "./widget-context";
 
 export type DateRangePreset = "today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD";
 
@@ -64,6 +68,16 @@ export interface SectionConfig {
   widgets: WidgetConfig[];
 }
 
+/** A select above a dashboard that narrows every widget, read as `ctx.filters[key]`. */
+export interface DashboardFilter {
+  /** The URL key `f_<key>`, as a list's filters use, and the key in `ctx.filters`. */
+  key: string;
+  /** The select's label. */
+  label: string;
+  /** The choices: a list, an `enumOf()`, or a function of the context. */
+  options: SelectOption[] | EnumDef | ((ctx: WidgetContext) => Promise<SelectOption[]>);
+}
+
 export interface DashboardConfig {
   /** Path under `basePath`. `"/"` makes this the admin's landing page. */
   path: string;
@@ -75,8 +89,10 @@ export interface DashboardConfig {
   navGroup?: NavGroupRef;
   /** Adds a date picker whose value reaches every widget query. */
   dateRange?: DateRangeConfig;
-  /** SSE channel(s) the whole dashboard subscribes to, independent of any widget. */
-  realtime?: string | string[];
+  /** Selects beside the date picker; the values reach every widget as `ctx.filters`. */
+  filters?: DashboardFilter[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
   /**
    * Re-render the whole dashboard on an interval, e.g. `"60s"` or `"5m"`, and
    * show how old the numbers are next to the date picker. Paused while the tab

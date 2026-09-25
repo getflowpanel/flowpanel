@@ -9,6 +9,8 @@ import { declaredListFields, filterShapeProblem } from "@flowpanel/core";
 import { MetricCard } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { resolveLink } from "./resolve-link";
+import { thresholdTone } from "./threshold-tone";
+import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
 import { comparisonRange, rangedContext } from "./widget-context";
 import { columnsOf, warnOnce } from "./widget-reads";
 
@@ -89,17 +91,22 @@ export async function renderMetric(
   ctx: WidgetContext,
   config: ResolvedAdminConfig,
   plain = false,
+  caption: CaptionPromise = NO_CAPTION,
 ): Promise<ReactNode> {
-  const [produced, queriedDelta, sparkline, before] = await Promise.all([
+  const [produced, queriedDelta, sparkline, before, captionLine] = await Promise.all([
     widget.query(ctx),
     widget.options.delta ? widget.options.delta(ctx) : Promise.resolve(null),
     widget.options.sparkline ? widget.options.sparkline(ctx) : Promise.resolve(undefined),
     previousResult(widget, ctx),
+    caption,
   ]);
   const result = asResult(produced);
   const delta = result.delta ?? queriedDelta ?? comparedDelta(widget, ctx, result, before);
   const sublabel = result.sublabel ?? widget.options.sublabel;
-  const tone = result.tone ?? widget.options.tone;
+  const tone =
+    result.tone ??
+    widget.options.tone ??
+    thresholdTone(result.value, widget.options.tones, result.volume);
   if (result.href === undefined) warnOnMismatch(widget, ctx, config);
   const drilldown = resolveLink(config, ctx, result.href ?? widget.options.drilldown);
   return (
@@ -114,6 +121,7 @@ export async function renderMetric(
       {...(drilldown ? { drilldown } : {})}
       {...(widget.options.icon ? { icon: widget.options.icon } : {})}
       {...(plain ? { plain: true } : {})}
+      {...(captionLine ? { caption: captionLine } : {})}
     />
   );
 }

@@ -1,5 +1,6 @@
 "use client";
-import { Card, CardContent, CardHeader } from "../_layout/Card";
+import type { WidgetCaption } from "@flowpanel/core";
+import { Card, CardContent } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
 import { cn } from "../lib/cn";
 import {
@@ -10,6 +11,7 @@ import {
   type Tone,
 } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
+import { CardHeading } from "./CardHeading";
 
 export interface StatGroupCardProps {
   label?: string;
@@ -21,6 +23,8 @@ export interface StatGroupCardProps {
     /** Renders the value as a link. */
     href?: string;
   }>;
+  /** The line under the title: a cut range, freshness or coverage. */
+  caption?: WidgetCaption;
 }
 
 function statText(
@@ -33,12 +37,12 @@ function statText(
   return String(value ?? "—");
 }
 
-export function StatGroupCard({ label, stats }: StatGroupCardProps) {
+export function StatGroupCard({ label, stats, caption }: StatGroupCardProps) {
   const formatting = useFormatting();
   return (
     <Card>
-      {label ? <CardHeader>{label}</CardHeader> : null}
-      <CardContent className={label ? "pt-0" : ""}>
+      <CardHeading label={label} caption={caption} />
+      <CardContent className={label || caption ? "pt-0" : ""}>
         <dl className="grid grid-cols-2 gap-3">
           {stats.map((s, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: stats are ordered and labels may repeat

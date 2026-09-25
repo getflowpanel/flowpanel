@@ -1,14 +1,13 @@
-import type { WidgetConfig, WidgetContext } from "@flowpanel/core";
-import type { ReactNode } from "react";
+import type { RangeLimit, WidgetConfig, WidgetContext } from "@flowpanel/core";
 import { rangedContext, requestNow } from "./widget-context";
 
 const DAY_MS = 86_400_000;
 const warned = new Set<string>();
 
-/** What a widget with `maxRange` may query: nothing once its range has expired. */
+/** What a widget with `maxRange` may query: nothing when expired, else its context and any cut. */
 export type RetainedRange =
   | { expired: true; ctx: WidgetContext; days: number }
-  | { expired: false; ctx: WidgetContext };
+  | { expired: false; ctx: WidgetContext; keptSince: Date | null };
 
 function capDays(limit: string | undefined): number | null {
   if (limit === undefined) return null;
@@ -30,30 +29,25 @@ function capDays(limit: string | undefined): number | null {
  * "now" fixed per request. A range that ends at or before `now − N` is expired.
  */
 export function retainedRange(widget: WidgetConfig, ctx: WidgetContext): RetainedRange {
-  const days = capDays(widget.options.maxRange);
-  if (days === null) return { expired: false, ctx };
+  if (widget.kind === "heatmap") return { expired: false, ctx, keptSince: null };
+  const days = capDays((widget.options as { maxRange?: RangeLimit }).maxRange);
+  if (days === null) return { expired: false, ctx, keptSince: null };
   const horizon = requestNow(ctx) - days * DAY_MS;
   const { from, to } = ctx.dateRange;
   if (to.getTime() <= horizon) return { expired: true, ctx, days };
   const earliest = Math.max(to.getTime() - days * DAY_MS, horizon);
-  const range =
-    from.getTime() >= earliest
-      ? ctx.dateRange
-      : { from: new Date(earliest), to, preset: "custom" as const };
-  return { expired: false, ctx: rangedContext(ctx, range, days) };
+  if (from.getTime() >= earliest) {
+    return { expired: false, ctx: rangedContext(ctx, ctx.dateRange, days), keptSince: null };
+  }
+  const cut = new Date(earliest);
+  return {
+    expired: false,
+    ctx: rangedContext(ctx, { from: cut, to, preset: "custom" }, days),
+    keptSince: cut,
+  };
 }
 
-/** The context a widget with `maxRange` queries with: its last N days, compared only within them. */
+/** The context a widget with `maxRange` queries with. */
 export function maxRangeContext(widget: WidgetConfig, ctx: WidgetContext): WidgetContext {
   return retainedRange(widget, ctx).ctx;
-}
-
-/** What an expired widget shows instead of querying: its title and its empty state. */
-export function expiredCard(
-  widget: WidgetConfig,
-  ctx: WidgetContext,
-): { label?: string; emptyState: ReactNode } {
-  const label = "label" in widget ? widget.label : (widget.options as { label?: string }).label;
-  const own = (widget.options as { emptyState?: ReactNode }).emptyState;
-  return { ...(label ? { label } : {}), emptyState: own ?? ctx.labels.widget.empty };
 }

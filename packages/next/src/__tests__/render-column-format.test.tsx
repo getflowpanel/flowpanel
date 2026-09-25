@@ -6,6 +6,7 @@ import {
   RelativeTimeCell,
   renderFormatCell,
   StatusBadge,
+  ToneText,
   UrlCell,
 } from "@flowpanel/react";
 import { isValidElement, type ReactElement } from "react";
@@ -69,6 +70,15 @@ describe("renderColumnFormat", () => {
     expect(renderColumnFormat("number", 1774, ru)).toMatch(/1\s?774/);
     expect(renderColumnFormat("money", 12, ru)).toContain("\u20BD");
     expect(renderColumnFormat({ kind: "money", currency: "EUR" }, 12, ru)).toContain("\u20AC");
+  });
+
+  it("colours a numeric cell by its threshold", () => {
+    const node = renderColumnFormat(
+      { kind: "percent", tones: { warn: 0.3, err: 0.5 } },
+      0.6,
+    ) as ReactElement<{ tone: string; text: string }>;
+    expect(node.type).toBe(ToneText);
+    expect(node.props).toMatchObject({ tone: "err", text: "60%" });
   });
 });
 

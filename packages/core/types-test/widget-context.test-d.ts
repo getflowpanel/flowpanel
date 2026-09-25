@@ -39,3 +39,10 @@ expectType<Promise<number>>(ctx.count(target, { userId: 1 }));
 expectError(ctx.count(target, { usrId: 1 }));
 expectType<Promise<number>>(ctx.count("users", { email: { op: "in", values: ["a@b.co"] } }));
 expectType<Promise<number>>(ctx.count("visits", { startedAt: { op: "range", gte: new Date(0) } }));
+
+declare function hourly(ctx: WidgetContext): Promise<{ at: Date; runs: number }[]>;
+expectType<Promise<{ at: Date; runs: number }[]>>(ctx.query(hourly));
+expectType<Promise<boolean>>(ctx.query(async () => true));
+expectType<Promise<number>>(ctx.query(async (limit: number = 5) => limit));
+ctx.query(async (limit = 5) => limit);
+expectError(ctx.query(async (a: number) => a));

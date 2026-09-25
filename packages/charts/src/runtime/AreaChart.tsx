@@ -29,13 +29,22 @@ import {
 } from "./chart-theme";
 import { DEFAULT_CHART_HEIGHT } from "./defaults";
 import { buildTickFormatter } from "./format-tick";
+import { seriesKeys } from "./series-keys";
 
-export function AreaChart({ data, options }: { data: unknown[]; options: AreaChartOptions }) {
+export function AreaChart({
+  data,
+  options,
+  names,
+}: {
+  data: unknown[];
+  options: AreaChartOptions;
+  names?: Readonly<Record<string, string>> | undefined;
+}) {
   const gradientId = useId();
   const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
   if (data.length === 0) return <ChartEmptyState height={height} />;
-  const ys = Array.isArray(options.y) ? options.y : [options.y];
+  const ys = seriesKeys(options.y);
   const multiSeries = ys.length > 1;
   const tickFormatter = buildTickFormatter(
     data as Record<string, unknown>[],
@@ -82,6 +91,7 @@ export function AreaChart({ data, options }: { data: unknown[]; options: AreaCha
             key={y}
             type={options.smooth ? "monotone" : "linear"}
             dataKey={y}
+            name={names?.[y] ?? y}
             {...(options.stacked ? { stackId: "a" } : {})}
             stroke={seriesColor(i)}
             fill={`url(#${gradientId}-${i})`}

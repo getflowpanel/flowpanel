@@ -4,10 +4,13 @@ import { bindFormat, DEFAULT_FORMATTING, DEFAULT_LABELS } from "@flowpanel/core"
 type Thunk = () => Promise<unknown>;
 type Call = (...args: unknown[]) => Promise<unknown>;
 
-function runQuery<T>(key: string, fn: () => Promise<T>): Promise<T>;
-function runQuery<A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>;
-function runQuery(first: string | Call, ...rest: unknown[]): Promise<unknown> {
-  return typeof first === "string" ? (rest[0] as Thunk)() : first(...rest);
+function runQuery(self: () => WidgetContext): WidgetContext["query"] {
+  return ((first: string | Call, ...rest: unknown[]) =>
+    typeof first === "string"
+      ? (rest[0] as Thunk)()
+      : rest.length === 0 && first.length > 0
+        ? first(self())
+        : first(...rest)) as WidgetContext["query"];
 }
 
 function fakeLink(target: LinkTarget): string {
@@ -17,7 +20,7 @@ function fakeLink(target: LinkTarget): string {
 
 /** A widget context for render tests: no memo, no database, links under `/admin`. */
 export function fakeWidgetContext(overrides: Partial<WidgetContext> = {}): WidgetContext {
-  return {
+  const ctx: WidgetContext = {
     db: {},
     session: null,
     dateRange: {
@@ -27,11 +30,12 @@ export function fakeWidgetContext(overrides: Partial<WidgetContext> = {}): Widge
       previous: null,
       timeZone: "UTC",
     },
+    filters: {},
     req: new Request("http://localhost/"),
     href: (resource, id) =>
       id === undefined ? `/admin/${resource}` : `/admin/${resource}/${String(id)}`,
     link: fakeLink,
-    query: runQuery,
+    query: runQuery(() => ctx),
     labels: DEFAULT_LABELS,
     format: bindFormat(DEFAULT_FORMATTING),
     sql: async () => [],
@@ -42,4 +46,5 @@ export function fakeWidgetContext(overrides: Partial<WidgetContext> = {}): Widge
     }) as WidgetContext["rowOf"],
     ...overrides,
   };
+  return ctx;
 }

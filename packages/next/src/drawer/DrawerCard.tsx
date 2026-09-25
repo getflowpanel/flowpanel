@@ -51,14 +51,10 @@ export function DrawerCard({ widget }: { widget: SerializedCardWidget }): ReactN
           emptyState={widget.emptyState}
         />
       );
-    case "list":
-      return (
-        <ListCard
-          {...(widget.label ? { label: widget.label } : {})}
-          rows={widget.rows}
-          emptyState={widget.emptyState}
-        />
-      );
+    case "list": {
+      const { kind: _kind, span: _span, realtime: _realtime, ...data } = widget;
+      return <ListCard {...data} />;
+    }
   }
 }
 

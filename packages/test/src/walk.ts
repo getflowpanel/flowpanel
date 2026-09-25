@@ -6,6 +6,7 @@ const MAIN = "main";
 const ERROR_SURFACE = "[data-fp-error]";
 const ROWS = "main table tbody tr";
 const DIALOG = '[role="dialog"]';
+const TAB = "[data-fp-tab]";
 const ACTIVATION_TIMEOUT = 5_000;
 
 /** One axe finding before the walk attributes it to a route. */
@@ -19,6 +20,7 @@ interface Walk {
   scan: A11yScanner | null;
   report: SmokeAdminReport;
   failures: string[];
+  tabs: boolean;
 }
 
 export function normalizeBasePath(value: string): string {
@@ -39,6 +41,13 @@ function sameOriginRoute(href: string, origin: string): string | null {
 
 function currentRoute(page: SmokePage): string {
   const url = new URL(page.url());
+  return `${url.pathname}${url.search}`;
+}
+
+/** A route with its `tab` query set to `key`, keeping every other query key. */
+export function withTab(route: string, key: string): string {
+  const url = new URL(route, "http://flowpanel.invalid");
+  url.searchParams.set("tab", key);
   return `${url.pathname}${url.search}`;
 }
 
@@ -98,13 +107,30 @@ async function activate(walk: Walk, row: SmokeLocator, from: string): Promise<bo
   }
 }
 
+async function tabKeys(walk: Walk): Promise<string[]> {
+  const keys: string[] = [];
+  for (const trigger of await walk.page.locator(TAB).all()) {
+    const key = await trigger.getAttribute("data-fp-tab");
+    const open = (await trigger.getAttribute("data-state")) === "active";
+    if (key && !open && !keys.includes(key)) keys.push(key);
+  }
+  return keys;
+}
+
+async function openTabs(walk: Walk, route: string): Promise<void> {
+  if (!walk.tabs) return;
+  for (const key of await tabKeys(walk)) await open(walk, withTab(route, key));
+}
+
 async function openRows(walk: Walk, route: string, maxRows: number): Promise<void> {
   for (let index = 0; index < maxRows; index += 1) {
     if (index > 0) await open(walk, route);
     const rows = walk.page.locator(ROWS);
     if ((await rows.count()) <= index) return;
     if (!(await activate(walk, rows.nth(index), route))) return;
-    await open(walk, currentRoute(walk.page));
+    const record = currentRoute(walk.page);
+    await open(walk, record);
+    await openTabs(walk, record);
   }
 }
 
@@ -153,7 +179,7 @@ export async function runSmoke(
   const report: SmokeAdminReport = { visited: [], consoleErrors: [], a11yViolations: [] };
   const failures: string[] = [];
   const basePath = normalizeBasePath(options.basePath ?? "/admin");
-  const walk: Walk = { page, basePath, scan, report, failures };
+  const walk: Walk = { page, basePath, scan, report, failures, tabs: options.tabs ?? true };
   const maxRows = Math.max(0, options.maxRows ?? 1);
 
   if (options.cookie) await applyCookie(page, basePath, options.cookie);

@@ -27,12 +27,21 @@ import {
 } from "./chart-theme";
 import { DEFAULT_CHART_HEIGHT } from "./defaults";
 import { buildTickFormatter } from "./format-tick";
+import { seriesKeys } from "./series-keys";
 
-export function LineChart({ data, options }: { data: unknown[]; options: LineChartOptions }) {
+export function LineChart({
+  data,
+  options,
+  names,
+}: {
+  data: unknown[];
+  options: LineChartOptions;
+  names?: Readonly<Record<string, string>> | undefined;
+}) {
   const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
   if (data.length === 0) return <ChartEmptyState height={height} />;
-  const ys = Array.isArray(options.y) ? options.y : [options.y];
+  const ys = seriesKeys(options.y);
   const multiSeries = ys.length > 1;
   const tickFormatter = buildTickFormatter(
     data as Record<string, unknown>[],
@@ -69,6 +78,7 @@ export function LineChart({ data, options }: { data: unknown[]; options: LineCha
             key={y}
             type={options.smooth ? "monotone" : "linear"}
             dataKey={y}
+            name={names?.[y] ?? y}
             stroke={seriesColor(i)}
             strokeWidth={2}
             dot={options.markers ?? false}

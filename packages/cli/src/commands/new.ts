@@ -6,39 +6,12 @@ import pc from "picocolors";
 import { editConfigToAddResource } from "../eject/addResource";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
-import { fileExists } from "../utils/detect";
+import type { FilesystemPlan } from "../plan/types";
+import { findAdminConfig } from "../scaffold/config-target";
+import { planNewIntoDir } from "../scaffold/plan-new";
+import { resolveProjectModule } from "../utils/module-path";
 import { writeJson, writePlanJson } from "../utils/output";
-
-/** Locate the user's flowpanel config. */
-async function findConfigFile(
-  cwd: string,
-): Promise<{ path: string; filename: "flowpanel.config.ts" | "flowpanel.config.tsx" } | null> {
-  for (const fname of ["flowpanel.config.ts", "flowpanel.config.tsx"] as const) {
-    const full = path.join(cwd, fname);
-    if (await fileExists(full)) return { path: full, filename: fname };
-  }
-  return null;
-}
-
-/** Resolve the module specifier a config imports its schema from to a file on disk. */
-async function resolveSchemaFile(cwd: string, spec: string): Promise<string | null> {
-  const bare = spec.startsWith("@/")
-    ? spec.slice(2)
-    : spec.startsWith("./") || spec.startsWith("../")
-      ? spec
-      : null;
-  if (bare === null) return null;
-  const roots = spec.startsWith("@/") ? [path.join(cwd, "src"), cwd] : [cwd];
-  for (const root of roots) {
-    for (const suffix of [".ts", ".tsx", "/index.ts", ""]) {
-      const candidate = path.join(root, `${bare}${suffix}`);
-      if (await fileExists(candidate)) {
-        return (await fs.stat(candidate)).isFile() ? candidate : null;
-      }
-    }
-  }
-  return null;
-}
+import { readTsconfigOptions } from "../utils/tsconfig";
 
 /** Names a module exports, as far as a source scan can tell. */
 function exportedNames(source: string): Set<string> {
@@ -66,12 +39,25 @@ type SchemaCheck =
   | { status: "missing"; message: string }
   | { status: "unverified"; reason: string };
 
+/** `@/db/schema` under `src/` or the project root, for a host with no tsconfig `paths` at all. */
+async function bareAliasFallback(cwd: string, spec: string): Promise<string | null> {
+  if (!spec.startsWith("@/")) return null;
+  if ((await readTsconfigOptions(cwd))?.paths) return null;
+  const bare = spec.slice(2);
+  for (const base of [path.join(cwd, "src", bare), path.join(cwd, bare)]) {
+    const found = await resolveProjectModule(cwd, base);
+    if (found) return found;
+  }
+  return null;
+}
+
 /**
  * Checks the resource maps to a real table before writing it into the config —
  * otherwise `flowpanel new` happily produces a line that cannot compile.
  */
-async function checkSchemaExport(
+export async function checkSchemaExport(
   cwd: string,
+  configFile: string,
   configSource: string,
   name: string,
 ): Promise<SchemaCheck> {
@@ -80,7 +66,8 @@ async function checkSchemaExport(
     return { status: "unverified", reason: "the config has no `import * as schema` line" };
   }
   const spec = importMatch[1] as string;
-  const file = await resolveSchemaFile(cwd, spec);
+  const file =
+    (await resolveProjectModule(cwd, spec, configFile)) ?? (await bareAliasFallback(cwd, spec));
   if (!file) {
     return { status: "unverified", reason: `"${spec}" does not resolve to a file under ${cwd}` };
   }
@@ -111,47 +98,109 @@ export function parseAdapterKind(raw: string | undefined): AdapterKind | null {
   return ADAPTER_KINDS.includes(raw as AdapterKind) ? (raw as AdapterKind) : null;
 }
 
+interface NewOptions {
+  table?: string;
+  kind?: string;
+  dir?: string;
+  hidden?: boolean;
+  dryRun?: boolean;
+  json?: boolean;
+}
+
+function stop(opts: NewOptions, message: string): never {
+  if (opts.json) writeJson({ command: "new", applied: false, error: message });
+  else p.cancel(message);
+  process.exit(1);
+}
+
+async function finish(
+  plan: FilesystemPlan,
+  opts: NewOptions,
+  done: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  if (opts.dryRun) {
+    if (opts.json) writePlanJson("new", plan, false, extra);
+    else {
+      p.note(
+        publicPlan(plan)
+          .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
+          .join("\n"),
+        "Filesystem plan (no changes applied)",
+      );
+      p.outro(pc.dim("Dry run complete."));
+    }
+    return;
+  }
+  await applyFilesystemPlan(plan);
+  if (opts.json) writeJson({ command: "new", applied: true, plan: publicPlan(plan), ...extra });
+  else p.outro(pc.green(done));
+}
+
+/** `"<column> → <table>"` as `planNewIntoDir` reports it, parsed for the `--json` payload. */
+export function unlinkedColumns(
+  unlinked: readonly string[],
+): Array<{ table: string; column: string }> {
+  return unlinked.map((entry) => {
+    const [column, table] = entry.split(" → ");
+    return { table: table ?? "", column: column ?? "" };
+  });
+}
+
+async function newIntoDir(cwd: string, resource: string, dir: string, opts: NewOptions) {
+  if (opts.table !== undefined || parseAdapterKind(opts.kind) !== "drizzle") {
+    stop(opts, "--dir reads your Drizzle schema, so it takes neither --table nor --kind prisma.");
+  }
+  const { intents, unlinked } = await planNewIntoDir(cwd, resource, {
+    dir,
+    hidden: opts.hidden === true,
+  });
+  const plan = await createFilesystemPlan(cwd, intents);
+  const conflicts = plan.operations.filter((operation) => operation.kind === "conflict");
+  if (conflicts.length > 0) {
+    stop(
+      opts,
+      `Nothing was written: ${conflicts.map((c) => c.path).join(", ")} already exists with other content.`,
+    );
+  }
+  if (unlinked.length > 0 && !opts.json) {
+    p.log.info(
+      `Written without a reference, because the target is not in ${dir} yet: ${unlinked.join(", ")}. ` +
+        "Add the target with flowpanel new, then set reference on those columns.",
+    );
+  }
+  const extra = unlinked.length > 0 ? { unlinked: unlinkedColumns(unlinked) } : {};
+  await finish(plan, opts, `Added resource "${resource}" to ${dir}`, extra);
+}
+
 export function newCommand(cli: Command): void {
   cli
     .command("new <resource>")
-    .description("Add a resource(...) entry to flowpanel.config.ts")
+    .description("Add a resource(...) entry to the admin config")
     .option("--table <expr>", "First argument expression (default: schema.<resource>)")
     .option("--kind <kind>", "Adapter kind: drizzle (default) or prisma", "drizzle")
+    .option("--dir <dir>", "Write the resource to <dir>/<name>.ts and add it to <dir>/index.ts")
+    .option("--hidden", "Register the resource without a navigation entry")
     .option("--dry-run", "Print the filesystem plan without writing")
     .option("--json", "Emit machine-readable JSON")
-    .action(
-      async (
-        resource: string,
-        opts: { table?: string; kind?: string; dryRun?: boolean; json?: boolean },
-      ) => {
-        if (!opts.json) p.intro(pc.bgGreen(pc.black(" FlowPanel new ")));
-
-        const cwd = process.cwd();
+    .action(async (resource: string, opts: NewOptions) => {
+      if (!opts.json) p.intro(pc.bgGreen(pc.black(" FlowPanel new ")));
+      const cwd = process.cwd();
+      try {
+        if (opts.dir !== undefined) {
+          await newIntoDir(cwd, resource, opts.dir, opts);
+          return;
+        }
         const kind = parseAdapterKind(opts.kind);
         if (kind === null) {
-          const message = `Unknown --kind "${opts.kind}". Use one of: ${ADAPTER_KINDS.join(", ")}`;
-          if (opts.json) writeJson({ command: "new", applied: false, error: message });
-          else p.cancel(message);
-          process.exit(1);
+          stop(opts, `Unknown --kind "${opts.kind}". Use one of: ${ADAPTER_KINDS.join(", ")}`);
         }
-
-        const found = await findConfigFile(cwd);
-        if (!found) {
-          const message = "flowpanel.config.ts not found — run `flowpanel init` first.";
-          if (opts.json) writeJson({ command: "new", applied: false, error: message });
-          else p.cancel(message);
-          process.exit(1);
-        }
-
-        const source = await fs.readFile(found.path, "utf8");
-
+        const found = await findAdminConfig(cwd);
+        if (!found) stop(opts, "flowpanel.config.ts not found — run `flowpanel init` first.");
+        const source = await fs.readFile(found.file, "utf8");
         if (kind === "drizzle" && opts.table === undefined) {
-          const check = await checkSchemaExport(cwd, source, resource);
-          if (check.status === "missing") {
-            if (opts.json) writeJson({ command: "new", applied: false, error: check.message });
-            else p.cancel(check.message);
-            process.exit(1);
-          }
+          const check = await checkSchemaExport(cwd, found.file, source, resource);
+          if (check.status === "missing") stop(opts, check.message);
           if (check.status === "unverified" && !opts.json) {
             p.log.warn(
               `Could not verify that "${resource}" is a real table — ${check.reason}.\n` +
@@ -159,42 +208,18 @@ export function newCommand(cli: Command): void {
             );
           }
         }
-
-        try {
-          const updated = editConfigToAddResource(source, resource, {
-            ...(opts.table !== undefined ? { table: opts.table } : {}),
-            kind,
-            filename: found.filename,
-          });
-          const plan = await createFilesystemPlan(cwd, [
-            {
-              path: path.relative(cwd, found.path),
-              content: updated,
-              expectedContent: source,
-            },
-          ]);
-          if (opts.dryRun) {
-            if (opts.json) writePlanJson("new", plan, false);
-            else {
-              p.note(
-                publicPlan(plan)
-                  .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
-                  .join("\n"),
-                "Filesystem plan (no changes applied)",
-              );
-              p.outro(pc.dim("Dry run complete."));
-            }
-            return;
-          }
-          await applyFilesystemPlan(plan);
-          if (opts.json) writeJson({ command: "new", applied: true, plan: publicPlan(plan) });
-          else p.outro(pc.green(`Added resource "${resource}" to ${found.filename}`));
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (opts.json) writeJson({ command: "new", applied: false, error: msg });
-          else p.cancel(`Failed: ${msg}`);
-          process.exit(1);
-        }
-      },
-    );
+        const updated = editConfigToAddResource(source, resource, {
+          ...(opts.table !== undefined ? { table: opts.table } : {}),
+          kind,
+          filename: path.basename(found.file),
+        });
+        const relative = path.relative(cwd, found.file);
+        const plan = await createFilesystemPlan(cwd, [
+          { path: relative, content: updated, expectedContent: source },
+        ]);
+        await finish(plan, opts, `Added resource "${resource}" to ${relative}`);
+      } catch (e: unknown) {
+        stop(opts, `Failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    });
 }

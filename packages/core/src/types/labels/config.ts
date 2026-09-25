@@ -1,4 +1,4 @@
-import type { WidgetLabels } from "./widget-labels";
+import type { ChecklistLabels, HeatmapLabels, TimelineLabels, WidgetLabels } from "./widget-labels";
 
 /**
  * A count template per `Intl.PluralRules` category of the admin's
@@ -122,6 +122,8 @@ export interface LabelsConfig {
     results?: PluralLabel;
     /** The bulk bar's and a multi-select filter's selection count. */
     selected?: PluralLabel;
+    /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */
+    events?: PluralLabel;
   };
   /** Resource search input placeholder. Use `{label}` for the resource's label. */
   searchPlaceholder?: string;
@@ -204,6 +206,12 @@ export interface LabelsConfig {
   };
   /** Dashboard and detail-tab widget chrome. */
   widget?: WidgetLabels;
+  /** `timeline()` chrome. */
+  timeline?: TimelineLabels;
+  /** `heatmap()` chrome. */
+  heatmap?: HeatmapLabels;
+  /** `checklist()` chrome. */
+  checklist?: ChecklistLabels;
   /** FlowPanel's own failure surfaces, shown in place of the data that did not load. */
   errors?: {
     /** Failed page read. Use `{resource}` and `{operation}`. */

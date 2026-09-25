@@ -184,6 +184,16 @@ join, something computed. Such a column must set both `render` and `label`,
 never sorts or filters, and is skipped by export; see
 [Joined or computed values](/docs/customization/column-renderers#joined-or-computed-values).
 
+`secondary` names another field of the row that shows as a muted second line under the
+cell — the email under a name — on the list page, in related tabs and in the phone card
+list. The field is loaded with the row and passes its read policy like any column; sort
+and search still use `field`. A `reference` column shows only its label, and a `table()`
+widget shows one line.
+
+```ts excerpt
+columns: [{ field: "name", label: "User", secondary: "email" }],
+```
+
 ### ColumnFormat
 
 Declarative cell rendering — reach for this before writing a `render` function.
@@ -194,9 +204,10 @@ type ColumnFormat =
   | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
   | { kind: "money"; currency?: string; scale?: number }
+  | { kind: "number"; tones?: Threshold }
   | { kind: "date"; time?: boolean }
-  | { kind: "percent"; digits?: number; heat?: boolean }
-  | { kind: "duration"; unit?: "ms" | "s" }
+  | { kind: "percent"; digits?: number; heat?: boolean; tones?: Threshold }
+  | { kind: "duration"; unit?: "ms" | "s"; tones?: Threshold }
   | { kind: "boolean"; labels?: { true?: string; false?: string } }
   | { kind: "url"; label?: string };
 ```
@@ -232,6 +243,7 @@ The remaining kinds read a raw value the way a founder reads it:
 - `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
 - `boolean` prints `✓` and `✕`, or `labels: { true: "да", false: "нет" }`. SQLite's `1` and `0` read as true and false.
 - `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
+- `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded. `cellTone(value, format)` returns the tone a cell gets.
 
 ```ts excerpt
 columns: [
@@ -308,6 +320,7 @@ tone defaults to `"default"`. `format` and `options` are plain data, so they cro
 into the browser and a drawer unchanged. `label()` prints an unknown value as itself
 and a missing one as `—`, `tone()` answers `"default"` for an unknown value, and
 `badge()` returns `null` for a missing one, which hides the pill.
+`badge(value, { href })` makes the pill a link — `Lifecycle.badge(u.lifecycle, { href: { resource: "user", filter: { lifecycle: u.lifecycle } } })` — and a nullish value still gives no pill.
 
 <AutoTypeTable path="../../packages/core/src/builders/enum-of.ts" name="EnumDef" />
 
@@ -342,6 +355,11 @@ text. So `enum`, `array` and `reference` columns need an explicit `type` (plus
 An entry in `filters`. A bare string is **always** a `text` filter — there is
 no inference from the column's type, so declare a `FilterDef` with an explicit
 `type` for a select, a date range, or anything else.
+
+A `select` or `multiselect` filter with no `options`, on a field whose column is formatted as a
+badge with `labels` — `format: Plan.format` from `enumOf` — lists those labels, in the order they
+were declared. So does a `select`, `multiselect` or `radio` form field. Declared `options` always
+win.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FilterDef" />
 
@@ -383,9 +401,10 @@ export const card = {
 - `aside` is a column beside the tabs from the `lg` breakpoint and below them on a phone,
   on every tab.
 - `dateRange` adds a date picker to the header. Its range, with `previous`, reaches
-  `stats`, `aside` and every widgets tab. Related rows list every row, a timeline pages
-  through the whole history and a heatmap shows its last `days` days. Without
-  `dateRange` the page has no picker and widgets see the record's whole history.
+  `stats`, `aside` and every widgets tab. Related rows list every row, a
+  [timeline](/docs/reference/widgets#timeline) pages through the whole history and a
+  heatmap shows its last `days` days. Without `dateRange` the page has no picker and
+  widgets see the record's whole history.
 
 The header, the strip, the aside and the open tab share one widget context, so the same
 `ctx.count`, `ctx.read` or `ctx.query` runs once per page. A widget that fails shows its
