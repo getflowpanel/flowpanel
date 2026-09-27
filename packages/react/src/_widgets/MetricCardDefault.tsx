@@ -107,7 +107,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
     <>
       <CardHeader className="flex items-center justify-between pb-1">
         <span className="min-w-0">
-          <span className="block truncate text-sm text-fp-text-2" {...fullTextTitle(label)}>
+          <span className={cn("block text-sm text-fp-text-2", TWO_LINES)} {...fullTextTitle(label)}>
             {label}
           </span>
           <CaptionLine caption={caption} />

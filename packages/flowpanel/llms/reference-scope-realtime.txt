@@ -6,7 +6,7 @@ Tenant scoping, the publisher contract, and the rate limiter.
 
 Docs: https://flowpanel.tech/docs/reference/scope-realtime
 
-Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher, createPublisher, PublisherClient, RedisLike, ResourceChange, encodeEnvelope, decodeEnvelope, RateLimiter
+Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher, createRealtimeTransport, createPublisher, PublisherClient, RedisLike, ResourceChange, encodeEnvelope, decodeEnvelope, RateLimiter
 
 Three small contracts that sit under the rest of the framework: how a request is
 narrowed to a tenant, how realtime messages travel between instances, and how
@@ -62,8 +62,10 @@ See [Multi-tenant scope](/docs/guides/multi-tenant-scope) for the full setup.
 
 ### Publisher
 
-The realtime transport. `createPublisher` builds one from `AdminConfig.realtime`;
-implement the interface yourself to sit on a bus FlowPanel does not ship.
+The realtime transport. `createRealtimeTransport` builds one from `AdminConfig.realtime`;
+implement the interface yourself to sit on a bus FlowPanel does not ship. A worker publishes
+through `createPublisher` from `@flowpanel/kit/publish` instead; the root's `createPublisher` is a
+deprecated alias of `createRealtimeTransport`.
 
 `Publisher`
 

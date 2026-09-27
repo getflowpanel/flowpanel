@@ -29,12 +29,12 @@ afterEach(() => {
 });
 
 describe("useAdminDrawer", () => {
-  it("reads the drawer's own tab from drawerTab, then from tab", () => {
+  it("reads the drawer's own tab from drawerTab and never the page's tab", () => {
     currentSearch = "tab=responses&drawer=response:r1&drawerTab=main";
     expect(probe().state).toEqual({ resource: "response", id: "r1", tab: "main" });
-    cleanup();
-    currentSearch = "drawer=response:r1&tab=main";
-    expect(probe().state.tab).toBe("main");
+
+    currentSearch = "tab=activity&drawer=response:r1";
+    expect(probe().state.tab).toBeNull();
   });
 
   it("keeps the page's tab when the drawer switches tabs or closes", () => {

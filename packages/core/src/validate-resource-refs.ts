@@ -1,3 +1,4 @@
+import { quoted } from "./internal/validate-shared";
 import { didYouMean } from "./suggest";
 import type { DashboardConfig } from "./types/dashboard";
 import type { ResourceConfig } from "./types/resource";
@@ -70,7 +71,7 @@ function assertKnown(sites: readonly RefSite[], owner: string, known: readonly s
     throw new Error(
       `${owner} points at resource "${site.target}" via ${site.where}, ` +
         `but no resource resolves to that name.${didYouMean(site.target, known)} ` +
-        `Registered: ${known.length > 0 ? known.map((k) => `"${k}"`).join(", ") : "(none)"}.`,
+        `Registered: ${quoted(known)}.`,
     );
   }
 }

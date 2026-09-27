@@ -1,4 +1,4 @@
-import { recordField, recordFieldError, referencingFields } from "./internal/related-by";
+import { pointingField, recordFieldError, referencingFields } from "./internal/related-by";
 import { timelineKindsOf } from "./internal/timeline-merge";
 import { checkColumn as checkField, missing } from "./internal/validate-shared";
 import { didYouMean } from "./suggest";
@@ -33,9 +33,9 @@ function recordFieldOf(
         `{ resource: "${parent}" } on "${source.resource}".${didYouMean(source.by, candidates)}`,
     );
   }
-  const found = recordField(target, parent, []);
+  const found = pointingField(target, parent);
   if (found.kind === "one") return found.field;
-  throw new Error(recordFieldError(site, source.resource, parent, found, "by") ?? site);
+  throw new Error(recordFieldError(site, source.resource, parent, found, "by"));
 }
 
 /** One source: its resource and fields exist, and on a card one field, or `by`, points at the record. */

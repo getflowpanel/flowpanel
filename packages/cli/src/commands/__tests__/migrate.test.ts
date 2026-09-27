@@ -5,7 +5,8 @@ import { Command } from "commander";
 import { createJiti } from "jiti";
 import { describe, expect, it, vi } from "vitest";
 import { type PackageManager, pmCommands } from "../../utils/detect";
-import { migrateCommand, readTsconfigAliases, resolveMigrationExecutor } from "../migrate";
+import { readTsconfigAliases } from "../../utils/tsconfig";
+import { migrateCommand, resolveMigrationExecutor } from "../migrate";
 
 it("loads an alias rooted at inherited baseUrl without appending a literal wildcard", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "fp-migrate-alias-"));

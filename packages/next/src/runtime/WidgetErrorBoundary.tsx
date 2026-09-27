@@ -14,6 +14,8 @@ interface BoundaryProps {
   widgetId?: string;
   /** Dashboard slug — same purpose as `widgetId`, lifted one level up. */
   dashboardId?: string;
+  /** Drop the fallback card's frame, inside a `StatStrip`. */
+  plain?: boolean;
 }
 
 interface SentryLike {
@@ -37,16 +39,18 @@ function getSentry(): SentryLike | null {
 function BoundaryFallback({
   error,
   onReset,
+  plain,
 }: {
   error: Error;
   onReset: () => void;
+  plain: boolean;
 }): React.JSX.Element {
   const router = useRouter();
   const handleRetry = React.useCallback(() => {
     onReset();
     router.refresh();
   }, [onReset, router]);
-  return <ErrorCard error={error} onRetry={handleRetry} />;
+  return <ErrorCard error={error} onRetry={handleRetry} {...(plain ? { plain: true } : {})} />;
 }
 
 export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
@@ -74,7 +78,13 @@ export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
   override render(): React.ReactNode {
     if (this.state.error) {
       if (this.props.fallback) return this.props.fallback;
-      return <BoundaryFallback error={this.state.error} onReset={this.reset} />;
+      return (
+        <BoundaryFallback
+          error={this.state.error}
+          onReset={this.reset}
+          plain={this.props.plain === true}
+        />
+      );
     }
     return this.props.children;
   }

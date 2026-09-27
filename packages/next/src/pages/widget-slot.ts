@@ -1,5 +1,4 @@
 import type { SectionConfig, Span, WidgetConfig } from "@flowpanel/core";
-import { warnOnce } from "../runtime/widget-reads";
 
 const widgetSpanClass: Record<Span, string> = {
   1: "col-span-12 sm:col-span-1",
@@ -26,17 +25,6 @@ export function widgetSlotClassName(widget: WidgetConfig): string | undefined {
   const span = widgetSpanClassName(widget);
   if (widget.kind !== "metric") return span;
   return span ? `flex ${span}` : "flex";
-}
-
-/** Whether a strip draws `widget` as a plain cell; another kind warns once and keeps its card. */
-export function stripWidget(widget: WidgetConfig, where: string, section: number): boolean {
-  if (widget.kind === "metric" || widget.kind === "stat") return true;
-  warnOnce(
-    `strip:${where}:${section}:${widget.kind}`,
-    `${where} section ${section} is a strip, which draws metric and stat widgets; ` +
-      `a ${widget.kind} widget renders as its own card there.`,
-  );
-  return false;
 }
 
 /** A grid's columns: as declared, else 12 when any widget sets `span`, else `fallback`. */

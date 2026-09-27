@@ -3,6 +3,7 @@ import type {
   RequestContext,
   ResolvedAdminConfig,
   WidgetConfig,
+  WidgetContext,
 } from "@flowpanel/core";
 import { list, metric, stat } from "@flowpanel/core";
 import { ExpiredCard, MetricCard } from "@flowpanel/react";
@@ -11,7 +12,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { serializeWidget } from "../drawer/serialize-widget";
 import { renderWidget } from "../runtime/render-widget";
 import { buildWidgetContext, detailTabDateRange } from "../runtime/widget-context";
-import { maxRangeContext, retainedRange } from "../runtime/widget-range";
+import { retainedRange } from "../runtime/widget-range";
+
+const maxRangeContext = (widget: WidgetConfig, ctx: WidgetContext) =>
+  retainedRange(widget, ctx).ctx;
 
 const config = {
   basePath: "/admin",

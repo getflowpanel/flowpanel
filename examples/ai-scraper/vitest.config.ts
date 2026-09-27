@@ -7,5 +7,5 @@ export default defineConfig({
   resolve: {
     alias: [{ find: "@", replacement: fileURLToPath(new URL(".", import.meta.url)) }],
   },
-  test: { ...sharedTestConfig },
+  test: { ...sharedTestConfig, server: { deps: { inline: [/@flowpanel\//] } } },
 });

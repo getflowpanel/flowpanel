@@ -2,7 +2,7 @@ import type { FilterDef, FilterInValue, FilterRangeValue, FilterType } from "@fl
 import { dayBoundsIn, isDateRangePreset, resolveDateRange } from "./date-range";
 import { toWireOptions } from "./select-options";
 
-export { declaredListFields as declaredFieldSet } from "@flowpanel/core";
+export { declaredListFields as declaredFieldSet } from "@flowpanel/core/internal";
 
 export interface ListParams {
   page: number;

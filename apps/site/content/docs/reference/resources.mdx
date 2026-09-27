@@ -444,7 +444,9 @@ value — a join or a computed label — here and in the drawer. It runs on the 
 may be async, receives the projected row, and runs only when the reader may read
 the field `name`, which stays the field's access-control key. The renders of one
 tab run concurrently, so a render must not depend on a database handle that
-allows one query at a time. In the drawer the output becomes static HTML; see
+allows one query at a time. On the record page a render that throws costs only its own
+field: the server logs `[flowpanel] detail render failed for "<field>"` and the field shows
+its formatted value. In the drawer the output becomes static HTML; see
 [server-rendered cells](/docs/reference/drawer#server-rendered-cells) for what the
 reader sees when a render fails there:
 
@@ -575,7 +577,7 @@ empty state.
 
 `render(row, ctx)` returns whatever you like. `row` is the projected row — the
 declared and `detail.expose` fields, nothing else — and `ctx` is a
-[`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `href`,
+[`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `link`,
 `labels` and the per-request `query` memo, the same pieces a widget query gets.
 
 <AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailTab" />

@@ -1,6 +1,6 @@
 import type { WidgetDateRange } from "@flowpanel/core";
 import { kv, metric, stat } from "@flowpanel/core";
-import { DashboardDateRange } from "@flowpanel/next/client";
+import { DashboardDateRange, WidgetErrorBoundary } from "@flowpanel/next/client";
 import { KvCard, MetricCard, PageHeader, Section, StatCard, StatStrip } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
@@ -47,6 +47,19 @@ describe("the record page", () => {
         { label: "Email", value: "ada@example.com" },
       ]);
     }
+  });
+
+  it("keeps a strip widget that fails in the browser frameless, and an aside one framed", async () => {
+    const detail = {
+      stats: [stat("Seats", 3)],
+      aside: [kv({ label: "Profile", items: [{ label: "Email", field: "email" }] })],
+    };
+    const { tree } = await renderDetail({ label: "User", columns: ["id"], detail });
+    const strip = findAll(tree, StatStrip)[0];
+    expect(findAll(strip?.children as ReactNode, WidgetErrorBoundary).map((b) => b.plain)).toEqual([
+      true,
+    ]);
+    expect(findAll(tree, WidgetErrorBoundary).filter((b) => !b.plain)).toHaveLength(1);
   });
 
   it("reads a kv card's own record", async () => {

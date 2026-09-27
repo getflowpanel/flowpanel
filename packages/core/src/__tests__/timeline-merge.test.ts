@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { enumOf, type TimelineEvent } from "../index";
 import {
-  enumOf,
   groupTimeline,
   mergeTimeline,
   pickedKinds,
   readTimelineCursor,
-  type TimelineEvent,
   timelineKindsOf,
   writeTimelineCursor,
-} from "../index";
+} from "../internal";
 
 const ev = (iso: string, kind: string, title = kind, extra: Partial<TimelineEvent> = {}) => ({
   at: new Date(iso),

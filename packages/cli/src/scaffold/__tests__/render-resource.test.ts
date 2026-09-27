@@ -50,7 +50,7 @@ describe("renderResourceFile", () => {
         'import { enumOf, resource } from "@flowpanel/kit";',
         'import * as schema from "@/db/schema";',
         "",
-        'const Surface = enumOf(schema.activitySurface.enumValues, { web: "web", tma: "tma" });',
+        'const Surface = enumOf(schema.activitySurface.enumValues, { web: "Web", tma: "Tma" });',
         "",
         "export const userVisit = resource(schema.userVisit, {",
         "  hidden: true,",
@@ -108,8 +108,47 @@ describe("renderResourceFile", () => {
       ],
     };
     expect(renderResourceFile(table, { hidden: false, schemaImport: "./schema" })).toContain(
-      'const State = enumOf({ queued: "queued", "in-flight": "in-flight" });',
+      'const State = enumOf({ queued: "Queued", "in-flight": "In flight" });',
     );
+  });
+
+  it("humanizes a snake_case enum value into a readable label", () => {
+    const table: TableDescription = {
+      exportName: "invoice",
+      tableName: "invoice",
+      columns: [
+        {
+          key: "status",
+          dataType: "string",
+          columnType: "PgText",
+          primary: false,
+          enumValues: ["paid", "past_due"],
+        },
+      ],
+    };
+    expect(renderResourceFile(table, { hidden: false, schemaImport: "./schema" })).toContain(
+      'const Status = enumOf({ paid: "Paid", past_due: "Past due" });',
+    );
+  });
+
+  it("wraps a long enum stub onto its own lines instead of one 80+ character line", () => {
+    const table: TableDescription = {
+      exportName: "listing",
+      tableName: "listing",
+      columns: [
+        {
+          key: "marketplace",
+          dataType: "string",
+          columnType: "PgText",
+          primary: false,
+          enumValues: ["ebay", "amazon", "etsy", "mercari", "poshmark", "facebook_marketplace"],
+        },
+      ],
+    };
+    const out = renderResourceFile(table, { hidden: false, schemaImport: "./schema" });
+    expect(out).toContain("const Marketplace = enumOf({\n  ebay:");
+    expect(out).toContain('facebook_marketplace: "Facebook marketplace",\n});');
+    for (const line of out.split("\n")) expect(line.length).toBeLessThanOrEqual(100);
   });
 });
 

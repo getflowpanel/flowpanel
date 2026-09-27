@@ -78,6 +78,16 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
     expect(container.querySelector("[data-fp-error]")).toBeTruthy();
   });
 
+  it("drops the boundary's card frame inside a strip", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { container } = render(
+      <WidgetErrorBoundary widgetId="w1" plain>
+        <Boom />
+      </WidgetErrorBoundary>,
+    );
+    expect(container.querySelector("[data-fp-error]")?.hasAttribute("data-plain")).toBe(true);
+  });
+
   it("tags the health banner's error tone and leaves its other tones alone", () => {
     const { container: error } = render(<HealthBanner tone="err" title="Adapter unreachable" />);
     expect(error.querySelector("[data-fp-error]")).toBeTruthy();

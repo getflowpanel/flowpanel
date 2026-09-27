@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { RealtimeOption } from "./realtime";
 import type { RangeLimit, Span, Tone } from "./widget";
 import type { CaptionOptions } from "./widget-caption";
@@ -24,8 +25,8 @@ export interface ListOptions extends CaptionOptions {
   /** Card heading. */
   label?: string;
   query: (ctx: WidgetContext) => Promise<ListRow[]>;
-  /** Shown instead of the lines when the query returns nothing. */
-  emptyState?: string;
+  /** Shown instead of the lines when the query returns nothing. Text or any node; the drawer shows only text. */
+  emptyState?: ReactNode;
   /**
    * `"banner"`: a strip tinted by the worst row, rows ordered err → warn → info then by
    * `count`, each with a glyph; with no rows it shows `allClear`.

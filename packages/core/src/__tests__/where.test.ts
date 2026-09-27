@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertColumn, normalizeWhere, whereValue, withRange } from "../index";
+import { assertColumn, normalizeWhere, whereValue, withRange } from "../internal";
 
 const columns = ["id", "userId", "status", "total", "createdAt"];
 const call = 'ctx.read("order")';

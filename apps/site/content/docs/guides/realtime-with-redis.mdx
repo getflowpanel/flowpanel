@@ -88,12 +88,9 @@ import { redis } from "./redis";
 const events = createPublisher({ redis, keyPrefix: realtime.keyPrefix });
 ```
 
-### Two functions named `createPublisher`
-
-| Import | For | Returns |
-| --- | --- | --- |
-| `@flowpanel/kit/publish` | a worker, a cron job or a script that only publishes | `PublisherClient` — `publish`, `resource`, `channelFor`, `close`; never rejects on a Redis error |
-| `@flowpanel/kit` | the transport behind an admin's `realtime` option; `defineAdmin` builds it for you | `Publisher` — `publish`, `subscribe`, `close` |
+Import `createPublisher` from `@flowpanel/kit/publish`; the admin builds its own transport, and
+`createPublisher` from the `@flowpanel/kit` root is a deprecated alias of that transport factory,
+`createRealtimeTransport`, which rejects on a Redis error.
 
 Inside the admin itself nothing changes: `ctx.publish` in an action, or `publishResource` from
 `@flowpanel/kit/server`, already use the publisher `defineAdmin` configured.

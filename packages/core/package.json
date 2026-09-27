@@ -28,6 +28,9 @@
       "format": [
         "./dist/format.d.ts"
       ],
+      "internal": [
+        "./dist/internal.d.ts"
+      ],
       "internal/migration-sql": [
         "./dist/internal/migration-sql.d.ts"
       ],
@@ -74,6 +77,16 @@
       "require": {
         "types": "./dist/format.d.cts",
         "default": "./dist/format.cjs"
+      }
+    },
+    "./internal": {
+      "import": {
+        "types": "./dist/internal.d.ts",
+        "default": "./dist/internal.mjs"
+      },
+      "require": {
+        "types": "./dist/internal.d.cts",
+        "default": "./dist/internal.cjs"
       }
     },
     "./internal/migration-sql": {

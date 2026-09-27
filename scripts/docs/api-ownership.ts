@@ -460,12 +460,6 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
-    sourcePrefix: "packages/core/src/suggest.ts",
-    page: "/docs/reference/errors",
-    anchor: "did-you-mean",
-    guidance: false,
-  },
-  {
     sourcePrefix: "packages/eslint-plugin/src/",
     page: "/docs/reference/eslint-plugin",
     guidance: true,
@@ -605,6 +599,12 @@ export const API_EXCLUSIONS = [
     category: "internal-plumbing",
     reason:
       "One definition of the field set a write may carry, shared by core's create warning and @flowpanel/next's generated forms so they cannot disagree.",
+  },
+  {
+    sourcePrefix: "packages/core/src/suggest.ts",
+    category: "internal-plumbing",
+    reason:
+      "The closest-name suggestion every boot error carries, exported only from @flowpanel/core/internal for @flowpanel/next.",
   },
   {
     sourcePrefix: "packages/core/src/internal/",

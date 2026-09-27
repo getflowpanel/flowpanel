@@ -32,7 +32,7 @@ test("opening and closing a drawer preserves the background scroll position", as
   await expect.poll(() => scrollPosition(page)).toBeCloseTo(before, 0);
 
   await page.getByRole("tab", { name: "Monitors" }).click();
-  await expect(page).toHaveURL(/[?&]tab=monitors(?:&|$)/);
+  await expect(page).toHaveURL(/[?&]drawerTab=monitors(?:&|$)/);
   await expect.poll(() => scrollPosition(page)).toBeCloseTo(before, 0);
 
   await page.getByRole("button", { name: "Close drawer" }).click();

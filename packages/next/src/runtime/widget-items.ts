@@ -14,6 +14,7 @@ import { runWithRequestContext } from "@flowpanel/core";
 import { foldLongText, isBlank, kvDisplay } from "./kv-display";
 import { resolveLink } from "./resolve-link";
 import { statDisplay, statResultOf } from "./stat-result";
+import { warnOnce } from "./widget-reads";
 
 /** A `stat`, `kv` or `statGroup` value, bare or a result object, as one result shape. */
 export async function resolveItem(
@@ -93,6 +94,14 @@ export async function kvItems(
   const record = load
     ? await (reqCtx ? runWithRequestContext(reqCtx, async () => load(ctx)) : load(ctx))
     : ctx.row;
+  const reads = options.items.find((item) => item.field !== undefined);
+  if (!record && !load && reads) {
+    warnOnce(
+      `kv-field:${reads.field}`,
+      `kv item "${reads.label}" reads field "${reads.field}", but a dashboard has no record; ` +
+        "give the card a record, or a value.",
+    );
+  }
   return Promise.all(
     options.items.map((item) =>
       kvItemOf(

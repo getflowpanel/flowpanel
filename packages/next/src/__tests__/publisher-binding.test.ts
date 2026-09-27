@@ -4,11 +4,11 @@ vi.mock("@flowpanel/core", async () => {
   const actual = await vi.importActual<typeof import("@flowpanel/core")>("@flowpanel/core");
   return {
     ...actual,
-    createPublisher: vi.fn(actual.createPublisher),
+    createRealtimeTransport: vi.fn(actual.createRealtimeTransport),
   };
 });
 
-import { createPublisher, type ResolvedAdminConfig } from "@flowpanel/core";
+import { createRealtimeTransport, type ResolvedAdminConfig } from "@flowpanel/core";
 import { bindPublisher, publish, resetPublisherForTests, subscribe } from "../runtime/publish";
 
 function fakeConfig(realtime?: unknown): ResolvedAdminConfig {
@@ -24,27 +24,30 @@ function fakeConfig(realtime?: unknown): ResolvedAdminConfig {
 
 describe("bindPublisher", () => {
   beforeEach(() => {
-    vi.mocked(createPublisher).mockClear();
+    vi.mocked(createRealtimeTransport).mockClear();
     resetPublisherForTests();
   });
 
   it("creates a memory publisher when config.realtime is unset", () => {
     const cfg = fakeConfig(undefined);
     bindPublisher(cfg);
-    expect(createPublisher).toHaveBeenCalledWith({ driver: "memory" });
+    expect(createRealtimeTransport).toHaveBeenCalledWith({ driver: "memory" });
   });
 
   it("honors config.realtime when provided", () => {
     const cfg = fakeConfig({ driver: "redis", url: "redis://x:6379" });
     bindPublisher(cfg);
-    expect(createPublisher).toHaveBeenCalledWith({ driver: "redis", url: "redis://x:6379" });
+    expect(createRealtimeTransport).toHaveBeenCalledWith({
+      driver: "redis",
+      url: "redis://x:6379",
+    });
   });
 
   it("is idempotent for the same config object", () => {
     const cfg = fakeConfig(undefined);
     bindPublisher(cfg);
     bindPublisher(cfg);
-    expect(createPublisher).toHaveBeenCalledTimes(1);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(1);
   });
 
   it("publish routes through the bound publisher without error", async () => {
@@ -73,7 +76,7 @@ describe("bindPublisher", () => {
     bindPublisher(cfgFromStreamBundle);
     bindPublisher(cfgFromCatchAllBundle);
 
-    expect(createPublisher).toHaveBeenCalledTimes(1);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(1);
   });
 
   it("warns once when publish() runs before bindPublisher in this process", async () => {

@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import type { RealtimeOption } from "./realtime";
 import type { ColumnFormat } from "./resource";
-import type { Threshold } from "./threshold";
+import type { GoodWhen, Threshold } from "./threshold";
 import type { NumericFormat, RangeLimit, Span, Tone } from "./widget";
 import type { CaptionOptions } from "./widget-caption";
 import type { Link, LinkTarget, WidgetContext } from "./widget-context";
@@ -9,9 +10,8 @@ import type { Link, LinkTarget, WidgetContext } from "./widget-context";
 export type StatValue = string | number | boolean | bigint | Date | null | undefined;
 
 /**
- * What a `kv` or `statGroup` item resolver may return instead of a bare value, so
- * the value carries its own tone and link, as `StatResult` does for `stat()`. A
- * field set here wins over the item's static `tone` or `href`.
+ * What a `kv` or `statGroup` item resolver may return instead of a bare value. Its `tone` wins
+ * over the item's own; its `href` links the value, and wins over a `kv` item's `href`.
  */
 export interface KvResult {
   value: StatValue;
@@ -61,6 +61,11 @@ export interface StatOptions extends CaptionOptions {
   tone?: Tone;
   /** Tone the value against a threshold; an explicit `tone` wins. */
   tones?: Threshold;
+  /**
+   * Which direction is good news; `tones` must agree with it.
+   * @defaultValue "up"
+   */
+  goodWhen?: GoodWhen;
   /** How a numeric value is rendered. */
   format?: NumericFormat;
   /** Width in the dashboard's 12-column grid. */
@@ -167,8 +172,8 @@ export interface BarRow {
 export interface BarsOptions extends CaptionOptions {
   /** Card heading. */
   label?: string;
-  /** A dashboard filter key: a row's key sets it on the current dashboard. */
-  filter?: string;
+  /** A dashboard filter key: clicking a bar sets it to the row's `key` on the current dashboard. */
+  filterOnClick?: string;
   query: (ctx: WidgetContext) => Promise<BarRow[]>;
   /** How bar values are rendered. */
   format?: NumericFormat;
@@ -179,7 +184,9 @@ export interface BarsOptions extends CaptionOptions {
   max?: number;
   /** Show each row's part of the total beside its value: its own `share`, else of the rows' sum. */
   share?: boolean;
-  /** Which direction of a row's change is good news.
+  /**
+   * Which direction is good news: it colours each row's change, and `tones` must agree with it.
+   * `"neutral"` never colours the change.
    * @defaultValue "up"
    */
   goodWhen?: "up" | "down" | "neutral";
@@ -192,8 +199,8 @@ export interface BarsOptions extends CaptionOptions {
    * whole history.
    */
   compare?: boolean | { against?: "previous" | "weekAgo" };
-  /** Shown instead of the bars when the query returns nothing. */
-  emptyState?: string;
+  /** Shown instead of the bars when the query returns nothing. Text or any node; the drawer shows only text. */
+  emptyState?: ReactNode;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
@@ -228,8 +235,8 @@ export interface FunnelOptions extends CaptionOptions {
    * @defaultValue 0.5
    */
   alertDrop?: number;
-  /** Shown instead of the steps when the query returns nothing. */
-  emptyState?: string;
+  /** Shown instead of the steps when the query returns nothing. Text or any node; the drawer shows only text. */
+  emptyState?: ReactNode;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */

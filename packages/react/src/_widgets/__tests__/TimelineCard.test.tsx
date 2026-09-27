@@ -73,4 +73,48 @@ describe("TimelineCard", () => {
       "[&::-webkit-details-marker]:hidden",
     );
   });
+
+  it("expands a folded or bodied line from its whole row, with a chevron and no link inside", () => {
+    const { container } = render(
+      <TimelineCard
+        label="Activity"
+        chips={[
+          { key: "", label: "All", href: "?", current: true },
+          { key: "a", label: "A", href: "?k=a", current: false },
+          { key: "b", label: "B", href: "?k=b", current: false },
+        ]}
+        groups={[
+          {
+            key: "d",
+            label: "",
+            count: "",
+            lines: [
+              line("Scoring run", {
+                folded: "×2",
+                href: "/admin/runs/2",
+                items: [line("run 2", { href: "/admin/runs/2" }), line("run 1")],
+              }),
+              line("Sent a reply", { body: "Hello there", href: "/admin/response/r1" }),
+            ],
+          },
+        ]}
+        emptyState=""
+      />,
+    );
+    const summaries = [...container.querySelectorAll("summary")];
+    expect(summaries).toHaveLength(2);
+    for (const summary of summaries) {
+      expect(summary.querySelector("a")).toBeNull();
+      expect(summary.querySelector("svg")?.getAttribute("class")).toContain(
+        "[details[open]>summary_&]:rotate-90",
+      );
+    }
+    expect(screen.queryByRole("link", { name: "Scoring run" })).toBeNull();
+    expect(screen.getByRole("link", { name: "run 2" }).getAttribute("href")).toBe("/admin/runs/2");
+    const reply = screen.getByRole("link", { name: "Sent a reply" });
+    expect(reply.closest("summary")).toBeNull();
+    expect(reply.closest("details")).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Activity" }).querySelectorAll("a")).toHaveLength(3);
+    expect(container.querySelector("nav")).toBeNull();
+  });
 });

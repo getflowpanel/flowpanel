@@ -1,19 +1,22 @@
 import {
-  clockIn,
-  dayKeyIn,
   type EnumDef,
   formatCount,
   formatLabel,
-  groupTimeline,
   type ResolvedAdminConfig,
   resolveFormatting,
-  shiftDayKey,
-  type TimelineCursor,
   type TimelineEvent,
   type WidgetContext,
-  writeTimelineCursor,
 } from "@flowpanel/core";
+import {
+  clockIn,
+  dayKeyIn,
+  groupTimeline,
+  shiftDayKey,
+  type TimelineCursor,
+  writeTimelineCursor,
+} from "@flowpanel/core/internal";
 import type { TimelineCardGroup, TimelineCardLine, TimelineCardProps } from "@flowpanel/react";
+import type { ReactNode } from "react";
 import { resolveLink } from "./resolve-link";
 import { requestNow } from "./widget-context";
 
@@ -58,8 +61,9 @@ function foldedLine(line: TimelineEvent[], index: number, view: View): TimelineC
   if (line.length === 1) return head;
   const oldest = line.at(-1) as TimelineEvent;
   const zone = view.ctx.dateRange.timeZone;
+  const { href: _itemsCarryTheirOwn, ...rest } = head;
   return {
-    ...head,
+    ...rest,
     folded: formatLabel(view.ctx.labels.timeline.folded, { n: line.length }),
     span: `${clockIn(oldest.at, zone, view.locale)}–${clockIn(newest.at, zone, view.locale)}`,
     items: line.map((event, i) => lineOf(event, i, view)),
@@ -93,7 +97,7 @@ export function timelineCardProps(args: {
   cursor: TimelineCursor | null;
   events: TimelineEvent[];
   next: TimelineCursor | null;
-  emptyState: string;
+  emptyState: ReactNode;
 }): TimelineCardProps {
   const { ctx, kinds, id } = args;
   const view: View = {

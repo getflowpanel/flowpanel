@@ -6,7 +6,7 @@ import pc from "picocolors";
 import { detectPackageManager, fileExists, pmCommands } from "../utils/detect";
 import { log } from "../utils/log";
 import { writeJson } from "../utils/output";
-import { readTsconfigOptions } from "../utils/tsconfig";
+import { readTsconfigAliases } from "../utils/tsconfig";
 
 interface MigrateOptions {
   dryRun?: boolean;
@@ -76,26 +76,6 @@ export function resolveMigrationExecutor(
     mode: "legacy-hooks",
     warnings: [LEGACY_MIGRATION_WARNING],
   };
-}
-
-export async function readTsconfigAliases(cwd: string): Promise<Record<string, string>> {
-  try {
-    const compilerOptions = await readTsconfigOptions(cwd);
-    const paths = compilerOptions?.paths ?? {};
-    const baseUrl = compilerOptions?.baseUrl ?? ".";
-    const baseDir = path.resolve(cwd, baseUrl);
-    const out: Record<string, string> = {};
-    for (const [key, values] of Object.entries(paths)) {
-      const target = values?.[0];
-      if (!target) continue;
-      const cleanKey = key.replace(/\/\*$/, "");
-      const cleanTarget = target === "*" ? "." : target.replace(/\/\*$/, "");
-      out[cleanKey] = path.resolve(baseDir, cleanTarget);
-    }
-    return out;
-  } catch {
-    return {};
-  }
 }
 
 export function migrateCommand(cli: Command): void {

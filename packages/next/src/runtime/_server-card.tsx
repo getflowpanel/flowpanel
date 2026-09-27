@@ -1,5 +1,5 @@
 import type { WidgetCaption } from "@flowpanel/core";
-import { CaptionLine } from "@flowpanel/react";
+import { CardHeading } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { cn } from "../utils/cn";
 
@@ -18,19 +18,14 @@ export interface ServerCardProps {
 export function ServerCard({ children, className, label, caption, ...rest }: ServerCardProps) {
   const heading = Boolean(label) || caption !== undefined;
   return (
-    <div {...rest} className={cn("rounded-fp border border-fp-border-1 bg-fp-bg-1", className)}>
-      {heading ? (
-        <div className="px-4 pt-4 pb-2 text-sm font-medium text-fp-text-1">
-          {caption ? (
-            <>
-              {label}
-              <CaptionLine caption={caption} />
-            </>
-          ) : (
-            label
-          )}
-        </div>
-      ) : null}
+    <div
+      {...rest}
+      className={cn(
+        "h-full rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-xs",
+        className,
+      )}
+    >
+      <CardHeading label={label} caption={caption} />
       <div className={heading ? "px-4 pb-4" : "p-4"}>{children}</div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { quoted } from "./internal/validate-shared";
 import { didYouMean } from "./suggest";
 import type { ColumnMeta } from "./types/adapter";
 import type { ResourceConfig } from "./types/resource";
@@ -92,7 +93,7 @@ export function validateResourceColumns(
     throw new Error(
       `resource "${name}" points at column "${site.target}" via ${site.where}, ` +
         `but the adapter reports no such column.${didYouMean(site.target, known)} ` +
-        `Known columns: ${known.map((k) => `"${k}"`).join(", ")}.`,
+        `Known columns: ${quoted(known)}.`,
     );
   }
 }

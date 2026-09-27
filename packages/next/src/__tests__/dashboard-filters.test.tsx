@@ -4,9 +4,29 @@ import type {
   ResolvedAdminConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { banner, bars, enumOf, metric, OTHER_KEY, table, tracker } from "@flowpanel/core";
+import {
+  banner,
+  bars,
+  checklist,
+  enumOf,
+  heatmap,
+  kv,
+  metric,
+  OTHER_KEY,
+  table,
+  timeline,
+  tracker,
+} from "@flowpanel/core";
 import { DashboardFilters } from "@flowpanel/next/client";
-import { BarsCard, ListCard, TableWidget, TrackerCard } from "@flowpanel/react";
+import {
+  BarsCard,
+  ChecklistCard,
+  HeatmapCard,
+  ListCard,
+  TableWidget,
+  TimelineCard,
+  TrackerCard,
+} from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "../pages/dashboard";
@@ -184,10 +204,10 @@ describe("dashboard filters", () => {
 
   it("carries explicit filters on a dashboard link, and names one the target lacks", () => {
     expect(
-      resolveLink(config, filtered(), { dashboard: "/parsing", filters: { platform: "fl" } }),
+      resolveLink(config, filtered(), { dashboard: "/parsing", filter: { platform: "fl" } }),
     ).toBe("/admin/parsing?preset=last7d&f_platform=fl");
     expect(() =>
-      resolveLink(config, filtered(), { dashboard: "/parsing", filters: { platfrom: "fl" } }),
+      resolveLink(config, filtered(), { dashboard: "/parsing", filter: { platfrom: "fl" } }),
     ).toThrow(/sets the filter "platfrom".*Did you mean "platform"\?/s);
   });
 
@@ -215,7 +235,7 @@ describe("click to filter", () => {
     const barRows = propsOf(
       await renderWidget(
         bars({
-          filter: "platform",
+          filterOnClick: "platform",
           query: async () => [
             { key: "fl", label: "FL.ru", value: 3 },
             { label: "Kwork", value: 2 },
@@ -236,7 +256,7 @@ describe("click to filter", () => {
     const trackerRows = propsOf(
       await renderWidget(
         tracker({
-          filter: "platform",
+          filterOnClick: "platform",
           rows: async () => [{ key: "fl", label: "FL.ru", cells: [] }],
         }),
         ctx,
@@ -248,7 +268,11 @@ describe("click to filter", () => {
     expect(trackerRows[0]?.href).toBe("/admin/parsing?preset=last7d&f_platform=fl");
     const tableProps = propsOf(
       await renderWidget(
-        table({ filter: "platform", rowKey: "platform", query: async () => [{ platform: "fl" }] }),
+        table({
+          filterOnClick: "platform",
+          rowKey: "platform",
+          query: async () => [{ platform: "fl" }],
+        }),
         ctx,
         config,
         reqCtx,
@@ -296,5 +320,37 @@ describe("click to filter", () => {
     expect(textOf(trackerProps?.emptyState)).toBe(
       "Nothing matches the current filters. Clear filters",
     );
+  });
+
+  it("says so on an empty timeline, checklist and heatmap too", async () => {
+    const cards = [
+      [timeline({ kinds: {}, query: async () => [] }), TimelineCard],
+      [checklist({ items: [] }), ChecklistCard],
+      [heatmap({ query: async () => [] }), HeatmapCard],
+    ] as const;
+    for (const [widget, Card] of cards) {
+      const props = propsOf(await renderWidget(widget, filtered(), config, reqCtx), Card);
+      expect(textOf(props?.emptyState)).toBe("Nothing matches the current filters. Clear filters");
+    }
+  });
+
+  it("warns once in development about keyless bars and a kv field without a record", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await renderWidget(
+      bars({ filterOnClick: "kind", query: async () => [{ label: "Kwork", value: 3 }] }),
+      filtered(),
+      config,
+      reqCtx,
+    );
+    await renderWidget(
+      kv({ items: [{ label: "Plan", field: "plan" }] }),
+      filtered(),
+      config,
+      reqCtx,
+    );
+    const said = warn.mock.calls.map((call) => String(call[0]));
+    expect(said.some((line) => line.includes("some rows carry no key"))).toBe(true);
+    expect(said.some((line) => line.includes("a dashboard has no record"))).toBe(true);
+    warn.mockRestore();
   });
 });

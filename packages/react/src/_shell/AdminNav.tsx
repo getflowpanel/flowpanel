@@ -79,7 +79,7 @@ export function AdminNav({
                 <summary
                   className={cn(
                     GROUP_LABEL,
-                    "flex min-h-9 cursor-pointer list-none items-center justify-between rounded-fp hover:text-fp-text-2 [&::-webkit-details-marker]:hidden",
+                    "flex min-h-11 cursor-pointer list-none items-center justify-between rounded-fp hover:text-fp-text-2 sm:min-h-9 [&::-webkit-details-marker]:hidden",
                   )}
                 >
                   {g.label}

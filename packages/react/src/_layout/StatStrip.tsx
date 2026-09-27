@@ -32,9 +32,10 @@ export function StatStrip({ label, description, columns, className, children }: 
       ) : null}
       <div
         className={cn(
-          "grid grid-cols-2 gap-px overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-border-1 shadow-fp-xs",
+          "grid grid-cols-2 gap-px overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-xs",
           MD_COLUMNS[columns ?? cells],
-          "[&>*]:min-w-0 [&>*]:bg-fp-bg-1 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1",
+          "[&>*]:min-w-0 [&>*]:bg-fp-bg-1 [&>*]:shadow-[0_0_0_1px_hsl(var(--fp-border-1))]",
+          "[&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1",
         )}
       >
         {children}

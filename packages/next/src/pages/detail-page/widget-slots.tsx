@@ -47,18 +47,27 @@ export async function renderSlots(
       } catch (failure) {
         if (isControlFlow(failure)) throw failure;
         console.error(`[flowpanel] widget ${describeOwner(owner)} failed`, failure);
-        return { className, owner, node: <ErrorCard error={asError(failure)} /> };
+        const node = (
+          <ErrorCard error={asError(failure)} {...(frame.plain ? { plain: true } : {})} />
+        );
+        return { className, owner, node };
       }
     }),
   );
 }
 
 /** Each slot in its own error boundary; `className` replaces the slots' span classes. */
-export function slotElements(slots: RenderedSlot[], className?: string): ReactNode[] {
+export function slotElements(
+  slots: RenderedSlot[],
+  className?: string,
+  plain?: boolean,
+): ReactNode[] {
   return slots.map((slot, index) => (
     // biome-ignore lint/suspicious/noArrayIndexKey: widget order is stable
     <div key={index} className={className ?? slot.className}>
-      <WidgetErrorBoundary widgetId={describeOwner(slot.owner)}>{slot.node}</WidgetErrorBoundary>
+      <WidgetErrorBoundary widgetId={describeOwner(slot.owner)} {...(plain ? { plain: true } : {})}>
+        {slot.node}
+      </WidgetErrorBoundary>
     </div>
   ));
 }

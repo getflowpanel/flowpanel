@@ -48,7 +48,11 @@ export function mergeLabels(
     detail: { ...base.detail, ...defined(user.detail ?? {}) },
     related: { ...base.related, ...defined(user.related ?? {}) },
     confirm: { ...base.confirm, ...defined(user.confirm ?? {}) },
-    widget: { ...base.widget, ...defined(user.widget ?? {}) },
+    widget: {
+      ...base.widget,
+      ...defined(user.widget ?? {}),
+      tones: { ...base.widget.tones, ...defined(user.widget?.tones ?? {}) },
+    },
     timeline: { ...base.timeline, ...defined(user.timeline ?? {}) },
     heatmap: { ...base.heatmap, ...defined(user.heatmap ?? {}) },
     checklist: { ...base.checklist, ...defined(user.checklist ?? {}) },

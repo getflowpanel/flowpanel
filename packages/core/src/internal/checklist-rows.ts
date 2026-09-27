@@ -1,7 +1,6 @@
+import type { ChecklistItem, LinkTarget, Tone } from "@flowpanel/core";
 import { toDateValue } from "../format-values";
-import type { Tone } from "../types/widget";
-import type { ChecklistItem } from "../types/widget-activity";
-import type { LinkTarget } from "../types/widget-context";
+import { dayKeyIn } from "./day-key";
 
 const ISO = /^\d{4}-\d{2}-\d{2}/;
 const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -29,12 +28,12 @@ export interface ChecklistRow {
   gapMs: number | null;
 }
 
-function whenOf(item: ChecklistItem): { at: Date | null; day: string | null } {
+function whenOf(item: ChecklistItem, timeZone: string): { at: Date | null; day: string | null } {
   const text = typeof item.done === "string" && ISO.test(item.done) ? item.done : null;
   const at = item.done instanceof Date || text !== null ? toDateValue(item.done) : null;
   if (at === null) return { at: null, day: null };
   if (item.precision === "day" || (text !== null && DAY_ONLY.test(text))) {
-    return { at: null, day: text !== null ? text.slice(0, 10) : at.toISOString().slice(0, 10) };
+    return { at: null, day: text !== null ? text.slice(0, 10) : dayKeyIn(at, timeZone) };
   }
   return { at, day: null };
 }
@@ -46,6 +45,7 @@ function whenOf(item: ChecklistItem): { at: Date | null; day: string | null } {
 export function checklistRows(
   items: readonly ChecklistItem[],
   ordered: boolean,
+  timeZone = "UTC",
 ): { rows: ChecklistRow[]; done: number; total: number } {
   let done = 0;
   let total = 0;
@@ -56,7 +56,7 @@ export function checklistRows(
       total += 1;
       if (finished) done += 1;
     }
-    const when = ordered && finished ? whenOf(item) : { at: null, day: null };
+    const when = ordered && finished ? whenOf(item, timeZone) : { at: null, day: null };
     let gapMs: number | null = null;
     if (ordered && finished) {
       if (previous !== null && when.at !== null && when.at.getTime() >= previous.getTime()) {

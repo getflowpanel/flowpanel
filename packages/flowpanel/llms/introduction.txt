@@ -24,7 +24,7 @@ pnpm dlx @flowpanel/cli init
 
 The CLI detects the package manager, ORM, app directory, path alias, database client, schema, auth helper, and installed Tailwind version when present. Confirm the detected paths when prompted.
 
-It validates local modules and named exports, then installs `@flowpanel/kit` and a version-aligned local `@flowpanel/cli`. The root layout is preserved. Conflicting files stop the operation; a busy `/admin` is replaced by the free `/flowpanel` mount, or choose `--path /ops/admin`. To inspect the plan without writing or installing anything, run:
+It validates local modules and named exports, then installs `@flowpanel/kit` and a version-aligned local `@flowpanel/cli`. The root layout is not rewritten, except that `init` adds `suppressHydrationWarning` to its `<html>` tag when missing — required because the admin's theme script marks `<html>` before React hydrates it; if it cannot patch the file safely, it tells you what to add by hand. Conflicting files stop the operation; a busy `/admin` is replaced by the free `/flowpanel` mount, or choose `--path /ops/admin`. To inspect the plan without writing or installing anything, run:
 
 ```bash
 pnpm dlx @flowpanel/cli init --dry-run
@@ -113,6 +113,11 @@ pnpm dev
 You should see `/admin` with an empty navigation. `init` leaves `resources` empty on purpose:
 only you know which tables belong in the admin.
 
+`init` also adds `suppressHydrationWarning` to your root layout's `<html>` tag if it is
+missing — the admin's theme script marks `<html>` before React hydrates it, and without that
+attribute development logs a hydration error and step 11's `smokeAdmin` fails on every route.
+If `init` could not patch the file safely, it prints the exact edit to make by hand.
+
 ### 2. Take types from your schema and your auth
 
 `init` already told FlowPanel where your database, schema and session types come from. The
@@ -129,8 +134,9 @@ declare module "@flowpanel/kit" {
 ```
 
 With better-auth, when your auth module exports the instance and no `getSession`, the session
-module it wrote next to the config (`server/lib/flowpanel-session.ts`) declares the third and wraps your auth instance in the
-better-auth preset:
+module `init` wrote under `server/lib/` (`src/server/lib/` with a `src/` layout) —
+`flowpanel-session.ts` — declares the third and wraps your auth instance in the better-auth
+preset:
 
 ```ts excerpt
 // server/lib/flowpanel-session.ts
@@ -285,7 +291,7 @@ export const overview = dashboard({
         metric(
           "Failed runs",
           { count: "runs", where: { status: "failed" }, range: "startedAt" },
-          { compare: { goodWhen: "down" } },
+          { compare: true, goodWhen: "down" },
         ),
         metric("New customers", { count: "customers", range: "createdAt" }, { compare: true }),
       ],
@@ -346,7 +352,7 @@ export const marketplaces = dashboard({
           query: async (c) => breakdown(await c.query(listingsFound), { by: "site", labels: Site }),
           share: true,
           compare: true,
-          filter: "site",
+          filterOnClick: "site",
           span: 4,
         }),
         lineChart(
@@ -376,27 +382,31 @@ A tracker answers "is it healthy right now": one row per marketplace, one block 
 lives on the Marketplaces dashboard, so it shares `listingsFound` and the Marketplace filter:
 
 ```ts excerpt
+// src/admin/config/dashboards/marketplaces.ts
 import { type Threshold, tracker } from "@flowpanel/kit";
 
-const QUIET: Threshold = { warn: 5, err: 1, goodWhen: "up" };
+const QUIET: Threshold = { warn: 5, err: 1 };
 
 const listingsByHour = tracker({
   label: "Listings found · 24 h",
   query: listingsFound,
   at: "at",
   by: "site",
+  keys: Site.values,
   labels: Site,
   tones: QUIET,
-  filter: "site",
+  filterOnClick: "site",
   span: 12,
 });
 ```
 
 Append `{ widgets: [listingsByHour] }` to the `sections` of `marketplaces` from step 6. The
 tracker ignores the date picker: its window is the last 24 hours, and `ctx.dateRange` inside
-`listingsFound` is that window. With `goodWhen: "up"`, an hour with 5 listings or fewer is a
-warning and an hour with one is an error; an hour with none stays grey, because there is
-nothing to judge.
+`listingsFound` is that window. `keys: Site.values` keeps every marketplace on the board even
+when an hour, or all 24, found nothing for it — without `keys`, a marketplace absent from the
+rows has no row at all, not a quiet one. `warn` above `err` reads as "fewer is worse", so an hour
+with 5 listings or fewer is a warning and an hour with one is an error; an hour with none stays
+grey, because there is nothing to judge.
 
 You should see one row per marketplace, 24 hourly blocks each, coloured by how many listings
 that hour found; a click on a row narrows the whole page to that marketplace.
@@ -474,13 +484,14 @@ export const customerCard = {
         }),
       ],
     },
-    related("monitors", { count: true }),
-    related("invoices", { count: true, sort: { field: "createdAt", dir: "desc" } }),
+    related("monitors"),
+    related("invoices", { sort: { field: "createdAt", dir: "desc" } }),
   ],
 } satisfies DetailOptions<RowOf<"customers">>;
 ```
 
-Pass it as `detail: customerCard` on the customers resource. The strip and the side column stay
+Pass it as `detail: customerCard` on the customers resource. `related()`'s row count in the tab
+label is on by default; pass `count: false` to hide it. The strip and the side column stay
 on every tab; the related tabs find their filter from the `customerId` reference `flowpanel new`
 wrote, and show their row counts in the tab labels. `paidInvoices` has a name of its own so a
 unit test can import it (step 11).
@@ -516,6 +527,11 @@ export function CrawlQueue({ waiting, failed }: { waiting: number; failed: numbe
 `{ waiting, failed }` — from your job queue's counts, for example:
 
 ```ts excerpt
+// src/admin/config/dashboards/overview.ts
+import { custom } from "@flowpanel/kit";
+import { CrawlQueue } from "../../ui/CrawlQueue";
+import { queueCounts } from "@/server/lib/queue"; // your own function
+
 const crawlQueue = custom(CrawlQueue, (c) => c.query(queueCounts), {
   label: "Crawl queue",
   realtime: "pipeline",
@@ -569,8 +585,25 @@ crawl runs, without a reload. See
 
 ### 11. Test the whole admin, and one number
 
-Install the test package and Playwright with `pnpm add -D @flowpanel/test @playwright/test`,
-then walk the admin:
+Install the test package and Playwright with `pnpm add -D @flowpanel/test @playwright/test`, and
+add a `playwright.config.ts` with a `baseURL` and a `webServer` — `smokeAdmin` navigates with
+`page.goto(basePath)`, which needs both:
+
+```ts excerpt
+// playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./e2e",
+  use: { baseURL: "http://localhost:3000" },
+  webServer: { command: "pnpm dev", url: "http://localhost:3000", reuseExistingServer: true },
+});
+```
+
+Then walk the admin. better-auth issues a signed session through its own sign-in endpoint, not a
+bare token, so sign in with a Playwright fixture and let `smokeAdmin` reuse that context — and
+seed or promote that user to the `admin` role `requireRole` demands, or the walk lands on your
+access-denied page instead:
 
 ```ts excerpt
 // e2e/admin.spec.ts
@@ -578,24 +611,29 @@ import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/test";
 
 test("the admin is healthy", async ({ page }) => {
-  await smokeAdmin(page, {
-    basePath: "/admin",
-    cookie: { name: "session", value: process.env.E2E_SESSION ?? "" },
-  });
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(process.env.E2E_EMAIL ?? "");
+  await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await smokeAdmin(page, { basePath: "/admin" });
 });
 ```
+
+See [Authentication](/docs/reference/testing#authentication) for the `cookie` option instead,
+which suits a session token your own code issues.
 
 The walk opens every dashboard, every list, the first record of each and every tab of that
 record, and fails on an error card, a console error or a 4xx/5xx. A single number gets a unit
 test with `widgetContext({ admin, rows })` and `resolveWidget` from `@flowpanel/test/widgets`:
 your admin's own code over rows you pass; see
 [Testing](/docs/reference/testing#unit-test-a-widget), and
-[Build a record page](/docs/build/detail-cards#test-the-card) for a test of `paidInvoices`. In
-Vitest it needs one line of config, shown in
+[Build a record page](/docs/build/detail-cards#test-the-card) for a test of `paidInvoices`. It
+needs Vitest itself and a small config, shown in
 [Run it in Vitest](/docs/reference/testing#run-it-in-vitest).
 
-You should see a green run. Break a widget on the Monitors tab and the failure names that tab's
-URL, such as `/admin/customers/1?tab=monitors`.
+You should see a green run. Break a widget on the Activity tab and the failure names that tab's
+URL, such as `/admin/customers/1?tab=activity`.
 
 ### 12. Ship
 
@@ -782,14 +820,16 @@ The catch-all admin page passes every `/admin/...` request to `createFlowpanel(c
 
 These files are intentionally small. Edit them only when changing mount paths or integrating custom route behavior. `flowpanel doctor --fix` can restore missing route templates, but does not overwrite an existing conflicting file.
 
-The CLI imports the stylesheet from the admin segment's layout and preserves the
-host root layout. When no shared root layout exists, the admin segment receives
-its own root layout. Either layout renders `ThemeScript` with the nonce from the `x-nonce`
-request header, so the theme applies before hydration. Under a strict `script-src`, the host's
-middleware sets `x-nonce`; a host that sets none gets the script without a nonce. Your root
-layout's `<html>` needs `suppressHydrationWarning`, as the one `init` writes has, because the
-script marks `<html>` before React hydrates it; without it, development logs a hydration error
-and `smokeAdmin` fails on it. Routes and config use the same mount chosen with `--path` or
+The CLI imports the stylesheet from the admin segment's layout and does not rewrite the
+host root layout, with one exception: `ThemeScript` marks `<html>` before React hydrates it,
+so `init` adds `suppressHydrationWarning` to the host root layout's `<html>` tag when it is
+missing — without it, development logs a hydration error and `smokeAdmin` fails on every
+route. When `init` cannot safely parse the layout, it leaves the file alone and prints the
+exact edit to make by hand. When no shared root layout exists, the admin segment receives
+its own root layout, already carrying `suppressHydrationWarning`. Either layout renders
+`ThemeScript` with the nonce from the `x-nonce` request header, so the theme applies before
+hydration. Under a strict `script-src`, the host's middleware sets `x-nonce`; a host that sets
+none gets the script without a nonce. Routes and config use the same mount chosen with `--path` or
 inferred from existing routes.
 
 ### Files created later

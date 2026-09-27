@@ -1,6 +1,6 @@
 "use client";
 import type { WidgetCaption, WidgetConfig } from "@flowpanel/core";
-import { CaptionLine, Card, CardHeader } from "@flowpanel/react";
+import { Card, CardHeading } from "@flowpanel/react";
 import { type ReactNode, useEffect, useState } from "react";
 import { AreaChart } from "./AreaChart";
 import { BarChart } from "./BarChart";
@@ -55,7 +55,7 @@ export function chartFrame(
   return (
     <a
       href={drilldown}
-      className="block hover:opacity-90 transition-opacity"
+      className="block h-full rounded-fp-lg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
       {...(label ? { "aria-label": label } : {})}
     >
       {card}
@@ -70,11 +70,8 @@ export function ChartRenderer(props: ChartRendererProps) {
   }, []);
 
   return chartFrame(
-    <Card>
-      <CardHeader>
-        {props.label}
-        <CaptionLine caption={props.caption} />
-      </CardHeader>
+    <Card className="h-full">
+      <CardHeading label={props.label} caption={props.caption} />
       <div className="p-3">{chartBody(props, mounted)}</div>
     </Card>,
     props,

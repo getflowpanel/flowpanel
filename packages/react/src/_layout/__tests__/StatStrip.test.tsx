@@ -18,7 +18,6 @@ describe("StatStrip", () => {
     expect(screen.getByText("Today")).toBeTruthy();
     const band = screen.getByText("a").parentElement?.className ?? "";
     expect(band).toContain("gap-px");
-    expect(band).toContain("bg-fp-border-1");
     expect(band).toContain("grid-cols-2");
     expect(band).toContain("md:grid-cols-3");
     expect(band).toContain("[&>*:last-child:nth-child(odd)]:col-span-2");
@@ -41,5 +40,19 @@ describe("StatStrip", () => {
       </StatStrip>,
     );
     expect(screen.getByText("n0").parentElement?.className).toContain("md:grid-cols-6");
+  });
+
+  it("draws the hairlines on the cells, so slots left empty on the last line stay blank", () => {
+    render(
+      <StatStrip>
+        {Array.from({ length: 7 }, (_, i) => `k${i}`).map((name) => (
+          <div key={name}>{name}</div>
+        ))}
+      </StatStrip>,
+    );
+    const band = screen.getByText("k0").parentElement?.className ?? "";
+    expect(band).not.toContain("bg-fp-border-1");
+    expect(band).toContain("bg-fp-bg-1");
+    expect(band).toContain("[&>*]:shadow-[0_0_0_1px_hsl(var(--fp-border-1))]");
   });
 });

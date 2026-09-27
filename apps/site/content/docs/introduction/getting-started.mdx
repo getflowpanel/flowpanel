@@ -24,7 +24,7 @@ pnpm dlx @flowpanel/cli init
 
 The CLI detects the package manager, ORM, app directory, path alias, database client, schema, auth helper, and installed Tailwind version when present. Confirm the detected paths when prompted.
 
-It validates local modules and named exports, then installs `@flowpanel/kit` and a version-aligned local `@flowpanel/cli`. The root layout is preserved. Conflicting files stop the operation; a busy `/admin` is replaced by the free `/flowpanel` mount, or choose `--path /ops/admin`. To inspect the plan without writing or installing anything, run:
+It validates local modules and named exports, then installs `@flowpanel/kit` and a version-aligned local `@flowpanel/cli`. The root layout is not rewritten, except that `init` adds `suppressHydrationWarning` to its `<html>` tag when missing — required because the admin's theme script marks `<html>` before React hydrates it; if it cannot patch the file safely, it tells you what to add by hand. Conflicting files stop the operation; a busy `/admin` is replaced by the free `/flowpanel` mount, or choose `--path /ops/admin`. To inspect the plan without writing or installing anything, run:
 
 ```bash
 pnpm dlx @flowpanel/cli init --dry-run

@@ -109,7 +109,14 @@ export const RU_LABELS: ResolvedLabels = {
     export: "Экспорт",
     import: "Импорт",
   },
-  drawer: { close: "Закрыть", viewDetails: "Открыть страницу →" },
+  drawer: {
+    close: "Закрыть",
+    viewDetails: "Открыть страницу →",
+    loading: "Загрузка…",
+    noRows: "Нет записей: {resource}.",
+    noWidgets: "Виджетов нет.",
+    chartElsewhere: "График показывается на дашборде. Точек: {n}.",
+  },
   detail: {
     noFields: "Нет полей для показа",
     unknownResource: "Неизвестный ресурс: {resource}",
@@ -162,6 +169,7 @@ export const RU_LABELS: ResolvedLabels = {
     allClear: "Всё в порядке",
     more: "ещё {n}",
     filtered: "По выбранным фильтрам ничего нет.",
+    tones: { err: "Ошибка", warn: "Предупреждение", ok: "В норме", info: "Информация" },
   },
   timeline: {
     all: "Все",

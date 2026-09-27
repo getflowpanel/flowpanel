@@ -214,7 +214,7 @@ export function DataTable<Row extends Record<string, unknown>>({
           labels.plurals?.results ?? (total === 1 ? labels.table.result : labels.table.results),
           total,
           locale,
-          new Intl.NumberFormat(labels.dateRange.locale).format(total),
+          new Intl.NumberFormat(locale).format(total),
         )}
       </span>
       {realtimeCfg ? <LiveIndicator status={liveStatus} /> : null}

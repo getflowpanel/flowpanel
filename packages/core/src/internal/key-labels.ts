@@ -1,4 +1,4 @@
-import type { EnumDef } from "../builders/enum-of";
+import type { EnumDef } from "@flowpanel/core";
 
 /** Names for the keys of a series or a breakdown: a map, an `enumOf()`, or a function. */
 export type KeyLabels = Readonly<Record<string, string>> | EnumDef | ((key: string) => string);

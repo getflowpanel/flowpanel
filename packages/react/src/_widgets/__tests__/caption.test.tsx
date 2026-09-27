@@ -34,13 +34,14 @@ describe("CaptionLine", () => {
       <CaptionLine caption={{ text: "Data as of 06:00", tone: "warn" }} />,
     );
     const line = container.querySelector("[data-fp-caption]");
-    expect(line?.textContent).toBe("▲ Data as of 06:00");
+    expect(line?.textContent).toBe("▲ Warning Data as of 06:00");
+    expect(screen.getByText("Warning").className).toContain("sr-only");
     expect(line?.className).toContain("text-fp-warn-text");
   });
 
   it("marks an error caption with ✕, the error glyph", () => {
     const { container } = render(<CaptionLine caption={{ text: "Feed down", tone: "err" }} />);
-    expect(container.querySelector("[data-fp-caption]")?.textContent).toBe("✕ Feed down");
+    expect(container.querySelector("[data-fp-caption]")?.textContent).toBe("✕ Error Feed down");
   });
 
   it("renders nothing without a caption", () => {

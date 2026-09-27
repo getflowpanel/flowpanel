@@ -1,5 +1,5 @@
 import type { ResourceConfig } from "@flowpanel/core";
-import { encodeFilters } from "@flowpanel/core";
+import { encodeFilters } from "@flowpanel/core/internal";
 
 /** A saved view as the browser's views menu receives it. */
 export interface WireView {

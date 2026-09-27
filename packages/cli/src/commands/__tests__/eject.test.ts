@@ -221,3 +221,121 @@ export default defineAdmin({
     await expect(fs.access(path.join(srcTmp, "app"))).rejects.toThrow();
   });
 });
+
+describe("runEject — split config (root re-export)", () => {
+  let splitTmp: string;
+  beforeEach(async () => {
+    splitTmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-eject-split-"));
+    await fs.mkdir(path.join(splitTmp, "src/admin/config"), { recursive: true });
+    await fs.writeFile(
+      path.join(splitTmp, "flowpanel.config.ts"),
+      'export { default } from "./src/admin/config";\n',
+    );
+  });
+  afterEach(async () => {
+    await fs.rm(splitTmp, { recursive: true, force: true });
+  });
+
+  it("follows a root re-export to a single-file config", async () => {
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/index.ts"),
+      `import { dashboard, defineAdmin, resource } from "@flowpanel/kit";
+import * as schema from "../../db/schema";
+export default defineAdmin({
+  resources: [resource(schema.users, { columns: ["email"] })],
+  dashboards: [dashboard({ path: "/", label: "Overview", sections: [] })],
+});
+`,
+    );
+    await runEject({ cwd: splitTmp, target: "resource", name: "users", version: "1.0.0" });
+    const cfg = await fs.readFile(path.join(splitTmp, "src/admin/config/index.ts"), "utf8");
+    expect(cfg).toContain("// ejected: app/admin/users");
+    expect(cfg).toContain('/* resource(schema.users, { columns: ["email"] }) */');
+    // The root re-export file itself is untouched.
+    const root = await fs.readFile(path.join(splitTmp, "flowpanel.config.ts"), "utf8");
+    expect(root).toBe('export { default } from "./src/admin/config";\n');
+  });
+
+  it("follows the resources import into a one-file-per-resource directory", async () => {
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/index.ts"),
+      `import { defineAdmin } from "@flowpanel/kit";
+import { resources } from "./resources";
+export default defineAdmin({
+  resources,
+});
+`,
+    );
+    await fs.mkdir(path.join(splitTmp, "src/admin/config/resources"), { recursive: true });
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/resources/index.ts"),
+      `import { customers } from "./customers";
+import { monitors } from "./monitors";
+
+export const resources = [customers, monitors] as const;
+`,
+    );
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/resources/customers.ts"),
+      `import { resource } from "@flowpanel/kit";
+import * as schema from "../../../db/schema";
+
+export const customers = resource(schema.customers, {
+  columns: ["name"],
+});
+`,
+    );
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/resources/monitors.ts"),
+      `import { resource } from "@flowpanel/kit";
+import * as schema from "../../../db/schema";
+
+export const monitors = resource(schema.monitors, {
+  columns: ["url"],
+});
+`,
+    );
+
+    await runEject({ cwd: splitTmp, target: "resource", name: "customers", version: "1.0.0" });
+
+    const customersFile = await fs.readFile(
+      path.join(splitTmp, "src/admin/config/resources/customers.ts"),
+      "utf8",
+    );
+    expect(customersFile).toContain("export const customers = undefined;");
+    expect(customersFile).toContain("// ejected: app/admin/customers");
+
+    // The sibling resource file, the index and the config are untouched.
+    const monitorsFile = await fs.readFile(
+      path.join(splitTmp, "src/admin/config/resources/monitors.ts"),
+      "utf8",
+    );
+    expect(monitorsFile).toContain("resource(schema.monitors,");
+    const index = await fs.readFile(path.join(splitTmp, "src/admin/config/index.ts"), "utf8");
+    expect(index).not.toContain("ejected");
+
+    const page = await fs.readFile(path.join(splitTmp, "app/admin/customers/page.tsx"), "utf8");
+    expect(page).toMatch(/ejected @ 1\.0\.0/);
+  });
+
+  it("reports both locations searched when the resource is nowhere", async () => {
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/index.ts"),
+      `import { defineAdmin } from "@flowpanel/kit";
+import { resources } from "./resources";
+export default defineAdmin({
+  resources,
+});
+`,
+    );
+    await fs.mkdir(path.join(splitTmp, "src/admin/config/resources"), { recursive: true });
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/resources/index.ts"),
+      "export const resources = [] as const;\n",
+    );
+
+    await expect(
+      runEject({ cwd: splitTmp, target: "resource", name: "ghost", version: "1.0.0" }),
+    ).rejects.toThrow(/resource "ghost" not found in .*index\.ts or .*resources/);
+  });
+});

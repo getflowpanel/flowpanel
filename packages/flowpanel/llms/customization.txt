@@ -497,6 +497,8 @@ The command writes list, create, detail, edit, and action stubs under `app/admin
 
 The matching `resource(...)` entry is commented in place and an ejection breadcrumb is added. File headers record the installed FlowPanel version so future reviews can identify the scaffold baseline.
 
+A split config works too. When the root config only re-exports another module, `eject` follows it, as `flowpanel new` does. When `resources` is imported from a directory of one-file-per-resource modules, the ones `new --dir` writes, `eject resource` comments the `resource(...)` call out in the file that defines it and leaves the other files alone.
+
 ### Eject a dashboard or layout
 
 ```bash

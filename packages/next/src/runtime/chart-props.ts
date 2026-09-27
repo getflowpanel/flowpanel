@@ -5,7 +5,8 @@ import type {
   PieChartWidget,
   ResolvedLabels,
 } from "@flowpanel/core";
-import { keyLabel, OTHER_KEY } from "@flowpanel/core";
+import { OTHER_KEY } from "@flowpanel/core";
+import { keyLabel } from "@flowpanel/core/internal";
 
 type ChartWidget = AreaChartWidget | BarChartWidget | LineChartWidget | PieChartWidget;
 

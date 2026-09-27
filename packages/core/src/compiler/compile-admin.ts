@@ -15,6 +15,7 @@ import { validateRealtime } from "../validate-realtime";
 import { validateRecordSources } from "../validate-record-sources";
 import { validateResourceColumns } from "../validate-resource-columns";
 import { validateResourceRefs } from "../validate-resource-refs";
+import { validateThresholds } from "../validate-thresholds";
 import { createFieldWarnings, warnCreateFieldsOnce } from "../warn-create-fields";
 import { warnIfNoAccessControl } from "../warn-open-admin";
 import { createBuiltinBulkDelete } from "./builtin-bulk-delete";
@@ -22,6 +23,7 @@ import { resolveDetailWidgets } from "./detail-widgets";
 import { withEnumOptions } from "./enum-options";
 import { resolveRelatedTabs } from "./related-tabs";
 import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
+import { withDashboardTimelineIds } from "./timeline-ids";
 import {
   assertCanonicalAccess,
   assertCanonicalFieldAccess,
@@ -164,8 +166,9 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     });
   }
 
+  const dashboards = (config.dashboards ?? []).map(withDashboardTimelineIds);
   const dashboardsByPath = new Map<string, DashboardConfig>();
-  for (const dashboard of config.dashboards ?? []) {
+  for (const dashboard of dashboards) {
     const path = normalizeDeclaredRoutePath(dashboard.path);
     if (dashboardsByPath.has(path)) {
       throw new Error(`Duplicate dashboard path: "${dashboard.path}".`);
@@ -208,23 +211,24 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     const compiled = compiledResourcesByName.get(name);
     if (compiled) compiledResourcesByName.set(name, { ...compiled, definition: resolved });
   }
-  validateResourceRefs(resourcesByName, config.dashboards ?? []);
-  validateRealtime(resourcesByName, config.dashboards ?? []);
-  validateDashboardFilters(config.dashboards ?? [], resourcesByName);
+  validateResourceRefs(resourcesByName, dashboards);
+  validateRealtime(resourcesByName, dashboards);
+  validateDashboardFilters(dashboards, resourcesByName);
+  validateThresholds(dashboards, resourcesByName);
   const linkCheck: LinkCheck = {
     resourcesByName,
     columnsOf: (name) =>
       compiledResourcesByName.get(name)?.introspection?.columns.map((column) => column.name) ?? [],
     paths: new Set([...dashboardsByPath.keys(), ...pagesByPath.keys()]),
     dashboardFilters: new Map(
-      (config.dashboards ?? []).map((d) => [
+      dashboards.map((d) => [
         normalizeRoutePath(d.path),
         (d.filters ?? []).map((filter) => filter.key),
       ]),
     ),
   };
-  validateLinks(linkCheck, config.dashboards ?? []);
-  validateRecordSources(linkCheck, config.dashboards ?? []);
+  validateLinks(linkCheck, dashboards);
+  validateRecordSources(linkCheck, dashboards);
   warnIfNoAccessControl(config, resources);
   warnCreateFieldsOnce(warnings);
 
@@ -237,6 +241,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   const resolved: ResolvedAdminConfig<Resources> = {
     ...config,
     ...(labels ? { labels } : {}),
+    ...(config.dashboards ? { dashboards } : {}),
     resources: resources as unknown as Resources,
     __resolved: true,
     resourcesByName,

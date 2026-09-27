@@ -116,7 +116,7 @@ export async function serializeWidget(
         const tone =
           result.tone ??
           w.options.tone ??
-          thresholdTone(result.value, w.options.tones, result.volume);
+          thresholdTone(result.value, w.options.tones, result.volume, w.options.goodWhen);
         return {
           kind: "metric",
           label: w.label,

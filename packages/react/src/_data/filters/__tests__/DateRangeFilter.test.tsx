@@ -134,4 +134,13 @@ describe("DateRangeFilter", () => {
     render(<DateRangeFilter value="last7d" onChange={vi.fn()} />);
     expect(screen.getByText("Last 7 days")).toBeTruthy();
   });
+
+  it("marks the applied server preset when the popover opens", () => {
+    render(<DateRangeFilter value="last7d" onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText("Last 7 days"));
+    const pressed = screen
+      .getAllByRole("button")
+      .filter((button) => button.getAttribute("aria-pressed") === "true");
+    expect(pressed.map((button) => button.textContent)).toEqual(["Last 7 days"]);
+  });
 });

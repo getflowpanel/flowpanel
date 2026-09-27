@@ -1,12 +1,13 @@
 import {
   type ChecklistWidget,
-  checklistRows,
   formatLabel,
   type ResolvedAdminConfig,
   type WidgetContext,
 } from "@flowpanel/core";
+import { checklistRows } from "@flowpanel/core/internal";
 import { ChecklistCard, type ChecklistCardItem } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { filteredEmptyState } from "./filtered-empty";
 import { resolveLink } from "./resolve-link";
 import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
 
@@ -22,7 +23,11 @@ export async function renderChecklist(
     typeof options.items === "function" ? options.items(ctx) : options.items,
     caption,
   ]);
-  const { rows, done, total } = checklistRows(items, options.ordered === true);
+  const { rows, done, total } = checklistRows(
+    items,
+    options.ordered === true,
+    ctx.dateRange.timeZone,
+  );
   const labels = ctx.labels.checklist;
   const cards = rows.map((row, index): ChecklistCardItem => {
     const href = row.href === undefined ? undefined : resolveLink(config, ctx, row.href);
@@ -62,7 +67,7 @@ export async function renderChecklist(
       items={cards}
       layout={options.layout ?? "list"}
       {...(summary ? { summary } : {})}
-      emptyState={options.emptyState ?? ctx.labels.widget.empty}
+      emptyState={filteredEmptyState(ctx) ?? options.emptyState ?? ctx.labels.widget.empty}
       {...(captionLine ? { caption: captionLine } : {})}
     />
   );

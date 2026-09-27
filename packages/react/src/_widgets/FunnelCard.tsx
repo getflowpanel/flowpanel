@@ -1,11 +1,11 @@
 "use client";
 import type { WidgetCaption } from "@flowpanel/core";
+import { formatPercentValue } from "@flowpanel/core/format";
 import type * as React from "react";
 import { Card, CardContent } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
 import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat } from "../lib/format";
-import { formatPercent } from "../lib/percent";
 import { toneFillClass, toneTextClass } from "../lib/tone-classes";
 import { barWidthClass } from "./bar-width";
 import { CardHeading } from "./CardHeading";
@@ -91,11 +91,13 @@ export function FunnelCard({
                     <span className="text-fp-text-1">
                       {formatNumber(step.value, format, formatting)}
                     </span>
-                    <span className="text-fp-text-3">{formatPercent(share, 0, formatting)}</span>
+                    <span className="text-fp-text-3">
+                      {formatPercentValue(share, formatting, 0)}
+                    </span>
                     {dropOff === null ? null : dropOff < 0 ? (
-                      <span className="text-fp-ok-text">{`+${formatPercent(-dropOff, 0, formatting)}`}</span>
+                      <span className="text-fp-ok-text">{`+${formatPercentValue(-dropOff, formatting, 0)}`}</span>
                     ) : (
-                      <span className="text-fp-err-text">{`−${formatPercent(dropOff, 0, formatting)}`}</span>
+                      <span className="text-fp-err-text">{`−${formatPercentValue(dropOff, formatting, 0)}`}</span>
                     )}
                   </span>
                 </div>

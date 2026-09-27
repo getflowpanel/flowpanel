@@ -34,14 +34,16 @@ The catch-all admin page passes every `/admin/...` request to `createFlowpanel(c
 
 These files are intentionally small. Edit them only when changing mount paths or integrating custom route behavior. `flowpanel doctor --fix` can restore missing route templates, but does not overwrite an existing conflicting file.
 
-The CLI imports the stylesheet from the admin segment's layout and preserves the
-host root layout. When no shared root layout exists, the admin segment receives
-its own root layout. Either layout renders `ThemeScript` with the nonce from the `x-nonce`
-request header, so the theme applies before hydration. Under a strict `script-src`, the host's
-middleware sets `x-nonce`; a host that sets none gets the script without a nonce. Your root
-layout's `<html>` needs `suppressHydrationWarning`, as the one `init` writes has, because the
-script marks `<html>` before React hydrates it; without it, development logs a hydration error
-and `smokeAdmin` fails on it. Routes and config use the same mount chosen with `--path` or
+The CLI imports the stylesheet from the admin segment's layout and does not rewrite the
+host root layout, with one exception: `ThemeScript` marks `<html>` before React hydrates it,
+so `init` adds `suppressHydrationWarning` to the host root layout's `<html>` tag when it is
+missing — without it, development logs a hydration error and `smokeAdmin` fails on every
+route. When `init` cannot safely parse the layout, it leaves the file alone and prints the
+exact edit to make by hand. When no shared root layout exists, the admin segment receives
+its own root layout, already carrying `suppressHydrationWarning`. Either layout renders
+`ThemeScript` with the nonce from the `x-nonce` request header, so the theme applies before
+hydration. Under a strict `script-src`, the host's middleware sets `x-nonce`; a host that sets
+none gets the script without a nonce. Routes and config use the same mount chosen with `--path` or
 inferred from existing routes.
 
 ## Files created later

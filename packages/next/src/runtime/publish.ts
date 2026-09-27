@@ -1,5 +1,5 @@
 import {
-  createPublisher,
+  createRealtimeTransport,
   type Publisher,
   type PublisherOptions,
   type ResolvedAdminConfig,
@@ -76,7 +76,7 @@ export function bindPublisher(config: ResolvedAdminConfig): void {
   const key = optionsKey(options);
   if (store.publisher && store.boundOptions === key) return;
   const previous = store.publisher;
-  store.publisher = createPublisher(options);
+  store.publisher = createRealtimeTransport(options);
   store.boundOptions = key;
   warnIfMemoryWhileRedisConfigured(options);
   if (previous) {
@@ -105,7 +105,7 @@ function getPublisher(): Publisher {
         "route the publish through a FlowPanel route handler.",
     );
   }
-  store.publisher = createPublisher({ driver: "memory" });
+  store.publisher = createRealtimeTransport({ driver: "memory" });
   return store.publisher;
 }
 

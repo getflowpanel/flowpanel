@@ -1,4 +1,4 @@
-import type { ResourceConfig } from "../types/resource";
+import type { ResourceConfig } from "@flowpanel/core";
 
 /** The target's columns whose `reference` points at `parent`, in declaration order. */
 export function referencingFields(target: ResourceConfig, parent: string): string[] {
@@ -18,6 +18,16 @@ export type RecordField =
   | { kind: "none" }
   | { kind: "many"; candidates: string[] };
 
+/** The one field of the target that points at `parent`, or none, or several. */
+export function pointingField(
+  target: ResourceConfig,
+  parent: string,
+): Exclude<RecordField, { kind: "own" }> {
+  const candidates = referencingFields(target, parent);
+  if (candidates.length === 1) return { kind: "one", field: candidates[0] as string };
+  return candidates.length === 0 ? { kind: "none" } : { kind: "many", candidates };
+}
+
 /** `own` when the `where` already names a referencing field; else the one field, none or several. */
 export function recordField(
   target: ResourceConfig,
@@ -26,21 +36,20 @@ export function recordField(
 ): RecordField {
   const candidates = referencingFields(target, parent);
   if (candidates.some((field) => whereKeys.includes(field))) return { kind: "own" };
-  if (candidates.length === 1) return { kind: "one", field: candidates[0] as string };
-  return candidates.length === 0 ? { kind: "none" } : { kind: "many", candidates };
+  return pointingField(target, parent);
 }
 
 /**
- * Why a record-page read cannot tell which field points at the record; `null` when it can.
- * `pick` is what the host sets to choose: a count metric's `where`, or a source's `by`.
+ * Why a record-page read cannot tell which field points at the record. `pick` is what the host
+ * sets to choose: a count metric's `where`, or the `by` of a source or a related tab.
  */
 export function recordFieldError(
   site: string,
   target: string,
   parent: string,
-  found: RecordField,
+  found: Extract<RecordField, { kind: "none" | "many" }>,
   pick: "where" | "by" = "where",
-): string | null {
+): string {
   if (found.kind === "many") {
     return (
       `flowpanel: ${site} reads "${target}" on a "${parent}" card, and several of its columns ` +
@@ -48,12 +57,11 @@ export function recordFieldError(
       (pick === "by" ? "pass by." : "name one in where.")
     );
   }
-  if (found.kind === "none") {
-    return (
-      `flowpanel: ${site} reads "${target}" on a "${parent}" card, but none of its columns ` +
-      `declares reference: { resource: "${parent}" }, so it would read every row. Add the ` +
-      (pick === "by" ? "reference." : "reference, or name the field in where.")
-    );
-  }
-  return null;
+  return (
+    `flowpanel: ${site} reads "${target}" on a "${parent}" card, but none of its columns ` +
+    `declares reference: { resource: "${parent}" }, so it would read every row. ` +
+    (pick === "by"
+      ? "Pass by, or add the reference."
+      : "Add the reference, or name the field in where.")
+  );
 }

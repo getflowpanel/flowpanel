@@ -1,4 +1,5 @@
 "use client";
+import { isDateRangePreset } from "@flowpanel/core/internal";
 import { formatLabel } from "@flowpanel/core/labels";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import * as React from "react";
@@ -103,15 +104,16 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
     if (committed.to) return formatLabel(dateRange.until, { date: show(committed.to) });
     return null;
   }, [committed.from, committed.to, locale, dateRange.from, dateRange.until]);
-  const named =
-    value !== null && /^(today|yesterday|last7d|last30d|MTD|QTD|YTD)$/.test(value)
-      ? (value as "today")
-      : null;
+  const named = isDateRangePreset(value) ? value : null;
   const trigger = named ? dateRange[named] : rangeText;
 
   // Which preset the committed range corresponds to, if any — so reopening the
   // picker shows what is applied rather than an unmarked list.
   const activePreset = React.useMemo(() => {
+    if (named)
+      return named === "MTD"
+        ? "thisMonth"
+        : (RANGE_PRESETS.find((p) => p.key === named)?.key ?? null);
     if (!committed.from || !committed.to) return null;
     const key = `${toISODate(committed.from)}:${toISODate(committed.to)}`;
     return (
@@ -120,7 +122,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
         return r.from && r.to && `${toISODate(r.from)}:${toISODate(r.to)}` === key;
       })?.key ?? null
     );
-  }, [committed.from, committed.to]);
+  }, [named, committed.from, committed.to]);
 
   const commit = (next: CalendarRange) => {
     setDraft(next);

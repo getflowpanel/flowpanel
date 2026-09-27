@@ -1,7 +1,8 @@
-import type { EnumDef } from "../builders/enum-of";
+import type { ReactNode } from "react";
+import type { KeyLabels } from "../internal/key-labels";
 import type { Fold } from "../runtime/series";
 import type { RealtimeOption } from "./realtime";
-import type { Threshold } from "./threshold";
+import type { GoodWhen, Threshold } from "./threshold";
 import type { NumericFormat, Span, Tone } from "./widget";
 import type { CaptionOptions } from "./widget-caption";
 import type { LinkTarget, WidgetContext } from "./widget-context";
@@ -48,8 +49,8 @@ export interface TrackerRow {
 export interface TrackerOptions<R = Record<string, unknown>> extends CaptionOptions {
   /** Card heading. */
   label?: string;
-  /** A dashboard filter key: a row's key sets it on the current dashboard. */
-  filter?: string;
+  /** A dashboard filter key: clicking a row sets it to the row's key on the current dashboard. */
+  filterOnClick?: string;
   /** Rows over the window: `ctx.dateRange` is the window, not the picked range. */
   query?: (ctx: WidgetContext) => Promise<R[]>;
   /** The timestamp or `YYYY-MM-DD` field that places a row in a block. */
@@ -58,14 +59,19 @@ export interface TrackerOptions<R = Record<string, unknown>> extends CaptionOpti
   by?: keyof R & string;
   /** Values of `by` always shown, in this order. */
   keys?: readonly string[];
-  /** Row names per value of `by`: a map or an `enumOf()`. */
-  labels?: Readonly<Record<string, string>> | EnumDef;
+  /** Row names per value of `by`: a map, an `enumOf()` or a function. */
+  labels?: KeyLabels;
   /** A block's number: a field to sum or a function of its rows. Default: the row count. */
   value?: Fold<R>;
   /** Observations behind a block, compared with `tones.min`. Default: the row count. */
   volume?: Fold<R>;
   /** Tone each block by its value; without it a block with data is `accent`. */
   tones?: Threshold;
+  /**
+   * Which direction is good news; `tones` must agree with it.
+   * @defaultValue "up"
+   */
+  goodWhen?: GoodWhen;
   /** How a block's value prints in its hover title. */
   format?: NumericFormat;
   /** Rows you built yourself, instead of `query`, `at` and `by`. */
@@ -80,8 +86,8 @@ export interface TrackerOptions<R = Record<string, unknown>> extends CaptionOpti
   summary?: (row: TrackerRowResult, ctx: WidgetContext) => string | Promise<string>;
   /** Where a row's label leads. */
   rowHref?: (key: string, ctx: WidgetContext) => LinkTarget | null;
-  /** Shown instead of the rows when there are none. */
-  emptyState?: string;
+  /** Shown instead of the rows when there are none. Text or any node. */
+  emptyState?: ReactNode;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */

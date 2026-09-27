@@ -39,6 +39,8 @@ export interface WidgetLabels {
   more?: string;
   /** An empty card while dashboard filters are set, before the link that clears them. */
   filtered?: string;
+  /** What a screen reader says for a status glyph or dot, which is only coloured on screen. */
+  tones?: { err?: string; warn?: string; ok?: string; info?: string };
 }
 
 /** A `timeline()` card's chrome. */

@@ -38,7 +38,12 @@ export function StatCard({
   const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
   const content = (
     <CardContent className="space-y-1">
-      <div className="truncate text-sm font-medium text-fp-text-2">{label}</div>
+      <div
+        className={cn("text-sm font-medium text-fp-text-2", TWO_LINES)}
+        {...fullTextTitle(label)}
+      >
+        {label}
+      </div>
       <CaptionLine caption={caption} />
       <div
         className={cn(

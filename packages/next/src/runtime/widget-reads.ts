@@ -6,7 +6,7 @@ import type {
   ResourceConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { assertColumn, didYouMean, normalizeWhere, withRange } from "@flowpanel/core";
+import { assertColumn, didYouMean, normalizeWhere, withRange } from "@flowpanel/core/internal";
 import { readRelatedCount, readRelatedPage } from "./require-authorized";
 import { currentWidgetOwner, describeOwner } from "./widget-owner";
 
@@ -52,10 +52,7 @@ export function clampReadLimit(limit: number | undefined, max = READ_LIMIT_MAX):
 
 type Span = { from: Date; to: Date };
 
-/**
- * Rows of a resource through the same authorized read its related tabs use, checked, bounded by
- * `range` on `options.range` and clamped to `max`, with no warning.
- */
+/** Rows of a resource read as its related tabs read them: checked, bounded by `range`, clamped to `max`. */
 export async function authorizedRead(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
@@ -104,11 +101,7 @@ export async function widgetRead(
 const missingValue = (value: unknown): boolean =>
   value === undefined || value === null || value === "";
 
-/**
- * `ctx.count`: rows of a resource matching `where`, under the same checks as its list. Every key
- * is checked first; then an `undefined`, `null` or `""` value counts 0, as `undefined` has since
- * 0.3.0, and warns in development.
- */
+/** `ctx.count` under its list's checks; an `undefined`, `null` or `""` value counts 0 and warns. */
 export async function widgetCount(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,

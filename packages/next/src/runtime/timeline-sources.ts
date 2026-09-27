@@ -15,6 +15,7 @@ import { frameworkHref } from "./resolve-link";
 import { resolveReferences } from "./resolve-references";
 import { openRowHrefs, resolveRowClick } from "./row-click";
 import { rowIdentity } from "./row-identity";
+import { retainedSince } from "./widget-context";
 import { authorizedRead } from "./widget-reads";
 
 type Row = Record<string, unknown>;
@@ -59,9 +60,12 @@ function sourceWhere(
   const where: Row = { ...scopeToRecord(config, ctx, source.resource, own, site, true, source.by) };
   if (kindField !== null && page.kinds !== null) where[kindField] = [...page.kinds];
   if (page.before !== null) where[source.at] = combineAtBound(where[source.at], page.before);
-  else if (viewedRecord(ctx) && where[source.at] === undefined) where[source.at] = "__notnull__";
+  else if (unbounded(ctx) && where[source.at] === undefined) where[source.at] = "__notnull__";
   return where;
 }
+
+const unbounded = (ctx: WidgetContext): boolean =>
+  viewedRecord(ctx) !== null && retainedSince(ctx) === undefined;
 
 /** One source's events for a page: its rows at or before the cursor, newest first. */
 export async function sourceEvents(
@@ -90,7 +94,7 @@ export async function sourceEvents(
       sort: { field: source.at, dir: "desc" },
       limit: page.limit,
       fields,
-      ...(viewedRecord(ctx) ? {} : { range: source.at }),
+      ...(unbounded(ctx) ? {} : { range: source.at }),
     },
     page.limit,
   );

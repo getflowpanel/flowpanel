@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@flowpanel/core", async () => {
   const actual = await vi.importActual<typeof import("@flowpanel/core")>("@flowpanel/core");
-  return { ...actual, createPublisher: vi.fn(actual.createPublisher) };
+  return { ...actual, createRealtimeTransport: vi.fn(actual.createRealtimeTransport) };
 });
 
-import { createPublisher, type Publisher, type ResolvedAdminConfig } from "@flowpanel/core";
+import { createRealtimeTransport, type Publisher, type ResolvedAdminConfig } from "@flowpanel/core";
 import { bindPublisher, resetPublisherForTests } from "../runtime/publish";
 
 type Closeable = Publisher & { close(): Promise<void> };
@@ -15,11 +15,11 @@ function fakeConfig(realtime?: unknown): ResolvedAdminConfig {
 }
 
 function publisherAt(index: number): Closeable {
-  return vi.mocked(createPublisher).mock.results[index]?.value as Closeable;
+  return vi.mocked(createRealtimeTransport).mock.results[index]?.value as Closeable;
 }
 
 beforeEach(() => {
-  vi.mocked(createPublisher).mockClear();
+  vi.mocked(createRealtimeTransport).mockClear();
   resetPublisherForTests();
   vi.unstubAllEnvs();
 });
@@ -37,7 +37,7 @@ describe("bindPublisher — rebinding", () => {
 
     bindPublisher(fakeConfig({ driver: "redis", url: "redis://a:6379" }));
 
-    expect(createPublisher).toHaveBeenCalledTimes(2);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(2);
     expect(close).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => {
       expect(close.mock.settledResults[0]?.type).toBe("fulfilled");
@@ -48,7 +48,7 @@ describe("bindPublisher — rebinding", () => {
     bindPublisher(fakeConfig({ driver: "redis", url: "redis://a:6379" }));
     bindPublisher(fakeConfig({ driver: "redis", url: "redis://a:6379", keyPrefix: "acme" }));
 
-    expect(createPublisher).toHaveBeenCalledTimes(2);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(2);
   });
 
   it("does not rebind when a different config object carries identical options", () => {
@@ -57,7 +57,7 @@ describe("bindPublisher — rebinding", () => {
     const close = vi.spyOn(publisherAt(0), "close");
     bindPublisher(fakeConfig({ ...options }));
 
-    expect(createPublisher).toHaveBeenCalledTimes(1);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(1);
     expect(close).not.toHaveBeenCalled();
   });
 
@@ -66,7 +66,7 @@ describe("bindPublisher — rebinding", () => {
     bindPublisher(fakeConfig({ driver: "redis", client }));
     bindPublisher(fakeConfig({ driver: "redis", client }));
 
-    expect(createPublisher).toHaveBeenCalledTimes(1);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(1);
   });
 
   it("rebinds for a host client that is a different instance", () => {
@@ -78,7 +78,7 @@ describe("bindPublisher — rebinding", () => {
       fakeConfig({ driver: "redis", client: { publish: async () => 1, on: () => {} } }),
     );
 
-    expect(createPublisher).toHaveBeenCalledTimes(2);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(2);
     expect(close).toHaveBeenCalledTimes(1);
   });
 });

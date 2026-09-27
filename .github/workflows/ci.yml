@@ -78,9 +78,10 @@ jobs:
 
       - name: No inline styles in packages/react
         run: |
-          if grep -rqnE 'style=\{[[:space:]]*\{' packages/react/src 2>/dev/null; then
+          found=$(grep -rnE 'style=\{' packages/react/src | grep -v '_feedback/SkeletonCard.tsx' || true)
+          if [ -n "$found" ]; then
             echo "❌ inline styles found — use Tailwind classes + design tokens"
-            grep -rnE 'style=\{[[:space:]]*\{' packages/react/src
+            echo "$found"
             exit 1
           fi
           echo "✔ No inline styles found"

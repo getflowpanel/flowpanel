@@ -1,19 +1,13 @@
 import type {
   SeriesRow,
-  Threshold,
   Tone,
   TrackerCellResult,
   TrackerOptions,
   TrackerRowResult,
 } from "@flowpanel/core";
-import {
-  keyLabel,
-  series,
-  shiftCalendarDays,
-  toneFor,
-  zonedTime,
-  zoneParts,
-} from "@flowpanel/core";
+import { series, toneFor } from "@flowpanel/core";
+import { keyLabel, shiftCalendarDays, zonedTime, zoneParts } from "@flowpanel/core/internal";
+import { warnOnce } from "./widget-reads";
 
 const HOUR_MS = 3_600_000;
 const SEVERITY: Record<Tone, number> = {
@@ -33,13 +27,10 @@ export interface TrackerWindow {
   grain: "hour" | "day";
 }
 
-const warned = new Set<string>();
-
 function warnWindow(window: string): void {
-  if (process.env.NODE_ENV === "production" || warned.has(window)) return;
-  warned.add(window);
-  console.warn(
-    `[flowpanel] tracker window "${window}" is not a whole number of hours or days ` +
+  warnOnce(
+    `tracker-window:${window}`,
+    `tracker window "${window}" is not a whole number of hours or days ` +
       'such as "24h" or "14d"; the tracker shows the last 24 hours.',
   );
 }
@@ -86,9 +77,13 @@ function bucketStart(key: string, timeZone: string): Date {
   return zonedTime({ year, month, day: date }, Number(clock.slice(0, 2)) * HOUR_MS, timeZone);
 }
 
-function blockTone(value: number | null, volume: number, tones: Threshold | undefined): Tone {
+function blockTone(
+  value: number | null,
+  volume: number,
+  options: Pick<TrackerOptions, "tones" | "goodWhen">,
+): Tone {
   if (value === null || volume === 0) return "muted";
-  return tones ? toneFor(value, tones, volume) : "accent";
+  return options.tones ? toneFor(value, options.tones, volume, options.goodWhen) : "accent";
 }
 
 const numberAt = (point: SeriesRow | undefined, key: string): number | null => {
@@ -126,7 +121,7 @@ export function trackerRows<R>(
         start: bucketStart(point.date, window.timeZone),
         value,
         volume,
-        tone: blockTone(value, volume, options.tones),
+        tone: blockTone(value, volume, options),
       };
     });
     const label = options.by ? keyLabel(options.labels, key) : (options.label ?? "");

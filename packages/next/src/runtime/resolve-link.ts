@@ -7,7 +7,7 @@ import type {
   ResourceLink,
   WidgetContext,
 } from "@flowpanel/core";
-import { didYouMean, encodeFilters } from "@flowpanel/core";
+import { didYouMean, encodeFilters } from "@flowpanel/core/internal";
 import { buildHref, buildPath } from "./href";
 
 /** A row a query returned, with its link resolved to the href a card renders. */
@@ -132,7 +132,7 @@ function dashboardHref(
   const base = path === "/" ? buildHref(config) : buildPath(config, path);
   const params = target.range === false ? new URLSearchParams() : rangeParams(ctx);
   const declared = (config.dashboardsByPath.get(path)?.filters ?? []).map((filter) => filter.key);
-  for (const [key, value] of Object.entries(target.filters ?? {})) {
+  for (const [key, value] of Object.entries(target.filter ?? {})) {
     if (!declared.includes(key)) {
       throw new Error(
         `flowpanel: link to dashboard "${target.dashboard}" sets the filter "${key}", which it does ` +

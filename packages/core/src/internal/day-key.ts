@@ -1,4 +1,10 @@
-import { formatCalendarDay, parseCalendarDay, shiftCalendarDays, zoneParts } from "./zone-time";
+import {
+  formatCalendarDay,
+  parseCalendarDay,
+  shiftCalendarDays,
+  zonedTime,
+  zoneParts,
+} from "./zone-time";
 
 const clocks = new Map<string, Intl.DateTimeFormat>();
 
@@ -20,37 +26,11 @@ export function weekdayOf(day: string): number {
   return weekday === 0 ? 7 : weekday;
 }
 
-function offsetMs(at: number, timeZone: string): number {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      hourCycle: "h23",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    })
-      .formatToParts(new Date(at))
-      .map((part) => [part.type, Number(part.value)]),
-  ) as Record<string, number>;
-  const wall = Date.UTC(
-    parts.year ?? 0,
-    (parts.month ?? 1) - 1,
-    parts.day ?? 1,
-    parts.hour ?? 0,
-    parts.minute ?? 0,
-    parts.second ?? 0,
-  );
-  return wall - (at - (at % 1000));
-}
-
-/** The instant a `YYYY-MM-DD` day starts in `timeZone`. */
+/** The instant a `YYYY-MM-DD` day starts in `timeZone`, the first one it has where DST skips midnight. */
 export function dayStartIn(day: string, timeZone: string): Date {
-  const midnight = Date.parse(`${day}T00:00:00Z`);
-  const guess = midnight - offsetMs(midnight, timeZone);
-  return new Date(midnight - offsetMs(guess, timeZone));
+  const parsed = parseCalendarDay(day);
+  if (!parsed) throw new RangeError("Invalid time value");
+  return zonedTime(parsed, 0, timeZone);
 }
 
 /** The wall clock of `at` in `timeZone`, 24-hour — `09:12`. */

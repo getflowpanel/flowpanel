@@ -6,6 +6,7 @@ import type { Tone } from "../lib/format";
 import { toneFillClass, toneTextClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
 import { ListBanner } from "./ListBanner";
+import { ToneWord } from "./ToneWord";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface ListCardRow {
@@ -34,7 +35,7 @@ export interface ListCardProps {
   /** A banner's line when there are no rows. */
   allClear?: string;
   /** The line that folds the rows past a limit. */
-  more?: { text: string; href?: string };
+  more?: { label: string; href?: string };
 }
 
 function listTextClass(tone: Tone | undefined): string {
@@ -70,6 +71,7 @@ export function ListCard(props: ListCardProps) {
                       )}
                     />
                   ) : null}
+                  <ToneWord tone={row.tone} />
                   <span
                     className={cn(TWO_LINES, "min-w-0 text-sm", listTextClass(row.tone))}
                     {...fullTextTitle(row.text)}
@@ -102,10 +104,10 @@ export function ListCard(props: ListCardProps) {
           <div className="mt-2 text-xs">
             {more.href ? (
               <a href={more.href} className="text-fp-accent hover:underline">
-                {more.text}
+                {more.label}
               </a>
             ) : (
-              <span className="text-fp-text-3">{more.text}</span>
+              <span className="text-fp-text-3">{more.label}</span>
             )}
           </div>
         ) : null}

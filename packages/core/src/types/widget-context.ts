@@ -61,12 +61,13 @@ export type AnyResourceLink = { [N in ResourceName]: ResourceLink<N> }[ResourceN
 export interface DashboardLink {
   dashboard: string;
   /**
-   * Carry the widget's range: the preset, or `from` and `to` for a custom range.
+   * Carry the widget's range: the preset, or `from` and `to` for a custom range. A resource link
+   * names the `daterange` field instead; a dashboard's own picker needs only `true`.
    * @defaultValue true
    */
   range?: boolean;
   /** Dashboard filters the link sets, by key; a link carries no filter implicitly. */
-  filters?: Record<string, string>;
+  filter?: Record<string, string>;
 }
 
 /**
@@ -95,7 +96,11 @@ export interface WidgetContext<DB = InferDB> {
    * `"id"`. Absent on a dashboard, and when the key is not a string or a number.
    */
   id?: string;
-  /** Mount-aware link builder; never hand-type `"/admin/…"` in a config. */
+  /**
+   * Mount-aware link builder; never hand-type `"/admin/…"` in a config.
+   * @deprecated Name the target instead — `ctx.link({ resource, id, filter, tab })`, or a
+   * `{ resource, id }` link wherever an option takes one.
+   */
   href: (
     resource: ResourceName,
     id?: string | number,
@@ -133,7 +138,7 @@ export interface WidgetContext<DB = InferDB> {
     ...values: unknown[]
   ) => Promise<Row[]>;
   /**
-   * Rows of a registered resource matching `where`, under the same role, access and scope
+   * How many rows of a registered resource match `where`, under the same role, access and scope
    * checks as its list; `range` bounds a timestamp field by `ctx.dateRange`. Memoised per request
    * by resource, `where` and range; a resource the session may not read counts `0`, and so does an
    * `undefined`, `null` or `""` value, with a development warning. A misspelt field throws,

@@ -17,4 +17,24 @@ describe("renderDetailFields", () => {
     expect([...rendered]).toEqual([["name", "shown"]]);
     expect(hidden).not.toHaveBeenCalled();
   });
+
+  it("logs a render that throws and leaves the field to its formatted value", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const rendered = await renderDetailFields(
+      { plan: 7, name: "Ann" },
+      [
+        {
+          name: "plan",
+          render: async () => {
+            throw new Error("plan deleted");
+          },
+        },
+        { name: "name", render: () => "Ann" },
+      ],
+      {} as RequestContext,
+    );
+    expect([...rendered]).toEqual([["name", "Ann"]]);
+    expect(String(error.mock.calls[0]?.[0])).toBe('[flowpanel] detail render failed for "plan"');
+    error.mockRestore();
+  });
 });

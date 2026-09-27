@@ -41,6 +41,7 @@ import { requestNow } from "./widget-context";
 import { kvItems, resolveItem, statItemOf } from "./widget-items";
 import { widgetLabel } from "./widget-owner";
 import { retainedRange } from "./widget-range";
+import { warnOnce } from "./widget-reads";
 
 function withRealtime(node: ReactNode, value: RealtimeOption | undefined): ReactNode {
   const channels = realtimeChannels(value);
@@ -72,6 +73,7 @@ export async function renderWidget(
       <ExpiredCard
         {...(title ? { label: title } : {})}
         caption={expiredCaption(pickedCtx, kept.days)}
+        {...(frame.plain ? { plain: true } : {})}
       />
     );
   }
@@ -118,7 +120,7 @@ export async function renderWidget(
       const tone =
         result.tone ??
         widget.options.tone ??
-        thresholdTone(result.value, widget.options.tones, result.volume);
+        thresholdTone(result.value, widget.options.tones, result.volume, widget.options.goodWhen);
       return withRealtime(
         <StatCard
           label={widget.label}
@@ -148,11 +150,21 @@ export async function renderWidget(
     }
     case "bars": {
       const rows = await barRows(widget, ctx);
+      if (widget.options.filterOnClick && rows.some((row) => row.key === undefined)) {
+        warnOnce(
+          `bars-key:${widget.options.filterOnClick}`,
+          `bars sets filterOnClick "${widget.options.filterOnClick}", but some rows carry no key, ` +
+            "so clicking them does nothing; return key, or build the rows with breakdown().",
+        );
+      }
       return withRealtime(
         <BarsCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={withFilterHrefs(ctx, widget.options.filter, linkRows(config, ctx, rows), (row) =>
-            row.key === undefined || row.key === OTHER_KEY ? null : row.key,
+          rows={withFilterHrefs(
+            ctx,
+            widget.options.filterOnClick,
+            linkRows(config, ctx, rows),
+            (row) => (row.key === undefined || row.key === OTHER_KEY ? null : row.key),
           )}
           {...(widget.options.format ? { format: widget.options.format } : {})}
           {...(widget.options.max !== undefined ? { max: widget.options.max } : {})}

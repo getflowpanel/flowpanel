@@ -1,5 +1,6 @@
 import { didYouMean } from "../suggest";
 import { isFilterRangeValue } from "../types/context";
+import { quoted } from "./validate-shared";
 
 type Bounds = { gte?: unknown; lte?: unknown };
 
@@ -22,7 +23,7 @@ export function assertColumn(
   if (columns.length === 0 || columns.includes(field)) return;
   throw new Error(
     `flowpanel: ${call} ${verb} "${field}", but the adapter reports no such column on that resource.` +
-      `${didYouMean(field, columns)} Known columns: ${columns.map((c) => `"${c}"`).join(", ")}.`,
+      `${didYouMean(field, columns)} Known columns: ${quoted(columns)}.`,
   );
 }
 

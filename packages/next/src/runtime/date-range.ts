@@ -1,12 +1,14 @@
 import type { DateRangePreset, ResolvedDateRange } from "@flowpanel/core";
+import { previousRange } from "@flowpanel/core";
 import {
-  previousRange,
+  DATE_RANGE_PRESETS,
+  isDateRangePreset,
   resolvePreset,
   shiftCalendarDays,
   shiftCalendarMonths,
   zonedTime,
   zoneParts,
-} from "@flowpanel/core";
+} from "@flowpanel/core/internal";
 
 export interface DateRangeInput {
   preset?: DateRangePreset;
@@ -14,22 +16,16 @@ export interface DateRangeInput {
   to?: Date | string;
 }
 
-/** Every preset a dashboard picker, a comparison and a `daterange` filter value understand. */
-export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = [
-  "today",
-  "yesterday",
-  "last7d",
-  "last30d",
-  "MTD",
-  "QTD",
-  "YTD",
-];
-
-export function isDateRangePreset(value: string): value is DateRangePreset {
-  return (DATE_RANGE_PRESETS as readonly string[]).includes(value);
-}
+export { DATE_RANGE_PRESETS, isDateRangePreset };
 
 type Span = { from: Date; to: Date };
+
+/** A bound as a `Date`; `null` when it is missing or no date, as in a mangled `?from=`. */
+export function readableDate(value: Date | string | null | undefined): Date | null {
+  if (value === null || value === undefined || value === "") return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 function shiftInstant(
   instant: Date,
@@ -50,9 +46,9 @@ function shiftInstant(
  * start at midnight in `timeZone`; `last7d` and `last30d` are elapsed time.
  */
 export function resolveDateRange(input: DateRangeInput, timeZone = "UTC"): ResolvedDateRange {
-  if (input.from && input.to) {
-    return { from: new Date(input.from), to: new Date(input.to), preset: "custom" };
-  }
+  const from = readableDate(input.from);
+  const to = readableDate(input.to);
+  if (from && to) return { from, to, preset: "custom" };
   const preset = input.preset ?? "last7d";
   return { ...resolvePreset(preset, timeZone, new Date()), preset };
 }

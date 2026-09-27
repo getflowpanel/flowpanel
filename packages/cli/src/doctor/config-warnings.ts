@@ -1,7 +1,7 @@
 import * as path from "node:path";
-import { readTsconfigAliases } from "../commands/migrate";
 import { fileExists } from "../utils/detect";
 import { log } from "../utils/log";
+import { readTsconfigAliases } from "../utils/tsconfig";
 
 interface JitiInstance {
   import: (id: string) => Promise<unknown>;

@@ -5,7 +5,7 @@ import type {
   ResolvedAdminConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { declaredListFields, filterShapeProblem } from "@flowpanel/core";
+import { declaredListFields, filterShapeProblem } from "@flowpanel/core/internal";
 import { MetricCard } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { resolveLink } from "./resolve-link";
@@ -40,7 +40,7 @@ function comparedDelta(
   if (before === null || typeof current.value !== "number" || typeof before.value !== "number") {
     return null;
   }
-  const { against, goodWhen } = compareOptions(widget);
+  const { against } = compareOptions(widget);
   const value =
     before.value === 0
       ? Math.sign(current.value)
@@ -49,7 +49,6 @@ function comparedDelta(
     value,
     vs: against === "weekAgo" ? ctx.labels.widget.vsWeekAgo : ctx.labels.widget.vsPrevious,
     previous: before.value,
-    ...(goodWhen ? { goodWhen } : {}),
   };
 }
 
@@ -101,12 +100,14 @@ export async function renderMetric(
     caption,
   ]);
   const result = asResult(produced);
-  const delta = result.delta ?? queriedDelta ?? comparedDelta(widget, ctx, result, before);
+  const found = result.delta ?? queriedDelta ?? comparedDelta(widget, ctx, result, before);
+  const goodWhen = found?.goodWhen ?? widget.options.goodWhen;
+  const delta = found && goodWhen ? { ...found, goodWhen } : found;
   const sublabel = result.sublabel ?? widget.options.sublabel;
   const tone =
     result.tone ??
     widget.options.tone ??
-    thresholdTone(result.value, widget.options.tones, result.volume);
+    thresholdTone(result.value, widget.options.tones, result.volume, widget.options.goodWhen);
   if (result.href === undefined) warnOnMismatch(widget, ctx, config);
   const drilldown = resolveLink(config, ctx, result.href ?? widget.options.drilldown);
   return (

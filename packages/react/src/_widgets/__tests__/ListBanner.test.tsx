@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 
+import { RU_LABELS } from "@flowpanel/core/labels";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { LabelsProvider } from "../../_provider/LabelsContext";
 import { ListCard } from "../ListCard";
 
 afterEach(cleanup);
@@ -16,7 +18,7 @@ describe("banner list", () => {
           { text: "Bans on kwork", tone: "warn", since: "3 hours ago", meta: "kwork" },
           { text: "Slow sync", tone: "info" },
         ]}
-        more={{ text: "2 more", href: "/admin/system" }}
+        more={{ label: "2 more", href: "/admin/system" }}
       />,
     );
     const glyphs = [...container.querySelectorAll("[data-fp-glyph]")].map(
@@ -56,5 +58,56 @@ describe("banner list", () => {
       />,
     );
     expect(container.querySelector("[data-fp-caption]")?.textContent).toBe("Checked hourly");
+  });
+
+  it("keeps a long row inside the card on a phone: text and trailing parts clamp to two lines", () => {
+    const text = "Payment webhook failing for Stripe EU account";
+    render(
+      <ListCard
+        variant="banner"
+        rows={[
+          {
+            text,
+            tone: "err",
+            count: "1,284",
+            since: "since 3 hours ago",
+            meta: "billing-webhooks-eu-west-1",
+          },
+        ]}
+      />,
+    );
+    const body = screen.getByText(text).closest("[title]") as HTMLElement;
+    expect(body.className).toContain("line-clamp-2");
+    expect(body.className).toContain("min-w-0");
+    const trail = screen.getByTitle("1,284 · since 3 hours ago · billing-webhooks-eu-west-1");
+    expect(trail.className).toContain("max-w-[45%]");
+    expect(trail.className).toContain("line-clamp-2");
+    expect(trail.className).toContain("break-words");
+  });
+
+  it("marks a resolved row with an ok glyph, not the info dot", () => {
+    const { container } = render(
+      <ListCard variant="banner" rows={[{ text: "Webhook recovered", tone: "ok" }]} />,
+    );
+    const glyph = container.querySelector("[data-fp-glyph]");
+    expect(glyph?.textContent).toBe("✓");
+    expect(glyph?.className).toContain("text-fp-ok-text");
+  });
+
+  it("says each row's tone to a screen reader, in the admin's language", () => {
+    const rows = [
+      { text: "Scraper down", tone: "err" as const },
+      { text: "Slow sync", tone: "info" as const },
+    ];
+    const { container, rerender } = render(<ListCard variant="banner" rows={rows} />);
+    const words = () =>
+      [...container.querySelectorAll(".sr-only")].map((node) => node.textContent?.trim());
+    expect(words()).toEqual(["Error", "Info"]);
+    rerender(
+      <LabelsProvider value={RU_LABELS}>
+        <ListCard rows={[...rows, { text: "Quiet", tone: "muted" as const }]} />
+      </LabelsProvider>,
+    );
+    expect(words()).toEqual(["Ошибка", "Информация"]);
   });
 });

@@ -1,10 +1,5 @@
-import {
-  bindFormat,
-  DEFAULT_LABELS,
-  type DetailHeaderContext,
-  type InferRow,
-  resolveFormatting,
-} from "@flowpanel/kit";
+import type { InferRow } from "@flowpanel/kit";
+import { headerContext } from "@flowpanel/test/widgets";
 import { describe, expect, it } from "vitest";
 import type * as schema from "@/src/db/schema";
 import { customers } from "../config/resources/customers";
@@ -28,11 +23,7 @@ const row = {
   seedKey: null,
 } as unknown as Customer;
 
-const headerCtx: DetailHeaderContext = {
-  format: bindFormat(resolveFormatting()),
-  labels: DEFAULT_LABELS,
-  link: String,
-};
+const headerCtx = headerContext();
 
 describe("the customer entity card", () => {
   it("heads the page with the company, falling back to the email", () => {
@@ -79,8 +70,6 @@ describe("the customer entity card", () => {
     const ctx = {
       row,
       count: async () => 3,
-      href: (resource: string, _id: undefined, opts?: { filter?: Record<string, unknown> }) =>
-        `/admin/${resource}?f_customerId=${opts?.filter?.customerId}`,
       sql: async () => [{ cents: 4200 }],
     } as unknown as Parameters<
       Extract<(typeof stats)[number], { kind: "stat" }>["value"] & ((...a: never[]) => unknown)
@@ -91,7 +80,9 @@ describe("the customer entity card", () => {
         throw new Error("every summary stat is computed per request");
       }
       const result = await widget.value(ctx);
-      expect(result).toMatchObject({ href: expect.stringContaining("f_customerId=7") });
+      expect(result).toMatchObject({
+        href: { resource: expect.any(String), filter: expect.objectContaining({ customerId: 7 }) },
+      });
     }
   });
 

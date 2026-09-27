@@ -59,7 +59,7 @@ export const overview = dashboard({
           label: "Recent runs",
           resource: "runs",
           columns: ["status", "pagesCrawled", "itemsExtracted", "durationMs", "startedAt"],
-          rowHref: (row, ctx) => ctx.href("runs", row.id),
+          rowHref: (row) => ({ resource: "runs", id: row.id }),
           seeAll: true,
           limit: 5,
           span: 8,

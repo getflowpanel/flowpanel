@@ -26,8 +26,8 @@ const reqCtx = {
 } as RequestContext;
 
 const EVENTS: TimelineEvent[] = [
-  { at: new Date("2026-09-25T11:00:00Z"), kind: "visit", title: "Opened the feed" },
-  { at: new Date("2026-09-25T10:00:00Z"), kind: "visit", title: "Opened the feed" },
+  { at: new Date("2026-09-25T11:00:00Z"), kind: "visit", title: "Opened the feed", href: "/f/2" },
+  { at: new Date("2026-09-25T10:00:00Z"), kind: "visit", title: "Opened the feed", href: "/f/1" },
   {
     at: new Date("2026-09-24T09:00:00Z"),
     kind: "reply",
@@ -84,7 +84,8 @@ describe("renderTimeline", () => {
       span: "10:00–11:00",
       tone: "info",
     });
-    expect(props.groups[0]?.lines[0]?.items).toHaveLength(2);
+    expect(props.groups[0]?.lines[0]?.href).toBeUndefined();
+    expect(props.groups[0]?.lines[0]?.items?.map((item) => item.href)).toEqual(["/f/2", "/f/1"]);
     expect(props.older).toEqual({
       label: "Older →",
       href: "/admin/users/u1?tab=activity&activity.before=2026-09-25T10%3A00%3A00.000Z%7E1",

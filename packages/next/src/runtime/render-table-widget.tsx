@@ -152,7 +152,7 @@ export async function renderTableWidget(
   }
   columns = applySpecs(columns, specs);
 
-  const filter = options.filter;
+  const filter = options.filterOnClick;
   const rowHref = options.rowHref;
   const hrefs = filter
     ? rows.map((row) => {

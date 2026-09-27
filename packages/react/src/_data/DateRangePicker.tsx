@@ -1,6 +1,7 @@
 "use client";
 import type { DateRangePreset } from "@flowpanel/core";
 import { formatDayValue } from "@flowpanel/core/format";
+import { DATE_RANGE_PRESETS } from "@flowpanel/core/internal";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Calendar } from "lucide-react";
 import { useFormatting } from "../_provider/FormattingContext";
@@ -14,20 +15,14 @@ export interface DateRangePickerProps {
   presets?: readonly DateRangePreset[];
 }
 
-const ALL_PRESETS: readonly DateRangePreset[] = [
-  "today",
-  "yesterday",
-  "last7d",
-  "last30d",
-  "MTD",
-  "QTD",
-  "YTD",
-];
-
-export function DateRangePicker({ value, onChange, presets = ALL_PRESETS }: DateRangePickerProps) {
+export function DateRangePicker({
+  value,
+  onChange,
+  presets = DATE_RANGE_PRESETS,
+}: DateRangePickerProps) {
   const { dateRange } = useLabels();
   const formatting = useFormatting();
-  const offered = presets.length > 0 ? presets : ALL_PRESETS;
+  const offered = presets.length > 0 ? presets : DATE_RANGE_PRESETS;
   const custom =
     !value.preset && value.from && value.to
       ? `${formatDayValue(value.from, formatting)} – ${formatDayValue(value.to, formatting)}`

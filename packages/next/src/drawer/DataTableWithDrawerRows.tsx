@@ -18,6 +18,7 @@ import { RestoreButton } from "../actions/RestoreButton";
 import { RowActionsMenu } from "../actions/RowActionsMenu";
 import type { SerializedRowAction } from "../actions/row-action";
 import { rowIdentity } from "../runtime/row-identity";
+import { rememberRowCells } from "./table-cells";
 
 /** Thin wrapper around `<DataTable>` that wires realtime refresh and row-click drawer interaction. */
 export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown>> {
@@ -91,7 +92,14 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
   const onRowClick = openDrawerOnRowClick
     ? (row: Row) => {
         const id = rowIdentity(row, rowKey);
-        if (id !== null) open({ resource, id });
+        if (id === null) return;
+        const cells = prerenderedCells?.[rows.indexOf(row)] ?? [];
+        rememberRowCells(
+          resource,
+          id,
+          Object.fromEntries(rest.columns.map((column, index) => [column.field, cells[index]])),
+        );
+        open({ resource, id });
       }
     : hrefClick;
 

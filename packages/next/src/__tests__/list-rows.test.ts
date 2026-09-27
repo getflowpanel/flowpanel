@@ -73,7 +73,7 @@ describe("listCardData", () => {
       "Bans on kwork",
     ]);
     expect(data.rows[2]).toMatchObject({ count: "3", since: "3 hours ago" });
-    expect(data.more).toEqual({ text: "1 more", href: "/admin/system" });
+    expect(data.more).toEqual({ label: "1 more", href: "/admin/system" });
     expect(data).toMatchObject({ variant: "banner", allClear: "All clear" });
   });
 
@@ -105,6 +105,6 @@ describe("listCardData", () => {
       ru,
     );
     expect(data.rows[2]).toMatchObject({ since: "3 часа назад" });
-    expect(data.more?.text).toBe("ещё 1");
+    expect(data.more?.label).toBe("ещё 1");
   });
 });

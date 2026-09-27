@@ -21,7 +21,7 @@ export async function recordStrip(
   const stats = detail?.stats ?? [];
   if (stats.length === 0) return null;
   const slots = await renderSlots(stats, ctx, config, reqCtx, `${name} stats`, { plain: true });
-  return <StatStrip>{slotElements(slots, "flex min-w-0")}</StatStrip>;
+  return <StatStrip>{slotElements(slots, "flex min-w-0", true)}</StatStrip>;
 }
 
 /** `detail.aside`, stacked; `null` when there is none. */

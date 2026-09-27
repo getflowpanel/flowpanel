@@ -1,4 +1,5 @@
 import { didYouMean } from "../suggest";
+import { quoted } from "./validate-shared";
 
 /**
  * `ctx.count(resource, where)` filters by column name. A typo must not become a
@@ -18,7 +19,7 @@ export function assertCountWhereColumns(
     throw new Error(
       `flowpanel: ctx.count("${resource}") filters by "${field}", but the adapter reports no ` +
         `such column on that resource.${didYouMean(field, columns)} ` +
-        `Known columns: ${columns.map((c) => `"${c}"`).join(", ")}.`,
+        `Known columns: ${quoted(columns)}.`,
     );
   }
 }

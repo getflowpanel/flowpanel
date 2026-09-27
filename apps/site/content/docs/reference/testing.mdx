@@ -139,7 +139,9 @@ rows carry. Pass `admin` — your `defineAdmin` config — when the widget relie
 admin knows: a view it links to, a dashboard, or the `reference` a record-page count infers its
 filter from. Only the database is replaced then; your columns decide what a misspelling is.
 Access still applies: pass `session` and `role` as your admin's `auth` would resolve them, or a
-resource that checks the session reads no rows and counts `0`.
+resource that checks the session reads no rows and counts `0`. It carries no tenant scope,
+though: a widget scoped to the current tenant counts and reads across every tenant's rows here,
+so a scope bug can pass this test while it under- or over-counts in the real admin.
 
 `ctx.sql` returns `sql` rows, or calls your function with the statement and its bound values; a
 statement nothing answers throws. `row` and `resource` make a record-page context: `ctx.id`,
@@ -151,27 +153,72 @@ widget branches on, as the dashboard reads them from its URL.
 
 <AutoTypeTable path="../../packages/test/src/widgets/context.ts" name="WidgetContextOptions" />
 
+A record page hands `detail.title`, `subtitle` and `badge` the admin's formatters, strings and
+link builder as their second argument. `headerContext` builds the same object for a test that
+calls them:
+
+```ts excerpt
+import { headerContext } from "@flowpanel/test/widgets";
+import { admin } from "@/src/admin/config";
+
+const ctx = headerContext({ admin });
+expect(customers.options.detail?.title?.(row, ctx)).toBe("Northwind Audio");
+```
+
+<ApiSignature path="../../packages/test/src/widgets/context.ts" name="headerContext" />
+
 `@flowpanel/test/widgets` is ESM-only, like `@flowpanel/next`, which it loads through
 `@flowpanel/kit/next` to render the widget; the Playwright entry stays CommonJS-compatible.
 
 ### Run it in Vitest
 
-The entry renders widgets with `@flowpanel/next`, which Next's bundler normally resolves. In
-Vitest, inline FlowPanel's packages so Vite resolves them too; otherwise the first run fails with
-`ERR_MODULE_NOT_FOUND` for `next/cache`:
+Install Vitest — `pnpm add -D vitest` — then set up two things beyond its default config. The
+entry renders widgets with `@flowpanel/next`, which Next's bundler normally resolves: inline
+FlowPanel's packages so Vite resolves them too, or the first run fails with
+`ERR_MODULE_NOT_FOUND` for `next/cache`. And Vitest does not read `tsconfig.json`'s `paths`, so a
+config or test that imports through your `@/` alias needs `resolve.alias` (or
+[`vite-tsconfig-paths`](https://www.npmjs.com/package/vite-tsconfig-paths)), the same way
+`examples/ai-scraper/vitest.config.ts` resolves it:
 
 ```ts excerpt
 // vitest.config.ts
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
-export default defineConfig({ test: { server: { deps: { inline: [/@flowpanel\//] } } } });
+export default defineConfig({
+  resolve: { alias: { "@": fileURLToPath(new URL(".", import.meta.url)) } },
+  test: { server: { deps: { inline: [/@flowpanel\//] } } },
+});
 ```
+
+## Playwright config
+
+`smokeAdmin` calls `page.goto(basePath)`, which needs a `baseURL` — and in practice a
+`webServer` that starts the app the walk runs against:
+
+```ts excerpt
+// playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./e2e",
+  use: { baseURL: "http://localhost:3000" },
+  webServer: { command: "pnpm dev", url: "http://localhost:3000", reuseExistingServer: true },
+});
+```
+
+The signed-in user the walk reaches the admin as needs whatever role your `auth.role` and
+`requireRole` demand — seed or promote a test user to that role, or the walk gets a redirect to
+your access-denied page instead of the admin.
 
 ## Authentication
 
 An admin behind a session cookie needs that cookie before the walk can see
-anything. Pass it as `cookie`, or sign in with your project's own Playwright
-fixture first — `smokeAdmin` reuses whatever context the page already has.
+anything. `cookie` suits a session your own code issues as a bare token — a dev-only session, or
+one you sign yourself. A provider that issues a signed session through its own sign-in
+endpoint, such as better-auth (`better-auth.session_token`, `__Secure-`-prefixed over https) or
+next-auth, is not one you should hand-craft: sign in with your project's own Playwright fixture
+first instead — `smokeAdmin` reuses whatever context the page already has.
 
 ```ts excerpt
 import { smokeAdmin } from "@flowpanel/test";

@@ -1,5 +1,6 @@
 import type { CaptionOptions, WidgetCaption, WidgetConfig, WidgetContext } from "@flowpanel/core";
 import { formatLabel } from "@flowpanel/core";
+import { warnOnce } from "./widget-reads";
 
 /** A caption still being computed, so it runs beside the widget's own query. */
 export type CaptionPromise = Promise<WidgetCaption | undefined>;
@@ -8,19 +9,15 @@ export const NO_CAPTION: CaptionPromise = Promise.resolve(undefined);
 
 const UNIT_MS = { m: 60_000, h: 3_600_000, d: 86_400_000 } as const;
 
-const warned = new Set<string>();
-
 function ageLimit(limit: string | undefined): number | null {
   if (limit === undefined) return null;
   const match = /^(\d+)([mhd])$/.exec(limit);
   if (match) return Number(match[1]) * UNIT_MS[match[2] as keyof typeof UNIT_MS];
-  if (process.env.NODE_ENV !== "production" && !warned.has(limit)) {
-    warned.add(limit);
-    console.warn(
-      `[flowpanel] freshness.warnAfter "${limit}" is not a whole number of minutes, hours or days ` +
-        'such as "30m", "2h" or "14d"; the caption never turns warn.',
-    );
-  }
+  warnOnce(
+    `warnAfter:${limit}`,
+    `freshness.warnAfter "${limit}" is not a whole number of minutes, hours or days ` +
+      'such as "30m", "2h" or "14d"; the caption never turns warn.',
+  );
   return null;
 }
 

@@ -1,11 +1,5 @@
-import {
-  declaredListFields,
-  type MetricWidget,
-  type ResolvedAdminConfig,
-  recordField,
-  recordFieldError,
-  type WidgetContext,
-} from "@flowpanel/core";
+import type { MetricWidget, ResolvedAdminConfig, WidgetContext } from "@flowpanel/core";
+import { declaredListFields, recordField, recordFieldError } from "@flowpanel/core/internal";
 
 interface ViewedRecord {
   resource: string;
@@ -24,11 +18,7 @@ export function viewedRecord(ctx: WidgetContext): ViewedRecord | null {
   return VIEWED.get(ctx) ?? null;
 }
 
-/**
- * `where` with the viewed record's filter set on `by`, else on the one referencing field. A
- * `required` source always gets it; a count metric keeps a `where` that names a referencing
- * field and counts unscoped when none exists. A dashboard gets `where` as written.
- */
+/** `where` scoped to the viewed record through `by` or the one referencing field; a dashboard's as written. */
 export function scopeToRecord(
   config: ResolvedAdminConfig,
   ctx: WidgetContext,
@@ -47,7 +37,7 @@ export function scopeToRecord(
   if (found.kind === "one") return { ...where, [found.field]: viewed.key };
   if (found.kind === "none" && !required) return where;
   const pick = required ? "by" : "where";
-  throw new Error(recordFieldError(site, target, viewed.resource, found, pick) ?? site);
+  throw new Error(recordFieldError(site, target, viewed.resource, found, pick));
 }
 
 const present = (value: unknown): boolean => value !== undefined && value !== null && value !== "";

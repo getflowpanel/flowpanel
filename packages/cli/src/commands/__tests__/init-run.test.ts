@@ -396,4 +396,68 @@ describe("init end to end", () => {
     expect(result.stderr).toContain("no interactive terminal");
     await expect(fs.access(path.join(project, "flowpanel.config.ts"))).rejects.toThrow();
   });
+
+  it("adds suppressHydrationWarning to a create-next-app-shaped root layout", async () => {
+    const createNextAppLayout = [
+      'import type { Metadata } from "next";',
+      "",
+      'export const metadata: Metadata = { title: "Create Next App" };',
+      "",
+      "export default function RootLayout({ children }: { children: React.ReactNode }) {",
+      "  return (",
+      '    <html lang="en">',
+      "      <body>{children}</body>",
+      "    </html>",
+      "  );",
+      "}",
+      "",
+    ].join("\n");
+    await fs.writeFile(path.join(project, "src/app/layout.tsx"), createNextAppLayout);
+
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION });
+    expect(result.code).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.files.applied).toContain("src/app/layout.tsx");
+    expect(payload.plan.operations).toContainEqual(
+      expect.objectContaining({ kind: "modify", path: "src/app/layout.tsx" }),
+    );
+
+    const patched = await fs.readFile(path.join(project, "src/app/layout.tsx"), "utf8");
+    expect(patched).toContain('<html lang="en" suppressHydrationWarning>');
+
+    // The nested admin layout renders ThemeScript; the root layout stays the host's.
+    const adminLayout = await fs.readFile(path.join(project, "src/app/admin/layout.tsx"), "utf8");
+    expect(adminLayout).toContain("ThemeScript");
+    expect(adminLayout).not.toContain("<html");
+  });
+
+  it("leaves an already-patched root layout alone and reports it unchanged", async () => {
+    const alreadyPatched = [
+      "export default function RootLayout({ children }: { children: React.ReactNode }) {",
+      '  return <html lang="en" suppressHydrationWarning><body>{children}</body></html>;',
+      "}",
+      "",
+    ].join("\n");
+    await fs.writeFile(path.join(project, "src/app/layout.tsx"), alreadyPatched);
+
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION });
+    expect(result.code).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.files.applied).not.toContain("src/app/layout.tsx");
+    expect(payload.warnings).toEqual([]);
+    const unchanged = await fs.readFile(path.join(project, "src/app/layout.tsx"), "utf8");
+    expect(unchanged).toBe(alreadyPatched);
+  });
+
+  it("tells the developer to add the attribute by hand when the layout cannot be parsed", async () => {
+    await fs.writeFile(path.join(project, "src/app/layout.tsx"), "export default 1 +;\n");
+
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION }, [
+      "init",
+      "--yes",
+    ]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("Could not add suppressHydrationWarning");
+    expect(result.stdout).toContain("src/app/layout.tsx");
+  });
 });

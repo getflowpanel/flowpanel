@@ -22,7 +22,9 @@ export const DEFAULT_LABELS: {
   related: Required<NonNullable<LabelsConfig["related"]>>;
   formError: string;
   confirm: Required<NonNullable<LabelsConfig["confirm"]>>;
-  widget: Required<NonNullable<LabelsConfig["widget"]>>;
+  widget: Required<Omit<NonNullable<LabelsConfig["widget"]>, "tones">> & {
+    tones: Required<NonNullable<NonNullable<LabelsConfig["widget"]>["tones"]>>;
+  };
   timeline: Required<NonNullable<LabelsConfig["timeline"]>>;
   heatmap: Required<NonNullable<LabelsConfig["heatmap"]>>;
   checklist: Required<NonNullable<LabelsConfig["checklist"]>>;
@@ -125,7 +127,14 @@ export const DEFAULT_LABELS: {
     export: "Export",
     import: "Import",
   },
-  drawer: { close: "Close", viewDetails: "Open full page →" },
+  drawer: {
+    close: "Close",
+    viewDetails: "Open full page →",
+    loading: "Loading…",
+    noRows: "No {resource}.",
+    noWidgets: "No widgets configured.",
+    chartElsewhere: "Chart visualization lives on dashboards. Data points: {n}.",
+  },
   detail: {
     noFields: "No fields to show",
     unknownResource: "Unknown resource: {resource}",
@@ -178,6 +187,7 @@ export const DEFAULT_LABELS: {
     allClear: "All clear",
     more: "{n} more",
     filtered: "Nothing matches the current filters.",
+    tones: { err: "Error", warn: "Warning", ok: "OK", info: "Info" },
   },
   timeline: {
     all: "All",

@@ -68,7 +68,14 @@ export type SerializedCardWidget =
       span?: number;
       realtime?: string | string[];
     }
-  | ({ kind: "list"; span?: number; realtime?: string | string[] } & ListCardData);
+  | ({ kind: "list"; span?: number; realtime?: string | string[]; emptyState: string } & Omit<
+      ListCardData,
+      "emptyState"
+    >);
+
+/** An empty state as text for the wire; a node only renders on a page, so it gives way to `fallback`. */
+const textOr = (value: unknown, fallback: string): string =>
+  typeof value === "string" ? value : fallback;
 
 /** `null` for a widget kind this module does not own. */
 export async function serializeCardWidget(
@@ -90,7 +97,7 @@ export async function serializeCardWidget(
       const tone =
         result.tone ??
         w.options.tone ??
-        thresholdTone(result.value, w.options.tones, result.volume);
+        thresholdTone(result.value, w.options.tones, result.volume, w.options.goodWhen);
       return {
         kind: "stat",
         label: w.label,
@@ -122,7 +129,7 @@ export async function serializeCardWidget(
         ...(w.options.max !== undefined ? { max: w.options.max } : {}),
         ...(w.options.share ? { share: true } : {}),
         ...(w.options.goodWhen ? { goodWhen: w.options.goodWhen } : {}),
-        emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
+        emptyState: textOr(w.options.emptyState, ctx.labels.widget.empty),
         ...common(w.options),
       };
     case "funnel":
@@ -136,13 +143,14 @@ export async function serializeCardWidget(
         ),
         ...(w.options.format ? { format: w.options.format } : {}),
         ...(w.options.alertDrop !== undefined ? { alertDrop: w.options.alertDrop } : {}),
-        emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
+        emptyState: textOr(w.options.emptyState, ctx.labels.widget.empty),
         ...common(w.options),
       };
     case "list":
       return {
         kind: "list",
         ...(await runWithRequestContext(reqCtx, () => listCardData(w, ctx, config))),
+        emptyState: textOr(w.options.emptyState, ctx.labels.widget.empty),
         ...common(w.options),
       };
     default:

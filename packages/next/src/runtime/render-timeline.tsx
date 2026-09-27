@@ -1,18 +1,21 @@
+import type {
+  EnumDef,
+  RequestContext,
+  ResolvedAdminConfig,
+  TimelineEvent,
+  TimelinePage,
+  TimelineWidget,
+  WidgetContext,
+} from "@flowpanel/core";
 import {
-  type EnumDef,
   mergeTimeline,
   pickedKinds,
-  type RequestContext,
-  type ResolvedAdminConfig,
   readTimelineCursor,
-  type TimelineEvent,
-  type TimelinePage,
-  type TimelineWidget,
   timelineKindsOf,
-  type WidgetContext,
-} from "@flowpanel/core";
+} from "@flowpanel/core/internal";
 import { TimelineCard } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { filteredEmptyState } from "./filtered-empty";
 import { sourceEvents } from "./timeline-sources";
 import { timelineCardProps } from "./timeline-view";
 import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
@@ -77,7 +80,7 @@ export async function renderTimeline(
         cursor,
         events,
         next,
-        emptyState: options.emptyState ?? ctx.labels.widget.empty,
+        emptyState: filteredEmptyState(ctx) ?? options.emptyState ?? ctx.labels.widget.empty,
       })}
       {...(captionLine ? { caption: captionLine } : {})}
     />

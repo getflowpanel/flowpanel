@@ -5,6 +5,7 @@ import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { fullTextTitle } from "./wrap-text";
 
 export interface TrackerCardCell {
   tone: Tone;
@@ -54,7 +55,7 @@ export function TrackerCard({ label, rows, caption, emptyState }: TrackerCardPro
                     data-tone-dot=""
                     className={cn("h-2 w-2 shrink-0 rounded-full", fill(row.tone))}
                   />
-                  <span className="truncate text-fp-text-1">
+                  <span className="truncate text-fp-text-1" {...fullTextTitle(row.label)}>
                     {row.href ? (
                       <a href={row.href} className="hover:underline">
                         {row.label}
@@ -78,7 +79,10 @@ export function TrackerCard({ label, rows, caption, emptyState }: TrackerCardPro
                   ))}
                 </span>
                 {row.summary ? (
-                  <span className="w-full shrink-0 truncate text-xs text-fp-text-3 sm:w-32">
+                  <span
+                    className="w-full shrink-0 truncate text-xs text-fp-text-3 sm:w-32"
+                    {...fullTextTitle(row.summary)}
+                  >
                     {row.summary}
                   </span>
                 ) : null}

@@ -34,8 +34,19 @@ function exportedNames(source: string): Set<string> {
   return names;
 }
 
+/** Export name → SQL table name, for every `export const x = pgTable("x_sql", ...)` the scan finds. */
+function tableNamesOf(source: string): Map<string, string> {
+  const found = new Map<string, string>();
+  for (const m of source.matchAll(
+    /export\s+const\s+(\w+)\s*=\s*\w*[Tt]able\(\s*["'`]([\w.-]+)["'`]/g,
+  )) {
+    found.set(m[1] as string, m[2] as string);
+  }
+  return found;
+}
+
 type SchemaCheck =
-  | { status: "ok" }
+  | { status: "ok"; exportName: string }
   | { status: "missing"; message: string }
   | { status: "unverified"; reason: string };
 
@@ -71,19 +82,23 @@ export async function checkSchemaExport(
   if (!file) {
     return { status: "unverified", reason: `"${spec}" does not resolve to a file under ${cwd}` };
   }
-  const names = exportedNames(await fs.readFile(file, "utf8"));
+  const source = await fs.readFile(file, "utf8");
+  const names = exportedNames(source);
   if (names.size === 0) {
     return {
       status: "unverified",
       reason: `no exports could be read from ${path.relative(cwd, file)}`,
     };
   }
-  if (names.has(name)) return { status: "ok" };
+  if (names.has(name)) return { status: "ok", exportName: name };
+  const tableNames = tableNamesOf(source);
+  const byTableName = [...tableNames.entries()].find(([, tableName]) => tableName === name)?.[0];
+  if (byTableName) return { status: "ok", exportName: byTableName };
   const available = [...names].sort().slice(0, 12).join(", ");
   return {
     status: "missing",
     message:
-      `${path.relative(cwd, file)} has no export named "${name}".\n` +
+      `${path.relative(cwd, file)} has no export or table named "${name}".\n` +
       (available ? `Exports there: ${available}\n` : "") +
       `Pass the table expression yourself with --table if it lives elsewhere.`,
   };
@@ -198,9 +213,11 @@ export function newCommand(cli: Command): void {
         const found = await findAdminConfig(cwd);
         if (!found) stop(opts, "flowpanel.config.ts not found — run `flowpanel init` first.");
         const source = await fs.readFile(found.file, "utf8");
+        let resourceName = resource;
         if (kind === "drizzle" && opts.table === undefined) {
           const check = await checkSchemaExport(cwd, found.file, source, resource);
           if (check.status === "missing") stop(opts, check.message);
+          if (check.status === "ok") resourceName = check.exportName;
           if (check.status === "unverified" && !opts.json) {
             p.log.warn(
               `Could not verify that "${resource}" is a real table — ${check.reason}.\n` +
@@ -208,16 +225,16 @@ export function newCommand(cli: Command): void {
             );
           }
         }
-        const updated = editConfigToAddResource(source, resource, {
+        const relative = path.relative(cwd, found.file);
+        const updated = editConfigToAddResource(source, resourceName, {
           ...(opts.table !== undefined ? { table: opts.table } : {}),
           kind,
-          filename: path.basename(found.file),
+          filename: relative,
         });
-        const relative = path.relative(cwd, found.file);
         const plan = await createFilesystemPlan(cwd, [
           { path: relative, content: updated, expectedContent: source },
         ]);
-        await finish(plan, opts, `Added resource "${resource}" to ${relative}`);
+        await finish(plan, opts, `Added resource "${resourceName}" to ${relative}`);
       } catch (e: unknown) {
         stop(opts, `Failed: ${e instanceof Error ? e.message : String(e)}`);
       }

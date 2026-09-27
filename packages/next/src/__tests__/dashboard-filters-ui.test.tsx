@@ -37,11 +37,15 @@ describe("DashboardFilters", () => {
   it("sets and clears a filter in the query, keeping the range", () => {
     expect(filterQuery("preset=today", { platform: "fl" })).toBe("preset=today&f_platform=fl");
     expect(filterQuery("preset=today&f_platform=fl", { platform: null })).toBe("preset=today");
+    expect(filterQuery("preset=today&activity.before=x~1", { platform: "fl" })).toBe(
+      "preset=today&f_platform=fl",
+    );
   });
 
   it("offers a clear button once a filter is set, and it drops every filter", () => {
     nav.search = "preset=today&f_platform=kwork";
     render(<DashboardFilters filters={filters} />);
+    expect(screen.getByRole("button", { name: "Clear filters" }).className).toContain("min-h-11");
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(nav.router.push).toHaveBeenCalledWith("/admin/parsing?preset=today", { scroll: false });
   });

@@ -104,6 +104,19 @@ describe("metric widget result object", () => {
     );
     expect(props?.delta).toEqual({ value: -0.2, vs: "prior", goodWhen: "down" });
   });
+
+  it("colours a delta by the metric's own goodWhen", async () => {
+    const props = await rendered(
+      {
+        kind: "metric",
+        label: "Churn",
+        query: async () => ({ value: 3, delta: { value: -0.2, vs: "prior" } }),
+        options: { goodWhen: "down" },
+      } as never,
+      MetricCard,
+    );
+    expect(props?.delta).toEqual({ value: -0.2, vs: "prior", goodWhen: "down" });
+  });
 });
 
 describe("stat widget", () => {

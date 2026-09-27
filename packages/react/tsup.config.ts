@@ -40,6 +40,7 @@ export default defineConfig({
     "next/navigation",
     "@flowpanel/core",
     "@flowpanel/core/format",
+    "@flowpanel/core/internal",
     "@flowpanel/core/labels",
     "@flowpanel/core/paths",
     "@flowpanel/core/publish",

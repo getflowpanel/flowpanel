@@ -24,7 +24,12 @@ import { Suspense } from "react";
 import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action";
 import { filterActionsByAccess } from "../runtime/action-helpers";
 import { activeFilters, filterChoices } from "../runtime/dashboard-filters";
-import { DATE_RANGE_PRESETS, type DateRangeInput, resolveDateRange } from "../runtime/date-range";
+import {
+  DATE_RANGE_PRESETS,
+  type DateRangeInput,
+  readableDate,
+  resolveDateRange,
+} from "../runtime/date-range";
 import { realtimeChannels } from "../runtime/realtime-channels";
 import { renderWidget } from "../runtime/render-widget";
 import { buildWidgetContext } from "../runtime/widget-context";
@@ -35,7 +40,9 @@ import {
   type WidgetOwner,
   widgetOwner,
 } from "../runtime/widget-owner";
-import { sectionColumns, stripWidget, widgetSlotClassName } from "./widget-slot";
+import { warnOnce } from "../runtime/widget-reads";
+import { stripWidget } from "./strip-widget";
+import { sectionColumns, widgetSlotClassName } from "./widget-slot";
 
 export interface DashboardPageProps {
   config: ResolvedAdminConfig;
@@ -76,13 +83,24 @@ export function resolveDashboardDateRangeInput(
 ): DateRangeInput {
   const offered = dashboardDateRange?.presets ?? DATE_RANGE_PRESETS;
   const urlPreset = parsePreset(searchParams.get("preset"), offered);
-  const urlFrom = searchParams.get("from");
-  const urlTo = searchParams.get("to");
+  const bounds = [searchParams.get("from"), searchParams.get("to")];
+  const readable = bounds.every((bound) => bound === null || readableDate(bound) !== null);
+  const [urlFrom, urlTo] = readable ? bounds : [null, null];
   const declared = dashboardDateRange?.preset;
-  const configured =
-    declared && offered.includes(declared) ? declared : dashboardDateRange?.presets?.[0];
-  const effectivePreset = urlPreset ?? configured;
   const defaultRange = dashboardDateRange?.default;
+  if (declared && !offered.includes(declared)) {
+    warnOnce(
+      `preset-outside:${declared}`,
+      `dateRange.preset "${declared}" is not among dateRange.presets, so the picker starts elsewhere.`,
+    );
+  }
+  const configured =
+    declared && offered.includes(declared)
+      ? declared
+      : defaultRange === undefined
+        ? dashboardDateRange?.presets?.[0]
+        : undefined;
+  const effectivePreset = urlPreset ?? configured;
   const useDefaultRange = !effectivePreset && !urlFrom && !urlTo && defaultRange !== undefined;
   return {
     ...(effectivePreset ? { preset: effectivePreset } : {}),
@@ -203,7 +221,11 @@ interface SlotProps {
 function WidgetSlot({ dashboardPath, ...slot }: SlotProps & { dashboardPath: string }) {
   return (
     <div className={slot.plain ? "flex min-w-0" : widgetSlotClassName(slot.widget)}>
-      <WidgetErrorBoundary widgetId={describeOwner(slot.owner)} dashboardId={dashboardPath}>
+      <WidgetErrorBoundary
+        widgetId={describeOwner(slot.owner)}
+        dashboardId={dashboardPath}
+        {...(slot.plain ? { plain: true } : {})}
+      >
         <Suspense fallback={<SkeletonCard />}>
           <WidgetAsync {...slot} />
         </Suspense>

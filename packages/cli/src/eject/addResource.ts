@@ -38,6 +38,19 @@ function applyInsertion(source: string, insertion: Insertion | null): string {
   return `${source.slice(0, insertion.pos)}${insertion.text}${source.slice(insertion.pos)}`;
 }
 
+/** The module specifier that binds `identifier`, when it names one import wholesale. */
+function importSpecifierFor(sf: SourceFile, identifier: string): string | null {
+  for (const decl of sf.getImportDeclarations()) {
+    const bound = [
+      ...decl.getNamedImports().map((n) => (n.getAliasNode() ?? n.getNameNode()).getText()),
+      decl.getDefaultImport()?.getText(),
+      decl.getNamespaceImport()?.getText(),
+    ];
+    if (bound.includes(identifier)) return decl.getModuleSpecifierValue();
+  }
+  return null;
+}
+
 /** The scaffold's instruction line, true until this edit adds `resource` to the import. */
 const STALE_IMPORT_HINT =
   /^[ \t]*\/\/ Add `resource` to the "@flowpanel\/kit" import above, then:[ \t]*\r?\n/m;
@@ -97,14 +110,14 @@ export function editConfigToAddResource(
 
     const dotMatch = /\.([A-Za-z_][\w$]*)\s*$/.exec(text);
     if (dotMatch && dotMatch[1] === resourceName) {
-      throw new Error(`new: resource "${resourceName}" already exists in flowpanel.config.ts`);
+      throw new Error(`resource "${resourceName}" already exists in flowpanel.config.ts`);
     }
     const stringMatch = /^["'`]([\w-]+)["'`]$/.exec(text);
     if (stringMatch && stringMatch[1] === resourceName) {
-      throw new Error(`new: resource "${resourceName}" already exists in flowpanel.config.ts`);
+      throw new Error(`resource "${resourceName}" already exists in flowpanel.config.ts`);
     }
     if (text === resourceName) {
-      throw new Error(`new: resource "${resourceName}" already exists in flowpanel.config.ts`);
+      throw new Error(`resource "${resourceName}" already exists in flowpanel.config.ts`);
     }
   });
 
@@ -157,9 +170,11 @@ export function editConfigToAddResource(
 
   if (elsewhere !== null) {
     const file = options?.filename ?? "flowpanel.config.ts";
+    const from = importSpecifierFor(sf, elsewhere);
+    const dir = from ?? "that directory";
     throw new Error(
-      `new: ${file} takes its resources from \`${elsewhere}\`, not an array literal. ` +
-        "Write the resource into that directory with --dir <dir>.",
+      `${file} takes its resources from \`${elsewhere}\`${from ? ` (imported from "${from}")` : ""}, not an array literal. ` +
+        `Write the resource into ${dir} with --dir ${from ?? "<dir>"}.`,
     );
   }
 

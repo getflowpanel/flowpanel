@@ -20,15 +20,12 @@ export interface AdminDrawer {
   close: () => void;
 }
 
-/**
- * Reads `?drawer=<resource>:<id>` and the drawer's own tab, `?drawerTab=<key>` (else `?tab=`),
- * so a drawer opened over a record page leaves the page's `?tab=` alone.
- */
+/** Reads `?drawer=<resource>:<id>` and the drawer's own tab, `?drawerTab=<key>`; `?tab=` is the page's. */
 export function useAdminDrawer(): AdminDrawer {
   const url = useUrlState();
 
   const state: AdminDrawerState = useMemo(() => {
-    const tab = url.get("drawerTab") ?? url.get("tab");
+    const tab = url.get("drawerTab");
     const raw = url.get("drawer");
     const sep = raw ? raw.indexOf(":") : -1;
     const resource = raw && sep > 0 ? raw.slice(0, sep) : "";

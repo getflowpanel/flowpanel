@@ -60,10 +60,12 @@ describe("editConfigToAddResource", () => {
       "",
     ].join("\n");
     expect(() => editConfigToAddResource(split, "orders", { filename: "index.ts" })).toThrow(
-      "new: index.ts takes its resources from `resources`, not an array literal",
+      'index.ts takes its resources from `resources` (imported from "./resources"), not an array literal. Write the resource into ./resources with --dir ./resources.',
     );
     const named = split.replace("({ resources })", "({ resources: adminResources })");
-    expect(() => editConfigToAddResource(named, "orders")).toThrow("from `adminResources`");
+    expect(() => editConfigToAddResource(named, "orders")).toThrow(
+      "from `adminResources`, not an array literal. Write the resource into that directory with --dir <dir>.",
+    );
   });
 });
 
@@ -277,6 +279,60 @@ describe("checkSchemaExport", () => {
       "users",
     );
     expect(check.status).toBe("unverified");
+  });
+
+  it("accepts the SQL table name, and resolves it to the export name", async () => {
+    const cwd = project();
+    fs.mkdirSync(path.join(cwd, "src/db"), { recursive: true });
+    fs.writeFileSync(
+      path.join(cwd, "src/db/schema.ts"),
+      'import { pgTable, text } from "drizzle-orm/pg-core";\n' +
+        'export const aiUsage = pgTable("ai_usage", { id: text("id") });\n',
+    );
+    const check = await checkSchemaExport(
+      cwd,
+      path.join(cwd, "flowpanel.config.ts"),
+      CONFIG,
+      "ai_usage",
+    );
+    expect(check).toEqual({ status: "ok", exportName: "aiUsage" });
+  });
+
+  it("still resolves a plain export-name match to itself", async () => {
+    const cwd = project();
+    fs.mkdirSync(path.join(cwd, "src/db"), { recursive: true });
+    fs.writeFileSync(
+      path.join(cwd, "src/db/schema.ts"),
+      'import { pgTable, text } from "drizzle-orm/pg-core";\n' +
+        'export const aiUsage = pgTable("ai_usage", { id: text("id") });\n',
+    );
+    const check = await checkSchemaExport(
+      cwd,
+      path.join(cwd, "flowpanel.config.ts"),
+      CONFIG,
+      "aiUsage",
+    );
+    expect(check).toEqual({ status: "ok", exportName: "aiUsage" });
+  });
+
+  it("names both the export and the table as missing", async () => {
+    const cwd = project();
+    fs.mkdirSync(path.join(cwd, "src/db"), { recursive: true });
+    fs.writeFileSync(
+      path.join(cwd, "src/db/schema.ts"),
+      'import { pgTable, text } from "drizzle-orm/pg-core";\n' +
+        'export const aiUsage = pgTable("ai_usage", { id: text("id") });\n',
+    );
+    const check = await checkSchemaExport(
+      cwd,
+      path.join(cwd, "flowpanel.config.ts"),
+      CONFIG,
+      "ghost",
+    );
+    expect(check.status).toBe("missing");
+    expect((check as { message: string }).message).toContain(
+      'has no export or table named "ghost"',
+    );
   });
 });
 
