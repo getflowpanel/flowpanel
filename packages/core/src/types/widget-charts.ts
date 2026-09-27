@@ -18,6 +18,11 @@ export interface ChartOptionsBase<R = unknown> extends CaptionOptions {
   y?: RowKey<R> | RowKey<R>[];
   /** Legend and tooltip name per series key: a map, an `enumOf()` or a function. Default: the key. */
   labels?: KeyLabels;
+  /**
+   * A CSS colour per series key, e.g. `{ paid: "hsl(var(--fp-chart-1))" }`. Default: `--fp-data`
+   * for a single series, `--fp-chart-1…7` in `y` order for several.
+   */
+  colors?: Readonly<Record<string, string>>;
   /** Chart height in px.
    * @defaultValue 240
    */

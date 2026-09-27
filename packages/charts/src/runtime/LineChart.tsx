@@ -19,11 +19,11 @@ import {
   buildTooltipProps,
   buildValueTickFormatter,
   CHART_SURFACE_PROPS,
-  chartColor,
   GRID_PROPS,
   LEGEND_PROPS,
   LINE_TOOLTIP_CURSOR,
   STATIC_SERIES_PROPS,
+  seriesPaint,
 } from "./chart-theme";
 import { DEFAULT_CHART_HEIGHT } from "./defaults";
 import { buildTickFormatter } from "./format-tick";
@@ -40,7 +40,7 @@ export function LineChart({
 }) {
   const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
-  if (data.length === 0) return <ChartEmptyState height={height} />;
+  if (data.length === 0) return <ChartEmptyState />;
   const ys = seriesKeys(options.y);
   const multiSeries = ys.length > 1;
   const tickFormatter = buildTickFormatter(
@@ -50,7 +50,7 @@ export function LineChart({
     formatting,
   );
   const valueTickFormatter = buildValueTickFormatter(options.format, formatting);
-  const seriesColor = (i: number) => (multiSeries ? chartColor(i) : "hsl(var(--fp-accent))");
+  const seriesColor = seriesPaint(ys, options.colors);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RcLine {...CHART_SURFACE_PROPS} data={data as object[]}>
@@ -80,7 +80,7 @@ export function LineChart({
             dataKey={y}
             name={names?.[y] ?? y}
             stroke={seriesColor(i)}
-            strokeWidth={2}
+            strokeWidth={1.75}
             dot={options.markers ?? false}
             activeDot={{ ...ACTIVE_DOT_PROPS, fill: seriesColor(i) }}
             {...STATIC_SERIES_PROPS}

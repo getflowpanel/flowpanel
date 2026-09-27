@@ -16,7 +16,9 @@ export function ErrorCard({
   const detail = process.env.NODE_ENV === "production" ? null : error.message;
   const body = (
     <>
-      <CardHeader>{errors.widgetTitle}</CardHeader>
+      <CardHeader>
+        <span className="text-fp-err-text">{errors.widgetTitle}</span>
+      </CardHeader>
       <CardContent>
         <p className="text-xs text-fp-text-3">{errors.widgetHint}</p>
         {detail ? <p className="mt-1 text-xs text-fp-text-3">{detail}</p> : null}
@@ -33,7 +35,7 @@ export function ErrorCard({
       {body}
     </div>
   ) : (
-    <Card className="h-full border-fp-err/40" data-fp-error="">
+    <Card className="h-full" data-fp-error="">
       {body}
     </Card>
   );

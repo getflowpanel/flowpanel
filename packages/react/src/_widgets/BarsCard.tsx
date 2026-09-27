@@ -11,6 +11,7 @@ import { BarTrail } from "./BarTrail";
 import { barWidthClass, shareOfMax } from "./bar-width";
 import { CardHeading } from "./CardHeading";
 import type { GoodWhen } from "./delta";
+import { EmptyLine } from "./EmptyLine";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface BarsCardRow {
@@ -63,7 +64,7 @@ export function BarsCard({
       <CardHeading label={label} caption={caption} />
       <CardContent className={cn("space-y-2.5", label || caption ? "pt-0" : "")}>
         {rows.length === 0 ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           rows.map((row, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: rows are ranked and labels may repeat

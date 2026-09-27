@@ -161,6 +161,11 @@ export interface TableWidgetOptions<R = unknown> extends CaptionOptions {
   limit?: number;
   /** Rendered in place of the table body when there are zero rows. */
   emptyState?: ReactNode;
+  /**
+   * Row height: `"compact"` sets 40px rows for a card that lists a few.
+   * @defaultValue "comfortable"
+   */
+  density?: "comfortable" | "compact";
   /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
   realtime?: RealtimeOption;
   /** Width in the dashboard's 12-column grid. */

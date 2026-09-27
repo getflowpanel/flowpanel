@@ -8,7 +8,10 @@ export function filteredEmptyState(ctx: WidgetContext): ReactNode | undefined {
   return (
     <span data-fp-filtered="">
       {ctx.labels.widget.filtered}{" "}
-      <a href={clearFiltersHref(ctx)} className="text-fp-accent hover:underline">
+      <a
+        href={clearFiltersHref(ctx)}
+        className="text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline"
+      >
         {ctx.labels.filters.clear}
       </a>
     </span>

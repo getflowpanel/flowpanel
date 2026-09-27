@@ -16,7 +16,7 @@ export function DemoPersonaGuide({ role }: { role: DemoRole }) {
           href={demoLinks.site}
           className="flex min-w-0 items-center gap-2 rounded-fp-sm text-sm font-medium tracking-tight transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         >
-          <FlowpanelMark size={20} className="shrink-0 text-fp-accent" />
+          <FlowpanelMark size={20} className="shrink-0 text-fp-data" />
           <span className="truncate">FlowPanel demo</span>
         </a>
 

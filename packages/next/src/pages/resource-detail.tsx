@@ -1,4 +1,5 @@
 import type {
+  ActionEmphasis,
   DetailOptions,
   DetailTab,
   ItemQueryContext,
@@ -166,7 +167,7 @@ export async function ResourceDetailPage({
     picker || canEdit ? (
       <>
         {picker}
-        {canEdit ? editAction(config, name, id) : null}
+        {canEdit ? editAction(config, name, id, resource.options.update?.emphasis) : null}
       </>
     ) : null;
 
@@ -183,9 +184,14 @@ export async function ResourceDetailPage({
   );
 }
 
-function editAction(config: ResolvedAdminConfig, name: string, id: string): React.ReactNode {
+function editAction(
+  config: ResolvedAdminConfig,
+  name: string,
+  id: string,
+  emphasis: ActionEmphasis | undefined,
+): React.ReactNode {
   return (
-    <Button asChild>
+    <Button asChild variant={emphasis === "primary" ? "default" : "outline"}>
       <Link href={buildHref(config, name, id, "edit")}>
         {config.labels?.actions?.edit ?? DEFAULT_LABELS.actions.edit}
       </Link>

@@ -5,6 +5,7 @@ import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { EmptyLine } from "./EmptyLine";
 import { fullTextTitle } from "./wrap-text";
 
 export interface TrackerCardCell {
@@ -40,7 +41,7 @@ export function TrackerCard({ label, rows, caption, emptyState }: TrackerCardPro
       <CardHeading label={label} caption={caption} />
       <CardContent className={label || caption ? "pt-0" : ""}>
         {rows.length === 0 ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           <ul className="space-y-2">
             {rows.map((row) => (

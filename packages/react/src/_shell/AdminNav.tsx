@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FlowpanelIcon } from "../_atoms/FlowpanelIcon";
 import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
+import { LABEL_TEXT } from "../lib/label-text";
 import { AccountMenu, type AccountMenuUser } from "./AccountMenu";
 import { activeNavHref } from "./active-nav";
 import { Brand, type ShellBrand } from "./Brand";
@@ -22,7 +23,7 @@ export interface NavGroup {
   collapsible?: boolean;
 }
 
-const GROUP_LABEL = "px-2 text-xs uppercase tracking-wide text-fp-text-3";
+const GROUP_LABEL = cn("px-2", LABEL_TEXT);
 
 function NavItems({ items, activeHref }: { items: NavEntry[]; activeHref: string | undefined }) {
   return (
@@ -36,7 +37,7 @@ function NavItems({ items, activeHref }: { items: NavEntry[]; activeHref: string
               className={cn(
                 "flex min-h-11 items-center gap-2 rounded-fp px-2.5 py-1.5 text-sm transition-colors sm:min-h-9",
                 active
-                  ? "bg-fp-accent/10 font-medium text-fp-accent-badge-text"
+                  ? "bg-fp-bg-3 font-medium text-fp-text-1"
                   : "text-fp-text-2 hover:bg-fp-bg-3/60 hover:text-fp-text-1",
               )}
               aria-current={active ? "page" : undefined}

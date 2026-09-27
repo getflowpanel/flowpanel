@@ -231,8 +231,7 @@ export interface FunnelOptions extends CaptionOptions {
   format?: NumericFormat;
   /**
    * Share lost from the step before, as a fraction, past which the step with the
-   * largest drop is marked with the `warn` tone. `1` turns the mark off.
-   * @defaultValue 0.5
+   * largest drop is marked with the `warn` tone. Unset, no step is toned.
    */
   alertDrop?: number;
   /** Shown instead of the steps when the query returns nothing. Text or any node; the drawer shows only text. */

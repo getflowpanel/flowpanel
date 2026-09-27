@@ -4,6 +4,7 @@
 import type { ColumnFormat } from "@flowpanel/core";
 import { formatLabel } from "@flowpanel/core/labels";
 import {
+  Button,
   ConfirmDialog,
   Drawer,
   DrawerContent,
@@ -16,6 +17,7 @@ import {
   type NumericFormat,
   RealtimeRefresh,
   renderFormatCell,
+  Skeleton,
   StatGroupCard,
   Tabs,
   TabsContent,
@@ -109,10 +111,10 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
   return (
     <div className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1">
       <table className="w-full text-sm">
-        <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
+        <thead className="bg-fp-bg-2 text-xs text-fp-text-3">
           <tr>
             {cols.map((c) => (
-              <th key={c} scope="col" className="px-4 py-2 text-left font-medium">
+              <th key={c} scope="col" className="px-4 py-2 text-left font-normal">
                 {humanize(c)}
               </th>
             ))}
@@ -181,15 +183,15 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
             <Fragment key={key}>
               <div className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1 md:col-span-2">
                 {w.label ? (
-                  <div className="border-b border-fp-border-1 bg-fp-bg-2 px-4 py-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
+                  <div className="border-b border-fp-border-1 bg-fp-bg-2 px-4 py-2 text-xs font-medium text-fp-text-2">
                     {w.label}
                   </div>
                 ) : null}
                 <table className="w-full text-sm">
-                  <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
+                  <thead className="bg-fp-bg-2 text-xs text-fp-text-3">
                     <tr>
                       {cols.map((c) => (
-                        <th key={c.field} scope="col" className="px-4 py-2 text-left font-medium">
+                        <th key={c.field} scope="col" className="px-4 py-2 text-left font-normal">
                           {c.label ?? humanize(c.field)}
                         </th>
                       ))}
@@ -374,21 +376,16 @@ function ActionButton({
     }
   }
 
-  const variantClass =
-    action.variant === "destructive"
-      ? "bg-fp-err text-fp-accent-text hover:bg-fp-err/90"
-      : "bg-fp-accent text-fp-accent-text hover:bg-fp-accent/90";
-
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="outline"
         onClick={onClick}
         disabled={pending}
-        className={`inline-flex h-9 items-center rounded-fp-sm px-3 text-sm font-medium transition-colors disabled:opacity-50 ${variantClass}`}
+        {...(action.variant === "destructive" ? { className: "text-fp-err-text" } : {})}
       >
         {pending ? "…" : action.label}
-      </button>
+      </Button>
       {formOpen ? (
         <ActionFormDialog
           title={action.confirm ?? action.label}
@@ -481,17 +478,23 @@ export function DrawerHost() {
       <DrawerHeader>
         <div className="min-w-0 pr-10">
           <h2 className="truncate text-lg font-semibold text-fp-text-1">
-            {title || labels.drawer.loading}
+            {payload ? (
+              title
+            ) : error ? (
+              humanize(resource ?? "")
+            ) : (
+              <Skeleton className="my-1 h-5 w-48" aria-hidden />
+            )}
           </h2>
-          {resource && id ? (
+          {resource && (payload || !error) ? (
             <p className="text-xs text-fp-text-3">
-              {payload?.resourceLabel ?? humanize(resource)} · {id}
+              {payload?.subtitle ?? payload?.resourceLabel ?? humanize(resource)}
             </p>
           ) : null}
           {payload?.detailHref ? (
             <a
               href={payload.detailHref}
-              className="mt-1 inline-block text-xs text-fp-accent underline-offset-4 hover:underline"
+              className="mt-1 inline-block text-xs text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline"
             >
               {labels.drawer.viewDetails}
             </a>
@@ -501,10 +504,7 @@ export function DrawerHost() {
       <DrawerContent>
         {loading ? <div className="text-sm text-fp-text-3">{labels.drawer.loading}</div> : null}
         {error ? (
-          <div
-            data-fp-error=""
-            className="rounded-fp-sm border border-fp-err/40 bg-fp-err/10 p-3 text-sm text-fp-err"
-          >
+          <div data-fp-error="" className="text-sm text-fp-err-text">
             {error}
           </div>
         ) : null}

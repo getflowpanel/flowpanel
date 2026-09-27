@@ -87,7 +87,7 @@ describe("renderTimeline", () => {
     expect(props.groups[0]?.lines[0]?.href).toBeUndefined();
     expect(props.groups[0]?.lines[0]?.items?.map((item) => item.href)).toEqual(["/f/2", "/f/1"]);
     expect(props.older).toEqual({
-      label: "Older →",
+      label: "Older",
       href: "/admin/users/u1?tab=activity&activity.before=2026-09-25T10%3A00%3A00.000Z%7E1",
     });
     expect(props.newest).toBeUndefined();
@@ -109,7 +109,7 @@ describe("renderTimeline", () => {
       href: "/admin/response/r1",
       tone: "ok",
     });
-    expect(props.newest).toEqual({ label: "← Newest", href: "/admin/users/u1?tab=activity" });
+    expect(props.newest).toEqual({ label: "Newest", href: "/admin/users/u1?tab=activity" });
   });
 
   it("reads only the picked kind and marks its chip", async () => {

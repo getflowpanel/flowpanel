@@ -52,7 +52,7 @@ describe("BarsCard shares and changes", () => {
       />,
     );
     const marks = [...container.querySelectorAll("[data-delta]")];
-    expect(marks.map((n) => n.textContent)).toEqual(["▲ 20%", "▲ +3", "0%"]);
+    expect(marks.map((n) => n.textContent)).toEqual(["+20%", "+3", "0%"]);
     expect(marks.map((n) => n.getAttribute("data-delta"))).toEqual(["good", "good", "flat"]);
   });
 

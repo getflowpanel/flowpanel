@@ -124,11 +124,11 @@ See [Auth with better-auth](/docs/guides/auth-with-better-auth) and
 | Property | Type | Notes |
 | --- | --- | --- |
 | `brand?` | `{ name?: string; logo?: string; href?: string }` | Product name, logo and home link shown in the shell header. |
-| `accent?` | `string` | Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. |
-| `accentDark?` | `string` | Dark-mode accent override, same format as `accent`. Custom accents tuned for light surfaces usually fail WCAG contrast on dark ones — pass a re-lightened triplet here to keep both schemes accessible. |
+| `accent?` | `string` | Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. Data fills take it too unless `cssVars` sets `--fp-data`. |
+| `accentDark?` | `string` | Dark-mode accent override, same format as `accent`. Custom accents tuned for light surfaces usually fail WCAG contrast on dark ones — pass a re-lightened triplet here to keep both schemes accessible. Dark data fills take it too unless `cssVarsDark` sets `--fp-data`. |
 | `mode?` | `"light" \| "dark" \| "auto"` | Initial color scheme. `"auto"` follows the operating system. |
-| `cssVars?` | `Record<string, string>` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
-| `cssVarsDark?` | `Record<string, string>` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
+| `cssVars?` | `ThemeTokens` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
+| `cssVarsDark?` | `ThemeTokens` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
 | `components?` | `Partial<FlowpanelComponentSlots>` | Replace built-in components. See the theme-slots guide. |
 | `user?` | `(s: Session \| null) => \| { name?: string; email?: string; avatar?: string; items?: Array<{ label: string; href?: string; variant?: "default" \| "destructive" }>; signOut?: string; } \| undefined` | What the account menu shows for the current session. Return `undefined` to render no menu at all — the usual choice when there is no session. |
 
@@ -627,7 +627,7 @@ export const ordersResource = resource(orders, {
 | `schema?` | `z.ZodTypeAny \| { create?: z.ZodTypeAny; update?: z.ZodTypeAny }` | Validation for writes. Overrides the schema inferred from the adapter. |
 | `writeTo?` | `unknown` | The table that create, update, delete and restore write to, when the resource reads a view. Its primary key must be a column of the view, and every field a form writes must be selected by the view too. Omitted on a view: the resource is read-only, and a declared create, update, delete or import is an error at `defineAdmin`. |
 | `create?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> }` | Create form. `disabled` removes the route, not just the button. |
-| `update?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; /** * Additional readable values available to edit-form hidden/readOnly * predicates. This never creates a control, default value, or write * permission. */ expose?: (keyof Row & string)[]; }` | Edit form. `disabled` removes the route, not just the button. |
+| `update?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; /** * Additional readable values available to edit-form hidden/readOnly * predicates. This never creates a control, default value, or write * permission. */ expose?: (keyof Row & string)[]; /** * How the record page's edit button reads: `"primary"` fills it with the accent. * @defaultValue "secondary" */ emphasis?: ActionEmphasis; }` | Edit form. `disabled` removes the route, not just the button. |
 | `delete?` | `{ disabled?: boolean; softDelete?: keyof Row & string; confirm?: string }` | Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. |
 | `actions?` | `RowAction<Row, any, any>[]` | Per-row actions, rendered inline or in the row's menu. |
 | `bulkActions?` | `BulkAction<Row, any, any>[]` | Actions applied to a selection of rows. |
@@ -640,7 +640,13 @@ export const ordersResource = resource(orders, {
 | `audit?` | `boolean` | Opt this resource out of the admin-wide audit sink. |
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
 | `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: Where<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
-| `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; }` | What the list shows when there are no rows at all. |
+| `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. * Default: `labels.widget.filtered`. */ filtered?: string; }` | What the list shows when there are no rows at all. |
+
+An empty list tells two cases apart. With nothing narrowing it, it shows `empty.title`,
+`description`, `icon` and `action`. When search or filters leave no rows it shows
+`empty.filtered` (default `labels.widget.filtered`) and a button that clears the search and
+the filters but keeps the sort. Export hides while there are no rows, and on a phone a page
+shows its first 10 rows as cards with the rest behind one "N more" button.
 
 #### Detail headings and editing
 
@@ -669,7 +675,8 @@ nullish `title` falls back to the resource's singular label and the readable row
 identifier. `detail.header` still works and still wins nothing: `title` takes
 precedence when both are declared, and `header` is deprecated for removal in 1.0.
 
-The generated edit action sits beside the heading; it is omitted when
+The generated edit action sits beside the heading as a secondary button;
+`update: { emphasis: "primary" }` fills it when editing is what the page is for. It is omitted when
 `update.disabled` is true or the resource's update access policy denies the
 request, including asynchronous policies. Set `labels.actions.edit` to translate
 its text. The edit route enforces its own authorization as well. At narrow widths
@@ -1182,7 +1189,7 @@ candidate, since every row in the tab shares it. The tab's own row key is always
 kept, since the table needs it for row identity. A hidden column cannot be sorted
 from the URL either.
 
-An "Open list →" link appears only when it would tell the truth: every filter
+An "Open list" link appears only when it would tell the truth: every filter
 value has to be a scalar (`string`, `number`, `boolean` or `bigint`) and every
 filter field has to be one the target resource declares, since the list page
 accepts `?f_<field>=<value>` on no other terms. A tab filtered on a range, an `in`
@@ -1190,7 +1197,7 @@ set, or an undeclared field keeps its rows and drops the link. `sort` sets the t
 default order, falling back to the target's `defaultSort` and then to its primary
 key. Clicking a header re-sorts through the URL key `relatedSort.<key>`, written
 as `<field>.<asc|desc>` and accepted only for a visible column the target
-resource really has. Above the table, an "Open list →" link
+resource really has. Above the table, an "Open list" link
 (`labels.related.openList`) leads to the target's own list page with the
 relationship already applied as `?f_<field>=<value>`, so the full paginated list
 is one click away.
@@ -1487,6 +1494,7 @@ Rendered in a dashboard's page header. It gets no row — only the form input.
 | `label` | `string` |  |
 | `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
 | `variant?` | `ActionVariant` | Button styling. |
+| `emphasis?` | `ActionEmphasis` | `"primary"` fills the button with the accent; keep one per dashboard, as more warn in development. A destructive secondary action reads in the error colour. Default: `"secondary"`. |
 | `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
 | `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
 | `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
@@ -1498,6 +1506,14 @@ Rendered in a dashboard's page header. It gets no row — only the form input.
 
 Use `dashboardAction<Input>(definition)` for the same typed form contract
 without a row type.
+
+Each action is a secondary, outlined button, a destructive one in the error colour. Give the
+one action the screen exists for `emphasis: "primary"` and it fills with the accent; more than
+one primary on a dashboard warns in development. Drawer actions are secondary too.
+
+```ts excerpt
+dashboardAction({ key: "retry", label: "Retry failed runs", emphasis: "primary", run: retryFailed });
+```
 
 Set `hideActionsBar: true` on the dashboard to suppress the bar these render in.
 
@@ -1641,12 +1657,18 @@ resource(orders, {
 | --- | --- | --- |
 | `width?` | `DrawerWidth` | Panel width. Default: `"lg"`. |
 | `header?` | `(row: Row) => string` | Panel title. Defaults to the row's key. |
+| `subtitle?` | `(row: Row) => string` | The line under the title. Defaults to the resource's label. |
 | `fields?` | `DrawerFieldList<Row>` | Fields shown when no `tabs` are declared. `"*"` shows every column. |
 | `tabs?` | `DrawerTab<Row>[]` | Tabs to render instead of a flat field list. |
 | `actions?` | `DrawerAction<Row>[]` | Buttons rendered in the panel footer. |
 
 `DrawerWidth` is `"sm" | "md" | "lg" | "xl" | "2xl" | "full"`, defaulting to
 `"lg"`.
+
+The line under the title is the resource's label; `subtitle(row)` replaces it with a line
+of your own, such as a plan and a signup date. The panel never shows the row's raw id there,
+and while the row loads its title is a skeleton. The panel takes focus on open, so no focus
+ring lands on the close button, and its actions are secondary buttons.
 
 Without `tabs`, the panel renders `fields` as a flat key/value list. Field
 labels come from the matching column's `label`, and any column with a `render`
@@ -1803,6 +1825,7 @@ you render the drawer yourself.
 | --- | --- | --- |
 | `row` | `Record<string, unknown>` |  |
 | `header` | `string` |  |
+| `subtitle?` | `string` | The line under the title, from `drawer.subtitle`. |
 | `resourceLabel` | `string` | The resource's display label, so the drawer never shows the raw registry name. |
 | `width` | `"sm" \| "md" \| "lg" \| "xl" \| "2xl" \| "full"` |  |
 | `fields` | `SerializedFieldList` |  |
@@ -2234,8 +2257,10 @@ metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compar
 | `goodWhen?` | `"up" \| "down" \| "neutral"` | Which direction is good news. `"down"` colours a fall green; `"neutral"` never colours. Default: `"up"`. |
 | `previous?` | `number` | The value compared against, shown muted beside the change. A count under 20 shows the absolute change (`+3`); a `percent` metric shows percentage points (`+3 pp`). |
 
-The card reads a change the way a founder does. Inside ±1 % it shows no arrow and no
-colour, and the percentage prints in the admin's locale. With `previous` set it shows
+The card reads a change the way a founder does: plain 12 px text under the value, signed
+(`+12%`, `−3`) and followed by `vs`, with no pill or arrow. Inside ±1 % it shows no sign, and
+only a change of 5 % or more takes the good or bad colour; a smaller one stays muted. The
+percentage prints in the admin's locale. With `previous` set it shows
 that value muted beside the change (`labels.widget.previous`, `"was {value}"`). A count
 whose `previous` is under 20 shows the absolute change — `+3` rather than `+150%` — and a
 `format: "percent"` metric shows its change in percentage points (`+3 pp`,
@@ -2272,6 +2297,7 @@ and format; an object overrides them.
 | `seeAll?` | `boolean \| Link` | Link the card heading. `true` links the `resource`'s own list; a `Link` names any target, and a string is used as written. |
 | `limit?` | `number` | Row cap. An explicit value caps both paths; the default applies to the `resource` read, while a `query`'s own rows are left alone unless you set it. Default: `10`. |
 | `emptyState?` | `ReactNode` | Rendered in place of the table body when there are zero rows. |
+| `density?` | `"comfortable" \| "compact"` | Row height: `"compact"` sets 40px rows for a card that lists a few. Default: `"comfortable"`. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
@@ -2296,9 +2322,11 @@ there still renders but never acts.
 returning `null` leaves that row inert. `seeAll: true` links the card heading to
 the resource's list; a string is used as the href verbatim.
 
-Every card's `emptyState` takes text or any node. `emptyState` replaces the table body when there are no rows — a string becomes the
-empty state's title, any other node is rendered in the card instead of the table.
-With none set the admin's `labels.widget.empty` is used. `limit` caps the rows: it
+Every card's `emptyState` takes text or any node. With no rows it replaces the table with
+one 14 px line where the rows would start, so an empty card stays short; with none set the
+admin's `labels.widget.empty` is used. `density: "compact"` sets 40 px rows. In a dashboard
+row a table or list card keeps its own height instead of stretching to its neighbours; a
+section's `align` changes that. `limit` caps the rows: it
 defaults to 10 on the `resource` path and applies to a `query`'s own rows only
 when you set it.
 
@@ -2578,9 +2606,10 @@ bars({
 #### funnel
 
 Stages in order. Give counts only: the card computes each step's share of the
-first step and its drop-off from the one before. The step with the largest drop-off is
-marked with the `warn` tone — label and bar — when it loses more than `alertDrop`
-of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
+first step and its drop-off from the one before, both in muted text. Colour comes only
+from a threshold you set: with `alertDrop`, the step with the largest drop-off is marked
+with the `warn` tone — label, bar and drop — when it loses more than that share of the step
+before. Without it no step is toned.
 
 `FunnelOptions`
 
@@ -2589,7 +2618,7 @@ of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
 | `label?` | `string` | Card heading. |
 | `query` | `(ctx: WidgetContext) => Promise<FunnelStep[]>` |  |
 | `format?` | `NumericFormat` | How step values are rendered. |
-| `alertDrop?` | `number` | Share lost from the step before, as a fraction, past which the step with the largest drop is marked with the `warn` tone. `1` turns the mark off. Default: `0.5`. |
+| `alertDrop?` | `number` | Share lost from the step before, as a fraction, past which the step with the largest drop is marked with the `warn` tone. Unset, no step is toned. |
 | `emptyState?` | `ReactNode` | Shown instead of the steps when the query returns nothing. Text or any node; the drawer shows only text. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
@@ -2631,11 +2660,12 @@ the rest into one "N more" line that leads to `more`.
 ##### banner
 
 "Anything on fire": `list({ variant: "banner", span: 12 })`. Rows are ordered err, then
-warn, then info, and within each by `count`. Each carries a glyph as well as a colour
-(✕ ▲ ●), so it reads without colour vision, and a screen reader hears the tone's word
+warn, then info, and within each by `count`. The first row reads as one 18 px sentence;
+the rest are dot lines in secondary text, and a screen reader hears each row's tone word
 from `labels.widget.tones` ("Error", "Warning", "OK", "Info"); a list row's dot and a stale
-caption's glyph say theirs the same way. The strip is tinted by its worst row. With no rows it shows one ✓ `allClear` line (`labels.widget.allClear`), which is the
-answer a founder wants.
+caption's glyph say theirs the same way. The card stays neutral with a 3 px rule on its left
+edge in the worst row's tone, `err` or `warn`. With no rows it shows one quiet `allClear`
+line (`labels.widget.allClear`), which is the answer a founder wants.
 
 ```ts excerpt
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
@@ -2753,7 +2783,7 @@ then opens from a chevron and keeps its link under the body.
 Consecutive events of one day and one kind with the same `fold` key — the title by
 default — fold into one line such as "Orders in feed ×37 09:12–18:40", with the single
 events inside. A chip per kind (`kinds`, an `enumOf` or `{ key: [label, tone] }`) filters
-the page, and "Older →" pages back. Chips and paging are links under
+the page, and "Older" pages back. Chips and paging are links under
 `?<id>.kind=` and `?<id>.before=`; `id` defaults to the detail tab's key, else to
 `"timeline"`, `"timeline-2"` and on in page order, so two timelines on one page never share
 paging. Two that set the same `id` fail at `defineAdmin`. The card is rendered on
@@ -2774,7 +2804,7 @@ timeline({
 
 On a record page a timeline pages through the whole history, or back to its `maxRange` cut;
 `detail.dateRange` does not narrow it. A timeline cannot sit in a drawer tab: `defineAdmin` points at a detail tab.
-"Older →" continues from the last event's moment and skips the events already shown at that
+"Older" continues from the last event's moment and skips the events already shown at that
 exact moment by count, so when one source holds several rows with the same timestamp at a
 page boundary, a database that returns ties in no fixed order may repeat or drop one of them.
 
@@ -3044,6 +3074,7 @@ Shared by area, bar and line charts.
 | `x` | `RowKey<R>` | Row key plotted on the x-axis. |
 | `y?` | `RowKey<R> \| RowKey<R>[]` | Row key(s) plotted on the y-axis; an array draws one series per key. Default: every key of the first row except `x`, in its order — the columns a `series({ by })` returns. |
 | `labels?` | `KeyLabels` | Legend and tooltip name per series key: a map, an `enumOf()` or a function. Default: the key. |
+| `colors?` | `Readonly<Record<string, string>>` | A CSS colour per series key, e.g. `{ paid: "hsl(var(--fp-chart-1))" }`. Default: `--fp-data` for a single series, `--fp-chart-1…7` in `y` order for several. |
 | `height?` | `number` | Chart height in px. Default: `240`. |
 | `format?` | `NumericFormat` | How y-values are rendered in ticks and tooltips. |
 | `tooltip?` | `"default" \| "compact" \| false` | `false` omits the `<Tooltip>` entirely. |
@@ -3060,7 +3091,20 @@ a number, or a bigint or a string that parses as one — which is exactly the co
 `series({ by })` returns, the `top` rest included; a label or other non-numeric column is
 left out. `labels` names each series in the legend and the tooltip, from a map, an `enumOf()` or a function.
 `bucket` only chooses how ticks print a date; it does not aggregate, so fold rows with
-`series({ grain })`.
+`series({ grain })`. Ticks inside one calendar year leave the year out ("Sep 2").
+
+One series is drawn in `--fp-data`; several take `--fp-chart-1` to `--fp-chart-7` in `y`
+order, and the legend writes their names in secondary text beside a coloured swatch.
+`colors` pins a series to a colour by its key, so the headline series can keep the first
+colour without moving to the front of `y`:
+
+```ts excerpt
+lineChart("Signups", signupsByPlan, {
+  x: "day",
+  y: ["trial", "paid"],
+  colors: { paid: "hsl(var(--fp-chart-1))", trial: "hsl(var(--fp-chart-2))" },
+});
+```
 
 #### areaChart
 
@@ -3243,6 +3287,7 @@ are next to the date picker from `labels.widget.updated`.
 | `description?` | `string` | Supporting copy under the heading. |
 | `columns?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Grid columns the widgets lay out across; omitted, 12 when a widget sets `span`. Default: `1`. |
 | `variant?` | `"cards" \| "strip"` | `"strip"` draws the section's `metric` and `stat` widgets as one band divided by hairlines, with no card around each; another kind renders as its own card and warns in development. `columns` is the cells per line from `md` up. Default: `"cards"`. |
+| `align?` | `"stretch" \| "start"` | How cards in one row size: `"stretch"` to the tallest, `"start"` each to its content. Default: a `table` or `list` keeps its own height, every other card stretches. |
 | `widgets` | `WidgetConfig[]` |  |
 
 `variant: "strip"` draws a section's `metric` and `stat` widgets as one band divided by
@@ -3252,6 +3297,11 @@ the previous value, sparklines and links stay. `columns` sets the cells per line
 shows two per line.
 Another widget kind in a strip keeps its own card and warns once in development. A record
 page's [`detail.stats`](/docs/reference/resources#record-page) renders the same strip.
+
+In a `"cards"` section a `table` or `list` card keeps its own height, so a short table beside
+a tall chart leaves no empty card; every other card stretches to the tallest in its row.
+`align: "start"` keeps every card at its content's height and `align: "stretch"` stretches
+them all.
 
 ```ts excerpt
 { variant: "strip", widgets: [newOrders, runs, successRate, bans] }
@@ -4530,7 +4580,7 @@ createFlowpanel, generated pages, route handlers, protected controllers and real
 
 Docs: https://flowpanel.tech/docs/reference/next-runtime
 
-Documented types: createFlowpanel, Flowpanel, FlowpanelOptions, handlers, stream, ApplyActionResultOptions, ResourceActions, MakeActionsOptions, FormActionResult, adminWidgetContext, AdminWidgetContextOptions, resolveWidget
+Documented types: createFlowpanel, Flowpanel, FlowpanelOptions, flowpanelMetadata, handlers, stream, ApplyActionResultOptions, ResourceActions, MakeActionsOptions, FormActionResult, adminWidgetContext, AdminWidgetContextOptions, resolveWidget
 
 `@flowpanel/kit/next` binds one config to every Next.js surface: the generated
 page, HTTP handlers, request-scoped protected controllers, client metadata and
@@ -4552,6 +4602,7 @@ export const flowpanel = createFlowpanel(config);
 // app/admin/[[...slug]]/page.tsx
 import { flowpanel } from "@/src/flowpanel";
 
+export const generateMetadata = flowpanel.metadata;
 export default flowpanel.page;
 ```
 
@@ -4568,6 +4619,7 @@ export const runtime = "nodejs";
 | Member | Purpose |
 | --- | --- |
 | `page` | Generated catch-all page component. |
+| `metadata` | The page's `generateMetadata`: a `title` per dashboard, list and record. |
 | `handlers` | `FlowpanelHandlers` for REST and generated-UI routes. |
 | `request()` | Current request's protected `FlowpanelRequest`. |
 | `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/client`. |
@@ -4634,6 +4686,25 @@ export default Flowpanel(config);
 | Property | Type | Notes |
 | --- | --- | --- |
 | `shell?` | `ShellConfig \| ShellMode` | Override `config.shell` at render time. |
+
+#### flowpanelMetadata
+
+`flowpanelMetadata(config)` is the `generateMetadata` for the same page. It titles a
+dashboard or page by its `label`, a list by the resource's plural name, a record by its
+singular name, a create page with `labels.form.createTitle` and a missing page with
+`labels.notFound.title`; your layout's `title.template` wraps it. A page the caller may not
+open, or a request without a session, gets no title. The page itself renders a
+`theme-color` meta per scheme from `--fp-bg-2`, with no export needed, so leave
+`viewport.themeColor` unset on the admin's layout.
+
+```ts excerpt
+// app/admin/[[...slug]]/page.tsx
+import { Flowpanel, flowpanelMetadata } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
+export const generateMetadata = flowpanelMetadata(config);
+export default Flowpanel(config);
+```
 
 `FlowpanelContent(config, opts?)` is the same renderer without the shell, for
 embedding the admin inside chrome you already have. Its second parameter is

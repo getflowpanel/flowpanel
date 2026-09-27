@@ -56,8 +56,6 @@ export default defineAdmin({
   },
   shell: { mode: "tabs", brand: false, skipLink: false },
   theme: {
-    accent: "217 91% 50%",
-    accentDark: "217 91% 65%",
     user: (s) => {
       const session = s as AdminSession | null;
       if (!session) return undefined;

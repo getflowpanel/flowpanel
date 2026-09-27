@@ -57,7 +57,7 @@ describe("TimelineCard", () => {
           },
         ]}
         emptyState=""
-        older={{ href: "?before=x", label: "Older →" }}
+        older={{ href: "?before=x", label: "Older" }}
       />,
     );
     expect(container.querySelectorAll("details")).toHaveLength(2);
@@ -67,7 +67,7 @@ describe("TimelineCard", () => {
       "/admin/response/r1",
     );
     expect(container.querySelector("time")?.getAttribute("title")).toBe("Sep 25, 2026, 10:00");
-    expect(screen.getByRole("link", { name: "Older →" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Older" })).toBeTruthy();
     expect(screen.getByText("Orders in feed").className).toContain("break-words");
     expect(container.querySelector("summary")?.className).toContain(
       "[&::-webkit-details-marker]:hidden",

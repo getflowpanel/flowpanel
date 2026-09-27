@@ -31,6 +31,17 @@ describe("Drawer — a11y contract", () => {
     expect(screen.getByText("Drawer")).toBeTruthy();
   });
 
+  it("focuses the panel itself on open, so no ring lands on the close button", async () => {
+    render(
+      <Drawer open onOpenChange={() => {}} title="X">
+        <button type="button">Inside</button>
+      </Drawer>,
+    );
+    const dialog = screen.getByRole("dialog");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement).toBe(dialog);
+  });
+
   it("renders a labeled close button", () => {
     render(
       <Drawer open onOpenChange={() => {}} title="X">

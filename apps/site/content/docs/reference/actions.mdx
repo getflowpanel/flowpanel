@@ -105,6 +105,14 @@ Rendered in a dashboard's page header. It gets no row — only the form input.
 Use `dashboardAction<Input>(definition)` for the same typed form contract
 without a row type.
 
+Each action is a secondary, outlined button, a destructive one in the error colour. Give the
+one action the screen exists for `emphasis: "primary"` and it fills with the accent; more than
+one primary on a dashboard warns in development. Drawer actions are secondary too.
+
+```ts excerpt
+dashboardAction({ key: "retry", label: "Retry failed runs", emphasis: "primary", run: retryFailed });
+```
+
 Set `hideActionsBar: true` on the dashboard to suppress the bar these render in.
 
 ## DrawerAction

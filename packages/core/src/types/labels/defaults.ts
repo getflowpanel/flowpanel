@@ -129,7 +129,7 @@ export const DEFAULT_LABELS: {
   },
   drawer: {
     close: "Close",
-    viewDetails: "Open full page →",
+    viewDetails: "Open full page",
     loading: "Loading…",
     noRows: "No {resource}.",
     noWidgets: "No widgets configured.",
@@ -140,7 +140,7 @@ export const DEFAULT_LABELS: {
     unknownResource: "Unknown resource: {resource}",
     tabCount: "{label} · {count}",
   },
-  related: { openList: "Open list →" },
+  related: { openList: "Open list" },
   form: {
     editTitle: "Edit {label}",
     createTitle: "New {label}",
@@ -196,8 +196,8 @@ export const DEFAULT_LABELS: {
     event: "{n} event",
     events: "{n} events",
     folded: "×{n}",
-    older: "Older →",
-    newest: "← Newest",
+    older: "Older",
+    newest: "Newest",
   },
   heatmap: {
     summary: "{total} in the last {days} days",
@@ -216,8 +216,8 @@ export const DEFAULT_LABELS: {
     queryTitle: "{resource}: {operation} failed",
     queryHint: "Check the column list and the database schema. Details are in the server log.",
     requestId: "Request {id}",
-    widgetTitle: "Widget failed",
-    widgetHint: "Couldn't load this widget.",
+    widgetTitle: "Couldn't load this widget",
+    widgetHint: "Its query failed. Retry, or look in the server log.",
     retry: "Retry",
   },
   palette: {

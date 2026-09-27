@@ -9,7 +9,7 @@ import { ListCard } from "../ListCard";
 afterEach(cleanup);
 
 describe("banner list", () => {
-  it("marks each row with a glyph as well as a colour, and tints by the worst", () => {
+  it("leads with the first row, lists the rest as dot lines and rules the card by the worst", () => {
     const { container } = render(
       <ListCard
         variant="banner"
@@ -21,18 +21,41 @@ describe("banner list", () => {
         more={{ label: "2 more", href: "/admin/system" }}
       />,
     );
-    const glyphs = [...container.querySelectorAll("[data-fp-glyph]")].map(
-      (node) => node.textContent,
-    );
-    expect(glyphs).toEqual(["✕", "▲", "●"]);
-    expect(container.querySelector("[data-fp-banner]")?.getAttribute("data-fp-banner")).toBe("err");
+    expect(container.querySelector("[data-fp-glyph]")).toBeNull();
+    const card = container.querySelector("[data-fp-banner]") as HTMLElement;
+    expect(card.getAttribute("data-fp-banner")).toBe("err");
+    expect(card.className).toContain("border-l-fp-err");
+    expect(card.className).not.toMatch(/bg-fp-err/);
+    const lead = screen.getByText("Scraper down");
+    expect(lead.className).toContain("text-lg");
+    expect(lead.className).toContain("text-fp-text-1");
+    const rest = screen.getByText("Bans on kwork");
+    expect(rest.className).toContain("text-fp-text-2");
+    expect(rest.closest("li")?.querySelector("[data-tone-dot]")?.className).toContain("bg-fp-warn");
     expect(screen.getByText("3 hours ago · kwork")).toBeTruthy();
     expect(screen.getByRole("link", { name: "2 more" }).getAttribute("href")).toBe("/admin/system");
   });
 
-  it("says all clear with a check when nothing is on fire", () => {
+  it("leads with the worst row when the rows arrive unsorted", () => {
+    render(
+      <ListCard
+        variant="banner"
+        rows={[
+          { text: "Slow sync", tone: "info" },
+          { text: "Bans on kwork", tone: "warn" },
+          { text: "Scraper down", tone: "err" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Scraper down").className).toContain("text-lg");
+    expect(screen.getByText("Slow sync").className).toContain("text-fp-text-2");
+  });
+
+  it("says all clear in one quiet line, with no rule, when nothing is on fire", () => {
     const { container } = render(<ListCard variant="banner" rows={[]} allClear="All clear" />);
-    expect(screen.getByText("All clear")).toBeTruthy();
+    expect(screen.getByText("All clear").className).toContain("text-fp-text-2");
+    expect(container.textContent).not.toContain("✓");
+    expect(container.querySelector("[data-fp-banner]")?.className).not.toContain("border-l-");
     expect(container.querySelector("[data-fp-banner]")?.getAttribute("data-fp-banner")).toBe(
       "clear",
     );
@@ -85,13 +108,22 @@ describe("banner list", () => {
     expect(trail.className).toContain("break-words");
   });
 
-  it("marks a resolved row with an ok glyph, not the info dot", () => {
+  it("marks a resolved row with an ok dot and draws no rule for it", () => {
     const { container } = render(
-      <ListCard variant="banner" rows={[{ text: "Webhook recovered", tone: "ok" }]} />,
+      <ListCard
+        variant="banner"
+        rows={[
+          { text: "All scrapers up", tone: "info" },
+          { text: "Webhook recovered", tone: "ok" },
+        ]}
+      />,
     );
-    const glyph = container.querySelector("[data-fp-glyph]");
-    expect(glyph?.textContent).toBe("✓");
-    expect(glyph?.className).toContain("text-fp-ok-text");
+    const dot = screen
+      .getByText("Webhook recovered")
+      .closest("li")
+      ?.querySelector("[data-tone-dot]");
+    expect(dot?.className).toContain("bg-fp-ok");
+    expect(container.querySelector("[data-fp-banner]")?.className).not.toContain("border-l-");
   });
 
   it("says each row's tone to a screen reader, in the admin's language", () => {

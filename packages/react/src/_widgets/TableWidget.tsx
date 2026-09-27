@@ -3,17 +3,20 @@ import type { WidgetCaption } from "@flowpanel/core";
 import type * as React from "react";
 import { DataTable, type DataTableColumn } from "../_data/DataTable";
 import { Card, CardContent, CardHeader } from "../_layout/Card";
+import { useLabels } from "../_provider/LabelsContext";
 import type { RealtimeChannels } from "../hooks/useRealtimeRefresh";
 import { RealtimeRefresh } from "../hooks/useRealtimeRefresh";
 import { useRowHrefClick } from "../hooks/useRowNavigation";
+import { QUIET_LINK } from "../lib/label-text";
 import { CaptionLine } from "./CaptionLine";
+import { EmptyLine } from "./EmptyLine";
 
 export interface TableWidgetProps<Row extends Record<string, unknown>> {
   label?: string;
   rows: Row[];
   columns: DataTableColumn<Row>[];
   rowKey: keyof Row & string;
-  /** Rendered instead of the table when `rows` is empty. A string becomes its title. */
+  /** One line in place of the table when `rows` is empty. Default: `labels.widget.empty`. */
   emptyState?: React.ReactNode;
   onRowClick?: (row: Row) => void;
   /** Per-row destinations, indexed like `rows`. `null` leaves that row inert. */
@@ -27,13 +30,14 @@ export interface TableWidgetProps<Row extends Record<string, unknown>> {
   realtime?: RealtimeChannels;
   /** The line under the title: a cut range, freshness or coverage. */
   caption?: WidgetCaption;
+  /** `"compact"` sets 40px rows. */
+  density?: "comfortable" | "compact";
 }
 
 export function TableWidget<Row extends Record<string, unknown>>(props: TableWidgetProps<Row>) {
   const { hrefs, rows, emptyState } = props;
+  const { widget } = useLabels();
   const onRowClick = useRowHrefClick(rows, hrefs) ?? props.onRowClick;
-  const customEmpty =
-    rows.length === 0 && emptyState !== undefined && typeof emptyState !== "string";
 
   return (
     <Card className="h-full overflow-hidden">
@@ -44,22 +48,15 @@ export function TableWidget<Row extends Record<string, unknown>>(props: TableWid
             <CaptionLine caption={props.caption} />
           </span>
           {props.seeAllHref ? (
-            <a
-              href={props.seeAllHref}
-              className="shrink-0 text-xs font-normal text-fp-accent hover:underline"
-            >
+            <a href={props.seeAllHref} className={`shrink-0 text-xs font-normal ${QUIET_LINK}`}>
               {props.seeAllLabel}
             </a>
           ) : null}
         </CardHeader>
       ) : null}
-      {customEmpty ? (
-        <CardContent
-          className={
-            props.label || props.caption ? "pt-0 text-xs text-fp-text-3" : "text-xs text-fp-text-3"
-          }
-        >
-          {emptyState}
+      {rows.length === 0 ? (
+        <CardContent className={props.label || props.caption ? "pt-0" : ""}>
+          <EmptyLine>{emptyState ?? widget.empty}</EmptyLine>
         </CardContent>
       ) : (
         <DataTable
@@ -71,8 +68,8 @@ export function TableWidget<Row extends Record<string, unknown>>(props: TableWid
           page={1}
           pageSize={rows.length}
           {...(onRowClick ? { onRowClick } : {})}
+          {...(props.density ? { density: props.density } : {})}
           {...(props.prerenderedCells ? { prerenderedCells: props.prerenderedCells } : {})}
-          {...(typeof emptyState === "string" ? { emptyTitle: emptyState } : {})}
         />
       )}
       {props.realtime ? <RealtimeRefresh channels={props.realtime} /> : null}

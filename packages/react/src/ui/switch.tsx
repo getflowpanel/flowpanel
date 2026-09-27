@@ -12,7 +12,7 @@ export const Switch = /* @__PURE__ */ named(
     <SwitchPrimitives.Root
       ref={ref}
       className={cn(
-        "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-fp-bg-1 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-fp-accent data-[state=unchecked]:bg-fp-border-2 data-[state=unchecked]:hover:bg-fp-text-3/50",
+        "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 focus-visible:ring-offset-2 focus-visible:ring-offset-fp-bg-1 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-fp-accent data-[state=unchecked]:bg-fp-border-2 data-[state=unchecked]:hover:bg-fp-text-3/50",
         className,
       )}
       {...props}

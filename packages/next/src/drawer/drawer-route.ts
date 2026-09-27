@@ -75,6 +75,8 @@ export type SerializedDrawerTab =
 export interface DrawerPayload {
   row: Record<string, unknown>;
   header: string;
+  /** The line under the title, from `drawer.subtitle`. */
+  subtitle?: string;
   /** The resource's display label, so the drawer never shows the raw registry name. */
   resourceLabel: string;
   width: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
@@ -278,6 +280,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
         const payload: DrawerPayload = {
           row: projectedRow,
           header,
+          ...(drawer.subtitle ? { subtitle: String(drawer.subtitle(projectedRow) ?? "") } : {}),
           resourceLabel:
             (resource.options.label as string | undefined) ?? humanize(String(resourceName)),
           width: drawer.width ?? "lg",

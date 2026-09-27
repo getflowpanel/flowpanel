@@ -41,10 +41,21 @@ describe("MetricCard", () => {
     expect(screen.getByText("healthy")).toBeTruthy();
   });
 
-  it("renders delta with upward caret for positive", () => {
-    render(<MetricCard label="Visits" value={100} delta={{ value: 0.123, vs: "prev week" }} />);
-    expect(screen.getByText(/▲/)).toBeTruthy();
-    expect(screen.getByText(/prev week/)).toBeTruthy();
+  it("renders a rise as plain signed text, with no pill and no caret", () => {
+    const { container } = render(
+      <MetricCard label="Visits" value={100} delta={{ value: 0.123, vs: "prev week" }} />,
+    );
+    const delta = container.querySelector("[data-delta]") as HTMLElement;
+    expect(delta.textContent).toBe("+12.3% prev week");
+    expect(delta.className).not.toMatch(/rounded-full|bg-fp-/);
+    expect(screen.queryByText(/▲|▼/)).toBeNull();
+  });
+
+  it("leaves an immaterial change uncoloured even when it is good news", () => {
+    const { container } = render(
+      <MetricCard label="Visits" value={103} delta={{ value: 0.03, vs: "prev" }} />,
+    );
+    expect(container.querySelector("[data-delta='good']")?.className).toContain("text-fp-text-3");
   });
 
   it("reads a fall as good news for goodWhen: down", () => {
@@ -56,7 +67,7 @@ describe("MetricCard", () => {
       />,
     );
     expect(container.querySelector(".text-fp-ok-text")).toBeTruthy();
-    expect(screen.getByText(/▼/)).toBeTruthy();
+    expect(screen.getByText(/−20%/)).toBeTruthy();
   });
 
   it("reads a rise as bad news for goodWhen: down", () => {
@@ -95,7 +106,7 @@ describe("MetricCard", () => {
     const { container } = render(
       <MetricCard label="Replies" value={4} delta={{ value: 3, vs: "prev", previous: 1 }} />,
     );
-    expect(screen.getByText(/\+3 · prev/)).toBeTruthy();
+    expect(screen.getByText(/\+3 prev/)).toBeTruthy();
     expect(screen.getByText("was 1")).toBeTruthy();
     expect(container.querySelector("[data-delta='good']")).toBeTruthy();
   });
@@ -109,11 +120,11 @@ describe("MetricCard", () => {
         delta={{ value: 0.075, vs: "prev", previous: 0.4 }}
       />,
     );
-    expect(screen.getByText(/\+3 pp · prev/)).toBeTruthy();
+    expect(screen.getByText(/\+3 pp prev/)).toBeTruthy();
     expect(screen.getByText("was 40%")).toBeTruthy();
   });
 
-  it("renders a near-zero change without a glyph or a colour", () => {
+  it("renders a near-zero change without a sign or a colour", () => {
     const { container } = render(
       <MetricCard label="Visits" value={100} delta={{ value: 0.001, vs: "prev" }} />,
     );

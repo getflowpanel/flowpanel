@@ -359,7 +359,7 @@ required: the `--fp-*` values live on the FlowPanel root, not on `:root`.
 For tone-driven markup, `toneTextClass` and `toneFillClass` map every `Tone` to the class the
 built-in cards use. Import them from `@flowpanel/kit` in a server component and from
 `@flowpanel/kit/react` in a client one; both hold the same classes. `default` fills with the
-accent, as a default bar does; use `muted` for a grey dot.
+data colour, as a default bar does; use `muted` for a grey dot.
 
 ### Change design tokens
 
@@ -375,13 +375,55 @@ Override tokens on the FlowPanel root so the host application remains unaffected
 }
 ```
 
+The default palette is graphite greys with an ink accent for the one action a screen asks
+for, one calm blue for data and desaturated state tones. Every text token reads at 4.5:1 or
+more on every surface in both schemes, and borders, chart colours and the focus ring at 3:1.
+In dark mode the page (`--fp-bg-2`) is the darkest plane, with cards and the nav (`--fp-bg-1`)
+one step up and fills (`--fp-bg-3`) above them.
+
+Action and data colours are separate. `--fp-accent` paints primary buttons, the focus ring and
+selected controls; `--fp-data` paints bars, funnels, sparklines, heat cells, a single-series
+chart and a `default`-toned dot. `--fp-data` follows `--fp-chart-1`, so a bar and the first
+line of a chart agree: set `--fp-chart-1` to recolour both, or `--fp-data` alone to part them.
+A host that sets `theme.accent` or `accentDark` and no `--fp-data` gets data in that accent, as
+in 0.3.0; set `--fp-data` in `cssVars` to keep them apart.
+
+`tone: "accent"` badges write in `--fp-accent-badge-text`, which the default palette sets to
+the ink accent, so they read like body text on a faint tint. Set `--fp-accent-badge-text` when
+your accent should show in them.
+
+`theme.cssVars` and `theme.cssVarsDark` are typed `ThemeTokens`: the token names complete in
+an editor, and any other `--fp-*` key still passes.
+
 Color values are HSL triplets unless the source stylesheet states otherwise. Prefer semantic tokens—background, text, border, accent, success, warning, error, chart palette—over selectors tied to component markup.
 
 The full, current token list is the generated stylesheet or the package stylesheet it is based on. Keeping a second hand-written token table in docs would drift.
 
+### Set the typeface
+
+`--fp-font-sans` reaches the admin root and every portal (drawer, dialogs, menus), so a font
+set there applies everywhere. With `next/font`, hand it the family the loader generates:
+
+```ts excerpt
+import { IBM_Plex_Sans } from "next/font/google";
+
+const plex = IBM_Plex_Sans({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600"] });
+
+defineAdmin({
+  theme: { cssVars: { "--fp-font-sans": plex.style.fontFamily } },
+});
+```
+
+`next/font` self-hosts and preloads the files, so no CDN link is needed. Numbers in tables and
+cards already use tabular figures.
+
 ### Support dark mode
 
 FlowPanel uses its namespaced theme attribute rather than recoloring the host `.dark` tree. Configure `theme.mode` as `light`, `dark`, or `auto`; use `theme.accentDark` when the light accent lacks contrast on dark surfaces. Use `theme.cssVarsDark` for dark-only semantic foreground, surface, and border tokens.
+
+The admin page renders a `theme-color` meta for each scheme from `--fp-bg-2` (your
+`cssVars`/`cssVarsDark` value when you set one), and the theme toggle points the browser chrome
+at the chosen scheme.
 
 Test custom text/background and status pairs in both modes. Theme tokens make visual consistency possible, but the application still owns contrast and accessibility for its chosen values and custom content.
 

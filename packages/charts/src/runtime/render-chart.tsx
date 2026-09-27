@@ -55,7 +55,7 @@ export function chartFrame(
   return (
     <a
       href={drilldown}
-      className="block h-full rounded-fp-lg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+      className="block h-full rounded-fp-lg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
       {...(label ? { "aria-label": label } : {})}
     >
       {card}

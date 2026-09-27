@@ -74,6 +74,27 @@ describe("formatTick — the admin's formatting", () => {
       "hour",
       resolveFormatting({ timeZone: "Asia/Bangkok" }),
     );
-    expect(format(instant)).toBe("2026-09-23 06:30");
+    expect(format(instant)).toBe("Sep 23 06:30");
+  });
+});
+
+describe("ticks inside one year", () => {
+  const days = [{ d: "2026-09-01" }, { d: "2026-09-02" }, { d: "2026-09-03" }];
+
+  it("drop the year every tick would repeat", () => {
+    const format = buildTickFormatter(days, "d", undefined);
+    expect(format("2026-09-02")).toBe("Sep 2");
+    const ru = buildTickFormatter(days, "d", undefined, resolveFormatting({ locale: "ru-RU" }));
+    expect(ru("2026-09-02")).toBe("2 сент.");
+  });
+
+  it("keep the clock for an hourly axis", () => {
+    const hours = [{ t: "2026-09-22T10:00:00Z" }, { t: "2026-09-22T11:00:00Z" }];
+    expect(buildTickFormatter(hours, "t", "hour")("2026-09-22T11:00:00Z")).toBe("Sep 22 11:00");
+  });
+
+  it("keep the year when the range crosses one", () => {
+    const format = buildTickFormatter([{ d: "2025-12-31" }, { d: "2026-01-01" }], "d", "day");
+    expect(format("2026-01-01")).toBe("2026-01-01");
   });
 });

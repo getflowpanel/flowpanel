@@ -10,6 +10,7 @@ import {
   type ResolvedFormatting,
   type Tone,
 } from "../lib/format";
+import { LABEL_TEXT } from "../lib/label-text";
 import { toneTextClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
@@ -44,15 +45,13 @@ export function StatGroupCard({ label, stats, caption }: StatGroupCardProps) {
     <Card className="h-full">
       <CardHeading label={label} caption={caption} />
       <CardContent className={label || caption ? "pt-0" : ""}>
-        <dl className="grid grid-cols-2 gap-3">
+        <dl className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-x-4 gap-y-3">
           {stats.map((s, index) => {
             const text = statText(s.value, s.format, formatting);
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: stats are ordered and labels may repeat
               <div key={index} data-tone={s.tone} className="min-w-0">
-                <dt className="break-words text-xs text-fp-text-3 uppercase tracking-wide">
-                  {s.label}
-                </dt>
+                <dt className={cn("break-words", LABEL_TEXT)}>{s.label}</dt>
                 <dd
                   className={cn(
                     TWO_LINES,

@@ -181,6 +181,7 @@ export async function renderTableWidget(
       {...(hrefs ? { hrefs } : {})}
       {...(seeAll ? { seeAllHref: seeAll, seeAllLabel: ctx.labels.widget.seeAll } : {})}
       {...(captionLine ? { caption: captionLine } : {})}
+      {...(options.density ? { density: options.density } : {})}
     />
   );
 }

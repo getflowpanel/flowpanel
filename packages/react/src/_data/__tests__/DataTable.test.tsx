@@ -174,7 +174,8 @@ describe("DataTable", () => {
       />,
     );
     expect(screen.getByText("No users")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Export" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Density/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Export" })).toBeNull();
   });
 
   it("renders skeleton rows when loading", () => {

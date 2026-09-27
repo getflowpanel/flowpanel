@@ -53,7 +53,7 @@ function Section({
 }): React.JSX.Element {
   return (
     <div className="border-t border-fp-border-1 px-3 py-2.5">
-      <div className="mb-1.5 text-[10px] uppercase tracking-wide text-fp-text-2">{title}</div>
+      <div className="mb-1.5 text-xs text-fp-text-2">{title}</div>
       {children}
       {hint ? <div className="mt-1.5 text-[10px] text-fp-text-3">{hint}</div> : null}
     </div>

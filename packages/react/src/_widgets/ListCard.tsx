@@ -3,8 +3,10 @@ import type * as React from "react";
 import { Card, CardContent } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
-import { toneFillClass, toneTextClass } from "../lib/tone-classes";
+import { QUIET_LINK } from "../lib/label-text";
+import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { EmptyLine } from "./EmptyLine";
 import { ListBanner } from "./ListBanner";
 import { ToneWord } from "./ToneWord";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
@@ -30,16 +32,12 @@ export interface ListCardProps {
   emptyState?: React.ReactNode;
   /** The line under the title: a cut range, freshness or coverage. */
   caption?: WidgetCaption;
-  /** `"banner"`: severity glyphs, a tint by the worst row, and `allClear` when empty. */
+  /** `"banner"`: the first row as a sentence, the rest as dot lines, a rule in the worst tone, `allClear` when empty. */
   variant?: "list" | "banner";
   /** A banner's line when there are no rows. */
   allClear?: string;
   /** The line that folds the rows past a limit. */
   more?: { label: string; href?: string };
-}
-
-function listTextClass(tone: Tone | undefined): string {
-  return tone === "warn" || tone === "err" ? toneTextClass[tone] : "text-fp-text-1";
 }
 
 /** A short feed, as a `list()` widget. */
@@ -51,7 +49,7 @@ export function ListCard(props: ListCardProps) {
       <CardHeading label={label} caption={caption} />
       <CardContent className={label || caption ? "pt-0" : ""}>
         {rows.length === 0 ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           <ul className="divide-y divide-fp-border-1">
             {rows.map((row, index) => (
@@ -73,7 +71,7 @@ export function ListCard(props: ListCardProps) {
                   ) : null}
                   <ToneWord tone={row.tone} />
                   <span
-                    className={cn(TWO_LINES, "min-w-0 text-sm", listTextClass(row.tone))}
+                    className={cn(TWO_LINES, "min-w-0 text-sm text-fp-text-1")}
                     {...fullTextTitle(row.text)}
                   >
                     {row.href ? (
@@ -103,7 +101,7 @@ export function ListCard(props: ListCardProps) {
         {more ? (
           <div className="mt-2 text-xs">
             {more.href ? (
-              <a href={more.href} className="text-fp-accent hover:underline">
+              <a href={more.href} className={QUIET_LINK}>
                 {more.label}
               </a>
             ) : (

@@ -27,7 +27,7 @@ export interface DateRangeFilterProps {
 }
 
 const NAV_BUTTON =
-  "fp-press inline-flex h-7 w-7 items-center justify-center rounded-fp-sm text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40";
+  "fp-press inline-flex h-7 w-7 items-center justify-center rounded-fp-sm text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60";
 
 export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps) {
   const { dateRange } = useLabels();
@@ -161,7 +161,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
         }}
       >
         <PopoverTrigger
-          className="fp-press flex h-11 min-w-0 items-center gap-2 rounded-full text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:h-8"
+          className="fp-press flex h-11 min-w-0 items-center gap-2 rounded-full text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:h-8"
           aria-label={label ? formatLabel(dateRange.fieldLabel, { label }) : dateRange.label}
         >
           <span className={cn("truncate", trigger ? "text-fp-text-1" : "text-fp-text-3")}>
@@ -176,7 +176,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
             type="button"
             onClick={clear}
             aria-label={dateRange.clear}
-            className="fp-press -mr-3 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fp-text-3 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:mr-0 sm:h-6 sm:w-6"
+            className="fp-press -mr-3 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fp-text-3 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:mr-0 sm:h-6 sm:w-6"
           >
             <X aria-hidden className="h-3.5 w-3.5" />
           </button>
@@ -200,7 +200,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                       onClick={() => commit(p.range())}
                       aria-pressed={isActive}
                       className={cn(
-                        "fp-press flex w-full items-center justify-between gap-2 whitespace-nowrap rounded-fp px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+                        "fp-press flex w-full items-center justify-between gap-2 whitespace-nowrap rounded-fp px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
                         isActive
                           ? "bg-fp-bg-3 font-medium text-fp-text-1"
                           : "text-fp-text-2 hover:bg-fp-bg-3/60 hover:text-fp-text-1",
@@ -280,7 +280,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                 clear();
                 setOpen(false);
               }}
-              className="fp-press rounded-fp-sm px-2 py-1 text-xs font-medium text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+              className="fp-press rounded-fp-sm px-2 py-1 text-xs font-medium text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
             >
               {dateRange.clearAction}
             </button>

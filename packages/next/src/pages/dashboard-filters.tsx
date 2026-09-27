@@ -45,7 +45,7 @@ export function DashboardFilters({ filters }: DashboardFiltersProps) {
         <button
           type="button"
           onClick={() => go(Object.fromEntries(filters.map((filter) => [filter.key, null])))}
-          className="inline-flex min-h-11 items-center rounded-fp-sm px-2 text-xs text-fp-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:min-h-6"
+          className="inline-flex min-h-11 items-center rounded-fp-sm px-2 text-xs text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:min-h-6"
         >
           {words.filters.clear}
         </button>

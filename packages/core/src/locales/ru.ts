@@ -111,7 +111,7 @@ export const RU_LABELS: ResolvedLabels = {
   },
   drawer: {
     close: "Закрыть",
-    viewDetails: "Открыть страницу →",
+    viewDetails: "Открыть страницу",
     loading: "Загрузка…",
     noRows: "Нет записей: {resource}.",
     noWidgets: "Виджетов нет.",
@@ -122,7 +122,7 @@ export const RU_LABELS: ResolvedLabels = {
     unknownResource: "Неизвестный ресурс: {resource}",
     tabCount: "{label} · {count}",
   },
-  related: { openList: "Открыть список →" },
+  related: { openList: "Открыть список" },
   form: {
     editTitle: "Редактирование: {label}",
     createTitle: "Новая запись: {label}",
@@ -178,8 +178,8 @@ export const RU_LABELS: ResolvedLabels = {
     event: "{n} событие",
     events: "{n} событий",
     folded: "×{n}",
-    older: "Раньше →",
-    newest: "← К новым",
+    older: "Раньше",
+    newest: "К новым",
   },
   heatmap: {
     summary: "{total} за последние {days} дн.",
@@ -198,8 +198,8 @@ export const RU_LABELS: ResolvedLabels = {
     queryTitle: "{resource}: операция «{operation}» не выполнена",
     queryHint: "Проверьте список колонок и схему базы данных. Подробности — в логе сервера.",
     requestId: "Запрос {id}",
-    widgetTitle: "Виджет не загрузился",
-    widgetHint: "Не удалось загрузить данные виджета.",
+    widgetTitle: "Не удалось загрузить виджет",
+    widgetHint: "Запрос не выполнился. Повторите или посмотрите лог сервера.",
     retry: "Повторить",
   },
   palette: {

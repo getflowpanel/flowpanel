@@ -6,6 +6,7 @@ import type { Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
 import { barWidthClass } from "./bar-width";
 import { CardHeading } from "./CardHeading";
+import { EmptyLine } from "./EmptyLine";
 
 export interface ChecklistCardItem {
   key: string;
@@ -107,7 +108,7 @@ export function ChecklistCard({
           </div>
         ) : null}
         {items.length === 0 ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           <ol className={cn("flex flex-col", steps ? "gap-3 md:flex-row" : "gap-2")}>
             {items.map((item) => (

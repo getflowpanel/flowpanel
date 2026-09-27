@@ -48,16 +48,97 @@ function stubFetch(statuses: string[]) {
   return calls;
 }
 
+function header(): HTMLElement {
+  const title = screen
+    .getAllByRole("heading", { level: 2 })
+    .find((h) => !h.className.includes("sr-only"));
+  return title?.parentElement as HTMLElement;
+}
+
 describe("DrawerHost", () => {
-  it("shows the resource's label in the subtitle, not the raw registry name", async () => {
+  it("shows the resource's label in the subtitle, never the raw registry name or the id", async () => {
     stubFetch(["active"]);
     render(
       <ToastProvider>
         <DrawerHost />
       </ToastProvider>,
     );
-    await vi.waitFor(() => expect(screen.getByText(/Customers · 27/)).toBeTruthy());
-    expect(screen.queryByText(/^users · 27$/)).toBeNull();
+    await vi.waitFor(() => expect(screen.getByText("Customers")).toBeTruthy());
+    expect(header().textContent).not.toContain("27");
+  });
+
+  it("names the resource in the heading when the row fails to load", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ error: "boom" }), { status: 500 })),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    await vi.waitFor(() => expect(screen.getByText("boom")).toBeTruthy());
+    const heading = header().querySelector("h2");
+    expect(heading?.textContent).toBe("Users");
+    expect(header().textContent).toBe("Users");
+  });
+
+  it("shows the subtitle the drawer computed from the row", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ ...payload("active"), subtitle: "Pro plan, since May" })),
+      ),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    await vi.waitFor(() => expect(screen.getByText("Pro plan, since May")).toBeTruthy());
+    expect(screen.queryByText("Customers")).toBeNull();
+  });
+
+  it("holds a skeleton title while the row loads, not the id", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    expect(header().querySelector("h2 .fp-skeleton")).toBeTruthy();
+    expect(header().textContent).not.toContain("27");
+  });
+
+  it("draws its actions as secondary buttons, a destructive one in the error colour", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              ...payload("active"),
+              actions: [
+                { key: "resend", label: "Resend" },
+                { key: "ban", label: "Ban", variant: "destructive" },
+              ],
+            }),
+          ),
+      ),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    const resend = await vi.waitFor(() => screen.getByRole("button", { name: "Resend" }));
+    expect(resend.className).toContain("border-fp-border-2");
+    expect(resend.className).not.toContain("bg-fp-accent");
+    expect(screen.getByRole("button", { name: "Ban" }).className).toContain("text-fp-err-text");
   });
 
   it("re-fetches the row after an action succeeds", async () => {

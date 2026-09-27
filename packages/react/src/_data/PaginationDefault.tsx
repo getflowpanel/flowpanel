@@ -59,7 +59,7 @@ export function pageItems(page: number, pages: number, siblings = 1): (number | 
 }
 
 const STEP =
-  "fp-press inline-flex h-11 w-11 items-center justify-center rounded-fp text-fp-text-2 transition-colors hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 disabled:pointer-events-none disabled:opacity-40 sm:h-8 sm:w-8";
+  "fp-press inline-flex h-11 w-11 items-center justify-center rounded-fp text-fp-text-2 transition-colors hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 disabled:pointer-events-none disabled:opacity-40 sm:h-8 sm:w-8";
 
 /** Pure renderer — no context dependency. Used as the registry default. */
 export function DefaultPagination({
@@ -123,7 +123,7 @@ export function DefaultPagination({
             aria-label={formatLabel(labels.page, { n: item })}
             aria-current={item === page ? "page" : undefined}
             className={cn(
-              "fp-press inline-flex h-11 min-w-11 items-center justify-center rounded-fp px-1.5 tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:h-8 sm:min-w-8",
+              "fp-press inline-flex h-11 min-w-11 items-center justify-center rounded-fp px-1.5 tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:h-8 sm:min-w-8",
               item === page
                 ? "border border-fp-accent font-medium text-fp-accent-badge-text"
                 : "text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1",

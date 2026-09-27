@@ -71,8 +71,8 @@ delta's own `goodWhen`, the 0.3.0 spelling, still wins and is deprecated. `bars(
 `max` and rows with `key`, `previous` and `share`. `Threshold`, `toneFor()` and `tones` on
 `metric`, `stat`, `bars` and cells declare once where a number turns bad, reading which way is bad
 from the order of `warn` and `err`; `defineAdmin` throws when a `goodWhen` contradicts it.
-`MetricResult` and `StatResult` take a `volume`. `FunnelOptions.alertDrop` (default `0.5`) marks
-the worst drop-off. A `list` takes `limit` and `more`, its rows `key` (else they are keyed by
+`MetricResult` and `StatResult` take a `volume`. `FunnelOptions.alertDrop` marks
+the worst drop-off past it; unset, no step is toned. A `list` takes `limit` and `more`, its rows `key` (else they are keyed by
 position), `count` and `since`, and `banner()` is a list ordered by severity with an `allClear`
 line. A `kv` or `statGroup` resolver may return `{ value, tone?, href? }`, which wins over the
 item's static `tone` and `href`.
@@ -138,3 +138,10 @@ publisher resolves instead of rejecting when Redis fails, and reports through `o
 line per error kind. A `ctx.query` function whose first parameter is optional without a default
 now receives the context. `WidgetConfig` has four new kinds — `timeline`, `heatmap`, `checklist`
 and `tracker` — and a hand-built `WidgetContext` needs the new members.
+
+**Design options.** `DashboardAction.emphasis` and `update.emphasis` pick the one primary button
+on a screen; the rest are secondary. `SectionConfig.align` sets how cards in a row size, a `table`
+widget takes `density`, `empty.filtered` words a list that search or filters emptied, and
+`drawer.subtitle(row)` sets the line under a drawer's title. Chart options take `colors` per
+series. `theme.cssVars` and `cssVarsDark` are typed `ThemeTokens`, so token names complete. The
+built-in labels lose their `→`/`←` and the widget error reads "Couldn't load this widget".

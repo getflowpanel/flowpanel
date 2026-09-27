@@ -6,7 +6,7 @@ createFlowpanel, generated pages, route handlers, protected controllers and real
 
 Docs: https://flowpanel.tech/docs/reference/next-runtime
 
-Documented types: createFlowpanel, Flowpanel, FlowpanelOptions, handlers, stream, ApplyActionResultOptions, ResourceActions, MakeActionsOptions, FormActionResult, adminWidgetContext, AdminWidgetContextOptions, resolveWidget
+Documented types: createFlowpanel, Flowpanel, FlowpanelOptions, flowpanelMetadata, handlers, stream, ApplyActionResultOptions, ResourceActions, MakeActionsOptions, FormActionResult, adminWidgetContext, AdminWidgetContextOptions, resolveWidget
 
 `@flowpanel/kit/next` binds one config to every Next.js surface: the generated
 page, HTTP handlers, request-scoped protected controllers, client metadata and
@@ -28,6 +28,7 @@ export const flowpanel = createFlowpanel(config);
 // app/admin/[[...slug]]/page.tsx
 import { flowpanel } from "@/src/flowpanel";
 
+export const generateMetadata = flowpanel.metadata;
 export default flowpanel.page;
 ```
 
@@ -44,6 +45,7 @@ export const runtime = "nodejs";
 | Member | Purpose |
 | --- | --- |
 | `page` | Generated catch-all page component. |
+| `metadata` | The page's `generateMetadata`: a `title` per dashboard, list and record. |
 | `handlers` | `FlowpanelHandlers` for REST and generated-UI routes. |
 | `request()` | Current request's protected `FlowpanelRequest`. |
 | `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/client`. |
@@ -110,6 +112,25 @@ export default Flowpanel(config);
 | Property | Type | Notes |
 | --- | --- | --- |
 | `shell?` | `ShellConfig \| ShellMode` | Override `config.shell` at render time. |
+
+#### flowpanelMetadata
+
+`flowpanelMetadata(config)` is the `generateMetadata` for the same page. It titles a
+dashboard or page by its `label`, a list by the resource's plural name, a record by its
+singular name, a create page with `labels.form.createTitle` and a missing page with
+`labels.notFound.title`; your layout's `title.template` wraps it. A page the caller may not
+open, or a request without a session, gets no title. The page itself renders a
+`theme-color` meta per scheme from `--fp-bg-2`, with no export needed, so leave
+`viewport.themeColor` unset on the admin's layout.
+
+```ts excerpt
+// app/admin/[[...slug]]/page.tsx
+import { Flowpanel, flowpanelMetadata } from "@flowpanel/kit/next";
+import config from "@/flowpanel.config";
+
+export const generateMetadata = flowpanelMetadata(config);
+export default Flowpanel(config);
+```
 
 `FlowpanelContent(config, opts?)` is the same renderer without the shell, for
 embedding the admin inside chrome you already have. Its second parameter is

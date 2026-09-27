@@ -44,6 +44,11 @@ resource(orders, {
 `DrawerWidth` is `"sm" | "md" | "lg" | "xl" | "2xl" | "full"`, defaulting to
 `"lg"`.
 
+The line under the title is the resource's label; `subtitle(row)` replaces it with a line
+of your own, such as a plan and a signup date. The panel never shows the row's raw id there,
+and while the row loads its title is a skeleton. The panel takes focus on open, so no focus
+ring lands on the close button, and its actions are secondary buttons.
+
 Without `tabs`, the panel renders `fields` as a flat key/value list. Field
 labels come from the matching column's `label`, and any column with a `render`
 function is rendered with it — so a status badge looks the same in the drawer as

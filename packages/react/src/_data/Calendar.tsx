@@ -226,7 +226,7 @@ export function Calendar({
                     aria-pressed={selected}
                     aria-label={dayFmt.format(d)}
                     className={cn(
-                      "h-10 w-10 rounded-full text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+                      "h-10 w-10 rounded-full text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
                       outside ? "text-fp-text-3/50" : "text-fp-text-1",
                       !selected && "hover:bg-fp-bg-3",
                       selected && "bg-fp-accent font-medium text-fp-accent-text hover:bg-fp-accent",

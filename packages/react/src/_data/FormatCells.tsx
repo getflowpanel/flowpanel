@@ -13,11 +13,11 @@ import { toneTextClass } from "../lib/tone-classes";
 
 const HEAT_CLASS = [
   "",
-  "bg-fp-accent/10",
-  "bg-fp-accent/20",
-  "bg-fp-accent/30",
-  "bg-fp-accent/40",
-  "bg-fp-accent/50",
+  "bg-fp-data/10",
+  "bg-fp-data/20",
+  "bg-fp-data/30",
+  "bg-fp-data/40",
+  "bg-fp-data/50",
 ] as const;
 
 export interface HeatCellProps {

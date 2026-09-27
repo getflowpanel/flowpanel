@@ -6,6 +6,11 @@ import type { ActionFormFieldErrors } from "./action-form-field";
 import type { SerializedDashboardAction } from "./dashboard-action";
 import { useActionRunner } from "./use-action-runner";
 
+function buttonVariant(action: SerializedDashboardAction): "default" | "destructive" | "outline" {
+  if (action.emphasis !== "primary") return "outline";
+  return action.variant === "destructive" ? "destructive" : "default";
+}
+
 /** Top-bar action row rendered in the dashboard header when `DashboardConfig.actions` is non-empty. */
 export interface DashboardActionsBarProps {
   encodedPath: string;
@@ -58,7 +63,10 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
         <Button
           key={a.key}
           size="sm"
-          variant={a.variant === "destructive" ? "destructive" : "default"}
+          variant={buttonVariant(a)}
+          {...(a.emphasis !== "primary" && a.variant === "destructive"
+            ? { className: "text-fp-err-text" }
+            : {})}
           disabled={pending === a.key}
           onClick={() => onClick(a)}
           aria-busy={pending === a.key || undefined}

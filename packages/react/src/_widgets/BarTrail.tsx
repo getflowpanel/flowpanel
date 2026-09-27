@@ -50,8 +50,10 @@ export function BarTrail(props: BarTrailProps) {
         </span>
       )}
       {change === null ? null : (
-        <span data-delta={change.mood} className={MOOD_TEXT[change.mood]}>
-          {change.glyph ? `${change.glyph} ` : ""}
+        <span
+          data-delta={change.mood}
+          className={change.material ? MOOD_TEXT[change.mood] : MOOD_TEXT.flat}
+        >
           {change.text}
         </span>
       )}

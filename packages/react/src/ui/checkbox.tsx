@@ -13,7 +13,7 @@ export const Checkbox = /* @__PURE__ */ named(
     <CheckboxPrimitive.Root
       ref={ref}
       className={cn(
-        "peer group inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-fp-sm text-fp-accent-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 focus-visible:ring-offset-1 focus-visible:ring-offset-fp-bg-1 disabled:cursor-not-allowed disabled:opacity-50 sm:h-4 sm:w-4",
+        "peer group inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-fp-sm text-fp-accent-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 focus-visible:ring-offset-1 focus-visible:ring-offset-fp-bg-1 disabled:cursor-not-allowed disabled:opacity-50 sm:h-4 sm:w-4",
         className,
       )}
       {...props}

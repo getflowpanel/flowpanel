@@ -56,7 +56,7 @@ export function DemoSandboxNotice({ readOnly }: { readOnly: boolean }) {
             type="button"
             onClick={reset}
             disabled={pending}
-            className="ml-auto inline-flex min-h-11 shrink-0 items-center rounded-fp-sm px-2.5 font-medium text-fp-accent transition-colors hover:bg-fp-accent/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 disabled:cursor-wait disabled:opacity-60 sm:min-h-8"
+            className="ml-auto inline-flex min-h-11 shrink-0 items-center rounded-fp-sm px-2.5 font-medium text-fp-accent transition-colors hover:bg-fp-accent/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 disabled:cursor-wait disabled:opacity-60 sm:min-h-8"
           >
             {pending ? "Restoring…" : "Reset data"}
           </button>

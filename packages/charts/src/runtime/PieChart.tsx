@@ -15,7 +15,7 @@ import { DEFAULT_CHART_HEIGHT } from "./defaults";
 export function PieChart({ data, options }: { data: unknown[]; options: PieChartOptions }) {
   const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
-  if (data.length === 0) return <ChartEmptyState height={height} />;
+  if (data.length === 0) return <ChartEmptyState />;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RcPie {...CHART_SURFACE_PROPS}>

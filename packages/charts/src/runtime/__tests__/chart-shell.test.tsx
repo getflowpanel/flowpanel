@@ -42,7 +42,7 @@ const data = [{ status: "ok", count: 3 }];
 
 describe("ChartEmptyState", () => {
   it("takes its wording from the admin's labels", () => {
-    expect(textOf(ChartEmptyState({ height: 240 }))).toContain("No data yet");
+    expect(textOf(ChartEmptyState())).toContain("No data yet");
   });
 });
 

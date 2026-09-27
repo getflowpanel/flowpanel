@@ -52,9 +52,9 @@ export function ReviewQueue({ pending, outcomes }: ReviewQueueProps) {
 
       <a
         href="/admin/matches"
-        className="mx-3 mt-3 mb-3 rounded-fp px-3 py-2.5 text-sm font-medium text-fp-accent transition-colors hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+        className="mx-3 mt-3 mb-3 rounded-fp px-3 py-2.5 text-sm font-medium text-fp-accent transition-colors hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
       >
-        Open review queue <span aria-hidden>→</span>
+        Open review queue
       </a>
     </section>
   );

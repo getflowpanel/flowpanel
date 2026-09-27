@@ -65,6 +65,11 @@ export interface SectionConfig {
    * @defaultValue "cards"
    */
   variant?: "cards" | "strip";
+  /**
+   * How cards in one row size: `"stretch"` to the tallest, `"start"` each to its content.
+   * Default: a `table` or `list` keeps its own height, every other card stretches.
+   */
+  align?: "stretch" | "start";
   widgets: WidgetConfig[];
 }
 

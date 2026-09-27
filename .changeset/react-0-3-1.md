@@ -15,7 +15,7 @@ legend and a summary read once; linked days take one tab stop and move with the 
 `TrackerCard` (toned blocks with accessible names, summaries aligned on desktop and wrapped on a
 phone, a cut label or summary whole in its tooltip), `ListBanner` for
 `list({ variant: "banner" })`, whose rows clamp their text and their count, age and meta to two
-lines so they fit a phone, and mark an `ok` row with a green ✓, `StatStrip` (numbers in one
+lines so they fit a phone, `StatStrip` (numbers in one
 hairline band drawn on the cells, so an unfilled last line stays blank, two per line on a phone,
 with `plain` on `MetricCard` and `StatCard`) and `ExpiredCard`, which takes `plain` inside a
 strip, as `ErrorCard` now does. Every widget card takes a `caption`, shown under its title by `CaptionLine` with a ▲ when
@@ -68,3 +68,18 @@ releases as lower bounds, so an app bundles one `@radix-ui/react-primitive` and 
 `key`, so repeated labels raise no duplicate-key error. A `bars` `max` of zero or less is unset,
 and a funnel reads no drop into a negative step. Unused `ui` wrappers no longer land in an app's
 bundle, and the build produces the same chunks from the same source.
+
+**Default look.** A graphite palette with an ink accent, one calm data colour (`--fp-data`, after
+`--fp-chart-1`) for bars, funnels, sparklines and heat, desaturated tones, a dark mode whose page
+sits below its cards, smaller radii and no resting shadow; every text token reads at 4.5:1 or
+more. Labels, table headers and nav groups are sentence case, the active nav item and tab are
+neutral, card links are secondary text, and badges have 4 px corners. A healthy status such as
+`active` is neutral, `disabled` and `canceled` are muted, and only failures, warnings and work
+in progress are coloured. Metric and bar
+changes are plain signed text coloured from a 5 % change, list lines keep the body colour, the
+banner leads with its worst row as a sentence on a neutral card with a tone rule, empty cards
+take one line, and error cards name the failure in the error colour. A funnel tones a step only
+past `alertDrop`.
+
+**Tables and drawers.** Compact rows are 40 px, Export hides at 0 rows, a phone folds a page past
+10 cards behind one button, and a long drawer value wraps. The drawer takes focus on open.

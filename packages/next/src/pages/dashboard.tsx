@@ -3,6 +3,7 @@ import type {
   DateRangePreset,
   RequestContext,
   ResolvedAdminConfig,
+  SectionConfig,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
@@ -21,7 +22,11 @@ import {
   StatStrip,
 } from "@flowpanel/react";
 import { Suspense } from "react";
-import { encodeDashboardPath, serializeDashboardAction } from "../actions/dashboard-action";
+import {
+  encodeDashboardPath,
+  serializeDashboardAction,
+  warnManyPrimary,
+} from "../actions/dashboard-action";
 import { filterActionsByAccess } from "../runtime/action-helpers";
 import { activeFilters, filterChoices } from "../runtime/dashboard-filters";
 import {
@@ -139,6 +144,7 @@ export async function DashboardPage({
   const actions = (await filterActionsByAccess(dashboard.actions, reqCtx)).map(
     serializeDashboardAction,
   );
+  warnManyPrimary(actions, `dashboard "${dashboard.path}"`);
   const encodedPath = encodeDashboardPath(dashboard.path);
 
   return (
@@ -175,6 +181,7 @@ export async function DashboardPage({
             config={config}
             reqCtx={reqCtx}
             dashboardPath={dashboard.path}
+            {...(sec.align ? { align: sec.align } : {})}
             owner={widgetOwner(w, dashboard.path, `section ${idx + 1} widget ${wIdx + 1}`)}
             timer={timer}
             plain={strip && stripWidget(w, `dashboard "${dashboard.path}"`, idx + 1)}
@@ -218,9 +225,13 @@ interface SlotProps {
   plain?: boolean;
 }
 
-function WidgetSlot({ dashboardPath, ...slot }: SlotProps & { dashboardPath: string }) {
+function WidgetSlot({
+  dashboardPath,
+  align,
+  ...slot
+}: SlotProps & { dashboardPath: string; align?: SectionConfig["align"] }) {
   return (
-    <div className={slot.plain ? "flex min-w-0" : widgetSlotClassName(slot.widget)}>
+    <div className={slot.plain ? "flex min-w-0" : widgetSlotClassName(slot.widget, align)}>
       <WidgetErrorBoundary
         widgetId={describeOwner(slot.owner)}
         dashboardId={dashboardPath}

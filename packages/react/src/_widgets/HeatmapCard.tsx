@@ -6,6 +6,7 @@ import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { EmptyLine } from "./EmptyLine";
 
 export interface HeatmapCardCell {
   key: string;
@@ -97,7 +98,7 @@ export function HeatmapCard({
           {summary}
         </p>
         {emptyState ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           <div className="overflow-x-auto">
             <div className="inline-flex gap-1">

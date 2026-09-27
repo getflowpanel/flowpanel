@@ -49,12 +49,18 @@ resource(orders, {
 | --- | --- | --- |
 | `width?` | `DrawerWidth` | Panel width. Default: `"lg"`. |
 | `header?` | `(row: Row) => string` | Panel title. Defaults to the row's key. |
+| `subtitle?` | `(row: Row) => string` | The line under the title. Defaults to the resource's label. |
 | `fields?` | `DrawerFieldList<Row>` | Fields shown when no `tabs` are declared. `"*"` shows every column. |
 | `tabs?` | `DrawerTab<Row>[]` | Tabs to render instead of a flat field list. |
 | `actions?` | `DrawerAction<Row>[]` | Buttons rendered in the panel footer. |
 
 `DrawerWidth` is `"sm" | "md" | "lg" | "xl" | "2xl" | "full"`, defaulting to
 `"lg"`.
+
+The line under the title is the resource's label; `subtitle(row)` replaces it with a line
+of your own, such as a plan and a signup date. The panel never shows the row's raw id there,
+and while the row loads its title is a skeleton. The panel takes focus on open, so no focus
+ring lands on the close button, and its actions are secondary buttons.
 
 Without `tabs`, the panel renders `fields` as a flat key/value list. Field
 labels come from the matching column's `label`, and any column with a `render`
@@ -211,6 +217,7 @@ you render the drawer yourself.
 | --- | --- | --- |
 | `row` | `Record<string, unknown>` |  |
 | `header` | `string` |  |
+| `subtitle?` | `string` | The line under the title, from `drawer.subtitle`. |
 | `resourceLabel` | `string` | The resource's display label, so the drawer never shows the raw registry name. |
 | `width` | `"sm" \| "md" \| "lg" \| "xl" \| "2xl" \| "full"` |  |
 | `fields` | `SerializedFieldList` |  |

@@ -13,9 +13,11 @@ export type GoodWhen = NonNullable<MetricDelta["goodWhen"]>;
 export type DeltaMood = "good" | "bad" | "flat";
 
 export interface DeltaView {
-  glyph: "▲" | "▼" | "";
+  /** Signed: `+12%`, `−3`, `+2 pp`; unsigned inside the neutral band. */
   text: string;
   mood: DeltaMood;
+  /** Large enough to colour: a relative change of at least `MATERIAL`. */
+  material: boolean;
 }
 
 /** How a change's numbers print: a value in its own format, a fraction, percentage points. */
@@ -27,6 +29,8 @@ export interface DeltaPrint {
 
 /** A relative change inside this fraction reads as no change. */
 export const NEUTRAL_BAND = 0.01;
+/** A relative change past this fraction is worth colouring. */
+export const MATERIAL = 0.05;
 /** Below this count a percentage exaggerates, so the absolute change is shown. */
 export const SMALL_BASE = 20;
 
@@ -58,7 +62,7 @@ function differenceText(
   return `${sign}${print.value(Math.abs(current - previous))}`;
 }
 
-/** How a change reads: its glyph, its text, and whether it is good news, bad news or neither. */
+/** How a change reads: its signed text, whether it is good news, and whether it is large enough to say so. */
 export function describeDelta(
   delta: { value: number; previous?: number | undefined; goodWhen?: GoodWhen | undefined },
   current: number | string,
@@ -66,12 +70,12 @@ export function describeDelta(
   print: DeltaPrint,
 ): DeltaView {
   const flat = Math.abs(delta.value) < NEUTRAL_BAND;
-  const glyph = flat ? "" : delta.value > 0 ? "▲" : "▼";
   const sign = flat ? "" : delta.value > 0 ? "+" : "−";
   const text =
     differenceText(delta.previous, current, format, print, sign) ??
-    print.percent(Math.abs(delta.value));
-  if (flat || delta.goodWhen === "neutral") return { glyph, text, mood: "flat" };
+    `${sign}${print.percent(Math.abs(delta.value))}`;
+  const material = Math.abs(delta.value) >= MATERIAL;
+  if (flat || delta.goodWhen === "neutral") return { text, mood: "flat", material };
   const good = delta.goodWhen === "down" ? delta.value < 0 : delta.value > 0;
-  return { glyph, text, mood: good ? "good" : "bad" };
+  return { text, mood: good ? "good" : "bad", material };
 }

@@ -102,3 +102,13 @@ the page. Custom and query-error cards share the widget card's frame and fill th
 height; an expired widget and one that fails inside a strip, on a dashboard or in a record page's
 `stats`, drop that frame, and `WidgetErrorBoundary` takes `plain` for it. "Clear filters" is a
 full-size touch target on a phone.
+
+**Design.** `flowpanelMetadata(config)` and `runtime.metadata` title each admin page the caller
+may open, and nothing for a visitor who is not signed in; the page renders a `theme-color` meta
+per scheme. Dashboard actions and the edit button are secondary unless one is
+`emphasis: "primary"`, with a development warning for two, and drawer actions are always
+secondary. A host that sets `theme.accent` or `accentDark` without its own `--fp-data` keeps
+its bars, sparklines and heat cells in that accent. An empty list tells no
+data from no matches and offers to clear the filters, a table or list card keeps its own height
+in a row, the drawer's subtitle is `drawer.subtitle(row)` or the resource's label with a skeleton
+title while it loads, and a 404 marks no nav item.

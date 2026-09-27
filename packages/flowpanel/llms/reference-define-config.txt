@@ -108,11 +108,11 @@ See [Auth with better-auth](/docs/guides/auth-with-better-auth) and
 | Property | Type | Notes |
 | --- | --- | --- |
 | `brand?` | `{ name?: string; logo?: string; href?: string }` | Product name, logo and home link shown in the shell header. |
-| `accent?` | `string` | Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. |
-| `accentDark?` | `string` | Dark-mode accent override, same format as `accent`. Custom accents tuned for light surfaces usually fail WCAG contrast on dark ones — pass a re-lightened triplet here to keep both schemes accessible. |
+| `accent?` | `string` | Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. Data fills take it too unless `cssVars` sets `--fp-data`. |
+| `accentDark?` | `string` | Dark-mode accent override, same format as `accent`. Custom accents tuned for light surfaces usually fail WCAG contrast on dark ones — pass a re-lightened triplet here to keep both schemes accessible. Dark data fills take it too unless `cssVarsDark` sets `--fp-data`. |
 | `mode?` | `"light" \| "dark" \| "auto"` | Initial color scheme. `"auto"` follows the operating system. |
-| `cssVars?` | `Record<string, string>` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
-| `cssVarsDark?` | `Record<string, string>` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
+| `cssVars?` | `ThemeTokens` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
+| `cssVarsDark?` | `ThemeTokens` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
 | `components?` | `Partial<FlowpanelComponentSlots>` | Replace built-in components. See the theme-slots guide. |
 | `user?` | `(s: Session \| null) => \| { name?: string; email?: string; avatar?: string; items?: Array<{ label: string; href?: string; variant?: "default" \| "destructive" }>; signOut?: string; } \| undefined` | What the account menu shows for the current session. Return `undefined` to render no menu at all — the usual choice when there is no session. |
 

@@ -67,3 +67,18 @@ expectAssignable<DashboardLink>({ dashboard: "/parsing", filter: { platform: "kw
 expectNotAssignable<DashboardLink>({ dashboard: "/parsing", filters: { platform: "kwork" } });
 expectError(bars({ filter: "platform", query: async () => [] }));
 expectError<DashboardFilter>({ key: "a", options: [] });
+
+expectAssignable<import("@flowpanel/core").SectionConfig>({ align: "start", widgets: [] });
+expectError<import("@flowpanel/core").SectionConfig>({ align: "top", widgets: [] });
+expectAssignable<import("@flowpanel/core").DashboardAction>({
+  key: "sync",
+  label: "Sync",
+  emphasis: "primary",
+  run: async () => ({ ok: true }),
+});
+expectError<import("@flowpanel/core").DashboardAction>({
+  key: "sync",
+  label: "Sync",
+  emphasis: "loud",
+  run: async () => ({ ok: true }),
+});

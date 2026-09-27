@@ -49,7 +49,7 @@ describe("plain cards", () => {
     expect(cell().hasAttribute("data-plain")).toBe(true);
     expect(cell().className).not.toContain("border");
     rerender(<ErrorCard error={new Error("boom")} />);
-    expect(cell().className).toContain("border-fp-err/40");
+    expect(cell().className).toContain("border-fp-border-1");
     expect(cell().className).toContain("h-full");
   });
 });

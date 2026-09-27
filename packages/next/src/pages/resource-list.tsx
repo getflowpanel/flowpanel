@@ -22,7 +22,7 @@ import {
   ResourceListSearch,
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
-import { Button, FlowpanelIcon, PageHeader } from "@flowpanel/react";
+import { PageHeader } from "@flowpanel/react";
 import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { resourceNavName } from "../runtime/nav";
 import {
@@ -44,6 +44,7 @@ import { wireViews } from "../runtime/saved-views";
 import { scopeBinding } from "../runtime/scope-binding";
 import { resolveResourceListActions } from "./resource-list-actions";
 import { buildResourceListCreateAction } from "./resource-list-create-action";
+import { listEmptyProps } from "./resource-list-empty";
 
 export interface ResourceListPageProps {
   config: ResolvedAdminConfig;
@@ -251,26 +252,10 @@ export async function ResourceListPage({
                 resource.options.realtime === true ? `resource.${name}` : resource.options.realtime,
             }
           : {})}
-        emptyTitle={resource.options.empty?.title ?? `No ${displayPlural}`}
-        {...(resource.options.empty?.description
-          ? { emptyDescription: resource.options.empty.description }
-          : {})}
-        {...(resource.options.empty?.icon
-          ? {
-              emptyIcon: <FlowpanelIcon name={resource.options.empty.icon} className="h-6 w-6" />,
-            }
-          : {})}
-        {...(resource.options.empty?.action
-          ? {
-              emptyAction: (
-                <Button asChild>
-                  <a href={resource.options.empty.action.href}>
-                    {resource.options.empty.action.label}
-                  </a>
-                </Button>
-              ),
-            }
-          : {})}
+        {...listEmptyProps(config, resource, name, displayPlural, {
+          filtered: effectiveSearch !== "" || Object.keys(filters).length > 0,
+          params: searchParams,
+        })}
       />
     </>
   );

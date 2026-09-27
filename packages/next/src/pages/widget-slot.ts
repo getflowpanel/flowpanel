@@ -20,11 +20,23 @@ export function widgetSpanClassName(widget: WidgetConfig): string | undefined {
   return span ? widgetSpanClass[span] : undefined;
 }
 
-/** A metric needs a flex grid item for a definite stretched height; other widgets keep their layout. */
-export function widgetSlotClassName(widget: WidgetConfig): string | undefined {
-  const span = widgetSpanClassName(widget);
-  if (widget.kind !== "metric") return span;
-  return span ? `flex ${span}` : "flex";
+const OWN_HEIGHT = new Set<WidgetConfig["kind"]>(["table", "list"]);
+
+/**
+ * A metric needs a flex grid item for a definite stretched height. A table or a list keeps its
+ * own height unless the section says `align: "stretch"`; `align: "start"` does that for all.
+ */
+export function widgetSlotClassName(
+  widget: WidgetConfig,
+  align?: SectionConfig["align"],
+): string | undefined {
+  const start = align === "start" || (align === undefined && OWN_HEIGHT.has(widget.kind));
+  const classes = [
+    widget.kind === "metric" ? "flex" : undefined,
+    widgetSpanClassName(widget),
+    start ? "self-start" : undefined,
+  ].filter(Boolean);
+  return classes.length > 0 ? classes.join(" ") : undefined;
 }
 
 /** A grid's columns: as declared, else 12 when any widget sets `span`, else `fallback`. */

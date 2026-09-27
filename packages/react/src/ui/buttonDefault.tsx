@@ -6,7 +6,7 @@ import { cn } from "../lib/cn";
 import { named } from "../lib/named";
 
 export const buttonVariants = cva(
-  "fp-press inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-fp text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 focus-visible:ring-offset-1 focus-visible:ring-offset-fp-bg-1 disabled:pointer-events-none disabled:opacity-50",
+  "fp-press inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-fp text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 focus-visible:ring-offset-1 focus-visible:ring-offset-fp-bg-1 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {

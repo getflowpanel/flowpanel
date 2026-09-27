@@ -97,7 +97,7 @@ export function AdminTabs({
                   {active ? (
                     <span
                       aria-hidden
-                      className="absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-fp-accent"
+                      className="absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-fp-text-1"
                     />
                   ) : null}
                 </Link>

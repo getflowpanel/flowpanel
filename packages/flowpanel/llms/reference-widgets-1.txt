@@ -414,8 +414,10 @@ metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compar
 | `goodWhen?` | `"up" \| "down" \| "neutral"` | Which direction is good news. `"down"` colours a fall green; `"neutral"` never colours. Default: `"up"`. |
 | `previous?` | `number` | The value compared against, shown muted beside the change. A count under 20 shows the absolute change (`+3`); a `percent` metric shows percentage points (`+3 pp`). |
 
-The card reads a change the way a founder does. Inside ±1 % it shows no arrow and no
-colour, and the percentage prints in the admin's locale. With `previous` set it shows
+The card reads a change the way a founder does: plain 12 px text under the value, signed
+(`+12%`, `−3`) and followed by `vs`, with no pill or arrow. Inside ±1 % it shows no sign, and
+only a change of 5 % or more takes the good or bad colour; a smaller one stays muted. The
+percentage prints in the admin's locale. With `previous` set it shows
 that value muted beside the change (`labels.widget.previous`, `"was {value}"`). A count
 whose `previous` is under 20 shows the absolute change — `+3` rather than `+150%` — and a
 `format: "percent"` metric shows its change in percentage points (`+3 pp`,
@@ -452,6 +454,7 @@ and format; an object overrides them.
 | `seeAll?` | `boolean \| Link` | Link the card heading. `true` links the `resource`'s own list; a `Link` names any target, and a string is used as written. |
 | `limit?` | `number` | Row cap. An explicit value caps both paths; the default applies to the `resource` read, while a `query`'s own rows are left alone unless you set it. Default: `10`. |
 | `emptyState?` | `ReactNode` | Rendered in place of the table body when there are zero rows. |
+| `density?` | `"comfortable" \| "compact"` | Row height: `"compact"` sets 40px rows for a card that lists a few. Default: `"comfortable"`. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
@@ -476,9 +479,11 @@ there still renders but never acts.
 returning `null` leaves that row inert. `seeAll: true` links the card heading to
 the resource's list; a string is used as the href verbatim.
 
-Every card's `emptyState` takes text or any node. `emptyState` replaces the table body when there are no rows — a string becomes the
-empty state's title, any other node is rendered in the card instead of the table.
-With none set the admin's `labels.widget.empty` is used. `limit` caps the rows: it
+Every card's `emptyState` takes text or any node. With no rows it replaces the table with
+one 14 px line where the rows would start, so an empty card stays short; with none set the
+admin's `labels.widget.empty` is used. `density: "compact"` sets 40 px rows. In a dashboard
+row a table or list card keeps its own height instead of stretching to its neighbours; a
+section's `align` changes that. `limit` caps the rows: it
 defaults to 10 on the `resource` path and applies to a `query`'s own rows only
 when you set it.
 
@@ -758,9 +763,10 @@ bars({
 #### funnel
 
 Stages in order. Give counts only: the card computes each step's share of the
-first step and its drop-off from the one before. The step with the largest drop-off is
-marked with the `warn` tone — label and bar — when it loses more than `alertDrop`
-of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
+first step and its drop-off from the one before, both in muted text. Colour comes only
+from a threshold you set: with `alertDrop`, the step with the largest drop-off is marked
+with the `warn` tone — label, bar and drop — when it loses more than that share of the step
+before. Without it no step is toned.
 
 `FunnelOptions`
 
@@ -769,7 +775,7 @@ of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
 | `label?` | `string` | Card heading. |
 | `query` | `(ctx: WidgetContext) => Promise<FunnelStep[]>` |  |
 | `format?` | `NumericFormat` | How step values are rendered. |
-| `alertDrop?` | `number` | Share lost from the step before, as a fraction, past which the step with the largest drop is marked with the `warn` tone. `1` turns the mark off. Default: `0.5`. |
+| `alertDrop?` | `number` | Share lost from the step before, as a fraction, past which the step with the largest drop is marked with the `warn` tone. Unset, no step is toned. |
 | `emptyState?` | `ReactNode` | Shown instead of the steps when the query returns nothing. Text or any node; the drawer shows only text. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
@@ -811,11 +817,12 @@ the rest into one "N more" line that leads to `more`.
 ##### banner
 
 "Anything on fire": `list({ variant: "banner", span: 12 })`. Rows are ordered err, then
-warn, then info, and within each by `count`. Each carries a glyph as well as a colour
-(✕ ▲ ●), so it reads without colour vision, and a screen reader hears the tone's word
+warn, then info, and within each by `count`. The first row reads as one 18 px sentence;
+the rest are dot lines in secondary text, and a screen reader hears each row's tone word
 from `labels.widget.tones` ("Error", "Warning", "OK", "Info"); a list row's dot and a stale
-caption's glyph say theirs the same way. The strip is tinted by its worst row. With no rows it shows one ✓ `allClear` line (`labels.widget.allClear`), which is the
-answer a founder wants.
+caption's glyph say theirs the same way. The card stays neutral with a 3 px rule on its left
+edge in the worst row's tone, `err` or `warn`. With no rows it shows one quiet `allClear`
+line (`labels.widget.allClear`), which is the answer a founder wants.
 
 ```ts excerpt
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });

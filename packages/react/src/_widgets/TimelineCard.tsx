@@ -4,8 +4,10 @@ import type { ReactNode } from "react";
 import { Card, CardContent } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
+import { QUIET_LINK } from "../lib/label-text";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { EmptyLine } from "./EmptyLine";
 
 export interface TimelineCardChip {
   key: string;
@@ -103,7 +105,7 @@ function Line({ line }: { line: TimelineCardLine }) {
   return (
     <li>
       <details>
-        <summary className="flex min-h-6 cursor-pointer list-none items-center rounded-fp-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-6 cursor-pointer list-none items-center rounded-fp-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 [&::-webkit-details-marker]:hidden">
           <Head line={line} expandable />
         </summary>
         {line.items ? (
@@ -116,9 +118,8 @@ function Line({ line }: { line: TimelineCardLine }) {
           <div className="ml-4 mt-1 space-y-1 text-xs">
             <p className="whitespace-pre-wrap break-words text-fp-text-2">{line.body}</p>
             {line.href ? (
-              <a href={line.href} className="inline-block text-fp-accent hover:underline">
+              <a href={line.href} className={cn("inline-block", QUIET_LINK)}>
                 {line.title}
-                <span aria-hidden> →</span>
               </a>
             ) : null}
           </div>
@@ -153,7 +154,7 @@ export function TimelineCard({
                 className={cn(
                   "rounded-full border px-2.5 py-0.5 text-xs",
                   chip.current
-                    ? "border-fp-accent bg-fp-accent/10 text-fp-text-1"
+                    ? "border-fp-border-2 bg-fp-bg-3 text-fp-text-1"
                     : "border-fp-border-1 text-fp-text-2 hover:bg-fp-bg-2",
                 )}
               >
@@ -163,7 +164,7 @@ export function TimelineCard({
           </div>
         ) : null}
         {groups.length === 0 ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           groups.map((group) => (
             <section key={group.key} className="space-y-1.5">
@@ -184,14 +185,14 @@ export function TimelineCard({
         {newest || older ? (
           <div className="flex justify-between gap-3 text-xs">
             {newest ? (
-              <a href={newest.href} className="text-fp-accent hover:underline">
+              <a href={newest.href} className={QUIET_LINK}>
                 {newest.label}
               </a>
             ) : (
               <span />
             )}
             {older ? (
-              <a href={older.href} className="text-fp-accent hover:underline">
+              <a href={older.href} className={QUIET_LINK}>
                 {older.label}
               </a>
             ) : null}

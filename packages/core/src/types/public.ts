@@ -1,5 +1,6 @@
 export type {
   ActionConfirm,
+  ActionEmphasis,
   ActionInput,
   ActionResult,
   ActionVariant,
@@ -25,12 +26,14 @@ export type {
   AuditEvent,
   AuthConfig,
   FlowpanelComponentSlots,
+  FlowpanelToken,
   RateLimitConfig,
   ResolvedAdminConfig,
   SecurityConfig,
   ShellConfig,
   ShellMode,
   ThemeConfig,
+  ThemeTokens,
 } from "./config";
 export type {
   ActionContext,

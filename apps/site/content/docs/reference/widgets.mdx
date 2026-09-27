@@ -318,8 +318,10 @@ metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compar
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricDelta" />
 
-The card reads a change the way a founder does. Inside ±1 % it shows no arrow and no
-colour, and the percentage prints in the admin's locale. With `previous` set it shows
+The card reads a change the way a founder does: plain 12 px text under the value, signed
+(`+12%`, `−3`) and followed by `vs`, with no pill or arrow. Inside ±1 % it shows no sign, and
+only a change of 5 % or more takes the good or bad colour; a smaller one stays muted. The
+percentage prints in the admin's locale. With `previous` set it shows
 that value muted beside the change (`labels.widget.previous`, `"was {value}"`). A count
 whose `previous` is under 20 shows the absolute change — `+3` rather than `+150%` — and a
 `format: "percent"` metric shows its change in percentage points (`+3 pp`,
@@ -356,9 +358,11 @@ there still renders but never acts.
 returning `null` leaves that row inert. `seeAll: true` links the card heading to
 the resource's list; a string is used as the href verbatim.
 
-Every card's `emptyState` takes text or any node. `emptyState` replaces the table body when there are no rows — a string becomes the
-empty state's title, any other node is rendered in the card instead of the table.
-With none set the admin's `labels.widget.empty` is used. `limit` caps the rows: it
+Every card's `emptyState` takes text or any node. With no rows it replaces the table with
+one 14 px line where the rows would start, so an empty card stays short; with none set the
+admin's `labels.widget.empty` is used. `density: "compact"` sets 40 px rows. In a dashboard
+row a table or list card keeps its own height instead of stretching to its neighbours; a
+section's `align` changes that. `limit` caps the rows: it
 defaults to 10 on the `resource` path and applies to a `query`'s own rows only
 when you set it.
 
@@ -560,9 +564,10 @@ bars({
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="funnel" />
 
 Stages in order. Give counts only: the card computes each step's share of the
-first step and its drop-off from the one before. The step with the largest drop-off is
-marked with the `warn` tone — label and bar — when it loses more than `alertDrop`
-of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
+first step and its drop-off from the one before, both in muted text. Colour comes only
+from a threshold you set: with `alertDrop`, the step with the largest drop-off is marked
+with the `warn` tone — label, bar and drop — when it loses more than that share of the step
+before. Without it no step is toned.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="FunnelOptions" />
 
@@ -587,11 +592,12 @@ the rest into one "N more" line that leads to `more`.
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="banner" />
 
 "Anything on fire": `list({ variant: "banner", span: 12 })`. Rows are ordered err, then
-warn, then info, and within each by `count`. Each carries a glyph as well as a colour
-(✕ ▲ ●), so it reads without colour vision, and a screen reader hears the tone's word
+warn, then info, and within each by `count`. The first row reads as one 18 px sentence;
+the rest are dot lines in secondary text, and a screen reader hears each row's tone word
 from `labels.widget.tones` ("Error", "Warning", "OK", "Info"); a list row's dot and a stale
-caption's glyph say theirs the same way. The strip is tinted by its worst row. With no rows it shows one ✓ `allClear` line (`labels.widget.allClear`), which is the
-answer a founder wants.
+caption's glyph say theirs the same way. The card stays neutral with a 3 px rule on its left
+edge in the worst row's tone, `err` or `warn`. With no rows it shows one quiet `allClear`
+line (`labels.widget.allClear`), which is the answer a founder wants.
 
 ```ts excerpt
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
@@ -672,7 +678,7 @@ then opens from a chevron and keeps its link under the body.
 Consecutive events of one day and one kind with the same `fold` key — the title by
 default — fold into one line such as "Orders in feed ×37 09:12–18:40", with the single
 events inside. A chip per kind (`kinds`, an `enumOf` or `{ key: [label, tone] }`) filters
-the page, and "Older →" pages back. Chips and paging are links under
+the page, and "Older" pages back. Chips and paging are links under
 `?<id>.kind=` and `?<id>.before=`; `id` defaults to the detail tab's key, else to
 `"timeline"`, `"timeline-2"` and on in page order, so two timelines on one page never share
 paging. Two that set the same `id` fail at `defineAdmin`. The card is rendered on
@@ -693,7 +699,7 @@ timeline({
 
 On a record page a timeline pages through the whole history, or back to its `maxRange` cut;
 `detail.dateRange` does not narrow it. A timeline cannot sit in a drawer tab: `defineAdmin` points at a detail tab.
-"Older →" continues from the last event's moment and skips the events already shown at that
+"Older" continues from the last event's moment and skips the events already shown at that
 exact moment by count, so when one source holds several rows with the same timestamp at a
 page boundary, a database that returns ties in no fixed order may repeat or drop one of them.
 
@@ -874,7 +880,20 @@ a number, or a bigint or a string that parses as one — which is exactly the co
 `series({ by })` returns, the `top` rest included; a label or other non-numeric column is
 left out. `labels` names each series in the legend and the tooltip, from a map, an `enumOf()` or a function.
 `bucket` only chooses how ticks print a date; it does not aggregate, so fold rows with
-`series({ grain })`.
+`series({ grain })`. Ticks inside one calendar year leave the year out ("Sep 2").
+
+One series is drawn in `--fp-data`; several take `--fp-chart-1` to `--fp-chart-7` in `y`
+order, and the legend writes their names in secondary text beside a coloured swatch.
+`colors` pins a series to a colour by its key, so the headline series can keep the first
+colour without moving to the front of `y`:
+
+```ts excerpt
+lineChart("Signups", signupsByPlan, {
+  x: "day",
+  y: ["trial", "paid"],
+  colors: { paid: "hsl(var(--fp-chart-1))", trial: "hsl(var(--fp-chart-2))" },
+});
+```
 
 ### areaChart
 
@@ -1016,6 +1035,11 @@ the previous value, sparklines and links stay. `columns` sets the cells per line
 shows two per line.
 Another widget kind in a strip keeps its own card and warns once in development. A record
 page's [`detail.stats`](/docs/reference/resources#record-page) renders the same strip.
+
+In a `"cards"` section a `table` or `list` card keeps its own height, so a short table beside
+a tall chart leaves no empty card; every other card stretches to the tallest in its row.
+`align: "start"` keeps every card at its content's height and `align: "stretch"` stretches
+them all.
 
 ```ts excerpt
 { variant: "strip", widgets: [newOrders, runs, successRate, bans] }

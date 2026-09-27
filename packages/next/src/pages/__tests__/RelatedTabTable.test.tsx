@@ -76,10 +76,10 @@ describe("paging a related tab", () => {
       <RelatedTabTable
         {...props}
         openListHref="/admin/scores?f_userId=u1"
-        openListLabel="Open list →"
+        openListLabel="Open list"
       />,
     );
-    const link = screen.getByRole("link", { name: "Open list →" });
+    const link = screen.getByRole("link", { name: "Open list" });
     expect(link.getAttribute("href")).toBe("/admin/scores?f_userId=u1");
   });
 

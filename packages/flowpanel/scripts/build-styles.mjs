@@ -57,6 +57,7 @@ const tailwindConfig = {
         "fp-err-text": fpColor("err-text"),
         "fp-info-text": fpColor("info-text"),
         "fp-accent-badge-text": fpColor("accent-badge-text"),
+        "fp-data": fpColor("data"),
         "fp-chart-1": fpColor("chart-1"),
         "fp-chart-2": fpColor("chart-2"),
         "fp-chart-3": fpColor("chart-3"),
