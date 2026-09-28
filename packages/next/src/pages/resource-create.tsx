@@ -6,6 +6,7 @@ import {
   formatLabel,
   mergeLabels,
   resolveOperationAccess,
+  writeTarget,
 } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
@@ -44,7 +45,7 @@ export async function ResourceCreatePage({
     return <div className="text-fp-text-3">Create is disabled for this resource.</div>;
   }
 
-  const intro = config.adapter.introspect(resource.ref);
+  const intro = config.adapter.introspect(writeTarget(resource));
   const action = buildApiHref(config, name, "create");
   const declared = declaredFormFields(resource, "create");
   const fields = declared ? await resolveFormFields(config, declared, reqCtx) : undefined;

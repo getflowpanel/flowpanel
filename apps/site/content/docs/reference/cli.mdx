@@ -66,8 +66,9 @@ What varies:
 - **Admin mount** — `/admin` by default, `/flowpanel` when `/admin` is occupied,
   or an explicit `--path /ops/admin`. Route groups are included in collision checks;
   a busy fallback stops installation before any writes.
-- **Admin layout** — imports the stylesheet under the chosen route. The existing
-  root layout is never patched. Without a shared root layout, the admin segment
+- **Admin layout** — imports the stylesheet under the chosen route and renders
+  `ThemeScript` with the `x-nonce` request header, whether or not the host has its own
+  root layout. The existing root layout is never patched. Without a shared root layout, the admin segment
   receives its own root layout. That layout reads the `x-nonce` request header and
   forwards it to `ThemeScript`, so the pre-hydration theme script survives a strict
   `script-src` policy — but only when your own middleware sets `x-nonce` on the
@@ -75,8 +76,11 @@ What varies:
   write that middleware, and with no `x-nonce` present the header read returns
   `null` and the script is rendered without a nonce, exactly as before. Reading
   `headers()` makes the admin segment dynamically rendered; it already was, because
-  `auth.session` reads the request. Existing host theme/CSP integration is left to
-  the application; `ThemeScript` accepts its nonce.
+  `auth.session` reads the request. The admin layout written into a host with its own root
+  layout reads `x-nonce` the same way. Under a strict `script-src`, your middleware must set
+  `x-nonce` there too; without it the browser blocks the theme script, and `smokeAdmin` fails
+  on the CSP console error. Your root layout's `<html>` needs `suppressHydrationWarning`, as the
+  one `init` writes has, because the script marks `<html>` before React hydrates it.
 - **Authentication** — `init` reads `package.json` for `better-auth`, `next-auth`,
   `@clerk/nextjs` or `lucia` and names what it recognised in the detected-stack
   note and the outro. When the auth module it found exports that provider's own
@@ -255,8 +259,7 @@ with a one-line note rather than an error.
 
 <CliReference command="new" />
 
-Append a `resource(...)` entry to your existing
-`flowpanel.config.ts` without re-running `init`.
+Add a resource without re-running `init`: as a `resource(...)` entry in the config, or as its own file in a split config.
 
 ```bash
 $ pnpm flowpanel new posts
@@ -277,6 +280,57 @@ line and checks that the module really exports `posts`. A miss aborts with
 exit `1` and lists what the schema does export; an unverifiable case (no
 `import * as schema`, an unresolvable specifier) warns and writes anyway.
 A resource that already exists aborts with exit `1`.
+
+When `flowpanel.config.ts` is one line — `export { default } from "@/admin/config";` — the
+command follows it through your `tsconfig` paths and edits the file it points at.
+
+### One file per resource
+
+```bash
+$ pnpm flowpanel new user_visit --dir admin/config/resources --hidden
+```
+
+`--dir` evaluates the Drizzle schema the config imports as `* as schema`, finds the table by
+its SQL name or its export name, and writes `admin/config/resources/user-visit.ts`:
+
+```ts excerpt
+import { enumOf, resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+
+const Surface = enumOf(schema.activitySurface.enumValues, { web: "web", tma: "tma" });
+
+export const userVisit = resource(schema.userVisit, {
+  hidden: true,
+  columns: [
+    "id",
+    { field: "userId", reference: { resource: "user", labelField: "name" } },
+    { field: "surface", format: Surface.format },
+    { field: "startedAt", format: { kind: "date", time: true } },
+    "touches",
+  ],
+  filters: [{ field: "surface", type: "select" }],
+  defaultSort: { field: "startedAt", dir: "desc" },
+});
+```
+
+It then imports `userVisit` in `admin/config/resources/index.ts` and appends it to the array
+that file exports, creating the index when there is none. Columns are chosen by type: a
+timestamp shows its date and time, a `date` column its day, a boolean a check mark, an enum a
+badge from an `enumOf` stub whose labels you then translate, and a foreign key — single or
+composite — becomes a `reference` labelled by the target's `name` column, else its `title`, else
+its `email`, which is what related tabs and timeline sources infer their filter from. A `reference`
+is written only when the target table already has a resource in `--dir`, because `defineAdmin`
+rejects a reference to a resource it does not know; otherwise the column stays plain and the
+command names it. The `reference` names the target the way it is registered: its own `name`
+when its file sets one, else its table name. Scaffold the tables a foreign key points at
+first. JSON, long text and `varchar` over 200 characters are left out of the list. `name`,
+`title` and `email` become search fields, and the list sorts newest first by `createdAt` or
+`startedAt`. `--hidden` keeps the resource out of the navigation; its pages and links still work.
+
+Running the command again changes nothing. A different file already at that path stops it
+before anything is written. `--dir` reads Drizzle only, so it takes neither `--table` nor
+`--kind prisma`. Without `--dir`, a config whose `resources` is imported rather than written as
+an array is left alone, and the command tells you to use `--dir`.
 
 Flags: `--table <expr>` overrides the first argument (default
 `schema.<resource>`, and skips the schema check); `--kind drizzle|prisma`

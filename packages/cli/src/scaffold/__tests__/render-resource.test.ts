@@ -1,0 +1,143 @@
+import { describe, expect, it } from "vitest";
+import type { TableDescription } from "../describe-schema";
+import { columnKind, fileBaseOf, renderResourceFile } from "../render-resource";
+
+const USER_VISIT: TableDescription = {
+  exportName: "userVisit",
+  tableName: "user_visit",
+  columns: [
+    { key: "id", dataType: "string", columnType: "PgText", primary: true },
+    {
+      key: "userId",
+      dataType: "string",
+      columnType: "PgText",
+      primary: false,
+      references: { table: "user", labelField: "name" },
+    },
+    {
+      key: "surface",
+      dataType: "string",
+      columnType: "PgEnumColumn",
+      primary: false,
+      enumValues: ["web", "tma"],
+      enumExport: "activitySurface",
+    },
+    { key: "startedAt", dataType: "date", columnType: "PgTimestamp", primary: false },
+    { key: "day", dataType: "string", columnType: "PgDateString", primary: false },
+    { key: "firstPath", dataType: "string", columnType: "PgVarchar", primary: false, length: 160 },
+    { key: "meta", dataType: "json", columnType: "PgJsonb", primary: false },
+    { key: "description", dataType: "string", columnType: "PgText", primary: false },
+    { key: "touches", dataType: "number", columnType: "PgInteger", primary: false },
+  ],
+};
+
+const USER: TableDescription = {
+  exportName: "user",
+  tableName: "user",
+  columns: [
+    { key: "id", dataType: "string", columnType: "PgText", primary: true },
+    { key: "name", dataType: "string", columnType: "PgText", primary: false },
+    { key: "email", dataType: "string", columnType: "PgText", primary: false },
+    { key: "internal", dataType: "boolean", columnType: "PgBoolean", primary: false },
+    { key: "createdAt", dataType: "date", columnType: "PgTimestamp", primary: false },
+  ],
+};
+
+describe("renderResourceFile", () => {
+  it("writes a hidden event table with a reference, an enum stub and day and time formats", () => {
+    expect(renderResourceFile(USER_VISIT, { hidden: true, schemaImport: "@/db/schema" })).toBe(
+      [
+        'import { enumOf, resource } from "@flowpanel/kit";',
+        'import * as schema from "@/db/schema";',
+        "",
+        'const Surface = enumOf(schema.activitySurface.enumValues, { web: "web", tma: "tma" });',
+        "",
+        "export const userVisit = resource(schema.userVisit, {",
+        "  hidden: true,",
+        "  columns: [",
+        '    "id",',
+        '    { field: "userId", reference: { resource: "user", labelField: "name" } },',
+        '    { field: "surface", format: Surface.format },',
+        '    { field: "startedAt", format: { kind: "date", time: true } },',
+        '    { field: "day", format: "date" },',
+        '    "firstPath",',
+        '    "touches",',
+        "  ],",
+        '  filters: [{ field: "surface", type: "select" }],',
+        '  defaultSort: { field: "startedAt", dir: "desc" },',
+        "});",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("searches label-like text and sorts by createdAt", () => {
+    expect(renderResourceFile(USER, { hidden: false, schemaImport: "../../db/schema" })).toBe(
+      [
+        'import { resource } from "@flowpanel/kit";',
+        'import * as schema from "../../db/schema";',
+        "",
+        "export const user = resource(schema.user, {",
+        "  columns: [",
+        '    "id",',
+        '    "name",',
+        '    "email",',
+        '    { field: "internal", format: "boolean" },',
+        '    { field: "createdAt", format: { kind: "date", time: true } },',
+        "  ],",
+        '  search: ["name", "email"],',
+        '  defaultSort: { field: "createdAt", dir: "desc" },',
+        "});",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("writes an inline enum when the schema exports no pgEnum for it", () => {
+    const table: TableDescription = {
+      exportName: "job",
+      tableName: "job",
+      columns: [
+        {
+          key: "state",
+          dataType: "string",
+          columnType: "SQLiteText",
+          primary: false,
+          enumValues: ["queued", "in-flight"],
+        },
+      ],
+    };
+    expect(renderResourceFile(table, { hidden: false, schemaImport: "./schema" })).toContain(
+      'const State = enumOf({ queued: "queued", "in-flight": "in-flight" });',
+    );
+  });
+});
+
+describe("columnKind", () => {
+  it("leaves out JSON, long varchar and long-text columns", () => {
+    const base = { primary: false, dataType: "string" };
+    expect(columnKind({ ...base, key: "meta", dataType: "json", columnType: "PgJsonb" })).toBe(
+      "skip",
+    );
+    expect(columnKind({ ...base, key: "bio", columnType: "PgVarchar", length: 500 })).toBe("skip");
+    expect(columnKind({ ...base, key: "prompt", columnType: "PgText" })).toBe("skip");
+    expect(columnKind({ ...base, key: "title", columnType: "PgText" })).toBe("plain");
+  });
+
+  it("tells a day from a timestamp in every dialect", () => {
+    const base = { key: "at", primary: false, dataType: "date" };
+    expect(columnKind({ ...base, columnType: "PgTimestamp" })).toBe("timestamp");
+    expect(columnKind({ ...base, columnType: "SQLiteTimestamp" })).toBe("timestamp");
+    expect(columnKind({ ...base, columnType: "MySqlDateTime" })).toBe("timestamp");
+    expect(columnKind({ ...base, columnType: "PgDate" })).toBe("date");
+    expect(columnKind({ ...base, dataType: "string", columnType: "PgDateString" })).toBe("date");
+  });
+});
+
+describe("fileBaseOf", () => {
+  it("kebab-cases the schema export", () => {
+    expect(fileBaseOf("userVisit")).toBe("user-visit");
+    expect(fileBaseOf("onboardingStepEvent")).toBe("onboarding-step-event");
+    expect(fileBaseOf("user")).toBe("user");
+  });
+});

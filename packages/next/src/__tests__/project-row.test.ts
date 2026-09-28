@@ -63,6 +63,22 @@ describe("declaredRowFields", () => {
     const r = resourceWith({ columns: ["id", "email"] });
     expect(declaredRowFields(r).has("passwordHash")).toBe(false);
   });
+
+  it("declares the fields a drawer tab's kv items read by field", () => {
+    const r = resourceWith({
+      columns: ["id"],
+      drawer: {
+        tabs: [
+          {
+            key: "p",
+            label: "P",
+            widgets: [{ kind: "kv", options: { items: [{ label: "Email", field: "email" }] } }],
+          },
+        ],
+      },
+    });
+    expect([...declaredDrawerRowFields(r)].sort()).toEqual(["email", "id"]);
+  });
 });
 
 describe("projectAuthorizedRow", () => {

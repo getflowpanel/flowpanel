@@ -1,5 +1,10 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { FlowpanelError, FlowpanelValidationError, mergeLabels } from "@flowpanel/core";
+import {
+  FlowpanelError,
+  FlowpanelValidationError,
+  mergeLabels,
+  writeTarget,
+} from "@flowpanel/core";
 import { notFoundResponse } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
@@ -24,7 +29,7 @@ function renderedFieldShapes(
   config: ResolvedAdminConfig,
   mode: "create" | "update",
 ): FormFieldShape[] {
-  const { columns } = config.adapter.introspect(resource.ref);
+  const { columns } = config.adapter.introspect(writeTarget(resource));
   const booleanColumns = new Set(columns.filter((c) => c.type === "boolean").map((c) => c.name));
   const declared = declaredFormFields(resource, mode);
   const writable = new Set(declaredWriteFields(resource, declared));
@@ -51,7 +56,7 @@ function coerceFormData(
   const raw: Record<string, unknown> = {};
   for (const [k, v] of fd.entries()) raw[k] = v;
   Object.assign(raw, readFormValues(renderedFieldShapes(resource, config, mode), fd));
-  const { columns } = config.adapter.introspect(resource.ref);
+  const { columns } = config.adapter.introspect(writeTarget(resource));
   const { values, fieldErrors } = coerceRowByColumns(columns, raw, mergeLabels(config.labels));
   for (const [k, v] of Object.entries(values)) {
     if (v === "") values[k] = null;

@@ -1,4 +1,14 @@
+import { globSync } from "node:fs";
 import { defineConfig } from "tsup";
+
+const modules = globSync("src/**/*.{ts,tsx}")
+  .filter(
+    (file) => !file.includes("/__tests__/") && !file.includes(".test.") && file !== "src/index.ts",
+  )
+  .sort();
+const entry = Object.fromEntries(
+  ["src/index.ts", ...modules].map((file) => [file.slice(4).replace(/\.tsx?$/, ""), file]),
+);
 
 export default defineConfig({
   // One output module per source module, not a single bundled barrel. With a
@@ -7,7 +17,8 @@ export default defineConfig({
   // proving the unused half dead — so an app importing only `<DataTable>`
   // still paid for the whole package. Mirroring the source tree lets the
   // consumer's bundler drop whole files. See invariant I-7.
-  entry: ["src/**/*.ts", "src/**/*.tsx", "!src/**/__tests__/**", "!src/**/*.test.*"],
+  // A fixed order, index first: tsup globs asynchronously, and entry order moves chunk boundaries.
+  entry,
   format: ["esm"],
   outExtension: () => ({ js: ".mjs" }),
   dts: true,

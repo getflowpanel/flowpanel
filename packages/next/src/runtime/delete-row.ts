@@ -4,7 +4,7 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
+import { runWithRequestContext, writeTarget } from "@flowpanel/core";
 import { scopeBinding } from "./scope-binding";
 
 /** The single delete path: honours the resource's soft-delete column and the request's bound scope. */
@@ -24,5 +24,5 @@ export async function deleteRow(
     ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
     ...scopeBinding(config, resource, reqCtx),
   };
-  await runWithRequestContext(reqCtx, () => config.adapter.delete(resource.ref, mctx));
+  await runWithRequestContext(reqCtx, () => config.adapter.delete(writeTarget(resource), mctx));
 }

@@ -111,7 +111,7 @@ describe("resolveLink — resources", () => {
 
   it("names an unknown resource or view with what is registered", () => {
     expect(() => resolveLink(config, ctx(), { resource: "scraper_runs" })).toThrow(
-      /no such resource\. Registered: scraper_run/,
+      /no such resource\. Did you mean "scraper_run"\? Registered: scraper_run/,
     );
     expect(() => resolveLink(config, ctx(), { resource: "scraper_run", view: "Errors" })).toThrow(
       /no such view\. Views: Ошибки/,
@@ -145,7 +145,7 @@ describe("resolveLink — dashboards and pages", () => {
 
   it("names an unknown dashboard with what is registered", () => {
     expect(() => resolveLink(config, ctx(), { dashboard: "/sytem" })).toThrow(
-      /no such dashboard or page\. Registered: \/, \/system, \/reports\/weekly/,
+      /no such dashboard or page\. Did you mean "\/system"\? Registered: \/, \/system, \/reports\/weekly/,
     );
   });
 });

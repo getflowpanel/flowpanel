@@ -1,12 +1,14 @@
 "use client";
+import type { WidgetCaption } from "@flowpanel/core";
 import type * as React from "react";
-import { Card, CardContent, CardHeader } from "../_layout/Card";
+import { Card, CardContent } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
 import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat } from "../lib/format";
 import { formatPercent } from "../lib/percent";
 import { toneFillClass, toneTextClass } from "../lib/tone-classes";
 import { barWidthClass } from "./bar-width";
+import { CardHeading } from "./CardHeading";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface FunnelCardStep {
@@ -23,10 +25,19 @@ export interface FunnelCardProps {
   alertDrop?: number;
   /** Rendered instead of the steps when `steps` is empty. */
   emptyState?: React.ReactNode;
+  /** The line under the title: a cut range, freshness or coverage. */
+  caption?: WidgetCaption;
 }
 
 /** Stages with their share of the first step and the drop-off from the one before. */
-export function FunnelCard({ label, steps, format, alertDrop = 0.5, emptyState }: FunnelCardProps) {
+export function FunnelCard({
+  label,
+  steps,
+  format,
+  alertDrop = 0.5,
+  emptyState,
+  caption,
+}: FunnelCardProps) {
   const formatting = useFormatting();
   const top = steps[0]?.value ?? 0;
   const drops = steps.map((step, index) => {
@@ -42,8 +53,8 @@ export function FunnelCard({ label, steps, format, alertDrop = 0.5, emptyState }
   );
   return (
     <Card className="h-full">
-      {label ? <CardHeader>{label}</CardHeader> : null}
-      <CardContent className={cn("space-y-2.5", label ? "pt-0" : "")}>
+      <CardHeading label={label} caption={caption} />
+      <CardContent className={cn("space-y-2.5", label || caption ? "pt-0" : "")}>
         {steps.length === 0 ? (
           <p className="text-xs text-fp-text-3">{emptyState}</p>
         ) : (

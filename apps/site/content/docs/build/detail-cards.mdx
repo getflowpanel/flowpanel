@@ -1,0 +1,145 @@
+---
+title: Build a record page
+description: Give a record a header, a strip of numbers, a side column and tabs for related rows, activity and milestones.
+kind: how-to
+---
+
+A record page answers "who is this and what have they done" in one screen. This guide builds a
+customer page; every piece is optional.
+
+## Keep the card in its own file
+
+```ts excerpt
+import { type DetailOptions, type RowOf } from "@flowpanel/kit";
+
+export const customerCard = {
+  title: (c) => c.company ?? c.email,
+} satisfies DetailOptions<RowOf<"customers">>;
+```
+
+`DetailOptions<Row>` types every callback by the row, and the resource takes it as
+`detail: customerCard`.
+
+## Say who it is in the header
+
+`title`, `subtitle` and `badge` receive the row and a second argument with the admin's
+formatters and a link builder, so no header needs its own date or plural helper:
+
+```ts excerpt
+subtitle: (c, { format }) => `Customer since ${format.date(c.createdAt)}`,
+badge: (c) => [
+  AccountStatus.badge(c.status, { href: { resource: "customers", filter: { status: c.status } } }),
+  Plan.badge(c.plan),
+  c.deletedAt ? { label: "Deleted", tone: "err" } : null,
+],
+```
+
+A nullish badge is dropped, and `href` makes a badge a link to the list it belongs to.
+
+## Pick the period
+
+`dateRange` puts a picker in the header. Its range, and the period before it, reach `stats`,
+`aside` and every widget tab. Related rows, the timeline and the heatmap keep their own span —
+related tabs list every row, the timeline pages through the whole history, and the heatmap
+shows its last 13 weeks — because a record's history does not stop at the picked month.
+Without `dateRange` the page shows the whole history and no picker.
+
+## Put the key numbers under the header
+
+```ts excerpt
+export const paidInvoices = metric(
+  "Paid invoices",
+  { count: "invoices", where: { status: "paid" }, range: "paidAt" },
+  { compare: true },
+);
+
+stats: [metric("Monitors", { count: "monitors" }), paidInvoices],
+```
+
+`stats` renders as one hairline strip on every tab. On a record page `{ count }` also filters
+to rows that point at this record, through the target's `reference`, and the number links to
+exactly those rows for the same period. `range` names a `daterange` filter of the counted
+resource, as on a dashboard.
+
+## Keep the facts beside the tabs
+
+```ts excerpt
+aside: [
+  kv({
+    label: "Account",
+    columns: 1,
+    items: [
+      { label: "Email", field: "email" },
+      { label: "Last seen", field: "lastSeenAt", format: "relative" },
+    ],
+  }),
+  checklist({ label: "Profile", items: async (c) => filled(c.rowOf("customers"), { name: "Name", company: "Company" }) }),
+],
+```
+
+A `kv` item with `field` reads the viewed row; pass `record: (c) => …` to read another row, such
+as a profile table, once for every item. `filled(row, labels)` turns labelled fields into
+checklist items that are done when they hold a value. On narrow screens the side column moves
+below the tabs.
+
+## List related rows
+
+```ts excerpt
+tabs: [
+  related("monitors", { count: true }),
+  related("invoices", { count: true, pageSize: 10, sort: { field: "createdAt", dir: "desc" } }),
+],
+```
+
+`related` finds the filter from the one column of the target whose `reference` points at this
+resource, and hides that column. When there are none or several, `defineAdmin` says which and
+asks for `by`. `count: true` shows the number in the tab label. `widgets` render above the rows —
+a funnel over the related rows, for example.
+
+## Show what happened
+
+```ts excerpt
+timeline({
+  kinds: Activity,
+  sources: [
+    timeline.source("monitors", { kind: "monitor", at: "createdAt", title: (m) => m.name }),
+    timeline.source("customer_events", { kind: { field: "kind" }, at: "at" }),
+  ],
+});
+```
+
+Each source reads one resource, filtered to this record and AND-ed with its own `where`, so a
+source can narrow but never widen. `kind: { field }` reads the kind from an event-log column;
+the chips then filter in the query. Events merge in time order, group by day in the admin's
+zone and page with "Older".
+
+## Show how often and how far
+
+`heatmap({ source: { resource: "user_visit", at: "startedAt" } })` shows activity per day over
+13 weeks. `checklist({ ordered: true, items })` shows milestones with their dates and the gap
+between each; `layout: "steps"` lays them out in a row.
+
+## A page over a SQL view
+
+A resource can read a view that computes per-record numbers — lifecycle, last seen, counts — so
+the list can sort and filter by them. Set `writeTo` to the table edits go to. Every column a form
+writes must also be selected by the view, because form fields are typed against the view's row.
+
+## Test the card
+
+```ts excerpt
+import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
+import admin from "@/src/admin/config";
+import { paidInvoices } from "@/src/admin/config/resources/customer-card";
+
+const ctx = widgetContext({ admin, resource: "customers", row: customer, rows: { invoices } });
+const { props } = await resolveWidget(paidInvoices, ctx);
+expect(props.value).toBe(2);
+```
+
+Pass `admin` here: the count finds its "points at this customer" filter through the `reference`
+your `invoices` resource declares, and only the admin knows it. Give the metric a name of its
+own, as `paidInvoices` has, rather than reaching into `customerCard.stats`. See
+[Testing](/docs/reference/testing#unit-test-a-widget), and
+[Run it in Vitest](/docs/reference/testing#run-it-in-vitest) for the one line of Vitest config the
+entry needs.

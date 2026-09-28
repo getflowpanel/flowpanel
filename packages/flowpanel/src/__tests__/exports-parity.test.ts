@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -34,6 +34,14 @@ function exportedNames(file: string, visited = new Set<string>()): Set<string> {
         stmt.moduleSpecifier.text === "@flowpanel/core"
       ) {
         for (const name of exportedNames(CORE_INDEX, visited)) names.add(name);
+      } else if (
+        stmt.moduleSpecifier &&
+        ts.isStringLiteral(stmt.moduleSpecifier) &&
+        stmt.moduleSpecifier.text.startsWith("./")
+      ) {
+        const base = path.join(path.dirname(file), stmt.moduleSpecifier.text);
+        const target = existsSync(`${base}.ts`) ? `${base}.ts` : path.join(base, "index.ts");
+        for (const name of exportedNames(target, visited)) names.add(name);
       }
       continue;
     }

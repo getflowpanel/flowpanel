@@ -63,7 +63,7 @@ vi.mock("ioredis", () => ({
 
 import { decodeEnvelope, decodePayload, encodeEnvelope, encodePayload } from "../runtime/envelope";
 import { createPublisher } from "../runtime/publish";
-import { createPublisher as createPublisherClient } from "../runtime/redis-publisher";
+import { createPublisher as createPublisherClient } from "../runtime/worker-publisher";
 
 /** The body @flowpanel/core 0.2 published, byte for byte (ad6afa7 runtime/publish.ts). */
 function bodyAt02(payload: unknown): string {

@@ -26,6 +26,38 @@ Search and filter expressions are dialect-aware. Pagination is offset-based. A c
 
 FlowPanel's initial migration is PostgreSQL SQL. Review and adapt it before applying it to MySQL or SQLite.
 
+## Views
+
+A resource can read a SQL view, so the list sorts and filters by numbers the view computes
+per row — lifecycle, last seen, counts — and saved views can use them. Declare the view with
+`.existing()`, so drizzle-kit neither creates nor drops it, and create it in a migration of
+your own:
+
+```ts excerpt
+export const adminUserRow = pgView("admin_user_row", {
+  id: text("id").primaryKey(),
+  name: text("name"),
+  lifecycle: text("lifecycle"),
+  sent30d: integer("sent_30d"),
+}).existing();
+```
+
+```sql
+create view admin_user_row as
+select u.id, u.name,
+  (select count(*) from response r
+    where r.user_id = u.id and r.sent_at > now() - interval '30 days')::int as sent_30d
+from "user" u;
+```
+
+Write each per-row number as a correlated subquery, as above, rather than a `group by`
+over the whole table: reading one record then stays an index lookup, and sorting by a
+number computes it only for the page's rows.
+
+`resource(adminUserRow, { name: "user", writeTo: user, … })` lists and opens the view and
+writes edits to `user`. Without `writeTo` the resource is read-only. See
+[Reading a view](/docs/reference/resources#reading-a-view).
+
 ## Limitation
 
 Automatic introspection covers scalar table columns returned by Drizzle. Relations declared with `relations()` are not turned into joined list values. Use a [reference field](/docs/build/forms#relation-fields), a [custom column renderer](/docs/customization/column-renderers), or a custom adapter when a view needs joined data.

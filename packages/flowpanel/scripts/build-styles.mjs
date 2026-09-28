@@ -14,6 +14,8 @@ const PACKAGE = resolve(HERE, "..");
 const REPOSITORY = resolve(PACKAGE, "../..");
 const CANONICAL_STYLESHEET = resolve(REPOSITORY, "packages/react/src/styles/admin.css");
 const OUTPUT = resolve(PACKAGE, "dist/styles/admin.css");
+const BRIDGE_OUTPUT = resolve(PACKAGE, "dist/styles/tailwind.css");
+const TONE_CLASSES = resolve(REPOSITORY, "packages/core/src/tone-classes.ts");
 
 const FLOWPANEL_SUBJECT =
   ":where([data-flowpanel-root], [data-flowpanel-root] *, [data-flowpanel-portal], [data-flowpanel-portal] *)";
@@ -23,7 +25,10 @@ const fpColor = (name) => `hsl(var(--fp-${name}) / <alpha-value>)`;
 const STYLE_SOURCES = ["react", "next", "charts"];
 
 const tailwindConfig = {
-  content: STYLE_SOURCES.map((name) => resolve(REPOSITORY, `packages/${name}/dist/**/*.{js,mjs}`)),
+  content: [
+    ...STYLE_SOURCES.map((name) => resolve(REPOSITORY, `packages/${name}/dist/**/*.{js,mjs}`)),
+    TONE_CLASSES,
+  ],
   // Tailwind's base layer also initializes utility variables. Keep those
   // prerequisites, but disable Preflight before compilation so no host
   // element selector can enter the artifact.
@@ -250,6 +255,19 @@ async function assertBuiltStyleSources() {
   }
 }
 
+export function tailwindBridge(css) {
+  const blocks = [];
+  postcss.parse(css).walkAtRules("theme", (rule) => {
+    blocks.push(rule.toString());
+  });
+  if (blocks.length !== 1) {
+    throw new Error(
+      `Expected exactly one @theme block in ${CANONICAL_STYLESHEET}, found ${blocks.length}.`,
+    );
+  }
+  return `${blocks[0]}\n`;
+}
+
 export async function buildStyles() {
   await assertBuiltStyleSources();
   const input = await canonicalInput();
@@ -259,6 +277,7 @@ export async function buildStyles() {
   const css = isolateCss(compiled.css);
   await mkdir(dirname(OUTPUT), { recursive: true });
   await writeFile(OUTPUT, css);
+  await writeFile(BRIDGE_OUTPUT, tailwindBridge(await readFile(CANONICAL_STYLESHEET, "utf8")));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

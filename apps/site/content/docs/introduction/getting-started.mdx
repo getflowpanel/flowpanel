@@ -32,7 +32,7 @@ pnpm dlx @flowpanel/cli init --dry-run
 
 ## Add your first resource
 
-Open `flowpanel.config.ts`. The generated config has an empty `resources` array because FlowPanel cannot decide which application data belongs in the admin.
+Open `flowpanel.config.ts`. The generated config has an empty `resources` array because FlowPanel cannot decide which application data belongs in the admin. With Drizzle, `pnpm flowpanel new <table>` writes the entry for you — or, with `--dir`, one file per resource in a split config; see [flowpanel new](/docs/reference/cli#flowpanel-new). The rest of this section writes it by hand.
 
 Use the version for your ORM and adjust the import paths and field names to match your project:
 
@@ -65,7 +65,7 @@ The initial migration is PostgreSQL SQL. Review or adapt it before running again
 pnpm flowpanel dev
 ```
 
-Open [http://localhost:3000/admin](http://localhost:3000/admin). You should see the resource in the navigation and a paginated list at its resource URL. If the navigation is empty, confirm that `resources` contains the resource and restart the dev process so the config is reloaded.
+Open [http://localhost:3000/admin](http://localhost:3000/admin). You should see the resource in the navigation and a paginated list at its resource URL. If the navigation is empty, confirm that `resources` contains the resource.
 
 `flowpanel dev` starts Next.js and, when `REDIS_URL` is set and the project has a `scripts/board-server.mts` (or `.ts`) file, the BullMQ board process. `init` does not create that script; see the [queues guide](/docs/guides/queues). Use your normal `pnpm dev` command if you do not need the board integration.
 
@@ -86,6 +86,7 @@ See [Project structure](/docs/introduction/project-structure) for ownership and 
 
 ## Choose what to build next
 
+- Build a whole admin step by step in [Build a founder admin](/docs/introduction/founder-admin).
 - Shape the list, search, filters, and access rules in [Resources](/docs/build/resources).
 - Configure create and edit fields in [Forms](/docs/build/forms).
 - Add operational commands in [Actions](/docs/build/actions).

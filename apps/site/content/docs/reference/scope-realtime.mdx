@@ -108,18 +108,22 @@ A process that only publishes — a worker, a cron job, a script — imports
 `@flowpanel/kit/publish` and nothing else. It needs no admin config, no adapter
 and no Next.js, and it opens exactly one connection.
 
-<ApiSignature path="../../packages/core/src/runtime/redis-publisher.ts" name="createPublisher" />
+<ApiSignature path="../../packages/core/src/runtime/worker-publisher.ts" name="createPublisher" />
 
 <AutoTypeTable path="../../packages/core/src/runtime/redis-publisher.ts" name="PublisherClient" />
 
 <AutoTypeTable path="../../packages/core/src/runtime/redis-publisher.ts" name="RedisLike" />
 
+<AutoTypeTable path="../../packages/core/src/runtime/redis-publisher.ts" name="ResourceChange" />
+
 ```ts excerpt
 import { createPublisher } from "@flowpanel/kit/publish";
 
-const events = createPublisher({ redis: process.env.REDIS_URL! });
-await events.publish(events.channelFor("orders"), { action: "update", id });
+const events = createPublisher({ redis: process.env.REDIS_URL!, onError: report });
+await events.resource("orders", { id });
 ```
+
+`createPublisher` also takes the admin's own `{ driver: "redis", url, keyPrefix }` options. A transport error resolves the call and reaches `onError` (or one log line per error kind); publishing after `close()` throws. A client's `duplicate()` is used for subscribing only when it returns a connection with `subscribe`, `unsubscribe` and `on`.
 
 The SSE envelope is exported next to it, for a consumer that reads the stream
 without going through FlowPanel's own client:

@@ -271,7 +271,7 @@ function DrawerBody({ payload }: { payload: DrawerPayload }) {
     );
   }
   const firstKey = tabs[0]?.key ?? "";
-  const activeTab = state.tab ?? firstKey;
+  const activeTab = tabs.some((t) => t.key === state.tab) ? (state.tab as string) : firstKey;
   return (
     <Tabs
       value={activeTab}

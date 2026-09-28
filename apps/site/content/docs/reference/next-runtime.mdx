@@ -395,6 +395,22 @@ try {
 }
 ```
 
+## Widget contexts in tests
+
+<ApiSignature path="../../packages/next/src/runtime/resolve-widget.ts" name="adminWidgetContext" />
+
+<AutoTypeTable path="../../packages/next/src/runtime/resolve-widget.ts" name="AdminWidgetContextOptions" />
+
+The context a widget receives in this admin — its memo, links, formatters, access checks and
+adapter — for a test that runs a widget's query without a request. It carries no tenant scope.
+
+<ApiSignature path="../../packages/next/src/runtime/resolve-widget.ts" name="resolveWidget" />
+
+Renders a widget against the admin its context was built for, exactly as a dashboard does, and
+returns its `kind` and the props its card receives — a custom widget's own props rather than its
+frame's. A failing query rejects, and a hand-built context is refused. Most tests reach both
+through `@flowpanel/test/widgets`; see [Testing](/docs/reference/testing#unit-test-a-widget).
+
 ## Navigation
 
 ```ts excerpt

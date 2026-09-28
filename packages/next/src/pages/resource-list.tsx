@@ -40,6 +40,7 @@ import { resolveReferences } from "../runtime/resolve-references";
 import { pluralLabel } from "../runtime/resource-title";
 import { detailRowHrefs, resolveRowClick } from "../runtime/row-click";
 import { rowIdentity } from "../runtime/row-identity";
+import { wireViews } from "../runtime/saved-views";
 import { scopeBinding } from "../runtime/scope-binding";
 import { resolveResourceListActions } from "./resource-list-actions";
 import { buildResourceListCreateAction } from "./resource-list-create-action";
@@ -106,11 +107,8 @@ export async function ResourceListPage({
       session: reqCtx.session,
     },
   );
-  const filters = sanitizeFilterValues(
-    rawFilters,
-    filterSpecs,
-    resolveFormatting(config.formatting).timeZone,
-  );
+  const timeZone = resolveFormatting(config.formatting).timeZone;
+  const filters = sanitizeFilterValues(rawFilters, filterSpecs, timeZone);
   const effectiveSearch = readable.searchFields.length > 0 ? search : "";
 
   const includeDeleted = !!softDelete && searchParams.get("deleted") === "1";
@@ -217,14 +215,7 @@ export async function ResourceListPage({
           <ResourceListFilters filters={filterSpecs} />
         </div>
         {softDelete ? <ResourceListDeletedToggle /> : null}
-        <SavedViewsDropdown
-          resource={name}
-          staticViews={
-            (resource.options.views as ReadonlyArray<
-              Parameters<typeof SavedViewsDropdown>[0]["staticViews"][number]
-            >) ?? []
-          }
-        />
+        <SavedViewsDropdown resource={name} staticViews={wireViews(resource, timeZone)} />
       </div>
       <DataTableWithDrawerRows
         resource={name}

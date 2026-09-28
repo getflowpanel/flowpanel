@@ -77,6 +77,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/builders/enum-of.ts",
+    page: "/docs/reference/resources",
+    anchor: "enums",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/builders/queue.ts",
     page: "/docs/reference/queues",
     guidance: true,
@@ -84,6 +90,34 @@ export const API_OWNERSHIP_RULES = [
   {
     sourcePrefix: "packages/core/src/builders/resource.ts",
     page: "/docs/reference/resources",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/builders/related.ts",
+    page: "/docs/reference/resources",
+    anchor: "related-tabs-in-one-line",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/builders/timeline.ts",
+    page: "/docs/reference/widgets",
+    anchor: "timeline",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/builders/activity.ts",
+    page: "/docs/reference/widgets",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-activity.ts",
+    page: "/docs/reference/widgets",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-timeline.ts",
+    page: "/docs/reference/widgets",
+    anchor: "timeline",
     guidance: true,
   },
   {
@@ -115,6 +149,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: false,
   },
   {
+    sourcePrefix: "packages/core/src/tone-for.ts",
+    page: "/docs/reference/widgets",
+    anchor: "thresholds",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/bind-format.ts",
     page: "/docs/reference/widgets",
     anchor: "widgetformat",
@@ -143,6 +183,12 @@ export const API_OWNERSHIP_RULES = [
     page: "/docs/customization/styling",
     anchor: "initialize-the-theme-under-csp",
     guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/tone-classes.ts",
+    page: "/docs/reference/react-components",
+    anchor: "theme-utilities",
+    guidance: false,
   },
   {
     sourcePrefix: "packages/core/src/policy/",
@@ -212,7 +258,25 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/runtime/worker-publisher.ts",
+    page: "/docs/reference/scope-realtime",
+    anchor: "publishing-from-a-worker",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/runtime/series.ts",
+    page: "/docs/reference/widgets",
+    anchor: "series-helpers",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/breakdown.ts",
+    page: "/docs/reference/widgets",
+    anchor: "series-helpers",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/preset-range.ts",
     page: "/docs/reference/widgets",
     anchor: "series-helpers",
     guidance: true,
@@ -257,6 +321,12 @@ export const API_OWNERSHIP_RULES = [
     sourcePrefix: "packages/core/src/types/dashboard.ts",
     page: "/docs/reference/widgets",
     anchor: "dashboard-layout",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/detail.ts",
+    page: "/docs/reference/resources",
+    anchor: "detailtab",
     guidance: true,
   },
   {
@@ -331,8 +401,26 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/types/threshold.ts",
+    page: "/docs/reference/widgets",
+    anchor: "thresholds",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/types/widget.ts",
     page: "/docs/reference/widgets",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-caption.ts",
+    page: "/docs/reference/widgets",
+    anchor: "captions",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-charts.ts",
+    page: "/docs/reference/widgets",
+    anchor: "charts",
     guidance: true,
   },
   {
@@ -342,10 +430,40 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/types/widget-list.ts",
+    page: "/docs/reference/widgets",
+    anchor: "list",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/types/widget-context.ts",
     page: "/docs/reference/widgets",
     anchor: "widgetcontext",
     guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-tracker.ts",
+    page: "/docs/reference/widgets",
+    anchor: "tracker",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/metric-count.ts",
+    page: "/docs/reference/widgets",
+    anchor: "metric",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/where.ts",
+    page: "/docs/reference/contexts",
+    anchor: "where-values",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/suggest.ts",
+    page: "/docs/reference/errors",
+    anchor: "did-you-mean",
+    guidance: false,
   },
   {
     sourcePrefix: "packages/eslint-plugin/src/",

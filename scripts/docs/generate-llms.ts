@@ -23,7 +23,7 @@ const TYPE_TABLE = /<AutoTypeTable\b([^<>]*?)\/>/g;
 const CLI_REFERENCE = /<CliReference\b([^<>]*?)\/>/g;
 const ATTRIBUTE = /([A-Za-z][\w-]*)="([^"]*)"/g;
 
-interface DocsPage {
+export interface DocsPage {
   title: string;
   description: string;
   route: string;
@@ -148,7 +148,7 @@ function pageOrder(directory: string): string[] {
     : [];
 }
 
-function readPages(root: string, section: string, context: ExpansionContext): DocsPage[] {
+export function readPages(root: string, section: string, context: ExpansionContext): DocsPage[] {
   const directory = join(root, DOCS_ROOT, section);
   if (!existsSync(directory)) return [];
   const order = pageOrder(directory);
@@ -172,7 +172,7 @@ function readPages(root: string, section: string, context: ExpansionContext): Do
   });
 }
 
-function renderPage(page: DocsPage): string {
+export function renderPage(page: DocsPage): string {
   const lines = [`## ${page.title}`, ""];
   if (page.description) lines.push(page.description, "");
   lines.push(`Docs: ${siteConfig.url}${page.route}`, "");
@@ -192,7 +192,7 @@ function kitDescription(root: string): string {
   return typeof description === "string" ? description : "";
 }
 
-function header(root: string): string {
+export function header(root: string, source = "the reference documentation"): string {
   const description = kitDescription(root);
   return [
     `# ${siteConfig.name}`,
@@ -206,7 +206,7 @@ function header(root: string): string {
     "",
     `Docs: ${siteConfig.url}/docs · Source: ${siteConfig.repo.url}`,
     "",
-    "Generated from the reference documentation. Property tables come from the",
+    `Generated from ${source}. Property tables come from the`,
     "packages' own TypeScript declarations. Code blocks are excerpts from that",
     "documentation: blocks the docs mark `twoslash` are type-checked in CI,",
     "`excerpt` blocks are illustrative and may omit surrounding code.",
@@ -214,26 +214,30 @@ function header(root: string): string {
   ].join("\n");
 }
 
-export function generateLlmsText(root: string): string {
-  const context: ExpansionContext = {
+/** The type project and CLI reference that `<AutoTypeTable>` and CLI blocks expand against. */
+export function expansionContext(root: string): ExpansionContext {
+  return {
     siteRoot: join(root, "apps/site"),
     project: createTypeProject(root),
     cli: buildCliReference(createProgram()),
   };
+}
+
+export function generateLlmsText(root: string, context = expansionContext(root)): string {
   const reference = readPages(root, "reference", context).map(renderPage).join("\n");
   return `${[header(root), reference].filter(Boolean).join("\n").trimEnd()}\n`;
 }
 
-function normalize(text: string): string {
+export function normalize(text: string): string {
   return text
     .replace(/\r\n/g, "\n")
     .replace(/[ \t]+$/gm, "")
     .trimEnd();
 }
 
-export function checkLlms(root: string): DocsProblem[] {
+export function checkLlms(root: string, context?: ExpansionContext): DocsProblem[] {
   const file = join(root, LLMS_FILE);
-  const generated = generateLlmsText(root);
+  const generated = generateLlmsText(root, context);
   const current = existsSync(file) ? readFileSync(file, "utf8") : "";
   if (normalize(current) === normalize(generated)) return [];
   return [

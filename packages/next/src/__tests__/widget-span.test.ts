@@ -1,6 +1,6 @@
 import type { Span, WidgetConfig } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { widgetSlotClassName, widgetSpanClassName } from "../pages/widget-slot";
+import { sectionColumns, widgetSlotClassName, widgetSpanClassName } from "../pages/widget-slot";
 
 describe("widgetSpanClassName", () => {
   it("uses a flex grid item only for a metric child", () => {
@@ -77,5 +77,24 @@ describe("widgetSpanClassName", () => {
     }
     const full = { kind: "table", options: { span: 12 } } as WidgetConfig;
     expect(widgetSpanClassName(full)).toBe("col-span-12");
+  });
+});
+
+describe("sectionColumns", () => {
+  const spanned = { kind: "table", options: { span: 6 } } as WidgetConfig;
+  const plain = { kind: "table", options: {} } as WidgetConfig;
+
+  it("keeps declared columns", () => {
+    expect(sectionColumns(3, [spanned], 1)).toBe(3);
+  });
+
+  it("uses 12 when a widget sets span and no columns are declared", () => {
+    expect(sectionColumns(undefined, [plain, spanned], 1)).toBe(12);
+    expect(sectionColumns(undefined, [spanned], 2)).toBe(12);
+  });
+
+  it("falls back to the section's or the tab's default otherwise", () => {
+    expect(sectionColumns(undefined, [plain], 1)).toBe(1);
+    expect(sectionColumns(undefined, [plain], 2)).toBe(2);
   });
 });

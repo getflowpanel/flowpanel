@@ -111,7 +111,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
     readRelatedPage(config, target, reqCtx, {
       filters,
       page,
-      pageSize: RELATED_TAB_PAGE_SIZE,
+      pageSize: tab.pageSize ?? RELATED_TAB_PAGE_SIZE,
       sort,
     });
 
@@ -164,8 +164,18 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   const openList = openListFilter(filters, declaredFieldSet(target.options));
   // A hidden column is hidden from the payload too, not just from the header.
   const rowKey = (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
-  const visible = new Set<string>([...columns.map((column) => column.field as string), rowKey]);
-  const rowHrefs = openRowHrefs(config, resourceName, target, rows, rowKey);
+  const visible = new Set<string>([
+    ...columns.flatMap((column) => [
+      column.field as string,
+      ...(column.secondary ? [column.secondary] : []),
+    ]),
+    rowKey,
+  ]);
+  const rowHrefs = openRowHrefs(config, resourceName, target, rows, rowKey, {
+    path: new URL(req.url).pathname,
+    params: sp,
+    tab: tab.key,
+  });
 
   return (
     <RelatedTabTable<Row>

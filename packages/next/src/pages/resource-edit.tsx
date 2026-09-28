@@ -13,6 +13,7 @@ import {
   mergeLabels,
   resolveOperationAccess,
   runWithRequestContext,
+  writeTarget,
 } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
@@ -91,8 +92,12 @@ export async function ResourceEditPage({
   }
 
   const intro = config.adapter.introspect(resource.ref);
+  const written =
+    resource.options.writeTo === undefined
+      ? intro
+      : config.adapter.introspect(writeTarget(resource));
   const declared = declaredFormFields(resource, "update");
-  const candidates = editProjectionCandidates(resource, declared, intro.columns, reqCtx);
+  const candidates = editProjectionCandidates(resource, declared, written.columns, reqCtx);
   // Resolve policy before adapter work. The resulting selection and the local
   // projection below share this one decision even for dynamic policies.
   const readable = await filterReadableProjection(candidates, resource.options.fieldAccess, reqCtx);
@@ -117,7 +122,7 @@ export async function ResourceEditPage({
   const fields = declared
     ? await resolveFormFields(config, declared, reqCtx, projectedValues)
     : undefined;
-  const columns = writableColumns(resource, intro.columns, declared, "update");
+  const columns = writableColumns(resource, written.columns, declared, "update");
   const defaultFields = fields
     ? fields.map((field) => field.name)
     : columns.map((column) => column.name);

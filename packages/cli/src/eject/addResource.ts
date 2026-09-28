@@ -55,7 +55,7 @@ function lineIndent(source: string, pos: number): string {
  * ts-morph's `addElement` reprints the array, which drops the comments the init
  * scaffold leaves there as a worked example — and any the user wrote themselves.
  */
-function spliceIntoArray(
+export function spliceIntoArray(
   source: string,
   range: { start: number; end: number; elements: number[] },
   callText: string,
@@ -123,15 +123,20 @@ export function editConfigToAddResource(
 
   let arrayRange: { start: number; end: number; elements: number[] } | null = null;
   let objectEnd: number | null = null;
+  let elsewhere: string | null = null;
 
   sf.forEachDescendant((node) => {
-    if (arrayRange || objectEnd !== null) return;
+    if (arrayRange || objectEnd !== null || elsewhere !== null) return;
     if (!Node.isCallExpression(node)) return;
     if (node.getExpression().getText().trim() !== "defineAdmin") return;
     const first = node.getArguments()[0];
     if (!first || !Node.isObjectLiteralExpression(first)) return;
 
     const resourcesProp = first.getProperty("resources");
+    if (resourcesProp && Node.isShorthandPropertyAssignment(resourcesProp)) {
+      elsewhere = "resources";
+      return;
+    }
     if (resourcesProp && Node.isPropertyAssignment(resourcesProp)) {
       const init = resourcesProp.getInitializer();
       if (init && Node.isArrayLiteralExpression(init)) {
@@ -142,9 +147,21 @@ export function editConfigToAddResource(
         };
         return;
       }
+      if (init) {
+        elsewhere = init.getText();
+        return;
+      }
     }
     objectEnd = first.getEnd();
   });
+
+  if (elsewhere !== null) {
+    const file = options?.filename ?? "flowpanel.config.ts";
+    throw new Error(
+      `new: ${file} takes its resources from \`${elsewhere}\`, not an array literal. ` +
+        "Write the resource into that directory with --dir <dir>.",
+    );
+  }
 
   if (arrayRange) {
     return applyInsertion(spliceIntoArray(source, arrayRange, callText), importInsertion).replace(

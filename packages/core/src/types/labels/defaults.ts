@@ -16,12 +16,16 @@ export const DEFAULT_LABELS: {
   actions: Required<NonNullable<LabelsConfig["actions"]>>;
   form: Required<NonNullable<LabelsConfig["form"]>>;
   notFound: Required<NonNullable<LabelsConfig["notFound"]>>;
+  access: Required<NonNullable<LabelsConfig["access"]>>;
   drawer: Required<NonNullable<LabelsConfig["drawer"]>>;
   detail: Required<NonNullable<LabelsConfig["detail"]>>;
   related: Required<NonNullable<LabelsConfig["related"]>>;
   formError: string;
   confirm: Required<NonNullable<LabelsConfig["confirm"]>>;
   widget: Required<NonNullable<LabelsConfig["widget"]>>;
+  timeline: Required<NonNullable<LabelsConfig["timeline"]>>;
+  heatmap: Required<NonNullable<LabelsConfig["heatmap"]>>;
+  checklist: Required<NonNullable<LabelsConfig["checklist"]>>;
   errors: Required<NonNullable<LabelsConfig["errors"]>>;
   palette: Required<NonNullable<LabelsConfig["palette"]>>;
 } = {
@@ -125,6 +129,7 @@ export const DEFAULT_LABELS: {
   detail: {
     noFields: "No fields to show",
     unknownResource: "Unknown resource: {resource}",
+    tabCount: "{label} · {count}",
   },
   related: { openList: "Open list →" },
   form: {
@@ -144,16 +149,58 @@ export const DEFAULT_LABELS: {
     description: "The resource or dashboard you requested doesn't exist.",
     back: "Back to admin",
   },
+  access: {
+    signInTitle: "Sign in required",
+    signInDescription: "You need to sign in to view this admin.",
+    deniedTitle: "Access denied",
+    deniedDescription: "Your account doesn't have permission to view this admin.",
+  },
   formError: "Something went wrong — please try again.",
   confirm: { title: "Are you sure?", ok: "Confirm", cancel: "Cancel" },
   widget: {
     empty: "No data yet",
     seeAll: "See all",
+    showAll: "Show all",
     updated: "Updated {ago}",
     justNow: "just now",
     secondsAgo: "{n}s ago",
     minutesAgo: "{n}m ago",
     chartsMissing: "Charts package not installed — run `pnpm add @flowpanel/charts`.",
+    previous: "was {value}",
+    points: "{value} pp",
+    vsPrevious: "vs previous period",
+    vsWeekAgo: "vs a week earlier",
+    other: "Other",
+    expired: "No data: kept for {days} days",
+    keptSince: "Since {date}; older data is not kept",
+    dataAsOf: "Data as of {time}",
+    observations: "{n} observed",
+    allClear: "All clear",
+    more: "{n} more",
+    filtered: "Nothing matches the current filters.",
+  },
+  timeline: {
+    all: "All",
+    today: "Today",
+    yesterday: "Yesterday",
+    event: "{n} event",
+    events: "{n} events",
+    folded: "×{n}",
+    older: "Older →",
+    newest: "← Newest",
+  },
+  heatmap: {
+    summary: "{total} in the last {days} days",
+    cell: "{date}: {value}",
+    less: "Less",
+    more: "More",
+  },
+  checklist: {
+    summary: "{done} of {total}",
+    gap: "+{duration}",
+    done: "Done",
+    todo: "Not done",
+    optional: "Optional",
   },
   errors: {
     queryTitle: "{resource}: {operation} failed",

@@ -1,5 +1,5 @@
 import type { RequestContext, ResolvedAdminConfig, ShellConfig, ShellMode } from "@flowpanel/core";
-import { FlowpanelAccessError, FlowpanelAuthError } from "@flowpanel/core";
+import { FlowpanelAccessError, FlowpanelAuthError, mergeLabels } from "@flowpanel/core";
 import { CommandHost, DrawerHost } from "@flowpanel/next/client";
 import {
   AdminShell,
@@ -188,17 +188,18 @@ export async function handleRenderError(
   const target = isAuthError ? config.auth.signInUrl : config.auth.forbiddenUrl;
   if (target) redirect(target);
 
+  const { access } = mergeLabels(config.labels);
   // `data-fp-error` is how `smokeAdmin` tells a rendered admin from a signed-out one.
   return isAuthError ? (
     <EmptyState
-      title="Sign in required"
-      description="You need to sign in to view this admin."
+      title={access.signInTitle}
+      description={access.signInDescription}
       data-fp-error=""
     />
   ) : (
     <EmptyState
-      title="Access denied"
-      description="Your account doesn't have permission to view this admin."
+      title={access.deniedTitle}
+      description={access.deniedDescription}
       data-fp-error=""
     />
   );

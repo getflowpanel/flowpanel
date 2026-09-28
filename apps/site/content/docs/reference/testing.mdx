@@ -7,6 +7,9 @@ kind: reference
 `@flowpanel/test` is a dev-time package: one function that walks a running
 admin the way an operator does and fails the build when a page is broken. It
 is not part of `@flowpanel/kit` and never reaches your application bundle.
+`@flowpanel/test/widgets` is its second entry: the context a widget receives
+in your admin, over rows you pass instead of a database, for a unit test of
+one widget's number.
 
 ```sh
 pnpm add -D @flowpanel/test @playwright/test
@@ -35,6 +38,13 @@ row and follows wherever that resource sends it — the row's own detail page
 when `rowClick: "detail"`, the URL-synced drawer when `rowClick: "drawer"`. A
 row the projection cannot identify is inert, and the walk leaves it alone
 rather than failing.
+
+On a record page the walk opens every other tab as well: it reads the `data-fp-tab` keys of the
+tab triggers and loads `?tab=<key>` for each tab that is not already open, so a widget that fails
+only on the third tab fails the run as
+`/admin/users/1?tab=activity: rendered a FlowPanel error surface`. Pass `tabs: false` to keep the
+0.3.0 walk. A record that opens in a drawer is checked as the drawer first shows it; its other
+tabs are not opened.
 
 ## What it asserts
 
@@ -92,6 +102,70 @@ console.log(`${report.visited.length} routes visited`);
 `resources` takes nav segments, not paths: `"/"` is the landing dashboard and
 `"customers"` is `/admin/customers`. `cookie` is added against the admin's own
 origin unless you give it an explicit `domain`.
+
+## Unit-test a widget
+
+`widgetContext` builds the context a widget's query receives in the admin, over rows you pass
+instead of a database. `resolveWidget` runs the widget the way the dashboard does and returns the
+props its card receives. The pair tests a number, a link or a custom widget's props in
+milliseconds, with the admin's own code.
+
+```ts excerpt
+import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
+import { expect, it } from "vitest";
+import { paidToday } from "@/admin/config/dashboards/money";
+
+it("counts only today's paid invoices", async () => {
+  const ctx = widgetContext({
+    rows: {
+      invoices: [
+        { status: "paid", paidAt: new Date("2026-09-25T09:00:00Z") },
+        { status: "paid", paidAt: new Date("2026-09-24T09:00:00Z") },
+      ],
+    },
+    range: { from: new Date("2026-09-25T00:00:00Z"), to: new Date("2026-09-25T23:59:59Z") },
+  });
+  const { props } = await resolveWidget(paidToday, ctx);
+  expect(props.value).toBe(1);
+  expect(props.drilldown).toContain("/admin/invoices?f_status=paid");
+});
+```
+
+`ctx.count`, `ctx.read`, `compare`, `ctx.link` and a count metric's link run exactly as in the
+admin: a misspelt field throws with the name that was probably meant, an `undefined` value
+counts `0` and makes `ctx.read` throw, and a filter link carries the same `f_<field>` values the
+list reads. Without `admin`, every key of `rows` is a resource whose columns are the keys its
+rows carry. Pass `admin` — your `defineAdmin` config — when the widget relies on what only the
+admin knows: a view it links to, a dashboard, or the `reference` a record-page count infers its
+filter from. Only the database is replaced then; your columns decide what a misspelling is.
+Access still applies: pass `session` and `role` as your admin's `auth` would resolve them, or a
+resource that checks the session reads no rows and counts `0`.
+
+`ctx.sql` returns `sql` rows, or calls your function with the statement and its bound values; a
+statement nothing answers throws. `row` and `resource` make a record-page context: `ctx.id`,
+`ctx.row` and `ctx.rowOf(resource)`. Formatting and labels come from `admin`, or from the
+`formatting` and `labels` options. `filters` sets `ctx.filters`, the dashboard filter values a
+widget branches on, as the dashboard reads them from its URL.
+
+<ApiSignature path="../../packages/test/src/widgets/context.ts" name="widgetContext" />
+
+<AutoTypeTable path="../../packages/test/src/widgets/context.ts" name="WidgetContextOptions" />
+
+`@flowpanel/test/widgets` is ESM-only, like `@flowpanel/next`, which it loads through
+`@flowpanel/kit/next` to render the widget; the Playwright entry stays CommonJS-compatible.
+
+### Run it in Vitest
+
+The entry renders widgets with `@flowpanel/next`, which Next's bundler normally resolves. In
+Vitest, inline FlowPanel's packages so Vite resolves them too; otherwise the first run fails with
+`ERR_MODULE_NOT_FOUND` for `next/cache`:
+
+```ts excerpt
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({ test: { server: { deps: { inline: [/@flowpanel\//] } } } });
+```
 
 ## Authentication
 

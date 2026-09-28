@@ -24,3 +24,36 @@ export function kvDisplay(
   }
   return formatColumnValue(value, format as ColumnFormat, formatting);
 }
+
+/** Nothing to show: missing, or only whitespace. */
+export function isBlank(value: StatValue): boolean {
+  return (
+    value === null || value === undefined || (typeof value === "string" && value.trim() === "")
+  );
+}
+
+/**
+ * A long value's head — its first `lines` lines, cut again at a space before `lines × 120`
+ * characters — and the rest, if there is any.
+ */
+export function foldLongText(text: string, lines = 6): { head: string; rest?: string } {
+  const keep = Math.max(1, Math.trunc(lines));
+  const max = keep * 120;
+  let end = text.length;
+  let seen = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    if (text[i] !== "\n") continue;
+    seen += 1;
+    if (seen === keep) {
+      end = i;
+      break;
+    }
+  }
+  if (end > max) {
+    const space = text.lastIndexOf(" ", max);
+    end = space > 0 ? space : max;
+  }
+  const next = text[end] === "\n" || text[end] === " " ? end + 1 : end;
+  const rest = text.slice(next);
+  return rest ? { head: text.slice(0, end), rest } : { head: text.slice(0, end) };
+}

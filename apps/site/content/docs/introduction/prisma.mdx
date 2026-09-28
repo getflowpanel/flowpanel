@@ -26,6 +26,14 @@ A model name is a runtime string, so TypeScript cannot infer its row by itself. 
 
 The adapter introspects scalar fields, uses offset pagination, and coerces integer primary keys from URL segments. Search uses Prisma's `contains`; database collation and provider determine case sensitivity. Soft delete works when the resource names a nullable field such as `deletedAt`.
 
+## Views
+
+A Prisma `view` model reads like any model: the list sorts and filters by the columns the
+view selects. The Prisma adapter does not report `kind: "view"`, so FlowPanel cannot make
+the resource read-only for you: set
+[`writeTo`](/docs/reference/resources#reading-a-view) to the model that holds the rows, or
+disable `create`, `update` and `delete`.
+
 ## Limitation
 
 Relations, JSON sub-fields, and computed values are not automatic list columns. Resolve them in a custom renderer or query, or implement a custom adapter when they must participate in sorting and filtering.

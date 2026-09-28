@@ -1,0 +1,123 @@
+---
+title: Build a custom widget
+description: Write a widget no built-in card fits, with the admin's links, formatters, tones and tokens, and test it.
+kind: how-to
+---
+
+Reach for `custom()` when no built-in card says what the screen needs — a pipeline diagram, a
+prompt viewer. Everything else about the widget stays FlowPanel's: the frame, the title, the
+error card, realtime, the grid.
+
+## Compute props on the server
+
+```ts excerpt
+// admin/config/dashboards/system.ts
+import { custom } from "@flowpanel/kit";
+import { Pipeline } from "@/admin/ui/Pipeline";
+
+export const pipelineWidget = custom(
+  Pipeline,
+  async (c) => ({
+    stages: await c.query(pipelineStages),
+    runsHref: c.link({ resource: "runs", filter: { status: "failed" } }),
+    updated: c.format.relative(new Date()),
+  }),
+  { label: "Pipeline", realtime: "pipeline", span: 12 },
+);
+```
+
+The props function receives the same `ctx` as every widget: `ctx.link` resolves a named target
+under the admin's mount, `ctx.format` prints numbers, money, dates and plurals in the admin's
+locale and zone, `ctx.query` shares one query between widgets, and `ctx.dateRange` is the picked
+period. Pass the component plain data; keep queries and secrets on the server.
+
+## Build it from kit atoms
+
+```tsx excerpt
+// admin/ui/Pipeline.tsx
+import { type Tone, toneFillClass, toneTextClass } from "@flowpanel/kit";
+import { EmptyState, Sparkline, StatusDot } from "@flowpanel/kit/react";
+
+interface Stage {
+  label: string;
+  count: number;
+  tone: Tone;
+  trend: number[];
+}
+
+interface PipelineProps {
+  stages: Stage[];
+  runsHref: string;
+  updated: string;
+}
+
+export function Pipeline({ stages, runsHref, updated }: PipelineProps) {
+  if (stages.length === 0) return <EmptyState title="Nothing in the pipeline" />;
+  return (
+    <ol className="grid gap-3 sm:grid-cols-4">
+      {stages.map((stage) => (
+        <li key={stage.label} className="rounded-fp border border-fp-border-1 p-3">
+          <div className="flex items-center gap-2 text-xs text-fp-text-3">
+            <StatusDot tone={stage.tone} />
+            {stage.label}
+          </div>
+          <div className={`text-xl font-semibold tabular-nums ${toneTextClass[stage.tone]}`}>
+            {stage.count}
+          </div>
+          <Sparkline values={stage.trend} />
+          <div className={`mt-2 h-1 rounded-full ${toneFillClass[stage.tone]}`} />
+        </li>
+      ))}
+      <li className="flex flex-col justify-between gap-2 text-sm">
+        <a className="text-fp-accent-badge-text" href={runsHref}>
+          Failed runs
+        </a>
+        <span className="text-xs text-fp-text-3">Updated {updated}</span>
+      </li>
+    </ol>
+  );
+}
+```
+
+`StatusDot`, `Sparkline`, `EmptyState`, `Card`, `CardHeader` and `CardContent` come from
+`@flowpanel/kit/react`. `toneTextClass` and `toneFillClass` map every `Tone` to the classes the
+built-in cards use; in a server component import them from `@flowpanel/kit`, because the React
+entry is a client boundary. A component that needs state or event handlers is a client component
+that receives these props.
+
+## Frame, title, realtime and width
+
+| Option | Effect |
+| --- | --- |
+| `label` | The card's title, and the name errors and the slow-widget line use (since 0.3.1) |
+| `frame: false` | No card around the component, for a full-bleed layout |
+| `realtime` | Re-render on a channel, `{ resource }`, or a list of them |
+| `span` | Width in a 12-column section |
+
+## Use FlowPanel's tokens in your Tailwind
+
+The classes above — `bg-fp-*`, `text-fp-*`, `border-fp-*`, `rounded-fp*` — need the token bridge
+in your Tailwind v4 stylesheet. See
+[Styling](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes).
+
+## Test it
+
+```ts excerpt
+import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
+import { expect, it } from "vitest";
+import { pipelineWidget } from "@/admin/config/dashboards/system";
+
+it("links the failed stage to failed runs", async () => {
+  const ctx = widgetContext({ sql: STAGE_ROWS, rows: { runs: [] } });
+  const { props } = await resolveWidget(pipelineWidget, ctx);
+  expect(props.runsHref).toBe("/admin/runs?f_status=failed");
+});
+```
+
+`resolveWidget` returns the props your component receives, computed exactly as the dashboard
+computes them: `ctx.link` and `ctx.format` run the admin's own code. `sql` is what `ctx.sql`
+returns, for a `pipelineStages` that reads SQL. `rows: { runs: [] }` registers the resource the
+link names; pass `admin` instead to use your whole config. See
+[Testing](/docs/reference/testing#unit-test-a-widget), and
+[Run it in Vitest](/docs/reference/testing#run-it-in-vitest) for the one line of Vitest config the
+entry needs.

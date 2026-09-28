@@ -27,6 +27,30 @@ Tailwind pipeline. It is not the default scaffold and can share Tailwind's
 global utility and theme namespace. Move an existing copied admin stylesheet to
 the one-line kit import when the application no longer needs that customization.
 
+## Use FlowPanel tokens in your own Tailwind classes
+
+A custom widget or page written with Tailwind v4 can use the utilities FlowPanel's own
+components use — `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1`, `rounded-fp-lg`,
+`shadow-fp-sm`. Import the kit's token bridge after Tailwind's theme and utilities, and point
+`@source` at your admin code:
+
+```css
+@import "@flowpanel/kit/styles/admin.css";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "@flowpanel/kit/styles/tailwind.css";
+@source "../admin";
+```
+
+The bridge is the one `@theme inline` block of FlowPanel's own stylesheet, copied at build
+time, so a new token reaches your classes on upgrade with no hand-kept list. `inline` is
+required: the `--fp-*` values live on the FlowPanel root, not on `:root`.
+
+For tone-driven markup, `toneTextClass` and `toneFillClass` map every `Tone` to the class the
+built-in cards use. Import them from `@flowpanel/kit` in a server component and from
+`@flowpanel/kit/react` in a client one; both hold the same classes. `default` fills with the
+accent, as a default bar does; use `muted` for a grey dot.
+
 ## Change design tokens
 
 Override tokens on the FlowPanel root so the host application remains unaffected:

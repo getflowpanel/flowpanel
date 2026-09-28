@@ -30,6 +30,12 @@ export interface SmokeAdminOptions {
    * @defaultValue 1
    */
   maxRows?: number;
+  /**
+   * On each record page the walk reaches, open every other detail tab as `?tab=<key>`
+   * and check it the way every other page is checked.
+   * @defaultValue true
+   */
+  tabs?: boolean;
 }
 
 export interface SmokeAdminReport {

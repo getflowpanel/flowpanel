@@ -32,6 +32,7 @@ const reqCtx: RequestContext = {
 const ctx = {
   db: {},
   session: null,
+  filters: {},
   req: reqCtx.req,
   href: (resource: string) => `/admin/${resource}`,
   labels: DEFAULT_LABELS,

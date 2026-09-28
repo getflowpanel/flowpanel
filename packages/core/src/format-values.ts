@@ -1,6 +1,9 @@
+import { isCalendarDayString } from "./internal/zone-time";
 import { parseNaiveTimestamp } from "./naive-timestamp";
+import { toneFor } from "./tone-for";
 import { DEFAULT_FORMATTING, type ResolvedFormatting } from "./types/formatting";
 import type { ColumnFormat } from "./types/resource";
+import type { Tone } from "./types/widget";
 
 /** The kind of a {@link ColumnFormat}, written as a string or as an object. */
 export type ColumnFormatKind =
@@ -41,7 +44,7 @@ export function toDateValue(value: unknown): Date | null {
 
 /** A `YYYY-MM-DD` string: a calendar day, which belongs to no zone. */
 export function isCalendarDay(value: unknown): value is string {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return isCalendarDayString(value);
 }
 
 const UNIT_FMTS = new Map<string, Intl.NumberFormat>();
@@ -220,6 +223,23 @@ export function percentHeatLevel(value: unknown, format: ColumnFormat): number |
     typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
   if (!Number.isFinite(n) || value === "") return null;
   return Math.round(Math.min(1, Math.max(0, n)) * 5);
+}
+
+/** The tone a numeric column format's `tones` gives a cell; `null` when the format has none. */
+export function cellTone(value: unknown, format: ColumnFormat): Tone | null {
+  if (typeof format !== "object") return null;
+  const tones =
+    format.kind === "number" || format.kind === "percent" || format.kind === "duration"
+      ? format.tones
+      : undefined;
+  if (!tones) return null;
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN;
+  return toneFor(Number.isFinite(n) ? n : null, tones);
 }
 
 /** The link a `url` cell renders: only `http(s)` and same-site paths, never `javascript:` or `//`. */

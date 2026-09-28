@@ -1,0 +1,217 @@
+# flowpanel — Understand FlowPanel
+
+## How FlowPanel works
+
+Follow schema and config through adapters, routes, and the rendered admin interface.
+
+Docs: https://flowpanel.tech/docs/understand/how-flowpanel-works
+
+FlowPanel is an embedded runtime, not a separate service. It combines application-owned schema metadata and config with generated Next.js boundaries.
+
+### From schema to compiled admin
+
+1. A resource points at a Drizzle table or Prisma model name.
+2. The adapter supplies operations and introspected column metadata.
+3. `resource()`, `dashboard()`, `page()`, and other builders preserve typed definitions without performing I/O.
+4. `defineAdmin()` compiles the graph: it resolves names and defaults, validates columns and references, checks route collisions and action keys, applies global read-only behavior, and indexes resources.
+5. `createFlowpanel(config)` binds that resolved definition to a page, HTTP handlers, request runtime, client metadata, and event publisher.
+
+Failures such as duplicate resource names or unknown columns happen while the admin is compiled, close to startup, rather than producing a half-working page.
+
+### The three execution times
+
+| Time | What happens |
+| --- | --- |
+| Startup/module evaluation | Config composition, adapter creation, admin compilation, publisher binding |
+| Each server request | Session, role, access, scope, adapter queries or mutations, server renderers |
+| In the browser | Navigation state, tables/forms/drawers, client hooks, SSE subscription, refetch after signals |
+
+The database client and config stay on the server. Browser code receives serialized metadata and the declared row/value surface needed to render the current screen.
+
+### Routes are integration points
+
+The catch-all page renders resource and dashboard URLs through React Server Components. The catch-all API handles typed CRUD, forms, actions, references, import/export, and drawer payloads. The stream route holds authenticated SSE connections.
+
+All generated transports converge on the same policies and adapter instead of implementing separate security rules for each UI.
+
+### Config is selective
+
+Adapter introspection can describe a schema, but config decides what is exposed. Explicit resources, columns, fields, search fields, filters, actions, and policies are the public admin surface. New database columns do not need to become new admin capabilities.
+
+Continue with [Adapters and introspection](/docs/understand/adapters), [Request and mutation lifecycle](/docs/understand/request-lifecycle), or [Server and client boundaries](/docs/understand/server-client-boundaries).
+
+## Adapters and introspection
+
+Understand how FlowPanel maps your schema to resource operations and metadata.
+
+Docs: https://flowpanel.tech/docs/understand/adapters
+
+An adapter translates FlowPanel's resource contract into one data layer. The first-party adapters use Drizzle or Prisma, but the runtime depends on the adapter interface rather than either ORM.
+
+### Operations and metadata have different jobs
+
+Data methods list, fetch, create, update, delete, and optionally restore rows. They receive request context with pagination, filters, sort, selected fields, scope binding, input, and cancellation where relevant.
+
+Introspection describes the resource name, primary key, scalar columns, types, nullability, and related metadata. FlowPanel uses it to fill omitted columns, choose basic generated controls, validate configured names, and compile a registry. Introspection does not execute application authorization or make relations into arbitrary joins.
+
+`inferSchema` can provide write validation. Application-level schemas and field rules remain the authority when domain constraints go beyond database shape.
+
+### First-party differences
+
+Drizzle receives a table object, so TypeScript can infer `$inferSelect` directly. Its scope binding adds dialect-aware SQL predicates.
+
+Prisma receives a model name string and resolves its client delegate from DMMF. Runtime introspection is rich, but TypeScript needs `FlowpanelResources` to connect that string to the generated row type. Its scope binding merges constraints into Prisma `where` objects.
+
+Both adapters enforce explicit projections and apply scope to reads and by-ID mutations. Their database-specific limitations are documented in [Drizzle setup](/docs/introduction/drizzle) and [Prisma setup](/docs/introduction/prisma).
+
+### Declared columns narrow the boundary
+
+Introspection may know every scalar column while a resource declares only a few. Generated list and drawer paths project and serialize the declared surface plus explicit `expose` fields. This reduces accidental data transfer; it is still not a substitute for field access policy on sensitive values.
+
+### Custom adapters
+
+A custom adapter is appropriate when the source has stable CRUD semantics that can satisfy the same authorization, scope, projection, validation, and pagination expectations. Implement the public contract and run adapter conformance/integration tests against real storage behavior.
+
+Do not write an adapter merely to support one aggregate or joined screen. A custom dashboard query or page is usually clearer. Queue adapters are separate because queue state and control do not share resource CRUD semantics.
+
+Exact methods and option types belong in [Adapters reference](/docs/reference/adapters).
+
+## Type inference and registries
+
+Understand what FlowPanel infers from Drizzle and Prisma and when to augment its registries.
+
+Docs: https://flowpanel.tech/docs/understand/type-inference
+
+FlowPanel's types connect resource references to row shapes and application services. Runtime introspection checks the same configuration against the live adapter metadata.
+
+### Drizzle infers from the table
+
+`resource(schema.users, …)` carries the table type, so `InferRow<typeof schema.users>` resolves through `$inferSelect`. Columns, filters, form fields, renderers, and row actions autocomplete actual properties.
+
+Register the schema module itself — `FlowpanelTypes["schema"]` — and names work the
+same way: every table and view becomes a resource name with its row, so string
+references such as `ctx.count("user_visit")`, a related tab's `resource` and a
+`reference` are checked too, with no hand-written registry. See
+[the type registry](/docs/reference/registry#schema).
+
+### Prisma needs a string registry
+
+`resource("User", …)` receives only a string at compile time. Augment `FlowpanelResources` to map that name to the generated Prisma type:
+
+```ts excerpt
+declare module "@flowpanel/kit" {
+  interface FlowpanelResources {
+    User: import("@prisma/client").User;
+  }
+}
+```
+
+The same registry supports string-named custom resources and cross-resource references. Keep keys aligned with the resource registry name used in config.
+
+### Type application services once
+
+`FlowpanelTypes` supplies shared application types, most importantly the database client available as `ctx.db`:
+
+```ts excerpt
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+  }
+}
+```
+
+`InferDB` and `InferRow` let application modules derive those types without copying them. Put augmentation in a server-owned module included by the application's TypeScript program.
+
+### Types and runtime checks complement each other
+
+TypeScript catches known field typos while editing. Admin compilation compares configured names with adapter introspection, which also covers untyped JavaScript boundaries, stale generated clients, and custom adapters. Zod/resource schemas validate write values at runtime.
+
+Types do not prove authorization, tenant isolation, database constraints, or serializability. Those remain runtime policies and tests.
+
+See [Type registry reference](/docs/reference/registry) for exact utilities.
+
+## Request and mutation lifecycle
+
+See where authentication, access, scope, writes, audit, and realtime run.
+
+Docs: https://flowpanel.tech/docs/understand/request-lifecycle
+
+Generated pages, API calls, forms, actions, imports, and drawer requests share a server-side request runtime. The exact data operation differs, but the protection layers stay consistent.
+
+### Read lifecycle
+
+1. Resolve the session, actor ID, and role.
+2. Enforce the admin-wide gate and the target surface's access rule.
+3. Resolve global scope and bind the resource predicate.
+4. Parse only allowed search, filter, sort, pagination, and projection inputs.
+5. Call the adapter or application query.
+6. Apply field visibility and serialize the declared result surface.
+
+A browser cannot select an arbitrary database column by adding it to the URL. Unknown or undeclared query fields are rejected or ignored according to the specific parser contract.
+
+### Mutation lifecycle
+
+1. Authenticate and authorize before validating action-specific input.
+2. Bind tenant scope and resolve the target row where the operation needs it.
+3. Reject fields the operation may not write.
+4. Fill trusted create defaults and validate the resource/action schema.
+5. Execute the adapter or action handler.
+6. Normalize the result for the UI.
+7. After commit, emit configured audit, realtime, and revalidation effects.
+
+The order matters. Unauthorized callers do not learn detailed validation errors, and a submitted read-only field cannot bypass a hidden control.
+
+### Post-commit effects
+
+Audit and realtime happen after the database operation succeeds. If one of those effects fails, FlowPanel must not pretend the committed write rolled back. The operation can return a warning or surface the failure to observability while preserving the actual database result.
+
+This makes audit/realtime reliability an operational concern. Monitor failures and choose retry or reconciliation appropriate to the application.
+
+### Actions use the same boundary
+
+Row, bulk, drawer, and dashboard action routes repeat admin/resource/action access before `run`. Forms are validated server-side. The action context carries the resolved request services; it is not serialized to the client.
+
+### Custom code remains responsible
+
+A custom page query or external worker does not automatically pass through generated handlers. Reuse domain policies and explicit scope in those paths, then publish/audit through the supported server APIs where appropriate.
+
+See [Roles and permissions](/docs/guides/permissions), [Multi-tenant scope](/docs/guides/multi-tenant-scope), and [Runtime contracts reference](/docs/reference/runtime-contracts).
+
+## Server and client boundaries
+
+Know which FlowPanel values stay on the server and what reaches browser components.
+
+Docs: https://flowpanel.tech/docs/understand/server-client-boundaries
+
+FlowPanel uses React Server Components and route handlers to keep database and policy work on the server. Client components receive a narrow serializable model for interaction.
+
+| Value | Boundary |
+| --- | --- |
+| Adapter, database client, auth config, secrets | Server only |
+| Resource policies, scope predicates, action `run`, widget queries | Server only |
+| Server column renderers | Execute on server; rendered result may cross |
+| Declared row fields and client metadata | Serialized when needed by the current surface |
+| Table/form/drawer state and client hooks | Browser |
+| SSE event channel and payload | Browser after server authorization |
+
+### Config is not client data
+
+Do not import `flowpanel.config.ts` from a `"use client"` module. It can close over database clients, environment variables, functions, and React server renderers. The Next runtime derives a serializable client metadata view instead.
+
+### Renderers can bridge intentionally
+
+A column renderer runs on the server and may return ordinary server-rendered content. It can also return a client component, provided its props are serializable. Pass the minimum display/interaction model—not the complete row or request context.
+
+### Forms resolve server values before rendering
+
+Dynamic choices, field visibility, roles, and create defaults are resolved on the server. Non-serializable validators and default functions are not sent to the browser. Submission repeats policy and validation instead of trusting the rendered form.
+
+### Client hooks call public boundaries
+
+Table, mutation, and realtime hooks use the configured API base and stream path. Providers can change those mount points without exposing the server config. Errors returned to clients should be safe for operators; unexpected internal detail belongs in server logs.
+
+### SSE is a notification boundary
+
+Realtime payloads must be serializable and size-bounded. Prefer an action and ID that causes an authorized refetch over broadcasting row data. Every subscriber to a channel can receive its payload after stream authorization.
+
+When a customization needs browser state, isolate the client component and keep its data/mutation functions behind an authorized server route. See [Column renderers](/docs/customization/column-renderers) and [Typed client reference](/docs/reference/client).

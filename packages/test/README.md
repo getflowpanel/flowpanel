@@ -50,6 +50,27 @@ report when anything failed.
 | `a11y` | `false` | Run axe on every visited route. |
 | `maxRows` | `1` | Rows of each list to open. |
 
+## Unit-test a widget
+
+```ts
+import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
+
+const { props } = await resolveWidget(paidToday, widgetContext({ rows: { invoices } }));
+expect(props.value).toBe(1);
+```
+
+`widgetContext` is the context your admin gives a widget, over rows you pass instead of a
+database; `resolveWidget` returns the props the widget's card receives. This entry is ESM-only
+and needs `@flowpanel/kit`, which every FlowPanel app already has.
+
+In Vitest, inline FlowPanel's packages, or the first run fails with `ERR_MODULE_NOT_FOUND` for
+`next/cache`:
+
+```ts
+// vitest.config.ts
+export default defineConfig({ test: { server: { deps: { inline: [/@flowpanel\//] } } } });
+```
+
 ## Documentation
 
 <https://flowpanel.tech/docs/reference/testing>

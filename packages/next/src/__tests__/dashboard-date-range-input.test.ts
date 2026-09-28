@@ -63,4 +63,31 @@ describe("resolveDashboardDateRangeInput", () => {
     );
     expect(input).toEqual({ from: "2026-03-01", to: "2026-03-08" });
   });
+
+  it("ignores a URL preset the dashboard does not offer", () => {
+    expect(
+      resolveDashboardDateRangeInput(
+        { presets: ["today", "last7d"], preset: "last7d" },
+        sp({ preset: "YTD" }),
+      ),
+    ).toEqual({ preset: "last7d" });
+  });
+
+  it("honours a URL preset the dashboard offers", () => {
+    expect(
+      resolveDashboardDateRangeInput({ presets: ["today", "last30d"] }, sp({ preset: "last30d" })),
+    ).toEqual({ preset: "last30d" });
+  });
+
+  it("starts on the first offered preset when none is declared", () => {
+    expect(resolveDashboardDateRangeInput({ presets: ["last30d", "today"] }, sp())).toEqual({
+      preset: "last30d",
+    });
+  });
+
+  it("replaces a declared preset the list leaves out with the first offered one", () => {
+    expect(resolveDashboardDateRangeInput({ presets: ["today"], preset: "YTD" }, sp())).toEqual({
+      preset: "today",
+    });
+  });
 });

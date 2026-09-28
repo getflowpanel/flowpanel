@@ -42,6 +42,7 @@ expectError(buildThemeInitScript("system"));
 declare module "@flowpanel/core" {
   interface FlowpanelResources {
     users: { id: number; email: string };
+    visits: { id: number; userId: number; startedAt: Date };
   }
 }
 

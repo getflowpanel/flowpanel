@@ -28,11 +28,12 @@ describe("percentages follow the admin's locale", () => {
     expect(container.textContent).not.toContain("19.4");
   });
 
-  it("keeps the English delta as it was", () => {
+  it("prints the English delta without a trailing zero", () => {
     const { container } = render(
       <MetricCard label="Visits" value={12} delta={{ value: 0.19, vs: "prev" }} />,
     );
-    expect(container.textContent).toContain("19.0%");
+    expect(container.textContent).toContain("19%");
+    expect(container.textContent).not.toContain("19.0%");
   });
 
   it("formats funnel shares and drop-offs in the locale", () => {

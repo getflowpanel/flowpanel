@@ -1,6 +1,11 @@
 import type { ComponentType, ReactNode } from "react";
+import type { MetricCountSource } from "./metric-count";
+import type { RealtimeOption } from "./realtime";
 import type { ResourceName } from "./registry";
 import type { ColumnFormat } from "./resource";
+import type { Threshold } from "./threshold";
+import type { ChecklistWidget, HeatmapWidget } from "./widget-activity";
+import type { CaptionOptions } from "./widget-caption";
 import type {
   BarsWidget,
   FunnelWidget,
@@ -9,22 +14,37 @@ import type {
   StatGroupWidget,
   StatWidget,
 } from "./widget-cards";
+import type {
+  AreaChartWidget,
+  BarChartWidget,
+  LineChartWidget,
+  PieChartWidget,
+} from "./widget-charts";
 import type { Link, LinkTarget, WidgetContext } from "./widget-context";
+import type { TimelineWidget } from "./widget-timeline";
+import type { TrackerWidget } from "./widget-tracker";
 
 export type NumericFormat = "number" | "currency" | "percent" | "bytes" | "duration";
 export type Tone = "default" | "accent" | "ok" | "warn" | "err" | "info" | "muted";
 export type Span = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+/** A number of days, e.g. `"30d"`. */
+export type RangeLimit = `${number}d`;
 
 /** Period-over-period change shown under a metric. */
 export interface MetricDelta {
-  /** Fractional change — `0.12` renders as +12%. */
+  /** Fractional change — `0.12` renders as +12%. Inside ±1% the card shows no direction. */
   value: number;
   /** What the comparison is against, e.g. `"prior period"`. */
   vs: string;
-  /** Which direction is good news. `"down"` colours a fall green.
+  /** Which direction is good news. `"down"` colours a fall green; `"neutral"` never colours.
    * @defaultValue "up"
    */
-  goodWhen?: "up" | "down";
+  goodWhen?: "up" | "down" | "neutral";
+  /**
+   * The value compared against, shown muted beside the change. A count under 20 shows the
+   * absolute change (`+3`); a `percent` metric shows percentage points (`+3 pp`).
+   */
+  previous?: number;
 }
 
 /** What a `metric()` query may return instead of a bare value. */
@@ -35,9 +55,11 @@ export interface MetricResult {
   delta?: MetricDelta;
   /** Turns the whole card into a link — a path or a named target. */
   href?: LinkTarget;
+  /** Observations behind the value, compared with `tones.min`. */
+  volume?: number;
 }
 
-export interface MetricOptions {
+export interface MetricOptions extends CaptionOptions {
   /** Rendered as-is next to the label. Any string — an emoji, a ligature. No icon-name lookup exists. */
   icon?: string;
   /** How the number is rendered. */
@@ -46,16 +68,25 @@ export interface MetricOptions {
   sublabel?: string;
   /** Period-over-period change, queried alongside the value. */
   delta?: (ctx: WidgetContext) => Promise<MetricDelta | null>;
+  /**
+   * Query the compared period too and show the change: `previous`, or `against: "weekAgo"` for
+   * the same range seven days back. Needs a numeric value; a `delta` the query returns wins.
+   */
+  compare?: boolean | { goodWhen?: "up" | "down" | "neutral"; against?: "previous" | "weekAgo" };
   /** Trend line drawn inside the card. */
   sparkline?: (ctx: WidgetContext) => Promise<number[]>;
   /** Semantic color of the value. */
   tone?: Tone;
+  /** Tone the value against a threshold; an explicit `tone` wins. */
+  tones?: Threshold;
   /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
   drilldown?: Link;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
+  /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
+  maxRange?: RangeLimit;
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
 }
 
 export interface MetricWidget {
@@ -63,6 +94,8 @@ export interface MetricWidget {
   label: string;
   query: (ctx: WidgetContext) => Promise<number | string | MetricResult>;
   options: MetricOptions;
+  /** What `metric(label, { count })` counts; absent for a metric with its own query. */
+  source?: MetricCountSource;
 }
 
 /** Keys of a widget's query row — any string while the row type is unknown. */
@@ -77,13 +110,23 @@ export interface WidgetColumn<R = unknown> {
   width?: number | string;
 }
 
-export interface TableWidgetOptions<R = unknown> {
+export interface TableWidgetOptions<R = unknown> extends CaptionOptions {
   /** Card heading. */
   label?: string;
+  /** A dashboard filter key: a row's `rowKey` value sets it on the current dashboard. */
+  filter?: string;
   /** Registered resource to pull rows and columns from. */
   resource?: ResourceName;
   /** Supply rows yourself instead of reading a resource. */
   query?: (ctx: WidgetContext) => Promise<R[]>;
+  /**
+   * Narrow the `resource` read: a filter keyed by its fields, or one computed from the
+   * context — `(c) => ({ userId: c.id })`. Values take the `ctx.read` shorthand; a missing
+   * value throws instead of reading every row.
+   */
+  where?: Record<string, unknown> | ((ctx: WidgetContext) => Record<string, unknown>);
+  /** A timestamp field of `resource` that the picked range bounds, as `ResourceLink.range` does. */
+  range?: string;
   /**
    * Columns to show. Defaults to the resource's own list columns. A bare key
    * takes the resource's declared header, or a humanised one; give an object to
@@ -110,10 +153,12 @@ export interface TableWidgetOptions<R = unknown> {
   limit?: number;
   /** Rendered in place of the table body when there are zero rows. */
   emptyState?: ReactNode;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
+  /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
+  maxRange?: RangeLimit;
 }
 
 export interface TableWidget {
@@ -121,15 +166,19 @@ export interface TableWidget {
   options: TableWidgetOptions;
 }
 
-export interface CustomOptions {
+export interface CustomOptions extends CaptionOptions {
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
-  /** Re-render when any of these channels fire. */
-  realtime?: string | string[];
+  /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
+  maxRange?: RangeLimit;
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
   /** Wrap the component in the standard widget card.
    * @defaultValue true
    */
   frame?: boolean;
+  /** The card's title when framed, and the name errors and slow-widget timings use. */
+  label?: string;
 }
 
 export interface CustomWidget<P = unknown> {
@@ -139,102 +188,18 @@ export interface CustomWidget<P = unknown> {
   options: CustomOptions;
 }
 
-/** Aggregation bucket for the chart's x-axis. */
-export type ChartBucket = "minute" | "hour" | "day" | "week" | "month" | "year" | "auto";
-
-/** Charts are defined in @flowpanel/charts but their config lives in core. */
-export interface ChartOptionsBase<R = unknown> {
-  /** Row key plotted on the x-axis. */
-  x: RowKey<R>;
-  /** Row key(s) plotted on the y-axis. An array draws one series per key. */
-  y: RowKey<R> | RowKey<R>[];
-  /** Chart height in px.
-   * @defaultValue 240
-   */
-  height?: number;
-  /** How y-values are rendered in ticks and tooltips. */
-  format?: NumericFormat;
-  /** `false` omits the `<Tooltip>` entirely. */
-  tooltip?: "default" | "compact" | false;
-  /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
-  drilldown?: Link;
-  /** Width in the dashboard's 12-column grid. */
-  span?: Span;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
-  /** X-axis aggregation bucket. */
-  bucket?: ChartBucket;
-}
-
-export interface AreaChartOptions<R = unknown> extends ChartOptionsBase<R> {
-  /** Stack multiple series instead of overlaying them. */
-  stacked?: boolean;
-  /** Draw curved rather than straight segments. */
-  smooth?: boolean;
-}
-export interface BarChartOptions<R = unknown> extends ChartOptionsBase<R> {
-  /** Stack multiple series instead of grouping them side by side. */
-  stacked?: boolean;
-  /** Lay bars out horizontally. */
-  horizontal?: boolean;
-}
-export interface LineChartOptions<R = unknown> extends ChartOptionsBase<R> {
-  /** Draw curved rather than straight segments. */
-  smooth?: boolean;
-  /** Show a dot at every data point. */
-  markers?: boolean;
-}
-export interface PieChartOptions<R = unknown> {
-  /** Row key naming each slice. */
-  category: RowKey<R>;
-  /** Row key holding each slice's magnitude. */
-  value: RowKey<R>;
-  /** Cut a hole in the middle. */
-  donut?: boolean;
-  /** Show the slice legend.
-   * @defaultValue true
-   */
-  showLegend?: boolean;
-  /** Chart height in px. */
-  height?: number;
-  /** Width in the dashboard's 12-column grid. */
-  span?: Span;
-  /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
-  drilldown?: Link;
-  /** Re-run the query when any of these channels fire. */
-  realtime?: string | string[];
-  /** Pin specific slices to a color, keyed by category value. */
-  colors?: Record<string, string>;
-  /** How slice values are rendered in the tooltip. */
-  format?: NumericFormat;
-  /** `false` omits the `<Tooltip>` entirely. */
-  tooltip?: "default" | "compact" | false;
-}
-
-export interface AreaChartWidget {
-  kind: "areaChart";
-  label: string;
-  query: (ctx: WidgetContext) => Promise<unknown[]>;
-  options: AreaChartOptions;
-}
-export interface BarChartWidget {
-  kind: "barChart";
-  label: string;
-  query: (ctx: WidgetContext) => Promise<unknown[]>;
-  options: BarChartOptions;
-}
-export interface LineChartWidget {
-  kind: "lineChart";
-  label: string;
-  query: (ctx: WidgetContext) => Promise<unknown[]>;
-  options: LineChartOptions;
-}
-export interface PieChartWidget {
-  kind: "pieChart";
-  label: string;
-  query: (ctx: WidgetContext) => Promise<unknown[]>;
-  options: PieChartOptions;
-}
+export type {
+  AreaChartOptions,
+  AreaChartWidget,
+  BarChartOptions,
+  BarChartWidget,
+  ChartBucket,
+  ChartOptionsBase,
+  LineChartOptions,
+  LineChartWidget,
+  PieChartOptions,
+  PieChartWidget,
+} from "./widget-charts";
 
 export type WidgetConfig =
   | MetricWidget
@@ -249,4 +214,8 @@ export type WidgetConfig =
   | AreaChartWidget
   | BarChartWidget
   | LineChartWidget
-  | PieChartWidget;
+  | PieChartWidget
+  | TimelineWidget
+  | HeatmapWidget
+  | ChecklistWidget
+  | TrackerWidget;

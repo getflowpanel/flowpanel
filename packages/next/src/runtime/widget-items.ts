@@ -1,15 +1,17 @@
 import type {
   KvItem,
+  KvOptions,
   RequestContext,
   ResolvedAdminConfig,
   ResolvedFormatting,
   StatItem,
   StatResult,
+  StatValue,
   StatWidget,
   WidgetContext,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { kvDisplay } from "./kv-display";
+import { foldLongText, isBlank, kvDisplay } from "./kv-display";
 import { resolveLink } from "./resolve-link";
 import { statDisplay, statResultOf } from "./stat-result";
 
@@ -32,15 +34,30 @@ export async function kvItemOf(
   formatting: ResolvedFormatting,
   config: ResolvedAdminConfig,
   reqCtx?: RequestContext,
+  record?: Record<string, unknown> | null,
 ) {
-  const result = await resolveItem(item.value, ctx, reqCtx);
-  const tone = result.tone ?? item.tone;
+  const result: StatResult =
+    item.field !== undefined
+      ? { value: (record?.[item.field] ?? null) as StatValue }
+      : await resolveItem(item.value, ctx, reqCtx);
+  const emptyText = isBlank(result.value) ? item.empty : undefined;
+  const tone = result.tone ?? item.tone ?? (emptyText !== undefined ? "muted" : undefined);
   const href = resolveLink(config, ctx, result.href ?? item.href);
+  const text = emptyText ?? kvDisplay(result.value, item.format, formatting);
+  const fold = item.long
+    ? foldLongText(text, typeof item.long === "object" ? item.long.lines : undefined)
+    : null;
   return {
     label: item.label,
-    value: kvDisplay(result.value, item.format, formatting),
+    value: fold ? fold.head : text,
     ...(tone ? { tone } : {}),
     ...(href ? { href } : {}),
+    ...(fold
+      ? {
+          long: true as const,
+          ...(fold.rest ? { rest: fold.rest, more: ctx.labels.widget.showAll } : {}),
+        }
+      : {}),
   };
 }
 
@@ -62,4 +79,30 @@ export async function statItemOf(
     ...(tone ? { tone } : {}),
     ...(href ? { href } : {}),
   };
+}
+
+/** A `kv` card's items; `field` items read the card's `record`, else the viewed row. */
+export async function kvItems(
+  options: KvOptions,
+  ctx: WidgetContext,
+  formatting: ResolvedFormatting,
+  config: ResolvedAdminConfig,
+  reqCtx?: RequestContext,
+) {
+  const load = options.record;
+  const record = load
+    ? await (reqCtx ? runWithRequestContext(reqCtx, async () => load(ctx)) : load(ctx))
+    : ctx.row;
+  return Promise.all(
+    options.items.map((item) =>
+      kvItemOf(
+        item,
+        ctx,
+        formatting,
+        config,
+        reqCtx,
+        (record ?? null) as Record<string, unknown> | null,
+      ),
+    ),
+  );
 }

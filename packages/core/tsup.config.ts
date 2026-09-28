@@ -26,7 +26,7 @@ export default defineConfig([
   { entry: { theme: "src/theme-init.ts" }, ...common },
   { entry: { paths: "src/paths.ts" }, ...common },
   { entry: { publish: "src/publish.ts" }, ...common },
-  { entry: { auth: "src/auth/index.ts" }, ...common },
+  { entry: { auth: "src/auth/index.ts" }, ...common, external: ["@flowpanel/core"] },
   { entry: { format: "src/format-column.ts" }, ...common },
   { entry: { "internal/migration-sql": "src/internal/migration-sql.ts" }, ...common },
 ]);

@@ -1,4 +1,4 @@
-import type { AuthConfig } from "../types/config";
+import type { AuthConfig } from "@flowpanel/core";
 
 /**
  * A fixed signed-in operator, for local development and examples: the session

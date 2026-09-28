@@ -8,6 +8,8 @@ import {
 } from "@flowpanel/core/format";
 import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
+import type { Tone } from "../lib/format";
+import { toneTextClass } from "../lib/tone-classes";
 
 const HEAT_CLASS = [
   "",
@@ -96,5 +98,19 @@ export function RelativeTimeCell({
     >
       {formatRelativeValue(date, formatting)}
     </time>
+  );
+}
+
+export interface ToneTextProps {
+  tone: Tone;
+  text: string;
+}
+
+/** A numeric cell coloured by its threshold's tone. */
+export function ToneText({ tone, text }: ToneTextProps) {
+  return (
+    <span data-tone={tone} className={`tabular-nums ${toneTextClass[tone]}`}>
+      {text}
+    </span>
   );
 }

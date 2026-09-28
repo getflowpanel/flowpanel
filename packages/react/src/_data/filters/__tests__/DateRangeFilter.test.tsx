@@ -126,4 +126,12 @@ describe("DateRangeFilter", () => {
     fireEvent.keyDown(day("August 13, 2026"), { key: "ArrowDown" });
     expect(day("August 20, 2026").tabIndex).toBe(0);
   });
+
+  it("shows a server preset by its label, including one the picker does not offer", () => {
+    render(<DateRangeFilter value="YTD" onChange={vi.fn()} />);
+    expect(screen.getByText("Year to date")).toBeTruthy();
+    cleanup();
+    render(<DateRangeFilter value="last7d" onChange={vi.fn()} />);
+    expect(screen.getByText("Last 7 days")).toBeTruthy();
+  });
 });

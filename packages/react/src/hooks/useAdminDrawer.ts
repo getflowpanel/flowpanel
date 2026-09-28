@@ -20,30 +20,32 @@ export interface AdminDrawer {
   close: () => void;
 }
 
-/** Reads `?drawer=<resource>:<id>` and `?tab=<key>` from the URL. */
+/**
+ * Reads `?drawer=<resource>:<id>` and the drawer's own tab, `?drawerTab=<key>` (else `?tab=`),
+ * so a drawer opened over a record page leaves the page's `?tab=` alone.
+ */
 export function useAdminDrawer(): AdminDrawer {
   const url = useUrlState();
 
   const state: AdminDrawerState = useMemo(() => {
+    const tab = url.get("drawerTab") ?? url.get("tab");
     const raw = url.get("drawer");
-    if (!raw) return { resource: null, id: null, tab: url.get("tab") };
-    const sep = raw.indexOf(":");
-    if (sep < 0) return { resource: null, id: null, tab: url.get("tab") };
-    const resource = raw.slice(0, sep);
-    const id = raw.slice(sep + 1);
-    if (!resource || !id) return { resource: null, id: null, tab: url.get("tab") };
-    return { resource, id, tab: url.get("tab") };
+    const sep = raw ? raw.indexOf(":") : -1;
+    const resource = raw && sep > 0 ? raw.slice(0, sep) : "";
+    const id = raw && sep > 0 ? raw.slice(sep + 1) : "";
+    if (!resource || !id) return { resource: null, id: null, tab };
+    return { resource, id, tab };
   }, [url]);
 
   const open = useCallback(
     ({ resource, id, tab }: OpenArgs) => {
-      url.set({ drawer: `${resource}:${id}`, tab: tab ?? null });
+      url.set({ drawer: `${resource}:${id}`, drawerTab: tab ?? null });
     },
     [url],
   );
 
   const close = useCallback(() => {
-    url.set({ drawer: null, tab: null });
+    url.set({ drawer: null, drawerTab: null });
   }, [url]);
 
   return { state, open, close };

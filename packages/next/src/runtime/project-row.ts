@@ -30,7 +30,11 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
     rowKey?: string;
   };
 
-  for (const c of options.columns ?? []) addField(fields, c);
+  for (const c of options.columns ?? []) {
+    addField(fields, c);
+    const secondary = (c as { secondary?: unknown } | null)?.secondary;
+    if (typeof secondary === "string" && secondary) fields.add(secondary);
+  }
   addFieldList(fields, options.expose);
   fields.add(options.rowKey ?? DEFAULT_RESOURCE_ROW_KEY);
 
@@ -41,19 +45,44 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
 export function declaredDrawerRowFields(resource: ResourceConfig): Set<string> {
   const fields = declaredRowFields(resource);
   const drawer = resource.options.drawer as
-    | { fields?: unknown; tabs?: ReadonlyArray<{ fields?: unknown }> }
+    | { fields?: unknown; tabs?: ReadonlyArray<{ fields?: unknown; widgets?: unknown }> }
     | undefined;
   addFieldList(fields, drawer?.fields);
-  for (const tab of drawer?.tabs ?? []) addFieldList(fields, tab?.fields);
+  for (const tab of drawer?.tabs ?? []) {
+    addFieldList(fields, tab?.fields);
+    addKvFields(fields, tab?.widgets);
+  }
   return fields;
 }
 
-/** Stable detail header and fallback presentation dependencies. */
+/** A record's fields that `kv` items read by `field` without a `record` of their own. */
+function addKvFields(fields: Set<string>, widgets: unknown): void {
+  if (!Array.isArray(widgets)) return;
+  for (const widget of widgets) {
+    const kv = widget as { kind?: unknown; options?: { record?: unknown; items?: unknown } };
+    if (kv.kind !== "kv" || kv.options?.record !== undefined) continue;
+    for (const item of Array.isArray(kv.options?.items) ? kv.options.items : []) {
+      const field = (item as { field?: unknown } | null)?.field;
+      if (typeof field === "string" && field) fields.add(field);
+    }
+  }
+}
+
+/** Stable detail header and fallback presentation dependencies, and the fields kv items read. */
 export function declaredDetailBaseFields(resource: ResourceConfig): Set<string> {
   const fields = declaredRowFields(resource);
-  const detail = resource.options.detail as { expose?: unknown[]; fields?: unknown } | undefined;
+  const detail = resource.options.detail as
+    | {
+        expose?: unknown[];
+        fields?: unknown;
+        aside?: unknown;
+        tabs?: ReadonlyArray<{ widgets?: unknown }>;
+      }
+    | undefined;
   addFieldList(fields, detail?.expose);
   addFieldList(fields, detail?.fields);
+  addKvFields(fields, detail?.aside);
+  for (const tab of detail?.tabs ?? []) addKvFields(fields, tab?.widgets);
   return fields;
 }
 

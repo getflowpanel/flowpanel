@@ -1,6 +1,7 @@
 import {
   badgeProps,
   type ColumnFormat,
+  cellTone,
   columnFormatKind,
   DEFAULT_FORMATTING,
   formatColumnValue,
@@ -9,7 +10,14 @@ import {
   toBooleanValue,
   urlCellParts,
 } from "@flowpanel/core";
-import { BooleanCell, HeatCell, RelativeTimeCell, StatusBadge, UrlCell } from "@flowpanel/react";
+import {
+  BooleanCell,
+  HeatCell,
+  RelativeTimeCell,
+  StatusBadge,
+  ToneText,
+  UrlCell,
+} from "@flowpanel/react";
 import type { ReactNode } from "react";
 
 function isMoment(value: unknown): value is Date | string | number {
@@ -42,6 +50,8 @@ export function renderColumnFormat(
   const link = urlCellParts(value, format);
   if (link) return <UrlCell href={link.href} text={link.text} />;
   const text = formatColumnValue(value, format, formatting);
+  const tone = cellTone(value, format);
+  if (tone !== null) return <ToneText tone={tone} text={text} />;
   const heat = percentHeatLevel(value, format);
   return heat === null ? text : <HeatCell level={heat} text={text} />;
 }

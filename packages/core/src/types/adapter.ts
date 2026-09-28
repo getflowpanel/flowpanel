@@ -36,6 +36,11 @@ export interface ResourceIntrospection {
   name: string;
   columns: ColumnMeta[];
   primaryKey: string;
+  /**
+   * What the ref is. A view has no write path of its own; see `ResourceOptions.writeTo`.
+   * @defaultValue "table"
+   */
+  kind?: "table" | "view";
 }
 
 /** Adapter identity. The shipped kinds autocomplete; third-party kinds are free-form. */

@@ -69,3 +69,26 @@ describe("PageHeader", () => {
     expect(row?.className).toContain("flex-wrap");
   });
 });
+
+describe("PageHeader badges", () => {
+  it("renders several pills in order, linking the ones with an href", () => {
+    render(
+      <PageHeader
+        title="Ada"
+        badges={[
+          { label: "Active", tone: "ok" },
+          { label: "Pro", tone: "accent", href: "/admin/user?f_plan=pro" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Active").getAttribute("data-tone")).toBe("ok");
+    expect(screen.getByRole("link", { name: "Pro" }).getAttribute("href")).toBe(
+      "/admin/user?f_plan=pro",
+    );
+  });
+
+  it("still renders a single badge", () => {
+    render(<PageHeader title="Ada" badge={{ label: "Admin", tone: "info" }} />);
+    expect(screen.getByText("Admin").getAttribute("data-tone")).toBe("info");
+  });
+});

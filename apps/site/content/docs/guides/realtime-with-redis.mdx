@@ -33,35 +33,70 @@ Use a distinct key prefix for every application and environment sharing the same
 
 ## Publish from an external worker
 
-A worker, a cron job or a one-off script publishes through `@flowpanel/kit/publish`. It is the whole realtime client: no admin config, no adapter, no Next.js — one connection and the wire format.
+A worker, a cron job or a one-off script publishes through `@flowpanel/kit/publish`. It is the
+whole realtime client: no admin config, no adapter, no Next.js — one connection and the wire
+format.
+
+Give it the admin's own `realtime` options, so the worker and the admin cannot disagree about the
+Redis URL or the key prefix:
 
 ```ts excerpt
+// src/shared/realtime.ts — imported by the admin config and by the worker
+import type { PublisherOptions } from "@flowpanel/kit";
+
+export const realtime = {
+  driver: "redis",
+  url: process.env.REDIS_URL!,
+  keyPrefix: `myapp-${process.env.NODE_ENV}`,
+} satisfies PublisherOptions;
+```
+
+```ts excerpt
+// worker/admin-events.ts
 import { createPublisher } from "@flowpanel/kit/publish";
+import { realtime } from "@/shared/realtime";
 
-const events = createPublisher({ redis: process.env.REDIS_URL! });
+export const adminEvents = createPublisher({
+  ...realtime,
+  onError: (err, channel) => logger.warn({ err, channel }, "admin realtime publish failed"),
+});
 
-await events.publish(events.channelFor("orders"), { action: "update", id: orderId });
-await events.close();
+await adminEvents.resource("orders", { id: order.id });
+await adminEvents.publish("pipeline");
 ```
 
-`channelFor("orders")` returns `resource.orders`, the channel a resource subscribes to when it sets `realtime: true`; any other string is a channel of your own. Use the same `keyPrefix` the admin uses, or neither side sees the other:
+`resource("orders", { id })` tells every open list and record page of `orders` that its rows
+changed — the event an admin action sends. `action` defaults to `"update"`; pass `"create"` or
+`"delete"` when that is what happened. `publish(channel)` sends on a channel of your own, which a
+widget subscribes to with `realtime: "pipeline"`. `resource()` does not check the name against
+your schema, and the SSE route ignores a channel no page subscribes to, so a misspelt name
+refreshes nothing.
 
-```ts excerpt
-const events = createPublisher({ redis: process.env.REDIS_URL!, keyPrefix: "myapp-production" });
-```
+A Redis failure never fails the job that published: `publish` and `resource` resolve, and the
+error reaches `onError`, or is logged once per error kind when there is none. Publishing after
+`close()` still throws, because that is a bug in the caller. Create the publisher once per
+process and `close()` it on shutdown; nothing connects until the first publish.
 
-Create the publisher once per process and `close()` it on shutdown. A publish-only process opens exactly one connection, on the first publish — nothing connects while the module is merely imported.
-
-When the worker already owns a configured Redis client — TLS, a sentinel, a retry strategy, a BullMQ connection — hand that over instead of a URL, and it stays yours to close:
+When the worker already owns a configured Redis client — TLS, a sentinel, a retry strategy, a
+BullMQ connection — hand it over instead of a URL; any `ioredis` instance fits, and it stays yours
+to close:
 
 ```ts excerpt
 import { createPublisher } from "@flowpanel/kit/publish";
 import { redis } from "./redis";
 
-const events = createPublisher({ redis });
+const events = createPublisher({ redis, keyPrefix: realtime.keyPrefix });
 ```
 
-Inside the admin itself nothing changes: `ctx.publish` in an action, or `publishResource` from `@flowpanel/kit/server`, already use the publisher `defineAdmin` configured.
+### Two functions named `createPublisher`
+
+| Import | For | Returns |
+| --- | --- | --- |
+| `@flowpanel/kit/publish` | a worker, a cron job or a script that only publishes | `PublisherClient` — `publish`, `resource`, `channelFor`, `close`; never rejects on a Redis error |
+| `@flowpanel/kit` | the transport behind an admin's `realtime` option; `defineAdmin` builds it for you | `Publisher` — `publish`, `subscribe`, `close` |
+
+Inside the admin itself nothing changes: `ctx.publish` in an action, or `publishResource` from
+`@flowpanel/kit/server`, already use the publisher `defineAdmin` configured.
 
 ## Verify across instances
 

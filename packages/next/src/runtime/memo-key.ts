@@ -38,7 +38,24 @@ function stable(value: unknown): string {
   return value === undefined ? "u" : JSON.stringify(value);
 }
 
-/** One memo key per resource and `where`, whatever order its keys were written in. */
-export function countKey(resource: string, where: Record<string, unknown> | undefined): string {
-  return `${resource}${stable(where ?? {})}`;
+type Window = { from: Date; to: Date } | null | undefined;
+
+const bounds = (window: Window): string =>
+  window ? `@${window.from.getTime()}~${window.to.getTime()}` : "";
+
+/**
+ * One memo key per resource, `where` and — for a ranged count — the field and bounds, whatever
+ * order the `where` was written in.
+ */
+export function countKey(
+  resource: string,
+  where: Record<string, unknown> | undefined,
+  window?: ({ field: string } & NonNullable<Window>) | null,
+): string {
+  return `${resource}${stable(where ?? {})}${window ? `${window.field}${bounds(window)}` : ""}`;
+}
+
+/** One memo key per resource, read options and — for a ranged read — the bounds. */
+export function readKey(resource: string, options: object | undefined, window?: Window): string {
+  return `${resource}${stable(options ?? {})}${bounds(window)}`;
 }

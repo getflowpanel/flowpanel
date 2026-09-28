@@ -4,26 +4,29 @@ description: FlowpanelTypes, FlowpanelResources, and the types that resolve thro
 kind: reference
 ---
 
-FlowPanel ships no code generator and reads no schema file. Everything it
-knows about *your* types, it learns from two empty interfaces you augment:
+FlowPanel ships no code generator. Everything it knows about *your* types, it
+learns from the database client, the Drizzle schema and the auth instance you
+already have, registered once:
 
 ```ts excerpt
+import type { auth } from "@/lib/auth";
+import type { db } from "@/db";
+import type * as schema from "@/db/schema";
+
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
-  }
-  interface FlowpanelResources {
-    users: typeof schema.users.$inferSelect;
-    orders: typeof schema.orders.$inferSelect;
+    schema: typeof schema;
+    session: typeof auth.$Infer.Session;
   }
 }
 ```
 
-Both are declared in `@flowpanel/core` and re-exported by `@flowpanel/kit`.
-Augment whichever specifier you actually import — declaration merging targets
-the module you name, and for a kit install that is `"@flowpanel/kit"`.
+Both registry interfaces are declared in `@flowpanel/core` and re-exported by
+`@flowpanel/kit`. Augment whichever specifier you actually import — declaration
+merging targets the module you name, and for a kit install that is `"@flowpanel/kit"`.
 
-Everything on this page is **opt-in**. Leave both interfaces empty and the
+Everything on this page is **opt-in**. Leave the interfaces empty and the
 framework still runs; the types simply degrade to `unknown` / `string` /
 `Record<string, unknown>`, and the checks move from compile time to
 `defineAdmin`'s
@@ -31,7 +34,7 @@ framework still runs; the types simply degrade to `unknown` / `string` /
 
 ## FlowpanelTypes
 
-A one-key registry for framework-wide type bindings. Today it carries `db`.
+A registry for framework-wide type bindings: `db`, `schema` and `session`.
 
 ```ts excerpt
 interface FlowpanelTypes {}
@@ -71,12 +74,45 @@ An adapter binds it once (`ListQueryContext<Row, MyDb>`); a `FieldDef.options`
 or `defaultValue` resolver, which receives a bare `QueryContext`, sees
 `ctx.db` as `unknown` and has to narrow it.
 
+### schema
+
+Register the Drizzle schema module and every table and view in it becomes a
+resource name with its row — `SchemaResources` — keyed by the SQL name, the name
+`defineAdmin` uses: `pgTable("user_visit", …)` is `"user_visit"`. `ResourceName`,
+`RowOf`, `InferRow` and `ReferenceSpec` all read it, so `ctx.count("user_vist")`,
+`ctx.read("user_visit", { where: { usrId } })` and a `reference` to a missing
+column fail to compile. A schema table that is not registered as a resource
+type-checks as a name; `defineAdmin` and `ctx.count` still reject it at run time
+with the registered names.
+
+### session
+
+Register the session type — for better-auth, `typeof auth.$Infer.Session` — and
+`Session` is that type everywhere: `ctx.session`, `auth.role`, `auth.userId`,
+`requireRole`, `withBetterAuth({ role })`, `theme`, scope callbacks. Without it,
+`Session` is `Record<string, unknown>`.
+
+### RowOf
+
+```ts excerpt
+type RowOf<N extends string> = N extends keyof AllResources ? AllResources[N] : Record<string, unknown>;
+```
+
+The row of a known resource — what `ctx.read`, `ctx.rowOf`, a link's `filter` and a
+count metric's `where` are keyed by.
+
 ## FlowpanelResources
 
 A map of **resolved resource name → row type**. "Resolved" is the name
 `defineAdmin` keys the resource by: a Drizzle table declared
 `pgTable("ai_usage", …)` is `"ai_usage"` even when the exported variable is
 `aiUsage`, unless the resource sets `options.name`.
+
+With `schema` registered, you only need an entry here for a resource renamed with
+`options.name` — for example a resource named `"user"` over the view
+`admin_user_row`: `user: typeof schema.adminUserRow.$inferSelect`. An entry replaces
+the schema's row under the same name; it never intersects with it. For Prisma, which
+has no table objects, this is still the whole registry.
 
 ```ts excerpt
 interface FlowpanelResources {}
@@ -87,8 +123,8 @@ interface FlowpanelResources {}
 ```ts excerpt
 type InferRow<Ref> = Ref extends { $inferSelect: infer R }
   ? R
-  : Ref extends keyof FlowpanelResources
-    ? FlowpanelResources[Ref]
+  : Ref extends keyof AllResources
+    ? AllResources[Ref]
     : Record<string, unknown>;
 ```
 
@@ -108,9 +144,9 @@ This is what turns `resource(ref, options)` into
 ### ResourceName
 
 ```ts excerpt
-type ResourceName = [keyof FlowpanelResources] extends [never]
+type ResourceName = [keyof AllResources] extends [never]
   ? string
-  : keyof FlowpanelResources & string;
+  : keyof AllResources & string;
 ```
 
 The type of every place one config points at *another* resource by name: a
@@ -123,14 +159,14 @@ runs whether or not the compiler caught it.
 ### ReferenceSpec
 
 ```ts excerpt
-type ReferenceSpec = [keyof FlowpanelResources] extends [never]
+type ReferenceSpec = [keyof AllResources] extends [never]
   ? { resource: string; labelField: string }
   : {
-      [R in keyof FlowpanelResources]: {
+      [R in keyof AllResources]: {
         resource: R;
-        labelField: keyof FlowpanelResources[R] & string;
+        labelField: keyof AllResources[R] & string;
       };
-    }[keyof FlowpanelResources];
+    }[keyof AllResources];
 ```
 
 A foreign-key target, used by `ColumnDef.reference` (renders the FK as a

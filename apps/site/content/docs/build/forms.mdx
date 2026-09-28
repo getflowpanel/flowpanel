@@ -33,7 +33,7 @@ The create form can collect fields that should never be editable later. Omitted 
 
 Use `type` for the intended input: text, textarea, number, email, password, URL, date/time, boolean controls, select variants, JSON, Markdown, tags, reference, hidden, or color. Add `label`, `help`, and `placeholder` only when the field name and control do not explain the task.
 
-`options` accepts static strings, `{ label, value }` pairs, or a server-side function. Dynamic options receive the typed query context and are resolved per request.
+`options` accepts static strings, `{ label, value }` pairs, or a server-side function. Dynamic options receive the typed query context and are resolved per request. Leave `options` out on a field whose column uses an `enumOf` badge format, and the field lists the enum's labels.
 
 ## Relation fields
 

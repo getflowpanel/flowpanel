@@ -26,7 +26,7 @@ Two neighbouring subpaths are worth knowing about, because their exports are
   mounts around this library: `DrawerHost`, `CommandHost`,
   `DashboardActionsBar`, `DataTableWithDrawerRows`, `CreateDrawer`,
   `DetailTabsClient`, `SavedViewsDropdown`, `ResourceListSearch`,
-  `ResourceListFilters`, `ResourceListDeletedToggle`, `DashboardDateRange`,
+  `ResourceListFilters`, `ResourceListDeletedToggle`, `DashboardDateRange`, `DashboardFilters`,
   `WidgetErrorBoundary`. Reach for it when you assemble a `"bare"`-shell
   layout by hand.
 - **`@flowpanel/kit/client`** — the standalone `useAdminMutation` hook, which
@@ -41,7 +41,7 @@ content.
 | Export | Purpose |
 | --- | --- |
 | `AdminShell` | Pure visual chrome — sidebar or tab-strip variant — around admin content. |
-| `AdminNav` | Renders `NavGroup[]` (Dashboards, Pages, Resources, Queues) as the sidebar/tab nav. |
+| `AdminNav` | Renders `NavGroup[]` as the sidebar nav; a `collapsible` group folds under its label until it holds the current page. |
 | `AdminTabs` | Tab-strip variant of the nav, used when `AdminShellVariant` is `"tabs"`. |
 | `AccountMenu` | User menu (avatar, name, sign-out) shown in the shell header. |
 | `Brand` | Renders a `ShellBrand` (logo/name) in the shell header. |
@@ -50,7 +50,7 @@ content.
 | `Drawer`, `DrawerHeader`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. |
 | `DetailShell` | Chrome around a resource detail page. |
 | `FlowpanelGlobals` | Mounts cross-cutting globals (toast host, theme script, shortcuts) once per admin. |
-| `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. |
+| `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. `badges` renders several pills in order, each an optional link. |
 | `ShortcutsCheatsheet`, `DEFAULT_SHORTCUTS` | The `?`-triggered keyboard shortcuts overlay and the shortcut list it ships with. |
 | `ThemeScript` | Inline script that applies the stored theme class before hydration, avoiding a flash. |
 | `ComponentsProvider`, `useComponents` | Provider/reader for the `FlowpanelComponentSlots` override map. |
@@ -80,7 +80,7 @@ cell renderers.
 | `DensityToggle` | Toggles `DataTableDensity` (row spacing) in the toolbar. |
 | `FilterBar` | Renders a `FilterBarSpec[]` as the filter row above the table. |
 | `BooleanFilter`, `DateRangeFilter`, `MultiSelectFilter`, `NumericRangeFilter`, `SelectFilter`, `TagFilter`, `TextFilter` | One filter control per `ColumnMeta.type`, each driven by `FilterBar`. `DateRangeFilter` opens a two-month range calendar with presets. |
-| `DateRangePicker` | Standalone preset dropdown (Today, Last 7 days, MTD, …) for dashboards. |
+| `DateRangePicker` | Standalone preset dropdown (Today, Last 7 days, MTD, …) for dashboards; `presets` narrows and orders the list, and a `from`/`to` value without a preset shows as its two days. |
 | `Pagination`, `DefaultPagination` | Page controls under the table and their default renderer. |
 | `ArrayCell`, `JsonCell`, `ReferenceCell` | Read-only cell renderers for array, JSON, and reference columns. |
 | `InlineEditCell` | Editable cell used when a column declares `editable: true`. |
@@ -89,7 +89,7 @@ cell renderers.
 | `MobileCardList` | Card layout `DataTable` switches to under the mobile breakpoint. |
 | `KV`, `KVRow` | Key/value list layout, used by card and drawer field views. |
 | `renderFormatCell` | Renders a declarative `ColumnFormat` value — the function `DataTable` cells call internally. |
-| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time and a boolean — use them in a custom cell to match the table. |
+| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell`, `ToneText` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time, a boolean and a number coloured by its threshold — use them in a custom cell to match the table. |
 
 <AutoTypeTable path="../../packages/react/src/_data/data-table-types.ts" name="DataTableProps" />
 
@@ -162,14 +162,21 @@ resolves into.
 
 | Export | Purpose |
 | --- | --- |
-| `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. |
-| `StatCard` | Renders a `stat()` widget — one number, a hint and an optional link. |
+| `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. `plain` drops the card frame for a strip cell. |
+| `StatCard` | Renders a `stat()` widget — one number, a hint and an optional link. `plain` drops the card frame for a strip cell. |
 | `StatGroupCard` | Renders a `statGroup()` widget. |
-| `KvCard` | Renders a `kv()` widget as a label/value grid. |
+| `KvCard` | Renders a `kv()` widget as a label/value grid. `long` items span the card and fold the rest under `more`. |
 | `BarsCard` | Renders a `bars()` widget, sizing each bar against `max` or the largest row. |
 | `FunnelCard` | Renders a `funnel()` widget, deriving each step's share and drop-off and marking the worst drop past `alertDrop` in `warn`. |
-| `ListCard` | Renders a `list()` widget as a short feed. |
+| `ListCard`, `ListBanner` | Renders a `list()` widget as a short feed, or with `variant: "banner"` as a severity-ordered strip with glyphs, a "N more" line and an all-clear line. |
+| `TrackerCard` | Renders a `tracker()` widget: a toned dot, one block per hour or day, and a summary per row. |
+| `TimelineCard` | Renders a `timeline()` widget: kind chips, day groups, folded lines in `<details>`, and paging, all as links. |
+| `HeatmapCard` | Renders a `heatmap()` widget: weeks of day cells shaded by quartile, month and weekday labels, a legend and a summary. |
+| `ChecklistCard` | Renders a `checklist()` widget: a mark per item, dates and gaps when ordered, and a summary bar. |
 | `TableWidget` | Renders a `table()` widget, reusing `DataTable`. |
+| `CaptionLine` | The line under a card title: a cut range, how fresh the data is, or its coverage, with a ▲ when stale. |
+| `CardHeading` | A card's title and caption; renders nothing when it has neither. |
+| `ExpiredCard` | A widget whose whole range is older than its data is kept: its title, `—`, and why. |
 | `DashboardRefresh` | Re-renders a dashboard on its `refresh` interval and stamps the numbers' age. |
 | `CustomWidget` | Wraps a `custom()` widget's component with the shared widget frame. |
 
@@ -182,6 +189,7 @@ Shared by widgets and by hand-built pages.
 | `Card`, `CardHeader`, `CardContent`, `CardDescription` | Generic card shell and its section slots. |
 | `MetricGrid` | Responsive grid for laying out `MetricCard`s. |
 | `Section`, `SectionLabel`, `Divider`, `spanClass` | Section wrapper with a label/description, a divider rule, and the `Span` → CSS class map dashboards use for widget width. |
+| `StatStrip` | A band of numbers divided by hairlines, two per line on a phone — what `section.variant: "strip"` and `detail.stats` render. |
 
 ## Atoms
 
@@ -192,7 +200,7 @@ Small, single-purpose display components.
 | `Avatar`, `DefaultAvatar` | User/entity avatar and its default renderer. |
 | `Badge`, `DefaultBadge` | Toned inline badge and its default renderer. |
 | `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
-| `StatusDot` | Small toned dot, e.g. for realtime/queue status. |
+| `StatusDot` | Small dot in any `Tone` — `ok` by default. |
 | `LiveIndicator` | Realtime connection status indicator (see `LiveStatus`). |
 | `LocalTime` | Absolute timestamp in the configured `formatting.timeZone`, or the viewer's zone after hydration when none is set. |
 | `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
@@ -344,7 +352,9 @@ theme outside a component.
 `cn` (class name merge), `formatNumber`, `humanize`, `resolveFieldLabel`, and
 `triggerDownload` are general-purpose utilities exported alongside these for
 the same reason: components elsewhere in the package, and custom slots, both
-need them.
+need them. `toneTextClass` and `toneFillClass` map each `Tone` to the text and fill class the
+built-in cards use; `@flowpanel/kit` exports the same classes for server components, because
+this entry is a client boundary.
 
 ## Name collisions with `@flowpanel/kit`
 

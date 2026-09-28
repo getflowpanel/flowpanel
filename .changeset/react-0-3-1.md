@@ -17,3 +17,4 @@ A `bars` card treats a `max` of zero or less as unset, a funnel reads no drop in
 A metric delta and funnel shares and drop-offs format their percentages in the admin's `formatting.locale`, so a Russian admin reads «19,4 %» instead of «19.4%».
 The Radix dependencies take the current 1.x/2.x family as their lower bounds, the versions a fresh host install resolves, so the bundle carries one `@radix-ui/react-primitive` and one `@radix-ui/react-slot`.
 A funnel step that grows over the step before shows «+50%» instead of a negative drop, and `kv` and `statGroup` items are keyed by position so repeated labels raise no duplicate-key error.
+`tailwind-merge` moves to ^3.0.0, which understands Tailwind v4 utilities (`inset-shadow-*`, `inset-ring-*`, `field-sizing-*` and the rest that v2 did not); `cn()` now dedupes a host override against one of those the way it already did for older utilities.

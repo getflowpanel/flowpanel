@@ -135,6 +135,17 @@ describe("init templates (resolution)", () => {
     expect(out).not.toContain('"use client"');
   });
 
+  it("admin-layout renders the theme script with the host's CSP nonce", async () => {
+    const out = await tpl("admin-layout.tsx.txt", { CSS_IMPORT: "@/styles/admin.css" });
+    expect(out).toContain('import "@/styles/admin.css";');
+    expect(out).toContain('import { ThemeScript } from "@flowpanel/kit/react";');
+    expect(out).toContain('import { headers } from "next/headers";');
+    expect(out).toContain('const nonce = (await headers()).get("x-nonce");');
+    expect(out).toContain('<ThemeScript defaultMode="auto" nonce={nonce ?? undefined} />');
+    expect(out).toContain("export default async function AdminLayout");
+    expect(out).not.toContain("//");
+  });
+
   it("writes a compiler-free stylesheet import regardless of the host Tailwind version", async () => {
     for (const template of ["admin.css.txt", "admin.css.v3.txt"]) {
       const out = await tpl(template);

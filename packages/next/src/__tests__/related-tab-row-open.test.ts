@@ -137,19 +137,19 @@ describe("a related tab's rows open like the target's own list", () => {
     expect(table?.rowHrefs).toEqual(["/admin/withDetail/a%2F1", "/admin/withDetail/a2"]);
   });
 
-  it("open the target's drawer on its list when it only has a drawer", async () => {
+  it("open the target's drawer over the card when it only has a drawer", async () => {
     const table = await relatedTable("drawerOnly");
     expect(table?.rowHrefs).toEqual([
-      "/admin/drawerOnly?drawer=drawerOnly%3Aa%2F1",
-      "/admin/drawerOnly?drawer=drawerOnly%3Aa2",
+      "/admin/users/u1?tab=drawerOnly&drawer=drawerOnly%3Aa%2F1",
+      "/admin/users/u1?tab=drawerOnly&drawer=drawerOnly%3Aa2",
     ]);
   });
 
   it("follow the list's drawer default when the target has both", async () => {
     const table = await relatedTable("both");
     expect(table?.rowHrefs).toEqual([
-      "/admin/both?drawer=both%3Aa%2F1",
-      "/admin/both?drawer=both%3Aa2",
+      "/admin/users/u1?tab=both&drawer=both%3Aa%2F1",
+      "/admin/users/u1?tab=both&drawer=both%3Aa2",
     ]);
   });
 

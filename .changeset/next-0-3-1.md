@@ -12,3 +12,4 @@ Detail and drawer fields show `FieldDef.render` output; the drawer prerenders it
 The drawer renders a `statGroup` with the dashboard's `StatGroupCard`, so its tones, links and number formats match the dashboard.
 A detail fields tab leaves out a declared field the reader may not read instead of showing it empty, and a related tab whose rows cannot be identified stays inert.
 A drawer field render that throws falls back to the column's `render` for that field, and detail field renders run only for fields the projected row carries.
+`tailwind-merge` moves to ^3.0.0, matching `@flowpanel/react`, so server-rendered classes merge Tailwind v4 utilities correctly too.

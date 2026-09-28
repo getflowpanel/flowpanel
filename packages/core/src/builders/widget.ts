@@ -1,4 +1,8 @@
 import type { ComponentType } from "react";
+import { whereValue, withRange } from "../internal/where";
+import { isFilterRangeValue } from "../types/context";
+import type { MetricCount, MetricCountSource } from "../types/metric-count";
+import type { ResourceName } from "../types/registry";
 import type {
   CustomOptions,
   CustomWidget,
@@ -23,18 +27,67 @@ import type {
   StatWidget,
 } from "../types/widget-cards";
 import type { WidgetContext } from "../types/widget-context";
+import type { TrackerOptions, TrackerWidget } from "../types/widget-tracker";
 
+type MetricQuery = (ctx: WidgetContext) => Promise<number | string | MetricResult>;
+
+function countSource(source: MetricCount, options: MetricOptions): MetricCountSource {
+  return {
+    resource: source.count,
+    ...(source.where !== undefined ? { where: source.where } : {}),
+    ...(source.range !== undefined ? { range: source.range } : {}),
+    linked: options.drilldown === undefined,
+  };
+}
+
+/**
+ * A single big number that counts rows of a resource. The value is `ctx.count(count, where,
+ * { range })`, `compare` counts the period before, and the card links to the counted rows.
+ */
+export function metric<N extends ResourceName>(
+  label: string,
+  source: MetricCount<N>,
+  options?: MetricOptions,
+): MetricWidget;
 /** A single big-number widget. */
+export function metric(label: string, query: MetricQuery, options?: MetricOptions): MetricWidget;
 export function metric(
   label: string,
-  query: (ctx: WidgetContext) => Promise<number | string | MetricResult>,
+  source: MetricQuery | MetricCount,
   options: MetricOptions = {},
 ): MetricWidget {
+  if (typeof source === "function") {
+    return { kind: "metric", label, query: source, options: { format: "number", ...options } };
+  }
+  const counted = countSource(source, options);
+  const scope = (ctx: WidgetContext) =>
+    typeof counted.where === "function" ? counted.where(ctx) : (counted.where ?? {});
+  const range = counted.range === undefined ? {} : { range: counted.range };
   return {
     kind: "metric",
     label,
-    query,
-    options: { format: "number", ...options },
+    query: (ctx) => ctx.count(counted.resource, scope(ctx), range),
+    options: {
+      format: "number",
+      drilldown: (ctx) => {
+        const filter = scope(ctx);
+        const missing = Object.values(filter).some(
+          (value) => value === undefined || value === null || value === "",
+        );
+        if (missing) return null;
+        const field = counted.range;
+        const bound = field === undefined ? undefined : whereValue(filter[field]);
+        if (field === undefined || !isFilterRangeValue(bound)) {
+          return { resource: counted.resource, filter, ...range };
+        }
+        const overlap = withRange("metric", { ...filter, [field]: bound }, field, ctx.dateRange, [
+          field,
+        ]);
+        return { resource: counted.resource, filter: overlap };
+      },
+      ...options,
+    },
+    source: counted,
   };
 }
 
@@ -67,8 +120,8 @@ export function stat(
 }
 
 /** A label/value card — the facts about one thing rather than a table of many. */
-export function kv(options: KvOptions): KvWidget {
-  return { kind: "kv", options };
+export function kv<R extends object = Record<string, unknown>>(options: KvOptions<R>): KvWidget {
+  return { kind: "kv", options: options as unknown as KvOptions };
 }
 
 /** A ranked breakdown, sized against the largest value. */
@@ -84,4 +137,14 @@ export function funnel(options: FunnelOptions): FunnelWidget {
 /** A short feed of lines, each with optional trailing detail. */
 export function list(options: ListOptions): ListWidget {
   return { kind: "list", options };
+}
+
+/** "Anything on fire": a full-width `list()` ordered by severity, with an all-clear line. */
+export function banner(options: Omit<ListOptions, "variant">): ListWidget {
+  return { kind: "list", options: { span: 12, ...options, variant: "banner" } };
+}
+
+/** Status over time: one row per key, one block per hour or day of a window ending now. */
+export function tracker<R = Record<string, unknown>>(options: TrackerOptions<R>): TrackerWidget {
+  return { kind: "tracker", options: options as unknown as TrackerOptions };
 }

@@ -1,6 +1,6 @@
 "use client";
-import type { WidgetConfig } from "@flowpanel/core";
-import { Card, CardHeader } from "@flowpanel/react";
+import type { WidgetCaption, WidgetConfig } from "@flowpanel/core";
+import { CaptionLine, Card, CardHeader } from "@flowpanel/react";
 import { type ReactNode, useEffect, useState } from "react";
 import { AreaChart } from "./AreaChart";
 import { BarChart } from "./BarChart";
@@ -16,8 +16,12 @@ export interface ChartRendererProps {
   label?: string;
   options: ChartWidget["options"];
   data: unknown[];
+  /** Legend and tooltip name per series key, resolved on the server. */
+  seriesLabels?: Readonly<Record<string, string>>;
   /** The card's link, resolved on the server from the widget's `drilldown`. */
   drilldown?: string;
+  /** The line under the title, computed on the server. */
+  caption?: WidgetCaption;
 }
 
 /**
@@ -26,17 +30,17 @@ export interface ChartRendererProps {
  * placeholder rather than an empty frame that collapses on hydration.
  */
 export function chartBody(
-  { kind, options, data }: ChartRendererProps,
+  { kind, options, data, seriesLabels }: ChartRendererProps,
   mounted: boolean,
 ): ReactNode {
   if (!mounted) return <ChartSkeleton height={options.height ?? DEFAULT_CHART_HEIGHT} />;
   switch (kind) {
     case "areaChart":
-      return <AreaChart data={data} options={options as never} />;
+      return <AreaChart data={data} options={options as never} names={seriesLabels} />;
     case "barChart":
-      return <BarChart data={data} options={options as never} />;
+      return <BarChart data={data} options={options as never} names={seriesLabels} />;
     case "lineChart":
-      return <LineChart data={data} options={options as never} />;
+      return <LineChart data={data} options={options as never} names={seriesLabels} />;
     case "pieChart":
       return <PieChart data={data} options={options as never} />;
   }
@@ -67,7 +71,10 @@ export function ChartRenderer(props: ChartRendererProps) {
 
   return chartFrame(
     <Card>
-      <CardHeader>{props.label}</CardHeader>
+      <CardHeader>
+        {props.label}
+        <CaptionLine caption={props.caption} />
+      </CardHeader>
       <div className="p-3">{chartBody(props, mounted)}</div>
     </Card>,
     props,

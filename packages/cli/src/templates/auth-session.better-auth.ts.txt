@@ -19,3 +19,9 @@ export const flowpanelAuth = withBetterAuth({
 });
 
 export const getSession = flowpanelAuth.session;
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    session: typeof auth.$Infer.Session;
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "@flowpanel/test",
   "version": "0.3.0",
-  "description": "Playwright smoke test for a FlowPanel admin — one call walks every page and fails on errors",
+  "description": "Playwright smoke test for a FlowPanel admin, and a widget context for unit tests",
   "keywords": [
     "flowpanel",
     "admin",
@@ -31,6 +31,12 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./widgets": {
+      "import": {
+        "types": "./dist/widgets.d.ts",
+        "default": "./dist/widgets.mjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,
@@ -43,25 +49,35 @@
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack .",
+    "lint:attw": "attw --pack . --exclude-entrypoints ./widgets && attw --pack . --entrypoints ./widgets --profile esm-only",
     "lint:publish": "publint --strict",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "@axe-core/playwright": "^4.10.0",
+    "@flowpanel/kit": ">=0.3.1 <1.0.0",
     "@playwright/test": "^1.50.0"
   },
   "peerDependenciesMeta": {
     "@axe-core/playwright": {
       "optional": true
+    },
+    "@flowpanel/kit": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
+    "@flowpanel/kit": "workspace:*",
     "@playwright/test": "^1.59.1",
+    "@types/react": "catalog:",
+    "next": "^16.3.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "tsup": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "^4.0.0"
   }
 }

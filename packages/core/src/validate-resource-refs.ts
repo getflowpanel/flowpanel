@@ -50,7 +50,7 @@ function resourceRefSites(resource: ResourceConfig): RefSite[] {
     columns?: unknown;
     create?: { fields?: unknown };
     update?: { fields?: unknown };
-    detail?: { fields?: unknown; tabs?: unknown };
+    detail?: { fields?: unknown; tabs?: unknown; aside?: unknown };
     drawer?: { fields?: unknown; tabs?: unknown };
   };
   pushFieldRefs(o.columns, "columns", out);
@@ -58,6 +58,7 @@ function resourceRefSites(resource: ResourceConfig): RefSite[] {
   pushFieldRefs(o.update?.fields, "update.fields", out);
   pushFieldRefs(o.detail?.fields, "detail.fields", out);
   pushTabRefs(o.detail?.tabs, "detail.tabs", out);
+  pushWidgetRefs(o.detail?.aside, "detail.aside", out);
   pushFieldRefs(o.drawer?.fields, "drawer.fields", out);
   pushTabRefs(o.drawer?.tabs, "drawer.tabs", out);
   return out;

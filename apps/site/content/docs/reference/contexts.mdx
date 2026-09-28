@@ -124,6 +124,20 @@ and SQLite. An array is a single value to the driver, and each adapter binds one
 its own way — see [the adapter reference](/docs/reference/adapters#raw-sql) before
 writing an `IN` list.
 
+Fragments compose. A Drizzle `sql` fragment interpolated into `ctx.sql` — a shared
+window, a scope, a filter built elsewhere — is bound the same way at any depth, so a
+`Date` two fragments deep still binds as ISO text on the Drizzle adapter:
+
+```ts excerpt
+const window = (c: WidgetContext) => sql`hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
+const rows = await ctx.sql<HourRow>`select * from scraper_hourly_stats where ${window(ctx)}`;
+```
+
+Cast counts and sums to a JavaScript number in the statement — `count(*)::int`,
+`sum(x)::float8` — because Postgres returns `int8` and `numeric` as strings to keep
+their precision. FlowPanel's series and breakdown helpers coerce numeric strings, but
+a value you read yourself arrives as text.
+
 Results come back as plain objects. Because a free-form statement carries no
 column types to consult, every string shaped exactly like a zoneless
 `YYYY-MM-DD HH:mm:ss` (with an optional `T` separator and fractional seconds) is
@@ -138,17 +152,94 @@ error names the adapter kind; query through `ctx.db` instead.
 
 ### ctx.count
 
-`ctx.count(resource, where)` counts rows of a registered resource through the
-same role, access and tenant-scope checks as any other cross-resource read, so a
+`ctx.count(resource, where, { range })` counts rows of a registered resource through
+the same role, access and tenant-scope checks as any other cross-resource read, so a
 resource the current session may not read counts `0` rather than leaking a total.
-`where` takes the filter shapes `ctx.filters` uses, and soft-deleted rows are
-excluded unless `where` says otherwise. A filter on a field the role may not read
-counts `0`, and so does an `undefined` filter value — a missing value narrows to
-nothing rather than widening to every row.
+`where` takes the [where values](#where-values) `ctx.read` takes, and soft-deleted rows
+are excluded unless `where` says otherwise. A filter on a field the role may not read
+counts `0`. An `undefined`, `null` or `""` value counts `0` too, with a development
+warning — a missing value narrows to nothing rather than widening to every row. A
+misspelt field throws and names the closest column, whatever its value.
 
 ```ts excerpt
 stat("Open tickets", (ctx) => ctx.count("tickets", { status: "open" }));
 ```
+
+### Counting and reading a period
+
+`range` names the timestamp field that receives the widget's `ctx.dateRange`, inclusive
+on both ends, the way a link's `range` bounds the list it opens. Over a whole history —
+a record page without a date picker — it adds no bound. With `compare`, the previous
+period is counted again with its own bounds.
+
+```ts excerpt
+metric("Visits", (ctx) => ctx.count("user_visit", { userId: ctx.id }, { range: "startedAt" }), {
+  compare: true,
+});
+```
+
+A `{ gte, lte }` on the same field in `where` narrows the period to the overlap; any
+other value on that field together with `range` throws.
+
+### ctx.read
+
+`ctx.read(resource, options)` returns rows of a registered resource through the same
+role, access, tenant-scope, field and soft-delete rules as its list, so a card never
+sees a row or a field the list would hide. A resource the session may not read returns
+`[]`. Two widgets that read with the same options share one query per request.
+
+```ts excerpt
+const profileOf = async (ctx: WidgetContext) =>
+  (
+    await ctx.read("freelancer_profile", {
+      where: { userId: ctx.id },
+      fields: ["hourlyRate"],
+      limit: 1,
+    })
+  )[0] ?? null;
+
+kv({ label: "Profile", items: [{ label: "Rate", value: async (c) => (await profileOf(c))?.hourlyRate }] });
+```
+
+Rows carry what the resource's list carries — its declared columns, `expose` and
+`rowKey` — plus the `fields` you ask for. Any other property is `undefined`, even
+though the row type lists it, so name every field a card reads that the list does not
+show. `sort` orders the rows and `limit` defaults to 100 and stops at 1000. A read
+that returns exactly 1000 rows warns once in development, because a total or a series
+over a cut read undercounts; narrow the `where`, or count with `ctx.count`.
+
+A misspelt resource, field, sort field or read field throws before any query, and the
+message names the closest real name.
+
+### ctx.rowOf
+
+`ctx.rowOf(resource)` is the record the card shows, typed by its resource's row, so a
+detail widget reads `c.rowOf("user").email` with no cast. It throws on a dashboard,
+which has no record, and on another resource's card; the message names both.
+`ctx.row` stays as the untyped record.
+
+```ts excerpt
+stat("With us", async (c) => c.format.relative(c.rowOf("user").createdAt));
+```
+
+### Where values
+
+A `where` is keyed by the row's own fields once the resource is typed (see
+[the type registry](/docs/reference/registry)), so a misspelt field is a compile error.
+Each value is one of:
+
+| Value | Matches |
+| --- | --- |
+| `"paid"`, `42`, `true`, a `Date` | rows equal to it |
+| `"__null__"` / `"__notnull__"` | rows where the field is empty / not empty |
+| `{ gte, lte }` (numbers or dates, either side optional) | rows inside the bounds, inclusive |
+| `["paid", "refunded"]`, `[1, 2]` | rows equal to any of them; an empty array matches nothing; pass a boolean as a plain value, not in an array |
+| `{ op: "in", values }`, `{ op: "range", gte, lte }` | the adapter's own shapes, as a view or a 0.3.0 count wrote them |
+
+A value that is `undefined`, `null` or `""`, or a range with neither bound, would match
+every row, so `ctx.read` throws on it. Leave the field out instead, or pass `"__null__"`.
+An array that holds a boolean throws too: its values reach the database as text, and on
+SQLite `"false"` matches the rows that are `true`.
 
 ## Request-scoped access
 

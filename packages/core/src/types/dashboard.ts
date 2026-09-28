@@ -1,10 +1,20 @@
 import type { ComponentType } from "react";
+import type { EnumDef } from "../builders/enum-of";
 import type { DashboardAction } from "./action";
 import type { IconName } from "./icon";
+import type { RealtimeOption } from "./realtime";
+import type { SelectOption } from "./resource";
 import type { Session } from "./session";
 import type { WidgetConfig } from "./widget";
+import type { WidgetContext } from "./widget-context";
 
 export type DateRangePreset = "today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD";
+
+/**
+ * The sidebar group an entry joins: its label, or `{ label, collapsed: true }` for a
+ * group that folds under its label until it holds the current page.
+ */
+export type NavGroupRef = string | { label: string; collapsed?: boolean };
 
 /** Date picker offered above a dashboard. */
 export interface DateRangeConfig {
@@ -12,6 +22,11 @@ export interface DateRangeConfig {
   preset?: DateRangePreset;
   /** Explicit range used when no preset is given. */
   default?: { from: Date; to: Date };
+  /**
+   * Presets the picker offers, in order. A URL preset outside the list is ignored,
+   * and `preset` defaults to the first entry. Default: all seven.
+   */
+  presets?: DateRangePreset[];
 }
 
 /** The active range, as every widget query receives it. */
@@ -39,11 +54,28 @@ export interface SectionConfig {
   label?: string;
   /** Supporting copy under the heading. */
   description?: string;
-  /** Grid columns the widgets lay out across.
+  /** Grid columns the widgets lay out across; omitted, 12 when a widget sets `span`.
    * @defaultValue 1
    */
   columns?: 1 | 2 | 3 | 4 | 6 | 12;
+  /**
+   * `"strip"` draws the section's `metric` and `stat` widgets as one band divided by hairlines,
+   * with no card around each; another kind renders as its own card and warns in development.
+   * `columns` is the cells per line from `md` up.
+   * @defaultValue "cards"
+   */
+  variant?: "cards" | "strip";
   widgets: WidgetConfig[];
+}
+
+/** A select above a dashboard that narrows every widget, read as `ctx.filters[key]`. */
+export interface DashboardFilter {
+  /** The URL key `f_<key>`, as a list's filters use, and the key in `ctx.filters`. */
+  key: string;
+  /** The select's label. */
+  label: string;
+  /** The choices: a list, an `enumOf()`, or a function of the context. */
+  options: SelectOption[] | EnumDef | ((ctx: WidgetContext) => Promise<SelectOption[]>);
 }
 
 export interface DashboardConfig {
@@ -53,10 +85,14 @@ export interface DashboardConfig {
   label: string;
   /** Serializable Lucide icon rendered in navigation and the command palette. */
   icon?: IconName;
+  /** Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. */
+  navGroup?: NavGroupRef;
   /** Adds a date picker whose value reaches every widget query. */
   dateRange?: DateRangeConfig;
-  /** SSE channel(s) the whole dashboard subscribes to, independent of any widget. */
-  realtime?: string | string[];
+  /** Selects beside the date picker; the values reach every widget as `ctx.filters`. */
+  filters?: DashboardFilter[];
+  /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
+  realtime?: RealtimeOption;
   /**
    * Re-render the whole dashboard on an interval, e.g. `"60s"` or `"5m"`, and
    * show how old the numbers are next to the date picker. Paused while the tab
@@ -82,6 +118,8 @@ export interface PageConfig {
   label: string;
   /** Serializable Lucide icon rendered in navigation and the command palette. */
   icon?: IconName;
+  /** Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. */
+  navGroup?: NavGroupRef;
   /** Server or client React component rendered at `<basePath><path>`. */
   component?: ComponentType<Record<string, never>>;
   /** External href used when `component` is not provided. */

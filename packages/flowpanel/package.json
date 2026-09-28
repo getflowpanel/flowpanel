@@ -80,6 +80,7 @@
       "import": "./dist/auth.js"
     },
     "./styles/admin.css": "./dist/styles/admin.css",
+    "./styles/tailwind.css": "./dist/styles/tailwind.css",
     "./package.json": "./package.json"
   },
   "sideEffects": [
@@ -88,7 +89,8 @@
   "files": [
     "dist",
     "README.md",
-    "llms.txt"
+    "llms.txt",
+    "llms"
   ],
   "engines": {
     "node": ">=20"
@@ -97,7 +99,7 @@
     "build": "pnpm run build:js && pnpm run build:styles",
     "build:js": "tsup",
     "build:styles": "node scripts/build-styles.mjs",
-    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./styles/admin.css",
+    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./styles/admin.css ./styles/tailwind.css",
     "lint:publish": "publint --strict",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"

@@ -19,7 +19,6 @@ import {
   asc,
   desc,
   eq,
-  getTableColumns,
   gte,
   inArray,
   isNotNull,
@@ -30,6 +29,7 @@ import {
   sql,
   type Table,
 } from "drizzle-orm";
+import { columnsOf } from "./columns";
 import { type DrizzleDialect, resolveDialect } from "./dialect";
 import { introspect } from "./introspect";
 import { createMigrationMethods } from "./migration-executor";
@@ -287,7 +287,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     inferSchema: (ref) => inferSchema(ref),
 
     async list(ref, ctx): Promise<ListResult<unknown>> {
-      const cols = getTableColumns(ref) as ColumnsRecord;
+      const cols = columnsOf(ref) as ColumnsRecord;
       const db = getDb(ctx);
       const selected = projection(cols, ctx.select);
       const where = buildWhere(cols, ctx);
@@ -320,7 +320,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     },
 
     async get(ref, ctx: ItemQueryContext) {
-      const cols = getTableColumns(ref) as ColumnsRecord;
+      const cols = columnsOf(ref) as ColumnsRecord;
       const db = getDb(ctx);
       const pk = pkFor(cols);
       const pkCol = cols[pk];
@@ -339,7 +339,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     },
 
     async create(ref, ctx: MutationContext<unknown>) {
-      const cols = getTableColumns(ref) as ColumnsRecord;
+      const cols = columnsOf(ref) as ColumnsRecord;
       const db = getDb(ctx);
       const input = ctx.input as Record<string, unknown>;
       const pk = pkFor(cols);
@@ -376,7 +376,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     },
 
     async update(ref, ctx: MutationContext<unknown>) {
-      const cols = getTableColumns(ref) as ColumnsRecord;
+      const cols = columnsOf(ref) as ColumnsRecord;
       const db = getDb(ctx);
       const pk = pkFor(cols);
       if (!ctx.id) throw new Error("update requires ctx.id");
@@ -400,7 +400,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     },
 
     async delete(ref, ctx: MutationContext<unknown>) {
-      const cols = getTableColumns(ref) as ColumnsRecord;
+      const cols = columnsOf(ref) as ColumnsRecord;
       const db = getDb(ctx);
       const pk = pkFor(cols);
       if (!ctx.id) throw new Error("delete requires ctx.id");
@@ -419,7 +419,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     },
 
     async restore(ref, ctx: MutationContext<unknown>) {
-      const cols = getTableColumns(ref) as ColumnsRecord;
+      const cols = columnsOf(ref) as ColumnsRecord;
       const db = getDb(ctx);
       const pk = pkFor(cols);
       const softCol = ctx.softDelete?.column;
@@ -440,7 +440,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
       }),
 
     async count(ref, where): Promise<number> {
-      const cols = getTableColumns(ref) as ColumnsRecord;
+      const cols = columnsOf(ref) as ColumnsRecord;
       return countRows(opts.db as DrizzleLikeDb, ref, buildWhere(cols, { filters: where ?? {} }));
     },
     ...migrationMethods,

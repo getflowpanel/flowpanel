@@ -1,6 +1,8 @@
 import type { FilterDef, FilterInValue, FilterRangeValue, FilterType } from "@flowpanel/core";
-import { dayBoundsIn } from "./date-range";
+import { dayBoundsIn, isDateRangePreset, resolveDateRange } from "./date-range";
 import { toWireOptions } from "./select-options";
+
+export { declaredListFields as declaredFieldSet } from "@flowpanel/core";
 
 export interface ListParams {
   page: number;
@@ -49,31 +51,6 @@ export function parseListParams(
   }
 
   return { page, search, sort, filters };
-}
-
-/** Build the allowlist of fields a resource exposes for filtering / sorting. */
-export function declaredFieldSet(options: {
-  columns?: unknown[] | undefined;
-  filters?: unknown[] | undefined;
-  search?: unknown[] | undefined;
-  defaultSort?: { field: string } | undefined;
-}): Set<string> {
-  const fields = new Set<string>();
-  const add = (entry: unknown): void => {
-    if (typeof entry === "string") {
-      if (entry) fields.add(entry);
-      return;
-    }
-    if (entry && typeof entry === "object") {
-      const f = (entry as { field?: unknown }).field;
-      if (typeof f === "string" && f) fields.add(f);
-    }
-  };
-  for (const c of options.columns ?? []) add(c);
-  for (const f of options.filters ?? []) add(f);
-  for (const s of options.search ?? []) add(s);
-  if (options.defaultSort?.field) fields.add(options.defaultSort.field);
-  return fields;
 }
 
 export interface ResolvedFilterSpec {
@@ -180,6 +157,10 @@ function sanitizeFilterValue(
       } satisfies FilterRangeValue;
     }
     case "daterange": {
+      if (isDateRangePreset(value)) {
+        const { from, to } = resolveDateRange({ preset: value }, timeZone);
+        return { op: "range", gte: from, lte: to } satisfies FilterRangeValue;
+      }
       const instants = value.includes("~");
       const [fromRaw = "", toRaw = ""] = value.split(instants ? "~" : ":");
       const gte = instants ? decodeInstant(fromRaw) : decodeDateBound(fromRaw, false, timeZone);

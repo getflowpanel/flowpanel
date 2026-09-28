@@ -8,7 +8,7 @@ import { cn } from "../lib/cn";
 import { resolveFieldLabel } from "../lib/humanize";
 import { Checkbox } from "../ui/checkbox";
 import type { DataTableColumn } from "./data-table-types";
-import { renderDefaultCell } from "./render-default-cell";
+import { renderDefaultCell, withSecondary } from "./render-default-cell";
 
 export interface MobileCardListProps<Row> {
   columns: DataTableColumn<Row>[];
@@ -219,7 +219,7 @@ function renderCell<Row extends Record<string, unknown>>(
     prerenderedCells && originalIdx !== undefined
       ? prerenderedCells[rowIdx]?.[originalIdx]
       : undefined;
-  if (pre !== undefined) return pre;
-  if (c.render) return c.render(r);
-  return renderDefaultCell(c, r, formatting);
+  const cell =
+    pre !== undefined ? pre : c.render ? c.render(r) : renderDefaultCell(c, r, formatting);
+  return withSecondary(c, r, cell, formatting);
 }

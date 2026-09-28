@@ -1,3 +1,4 @@
+import { writeTarget } from "../internal/write-target";
 import { RU_LABELS } from "../locales/ru";
 import { reservedNameError } from "../reserved-names";
 import { resolveResourceName } from "../resource-name";
@@ -8,11 +9,18 @@ import type { DashboardConfig, PageConfig } from "../types/dashboard";
 import { type LabelsConfig, mergeLabels } from "../types/labels";
 import type { QueueConfig } from "../types/queue";
 import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
+import { validateDashboardFilters } from "../validate-dashboard-filters";
+import { type LinkCheck, validateLinks } from "../validate-links";
+import { validateRealtime } from "../validate-realtime";
+import { validateRecordSources } from "../validate-record-sources";
 import { validateResourceColumns } from "../validate-resource-columns";
 import { validateResourceRefs } from "../validate-resource-refs";
 import { createFieldWarnings, warnCreateFieldsOnce } from "../warn-create-fields";
 import { warnIfNoAccessControl } from "../warn-open-admin";
 import { createBuiltinBulkDelete } from "./builtin-bulk-delete";
+import { resolveDetailWidgets } from "./detail-widgets";
+import { withEnumOptions } from "./enum-options";
+import { resolveRelatedTabs } from "./related-tabs";
 import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
 import {
   assertCanonicalAccess,
@@ -21,6 +29,7 @@ import {
   assertServableActionForm,
   assertUniqueActionKeys,
 } from "./validate-config";
+import { viewResource } from "./view-resource";
 
 function readOnlyResource(resource: ResourceConfig): ResourceConfig {
   const { import: _import, ...options } = resource.options;
@@ -105,21 +114,25 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     assertServableActionForm(raw.options.actions, name, "options.actions");
     assertServableActionForm(raw.options.bulkActions, name, "options.bulkActions");
     assertCanonicalAccess(raw, name);
+    const introspection = tryIntrospect(config.adapter, raw.ref);
+    const viewed = viewResource(name, raw, introspection, config.adapter);
 
-    let resource: ResourceConfig = raw;
+    let resource: ResourceConfig = viewed;
     if (config.readOnly) {
-      resource = readOnlyResource(raw);
-    } else if (raw.options.delete?.disabled !== true && raw.options.bulkActions === undefined) {
+      resource = readOnlyResource(viewed);
+    } else if (
+      viewed.options.delete?.disabled !== true &&
+      viewed.options.bulkActions === undefined
+    ) {
       resource = {
-        ...raw,
+        ...viewed,
         options: {
-          ...raw.options,
-          bulkActions: [createBuiltinBulkDelete(raw.options.delete?.confirm)],
+          ...viewed.options,
+          bulkActions: [createBuiltinBulkDelete(viewed.options.delete?.confirm)],
         },
       };
     }
 
-    const introspection = tryIntrospect(config.adapter, resource.ref);
     const columns = introspection?.columns ?? null;
     if (resource.options.columns === undefined) {
       if (columns === null || columns.length === 0) {
@@ -134,9 +147,14 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
       };
     }
     if (columns !== null) validateResourceColumns(name, resource, columns);
-    if (introspection) warnings.push(...createFieldWarnings(name, resource, introspection));
+    const written =
+      resource.options.writeTo === undefined
+        ? introspection
+        : tryIntrospect(config.adapter, writeTarget(resource));
+    if (written) warnings.push(...createFieldWarnings(name, resource, written));
     assertCanonicalFieldAccess(resource, name, introspection);
 
+    resource = withEnumOptions(resource);
     resources.push(resource);
     resourcesByName.set(name, resource);
     compiledResourcesByName.set(name, {
@@ -182,7 +200,31 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     queuesByKey.set(key, queue);
   }
 
+  for (const [name, current] of resourcesByName) {
+    const resolved = resolveDetailWidgets(name, resolveRelatedTabs(name, current, resourcesByName));
+    if (resolved === current) continue;
+    resources[resources.indexOf(current)] = resolved;
+    resourcesByName.set(name, resolved);
+    const compiled = compiledResourcesByName.get(name);
+    if (compiled) compiledResourcesByName.set(name, { ...compiled, definition: resolved });
+  }
   validateResourceRefs(resourcesByName, config.dashboards ?? []);
+  validateRealtime(resourcesByName, config.dashboards ?? []);
+  validateDashboardFilters(config.dashboards ?? [], resourcesByName);
+  const linkCheck: LinkCheck = {
+    resourcesByName,
+    columnsOf: (name) =>
+      compiledResourcesByName.get(name)?.introspection?.columns.map((column) => column.name) ?? [],
+    paths: new Set([...dashboardsByPath.keys(), ...pagesByPath.keys()]),
+    dashboardFilters: new Map(
+      (config.dashboards ?? []).map((d) => [
+        normalizeRoutePath(d.path),
+        (d.filters ?? []).map((filter) => filter.key),
+      ]),
+    ),
+  };
+  validateLinks(linkCheck, config.dashboards ?? []);
+  validateRecordSources(linkCheck, config.dashboards ?? []);
   warnIfNoAccessControl(config, resources);
   warnCreateFieldsOnce(warnings);
 

@@ -89,7 +89,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
   };
 
   const locale = dateRange.locale;
-  const trigger = React.useMemo(() => {
+  const rangeText = React.useMemo(() => {
     const fmt = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
     const withYear = new Intl.DateTimeFormat(locale, {
       month: "short",
@@ -103,6 +103,11 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
     if (committed.to) return formatLabel(dateRange.until, { date: show(committed.to) });
     return null;
   }, [committed.from, committed.to, locale, dateRange.from, dateRange.until]);
+  const named =
+    value !== null && /^(today|yesterday|last7d|last30d|MTD|QTD|YTD)$/.test(value)
+      ? (value as "today")
+      : null;
+  const trigger = named ? dateRange[named] : rangeText;
 
   // Which preset the committed range corresponds to, if any — so reopening the
   // picker shows what is applied rather than an unmarked list.

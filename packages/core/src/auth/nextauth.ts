@@ -1,5 +1,4 @@
-import type { AuthConfig } from "../types/config";
-import type { Session } from "../types/session";
+import type { AuthConfig, Session } from "@flowpanel/core";
 
 export interface NextAuthOptions {
   /** Your NextAuth (Auth.js) `auth()` function — typically from `@/auth`. */

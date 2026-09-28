@@ -38,10 +38,20 @@ function pushFormFieldSites(list: unknown, where: string, out: ColumnSite[]): vo
   });
 }
 
+function pushSecondarySites(list: unknown, out: ColumnSite[]): void {
+  if (!Array.isArray(list)) return;
+  list.forEach((entry, i) => {
+    const secondary = (entry as { secondary?: unknown } | null)?.secondary;
+    if (typeof secondary === "string")
+      out.push({ target: secondary, where: `columns[${i}].secondary` });
+  });
+}
+
 function columnSites(resource: ResourceConfig): ColumnSite[] {
   const out: ColumnSite[] = [];
   const o = resource.options;
   pushColumnSites(o.columns, "columns", out);
+  pushSecondarySites(o.columns, out);
   pushColumnSites(o.filters, "filters", out);
   pushColumnSites(o.expose, "expose", out);
   pushColumnSites(o.detail?.expose, "detail.expose", out);

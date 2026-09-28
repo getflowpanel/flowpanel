@@ -20,6 +20,7 @@ CLAUDE.md
 node_modules/
 
 # Build outputs
+packages/cli/src/scaffold/__tests__/fixtures/.run-*
 dist/
 build/
 !apps/site/content/docs/build/

@@ -1,5 +1,4 @@
-import type { AuthConfig } from "../types/config";
-import type { Session } from "../types/session";
+import type { AuthConfig, Session } from "@flowpanel/core";
 
 /** The part of a better-auth instance FlowPanel calls. */
 export interface BetterAuthLike {

@@ -31,7 +31,7 @@ export function DetailTabsClient({ tabs }: DetailTabsClientProps) {
     >
       <TabsList>
         {tabs.map((t) => (
-          <TabsTrigger key={t.key} value={t.key}>
+          <TabsTrigger key={t.key} value={t.key} data-fp-tab={t.key}>
             {t.label}
           </TabsTrigger>
         ))}
