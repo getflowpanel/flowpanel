@@ -24,11 +24,7 @@ export interface ChartRendererProps {
   caption?: WidgetCaption;
 }
 
-/**
- * Recharts measures its container, which the server has none of. Until the chart
- * mounts the card holds a skeleton of the same height, so the first paint is a
- * placeholder rather than an empty frame that collapses on hydration.
- */
+/** Recharts measures its container, which the server lacks, so a same-height skeleton holds until it mounts. */
 export function chartBody(
   { kind, options, data, seriesLabels }: ChartRendererProps,
   mounted: boolean,

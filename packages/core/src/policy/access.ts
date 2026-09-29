@@ -1,4 +1,3 @@
-import type { RequireRole } from "../runtime/auth";
 import { FlowpanelAccessError } from "../types/error";
 import type { AccessContext, AccessRule, ResourceAccess, ResourceOperation } from "../types/policy";
 
@@ -20,20 +19,14 @@ export async function authorizeOperation(
   if (!(await accessAllows(rule, context))) throw new FlowpanelAccessError();
 }
 
-/** Resolve the canonical rule while keeping `requireRole` as a 0.2 compatibility alias. */
+/** The rule a resource's `access` sets for one operation; `undefined` allows it. */
 export function resolveOperationAccess<Row>(
   access: ResourceAccess<Row> | undefined,
-  requireRole: RequireRole,
   operation: ResourceOperation,
 ): AccessRule | undefined {
-  if (access !== undefined && requireRole !== undefined) {
-    throw new Error(
-      "A resource cannot declare both access and requireRole. Move the role rule into access.",
-    );
-  }
-  if (access !== undefined) return access[operation];
-  if (typeof requireRole === "function") {
-    return ({ session }) => requireRole(session);
-  }
-  return requireRole;
+  if (!OPERATIONS.has(operation))
+    throw new Error(`Unknown resource operation: ${String(operation)}`);
+  return access?.[operation];
 }
+
+const OPERATIONS = new Set<unknown>(["read", "create", "update", "delete"]);

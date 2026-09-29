@@ -41,13 +41,7 @@ expectError(bars({ query: async () => [], max: "1" }));
 funnel({ query: async () => [{ label: "Visited", value: 9 }], alertDrop: 0.3 });
 expectError(funnel({ query: async () => [], alertDrop: "half" }));
 
-expectAssignable<MetricDelta>({
-  value: 0.2,
-  vs: "vs last week",
-  previous: 100,
-  goodWhen: "neutral",
-});
-expectNotAssignable<MetricDelta>({ value: 0.2, vs: "vs last week", goodWhen: "sideways" });
+expectAssignable<MetricDelta>({ value: 0.2, vs: "vs last week", previous: 100 });
 
 metric("Signups", async () => 1, { compare: true });
 metric("Errors", async () => 1, { compare: true, goodWhen: "down" });

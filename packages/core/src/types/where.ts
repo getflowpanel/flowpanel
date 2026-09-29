@@ -1,10 +1,8 @@
 import type { FilterInValue, FilterRangeValue } from "./context";
 
 /**
- * One value of a `where`: equality, `"__null__"` or `"__notnull__"`, `{ gte, lte }` for a
- * range, or an array of strings or numbers for "any of". A boolean is matched as a plain
- * value, never inside an array. The adapter's own `{ op: "in" }` and `{ op: "range" }`
- * shapes are accepted as they are.
+ * One value of a `where`: equality, `"__null__"`/`"__notnull__"`, `{ gte, lte }` for a range, or an array for "any of".
+ * The adapter's own `{ op: "in" }` and `{ op: "range" }` shapes are accepted as they are.
  */
 export type WhereValue =
   | string
@@ -17,9 +15,8 @@ export type WhereValue =
   | FilterRangeValue;
 
 /**
- * Filters keyed by the row's own fields, so a misspelt field is a compile error instead of a
- * silently dropped filter. Any keys while the row is untyped; for a union of rows, the fields
- * of any one of them.
+ * Filters keyed by the row's own fields, so a misspelt field is a compile error instead of a silently dropped filter.
+ * Any keys while the row is untyped; for a union of rows, the fields of any one of them.
  */
 export type Where<R> = R extends unknown
   ? string extends keyof R
@@ -37,9 +34,8 @@ export interface ReadOptions<R = Record<string, unknown>> {
    */
   limit?: number;
   /**
-   * Fields beyond the list's projection, as `detail.expose` names them. A row carries the list's
-   * declared columns, `expose`, `rowKey` and these; any other property is `undefined`, even though
-   * the row type lists it.
+   * Fields beyond the list's projection, as `detail.expose` names them.
+   * Any property not among these, `expose`, `rowKey` or the list's columns is `undefined` even though the type lists it.
    */
   fields?: (keyof R & string)[];
   /**

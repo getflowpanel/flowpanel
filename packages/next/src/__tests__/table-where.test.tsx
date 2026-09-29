@@ -5,6 +5,7 @@ import { renderTableWidget } from "../runtime/render-table-widget";
 import { fakeWidgetContext } from "./widget-context-fixture";
 
 const seen: Record<string, unknown>[] = [];
+const sorts: unknown[] = [];
 const meta = (name: string): ColumnMeta => ({
   name,
   type: name === "startedAt" ? "date" : "string",
@@ -24,6 +25,7 @@ const adapter: Adapter = {
   inferSchema: () => ({}) as never,
   list: async (_ref, ctx) => {
     seen.push((ctx as { filters: Record<string, unknown> }).filters);
+    sorts.push((ctx as { sort: unknown }).sort);
     return { rows: [], total: 0, page: 1, pageSize: 10 };
   },
   get: async () => null,
@@ -35,7 +37,15 @@ const adapter: Adapter = {
 const config = defineAdmin({
   adapter,
   auth: { session: async () => null, role: () => "admin" },
-  resources: [resource({ __name: "visits" }, { columns: ["id", "userId", "startedAt"] })],
+  resources: [
+    resource(
+      { __name: "visits" },
+      {
+        columns: ["id", "userId", "startedAt"],
+        defaultSort: { field: "startedAt", dir: "desc" },
+      },
+    ),
+  ],
 });
 
 const reqCtx: RequestContext = {
@@ -84,5 +94,17 @@ describe("table({ resource, where, range })", () => {
         reqCtx,
       ),
     ).rejects.toThrow(/userId/);
+  });
+});
+
+describe("table({ resource, limit })", () => {
+  it("reads in the resource's default order, so the limit keeps the newest rows", async () => {
+    await renderTableWidget(
+      table({ resource: "visits", where: { userId: "u1" }, limit: 5 }),
+      ctx,
+      config,
+      reqCtx,
+    );
+    expect(sorts.at(-1)).toEqual({ field: "startedAt", dir: "desc" });
   });
 });

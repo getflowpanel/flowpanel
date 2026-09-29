@@ -11,9 +11,9 @@ export interface UseLiveChannelOptions {
   /** Override the SSE endpoint. Defaults to the admin's mount point + `/stream`. */
   endpoint?: string;
   /**
-   * Cap on the exponential reconnect delay. Default: 30_000.
-   * When multiple hook instances share a connection (same endpoint+channel), the first
-   * acquirer's value wins for the lifetime of that shared entry; later joiners' values are ignored.
+   * Cap on the exponential reconnect delay.
+   * When instances share a connection, the first acquirer's value wins for that entry's lifetime.
+   * @defaultValue 30_000
    */
   reconnectMaxMs?: number;
   /** Set to false to pause the subscription. Default: true. */
@@ -33,8 +33,7 @@ interface PoolEntry {
   statusListeners: Set<(s: LiveStatus) => void>;
 }
 
-// Module-level Map: client-side per-browser-tab state, not cross-request server state — I-10 (no
-// cross-request global state) does not apply.
+// Module-level Map: client-side per-browser-tab state, not cross-request server state, so I-10 does not apply.
 const pool = new Map<string, PoolEntry>();
 
 function keyOf(endpoint: string, channels: string[]): string {

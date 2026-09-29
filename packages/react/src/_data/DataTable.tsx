@@ -1,7 +1,6 @@
 "use client";
 import { formatCount } from "@flowpanel/core/labels";
-// LOC-OK: table render orchestrator — coordinates column layout, selection, inline
-// edit, realtime refresh and the mobile card view in one place.
+// LOC-OK: table render orchestrator — coordinates column layout, selection, inline edit, realtime and mobile cards.
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { LiveIndicator } from "../_atoms/LiveIndicator";
@@ -119,8 +118,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   );
   const bus = useRealtimeBus();
   const busStatus = useRealtimeStatus();
-  // Under a provider the bus carries the channel and owns the coalesced refresh; a second
-  // EventSource here would double both the connection and the refresh.
+  // Under a provider the bus carries the channel; a second EventSource here would double the connection.
   React.useEffect(() => {
     if (!bus || realtimeChannel === "") return;
     return bus.subscribe([realtimeChannel], NOOP);
@@ -150,8 +148,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   const enteringKeySet = React.useMemo(() => new Set(enteringRowKeys), [enteringRowKeys]);
 
   const tbodyRef = React.useRef<HTMLTableSectionElement>(null);
-  // Every keyboard shortcut acts on a row, so each obeys the identity rule the
-  // pointer already obeys: a row with no identifier is not a row to act on.
+  // Every keyboard shortcut obeys the same identity rule the pointer does: no identifier, not actionable.
   const onIdentified = React.useCallback(
     (handler: ((row: Row) => void) | undefined) =>
       handler
@@ -355,8 +352,7 @@ export function DataTable<Row extends Record<string, unknown>>({
         <tbody
           ref={tbodyRef}
           onKeyDown={handleKeyDown}
-          // Land the cursor on the first row, so Enter opens something the moment
-          // the table is tabbed to rather than only after an arrow press.
+          // Land the cursor on the first row, so Enter works the moment the table is tabbed to.
           onFocus={() => setCursor((c) => (c < 0 ? 0 : c))}
           tabIndex={0}
           aria-label={
@@ -367,8 +363,7 @@ export function DataTable<Row extends Record<string, unknown>>({
           className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 focus-visible:ring-inset"
         >
           {rows.map((r, idx) => {
-            // A row the projection could not identify still renders, but nothing
-            // that would send its identity anywhere is offered on it.
+            // A row the projection could not identify still renders, but nothing sends its identity anywhere.
             const identity = identityOf(r);
             return (
               <DataTableRow<Row>
@@ -381,7 +376,7 @@ export function DataTable<Row extends Record<string, unknown>>({
                 orderedVisible={orderedVisible}
                 pinMeta={pinMeta}
                 colIndexByField={colIndexByField}
-                {...(prerenderedCells ? { prerenderedCells } : {})}
+                {...(prerenderedCells?.[idx] ? { prerenderedRow: prerenderedCells[idx] } : {})}
                 rowPadding={rowPadding}
                 selectionEnabled={selectionEnabled}
                 selectionSet={selectionSet}

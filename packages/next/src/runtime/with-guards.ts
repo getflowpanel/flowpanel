@@ -25,17 +25,14 @@ import { requireAuthorized } from "./require-authorized";
 export interface GuardSpec {
   resource?: ResourceConfig | undefined;
   pageRequireRole?: RequireRole | undefined;
-  actionRequireRole?: string | string[] | undefined;
   actionAccess?: AccessRule | undefined;
   operation?: ResourceOperation | undefined;
   route?: string | undefined;
   /** Read-only routes pass `false` so `config.readOnly` does not block them. */
   write?: boolean | undefined;
   /**
-   * Which body this route speaks. Routes answering with `Result` — the JSON API and the
-   * programmatic controllers — must fail in that envelope too, or `@flowpanel/client`
-   * reads every guard rejection as an unrecognised response. Action and form routes
-   * answer with `ActionResult`, whose `error` is the operator-facing message.
+   * Which body this route speaks. `Result` routes must fail in that envelope too, or `@flowpanel/client`
+   * reads every guard rejection as unrecognised; action/form routes answer with `ActionResult`.
    */
   envelope?: "result" | undefined;
 }
@@ -95,7 +92,6 @@ function guardSameOrigin(
   }
 
   // Modern browsers send Fetch Metadata even when Origin is unavailable.
-  // Header-less requests remain available to trusted server-to-server clients.
   if (req.headers.get("sec-fetch-site") === "cross-site") {
     return errorResponse(new FlowpanelAccessError(CROSS_ORIGIN_ERROR), requestId, envelope);
   }
@@ -135,25 +131,18 @@ export async function withGuards(
 
   if (spec.resource) {
     try {
-      requireAuthorized(config, spec.resource, reqCtx);
+      requireAuthorized(config, spec.resource);
     } catch (err) {
       return errorResponse(err, requestId, spec.envelope);
     }
-    // Action routes set no operation. An action that carries its own rule is governed
-    // by it — the same rule that decides whether the action is offered at all. An
-    // action that carries none inherits the resource's write rule instead of running
-    // ungated, which is what a resource using the canonical `access` map would do.
-    const actionCarriesOwnRule =
-      spec.actionAccess !== undefined || spec.actionRequireRole !== undefined;
-    const operation = spec.operation ?? (actionCarriesOwnRule ? undefined : "update");
+    // An action with its own rule is governed by it; one without inherits the resource's write rule instead of running ungated.
+    const operation = spec.operation ?? (spec.actionAccess !== undefined ? undefined : "update");
     if (operation) {
       try {
-        const rule = resolveOperationAccess(
-          spec.resource.options.access,
-          spec.resource.options.requireRole,
-          operation,
+        await authorizeOperation(
+          resolveOperationAccess(spec.resource.options.access, operation),
+          reqCtx,
         );
-        await authorizeOperation(rule, reqCtx);
       } catch (err) {
         return errorResponse(err, requestId, spec.envelope);
       }
@@ -168,21 +157,9 @@ export async function withGuards(
     }
   }
 
-  if (spec.actionAccess !== undefined && spec.actionRequireRole !== undefined) {
-    return errorResponse(
-      new Error("An action cannot declare both access and requireRole."),
-      requestId,
-    );
-  }
   if (spec.actionAccess !== undefined) {
     try {
       await authorizeOperation(spec.actionAccess, reqCtx);
-    } catch (err) {
-      return errorResponse(err, requestId, spec.envelope);
-    }
-  } else {
-    try {
-      checkRequireRole(spec.actionRequireRole, reqCtx.role, reqCtx.session);
     } catch (err) {
       return errorResponse(err, requestId, spec.envelope);
     }

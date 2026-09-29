@@ -4,11 +4,10 @@ description: Every widget builder and the options it accepts.
 kind: reference
 ---
 
-Widgets are the contents of a dashboard section, of a detail page's widgets tab,
-and of a drawer's widget tab. Each builder returns a `WidgetConfig`; every
-`query` runs on the server with a `WidgetContext`. In a detail tab and in a
-drawer the record being viewed is `ctx.row`; a drawer renders its widgets as
-static cards (see [Drawers](/docs/reference/drawer#drawertabwidgets)).
+Widgets fill dashboard sections, record page tabs and drawer tabs. Each builder
+returns a `WidgetConfig`; every `query` runs on the server with a `WidgetContext`.
+On a record page or in a drawer, `ctx.row` is the record. A drawer renders
+[static cards](/docs/reference/drawer#drawertabwidgets).
 
 ```ts excerpt
 import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
@@ -25,7 +24,7 @@ export const overview = dashboard({
         metric("MRR", async ({ db, dateRange }) => mrr(db, dateRange), {
           format: "currency",
           span: 3,
-          drilldown: "/admin/invoices",
+          drilldown: { resource: "invoices" },
         }),
         areaChart("Revenue over time", async ({ db }) => revenueSeries(db), {
           x: "day",
@@ -45,50 +44,33 @@ What every widget `query` receives.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="WidgetContext" />
 
-`link` turns a named target into an href under the admin's own `basePath`, so a config
-never hand-types `/admin/…`: `link({ resource: "orders" })` is the list, `{ resource:
-"orders", id }` one record, and `filter` and `tab` add the list page's own query keys —
-`{ filter: { status: "paid" } }` becomes `?f_status=paid`. Wherever an option or a result
-takes a link, return the target itself. `href(resource, id, { filter, tab })`, the 0.3.0
-builder, still works and is deprecated in favour of `link`.
+`link` turns a named target into an href under `paths.admin`:
+`link({ resource: "orders" })` is the list, `{ resource: "orders", id }` one record,
+and `{ filter: { status: "paid" } }` adds `?f_status=paid`. Where an option takes a
+link, pass the target itself.
 
-`query` memoises for the request, so two widgets that need the same figure run it
-once and the next request queries again. Pass a key and a thunk —
-`query("mrr", () => mrr(db))` — or the function and its arguments —
-`query(mrr, db, ctx.dateRange)` — to key the call by the function and its
-arguments: strings, numbers, booleans and dates by value, objects by identity. The
-memo holds the promise, so a failure is shared too — the request does not retry.
-Pass a function declared once, like `mrr`: one written inline —
-`query(async () => …)` — is a new function on every call and never shares.
-A function passed alone that declares a parameter receives the context: `query(hourly)` runs
-`hourly(ctx)` once for this context, so several widgets built on one SQL statement share it.
-A function with no parameter, or only defaulted ones such as
-`async (limit = 5) => …`, is called with no arguments, as before. A function whose first
-parameter is optional without a default (`days?: number`) now receives the context: give it a
-default (`days = 7`), or pass the argument. A context over another range — the `compare` period —
-runs it again with its own range.
+`query` memoises for the request, so widgets that ask the same question run it
+once. Pass a key and a thunk, `query("mrr", () => mrr(db))`, or a function and its
+arguments, `query(mrr, db, ctx.dateRange)`; arguments key by value (objects by
+identity). A failure is shared too. Use a function declared once: an inline one is
+new on every call and never shares. A function passed alone that declares a
+parameter receives the context, so `query(hourly)` runs `hourly(ctx)` once; a
+function whose parameters are all defaulted is called with none. The `compare`
+period runs it again with its own range.
 
 `count` is memoised the same way: one resource and `where`, written in any key
 order, count once per request. `id` is the viewed record's key as a string, read
 through the resource's `rowKey`; a dashboard widget has none.
 
-`dateRange` is a `WidgetDateRange`: the picked range, `previous` and `timeZone`, the
-admin's `formatting.timeZone`. `previous` is the period a founder compares with. For
-`today`, `yesterday`, `MTD`, `QTD` and `YTD` it is the same stretch one day, month,
-quarter or year back at the same clock time, so today at 10:00 compares with yesterday
-until 10:00. For `last7d`, `last30d` and a custom range it is the span of the same length
-before it, and over a detail tab's whole history it is `null`. Query the previous period
-with `ctx.dateRange.previous`; hand `ctx.dateRange` to `fillDays` and days bucket in the
-admin's zone.
+`dateRange` is the picked range with `previous` and `timeZone`. For `today`,
+`yesterday`, `MTD`, `QTD` and `YTD`, `previous` is the same stretch one period back
+at the same clock time; for `last7d`, `last30d` and a custom range it is the span
+of the same length before. Over a record's whole history it is `null`.
 
-`filters` holds the dashboard's active filters by key: `{ platform: "kwork" }` for
-`?f_platform=kwork`. It is `{}` on a record page and when none is set. Nothing filters
-implicitly, so read it in your own query and bind it as a parameter. The previous-period,
-capped and tracker contexts keep it, so a number and its change describe the same slice.
+`filters` holds the dashboard's active filters by key, `{ platform: "kwork" }` for
+`?f_platform=kwork`, and is `{}` when none is set. Bind it in your own query.
 
-`labels` is the admin's resolved `LabelsConfig`, which is where a widget's own
-wording should come from. `row` is present only when the widget sits in a detail
-tab, and holds that record's projected fields.
+`labels` is the resolved `LabelsConfig`. `row` is set on a record page.
 
 ```ts excerpt
 metric("Paid orders", async (ctx) => ({
@@ -101,9 +83,8 @@ metric("Paid orders", async (ctx) => ({
 
 <AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="WidgetFormat" />
 
-`ctx.format` is `bindFormat(formatting)`: every method reads the admin's `locale`,
-`timeZone` and `currency`, so a hint or a list line prints the same day, amount and
-duration as a table cell, and a Russian admin never shows `"3 записей"`.
+`ctx.format` formats with the admin's `locale`, `timeZone` and `currency`, the same
+way table cells do.
 
 ```ts excerpt
 stat("Latency", async (ctx) => {
@@ -117,43 +98,31 @@ stat("Latency", async (ctx) => {
 
 ## Shared option types
 
-`Span` is any whole number from `1` to `12` — the widget's width in a 12-column grid. A
-section or a widgets tab that declares no `columns` lays out on 12 as soon as one of its
-widgets sets `span`, and on its default of 1 or 2 otherwise. Below the `sm` breakpoint every
-widget takes the full row.
+`Span` is a whole number from `1` to `12`. A section without `columns` uses 12
+columns once a widget sets `span`. On a phone every widget takes the full row.
 
 `NumericFormat` is `"number" | "currency" | "percent" | "bytes" | "duration"`.
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 
-Every widget, and a dashboard itself, accepts `realtime`: a channel name, `{ resource: "orders" }`
-for that resource's own changes, or a list of either. When one fires, that widget re-runs its
-query — the rest of the dashboard stays put. A `{ resource }` that names no registered resource
-fails at `defineAdmin` with the name that was probably meant.
+Every widget and dashboard accepts `realtime`: a channel name, `{ resource: "orders" }`,
+or a list of them. When one fires, only that widget re-runs.
 
-Every widget that reads the picked range accepts `maxRange` — all but `heatmap`, which shows
-its own last `days`, and `tracker`, which shows its own `window` — a whole number of days such as `"30d"`, for rows the
-app deletes after that long. The widget queries from `max(from, to − N, now − N)`, so
-a range reaching past what is kept is cut, and a comparison never reaches past it
-either. When it is cut, the card says so: "Since 2026-08-26; older data is not kept". A
-range that ended before `now − N` runs no query at all: the card shows `—` and "No
-data: kept for 30 days". On a detail tab, a whole history becomes the last N days,
-with the same caption. In development a limit that is not whole days, such as `"1.5d"`,
-warns once and caps nothing.
+`maxRange`, such as `"30d"`, is for rows your app deletes after that long. The
+widget queries from `max(from, to − N, now − N)` and says so in its caption; a
+range that ended before `now − N` runs no query and shows `—`. `heatmap` and
+`tracker` do not take it.
 
 ### Captions
 
-Every card has one caption line under its title, computed on the server. In order of
-precedence, it shows:
+A card shows at most one caption under its title, in this order of precedence:
 1. the expired state;
 2. where `maxRange` cut the range;
 3. `freshness`: when the data was last written, in the warn tone with a ▲ past
    `warnAfter`;
 4. `coverage`: a note that the data is a sample.
 
-`freshness.at` runs beside the widget's query; one that fails is logged and skipped.
-Drawers show only the expired state, and a `custom` widget with `frame: false` has
-nowhere to show a caption.
+A failing `freshness.at` is logged and skipped.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-caption.ts" name="CaptionOptions" />
 
@@ -173,20 +142,14 @@ metric("With analytics consent", consentShare, {
 
 <AutoTypeTable path="../../packages/core/src/types/threshold.ts" name="Threshold" />
 
-Declare where a number turns bad once, and hand the same object to every place that
-shows it: `tones` on `metric`, `stat` and `bars`, on a `tracker`, and on the `number`,
-`percent` and `duration` column formats. Within the good band the tone is `ok`, and
-past `warn` and `err` it is `warn` and `err`. Below `min` observations it is `muted`: a
-metric or stat returns its observations as `volume`, and a tracker folds them itself.
-`bars` rows carry no volume, so `min` is ignored there. An explicit `tone` always wins. `toneFor(value, threshold, volume)` gives the same
-answer for a custom widget or a list row.
+Pass one threshold as `tones` to `metric`, `stat`, `bars`, `tracker` and the
+`number`, `percent` and `duration` column formats. The tone is `ok`, `warn` or `err`,
+and `muted` below `min` observations (a metric or stat returns them as `volume`).
+An explicit `tone` wins. `toneFor(value, threshold, volume)` gives the same answer
+in your own code.
 
-The numbers say which way is good: `warn` below `err` means higher is worse, as for an error
-rate, and `warn` above `err` means lower is worse, as for a success rate, so
-`{ warn: 95, err: 90 }` reads 97 as `ok`. A card that colours a value or a change — `metric`,
-`stat`, `bars` and `tracker` — takes one top-level `goodWhen`, `"up"` by default, and a
-threshold may carry its own. When either contradicts the numbers, `defineAdmin` throws and says
-which to swap.
+`warn` below `err` means higher is worse; `warn` above `err` means lower is worse.
+A `goodWhen` that contradicts the numbers makes `defineAdmin` throw.
 
 ```ts excerpt
 import { type Threshold, metric, toneFor } from "@flowpanel/kit";
@@ -200,43 +163,26 @@ toneFor(rate, ERRORS, runs);
 
 ## Links
 
-A widget link names where it goes instead of spelling a path, so a renamed
-`basePath` never breaks it.
+A widget link names its target instead of spelling a path.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="ResourceLink" />
 
 <AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="DashboardLink" />
 
-`filter` opens either kind of target narrowed by these values: a resource's list by its
-fields, a dashboard by its declared filters, `{ dashboard: "/parsing", filter: { platform: "kwork" } }`.
-A key the target does not declare fails at `defineAdmin` (or when a function link
-renders), with the closest key. A link never carries the current page's filters on its
-own.
-
-A `LinkTarget` is a string, a `ResourceLink` or a `DashboardLink`. A string is used as
-written — an external URL or a route of your own app; in development FlowPanel warns
-once about a string that starts with the admin's own `basePath`.
+A `LinkTarget` is a string (used as written), a `ResourceLink` or a `DashboardLink`.
 
 - `{ resource: "order" }` is the list, `{ resource: "order", id }` one record, and `tab`
-  a detail tab of it.
-- `filter` becomes the list's own `f_<field>` keys, and `view` applies one of the
-  resource's `views` by name — its search, sort and filters — before them.
-- `range` names a `daterange` filter that receives the widget's range bound for bound,
-  as `from~to` instants, so the list shows exactly the rows the number counted; the
-  filter chip shows the two days in the admin's zone. A detail tab's whole history
-  carries no range.
-- `filter` is keyed by the target's own fields once the resource is typed. A value is
-  written as it is and a `Date` as its day in the admin's zone; `{ gte, lte }` becomes
-  `from~to` instants for dates and `min:max` for numbers, and an array becomes `a,b`.
-  An object with no URL form throws instead of writing `[object Object]`.
-- `{ dashboard: "/system" }` is a dashboard or page by its configured `path`. It
-  carries the widget's range — the preset, or `from` and `to` for a custom range —
-  unless `range: false`.
-- `range` carries the current date range on both kinds: a resource needs the field name
-  its `daterange` filter reads, a dashboard only `true`, its default.
+  a record tab.
+- `filter` becomes the list's `f_<field>` keys, or a dashboard's declared filters. A
+  `Date` is written as its day, `{ gte, lte }` as a range, an array as `a,b`. A key
+  the target does not declare fails at `defineAdmin`.
+- `view` applies one of the resource's saved `views`.
+- `range` on a resource link names the `daterange` filter that receives the widget's
+  range, so the list shows exactly the counted rows.
+- `{ dashboard: "/system" }` is a dashboard or page by `path`. It carries the widget's
+  range unless `range: false`.
 
-A name that is not registered — resource, view, dashboard — throws when the widget
-renders and lists what is, so the widget's error card says what to fix.
+An unregistered resource, view or dashboard throws and lists the registered ones.
 
 `ctx.link(target)` resolves the same targets to a string, for the props of a custom
 widget:
@@ -250,11 +196,8 @@ custom(PlatformGrid, async (ctx) => ({
 }));
 ```
 
-Every link a widget carries takes a `LinkTarget`: a metric's `drilldown` and
-`MetricResult.href`, a stat's `href` and `StatResult.href`, a `kv` item's `href` and
-`KvResult.href`, a table's `seeAll` and `rowHref`, a chart's `drilldown`, and the
-`href` of a `bars`, `funnel` or `list` row. An option set once in the config may also
-be a function of the widget context that returns one — or `null` for no link.
+Every widget link option takes a `LinkTarget`, or a function of the context that
+returns one or `null`.
 
 ## metric
 
@@ -262,28 +205,14 @@ be a function of the widget context that returns one — or `null` for no link.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricOptions" />
 
-`icon` is handed to the metric card as a React child and rendered verbatim.
-Metric icons are deliberately free-form: pass an emoji or a ligature your own
-icon font resolves; a Lucide name renders as literal text. This differs from
-resource, action and command icons, which use the serializable `IconName`
-registry described under [resource icons](/docs/reference/resources#icons).
+A metric's `icon` is rendered as given, such as an emoji; it is not an `IconName`.
 
-The sparkline never squeezes the value. On a card too narrow for the value and the
-sparkline side by side — two metrics per row on a phone — the sparkline moves under
-the value. A value longer than the whole card ends in an ellipsis. A label that runs
-out of room stays on one line and shows the full text on hover.
+A query returns a number, a string, or a `MetricResult`, whose fields win over the
+matching options.
 
-A `metric()` query may return a bare number or string, or a `MetricResult`
-carrying the presentation the value itself implies. A result field wins over the
-matching static option, which stays as the fallback: `MetricResult.href` renders
-as the card's `drilldown`, and `MetricResult.sublabel` as its caption.
-
-A metric that counts rows takes `{ count, where, range }` instead of a query. Its value
-is `ctx.count(count, where, { range })`, `compare` counts the period before with the same
-scope, and the card links to exactly the rows it counted — the same `where` as list
-filters and the same period as the `range` filter — unless you give it a `drilldown`.
-When a `where` value is missing, the card counts `0` and has no link, rather than
-linking the whole list.
+A metric that counts rows takes `{ count, where, range }` instead of a query. Its
+value is `ctx.count(count, where, { range })`, and it links to exactly the rows it
+counted unless you set `drilldown`. A missing `where` value counts `0` with no link.
 
 ```ts excerpt
 metric("Visits", { count: "user_visit", where: (c) => ({ userId: c.id }), range: "startedAt" }, {
@@ -292,19 +221,13 @@ metric("Visits", { count: "user_visit", where: (c) => ({ userId: c.id }), range:
 metric("Sign-ups", { count: "user", range: "createdAt" }, { compare: true });
 ```
 
-`where` is keyed by the counted resource's fields and may be a function of the widget
-context. For the link to open the same rows, every `where` field must be a column or a
-filter of that resource's list and `range` must be one of its `daterange` filters;
-`defineAdmin` checks both. Pass `drilldown: () => null` for a card without a link.
+`where` may be a function of the context. Its fields must be columns or filters of
+the counted list, and `range` one of its `daterange` filters; `defineAdmin` checks
+both. `drilldown: () => null` removes the link.
 
-`compare: true` queries the period before the picked one as well — the same query
-with `ctx.dateRange` set to `ctx.dateRange.previous` — and shows the change against
-it with the compared value and the delta rules of `MetricDelta`. For `today` that is
-yesterday up to the same clock time; `compare: { against: "weekAgo" }` compares with the
-same range seven days earlier instead, so today reads against the same weekday last week.
-Pass `goodWhen: "down"` beside it for a cost or an error count. It needs a numeric
-value, does nothing over a detail tab's whole history or past a widget's `maxRange`, and
-yields to a `delta` the query or the `delta` option returns.
+`compare: true` runs the query again with `ctx.dateRange.previous` and shows the
+change; `compare: { against: "weekAgo" }` compares with the same range seven days
+earlier. Set `goodWhen: "down"` for costs and errors. A `delta` from the query wins.
 
 ```ts excerpt
 metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
@@ -318,31 +241,19 @@ metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compar
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricDelta" />
 
-The card reads a change the way a founder does: plain 12 px text under the value, signed
-(`+12%`, `−3`) and followed by `vs`, with no pill or arrow. Inside ±1 % it shows no sign, and
-only a change of 5 % or more takes the good or bad colour; a smaller one stays muted. The
-percentage prints in the admin's locale. With `previous` set it shows
-that value muted beside the change (`labels.widget.previous`, `"was {value}"`). A count
-whose `previous` is under 20 shows the absolute change — `+3` rather than `+150%` — and a
-`format: "percent"` metric shows its change in percentage points (`+3 pp`,
-`labels.widget.points`), so 40 % → 43 % never reads as a relative 3 %. The metric's
-`goodWhen: "down"` colours a fall green — for churn, cost or latency a drop is the good
-news — and `"neutral"` never colours. A delta the query returns may still carry its own
-`goodWhen`, the 0.3.0 spelling, which wins.
+The change prints signed (`+12%`, `−3`). Inside ±1 % it has no sign, and only a
+change of 5 % or more is coloured. With `previous` set, the old value shows beside
+it. A count whose `previous` is under 20 shows the absolute change, and a
+`format: "percent"` metric its change in points (`+3 pp`). `goodWhen: "down"`
+colours a fall as good; `"neutral"` never colours.
 
 ## table
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="table" />
 
-Point it at a registered `resource` to reuse that resource's columns, or supply
-your own `query` and `columns`.
-
-`R` is inferred from `query`, so `columns` is checked against the row that query
-returns — a misspelled column is a compile error. A column entry is either a bare
-key, which is `keyof R & string` once `R` is known and plain `string` while it is
-not, or a `WidgetColumn` object naming and formatting a column the query produced
-itself. A bare key on the `resource` path keeps that resource's declared header
-and format; an object overrides them.
+Point it at a `resource` to reuse its columns, or pass your own `query` and
+`columns`, which are checked against the query's row type. On the `resource`
+path a bare key keeps the resource's header and format; an object overrides them.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="TableWidgetOptions" />
 
@@ -350,29 +261,13 @@ and format; an object overrides them.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="WidgetColumn" />
 
-`rowKey` names the field that identifies a row. It defaults to the resource's own
-key on the `resource` path and to `"id"` for a `query`; a row without a value
-there still renders but never acts.
+`rowKey` defaults to the resource's key, or `"id"` for a `query`. `rowHref` links
+each row (`null` for none); `seeAll: true` links the heading to the list. `limit`
+defaults to 10 on the `resource` path. `density: "compact"` sets 40 px rows.
 
-`rowHref` turns rows into links. It runs on the server, once per row, and
-returning `null` leaves that row inert. `seeAll: true` links the card heading to
-the resource's list; a string is used as the href verbatim.
-
-Every card's `emptyState` takes text or any node. With no rows it replaces the table with
-one 14 px line where the rows would start, so an empty card stays short; with none set the
-admin's `labels.widget.empty` is used. `density: "compact"` sets 40 px rows. In a dashboard
-row a table or list card keeps its own height instead of stretching to its neighbours; a
-section's `align` changes that. `limit` caps the rows: it
-defaults to 10 on the `resource` path and applies to a `query`'s own rows only
-when you set it.
-
-`where` narrows the `resource` read — a filter keyed by its fields, or a function of the
-context such as `(c) => ({ userId: c.id })`. Values take the
-[`ctx.read` shorthand](/docs/reference/contexts#where-values); a missing value throws
-instead of reading every row, and an empty list reads nothing. `range` names a timestamp
-field of the resource that the picked range bounds, so "Signups today" is
-`table({ resource: "user", range: "createdAt" })`. `defineAdmin` checks both against the
-resource's columns and refuses them on a `query` table, which filters its own rows.
+`where` narrows the `resource` read with [`ctx.read` values](/docs/reference/contexts#where-values),
+or a function such as `(c) => ({ userId: c.id })`. `range` names the timestamp the
+picked range bounds: `table({ resource: "user", range: "createdAt" })`.
 
 ```ts excerpt
 table({
@@ -395,12 +290,9 @@ table({
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="StatItem" />
 
-`StatValue` is `string | number | boolean | bigint | Date | null | undefined`.
-Keeping the literal side explicit preserves full `WidgetContext` autocomplete
-inside async `value` resolvers. A `Date` is rendered through the admin's
-`formatting` — its `locale` and `timeZone` — like a table cell, so no resolver
-needs to format one by hand. A resolver may return a [`KvResult`](#kvresult)
-instead, so the stat carries its own tone and link.
+`StatValue` is `string | number | boolean | bigint | Date | null | undefined`; a
+`Date` is formatted like a table cell. A resolver may return a [`KvResult`](#kvresult)
+with its own tone and link.
 
 ```ts excerpt
 statGroup({
@@ -416,30 +308,20 @@ statGroup({
 
 ## Cards
 
-Five small cards cover most of what a founder dashboard shows between its metrics
-and its tables. Each takes counts and labels only; the card derives the geometry,
-formats values through the admin's `formatting` — locale *and* currency, so one
-dashboard never prints two currencies for the same money — and colors an item by
-its `tone`: a stat, metric or kv value takes the tone's text color, a bar its
-fill, and a list row gets a leading dot, with colored text for `warn` and `err`.
-Hints, kv values, list text and meta, and bar and funnel labels wrap to two lines
-and show the full text on hover; headings, kv labels and numbers stay on one line.
+Small cards take values and labels, format them with the admin's `formatting`,
+and colour items by `tone`.
 
 ### stat
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="stat" />
 
-One number with a label, without `metric()`'s delta and sparkline machinery. The
-value is a literal or a resolver.
+One number with a label, without `metric()`'s delta and sparkline.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="StatOptions" />
 
 #### StatResult
 
-A resolver may return a `StatResult` instead of a bare value, so a card computed
-from data carries its own tone, caption and link — the same arrangement
-`MetricResult` gives `metric()`. A result field wins over the matching static
-option, which stays as the fallback. A `Date` is still a value, not a result.
+A resolver may return a `StatResult`, whose fields win over the options.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="StatResult" />
 
@@ -455,12 +337,9 @@ stat("Open invoices", async (ctx) => {
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="kv" />
 
-The facts about one thing. Each item's `format` accepts a `ColumnFormat` or a
-`NumericFormat`, resolved on the server so the card renders a finished string.
-
-An item with `field` shows a field of the card's `record` instead of a `value`. `record`
-runs once per card; on a record page it defaults to the viewed row, whose `field`s join the
-page's projection, so a profile needs no closure per fact. Its type narrows `field`:
+Facts about one thing. An item's `format` takes a `ColumnFormat` or `NumericFormat`.
+An item with `field` reads the card's `record`, which runs once and defaults to the
+viewed row on a record page:
 
 ```ts excerpt
 kv({
@@ -470,10 +349,8 @@ kv({
 });
 ```
 
-An item with `long` is a paragraph across the card: line breaks are kept and nothing is
-clamped. Past `lines` lines (6 by default) — or about 120 characters a line — the rest
-folds under "Show all" (`labels.widget.showAll`), with no JavaScript. `empty` prints
-instead of "—", muted, when the value is missing or blank.
+An item with `long` is a paragraph; past `lines` lines (6 by default) the rest
+folds under "Show all". `empty` replaces "—" for a missing value.
 
 ```ts excerpt
 kv({
@@ -495,10 +372,8 @@ kv({
 
 #### KvResult
 
-An item resolver may return a `KvResult` instead of a bare value, so a value
-computed from data carries its own tone and link — what `StatResult` does for
-`stat()`. A result field wins over the item's static `tone` or `href`, which stays
-as the fallback. `statGroup` items take the same result.
+An item resolver may return a `KvResult`, whose `tone` and `href` win over the
+item's. `statGroup` items take the same result.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="KvResult" />
 
@@ -520,9 +395,8 @@ kv({
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="bars" />
 
-A ranked breakdown. The query returns labels and values; the card sizes every bar
-against the largest one, or against `max` when you give it. A rate should set
-`max`, or its best row always draws as a full bar:
+A ranked breakdown, sized against the largest value or `max`. Set `max` for a
+rate:
 
 ```ts excerpt
 bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), format: "percent", max: 1 });
@@ -530,21 +404,14 @@ bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), form
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="BarsOptions" />
 
-`share: true` shows each row's part of the total beside its value — the Plausible
-sources box. By default that is its part of the rows' sum; a top-N query, whose rows
-leave the rest out, returns each row's `share` of the real total instead. A row's
-`previous` marks its change against the period before with the `MetricDelta` rules: no
-arrow inside ±1 %, a count's absolute change below a base of 20, a rate's change in
-points, and colour by `goodWhen`.
+`share: true` shows each row's share of the total; a top-N query returns each
+row's `share` itself. A row's `previous` shows its change with the `MetricDelta`
+rules.
 
-`compare: true` runs the query a second time for the period before the picked one —
-`compare: { against: "weekAgo" }` for the same range seven days earlier — and fills
-each row's `previous`, so the change mark needs no `*_prev` query. Rows join by `key`,
-else by `label`, and a row's own `previous` wins. A row the earlier period did not
-return shows no change; return it with value `0`, or use `breakdown({ keys })`, when
-zero is the honest comparison. Nothing is compared over a whole history or past a
-widget's `maxRange`. With `top`, pass the compared rows to `breakdown({ previous })`
-instead of `compare`, so the rest folds the same keys in both periods.
+`compare: true` (or `{ against: "weekAgo" }`) runs the query for the earlier period
+and fills each row's `previous`, joining by `key`, else `label`. A row missing from
+the earlier period shows no change; `breakdown({ keys })` keeps it at zero. With
+`top`, pass the earlier rows to `breakdown({ previous })` instead.
 
 ```ts excerpt
 bars({
@@ -563,11 +430,9 @@ bars({
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="funnel" />
 
-Stages in order. Give counts only: the card computes each step's share of the
-first step and its drop-off from the one before, both in muted text. Colour comes only
-from a threshold you set: with `alertDrop`, the step with the largest drop-off is marked
-with the `warn` tone — label, bar and drop — when it loses more than that share of the step
-before. Without it no step is toned.
+Stages in order, from counts. The card shows each step's share of the first and
+its drop-off. With `alertDrop`, the largest drop-off is marked `warn` when it loses
+more than that share of the step before.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="FunnelOptions" />
 
@@ -579,25 +444,20 @@ before. Without it no step is toned.
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="list" />
 
-A short feed — latest signups, failing jobs — where a table would be too much.
+A short feed, such as latest signups or failing jobs.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-list.ts" name="ListOptions" />
 
-A row can carry `count`, its impact printed in the admin's locale, and `since`, when
-it started, printed relative ("3 hours ago"). `limit` shows that many rows and folds
-the rest into one "N more" line that leads to `more`.
+A row can carry `count` and `since` (printed relative). `limit` folds the rest into
+an "N more" line linking to `more`.
 
 #### banner
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="banner" />
 
-"Anything on fire": `list({ variant: "banner", span: 12 })`. Rows are ordered err, then
-warn, then info, and within each by `count`. The first row reads as one 18 px sentence;
-the rest are dot lines in secondary text, and a screen reader hears each row's tone word
-from `labels.widget.tones` ("Error", "Warning", "OK", "Info"); a list row's dot and a stale
-caption's glyph say theirs the same way. The card stays neutral with a 3 px rule on its left
-edge in the worst row's tone, `err` or `warn`. With no rows it shows one quiet `allClear`
-line (`labels.widget.allClear`), which is the answer a founder wants.
+`list({ variant: "banner", span: 12 })`: rows ordered err, warn, info, then by
+`count`. The first row is a sentence, the rest are lines. With no rows it shows
+`allClear`.
 
 ```ts excerpt
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
@@ -607,8 +467,7 @@ banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: 
 
 <AutoTypeTable path="../../packages/core/src/types/widget-list.ts" name="ListRow" />
 
-Rows are keyed by their position, so two rows with the same text are both shown.
-Give `key` — a record id — when rows are reordered by realtime updates.
+Set `key` when realtime updates reorder rows.
 
 ```ts excerpt
 import { bars, funnel, kv, list, stat } from "@flowpanel/kit";
@@ -632,18 +491,13 @@ const widgets = [
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="tracker" />
 
-"Is it healthy right now, per marketplace": one row per key and one block per hour of a
-window ending now, whatever the date picker says. The window is 24 hours by default; up
-to 48 hours the blocks are hours, beyond that days, all in the admin's zone.
+One row per key and one block per hour of a window ending now, regardless of the
+date picker. The window is 24 hours by default; past 48 hours the blocks are days.
 
-The query receives the window as `ctx.dateRange`. `at` places each row in a block, `by`
-makes the rows, and `value` and `volume` fold each block like `series()`. `tones` colours
-a block by its value, and a block below `tones.min` observations is muted. A row's dot is
-the worst tone of its last three blocks. Each block's hover title and accessible name
-reads the time, the value in `format` and the observation count. `summary` may be async,
-to read a last success from another table. `rows` takes rows you built yourself instead;
-a block without a `title` is named by its row and position, such as "Sync 1/2".
-A tracker renders on dashboards and in detail tabs, not in drawers.
+The query receives the window as `ctx.dateRange`. `at` places rows in blocks, `by`
+makes the rows, and `value` and `volume` fold each block like `series()`. `tones`
+colours blocks; a row's dot is the worst of its last three. `rows` takes prebuilt
+rows instead. Not available in drawers.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-tracker.ts" name="TrackerOptions" />
 
@@ -671,23 +525,12 @@ tracker({
 
 <ApiSignature path="../../packages/core/src/builders/timeline.ts" name="timeline" />
 
-What happened, newest first, grouped under days of the admin's zone ("Today",
-"Yesterday", then dates) with a count per day. Each line has a tone dot, its time (the
-full date in its tooltip), a linked title and a meta; a `body` folds under the line, which
-then opens from a chevron and keeps its link under the body.
-Consecutive events of one day and one kind with the same `fold` key — the title by
-default — fold into one line such as "Orders in feed ×37 09:12–18:40", with the single
-events inside. A chip per kind (`kinds`, an `enumOf` or `{ key: [label, tone] }`) filters
-the page, and "Older" pages back. Chips and paging are links under
-`?<id>.kind=` and `?<id>.before=`; `id` defaults to the detail tab's key, else to
-`"timeline"`, `"timeline-2"` and on in page order, so two timelines on one page never share
-paging. Two that set the same `id` fail at `defineAdmin`. The card is rendered on
-the server and needs no JavaScript.
+Events newest first, grouped by day. Consecutive events of one kind with the same
+`fold` key collapse into one line. A chip per kind (`kinds`) filters, and "Older"
+pages back, under `?<id>.kind=` and `?<id>.before=`; `id` defaults to the tab key.
 
-`query(ctx, page)` returns events that are not rows of a resource. It receives the page:
-return events at or before `page.before` (all of them when it is `null`), at most
-`page.limit`, and only `page.kinds` when that is not `null`. FlowPanel merges every list
-by time, so a busy kind can never push another kind's newer events off the page.
+`query(ctx, page)` returns events that are not resource rows: at or before
+`page.before`, at most `page.limit`, of `page.kinds` when set.
 
 ```ts excerpt
 timeline({
@@ -697,23 +540,16 @@ timeline({
 });
 ```
 
-On a record page a timeline pages through the whole history, or back to its `maxRange` cut;
-`detail.dateRange` does not narrow it. A timeline cannot sit in a drawer tab: `defineAdmin` points at a detail tab.
-"Older" continues from the last event's moment and skips the events already shown at that
-exact moment by count, so when one source holds several rows with the same timestamp at a
-page boundary, a database that returns ties in no fixed order may repeat or drop one of them.
+On a record page a timeline covers the whole history, ignoring `detail.dateRange`.
+Not available in drawers.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-timeline.ts" name="TimelineOptions" />
 
 ### Sources
 
-`timeline.source(resource, source)` reads rows of a resource as events, one authorized read
-per page (the reader's role, access, scope and field rules apply; a source the reader may not
-read adds nothing). `at` is the timestamp; `kind` is a fixed kind or `{ field }`, the column
-that holds each row's kind, so one source covers an event log. `refs` names reference
-columns whose labels `title` and `meta` receive, resolved in one read per page. A line links
-to its first `refs` record, else to the row as its own list opens it; `href: false` leaves it
-plain.
+`timeline.source(resource, source)` reads a resource's rows as events, with the
+reader's access applied. `at` is the timestamp; `kind` is fixed or `{ field }`.
+`refs` names reference columns whose labels reach `title` and `meta`.
 
 ```ts excerpt
 timeline({
@@ -731,14 +567,9 @@ timeline({
 });
 ```
 
-On a record page every source reads only the rows that point at the viewed record: the one
-column whose `reference` names this resource, AND-ed with `where`, so a `where` can narrow a
-source but never widen it to every record. `by` picks the field when several columns point
-at this resource, as a related tab's `by` does; with none, or several and no `by`,
-`defineAdmin` throws. A static `where` that sets that field throws too, and a `where`
-function's value for it is replaced by the viewed record. On a dashboard a source reads the
-rows whose `at` lies in the picked range. `defineAdmin` also checks `resource`, `at`,
-`kind`, `by` and `refs`.
+On a record page a source reads only rows referencing the record, AND-ed with
+`where`; `by` picks the column when several reference it. On a dashboard it reads
+rows whose `at` is in the picked range.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-timeline.ts" name="TimelineSource" />
 
@@ -754,27 +585,18 @@ rows whose `at` lies in the picked range. `defineAdmin` also checks `resource`, 
 
 <ApiSignature path="../../packages/core/src/builders/activity.ts" name="heatmap" />
 
-How often, day by day: the last `days` days (91, about 13 weeks, by default) ending today,
-as weeks side by side and a 12-pixel cell per day, shaded in four steps by quartile, with
-month and weekday labels, a legend, a summary line and a tooltip per day. Days are
-calendar days of the admin's zone, and weeks start on the locale's first day. The card
-scrolls sideways on a phone and needs no JavaScript to render. When days link, the grid is
-one tab stop, today, and the arrow keys move between days.
+Activity per day over the last `days` days (91 by default) ending today, shaded in
+four steps.
 
-`source` counts rows of a resource — or sums `value` — per day of `at`, a timestamp or a
-`YYYY-MM-DD` day. On a record page it reads only the rows that point at the viewed record,
-AND-ed with `where`, as a timeline source does: `by` picks the field when several point at
-it, and `where` cannot set that field. A source reads at most 10,000 rows; past
-that it throws and asks for `query`, which returns totals per day, so the grouping happens
-in SQL. A resource needs a single-column key, so a table keyed by `(userId, day)` is read
-through `query`.
+`source` counts rows, or sums `value`, per day of `at`. On a record page it reads
+rows referencing the record, like a timeline source. It reads at most 10,000 rows;
+beyond that use `query`, which returns totals per day.
 
 ```ts excerpt
 heatmap({ label: "Visits, 13 weeks", source: { resource: "user_visit", at: "startedAt" }, unit: Visits });
 ```
 
-The heatmap always ends today; a record page's `dateRange` and a dashboard's picker do not
-move it, and it takes no `maxRange`.
+The date picker does not move it.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-activity.ts" name="HeatmapOptions" />
 
@@ -786,18 +608,12 @@ move it, and it takes no `maxRange`.
 
 <ApiSignature path="../../packages/core/src/builders/activity.ts" name="checklist" />
 
-What is done and what is not: a ✓ in the item's tone (`ok` by default) for a done item, a
-muted ○ for an open one and a "–" for an optional one not done. An item is done when
-`done` holds a value — anything but `null`, `undefined`, `false`, a blank string or an
-empty list; `0` counts. The summary, "7 of 12" with a bar, counts only items that are not
-`optional`; `summary: false` hides it.
+Items done or not. An item is done when `done` holds a value other than `null`,
+`undefined`, `false`, a blank string or an empty list. The summary counts
+non-`optional` items.
 
-With `ordered`, each done item also shows when — `done` may be a `Date` or an ISO string —
-and the time since the previous done step, such as "+2 hr 5 min". An item with
-`precision: "day"`, or a bare `YYYY-MM-DD`, shows its day and measures no gap to or from
-it. Without `ordered`, no dates print. `layout: "steps"` lays the items out in a row from
-the `md` breakpoint and in a column on a phone. The card is rendered on the server and
-needs no JavaScript; like `timeline` and `heatmap`, it cannot go in a drawer.
+With `ordered`, done items show their date and the gap since the previous step.
+`layout: "steps"` lays them out in a row. Not available in drawers.
 
 ```ts excerpt
 checklist({
@@ -827,9 +643,7 @@ checklist({
 
 <ApiSignature path="../../packages/core/src/builders/activity.ts" name="filled" />
 
-One item per labelled field of a record, done when the field holds a value — a
-completeness card in one line. The labels are typed against the record, so a misspelt
-field does not compile.
+One checklist item per labelled field, done when the field has a value.
 
 ```ts excerpt
 checklist({
@@ -842,30 +656,21 @@ checklist({
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="custom" />
 
-Renders your own component in the grid. `props` may be a value or a function
-resolved on the server per request, which is how you feed it query results.
-`label` titles the card when it is framed, and names the widget in its error and in
-the development slow-widget line.
-
-Build the component from kit atoms — `Card`, `StatusDot`, `Sparkline`, `EmptyState` — and the
-tone and token classes described in
-[Styling](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes).
+Your own component in the grid. `props` is a value or a server function. See
+[Build a custom widget](/docs/customization/custom-widgets).
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="CustomOptions" />
 
 ## Charts
 
-Chart builders live in `@flowpanel/kit/charts`, which is a separate entry point
-so the recharts bundle never loads for admins that use no charts.
+Chart builders live in `@flowpanel/kit/charts`, so Recharts loads only when used.
 
 ```ts excerpt
 import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts";
 ```
 
-Each takes `(label, query, options)`, where `query` returns an array of rows.
-The row type is inferred from `query`, so `x` / `y` (and `category` / `value` on
-a pie) must name keys of that row — a typo is a compile error. A `query` typed
-as `unknown[]` leaves them as plain strings.
+Each takes `(label, query, options)`. `x` and `y` (`category` and `value` on a pie)
+are checked against the query's row type.
 
 ### ChartOptionsBase
 
@@ -875,17 +680,12 @@ Shared by area, bar and line charts.
 
 `ChartBucket` is `"minute" | "hour" | "day" | "week" | "month" | "year" | "auto"`.
 
-`y` may be left out: the chart then plots every numeric key of its first row except `x` —
-a number, or a bigint or a string that parses as one — which is exactly the columns
-`series({ by })` returns, the `top` rest included; a label or other non-numeric column is
-left out. `labels` names each series in the legend and the tooltip, from a map, an `enumOf()` or a function.
-`bucket` only chooses how ticks print a date; it does not aggregate, so fold rows with
-`series({ grain })`. Ticks inside one calendar year leave the year out ("Sep 2").
+Without `y`, the chart plots every numeric key of its first row except `x`, which
+is what `series({ by })` returns. `labels` names the series. `bucket` only formats
+date ticks; aggregate with `series({ grain })`.
 
-One series is drawn in `--fp-data`; several take `--fp-chart-1` to `--fp-chart-7` in `y`
-order, and the legend writes their names in secondary text beside a coloured swatch.
-`colors` pins a series to a colour by its key, so the headline series can keep the first
-colour without moving to the front of `y`:
+One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
+order. `colors` pins a series to a colour:
 
 ```ts excerpt
 lineChart("Signups", signupsByPlan, {
@@ -924,9 +724,7 @@ unless you pass `showLegend: false`.
 
 ## Series helpers
 
-A founder screen is one SQL statement per area. These pure helpers turn its rows into
-what a card needs, in the admin's zone, so the SQL holds no zone math,
-`generate_series` joins, pivots or previous-period twins.
+Pure helpers that turn query rows into chart and bar data in the admin's zone.
 
 <ApiSignature path="../../packages/core/src/runtime/series.ts" name="series" />
 
@@ -953,15 +751,14 @@ already read. `grain: "auto"` picks hours up to 2 days, days up to 92, weeks up 
 - **DST.** On the day clocks skip an hour, that hour has no bucket. On the day they
   repeat one, both of its hours share one bucket.
 
-Folding happens in JavaScript. Above about 50,000 rows, group by hour in SQL first;
-development warns once when a fold passes that.
+Folding runs in JavaScript. Above about 50,000 rows, group by hour in SQL first.
 
 <AutoTypeTable path="../../packages/core/src/runtime/series.ts" name="SeriesOptions" />
 
 <ApiSignature path="../../packages/core/src/runtime/breakdown.ts" name="breakdown" />
 
-One ranked `BarRow` per value of `by`, with `key`, `share` of the real total, and —
-given the compared period's rows as `previous` — each row's `previous`. `top` folds
+One ranked `BarRow` per value of `by`, with `key` and `share`, and each row's
+`previous` when you pass the earlier period's rows as `previous`. `top` folds
 the rest into one `OTHER_KEY` row, so the shares still add up to 1. `labels` takes a
 map, an `enumOf()` or a function. Shares only mean something for counts and sums.
 
@@ -969,10 +766,8 @@ map, an `enumOf()` or a function. Shares only mean something for counts and sums
 
 <ApiSignature path="../../packages/core/src/runtime/preset-range.ts" name="presetRange" />
 
-A preset's bounds now, in the admin's zone: the same range the date picker would
-give it. It is for a query that needs a fixed window such as "today, 7 days and 30
-days" beside the picked one. Pass one `now` as the third argument when several
-widgets share a query, so their ranges match and the query runs once.
+A preset's bounds now, in the admin's zone, for a query that needs a fixed window
+beside the picked one. Pass the same `now` to widgets sharing a query.
 
 ```ts excerpt
 import { barChart } from "@flowpanel/kit/charts";
@@ -996,17 +791,12 @@ barChart(
 
 <ApiSignature path="../../packages/core/src/runtime/series.ts" name="previousRange" />
 
-The range of the same length ending where the given one begins. The shift is elapsed
-time, not calendar days: the window before a week that crosses a DST boundary starts
-an hour off the wall clock. `ctx.dateRange.previous` is usually what you want.
+The range of the same length ending where the given one begins, in elapsed time.
+`ctx.dateRange.previous` is usually what you want.
 
 <ApiSignature path="../../packages/core/src/runtime/series.ts" name="fillDays" />
 
-`series` with one day per bucket and one summed field, kept for existing code:
-`fillDays(rows, dateRange, { dateField: "day", valueField: "total" })` equals
-`series(rows, dateRange, { at: "day", value: "total", grain: "day" })`. There is one
-bucket per calendar day the range touches, both ends included, so `last7d` yields
-eight buckets whose first is a partial day.
+Equals `series(rows, dateRange, { at: dateField, value: valueField, grain: "day" })`.
 
 ## Dashboards
 
@@ -1014,32 +804,23 @@ eight buckets whose first is a partial day.
 
 <ApiSignature path="../../packages/core/src/builders/dashboard.ts" name="page" />
 
-Both are identity functions — they exist so the object literal is checked
-against its type at the call site and reads as a builder alongside `resource()`
-and `queue()`.
+Both return their argument, typed.
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DashboardConfig" />
 
-`refresh` is `"<n>s"` or `"<n>m"`. It re-renders the whole dashboard on that
-interval, pauses while the browser tab is hidden, and shows how old the numbers
-are next to the date picker from `labels.widget.updated`.
+`refresh` (`"<n>s"` or `"<n>m"`) re-renders the dashboard on that interval while the
+tab is visible and shows the data's age by the date picker.
 
 ### SectionConfig
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="SectionConfig" />
 
-`variant: "strip"` draws a section's `metric` and `stat` widgets as one band divided by
-hairlines, with no card around each — the KPI row at the top of a founder screen. Deltas,
-the previous value, sparklines and links stay. `columns` sets the cells per line from the
-`md` breakpoint (default, and for `columns: 12`: one line of up to six); below it the strip
-shows two per line.
-Another widget kind in a strip keeps its own card and warns once in development. A record
-page's [`detail.stats`](/docs/reference/resources#record-page) renders the same strip.
+`variant: "strip"` draws `metric` and `stat` widgets as one band without cards.
+`columns` sets cells per line (up to six by default; two on a phone). A record
+page's [`detail.stats`](/docs/reference/resources#record-page) is the same strip.
 
-In a `"cards"` section a `table` or `list` card keeps its own height, so a short table beside
-a tall chart leaves no empty card; every other card stretches to the tallest in its row.
-`align: "start"` keeps every card at its content's height and `align: "stretch"` stretches
-them all.
+In a `"cards"` section, `table` and `list` cards keep their height and others
+stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 
 ```ts excerpt
 { variant: "strip", widgets: [newOrders, runs, successRate, bans] }
@@ -1054,29 +835,17 @@ them all.
 `today`, `yesterday`, `MTD`, `QTD` and `YTD` start at midnight in `formatting.timeZone`
 (UTC when it is not set); `last7d` and `last30d` are the last 7 × 24 and 30 × 24 hours.
 
-`presets` narrows the picker to the periods a dashboard's data can answer — an
-order-linked page whose rows live 30 days offers `["today", "yesterday", "last7d",
-"last30d"]`. A `?preset=` outside the list is ignored and dropped from the URL, and
-`preset` defaults to the first entry. A range given as `?from=…&to=…`, as a link from a
-custom period carries it, shows as its two days in the picker.
+`presets` limits the picker's choices; `preset` defaults to the first.
 
 ### DashboardFilter
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DashboardFilter" />
 
-`filters` puts one select per entry beside the date picker. A picked value lands in
-the URL as `f_<key>`, the list convention, so a filtered dashboard is a link;
-choosing "All" drops one filter and "Clear filters" drops them all. `options` takes a
-list, an `enumOf()`, or a function of the context.
+`filters` adds a select per entry beside the date picker, stored in the URL as
+`f_<key>`. `options` takes a list, an `enumOf()` or a function.
 
-`bars`, `tracker` and `table` take `filterOnClick: "<key>"`: clicking a bar, a tracker
-row or a table row sets that filter on the current dashboard, keeping the range. A bar
-sets the filter by its `key`; `breakdown()` fills it, and the folded rest is not a link.
-`filterOnClick` replaces the row's own `href` or the table's `rowHref`. `defineAdmin`
-rejects a `filterOnClick` the dashboard does not declare, with the closest key, and one
-on a record page or in a drawer. While a filter is set, an empty card says the filters
-left nothing (`labels.widget.filtered`) and links to clear them, and an empty banner
-says it instead of "All clear". A chart keeps its own empty text.
+`filterOnClick: "<key>"` on `bars`, `tracker` or `table` sets that filter on click,
+replacing the row's link. It is rejected on a record page or in a drawer.
 
 ```ts excerpt
 const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };

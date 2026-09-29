@@ -97,8 +97,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   const sortParam = `${RELATED_SORT_PREFIX}${tab.key}`;
   const pageParam = `${RELATED_PAGE_PREFIX}${tab.key}`;
   const urlSort = parseRelatedSort(sp.get(sortParam), sortable);
-  // The fallback has to be a column the adapter will accept, so it is the
-  // introspected primary key rather than the configured display key.
+  // The fallback is the introspected primary key, not the configured display key, so the adapter accepts it.
   const sort: RelatedSort = urlSort ??
     tab.sort ??
     (target.options.defaultSort as RelatedSort | undefined) ?? {

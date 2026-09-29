@@ -13,8 +13,7 @@ export function ApiBaseProvider({
   value?: string;
   children: React.ReactNode;
 }): React.JSX.Element {
-  // The fallback is app-relative like `paths.api`, so it needs the same prefix:
-  // a shell that never passes `value` would otherwise fetch outside the deployment.
+  // The fallback needs the same basePath prefix as `paths.api`, or a shell without `value` fetches wrong.
   return (
     <Ctx.Provider value={value || withDeploymentBasePath(DEFAULT_API_BASE)}>
       {children}

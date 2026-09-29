@@ -1,7 +1,6 @@
 /**
- * The origin the browser addressed, which is not always the one the handler sees:
- * behind a reverse proxy `req.url` carries the internal host. Forwarded headers win
- * when present — a cross-site browser request cannot set them without a preflight.
+ * The origin the browser addressed; behind a reverse proxy `req.url` carries the internal host instead.
+ * Forwarded headers win when present — a cross-site request cannot set them without a preflight.
  */
 export function browserOrigin(req: Request): string {
   const first = (value: string | null) => value?.split(",")[0]?.trim() || null;

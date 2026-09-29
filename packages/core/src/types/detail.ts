@@ -17,7 +17,6 @@ export interface DetailTabContext
     | "db"
     | "session"
     | "dateRange"
-    | "href"
     | "labels"
     | "query"
     | "sql"
@@ -45,9 +44,8 @@ export interface DetailTab<Row> {
   /** Filter applied to `resource`, derived from the row being viewed. */
   filter?: (row: Row) => Record<string, unknown>;
   /**
-   * The target's field that points at this record. It becomes `filter` (the record's `rowKey`
-   * value) and `hide` unless those are given. A `related()` tab infers it from the one target
-   * column whose `reference.resource` is this resource.
+   * The target's field that points at this record; becomes `filter` and `hide` unless those are given.
+   * A `related()` tab infers it from the one target column whose `reference.resource` is this resource.
    */
   by?: string;
   /**
@@ -99,7 +97,7 @@ export interface DetailBadge {
   href?: LinkTarget;
 }
 
-/** A resource's full-page record view at `/<basePath>/<resource>/<id>`. */
+/** A resource's full-page record view at `<paths.admin>/<resource>/<id>`. */
 export interface DetailOptions<Row> {
   /**
    * Extra fields used only by detail headers, hidden-tab predicates, related
@@ -108,8 +106,6 @@ export interface DetailOptions<Row> {
   expose?: (keyof Row & string)[];
   /** Heading content (inside h1). Receives declared, readable detail fields; nullish output uses `<label> · <pk>`. */
   title?: (row: Row, ctx: DetailHeaderContext) => ReactNode | string | null | undefined;
-  /** @deprecated Use `title`. Removed in 1.0. */
-  header?: (row: Row) => ReactNode;
   /** One line under the heading, for the fact that identifies the record. May be async. */
   subtitle?: (row: Row, ctx: DetailHeaderContext) => MaybePromise<string | null | undefined>;
   /** Pills beside the heading: one, or several in order; nullish entries are dropped. May be async. */
@@ -118,9 +114,8 @@ export interface DetailOptions<Row> {
     ctx: DetailHeaderContext,
   ) => MaybePromise<DetailBadge | ReadonlyArray<DetailBadge | null | undefined> | null | undefined>;
   /**
-   * A date picker in the header. Its range, with `previous`, reaches `stats`, `aside` and every
-   * widgets tab; related rows, timelines and heatmaps keep their own span. Omitted: the whole
-   * history, and no picker.
+   * A date picker in the header; its range, with `previous`, reaches `stats`, `aside` and every widgets tab.
+   * Omitted: the whole history, and no picker.
    */
   dateRange?: DateRangeConfig;
   /** Numbers in a hairline strip under the header, on every tab. */

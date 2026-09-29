@@ -6,7 +6,7 @@ describe("GitHub header link", () => {
   it("renders the repository as an accessible external link", () => {
     const html = renderToStaticMarkup(<GitHubLink />);
 
-    expect(html).toContain('aria-label="flowpanel on GitHub"');
+    expect(html).toContain('aria-label="FlowPanel on GitHub"');
     expect(html).toContain('href="https://github.com/getflowpanel/flowpanel"');
     expect(html).toContain('rel="noreferrer"');
   });

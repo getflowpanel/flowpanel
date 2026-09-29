@@ -610,7 +610,7 @@ describe("renderWidget — cross-resource authorization", () => {
   } as never;
 
   it("does not read a role-gated target the viewer cannot access", async () => {
-    const { cfg, list } = boundConfig({ requireRole: "superadmin" });
+    const { cfg, list } = boundConfig({ access: { read: "superadmin" } });
     const staffCtx: RequestContext = { ...reqCtx, role: "staff" };
     const node = await renderWidget(tableWidget, ctx, cfg, staffCtx);
     const el = node as ReactElement<{ rows: Record<string, unknown>[] }>;
@@ -632,11 +632,9 @@ describe("renderWidget — cross-resource authorization", () => {
     const scoped: RequestContext = { ...reqCtx, scope: { tenantId: "t1" } };
     await renderWidget(tableWidget, ctx, cfg, scoped);
     const listCtx = list.mock.calls[0]?.[1] as {
-      applyScope?: (q: unknown) => unknown;
-      scopeRequired?: boolean;
+      boundScope?: { apply(q: unknown): unknown };
     };
-    expect(listCtx.scopeRequired).toBe(true);
-    listCtx.applyScope?.("q");
+    listCtx.boundScope?.apply("q");
     expect(scopePredicate).toHaveBeenCalledWith({ tenantId: "t1" }, "q");
   });
 

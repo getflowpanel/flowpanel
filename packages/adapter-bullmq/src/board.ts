@@ -28,8 +28,7 @@ function timingSafeEqualStrings(a: string, b: string): boolean {
 const SESSION_COOKIE = "flowpanel_board_session";
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
-// Derived, not the raw token: the shared secret never lands in a cookie jar, and the value
-// still validates across restarts and replicas without server-side session state.
+// Derived, not the raw token, so the shared secret never lands in a cookie jar.
 function sessionValue(token: string): string {
   return createHmac("sha256", token).update(SESSION_COOKIE).digest("hex");
 }

@@ -21,8 +21,7 @@ export function useDataTableSelection<Row extends Record<string, unknown>>(param
   const { rows, rowKey, selection, onSelectionChange, getRowKey } = params;
 
   const selectionEnabled = onSelectionChange !== undefined;
-  // A projection may legitimately omit the key column. The literal string
-  // "undefined" is a valid identifier; an absent or non-scalar value is not.
+  // The literal string "undefined" is a valid identifier; an absent or non-scalar value is not.
   const identityOf = React.useCallback(
     (row: Row): string | null => {
       if (getRowKey) return getRowKey(row) || null;

@@ -47,11 +47,7 @@ export interface PrismaClientLike {
 /** Apply a tenant predicate to a plain Prisma object, enforcing fail-closed scope. */
 export function applyScopeToWhere(
   where: Record<string, unknown>,
-  ctx: {
-    boundScope?: { apply(query: unknown): unknown };
-    applyScope?: (query: unknown) => unknown;
-    scopeRequired?: boolean;
-  },
+  ctx: { boundScope?: { apply(query: unknown): unknown } },
 ): Record<string, unknown> {
   const applyScope = resolveScopeApplier(ctx);
   if (!applyScope) return where;
@@ -76,9 +72,9 @@ export function applyScopeToWhere(
     result !== where ||
     Object.keys(result).length !== Object.keys(before).length ||
     Object.keys(before).some((key) => !Object.is(result[key], before[key]));
-  if (ctx.scopeRequired && !changed) {
+  if (!changed) {
     throw new FlowpanelAccessError(
-      "scope required but the bound Prisma predicate returned the input unchanged. " +
+      "the bound Prisma scope predicate returned the input unchanged. " +
         "Refusing to run an unscoped query.",
     );
   }
@@ -94,11 +90,7 @@ function isColumnValue(value: unknown): boolean {
 /** Resolve insert data for a scoped create: only equality scope keys can supply a column value. */
 export function applyScopeToData(
   input: Record<string, unknown>,
-  ctx: {
-    boundScope?: { apply(query: unknown): unknown };
-    applyScope?: (query: unknown) => unknown;
-    scopeRequired?: boolean;
-  },
+  ctx: { boundScope?: { apply(query: unknown): unknown } },
 ): Record<string, unknown> {
   const scoped = applyScopeToWhere({ ...input }, ctx);
   const data: Record<string, unknown> = { ...input };

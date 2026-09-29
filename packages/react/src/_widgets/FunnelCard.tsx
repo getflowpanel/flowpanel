@@ -76,11 +76,7 @@ export function FunnelCard({
               >
                 <div className="flex items-baseline justify-between gap-3 text-xs">
                   <span
-                    className={cn(
-                      TWO_LINES,
-                      "min-w-0",
-                      alert ? toneTextClass.warn : "text-fp-text-2",
-                    )}
+                    className={cn(TWO_LINES, "min-w-0 text-fp-text-2")}
                     {...fullTextTitle(step.label)}
                   >
                     {step.href ? (

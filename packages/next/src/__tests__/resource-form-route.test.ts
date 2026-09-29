@@ -23,7 +23,7 @@ const updateSchema = z.object({
 
 function makeConfig(opts: {
   role?: string;
-  requireRole?: string | string[];
+  access?: string | string[];
   createDisabled?: boolean;
   updateDisabled?: boolean;
   readOnly?: boolean;
@@ -67,7 +67,16 @@ function makeConfig(opts: {
     ref: { __name: "users" },
     options: {
       columns: [{ field: "id" }, { field: "email" }, { field: "priceCents" }],
-      ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
+      ...(opts.access !== undefined
+        ? {
+            access: {
+              read: opts.access,
+              create: opts.access,
+              update: opts.access,
+              delete: opts.access,
+            },
+          }
+        : {}),
       ...(opts.createDisabled ? { create: { disabled: true } } : {}),
       ...(opts.updateDisabled ? { update: { disabled: true } } : {}),
     },
@@ -121,8 +130,8 @@ describe("resourceCreateRoute", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 403 when the session's role doesn't satisfy requireRole", async () => {
-    const handler = resourceCreateRoute(makeConfig({ role: "viewer", requireRole: "admin" }));
+  it("returns 403 when the session's role doesn't satisfy the resource's access", async () => {
+    const handler = resourceCreateRoute(makeConfig({ role: "viewer", access: "admin" }));
     const req = formRequest("http://localhost/x", { email: "a@b.com" });
     const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
     expect(res.status).toBe(403);
@@ -238,8 +247,8 @@ describe("resourceUpdateRoute", () => {
     expect((await res.json()).error).toMatch(/disabled/);
   });
 
-  it("returns 403 when the session's role doesn't satisfy requireRole", async () => {
-    const handler = resourceUpdateRoute(makeConfig({ role: "viewer", requireRole: "admin" }));
+  it("returns 403 when the session's role doesn't satisfy the resource's access", async () => {
+    const handler = resourceUpdateRoute(makeConfig({ role: "viewer", access: "admin" }));
     const req = formRequest("http://localhost/x", { email: "new@b.com" });
     const res = await handler(req, { params: Promise.resolve({ resource: "users", id: "u1" }) });
     expect(res.status).toBe(403);

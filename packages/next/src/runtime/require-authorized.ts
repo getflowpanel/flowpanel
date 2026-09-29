@@ -2,7 +2,6 @@ import {
   assertCountWhereColumns,
   assertResourceScope,
   authorizeOperation,
-  checkRequireRole,
   FlowpanelAccessError,
   type ListQueryContext,
   type RequestContext,
@@ -16,13 +15,8 @@ import { declaredRowFields, projectRowFields, selectKnownFields } from "./projec
 import { resolveReadableFieldSet } from "./readable-fields";
 import { scopeBinding } from "./scope-binding";
 
-/** Runs the resource's role + scope checks. */
-export function requireAuthorized(
-  config: ResolvedAdminConfig,
-  resource: ResourceConfig,
-  reqCtx: RequestContext,
-): void {
-  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
+/** Runs the resource's scope check. */
+export function requireAuthorized(config: ResolvedAdminConfig, resource: ResourceConfig): void {
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
@@ -47,8 +41,7 @@ export interface RelatedReadOptions {
 
 /**
  * The only sanctioned way to read a resource other than the request's own.
- * `null` means the caller may not read `target` — each site decides whether
- * that degrades to empty or answers with an error.
+ * `null` means the caller may not read `target` — each site decides whether that degrades to empty or an error.
  */
 export interface RelatedPage {
   rows: Record<string, unknown>[];
@@ -58,13 +51,8 @@ export interface RelatedPage {
 }
 
 /**
- * How many rows of `target` match `filters`, under the same role, access, field
- * and scope checks as a related read. `null` means the caller may not read it.
- * `adapter.count` answers directly only when no tenant predicate has to be
- * applied — that capability takes a filter map, not a scope binding, so a
- * scoped resource is counted through the authorized `list` path instead. Every
- * other guard is applied on both paths, so which one runs never changes the
- * answer.
+ * How many rows of `target` match `filters`, under the same role, access, field and scope checks as a related read.
+ * `adapter.count` answers directly only with no tenant predicate; a scoped resource counts through `list` instead.
  */
 export async function readRelatedCount(
   config: ResolvedAdminConfig,
@@ -80,7 +68,7 @@ export async function readRelatedCount(
   // A missing projected value must not turn a filtered count into a total.
   if (Object.values(filters).some((value) => value === undefined)) return 0;
   const direct = config.adapter.count;
-  if (!direct || scopeBinding(config, target, reqCtx).applyScope) {
+  if (!direct || scopeBinding(target, reqCtx).boundScope) {
     const page = await readRelatedPage(config, target, reqCtx, {
       filters,
       page: 1,
@@ -91,11 +79,8 @@ export async function readRelatedCount(
   }
 
   try {
-    requireAuthorized(config, target, reqCtx);
-    await authorizeOperation(
-      resolveOperationAccess(target.options.access, target.options.requireRole, "read"),
-      reqCtx,
-    );
+    requireAuthorized(config, target);
+    await authorizeOperation(resolveOperationAccess(target.options.access, "read"), reqCtx);
   } catch (err) {
     if (err instanceof FlowpanelAccessError) return null;
     throw err;
@@ -131,11 +116,8 @@ export async function readRelatedPage(
   opts: RelatedReadOptions = {},
 ): Promise<RelatedPage | null> {
   try {
-    requireAuthorized(config, target, reqCtx);
-    await authorizeOperation(
-      resolveOperationAccess(target.options.access, target.options.requireRole, "read"),
-      reqCtx,
-    );
+    requireAuthorized(config, target);
+    await authorizeOperation(resolveOperationAccess(target.options.access, "read"), reqCtx);
   } catch (err) {
     if (err instanceof FlowpanelAccessError) return null;
     throw err;
@@ -146,11 +128,14 @@ export async function readRelatedPage(
   const empty: RelatedPage = { rows: [], total: 0, page, pageSize };
   const filters = opts.filters ?? {};
   const filterFields = Object.keys(filters);
-  // A missing projected relationship value must not turn a related query into
-  // an unfiltered list.
+  // A missing projected relationship value must not turn a related query into an unfiltered list.
   if (Object.values(filters).some((value) => value === undefined)) return empty;
   const requestedSearchFields = opts.searchFields ?? [];
-  const requestedSortField = opts.sort?.field;
+  const defaultSort = target.options.defaultSort;
+  const requestedSort =
+    opts.sort ??
+    (defaultSort ? { field: String(defaultSort.field), dir: defaultSort.dir } : undefined);
+  const requestedSortField = requestedSort?.field;
   const outputFields = declaredRowFields(target);
   for (const field of opts.extraFields ?? []) outputFields.add(field);
   const readable = await resolveReadableFieldSet(
@@ -163,12 +148,11 @@ export async function readRelatedPage(
     target.options.fieldAccess,
     reqCtx,
   );
-  // Relationship filters are constraints, not optional user refinements. If
-  // policy removes one, fail closed instead of widening the related result.
+  // Relationship filters are constraints; if policy removes one, fail closed instead of widening the result.
   if (filterFields.some((field) => !readable.has(field))) return empty;
   const searchFields = requestedSearchFields.filter((field) => readable.has(field));
   if (requestedSearchFields.length > 0 && searchFields.length === 0) return empty;
-  const sort = opts.sort && readable.has(opts.sort.field) ? opts.sort : null;
+  const sort = requestedSort && readable.has(requestedSort.field) ? requestedSort : null;
   const projectedFields = opts.countOnly
     ? []
     : [...outputFields].filter((field) => readable.has(field));
@@ -179,7 +163,6 @@ export async function readRelatedPage(
   const softDelete = target.options.delete?.softDelete;
   const listCtx: ListQueryContext<unknown> = {
     ...reqCtx,
-    db: config.adapter.db,
     dateRange: opts.dateRange ?? { from: new Date(0), to: new Date() },
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,
@@ -193,7 +176,7 @@ export async function readRelatedPage(
     ...(softDelete
       ? { softDelete: { column: String(softDelete) }, includeDeleted: opts.includeDeleted }
       : {}),
-    ...scopeBinding(config, target, reqCtx),
+    ...scopeBinding(target, reqCtx),
   };
 
   const result = await runWithRequestContext(reqCtx, () =>

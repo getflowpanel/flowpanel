@@ -61,8 +61,7 @@ export type AnyResourceLink = { [N in ResourceName]: ResourceLink<N> }[ResourceN
 export interface DashboardLink {
   dashboard: string;
   /**
-   * Carry the widget's range: the preset, or `from` and `to` for a custom range. A resource link
-   * names the `daterange` field instead; a dashboard's own picker needs only `true`.
+   * Carry the widget's range: the preset, or `from`/`to` for a custom range. A resource link names the `daterange` field instead.
    * @defaultValue true
    */
   range?: boolean;
@@ -91,28 +90,13 @@ export interface WidgetContext<DB = InferDB> {
   req: Request;
   /** Row of the record being viewed when the widget sits in a detail tab. */
   row?: Record<string, unknown>;
-  /**
-   * The viewed record's key as a string — `row[rowKey]`, `rowKey` defaulting to
-   * `"id"`. Absent on a dashboard, and when the key is not a string or a number.
-   */
+  /** The viewed record's key as a string — `row[rowKey]`. Absent on a dashboard, or when the key is not a string or number. */
   id?: string;
-  /**
-   * Mount-aware link builder; never hand-type `"/admin/…"` in a config.
-   * @deprecated Name the target instead — `ctx.link({ resource, id, filter, tab })`, or a
-   * `{ resource, id }` link wherever an option takes one.
-   */
-  href: (
-    resource: ResourceName,
-    id?: string | number,
-    opts?: { filter?: Record<string, unknown>; tab?: string },
-  ) => string;
   /** Resolve a link target to an href, for the props of a custom widget. */
   link: (target: LinkTarget) => string;
   /**
    * Memoises a query per request: a key and a thunk, or a function and its arguments.
-   * Arguments match by value for strings, numbers, booleans and dates, by identity otherwise.
-   * A function passed alone that declares a parameter is called with this context:
-   * `query(hourly)` runs `hourly(ctx)` once per context.
+   * A function passed alone that declares a parameter is called with this context: `query(hourly)` runs `hourly(ctx)`.
    */
   query: {
     <T>(key: string, fn: () => Promise<T>): Promise<T>;
@@ -124,25 +108,16 @@ export interface WidgetContext<DB = InferDB> {
   /** The admin's formatters — locale, zone and currency from `formatting`. */
   format: WidgetFormat;
   /**
-   * One read-only statement, as a tagged template. Every interpolated value is
-   * bound as a parameter, so `${input}` can never change the statement.
-   * `Date` binds as an ISO-8601 string and `bigint` as decimal text. Throws when
-   * the configured adapter implements no `sql` capability.
-   *
-   * Runs exactly the statement you write: no tenant scope, no access rule and no
-   * soft-delete filter are applied. Add those predicates yourself, or use
-   * `count` and resource reads, which do.
+   * One read-only statement, as a tagged template; every interpolated value binds as a parameter, never as text.
+   * Runs exactly the statement you write — no tenant scope, access rule or soft-delete filter applied; `count`/reads do.
    */
   sql: <Row = Record<string, unknown>>(
     strings: TemplateStringsArray,
     ...values: unknown[]
   ) => Promise<Row[]>;
   /**
-   * How many rows of a registered resource match `where`, under the same role, access and scope
-   * checks as its list; `range` bounds a timestamp field by `ctx.dateRange`. Memoised per request
-   * by resource, `where` and range; a resource the session may not read counts `0`, and so does an
-   * `undefined`, `null` or `""` value, with a development warning. A misspelt field throws,
-   * whatever its value.
+   * How many rows of a registered resource match `where`, under the same role, access and scope checks as its list.
+   * Memoised per request by resource, `where` and range; a resource the session may not read counts `0`.
    */
   count: <N extends ResourceName>(
     resource: N,
@@ -150,11 +125,8 @@ export interface WidgetContext<DB = InferDB> {
     options?: CountOptions<RowOf<N>>,
   ) => Promise<number>;
   /**
-   * Rows of a registered resource under the same role, access, scope, field and soft-delete
-   * rules as its list. Memoised per request by resource and options; a resource the session may
-   * not read returns `[]`. A misspelt field, an `undefined`, `null` or `""` value, or an unknown
-   * resource throws instead of widening the read. Rows carry the list's declared columns,
-   * `expose` and `fields`; any other property is `undefined`, even though the row type lists it.
+   * Rows of a registered resource under the same role, access, scope, field and soft-delete rules as its list.
+   * Memoised per request by resource and options; a resource the session may not read returns `[]`.
    */
   read: <N extends ResourceName>(
     resource: N,

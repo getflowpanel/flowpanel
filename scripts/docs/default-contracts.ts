@@ -93,13 +93,6 @@ export const DEFAULT_DOC_CONTRACTS = [
     consumerExpression: "columns = 2",
   },
   {
-    typeName: "MetricDelta",
-    member: "goodWhen",
-    value: '"up"',
-    consumerFile: "packages/react/src/_widgets/delta.ts",
-    consumerExpression: 'delta.goodWhen === "down" ? delta.value < 0 : delta.value > 0',
-  },
-  {
     typeName: "MetricOptions",
     member: "goodWhen",
     value: '"up"',

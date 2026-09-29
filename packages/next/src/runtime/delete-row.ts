@@ -22,7 +22,7 @@ export async function deleteRow(
     input: {},
     id,
     ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
-    ...scopeBinding(config, resource, reqCtx),
+    ...scopeBinding(resource, reqCtx),
   };
   await runWithRequestContext(reqCtx, () => config.adapter.delete(writeTarget(resource), mctx));
 }

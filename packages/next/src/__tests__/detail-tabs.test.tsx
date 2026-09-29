@@ -312,7 +312,7 @@ describe("a render tab", () => {
     );
     const entry = seen[0];
     expect(Object.keys(entry?.row ?? {})).toEqual(["id"]);
-    expect(entry?.ctx.href("scores", undefined, { filter: { userId: "u1" } })).toBe(
+    expect(entry?.ctx.link({ resource: "scores", filter: { userId: "u1" } })).toBe(
       "/admin/scores?f_userId=u1",
     );
     expect(entry?.ctx.labels.related.openList).toBe("Open list");

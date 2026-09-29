@@ -66,7 +66,7 @@ export const invoices = resource(schema.invoices, {
   rowClick: "drawer",
   drawer: {
     width: "md",
-    header: (row) => `Invoice #${row.id}`,
+    title: (row) => `Invoice #${row.id}`,
     tabs: [
       {
         key: "detail",

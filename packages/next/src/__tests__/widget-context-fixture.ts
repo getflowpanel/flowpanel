@@ -15,7 +15,9 @@ function runQuery(self: () => WidgetContext): WidgetContext["query"] {
 
 function fakeLink(target: LinkTarget): string {
   if (typeof target === "string") return target;
-  return "resource" in target ? `/admin/${target.resource}` : `/admin${target.dashboard}`;
+  if (!("resource" in target)) return `/admin${target.dashboard}`;
+  const id = "id" in target && target.id !== undefined ? `/${String(target.id)}` : "";
+  return `/admin/${target.resource}${id}`;
 }
 
 /** A widget context for render tests: no memo, no database, links under `/admin`. */
@@ -32,8 +34,6 @@ export function fakeWidgetContext(overrides: Partial<WidgetContext> = {}): Widge
     },
     filters: {},
     req: new Request("http://localhost/"),
-    href: (resource, id) =>
-      id === undefined ? `/admin/${resource}` : `/admin/${resource}/${String(id)}`,
     link: fakeLink,
     query: runQuery(() => ctx),
     labels: DEFAULT_LABELS,

@@ -40,12 +40,11 @@ export function restoreRoute(config: ResolvedAdminConfig) {
     return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {
       const itemCtx: ItemQueryContext = {
         ...reqCtx,
-        db: config.adapter.db,
         dateRange: { from: new Date(0), to: new Date() },
         searchParams: new URLSearchParams(),
         signal: new AbortController().signal,
         id,
-        ...scopeBinding(config, resource, reqCtx),
+        ...scopeBinding(resource, reqCtx),
       };
       const existing = (await runWithRequestContext(reqCtx, () =>
         config.adapter.get(resource.ref, itemCtx),
@@ -60,7 +59,7 @@ export function restoreRoute(config: ResolvedAdminConfig) {
         input: {},
         id,
         softDelete: { column: softDeleteColumn },
-        ...scopeBinding(config, resource, reqCtx),
+        ...scopeBinding(resource, reqCtx),
       };
       await runWithRequestContext(reqCtx, () => restore(writeTarget(resource), mctx));
 

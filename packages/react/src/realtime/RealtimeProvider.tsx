@@ -184,8 +184,7 @@ function RealtimeProviderInner({
     };
 
     es.onerror = () => {
-      // A stale source (superseded by a newer open()) firing onerror is a full
-      // no-op: don't touch status, attempt count, or the timer — only state.source drives it.
+      // A stale source firing onerror is a full no-op: only state.source drives status, attempt count and the timer.
       if (state.source !== es) {
         es.close();
         return;

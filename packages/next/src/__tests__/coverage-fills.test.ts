@@ -89,13 +89,13 @@ function adapterWithGet(getReturn: Record<string, unknown> | null): Adapter {
 }
 
 describe("drawerActionRoute — auth/row edge cases", () => {
-  it("returns 403 when resource.requireRole fails", async () => {
+  it("returns 403 when the resource's update access fails", async () => {
     const r: ResourceConfig = {
       __kind: "resource",
       ref: { __name: "jobs" },
       options: {
         columns: [],
-        requireRole: "admin",
+        access: { update: "admin" },
         drawer: {
           actions: [{ key: "x", label: "X", run: async () => ({ ok: true }) }],
         },

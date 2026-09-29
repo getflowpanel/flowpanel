@@ -1,4 +1,4 @@
-# flowpanel — Reference — Actions
+# FlowPanel — Reference — Actions
 
 ## Actions
 
@@ -8,49 +8,16 @@ Docs: https://flowpanel.tech/docs/reference/actions
 
 Documented types: rowAction, RowAction, bulkAction, BulkAction, dashboardAction, DashboardAction, DrawerAction, DrawerFieldFormSpec, ActionResult, ActionContext
 
-An action is a server-side function the operator triggers from the UI. FlowPanel
-gives you four places to put one, all sharing the same result type and the same
-guard pipeline: the admin-wide role gate, the resource gate, then the action's
-own `requireRole` — before `run` is ever called.
-
-Actions never become Server Actions. They are POST routes under
-`/api/flowpanel/…`, mounted by `handlers(config)`.
+Row, bulk, dashboard and drawer actions share one result type and one guard
+order: the admin role gate, the resource gate, then the action's own
+`access`, all before `run`. Each is a POST route under `/api/flowpanel/…`.
+Guide: [Add actions](/docs/build/actions).
 
 ### RowAction
 
-Offered on a single row, inline or in the row menu.
-
-```ts excerpt
-import { resource, rowAction } from "@flowpanel/kit";
-import { orders } from "@/db/schema";
-
-type RefundInput = { reason: string };
-
-const refundOrder = rowAction<typeof orders.$inferSelect, RefundInput>({
-  key: "refund",
-  label: "Refund",
-  icon: "circle-dollar-sign",
-  variant: "destructive",
-  confirm: { title: "Refund this order?", confirmLabel: "Refund" },
-  requireRole: "admin",
-  disabled: (row) => (row.status === "refunded" ? "Already refunded" : false),
-  form: [{ name: "reason", label: "Reason", type: "textarea", required: true }],
-  run: async (row, input, ctx) => {
-    await refund(ctx.db, row.id, input.reason);
-    return { ok: true, message: `Refunded ${row.id}`, refresh: true };
-  },
-});
-
-resource(orders, {
-  columns: ["id", "status"],
-  actions: [refundOrder],
-});
-```
-
-The form describes an action-specific `ActionInput`, not columns on the row.
-Use `rowAction<Row, Input>()` to get exact types for both handler arguments and
-compile-time checks for every `form[].name`. The helper returns the same plain
-object you could write inline; it has no runtime cost.
+Offered on a single row, inline or in the row menu. `rowAction<Row, Input>()` types
+both `run` arguments and checks every `form[].name` against `Input`; it returns the
+object unchanged. Add it to a resource's `actions`.
 
 ```ts twoslash
 import { rowAction } from "@flowpanel/kit";
@@ -91,19 +58,15 @@ export const suspendUser = rowAction<User, SuspendInput>({
 | `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
 | `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Server-enforced row condition, evaluated only after a scoped row load. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `requireRole?` | `string \| string[]` |  |
 | `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
 
-`hidden` runs server-side for every row on the page, and the row's action list
-is filtered before it reaches the client — a hidden action is not merely
-invisible, its route returns `404` for that row.
+`hidden` runs on the server per row; a hidden action's route returns `404` for
+that row.
 
 ### BulkAction
 
-Applied to the operator's selection. `run` receives the ids, capped at 1000 per
-request — the cap is a **rejection, not a truncation**: over 1000 ids the route
-answers `422 too many ids (max 1000)` and `run` never executes, so nothing is
-half-applied. Page your own batches if you need more.
+Runs on the selection. `run` receives the IDs. Over 1000 IDs the route answers
+`422 too many ids (max 1000)` and `run` does not execute.
 
 `BulkAction`
 
@@ -120,18 +83,14 @@ half-applied. Page your own batches if you need more.
 | `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
 | `max?` | `number` | Maximum selected ids accepted by this action. Default: `1000`. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `requireRole?` | `string \| string[]` |  |
 | `run` | `(ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler, given every selected id. Capped at 1000 ids per call. |
 
-Use `bulkAction<Row, Input>(definition)` when the bulk form has a typed
-payload. Its handler receives `string[]` ids followed by that input.
-
-When a resource has delete enabled and declares no `bulkActions`, `defineAdmin`
-adds a default delete action. Opt out with `bulkActions: []`.
+`bulkAction<Row, Input>()` types the form input. With delete enabled and no
+`bulkActions`, a default bulk delete is added; `bulkActions: []` removes it.
 
 ### DashboardAction
 
-Rendered in a dashboard's page header. It gets no row — only the form input.
+Rendered in the dashboard header. It gets only the form input.
 
 `DashboardAction`
 
@@ -141,33 +100,28 @@ Rendered in a dashboard's page header. It gets no row — only the form input.
 | `label` | `string` |  |
 | `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
 | `variant?` | `ActionVariant` | Button styling. |
-| `emphasis?` | `ActionEmphasis` | `"primary"` fills the button with the accent; keep one per dashboard, as more warn in development. A destructive secondary action reads in the error colour. Default: `"secondary"`. |
+| `emphasis?` | `ActionEmphasis` | `"primary"` fills the button with the accent; keep one per dashboard, as more warn in development. Default: `"secondary"`. |
 | `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
 | `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
 | `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
 | `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
 | `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `requireRole?` | `string \| string[]` |  |
 | `run` | `(input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
 
-Use `dashboardAction<Input>(definition)` for the same typed form contract
-without a row type.
-
-Each action is a secondary, outlined button, a destructive one in the error colour. Give the
-one action the screen exists for `emphasis: "primary"` and it fills with the accent; more than
-one primary on a dashboard warns in development. Drawer actions are secondary too.
+Actions are secondary buttons, destructive ones in the error colour.
+`emphasis: "primary"` fills one with the accent; more than one primary on a
+dashboard warns in development.
 
 ```ts excerpt
 dashboardAction({ key: "retry", label: "Retry failed runs", emphasis: "primary", run: retryFailed });
 ```
 
-Set `hideActionsBar: true` on the dashboard to suppress the bar these render in.
+`hideActionsBar: true` on the dashboard hides the bar.
 
 ### DrawerAction
 
-Rendered in the drawer footer for the open row. Its `form` uses the lighter
-`DrawerFieldFormSpec` rather than `FieldDef`.
+Rendered in the drawer footer. Its `form` uses `DrawerFieldFormSpec`.
 
 `DrawerAction`
 
@@ -182,7 +136,6 @@ Rendered in the drawer footer for the open row. Its `form` uses the lighter
 | `access?` | `AccessRule` | Roles allowed to see and execute this action. |
 | `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Server-enforced row condition evaluated after the scoped row load. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `requireRole?` | `string \| string[]` |  |
 | `run` | `( row: Row, formData: Record<string, unknown>, ctx: ActionContext<InferDB>, ) => Promise<ActionResult>` | Server-side handler. Runs only after every guard has passed. |
 
 #### DrawerFieldFormSpec
@@ -199,7 +152,7 @@ Rendered in the drawer footer for the open row. Its `form` uses the lighter
 
 ### ActionResult
 
-What every `run` returns. The success shape drives what the operator sees next.
+What every `run` returns.
 
 `ActionResult`
 
@@ -219,13 +172,9 @@ What every `run` returns. The success shape drives what the operator sees next.
 | `error` | `string` | Message shown to the operator. Safe to display — never include internals. |
 | `fieldErrors?` | `Record<string, string>` | Per-field messages, keyed by `FieldDef.name`, for actions with a `form`. |
 
-`ActionInput` is the default `Record<string, unknown>` payload used when no
-more specific input type is supplied.
-
-Returning `{ ok: false, error }` is the way to fail a run cleanly — the message
-reaches the operator verbatim, so keep internals out of it. Throwing works too:
-a `FlowpanelError` maps to its own status, anything else becomes a generic
-`500` with the detail logged rather than sent.
+`ActionInput` defaults to `Record<string, unknown>`. `{ ok: false, error }` shows
+`error` to the operator as written. A thrown `FlowpanelError` keeps its status;
+anything else becomes a logged `500`.
 
 ### ActionContext
 
@@ -235,22 +184,13 @@ The last argument to every `run`.
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `db` | `Db` |  |
 | `unsafe?` | `{ db: Db }` | Explicit escape hatch for trusted action implementations. |
 | `actorId` | `string \| null` | Caller identity — same derivation the audit trail uses (`auth.userId`, then `session.id`, then `session.user.id`). |
 | `publish` | `(channel: string, payload?: unknown) => Promise<void>` | Push a realtime message to every connected admin. |
 
-`ctx.db` is your own client — the adapter hands it through untouched, so you
-write ordinary queries. `ctx.publish` pushes a realtime message to every
-connected admin; widgets and lists that name the channel in `realtime` refresh.
+`ctx.unsafe.db` is the adapter's client, present only when the action declares `unsafe: ["db"]`. `ctx.publish` sends a realtime event.
 
 ### Validation
 
-An action with a `form` is validated server-side before `run`:
-
-1. `required` fields must be present.
-2. Each field's `validate` runs — a Zod schema or a function returning a message.
-3. Only then does `run` receive `input`.
-
-A failure returns `422` with an `issues` array. The client renders them against
-the matching inputs.
+A `form` is validated on the server before `run`: `required`, then each field's
+`validate`. A failure returns `422` with an `issues` array.

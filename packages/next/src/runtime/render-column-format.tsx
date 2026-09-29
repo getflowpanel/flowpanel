@@ -24,9 +24,7 @@ function isMoment(value: unknown): value is Date | string | number {
   return value instanceof Date || typeof value === "string" || typeof value === "number";
 }
 
-// @flowpanel/react ships every module behind a "use client" banner, so a server
-// component may create its elements but never call its functions. Only the JSX
-// is mirrored here; the string formatting comes from core.
+// @flowpanel/react ships behind "use client", so a server component may create its elements but never call its functions.
 
 /** Render a declarative `ColumnFormat` cell on the server, as `renderFormatCell` does on the client. */
 export function renderColumnFormat(

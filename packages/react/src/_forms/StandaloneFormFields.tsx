@@ -25,11 +25,7 @@ interface StandaloneFieldMetadata {
   errors?: string[];
 }
 
-/**
- * Render `FormField` controls outside a schema-driven `<Form>` — for a plain
- * form that collects its own `FormData` on submit, such as the action dialog.
- * Every field starts empty; the `<form>` element is the value store.
- */
+/** Renders `FormField` controls outside a schema-driven `<Form>`, for a plain form like the action dialog. */
 export function StandaloneFormFields({
   formId,
   names,

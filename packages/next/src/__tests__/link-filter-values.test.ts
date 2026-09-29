@@ -33,6 +33,7 @@ const users = resource(
         filters: { telegramLinked: false },
         sort: { field: "id", dir: "desc" },
       },
+      { name: "Everyone", filters: { isTest: null } },
     ],
   },
 );
@@ -87,8 +88,9 @@ describe("link filter values", () => {
     ).toThrow(/has no URL form/);
   });
 
-  it("writes ctx.href filters through the same encoder", () => {
-    const href = ctx.href("user", undefined, {
+  it("writes ctx.link filters through the same encoder", () => {
+    const href = ctx.link({
+      resource: "user",
       filter: {
         age: { gte: 7 },
         plan: ["starter", "pro"],
@@ -111,6 +113,7 @@ describe("wireViews", () => {
         filters: { telegramLinked: "false" },
         sort: { field: "id", dir: "desc" },
       },
+      { name: "Everyone", filters: { isTest: "" } },
     ]);
   });
 });

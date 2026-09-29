@@ -1,10 +1,6 @@
 import type { SelectOption } from "@flowpanel/core";
 
-/**
- * Stringify declared `select` / `multiselect` / `radio` choices for the wire.
- * `String(value)` is the contract clients round-trip back through filters and
- * form submissions, so it lives here and nowhere else.
- */
+/** Stringifies declared `select`/`multiselect`/`radio` choices for the wire; `String(value)` is the sole contract clients round-trip. */
 export function toWireOptions(
   options: ReadonlyArray<string | SelectOption>,
 ): { label: string; value: string }[] {

@@ -344,8 +344,7 @@ describe("field rules on the write path", () => {
         _ref: unknown,
         _ctx: {
           select?: readonly string[];
-          scopeRequired?: boolean;
-          applyScope?: (query: unknown) => unknown;
+          boundScope?: { apply(query: unknown): unknown };
         },
       ) => ({ id: "u1", email: "a@b.com", internalLock: true }),
     );
@@ -366,8 +365,7 @@ describe("field rules on the write path", () => {
       field: "email",
     });
     expect(get.mock.calls[0]?.[1].select).toBeUndefined();
-    expect(get.mock.calls[0]?.[1].scopeRequired).toBe(true);
-    expect(get.mock.calls[0]?.[1].applyScope?.("query")).toEqual({
+    expect(get.mock.calls[0]?.[1].boundScope?.apply("query")).toEqual({
       scope: { tenantId: "t1" },
       query: "query",
     });

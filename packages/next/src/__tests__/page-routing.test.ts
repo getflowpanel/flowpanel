@@ -76,11 +76,11 @@ describe("pages — registered with component", () => {
     expect(pagesGroup?.items).toEqual([{ label: "Cost analytics", href: "/admin/cost-deep-dive" }]);
   });
 
-  it("honors a custom basePath when building the page href", async () => {
+  it("honors a custom paths.admin when building the page href", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
-      basePath: "/internal/admin",
+      paths: { admin: "/internal/admin" },
       pages: [page({ path: "/reports", label: "Reports", component: Reports })],
     });
     const nav = await buildNav(cfg);

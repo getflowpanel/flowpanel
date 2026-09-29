@@ -42,9 +42,7 @@ describe("prismaAdapter migrations bookkeeping", () => {
     });
 
     expect(adapter.applyMigration).toEqual(expect.any(Function));
-    expect(adapter.runMigrationSql).toEqual(expect.any(Function));
     expect(adapter.listAppliedMigrations).toEqual(expect.any(Function));
-    expect(adapter.markMigrationApplied).toEqual(expect.any(Function));
   });
 
   it("creates the bookkeeping table with dialect-portable DDL", async () => {
@@ -67,17 +65,6 @@ describe("prismaAdapter migrations bookkeeping", () => {
     await expect(adapter.listAppliedMigrations?.()).resolves.toEqual(
       new Set(["0001_init", "0002_posts"]),
     );
-  });
-
-  it("records an applied migration through a parameterized compatibility insert", async () => {
-    const prisma = makeMockPrisma();
-    const adapter = prismaAdapter({ prisma, dmmf, provider: "sqlite" });
-
-    await adapter.markMigrationApplied?.("0003_orders");
-
-    const [strings, ...values] = prisma.$executeRaw.mock.calls[0] as [string[], ...unknown[]];
-    expect(strings.join("?")).toMatch(/INSERT INTO _flowpanel_migrations/);
-    expect(values).toEqual(["0003_orders"]);
   });
 });
 
@@ -460,7 +447,7 @@ describe("prismaAdapter migration SQL validation", () => {
     ] as const) {
       const prisma = makeMockPrisma();
       const adapter = prismaAdapter({ prisma, dmmf, provider });
-      await expect(adapter.runMigrationSql?.(sql)).rejects.toThrow(
+      await expect(adapter.applyMigration?.("0001", sql)).rejects.toThrow(
         /client directive|procedural migration SQL/,
       );
       expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
@@ -488,7 +475,7 @@ describe("prismaAdapter migration SQL validation", () => {
     const adapter = prismaAdapter({ prisma, dmmf, provider: "mysql" });
 
     await expect(
-      adapter.runMigrationSql?.("/*!40101 SET @flowpanel_probe = 1 */ SELECT 1;"),
+      adapter.applyMigration?.("0001", "/*!40101 SET @flowpanel_probe = 1 */ SELECT 1;"),
     ).rejects.toThrow(/executable MySQL comments are not supported/);
     expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
   });

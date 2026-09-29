@@ -284,7 +284,7 @@ describe("ResourceDetailPage — row projection", () => {
             columns: ["id", "name", "secret"],
             fieldAccess: { secret: { read: "admin" } },
             detail: {
-              header: (row: Record<string, unknown>) => {
+              title: (row: Record<string, unknown>) => {
                 seenRows.push(row);
                 return createElement("span", null, String(row.name));
               },

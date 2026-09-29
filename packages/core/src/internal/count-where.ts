@@ -2,11 +2,8 @@ import { didYouMean } from "../suggest";
 import { quoted } from "./validate-shared";
 
 /**
- * `ctx.count(resource, where)` filters by column name. A typo must not become a
- * whole-table count on one adapter and a thrown query on another, so both count
- * paths check the keys against introspection before anything runs. An adapter
- * that reports no columns cannot resolve the ref, and guessing would reject a
- * valid config.
+ * `ctx.count(resource, where)` filters by column name; both count paths check the keys against introspection first.
+ * An adapter that reports no columns cannot resolve the ref, and guessing would reject a valid config.
  */
 export function assertCountWhereColumns(
   resource: string,

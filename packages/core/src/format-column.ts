@@ -139,10 +139,8 @@ export function formatDayValue(
 }
 
 /**
- * Format every string-shaped variant of {@link ColumnFormat}.
- * Server- and client-rendered cells share it so the same value reads the same
- * on both; the `badge` variant is JSX and stays with each renderer, and here
- * reads as its label.
+ * Formats every string-shaped variant of {@link ColumnFormat}, shared by server- and client-rendered cells.
+ * The `badge` variant is JSX and stays with each renderer; here it reads as its label.
  */
 export function formatColumnValue(
   value: unknown,
@@ -193,10 +191,8 @@ function formatMoment(
 }
 
 /**
- * Format the `NumericFormat` variants a widget declares. Locale and currency both
- * come from the admin's resolved `formatting`, so one dashboard never prints two
- * currencies for the same money. A bare locale string is accepted as the 0.2
- * signature and keeps that release's currency and zone.
+ * Formats the `NumericFormat` variants a widget declares; locale and currency come from the admin's resolved `formatting`.
+ * A bare locale string is still accepted as the 0.2 signature.
  */
 export function formatNumber(
   value: number,

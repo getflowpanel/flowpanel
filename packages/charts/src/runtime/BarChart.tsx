@@ -87,7 +87,6 @@ export function BarChart({
               {...AXIS_STYLE_PROPS}
               tickFormatter={categoryTickFormatter}
               {...AXIS_TICK_PROPS}
-              interval={0}
             />
             <YAxis
               {...AXIS_STYLE_PROPS}

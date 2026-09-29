@@ -5,7 +5,8 @@ expectAssignable<MetricCardProps>({
   label: "Conversion",
   value: 0.43,
   format: "percent",
-  delta: { value: 0.075, vs: "prev", previous: 0.4, goodWhen: "neutral" },
+  delta: { value: 0.075, vs: "prev", previous: 0.4 },
+  goodWhen: "neutral",
   previousLabel: "было {value}",
   pointsLabel: "{value} п.п.",
 });

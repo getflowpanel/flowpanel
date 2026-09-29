@@ -66,10 +66,7 @@ export async function resolvePackageDirectoryFrom(
   );
   const directories = createRequire(from).resolve.paths(name) ?? [];
   for (const directory of directories) {
-    // Node's own resolution order, minus NODE_PATH and the per-user global
-    // lookup directories: those would turn this machine's packages into the
-    // project's installed evidence. Ancestor `node_modules` stay in, because a
-    // hoisted npm/yarn/bun workspace installs the project's tree there.
+    // Excludes NODE_PATH and per-user global lookups, which would count this machine's packages as the project's.
     if (!isReachableNodeModules(directory, root)) continue;
     try {
       return await fs.realpath(path.join(directory, name));
@@ -101,11 +98,7 @@ const exists = (file: string) =>
     .then(() => true)
     .catch(() => false);
 
-/**
- * A PnP install writes `.pnp.cjs` beside the workspace's own manifest, which may
- * be an ancestor of `cwd`. The walk stops at the install root: a `.pnp.cjs`
- * further up belongs to a different project and says nothing about this one.
- */
+// The walk stops at the install root: a `.pnp.cjs` further up belongs to a different project.
 async function hasPnpManifest(cwd: string): Promise<boolean> {
   let directory = cwd;
   for (;;) {

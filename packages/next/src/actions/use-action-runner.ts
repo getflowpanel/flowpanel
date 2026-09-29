@@ -26,9 +26,8 @@ export interface RunActionOptions {
 }
 
 /**
- * The one client-side path for running an action: POST, decode, surface the
- * outcome. Returns field errors for a form dialog to render, or `null` when the
- * outcome was already delivered as a toast, a download or a navigation.
+ * The one client-side path for running an action: POST, decode, surface the outcome.
+ * Returns field errors for a form dialog, or `null` when already delivered as a toast, download or navigation.
  */
 export function useActionRunner(): (
   url: string,
@@ -46,8 +45,7 @@ export function useActionRunner(): (
           headers: { "content-type": "application/json" },
           body: JSON.stringify(input),
         });
-        // A proxy or a crash answers with HTML, not JSON. Fall back to the status
-        // line rather than throwing a parse error at the operator.
+        // A proxy or a crash answers with HTML, not JSON; fall back to the status line instead of a parse error.
         const result = (await res
           .json()
           .catch(() => ({ ok: false, error: res.statusText }))) as ActionServerResult;

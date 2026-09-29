@@ -36,4 +36,14 @@ describe("DetailTabsClient", () => {
       "inactive",
     ]);
   });
+
+  it("scrolls its strip sideways on a narrow screen instead of widening the page", () => {
+    const { getByRole } = render(
+      <DetailTabsClient tabs={[{ key: "summary", label: "Сводка", content: <p>summary</p> }]} />,
+    );
+    const strip = getByRole("tablist");
+    expect(strip.className).toContain("max-w-full");
+    expect(strip.className).toContain("overflow-x-auto");
+    expect(strip.className).toContain("justify-start");
+  });
 });

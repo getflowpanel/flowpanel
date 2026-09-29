@@ -15,22 +15,6 @@ const fakeAdapter: Adapter = {
 };
 
 describe("defineAdmin", () => {
-  it("rejects ambiguous resource access aliases", () => {
-    expect(() =>
-      defineAdmin({
-        adapter: fakeAdapter,
-        auth: { session: async () => null, role: () => "guest" },
-        resources: [
-          resource("users", {
-            columns: [],
-            requireRole: "operator",
-            access: { read: "operator" },
-          }),
-        ],
-      }),
-    ).toThrow(/cannot declare both access and requireRole/i);
-  });
-
   it("rejects invalid canonical field and bulk-action policies", () => {
     expect(() =>
       defineAdmin({

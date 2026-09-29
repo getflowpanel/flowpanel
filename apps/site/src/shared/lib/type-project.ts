@@ -15,9 +15,7 @@ function getGeneratorProject(): GeneratorProject {
 }
 
 export function getTypeProject(): Project {
-  // fumadocs-typescript 4 currently declares ts-morph 27 while the workspace
-  // uses 28. Both consumers share this exact runtime Project; keep the
-  // compatibility cast at the dependency boundary instead of throughout docs.
+  // fumadocs-typescript declares ts-morph 27 and the workspace uses 28; cast once here.
   return getGeneratorProject() as unknown as Project;
 }
 

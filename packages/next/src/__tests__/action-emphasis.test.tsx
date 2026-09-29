@@ -47,6 +47,18 @@ describe("dashboard action emphasis", () => {
     expect(drop.className).toContain("text-fp-err-text");
   });
 
+  it("wraps its buttons on a narrow screen instead of pushing one off it", () => {
+    const actions: SerializedDashboardAction[] = [
+      { key: "a", label: "Run the scraper", hasForm: false },
+      { key: "b", label: "Score orders", hasForm: false },
+      { key: "c", label: "Retry failed", hasForm: false, emphasis: "primary" },
+    ];
+    render(<DashboardActionsBar encodedPath="_root_" actions={actions} />);
+    const row = screen.getByRole("button", { name: "Retry failed" }).parentElement as HTMLElement;
+    expect(row.className).toContain("flex-wrap");
+    expect(row.className).toContain("max-w-full");
+  });
+
   it("warns once in development when a bar holds more than one primary action", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const primary = { hasForm: false, emphasis: "primary" as const };

@@ -8,7 +8,8 @@ import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
 import { CaptionLine } from "./CaptionLine";
-import { type DeltaMood, deltaPrint, describeDelta } from "./delta";
+import { type DeltaMood, deltaPrint, describeDelta, type GoodWhen } from "./delta";
+import { FIGURE } from "./figure";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface MetricCardProps {
@@ -19,6 +20,8 @@ export interface MetricCardProps {
   unit?: string;
   sublabel?: string;
   delta?: MetricDelta | null;
+  /** Which direction of `delta` is good news; `"neutral"` never colours it. */
+  goodWhen?: GoodWhen;
   sparkline?: number[];
   tone?: Tone;
   drilldown?: string;
@@ -43,6 +46,7 @@ const MOOD_TEXT: Record<DeltaMood, string> = {
 
 interface DeltaLineProps {
   delta: MetricDelta;
+  goodWhen: GoodWhen | undefined;
   value: number | string;
   format: NumericFormat | undefined;
   formatting: ResolvedFormatting | undefined;
@@ -52,6 +56,7 @@ interface DeltaLineProps {
 
 function DeltaLine({
   delta,
+  goodWhen,
   value,
   format,
   formatting,
@@ -59,7 +64,7 @@ function DeltaLine({
   pointsLabel,
 }: DeltaLineProps) {
   const print = deltaPrint(format, formatting, pointsLabel);
-  const view = describeDelta(delta, value, format, print);
+  const view = describeDelta({ ...delta, goodWhen }, value, format, print);
   const previous =
     delta.previous === undefined
       ? null
@@ -88,6 +93,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
     unit,
     sublabel,
     delta,
+    goodWhen,
     sparkline,
     tone = "default",
     drilldown,
@@ -118,14 +124,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
         <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
           <div className="grow basis-0 max-w-full">
             <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-              <span
-                className={cn(
-                  "min-w-0 truncate text-[2rem] font-semibold leading-tight tracking-tight tabular-nums",
-                  toneTextClass[tone],
-                )}
-              >
-                {display}
-              </span>
+              <span className={cn("min-w-0 truncate", FIGURE, toneTextClass[tone])}>{display}</span>
               {unit ? <span className="shrink-0 text-sm text-fp-text-3">{unit}</span> : null}
             </div>
             {sublabel ? (
@@ -139,6 +138,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
             {delta ? (
               <DeltaLine
                 delta={delta}
+                goodWhen={goodWhen}
                 value={value}
                 format={format}
                 formatting={formatting}

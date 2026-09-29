@@ -1,40 +1,31 @@
 ---
 title: Getting started
-description: Add FlowPanel to an existing Next.js app and expose your first resource.
+description: Add FlowPanel to an existing Next.js App Router project, expose your first Drizzle table or Prisma model, and open /admin.
 kind: tutorial
+metaTitle: Add an admin panel to a Next.js app
 ---
 
-This tutorial adds a working `/admin` route to an existing application. You will initialize FlowPanel, expose one table or model, apply its migration, and start the admin.
-
-> **Prefer to look around first?** The [ScrapeAI example](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) shows resources, dashboards, roles, actions, and realtime updates in one application.
+Add a working `/admin` route to an existing Next.js App Router app that already uses Drizzle or Prisma. The [ScrapeAI example](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) shows a finished admin.
 
 ## Before you start
 
 <Compatibility />
 
-You need a Next.js App Router project and either Drizzle or Prisma already configured. FlowPanel ships its default admin CSS precompiled, so Tailwind is optional. Run the commands below from the project root. The Pages Router is not supported.
+Tailwind is optional: the admin stylesheet is precompiled. The Pages Router is not supported. Run every command from the project root.
 
-FlowPanel uses your existing database client and authentication. If the CLI cannot find a `getSession` helper, it creates a closed adapter: connect your provider and map `auth.role` before accessing the admin. Async role lookup is supported. An open development-only identity requires explicit `--dev-auth` and refuses production use.
-
-## Initialize FlowPanel
+## Initialize
 
 ```bash
 pnpm dlx @flowpanel/cli init
 ```
 
-The CLI detects the package manager, ORM, app directory, path alias, database client, schema, auth helper, and installed Tailwind version when present. Confirm the detected paths when prompted.
+`init` detects the package manager, ORM, app directory, path alias, database client, schema and auth helper, asks you to confirm the paths, then installs `@flowpanel/kit` and a local `@flowpanel/cli`. It stops on a conflicting file and writes nothing. `--dry-run` prints the plan without writing; `--path /ops/admin` picks the mount.
 
-It validates local modules and named exports, then installs `@flowpanel/kit` and a version-aligned local `@flowpanel/cli`. The root layout is not rewritten, except that `init` adds `suppressHydrationWarning` to its `<html>` tag when missing — required because the admin's theme script marks `<html>` before React hydrates it; if it cannot patch the file safely, it tells you what to add by hand. Conflicting files stop the operation; a busy `/admin` is replaced by the free `/flowpanel` mount, or choose `--path /ops/admin`. To inspect the plan without writing or installing anything, run:
-
-```bash
-pnpm dlx @flowpanel/cli init --dry-run
-```
+When the CLI finds no `getSession` helper, it writes a closed session adapter: connect your provider and map `auth.role` before you open the admin. `--dev-auth` writes an open development identity that refuses to run in production.
 
 ## Add your first resource
 
-Open `flowpanel.config.ts`. The generated config has an empty `resources` array because FlowPanel cannot decide which application data belongs in the admin. With Drizzle, `pnpm flowpanel new <table>` writes the entry for you — or, with `--dir`, one file per resource in a split config; see [flowpanel new](/docs/reference/cli#flowpanel-new). The rest of this section writes it by hand.
-
-Use the version for your ORM and adjust the import paths and field names to match your project:
+The generated `flowpanel.config.ts` has an empty `resources` array. With Drizzle, `pnpm flowpanel new <table>` writes the entry for you; see [flowpanel new](/docs/reference/cli#flowpanel-new). By hand:
 
 <AdapterTabs>
   <AdapterTab adapter="drizzle">
@@ -45,9 +36,7 @@ Use the version for your ORM and adjust the import paths and field names to matc
   </AdapterTab>
 </AdapterTabs>
 
-Drizzle infers the row type from the table. A Prisma resource starts from a model name string, so the `FlowpanelResources` augmentation binds that name to the generated Prisma type. This is what makes columns, search fields, actions, and renderers type-safe.
-
-Keep the generated auth block if it already matches your application. The example requires the `admin` role; a request without that role receives a server-side access denial, not merely a hidden navigation item.
+Drizzle infers the row type from the table. A Prisma resource is a model name, so the `FlowpanelResources` augmentation binds it to the generated type. A request without the `admin` role is denied on the server.
 
 ## Apply the migration
 
@@ -55,9 +44,7 @@ Keep the generated auth block if it already matches your application. The exampl
 pnpm flowpanel migrate
 ```
 
-The command reads `DATABASE_URL`, applies pending SQL files in `flowpanel/migrations`, and records them in FlowPanel's migration table. Use `--dry-run` to list pending files without executing them.
-
-The initial migration is PostgreSQL SQL. Review or adapt it before running against MySQL or SQLite. The audit table remains unused until you configure an `audit.sink`.
+This applies the SQL files in `flowpanel/migrations` using `DATABASE_URL`. The initial migration is PostgreSQL SQL; adapt it before running against MySQL or SQLite.
 
 ## Start the admin
 
@@ -65,31 +52,26 @@ The initial migration is PostgreSQL SQL. Review or adapt it before running again
 pnpm flowpanel dev
 ```
 
-Open [http://localhost:3000/admin](http://localhost:3000/admin). You should see the resource in the navigation and a paginated list at its resource URL. If the navigation is empty, confirm that `resources` contains the resource.
+Open [http://localhost:3000/admin](http://localhost:3000/admin). The resource is in the navigation. `flowpanel dev` runs `next dev`, plus the [queue board](/docs/guides/queues) when `REDIS_URL` and `scripts/board-server.mts` exist; `pnpm dev` works too.
 
-`flowpanel dev` starts Next.js and, when `REDIS_URL` is set and the project has a `scripts/board-server.mts` (or `.ts`) file, the BullMQ board process. `init` does not create that script; see the [queues guide](/docs/guides/queues). Use your normal `pnpm dev` command if you do not need the board integration.
+## What `init` created
 
-## What the CLI created
+Paths start with `src/` in a `src/app` project.
 
-The exact paths follow your `app` or `src/app` layout:
+| File | Purpose |
+| --- | --- |
+| `flowpanel.config.ts` | Resources, dashboards, auth, scope, realtime and theme |
+| `app/admin/[[...slug]]/page.tsx` | Catch-all admin page |
+| `app/admin/layout.tsx` | Imports the stylesheet and renders `ThemeScript` with the `x-nonce` request header |
+| `app/api/flowpanel/[...route]/route.ts` | Resource and action handlers |
+| `app/api/flowpanel/stream/route.ts` | Authenticated SSE endpoint |
+| `styles/admin.css` | One import of the precompiled, isolated stylesheet |
+| `flowpanel/migrations/0001_init.sql` | FlowPanel's migration and audit tables |
 
-| File | Purpose | You edit it when… |
-| --- | --- | --- |
-| `flowpanel.config.ts` | Resources, dashboards, auth, scope, realtime, and theme | You change admin behavior |
-| `app/admin/[[...slug]]/page.tsx` | Catch-all admin page | You change the mount path or eject page behavior |
-| `app/api/flowpanel/[...route]/route.ts` | Resource and action handlers | You change the API mount path |
-| `app/api/flowpanel/stream/route.ts` | Authenticated SSE endpoint | You change the stream mount path |
-| `styles/admin.css` | Thin import of FlowPanel's precompiled, isolated stylesheet | You add safe local overrides |
-| `flowpanel/migrations/0001_init.sql` | FlowPanel-owned database tables | You review dialect-specific SQL |
+`init` also adds `suppressHydrationWarning` to the root layout's `<html>` tag, because `ThemeScript` sets an attribute on it before hydration. If it cannot patch the file safely, it prints the edit. `flowpanel doctor --fix` restores a missing route file.
 
-See [Project structure](/docs/introduction/project-structure) for ownership and generated-file details.
+## Next
 
-## Choose what to build next
-
-- Build a whole admin step by step in [Build a founder admin](/docs/introduction/founder-admin).
-- Shape the list, search, filters, and access rules in [Resources](/docs/build/resources).
-- Configure create and edit fields in [Forms](/docs/build/forms).
-- Add operational commands in [Actions](/docs/build/actions).
-- Pick the right UI layer in [Choose an extension point](/docs/customization/overview).
-- Review the complete [Production readiness checklist](/docs/guides/production-readiness), then configure authentication and tenant isolation for your application.
-- Read [How FlowPanel works](/docs/understand/how-flowpanel-works) before building a deeper integration.
+- [Build a founder admin](/docs/introduction/founder-admin): a whole admin, step by step.
+- [Resources](/docs/build/resources), [Forms](/docs/build/forms), [Actions](/docs/build/actions).
+- [Production readiness](/docs/guides/production-readiness) before you deploy.

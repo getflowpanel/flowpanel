@@ -22,13 +22,7 @@ function parseInto(src: string): void {
   }
 }
 
-/**
- * Load `.env.local` then `.env` from `cwd`, the way the Next.js app this CLI
- * runs beside already does. Variables already present in the environment win,
- * so `DATABASE_URL=... flowpanel migrate` still overrides the file.
- *
- * `process.loadEnvFile` only exists from Node 20.12; `engines` allows 20.0.
- */
+/** Loads `.env.local` then `.env` from `cwd`; a key already set in the environment wins over the file. */
 export function loadDotEnv(cwd: string = process.cwd()): void {
   for (const name of ENV_FILES) {
     const file = path.join(cwd, name);

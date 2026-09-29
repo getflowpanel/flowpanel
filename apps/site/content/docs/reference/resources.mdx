@@ -2,19 +2,14 @@
 title: resource()
 description: Every option on a resource, its columns, fields and filters.
 kind: reference
+metaTitle: "resource() options reference"
 ---
 
 <ApiSignature path="../../packages/core/src/builders/resource.ts" name="resource" />
 
-`ref` is whatever your adapter understands — a Drizzle table object, or a
-Prisma model name. The row type comes from
-[`InferRow<Ref>`](/docs/reference/registry#inferrow): a Drizzle table resolves
-through `$inferSelect`, a string ref through your `FlowpanelResources`
-augmentation, and anything else falls back to `Record<string, unknown>`. When
-it resolves to a real row type, `columns`, `search`, `filters` and
-`defaultSort` only accept real column names; when it falls back, they are
-plain `string` and the check moves to
-[`defineAdmin`'s introspect-time validation](/docs/build/resources#typos-and-column-validation).
+`ref` is a Drizzle table or a Prisma model name. The row type comes from
+[`InferRow<Ref>`](/docs/reference/registry#inferrow), which types `columns`,
+`search`, `filters` and `defaultSort`.
 
 ```ts excerpt
 import { resource } from "@flowpanel/kit";
@@ -28,7 +23,7 @@ export const ordersResource = resource(orders, {
   search: ["customerEmail"],
   filters: ["status", { field: "createdAt", type: "daterange" }],
   defaultSort: { field: "createdAt", dir: "desc" },
-  detail: { header: (row) => `Order · ${row.customerEmail}` },
+  detail: { title: (row) => `Order · ${row.customerEmail}` },
 });
 ```
 
@@ -36,25 +31,19 @@ export const ordersResource = resource(orders, {
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceOptions" />
 
-An empty list tells two cases apart. With nothing narrowing it, it shows `empty.title`,
-`description`, `icon` and `action`. When search or filters leave no rows it shows
-`empty.filtered` (default `labels.widget.filtered`) and a button that clears the search and
-the filters but keeps the sort. Export hides while there are no rows, and on a phone a page
-shows its first 10 rows as cards with the rest behind one "N more" button.
+An empty list shows `empty.title`, `description`, `icon` and `action`. When search
+or filters leave no rows it shows `empty.filtered` (or `empty.searched` during a
+search; both fill `{query}`) and a button that clears them. On a phone the list
+shows 10 rows as cards with the rest behind "N more".
 
 ### Detail headings and editing
 
-Three callbacks fill the detail page's header, and each one receives the same
-authorized row projection as detail tabs: declared readable fields plus permitted
-`detail.expose` fields, never undeclared adapter fields and never fields denied by
-`fieldAccess`.
+Three callbacks fill the record page header. Each receives the row's readable
+declared and `detail.expose` fields.
 
-- `detail.title(row)` is the content of the `h1`. Return text or inline React
-  elements, not another heading or a complete page header.
-- `detail.subtitle(row)` is the line under it, rendered through the header's
-  `description` slot. Return a string.
-- `detail.badge(row)` is a status pill beside the title: `{ label, tone }`, with
-  `tone` from the shared `Tone` vocabulary.
+- `detail.title(row)` is the `h1` content: text or inline elements.
+- `detail.subtitle(row)` is the line under it.
+- `detail.badge(row)` is a pill beside the title: `{ label, tone }`.
 
 ```ts excerpt
 detail: {
@@ -64,33 +53,24 @@ detail: {
 }
 ```
 
-Return `null` or `undefined` from any of them and that slot is simply absent; a
-nullish `title` falls back to the resource's singular label and the readable row
-identifier. `detail.header` still works and still wins nothing: `title` takes
-precedence when both are declared, and `header` is deprecated for removal in 1.0.
+A nullish return leaves the slot empty; a nullish `title` falls back to the
+resource label and the row identifier.
 
-The generated edit action sits beside the heading as a secondary button;
-`update: { emphasis: "primary" }` fills it when editing is what the page is for. It is omitted when
-`update.disabled` is true or the resource's update access policy denies the
-request, including asynchronous policies. Set `labels.actions.edit` to translate
-its text. The edit route enforces its own authorization as well. At narrow widths
-the actions wrap below the title rather than squeezing it.
-
-Custom `PageHeader` slots should use the exported `PageHeaderProps` type: `title`
-accepts React content as well as strings, `badge` takes the same
-`{ label, tone }` object, and `badges` takes several of them, each with an optional
-`href`.
+The Edit button sits beside the heading as a secondary button;
+`update: { emphasis: "primary" }` fills it. It is hidden when `update.disabled` is
+set or the update policy denies the request. A custom `PageHeader` slot uses the
+exported `PageHeaderProps`.
 
 Without `detail.tabs`, the page renders one key/value block. `detail.fields`
 chooses and orders the fields in it; omitted, every readable declared field shows.
 
 ### Opening a row
 
-`rowClick` decides what a click on a row — and Enter on the focused row — does.
+`rowClick` decides what a click on a row, or Enter on it, does.
 
 | Value | Effect |
 | --- | --- |
-| `"detail"` | Navigates to the row's own page under the admin's `basePath`. |
+| `"detail"` | Navigates to the row's own page under `paths.admin`. |
 | `"drawer"` | Opens the [drawer](/docs/reference/drawer). Requires a `drawer` config; `defineAdmin` refuses the combination without one. |
 | `false` | Rows render, but a click does nothing. |
 
@@ -100,15 +80,9 @@ An explicit value always wins, so `rowClick: "detail"` on a resource that also
 has a drawer sends the click to the page and leaves the drawer to its own
 affordances.
 
-A row the projection could not identify never navigates — the row identity rule
-applies to the keyboard exactly as it does to the pointer, and the table's
-"Enter opens" hint (`labels.table.rowsHint`) is announced only when some row on
-the page can be opened. The mobile card list follows the same rule.
-
-Navigation is a router push on the row, not a link: cmd-click, middle-click and
-"open in new tab" do not open a second tab from a row. Reach the same page as a
-real link through the detail page's own URL, or add a column whose `render`
-returns an anchor.
+A row without a key never opens. Opening is a router push, not a link, so
+cmd-click does not open a new tab; add a column whose `render` returns an anchor
+for that.
 
 ### Reading a view
 
@@ -137,16 +111,9 @@ disabled, and declaring any of them (or `import`, or an `editable` column) throw
 
 ### Icons
 
-`ResourceOptions.icon`, dashboard/page/queue icons, action icons and
-`CommandItem.icon` all use the same serializable `IconName` union. FlowPanel
-turns the name into a decorative Lucide SVG in the sidebar, tab strip and ⌘K
-palette, so the config remains safe to pass through a React Server Component
-boundary. Unknown names are rejected by TypeScript instead of disappearing at
-runtime. Built-in names include `users`, `settings`, `layout-dashboard`,
-`database`, `shopping-cart`, `archive`, `refresh`, `play`, `ban` and
-`trash-2`; editor autocomplete shows the complete `IconName` set.
-
-For custom pages and slots, render the same registry directly:
+Resource, dashboard, page, queue, action and command icons take an `IconName`, a
+Lucide icon name such as `users`, `settings`, `database` or `trash-2`. An unknown
+name is a type error. To render one in your own component:
 
 ```tsx excerpt
 import { FlowpanelIcon } from "@flowpanel/kit/react";
@@ -156,9 +123,8 @@ import { FlowpanelIcon } from "@flowpanel/kit/react";
 
 ### Saved views
 
-`views` puts named filter, sort and search presets in a menu above the list. Their
-filter values are values, keyed by the row's fields, and are written into the list's
-URL the same way link filters are:
+`views` puts named filter, sort and search presets in a menu above the list.
+Filters are keyed by the row's fields:
 
 ```ts excerpt
 views: [
@@ -168,17 +134,11 @@ views: [
 ],
 ```
 
-A `daterange` filter also takes a preset name — `today`, `yesterday`, `last7d`,
-`last30d`, `MTD`, `QTD` or `YTD` — which is resolved on every request in the admin's
-zone, so "New this week" always means the seven days before now, and the filter chip
-shows the preset's name. A view filters only by fields the list declares in `columns`,
-`filters` or `search`.
-`defineAdmin` rejects any other key, and a value the list would read as other rows —
-an array without a `multiselect` filter, bounds without a `numeric-range` or
-`daterange` one, a single value on a range filter other than a preset name, a bare
-`Date` — because the list would drop or widen it.
-"Older than N days" is a column of a SQL view with a
-`numeric-range` filter, not a date filter.
+A `daterange` filter also takes a preset name (`today`, `yesterday`, `last7d`,
+`last30d`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
+fields the list declares in `columns`, `filters` or `search`, with values that
+match the filter type; `defineAdmin` rejects the rest. For "older than N days",
+compute the number in a view and use a `numeric-range` filter.
 
 ## ColumnDef
 
@@ -186,16 +146,12 @@ An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ColumnDef" />
 
-`field` is optional so a column can render a value no row property holds — a
-join, something computed. Such a column must set both `render` and `label`,
-never sorts or filters, and is skipped by export; see
+A column without `field` must set `render` and `label`; it never sorts or
+filters and is skipped by export. See
 [Joined or computed values](/docs/customization/column-renderers#joined-or-computed-values).
 
-`secondary` names another field of the row that shows as a muted second line under the
-cell — the email under a name — on the list page, in related tabs and in the phone card
-list. The field is loaded with the row and passes its read policy like any column; sort
-and search still use `field`. A `reference` column shows only its label, and a `table()`
-widget shows one line.
+`secondary` shows another field as a muted second line in the cell, such as the
+email under a name. Sorting and search still use `field`.
 
 ```ts excerpt
 columns: [{ field: "name", label: "User", secondary: "email" }],
@@ -203,7 +159,7 @@ columns: [{ field: "name", label: "User", secondary: "email" }],
 
 ### ColumnFormat
 
-Declarative cell rendering — reach for this before writing a `render` function.
+Declarative cell formatting.
 
 ```ts excerpt
 type ColumnFormat =
@@ -226,10 +182,8 @@ The object form of `badge` maps each cell value to a tone:
 { field: "status", format: { kind: "badge", tones: { paid: "ok", failed: "err" } } }
 ```
 
-`labels` gives each raw value its display text — an enum code shown in the admin's
-language. Tones stay keyed by the raw value, and a value with no label shows as
-before. Table cells, widget tables, detail fields, the drawer and a `kv` item with
-this format all use the label.
+`labels` gives each raw value its display text. Tones stay keyed by the raw
+value, and a value with no label shows as is.
 
 ```ts excerpt
 {
@@ -242,10 +196,10 @@ this format all use the label.
 }
 ```
 
-The remaining kinds read a raw value the way a founder reads it:
+The other kinds:
 
-- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the clock. A `YYYY-MM-DD` value is a calendar day and shows as itself in any zone. A zoneless `YYYY-MM-DD HH:mm:ss`, which SQLite and a Postgres `timestamp` return, is UTC, as in `ctx.sql` rows; a string that is not an ISO date stays text.
-- `relative` shows how long ago — `5 minutes ago`, `yesterday` — in the admin's `locale`.
+- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the time. A `YYYY-MM-DD` value shows as itself; a zoneless `YYYY-MM-DD HH:mm:ss` is read as UTC.
+- `relative` shows how long ago, such as `5 minutes ago`, in the admin's `locale`.
 - `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, so a retention grid reads at a glance and still sorts by number.
 - `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
 - `boolean` prints `✓` and `✕`, or `labels: { true: "да", false: "нет" }`. SQLite's `1` and `0` read as true and false.
@@ -262,17 +216,13 @@ columns: [
 ]
 ```
 
-A table cell, a widget table, a detail field and a drawer field render the rich kinds the
-same way on the server and in the browser, in the admin's locale and zone: `relative` as a
-`<time>` with the exact timestamp in its tooltip, `url` as a link that opens an absolute URL
-in a new tab and never opens the row by click or Enter, a `heat` percent as a cell shaded in
-five steps, and a `boolean` glyph with a spoken yes or no. A `kv` item reads the text form
-from `formatColumnValue`.
+`relative` renders a `<time>` with the exact timestamp in its tooltip, and `url`
+opens absolute URLs in a new tab without opening the row.
 
 ### Formatting values yourself
 
-Two formatters back every cell, card and export, and both take the admin's
-resolved `formatting`, so locale, currency and time zone come from one place.
+The formatters behind every cell, card and export. Each takes the admin's
+resolved `formatting`.
 
 <ApiSignature path="../../packages/core/src/format-column.ts" name="formatColumnValue" />
 
@@ -280,26 +230,22 @@ resolved `formatting`, so locale, currency and time zone come from one place.
 
 <ApiSignature path="../../packages/core/src/format-column.ts" name="badgeProps" />
 
-`formatColumnValue` renders the string variants of `ColumnFormat`; `formatNumber`
-renders a widget's `NumericFormat` (`number`, `currency`, `percent`, `bytes`,
-`duration`). Both live in `@flowpanel/core`, so a server component may call them —
-`@flowpanel/react` only re-exports `formatNumber` for client code. `badgeProps(format, value)` gives
-the props a `badge` cell hands its `StatusBadge` — spaced status, label and tone —
-or `null` for an empty value, so a custom cell renders a badge the way the table does.
+`formatColumnValue` renders a `ColumnFormat`; `formatNumber` renders a widget's
+`NumericFormat` (`number`, `currency`, `percent`, `bytes`, `duration`). Both are in
+`@flowpanel/core`, and `@flowpanel/react` re-exports `formatNumber`.
+`badgeProps(format, value)` returns the props a badge cell passes to `StatusBadge`,
+or `null` for an empty value.
 
-`formatDurationValue`, `formatPercentValue`, `formatRelativeValue` and `formatBooleanValue`
-print one kind each, and `columnFormatKind`, `percentHeatLevel` and `urlCellParts` tell a
-custom cell what a format asks for. `toDateValue` and `toBooleanValue` read a raw value the
-way a `date` and a `boolean` cell do, so a zoneless timestamp is UTC and SQLite's `1` is
-true. `formatNumber`'s `percent` and `duration` use the same formatters, so a card and a
-cell print one value alike. `formatDurationCompact` keeps only the largest unit — `2.1h`,
-`42s` — and is what a chart's value axis prints.
+`formatDurationValue`, `formatPercentValue`, `formatRelativeValue` and
+`formatBooleanValue` print one kind each; `columnFormatKind`, `percentHeatLevel` and
+`urlCellParts` describe what a format asks for; `toDateValue` and `toBooleanValue`
+read raw values as cells do. `formatDurationCompact` prints only the largest unit,
+such as `2.1h`, as chart axes do.
 
 ## Enums
 
-`enumOf()` declares an enum's labels and tones once. Every surface that shows the
-value reads the same object: a column's `format`, a filter's or a form field's
-`options`, a detail badge, and later a timeline's chips.
+`enumOf()` declares an enum's labels and tones once, for a column's `format`,
+filter and field `options`, badges and timeline chips.
 
 <ApiSignature path="../../packages/core/src/builders/enum-of.ts" name="enumOf" />
 
@@ -320,21 +266,18 @@ resource(users, {
 });
 ```
 
-Pass the database enum's values first and a missing or extra label is a compile
-error; without them, the keys of the entries are the values, in the order they are
-written. An entry is a label, a `[label, tone]` pair or `{ label, tone }`, and the
-tone defaults to `"default"`. `format` and `options` are plain data, so they cross
-into the browser and a drawer unchanged. `label()` prints an unknown value as itself
-and a missing one as `—`, `tone()` answers `"default"` for an unknown value, and
-`badge()` returns `null` for a missing one, which hides the pill.
-`badge(value, { href })` makes the pill a link — `Lifecycle.badge(u.lifecycle, { href: { resource: "user", filter: { lifecycle: u.lifecycle } } })` — and a nullish value still gives no pill.
+With the database enum's values first, a missing or extra label is a compile
+error; otherwise the entry keys are the values. An entry is a label, a
+`[label, tone]` pair or `{ label, tone }`. `label()` prints an unknown value as
+itself and a missing one as `—`; `badge()` returns `null` for a missing value;
+`badge(value, { href })` makes the pill a link.
 
 <AutoTypeTable path="../../packages/core/src/builders/enum-of.ts" name="EnumDef" />
 
 ## FieldDef
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
-`form`. Every rule here is enforced on the server, not just in the UI.
+`form`. The server enforces every rule.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FieldDef" />
 
@@ -349,26 +292,35 @@ type FieldType =
   | "json" | "markdown" | "tags" | "reference" | "hidden" | "color";
 ```
 
-Omit it on a declared field and the control is `"text"` — or `"reference"`
-when the field sets `reference`. The adapter's `ColumnMeta.type` is consulted
-only by the fully generated form a resource gets when it declares **no**
-`create.fields` / `update.fields` at all, and even there it only maps
-`number`, `boolean`, `date` and `json`; every other column type renders as
-text. So `enum`, `array` and `reference` columns need an explicit `type` (plus
-`options` / `reference`) to get a richer control.
+Without `type`, a field is `"text"`, or `"reference"` when it sets `reference`.
+Only a fully generated form (no `create.fields` or `update.fields`) reads the
+column type, and only for numbers, booleans, dates and JSON.
 
 ## FilterDef
 
-An entry in `filters`. A bare string is **always** a `text` filter — there is
-no inference from the column's type, so declare a `FilterDef` with an explicit
-`type` for a select, a date range, or anything else.
-
-A `select` or `multiselect` filter with no `options`, on a field whose column is formatted as a
-badge with `labels` — `format: Plan.format` from `enumOf` — lists those labels, in the order they
-were declared. So does a `select`, `multiselect` or `radio` form field. Declared `options` always
-win.
+An entry in `filters`. A bare string is a `text` filter; set `type` for anything
+else. A `select` or `multiselect` filter without `options` on a column formatted
+with badge `labels`, such as an `enumOf` format, lists those labels.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FilterDef" />
+
+### Default and hidden filters
+
+`defaultValue` applies while the URL has no value for the filter, to the rows,
+totals and export alike. Clearing it writes an empty `f_<field>=` to the URL. A
+saved view or link turns it off with `null`. `hidden: true` applies the filter
+without a control.
+
+```ts excerpt
+filters: [
+  { field: "isTest", label: "Test accounts", type: "boolean", defaultValue: false },
+],
+views: [{ name: "Everyone", filters: { isTest: null } }],
+```
+
+A filter compares one column. To filter by an expression or through a relation,
+read the resource from a view that computes the column and set
+[`writeTo`](#reading-a-view).
 
 ### FilterType
 
@@ -384,7 +336,7 @@ type FilterType =
 
 ## Record page
 
-`detail` configures `/<basePath>/<resource>/<id>`. Type a card that lives in its own file
+`detail` configures `<paths.admin>/<resource>/<id>`. Type a card that lives in its own file
 with `DetailOptions<Row>`:
 
 ```ts excerpt
@@ -413,9 +365,8 @@ export const card = {
   heatmap shows its last `days` days. Without `dateRange` the page has no picker and
   widgets see the record's whole history.
 
-The header, the strip, the aside and the open tab share one widget context, so the same
-`ctx.count`, `ctx.read` or `ctx.query` runs once per page. A widget that fails shows its
-own error card, named by its label and place.
+The header, strip, aside and open tab share one widget context, so a repeated
+`ctx.count`, `ctx.read` or `ctx.query` runs once per page.
 
 <AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailOptions" />
 
@@ -429,33 +380,22 @@ own error card, named by its label and place.
 
 ## DetailTab
 
-A tab on the full-page detail view at `/<basePath>/<resource>/<id>`.
-
-The tab in view is the `?tab=<key>` search parameter — a real query parameter the
-server reads, not a URL fragment — so a tab is linkable, bookmarkable and survives
-a reload. Only the selected tab runs on the server; the others render their label
-and nothing else.
+A tab on the record page. The open tab is the `?tab=<key>` query parameter, and
+only that tab runs on the server.
 
 A tab declares exactly one kind of content, and they resolve in this order:
 `render`, `widgets`, `resource`, then fields.
 
 ### Fields and sections
 
-`fields` renders a flat key/value view; `"*"` shows every readable field. Each
-entry is a bare field name or a `FieldDef`, whose `label` overrides the column
-header the list page uses. Column `format` and `render` from `columns` apply here
-too, so a value reads the same on both pages.
+`fields` renders key/value pairs; `"*"` shows every readable field. An entry is a
+field name or a `FieldDef`. Column `format` and `render` apply here too.
 
-A `FieldDef` with its own `render(row, ctx)` shows what that returns instead of the
-value — a join or a computed label — here and in the drawer. It runs on the server,
-may be async, receives the projected row, and runs only when the reader may read
-the field `name`, which stays the field's access-control key. The renders of one
-tab run concurrently, so a render must not depend on a database handle that
-allows one query at a time. On the record page a render that throws costs only its own
-field: the server logs `[flowpanel] detail render failed for "<field>"` and the field shows
-its formatted value. In the drawer the output becomes static HTML; see
-[server-rendered cells](/docs/reference/drawer#server-rendered-cells) for what the
-reader sees when a render fails there:
+A `FieldDef` with `render(row, ctx)` shows its result instead of the value. It
+runs on the server, only when the reader may read `name`, concurrently with the
+tab's other renders. A render that throws is logged and the field shows its
+formatted value; see [server-rendered cells](/docs/reference/drawer#server-rendered-cells)
+for the drawer:
 
 ```ts excerpt
 {
@@ -482,64 +422,30 @@ same tab:
 }
 ```
 
-Fields named by `fields` or by any `sections` entry are declared dependencies:
-they are added to the tab's projection and loaded when that tab is the one in
-view. A declared field the reader may not read is left out rather than shown
-empty, and a tab that ends up with nothing the reader may see shows
-`labels.detail.noFields` (or the tab's `emptyState`).
+Fields named here are loaded when the tab is open. A field the reader may not
+read is left out.
 
 ### Widgets
 
-`widgets` puts dashboard widgets in a detail tab, in the dashboard's own grid —
-see [widgets in detail tabs](/docs/build/dashboards#widgets-in-detail-tabs).
-`columns` sets the grid width, defaulting to 2. Each widget's `ctx.row` is the
-record being viewed, and each one renders inside its own error boundary, so a
-query that fails costs you that card and not the page. Declaring `widgets: []` is
-still a widgets tab — it renders empty rather than falling through to the other
-modes, because an empty array is a typo, not a choice.
+`widgets` puts dashboard widgets in the tab; see
+[widget tabs](/docs/build/detail-cards#widget-tabs). `columns` defaults to 2, or 12
+once a widget sets `span`. `ctx.row` is the record. A failing widget shows its own
+error card.
 
 ### Related rows
 
-A tab with a `resource` renders that resource's list columns and paginates under
-its own URL key `relatedPage.<key>` — so two tabs page independently and Back,
-Forward and reload restore the page the reader was on. Reference columns resolve
-to the referenced row's label, exactly as they do on a list page and in a table
-widget.
+A tab with `resource` shows that resource's list columns, paged under the URL key
+`relatedPage.<key>` and sorted under `relatedSort.<key>`. `hide` drops columns and
+their values; the parent foreign key is the usual one. `sort` sets the default
+order. An "Open list" link to the filtered list appears when every filter value is
+a scalar on a field the target declares.
 
-`hide` drops columns before anything is rendered, and the hidden fields are also
-projected out of the rows sent to the browser; the parent foreign key is the usual
-candidate, since every row in the tab shares it. The tab's own row key is always
-kept, since the table needs it for row identity. A hidden column cannot be sorted
-from the URL either.
+`filter` is a constraint: an undefined parent value yields no rows and no query.
+A row opens by the target's [`rowClick`](#opening-a-row); a drawer opens over the
+record page under `?drawer=<resource>:<id>`.
 
-An "Open list" link appears only when it would tell the truth: every filter
-value has to be a scalar (`string`, `number`, `boolean` or `bigint`) and every
-filter field has to be one the target resource declares, since the list page
-accepts `?f_<field>=<value>` on no other terms. A tab filtered on a range, an `in`
-set, or an undeclared field keeps its rows and drops the link. `sort` sets the tab's
-default order, falling back to the target's `defaultSort` and then to its primary
-key. Clicking a header re-sorts through the URL key `relatedSort.<key>`, written
-as `<field>.<asc|desc>` and accepted only for a visible column the target
-resource really has. Above the table, an "Open list" link
-(`labels.related.openList`) leads to the target's own list page with the
-relationship already applied as `?f_<field>=<value>`, so the full paginated list
-is one click away.
-
-The tab's `filter` is a constraint, not a refinement: an undefined parent value or
-a field the reader may not read yields no rows and no query.
-
-A row opens the way it does on the target's own list, by the target's
-[`rowClick`](#resourceoptions): with `"detail"` it navigates to the row's detail
-page; with `"drawer"` it opens the target's drawer over this record page
-(`?drawer=<resource>:<id>`), keeping the page's `?tab=` — the drawer keeps its own tab
-in `?drawerTab=`; with `false` — or no `detail` and no `drawer` — the rows stay inert.
-Enter on the focused row opens it, as on the list.
-
-`pageSize` sets the rows per page (25 by default). `count: true` shows the row count in the
-tab's label (`labels.detail.tabCount`, `"Scores · 3"`); the counts of every counted tab run
-while the open tab renders, share the page's count memo, and a count that fails leaves the
-plain label. A tab that sets both `resource` and `widgets` renders the widgets above its
-rows — a funnel above the responses it counts.
+`pageSize` defaults to 25. `count: true` shows the row count in the label.
+`widgets` on the same tab render above the rows.
 
 `by` names the target's field that points at this record: it becomes `filter`, reading the
 record's `rowKey`, and `hide`, unless you give those yourself.
@@ -563,18 +469,14 @@ detail: {
 }
 ```
 
-A plain tab with neither `by` nor `filter` keeps reading every row of its target, as it
-did before `related()` existed.
+A tab with neither `by` nor `filter` reads every row of its target.
 
 <AutoTypeTable path="../../packages/core/src/builders/related.ts" name="RelatedOptions" />
 
 ### Empty state
 
-`emptyState` replaces the generic label when a tab has nothing to show: a related
-tab with no rows (instead of `labels.noResults`), a widgets tab with no widgets
-(instead of `labels.widget.empty`) and a fields tab with no field the reader may
-see (instead of `labels.detail.noFields`). A custom `render` tab owns its own
-empty state.
+`emptyState` replaces the default text when a tab has no rows, widgets or
+readable fields.
 
 ```ts excerpt
 { key: "runs", label: "Runs", resource: "runs", filter: (u) => ({ userId: u.id }), emptyState: "No runs yet" }
@@ -582,10 +484,8 @@ empty state.
 
 ### Custom content
 
-`render(row, ctx)` returns whatever you like. `row` is the projected row — the
-declared and `detail.expose` fields, nothing else — and `ctx` is a
-[`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `link`,
-`labels` and the per-request `query` memo, the same pieces a widget query gets.
+`render(row, ctx)` returns any React content. `row` holds the declared and
+`detail.expose` fields; `ctx` is a [`DetailTabContext`](#detailtabcontext).
 
 <AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailTab" />
 
@@ -612,6 +512,6 @@ What a `list` returns, from the adapter through to the pagination control.
 
 ## ResourceConfig
 
-What `resource()` returns. You pass it to `defineAdmin`; you rarely read it.
+What `resource()` returns.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceConfig" />

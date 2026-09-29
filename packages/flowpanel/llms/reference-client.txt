@@ -1,4 +1,4 @@
-# flowpanel — Reference — Typed client
+# FlowPanel — Reference — Typed client
 
 ## Typed client
 
@@ -8,10 +8,8 @@ Docs: https://flowpanel.tech/docs/reference/client
 
 Documented types: createFlowpanelClient, UseAdminMutation, UseAdminMutationOptions
 
-`@flowpanel/client` is the framework-neutral browser client. Use it when the
-generated admin is mostly right, but one screen needs custom UI. Calls still go
-through the same auth, resource access, field policy, tenant scope, validation,
-audit and adapter pipeline as generated pages.
+`@flowpanel/client` calls the admin's HTTP API from custom browser UI. Calls go
+through the same auth, access, scope, validation and audit as generated pages.
 
 ```ts excerpt
 import {
@@ -27,13 +25,11 @@ import {
 } from "@flowpanel/client";
 ```
 
-The same surface is available from `@flowpanel/kit/client` when your project
-installs the umbrella package.
+With `@flowpanel/kit`, import from `@flowpanel/kit/client`.
 
 ### Create a client
 
-The server runtime exposes serializable metadata; pass it to the browser
-client instead of duplicating API paths.
+Pass the server runtime's serializable metadata to the browser client:
 
 ```ts excerpt
 // server module
@@ -64,15 +60,9 @@ if (!result.ok) {
 }
 ```
 
-`createFlowpanelClient(metadata, options?)` returns a frozen
-`FlowpanelClient`. `CreateFlowpanelClientOptions.fetch` lets tests, React
-Native shells or instrumented apps provide their own fetch implementation.
-Every request uses `credentials: "same-origin"` and validates the response
-envelope before returning it.
-
-`FlowpanelClientMetadata` contains the runtime id, admin/API paths and protocol
-version. Treat it as public configuration, not a secret. The client rejects an
-unsupported protocol version immediately.
+`options.fetch` replaces the fetch implementation. Requests use
+`credentials: "same-origin"`. `FlowpanelClientMetadata` holds the runtime id, paths
+and protocol version; it is not secret.
 
 ### Resource methods
 
@@ -86,20 +76,14 @@ unsupported protocol version immediately.
 | `update(id, input, options?)` | `PATCH /<resource>/<id>` | Updated row |
 | `delete(id, options?)` | `DELETE /<resource>/<id>` | `null` on success |
 
-`FlowpanelListOptions` accepts `page`, `pageSize`, `search`, and a flat
-`filters` record. It extends `FlowpanelFetchOptions`, so list calls and item
-calls both accept `signal` and extra `headers`. IDs and resource names are
-encoded as individual URL segments; empty, `.` and `..` segments are rejected.
-
-Network errors and malformed responses become a typed `internal` failure.
-An `AbortError` is rethrown so your component can distinguish cancellation
-from a failed request.
+`FlowpanelListOptions` takes `page`, `pageSize`, `search` and `filters`; every call
+takes `signal` and `headers`. Network errors and malformed responses become an
+`internal` failure; an `AbortError` is rethrown.
 
 ### Narrowing errors
 
-`isFlowpanelErrorResult(result)` narrows a `FlowpanelResult<T>` to its error
-branch. `isFlowpanelErrorCode(value)` validates unknown data against the stable
-error-code union.
+`isFlowpanelErrorResult(result)` narrows to the error branch;
+`isFlowpanelErrorCode(value)` checks a code.
 
 ```ts excerpt
 import { isFlowpanelErrorCode, isFlowpanelErrorResult } from "@flowpanel/kit/client";
@@ -114,8 +98,7 @@ isFlowpanelErrorCode("anything"); // false
 
 ### Mutation state hook
 
-`useAdminMutation` remains available for custom UI that calls a Server Action
-rather than the HTTP client.
+`useAdminMutation` tracks pending and error state for an async function.
 
 ```tsx excerpt
 "use client";
@@ -151,7 +134,5 @@ export function ArchiveButton({ id }: { id: string }) {
 | `onSuccess?` | `(result: Extract<ActionResult, { ok: true }>) => void` |  |
 | `onError?` | `(message: string) => void` |  |
 
-`run` never throws: rejected actions and `{ ok: false }` results both become a
-failure result and update `error`. `reset()` clears local pending/error state.
-For optimistic values, use
-[`useOptimisticAction`](/docs/reference/react-components#hooks).
+`run` never throws: a rejection or `{ ok: false }` sets `error`. `reset()` clears
+it. For optimistic values, see [`useOptimisticAction`](/docs/reference/react-components#hooks).

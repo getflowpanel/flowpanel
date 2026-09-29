@@ -75,9 +75,7 @@ export function devCommand(cli: Command): void {
 
 export function pipeWithPrefix(child: ChildProcess, prefix: string): void {
   const onLine = (stream: NodeJS.WritableStream) => {
-    // `pnpm exec <missing-bin>` opens the stream with a bare "undefined" line
-    // ahead of its real error. Only that opening line is dropped — everything
-    // after it, including a server's own `undefined`, is relayed.
+    // Only the bare "undefined" line `pnpm exec <missing-bin>` opens the stream with is dropped.
     let opened = false;
     return (chunk: Buffer): void => {
       const text = chunk.toString();

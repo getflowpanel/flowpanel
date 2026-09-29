@@ -1,62 +1,37 @@
-/**
- * Single source of truth for site-wide configuration:
- * repo URLs, social links, default copy. Imported by header, footer,
- * edit-on-GitHub links, OG image template, and sitemap.
- */
 export const siteConfig = {
-  name: "flowpanel",
-  description: "The admin panel you don't have to build.",
+  name: "FlowPanel",
+  seo: {
+    title: "FlowPanel: a Next.js admin panel for Drizzle and Prisma",
+    description:
+      "A typed admin panel for Next.js. Describe your Drizzle or Prisma tables in one config file and get lists, forms, record pages and dashboards at /admin. Open source, MIT licensed.",
+  },
   url: process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://flowpanel.tech",
-  ogImage: "/og.png",
 
   repo: {
-    owner: "getflowpanel",
-    name: "flowpanel",
     url: "https://github.com/getflowpanel/flowpanel",
-    // Branch + path where docs live, used for "Edit this page on GitHub".
-    docsPath: "apps/site/content/docs",
     branch: "main",
   },
 
   links: {
     github: "https://github.com/getflowpanel/flowpanel",
     issues: "https://github.com/getflowpanel/flowpanel/issues",
-    discussions: "https://github.com/getflowpanel/flowpanel/discussions",
-    // Hosted demo of examples/ai-scraper. Local development points at the
-    // canonical showcase automatically; deployments provide their public URL.
+    npm: "https://www.npmjs.com/package/@flowpanel/kit",
+    // Hosted examples/ai-scraper; in development it expects the example on port 3100.
     demo:
       process.env.NEXT_PUBLIC_DEMO_URL?.trim() ||
-      (process.env.NODE_ENV === "development" ? "http://localhost:3000/admin" : ""),
+      (process.env.NODE_ENV === "development" ? "http://localhost:3100/admin" : ""),
   },
 
-  /** Runnable examples in the repo, surfaced from the landing page. */
   examples: [
     {
-      name: "ai-scraper",
-      summary:
-        "An AI scraping SaaS ops admin: resources, dashboards, BullMQ queues and realtime, on Drizzle + Postgres.",
+      name: "examples/ai-scraper",
       url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper",
-      config:
-        "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper/src/admin/config",
-      readme: "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper#run-locally",
     },
     {
-      name: "with-clerk",
-      summary:
-        "A minimal users/posts admin gated behind Clerk — middleware, provider, one line of config.",
+      name: "examples/with-clerk",
       url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk",
-      config:
-        "https://github.com/getflowpanel/flowpanel/blob/main/examples/with-clerk/src/flowpanel.config.ts",
-      readme: "https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk#run-it",
     },
   ],
-
-  nav: {
-    primary: [
-      { label: "Docs", href: "/docs" },
-      { label: "Changelog", href: "/changelog" },
-    ],
-  },
 } as const;
 
 export type SiteConfig = typeof siteConfig;

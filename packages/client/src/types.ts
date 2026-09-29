@@ -45,9 +45,7 @@ export function isFlowpanelErrorResult(
   return !value.ok;
 }
 
-// Listed literally: a runtime import of core's status map would drag the whole
-// core barrel (AsyncLocalStorage included) into the browser bundle. The type
-// checks below fail compilation if this list drifts from core's codes.
+// Listed literally so importing core's status map does not drag its whole barrel into the browser bundle.
 const ERROR_CODES = [
   "bad_request",
   "unknown_field",

@@ -56,7 +56,7 @@
   },
   "peerDependencies": {
     "@axe-core/playwright": "^4.10.0",
-    "@flowpanel/kit": ">=0.3.1 <1.0.0",
+    "@flowpanel/kit": ">=0.4.0 <1.0.0",
     "@playwright/test": "^1.50.0"
   },
   "peerDependenciesMeta": {

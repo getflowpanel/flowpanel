@@ -27,9 +27,8 @@ export function migrationsTableDdl(dialect: DrizzleDialect): string {
 }
 
 /**
- * Split ordinary migration files without treating protected semicolons as
- * statement boundaries. Dialect-specific client directives and procedural
- * bodies that cannot be split safely are rejected before any SQL is run.
+ * Splits a migration file into statements without treating protected semicolons as boundaries.
+ * Rejects dialect-specific bodies that cannot be split safely.
  */
 export function splitSqlStatements(rawSql: string, dialect: DrizzleDialect): string[] {
   let tokenized: ReturnType<typeof tokenizeMigrationSql>;
@@ -170,8 +169,7 @@ export function isPromiseLike<T>(value: T | PromiseLike<T>): value is PromiseLik
 }
 
 function rowsOf(raw: unknown, dialect: DrizzleDialect): Array<Record<string, unknown>> {
-  // mysql2 answers [rows, fields]; node-postgres answers { rows }; postgres-js
-  // and the sqlite drivers answer the row array itself.
+  // mysql2 answers [rows, fields]; node-postgres answers { rows }; others answer the row array.
   if (dialect === "mysql" && Array.isArray(raw)) {
     return (raw[0] ?? []) as Array<Record<string, unknown>>;
   }

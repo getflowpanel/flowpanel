@@ -4,9 +4,7 @@ description: Write a widget no built-in card fits, with the admin's links, forma
 kind: how-to
 ---
 
-Reach for `custom()` when no built-in card says what the screen needs — a pipeline diagram, a
-prompt viewer. Everything else about the widget stays FlowPanel's: the frame, the title, the
-error card, realtime, the grid.
+`custom()` puts your own component in a dashboard grid when no built-in card fits. FlowPanel still draws the card frame, title, error state and realtime refresh.
 
 ## Compute props on the server
 
@@ -26,10 +24,7 @@ export const pipelineWidget = custom(
 );
 ```
 
-The props function receives the same `ctx` as every widget: `ctx.link` resolves a named target
-under the admin's mount, `ctx.format` prints numbers, money, dates and plurals in the admin's
-locale and zone, `ctx.query` shares one query between widgets, and `ctx.dateRange` is the picked
-period. Pass the component plain data; keep queries and secrets on the server.
+The props function gets the same `ctx` as every widget: `ctx.link` builds an href under the admin's mount, `ctx.format` formats in the admin's locale and zone, `ctx.query` shares a query between widgets, and `ctx.dateRange` is the picked period. Pass the component plain data.
 
 ## Build it from kit atoms
 
@@ -79,26 +74,16 @@ export function Pipeline({ stages, runsHref, updated }: PipelineProps) {
 }
 ```
 
-`StatusDot`, `Sparkline`, `EmptyState`, `Card`, `CardHeader` and `CardContent` come from
-`@flowpanel/kit/react`. `toneTextClass` and `toneFillClass` map every `Tone` to the classes the
-built-in cards use; in a server component import them from `@flowpanel/kit`, because the React
-entry is a client boundary. A component that needs state or event handlers is a client component
-that receives these props.
+`StatusDot`, `Sparkline`, `EmptyState`, `Card`, `CardHeader` and `CardContent` come from `@flowpanel/kit/react`. `toneTextClass` and `toneFillClass` map each `Tone` to the built-in classes; import them from `@flowpanel/kit` in a server component, because the React entry is a client boundary. The `fp-*` classes need the [Tailwind token bridge](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes).
 
-## Frame, title, realtime and width
+## Options
 
 | Option | Effect |
 | --- | --- |
-| `label` | The card's title, and the name errors and the slow-widget line use (since 0.3.1) |
-| `frame: false` | No card around the component, for a full-bleed layout |
+| `label` | Card title, also used in error messages and the slow-widget log |
+| `frame: false` | No card around the component |
 | `realtime` | Re-render on a channel, `{ resource }`, or a list of them |
 | `span` | Width in a 12-column section |
-
-## Use FlowPanel's tokens in your Tailwind
-
-The classes above — `bg-fp-*`, `text-fp-*`, `border-fp-*`, `rounded-fp*` — need the token bridge
-in your Tailwind v4 stylesheet. See
-[Styling](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes).
 
 ## Test it
 
@@ -114,10 +99,4 @@ it("links the failed stage to failed runs", async () => {
 });
 ```
 
-`resolveWidget` returns the props your component receives, computed exactly as the dashboard
-computes them: `ctx.link` and `ctx.format` run the admin's own code. `sql` is what `ctx.sql`
-returns, for a `pipelineStages` that reads SQL. `rows: { runs: [] }` registers the resource the
-link names; pass `admin` instead to use your whole config. See
-[Testing](/docs/reference/testing#unit-test-a-widget), and
-[Run it in Vitest](/docs/reference/testing#run-it-in-vitest) for the one line of Vitest config the
-entry needs.
+`resolveWidget` returns the props your component receives, computed as the dashboard computes them. `sql` is what `ctx.sql` returns; `rows: { runs: [] }` registers the resource the link names. See [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).

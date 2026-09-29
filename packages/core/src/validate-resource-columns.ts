@@ -67,9 +67,8 @@ function columnSites(resource: ResourceConfig): ColumnSite[] {
 }
 
 /**
- * Throws when a resource points at a column the adapter does not report. Skips
- * entirely when the introspection carries no columns — an adapter that cannot
- * resolve a ref reports nothing, and guessing would reject valid configs.
+ * Throws when a resource points at a column the adapter does not report.
+ * Skips entirely when introspection carries no columns, since guessing would reject valid configs.
  */
 export function validateResourceColumns(
   name: string,

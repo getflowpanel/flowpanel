@@ -6,6 +6,7 @@ import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
 import { CaptionLine } from "./CaptionLine";
+import { FIGURE } from "./figure";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface StatCardProps {
@@ -37,24 +38,24 @@ export function StatCard({
   const formatting = useFormatting();
   const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
   const content = (
-    <CardContent className="space-y-1">
-      <div
-        className={cn("text-sm font-medium text-fp-text-2", TWO_LINES)}
-        {...fullTextTitle(label)}
-      >
-        {label}
-      </div>
-      <CaptionLine caption={caption} />
-      <div
-        className={cn(
-          "truncate text-xl font-semibold leading-tight tabular-nums",
-          toneTextClass[tone],
-        )}
-      >
-        {display}
+    <CardContent>
+      <div className="space-y-1">
+        <div className={cn("text-sm text-fp-text-2", TWO_LINES)} {...fullTextTitle(label)}>
+          {label}
+        </div>
+        <CaptionLine caption={caption} />
+        <div
+          className={cn(
+            "truncate",
+            plain ? FIGURE : "text-xl font-semibold leading-tight tabular-nums",
+            toneTextClass[tone],
+          )}
+        >
+          {display}
+        </div>
       </div>
       {hint ? (
-        <div className={cn(TWO_LINES, "text-xs text-fp-text-3")} {...fullTextTitle(hint)}>
+        <div className={cn(TWO_LINES, "mt-0.5 text-xs text-fp-text-3")} {...fullTextTitle(hint)}>
           {hint}
         </div>
       ) : null}

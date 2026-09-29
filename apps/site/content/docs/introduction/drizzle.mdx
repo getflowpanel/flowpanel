@@ -1,43 +1,28 @@
 ---
 title: Drizzle setup
-description: Connect FlowPanel to an existing Drizzle ORM project.
+description: Connect FlowPanel to an existing Drizzle ORM project on PostgreSQL, MySQL or SQLite.
 kind: how-to
+metaTitle: Drizzle ORM admin panel setup
 ---
 
-The Drizzle adapter uses your schema objects for row types and introspection, then executes resource operations through your existing database client.
-
-## Requirements
-
-Install and configure Drizzle before adding FlowPanel. The supported package range appears in [Getting started](/docs/introduction/getting-started#before-you-start). PostgreSQL, MySQL, and SQLite dialects are supported.
-
-The adapter is included in `@flowpanel/kit`; import it from `@flowpanel/kit/drizzle`.
+The Drizzle adapter reads row types and columns from your schema and runs queries through your `db` client. Import it from `@flowpanel/kit/drizzle`. PostgreSQL, MySQL and SQLite are supported; version ranges are in [Getting started](/docs/introduction/getting-started#before-you-start).
 
 ## Configure the adapter
 
 <include>../../snippets/getting-started/drizzle-config.ts</include>
 
-Pass the same `db` and schema namespace used by the application. The adapter normally infers the dialect from a table in `schema`; set `dialect` explicitly only when the schema object contains no detectable Drizzle table.
+Pass the `db` and schema namespace your app already uses. The dialect is inferred from a table in `schema`; set `dialect` only when the schema has no Drizzle table. With `schema` registered in `FlowpanelTypes`, every table and view is a typed resource name and row.
 
-`resource(schema.users, …)` infers its row from `$inferSelect`. Column names, search fields, filters, form fields, action rows, and renderers use that type. The `FlowpanelTypes.db` augmentation gives dashboard and action contexts the type of your real client.
-
-## Database behavior
-
-Search and filter expressions are dialect-aware. Pagination is offset-based. A configured soft-delete field is set instead of removing the row; normal lists exclude non-null deleted values and can expose a restore workflow.
-
-FlowPanel's initial migration is PostgreSQL SQL. Review and adapt it before applying it to MySQL or SQLite.
+Search and filters are dialect-aware, pagination is offset-based, and a configured soft-delete field is set instead of deleting the row.
 
 ## Views
 
-A resource can read a SQL view, so the list sorts and filters by numbers the view computes
-per row — lifecycle, last seen, counts — and saved views can use them. Declare the view with
-`.existing()`, so drizzle-kit neither creates nor drops it, and create it in a migration of
-your own:
+A resource can read a SQL view, so the list sorts and filters by numbers the view computes per row. Declare the view with `.existing()` so drizzle-kit leaves it alone, and create it in your own migration:
 
 ```ts excerpt
 export const adminUserRow = pgView("admin_user_row", {
   id: text("id").primaryKey(),
   name: text("name"),
-  lifecycle: text("lifecycle"),
   sent30d: integer("sent_30d"),
 }).existing();
 ```
@@ -50,16 +35,10 @@ select u.id, u.name,
 from "user" u;
 ```
 
-Write each per-row number as a correlated subquery, as above, rather than a `group by`
-over the whole table: reading one record then stays an index lookup, and sorting by a
-number computes it only for the page's rows.
+Write each per-row number as a correlated subquery rather than a `group by` over the table: reading one record stays an index lookup, and sorting computes the number only for the page's rows.
 
-`resource(adminUserRow, { name: "user", writeTo: user, … })` lists and opens the view and
-writes edits to `user`. Without `writeTo` the resource is read-only. See
-[Reading a view](/docs/reference/resources#reading-a-view).
+`resource(adminUserRow, { name: "user", writeTo: user })` reads the view and writes edits to `user`. Without `writeTo` the resource is read-only. See [Reading a view](/docs/reference/resources#reading-a-view).
 
 ## Limitation
 
-Automatic introspection covers scalar table columns returned by Drizzle. Relations declared with `relations()` are not turned into joined list values. Use a [reference field](/docs/build/forms#relation-fields), a [custom column renderer](/docs/customization/column-renderers), or a custom adapter when a view needs joined data.
-
-Continue with [Getting started](/docs/introduction/getting-started) or see the generated [Adapter reference](/docs/reference/adapters).
+Relations declared with `relations()` do not become joined list columns. Use a [reference field](/docs/build/forms#relation-fields), a [column renderer](/docs/customization/column-renderers) or a view.

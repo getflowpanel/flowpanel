@@ -3,9 +3,8 @@ import type { ThemeConfig } from "@flowpanel/core";
 const HSL_WRAPPER = /^hsla?\(([^)]*)\)$/i;
 
 /**
- * Design tokens are consumed as `hsl(var(--fp-accent))`, so the variable holds a
- * bare triplet. `hsl(220 90% 50%)` is the shape people reach for first, so unwrap
- * it rather than emitting `hsl(hsl(...))`.
+ * Design tokens are consumed as `hsl(var(--fp-accent))`, so the variable holds a bare triplet.
+ * `hsl(220 90% 50%)` is the shape people reach for first, so unwrap it rather than emitting `hsl(hsl(...))`.
  */
 export function normalizeAccent(accent: string): string {
   const match = HSL_WRAPPER.exec(accent.trim());
@@ -37,8 +36,7 @@ function accentDecl(accent: string): string {
 }
 
 /**
- * Emits theme overrides only inside Flowpanel roots and namespaced portals.
- * Host application tokens and its own dark-mode convention remain untouched.
+ * Emits theme overrides only inside Flowpanel roots and namespaced portals; host tokens remain untouched.
  * Data fills follow a host accent unless the host sets `--fp-data` itself.
  */
 export function ThemeVars({ theme }: { theme: ThemeConfig | undefined }) {

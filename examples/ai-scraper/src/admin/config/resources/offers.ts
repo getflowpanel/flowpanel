@@ -51,7 +51,7 @@ export const offers = resource(schema.listings, {
   },
   drawer: {
     width: "lg",
-    header: (row) => row.title,
+    title: (row) => row.title,
     tabs: [
       {
         key: "detail",

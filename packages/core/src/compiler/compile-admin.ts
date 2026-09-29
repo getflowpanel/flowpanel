@@ -4,7 +4,7 @@ import { reservedNameError } from "../reserved-names";
 import { resolveResourceName } from "../resource-name";
 import type { Adapter, ResourceIntrospection } from "../types/adapter";
 import type { CompiledAdmin, CompiledResource } from "../types/compiled";
-import type { AdminConfig, ResolvedAdminConfig } from "../types/config";
+import type { AdminDefinition, ResolvedAdminConfig } from "../types/config";
 import type { DashboardConfig, PageConfig } from "../types/dashboard";
 import { type LabelsConfig, mergeLabels } from "../types/labels";
 import type { QueueConfig } from "../types/queue";
@@ -13,6 +13,11 @@ import { validateDashboardFilters } from "../validate-dashboard-filters";
 import { type LinkCheck, validateLinks } from "../validate-links";
 import { validateRealtime } from "../validate-realtime";
 import { validateRecordSources } from "../validate-record-sources";
+import {
+  assertNoBasePath,
+  assertNoDashboardActionRequireRole,
+  assertNoRequireRole,
+} from "../validate-removed-keys";
 import { validateResourceColumns } from "../validate-resource-columns";
 import { validateResourceRefs } from "../validate-resource-refs";
 import { validateThresholds } from "../validate-thresholds";
@@ -25,7 +30,7 @@ import { resolveRelatedTabs } from "./related-tabs";
 import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
 import { withDashboardTimelineIds } from "./timeline-ids";
 import {
-  assertCanonicalAccess,
+  assertBulkActionLimits,
   assertCanonicalFieldAccess,
   assertProductionAuth,
   assertServableActionForm,
@@ -85,8 +90,9 @@ function localeLabels(
 }
 
 export function compileAdmin<const Resources extends readonly AnyResourceConfig[]>(
-  config: AdminConfig<Resources>,
+  config: AdminDefinition<Resources>,
 ): CompiledAdmin {
+  assertNoBasePath(config as unknown as Record<string, unknown>);
   assertProductionAuth(config);
   const resources: ResourceConfig[] = [];
   const resourcesByName = new Map<string, ResourceConfig>();
@@ -110,12 +116,13 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
           `Add drawer: { fields: "*" } or change rowClick.`,
       );
     }
+    assertNoRequireRole(name, raw.options as Record<string, unknown>);
     assertUniqueActionKeys(raw.options.actions, name, "options.actions");
     assertUniqueActionKeys(raw.options.bulkActions, name, "options.bulkActions");
     assertUniqueActionKeys(raw.options.drawer?.actions, name, "options.drawer.actions");
     assertServableActionForm(raw.options.actions, name, "options.actions");
     assertServableActionForm(raw.options.bulkActions, name, "options.bulkActions");
-    assertCanonicalAccess(raw, name);
+    assertBulkActionLimits(raw, name);
     const introspection = tryIntrospect(config.adapter, raw.ref);
     const viewed = viewResource(name, raw, introspection, config.adapter);
 
@@ -169,6 +176,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   const dashboards = (config.dashboards ?? []).map(withDashboardTimelineIds);
   const dashboardsByPath = new Map<string, DashboardConfig>();
   for (const dashboard of dashboards) {
+    assertNoDashboardActionRequireRole(dashboard.path, dashboard.actions);
     const path = normalizeDeclaredRoutePath(dashboard.path);
     if (dashboardsByPath.has(path)) {
       throw new Error(`Duplicate dashboard path: "${dashboard.path}".`);
@@ -232,7 +240,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   warnIfNoAccessControl(config, resources);
   warnCreateFieldsOnce(warnings);
 
-  const basePath = normalizeRoutePath(config.paths?.admin ?? config.basePath ?? "/admin");
+  const basePath = normalizeRoutePath(config.paths?.admin ?? "/admin");
   const paths = {
     admin: basePath,
     api: normalizeRoutePath(config.paths?.api ?? "/api/flowpanel"),

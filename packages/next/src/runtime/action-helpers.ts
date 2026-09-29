@@ -70,7 +70,7 @@ export function actorIdFromSession(
   return null;
 }
 
-/** The context every action's `run` receives: request, database, actor, publisher. */
+/** The context every action's `run` receives: request, actor, publisher, and `unsafe.db` when declared. */
 export function buildActionContext(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
@@ -78,7 +78,6 @@ export function buildActionContext(
 ) {
   return {
     ...reqCtx,
-    db: config.adapter.db,
     ...(action.unsafe?.includes("db") ? { unsafe: { db: config.adapter.db } } : {}),
     actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
     publish: async (channel: string, payload?: unknown) => {
@@ -98,17 +97,14 @@ export function roleAllows(requireRole: RequireRole | undefined, reqCtx: Request
   }
 }
 
-/** Keep only actions allowed by canonical `access` or its `requireRole` alias. */
-export async function filterActionsByAccess<
-  Action extends { access?: AccessRule | undefined; requireRole?: RequireRole },
->(actions: readonly Action[] | undefined, reqCtx: RequestContext): Promise<Action[]> {
+/** Keep only the actions whose `access` admits the caller. */
+export async function filterActionsByAccess<Action extends { access?: AccessRule | undefined }>(
+  actions: readonly Action[] | undefined,
+  reqCtx: RequestContext,
+): Promise<Action[]> {
   const visible: Action[] = [];
   for (const action of actions ?? []) {
-    if (action.access !== undefined) {
-      if (await accessAllows(action.access, reqCtx)) visible.push(action);
-    } else if (roleAllows(action.requireRole, reqCtx)) {
-      visible.push(action);
-    }
+    if (await accessAllows(action.access, reqCtx)) visible.push(action);
   }
   return visible;
 }

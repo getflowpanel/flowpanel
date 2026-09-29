@@ -125,7 +125,7 @@ describe("buildNav", () => {
       ],
       resources: [
         resource({ __name: "users" }, { columns: [], plural: "Users" }),
-        resource({ __name: "secrets" }, { columns: [], requireRole: "admin" }),
+        resource({ __name: "secrets" }, { columns: [], access: { read: "admin" } }),
       ],
       queues: [
         queue({ name: "jobs" }, { label: "Jobs", boardUrl: "http://localhost/jobs" }),

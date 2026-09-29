@@ -10,9 +10,8 @@ export interface LocalTimeProps {
   /** `Intl.DateTimeFormat` options for the rendered text. Default: date + HH:mm. */
   options?: Intl.DateTimeFormatOptions;
   /**
-   * Zone for the server and first-paint render; after hydration the reader's
-   * zone takes over. Without it the configured `formatting.timeZone` is used,
-   * and when the admin set one it stays after hydration too.
+   * Zone for the server and first-paint render; after hydration the reader's zone takes over.
+   * Without it, `formatting.timeZone` is used and stays after hydration too when the admin set one.
    */
   fallbackTimeZone?: string;
   /** Rendered when `date` is null/invalid. Default `"—"`. */

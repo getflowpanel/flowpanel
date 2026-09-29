@@ -1,10 +1,4 @@
-/**
- * Serializable icon names understood by FlowPanel's built-in UI.
- *
- * The names intentionally follow Lucide's kebab-case vocabulary. Keeping the
- * value serializable means the same config works across the React Server
- * Component boundary; consumers never need to pass component functions.
- */
+/** Serializable icon names understood by FlowPanel's built-in UI, following Lucide's kebab-case vocabulary. */
 export type IconName =
   | "activity"
   | "archive"

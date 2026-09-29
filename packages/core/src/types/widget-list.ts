@@ -28,8 +28,7 @@ export interface ListOptions extends CaptionOptions {
   /** Shown instead of the lines when the query returns nothing. Text or any node; the drawer shows only text. */
   emptyState?: ReactNode;
   /**
-   * `"banner"`: a strip tinted by the worst row, rows ordered err → warn → info then by
-   * `count`, each with a glyph; with no rows it shows `allClear`.
+   * `"banner"`: a strip tinted by the worst row, ordered err → warn → info; with no rows it shows `allClear`.
    * @defaultValue "list"
    */
   variant?: "list" | "banner";

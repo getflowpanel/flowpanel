@@ -111,7 +111,7 @@ export const RU_LABELS: ResolvedLabels = {
   },
   drawer: {
     close: "Закрыть",
-    viewDetails: "Открыть страницу",
+    viewDetails: "Открыть карточку",
     loading: "Загрузка…",
     noRows: "Нет записей: {resource}.",
     noWidgets: "Виджетов нет.",
@@ -201,6 +201,7 @@ export const RU_LABELS: ResolvedLabels = {
     widgetTitle: "Не удалось загрузить виджет",
     widgetHint: "Запрос не выполнился. Повторите или посмотрите лог сервера.",
     retry: "Повторить",
+    details: "Подробности",
   },
   palette: {
     placeholder: "Команда или раздел…",

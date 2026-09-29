@@ -140,11 +140,8 @@ async function authorizeRead(
   resource: ResourceConfig,
   ctx: RequestContext,
 ): Promise<void> {
-  requireAuthorized(config, resource, ctx);
-  await authorizeOperation(
-    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
-    ctx,
-  );
+  requireAuthorized(config, resource);
+  await authorizeOperation(resolveOperationAccess(resource.options.access, "read"), ctx);
 }
 
 export function createResourceController<Row extends Record<string, unknown>>(
@@ -208,7 +205,6 @@ export function createResourceController<Row extends Record<string, unknown>>(
         const softDelete = resource.options.delete?.softDelete;
         const query: ListQueryContext<unknown> = {
           ...ctx,
-          db: config.adapter.db,
           dateRange: { from: new Date(0), to: new Date() },
           searchParams,
           signal: ctx.req.signal,
@@ -222,7 +218,7 @@ export function createResourceController<Row extends Record<string, unknown>>(
           ...(softDelete
             ? { softDelete: { column: String(softDelete) }, includeDeleted: options.includeDeleted }
             : {}),
-          ...scopeBinding(config, resource, ctx),
+          ...scopeBinding(resource, ctx),
         };
         const result = await runWithRequestContext(ctx, () =>
           config.adapter.list(resource.ref, query),
@@ -248,13 +244,12 @@ export function createResourceController<Row extends Record<string, unknown>>(
         );
         const query: ItemQueryContext = {
           ...ctx,
-          db: config.adapter.db,
           dateRange: { from: new Date(0), to: new Date() },
           searchParams: new URL(ctx.req.url).searchParams,
           signal: ctx.req.signal,
           id,
           select,
-          ...scopeBinding(config, resource, ctx),
+          ...scopeBinding(resource, ctx),
         };
         const row = (await runWithRequestContext(ctx, () =>
           config.adapter.get(resource.ref, query),

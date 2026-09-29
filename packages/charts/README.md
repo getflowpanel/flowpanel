@@ -1,42 +1,22 @@
 # @flowpanel/charts
 
-Lazy-loaded chart builders for FlowPanel widgets. Recharts under the hood.
+Line, area, bar and pie chart widgets for FlowPanel dashboards, rendered with Recharts and loaded only when a chart is on the page. Apps use it as `@flowpanel/kit/charts`.
 
-[![npm](https://img.shields.io/npm/v/@flowpanel/charts.svg)](https://www.npmjs.com/package/@flowpanel/charts)
+## Install
 
-> Most users import from **`@flowpanel/kit/charts`** (umbrella subpath).
+```bash
+pnpm add recharts
+```
 
-## Builders
+## Example
 
 ```ts
-import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts";
+import { lineChart } from "@flowpanel/kit/charts";
 
-dashboard({
-  path: "/",
-  sections: [
-    {
-      label: "Signups",
-      columns: 1,
-      widgets: [
-        areaChart(
-          "Signups (last 7 days)",
-          async ({ db, dateRange }) => /* return rows */,
-          { x: "day", y: "count", smooth: true, height: 220 },
-        ),
-      ],
-    },
-  ],
+lineChart("Signups", async ({ db, dateRange }) => dailySignups(db, dateRange), {
+  x: "day",
+  y: "count",
 });
 ```
 
-## Bundle
-
-`@flowpanel/kit/charts` is **lazy** — it doesn't count toward the initial admin bundle and only loads when a chart widget renders. The package's own runtime is budgeted at 8 KB (`.size-limit.json`); `recharts` is a peer dependency, loaded alongside it, not shipped in the package.
-
-## Documentation
-
-<https://flowpanel.tech>
-
-## License
-
-MIT
+[Charts](https://flowpanel.tech/docs/customization/charts) · MIT

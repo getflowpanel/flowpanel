@@ -23,11 +23,7 @@ export async function installedKitVersion(cwd: string): Promise<string | null> {
   return (await inspectDependency(cwd, "@flowpanel/kit")).installed?.version ?? null;
 }
 
-/**
- * `null` when the installed kit can consume what this CLI writes. Templates are
- * cut per minor and import symbols that only exist in the matching kit, so a
- * differing minor is a hard stop rather than a warning.
- */
+/** `null` when the installed kit can consume what this CLI writes; a differing minor is a hard stop. */
 export async function kitCompatibilityError(cwd: string): Promise<string | null> {
   const kit = await installedKitVersion(cwd);
   if (kit === null) return null;
@@ -48,11 +44,7 @@ export async function kitCompatibilityError(cwd: string): Promise<string | null>
   );
 }
 
-/**
- * `null` when a project-local `@flowpanel/cli` can stand in for this run. The unit
- * is the minor, exactly as for the kit: a different patch or a matching preview of
- * the same minor generates the same templates, so it is not a reason to stop.
- */
+/** `null` when a project-local `@flowpanel/cli` can stand in for this run; the compared unit is the minor. */
 export function cliCompatibilityError(installed: string | null, pmc: PmCommands): string | null {
   if (installed === null) return null;
   const installedMinor = minorOf(installed);

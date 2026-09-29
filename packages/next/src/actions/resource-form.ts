@@ -20,9 +20,8 @@ import { type FormFieldShape, readFormValues } from "./form-values";
 import { type FormActionResult, makeActions } from "./resource-actions";
 
 /**
- * The controls this form renders, as the shapes `readFormValues` decodes. A field the
- * server may withhold is left out: it posts nothing whether it is cleared or absent, and
- * only a rendered control makes "nothing" mean false.
+ * The controls this form renders, as the shapes `readFormValues` decodes.
+ * A field the server may withhold is left out, since only a rendered control makes "nothing" mean false.
  */
 function renderedFieldShapes(
   resource: ResourceConfig,

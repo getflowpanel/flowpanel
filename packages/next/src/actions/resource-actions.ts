@@ -110,11 +110,8 @@ export function makeActions(
   return {
     async create(input) {
       const reqCtx = await ctxFor(buildHref(config, name, "new"));
-      requireAuthorized(config, resource, reqCtx);
-      await authorizeOperation(
-        resolveOperationAccess(resource.options.access, resource.options.requireRole, "create"),
-        reqCtx,
-      );
+      requireAuthorized(config, resource);
+      await authorizeOperation(resolveOperationAccess(resource.options.access, "create"), reqCtx);
       if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
       if (resource.options.create?.disabled) {
         throw new FlowpanelOperationDisabledError("Create is disabled for this resource.");
@@ -122,7 +119,7 @@ export function makeActions(
 
       const fields = declaredFormFields(resource, "create");
       const safe = await assertResourceWritableInput(resource, fields, input, null, reqCtx);
-      const withDefaults = await applyFieldDefaults(config, resource, fields, safe, reqCtx);
+      const withDefaults = await applyFieldDefaults(resource, fields, safe, reqCtx);
       const parsed = schemas.create.safeParse(withDefaults);
       if (!parsed.success) {
         const fieldErrors = friendlyFieldErrors(fields, withDefaults, parsed.error, labels);
@@ -135,7 +132,7 @@ export function makeActions(
         ...reqCtx,
         db: config.adapter.db,
         input: parsed.data as Partial<Record<string, unknown>>,
-        ...scopeBinding(config, resource, reqCtx),
+        ...scopeBinding(resource, reqCtx),
       };
       const row = (await runWithRequestContext(reqCtx, () =>
         config.adapter.create(writeTarget(resource), mctx),
@@ -157,11 +154,8 @@ export function makeActions(
 
     async update(id, input) {
       const reqCtx = await ctxFor(buildHref(config, name, id, "edit"));
-      requireAuthorized(config, resource, reqCtx);
-      await authorizeOperation(
-        resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
-        reqCtx,
-      );
+      requireAuthorized(config, resource);
+      await authorizeOperation(resolveOperationAccess(resource.options.access, "update"), reqCtx);
       if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
       if (resource.options.update?.disabled) {
         throw new FlowpanelOperationDisabledError("Update is disabled for this resource.");
@@ -170,12 +164,11 @@ export function makeActions(
       const fields = declaredFormFields(resource, "update");
       const itemCtx: ItemQueryContext = {
         ...reqCtx,
-        db: config.adapter.db,
         dateRange: { from: new Date(0), to: new Date() },
         searchParams: new URLSearchParams(),
         signal: new AbortController().signal,
         id,
-        ...scopeBinding(config, resource, reqCtx),
+        ...scopeBinding(resource, reqCtx),
       };
       const current = (await runWithRequestContext(reqCtx, () =>
         config.adapter.get(resource.ref, itemCtx),
@@ -195,7 +188,7 @@ export function makeActions(
         db: config.adapter.db,
         input: parsed.data as Partial<Record<string, unknown>>,
         id,
-        ...scopeBinding(config, resource, reqCtx),
+        ...scopeBinding(resource, reqCtx),
       };
       const written = await runWithRequestContext(reqCtx, () =>
         config.adapter.update(writeTarget(resource), mctx),
@@ -217,11 +210,8 @@ export function makeActions(
 
     async delete(id) {
       const reqCtx = await ctxFor(buildHref(config, name, id));
-      requireAuthorized(config, resource, reqCtx);
-      await authorizeOperation(
-        resolveOperationAccess(resource.options.access, resource.options.requireRole, "delete"),
-        reqCtx,
-      );
+      requireAuthorized(config, resource);
+      await authorizeOperation(resolveOperationAccess(resource.options.access, "delete"), reqCtx);
       if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
       if (resource.options.delete?.disabled) {
         throw new FlowpanelOperationDisabledError("Delete is disabled for this resource.");

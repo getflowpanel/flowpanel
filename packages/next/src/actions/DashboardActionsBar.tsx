@@ -58,7 +58,7 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex max-w-full flex-wrap items-center gap-2">
       {actions.map((a) => (
         <Button
           key={a.key}

@@ -1,12 +1,13 @@
 ---
 title: Dashboards
-description: Compose metrics, tables, charts, and custom widgets into operational dashboards.
+description: Compose metrics, bars, charts, trackers and banners into dashboards, often from one SQL statement per area.
 kind: how-to
+metaTitle: Admin dashboards with metrics and charts
 ---
 
-A dashboard combines server-side queries into an operational view. Use it to answer a small set of related questions; use a custom page when the screen is primarily an interactive workflow rather than a grid of data.
+A dashboard is a page of widgets whose queries run on the server. Register it in `dashboards`; path `/` renders at `/admin`, `/sales` at `/admin/sales`.
 
-## Add a first metric
+## A first dashboard
 
 ```ts excerpt
 import { dashboard, metric } from "@flowpanel/kit";
@@ -14,12 +15,15 @@ import { dashboard, metric } from "@flowpanel/kit";
 export const overview = dashboard({
   path: "/",
   label: "Overview",
+  dateRange: { preset: "today", presets: ["today", "yesterday", "last7d", "last30d"] },
   sections: [
     {
-      columns: 3,
+      variant: "strip",
       widgets: [
-        metric("Active users", async ({ db }) => countActiveUsers(db), {
-          format: "number",
+        metric("Sign-ups", { count: "users", range: "createdAt" }, { compare: true }),
+        metric("Failed runs", { count: "runs", where: { status: "failed" }, range: "startedAt" }, {
+          compare: true,
+          goodWhen: "down",
         }),
       ],
     },
@@ -27,82 +31,80 @@ export const overview = dashboard({
 });
 ```
 
-Register it in `dashboards`. The root path renders at `/admin`; another path such as `/sales` renders at `/admin/sales`.
+`{ count, where, range }` counts rows of a resource with its access and scope applied, and links the number to exactly those rows. `range` names a `daterange` filter of that resource. `compare: true` shows the change against the previous period; `compare: { against: "weekAgo" }` against the same range a week earlier.
 
-## Compose sections and layout
+A section sets `columns` and widgets set `span` on a 12-column grid. `variant: "strip"` draws metrics and stats as one band. The builders are `metric`, `stat`, `statGroup`, `kv`, `bars`, `funnel`, `list`, `banner`, `tracker`, `timeline`, `heatmap`, `checklist`, `table`, the charts, and `custom`.
 
-Each section chooses a column count and contains widgets with optional spans. Group widgets by the decision they support, not by their implementation type. A short label above a section is useful when the relationship would otherwise be unclear.
+## One query, several widgets
 
-FlowPanel includes metric, stat, kv, bars, funnel, list, table, stat group, chart, and custom widget builders. Table widgets reuse a registered resource surface. The small cards take counts and labels and derive their own geometry. A custom widget receives a component and props for cases that remain self-contained but do not fit a built-in visualization.
-
-## Link a number to its rows
-
-Name the rows behind a number instead of spelling a path, so the link survives a
-renamed mount and carries the dashboard's period:
+Write one SQL statement per screen area that returns plain rows for the picked range. Share it with `ctx.query(fn)` so it runs once, and fold it per widget: `series()` for a chart over time, `breakdown()` for ranked bars.
 
 ```ts excerpt
-metric("Failed AI runs", failedRuns, {
-  drilldown: { resource: "ai_run", view: "Errors", range: "createdAt" },
+import { barChart } from "@flowpanel/kit/charts";
+import { bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
+
+type HourRow = { at: Date; platform: string; runs: number; failed: number; orders: number };
+
+const hourly = (c: WidgetContext) => c.sql<HourRow>`
+  select hour as at, platform, runs_total as runs, runs_failed as failed, orders_new as orders
+  from scraper_hourly_stats where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
+
+const byPlatform = bars({
+  label: "New orders by marketplace",
+  share: true,
+  compare: true,
+  query: async (c) => breakdown(await c.query(hourly), { by: "platform", value: "orders", keys: PLATFORMS, labels: Platform }),
 });
+
+const byDay = barChart(
+  "New orders by day",
+  async (c) => series(await c.query(hourly), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
+  { x: "date", labels: Platform, stacked: true },
+);
 ```
 
-See [Links](/docs/reference/widgets#links) for every target.
+Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL; `series` buckets in the admin's zone and fills gaps. `keys` keeps a platform with no orders in the comparison. Above about 50,000 rows, group by hour in SQL first. `ctx.sql` applies no scope or access rules: add tenant predicates yourself.
 
-## Widgets in detail tabs
+## Thresholds
 
-The same widgets render inside a detail tab. Give a `DetailTab` a `widgets` array instead of `fields`, and the tab draws them in the dashboard's grid; `columns` sets the grid width and defaults to 2.
+A `Threshold` says where a number turns bad. Pass the same object to metrics, bars, trackers and table columns:
 
 ```ts excerpt
-detail: {
-  tabs: [
-    {
-      key: "activity",
-      label: "Activity",
-      columns: 2,
-      widgets: [
-        stat("Orders", async (ctx) => countOrders(ctx.db, ctx.row?.id)),
-        bars({ label: "Spend by month", query: (ctx) => spendByMonth(ctx.db, ctx.row?.id) }),
-      ],
-    },
-  ],
-}
+import type { Threshold } from "@flowpanel/kit";
+
+export const RUN_ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
+export const SUCCESS: Threshold = { warn: 0.9, err: 0.8 };
 ```
 
-The one difference is `ctx.row`: on a detail tab it is the projected record being viewed, so a widget query scopes itself to that row. Everything else is the widget context a dashboard hands out — `db`, `session`, `link`, `labels` and the per-request `query` memo, so two widgets in the tab asking the same question query once. A detail tab has no date picker, so `ctx.dateRange` spans the record's whole lifetime.
+`warn` below `err` means higher is worse; above means lower is worse. Below `min` observations the value is muted.
 
-## Add a date range
+## Status and priorities
 
-Configure a dashboard date range when several queries should use the same interval. The resolved range arrives in each widget context. Treat it as a query input, not as authorization; tenant and role constraints still belong in their own policies.
+`tracker()` shows one row per key and one block per hour for the last 24 hours, coloured by a threshold. `banner()` lists problems by severity and says "all clear" when there are none:
 
-To narrow the whole page to one marketplace or source as well, declare dashboard
-filters; see [Filter the whole dashboard](/docs/build/analytics#filter-the-whole-dashboard).
+```ts excerpt
+tracker({ label: "Marketplaces · 24 h", query: hourly, at: "at", by: "platform", labels: Platform, value: errorRate, volume: "runs", tones: RUN_ERRORS, format: "percent", span: 12 });
 
-## Compare with the previous period
+banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
+```
 
-Give a metric `compare: true` and it runs its own query for the period before the
-picked one — yesterday up to now for Today, the same days of last month for Month to
-date — then shows the change, the value it compares against, and no colour for a
-change inside ±1 %. `compare: { against: "weekAgo" }` compares with the same range a
-week earlier. The query needs no second SQL statement and no `*Prev` field.
+## Filter the whole dashboard
 
-`bars()` takes the same `compare`: each row shows its change against the same row in
-the earlier period, matched by `key` or `label`. See
-[Analytics from one query](/docs/build/analytics#compare-bars-with-the-previous-period).
+A dashboard filter adds a select beside the date picker; widgets read it as `ctx.filters`. `filterOnClick` on bars, a tracker or a table sets it on click.
 
-## Keep the numbers fresh
+```ts excerpt
+import type { DashboardFilter } from "@flowpanel/kit";
 
-Set `refresh` to `"60s"` or `"5m"` when the dashboard is something an operator leaves open. FlowPanel re-renders the page on that interval, pauses while the browser tab is hidden, and shows how old the numbers are next to the date picker. Prefer it to per-widget `realtime` when the whole screen ages together; prefer `realtime` when one widget changes and the rest should stay put.
+const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
+```
 
-## Add actions
+Pass `filters: [byPlatform]` to the dashboard, bind `ctx.filters.platform` in the shared statement, and set `filterOnClick: "platform"` on the widgets.
 
-Dashboard actions appear in the page header and receive typed form input plus action context. Use them for operations that affect the dashboard domain rather than one visible row. See [Add actions](/docs/build/actions).
+## Links, freshness and refresh
 
-## Keep queries server-only
+- `drilldown: { resource: "ai_run", view: "Errors", range: "createdAt" }` links a number to its rows; see [Links](/docs/reference/widgets#links).
+- `maxRange`, `freshness` and `coverage` add a caption saying how old or complete the numbers are; see [Captions](/docs/reference/widgets#captions).
+- `refresh: "60s"` re-renders the page on an interval while the tab is visible. `realtime` on a widget re-runs only that widget on an event.
+- Dashboard `actions` appear in the page header.
 
-Widget functions run on the server with the configured database client, session, scope, and resolved date range. Return only the value or rows the widget needs. Do not pass database clients, sessions, or arbitrary server objects into custom client components.
-
-## Handle failure as part of the view
-
-Plan empty, loading, and error states for every custom widget. Keep expensive independent queries independent so one failure does not erase unrelated operational context. Add realtime only to widgets where a refresh changes a user decision; polling every metric through live events creates noise without improving the workflow.
-
-See [Widgets and dashboards reference](/docs/reference/widgets) for generated builders and option types, and [Charts](/docs/customization/charts) for presentation guidance.
+Every option: [Widgets reference](/docs/reference/widgets).

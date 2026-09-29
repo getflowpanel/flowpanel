@@ -1,4 +1,4 @@
-# flowpanel — Reference — Scope & realtime
+# FlowPanel — Reference — Scope & realtime
 
 ## Scope & realtime
 
@@ -8,20 +8,19 @@ Docs: https://flowpanel.tech/docs/reference/scope-realtime
 
 Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher, createRealtimeTransport, createPublisher, PublisherClient, RedisLike, ResourceChange, encodeEnvelope, decodeEnvelope, RateLimiter
 
-Three small contracts that sit under the rest of the framework: how a request is
-narrowed to a tenant, how realtime messages travel between instances, and how
-throttling counts.
+Tenant scope, the realtime publisher, and the rate limiter.
 
 ### Scope
 
 A scope is resolved once per request and applied by the adapter to every query.
+Guide: [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 
 ```ts excerpt
 type Scope = Record<string, unknown> | null;
 type Session = Record<string, unknown>;
 ```
 
-`AdminConfig.scope` receives:
+`AdminDefinition.scope` receives:
 
 `ScopeContext`
 
@@ -37,16 +36,14 @@ defineAdmin({
 });
 ```
 
-The returned object reaches every context as `ctx.scope`, and the adapter turns
-it into a predicate on `ctx.applyScope`.
+The returned object reaches every context as `ctx.scope`, and the adapter
+receives the resource's predicate bound to it as `ctx.boundScope`.
 
 #### The opt-out is mandatory
 
-Once an admin declares a global `scope`, every resource must say what it does
-with it — use it, or opt out with `scope: "bypass"`. A resource that says
-nothing throws `FlowpanelAccessError` when it is first queried, rather than
-serving another tenant's rows. That is a per-request failure, not a startup
-one: `defineAdmin` is pure and runs no such check.
+With a global `scope`, every resource declares its own `scope` or
+`scope: "bypass"`. One that does neither throws `FlowpanelAccessError` on its first
+query.
 
 `ScopeCheckInput`
 
@@ -55,17 +52,14 @@ one: `defineAdmin` is pure and runs no such check.
 | `hasGlobal` | `boolean` |  |
 | `resourceScope` | `"bypass" \| ((...args: unknown[]) => unknown) \| undefined` |  |
 
-That check runs for you inside the request prologue. You only call it directly
-when writing an adapter or a route of your own.
-
-See [Multi-tenant scope](/docs/guides/multi-tenant-scope) for the full setup.
+FlowPanel runs this check per request; call it only in your own adapter or route.
 
 ### Publisher
 
-The realtime transport. `createRealtimeTransport` builds one from `AdminConfig.realtime`;
-implement the interface yourself to sit on a bus FlowPanel does not ship. A worker publishes
-through `createPublisher` from `@flowpanel/kit/publish` instead; the root's `createPublisher` is a
-deprecated alias of `createRealtimeTransport`.
+The realtime transport, built from `AdminDefinition.realtime` by
+`createRealtimeTransport`. Implement it for another bus. Guide:
+[Realtime](/docs/guides/realtime). A worker uses `createPublisher` from
+`@flowpanel/kit/publish` instead.
 
 `Publisher`
 
@@ -81,50 +75,24 @@ type PublisherOptions =
   | { driver: "redis"; url?: string; client?: RedisLike; keyPrefix?: string };
 ```
 
-The memory driver only reaches the process that published, so a second instance
-never sees the message. That is fine locally and wrong in production — use the
-Redis driver whenever more than one instance serves the admin. The Redis
-driver loads `ioredis` on first use and throws if it is not installed; it is an
-optional peer dependency.
+The memory driver reaches only the publishing process. The Redis driver loads the
+optional `ioredis` peer on first use and needs `url` or `client`; with `client`,
+FlowPanel publishes on it and calls `duplicate()` only to subscribe. Nothing
+connects until the first publish or subscribe. Connection errors are logged once
+per kind and never rethrown.
 
-The redis driver needs one of `url` or `client`, and says which is missing if it
-gets neither. `client` takes an `ioredis`-compatible instance you already
-configured — TLS, a sentinel, a retry strategy — and FlowPanel then opens no
-connection of its own for publishing; it calls `duplicate()` only when something
-subscribes, because a subscribed Redis connection can run no other command.
-Whichever you pass, nothing connects until the first publish or subscribe:
-`defineAdmin` stays pure.
+`keyPrefix` defaults to `"flowpanel"`, so `resource.orders` travels as
+`flowpanel:resource.orders`. Use one channel per payload shape. Payloads are
+JSON in every driver, so a `Date` arrives as an ISO string, and a payload that
+cannot be encoded is rejected.
 
-Every connection gets an `error` listener, because an unhandled `error` on a
-Redis connection is what takes a Node process down. It logs one line per error
-kind rather than one per reconnect attempt, and never rethrows.
-
-`keyPrefix` namespaces channels when several admins share a Redis, and it
-defaults to `"flowpanel"` — the wire channel for `resource.orders` is
-`flowpanel:resource.orders` unless you set it. It never changes the logical
-channel name application code sees. The rate limiter has its own, unrelated
-default prefix: `"fp:rl:"`.
-
-Routing is by channel: one channel carries one payload shape, so use a distinct
-channel per event kind rather than multiplexing shapes onto one. On the Redis hop
-the message body is the payload as JSON — an empty string when there is no
-payload — and the channel is the Redis channel name; the `{ channel, payload }`
-envelope is added by `stream()` on the way to the browser, and only there. A
-payload is serialized in every driver, so the memory driver delivers what Redis
-would: a `Date` arrives as an ISO string in development too, and a payload that
-cannot be JSON-encoded is rejected with the channel and the reason named,
-whether or not this process has a subscriber.
-
-`close()` releases the connections a publisher opened; a `client` you passed in
-stays yours, and the `error` listener FlowPanel added to it is removed. A closed
-publisher stays closed: `subscribe` opens no connection and hands back a no-op
-disposer, and `publish` throws rather than returning quietly.
+`close()` releases connections the publisher opened; a `client` you passed stays
+open. After `close()`, `publish` throws.
 
 #### Publishing from a worker
 
-A process that only publishes — a worker, a cron job, a script — imports
-`@flowpanel/kit/publish` and nothing else. It needs no admin config, no adapter
-and no Next.js, and it opens exactly one connection.
+A worker, cron job or script imports only `@flowpanel/kit/publish` and opens one
+connection.
 
 `PublisherClient`
 
@@ -159,39 +127,24 @@ const events = createPublisher({ redis: process.env.REDIS_URL!, onError: report 
 await events.resource("orders", { id });
 ```
 
-`createPublisher` also takes the admin's own `{ driver: "redis", url, keyPrefix }` options. A transport error resolves the call and reaches `onError` (or one log line per error kind); publishing after `close()` throws. A client's `duplicate()` is used for subscribing only when it returns a connection with `subscribe`, `unsubscribe` and `on`.
+It also takes the admin's `{ driver: "redis", url, keyPrefix }` options. A
+transport error resolves the call and reaches `onError`.
 
-The SSE envelope is exported next to it, for a consumer that reads the stream
-without going through FlowPanel's own client:
+The SSE envelope helpers, for reading the stream without FlowPanel's client:
 
-`decodeEnvelope` returns `null` for a frame that is not a channelled envelope,
-which is how the browser bus drops a foreign frame instead of handing a
-subscriber something it cannot read.
-
-See [Realtime with Redis](/docs/guides/realtime-with-redis#publish-from-an-external-worker).
+`decodeEnvelope` returns `null` for a frame that is not an envelope.
 
 #### The memory driver in a Redis deployment
 
-The publisher is bound per process from `config.realtime`, and rebinds when those
-options change, including a `client` that is a different instance than the bound
-one — an HMR edit to `realtime` takes effect without restarting the dev server,
-while the same config arriving as a different object from another route bundle
-does not disturb subscribers that are already connected.
-
-Binding also warns, once per process, when the driver resolves to `memory` while
-`REDIS_URL` or `FLOWPANEL_REDIS_URL` is set in the environment:
+The publisher is bound per process from `config.realtime` and rebinds when the
+options change. It warns once when the driver is `memory` while `REDIS_URL` or
+`FLOWPANEL_REDIS_URL` is set:
 
 ```
 [flowpanel] realtime driver is memory while REDIS_URL is set — other instances
 and workers will not receive events; set realtime: { driver: 'redis', url:
 process.env.REDIS_URL } in defineAdmin
 ```
-
-That is the one misconfiguration that looks entirely healthy: every publish
-succeeds, the tab that made the change refreshes, and no other instance or tab
-ever hears about it.
-
-See [Realtime in production](/docs/guides/realtime).
 
 ### RateLimiter
 
@@ -205,10 +158,6 @@ See [Realtime in production](/docs/guides/realtime).
 function createRateLimiter(opts: RateLimitOptions): RateLimiter;
 ```
 
-`check` returns `false` when the caller is over the limit, and the request
-prologue turns that into a `429`. The key is derived from
-`AuthConfig.userId` for `per: "user"`, falling back to the IP when the session
-carries no id.
-
-Like the publisher, the memory driver counts per process — a limit of 100 across
-four instances is really 400 until you move to Redis.
+`check` returns `false` over the limit, which becomes a `429`. With `per: "user"`
+the key is `AuthConfig.userId`, or the IP without one. The memory driver counts
+per process; its Redis key prefix defaults to `"fp:rl:"`.

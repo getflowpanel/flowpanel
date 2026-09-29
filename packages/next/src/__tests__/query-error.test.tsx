@@ -191,4 +191,24 @@ describe("QueryErrorCard", () => {
     });
     expect((card.props as { "data-fp-error"?: string })["data-fp-error"]).toBe("");
   });
+
+  it("keeps the cause behind a closed disclosure in development", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const config = admin(adapterThatFails("list", null));
+    const card = QueryErrorCard({
+      site: { config, resource: "orders", operation: "list", requestId: "r1" },
+      cause: new Error('column "emial" does not exist'),
+    });
+    const details = findDetails(card);
+    expect(details?.props.open).toBeUndefined();
+    expect(textOf(details)).toContain("Details");
+    expect(textOf(details)).toContain('column "emial" does not exist');
+  });
 });
+
+function findDetails(tree: ReactNode): ReactElement<{ open?: boolean }> | undefined {
+  if (Array.isArray(tree)) return tree.map(findDetails).find(Boolean);
+  if (!isValidElement(tree)) return undefined;
+  if (tree.type === "details") return tree as ReactElement<{ open?: boolean }>;
+  return findDetails((tree.props as { children?: ReactNode }).children);
+}

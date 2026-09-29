@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import type { Adapter, AdminConfig } from "@flowpanel/core";
+import type { Adapter, AdminDefinition } from "@flowpanel/core";
 import { defineAdmin, FlowpanelAccessError, FlowpanelAuthError, resource } from "@flowpanel/core";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -24,7 +24,7 @@ const adapter: Adapter = {
   delete: async () => undefined,
 };
 
-function admin(extra: Partial<AdminConfig>, signedIn: boolean) {
+function admin(extra: Partial<AdminDefinition>, signedIn: boolean) {
   return defineAdmin({
     adapter,
     auth: {

@@ -1,4 +1,4 @@
-# flowpanel — Reference — Type registry
+# FlowPanel — Reference — Type registry
 
 ## Type registry
 
@@ -6,9 +6,8 @@ FlowpanelTypes, FlowpanelResources, and the types that resolve through them.
 
 Docs: https://flowpanel.tech/docs/reference/registry
 
-FlowPanel ships no code generator. Everything it knows about *your* types, it
-learns from the database client, the Drizzle schema and the auth instance you
-already have, registered once:
+FlowPanel takes your types from the database client, Drizzle schema and auth
+instance you register once, with no code generator:
 
 ```ts excerpt
 import type { auth } from "@/lib/auth";
@@ -24,15 +23,11 @@ declare module "@flowpanel/kit" {
 }
 ```
 
-Both registry interfaces are declared in `@flowpanel/core` and re-exported by
-`@flowpanel/kit`. Augment whichever specifier you actually import — declaration
-merging targets the module you name, and for a kit install that is `"@flowpanel/kit"`.
-
-Everything on this page is **opt-in**. Leave the interfaces empty and the
-framework still runs; the types simply degrade to `unknown` / `string` /
-`Record<string, unknown>`, and the checks move from compile time to
-`defineAdmin`'s
-[introspect-time validation](/docs/build/resources#typos-and-column-validation).
+Augment the module you import from, `"@flowpanel/kit"` for a kit install. Put the
+block in one file that TypeScript includes, such as `flowpanel.config.ts`. Every
+entry is optional: without it the types fall back to `unknown`, `string` or
+`Record<string, unknown>`, and `defineAdmin` still
+[checks names at startup](/docs/build/resources#typos-and-column-validation).
 
 ### FlowpanelTypes
 
@@ -48,8 +43,7 @@ interface FlowpanelTypes {}
 type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;
 ```
 
-`InferDB` is the **default** `Db` parameter on three declarations, which is
-where augmenting it pays off:
+`InferDB` is the default `Db` parameter of:
 
 | Declaration | Reached from |
 | --- | --- |
@@ -57,42 +51,22 @@ where augmenting it pays off:
 | `ActionContext<Db = InferDB>` | every row / bulk / dashboard / drawer action `run` — those signatures name `ActionContext<InferDB>` explicitly |
 | `Adapter<DB = InferDB, Ref>` | the adapter's own `db` property |
 
-Augment `FlowpanelTypes["db"]` once and all three carry your real client with
-no per-callsite annotation; skip it and they are `unknown`, so every use needs
-a cast.
-
-```ts excerpt
-declare module "@flowpanel/kit" {
-  interface FlowpanelTypes {
-    db: typeof db;
-  }
-}
-```
-
-The adapter-facing contexts — `QueryContext<Db = unknown>` and the
-`ListQueryContext` / `ItemQueryContext` / `MutationContext` built on it —
-default their `Db` to `unknown` instead, and take it as an explicit parameter.
-An adapter binds it once (`ListQueryContext<Row, MyDb>`); a `FieldDef.options`
-or `defaultValue` resolver, which receives a bare `QueryContext`, sees
-`ctx.db` as `unknown` and has to narrow it.
+The adapter contexts (`QueryContext` and those built on it) default `Db` to
+`unknown`, and carry no client: a `FieldDef.options` or `defaultValue` resolver
+queries through your own `db` import.
 
 #### schema
 
-Register the Drizzle schema module and every table and view in it becomes a
-resource name with its row — `SchemaResources` — keyed by the SQL name, the name
-`defineAdmin` uses: `pgTable("user_visit", …)` is `"user_visit"`. `ResourceName`,
-`RowOf`, `InferRow` and `ReferenceSpec` all read it, so `ctx.count("user_vist")`,
-`ctx.read("user_visit", { where: { usrId } })` and a `reference` to a missing
-column fail to compile. A schema table that is not registered as a resource
-type-checks as a name; `defineAdmin` and `ctx.count` still reject it at run time
-with the registered names.
+Register the Drizzle schema and every table and view becomes a resource name with
+its row, keyed by SQL name: `pgTable("user_visit", …)` is `"user_visit"`.
+`ResourceName`, `RowOf`, `InferRow` and `ReferenceSpec` read it, so a misspelt name
+in `ctx.count`, `ctx.read` or a `reference` fails to compile.
 
 #### session
 
-Register the session type — for better-auth, `typeof auth.$Infer.Session` — and
-`Session` is that type everywhere: `ctx.session`, `auth.role`, `auth.userId`,
-`requireRole`, `withBetterAuth({ role })`, `theme`, scope callbacks. Without it,
-`Session` is `Record<string, unknown>`.
+Register the session type (`typeof auth.$Infer.Session` for better-auth) and
+`Session` is that type in `ctx.session`, `auth` callbacks, `theme` and scope
+callbacks. Otherwise it is `Record<string, unknown>`.
 
 #### RowOf
 
@@ -100,21 +74,24 @@ Register the session type — for better-auth, `typeof auth.$Infer.Session` — 
 type RowOf<N extends string> = N extends keyof AllResources ? AllResources[N] : Record<string, unknown>;
 ```
 
-The row of a known resource — what `ctx.read`, `ctx.rowOf`, a link's `filter` and a
-count metric's `where` are keyed by.
+The row of a known resource.
 
 ### FlowpanelResources
 
-A map of **resolved resource name → row type**. "Resolved" is the name
-`defineAdmin` keys the resource by: a Drizzle table declared
-`pgTable("ai_usage", …)` is `"ai_usage"` even when the exported variable is
-`aiUsage`, unless the resource sets `options.name`.
+A map of resource name to row type, keyed by the name `defineAdmin` uses (the SQL
+table name unless `options.name` is set). With Prisma, register every model here:
 
-With `schema` registered, you only need an entry here for a resource renamed with
-`options.name` — for example a resource named `"user"` over the view
-`admin_user_row`: `user: typeof schema.adminUserRow.$inferSelect`. An entry replaces
-the schema's row under the same name; it never intersects with it. For Prisma, which
-has no table objects, this is still the whole registry.
+```ts excerpt
+declare module "@flowpanel/kit" {
+  interface FlowpanelResources {
+    User: import("@prisma/client").User;
+  }
+}
+```
+
+With a registered Drizzle `schema`, add an entry only for a renamed resource, such
+as `user: typeof schema.adminUserRow.$inferSelect`. An entry replaces the schema's
+row of the same name.
 
 ```ts excerpt
 interface FlowpanelResources {}
@@ -130,18 +107,8 @@ type InferRow<Ref> = Ref extends { $inferSelect: infer R }
     : Record<string, unknown>;
 ```
 
-This is what turns `resource(ref, options)` into
-`ResourceOptions<InferRow<Ref>>`, and therefore what makes `columns`,
-`search`, `filters[].field`, `defaultSort.field`, `rowKey`, and every
-`FieldDef.name` type-check against real column names. Three cases, in order:
-
-1. **A Drizzle table** — anything with `$inferSelect` — resolves through it,
-   with no registry entry needed.
-2. **A string ref** that is a key of `FlowpanelResources` resolves to that row
-   type. This is the Prisma path: `resource("User", …)` needs
-   `interface FlowpanelResources { User: User }`.
-3. **Anything else** falls back to `Record<string, unknown>`, whose keys are
-   `string` — loose, but it compiles.
+`resource(ref, options)` types `options` by `InferRow<Ref>`: a Drizzle table's
+`$inferSelect`, a registered name's row, or `Record<string, unknown>`.
 
 #### ResourceName
 
@@ -151,12 +118,8 @@ type ResourceName = [keyof AllResources] extends [never]
   : keyof AllResources & string;
 ```
 
-The type of every place one config points at *another* resource by name: a
-drawer or detail tab's `resource`, and a `table({ resource })` widget. While
-the registry is empty it is plain `string`, so nothing breaks for apps that
-never augment it. Add one entry and every such string is checked against the
-registry — with a "Did you mean?" suggestion from `defineAdmin` on top, which
-runs whether or not the compiler caught it.
+The type of a resource name used elsewhere in config: a tab's `resource`, a
+`table({ resource })`, `ctx.count`. Plain `string` while the registry is empty.
 
 #### ReferenceSpec
 
@@ -171,38 +134,10 @@ type ReferenceSpec = [keyof AllResources] extends [never]
     }[keyof AllResources];
 ```
 
-A foreign-key target, used by `ColumnDef.reference` (renders the FK as a
-looked-up label linking to the target row) and `FieldDef.reference` (renders a
-searchable picker).
-
-The augmented form is a **distributed** union, which is the point: it pairs
-each resource name with that resource's *own* keys, so `labelField` cannot
-name a column of a different table.
+A foreign-key target for `ColumnDef.reference` and `FieldDef.reference`.
+`labelField` must be a column of the named resource.
 
 ```ts excerpt
 { field: "userId", reference: { resource: "users", labelField: "email" } }
 //                                                  ^ keyof users row, not of orders
 ```
-
-Unaugmented, both members are plain `string` and nothing is checked at compile
-time.
-
-### What this buys you, per level
-
-| Augmented | `ctx.db` | Column names | Cross-resource names |
-| --- | --- | --- | --- |
-| Nothing | `unknown` | Drizzle: checked. Prisma: `string` | `string` |
-| `FlowpanelTypes.db` | your client | unchanged | unchanged |
-| `FlowpanelResources` | unchanged | checked for string refs too | checked, with suggestions |
-
-`defineAdmin` re-checks resource names and column names at config time in
-every row of that table, so the registry buys you *earlier* errors, not the
-only errors.
-
-### Where to put the augmentation
-
-One place. `declare module` merges globally, so repeating the block per
-resource file only risks conflicting entries — keep it in
-`flowpanel.config.ts`, or in a dedicated `flowpanel.d.ts` that is included by
-your `tsconfig.json`. See
-[One resource per file](/docs/build/configuration#one-resource-per-file).

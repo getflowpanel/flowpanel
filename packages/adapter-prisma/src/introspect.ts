@@ -60,8 +60,7 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
       unique: field.isUnique,
       primaryKey: field.isId,
       readable: true,
-      // An id with a default (autoincrement/cuid/uuid) is database-generated;
-      // a non-id default stays writable.
+      // An id with a default (autoincrement/cuid/uuid) is database-generated.
       writableOnCreate: !(field.isId && field.hasDefault),
       writableOnUpdate: !field.isId,
       generated: field.isId && field.hasDefault,

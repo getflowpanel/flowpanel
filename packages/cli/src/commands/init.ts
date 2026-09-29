@@ -73,11 +73,7 @@ const REQUIRED_DEPS: ReadonlyArray<DependencyRequirement> = [
   { pkg: "@flowpanel/cli", dev: true },
 ];
 
-/**
- * Spawns the detected package manager's `add` in `cwd`. Output is captured rather
- * than discarded: when an install fails the reason is almost always one line of
- * the manager's own stderr, and swallowing it leaves the user with nothing to act on.
- */
+// Output is captured, not discarded: a failure's reason is almost always one line of stderr.
 function runInstall(
   bin: string,
   args: string[],
@@ -324,8 +320,7 @@ export function initCommand(cli: Command): void {
       const configuredMount = await readAdminMount(cwd);
       if (!opts.path && configuredMount.error) failInit(opts, configuredMount.error);
       let adminPath = normalizeAdminPath(opts.path ?? configuredMount.path ?? "/admin");
-      // An existing config may mount the handlers elsewhere; a dynamic value is
-      // unknown, and scaffolding the default over it would be a guess.
+      // A dynamic mount value is unknown, and scaffolding the default over it would be a guess.
       if (configuredMount.api === null) {
         failInit(
           opts,
@@ -400,8 +395,7 @@ export function initCommand(cli: Command): void {
         "flowpanel/migrations/0001_init.sql": await tpl("migration.sql.txt"),
       };
 
-      // Nothing on disk exports getSession, so the config above imports a path
-      // that has to be created too — otherwise every later step dies on it.
+      // Nothing on disk exports getSession, so the imported path must be created too.
       const sessionStubFile = authPlan?.file ?? guessedAuthFile(aliasMode);
       if (authPlan) files[sessionStubFile] = await tpl(authPlan.template, authPlan.vars);
       else if (sessionStub)
@@ -415,9 +409,7 @@ export function initCommand(cli: Command): void {
         aliasMode === "none"
           ? path.relative(adminLayoutDir, cssRel).split(path.sep).join("/")
           : "@/styles/admin.css";
-      // A project with route-group root layouts needs a root for this new
-      // segment too. In either case, never rewrite the host's root layout,
-      // except to add suppressHydrationWarning below (ThemeScript needs it).
+      // Never rewrite the host's root layout, except to add suppressHydrationWarning (ThemeScript needs it).
       files[`${adminLayoutDir}/layout.tsx`] = await tpl(
         existingLayout ? "admin-layout.tsx.txt" : "app-layout.tsx.txt",
         {

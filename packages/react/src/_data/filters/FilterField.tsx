@@ -2,11 +2,7 @@
 import type * as React from "react";
 import { cn } from "../../lib/cn";
 
-/**
- * Chrome for a filter control: the label lives *inside* the pill, divided from
- * the value. One row instead of two, and the filter row reads as a sentence
- * ("Plan: All") rather than a stack of captions floating over inputs.
- */
+/** Chrome for a filter control: the label lives *inside* the pill, so the row reads as a sentence ("Plan: All"). */
 export interface FilterFieldProps {
   label?: string | undefined;
   /** Points the label at the control when the control is a single form element. */
@@ -17,11 +13,7 @@ export interface FilterFieldProps {
   className?: string;
 }
 
-/**
- * Strips a control's own chrome *and* its horizontal padding, so the pill is
- * the single source of spacing. A control that keeps its own `px` stacks it on
- * top of the pill's and the gaps stop matching between filters.
- */
+/** Strips a control's own chrome and horizontal padding, so the pill is the single source of spacing. */
 export const BARE_CONTROL =
   "h-11 gap-2 border-0 bg-transparent px-0 shadow-none focus:border-0 focus:ring-0 focus-visible:ring-0 hover:border-0 sm:h-8";
 

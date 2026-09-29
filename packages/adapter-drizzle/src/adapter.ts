@@ -1,5 +1,4 @@
-// LOC-OK: one adapter contract implementation — the dialect branches inside
-// list/create/update only make sense read together.
+// LOC-OK: one adapter contract implementation; the dialect branches in list/create/update only make sense read together.
 import type {
   Adapter,
   ItemQueryContext,
@@ -71,8 +70,6 @@ type WhereContext = Pick<ListQueryContext<unknown>, "filters"> &
 
 interface ScopeContext {
   boundScope?: { apply(query: unknown): unknown };
-  applyScope?: (query: unknown) => unknown;
-  scopeRequired?: boolean;
 }
 
 type DrizzleColumnLike = AnyColumn & {
@@ -93,9 +90,7 @@ export interface DrizzleAdapterOptions<DB = unknown> {
   /** Inferred from `schema` when omitted. */
   dialect?: DrizzleDialect;
   /**
-   * Read zoneless `YYYY-MM-DD HH:mm:ss` strings in a `ctx.sql` result as UTC
-   * `Date`s. Turn it off when a text column of your own holds timestamp-shaped
-   * strings that `select *` cannot cast.
+   * Reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s; turn off if a text column holds timestamp-shaped strings `select *` cannot cast.
    * @defaultValue true
    */
   parseDates?: boolean;
@@ -105,7 +100,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
   const dialect = resolveDialect(opts);
   const migrationMethods = createMigrationMethods(opts.db as MigrationDb, dialect);
 
-  function getDb(ctx: { db?: unknown }): DrizzleLikeDb {
+  function getDb(ctx: { db?: unknown } = {}): DrizzleLikeDb {
     return (ctx.db ?? opts.db) as DrizzleLikeDb;
   }
 
@@ -126,9 +121,9 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
       },
     };
     applyScope(probe);
-    if (ctx.scopeRequired && captured.length === 0) {
+    if (captured.length === 0) {
       throw new FlowpanelAccessError(
-        "scope required but the bound Drizzle predicate added no where clause. " +
+        "the bound Drizzle scope predicate added no where clause. " +
           "Refusing to run an unscoped query.",
       );
     }
@@ -256,8 +251,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
           );
         });
       if (textCols.length) {
-        // `%`/`_` in user input are literals, not wildcards; `!` needs no
-        // dialect-specific quoting as the ESCAPE character.
+        // `%`/`_` in user input are literals, not wildcards; `!` is the ESCAPE character.
         const escaped = ctx.search.replace(/[!%_]/g, "!$&");
         const pattern = `%${escaped}%`;
         const ors = textCols.map((c) =>
@@ -288,7 +282,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
 
     async list(ref, ctx): Promise<ListResult<unknown>> {
       const cols = columnsOf(ref) as ColumnsRecord;
-      const db = getDb(ctx);
+      const db = getDb();
       const selected = projection(cols, ctx.select);
       const where = buildWhere(cols, ctx);
       const sortField = ctx.sort?.field;
@@ -321,7 +315,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
 
     async get(ref, ctx: ItemQueryContext) {
       const cols = columnsOf(ref) as ColumnsRecord;
-      const db = getDb(ctx);
+      const db = getDb();
       const pk = pkFor(cols);
       const pkCol = cols[pk];
       if (!pkCol) return null;

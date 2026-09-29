@@ -9,10 +9,8 @@ export interface UrlState {
 }
 
 /**
- * Query state for surfaces that fetch their own data — the drawer and the create
- * panel. Writes go through the History API rather than the router: Next syncs
- * `useSearchParams` from it, so the URL stays shareable without paying for a
- * server round-trip the caller does not read anything from.
+ * Query state for surfaces that fetch their own data — the drawer and the create panel.
+ * Writes go through the History API, not the router, so the URL stays shareable without a wasted server round-trip.
  */
 export function useUrlState(): UrlState {
   const pathname = usePathname();

@@ -151,12 +151,7 @@ export function smokeFailure(report: SmokeAdminReport, failures: string[]): Erro
   );
 }
 
-/**
- * The session has to be there before the first page the walk inspects, or the
- * report describes the sign-in screen: its console errors and its axe violations
- * would be attributed to the admin. Without an explicit `domain` the cookie needs
- * an origin, so the walk loads `basePath` once without looking at it.
- */
+// The session must exist before the first page inspected, or errors get attributed to the sign-in screen instead.
 async function applyCookie(
   page: SmokePage,
   basePath: string,

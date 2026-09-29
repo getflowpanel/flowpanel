@@ -53,8 +53,7 @@ export function createFlowpanel<const Resources extends readonly AnyResourceConf
     metadata: flowpanelMetadata(config),
     handlers: createHandlers(config),
     request,
-    // `api` is what a browser fetches, so it carries the deployment basePath;
-    // `admin` is what Link navigates to, and the router prefixes that itself.
+    // `api` is what a browser fetches, so it carries the basePath; `admin` is prefixed by the router itself.
     client: serializeClientMetadata({
       ...config,
       paths: { ...config.paths, api: withDeploymentBasePath(config.paths.api) },

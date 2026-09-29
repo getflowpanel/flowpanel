@@ -155,15 +155,6 @@ describe("resolveLink — strings and functions", () => {
     vi.restoreAllMocks();
   });
 
-  it("takes the deprecated ctx.href as framework-built, so it never warns", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const c = ctx();
-    expect(resolveLink(config, c, c.href("scraper_run", 7, { tab: "log" }))).toBe(
-      "/admin/scraper_run/7?tab=log",
-    );
-    expect(warn).not.toHaveBeenCalled();
-  });
-
   it("uses a string as written and warns once when it spells the mount", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(resolveLink(config, ctx(), "/admin/scraper_run?x=1")).toBe("/admin/scraper_run?x=1");

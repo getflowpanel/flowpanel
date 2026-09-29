@@ -77,14 +77,14 @@ describe("prismaAdapter tenant scope enforcement", () => {
     await adapter.list("Item", {
       ...baseCtx,
       select: ["id"],
-      applyScope: applyScopeC1,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
     expect(_d.findMany).toHaveBeenCalledWith(expect.objectContaining({ select: { id: true } }));
     await adapter.get("Item", {
       id: "i1",
       db: undefined,
       select: ["id"],
-      applyScope: applyScopeC1,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
     expect(_d.findFirst).toHaveBeenCalledWith(expect.objectContaining({ select: { id: true } }));
     await expect(
@@ -109,8 +109,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
       pageSize: 2,
       select: [],
       filters: { name: "A" },
-      applyScope: applyScopeC1,
-      scopeRequired: true,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
     expect(listed).toEqual({ rows: [{}], total: 3, page: 2, pageSize: 2 });
     expect(_d.count).toHaveBeenCalledWith({ where: { name: "A", companyId: "c1" } });
@@ -122,7 +121,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
         id: "i1",
         db: undefined,
         select: [],
-        applyScope: applyScopeC1,
+        boundScope: bindAdapterScope(applyScopeC1),
       } as never),
     ).toEqual({});
     expect(
@@ -130,7 +129,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
         id: "i3",
         db: undefined,
         select: [],
-        applyScope: applyScopeC1,
+        boundScope: bindAdapterScope(applyScopeC1),
       } as never),
     ).toBeNull();
     expect(_d.count).toHaveBeenLastCalledWith({ where: { id: "i3", companyId: "c1" } });
@@ -147,8 +146,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
     await adapter.list("Item", {
       ...baseCtx,
       filters: { name: "A" },
-      applyScope: applyScopeC1,
-      scopeRequired: true,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
 
     expect(_d.findMany).toHaveBeenCalledWith(
@@ -165,7 +163,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
     const row = await adapter.get("Item", {
       id: "i3",
       db: undefined,
-      applyScope: applyScopeC1,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
 
     expect(row).toBeNull();
@@ -197,7 +195,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
       id: "i3",
       input: { name: "HACK" },
       db: undefined,
-      applyScope: applyScopeC1,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
 
     expect(result).toBeNull();
@@ -218,7 +216,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
       id: "i1",
       input: { name: "A2" },
       db: undefined,
-      applyScope: applyScopeC1,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
 
     expect(result).toEqual({ id: "i1", companyId: "c1", name: "A2" });
@@ -233,14 +231,14 @@ describe("prismaAdapter tenant scope enforcement", () => {
       id: "i3",
       input: {},
       db: undefined,
-      applyScope: applyScopeC1,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
 
     expect(_d.deleteMany).toHaveBeenCalledWith({ where: { id: "i3", companyId: "c1" } });
     expect(_d.delete).not.toHaveBeenCalled();
   });
 
-  it("soft delete uses updateMany with merged scope when applyScope set", async () => {
+  it("soft delete uses updateMany with merged scope when a scope is bound", async () => {
     const { item, _d } = makeMock();
     _d.updateMany.mockResolvedValue({ count: 0 });
     const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
@@ -250,7 +248,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
       input: {},
       softDelete: { column: "deletedAt" },
       db: undefined,
-      applyScope: applyScopeC1,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
 
     expect(_d.updateMany).toHaveBeenCalledOnce();
@@ -270,7 +268,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
       input: {},
       softDelete: { column: "deletedAt" },
       db: undefined,
-      applyScope: applyScopeC1,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
 
     expect(_d.updateMany).toHaveBeenCalledWith({
@@ -296,28 +294,6 @@ describe("prismaAdapter tenant scope enforcement", () => {
     expect(_d.updateMany).not.toHaveBeenCalled();
   });
 
-  it("FAIL-CLOSED: restore throws when scopeRequired && no applyScope", async () => {
-    const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
-    await expect(
-      adapter.restore!("Item", {
-        id: "i1",
-        input: {},
-        softDelete: { column: "deletedAt" },
-        db: undefined,
-        scopeRequired: true,
-      } as never),
-    ).rejects.toBeInstanceOf(FlowpanelAccessError);
-  });
-
-  it("FAIL-CLOSED: list throws when scopeRequired && no applyScope", async () => {
-    const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
-    await expect(
-      adapter.list("Item", { ...baseCtx, scopeRequired: true } as never),
-    ).rejects.toBeInstanceOf(FlowpanelAccessError);
-  });
-
   it("FAIL-CLOSED: rejects ineffective or malformed bound scope predicates", async () => {
     const { item } = makeMock();
     const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
@@ -325,60 +301,23 @@ describe("prismaAdapter tenant scope enforcement", () => {
     await expect(
       adapter.list("Item", {
         ...baseCtx,
-        scopeRequired: true,
-        applyScope: (where: unknown) => where,
+        boundScope: bindAdapterScope((where: unknown) => where),
       } as never),
     ).rejects.toThrow(/returned the input unchanged/);
     await expect(
       adapter.get("Item", {
         id: "i1",
         db: undefined,
-        scopeRequired: true,
-        applyScope: () => undefined,
+        boundScope: bindAdapterScope(() => undefined),
       } as never),
     ).rejects.toThrow(/must return a where\/data object/);
     await expect(
       adapter.get("Item", {
         id: "i1",
         db: undefined,
-        scopeRequired: true,
-        applyScope: () => ({ companyId: "c1" }),
+        boundScope: bindAdapterScope(() => ({ companyId: "c1" })),
       } as never),
     ).rejects.toThrow(/removed required key "id"/);
-  });
-
-  it("FAIL-CLOSED: get throws when scopeRequired && no applyScope", async () => {
-    const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
-    await expect(
-      adapter.get("Item", { id: "i1", db: undefined, scopeRequired: true } as never),
-    ).rejects.toBeInstanceOf(FlowpanelAccessError);
-  });
-
-  it("FAIL-CLOSED: update throws when scopeRequired && no applyScope", async () => {
-    const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
-    await expect(
-      adapter.update("Item", {
-        id: "i1",
-        input: { name: "x" },
-        db: undefined,
-        scopeRequired: true,
-      } as never),
-    ).rejects.toBeInstanceOf(FlowpanelAccessError);
-  });
-
-  it("FAIL-CLOSED: delete throws when scopeRequired && no applyScope", async () => {
-    const { item } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
-    await expect(
-      adapter.delete!("Item", {
-        id: "i1",
-        input: {},
-        db: undefined,
-        scopeRequired: true,
-      } as never),
-    ).rejects.toBeInstanceOf(FlowpanelAccessError);
   });
 
   it("create merges the resolved scope into insert data, overriding client input", async () => {
@@ -390,7 +329,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
     await adapter.create("Item", {
       input: { name: "New", companyId: "c2" },
       db: undefined,
-      applyScope: applyScopeC1,
+      boundScope: bindAdapterScope(applyScopeC1),
     } as never);
 
     expect(_d.create).toHaveBeenCalledWith({
@@ -409,7 +348,7 @@ describe("prismaAdapter tenant scope enforcement", () => {
       const promise = adapter.create("Item", {
         input: { name: "New" },
         db: undefined,
-        applyScope,
+        boundScope: bindAdapterScope(applyScope),
       } as never);
       await expect(promise).rejects.toBeInstanceOf(FlowpanelAccessError);
       await expect(promise).rejects.toThrow(/as a filter rather than a single value/);
@@ -428,20 +367,6 @@ describe("prismaAdapter tenant scope enforcement", () => {
     } as never);
 
     expect(_d.create).toHaveBeenCalledWith({ data: { name: "New", companyId: "c2" } });
-  });
-
-  it("FAIL-CLOSED: create throws when scopeRequired && no applyScope", async () => {
-    const { item, _d } = makeMock();
-    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
-
-    await expect(
-      adapter.create("Item", {
-        input: { name: "New" },
-        db: undefined,
-        scopeRequired: true,
-      } as never),
-    ).rejects.toBeInstanceOf(FlowpanelAccessError);
-    expect(_d.create).not.toHaveBeenCalled();
   });
 
   it("no scope (unscoped) keeps findUnique / update / delete fast paths", async () => {

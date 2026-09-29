@@ -19,9 +19,8 @@ function decodeList(raw: string): string[] {
 }
 
 /**
- * Read submitted `FormData` back into the values the server expects, following what each
- * control actually posts: a checkbox posts `"on"` when ticked and nothing at all when
- * cleared, and the tags / multiselect controls post one JSON array under a single name.
+ * Reads submitted `FormData` back into the values the server expects, following what each control actually posts.
+ * A checkbox posts `"on"` or nothing; tags/multiselect controls post one JSON array under a single name.
  */
 export function readFormValues(
   fields: readonly FormFieldShape[],

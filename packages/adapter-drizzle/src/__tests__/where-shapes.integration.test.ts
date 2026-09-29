@@ -34,7 +34,10 @@ afterAll(() => {
 });
 
 describe("the filter shapes ctx.read produces, on SQLite", () => {
-  const adapter = drizzleAdapter({ db: null as never, schema: { accounts }, dialect: "sqlite" });
+  let adapter: ReturnType<typeof drizzleAdapter>;
+  beforeAll(() => {
+    adapter = drizzleAdapter({ db, schema: { accounts }, dialect: "sqlite" });
+  });
 
   async function ids(where: Record<string, unknown>): Promise<string[]> {
     const filters = normalizeWhere('ctx.read("accounts")', where, columns);

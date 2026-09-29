@@ -61,7 +61,6 @@ vi.mock("ioredis", () => ({
   }),
 }));
 
-import { createPublisher as rootAlias } from "../index";
 import { decodeEnvelope, decodePayload, encodeEnvelope, encodePayload } from "../runtime/envelope";
 import { createRealtimeTransport } from "../runtime/publish";
 import { createPublisher as createPublisherClient } from "../runtime/worker-publisher";
@@ -318,12 +317,6 @@ describe("createRealtimeTransport — redis driver connections", () => {
     });
     expect(String(error.mock.calls[0])).toMatch(/duplicate/);
     error.mockRestore();
-  });
-});
-
-describe("createPublisher from the root", () => {
-  it("is the deprecated alias of createRealtimeTransport", () => {
-    expect(rootAlias).toBe(createRealtimeTransport);
   });
 });
 

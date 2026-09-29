@@ -16,12 +16,11 @@ export function readRow(
 ): Promise<Record<string, unknown> | null> {
   const itemCtx: ItemQueryContext = {
     ...reqCtx,
-    db: config.adapter.db,
     dateRange: { from: new Date(0), to: new Date() },
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,
     id,
-    ...scopeBinding(config, resource, reqCtx),
+    ...scopeBinding(resource, reqCtx),
   };
   return runWithRequestContext(reqCtx, () =>
     config.adapter.get(resource.ref, itemCtx),

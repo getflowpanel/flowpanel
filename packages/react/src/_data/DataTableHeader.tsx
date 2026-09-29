@@ -104,6 +104,7 @@ export function DataTableHeader<Row>({
                   onClick={() => onHeaderClick(c)}
                   className={cn(
                     "inline-flex items-center gap-1 rounded-fp-sm transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+                    c.align === "right" && "flex-row-reverse",
                     active && "text-fp-text-1",
                   )}
                 >

@@ -123,8 +123,7 @@ function commentOutCall(source: string, call: CallExpression): string {
   const endsTheLine =
     lineEnd >= source.length || source[lineEnd] === "\n" || source[lineEnd] === "\r";
 
-  // Line comments only work when the entry owns its lines start to finish;
-  // an entry sharing a line with other code gets a block comment instead.
+  // An entry sharing a line with other code gets a block comment instead of a line comment.
   if (!/^[ \t]*$/.test(indent) || !endsTheLine) {
     return `${source.slice(0, start)}/* ${source.slice(start, end)} */${source.slice(end)}`;
   }

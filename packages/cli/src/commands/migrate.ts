@@ -15,9 +15,7 @@ interface MigrateOptions {
 
 interface MigrationAdapter {
   applyMigration?: (id: string, sql: string) => Promise<void>;
-  runMigrationSql?: (sql: string) => Promise<void>;
   listAppliedMigrations?: () => Promise<Set<string>>;
-  markMigrationApplied?: (id: string) => Promise<void>;
   kind?: string;
 }
 
@@ -39,15 +37,9 @@ interface JitiModule {
   createJiti: (cwd: string, opts?: JitiOptions) => JitiInstance;
 }
 
-const LEGACY_MIGRATION_WARNING =
-  "This adapter uses the legacy non-atomic migration hooks; concurrent migrators are not serialized. " +
-  "Implement applyMigration(id, sql) before relying on transactional rollback or duplicate suppression.";
-
 interface MigrationExecutor {
   applyMigration: (id: string, sql: string) => Promise<void>;
   listAppliedMigrations: () => Promise<Set<string>>;
-  mode: "adapter" | "legacy-hooks";
-  warnings: string[];
 }
 
 export function resolveMigrationExecutor(
@@ -57,25 +49,8 @@ export function resolveMigrationExecutor(
   if (typeof listAppliedMigrations !== "function") return undefined;
 
   const applyMigration = adapter?.applyMigration?.bind(adapter);
-  if (typeof applyMigration === "function") {
-    return { applyMigration, listAppliedMigrations, mode: "adapter", warnings: [] };
-  }
-
-  const runMigrationSql = adapter?.runMigrationSql?.bind(adapter);
-  const markMigrationApplied = adapter?.markMigrationApplied?.bind(adapter);
-  if (typeof runMigrationSql !== "function" || typeof markMigrationApplied !== "function") {
-    return undefined;
-  }
-
-  return {
-    applyMigration: async (id, sql) => {
-      await runMigrationSql(sql);
-      await markMigrationApplied(id);
-    },
-    listAppliedMigrations,
-    mode: "legacy-hooks",
-    warnings: [LEGACY_MIGRATION_WARNING],
-  };
+  if (typeof applyMigration !== "function") return undefined;
+  return { applyMigration, listAppliedMigrations };
 }
 
 export function migrateCommand(cli: Command): void {
@@ -109,8 +84,7 @@ export function migrateCommand(cli: Command): void {
         process.exit(1);
       }
 
-      // Everything below opens a database connection, so --dry-run stops here:
-      // the adapter's applied-migrations reader creates its tracking table.
+      // --dry-run stops here: everything below opens a connection and creates the tracking table.
       if (opts.dryRun) {
         if (opts.json) {
           writeJson({
@@ -165,13 +139,8 @@ export function migrateCommand(cli: Command): void {
         );
         process.exit(1);
       }
-      if (!opts.json && executor.mode === "legacy-hooks") {
-        log.warn(LEGACY_MIGRATION_WARNING);
-      }
 
-      // This is a UX snapshot, not a concurrency claim. A modern adapter's
-      // applyMigration implementation must serialize and recheck the id at the
-      // database boundary because another CLI process can invalidate it.
+      // This is a UX snapshot, not a concurrency claim — another CLI process can invalidate it.
       const applied = await executor.listAppliedMigrations();
 
       let ran = 0;
@@ -195,8 +164,6 @@ export function migrateCommand(cli: Command): void {
           applied: true,
           migrations: appliedNow,
           alreadyApplied: files.length - appliedNow.length,
-          migrationMode: executor.mode,
-          warnings: executor.warnings,
         });
       } else if (ran === 0) {
         p.outro(pc.dim("All migrations up to date."));

@@ -1,5 +1,5 @@
 {
-  "changelog": "@changesets/cli/changelog",
+  "changelog": "./changelog.cjs",
   "commit": false,
   "fixed": [
     [

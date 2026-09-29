@@ -1,0 +1,105 @@
+---
+title: Authentication
+description: Connect better-auth, Clerk, NextAuth, Lucia or your own session to FlowPanel and require a role.
+kind: how-to
+metaTitle: Protect the admin panel with better-auth or Clerk
+---
+
+FlowPanel reads the session from your existing auth provider and checks a role on every page and API request. A preset from `@flowpanel/kit/auth` builds the `auth` config for common providers.
+
+| Preset | Session source | Role read from |
+| --- | --- | --- |
+| `withBetterAuth(opts)` | the better-auth instance you pass | `session.user.role` |
+| `withClerk(opts?)` | Clerk's `auth()` helper | `sessionClaims.publicMetadata.role` |
+| `withNextAuth(opts)` | the `auth()` or `getServerSession` you pass | `session.user.role` |
+| `withLucia(opts)` | the Lucia instance you pass | `user.role` |
+| `devAuth(role?)` | a fixed `{ id: "dev" }` | the `role` argument, default `"admin"` |
+
+A missing role resolves to `guest`. `devAuth()` authenticates nobody; use it only locally.
+
+## better-auth
+
+```ts excerpt
+import { defineAdmin } from "@flowpanel/kit";
+import { withBetterAuth } from "@flowpanel/kit/auth";
+import { auth } from "@/lib/auth";
+
+export default defineAdmin({
+  adapter,
+  auth: withBetterAuth({
+    auth,
+    requireRole: "admin",
+    signInUrl: "/sign-in",
+    forbiddenUrl: "/",
+  }),
+  resources,
+});
+```
+
+`init` writes this wiring when it finds `better-auth`. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
+
+When the role lives in your own table, `role` can be async:
+
+```ts excerpt
+auth: withBetterAuth({
+  auth,
+  requireRole: "admin",
+  role: async (session) => {
+    const id = (session?.user as { id?: string } | undefined)?.id;
+    if (!id) return "guest";
+    const member = await db.query.members.findFirst({
+      where: (m, { eq }) => eq(m.userId, id),
+      columns: { role: true },
+    });
+    return member?.role ?? "guest";
+  },
+}),
+```
+
+It runs on every request, so keep it to one indexed read. FlowPanel does not cache it. A resolver that throws fails the request closed.
+
+## Clerk
+
+Clerk must already protect the app: `clerkMiddleware()` covering the admin, API and stream paths, and `ClerkProvider` at the root. See [`examples/with-clerk`](https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk).
+
+```ts excerpt
+import { defineAdmin } from "@flowpanel/kit";
+import { withClerk } from "@flowpanel/kit/auth";
+
+export default defineAdmin({
+  adapter,
+  auth: withClerk({
+    requireRole: "admin",
+    signInUrl: "/sign-in",
+    forbiddenUrl: "/",
+  }),
+  resources,
+});
+```
+
+Set the user's `publicMetadata.role`, and add `"publicMetadata": "{{user.public_metadata}}"` to the Clerk session token; Clerk leaves it out by default. Refresh the session after changing a role. The audit actor is the Clerk user ID. `withClerk` throws when `@clerk/nextjs` is not installed.
+
+## Your own session
+
+```ts excerpt
+auth: {
+  session: getSession,
+  role: (session) => session?.user?.role ?? "guest",
+  userId: (session) => session?.user?.id ?? null,
+  requireRole: ["admin", "support"],
+}
+```
+
+`session` receives the request. Both `session` and `role` run on every request.
+
+## Verify
+
+1. With no session, the page redirects to `signInUrl` and the API rejects the request.
+2. Signed in without the role, the page redirects to `forbiddenUrl` and the API returns 403.
+3. Signed in with the role, pages and API calls succeed.
+
+Call one action route as a non-admin as well: the server response is the proof, not a hidden button.
+
+In production, a writable admin without `auth.requireRole` refuses to start. Only an admin that is both `allowUnauthenticated: true` and `readOnly: true` may run without it.
+
+Every option: [AuthConfig](/docs/reference/define-config#authconfig).

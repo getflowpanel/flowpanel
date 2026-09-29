@@ -11,17 +11,7 @@ interface DocsLayoutShellProps {
   children: ReactNode;
 }
 
-/**
- * Composes the docs surface: docs-flavored header, then a three-column
- * grid (sidebar, content, toc) at `lg` and up. Below `lg` the layout
- * collapses to a single column and the sidebar moves into a
- * `<details>` disclosure at the top so navigation still works on
- * mobile.
- *
- * Caller renders the **content** + **toc** as two adjacent children
- * (they fill the 2nd and 3rd grid cells respectively). See `DocsPage`
- * for the canonical example.
- */
+// Children are the content and the toc; below lg the sidebar folds into a <details>.
 export function DocsLayoutShell({ tree, children }: DocsLayoutShellProps) {
   return (
     <>

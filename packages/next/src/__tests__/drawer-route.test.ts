@@ -38,7 +38,7 @@ function mkConfig(role = "admin") {
           columns: ["id", "email"],
           drawer: {
             width: "lg",
-            header: (row: unknown) => (row as { email: string }).email,
+            title: (row: unknown) => (row as { email: string }).email,
             subtitle: (row: unknown) => `Mail ${(row as { email: string }).email}`,
             fields: "*",
             actions: [
@@ -51,7 +51,7 @@ function mkConfig(role = "admin") {
               {
                 key: "delete-user",
                 label: "Delete user",
-                requireRole: "admin",
+                access: "admin",
                 run: async () => ({ ok: true }),
               },
             ],
@@ -124,14 +124,14 @@ describe("drawerRoute", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       row: { id: string };
-      header: string;
+      title: string;
       width: string;
       fields: string;
       actions: { key: string; run?: unknown }[];
       tabs: unknown;
     };
     expect(body.row.id).toBe("abc");
-    expect(body.header).toBe("a@b.c");
+    expect(body.title).toBe("a@b.c");
     expect((body as { subtitle?: string }).subtitle).toBe("Mail a@b.c");
     expect(body.width).toBe("lg");
     expect(body.fields).toBe("*");
@@ -213,10 +213,10 @@ describe("drawerRoute", () => {
     const res = await handler(mkReq(), {
       params: Promise.resolve({ resource: "users", id: "abc" }),
     });
-    const body = (await res.json()) as { row: Record<string, unknown>; header: string };
+    const body = (await res.json()) as { row: Record<string, unknown>; title: string };
     expect(body.row).toEqual({ id: "abc", email: "a@b.c" });
     expect(body.row).not.toHaveProperty("name");
-    expect(body.header).toBe("a@b.c");
+    expect(body.title).toBe("a@b.c");
   });
 
   it("projects the row before drawer headers and renderers and omits restricted metadata", async () => {
@@ -267,7 +267,7 @@ describe("drawerRoute", () => {
             fieldAccess: { secret: { read: "admin" } },
             drawer: {
               fields: ["id", "email", "secret"],
-              header: (row: unknown) => {
+              title: (row: unknown) => {
                 const projected = row as Record<string, unknown>;
                 headerRows.push(projected);
                 return projected.secret === undefined ? "safe" : String(projected.secret);
@@ -283,7 +283,7 @@ describe("drawerRoute", () => {
     });
     const body = (await res.json()) as {
       row: Record<string, unknown>;
-      header: string;
+      title: string;
       fields: { name: string; label?: string }[];
       prerendered: Record<string, string>;
       labels: Record<string, string>;
@@ -291,7 +291,7 @@ describe("drawerRoute", () => {
     };
 
     expect(body.row).toEqual({ id: "abc", email: "a@b.c" });
-    expect(body.header).toBe("safe");
+    expect(body.title).toBe("safe");
     expect(body.fields).toEqual([{ name: "id" }, { name: "email" }]);
     expect(body.prerendered).toEqual({ email: "redacted" });
     expect(body.labels).toEqual({ email: "Email" });
@@ -348,7 +348,7 @@ describe("drawerRoute (tabs)", () => {
             columns: ["id", "email"],
             drawer: {
               width: "lg",
-              header: (row: unknown) => (row as { name: string }).name,
+              title: (row: unknown) => (row as { name: string }).name,
               fields: ["id", "email"],
               tabs: [
                 { key: "profile", label: "Profile", fields: "*" },
@@ -459,7 +459,7 @@ describe("drawerRoute (tabs)", () => {
 describe("drawerRoute (tabs) — cross-resource authorization", () => {
   function mkConfigWith(opts: {
     role?: string;
-    targetRequireRole?: string;
+    targetReadAccess?: string;
     targetScope?: unknown;
     globalScope?: boolean;
     widgetTab?: boolean;
@@ -507,7 +507,7 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
         } as never),
         resource({ __name: "payments" }, {
           columns: ["id", "userId", "amount"],
-          ...(opts.targetRequireRole ? { requireRole: opts.targetRequireRole } : {}),
+          ...(opts.targetReadAccess ? { access: { read: opts.targetReadAccess } } : {}),
           ...(opts.targetScope ? { scope: opts.targetScope } : {}),
           ...(opts.targetFieldAccess ? { fieldAccess: opts.targetFieldAccess } : {}),
         } as never),
@@ -542,7 +542,7 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
       pageSize: 20,
     }));
     const tabs = await tabsOf(
-      mkConfigWith({ role: "staff", targetRequireRole: "superadmin", list }),
+      mkConfigWith({ role: "staff", targetReadAccess: "superadmin", list }),
     );
     expect(tabs[0]).toMatchObject({ kind: "resource", rows: [], columns: [] });
     expect(list).not.toHaveBeenCalled();
@@ -579,11 +579,9 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
       }),
     );
     const listCtx = list.mock.calls[0]?.[1] as {
-      applyScope?: (q: unknown) => unknown;
-      scopeRequired?: boolean;
+      boundScope?: { apply(q: unknown): unknown };
     };
-    expect(listCtx.scopeRequired).toBe(true);
-    listCtx.applyScope?.("q");
+    listCtx.boundScope?.apply("q");
     expect(scopeCalls).toEqual([[{ tenantId: "t1" }, "q"]]);
   });
 
@@ -616,7 +614,7 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
     const tabs = await tabsOf(
       mkConfigWith({
         role: "staff",
-        targetRequireRole: "superadmin",
+        targetReadAccess: "superadmin",
         widgetTab: true,
         widgetColumns: ["amount"],
         list,

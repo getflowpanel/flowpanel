@@ -82,57 +82,54 @@ function ctx(overrides: Partial<ListQueryContext<any>> = {}): ListQueryContext<a
 }
 
 describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
-  const adapter = drizzleAdapter({ db: null as any, schema: { users }, dialect: "pg" });
+  let adapter: ReturnType<typeof drizzleAdapter>;
+  beforeAll(() => {
+    adapter = drizzleAdapter({ db, schema: { users }, dialect: "pg" });
+  });
 
   it("list returns rows with pagination", async () => {
-    const r = await adapter.list(users, ctx({ db, pageSize: 10, page: 1 }));
+    const r = await adapter.list(users, ctx({ pageSize: 10, page: 1 }));
     expect(r.total).toBe(25);
     expect(r.rows).toHaveLength(10);
   });
 
   it("list sort ascending", async () => {
-    const r = await adapter.list(
-      users,
-      ctx({ db, sort: { field: "age", dir: "asc" }, pageSize: 5 }),
-    );
+    const r = await adapter.list(users, ctx({ sort: { field: "age", dir: "asc" }, pageSize: 5 }));
     expect((r.rows[0] as any).age).toBe(20);
   });
 
   it("list filter by equality", async () => {
-    const r = await adapter.list(users, ctx({ db, filters: { email: "u5@e.co" } }));
+    const r = await adapter.list(users, ctx({ filters: { email: "u5@e.co" } }));
     expect(r.total).toBe(1);
     expect((r.rows[0] as any).id).toBe("u5");
   });
 
   it("list search matches within declared searchFields", async () => {
-    const r = await adapter.list(users, ctx({ db, search: "User 7", searchFields: ["name"] }));
+    const r = await adapter.list(users, ctx({ search: "User 7", searchFields: ["name"] }));
     expect(r.rows.some((row: any) => row.id === "u7")).toBe(true);
   });
 
   it("list search does NOT match columns outside searchFields", async () => {
     // "u5@e.co" only appears in `email`; searchFields only declares `name`.
-    const r = await adapter.list(users, ctx({ db, search: "u5@e.co", searchFields: ["name"] }));
+    const r = await adapter.list(users, ctx({ search: "u5@e.co", searchFields: ["name"] }));
     expect(r.total).toBe(0);
   });
 
   it("list search treats %, _ and ! in the query as literals, not wildcards", async () => {
-    const wild = await adapter.list(users, ctx({ db, search: "%", searchFields: ["name"] }));
+    const wild = await adapter.list(users, ctx({ search: "%", searchFields: ["name"] }));
     expect(wild.total).toBe(0);
 
-    const underscore = await adapter.list(
-      users,
-      ctx({ db, search: "User _", searchFields: ["name"] }),
-    );
+    const underscore = await adapter.list(users, ctx({ search: "User _", searchFields: ["name"] }));
     expect(underscore.total).toBe(0);
 
-    const bang = await adapter.list(users, ctx({ db, search: "User 7", searchFields: ["name"] }));
+    const bang = await adapter.list(users, ctx({ search: "User 7", searchFields: ["name"] }));
     expect(bang.total).toBeGreaterThan(0);
   });
 
   it("FAIL-CLOSED: search has no effect when searchFields is undeclared", async () => {
     // A hand-crafted `?search=` on a resource with no declared search fields
     // must not become a data oracle across every text column.
-    const r = await adapter.list(users, ctx({ db, search: "User 7" }));
+    const r = await adapter.list(users, ctx({ search: "User 7" }));
     expect(r.total).toBe(25);
   });
 
@@ -141,14 +138,11 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     await client`INSERT INTO users (id, email, name) VALUES ('null1', 'null1@e.co', NULL)`;
     await client`INSERT INTO users (id, email, name) VALUES ('null2', 'null2@e.co', NULL)`;
 
-    const r = await adapter.list(users, ctx({ db, filters: { name: "__null__" }, pageSize: 50 }));
+    const r = await adapter.list(users, ctx({ filters: { name: "__null__" }, pageSize: 50 }));
     expect(r.total).toBe(2);
     expect(r.rows.map((row: any) => row.id).sort()).toEqual(["null1", "null2"]);
 
-    const inv = await adapter.list(
-      users,
-      ctx({ db, filters: { name: "__notnull__" }, pageSize: 50 }),
-    );
+    const inv = await adapter.list(users, ctx({ filters: { name: "__notnull__" }, pageSize: 50 }));
     expect(inv.total).toBe(25);
     expect(inv.rows.every((row: any) => row.name !== null)).toBe(true);
 
@@ -161,7 +155,7 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     // "invalid input syntax for type integer" and 500 the whole page.
     const r = await adapter.list(
       users,
-      ctx({ db, filters: { age: { op: "range", gte: 25, lte: 30 } }, pageSize: 50 }),
+      ctx({ filters: { age: { op: "range", gte: 25, lte: 30 } }, pageSize: 50 }),
     );
     expect(r.total).toBe(6); // ages 25..30 inclusive
     expect(r.rows.every((row: any) => row.age >= 25 && row.age <= 30)).toBe(true);
@@ -170,14 +164,14 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
   it("numeric-range filter: one-sided bound (only gte, or only lte)", async () => {
     const gteOnly = await adapter.list(
       users,
-      ctx({ db, filters: { age: { op: "range", gte: 40 } }, pageSize: 50 }),
+      ctx({ filters: { age: { op: "range", gte: 40 } }, pageSize: 50 }),
     );
     expect(gteOnly.rows.every((row: any) => row.age >= 40)).toBe(true);
     expect(gteOnly.total).toBe(5); // ages 40..44
 
     const lteOnly = await adapter.list(
       users,
-      ctx({ db, filters: { age: { op: "range", lte: 21 } }, pageSize: 50 }),
+      ctx({ filters: { age: { op: "range", lte: 21 } }, pageSize: 50 }),
     );
     expect(lteOnly.rows.every((row: any) => row.age <= 21)).toBe(true);
     expect(lteOnly.total).toBe(2); // ages 20..21
@@ -192,7 +186,6 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     const r = await adapter.list(
       users,
       ctx({
-        db,
         filters: {
           createdAt: {
             op: "range",
@@ -215,17 +208,17 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     // nobody notices.
     const r = await adapter.list(
       users,
-      ctx({ db, filters: { id: { op: "in", values: ["u1", "u3", "u5"] } }, pageSize: 50 }),
+      ctx({ filters: { id: { op: "in", values: ["u1", "u3", "u5"] } }, pageSize: 50 }),
     );
     expect(r.total).toBe(3);
     expect(r.rows.map((row: any) => row.id).sort()).toEqual(["u1", "u3", "u5"]);
   });
 
   it("get returns a row or null", async () => {
-    expect(await adapter.get(users, { ...ctx({ db }), id: "u3" } as any)).toMatchObject({
+    expect(await adapter.get(users, { ...ctx(), id: "u3" } as any)).toMatchObject({
       id: "u3",
     });
-    expect(await adapter.get(users, { ...ctx({ db }), id: "nope" } as any)).toBeNull();
+    expect(await adapter.get(users, { ...ctx(), id: "nope" } as any)).toBeNull();
   });
 
   it("create, update, delete roundtrip", async () => {
@@ -253,7 +246,7 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
       input: { name: "Updated" },
     } as any);
 
-    const after: any = await adapter.get(users, { ...ctx({ db }), id: "new1" } as any);
+    const after: any = await adapter.get(users, { ...ctx(), id: "new1" } as any);
     expect(after.name).toBe("Updated");
 
     await adapter.delete(users, {
@@ -268,7 +261,7 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
       input: {},
     } as any);
 
-    expect(await adapter.get(users, { ...ctx({ db }), id: "new1" } as any)).toBeNull();
+    expect(await adapter.get(users, { ...ctx(), id: "new1" } as any)).toBeNull();
   });
 });
 
@@ -278,16 +271,9 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter migrations (pg)", () => {
 
     expect(await adapter.listAppliedMigrations?.()).toEqual(new Set());
 
-    await adapter.markMigrationApplied?.("0001_init");
-    await adapter.markMigrationApplied?.("0002_posts");
+    await adapter.applyMigration?.("0001_init", "CREATE TABLE init_mig (id text PRIMARY KEY)");
+    await adapter.applyMigration?.("0002_posts", "CREATE TABLE posts_mig (id text PRIMARY KEY)");
 
     expect(await adapter.listAppliedMigrations?.()).toEqual(new Set(["0001_init", "0002_posts"]));
-  });
-
-  it("executes raw migration SQL", async () => {
-    const adapter = drizzleAdapter({ db, schema: { users } });
-    await adapter.runMigrationSql?.(`CREATE TABLE probe_mig (id text PRIMARY KEY)`);
-    const rows = await client`SELECT id FROM probe_mig`;
-    expect(rows).toHaveLength(0);
   });
 });

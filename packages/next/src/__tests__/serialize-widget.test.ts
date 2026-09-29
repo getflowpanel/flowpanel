@@ -303,7 +303,7 @@ describe("serializeWidget — cross-resource authorization", () => {
       pageSize: 10,
     }));
     const cfg = {
-      ...mkConfig([targetWith({ requireRole: "superadmin" })]),
+      ...mkConfig([targetWith({ access: { read: "superadmin" } })]),
       adapter: { ...fakeAdapter, list },
     } as ResolvedAdminConfig;
     const out = await serializeWidget(widget, cfg, { ...reqCtx, role: "staff" }, widgetCtx);
@@ -343,11 +343,9 @@ describe("serializeWidget — cross-resource authorization", () => {
     } as unknown as ResolvedAdminConfig;
     await serializeWidget(widget, cfg, { ...reqCtx, scope: { tenantId: "t1" } }, widgetCtx);
     const listCtx = list.mock.calls[0]?.[1] as {
-      applyScope?: (q: unknown) => unknown;
-      scopeRequired?: boolean;
+      boundScope?: { apply(q: unknown): unknown };
     };
-    expect(listCtx.scopeRequired).toBe(true);
-    listCtx.applyScope?.("q");
+    listCtx.boundScope?.apply("q");
     expect(scopePredicate).toHaveBeenCalledWith({ tenantId: "t1" }, "q");
   });
 

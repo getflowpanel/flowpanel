@@ -1,6 +1,5 @@
 "use client";
-// LOC-OK: drawer shell — fields / resource / widgets / statgroup tab views plus the
-// action bar and lazy tab loading in one client component.
+// LOC-OK: drawer shell — fields/resource/widgets/statgroup tab views plus the action bar in one client component.
 import type { ColumnFormat } from "@flowpanel/core";
 import { formatLabel } from "@flowpanel/core/labels";
 import {
@@ -464,7 +463,7 @@ export function DrawerHost() {
   }, [resource, id, reloadKey]);
 
   const width = payload?.width ?? "lg";
-  const title = payload?.header ?? "";
+  const title = payload?.title ?? "";
 
   return (
     <Drawer
@@ -475,8 +474,8 @@ export function DrawerHost() {
       width={width}
       title={title || "Drawer"}
     >
-      <DrawerHeader>
-        <div className="min-w-0 pr-10">
+      <DrawerHeader className="flex-col pr-14 sm:flex-row">
+        <div className="min-w-0 max-w-full sm:flex-1">
           <h2 className="truncate text-lg font-semibold text-fp-text-1">
             {payload ? (
               title
@@ -491,15 +490,12 @@ export function DrawerHost() {
               {payload?.subtitle ?? payload?.resourceLabel ?? humanize(resource)}
             </p>
           ) : null}
-          {payload?.detailHref ? (
-            <a
-              href={payload.detailHref}
-              className="mt-1 inline-block text-xs text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline"
-            >
-              {labels.drawer.viewDetails}
-            </a>
-          ) : null}
         </div>
+        {payload?.detailHref ? (
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <a href={payload.detailHref}>{labels.drawer.viewDetails}</a>
+          </Button>
+        ) : null}
       </DrawerHeader>
       <DrawerContent>
         {loading ? <div className="text-sm text-fp-text-3">{labels.drawer.loading}</div> : null}

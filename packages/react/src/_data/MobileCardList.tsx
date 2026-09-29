@@ -63,8 +63,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   const selectionSet = React.useMemo(() => new Set(selection ?? []), [selection]);
   const enteringKeySet = React.useMemo(() => new Set(enteringRowKeys), [enteringRowKeys]);
 
-  // Same identity rule as the table: a row without an identifier still renders,
-  // but nothing that would send its identity anywhere is offered on it.
+  // Same identity rule as the table: a row without an identifier still renders but sends its identity nowhere.
   const identityOf = React.useCallback(
     (row: Row): string | null => {
       if (getRowKey) return getRowKey(row) || null;

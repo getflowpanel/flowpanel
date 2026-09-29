@@ -1,6 +1,4 @@
-/* FlowPanel design tokens — CSS custom properties + motion + theme map.
-   Every visual decision routes through a --fp-* token so host apps can
-   re-theme the admin without touching component code. */
+/* FlowPanel design tokens: every visual decision routes through a --fp-* token so host apps can re-theme the admin. */
 @layer theme, base, components, utilities;
 
 [data-flowpanel-root],
@@ -136,11 +134,7 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
   }
 }
 
-/* The generated v4 stylesheet intentionally omits Tailwind Preflight and the
-   v3 template intentionally omits `@tailwind base`: neither may reset host
-   content. These are the small defaults FlowPanel components need, limited to
-   their roots and portals. The native sublayer sits below utilities in v4 and
-   below v3's unlayered utilities, so a utility or host override still wins. */
+/* Neither Tailwind build resets host content, so these are the small defaults FlowPanel needs, scoped to its roots/portals. */
 @layer base.flowpanel {
   [data-flowpanel-root],
   [data-flowpanel-portal] {
@@ -241,11 +235,7 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Motion. Radix primitives set data-state="open|closed" on their content and
-   overlay nodes and keep the node mounted until the exit animation finishes,
-   so a single fp-anim-* class gives a primitive both directions.
-   Exits run faster than entries (~60%). */
+/* Motion: Radix keeps a node mounted until its exit animation finishes, so one fp-anim-* class gives both directions. */
 
 @keyframes fp-fade-in {
   from {
@@ -271,12 +261,7 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
   }
 }
 
-/* Centred dialogs animate `scale`, never `transform`. Tailwind centres them
-   with the standalone `translate` property, and a `transform: translate(…)`
-   in a keyframe does not replace it — the two compose, so the panel spends the
-   whole animation at -100%/-100% and snaps back when it ends. `translate`,
-   `rotate` and `scale` are independent properties, so scaling here leaves the
-   centring alone. Travel stays small: a wide jump reads as a snap. */
+/* Centred dialogs animate `scale`, never `transform`: it would compose with Tailwind's own `translate` centering, not replace it. */
 @keyframes fp-dialog-in {
   from {
     opacity: 0;
@@ -346,11 +331,7 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
 .fp-anim-pop[data-state="closed"] {
   animation: fp-pop-out var(--fp-duration-fast) var(--fp-ease-in-out) forwards;
 }
-/* Radix keeps content mounted until the exit animation reports `animationend`.
-   Inside Popover's portal that animation never starts, so the panel stays in
-   the DOM — invisible in places, but still painting and still swallowing the
-   clicks underneath it. Opting Popover out of the exit lets Presence see no
-   animation and unmount at once. Select/Dropdown/Dialog are unaffected. */
+/* Inside Popover's portal the exit animation never starts, so it stays mounted and swallows clicks; this opts it out. */
 .fp-anim-pop.fp-anim-no-exit[data-state="closed"] {
   animation: none;
 }
@@ -424,12 +405,7 @@ tr.fp-row-enter > td {
   animation: fp-row-enter-surface 240ms var(--fp-ease-out);
 }
 
-/* Press feedback for buttons and tappable chips — transform only, so it
-   never shifts layout. Longhands, so the same class also drives the color
-   transition without fighting Tailwind's transition utilities. */
-/* `box-shadow` is deliberately absent: Tailwind draws focus rings as box-shadow,
-   and transitioning it makes the ring fade in — slow feedback for a keyboard
-   affordance, and long enough to see the offset ring resolve to its colour. */
+/* Longhands, transform only: `box-shadow` is deliberately absent, since Tailwind draws focus rings with it. */
 .fp-press {
   transition-property: color, background-color, border-color, opacity, transform;
   transition-duration: var(--fp-duration-fast);
@@ -468,10 +444,7 @@ tr.fp-row-enter > td {
   display: none;
 }
 
-/* Fades the clipped edges of a horizontal scroller so cut-off tabs read as
-   "there is more" instead of as a rendering glitch. The side is driven by
-   data-overflow, set from the scroll position, so a strip that fits — or one
-   scrolled hard against an end — keeps that edge crisp. */
+/* Fades the clipped edges of a horizontal scroller so cut-off tabs read as "there is more", not a rendering glitch. */
 .fp-scroll-fade-x {
   --fp-scroll-fade: 1.5rem;
 }
@@ -491,9 +464,7 @@ tr.fp-row-enter > td {
   );
 }
 
-/* Reduce-motion: the duration tokens above already collapse to 0ms; the
-   explicit cancellation below covers the fixed-duration shimmer and keeps
-   intent obvious for animation-name rules. */
+/* Reduce-motion: the duration tokens above already collapse to 0ms; this covers the fixed-duration shimmer too. */
 @media (prefers-reduced-motion: reduce) {
   .fp-skeleton,
   .fp-anim-overlay[data-state="open"],
@@ -517,19 +488,14 @@ tr.fp-row-enter > td {
   }
 }
 
-/* Keyboard focus ring for the shell navigation (tab strip + sidebar). Every
-   other interactive primitive carries its own :focus-visible style, but the
-   raw nav links did not. Scoped to FlowPanel's own nav so it never restyles
-   the host app's links. */
+/* Keyboard focus ring for the shell navigation; scoped to FlowPanel's own nav so it never restyles host links. */
 [data-flowpanel-root] nav[data-flowpanel-nav] a:focus-visible {
   outline: 2px solid hsl(var(--fp-ring));
   outline-offset: 2px;
   border-radius: var(--fp-radius-sm);
 }
 
-/* `inline` is required because the --fp-* values live on the namespaced
-   FlowPanel root, not on :root. Without it Tailwind first resolves
-   --color-fp-* on :root, where the source token is intentionally absent. */
+/* `inline` is required because the --fp-* values live on the namespaced FlowPanel root, not on :root. */
 @theme inline {
   --color-fp-bg-1: hsl(var(--fp-bg-1));
   --color-fp-bg-2: hsl(var(--fp-bg-2));

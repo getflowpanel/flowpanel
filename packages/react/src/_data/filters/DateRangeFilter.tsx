@@ -44,8 +44,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
   const gridRef = React.useRef<HTMLDivElement>(null);
   const focusPending = React.useRef(false);
 
-  // Only chase the DOM after a key moved the tabstop — never on open, or the
-  // popover would steal focus from the trigger the moment it mounts.
+  // Only chase the DOM after a key moved the tabstop, never on open, or the popover steals focus on mount.
   React.useEffect(() => {
     if (!focusPending.current) return;
     focusPending.current = false;
@@ -107,8 +106,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
   const named = isDateRangePreset(value) ? value : null;
   const trigger = named ? dateRange[named] : rangeText;
 
-  // Which preset the committed range corresponds to, if any — so reopening the
-  // picker shows what is applied rather than an unmarked list.
+  // Which preset the committed range corresponds to, if any, so reopening shows what is applied.
   const activePreset = React.useMemo(() => {
     if (named)
       return named === "MTD"
@@ -131,8 +129,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
     setOpen(false);
   };
 
-  // First click opens a new range, second closes it — and a backwards second
-  // click is read as "I meant to start here" rather than an invalid range.
+  // First click opens a new range, second closes it; a backwards second click restarts instead of erroring.
   const handleSelect = (day: Date) => {
     if (!draft.from || draft.to) {
       setDraft({ from: day, to: null });

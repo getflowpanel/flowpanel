@@ -1,4 +1,4 @@
-# flowpanel — Production
+# FlowPanel — Production
 
 ## Production readiness
 
@@ -6,129 +6,76 @@ Verify FlowPanel's ownership, security, data, scaling, and release boundaries be
 
 Docs: https://flowpanel.tech/docs/guides/production-readiness
 
-Use this page as the final review for a production FlowPanel deployment. It links to the detailed guides where configuration and failure modes need more space.
-
-FlowPanel is embedded application code, not a hosted admin service. Your Next.js process renders the admin and handles its requests; your database client executes queries; your identity provider creates the session; and your deployment owns the network boundary. There is no FlowPanel control plane receiving database credentials or application rows.
+The review to do before an admin takes production traffic. FlowPanel runs inside your Next.js process with your database client and your auth; there is no FlowPanel control plane, so each item below is yours.
 
 ### Runtime and data ownership
 
-- Keep `flowpanel.config.ts`, generated routes, and database migrations in the same review process as the rest of the application.
-- Expose only resources and fields that belong in the admin. Schema discovery is a starting point, not permission to publish every column.
-- Use the application's existing database client and secrets. Do not add a second credential path for the admin.
-- Treat custom widgets, pages, renderers, and external workers as application code. They do not automatically inherit generated-handler policy.
-
-Read [Why FlowPanel](/docs/introduction/why-flowpanel), [Project structure](/docs/introduction/project-structure), and [Server and client boundaries](/docs/understand/server-client-boundaries) before changing generated routes.
+- Review `flowpanel.config.ts`, the generated routes and migrations like the rest of the app.
+- Expose only the resources and fields that belong in the admin.
+- Custom widgets, pages, renderers and workers are your code: generated-handler policies do not cover them.
 
 ### Security boundary
 
-#### Authentication and roles
+- **Authentication.** Replace any development session with real auth and set `auth.requireRole`. See [Authentication](/docs/guides/authentication).
+- **Roles.** Use resource and action `access` and field rules; the server rejects fields an operation may not write. See [Roles and permissions](/docs/guides/permissions).
+- **Tenants.** Scope every tenant-owned resource. The first-party adapters fail closed when a bound scope does not constrain the query. See [Multi-tenant scope](/docs/guides/multi-tenant-scope).
+- **Origins.** Cross-origin writes are blocked by default. Add exact `security.trustedOrigins` only for another frontend that must write. Server-to-server clients without an `Origin` header pass this check, so authenticate them yourself.
+- **Read-only mode.** `readOnly: true` turns off every generated write for a demo, maintenance or an incident.
 
-Replace the development session stub before deployment. Configure `auth.session`, derive a trusted role, and set `auth.requireRole`. Generated pages and handlers repeat the access check on the server; hiding a navigation item is not the boundary.
+### Writes and their effects
 
-- [Authentication with Clerk](/docs/guides/auth-with-clerk)
-- [Roles and permissions](/docs/guides/permissions)
-- [Request and mutation lifecycle](/docs/understand/request-lifecycle)
+- Declare explicit create and update fields.
+- Configure `audit.sink`: FlowPanel emits audit events but stores nothing.
+- Use the Redis rate-limit driver with more than one instance; the memory driver counts per process.
+- Audit, realtime and revalidation run after commit. A failure there returns a warning and leaves the write committed; alert on these warnings ([codes](/docs/reference/runtime-contracts#post-commit-effects)).
 
-#### Tenant isolation
+### Migrations
 
-Resolve the tenant from trusted session state and bind the same scope to every tenant-owned resource. The first-party adapters fail closed when required scope cannot produce a constraint. Test reads, creates, updates, deletes, imports, exports, actions, and drawer relations with an identifier from another tenant.
-
-Follow [Multi-tenant scope](/docs/guides/multi-tenant-scope) and keep database constraints as defence in depth.
-
-#### Origins and server clients
-
-Same-origin mutation protection is enabled by default. Add exact `security.trustedOrigins` only when another frontend must write to the admin API. Server-to-server clients without browser `Origin` or Fetch Metadata headers remain supported, so authenticate them explicitly at the surrounding application boundary.
-
-See [SecurityConfig](/docs/reference/define-config#securityconfig) for the exact surface.
-
-#### Fields and operations
-
-Use resource access rules, operation policy, field read/write rules, and `requireRole` for distinct responsibilities. The server rejects fields that the current operation may not write; crafted forms and imports do not bypass hidden or read-only controls.
-
-`readOnly: true` blocks generated mutations globally and is useful for a public demo, maintenance window, or incident response. It does not replace authentication, tenant scope, or database permissions.
-
-### Validation and change effects
-
-- Declare explicit create and update fields for a write surface that reviewers can audit.
-- Validate actions and forms on the server. Unauthorized callers are rejected before they receive detailed validation feedback.
-- Configure an `audit.sink`; FlowPanel emits events but does not choose where your audit history is stored.
-- Use a shared rate-limit driver when more than one application instance accepts traffic. An in-memory driver is process-local.
-- Monitor post-commit audit, realtime, and revalidation warnings. A failed notification must not make a committed database write look rolled back.
-
-The exact ordering is documented in [Request and mutation lifecycle](/docs/understand/request-lifecycle) and the warning envelope in [Runtime contracts](/docs/reference/runtime-contracts).
-
-### Migrations and rollback
-
-Review generated SQL like application SQL. Run `pnpm flowpanel migrate --dry-run` in CI or the release environment before applying pending files.
-
-Both shipped adapters pass migration SQL and bookkeeping through one adapter operation, and serialize migrators at the database. On PostgreSQL and SQLite the statements and the applied marker share one transaction. On MySQL, implicit DDL commits mean no tool can promise rollback for an arbitrary migration: make changes restart-safe, take a backup, and prepare a forward fix. To serialize MySQL migrators, Drizzle holds a connection-pinned advisory lock, and Prisma holds a durable claim row that records where a failed run stopped and refuses to replay it.
-
-Read [CLI reference](/docs/reference/cli#flowpanel-migrate) and [Adapter reference](/docs/reference/adapters) for dialect-specific behavior.
+Run `pnpm flowpanel migrate --dry-run` before applying. On PostgreSQL and SQLite each file and its applied marker share one transaction. MySQL commits DDL implicitly, so make changes restart-safe, take a backup, and plan a forward fix. See [flowpanel migrate](/docs/reference/cli#flowpanel-migrate).
 
 ### Realtime and queues
 
-The in-memory realtime driver is for one persistent process. Use Redis when refresh signals must cross instances, and treat SSE delivery as notification rather than durable event storage. Monitor publisher failures, reconnects, and connection counts.
+Use the Redis driver when more than one process serves the admin, and treat events as refresh signals, not a durable log. Keep the queue board on a protected network with a strong token. See [Realtime](/docs/guides/realtime) and [Queues](/docs/guides/queues).
 
-Queue boards expose operational and potentially destructive controls. Protect their separate origin, require a strong board token, and restrict network access.
+### Observability
 
-- [Realtime](/docs/guides/realtime)
-- [Realtime with Redis](/docs/guides/realtime-with-redis)
-- [Queues](/docs/guides/queues)
-
-### Observability and recovery
-
-- Preserve FlowPanel request IDs in application logs and error reporting.
-- Alert on authentication failures, scope failures, rate-limit pressure, adapter errors, and post-commit warning codes.
-- Verify that operators see a recovery path rather than raw database or validation internals.
-- Document how to disable writes, rotate credentials, reconcile audit/realtime warnings, and restore from backup.
-- Exercise the same policies through generated pages, HTTP handlers, actions, import, and any custom server code.
-
-Use [Errors](/docs/reference/errors) and [Troubleshooting](/docs/troubleshooting) during incident preparation.
+Log FlowPanel request IDs, alert on auth, scope, rate-limit, adapter and post-commit failures, and document how to turn off writes and restore from backup. See [Errors](/docs/reference/errors).
 
 ### Browser smoke test
 
-Run one browser pass over the whole admin in CI. `@flowpanel/test` walks the navigation, every dashboard and list, and the first row of each list, and fails when a route answers 4xx/5xx, something writes to `console.error`, a FlowPanel error surface renders, or axe reports a WCAG 2.2 AA violation. It catches the failures that only appear against a real database — a missing column, a widget query that throws, a detail route that 500s — which unit tests and typecheck cannot see. See [Smoke testing](/docs/reference/testing).
+Run `smokeAdmin` from `@flowpanel/test` in CI. It opens every dashboard, list and first record, and fails on a 4xx/5xx, a console error, a FlowPanel error card or an axe WCAG 2.2 AA violation. See [Testing](/docs/reference/testing).
 
 ### Release checklist
 
-Before sending production traffic:
+- [ ] Real authentication; unauthenticated requests fail.
+- [ ] `auth.requireRole` and resource policies have allowed and denied tests.
+- [ ] Every tenant-owned resource is scoped; cross-tenant reads and writes fail.
+- [ ] Trusted origins are set only where needed.
+- [ ] Forms, imports, exports, actions and hidden resources expose nothing unintended.
+- [ ] Audit sink, rate limiting, logs, request IDs and alerts are configured.
+- [ ] Pending migrations were reviewed with `--dry-run`; backup and recovery are documented.
+- [ ] Realtime and queues use production drivers and protected origins.
+- [ ] Typecheck, lint, build and `smokeAdmin` pass.
 
-- [ ] Real authentication replaces the development stub and unauthenticated access fails.
-- [ ] `auth.requireRole` and resource/operation policies have authorized and denied tests.
-- [ ] Every tenant-owned resource is scoped and cross-tenant reads and writes fail closed.
-- [ ] Exact trusted origins are configured only where needed.
-- [ ] Create/update fields, imports, exports, actions, and hidden resources expose no unintended data.
-- [ ] Audit storage, rate limiting, logs, request IDs, alerts, and retention are configured.
-- [ ] Pending migrations were reviewed with `--dry-run`; backup and recovery steps are documented.
-- [ ] Realtime and queues use deployment-appropriate drivers and protected origins.
-- [ ] The application passes unit tests, typecheck, lint, production build, `smokeAdmin`, and critical browser journeys.
-- [ ] The [upgrade guide](/docs/guides/upgrade) and package changelog were reviewed; rollback or forward-fix ownership is explicit.
+## Authentication
 
-If any item is intentionally omitted, record why and who owns the risk. A transparent boundary is more reliable than a hidden default.
+Connect better-auth, Clerk, NextAuth, Lucia or your own session to FlowPanel and require a role.
 
-## Authenticate with better-auth
+Docs: https://flowpanel.tech/docs/guides/authentication
 
-Connect a better-auth instance to FlowPanel and resolve the role from your own tables.
+FlowPanel reads the session from your existing auth provider and checks a role on every page and API request. A preset from `@flowpanel/kit/auth` builds the `auth` config for common providers.
 
-Docs: https://flowpanel.tech/docs/guides/auth-with-better-auth
+| Preset | Session source | Role read from |
+| --- | --- | --- |
+| `withBetterAuth(opts)` | the better-auth instance you pass | `session.user.role` |
+| `withClerk(opts?)` | Clerk's `auth()` helper | `sessionClaims.publicMetadata.role` |
+| `withNextAuth(opts)` | the `auth()` or `getServerSession` you pass | `session.user.role` |
+| `withLucia(opts)` | the Lucia instance you pass | `user.role` |
+| `devAuth(role?)` | a fixed `{ id: "dev" }` | the `role` argument, default `"admin"` |
 
-This guide connects an existing better-auth instance to FlowPanel and restricts the admin to users whose role is `admin`.
+A missing role resolves to `guest`. `devAuth()` authenticates nobody; use it only locally.
 
-### Prerequisites
-
-better-auth must already work in the host Next.js application, with its instance exported from a module of your own — usually `lib/auth.ts`:
-
-```ts excerpt
-import { betterAuth } from "better-auth";
-
-export const auth = betterAuth({
-  database: /* your adapter */,
-});
-```
-
-`flowpanel init` recognises `better-auth` in `package.json` and scaffolds the wiring below for you, pointed at the module it found.
-
-### Configure FlowPanel auth
+### better-auth
 
 ```ts excerpt
 import { defineAdmin } from "@flowpanel/kit";
@@ -147,11 +94,9 @@ export default defineAdmin({
 });
 ```
 
-`withBetterAuth` calls `auth.api.getSession({ headers: req.headers })` with the request FlowPanel is actually serving, so cookie-based sessions work identically in page renders and API routes. By default the role comes from `session.user.role` and falls back to `guest`, and the actor id for audit rows and per-user rate limiting comes from `session.user.id`.
+`init` writes this wiring when it finds `better-auth`. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
 
-### Resolve the role from the database
-
-better-auth's session carries whatever you put in it. If the role lives in your own table rather than the session, `role` may return a promise — FlowPanel awaits it before any role gate runs:
+When the role lives in your own table, `role` can be async:
 
 ```ts excerpt
 auth: withBetterAuth({
@@ -169,54 +114,11 @@ auth: withBetterAuth({
 }),
 ```
 
-This runs on every request and page render, so keep it to one indexed read. Cache it in your own layer if that read is expensive; FlowPanel does not cache it for you, because a stale role is an authorization bug.
+It runs on every request, so keep it to one indexed read. FlowPanel does not cache it. A resolver that throws fails the request closed.
 
-### Verify the boundary
+### Clerk
 
-Test all three cases:
-
-1. no session: the admin page follows `signInUrl`, while API requests are rejected;
-2. signed in without `admin`: the page follows `forbiddenUrl`, while API requests return forbidden;
-3. signed in as `admin`: the page and resource API succeed.
-
-Also call one action route as a non-admin. A hidden button is not proof; the server response is.
-
-### Production notes and failure modes
-
-- Grant the admin role deliberately. `requireRole` is the admin-wide gate; per-resource `requireRole` and `access` narrow it further.
-- A `role` resolver that throws fails the request closed rather than falling back to `guest`.
-- An async `role` that reaches a database makes every admin request depend on it. If that database is the one the admin manages, an outage takes the sign-in path down with it.
-- Keep `allowUnauthenticated` off unless the deployment is already fronted by an authenticating proxy.
-
-### Related
-
-- [`AuthConfig` reference](/docs/reference/define-config#authconfig)
-- [Permissions](/docs/guides/permissions)
-- [Multi-tenant scope](/docs/guides/multi-tenant-scope)
-
-## Authenticate with Clerk
-
-Protect the admin with Clerk and enforce a role from session claims.
-
-Docs: https://flowpanel.tech/docs/guides/auth-with-clerk
-
-This guide connects the existing Clerk session to FlowPanel and restricts the admin to users whose public metadata role is `admin`.
-
-### Prerequisites
-
-Clerk must already work in the host Next.js application. Install its Next.js SDK if needed:
-
-```bash
-pnpm add @clerk/nextjs
-```
-
-### Protect the route with Clerk
-
-Configure Clerk middleware using the same admin and API paths generated by FlowPanel. The middleware is the first authentication boundary; FlowPanel's server handlers remain the authorization boundary.
-
-Wrap the root application in `ClerkProvider` according to the installed Clerk version. The complete maintained example is [`examples/with-clerk`](https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk).
-
-### Configure FlowPanel auth
+Clerk must already protect the app: `clerkMiddleware()` covering the admin, API and stream paths, and `ClerkProvider` at the root. See [`examples/with-clerk`](https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk).
 
 ```ts excerpt
 import { defineAdmin } from "@flowpanel/kit";
@@ -233,44 +135,9 @@ export default defineAdmin({
 });
 ```
 
-By default, `withClerk` reads `publicMetadata.role` and falls back to `guest`. It uses the Clerk user ID as the actor ID for audit and per-user rate limiting. Supply `role` or `userId` only when your claims use a different shape.
+Set the user's `publicMetadata.role`, and add `"publicMetadata": "{{user.public_metadata}}"` to the Clerk session token; Clerk leaves it out by default. Refresh the session after changing a role. The audit actor is the Clerk user ID. `withClerk` throws when `@clerk/nextjs` is not installed.
 
-### Put the role in the session
-
-Set `publicMetadata.role` for the user and include `public_metadata` in the Clerk session token as `publicMetadata`. A database role that is not present in the session claims cannot be read by `withClerk` without a custom resolver.
-
-Treat metadata changes as authentication state changes. Sign out and back in, or otherwise refresh the Clerk session, before testing a new role.
-
-### Verify the boundary
-
-Test all three cases:
-
-1. no Clerk session: the admin page follows `signInUrl`, while API requests are rejected;
-2. signed in without `admin`: the page follows `forbiddenUrl`, while API requests return forbidden;
-3. signed in as `admin`: the page and resource API succeed.
-
-Also call one action route as a non-admin. A hidden button is not proof; the server response is.
-
-### Production notes and failure modes
-
-- `withClerk` throws a clear startup/runtime error when `@clerk/nextjs` is absent.
-- Missing or misspelled public metadata resolves to `guest` and should fail the role gate.
-- Keep API and stream paths inside the Clerk middleware matcher.
-- Do not use `devAuth()` or the generated session stub in production.
-
-Continue with [Roles and permissions](/docs/guides/permissions). Exact options are generated in [Configuration reference](/docs/reference/define-config#authconfig).
-
-## Roles and permissions
-
-Enforce admin, resource, action, field, row, and tenant access on the server.
-
-Docs: https://flowpanel.tech/docs/guides/permissions
-
-FlowPanel evaluates access on server routes. UI filtering helps users understand what they can do, but it is never the authority.
-
-### Start with an admin-wide gate
-
-Configure a session, role extractor, and `auth.requireRole`. This protects every generated page, API handler, stream, and registered surface before narrower rules run.
+### Your own session
 
 ```ts excerpt
 auth: {
@@ -281,21 +148,53 @@ auth: {
 }
 ```
 
-### Restrict a surface
+`session` receives the request. Both `session` and `role` run on every request.
 
-Set `requireRole` on a resource, dashboard, page, queue, or action when only a subset of admins may reach it. The generated navigation omits unavailable surfaces and the direct route repeats the check.
+### Verify
 
-Use resource `access` when permission differs by operation. Keep the rule in the resource module so reviewers can see the data surface and its policy together.
+1. With no session, the page redirects to `signInUrl` and the API rejects the request.
+2. Signed in without the role, the page redirects to `forbiddenUrl` and the API returns 403.
+3. Signed in with the role, pages and API calls succeed.
 
-### Know which rule an action runs under
+Call one action route as a non-admin as well: the server response is the proof, not a hidden button.
 
-An action that declares its own `access` or `requireRole` is governed by that rule alone — the same rule that decides whether the action is offered in the UI, so a visible action is a runnable one.
+In production, a writable admin without `auth.requireRole` refuses to start. Only an admin that is both `allowUnauthenticated: true` and `readOnly: true` may run without it.
 
-An action that declares neither inherits the resource's `update` rule. Actions mutate, so a resource closed to a role for writes is closed to that role's actions too. Declare a rule on the action itself when it should be reachable more widely, or when it only reads.
+Every option: [AuthConfig](/docs/reference/define-config#authconfig).
 
-### Restrict fields and writes
+## Roles and permissions
 
-Form fields support `requireRole`, `readOnly`, and `hidden`; resource field policies can express broader read/write rules. The server rejects submitted fields the current operation may not write. It does not rely on the browser to omit them.
+Enforce admin, resource, action, field, row, and tenant access on the server.
+
+Docs: https://flowpanel.tech/docs/guides/permissions
+
+Every rule is checked on the server route; the UI only hides what a role cannot use. Rules narrow from the whole admin down to a field.
+
+### The whole admin
+
+`auth.requireRole` protects every page, API handler and stream. See [Authentication](/docs/guides/authentication).
+
+```ts excerpt
+auth: {
+  session: getSession,
+  role: (session) => session?.user?.role ?? "guest",
+  requireRole: ["admin", "support"],
+}
+```
+
+### A dashboard, page or queue
+
+`requireRole` on any of them hides it from the navigation and rejects its direct route.
+
+### A resource or action
+
+`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. A resource the caller may not `read` leaves the navigation and rejects its routes.
+
+An action with its own `access` runs under that rule alone, the same one that shows it in the UI. An action without one runs under the resource's `update` rule.
+
+### Fields
+
+Form fields take `requireRole`, `readOnly` and `hidden`. The server rejects a submitted field the operation may not write.
 
 ```ts excerpt
 update: {
@@ -307,23 +206,19 @@ update: {
 }
 ```
 
-### Handle row-specific availability
+`fieldAccess` on a resource sets read and write rules per field.
 
-Action `hidden` and `disabled` callbacks can use the row. `hidden` removes an unavailable action and its route rejects that row/action combination. `disabled` keeps the action visible with a reason. These callbacks are useful for workflow state, but tenant isolation belongs in adapter scope so every read and by-ID write receives the predicate.
+### Rows
 
-### Add tenant scope
+An action's `hidden(row)` removes it for that row and its route rejects the pair; `disabled(row)` shows it with a reason. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
 
-Resolve the current tenant once at the root and bind it for every tenant-owned resource. FlowPanel's supported adapters fail closed when a required scope predicate is missing or produces no constraint. Follow [Multi-tenant scope](/docs/guides/multi-tenant-scope) and test cross-tenant reads and writes.
+### Read-only mode
 
-### Use read-only mode for operations, not policy design
+`readOnly: true` on the admin turns off every generated mutation, for maintenance or an incident.
 
-Global `readOnly` disables generated mutations across the admin. It is useful during maintenance or incident response, but it does not replace roles, field rules, or database-level constraints.
+### Verify
 
-### Verify every gate
-
-For each role, test the page and the underlying route. Cover list/get, create/update/delete, actions, imports, drawer related data, and queues that the role can reach. Include a handcrafted write containing a hidden or read-only field and a by-ID request for another tenant.
-
-Authorization runs before action input validation, so unauthorized callers do not receive form-shape details. See [Request and mutation lifecycle](/docs/understand/request-lifecycle) and [Contexts reference](/docs/reference/contexts).
+For each role, request the page and the route behind it: list and get, create, update and delete, actions, import, drawer tabs and queues. Include a crafted write with a read-only field. Authorization runs before input validation, so a denied caller learns nothing about the form.
 
 ## Multi-tenant scope
 
@@ -331,13 +226,9 @@ Bind every tenant-owned resource operation to the current tenant and verify fail
 
 Docs: https://flowpanel.tech/docs/guides/multi-tenant-scope
 
-Tenant scope has two parts: the root config resolves who the request belongs to, and each tenant-owned resource translates that scope into an adapter predicate.
+Tenant scope has two parts: the root config resolves the tenant from the session once per request, and each tenant-owned resource turns it into a query predicate. Take the tenant from trusted session state, never from a query parameter.
 
-### Prerequisites
-
-Authentication must provide a trusted tenant identifier. Decide which resources are tenant-owned and which are intentionally global. Do not infer tenancy from a client query parameter.
-
-### Resolve the tenant once
+### Resolve the tenant
 
 ```ts excerpt
 export default defineAdmin({
@@ -352,9 +243,9 @@ export default defineAdmin({
 });
 ```
 
-The resolved value is request-scoped and available to resource predicates, policies, actions, and widget queries.
+The value reaches resource predicates, policies, actions and widget queries as `ctx.scope`.
 
-### Bind each tenant-owned resource
+### Bind each resource
 
 ```ts excerpt
 resource(schema.orders, {
@@ -376,103 +267,59 @@ resource(schema.orders, {
 })
 ```
 
-The predicate's `query` argument is adapter-specific. With Drizzle it is a query builder — chain a `where` clause as above. With Prisma it is the `where` object — merge the tenant keys into it and return the result:
+With Drizzle, `query` is a query builder. With Prisma it is the `where` object; merge the tenant into it:
 
 ```ts excerpt
 scope: ({ tenantId }, where) => ({ ...(where as object), tenantId }),
 ```
 
-The predicate applies to lists, lookups, updates, deletes, restore, references, and related-resource reads—not only to the visible list.
+The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue`, as above, so the operator cannot choose it.
 
-Create needs special attention because no stored row exists to filter yet. Set the tenant through a trusted server default or write policy, and keep the tenant field outside the operator-controlled form.
+### Fail closed
 
-### Preserve fail-closed behavior
+With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither, or whose predicate adds no constraint, throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
 
-When global scope is active and a resource declares scope, supported adapters reject an operation if the predicate is not bound or adds no constraint. Do not catch that access error and retry an unscoped query.
-
-Global resources should omit tenant scope deliberately and have their own explicit access policy. Make that exception visible in code review.
+`ctx.sql` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself.
 
 ### Verify isolation
 
-Create fixtures for two tenants and test:
+With fixtures for two tenants, check that:
 
 1. each tenant lists only its own rows;
-2. a by-ID read of the other tenant's row fails;
-3. update, delete, restore, and row actions cannot target the other tenant;
-4. create cannot submit or override another tenant ID;
-5. references and drawer related tabs remain scoped;
-6. dashboard queries use `ctx.scope` in their own application queries.
+2. reading the other tenant's row by ID fails;
+3. update, delete, restore and row actions cannot reach the other tenant;
+4. create cannot set another tenant ID;
+5. references and related tabs stay scoped;
+6. dashboard queries filter by `ctx.scope`.
 
-FlowPanel can enforce the generated resource path, but a custom widget or page query remains your code. Apply the same tenant predicate there.
-
-See [Scope, realtime, and rate limits reference](/docs/reference/scope-realtime) for generated types.
+Every option: [Scope reference](/docs/reference/scope-realtime#scope).
 
 ## Realtime
 
-Choose the memory or Redis driver and operate live updates safely in production.
+Refresh lists and widgets live over SSE, share events across instances with Redis, and publish from workers.
 
 Docs: https://flowpanel.tech/docs/guides/realtime
 
-FlowPanel uses Server-Sent Events (SSE) to tell subscribed browser surfaces when data changed. The event is a refresh signal, not a copy of the row.
+A committed change publishes a small event; lists and widgets subscribed to its channel refetch through their normal authorized query. Events reach the browser over Server-Sent Events. They are refresh signals, not row data, and not a durable log: a reconnect refetches current state.
+
+### Subscribe
+
+`realtime: true` on a resource refreshes its list and record pages. A widget takes a channel name, `{ resource: "orders" }`, or a list of them:
+
+```ts excerpt
+metric("Open orders", openOrders, { realtime: { resource: "orders" } });
+custom(Pipeline, pipelineProps, { realtime: "pipeline" });
+```
+
+Generated creates, updates, deletes and actions publish on their resource automatically. In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/server`.
 
 ### Choose the driver
 
-Use the memory driver when exactly one long-lived Next.js process serves mutations and SSE connections. It is appropriate for local development and a single-instance deployment.
-
-Use Redis when requests can reach more than one process, during rolling deploys with overlap, or when an external worker publishes updates. Without a shared publisher, a mutation on one instance cannot notify a browser connected to another.
-
-Follow [Realtime with Redis](/docs/guides/realtime-with-redis) for setup.
-
-### Understand the path
-
-1. A list or widget subscribes to a named channel.
-2. The browser opens the generated `/api/flowpanel/stream` endpoint.
-3. A successful mutation publishes a small action/id payload after the write commits.
-4. The subscribed surface receives the signal and refetches through its normal authorized query.
-
-Row contents, sessions, and database clients are not sent through Redis or SSE. Custom payloads should still contain no secrets because every authorized subscriber to that channel can receive them.
-
-### Publish from application code
-
-Generated resource mutations publish automatically when realtime is configured. For a custom mutation in the same initialized process, call `publishResource` or `publish` from the server export.
-
-An external worker has not evaluated the admin config. Bind its publisher once before emitting events, and reuse the connection rather than creating one per job. See the Redis recipe for the exact sequence.
-
-### Production checklist
-
-- authenticate the SSE route with the same session boundary as the admin;
-- disable reverse-proxy buffering for the stream path;
-- set proxy and load-balancer idle timeouts above the heartbeat interval;
-- allow enough long-lived connections for active operators;
-- keep Redis TLS, credentials, and network access production-grade;
-- use a namespace so environments sharing Redis do not collide;
-- monitor reconnect rate, stream errors, publish failures, and Redis availability.
-
-SSE clients reconnect automatically, but realtime is not a durable event log. A reconnect refetches current state; it does not replay every missed mutation.
-
-### Verify end to end
-
-Open the same resource in two browsers. Mutate in one and confirm the other refetches. In a multi-instance environment, pin each browser/request to a different process or test during a rolling deployment. Also test Redis unavailable at startup and during publication so the application's failure policy is understood.
-
-See [Scope, realtime, and rate limits reference](/docs/reference/scope-realtime) for current channels, publisher types, and stream helpers.
-
-## Realtime with Redis
-
-Share FlowPanel realtime events across Next.js instances and external workers.
-
-Docs: https://flowpanel.tech/docs/guides/realtime-with-redis
-
-Use this recipe after deciding that the single-process memory driver is insufficient. It keeps the browser SSE route unchanged and replaces the process-local publisher with Redis pub/sub.
-
-### Install Redis support
+The default memory driver reaches only the process that published. Use Redis when more than one process serves the admin, during overlapping deploys, or when a worker publishes.
 
 ```bash
 pnpm add ioredis
 ```
-
-Provide `REDIS_URL` through the deployment environment. Use TLS and credentials appropriate for the Redis provider.
-
-### Configure the publisher
 
 ```ts excerpt
 export default defineAdmin({
@@ -487,19 +334,14 @@ export default defineAdmin({
 });
 ```
 
-Use a distinct key prefix for every application and environment sharing the same Redis service. Resources or widgets subscribe to their normal application channel names; the prefix is applied on the transport.
+Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel warns at startup when it runs the memory driver while `REDIS_URL` is set.
 
-### Publish from an external worker
+### Publish from a worker
 
-A worker, a cron job or a one-off script publishes through `@flowpanel/kit/publish`. It is the
-whole realtime client: no admin config, no adapter, no Next.js — one connection and the wire
-format.
-
-Give it the admin's own `realtime` options, so the worker and the admin cannot disagree about the
-Redis URL or the key prefix:
+A worker, cron job or script imports only `@flowpanel/kit/publish`: no admin config, adapter or Next.js. Share the admin's `realtime` options so both sides use the same URL and prefix:
 
 ```ts excerpt
-// src/shared/realtime.ts — imported by the admin config and by the worker
+// src/shared/realtime.ts, imported by the admin config and the worker
 import type { PublisherOptions } from "@flowpanel/kit";
 
 export const realtime = {
@@ -523,61 +365,35 @@ await adminEvents.resource("orders", { id: order.id });
 await adminEvents.publish("pipeline");
 ```
 
-`resource("orders", { id })` tells every open list and record page of `orders` that its rows
-changed — the event an admin action sends. `action` defaults to `"update"`; pass `"create"` or
-`"delete"` when that is what happened. `publish(channel)` sends on a channel of your own, which a
-widget subscribes to with `realtime: "pipeline"`. `resource()` does not check the name against
-your schema, and the SSE route ignores a channel no page subscribes to, so a misspelt name
-refreshes nothing.
+`resource(name, { id })` refreshes that resource's lists and record pages; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.
 
-A Redis failure never fails the job that published: `publish` and `resource` resolve, and the
-error reaches `onError`, or is logged once per error kind when there is none. Publishing after
-`close()` still throws, because that is a bug in the caller. Create the publisher once per
-process and `close()` it on shutdown; nothing connects until the first publish.
+A Redis error never fails the job: the call resolves and the error goes to `onError`, or is logged once per error kind. Create the publisher once per process and `close()` it on shutdown. To reuse a configured `ioredis` client, pass it instead of a URL: `createPublisher({ redis, keyPrefix })`.
 
-When the worker already owns a configured Redis client — TLS, a sentinel, a retry strategy, a
-BullMQ connection — hand it over instead of a URL; any `ioredis` instance fits, and it stays yours
-to close:
+### Production
 
-```ts excerpt
-import { createPublisher } from "@flowpanel/kit/publish";
-import { redis } from "./redis";
+- Authenticate the stream route like the rest of the admin.
+- Turn off reverse-proxy buffering for the stream path.
+- Set proxy and load-balancer idle timeouts above the heartbeat interval.
+- Allow enough long-lived connections for your operators.
+- Monitor reconnects, stream errors and publish failures.
 
-const events = createPublisher({ redis, keyPrefix: realtime.keyPrefix });
-```
+### Verify end to end
 
-Import `createPublisher` from `@flowpanel/kit/publish`; the admin builds its own transport, and
-`createPublisher` from the `@flowpanel/kit` root is a deprecated alias of that transport factory,
-`createRealtimeTransport`, which rejects on a Redis error.
+Open one resource in two browsers, change a row in one and watch the other refetch. With several instances, connect the browser to one and change the row through another, then repeat with a worker publish.
 
-Inside the admin itself nothing changes: `ctx.publish` in an action, or `publishResource` from
-`@flowpanel/kit/server`, already use the publisher `defineAdmin` configured.
-
-### Verify across instances
-
-Run two application instances against the same Redis key prefix. Connect a browser to one, perform a mutation through the other, and confirm the browser refetches. Repeat with a worker publication. If local same-instance updates work but this test fails, inspect the prefix, the Redis URL, and network/TLS settings. FlowPanel also warns on startup when it resolves the memory driver while `REDIS_URL` is set in the environment, which is the configuration that produces exactly this symptom.
-
-### Production notes
-
-Redis publication distributes refresh signals; it does not make SSE durable. Monitor publish errors and reconnects, and decide whether a failed post-commit notification should alert, retry, or wait for the next user refresh.
-
-Return to the full [Realtime production checklist](/docs/guides/realtime).
+Every option: [Publisher reference](/docs/reference/scope-realtime#publisher).
 
 ## Queues
 
-Register BullMQ queues and expose their board through an authenticated boundary.
+Register BullMQ queues and show their jobs in the admin, behind the same authentication as the rest of it.
 
 Docs: https://flowpanel.tech/docs/guides/queues
 
-FlowPanel registers a queue in navigation and embeds a bull-board URL. The board is a separate HTTP process, so it needs its own network and authentication boundary.
-
-### Prerequisites
+A queue adds a navigation entry whose page embeds a bull-board server in an iframe. The board is a separate HTTP process with its own token, so protect it on the network as well.
 
 ```bash
 pnpm add bullmq ioredis @bull-board/api @bull-board/express express
 ```
-
-Create the BullMQ queues in an application module and reuse those instances for workers, the board, and optional metrics.
 
 ### Register a queue
 
@@ -592,11 +408,11 @@ export const emailQueuePage = queue(emailQueue, {
 });
 ```
 
-Add it to `queues` in the root config. The queue's `.name` becomes its key unless `key` is set. `requireRole` protects the FlowPanel page and navigation entry.
+Add it to `queues` in the config. The queue's `.name` is its key unless you set `key`. `requireRole` protects the admin page, not the board server.
 
-### Start the board process
+### Start the board
 
-Put the entry point at `scripts/board-server.mts` (or `.ts`) — the location `flowpanel dev` looks for:
+`flowpanel dev` starts `scripts/board-server.mts` (or `.ts`) when `REDIS_URL` is set, unless you pass `--no-board`:
 
 ```ts excerpt
 import { startBoardServer } from "@flowpanel/kit/bullmq/board";
@@ -613,278 +429,16 @@ startBoardServer({
 });
 ```
 
-The token is required. A valid token establishes an HttpOnly board session cookie for subsequent assets and polling requests.
+The token is required. A valid token sets an HttpOnly session cookie for the board's assets and polling.
 
-### Protect the deployment boundary
+### Deploy
 
-The iframe URL is not protected by FlowPanel's `requireRole`; anyone who can reach the board port meets the board server directly. Keep it on loopback, put it behind an authenticated reverse proxy, and inject credentials server-side. A query-string token is useful for local setup but leaks through URLs and logs in a shared environment.
+Anyone who reaches the board port reaches its destructive job controls. Keep it on loopback or behind an authenticated reverse proxy, and run it as its own supervised process. A `?token=` in the URL is fine locally but leaks into logs in shared environments.
 
-`flowpanel dev` starts the board alongside Next.js when `REDIS_URL` is set and `scripts/board-server.mts` (or `.ts`) exists, unless `--no-board` is used. In production, supervise the board as a separate process with health checks and restricted network exposure.
+### Count jobs in a dashboard
 
-### Read queue state in dashboards
-
-`bullmqAdapter` wraps a named map of queue instances for application queries. Dashboard metrics may call the normal BullMQ methods through that map; they do not need the board HTTP server.
+Wrap the same queue instances with `bullmqAdapter` and call BullMQ methods from a widget; the board server is not involved. See [Reading queue state](/docs/reference/queues#reading-queue-state-from-your-own-code).
 
 ### Verify and troubleshoot
 
-Test the FlowPanel role gate and direct board URL separately. Confirm missing/invalid tokens return unauthorized, the session cookie is scoped to the board base path, and the reverse proxy supports iframe assets and polling. An unreachable `boardUrl` produces an empty/failed iframe while the rest of the admin remains available.
-
-See [Queues reference](/docs/reference/queues) for generated queue and board option types.
-
-## Upgrade FlowPanel
-
-Align package versions, review migrations and changes, and validate generated and ejected surfaces.
-
-Docs: https://flowpanel.tech/docs/guides/upgrade
-
-FlowPanel workspace packages are released together. Most applications should depend on the umbrella `@flowpanel/kit` and local `@flowpanel/cli` at the same version rather than pinning lower-level packages independently.
-
-### Inspect the current install
-
-```bash
-pnpm list "@flowpanel/*"
-pnpm flowpanel doctor
-```
-
-Before changing versions, record ejected files and any direct lower-level FlowPanel dependencies. Read the [changelog](/changelog) for every version you will cross.
-
-### Update aligned packages
-
-```bash
-pnpm up "@flowpanel/*" --latest
-pnpm install
-```
-
-Keep direct FlowPanel packages on the same released version. Multiple copies of `@flowpanel/core` can split request context and module augmentation; `flowpanel doctor` checks for that condition.
-
-### Review database work
-
-```bash
-pnpm flowpanel migrate --dry-run
-```
-
-Review pending SQL for the target dialect and deployment strategy before applying it. Back up production data according to the application's normal migration policy, then run `pnpm flowpanel migrate` in the controlled release step.
-
-### Validate the application
-
-Run the application's typecheck and production build. Start the admin once so config compilation can catch duplicate/reserved names, stale columns, and unresolved references. Exercise auth, one scoped read/write, forms, actions, realtime, and queues used by the deployment.
-
-### Review ejected files
-
-Ejected files contain a version stamp and are application-owned. The upgrade does not rewrite them. Compare their public imports and behavior with the changelog and current reference; test them separately from generated routes.
-
-If a newer config, renderer, page, or slot now covers the customization, consider returning that surface to generated behavior. Re-enabling config also requires removing the explicit Next.js route.
-
-### Upgrading from 0.3.0 to 0.3.1
-
-0.3.1 adds options, widgets and checks, and changes some outputs. No option is removed; three 0.3.0 names are deprecated and keep working, listed below. A config that compiles on 0.3.0 compiles on 0.3.1 unless it meets one of the type changes below: both example apps upgraded with no config change, and only a unit test that calls `detail.title` directly had to pass the new header context. The [founder admin tutorial](/docs/introduction/founder-admin) shows the new pieces together.
-
-#### What an admin shows differently
-
-- **Dates follow `formatting.timeZone`.** With a configured zone, `today`, `yesterday`, `MTD`, `QTD` and `YTD` start at midnight in that zone instead of at UTC midnight, and a list's `daterange` filter reads each picked day in that zone. An admin without `timeZone` sees no change.
-- **A configured `timeZone` holds after hydration.** Every `LocalTime` keeps that zone instead of switching to the reader's own, so a page shows one clock. Give a `LocalTime` its own `fallbackTimeZone` to keep the old switch for it.
-- **Durations speak the admin's locale.** `format: "duration"` on a metric, stat or bar and in a chart tooltip prints `4.2 sec` or `2 hr 5 min` (`4,2 с`, `2 ч 5 мин` in Russian) instead of `4s` or `2.1h`. A chart's value axis prints the compact `2.1h` / `2,1 ч`.
-- **Metric changes read honestly.** A change inside ±1 % shows no arrow and no colour, and the percentage prints in the admin's locale. With `previous` set, a count under 20 shows its absolute change (`+3`), a `percent` metric its change in points (`+3 pp`), and the compared value shows beside it.
-- **A capped widget no longer shows `0` for a past range.** `maxRange` counts its N days back from now as well as from the range's end. A range that ended before that runs no query and shows `—` with "No data: kept for N days", and a cut range says where it was cut under the card title.
-- **Cards carry one caption line** under their title when a range is cut or a widget sets `freshness` or `coverage`.
-- **A count metric on a record page counts only the viewed record's rows.** `metric(label, { count })` in `detail.stats`, `detail.aside` or a detail tab adds the filter to the record to its count and its default link.
-- **A related tab that sets both `widgets` and `resource` shows both**, widgets above the rows.
-- **Related detail-tab rows open.** A row opens the way it does on the target's own list: its detail page, or its drawer over the record page on the same tab. The drawer keeps its tab in `?drawerTab=` and leaves `?tab=` to the page, so a saved 0.3.0 drawer link that named its tab in `?tab=` opens on the drawer's first tab. Set `rowClick: false` on the target resource to keep the rows inert (its own list's rows too).
-- **`span` implies 12 columns.** A section or widgets tab without `columns` lays out on 12 columns once a widget sets `span`; before, `span` did nothing in its one- or two-column grid.
-- **Drawer cells use the admin's locale and zone.** A drawer field with a column format, and a drawer widget table's formatted column, print as the table does instead of in en-US and UTC.
-- **`filterOnClick` on `bars`, `tracker` or `table` replaces that row's own link** with a link to the filtered dashboard. The folded "Other" bar and a bar without `key` keep their `href`.
-- **A Russian locale switches the chrome to Russian.** With `formatting.locale` set to `"ru"` or `"ru-*"`, the built-in labels, the sign-in and access-denied screens included, come from `RU_LABELS` and your `labels` merge over them. Pass `labels: DEFAULT_LABELS` to keep English.
-- **Russian counts inflect.** The row count reads «1 333 записи» instead of «Записей: 1 333», and the bulk bar «Выбрано 3 элемента». Setting `table.results` or `bulkBar.selected` yourself keeps your template.
-- **Funnels mark a drop only past `alertDrop`.** Set `funnel({ alertDrop: 0.5 })` and the step with the largest drop-off past half turns `warn`; without it no step is toned, and drops and growth print in muted text.
-- **Unreadable detail fields are left out** instead of showing as an empty row.
-- **Each page can carry its own title.** Export `generateMetadata = flowpanelMetadata(config)` (or `runtime.metadata` from `createFlowpanel`) beside the page and the tab reads "Orders", "Order" or the dashboard's label inside your layout's title template. The page also renders a `theme-color` meta per scheme from `--fp-bg-2`, so a phone's browser chrome matches the page.
-- **Visual only, with no switch.** A `stat` title uses the `metric` card's sentence case; hints, `kv` values, `list` text and bar and funnel labels wrap to two lines; widget `tone`s colour their values, bars and list rows; card percentages use the admin's locale; the drawer renders a `statGroup` with the dashboard's card.
-
-#### A calmer default look
-
-0.3.1 ships a new default palette and quieter chrome. An admin that set its own tokens keeps them; one that relied on the defaults looks different.
-
-- **Graphite greys, an ink accent and one data colour.** Surfaces, text and borders are neutral greys, the accent is near-black (near-white in dark mode), and state tones are desaturated. Contrast is at least 4.5:1 for every text token on every surface in both schemes, and 3:1 for borders, chart colours and the focus ring. [Keep the 0.3.0 look](#keep-the-030-look) below restores every changed token.
-- **Dark mode surfaces sit above the page.** The page (`--fp-bg-2`) is now the darkest plane, cards and nav (`--fp-bg-1`) one step up and fills (`--fp-bg-3`) above them. A host that set only some dark greys in `cssVarsDark` checks that its page is still darker than its cards.
-- **Data has its own colour.** Bars, funnels, sparklines, heat cells, a single-series chart and a `default`-toned dot fill with `--fp-data`, which follows `--fp-chart-1`, instead of the accent. A host that sets `theme.accent` or `accentDark` and no `--fp-data` keeps data in that accent, as in 0.3.0; with only `accent`, dark mode draws data in the default data colour, because its accent is FlowPanel's. Set `--fp-data` in `cssVars` to part data from your accent.
-- **Smaller radii, no resting shadow.** Radii are 4, 6, 8 and 12 px and `--fp-shadow-xs` is none, so static cards and tables carry a hairline only. Set `--fp-radius*` and `--fp-shadow-xs` in `cssVars` to keep the old ones.
-- **Labels are sentence case.** Table headers, `kv` and `statGroup` labels and nav group labels are 12 px regular text, no longer uppercase. The active nav item and tab are neutral instead of accent-coloured.
-- **Built-in links lose their arrow and their colour.** "Open full page", "Open list", "Older" and "Newest" carry no `→`/`←`, and card links such as "See all" are secondary text. Put an arrow back through `labels` if you want one.
-- **Statuses stay quiet when healthy.** A `badge` column without `tones` colours `failed`, `error` and `rejected` as `err`, `degraded` as `warn` and `pending`, `waiting`, `processing` and `running` as `info`; `active`, `success`, `completed` and any other value are neutral, and `disabled` and `canceled` are muted instead of `err`. Declare `tones: { active: "ok" }` to colour one. Badges have 4 px corners and 12 px text.
-- **Metric changes are plain text.** A delta prints `+12% vs previous period` with no pill or arrow, coloured by `goodWhen` only from a 5 % change; smaller changes stay muted. Bar rows read the same way.
-- **The banner list leads with a sentence.** `list({ variant: "banner" })` sits on a normal card with a 3 px rule in the worst row's tone; the first row reads as an 18 px line and the rest as dot lines in secondary text, and the all-clear line has no check mark.
-- **List lines keep the body colour.** A toned `list` row shows its tone in the dot only.
-- **Empty and failed cards take one line.** A widget with no rows says so in one 14 px line where its content would start, a chart included, and a failed widget names the failure in the error colour on a neutral card.
-- **A table or list keeps its own height.** In a dashboard row it no longer stretches to its tallest neighbour; set the section's `align: "stretch"` to restore that.
-- **Dashboard actions are secondary.** Every dashboard action and every drawer action is an outline button, a destructive one in the error colour; the record page's Edit button too. Give the one action a screen is for `emphasis: "primary"`, or `update: { emphasis: "primary" }` for Edit; drawer actions have no `emphasis` and stay secondary.
-- **Compact rows are 40 px with body text**, and a list with no matching rows says so with a button that clears its search and filters; Export hides when there is nothing to export. A phone shows the first 10 cards of a page and folds the rest behind one button.
-- **The drawer's subtitle is the resource's label**, not `Resource · id`; set `drawer.subtitle(row)` for your own. Its title is a skeleton while the row loads, and the panel itself takes focus on open.
-- **A 404 marks no nav item.** The admin root, the entry every other entry sits under, marks only its own page; any other entry still marks the pages below it.
-- **Chart ticks drop a repeated year**, legends write series names in secondary text beside a coloured swatch, and area charts fill flat instead of with a gradient.
-
-##### Keep the 0.3.0 look
-
-Paste this into `defineAdmin` to put back every token whose default changed. Data fills follow
-the accent again because `accent` and `accentDark` are set.
-
-```ts excerpt
-theme: {
-  accent: "220 90% 50%",
-  accentDark: "217 91% 65%",
-  cssVars: {
-    "--fp-bg-2": "220 20% 97%",
-    "--fp-bg-3": "220 16% 93.5%",
-    "--fp-text-1": "224 25% 11%",
-    "--fp-text-2": "220 10% 38%",
-    "--fp-text-3": "220 10% 45%",
-    "--fp-border-1": "220 14% 90%",
-    "--fp-border-2": "220 12% 84%",
-    "--fp-accent-text": "220 100% 98%",
-    "--fp-accent-badge-text": "220 90% 46%",
-    "--fp-overlay": "224 35% 7%",
-    "--fp-ok": "142 70% 45%",
-    "--fp-warn": "38 92% 50%",
-    "--fp-err": "0 84% 60%",
-    "--fp-info": "199 89% 48%",
-    "--fp-ok-text": "142 70% 27%",
-    "--fp-warn-text": "38 92% 28%",
-    "--fp-err-text": "0 84% 42%",
-    "--fp-info-text": "199 89% 30%",
-    "--fp-chart-1": "221 83% 53%",
-    "--fp-chart-2": "173 80% 36%",
-    "--fp-chart-3": "38 92% 50%",
-    "--fp-chart-4": "262 83% 58%",
-    "--fp-chart-5": "350 89% 60%",
-    "--fp-chart-6": "192 91% 36%",
-    "--fp-chart-7": "84 81% 44%",
-    "--fp-shadow-color": "224 40% 8%",
-    "--fp-shadow-xs": "0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.06)",
-    "--fp-radius-sm": "0.375rem",
-    "--fp-radius": "0.5rem",
-    "--fp-radius-lg": "0.75rem",
-    "--fp-radius-xl": "1rem",
-  },
-  cssVarsDark: {
-    "--fp-bg-1": "222 18% 8%",
-    "--fp-bg-2": "222 16% 11.5%",
-    "--fp-bg-3": "222 14% 15.5%",
-    "--fp-text-1": "220 20% 96%",
-    "--fp-text-2": "220 11% 72%",
-    "--fp-text-3": "220 9% 58%",
-    "--fp-border-1": "222 14% 19%",
-    "--fp-border-2": "222 13% 25%",
-    "--fp-accent-text": "224 30% 10%",
-    "--fp-accent-badge-text": "217 91% 68%",
-    "--fp-overlay": "224 35% 7%",
-    "--fp-ok": "142 70% 45%",
-    "--fp-warn": "38 92% 50%",
-    "--fp-err": "0 84% 60%",
-    "--fp-info": "199 89% 48%",
-    "--fp-ok-text": "142 70% 45%",
-    "--fp-warn-text": "38 92% 50%",
-    "--fp-err-text": "0 84% 68%",
-    "--fp-info-text": "199 89% 60%",
-    "--fp-chart-1": "213 94% 68%",
-    "--fp-chart-2": "172 66% 50%",
-    "--fp-chart-3": "43 96% 56%",
-    "--fp-chart-4": "255 92% 76%",
-    "--fp-chart-5": "351 95% 71%",
-    "--fp-chart-6": "188 86% 53%",
-    "--fp-chart-7": "83 78% 55%",
-    "--fp-shadow-color": "240 40% 2%",
-    "--fp-shadow-xs": "0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.5)",
-  },
-},
-```
-
-To colour statuses as 0.3.0 did, give the badge column the old map:
-
-```ts excerpt
-const STATUS_0_3_0 = {
-  active: "ok", enabled: "ok", success: "ok", succeeded: "ok", completed: "ok", healthy: "ok",
-  pending: "warn", waiting: "warn", processing: "warn",
-  disabled: "err", canceled: "err",
-} as const;
-
-{ field: "status", format: { kind: "badge", tones: STATUS_0_3_0 } }
-```
-
-Values outside the map were muted in 0.3.0 and are neutral now. Sentence-case labels, the
-neutral nav item and the quiet links, deltas and banner have no switch.
-
-#### What `defineAdmin` and the runtime now reject
-
-- **Names are checked at boot.** `defineAdmin` throws, with the closest name, on a static link, count metric, saved view, related tab, timeline or heatmap source, `realtime` resource or dashboard filter that names a missing resource, dashboard, view, tab, column or filter. It also rejects a filter value its list would read as other rows: an array without a `multiselect` filter, bounds without a range filter, a single value on a range filter other than a `daterange` preset name, or a bare `Date`.
-- **Filters that cannot be written throw.** A link or view filter value with no URL form throws instead of writing `[object Object]`.
-- **`ctx.count` with `null` or `""` counts `0`** and warns in development, as `undefined` already did; the Drizzle adapter used to count every row. `ctx.read` throws on those values.
-- **Widgets a drawer cannot show are rejected there.** `timeline`, `heatmap`, `checklist` and `tracker` in a drawer tab, and a dashboard filter on a record page or in a drawer, are errors that point at a detail tab.
-- **Two timelines on one page need their own `id`.** An un-id'd timeline outside a detail tab takes `timeline`, `timeline-2` and on, and two that set the same `id` fail at `defineAdmin`.
-- **The error-boundary `widgetId` changes.** It and the Sentry `widget.id` tag name the widget by label, kind and place instead of `s0.w1` or `activity.w0`.
-
-#### Deprecated names that still work
-
-- **`createPublisher` from `@flowpanel/kit`** is now `createRealtimeTransport`, the transport behind an admin's `realtime` option. A worker imports `createPublisher` from `@flowpanel/kit/publish`, which never rejects on a Redis error.
-- **`ctx.href(resource, id, { filter, tab })`** still builds a link and no longer triggers the mount-path warning. Return a named target instead — `{ resource: "orders", id }` — or call `ctx.link(target)` where a string is needed.
-- **`goodWhen` on a returned `MetricDelta`** still wins. Set `goodWhen` on the metric itself, where it also reads `tones`.
-
-#### Types
-
-- **`theme.cssVars` and `cssVarsDark` are `ThemeTokens`.** The known `--fp-*` names complete in an editor and any other key still passes, so existing configs compile.
-- **Link fields are wider.** `href`, `drilldown`, `seeAll`, `rowHref` and a row's `href` accept a `LinkTarget`. Code that reads one back as a `string` narrows it with `typeof`.
-- **Filters are keyed by rows.** Saved-view filters are keyed by the resource's own row on every Drizzle resource, and link filters by the target's row once resources are typed; a key that is not a field of that row is a compile error.
-- **Registering `schema` or `session` narrows types.** `ResourceName`, rows and `Session` then come from your schema and auth, which may surface errors the loose types hid. A `where` or filter value typed `unknown`, such as `ctx.row?.id`, no longer compiles; use `ctx.id` or `ctx.rowOf(…)`.
-- **A `ctx.read` row carries only the list's columns, `expose` and `fields`.** Name every other field a card reads in `fields`.
-- **`realtime` is typed `RealtimeOption`.** Code that reads `widget.options.realtime` gets `string | { resource } | (string | { resource })[]`; a `{ resource }` target travels on `resource.<name>`.
-- **`WidgetConfig` has four new kinds**: `timeline`, `heatmap`, `checklist` and `tracker`. A host that switches exhaustively on `kind` adds cases.
-- **`ColumnFormat` gains `{ kind: "number", tones? }`**, and the `percent` and `duration` objects take `tones`. A switch on `format.kind` handles `"number"` in its object branch.
-- **`StatusTone` is every `Tone`.** An exhaustive `Record<StatusTone, …>` adds `default`, `accent` and `info`.
-- **Optional where it was required.** A chart's `y` and `KvItem.value` may be `undefined`; code that reads them back handles it. `ListCardRow.count` and `.since` are preformatted strings.
-- **Header callbacks take a second argument.** `detail.title`, `subtitle` and `badge` receive `(row, { format, labels, link })`, and `badge` may return a list. Code that calls them directly, such as a unit test, passes `headerContext()` from `@flowpanel/test/widgets`.
-- **Moved types keep their exports.** `DetailTab` and `DetailTabContext` live in `types/detail.ts`, the chart options in `types/widget-charts.ts` and the list types in `types/widget-list.ts`, still exported from the same entries.
-
-#### Code that builds FlowPanel objects by hand
-
-- **A hand-built `WidgetContext` needs the new members.** Add `format: bindFormat(resolveFormatting())`, a `link` function, `read`, `rowOf`, `filters: {}`, a `query` that accepts `(key, fn)`, `(fn, ...args)` and `(fn)`, and `previous` and `timeZone` on `dateRange`. A hand-built `DetailTabContext` adds `read`, `rowOf`, `format`, `link` and the same `dateRange` members. Contexts FlowPanel builds carry them already, and `widgetContext` from `@flowpanel/test/widgets` builds one for tests.
-- **`ctx.query(fn)` hands `fn` the context.** With no further arguments it calls `fn(ctx)` when `fn` declares a parameter. A function whose first parameter is optional without a default (`days?: number`) now receives the context: give it a default or pass the argument.
-- **A hand-built `ResolvedLabels` adds** `timeline`, `heatmap`, `checklist`, `access`, `detail.tabCount`, the new `widget` keys, `widget.tones` (`err`, `warn`, `ok` and `info`, the words a screen reader says for a status glyph or dot) and `drawer.loading`, `noRows`, `noWidgets` and `chartElsewhere`. Spreading `DEFAULT_LABELS` or `RU_LABELS` first fills them in.
-- **`PublisherClient` has a `resource(name, change?)` member.** A test double typed `: PublisherClient` adds it.
-- **A custom adapter may report `ResourceIntrospection.kind: "view"`.** A resource over a view without `writeTo` is read-only.
-- **`fillDays` now runs through `series`.** `fillDays(rows, ctx.dateRange, …)` buckets in the admin's zone (a plain `{ from, to }` still buckets in UTC), a zoneless timestamp string is read as UTC, `Date` values in `valueField` sum as 0, and a range that starts at the epoch begins at the first row's day.
-
-#### Workers, tests, styles and the CLI
-
-- **A worker `publish` resolves on a Redis error.** Pass `onError` to `createPublisher` to observe it; otherwise it logs one line per error kind.
-- **`smokeAdmin` opens every detail tab.** Pass `tabs: false` for the old walk.
-- **`@flowpanel/test/widgets` needs `@flowpanel/kit`**, a new optional peer of `@flowpanel/test`. Under Vitest it also needs `test.server.deps.inline: [/@flowpanel\//]`, or it fails with `ERR_MODULE_NOT_FOUND` for `next/cache`, and `resolve.alias` for any `@/` import your config or test uses, since Vitest does not read `tsconfig.json`'s `paths`; see [Run it in Vitest](/docs/reference/testing#run-it-in-vitest).
-- **`tailwind-merge` 3.** `@flowpanel/react` and `@flowpanel/next` depend on `tailwind-merge@^3`, which merges Tailwind v4 utilities correctly. A class passed through `cn()` may now lose a v4 conflict that v2 kept both sides of. A host on `tailwind-merge@^3` shares one copy with FlowPanel.
-- **The scaffolded admin layout forwards a nonce.** In a host with its own root layout, the layout `init` writes renders `ThemeScript` with the `x-nonce` header; under a strict `script-src`, set `x-nonce` for that route too.
-- **`init` adds `suppressHydrationWarning` to your root layout.** `ThemeScript` marks `<html>` before React hydrates it, so `init` now adds the attribute to the host root layout's `<html>` tag when it is missing, printing the manual edit instead if it cannot patch the file safely. A 0.3.0 host that already ran `init` should add `suppressHydrationWarning` to its root layout's `<html>` tag by hand, or it will see a hydration error in development and `smokeAdmin` will fail on every route.
-- **`flowpanel new` without `--dir` is stricter.** It refuses a config whose `resources` is not an array literal and points at `--dir`, instead of adding a second `resources` key. `--dir <dir>` writes each resource as its own file.
-- **`flowpanel eject` follows a re-exporting root config and a split `resources` directory.** `eject resource`, `eject dashboard` and `flowpanel new` now all follow a root `flowpanel.config.ts` that only re-exports another module, and `eject resource` also finds the right file when `resources` is imported from a one-file-per-resource directory. A 0.3.0 host on that layout previously saw `eject` report the resource "not found".
-
-### Upgrading from 0.2 to 0.3
-
-0.3 changes a few defaults and removes one dead option. Read this list against your `flowpanel.config.ts` before you upgrade.
-
-- **Rows open the detail page.** A resource that configures `detail` and no `drawer` now navigates on row click and on Enter. Set `rowClick: false` to keep rows inert, or `rowClick: "drawer"` where a drawer exists.
-- **Pie charts show their legend.** `pieChart({ showLegend: false })` restores the previous look.
-- **`table()` honours `emptyState` and `limit`.** Both were declared and ignored; a table that relied on seeing every row of a `query` should drop `limit`.
-- **`detail.header` is deprecated.** Move it to `detail.title`; `subtitle` and `badge` are new slots beside it. `title` wins when both are set.
-- **Validation messages come from `labels.form`.** An empty required field reads `"{label} is required"` (`labels.form.required`) instead of a Zod type message; custom messages still pass through. Override the key to change the wording.
-- **`audit.retention` is removed.** It was never applied; delete the line and keep retention where the rows live.
-- **Drawer field payload shape.** A drawer's serialized `fields` are `{ name, label? }` objects instead of bare names. Only a host reading the drawer payload directly is affected.
-- **Workers publish through `@flowpanel/kit/publish`.** `createPublisher({ redis })` replaces `bindPublisher(config)` in a publish-only process. The Redis wire is unchanged, so 0.2 and 0.3 instances interoperate during a rolling deploy.
-- **`formatNumber`'s third argument.** It is now the resolved `formatting` object (`useFormatting()` in a client component, `resolveFormatting(config.formatting)` on the server), not a locale string. A bare locale string still works and keeps 0.2's `USD`/`UTC`, so an ejected widget compiles either way.
-- **`Date` values in cards and ticks.** A `Date` in a `stat`, `statGroup` or `kv` value, and every chart x-axis tick, now renders through the admin's `formatting` (`locale`, `timeZone`) like a table cell instead of the server's own clock. Drop any hand-rolled `toISOString().slice(0, 10)` in a widget resolver.
-- **`ctx.count` rejects an unknown `where` key.** A key the adapter does not report as a column throws a config error naming the field and the resource, on both count paths, instead of silently counting the whole table on Drizzle and throwing inside Prisma.
-- **`HealthBanner`'s error tone is `"err"`.** The component now speaks the shared `Tone` vocabulary; rename `tone="error"` to `tone="err"`.
-- **`StatItem.value` takes only `ctx`.** Its never-passed second `row` parameter is gone; the record is `ctx.row`.
-- **The memory realtime driver serialises payloads.** Like Redis, it now JSON-encodes on publish and decodes on delivery, so a `Date` in a payload arrives as a string and a non-serialisable payload throws in development too, with or without a subscriber.
-- **`ctx.db` stays.** Its deprecation notice now names 1.0 as the removal target; `ctx.sql` and `ctx.count` are the supported way to query from a widget.
-- **New package.** Add `@flowpanel/test` as a dev dependency next to `@playwright/test` to run `smokeAdmin` in your browser suite.
-
-### Pre-1.0 expectations
-
-Before 1.0, minor releases may contain breaking changes. Types and deprecation notes are part of the migration path, but they do not replace the changelog and application tests. Upgrade in a reviewable branch and avoid mixing unrelated dependency changes.
-
-If the installed behavior and current site disagree, use the versioned package types and release notes as the authority and report the documentation mismatch.
+Test the admin role gate and the board URL separately: a missing or wrong token returns 401. An unreachable `boardUrl` leaves the iframe empty and the rest of the admin working.

@@ -96,8 +96,7 @@ export function Form<S extends $ZodType>({
       try {
         const response = await fetch(action, { method: "POST", body: formData });
         const body = (await response.json()) as Partial<FormActionResult>;
-        // A non-2xx response is always a failure, regardless of what the body
-        // claims — `ok` must be assigned after the spread to win over it.
+        // A non-2xx response is always a failure; `ok` must be assigned after the spread to win over the body.
         res = { ...body, ok: response.ok ? (body.ok ?? true) : false };
       } catch {
         res = { ok: false, error: "Network error — please try again." };

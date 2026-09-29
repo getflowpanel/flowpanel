@@ -57,7 +57,6 @@ export async function resolveFormFields(
 ): Promise<ResolvedField[]> {
   const queryCtx: QueryContext = {
     ...reqCtx,
-    db: config.adapter.db,
     dateRange: { from: new Date(0), to: new Date() },
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,

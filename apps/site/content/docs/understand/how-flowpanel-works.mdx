@@ -1,39 +1,45 @@
 ---
 title: How FlowPanel works
-description: Follow schema and config through adapters, routes, and the rendered admin interface.
+description: How config becomes an admin, what runs on the server and in the browser, and the order of checks on every request.
 kind: explanation
 ---
 
-FlowPanel is an embedded runtime, not a separate service. It combines application-owned schema metadata and config with generated Next.js boundaries.
+FlowPanel compiles your config once, then serves every admin page and API request through one server pipeline that checks access before it touches data.
 
 ## From schema to compiled admin
 
-1. A resource points at a Drizzle table or Prisma model name.
-2. The adapter supplies operations and introspected column metadata.
-3. `resource()`, `dashboard()`, `page()`, and other builders preserve typed definitions without performing I/O.
-4. `defineAdmin()` compiles the graph: it resolves names and defaults, validates columns and references, checks route collisions and action keys, applies global read-only behavior, and indexes resources.
-5. `createFlowpanel(config)` binds that resolved definition to a page, HTTP handlers, request runtime, client metadata, and event publisher.
+1. A resource points at a Drizzle table or a Prisma model name.
+2. The adapter supplies the queries and the column metadata.
+3. `resource()`, `dashboard()`, `page()` and the other builders return typed definitions and do no I/O.
+4. `defineAdmin()` resolves names and defaults and validates columns, references, routes and action keys. A mistake throws here, at startup.
+5. `createFlowpanel(config)` binds the result to the page, HTTP handlers, client metadata and event publisher.
 
-Failures such as duplicate resource names or unknown columns happen while the admin is compiled, close to startup, rather than producing a half-working page.
+## Server and browser
 
-## The three execution times
-
-| Time | What happens |
+| Runs | What |
 | --- | --- |
-| Startup/module evaluation | Config composition, adapter creation, admin compilation, publisher binding |
-| Each server request | Session, role, access, scope, adapter queries or mutations, server renderers |
-| In the browser | Navigation state, tables/forms/drawers, client hooks, SSE subscription, refetch after signals |
+| Once, at startup | Config, adapter, compilation, publisher |
+| On the server, per request | Session, role, access, scope, queries and writes, column renderers, widget queries, action `run` |
+| In the browser | Tables, forms, drawers, client hooks, the SSE subscription |
 
-The database client and config stay on the server. Browser code receives serialized metadata and the declared row/value surface needed to render the current screen.
+The config, database client and secrets never reach the browser. Do not import `flowpanel.config.ts` from a `"use client"` module. The browser receives serialized metadata and the declared fields of the rows on screen. A column renderer may return a client component; its props must be serializable.
 
-## Routes are integration points
+## Reads
 
-The catch-all page renders resource and dashboard URLs through React Server Components. The catch-all API handles typed CRUD, forms, actions, references, import/export, and drawer payloads. The stream route holds authenticated SSE connections.
+1. Resolve the session, actor ID and role.
+2. Check the admin-wide gate and the resource's access rule.
+3. Resolve the tenant scope and bind the resource predicate.
+4. Accept only declared search, filter, sort and pagination fields.
+5. Query through the adapter.
+6. Drop fields the role may not read and serialize the declared fields.
 
-All generated transports converge on the same policies and adapter instead of implementing separate security rules for each UI.
+## Writes
 
-## Config is selective
+1. Authenticate and authorize, before looking at the input.
+2. Bind scope and load the target row.
+3. Reject fields the operation may not write.
+4. Fill server defaults and validate.
+5. Run the adapter or the action's `run`.
+6. After commit, emit audit, realtime and revalidation.
 
-Adapter introspection can describe a schema, but config decides what is exposed. Explicit resources, columns, fields, search fields, filters, actions, and policies are the public admin surface. New database columns do not need to become new admin capabilities.
-
-Continue with [Adapters and introspection](/docs/understand/adapters), [Request and mutation lifecycle](/docs/understand/request-lifecycle), or [Server and client boundaries](/docs/understand/server-client-boundaries).
+A failure in step 6 returns a warning and leaves the write committed. Generated pages, API calls, forms, actions, imports and drawers all use this pipeline. Your own pages, queries and workers do not: apply scope and policies there yourself.

@@ -31,9 +31,7 @@ const rule = createRule<[], MessageId>({
         if (!resourcesProp) return;
         if (resourcesProp.value.type !== AST_NODE_TYPES.ArrayExpression) return;
 
-        // Two key spaces on purpose: a name read off a `resource()` call and a
-        // bare identifier from the decomposed layout are not comparable, so
-        // collapsing them would report a false duplicate.
+        // Two key spaces on purpose: a `resource()` name and a bare identifier are not comparable.
         const byName = new Map<string, TSESTree.Node[]>();
         const byRef = new Map<string, TSESTree.Node[]>();
 

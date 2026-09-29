@@ -75,3 +75,17 @@ describe("tones from a threshold", () => {
     expect(rows.map((row) => row.tone)).toEqual(["err", "ok", "info"]);
   });
 });
+
+describe("a card with no value", () => {
+  it("mutes its dash whether or not it declares a threshold", async () => {
+    const plain = stat("Last run", async () => null);
+    const toned = stat("Failed", async () => null, { tones: ERR, tone: "err" });
+    expect((await render(plain, StatCard))?.tone).toBe("muted");
+    expect((await render(toned, StatCard))?.tone).toBe("muted");
+  });
+
+  it("keeps the tone its query returned", async () => {
+    const said = stat("Last run", async () => ({ value: null, tone: "err" as const }));
+    expect((await render(said, StatCard))?.tone).toBe("err");
+  });
+});

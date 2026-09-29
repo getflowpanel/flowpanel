@@ -6,9 +6,7 @@ import { DOC_REDIRECTS } from "./src/shared/lib/docs-contract";
 
 const withMDX = createMDX();
 
-// Read the umbrella package version at build time (cwd is apps/site during
-// `next build`) and inline it via env. A runtime fs read does not survive the
-// standalone trace, so the version must be baked in here.
+// Baked in at build time: a runtime fs read does not survive the standalone trace.
 const flowpanelVersion = (
   JSON.parse(
     readFileSync(resolve(process.cwd(), "../../packages/flowpanel/package.json"), "utf8"),

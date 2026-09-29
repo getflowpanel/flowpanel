@@ -6,10 +6,8 @@ import { rowIdentity } from "./row-identity";
 export type RowClickMode = "detail" | "drawer" | false;
 
 /**
- * Resolve `ResourceOptions.rowClick`. A declared value wins; `"drawer"` still
- * needs a drawer to open. Without one, a resource that configured a detail page
- * opens it, a resource that configured only a drawer opens that, and a resource
- * that configured neither leaves its rows inert.
+ * Resolves `ResourceOptions.rowClick`. A declared value wins; `"drawer"` still needs a drawer to open.
+ * Without one: detail page if configured, else drawer if configured, else rows are inert.
  */
 export function resolveRowClick(resource: ResourceConfig): RowClickMode {
   const hasDrawer = !!resource.options.drawer;

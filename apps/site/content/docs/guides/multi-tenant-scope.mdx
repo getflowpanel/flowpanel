@@ -2,15 +2,12 @@
 title: Multi-tenant scope
 description: Bind every tenant-owned resource operation to the current tenant and verify fail-closed behavior.
 kind: how-to
+metaTitle: "Multi-tenant admin: scope rows by tenant"
 ---
 
-Tenant scope has two parts: the root config resolves who the request belongs to, and each tenant-owned resource translates that scope into an adapter predicate.
+Tenant scope has two parts: the root config resolves the tenant from the session once per request, and each tenant-owned resource turns it into a query predicate. Take the tenant from trusted session state, never from a query parameter.
 
-## Prerequisites
-
-Authentication must provide a trusted tenant identifier. Decide which resources are tenant-owned and which are intentionally global. Do not infer tenancy from a client query parameter.
-
-## Resolve the tenant once
+## Resolve the tenant
 
 ```ts excerpt
 export default defineAdmin({
@@ -25,9 +22,9 @@ export default defineAdmin({
 });
 ```
 
-The resolved value is request-scoped and available to resource predicates, policies, actions, and widget queries.
+The value reaches resource predicates, policies, actions and widget queries as `ctx.scope`.
 
-## Bind each tenant-owned resource
+## Bind each resource
 
 ```ts excerpt
 resource(schema.orders, {
@@ -49,33 +46,29 @@ resource(schema.orders, {
 })
 ```
 
-The predicate's `query` argument is adapter-specific. With Drizzle it is a query builder — chain a `where` clause as above. With Prisma it is the `where` object — merge the tenant keys into it and return the result:
+With Drizzle, `query` is a query builder. With Prisma it is the `where` object; merge the tenant into it:
 
 ```ts excerpt
 scope: ({ tenantId }, where) => ({ ...(where as object), tenantId }),
 ```
 
-The predicate applies to lists, lookups, updates, deletes, restore, references, and related-resource reads—not only to the visible list.
+The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue`, as above, so the operator cannot choose it.
 
-Create needs special attention because no stored row exists to filter yet. Set the tenant through a trusted server default or write policy, and keep the tenant field outside the operator-controlled form.
+## Fail closed
 
-## Preserve fail-closed behavior
+With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither, or whose predicate adds no constraint, throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
 
-When global scope is active and a resource declares scope, supported adapters reject an operation if the predicate is not bound or adds no constraint. Do not catch that access error and retry an unscoped query.
-
-Global resources should omit tenant scope deliberately and have their own explicit access policy. Make that exception visible in code review.
+`ctx.sql` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself.
 
 ## Verify isolation
 
-Create fixtures for two tenants and test:
+With fixtures for two tenants, check that:
 
 1. each tenant lists only its own rows;
-2. a by-ID read of the other tenant's row fails;
-3. update, delete, restore, and row actions cannot target the other tenant;
-4. create cannot submit or override another tenant ID;
-5. references and drawer related tabs remain scoped;
-6. dashboard queries use `ctx.scope` in their own application queries.
+2. reading the other tenant's row by ID fails;
+3. update, delete, restore and row actions cannot reach the other tenant;
+4. create cannot set another tenant ID;
+5. references and related tabs stay scoped;
+6. dashboard queries filter by `ctx.scope`.
 
-FlowPanel can enforce the generated resource path, but a custom widget or page query remains your code. Apply the same tenant predicate there.
-
-See [Scope, realtime, and rate limits reference](/docs/reference/scope-realtime) for generated types.
+Every option: [Scope reference](/docs/reference/scope-realtime#scope).

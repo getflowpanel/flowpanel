@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { siteConfig } from "@/shared/lib/site-config";
-import { flowpanelVersion } from "@/shared/lib/version";
 
 const FOOTER_LINKS: ReadonlyArray<{
   label: string;
@@ -10,6 +9,7 @@ const FOOTER_LINKS: ReadonlyArray<{
   { label: "GitHub", href: siteConfig.links.github, external: true },
   { label: "Docs", href: "/docs" },
   { label: "Changelog", href: "/changelog" },
+  { label: "npm", href: siteConfig.links.npm, external: true },
   { label: "Issues", href: siteConfig.links.issues, external: true },
 ];
 
@@ -20,9 +20,7 @@ export function SiteFooter() {
     <footer className="border-t border-[var(--color-border)]">
       <div className="mx-auto flex max-w-[1120px] flex-col items-center gap-4 px-6 py-10 font-mono text-xs text-[var(--color-fg-subtle)] md:flex-row md:justify-between">
         <p>
-          © {currentYear} {siteConfig.name}
-          <span className="mx-2">·</span>MIT
-          <span className="mx-2">·</span>v{flowpanelVersion}
+          © {currentYear} {siteConfig.name}. MIT license.
         </p>
         <nav aria-label="Footer">
           <ul className="flex items-center gap-6">

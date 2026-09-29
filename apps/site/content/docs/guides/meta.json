@@ -2,13 +2,10 @@
   "title": "Production",
   "pages": [
     "production-readiness",
-    "auth-with-better-auth",
-    "auth-with-clerk",
+    "authentication",
     "permissions",
     "multi-tenant-scope",
     "realtime",
-    "realtime-with-redis",
-    "queues",
-    "upgrade"
+    "queues"
   ]
 }

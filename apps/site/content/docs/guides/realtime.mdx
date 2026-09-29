@@ -1,48 +1,89 @@
 ---
 title: Realtime
-description: Choose the memory or Redis driver and operate live updates safely in production.
+description: Refresh lists and widgets live over SSE, share events across instances with Redis, and publish from workers.
 kind: how-to
+metaTitle: Realtime updates over SSE
 ---
 
-FlowPanel uses Server-Sent Events (SSE) to tell subscribed browser surfaces when data changed. The event is a refresh signal, not a copy of the row.
+A committed change publishes a small event; lists and widgets subscribed to its channel refetch through their normal authorized query. Events reach the browser over Server-Sent Events. They are refresh signals, not row data, and not a durable log: a reconnect refetches current state.
+
+## Subscribe
+
+`realtime: true` on a resource refreshes its list and record pages. A widget takes a channel name, `{ resource: "orders" }`, or a list of them:
+
+```ts excerpt
+metric("Open orders", openOrders, { realtime: { resource: "orders" } });
+custom(Pipeline, pipelineProps, { realtime: "pipeline" });
+```
+
+Generated creates, updates, deletes and actions publish on their resource automatically. In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/server`.
 
 ## Choose the driver
 
-Use the memory driver when exactly one long-lived Next.js process serves mutations and SSE connections. It is appropriate for local development and a single-instance deployment.
+The default memory driver reaches only the process that published. Use Redis when more than one process serves the admin, during overlapping deploys, or when a worker publishes.
 
-Use Redis when requests can reach more than one process, during rolling deploys with overlap, or when an external worker publishes updates. Without a shared publisher, a mutation on one instance cannot notify a browser connected to another.
+```bash
+pnpm add ioredis
+```
 
-Follow [Realtime with Redis](/docs/guides/realtime-with-redis) for setup.
+```ts excerpt
+export default defineAdmin({
+  adapter,
+  auth,
+  realtime: {
+    driver: "redis",
+    url: process.env.REDIS_URL,
+    keyPrefix: "myapp-production",
+  },
+  resources,
+});
+```
 
-## Understand the path
+Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel warns at startup when it runs the memory driver while `REDIS_URL` is set.
 
-1. A list or widget subscribes to a named channel.
-2. The browser opens the generated `/api/flowpanel/stream` endpoint.
-3. A successful mutation publishes a small action/id payload after the write commits.
-4. The subscribed surface receives the signal and refetches through its normal authorized query.
+## Publish from a worker
 
-Row contents, sessions, and database clients are not sent through Redis or SSE. Custom payloads should still contain no secrets because every authorized subscriber to that channel can receive them.
+A worker, cron job or script imports only `@flowpanel/kit/publish`: no admin config, adapter or Next.js. Share the admin's `realtime` options so both sides use the same URL and prefix:
 
-## Publish from application code
+```ts excerpt
+// src/shared/realtime.ts, imported by the admin config and the worker
+import type { PublisherOptions } from "@flowpanel/kit";
 
-Generated resource mutations publish automatically when realtime is configured. For a custom mutation in the same initialized process, call `publishResource` or `publish` from the server export.
+export const realtime = {
+  driver: "redis",
+  url: process.env.REDIS_URL!,
+  keyPrefix: `myapp-${process.env.NODE_ENV}`,
+} satisfies PublisherOptions;
+```
 
-An external worker has not evaluated the admin config. Bind its publisher once before emitting events, and reuse the connection rather than creating one per job. See the Redis recipe for the exact sequence.
+```ts excerpt
+// worker/admin-events.ts
+import { createPublisher } from "@flowpanel/kit/publish";
+import { realtime } from "@/shared/realtime";
 
-## Production checklist
+export const adminEvents = createPublisher({
+  ...realtime,
+  onError: (err, channel) => logger.warn({ err, channel }, "admin realtime publish failed"),
+});
 
-- authenticate the SSE route with the same session boundary as the admin;
-- disable reverse-proxy buffering for the stream path;
-- set proxy and load-balancer idle timeouts above the heartbeat interval;
-- allow enough long-lived connections for active operators;
-- keep Redis TLS, credentials, and network access production-grade;
-- use a namespace so environments sharing Redis do not collide;
-- monitor reconnect rate, stream errors, publish failures, and Redis availability.
+await adminEvents.resource("orders", { id: order.id });
+await adminEvents.publish("pipeline");
+```
 
-SSE clients reconnect automatically, but realtime is not a durable event log. A reconnect refetches current state; it does not replay every missed mutation.
+`resource(name, { id })` refreshes that resource's lists and record pages; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.
+
+A Redis error never fails the job: the call resolves and the error goes to `onError`, or is logged once per error kind. Create the publisher once per process and `close()` it on shutdown. To reuse a configured `ioredis` client, pass it instead of a URL: `createPublisher({ redis, keyPrefix })`.
+
+## Production
+
+- Authenticate the stream route like the rest of the admin.
+- Turn off reverse-proxy buffering for the stream path.
+- Set proxy and load-balancer idle timeouts above the heartbeat interval.
+- Allow enough long-lived connections for your operators.
+- Monitor reconnects, stream errors and publish failures.
 
 ## Verify end to end
 
-Open the same resource in two browsers. Mutate in one and confirm the other refetches. In a multi-instance environment, pin each browser/request to a different process or test during a rolling deployment. Also test Redis unavailable at startup and during publication so the application's failure policy is understood.
+Open one resource in two browsers, change a row in one and watch the other refetch. With several instances, connect the browser to one and change the row through another, then repeat with a worker publish.
 
-See [Scope, realtime, and rate limits reference](/docs/reference/scope-realtime) for current channels, publisher types, and stream helpers.
+Every option: [Publisher reference](/docs/reference/scope-realtime#publisher).

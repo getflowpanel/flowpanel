@@ -28,9 +28,7 @@ export interface PrismaAdapterOptions<P = unknown> {
   provider: PrismaProvider;
   dmmf?: PrismaDmmf;
   /**
-   * Read zoneless `YYYY-MM-DD HH:mm:ss` strings in a `ctx.sql` result as UTC
-   * `Date`s. Turn it off when a text column of your own holds timestamp-shaped
-   * strings that `select *` cannot cast.
+   * Reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s; turn off if a text column holds timestamp-shaped strings `select *` cannot cast.
    * @defaultValue true
    */
   parseDates?: boolean;
@@ -49,15 +47,15 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     return _dmmf;
   }
 
-  function hasScope(ctx: { boundScope?: unknown; applyScope?: unknown }): boolean {
-    return ctx.boundScope !== undefined || ctx.applyScope !== undefined;
+  function hasScope(ctx: { boundScope?: unknown }): boolean {
+    return ctx.boundScope !== undefined;
   }
 
-  function getDb(ctx: { db?: unknown }): PrismaClientLike {
+  function getDb(ctx: { db?: unknown } = {}): PrismaClientLike {
     return (ctx.db ?? prisma) as PrismaClientLike;
   }
 
-  function getDelegate(modelName: string, ctx: { db?: unknown }) {
+  function getDelegate(modelName: string, ctx: { db?: unknown } = {}) {
     return resolveDelegate(getDb(ctx), modelName);
   }
 
@@ -95,7 +93,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     inferSchema: (modelName) => inferSchema(modelName, getDmmf()),
 
     async list(modelName, ctx: ListQueryContext<unknown>): Promise<ListResult<unknown>> {
-      const delegate = getDelegate(modelName, ctx);
+      const delegate = getDelegate(modelName);
       const dmmf = getDmmf();
       const select = projection(modelName, ctx.select);
 
@@ -108,8 +106,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         );
         const textCols = ctx.searchFields.filter((f) => textColSet.has(f));
         if (textCols.length > 0) {
-          // Prisma accepts `mode` only on PostgreSQL; MySQL and SQLite compare
-          // case-insensitively by default collation.
+          // Prisma accepts `mode` only on PostgreSQL; other dialects compare case-insensitively by default.
           const insensitive = opts.provider === "postgresql" ? { mode: "insensitive" } : {};
           where.OR = textCols.map((name) => ({
             [name]: { contains: ctx.search, ...insensitive },
@@ -155,7 +152,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     },
 
     async get(modelName, ctx: ItemQueryContext) {
-      const delegate = getDelegate(modelName, ctx);
+      const delegate = getDelegate(modelName);
       const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
       const select = projection(modelName, ctx.select);
       if (select === EMPTY_PROJECTION) {

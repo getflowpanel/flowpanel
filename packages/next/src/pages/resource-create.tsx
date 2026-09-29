@@ -2,7 +2,6 @@ import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowp
 import {
   assertResourceScope,
   authorizeOperation,
-  checkRequireRole,
   formatLabel,
   mergeLabels,
   resolveOperationAccess,
@@ -31,11 +30,7 @@ export async function ResourceCreatePage({
   reqCtx: providedReqCtx,
 }: ResourceCreatePageProps) {
   const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
-  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
-  await authorizeOperation(
-    resolveOperationAccess(resource.options.access, resource.options.requireRole, "create"),
-    reqCtx,
-  );
+  await authorizeOperation(resolveOperationAccess(resource.options.access, "create"), reqCtx);
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,

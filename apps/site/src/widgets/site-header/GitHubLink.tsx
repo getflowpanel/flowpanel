@@ -11,7 +11,7 @@ export function GitHubLink() {
       className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 px-1 transition-colors hover:text-[var(--color-fg)]"
     >
       <span className="hidden sm:inline">GitHub</span>
-      <Github aria-hidden className="h-4 w-4 text-[var(--color-fg-subtle)]" />
+      <Github aria-hidden className="h-4 w-4 sm:hidden" />
     </a>
   );
 }

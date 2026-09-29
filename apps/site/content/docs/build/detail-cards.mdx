@@ -1,11 +1,10 @@
 ---
-title: Build a record page
-description: Give a record a header, a strip of numbers, a side column and tabs for related rows, activity and milestones.
+title: Record pages and drawers
+description: Show one record on its own page, with a header, key numbers, a side column and tabs, or in a drawer over the list.
 kind: how-to
 ---
 
-A record page answers "who is this and what have they done" in one screen. This guide builds a
-customer page; every piece is optional.
+A record page shows one row at `/admin/<resource>/<id>`: a header, a strip of numbers, facts beside the tabs, related rows and activity. A drawer shows a row over the list without leaving it. Every piece is optional.
 
 ## Keep the card in its own file
 
@@ -17,13 +16,11 @@ export const customerCard = {
 } satisfies DetailOptions<RowOf<"customers">>;
 ```
 
-`DetailOptions<Row>` types every callback by the row, and the resource takes it as
-`detail: customerCard`.
+`DetailOptions<Row>` types every callback by the row. Pass it as `detail: customerCard`.
 
-## Say who it is in the header
+## Header
 
-`title`, `subtitle` and `badge` receive the row and a second argument with the admin's
-formatters and a link builder, so no header needs its own date or plural helper:
+`title`, `subtitle` and `badge` receive the row and the admin's formatters and link builder:
 
 ```ts excerpt
 subtitle: (c, { format }) => `Customer since ${format.date(c.createdAt)}`,
@@ -34,17 +31,13 @@ badge: (c) => [
 ],
 ```
 
-A nullish badge is dropped, and `href` makes a badge a link to the list it belongs to.
+A `null` badge is dropped; `href` makes a badge a link.
 
-## Pick the period
+## Period
 
-`dateRange` puts a picker in the header. Its range, and the period before it, reach `stats`,
-`aside` and every widget tab. Related rows, the timeline and the heatmap keep their own span —
-related tabs list every row, the timeline pages through the whole history, and the heatmap
-shows its last 13 weeks — because a record's history does not stop at the picked month.
-Without `dateRange` the page shows the whole history and no picker.
+`dateRange` puts a date picker in the header. Its range reaches `stats`, `aside` and widget tabs. Related tabs, the timeline and the heatmap keep their own span. Without `dateRange` there is no picker and widgets see the whole history.
 
-## Put the key numbers under the header
+## Key numbers
 
 ```ts excerpt
 export const paidInvoices = metric(
@@ -56,12 +49,9 @@ export const paidInvoices = metric(
 stats: [metric("Monitors", { count: "monitors" }), paidInvoices],
 ```
 
-`stats` renders as one hairline strip on every tab. On a record page `{ count }` also filters
-to rows that point at this record, through the target's `reference`, and the number links to
-exactly those rows for the same period. `range` names a `daterange` filter of the counted
-resource, as on a dashboard.
+`stats` is a strip on every tab. On a record page `{ count }` counts only rows that point at this record, through the target's `reference`, and links to them. `range` names a `daterange` filter of the counted resource.
 
-## Keep the facts beside the tabs
+## Side column
 
 ```ts excerpt
 aside: [
@@ -77,12 +67,9 @@ aside: [
 ],
 ```
 
-A `kv` item with `field` reads the viewed row; pass `record: (c) => …` to read another row, such
-as a profile table, once for every item. `filled(row, labels)` turns labelled fields into
-checklist items that are done when they hold a value. On narrow screens the side column moves
-below the tabs.
+A `kv` item with `field` reads the viewed row; `record: (c) => …` reads another row once for the card. `filled(row, labels)` makes a checklist item per field, done when it has a value. On a phone the side column moves below the tabs.
 
-## List related rows
+## Related rows
 
 ```ts excerpt
 tabs: [
@@ -91,12 +78,9 @@ tabs: [
 ],
 ```
 
-`related` finds the filter from the one column of the target whose `reference` points at this
-resource, and hides that column. When there are none or several, `defineAdmin` says which and
-asks for `by`. The tab label shows its row count by default; pass `count: false` to hide it. `widgets` render above the rows —
-a funnel over the related rows, for example.
+`related` filters by the target's one column that references this resource and hides it. With none or several, `defineAdmin` asks for `by`. The label shows a row count; `count: false` hides it. `widgets` render above the rows.
 
-## Show what happened
+## Activity
 
 ```ts excerpt
 timeline({
@@ -108,24 +92,46 @@ timeline({
 });
 ```
 
-Each source reads one resource, filtered to this record and AND-ed with its own `where`, so a
-source can narrow but never widen. `kind: { field }` reads the kind from an event-log column;
-the chips then filter in the query. Events merge in time order, group by day in the admin's
-zone and page with "Older".
+Each source reads one resource filtered to this record; its `where` can narrow but not widen that. `kind: { field }` reads the kind from a column. Events merge by time, group by day and page with "Older".
 
-## Show how often and how far
+`heatmap({ source: { resource: "user_visit", at: "startedAt" } })` shows activity per day over 13 weeks. `checklist({ ordered: true, items })` shows dated milestones and the gaps between them.
 
-`heatmap({ source: { resource: "user_visit", at: "startedAt" } })` shows activity per day over
-13 weeks. `checklist({ ordered: true, items })` shows milestones with their dates and the gap
-between each; `layout: "steps"` lays them out in a row.
+## Widget tabs
 
-## A page over a SQL view
+A tab with `widgets` instead of `fields` draws dashboard widgets. `ctx.row` is the record and `ctx.id` its key:
 
-A resource can read a view that computes per-record numbers — lifecycle, last seen, counts — so
-the list can sort and filter by them. Set `writeTo` to the table edits go to. Every column a form
-writes must also be selected by the view, because form fields are typed against the view's row.
+```ts excerpt
+{
+  key: "activity",
+  label: "Activity",
+  columns: 2,
+  widgets: [
+    stat("Orders", (ctx) => ctx.count("orders", { userId: ctx.id })),
+    bars({ label: "Spend by month", query: (ctx) => spendByMonth(ctx.db, ctx.id) }),
+  ],
+}
+```
 
-## Test the card
+## Drawer
+
+```ts excerpt
+resource(schema.orders, {
+  columns: ["number", "customerEmail", "status", "total"],
+  rowClick: "drawer",
+  drawer: {
+    width: "xl",
+    title: (order) => `Order ${order.number}`,
+    tabs: [
+      { key: "summary", label: "Summary", fields: "*" },
+      { key: "items", label: "Items", resource: "orderItems", filter: (order) => ({ orderId: order.id }) },
+    ],
+  },
+})
+```
+
+`rowClick: "drawer"` needs a `drawer`. Fields reuse the column labels and renderers. A related tab shows the first 20 rows; link to the filtered list for more. Widget tabs render static cards, and `custom()`, `timeline`, `heatmap`, `checklist` and `tracker` belong in a record page tab instead. Drawer `actions` sit in the footer.
+
+## Test a card
 
 ```ts excerpt
 import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
@@ -137,9 +143,6 @@ const { props } = await resolveWidget(paidInvoices, ctx);
 expect(props.value).toBe(2);
 ```
 
-Pass `admin` here: the count finds its "points at this customer" filter through the `reference`
-your `invoices` resource declares, and only the admin knows it. Give the metric a name of its
-own, as `paidInvoices` has, rather than reaching into `customerCard.stats`. See
-[Testing](/docs/reference/testing#unit-test-a-widget), and
-[Run it in Vitest](/docs/reference/testing#run-it-in-vitest) for the one line of Vitest config the
-entry needs.
+Pass `admin` so the count finds its filter through the `reference` on `invoices`. See [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).
+
+Every option: [Record page](/docs/reference/resources#record-page) and [Drawer](/docs/reference/drawer).

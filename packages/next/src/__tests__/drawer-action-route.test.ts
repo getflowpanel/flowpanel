@@ -93,10 +93,10 @@ describe("drawerActionRoute", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 403 without running a drawer action when requireRole fails", async () => {
+  it("returns 403 without running a drawer action when its access fails", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig(
-      { key: "disable", label: "Disable", requireRole: "admin", run } as DrawerAction,
+      { key: "disable", label: "Disable", access: "admin", run } as DrawerAction,
       { role: "support" },
     );
     const res = await drawerActionRoute(config)(

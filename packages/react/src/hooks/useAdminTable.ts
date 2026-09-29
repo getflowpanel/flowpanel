@@ -42,8 +42,7 @@ export function useAdminTable(): UseAdminTable {
   const filters: Record<string, string> = {};
   for (const [k, v] of sp.entries()) if (k.startsWith("f_")) filters[k.slice(2)] = v;
 
-  // Replace, not push: list state changes on every keystroke of a filter, and a
-  // history stack of them means Back walks the filters instead of leaving.
+  // Replace, not push: list state changes on every keystroke, and a history stack means Back walks filters.
   const navigate = React.useCallback(
     (mutate: (p: URLSearchParams) => void, scroll = false) => {
       const next = new URLSearchParams(sp.toString());

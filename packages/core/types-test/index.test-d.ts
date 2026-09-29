@@ -4,7 +4,7 @@
 import {
   type Adapter,
   type AdapterKind,
-  type AdminConfig,
+  type AdminDefinition,
   type BarChartOptions,
   type BoundAdapterScope,
   bindAdapterScope,
@@ -47,7 +47,7 @@ declare module "@flowpanel/core" {
 }
 
 // ── defineAdmin returns ResolvedAdminConfig ──────────────────────────────
-declare const minimalConfig: AdminConfig;
+declare const minimalConfig: AdminDefinition;
 expectType<ResolvedAdminConfig>(defineAdmin(minimalConfig));
 
 // ── Adapter.kind is an open literal union (I-2, ADR 0016) ────────────────
@@ -114,7 +114,7 @@ expectAssignable<RealtimeConfig>({
   client: { publish: async () => 1, on: () => undefined },
 });
 
-// url and client are both optional in the type; createPublisher requires one of them
+// url and client are both optional in the type; createRealtimeTransport requires one of them
 expectError<RealtimeConfig>({ driver: "redis", url: 6379 });
 expectError<RealtimeConfig>({ driver: "memory", url: "redis://localhost:6379" });
 

@@ -1,88 +1,50 @@
-import { ArrowDown, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { siteConfig } from "@/shared/lib/site-config";
-import { CopyButton } from "@/shared/ui/copy-button";
 import { InlineCode } from "@/shared/ui/inline-code";
 import { MediaFrame } from "@/shared/ui/media-frame";
-import { TrustBar } from "./TrustBar";
-
-const INSTALL_CMD = "pnpm dlx @flowpanel/cli init";
 
 export function Hero() {
   const demo = siteConfig.links.demo;
 
   return (
-    <section
-      aria-labelledby="hero-title"
-      className="border-b border-[var(--color-border)] pt-24 pb-20 md:pt-28 md:pb-28"
-    >
+    <section aria-labelledby="hero-title" className="pt-16 pb-16 md:pt-28 md:pb-24">
       <div className="mx-auto max-w-[1120px] px-6">
         <h1
           id="hero-title"
-          className="max-w-[16ch] text-balance text-5xl font-semibold leading-[1.05] tracking-[-0.02em] md:text-7xl"
+          className="max-w-[14ch] text-balance text-5xl font-semibold leading-[1.05] tracking-[-0.02em] md:text-7xl"
         >
-          The admin panel you don&apos;t have to build.
+          A typed admin panel for Next.js
         </h1>
 
-        <p className="mt-6 max-w-[58ch] text-lg leading-relaxed text-[var(--color-fg-muted)] md:text-xl">
-          One typed config becomes a full <InlineCode>/admin</InlineCode> route for your Next.js app
-          — CRUD, dashboards, queues, realtime. Drizzle or Prisma. Eject when you outgrow it.
+        <p className="mt-6 max-w-[54ch] text-lg leading-relaxed text-[var(--color-fg-muted)] md:text-xl">
+          Describe your Drizzle or Prisma tables in one config file. FlowPanel serves lists, forms,
+          record pages and dashboards at <InlineCode>/admin</InlineCode> inside your app.
         </p>
 
         <nav
           aria-label="Hero actions"
-          className="mt-9 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-4"
+          className="mt-10 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:gap-8"
         >
           <a
-            href={demo || "#demo"}
-            {...(demo
-              ? {
-                  target: "_blank",
-                  rel: "noopener noreferrer",
-                  "aria-label": "Open the live FlowPanel demo in a new tab",
-                }
-              : {})}
-            className="inline-flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-6 py-3 font-mono text-sm font-medium text-[var(--color-accent-fg)] transition-[background-color,box-shadow] duration-200 hover:bg-[var(--color-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] active:bg-[var(--color-accent-hover)]"
+            href={demo || "#start"}
+            {...(demo ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            className="inline-flex min-h-12 touch-manipulation items-center justify-center rounded-lg bg-[var(--color-ink)] px-6 py-3 text-sm font-medium text-[var(--color-ink-fg)] transition-colors duration-200 hover:bg-[var(--color-ink-hover)] active:bg-[var(--color-ink-hover)]"
           >
-            <span>{demo ? "Open live demo" : "Explore the demo"}</span>
-            {demo ? (
-              <ArrowUpRight aria-hidden className="h-4 w-4" />
-            ) : (
-              <ArrowDown aria-hidden className="h-4 w-4" />
-            )}
+            {demo ? "Open the live demo" : "Get started"}
           </a>
           <Link
             href="/docs"
-            className="inline-flex min-h-11 touch-manipulation items-center justify-center gap-2 rounded-lg px-3 py-2 font-mono text-sm text-[var(--color-fg-muted)] transition-colors duration-200 hover:text-[var(--color-fg)] sm:justify-start"
+            className="inline-flex min-h-11 touch-manipulation items-center justify-center text-sm font-medium text-[var(--color-fg-muted)] underline decoration-[var(--color-border-strong)] underline-offset-4 transition-colors duration-200 hover:text-[var(--color-fg)] hover:decoration-[var(--color-fg)]"
           >
-            <span>Read the docs</span>
-            <ArrowUpRight aria-hidden className="h-4 w-4" />
+            Read the docs
           </Link>
         </nav>
 
-        <section aria-label="Quick start" className="mt-8 min-w-0 w-full max-w-[640px]">
-          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs">
-            <span className="text-[var(--color-fg-subtle)]">Quick start</span>
-            <span className="text-[var(--color-fg-muted)]">
-              Detects your ORM and scaffolds /admin
-            </span>
-          </div>
-          <div className="flex min-h-14 w-full items-center justify-between gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-4 py-2 font-mono text-sm shadow-[var(--shadow-card)]">
-            <span className="truncate text-[var(--color-fg)]">
-              <span className="text-[var(--color-fg-subtle)]">$ </span>
-              {INSTALL_CMD}
-            </span>
-            <CopyButton text={INSTALL_CMD} />
-          </div>
-        </section>
-
-        <TrustBar />
-
-        <div className="mt-14 md:mt-16">
+        <div className="mt-16 md:mt-20">
           <MediaFrame
             srcDark="/admin-overview-dark.png"
             srcLight="/admin-overview-light.png"
-            alt="FlowPanel admin — the Overview dashboard with metric cards, a live throughput group and a realtime crawl-rate chart"
+            alt="FlowPanel admin in a Next.js app: the Overview dashboard with a date range, four metric cards and a live panel with a crawl-rate chart and a market activity feed"
             width={2880}
             height={1380}
             url="localhost:3000/admin"

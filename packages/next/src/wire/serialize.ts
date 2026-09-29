@@ -45,8 +45,7 @@ export function toWireValue(
   }
   if (typeof value === "object") {
     if (seen.has(value as object)) return invalid(path, value);
-    // A class that declares toJSON has stated how it serializes — Prisma's Decimal does.
-    // Anything that has not (a Map, a live database handle) still fails loudly.
+    // A class that declares toJSON has stated how it serializes — Prisma's Decimal does; anything else fails loudly.
     const toJson = (value as { toJSON?: unknown }).toJSON;
     if (typeof toJson === "function") {
       seen.add(value as object);

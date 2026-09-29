@@ -39,7 +39,10 @@ function admin(list: List, orderRole?: string) {
     resources: [
       resource(
         { __name: "order" },
-        { columns: ["id", "userId", "status"], ...(orderRole ? { requireRole: orderRole } : {}) },
+        {
+          columns: ["id", "userId", "status"],
+          ...(orderRole ? { access: { read: orderRole } } : {}),
+        },
       ),
       resource({ __name: "user" }, { columns: ["id", "email"] }),
     ],

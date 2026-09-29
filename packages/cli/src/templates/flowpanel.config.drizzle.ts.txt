@@ -4,16 +4,13 @@ import { db } from "{{DB}}";
 import * as schema from "{{SCHEMA}}";
 import { getSession } from "{{AUTH}}";
 
-// Augment "@flowpanel/kit": it is the package you installed, and the
-// interfaces below merge into the same declarations "@flowpanel/core" owns.
+// Registers your db and schema so resource names, rows and widget reads are typed.
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
-    // Every table and view in the schema becomes a typed resource name and row.
     schema: typeof schema;
   }
-  // Only for a resource renamed with options.name, e.g. one over a SQL view:
-  // interface FlowpanelResources { user: typeof schema.adminUserRow.$inferSelect }
+  // A resource renamed with options.name: interface FlowpanelResources { user: typeof schema.adminUserRow.$inferSelect }
 }
 
 export default defineAdmin({
@@ -31,17 +28,11 @@ export default defineAdmin({
 
   theme: {
     brand: { name: "{{APP_NAME}}" },
-    accent: "220 90% 50%",
     mode: "auto",
   },
 
   resources: [
     // Add `resource` to the "@flowpanel/kit" import above, then:
-    // resource(schema.users, {
-    //   label: "Users",
-    //   columns: ["email", "name", "createdAt"],
-    //   search: ["email", "name"],
-    //   defaultSort: { field: "createdAt", dir: "desc" },
-    // }),
+    // resource(schema.users, { columns: ["email", "name", "createdAt"], search: ["email"] }),
   ],
 });

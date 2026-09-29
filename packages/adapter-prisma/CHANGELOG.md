@@ -4,23 +4,16 @@
 
 ### Minor Changes
 
-- 072f37b: Implements the `sql` and `count` capabilities through `$queryRaw` with bound parameters, and reports `hasDefault` per column.
-
-### Patch Changes
-
-- Updated dependencies [072f37b]
-  - @flowpanel/core@0.3.0
+- Added the `sql` and `count` capabilities through `$queryRaw` with bound parameters.
+- Added `hasDefault` to column introspection.
 
 ## 0.2.0
 
 ### Minor Changes
 
-- 2804944: Prisma gains real `flowpanel migrate` support, creates that respect a filter-shaped tenant scope instead of failing, and introspection that reports database-generated ids the way Drizzle does.
-
-### Patch Changes
-
-- Updated dependencies [2804944]
-  - @flowpanel/core@0.2.0
+- Added `flowpanel migrate` support.
+- Fixed creates failing under a filter-shaped tenant scope.
+- Changed introspection to report database-generated ids as Drizzle does.
 
 ## 0.1.0
 

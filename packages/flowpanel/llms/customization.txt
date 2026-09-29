@@ -1,4 +1,4 @@
-# flowpanel — Customize the UI
+# FlowPanel — Customize the UI
 
 ## Choose an extension point
 
@@ -6,37 +6,15 @@ Pick the smallest customization layer that gives you the control you need.
 
 Docs: https://flowpanel.tech/docs/customization/overview
 
-FlowPanel supports several levels of customization. Start with the narrowest one: it is easier to understand, test, and carry through upgrades.
+Use the narrowest layer that does the job.
 
-| Need | Use | It cannot change |
+| Need | Use | Limit |
 | --- | --- | --- |
-| Change labels, columns, fields, filters, actions, or layout | Config | Framework page behavior |
-| Change how one value looks | [Column renderer](/docs/customization/column-renderers) | Adapter sorting or filtering for a computed value |
-| Add a composed experience | Custom widget or `page()` | Shared shell primitives |
-| Replace a shared visual primitive everywhere | [Theme slot](/docs/customization/theme-slots) | Data fetching or routing behavior |
-| Own page behavior and source | [Eject](/docs/customization/eject) | Automatic behavior updates for the ejected surface |
-
-### Start in config
-
-Config is the right place when the underlying workflow already exists and only its shape changes. Prefer built-in column formats, explicit form fields, dashboard layout, labels, theme tokens, and action definitions before creating components.
-
-### Render one value differently
-
-A column renderer is a server function. It can format joined or computed data and can return a client component with serializable props when the cell needs interaction. It does not create a database field, so computed-only cells cannot automatically sort, filter, inline-edit, or export.
-
-### Add a custom widget or page
-
-Use `custom()` when a self-contained dashboard block needs its own component. Use `page()` when the screen is a workflow with its own layout or navigation. Keep queries and secrets on the server and pass a deliberate serializable model to client components. [Build a custom widget](/docs/customization/custom-widgets) walks through one.
-
-### Replace a shared primitive
-
-Theme slots are for consistent design-system integration: button, badge, metric card, empty state, pagination, and similar primitives. An override must preserve the slot's prop and ref contract because every FlowPanel surface can call it.
-
-### Eject only for behavior ownership
-
-Eject when a generated resource, dashboard, or layout is no longer the correct behavioral model. The CLI writes a starting scaffold and disables the matching config entry; implementing and maintaining that route becomes application work.
-
-If the need can be stated as “this value”, “this widget”, or “this visual primitive”, eject is probably too broad.
+| Labels, columns, fields, filters, actions, layout | Config | Cannot change page behavior |
+| How one value looks | [Column renderer](/docs/customization/column-renderers) | A computed value cannot sort or filter |
+| A composed block or screen | [Custom widget](/docs/customization/custom-widgets) or `page()` | Cannot change shell components |
+| Colours, fonts, a shared component everywhere | [Styling and theme slots](/docs/customization/styling) | Cannot change data fetching or routing |
+| Page behavior and source | [Eject](/docs/customization/eject) | The ejected code gets no FlowPanel updates |
 
 ## Column renderers
 
@@ -44,9 +22,9 @@ Format built-in values or render a custom server or interactive cell.
 
 Docs: https://flowpanel.tech/docs/customization/column-renderers
 
-Column definitions control table cells and are reused by drawer/detail field rendering. Use a built-in format when it fits; reach for `render` only when the value needs application-specific presentation.
+A column's `format` covers badges, money, numbers, dates, durations, percentages, booleans and URLs. Use `render` when a cell needs your own markup or data. The same column definition renders the value in the drawer and on the record page.
 
-### Use built-in formatting
+### Built-in formats
 
 ```ts excerpt
 columns: [
@@ -63,9 +41,9 @@ columns: [
 ]
 ```
 
-Built-in badge, money, and number formats stay consistent across the admin and preserve the field's normal sort/export behavior.
+A formatted column still sorts, filters and exports by its stored value. All formats: [ColumnFormat](/docs/reference/resources#columnformat).
 
-### Render a custom server cell
+### A server cell
 
 ```tsx excerpt
 columns: [
@@ -73,30 +51,28 @@ columns: [
     field: "customerId",
     label: "Customer",
     render: async (order, ctx) => {
-      const customer = await findCustomer(ctx.db, order.customerId);
+      const customer = await findCustomer(db, order.customerId);
       return <a href={`/admin/customers/${customer.id}`}>{customer.email}</a>;
     },
   },
 ]
 ```
 
-`render` runs on the server with the row and request context. The function and database client never cross the browser boundary. Return only UI intended for the operator; the row still must be protected by resource access and scope.
+`render` runs on the server with the row and request context. For a foreign key to another resource, a `reference` gives the link and label without a query per cell.
 
-For foreign keys, prefer a declarative `reference` when the target is another registered resource. It provides a consistent link and label lookup without a per-cell query.
+### An interactive cell
 
-### Add an interactive client cell
-
-A server renderer may return a client component:
+`render` may return a client component with serializable props:
 
 ```tsx excerpt
 render: (row) => <CopyId value={String(row.id)} />
 ```
 
-Keep the client props small and serializable. The client component may manage interaction, but it should call an authorized server route for mutations rather than receiving server services as props.
+A mutation from a client cell goes through an authorized route, not through props.
 
 ### Joined or computed values
 
-Omit `field` when the cell is derived entirely from the row:
+Omit `field` when the cell is computed from the row, and set `label`:
 
 ```tsx excerpt
 {
@@ -105,15 +81,7 @@ Omit `field` when the cell is derived entirely from the row:
 }
 ```
 
-A computed-only column has no adapter field. FlowPanel cannot automatically sort, filter, inline-edit, or include it in field-based export. If those operations matter, expose the value through the data model or a custom adapter/query surface.
-
-### Check all consumers
-
-Before shipping a custom column, verify the list, drawer/detail view, export, empty value, long value, and mobile width. `hidden` affects the table but can leave the field available to another declared surface; `expose` controls additional values that may cross the generated boundary.
-
-Use a [theme slot](/docs/customization/theme-slots) when the same primitive needs to change everywhere, or a [custom page](/docs/reference/widgets#dashboards) when the entire row experience no longer fits a table.
-
-See [Resources reference](/docs/reference/resources#columnformat) for generated column types.
+A computed column has no field, so it cannot sort, filter, inline-edit or export. When those matter, compute the value in a database view.
 
 ## Build a custom widget
 
@@ -121,9 +89,7 @@ Write a widget no built-in card fits, with the admin's links, formatters, tones 
 
 Docs: https://flowpanel.tech/docs/customization/custom-widgets
 
-Reach for `custom()` when no built-in card says what the screen needs — a pipeline diagram, a
-prompt viewer. Everything else about the widget stays FlowPanel's: the frame, the title, the
-error card, realtime, the grid.
+`custom()` puts your own component in a dashboard grid when no built-in card fits. FlowPanel still draws the card frame, title, error state and realtime refresh.
 
 ### Compute props on the server
 
@@ -143,10 +109,7 @@ export const pipelineWidget = custom(
 );
 ```
 
-The props function receives the same `ctx` as every widget: `ctx.link` resolves a named target
-under the admin's mount, `ctx.format` prints numbers, money, dates and plurals in the admin's
-locale and zone, `ctx.query` shares one query between widgets, and `ctx.dateRange` is the picked
-period. Pass the component plain data; keep queries and secrets on the server.
+The props function gets the same `ctx` as every widget: `ctx.link` builds an href under the admin's mount, `ctx.format` formats in the admin's locale and zone, `ctx.query` shares a query between widgets, and `ctx.dateRange` is the picked period. Pass the component plain data.
 
 ### Build it from kit atoms
 
@@ -196,26 +159,16 @@ export function Pipeline({ stages, runsHref, updated }: PipelineProps) {
 }
 ```
 
-`StatusDot`, `Sparkline`, `EmptyState`, `Card`, `CardHeader` and `CardContent` come from
-`@flowpanel/kit/react`. `toneTextClass` and `toneFillClass` map every `Tone` to the classes the
-built-in cards use; in a server component import them from `@flowpanel/kit`, because the React
-entry is a client boundary. A component that needs state or event handlers is a client component
-that receives these props.
+`StatusDot`, `Sparkline`, `EmptyState`, `Card`, `CardHeader` and `CardContent` come from `@flowpanel/kit/react`. `toneTextClass` and `toneFillClass` map each `Tone` to the built-in classes; import them from `@flowpanel/kit` in a server component, because the React entry is a client boundary. The `fp-*` classes need the [Tailwind token bridge](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes).
 
-### Frame, title, realtime and width
+### Options
 
 | Option | Effect |
 | --- | --- |
-| `label` | The card's title, and the name errors and the slow-widget line use (since 0.3.1) |
-| `frame: false` | No card around the component, for a full-bleed layout |
+| `label` | Card title, also used in error messages and the slow-widget log |
+| `frame: false` | No card around the component |
 | `realtime` | Re-render on a channel, `{ resource }`, or a list of them |
 | `span` | Width in a 12-column section |
-
-### Use FlowPanel's tokens in your Tailwind
-
-The classes above — `bg-fp-*`, `text-fp-*`, `border-fp-*`, `rounded-fp*` — need the token bridge
-in your Tailwind v4 stylesheet. See
-[Styling](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes).
 
 ### Test it
 
@@ -231,13 +184,7 @@ it("links the failed stage to failed runs", async () => {
 });
 ```
 
-`resolveWidget` returns the props your component receives, computed exactly as the dashboard
-computes them: `ctx.link` and `ctx.format` run the admin's own code. `sql` is what `ctx.sql`
-returns, for a `pipelineStages` that reads SQL. `rows: { runs: [] }` registers the resource the
-link names; pass `admin` instead to use your whole config. See
-[Testing](/docs/reference/testing#unit-test-a-widget), and
-[Run it in Vitest](/docs/reference/testing#run-it-in-vitest) for the one line of Vitest config the
-entry needs.
+`resolveWidget` returns the props your component receives, computed as the dashboard computes them. `sql` is what `ctx.sql` returns; `rows: { runs: [] }` registers the resource the link names. See [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).
 
 ## Charts
 
@@ -245,19 +192,13 @@ Add server-queried chart widgets or render FlowPanel chart components from clien
 
 Docs: https://flowpanel.tech/docs/customization/charts
 
-Use a chart when the shape or change over time is easier to see than to read in a table. FlowPanel provides server-queried dashboard builders and lower-level runtime components.
-
-### Install the optional peer
-
-Charts use Recharts. Install a version supported by the current package metadata:
+Line, area, bar and pie charts render with Recharts, an optional peer. Dashboard builders come from `@flowpanel/kit/charts`; React components for client data from `@flowpanel/kit/charts/runtime`.
 
 ```bash
 pnpm add recharts
 ```
 
-Import dashboard builders from `@flowpanel/kit/charts`. Import runtime React components from `@flowpanel/kit/charts/runtime`.
-
-### Add a dashboard chart
+### A dashboard chart
 
 ```ts excerpt
 import { lineChart } from "@flowpanel/kit/charts";
@@ -271,24 +212,11 @@ lineChart("Signups", async ({ db, dateRange }) => {
 })
 ```
 
-The query runs on the server. Return a flat array with one x-axis value and numeric series values per row. Normalize dates, missing buckets, and numeric strings in the query layer so the component receives a predictable shape.
+The query runs on the server and returns a flat array: one `x` value and numeric series per row. Use `series()` to bucket rows by time and fill gaps; see [Dashboards](/docs/build/dashboards#one-query-several-widgets).
 
-Choose the form that matches the question:
+Without `y`, a chart plots every numeric key of its rows except `x`. `labels` names the series (a map, an `enumOf()` or a function). One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y` order, and `colors` pins a series to a colour.
 
-- line or area for change over an ordered interval;
-- bar for comparison among discrete categories;
-- pie only for a small part-to-whole set where labels remain readable;
-- table when exact values matter more than the pattern.
-
-### Format and color deliberately
-
-Legend and tooltip names come from the `y` row keys, so alias columns to presentable names in the query instead of exposing raw database keys. Use the `format` option so number, currency, and percentage rendering stays consistent with nearby metrics. The default palette comes from `--fp-chart-1` through `--fp-chart-7`; override those tokens for brand alignment and verify contrast in light and dark modes.
-
-Do not encode meaning by color alone. Keep legends and tooltips readable, and avoid more simultaneous series than users can distinguish.
-
-### Render client-owned data
-
-Use a runtime component when the data already lives in client state or comes from a browser-only interaction:
+### Client data
 
 ```tsx excerpt
 "use client";
@@ -300,70 +228,29 @@ export function Preview({ data }: { data: Array<{ day: string; count: number }> 
 }
 ```
 
-Fetch protected data through an authorized server boundary. Do not move a server query into the browser solely to use the runtime component.
+Every option: [Charts reference](/docs/reference/widgets#charts).
 
-### Handle every state
+## Styling and theme slots
 
-Define what zero rows means, distinguish loading from empty, and surface a recoverable error without removing the rest of the dashboard. Realtime refresh should update the chart because a user decision benefits—not merely because a channel exists.
-
-Use a custom widget when the visualization needs annotations, interaction, or a data model that the built-in chart options cannot express clearly. Exact builder and prop types live in [Widgets reference](/docs/reference/widgets#charts) and [React components reference](/docs/reference/react-components#widgets).
-
-## Styling
-
-Load FlowPanel styles, adjust design tokens, and integrate Tailwind safely.
+Load FlowPanel styles, change design tokens and fonts, use the tokens in Tailwind, and replace shared components.
 
 Docs: https://flowpanel.tech/docs/customization/styling
 
-FlowPanel styles are scoped to its root and portal attributes. The CLI creates an application-owned `admin.css` that imports FlowPanel's precompiled stylesheet; it does not require Tailwind or a PostCSS plugin.
+FlowPanel's stylesheet is precompiled and scoped to the admin, so it needs no Tailwind and leaves the host page alone. Change its look with design tokens, and replace shared components with theme slots.
 
 ### Use the generated stylesheet
 
-`flowpanel init` imports `styles/admin.css` or `src/styles/admin.css` from the admin route's layout. The host root layout remains unchanged. Existing installations can move the import to that segment when adopting the new scaffold.
-
-The generated stylesheet is a thin import:
+`init` writes `styles/admin.css` (or `src/styles/admin.css`) and imports it from the admin layout:
 
 ```css
 @import "@flowpanel/kit/styles/admin.css";
 ```
 
-The package-built CSS scopes its utilities, element defaults, compiler variables,
-and keyframes to `[data-flowpanel-root]` and `[data-flowpanel-portal]`. It does
-not reset the host page or publish Tailwind theme variables. Keep this import in
-the admin route layout so the host root layout remains untouched.
-
-`@flowpanel/react/styles/admin.css` remains available as a legacy source
-stylesheet for applications that intentionally compile FlowPanel with their own
-Tailwind pipeline. It is not the default scaffold and can share Tailwind's
-global utility and theme namespace. Move an existing copied admin stylesheet to
-the one-line kit import when the application no longer needs that customization.
-
-### Use FlowPanel tokens in your own Tailwind classes
-
-A custom widget or page written with Tailwind v4 can use the utilities FlowPanel's own
-components use — `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1`, `rounded-fp-lg`,
-`shadow-fp-sm`. Import the kit's token bridge after Tailwind's theme and utilities, and point
-`@source` at your admin code:
-
-```css
-@import "@flowpanel/kit/styles/admin.css";
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities) source(none);
-@import "@flowpanel/kit/styles/tailwind.css";
-@source "../admin";
-```
-
-The bridge is the one `@theme inline` block of FlowPanel's own stylesheet, copied at build
-time, so a new token reaches your classes on upgrade with no hand-kept list. `inline` is
-required: the `--fp-*` values live on the FlowPanel root, not on `:root`.
-
-For tone-driven markup, `toneTextClass` and `toneFillClass` map every `Tone` to the class the
-built-in cards use. Import them from `@flowpanel/kit` in a server component and from
-`@flowpanel/kit/react` in a client one; both hold the same classes. `default` fills with the
-data colour, as a default bar does; use `muted` for a grey dot.
+Its utilities, variables and keyframes apply only under `[data-flowpanel-root]` and `[data-flowpanel-portal]`. Keep the import in the admin layout, not the root layout.
 
 ### Change design tokens
 
-Override tokens on the FlowPanel root so the host application remains unaffected:
+Override tokens on the FlowPanel root:
 
 ```css
 [data-flowpanel-root],
@@ -371,38 +258,19 @@ Override tokens on the FlowPanel root so the host application remains unaffected
   --fp-accent: 220 90% 50%;
   --fp-radius: 0.375rem;
   --fp-font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
-  --fp-chart-1: 220 90% 55%;
+  --fp-data: 220 90% 55%;
 }
 ```
 
-The default palette is graphite greys with an ink accent for the one action a screen asks
-for, one calm blue for data and desaturated state tones. Every text token reads at 4.5:1 or
-more on every surface in both schemes, and borders, chart colours and the focus ring at 3:1.
-In dark mode the page (`--fp-bg-2`) is the darkest plane, with cards and the nav (`--fp-bg-1`)
-one step up and fills (`--fp-bg-3`) above them.
+Or set them in config with `theme.cssVars` and `theme.cssVarsDark`, typed as `ThemeTokens`. Colours are HSL triplets.
 
-Action and data colours are separate. `--fp-accent` paints primary buttons, the focus ring and
-selected controls; `--fp-data` paints bars, funnels, sparklines, heat cells, a single-series
-chart and a `default`-toned dot. `--fp-data` follows `--fp-chart-1`, so a bar and the first
-line of a chart agree: set `--fp-chart-1` to recolour both, or `--fp-data` alone to part them.
-A host that sets `theme.accent` or `accentDark` and no `--fp-data` gets data in that accent, as
-in 0.3.0; set `--fp-data` in `cssVars` to keep them apart.
+`--fp-accent` paints primary buttons, the focus ring and selected controls. `--fp-data` paints bars, funnels, sparklines, heat cells and single-series charts, and follows `--fp-chart-1`: set `--fp-chart-1` to recolour both, or `--fp-data` alone to separate them. With `theme.accent` set and no `--fp-data`, data uses the accent. `tone: "accent"` badges use `--fp-accent-badge-text`.
 
-`tone: "accent"` badges write in `--fp-accent-badge-text`, which the default palette sets to
-the ink accent, so they read like body text on a faint tint. Set `--fp-accent-badge-text` when
-your accent should show in them.
-
-`theme.cssVars` and `theme.cssVarsDark` are typed `ThemeTokens`: the token names complete in
-an editor, and any other `--fp-*` key still passes.
-
-Color values are HSL triplets unless the source stylesheet states otherwise. Prefer semantic tokens—background, text, border, accent, success, warning, error, chart palette—over selectors tied to component markup.
-
-The full, current token list is the generated stylesheet or the package stylesheet it is based on. Keeping a second hand-written token table in docs would drift.
+The default palette meets 4.5:1 for text and 3:1 for borders, chart colours and the focus ring, in both schemes. The full token list is in the package stylesheet.
 
 ### Set the typeface
 
-`--fp-font-sans` reaches the admin root and every portal (drawer, dialogs, menus), so a font
-set there applies everywhere. With `next/font`, hand it the family the loader generates:
+`--fp-font-sans` reaches the admin and every portal. With `next/font`:
 
 ```ts excerpt
 import { IBM_Plex_Sans } from "next/font/google";
@@ -414,24 +282,13 @@ defineAdmin({
 });
 ```
 
-`next/font` self-hosts and preloads the files, so no CDN link is needed. Numbers in tables and
-cards already use tabular figures.
+### Dark mode
 
-### Support dark mode
-
-FlowPanel uses its namespaced theme attribute rather than recoloring the host `.dark` tree. Configure `theme.mode` as `light`, `dark`, or `auto`; use `theme.accentDark` when the light accent lacks contrast on dark surfaces. Use `theme.cssVarsDark` for dark-only semantic foreground, surface, and border tokens.
-
-The admin page renders a `theme-color` meta for each scheme from `--fp-bg-2` (your
-`cssVars`/`cssVarsDark` value when you set one), and the theme toggle points the browser chrome
-at the chosen scheme.
-
-Test custom text/background and status pairs in both modes. Theme tokens make visual consistency possible, but the application still owns contrast and accessibility for its chosen values and custom content.
+`theme.mode` is `light`, `dark` or `auto`. FlowPanel sets its own `data-flowpanel-theme` attribute and leaves the host's `.dark` class alone. Use `theme.accentDark` and `theme.cssVarsDark` for dark-only values. The admin renders a `theme-color` meta per scheme from `--fp-bg-2`.
 
 #### Initialize the theme under CSP
 
-For an inline script rendered by a Server Component, import the pure builder from
-`@flowpanel/kit` (or `@flowpanel/core`). The React entry is a client boundary.
-Use the nonce issued by your application's CSP integration:
+`init` renders `ThemeScript` with the `x-nonce` request header. For your own inline script in a Server Component, import the builder from `@flowpanel/kit`:
 
 ```tsx excerpt
 import { buildThemeInitScript } from "@flowpanel/kit";
@@ -446,30 +303,27 @@ export function AdminThemeHead({ nonce }: { nonce: string }) {
 }
 ```
 
-Place it in the host-owned document head before hydration and use the same default
-mode as the admin config. Stored light/dark preference takes priority; when storage
-is blocked, the configured default or system preference still applies. The builder
-changes only `data-flowpanel-theme`, leaving the host's theme classes untouched.
-It does not generate CSP headers or nonces. Existing React `ThemeScript` callers
-can continue passing the same host-issued `nonce` prop.
+Place it in the document head with the same default mode as the config. A stored preference wins over the default. The script changes only `data-flowpanel-theme` and does not create CSP headers or nonces.
 
-### Apply targeted overrides safely
+### Use FlowPanel tokens in your own Tailwind classes
 
-Use token changes for system-wide appearance and normal class names inside your own custom components. Avoid reaching into FlowPanel's internal DOM structure: those selectors are not a public contract and make upgrades harder.
+A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. Import the token bridge after Tailwind and point `@source` at your admin code:
 
-When tokens cannot express the change, replace a supported [theme slot](/docs/customization/theme-slots). Eject only when behavior or page structure must change.
+```css
+@import "@flowpanel/kit/styles/admin.css";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "@flowpanel/kit/styles/tailwind.css";
+@source "../admin";
+```
 
-See [Configuration reference](/docs/reference/define-config#themeconfig) for generated theme options.
+The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`.
 
-## Theme slots
+`toneTextClass` and `toneFillClass` map each `Tone` to the classes the built-in cards use. Import them from `@flowpanel/kit` in a server component and from `@flowpanel/kit/react` in a client one.
 
-Replace a shared FlowPanel visual primitive while preserving its typed contract.
+### Replace a shared component
 
-Docs: https://flowpanel.tech/docs/customization/theme-slots
-
-A theme slot replaces one shared component everywhere FlowPanel renders it. Use slots to align the admin with an application design system—not to change data fetching, routing, or page behavior.
-
-### Replace one component
+A theme slot replaces one component everywhere FlowPanel renders it:
 
 ```tsx excerpt
 import { forwardRef } from "react";
@@ -493,23 +347,11 @@ export default defineAdmin({
 });
 ```
 
-`theme.components` is typed against `FlowpanelComponentSlots`. Preserve the complete prop contract, forward refs where the default does, pass through accessibility attributes, and keep loading/disabled behavior observable.
+`theme.components` is typed by `FlowpanelComponentSlots`. Keep the slot's full prop contract: forward refs, pass accessibility attributes through, and keep loading and disabled states. Import each prop type from `@flowpanel/kit/react`.
 
-### Available slots
+`FlowpanelComponentSlots` can be augmented with your own keys for custom widgets; FlowPanel's own UI reads only the keys above.
 
-The shipped slot registry is generated from the React package:
-
-Import each prop type from `@flowpanel/kit/react` rather than copying its fields. TypeScript will then surface contract changes during an upgrade. The generated [React components reference](/docs/reference/react-components) is the canonical prop reference.
-
-### Test the replacement in context
-
-A slot can appear in lists, forms, drawers, dashboards, dialogs, and loading states. Verify keyboard focus, disabled and destructive states, long labels, mobile width, dark mode, and screen-reader names. For `Button`, support ref forwarding and composition used by Radix-based controls.
-
-### Add application-owned slots carefully
-
-`FlowpanelComponentSlots` is augmentable, so custom widgets can share application-owned primitives through the same provider. This does not make a new key part of FlowPanel's shipped UI; only components that explicitly read that key will use it.
-
-Use [Styling](/docs/customization/styling) for token-level changes. Use [Eject](/docs/customization/eject) when the required change is behavioral rather than a component substitution.
+Every option: [ThemeConfig](/docs/reference/define-config#themeconfig).
 
 ## Eject to source
 
@@ -517,29 +359,18 @@ Transfer a resource, dashboard, or layout from generated behavior to application
 
 Docs: https://flowpanel.tech/docs/customization/eject
 
-Eject is an ownership transfer. The CLI writes a starting scaffold into the admin route and disables the matching generated surface. From then on, your application implements, tests, and upgrades that behavior.
-
-Before ejecting, check [Choose an extension point](/docs/customization/overview). A renderer, custom widget, page, token, or theme slot usually carries less maintenance.
-
-### Preview the change
-
-```bash
-pnpm flowpanel eject resource users --dry-run
-```
-
-The config must exist and the named resource or dashboard must be registered. Dry run prints the filesystem and config plan without writing. Review it before changing a surface that already has custom route files.
+`flowpanel eject` writes a starting scaffold for a resource, dashboard or layout into your app and turns off the generated one. From then on the code is yours and gets no FlowPanel updates. Try a [smaller extension point](/docs/customization/overview) first.
 
 ### Eject a resource
 
 ```bash
+pnpm flowpanel eject resource users --dry-run
 pnpm flowpanel eject resource users
 ```
 
-The command writes list, create, detail, edit, and action stubs under `app/admin/users` or `src/app/admin/users`. These are starting points, not copies of the fully rendered runtime: you still implement database queries, policies, UI states, and tests.
+`--dry-run` prints the plan. The command writes list, create, detail, edit and action stubs under `app/admin/users`, then comments out the matching `resource(...)` entry. The stubs are a starting point: queries, policies and UI states are yours to implement. File headers record the FlowPanel version.
 
-The matching `resource(...)` entry is commented in place and an ejection breadcrumb is added. File headers record the installed FlowPanel version so future reviews can identify the scaffold baseline.
-
-A split config works too. When the root config only re-exports another module, `eject` follows it, as `flowpanel new` does. When `resources` is imported from a directory of one-file-per-resource modules, the ones `new --dir` writes, `eject resource` comments the `resource(...)` call out in the file that defines it and leaves the other files alone.
+`eject` follows a root config that re-exports another module, and a `resources` directory written by `flowpanel new --dir`, where it comments out the call in the file that defines it.
 
 ### Eject a dashboard or layout
 
@@ -548,18 +379,14 @@ pnpm flowpanel eject dashboard /monitoring
 pnpm flowpanel eject layout
 ```
 
-A dashboard creates one page at its admin path and disables the matching dashboard config. A layout creates an admin `layout.tsx`; Next.js file routing then wraps the catch-all FlowPanel pages. Layout ejection does not remove resources or dashboards from config.
+A dashboard becomes one page at its path and its config entry is turned off. A layout becomes an admin `layout.tsx` that wraps the FlowPanel pages; resources and dashboards stay in config.
 
-### Handle existing files
+### Existing files
 
-The command stops when a target file already exists. `--force` overwrites it, so use that flag only after reviewing or preserving the existing implementation. Unknown targets, missing names, and config entries that cannot be found exit with an error for CI visibility.
-
-### Understand upgrade consequences
-
-Non-ejected surfaces continue receiving FlowPanel behavior and UI updates. Ejected files do not. On upgrades, compare their recorded version with changelog entries and test them against current public component and runtime contracts.
+The command stops if a target file exists. `--force` overwrites it.
 
 ### Reverse an eject
 
-There is no merge-back command. To return to generated behavior, restore the config entry and remove or relocate the explicit Next.js route; otherwise file-based routing continues to win over the catch-all page. Any behavior that exists only in the ejected files must be re-expressed or discarded deliberately.
+Restore the config entry and delete or move the ejected route. Next.js file routing takes precedence over the catch-all page, so the route must go.
 
-See the generated [CLI reference](/docs/reference/cli#flowpanel-eject) for current arguments and flags.
+Every flag: [flowpanel eject](/docs/reference/cli#flowpanel-eject).

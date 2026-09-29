@@ -93,8 +93,7 @@ export function resetPublisherForTests(): void {
 
 function getPublisher(): Publisher {
   if (store.publisher) return store.publisher;
-  // A fallback memory publisher only reaches subscribers inside this process, so
-  // in a worker/cron/script the publish is a no-op for every browser tab.
+  // A fallback memory publisher only reaches subscribers inside this process, a no-op for browser tabs.
   if (!store.warnedUnbound) {
     store.warnedUnbound = true;
     console.warn(

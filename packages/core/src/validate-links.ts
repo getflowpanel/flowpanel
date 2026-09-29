@@ -160,6 +160,11 @@ function checkWidgets(site: string, widgets: readonly WidgetConfig[], check: Lin
 }
 
 function checkResource(name: string, resource: ResourceConfig, check: LinkCheck): void {
+  (resource.options.filters ?? []).forEach((filter, i) => {
+    if (typeof filter !== "object" || filter.defaultValue === undefined) return;
+    const site = `resource "${name}" filters[${i}].defaultValue`;
+    checkListValue(site, name, filter.field, filter.defaultValue, check);
+  });
   (resource.options.views ?? []).forEach((view, i) => {
     const site = `resource "${name}" views[${i}]`;
     for (const [field, value] of Object.entries(view.filters ?? {})) {
@@ -184,11 +189,8 @@ function checkResource(name: string, resource: ResourceConfig, check: LinkCheck)
 }
 
 /**
- * Throws at `defineAdmin` when a static link, a count metric, a saved view or a related tab names
- * a resource, dashboard, view, tab, column or filter that does not exist, with the closest name,
- * or filters by a value the target list would read as other rows.
- * A resource whose adapter reports no columns is not column-checked; function links are checked
- * when they render.
+ * Throws at `defineAdmin` when a static link, count metric, saved view or related tab names a target that does not exist.
+ * A resource whose adapter reports no columns is not column-checked; function links are checked when they render.
  */
 export function validateLinks(check: LinkCheck, dashboards: readonly DashboardConfig[]): void {
   for (const board of dashboards) {
