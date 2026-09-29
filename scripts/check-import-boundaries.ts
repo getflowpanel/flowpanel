@@ -5,7 +5,7 @@ const violations: string[] = [];
 // Rule 1: core must never execute React or Next.js at runtime. Type-only
 // render extension contracts remain a 0.2 compatibility bridge.
 for (const file of globSync("packages/core/src/**/*.ts", {
-  ignore: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
+  exclude: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
   cwd: process.cwd(),
 })) {
   const src = readFileSync(file, "utf-8");
@@ -17,7 +17,7 @@ for (const file of globSync("packages/core/src/**/*.ts", {
 // Rule 1b: core is the framework-agnostic base and must never depend on the UI
 // package. madge --circular cannot see this: it does not resolve workspace specifiers.
 for (const file of globSync("packages/core/src/**/*.ts", {
-  ignore: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
+  exclude: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
   cwd: process.cwd(),
 })) {
   const src = readFileSync(file, "utf-8");
@@ -29,7 +29,7 @@ for (const file of globSync("packages/core/src/**/*.ts", {
 // Rule 2: adapter-* and queue-* must not import from @flowpanel/react
 for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   for (const file of globSync(`packages/${pkg}/src/**/*.ts`, {
-    ignore: ["**/__tests__/**", "**/*.test.ts"],
+    exclude: ["**/__tests__/**", "**/*.test.ts"],
     cwd: process.cwd(),
   })) {
     const src = readFileSync(file, "utf-8");
@@ -46,7 +46,7 @@ for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
 const SHARED_CORE_INTERNALS = new Set(["internal/migration-sql"]);
 for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   for (const file of globSync(`packages/${pkg}/src/**/*.ts`, {
-    ignore: ["**/__tests__/**", "**/*.test.ts"],
+    exclude: ["**/__tests__/**", "**/*.test.ts"],
     cwd: process.cwd(),
   })) {
     const src = readFileSync(file, "utf-8");
@@ -60,7 +60,7 @@ for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
 
 // Rule 4: the framework-neutral transport must not import Next.js.
 for (const file of globSync("packages/client/src/**/*.{ts,tsx}", {
-  ignore: ["**/__tests__/**", "**/*.test.*"],
+  exclude: ["**/__tests__/**", "**/*.test.*"],
   cwd: process.cwd(),
 })) {
   const src = readFileSync(file, "utf-8");

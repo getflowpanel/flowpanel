@@ -1,6 +1,7 @@
-import { type EnumDef, type EnumEntry, enumOf } from "../builders/enum-of";
-import type { TimelineEvent } from "../types/widget-timeline";
+import type { EnumDef, EnumEntry, TimelineEvent } from "@flowpanel/core";
+import { enumOf } from "../builders/enum-of";
 import { dayKeyIn } from "./day-key";
+import { isEnumDef } from "./key-labels";
 
 /** Where the next page starts: at or before `before`, past the `skip` events shown at it. */
 export interface TimelineCursor {
@@ -10,10 +11,7 @@ export interface TimelineCursor {
 
 /** A timeline's `kinds` as one `EnumDef`, whichever form the config used. */
 export function timelineKindsOf(kinds: EnumDef | Record<string, EnumEntry>): EnumDef {
-  const def = kinds as Partial<EnumDef>;
-  return Array.isArray(def.values) && typeof def.label === "function"
-    ? (kinds as EnumDef)
-    : enumOf(kinds as Record<string, EnumEntry>);
+  return isEnumDef(kinds) ? kinds : enumOf(kinds);
 }
 
 /** `<iso>~<n>` from the URL; `null` for the newest page or an unreadable value. */

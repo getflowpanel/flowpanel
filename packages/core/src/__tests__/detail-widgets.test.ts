@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type Adapter,
   checklist,
+  dashboard,
   defineAdmin,
   resource,
   type TimelineWidget,
@@ -50,6 +51,58 @@ describe("timelines at defineAdmin", () => {
       (tab.widgets as TimelineWidget[]).map((widget) => widget.options.id),
     );
     expect(ids).toEqual([["activity", "activity-2"], ["mine"]]);
+  });
+
+  it("gives every other timeline on a page its own id", () => {
+    const config = admin({
+      detail: {
+        aside: [events(), events()],
+        tabs: [{ key: "timeline", label: "Timeline", widgets: [events()] }],
+      },
+    });
+    const aside = (config.resourcesByName.get("users")?.options.detail?.aside ??
+      []) as TimelineWidget[];
+    expect(aside.map((widget) => widget.options.id)).toEqual(["timeline-2", "timeline-3"]);
+
+    const board = defineAdmin({
+      adapter,
+      auth: { session: async () => null, role: () => "admin" },
+      dashboards: [
+        dashboard({
+          path: "/ops",
+          label: "Ops",
+          sections: [
+            { widgets: [events()] },
+            { widgets: [events(), timeline({ kinds: {}, id: "timeline-2" })] },
+          ],
+        }),
+      ],
+    });
+    const widgets = (board.dashboardsByPath.get("/ops")?.sections ?? []).flatMap(
+      (section) => section.widgets as TimelineWidget[],
+    );
+    expect(widgets.map((widget) => widget.options.id)).toEqual([
+      "timeline",
+      "timeline-3",
+      "timeline-2",
+    ]);
+    expect((board.dashboards?.[0]?.sections[0]?.widgets[0] as TimelineWidget).options.id).toBe(
+      "timeline",
+    );
+  });
+
+  it("refuses two timelines on one page that share an id", () => {
+    expect(() =>
+      admin({
+        detail: {
+          aside: [timeline({ kinds: {}, id: "log" })],
+          tabs: [{ key: "t", label: "T", widgets: [timeline({ kinds: {}, id: "log" })] }],
+        },
+      }),
+    ).toThrow(
+      'flowpanel: resource "users" detail.tabs[0].widgets[0] is a second timeline with the id "log" ' +
+        "on its page; give each timeline its own id.",
+    );
   });
 
   it("refuses a timeline in a drawer and points at a detail tab", () => {

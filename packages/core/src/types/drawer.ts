@@ -104,6 +104,8 @@ export interface DrawerConfig<Row = Record<string, unknown>> {
   width?: DrawerWidth;
   /** Panel title. Defaults to the row's key. */
   header?: (row: Row) => string;
+  /** The line under the title. Defaults to the resource's label. */
+  subtitle?: (row: Row) => string;
   /** Fields shown when no `tabs` are declared. `"*"` shows every column. */
   fields?: DrawerFieldList<Row>;
   /** Tabs to render instead of a flat field list. */

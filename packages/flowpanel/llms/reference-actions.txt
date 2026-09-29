@@ -141,6 +141,7 @@ Rendered in a dashboard's page header. It gets no row — only the form input.
 | `label` | `string` |  |
 | `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
 | `variant?` | `ActionVariant` | Button styling. |
+| `emphasis?` | `ActionEmphasis` | `"primary"` fills the button with the accent; keep one per dashboard, as more warn in development. A destructive secondary action reads in the error colour. Default: `"secondary"`. |
 | `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
 | `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
 | `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
@@ -152,6 +153,14 @@ Rendered in a dashboard's page header. It gets no row — only the form input.
 
 Use `dashboardAction<Input>(definition)` for the same typed form contract
 without a row type.
+
+Each action is a secondary, outlined button, a destructive one in the error colour. Give the
+one action the screen exists for `emphasis: "primary"` and it fills with the accent; more than
+one primary on a dashboard warns in development. Drawer actions are secondary too.
+
+```ts excerpt
+dashboardAction({ key: "retry", label: "Retry failed runs", emphasis: "primary", run: retryFailed });
+```
 
 Set `hideActionsBar: true` on the dashboard to suppress the bar these render in.
 

@@ -8,24 +8,19 @@ import {
   layoutTemplateIntents,
   resourceTemplateIntents,
 } from "../eject/copyTargets";
-import { editConfigToCommentDashboard, editConfigToCommentResource } from "../eject/editConfig";
+import {
+  editConfigToCommentDashboard,
+  editConfigToCommentResource,
+  editSplitResourceFile,
+  findSplitResourcesDir,
+} from "../eject/editConfig";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent, FilesystemPlan } from "../plan/types";
-import { detectAppDir, fileExists } from "../utils/detect";
+import { findAdminConfig } from "../scaffold/config-target";
+import { detectAppDir } from "../utils/detect";
 import { CLI_VERSION, installedKitVersion, kitCompatibilityError } from "../utils/kit";
 import { writeJson, writePlanJson } from "../utils/output";
-
-/** Locate the user's flowpanel config, or `null` when the project has none yet. */
-async function findConfigFile(
-  cwd: string,
-): Promise<{ path: string; filename: "flowpanel.config.ts" | "flowpanel.config.tsx" } | null> {
-  for (const fname of ["flowpanel.config.ts", "flowpanel.config.tsx"] as const) {
-    const full = path.join(cwd, fname);
-    if (await fileExists(full)) return { path: full, filename: fname };
-  }
-  return null;
-}
 
 export type EjectTarget = "resource" | "dashboard" | "layout";
 
@@ -41,14 +36,15 @@ export async function createEjectPlan(opts: RunEjectOptions): Promise<Filesystem
   const mismatch = await kitCompatibilityError(opts.cwd);
   if (mismatch) throw new Error(mismatch);
 
-  const cfg = await findConfigFile(opts.cwd);
+  const cfg = await findAdminConfig(opts.cwd);
   if (!cfg) {
     throw new Error(
       "flowpanel.config.ts not found. Run `flowpanel init` first — eject rewrites the config to hand rendering over to your files.",
     );
   }
   const appDir = await detectAppDir(opts.cwd);
-  const source = await fs.readFile(cfg.path, "utf8");
+  const source = await fs.readFile(cfg.file, "utf8");
+  const configFilename = path.basename(cfg.file);
   let intents: FileIntent[];
 
   if (opts.target === "resource") {
@@ -61,11 +57,27 @@ export async function createEjectPlan(opts: RunEjectOptions): Promise<Filesystem
       version: opts.version,
       ...(opts.force ? { force: true } : {}),
     });
-    intents.push({
-      path: path.relative(opts.cwd, cfg.path),
-      content: editConfigToCommentResource(source, opts.name, cfg.filename, appDir),
-      expectedContent: source,
-    });
+    try {
+      intents.push({
+        path: path.relative(opts.cwd, cfg.file),
+        content: editConfigToCommentResource(source, opts.name, configFilename, appDir),
+        expectedContent: source,
+      });
+    } catch {
+      const splitDir = await findSplitResourcesDir(opts.cwd, cfg.file, source);
+      const found = splitDir ? await editSplitResourceFile(splitDir, opts.name, appDir) : null;
+      if (!found) {
+        const searched = splitDir
+          ? `${path.relative(opts.cwd, cfg.file)} or ${path.relative(opts.cwd, splitDir)}`
+          : path.relative(opts.cwd, cfg.file);
+        throw new Error(`eject: resource "${opts.name}" not found in ${searched}`);
+      }
+      intents.push({
+        path: path.relative(opts.cwd, found.file),
+        content: found.edited,
+        expectedContent: found.source,
+      });
+    }
   } else if (opts.target === "dashboard") {
     if (!opts.name) {
       throw new Error(
@@ -79,8 +91,8 @@ export async function createEjectPlan(opts: RunEjectOptions): Promise<Filesystem
       ...(opts.force ? { force: true } : {}),
     });
     intents.push({
-      path: path.relative(opts.cwd, cfg.path),
-      content: editConfigToCommentDashboard(source, opts.name, cfg.filename, appDir),
+      path: path.relative(opts.cwd, cfg.file),
+      content: editConfigToCommentDashboard(source, opts.name, configFilename, appDir),
       expectedContent: source,
     });
   } else if (opts.target === "layout") {

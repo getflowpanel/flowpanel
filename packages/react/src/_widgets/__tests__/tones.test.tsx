@@ -23,7 +23,7 @@ const TEXT: Record<Tone, string> = {
 };
 
 const FILL: Record<Tone, string> = {
-  default: "bg-fp-accent",
+  default: "bg-fp-data",
   accent: "bg-fp-accent",
   ok: "bg-fp-ok",
   warn: "bg-fp-warn",
@@ -62,14 +62,12 @@ describe.each(tones)("tone %s", (tone) => {
     );
   });
 
-  it("marks a list row with a dot, and colours its text for warn and err", () => {
+  it("marks a list row with a dot and keeps its text in the body colour", () => {
     const { container } = render(<ListCard rows={[{ text: "Deploy", tone }]} />);
     const dot = container.querySelector("li [data-tone-dot]");
     if (tone === "default") expect(dot).toBeNull();
     else expect(dot?.className).toContain(FILL[tone]);
-    const text = screen.getByText("Deploy").className;
-    if (tone === "warn" || tone === "err") expect(text).toContain(TEXT[tone]);
-    else expect(text).toContain("text-fp-text-1");
+    expect(screen.getByText("Deploy").className).toContain("text-fp-text-1");
   });
 });
 

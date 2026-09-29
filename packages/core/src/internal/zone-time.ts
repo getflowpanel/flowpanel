@@ -1,4 +1,4 @@
-import type { DateRangePreset } from "../types/dashboard";
+import type { DateRangePreset } from "@flowpanel/core";
 
 export interface CalendarDay {
   year: number;
@@ -13,6 +13,21 @@ export interface ZoneParts extends CalendarDay {
 }
 
 const CALENDAR_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Every preset a picker, a comparison and a `daterange` filter value understand. */
+export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = [
+  "today",
+  "yesterday",
+  "last7d",
+  "last30d",
+  "MTD",
+  "QTD",
+  "YTD",
+];
+
+export function isDateRangePreset(value: unknown): value is DateRangePreset {
+  return (DATE_RANGE_PRESETS as readonly unknown[]).includes(value);
+}
 
 /** A `YYYY-MM-DD` string: a calendar day, which belongs to no zone. */
 export function isCalendarDayString(value: unknown): value is string {

@@ -11,13 +11,14 @@ Core types, builders, and runtime for FlowPanel.
 - **`defineAdmin(config)`** — the config entry point.
 - **Builders:** `resource`, `dashboard`, `page`, `metric`, `table`, `custom`, `statGroup`, `queue`.
 - **Types:** `Adapter`, `AdminConfig`, `ResolvedAdminConfig`, `WidgetContext`, `ActionContext`, `LabelsConfig`, `ThemeConfig`, `FlowpanelTypes`, `Session`, `Scope`, errors.
-- **Runtime:** `createPublisher` (memory + Redis), `createRateLimiter` (memory + Redis), `runWithRequestContext`, `emitAudit`, `checkRequireRole`, `assertResourceScope`.
+- **Runtime:** `createRealtimeTransport` (memory + Redis; the root's `createPublisher` is its deprecated alias), `createRateLimiter` (memory + Redis), `runWithRequestContext`, `emitAudit`, `checkRequireRole`, `assertResourceScope`.
 
 ## Subpath exports
 
 - `@flowpanel/core` — main entry
 - `@flowpanel/core/labels` — `LabelsConfig` + `mergeLabels` (pure data, safe in client bundles)
 - `@flowpanel/core/auth` — `withClerk`, `withNextAuth`, `withLucia`
+- `@flowpanel/core/publish` — `createPublisher`, which a worker uses to publish realtime events
 
 ## Documentation
 

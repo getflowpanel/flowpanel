@@ -1,9 +1,12 @@
 import type { WidgetCaption } from "@flowpanel/core";
+import type { ReactNode } from "react";
 import { Card, CardContent } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
+import { barWidthClass } from "./bar-width";
 import { CardHeading } from "./CardHeading";
+import { EmptyLine } from "./EmptyLine";
 
 export interface ChecklistCardItem {
   key: string;
@@ -30,7 +33,7 @@ export interface ChecklistCardProps {
   /** "7 of 12" and the share done, from 0 to 1. */
   summary?: { text: string; share: number };
   /** Shown instead of the items when there are none. */
-  emptyState: string;
+  emptyState?: ReactNode;
   /** The line under the title: a cut range, freshness or coverage. */
   caption?: WidgetCaption;
 }
@@ -99,14 +102,13 @@ export function ChecklistCard({
             <div className="h-1 overflow-hidden rounded-full bg-fp-bg-3">
               <div
                 data-share=""
-                className="h-full rounded-full bg-fp-ok"
-                style={{ width: `${Math.round(summary.share * 100)}%` }}
+                className={cn("h-full rounded-full bg-fp-ok", barWidthClass(summary.share))}
               />
             </div>
           </div>
         ) : null}
         {items.length === 0 ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           <ol className={cn("flex flex-col", steps ? "gap-3 md:flex-row" : "gap-2")}>
             {items.map((item) => (

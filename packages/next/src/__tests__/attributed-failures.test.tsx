@@ -5,6 +5,7 @@ import { ErrorCard } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "../pages/dashboard";
+import { renderSlots } from "../pages/detail-page/widget-slots";
 import { renderWidgetsTab } from "../pages/detail-tabs/render-widgets-tab";
 import { resolveLink } from "../runtime/resolve-link";
 import { buildWidgetContext } from "../runtime/widget-context";
@@ -82,6 +83,23 @@ describe("a widget that fails on a record page", () => {
     expect((findProps(tree, ErrorCard)?.error as Error).message).toBe(`${name}: boom`);
     expect(findProps(tree, WidgetErrorBoundary)?.widgetId).toBe(name);
     expect(String(error.mock.calls[0]?.[0])).toContain(`[flowpanel] widget ${name} failed`);
+    error.mockRestore();
+  });
+
+  it("drops its error card's frame when it fails inside the stats strip", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const broken = metric("Broken", async () => {
+      throw new Error("boom");
+    });
+    const ctx = buildWidgetContext(config, reqCtx, reqCtx.req, {
+      from: new Date("2026-09-14T00:00:00Z"),
+      to: new Date("2026-09-21T00:00:00Z"),
+      preset: "last7d",
+    });
+    const stats = async (plain: boolean) =>
+      (await renderSlots([broken], ctx, config, reqCtx, "stats", { plain }))[0]?.node;
+    expect(findProps(await stats(true), ErrorCard)?.plain).toBe(true);
+    expect(findProps(await stats(false), ErrorCard)?.plain).toBeUndefined();
     error.mockRestore();
   });
 });

@@ -46,12 +46,12 @@ describe("DrawerHost detail link", () => {
     mockFetch(mkPayload("/admin/users/abc"));
 
     render(
-      <LabelsProvider value={{ drawer: { viewDetails: "Открыть страницу →" } }}>
+      <LabelsProvider value={{ drawer: { viewDetails: "Открыть страницу" } }}>
         <DrawerHost />
       </LabelsProvider>,
     );
 
-    const link = await waitFor(() => screen.getByRole("link", { name: "Открыть страницу →" }));
+    const link = await waitFor(() => screen.getByRole("link", { name: "Открыть страницу" }));
     expect(link.getAttribute("href")).toBe("/admin/users/abc");
   });
 

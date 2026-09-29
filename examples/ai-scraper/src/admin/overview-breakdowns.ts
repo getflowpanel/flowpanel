@@ -27,7 +27,7 @@ export async function offersByMarketplace(ctx: Ctx): Promise<BarRow[]> {
   return rows.map((row) => ({
     label: row.site,
     value: Number(row.count),
-    href: ctx.href("listings", undefined, { filter: { site: row.site } }),
+    href: { resource: "listings", filter: { site: row.site } },
   }));
 }
 
@@ -60,12 +60,12 @@ export async function matchPipeline(ctx: Ctx): Promise<FunnelStep[]> {
   const byStatus = new Map(matched.map((row) => [row.status, Number(row.count)]));
   const total = matched.reduce((sum, row) => sum + Number(row.count), 0);
   return [
-    { label: "Offers found", value: Number(offers[0]?.count ?? 0), href: ctx.href("listings") },
-    { label: "AI matched", value: total, href: ctx.href("matches") },
+    { label: "Offers found", value: Number(offers[0]?.count ?? 0), href: { resource: "listings" } },
+    { label: "AI matched", value: total, href: { resource: "matches" } },
     {
       label: "Confirmed",
       value: byStatus.get("confirmed") ?? 0,
-      href: ctx.href("matches", undefined, { filter: { status: "confirmed" } }),
+      href: { resource: "matches", filter: { status: "confirmed" } },
     },
   ];
 }
@@ -94,7 +94,7 @@ export async function failingCrawls(ctx: Ctx): Promise<ListRow[]> {
     text: row.monitor,
     meta: row.error ?? "unknown error",
     tone: "err" as const,
-    href: ctx.href("runs", row.id),
+    href: { resource: "runs", id: row.id },
   }));
 }
 

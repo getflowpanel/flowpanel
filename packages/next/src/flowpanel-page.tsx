@@ -16,7 +16,7 @@ import { buildNav } from "./runtime/nav";
 import { bindPublisher } from "./runtime/publish";
 import { renderContent } from "./runtime/render-content";
 import { buildRequestContext } from "./runtime/request-setup";
-import { ThemeVars } from "./runtime/theme-vars";
+import { ThemeColor, ThemeVars } from "./runtime/theme-vars";
 
 export { renderContent } from "./runtime/render-content";
 
@@ -159,6 +159,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
         {...(labels ? { labels } : {})}
       >
         <ThemeVars theme={config.theme} />
+        <ThemeColor theme={config.theme} />
         {body}
       </FlowpanelGlobals>
     );

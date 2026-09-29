@@ -3,6 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { previousRangeFor, resolveDateRange, shiftRange } from "../runtime/date-range";
 
 describe("resolveDateRange", () => {
+  it("falls back to the preset when a bound is not a date", () => {
+    const range = resolveDateRange({ preset: "today", from: "abc", to: "def" });
+    expect(range.preset).toBe("today");
+    expect(Number.isNaN(range.from.getTime())).toBe(false);
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-22T12:00:00Z"));

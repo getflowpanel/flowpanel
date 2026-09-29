@@ -1,8 +1,7 @@
+import { quoted } from "../internal/validate-shared";
 import { didYouMean } from "../suggest";
 import type { Adapter, ResourceIntrospection } from "../types/adapter";
 import type { ResourceConfig } from "../types/resource";
-
-const quoted = (names: readonly string[]): string => names.map((name) => `"${name}"`).join(", ");
 
 function declaredWrites(resource: ResourceConfig): string[] {
   const o = resource.options;

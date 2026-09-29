@@ -105,7 +105,7 @@ describe("scopeToRecord", () => {
     expect(scopeToRecord(config, card, "notes", {}, "metric", false)).toEqual({});
     expect(() => scopeToRecord(config, card, "notes", {}, "heatmap source", true)).toThrow(
       'flowpanel: heatmap source reads "notes" on a "users" card, but none of its columns ' +
-        'declares reference: { resource: "users" }, so it would read every row. Add the reference.',
+        'declares reference: { resource: "users" }, so it would read every row. Pass by, or add the reference.',
     );
   });
 

@@ -36,6 +36,12 @@ export const ordersResource = resource(orders, {
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceOptions" />
 
+An empty list tells two cases apart. With nothing narrowing it, it shows `empty.title`,
+`description`, `icon` and `action`. When search or filters leave no rows it shows
+`empty.filtered` (default `labels.widget.filtered`) and a button that clears the search and
+the filters but keeps the sort. Export hides while there are no rows, and on a phone a page
+shows its first 10 rows as cards with the rest behind one "N more" button.
+
 ### Detail headings and editing
 
 Three callbacks fill the detail page's header, and each one receives the same
@@ -63,7 +69,8 @@ nullish `title` falls back to the resource's singular label and the readable row
 identifier. `detail.header` still works and still wins nothing: `title` takes
 precedence when both are declared, and `header` is deprecated for removal in 1.0.
 
-The generated edit action sits beside the heading; it is omitted when
+The generated edit action sits beside the heading as a secondary button;
+`update: { emphasis: "primary" }` fills it when editing is what the page is for. It is omitted when
 `update.disabled` is true or the resource's update access policy denies the
 request, including asynchronous policies. Set `labels.actions.edit` to translate
 its text. The edit route enforces its own authorization as well. At narrow widths
@@ -444,7 +451,9 @@ value — a join or a computed label — here and in the drawer. It runs on the 
 may be async, receives the projected row, and runs only when the reader may read
 the field `name`, which stays the field's access-control key. The renders of one
 tab run concurrently, so a render must not depend on a database handle that
-allows one query at a time. In the drawer the output becomes static HTML; see
+allows one query at a time. On the record page a render that throws costs only its own
+field: the server logs `[flowpanel] detail render failed for "<field>"` and the field shows
+its formatted value. In the drawer the output becomes static HTML; see
 [server-rendered cells](/docs/reference/drawer#server-rendered-cells) for what the
 reader sees when a render fails there:
 
@@ -503,7 +512,7 @@ candidate, since every row in the tab shares it. The tab's own row key is always
 kept, since the table needs it for row identity. A hidden column cannot be sorted
 from the URL either.
 
-An "Open list →" link appears only when it would tell the truth: every filter
+An "Open list" link appears only when it would tell the truth: every filter
 value has to be a scalar (`string`, `number`, `boolean` or `bigint`) and every
 filter field has to be one the target resource declares, since the list page
 accepts `?f_<field>=<value>` on no other terms. A tab filtered on a range, an `in`
@@ -511,7 +520,7 @@ set, or an undeclared field keeps its rows and drops the link. `sort` sets the t
 default order, falling back to the target's `defaultSort` and then to its primary
 key. Clicking a header re-sorts through the URL key `relatedSort.<key>`, written
 as `<field>.<asc|desc>` and accepted only for a visible column the target
-resource really has. Above the table, an "Open list →" link
+resource really has. Above the table, an "Open list" link
 (`labels.related.openList`) leads to the target's own list page with the
 relationship already applied as `?f_<field>=<value>`, so the full paginated list
 is one click away.
@@ -575,7 +584,7 @@ empty state.
 
 `render(row, ctx)` returns whatever you like. `row` is the projected row — the
 declared and `detail.expose` fields, nothing else — and `ctx` is a
-[`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `href`,
+[`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `link`,
 `labels` and the per-request `query` memo, the same pieces a widget query gets.
 
 <AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailTab" />

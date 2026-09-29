@@ -47,26 +47,72 @@ export interface AuthConfig {
 // biome-ignore lint/suspicious/noEmptyInterface: must stay an interface — @flowpanel/react and consumers augment it via `declare module` merging (I-11); a `type` alias cannot be merged into.
 export interface FlowpanelComponentSlots {}
 
+/** A design token FlowPanel's stylesheet reads. Colours hold a bare HSL triplet. */
+export type FlowpanelToken =
+  | "--fp-bg-1"
+  | "--fp-bg-2"
+  | "--fp-bg-3"
+  | "--fp-text-1"
+  | "--fp-text-2"
+  | "--fp-text-3"
+  | "--fp-border-1"
+  | "--fp-border-2"
+  | "--fp-accent"
+  | "--fp-accent-text"
+  | "--fp-accent-badge-text"
+  | "--fp-ring"
+  | "--fp-overlay"
+  | "--fp-data"
+  | "--fp-ok"
+  | "--fp-warn"
+  | "--fp-err"
+  | "--fp-info"
+  | "--fp-ok-text"
+  | "--fp-warn-text"
+  | "--fp-err-text"
+  | "--fp-info-text"
+  | "--fp-chart-1"
+  | "--fp-chart-2"
+  | "--fp-chart-3"
+  | "--fp-chart-4"
+  | "--fp-chart-5"
+  | "--fp-chart-6"
+  | "--fp-chart-7"
+  | "--fp-shadow-color"
+  | "--fp-radius-sm"
+  | "--fp-radius"
+  | "--fp-radius-lg"
+  | "--fp-radius-xl"
+  | "--fp-font-sans"
+  | "--fp-font-mono";
+
+/** Token overrides: the known names complete in an editor, any other `--fp-*` still passes. */
+export type ThemeTokens = { [Name in FlowpanelToken]?: string } & Record<string, string>;
+
 export interface ThemeConfig {
   /** Product name, logo and home link shown in the shell header. */
   brand?: { name?: string; logo?: string; href?: string };
-  /** Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. */
+  /**
+   * Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped.
+   * Data fills take it too unless `cssVars` sets `--fp-data`.
+   */
   accent?: string;
   /**
    * Dark-mode accent override, same format as `accent`. Custom accents tuned
    * for light surfaces usually fail WCAG contrast on dark ones — pass a
-   * re-lightened triplet here to keep both schemes accessible.
+   * re-lightened triplet here to keep both schemes accessible. Dark data fills take
+   * it too unless `cssVarsDark` sets `--fp-data`.
    */
   accentDark?: string;
   /** Initial color scheme. `"auto"` follows the operating system. */
   mode?: "light" | "dark" | "auto";
   /** Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. */
-  cssVars?: Record<string, string>;
+  cssVars?: ThemeTokens;
   /**
    * Dark-mode token overrides, scoped to FlowPanel's dark roots and portals.
    * Choose foreground tokens for contrast against the actual dark background.
    */
-  cssVarsDark?: Record<string, string>;
+  cssVarsDark?: ThemeTokens;
   /** Replace built-in components. See the theme-slots guide. */
   components?: Partial<FlowpanelComponentSlots>;
   /**

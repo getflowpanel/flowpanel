@@ -22,7 +22,7 @@ export function QueuePage({ queue, navigation = [] }: QueuePageProps) {
               aria-current={item.active ? "page" : undefined}
               className={`-mb-px min-h-10 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
                 item.active
-                  ? "border-fp-accent text-fp-text-1"
+                  ? "border-fp-text-1 text-fp-text-1"
                   : "border-transparent text-fp-text-3 hover:text-fp-text-1"
               }`}
             >

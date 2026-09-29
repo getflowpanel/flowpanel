@@ -40,6 +40,12 @@ describe("mergeLabels", () => {
     expect(labels.pagination.next).toBe("Далее");
     expect(labels.searchPlaceholder).toBe("");
   });
+
+  it("merges one tone word without dropping the others", () => {
+    const labels = mergeLabels({ widget: { tones: { warn: "Heads up" } } });
+    expect(labels.widget.tones).toEqual({ ...DEFAULT_LABELS.widget.tones, warn: "Heads up" });
+    expect(labels.widget.empty).toBe(DEFAULT_LABELS.widget.empty);
+  });
 });
 
 describe("formatLabel", () => {

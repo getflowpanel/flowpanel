@@ -44,7 +44,7 @@ async function relatedCount(
   const filter = { customerId: id };
   return {
     value: await ctx.count(resource, filter),
-    href: ctx.href(resource, undefined, { filter }),
+    href: { resource, filter },
   };
 }
 
@@ -56,7 +56,7 @@ async function openInvoices(ctx: WidgetContext): Promise<StatResult> {
   return {
     value,
     ...(value > 0 ? { tone: "warn" as const } : {}),
-    href: ctx.href("invoices", undefined, { filter }),
+    href: { resource: "invoices", filter },
   };
 }
 
@@ -71,9 +71,12 @@ async function paidDollars(ctx: WidgetContext): Promise<StatResult> {
   `;
   return {
     value: Number(row?.cents ?? 0) / 100,
-    href: ctx.href("invoices", undefined, { filter: { customerId: id, status: "paid" } }),
+    href: { resource: "invoices", filter: { customerId: id, status: "paid" } },
   };
 }
+
+/** Named so a unit test can import it directly, as `resolveWidget` expects a widget config. */
+export const openInvoicesWidget = stat("Open invoices", openInvoices, { span: 3 });
 
 export const customerTabs: DetailTab<Customer>[] = [
   {
@@ -84,7 +87,7 @@ export const customerTabs: DetailTab<Customer>[] = [
       account,
       stat("Monitors", (ctx) => relatedCount("monitors", ctx), { span: 3 }),
       stat("Products", (ctx) => relatedCount("products", ctx), { span: 3 }),
-      stat("Open invoices", openInvoices, { span: 3 }),
+      openInvoicesWidget,
       stat("Paid to date", paidDollars, { format: "currency", span: 3 }),
     ],
   },

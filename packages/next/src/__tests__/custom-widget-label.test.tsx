@@ -1,5 +1,6 @@
 import type { RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { custom } from "@flowpanel/core";
+import { CardHeading } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ServerCard } from "../runtime/_server-card";
@@ -44,9 +45,11 @@ describe("a custom widget's label", () => {
 
   it("renders as the card's header above the content", () => {
     const card = ServerCard({ label: "Конвейер", children: "body" });
-    const [header, body] = (card.props as { children: ReactElement<{ children: ReactNode }>[] })
-      .children;
-    expect(header?.props.children).toBe("Конвейер");
+    const [header, body] = (
+      card.props as { children: ReactElement<{ label?: string; children?: ReactNode }>[] }
+    ).children;
+    expect(header?.type).toBe(CardHeading);
+    expect(header?.props.label).toBe("Конвейер");
     expect(body?.props.children).toBe("body");
   });
 });

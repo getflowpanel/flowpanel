@@ -12,9 +12,17 @@ describe("widgetSpanClassName", () => {
     };
     expect(widgetSlotClassName(widget)).toBe("flex");
   });
-  it("preserves the normal block layout for non-metric widgets", () => {
-    const widget: WidgetConfig = { kind: "table", options: {} };
-    expect(widgetSlotClassName(widget)).toBeUndefined();
+  it("keeps a table or a list at its own height, so a short one leaves no empty card", () => {
+    expect(widgetSlotClassName({ kind: "table", options: {} })).toBe("self-start");
+    const list = { kind: "list", label: "x", query: async () => [], options: {} } as never;
+    expect(widgetSlotClassName(list)).toBe("self-start");
+  });
+
+  it("follows a section's align over the default", () => {
+    const table: WidgetConfig = { kind: "table", options: {} };
+    const metric = { kind: "metric", label: "x", query: async () => 1, options: {} } as never;
+    expect(widgetSlotClassName(table, "stretch")).toBeUndefined();
+    expect(widgetSlotClassName(metric, "start")).toBe("flex self-start");
   });
   it("returns undefined when the widget declares no span", () => {
     const widget: WidgetConfig = {
@@ -42,7 +50,7 @@ describe("widgetSpanClassName", () => {
       options: { span: 12 },
     } as never;
     expect(widgetSpanClassName(widget)).toBe("col-span-12");
-    expect(widgetSlotClassName(widget)).toBe("col-span-12");
+    expect(widgetSlotClassName(widget)).toBe("col-span-12 self-start");
   });
 
   it("reads span regardless of widget kind (statGroup)", () => {

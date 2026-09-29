@@ -26,7 +26,7 @@ const utilitySource = [
   "p-4",
   "rounded-fp-lg",
   "ring-2",
-  "ring-fp-focus/40",
+  "ring-fp-focus/60",
   "-translate-x-1",
   "rotate-3",
   "backdrop-blur-md",
@@ -102,7 +102,7 @@ function pageMarkup(css: string, legacy = false): string {
     <main data-flowpanel-root>
       <nav data-flowpanel-nav aria-label="Управление"><a href="#nav">Настройки</a></nav>
       <button id="admin-button" class="border border-fp-border-1 p-4">Open</button>
-      <div id="utility-probe" class="mt-12 ring-2 ring-fp-focus/40 -translate-x-1/2 -translate-y-1/2">Probe</div>
+      <div id="utility-probe" class="mt-12 ring-2 ring-fp-focus/60 -translate-x-1/2 -translate-y-1/2">Probe</div>
       <div id="backdrop-probe" class="backdrop-blur-md">Backdrop</div>
       <div id="metrics" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">${cards}</div>
       <div id="non-metrics" class="grid grid-cols-3">${nonMetricWidgets}</div>

@@ -18,13 +18,13 @@ export type NavGroupRef = string | { label: string; collapsed?: boolean };
 
 /** Date picker offered above a dashboard. */
 export interface DateRangeConfig {
-  /** Range selected on first load. */
+  /** Range selected on first load; one outside `presets` is dropped with a development warning. */
   preset?: DateRangePreset;
   /** Explicit range used when no preset is given. */
   default?: { from: Date; to: Date };
   /**
-   * Presets the picker offers, in order. A URL preset outside the list is ignored,
-   * and `preset` defaults to the first entry. Default: all seven.
+   * Presets the picker offers, in order. A URL preset outside the list is ignored, and
+   * without `preset` or `default` the first entry is selected. Default: all seven.
    */
   presets?: DateRangePreset[];
 }
@@ -65,6 +65,11 @@ export interface SectionConfig {
    * @defaultValue "cards"
    */
   variant?: "cards" | "strip";
+  /**
+   * How cards in one row size: `"stretch"` to the tallest, `"start"` each to its content.
+   * Default: a `table` or `list` keeps its own height, every other card stretches.
+   */
+  align?: "stretch" | "start";
   widgets: WidgetConfig[];
 }
 

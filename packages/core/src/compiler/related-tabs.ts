@@ -1,21 +1,15 @@
 import { relatedMark } from "../builders/related";
-import { recordField } from "../internal/related-by";
+import { pointingField, recordFieldError } from "../internal/related-by";
 import type { DetailTab } from "../types/detail";
 import type { ResourceConfig } from "../types/resource";
 
 type Row = Record<string, unknown>;
 
 function inferredBy(name: string, tab: DetailTab<Row>, target: ResourceConfig): string {
-  const found = recordField(target, name, []);
+  const found = pointingField(target, name);
   if (found.kind === "one") return found.field;
-  const reason =
-    found.kind === "many"
-      ? ` (${found.candidates.join(", ")}); pass by.`
-      : `: none of its columns declares reference: { resource: "${name}" }. Pass by, or add the reference.`;
-  throw new Error(
-    `flowpanel: tab "${tab.key}" on "${name}" cannot tell which field of "${String(tab.resource)}" ` +
-      `points at a "${name}"${reason}`,
-  );
+  const site = `resource "${name}" tab "${tab.key}"`;
+  throw new Error(recordFieldError(site, String(tab.resource), name, found, "by"));
 }
 
 function resolveTab(

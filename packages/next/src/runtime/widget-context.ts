@@ -9,21 +9,23 @@ import type {
   WidgetContext,
   WidgetDateRange,
 } from "@flowpanel/core";
-import { bindFormat, encodeFilters, mergeLabels, resolveFormatting } from "@flowpanel/core";
+import { bindFormat, mergeLabels, resolveFormatting } from "@flowpanel/core";
+import { encodeFilters } from "@flowpanel/core/internal";
 import { previousRangeFor, shiftRange } from "./date-range";
 import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
 import { buildHref } from "./href";
 import { countKey, readKey } from "./memo-key";
 import { memoQuery } from "./memo-query";
 import { bindViewedRecord } from "./record-scope";
-import { resolveLink } from "./resolve-link";
+import { frameworkHref, resolveLink } from "./resolve-link";
 import { rowIdentity } from "./row-identity";
 import { noteMemoHit } from "./widget-owner";
 import { recordOf, widgetCount, widgetRead } from "./widget-reads";
 
 type HrefOptions = { filter?: Record<string, unknown>; tab?: string };
 
-function widgetHref(
+/** A resource's list or record href under the mount, with list filters and a tab. */
+export function widgetHref(
   config: ResolvedAdminConfig,
   timeZone: string,
   resource: ResourceName,
@@ -38,7 +40,7 @@ function widgetHref(
   }
   if (opts?.tab) params.set("tab", opts.tab);
   const query = params.toString();
-  return query === "" ? base : `${base}?${query}`;
+  return frameworkHref(query === "" ? base : `${base}?${query}`);
 }
 
 function adapterSql<Row>(
@@ -200,6 +202,11 @@ export function rangedContext(
   return derived;
 }
 
+/** The first moment a widget with `maxRange` may read, as epoch ms; `undefined` without a cap. */
+export function retainedSince(ctx: WidgetContext): number | undefined {
+  return RETAINED.get(ctx);
+}
+
 /** The moment the request built its first widget context; every context it derives shares it. */
 export function requestNow(ctx: WidgetContext): number {
   return NOW.get(ctx) ?? Date.now();
@@ -216,11 +223,7 @@ export function comparisonRange(
   return retained(week, RETAINED.get(ctx));
 }
 
-/**
- * The whole record's lifetime, used when `detail.dateRange` sets no picker. Built per
- * call: a shared object would freeze `to` at process start and let one widget's
- * mutation leak into every later request.
- */
+/** The whole record's lifetime when `detail.dateRange` sets no picker, built fresh per call. */
 export function detailTabDateRange(): ResolvedDateRange {
   return { from: new Date(0), to: new Date(), preset: "custom" };
 }

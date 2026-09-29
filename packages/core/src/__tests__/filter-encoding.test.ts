@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodeFilters, encodeFilterValue } from "../index";
+import { encodeFilters, encodeFilterValue } from "../internal";
 
 describe("encodeFilterValue", () => {
   it("writes scalars as text and a date as its day in the zone", () => {

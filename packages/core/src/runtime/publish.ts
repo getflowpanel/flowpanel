@@ -23,11 +23,17 @@ export type PublisherOptions =
       keyPrefix?: string;
     };
 
-/** Build an SSE realtime publisher. No connection opens until the first publish. */
-export function createPublisher(opts: PublisherOptions): Publisher {
+/** Build the transport behind an admin's `realtime` option. No connection opens until the first publish. */
+export function createRealtimeTransport(opts: PublisherOptions): Publisher {
   if (opts.driver === "memory") return createMemoryPublisher();
   return createRedisPublisher(opts);
 }
+
+/**
+ * @deprecated Renamed `createRealtimeTransport`. For a worker, use `createPublisher` from
+ * `@flowpanel/kit/publish`, which never rejects on a Redis error.
+ */
+export const createPublisher: (opts: PublisherOptions) => Publisher = createRealtimeTransport;
 
 function createMemoryPublisher(): Publisher {
   const subs = new Map<string, Set<(p: unknown) => void>>();

@@ -64,9 +64,18 @@ describe("TableWidget heading and empty state", () => {
     expect(screen.getByRole("link", { name: "See all" }).getAttribute("href")).toBe("/admin/users");
   });
 
-  it("uses a string empty state as the table's own empty title", () => {
+  it("says a string empty state in one quiet line, with no table and no tall box", () => {
     render(<TableWidget rows={[]} columns={columns} rowKey="id" emptyState="No users yet" />);
-    expect(screen.getByText("No users yet")).toBeTruthy();
+    const line = screen.getByText("No users yet");
+    expect(line.className).toContain("text-sm");
+    expect(line.className).toContain("text-fp-text-2");
+    expect(line.className).not.toMatch(/py-16|text-center|justify-center/);
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("falls back to the labels' empty line", () => {
+    render(<TableWidget rows={[]} columns={columns} rowKey="id" />);
+    expect(screen.getByText("No data yet").className).toContain("text-fp-text-2");
   });
 
   it("renders a node empty state in place of the table", () => {
@@ -75,5 +84,17 @@ describe("TableWidget heading and empty state", () => {
     );
     expect(screen.getByText("Nothing to show")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("keeps a block empty state out of a paragraph", () => {
+    render(
+      <TableWidget
+        rows={[]}
+        columns={columns}
+        rowKey="id"
+        emptyState={<div data-testid="block">Invite a user</div>}
+      />,
+    );
+    expect(screen.getByTestId("block").closest("p")).toBeNull();
   });
 });

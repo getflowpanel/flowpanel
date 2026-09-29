@@ -119,8 +119,13 @@ What varies:
   a busy fallback stops installation before any writes.
 - **Admin layout** — imports the stylesheet under the chosen route and renders
   `ThemeScript` with the `x-nonce` request header, whether or not the host has its own
-  root layout. The existing root layout is never patched. Without a shared root layout, the admin segment
-  receives its own root layout. That layout reads the `x-nonce` request header and
+  root layout. The existing root layout is not rewritten, with one exception: `ThemeScript`
+  marks `<html>` before React hydrates it, so `init` adds `suppressHydrationWarning` to the
+  host root layout's `<html>` tag when it is missing — without it, development logs a
+  hydration error and `smokeAdmin` fails on every route. When `init` cannot safely parse
+  the layout, it leaves the file alone and prints the exact edit to make by hand. Without a
+  shared root layout, the admin segment receives its own root layout, already carrying
+  `suppressHydrationWarning`. That layout reads the `x-nonce` request header and
   forwards it to `ThemeScript`, so the pre-hydration theme script survives a strict
   `script-src` policy — but only when your own middleware sets `x-nonce` on the
   request and emits the matching `script-src 'nonce-…'` header. FlowPanel does not
@@ -130,8 +135,7 @@ What varies:
   `auth.session` reads the request. The admin layout written into a host with its own root
   layout reads `x-nonce` the same way. Under a strict `script-src`, your middleware must set
   `x-nonce` there too; without it the browser blocks the theme script, and `smokeAdmin` fails
-  on the CSP console error. Your root layout's `<html>` needs `suppressHydrationWarning`, as the
-  one `init` writes has, because the script marks `<html>` before React hydrates it.
+  on the CSP console error.
 - **Authentication** — `init` reads `package.json` for `better-auth`, `next-auth`,
   `@clerk/nextjs` or `lucia` and names what it recognised in the detected-stack
   note and the outro. When the auth module it found exports that provider's own
@@ -297,6 +301,13 @@ It lists every file it wrote, then comments the matching config entry out
 rollback-safe transaction. Pass `--force` to explicitly replace an existing
 eject target; without it, a conflict aborts before any file changes.
 
+`eject` follows a root config that only re-exports another module (the split layout from
+[Build a founder admin](/docs/introduction/founder-admin) step 3), the same way `flowpanel new`
+does. `eject resource` also follows a `resources` property imported from a directory of
+one-file-per-resource modules (written by `new --dir`): it finds the file that defines the
+named resource and comments the `resource(...)` call out there, leaving the config and the
+other resource files untouched.
+
 ### flowpanel dev
 
 `flowpanel dev [options]` — Run Next.js dev server (and bull-board if REDIS_URL is set)
@@ -347,10 +358,12 @@ bind that name, so the file compiles as written. Existing comments in the
 array are preserved (the entry is spliced as text, not reprinted).
 
 Before writing, a Drizzle-kind run resolves the config's `import * as schema`
-line and checks that the module really exports `posts`. A miss aborts with
-exit `1` and lists what the schema does export; an unverifiable case (no
-`import * as schema`, an unresolvable specifier) warns and writes anyway.
-A resource that already exists aborts with exit `1`.
+line and checks that the module really has a table named `posts` — by its
+SQL table name or its export name, the same as `--dir`, so `flowpanel new
+ai_usage` finds `export const aiUsage` and writes `schema.aiUsage`. A miss
+aborts with exit `1` and lists what the schema does export; an unverifiable
+case (no `import * as schema`, an unresolvable specifier) warns and writes
+anyway. A resource that already exists aborts with exit `1`.
 
 When `flowpanel.config.ts` is one line — `export { default } from "@/admin/config";` — the
 command follows it through your `tsconfig` paths and edits the file it points at.

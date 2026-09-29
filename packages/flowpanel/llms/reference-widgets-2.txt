@@ -4,13 +4,15 @@
 
 What happened, newest first, grouped under days of the admin's zone ("Today",
 "Yesterday", then dates) with a count per day. Each line has a tone dot, its time (the
-full date in its tooltip), a linked title and a meta; a `body` folds under the line.
+full date in its tooltip), a linked title and a meta; a `body` folds under the line, which
+then opens from a chevron and keeps its link under the body.
 Consecutive events of one day and one kind with the same `fold` key — the title by
 default — fold into one line such as "Orders in feed ×37 09:12–18:40", with the single
 events inside. A chip per kind (`kinds`, an `enumOf` or `{ key: [label, tone] }`) filters
-the page, and "Older →" pages back. Chips and paging are links under
-`?<id>.kind=` and `?<id>.before=`; `id` defaults to the detail tab's key, else
-`"timeline"`, so two timelines on one page need their own `id`. The card is rendered on
+the page, and "Older" pages back. Chips and paging are links under
+`?<id>.kind=` and `?<id>.before=`; `id` defaults to the detail tab's key, else to
+`"timeline"`, `"timeline-2"` and on in page order, so two timelines on one page never share
+paging. Two that set the same `id` fail at `defineAdmin`. The card is rendered on
 the server and needs no JavaScript.
 
 `query(ctx, page)` returns events that are not rows of a resource. It receives the page:
@@ -26,9 +28,9 @@ timeline({
 });
 ```
 
-On a record page a timeline pages through the whole history; `detail.dateRange` does not
-narrow it. A timeline cannot sit in a drawer tab: `defineAdmin` points at a detail tab.
-"Older →" continues from the last event's moment and skips the events already shown at that
+On a record page a timeline pages through the whole history, or back to its `maxRange` cut;
+`detail.dateRange` does not narrow it. A timeline cannot sit in a drawer tab: `defineAdmin` points at a detail tab.
+"Older" continues from the last event's moment and skips the events already shown at that
 exact moment by count, so when one source holds several rows with the same timestamp at a
 page boundary, a database that returns ties in no fixed order may repeat or drop one of them.
 
@@ -42,8 +44,8 @@ page boundary, a database that returns ties in no fixed order may repeat or drop
 | `sources?` | `TimelineSource[]` | Resources read as events, merged with `query` by time; build each with `timeline.source`. |
 | `group?` | `"day" \| false` | Group lines under days of the admin's zone; `false` for one list. Default: `"day"`. |
 | `pageSize?` | `number` | Events per page, from 1 to 200. Default: `50`. |
-| `id?` | `string` | The URL namespace of the chips and the paging, `?<id>.kind=` and `?<id>.before=`. Default: `the detail tab's key, else "timeline"`. |
-| `emptyState?` | `string` | Shown instead of the lines when nothing happened. |
+| `id?` | `string` | The URL namespace of the chips and the paging, `?<id>.kind=` and `?<id>.before=`; unique per page. Default: `the detail tab's key, else "timeline", "timeline-2", … in page order`. |
+| `emptyState?` | `ReactNode` | Shown instead of the lines when nothing happened. Text or any node. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
@@ -133,7 +135,8 @@ How often, day by day: the last `days` days (91, about 13 weeks, by default) end
 as weeks side by side and a 12-pixel cell per day, shaded in four steps by quartile, with
 month and weekday labels, a legend, a summary line and a tooltip per day. Days are
 calendar days of the admin's zone, and weeks start on the locale's first day. The card
-scrolls sideways on a phone and needs no JavaScript.
+scrolls sideways on a phone and needs no JavaScript to render. When days link, the grid is
+one tab stop, today, and the arrow keys move between days.
 
 `source` counts rows of a resource — or sums `value` — per day of `at`, a timestamp or a
 `YYYY-MM-DD` day. On a record page it reads only the rows that point at the viewed record,
@@ -148,7 +151,7 @@ heatmap({ label: "Visits, 13 weeks", source: { resource: "user_visit", at: "star
 ```
 
 The heatmap always ends today; a record page's `dateRange` and a dashboard's picker do not
-move it, and `maxRange` is ignored.
+move it, and it takes no `maxRange`.
 
 `HeatmapOptions`
 
@@ -161,9 +164,8 @@ move it, and `maxRange` is ignored.
 | `unit?` | `string \| PluralLabel` | What a day's value counts, for the summary and each day's tooltip. |
 | `tone?` | `Tone` | The fill of a busy day. Default: `"accent"`. |
 | `href?` | `(day: { from: Date; to: Date }, ctx: WidgetContext) => LinkTarget \| null` | Makes each day a link; `from` and `to` bound the day in the admin's zone. |
-| `emptyState?` | `string` | Shown instead of the grid when every day is empty. |
+| `emptyState?` | `ReactNode` | Shown instead of the grid when every day is empty. Text or any node. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
-| `maxRange?` | `RangeLimit` | Ignored: a heatmap always shows its last `days` days, whatever the picked range. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these channels fire. |
 
 #### HeatmapSource
@@ -220,7 +222,7 @@ checklist({
 | `ordered?` | `boolean` | Each done step shows when, and the time since the previous done step. |
 | `layout?` | `"list" \| "steps"` | `"steps"` lays the items out in a row from the `md` breakpoint. Default: `"list"`. |
 | `summary?` | `boolean` | "7 of 12" with a bar; optional items are not counted. Default: `true`. |
-| `emptyState?` | `string` | Shown instead of the items when there are none. |
+| `emptyState?` | `ReactNode` | Shown instead of the items when there are none. Text or any node. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `realtime?` | `RealtimeOption` | Re-run when any of these channels fire. |
@@ -297,7 +299,8 @@ Shared by area, bar and line charts.
 | --- | --- | --- |
 | `x` | `RowKey<R>` | Row key plotted on the x-axis. |
 | `y?` | `RowKey<R> \| RowKey<R>[]` | Row key(s) plotted on the y-axis; an array draws one series per key. Default: every key of the first row except `x`, in its order — the columns a `series({ by })` returns. |
-| `labels?` | `Readonly<Record<string, string>> \| EnumDef` | Legend and tooltip name per series key: a map or an `enumOf()`. Default: the key. |
+| `labels?` | `KeyLabels` | Legend and tooltip name per series key: a map, an `enumOf()` or a function. Default: the key. |
+| `colors?` | `Readonly<Record<string, string>>` | A CSS colour per series key, e.g. `{ paid: "hsl(var(--fp-chart-1))" }`. Default: `--fp-data` for a single series, `--fp-chart-1…7` in `y` order for several. |
 | `height?` | `number` | Chart height in px. Default: `240`. |
 | `format?` | `NumericFormat` | How y-values are rendered in ticks and tooltips. |
 | `tooltip?` | `"default" \| "compact" \| false` | `false` omits the `<Tooltip>` entirely. |
@@ -312,9 +315,22 @@ Shared by area, bar and line charts.
 `y` may be left out: the chart then plots every numeric key of its first row except `x` —
 a number, or a bigint or a string that parses as one — which is exactly the columns
 `series({ by })` returns, the `top` rest included; a label or other non-numeric column is
-left out. `labels` names each series in the legend and the tooltip, from a map or an `enumOf()`.
+left out. `labels` names each series in the legend and the tooltip, from a map, an `enumOf()` or a function.
 `bucket` only chooses how ticks print a date; it does not aggregate, so fold rows with
-`series({ grain })`.
+`series({ grain })`. Ticks inside one calendar year leave the year out ("Sep 2").
+
+One series is drawn in `--fp-data`; several take `--fp-chart-1` to `--fp-chart-7` in `y`
+order, and the legend writes their names in secondary text beside a coloured swatch.
+`colors` pins a series to a colour by its key, so the headline series can keep the first
+colour without moving to the front of `y`:
+
+```ts excerpt
+lineChart("Signups", signupsByPlan, {
+  x: "day",
+  y: ["trial", "paid"],
+  colors: { paid: "hsl(var(--fp-chart-1))", trial: "hsl(var(--fp-chart-2))" },
+});
+```
 
 #### areaChart
 
@@ -405,7 +421,7 @@ development warns once when a fold passes that.
 | `value?` | `Fold<R>` | How a bucket's rows become its number. Default: the row count. |
 | `by?` | `keyof R & string` | One column per value of this field; without it the one column is `value`. |
 | `keys?` | `readonly string[]` | Values of `by` present as columns, in this order, even with no rows. |
-| `grain?` | `Grain` | `"auto"`: hours up to 2 days, days up to 92, weeks up to 400, else months. Default: `"auto"`. |
+| `grain?` | `Grain` | `"auto"`: hours up to 2 days, days up to 92, weeks up to 400, else months. A week starts on Monday, whatever the locale. Default: `"auto"`. |
 | `top?` | `number` | Keep `keys` and the N largest other series; the rest fold into `OTHER_KEY`. |
 
 One ranked `BarRow` per value of `by`, with `key`, `share` of the real total, and —
@@ -441,11 +457,11 @@ const hourly = (c: WidgetContext) => c.sql<{ at: Date; platform: string; orders:
 bars({
   label: "New orders by marketplace",
   share: true,
-  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", labels: Platform }),
+  query: async (c) => breakdown(await c.query(hourly), { by: "platform", value: "orders", labels: Platform }),
 });
 barChart(
   "New orders by day",
-  async (c) => series(await c.query(hourly, c), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
+  async (c) => series(await c.query(hourly), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
   { x: "date", labels: Platform, stacked: true },
 );
 ```
@@ -497,6 +513,7 @@ are next to the date picker from `labels.widget.updated`.
 | `description?` | `string` | Supporting copy under the heading. |
 | `columns?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Grid columns the widgets lay out across; omitted, 12 when a widget sets `span`. Default: `1`. |
 | `variant?` | `"cards" \| "strip"` | `"strip"` draws the section's `metric` and `stat` widgets as one band divided by hairlines, with no card around each; another kind renders as its own card and warns in development. `columns` is the cells per line from `md` up. Default: `"cards"`. |
+| `align?` | `"stretch" \| "start"` | How cards in one row size: `"stretch"` to the tallest, `"start"` each to its content. Default: a `table` or `list` keeps its own height, every other card stretches. |
 | `widgets` | `WidgetConfig[]` |  |
 
 `variant: "strip"` draws a section's `metric` and `stat` widgets as one band divided by
@@ -506,6 +523,11 @@ the previous value, sparklines and links stay. `columns` sets the cells per line
 shows two per line.
 Another widget kind in a strip keeps its own card and warns once in development. A record
 page's [`detail.stats`](/docs/reference/resources#record-page) renders the same strip.
+
+In a `"cards"` section a `table` or `list` card keeps its own height, so a short table beside
+a tall chart leaves no empty card; every other card stretches to the tallest in its row.
+`align: "start"` keeps every card at its content's height and `align: "stretch"` stretches
+them all.
 
 ```ts excerpt
 { variant: "strip", widgets: [newOrders, runs, successRate, bans] }
@@ -517,9 +539,9 @@ page's [`detail.stats`](/docs/reference/resources#record-page) renders the same 
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `preset?` | `DateRangePreset` | Range selected on first load. |
+| `preset?` | `DateRangePreset` | Range selected on first load; one outside `presets` is dropped with a development warning. |
 | `default?` | `{ from: Date; to: Date }` | Explicit range used when no preset is given. |
-| `presets?` | `DateRangePreset[]` | Presets the picker offers, in order. A URL preset outside the list is ignored, and `preset` defaults to the first entry. Default: all seven. |
+| `presets?` | `DateRangePreset[]` | Presets the picker offers, in order. A URL preset outside the list is ignored, and without `preset` or `default` the first entry is selected. Default: all seven. |
 
 `DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD"`.
 
@@ -547,11 +569,11 @@ the URL as `f_<key>`, the list convention, so a filtered dashboard is a link;
 choosing "All" drops one filter and "Clear filters" drops them all. `options` takes a
 list, an `enumOf()`, or a function of the context.
 
-`bars`, `tracker` and `table` take `filter: "<key>"`: clicking a bar, a tracker row or
-a table row sets that filter on the current dashboard, keeping the range. A bar sets
-the filter by its `key`; `breakdown()` fills it, and the folded rest is not a link.
-`filter` replaces the row's own `href` or the table's `rowHref`. `defineAdmin`
-rejects a `filter` the dashboard does not declare, with the closest key, and a `filter`
+`bars`, `tracker` and `table` take `filterOnClick: "<key>"`: clicking a bar, a tracker
+row or a table row sets that filter on the current dashboard, keeping the range. A bar
+sets the filter by its `key`; `breakdown()` fills it, and the folded rest is not a link.
+`filterOnClick` replaces the row's own `href` or the table's `rowHref`. `defineAdmin`
+rejects a `filterOnClick` the dashboard does not declare, with the closest key, and one
 on a record page or in a drawer. While a filter is set, an empty card says the filters
 left nothing (`labels.widget.filtered`) and links to clear them, and an empty banner
 says it instead of "All clear". A chart keeps its own empty text.
@@ -568,7 +590,7 @@ dashboard({
   path: "/parsing",
   label: "Parsing",
   filters: [byPlatform],
-  sections: [{ columns: 12, widgets: [tracker({ query: hourly, at: "at", by: "platform", filter: "platform", span: 12 })] }],
+  sections: [{ columns: 12, widgets: [tracker({ query: hourly, at: "at", by: "platform", filterOnClick: "platform", span: 12 })] }],
 });
 ```
 

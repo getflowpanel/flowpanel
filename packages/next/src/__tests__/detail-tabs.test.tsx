@@ -94,7 +94,7 @@ describe("a related detail tab", () => {
   it("links to the target's own list with the relationship filter applied", async () => {
     const props = await table(withRelated, "?tab=scores");
     expect(props?.openListHref).toBe("/admin/scores?f_userId=u1");
-    expect(props?.openListLabel).toBe("Open list →");
+    expect(props?.openListLabel).toBe("Open list");
   });
 
   it("omits the open-list link when a filter value is not a scalar", async () => {
@@ -315,7 +315,7 @@ describe("a render tab", () => {
     expect(entry?.ctx.href("scores", undefined, { filter: { userId: "u1" } })).toBe(
       "/admin/scores?f_userId=u1",
     );
-    expect(entry?.ctx.labels.related.openList).toBe("Open list →");
+    expect(entry?.ctx.labels.related.openList).toBe("Open list");
     expect(entry?.ctx.db).toEqual({ tag: "db" });
     expect(typeof entry?.ctx.query).toBe("function");
   });

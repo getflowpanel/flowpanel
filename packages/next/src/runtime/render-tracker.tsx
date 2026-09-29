@@ -105,7 +105,7 @@ export async function renderTracker(
   return (
     <TrackerCard
       {...(widget.options.label ? { label: widget.options.label } : {})}
-      rows={withFilterHrefs(ctx, widget.options.filter, rows, (row) => row.key)}
+      rows={withFilterHrefs(ctx, widget.options.filterOnClick, rows, (row) => row.key)}
       emptyState={filteredEmptyState(ctx) ?? widget.options.emptyState ?? ctx.labels.widget.empty}
       {...(captionLine ? { caption: captionLine } : {})}
     />

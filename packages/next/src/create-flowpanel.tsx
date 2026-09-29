@@ -4,6 +4,7 @@ import { withDeploymentBasePath } from "@flowpanel/core/paths";
 import { Flowpanel } from "./flowpanel-page";
 import { handlers as createHandlers, type FlowpanelHandlers } from "./handlers";
 import type { FlowpanelRequest } from "./runtime/controller-factory";
+import { flowpanelMetadata } from "./runtime/page-metadata";
 import { bindPublisher, publish } from "./runtime/publish";
 import { createRequestRuntime } from "./runtime/request-runtime";
 import {
@@ -14,6 +15,8 @@ import {
 
 export interface FlowpanelRuntime<Resources extends readonly AnyResourceConfig[]> {
   readonly page: ReturnType<typeof Flowpanel>;
+  /** The page's `generateMetadata`: each admin page titled by its dashboard, list or record. */
+  readonly metadata: ReturnType<typeof flowpanelMetadata>;
   readonly handlers: FlowpanelHandlers;
   request(): Promise<FlowpanelRequest<Resources>>;
   readonly client: FlowpanelClientMetadata;
@@ -47,6 +50,7 @@ export function createFlowpanel<const Resources extends readonly AnyResourceConf
 
   return Object.freeze({
     page: Flowpanel(config),
+    metadata: flowpanelMetadata(config),
     handlers: createHandlers(config),
     request,
     // `api` is what a browser fetches, so it carries the deployment basePath;

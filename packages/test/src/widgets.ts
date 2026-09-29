@@ -1,2 +1,2 @@
 export { type ResolvedWidget, resolveWidget } from "@flowpanel/kit/next";
-export { type WidgetContextOptions, widgetContext } from "./widgets/context";
+export { headerContext, type WidgetContextOptions, widgetContext } from "./widgets/context";

@@ -100,6 +100,13 @@ export const DEFAULT_DOC_CONTRACTS = [
     consumerExpression: 'delta.goodWhen === "down" ? delta.value < 0 : delta.value > 0',
   },
   {
+    typeName: "MetricOptions",
+    member: "goodWhen",
+    value: '"up"',
+    consumerFile: "packages/react/src/_widgets/delta.ts",
+    consumerExpression: 'delta.goodWhen === "down" ? delta.value < 0 : delta.value > 0',
+  },
+  {
     typeName: "BarsOptions",
     member: "goodWhen",
     value: '"up"',
@@ -142,11 +149,18 @@ export const DEFAULT_DOC_CONTRACTS = [
     consumerExpression: "export const READ_LIMIT = 100;",
   },
   {
-    typeName: "Threshold",
+    typeName: "StatOptions",
     member: "goodWhen",
-    value: '"down"',
+    value: '"up"',
     consumerFile: "packages/core/src/tone-for.ts",
-    consumerExpression: 'if (t.goodWhen === "up")',
+    consumerExpression: 'return fallback === "down" ? "down" : "up";',
+  },
+  {
+    typeName: "TrackerOptions",
+    member: "goodWhen",
+    value: '"up"',
+    consumerFile: "packages/core/src/tone-for.ts",
+    consumerExpression: 'return fallback === "down" ? "down" : "up";',
   },
   {
     typeName: "TrackerOptions",

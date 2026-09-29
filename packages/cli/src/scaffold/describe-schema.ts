@@ -1,5 +1,5 @@
 import * as fs from "node:fs/promises";
-import { readTsconfigAliases } from "../commands/migrate";
+import { readTsconfigAliases } from "../utils/tsconfig";
 
 interface JitiInstance {
   import: (id: string) => Promise<unknown>;

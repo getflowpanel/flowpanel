@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { checklistRows, filled, isDone } from "../index";
+import { filled } from "../index";
+import { checklistRows, isDone } from "../internal";
 
 describe("checklist presence", () => {
+  it("takes a day-precision Date's day in the admin's zone", () => {
+    const localMidnight = new Date("2026-09-23T21:00:00Z");
+    const { rows } = checklistRows(
+      [{ label: "a", done: localMidnight, precision: "day" }],
+      true,
+      "Europe/Moscow",
+    );
+    expect(rows[0]?.day).toBe("2026-09-24");
+  });
+
   it("counts every value but an empty one as done", () => {
     expect([null, undefined, false, "", "  ", []].map(isDone)).toEqual([
       false,

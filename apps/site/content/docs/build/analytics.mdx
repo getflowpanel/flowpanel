@@ -13,7 +13,7 @@ FlowPanel bucket, pivot, rank and compare them. The reference for every helper i
 
 1. Select raw rows for the picked range, with a timestamp and the fields you group by.
    Bind `ctx.dateRange.from` and `to` as parameters; do no zone math in SQL.
-2. Share the statement between widgets with `ctx.query(fn, ctx)`, so the page runs it once.
+2. Share the statement between widgets with `ctx.query(fn)`, so the page runs it once.
 3. Fold it per card: `series()` for a chart over time, `breakdown()` for ranked bars.
 
 ```ts excerpt
@@ -29,12 +29,12 @@ const hourly = (c: WidgetContext) => c.sql<HourRow>`
 const byPlatform = bars({
   label: "New orders by marketplace",
   share: true,
-  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", labels: Platform }),
+  query: async (c) => breakdown(await c.query(hourly), { by: "platform", value: "orders", labels: Platform }),
 });
 
 const byDay = barChart(
   "New orders by day",
-  async (c) => series(await c.query(hourly, c), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
+  async (c) => series(await c.query(hourly), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
   { x: "date", labels: Platform, stacked: true },
 );
 ```
@@ -58,7 +58,7 @@ bars({
   label: "New orders by marketplace",
   share: true,
   compare: { against: "weekAgo" },
-  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", keys: PLATFORMS }),
+  query: async (c) => breakdown(await c.query(hourly), { by: "platform", value: "orders", keys: PLATFORMS }),
 });
 ```
 
@@ -67,13 +67,14 @@ bars({
 Declare each threshold once, next to the product rule it encodes, and pass it wherever the
 number shows: a strip metric, a bar, a tracker block or a table column. Give `min` so an
 hour with three runs does not turn red on one failure, and return the observations as
-`volume` from a metric's query.
+`volume` from a metric's query. The order of `warn` and `err` says which way is bad, so a
+success rate needs no `goodWhen`.
 
 ```ts excerpt
 import type { Threshold } from "@flowpanel/kit";
 
 export const RUN_ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
-export const SUCCESS: Threshold = { warn: 0.9, err: 0.8, goodWhen: "up" };
+export const SUCCESS: Threshold = { warn: 0.9, err: 0.8 };
 ```
 
 ## Say how old and how complete the numbers are
@@ -137,7 +138,7 @@ banner({
 ## Filter the whole dashboard
 
 Declare a filter once and every widget can read it as `ctx.filters`. Bind it in the
-shared statement, give the per-key widgets `filter`, and one dashboard replaces a list
+shared statement, give the per-key widgets `filterOnClick`, and one dashboard replaces a list
 link per marketplace: clicking a bar, a tracker row or a table row narrows the whole
 page, keeping the range, and the comparison reads the same slice.
 
@@ -147,5 +148,5 @@ import type { DashboardFilter } from "@flowpanel/kit";
 const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
 ```
 
-Pass `filters: [byPlatform]` to the dashboard, and `filter: "platform"` to the bars, the
+Pass `filters: [byPlatform]` to the dashboard, and `filterOnClick: "platform"` to the bars, the
 tracker and the table.

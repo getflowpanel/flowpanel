@@ -39,7 +39,7 @@ describe("ChecklistCard", () => {
     expect(screen.getByRole("img", { name: "Optional" }).textContent).toBe("–");
     expect(screen.getByRole("img", { name: "Not done" }).textContent).toBe("○");
     expect(screen.getByText("2 of 3")).toBeTruthy();
-    expect((container.querySelector("[data-share]") as HTMLElement).style.width).toBe("67%");
+    expect(container.querySelector("[data-share]")?.className).toContain("w-[65%]");
     expect(screen.getByRole("link", { name: "Scored" }).getAttribute("href")).toBe("/orders/o1");
     expect(screen.getByText("Sep 24, 2026, 10:05 · +5 min")).toBeTruthy();
     expect(screen.getByText("Linked in the bot")).toBeTruthy();

@@ -90,4 +90,17 @@ describe("resolveDashboardDateRangeInput", () => {
       preset: "today",
     });
   });
+
+  it("drops an unreadable from/to and keeps the declared range", () => {
+    expect(
+      resolveDashboardDateRangeInput({ preset: "last30d" }, sp({ from: "abc", to: "2026-01-02" })),
+    ).toEqual({ preset: "last30d" });
+  });
+
+  it("applies dateRange.default when presets are listed and none is declared", () => {
+    const defaultRange = { from: new Date("2026-01-01"), to: new Date("2026-01-08") };
+    expect(
+      resolveDashboardDateRangeInput({ presets: ["today", "last7d"], default: defaultRange }, sp()),
+    ).toEqual({ from: defaultRange.from, to: defaultRange.to });
+  });
 });

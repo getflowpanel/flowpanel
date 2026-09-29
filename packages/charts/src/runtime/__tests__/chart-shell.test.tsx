@@ -9,7 +9,7 @@ vi.mock("@flowpanel/react", () => ({
   formatNumber: (v: number) => String(v),
   Card: ({ children }: { children?: unknown }) => children,
   CardHeader: ({ children }: { children?: unknown }) => children,
-  CaptionLine: () => null,
+  CardHeading: () => null,
 }));
 
 import { ChartEmptyState } from "../ChartEmptyState";
@@ -42,7 +42,7 @@ const data = [{ status: "ok", count: 3 }];
 
 describe("ChartEmptyState", () => {
   it("takes its wording from the admin's labels", () => {
-    expect(textOf(ChartEmptyState({ height: 240 }))).toContain("No data yet");
+    expect(textOf(ChartEmptyState())).toContain("No data yet");
   });
 });
 
@@ -95,8 +95,10 @@ describe("chartFrame", () => {
     const framed = chartFrame(<div>card</div>, {
       label: "Runs",
       drilldown: "/admin/ai_run",
-    }) as ReactElement<{ href: string; "aria-label"?: string }>;
+    }) as ReactElement<{ href: string; "aria-label"?: string; className: string }>;
     expect(framed.type).toBe("a");
+    expect(framed.props.className).toContain("focus-visible:ring-2");
+    expect(framed.props.className).toContain("h-full");
     expect(framed.props.href).toBe("/admin/ai_run");
     expect(framed.props["aria-label"]).toBe("Runs");
   });

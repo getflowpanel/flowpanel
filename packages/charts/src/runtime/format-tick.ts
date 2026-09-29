@@ -12,6 +12,10 @@ import {
  */
 type Tick = { date: Date; calendar: boolean };
 
+function zoneOf(tick: Tick, formatting: ResolvedFormatting): string {
+  return tick.calendar ? "UTC" : formatting.timeZone;
+}
+
 /** Format an x-axis tick value in the admin's `dateLocale` and `timeZone`. */
 export function formatTick(
   value: unknown,
@@ -22,13 +26,55 @@ export function formatTick(
   if (tick === null) {
     return value == null ? "" : String(value);
   }
-  const zone = tick.calendar ? "UTC" : formatting.timeZone;
+  const zone = zoneOf(tick, formatting);
   return bucket === "hour" || bucket === "minute"
     ? formatDateValue(tick.date, formatting, zone)
     : formatDayValue(tick.date, formatting, zone);
 }
 
-/** Build a tick formatter closure for a chart. */
+const SHORT_DAY: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+const SHORT_TIME: Intl.DateTimeFormatOptions = {
+  ...SHORT_DAY,
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+};
+
+function yearOf(value: unknown, formatting: ResolvedFormatting): string | null {
+  const tick = toTick(value);
+  if (tick === null) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    timeZone: zoneOf(tick, formatting),
+  }).format(tick.date);
+}
+
+function withinOneYear(
+  data: ReadonlyArray<Record<string, unknown>>,
+  xKey: string,
+  formatting: ResolvedFormatting,
+): boolean {
+  const years = new Set(data.map((row) => yearOf(row[xKey], formatting)));
+  return years.size === 1 && !years.has(null);
+}
+
+function formatShortTick(
+  value: unknown,
+  bucket: ChartBucket,
+  formatting: ResolvedFormatting,
+): string {
+  const tick = toTick(value);
+  if (tick === null) return value == null ? "" : String(value);
+  const options = bucket === "hour" || bucket === "minute" ? SHORT_TIME : SHORT_DAY;
+  return new Intl.DateTimeFormat(formatting.dateLocale, {
+    ...options,
+    timeZone: zoneOf(tick, formatting),
+  })
+    .format(tick.date)
+    .replace(",", "");
+}
+
+/** Build a tick formatter closure for a chart; a range inside one year prints no year. */
 export function buildTickFormatter(
   data: ReadonlyArray<Record<string, unknown>>,
   xKey: string,
@@ -38,6 +84,9 @@ export function buildTickFormatter(
   const resolved = bucket && bucket !== "auto" ? bucket : inferBucket(data, xKey);
   if (resolved === null) {
     return (value) => (value == null ? "" : String(value));
+  }
+  if (resolved !== "year" && resolved !== "month" && withinOneYear(data, xKey, formatting)) {
+    return (value) => formatShortTick(value, resolved, formatting);
   }
   return (value) => formatTick(value, resolved, formatting);
 }

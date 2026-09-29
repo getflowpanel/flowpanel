@@ -41,6 +41,7 @@ describe("AdminNav", () => {
     const details = container.querySelector("details");
     expect(details?.hasAttribute("open")).toBe(false);
     expect(details?.querySelector("summary")?.textContent).toBe("Journals");
+    expect(details?.querySelector("summary")?.className).toMatch(/\bmin-h-11\b.*\bsm:min-h-9\b/);
     expect(details?.querySelector('a[href="/admin/scraper_run"]')).toBeTruthy();
     expect(container.querySelectorAll("details")).toHaveLength(1);
   });

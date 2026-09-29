@@ -68,7 +68,7 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
         <button
           type="button"
           onClick={onClear}
-          className="fp-press ml-1 rounded-fp-sm px-1 text-sm text-fp-text-2 underline underline-offset-4 transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+          className="fp-press ml-1 rounded-fp-sm px-1 text-sm text-fp-text-2 underline underline-offset-4 transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
         >
           {labels.filters.clear}
         </button>

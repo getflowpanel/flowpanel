@@ -1,5 +1,6 @@
 import type { Adapter, ColumnMeta, HeatmapWidget, RequestContext } from "@flowpanel/core";
-import { dayStartIn, defineAdmin, heatmap, resource } from "@flowpanel/core";
+import { defineAdmin, heatmap, resource } from "@flowpanel/core";
+import { dayStartIn } from "@flowpanel/core/internal";
 import { HeatmapCard, type HeatmapCardProps } from "@flowpanel/react";
 import type { ReactElement } from "react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -154,7 +155,7 @@ describe("renderHeatmap", () => {
     expect(p.summary).toBe("0 in the last 7 days");
   });
 
-  it("ignores maxRange, since it always shows its last days", () => {
+  it("keeps its own last days whatever the picked range", () => {
     const base = card();
     const old = {
       ...base,
@@ -164,7 +165,7 @@ describe("renderHeatmap", () => {
         to: new Date("2026-02-01T00:00:00Z"),
       },
     };
-    expect(retainedRange(heatmap({ maxRange: "30d", query: async () => [] }), old)).toEqual({
+    expect(retainedRange(heatmap({ query: async () => [] }), old)).toEqual({
       expired: false,
       ctx: old,
       keptSince: null,

@@ -71,7 +71,7 @@ describe("BarsCard", () => {
       />,
     );
     expect(screen.getByText("800")).toBeTruthy();
-    const bars = container.querySelectorAll(".bg-fp-accent");
+    const bars = container.querySelectorAll(".bg-fp-data");
     expect(bars[0]?.className).toContain("w-full");
     expect(bars[1]?.className).toContain("w-[50%]");
   });
@@ -87,7 +87,7 @@ describe("BarsCard", () => {
         max={1}
       />,
     );
-    const bars = container.querySelectorAll(".bg-fp-accent");
+    const bars = container.querySelectorAll(".bg-fp-data");
     expect(bars[0]?.className).toContain("w-[45%]");
     expect(bars[1]?.className).toContain("w-[10%]");
   });
@@ -102,7 +102,7 @@ describe("BarsCard", () => {
         max={0}
       />,
     );
-    const bars = container.querySelectorAll(".bg-fp-accent");
+    const bars = container.querySelectorAll(".bg-fp-data");
     expect(bars[0]?.className).toContain("w-full");
     expect(bars[1]?.className).toContain("w-[50%]");
   });

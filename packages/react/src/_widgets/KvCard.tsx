@@ -3,6 +3,7 @@ import type * as React from "react";
 import { Card, CardContent } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
+import { LABEL_TEXT, QUIET_LINK } from "../lib/label-text";
 import { toneTextClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
@@ -52,9 +53,7 @@ function LongValue({ item }: { item: KvCardItem }) {
       <Value item={item} />
       {item.rest ? (
         <details className="mt-1">
-          <summary className="cursor-pointer text-xs text-fp-accent hover:underline">
-            {item.more}
-          </summary>
+          <summary className={cn("cursor-pointer text-xs", QUIET_LINK)}>{item.more}</summary>
           {item.rest}
         </details>
       ) : null}
@@ -76,9 +75,7 @@ export function KvCard({ label, items, columns = 2, caption }: KvCardProps) {
               data-tone={item.tone}
               className={item.long ? "col-span-full" : undefined}
             >
-              <dt className="truncate text-xs uppercase tracking-wide text-fp-text-3">
-                {item.label}
-              </dt>
+              <dt className={cn("truncate", LABEL_TEXT)}>{item.label}</dt>
               {item.long ? (
                 <LongValue item={item} />
               ) : (

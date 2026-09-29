@@ -5,7 +5,7 @@ import type {
   ResolvedAdminConfig,
   ResourceName,
 } from "@flowpanel/core";
-import { mergeLabels } from "@flowpanel/core";
+import { mergeLabels, resolveFormatting } from "@flowpanel/core";
 import { RelatedTabTable } from "@flowpanel/next/client";
 import type { ReactNode } from "react";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../../runtime/defaults";
@@ -16,7 +16,7 @@ import { readOrCard } from "../../runtime/query-error";
 import { withReferenceCells } from "../../runtime/reference-cells";
 import { readRelatedPage } from "../../runtime/require-authorized";
 import { openRowHrefs } from "../../runtime/row-click";
-import { buildDetailTabContext } from "../../runtime/widget-context";
+import { widgetHref } from "../../runtime/widget-context";
 
 const RELATED_TAB_PAGE_SIZE = 25;
 /** Each related tab paginates and sorts under its own URL keys. */
@@ -160,7 +160,6 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
     columns,
     prerenderedCells,
   );
-  const ctx = buildDetailTabContext(config, reqCtx, req, row);
   const openList = openListFilter(filters, declaredFieldSet(target.options));
   // A hidden column is hidden from the payload too, not just from the header.
   const rowKey = (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
@@ -192,7 +191,15 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
       {...(tab.emptyState ? { emptyTitle: tab.emptyState } : {})}
       {...(openList
         ? {
-            openListHref: ctx.href(resourceName, undefined, { filter: openList }),
+            openListHref: widgetHref(
+              config,
+              resolveFormatting(config.formatting).timeZone,
+              resourceName,
+              undefined,
+              {
+                filter: openList,
+              },
+            ),
             openListLabel: labels.related.openList,
           }
         : {})}

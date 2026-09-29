@@ -1,9 +1,13 @@
 import type { WidgetCaption } from "@flowpanel/core";
+import { ChevronRight } from "lucide-react";
+import type { ReactNode } from "react";
 import { Card, CardContent } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
+import { QUIET_LINK } from "../lib/label-text";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { EmptyLine } from "./EmptyLine";
 
 export interface TimelineCardChip {
   key: string;
@@ -43,14 +47,14 @@ export interface TimelineCardProps {
   label?: string;
   chips: TimelineCardChip[];
   groups: TimelineCardGroup[];
-  emptyState: string;
+  emptyState?: ReactNode;
   newest?: { href: string; label: string };
   older?: { href: string; label: string };
   /** The line under the title: a cut range, freshness or coverage. */
   caption?: WidgetCaption;
 }
 
-function Head({ line }: { line: TimelineCardLine }) {
+function Head({ line, expandable }: { line: TimelineCardLine; expandable?: boolean }) {
   return (
     <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
       <span
@@ -68,7 +72,7 @@ function Head({ line }: { line: TimelineCardLine }) {
         {line.span ?? line.time}
       </time>
       <span className="min-w-0 break-words text-sm text-fp-text-1">
-        {line.href ? (
+        {line.href && !expandable ? (
           <a href={line.href} className="hover:underline">
             {line.title}
           </a>
@@ -79,6 +83,12 @@ function Head({ line }: { line: TimelineCardLine }) {
       {line.folded ? <span className="text-xs text-fp-text-3">{line.folded}</span> : null}
       {line.meta ? (
         <span className="min-w-0 break-words text-xs text-fp-text-3">{line.meta}</span>
+      ) : null}
+      {expandable ? (
+        <ChevronRight
+          aria-hidden
+          className="h-3.5 w-3.5 shrink-0 self-center text-fp-text-3 transition-transform [details[open]>summary_&]:rotate-90"
+        />
       ) : null}
     </span>
   );
@@ -95,8 +105,8 @@ function Line({ line }: { line: TimelineCardLine }) {
   return (
     <li>
       <details>
-        <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-          <Head line={line} />
+        <summary className="flex min-h-6 cursor-pointer list-none items-center rounded-fp-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 [&::-webkit-details-marker]:hidden">
+          <Head line={line} expandable />
         </summary>
         {line.items ? (
           <ul className="ml-1 mt-1 space-y-1 border-l border-fp-border-1 pl-3">
@@ -105,9 +115,14 @@ function Line({ line }: { line: TimelineCardLine }) {
             ))}
           </ul>
         ) : (
-          <p className="ml-4 mt-1 whitespace-pre-wrap break-words text-xs text-fp-text-2">
-            {line.body}
-          </p>
+          <div className="ml-4 mt-1 space-y-1 text-xs">
+            <p className="whitespace-pre-wrap break-words text-fp-text-2">{line.body}</p>
+            {line.href ? (
+              <a href={line.href} className={cn("inline-block", QUIET_LINK)}>
+                {line.title}
+              </a>
+            ) : null}
+          </div>
         )}
       </details>
     </li>
@@ -129,7 +144,8 @@ export function TimelineCard({
       <CardHeading label={label} caption={caption} />
       <CardContent className={cn("space-y-4", label || caption ? "pt-0" : "")}>
         {chips.length > 2 ? (
-          <nav className="flex flex-wrap gap-1.5">
+          // biome-ignore lint/a11y/useSemanticElements: filter links, not form fields; a nav would add a landmark per card
+          <div role="group" aria-label={label} className="flex flex-wrap gap-1.5">
             {chips.map((chip) => (
               <a
                 key={chip.key}
@@ -138,17 +154,17 @@ export function TimelineCard({
                 className={cn(
                   "rounded-full border px-2.5 py-0.5 text-xs",
                   chip.current
-                    ? "border-fp-accent bg-fp-accent/10 text-fp-text-1"
+                    ? "border-fp-border-2 bg-fp-bg-3 text-fp-text-1"
                     : "border-fp-border-1 text-fp-text-2 hover:bg-fp-bg-2",
                 )}
               >
                 {chip.label}
               </a>
             ))}
-          </nav>
+          </div>
         ) : null}
         {groups.length === 0 ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           groups.map((group) => (
             <section key={group.key} className="space-y-1.5">
@@ -169,14 +185,14 @@ export function TimelineCard({
         {newest || older ? (
           <div className="flex justify-between gap-3 text-xs">
             {newest ? (
-              <a href={newest.href} className="text-fp-accent hover:underline">
+              <a href={newest.href} className={QUIET_LINK}>
                 {newest.label}
               </a>
             ) : (
               <span />
             )}
             {older ? (
-              <a href={older.href} className="text-fp-accent hover:underline">
+              <a href={older.href} className={QUIET_LINK}>
                 {older.label}
               </a>
             ) : null}

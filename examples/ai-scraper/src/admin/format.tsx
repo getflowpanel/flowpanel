@@ -3,15 +3,10 @@ import { StatusBadge } from "@flowpanel/kit/react";
 import type { CSSProperties } from "react";
 import { modelLabel } from "@/src/lib/ai-models";
 
-// Shared column formats for domain values FlowPanel cannot infer.
-// The framework's `format: "badge"` auto-tones generic statuses (active →
-// ok, failed → err). This map covers only the domain values it can't know.
+// Tones for domain statuses `format: "badge"` cannot infer; plans stay neutral.
 const STATUS_TONES: Record<string, Tone> = {
   trialing: "warn", // customers.status
   past_due: "err",
-  starter: "info", // customers.plan
-  pro: "ok",
-  business: "ok",
   paused: "warn", // monitors.status
   queued: "muted", // runs.status — nothing is happening yet
   running: "info", // …and this one is, so it must not look the same

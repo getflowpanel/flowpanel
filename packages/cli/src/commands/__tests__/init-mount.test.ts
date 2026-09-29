@@ -70,10 +70,12 @@ describe("init mount integration", () => {
     await expect(fs.stat(path.join(root, "flowpanel.config.ts"))).rejects.toThrow();
   });
 
-  it("keeps the stylesheet import in the admin layout and preserves the host root layout", async () => {
+  it("keeps the stylesheet import in the admin layout and only adds suppressHydrationWarning to the host root layout", async () => {
     const rootLayout = await fs.readFile(path.join(root, "src/app/layout.tsx"), "utf8");
     await createProgram().parseAsync(["node", "flowpanel", "init", "--yes", "--json"]);
-    expect(await fs.readFile(path.join(root, "src/app/layout.tsx"), "utf8")).toBe(rootLayout);
+    expect(await fs.readFile(path.join(root, "src/app/layout.tsx"), "utf8")).toBe(
+      rootLayout.replace("<html>", "<html suppressHydrationWarning>"),
+    );
     const layout = await fs.readFile(path.join(root, "src/app/admin/layout.tsx"), "utf8");
     expect(layout).toContain('"../../../styles/admin.css"');
   });

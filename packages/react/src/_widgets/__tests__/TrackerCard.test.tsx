@@ -78,4 +78,22 @@ describe("TrackerCard", () => {
     render(<TrackerCard rows={[]} emptyState="No data yet" />);
     expect(screen.getByText("No data yet")).toBeTruthy();
   });
+
+  it("keeps a truncated row label and summary readable on hover", () => {
+    render(
+      <TrackerCard
+        rows={[
+          {
+            key: "a",
+            label: "api-gateway-production-eu",
+            tone: "ok",
+            summary: "99.98% uptime over 90 days",
+            cells: [],
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByTitle("api-gateway-production-eu").className).toContain("truncate");
+    expect(screen.getByTitle("99.98% uptime over 90 days").className).toContain("truncate");
+  });
 });

@@ -1,14 +1,15 @@
 "use client";
 import type { WidgetCaption } from "@flowpanel/core";
+import { formatPercentValue } from "@flowpanel/core/format";
 import type * as React from "react";
 import { Card, CardContent } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
 import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat } from "../lib/format";
-import { formatPercent } from "../lib/percent";
 import { toneFillClass, toneTextClass } from "../lib/tone-classes";
 import { barWidthClass } from "./bar-width";
 import { CardHeading } from "./CardHeading";
+import { EmptyLine } from "./EmptyLine";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface FunnelCardStep {
@@ -21,7 +22,7 @@ export interface FunnelCardProps {
   label?: string;
   steps: FunnelCardStep[];
   format?: NumericFormat;
-  /** Share lost from the step before past which the worst drop is marked `warn`. Default `0.5`. */
+  /** Share lost from the step before past which the worst drop is marked `warn`. Unset: no mark. */
   alertDrop?: number;
   /** Rendered instead of the steps when `steps` is empty. */
   emptyState?: React.ReactNode;
@@ -34,7 +35,7 @@ export function FunnelCard({
   label,
   steps,
   format,
-  alertDrop = 0.5,
+  alertDrop,
   emptyState,
   caption,
 }: FunnelCardProps) {
@@ -46,17 +47,20 @@ export function FunnelCard({
       ? (previous - step.value) / previous
       : null;
   });
-  const worst = drops.reduce<number>(
-    (at, drop, index) =>
-      drop !== null && drop > alertDrop && drop > (drops[at] ?? -1) ? index : at,
-    -1,
-  );
+  const worst =
+    alertDrop === undefined
+      ? -1
+      : drops.reduce<number>(
+          (at, drop, index) =>
+            drop !== null && drop > alertDrop && drop > (drops[at] ?? -1) ? index : at,
+          -1,
+        );
   return (
     <Card className="h-full">
       <CardHeading label={label} caption={caption} />
       <CardContent className={cn("space-y-2.5", label || caption ? "pt-0" : "")}>
         {steps.length === 0 ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           steps.map((step, index) => {
             const share = top > 0 ? step.value / top : 0;
@@ -91,11 +95,15 @@ export function FunnelCard({
                     <span className="text-fp-text-1">
                       {formatNumber(step.value, format, formatting)}
                     </span>
-                    <span className="text-fp-text-3">{formatPercent(share, 0, formatting)}</span>
-                    {dropOff === null ? null : dropOff < 0 ? (
-                      <span className="text-fp-ok-text">{`+${formatPercent(-dropOff, 0, formatting)}`}</span>
-                    ) : (
-                      <span className="text-fp-err-text">{`−${formatPercent(dropOff, 0, formatting)}`}</span>
+                    <span className="text-fp-text-3">
+                      {formatPercentValue(share, formatting, 0)}
+                    </span>
+                    {dropOff === null ? null : (
+                      <span className={alert ? toneTextClass.warn : "text-fp-text-3"}>
+                        {dropOff < 0
+                          ? `+${formatPercentValue(-dropOff, formatting, 0)}`
+                          : `−${formatPercentValue(dropOff, formatting, 0)}`}
+                      </span>
                     )}
                   </span>
                 </div>

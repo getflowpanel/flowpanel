@@ -33,7 +33,7 @@ describe("dashboard filters", () => {
             path: "/parsing",
             label: "Parsing",
             filters: [platform],
-            sections: [{ widgets: [bars({ filter: "platform", query: async () => [] })] }],
+            sections: [{ widgets: [bars({ filterOnClick: "platform", query: async () => [] })] }],
           }),
           dashboard({
             path: "/",
@@ -42,7 +42,7 @@ describe("dashboard filters", () => {
               {
                 widgets: [
                   metric("Orders", async () => 1, {
-                    drilldown: { dashboard: "/parsing", filters: { platform: "kwork" } },
+                    drilldown: { dashboard: "/parsing", filter: { platform: "kwork" } },
                   }),
                 ],
               },
@@ -62,12 +62,12 @@ describe("dashboard filters", () => {
             path: "/parsing",
             label: "Parsing",
             filters: [platform],
-            sections: [{ widgets: [tracker({ filter: "platfrom", rows: async () => [] })] }],
+            sections: [{ widgets: [tracker({ filterOnClick: "platfrom", rows: async () => [] })] }],
           }),
         ],
       }),
     ).toThrow(
-      /dashboard "\/parsing" sections\[0\]\.widgets\[0\] sets the filter "platfrom", which the dashboard does not declare\. Did you mean "platform"\?/,
+      /dashboard "\/parsing" sections\[0\]\.widgets\[0\] sets filterOnClick "platfrom", which the dashboard does not declare\. Did you mean "platform"\?/,
     );
   });
 
@@ -84,7 +84,7 @@ describe("dashboard filters", () => {
               {
                 widgets: [
                   metric("Orders", async () => 1, {
-                    drilldown: { dashboard: "/parsing", filters: { platfrom: "kwork" } },
+                    drilldown: { dashboard: "/parsing", filter: { platfrom: "kwork" } },
                   }),
                 ],
               },
@@ -93,7 +93,7 @@ describe("dashboard filters", () => {
         ],
       }),
     ).toThrow(
-      /options\.drilldown\.filters names dashboard filter "platfrom" on "\/parsing".*Did you mean "platform"\?/s,
+      /options\.drilldown\.filter names dashboard filter "platfrom" on "\/parsing".*Did you mean "platform"\?/s,
     );
   });
 
@@ -122,14 +122,14 @@ describe("dashboard filters", () => {
                 {
                   key: "t",
                   label: "T",
-                  widgets: [bars({ filter: "platform", query: async () => [] })],
+                  widgets: [bars({ filterOnClick: "platform", query: async () => [] })],
                 },
               ],
             },
           }),
         ],
       }),
-    ).toThrow(/resource "users" detail\.tabs\[0\]\.widgets\[0\] sets the filter "platform"/);
+    ).toThrow(/resource "users" detail\.tabs\[0\]\.widgets\[0\] sets filterOnClick "platform"/);
   });
 
   it("rejects a filter on drawer tabs, detail aside and detail stats", () => {
@@ -144,35 +144,35 @@ describe("dashboard filters", () => {
                 {
                   key: "t",
                   label: "T",
-                  widgets: [bars({ filter: "platform", query: async () => [] })],
+                  widgets: [bars({ filterOnClick: "platform", query: async () => [] })],
                 },
               ],
             },
           }),
         ],
       }),
-    ).toThrow(/resource "users" drawer\.tabs\[0\]\.widgets\[0\] sets the filter "platform"/);
+    ).toThrow(/resource "users" drawer\.tabs\[0\]\.widgets\[0\] sets filterOnClick "platform"/);
     expect(() =>
       defineAdmin({
         ...base,
         resources: [
           resource("users", {
             columns: [],
-            detail: { aside: [bars({ filter: "platform", query: async () => [] })] },
+            detail: { aside: [bars({ filterOnClick: "platform", query: async () => [] })] },
           }),
         ],
       }),
-    ).toThrow(/resource "users" detail\.aside\[0\] sets the filter "platform"/);
+    ).toThrow(/resource "users" detail\.aside\[0\] sets filterOnClick "platform"/);
     expect(() =>
       defineAdmin({
         ...base,
         resources: [
           resource("users", {
             columns: [],
-            detail: { stats: [metric("M", async () => 1, { filter: "platform" } as never)] },
+            detail: { stats: [metric("M", async () => 1, { filterOnClick: "platform" } as never)] },
           }),
         ],
       }),
-    ).toThrow(/resource "users" detail\.stats\[0\] sets the filter "platform"/);
+    ).toThrow(/resource "users" detail\.stats\[0\] sets filterOnClick "platform"/);
   });
 });

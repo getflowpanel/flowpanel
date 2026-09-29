@@ -105,7 +105,7 @@ export function InlineEditCell({
           }
         }}
         className={cn(
-          "w-full cursor-text rounded-fp-sm text-left text-fp-text-1 transition-colors hover:-mx-1 hover:-my-0.5 hover:bg-fp-bg-3/60 hover:px-1 hover:py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+          "w-full cursor-text rounded-fp-sm text-left text-fp-text-1 transition-colors hover:-mx-1 hover:-my-0.5 hover:bg-fp-bg-3/60 hover:px-1 hover:py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
           className,
         )}
         aria-label={`Edit ${field}`}

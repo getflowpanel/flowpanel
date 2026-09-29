@@ -4,6 +4,7 @@ import type * as React from "react";
 import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
 import { resolveFieldLabel } from "../lib/humanize";
+import { LABEL_TEXT } from "../lib/label-text";
 import { Checkbox } from "../ui/checkbox";
 import { ColumnPinMenu } from "./ColumnPinMenu";
 import { ColumnResizer } from "./ColumnResizer";
@@ -52,7 +53,7 @@ export function DataTableHeader<Row>({
 }: DataTableHeaderProps<Row>) {
   const labels = useLabels();
   return (
-    <thead className="text-fp-text-3 text-[11px] uppercase tracking-wider">
+    <thead className={LABEL_TEXT}>
       <tr className="border-b border-fp-border-1">
         {selectionEnabled ? (
           <th scope="col" className="w-10 px-4 py-2">
@@ -88,7 +89,7 @@ export function DataTableHeader<Row>({
                 ? { style: cssVars as React.CSSProperties }
                 : {})}
               className={cn(
-                "group px-4 py-2.5 font-medium select-none",
+                "group px-4 py-2.5 font-normal select-none",
                 ALIGN_CLASS[c.align ?? "left"],
                 wCss !== undefined && "w-[var(--fp-col-w)]",
                 meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-1 z-[2]",
@@ -102,16 +103,16 @@ export function DataTableHeader<Row>({
                   type="button"
                   onClick={() => onHeaderClick(c)}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-fp-sm uppercase tracking-wider transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+                    "inline-flex items-center gap-1 rounded-fp-sm transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
                     active && "text-fp-text-1",
                   )}
                 >
                   {resolveFieldLabel(c.label, c.field)}
                   {active ? (
                     sort?.dir === "asc" ? (
-                      <ArrowUp aria-hidden className="h-3 w-3 text-fp-accent" />
+                      <ArrowUp aria-hidden className="h-3 w-3" />
                     ) : (
-                      <ArrowDown aria-hidden className="h-3 w-3 text-fp-accent" />
+                      <ArrowDown aria-hidden className="h-3 w-3" />
                     )
                   ) : (
                     <ChevronsUpDown

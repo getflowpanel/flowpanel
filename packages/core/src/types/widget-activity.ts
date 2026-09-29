@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { PluralLabel } from "./labels";
 import type { RealtimeOption } from "./realtime";
 import type { RowOf } from "./registry";
@@ -40,12 +41,10 @@ export interface HeatmapOptions<N extends string = string> extends CaptionOption
   tone?: Tone;
   /** Makes each day a link; `from` and `to` bound the day in the admin's zone. */
   href?: (day: { from: Date; to: Date }, ctx: WidgetContext) => LinkTarget | null;
-  /** Shown instead of the grid when every day is empty. */
-  emptyState?: string;
+  /** Shown instead of the grid when every day is empty. Text or any node. */
+  emptyState?: ReactNode;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
-  /** Ignored: a heatmap always shows its last `days` days, whatever the picked range. */
-  maxRange?: RangeLimit;
   /** Re-run the query when any of these channels fire. */
   realtime?: RealtimeOption;
 }
@@ -96,8 +95,8 @@ export interface ChecklistOptions extends CaptionOptions {
    * @defaultValue true
    */
   summary?: boolean;
-  /** Shown instead of the items when there are none. */
-  emptyState?: string;
+  /** Shown instead of the items when there are none. Text or any node. */
+  emptyState?: ReactNode;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */

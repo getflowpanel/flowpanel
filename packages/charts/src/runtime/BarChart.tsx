@@ -19,10 +19,10 @@ import {
   buildTooltipProps,
   buildValueTickFormatter,
   CHART_SURFACE_PROPS,
-  chartColor,
   GRID_PROPS,
   LEGEND_PROPS,
   STATIC_SERIES_PROPS,
+  seriesPaint,
 } from "./chart-theme";
 import { DEFAULT_CHART_HEIGHT } from "./defaults";
 import { buildTickFormatter } from "./format-tick";
@@ -39,9 +39,10 @@ export function BarChart({
 }) {
   const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
-  if (data.length === 0) return <ChartEmptyState height={height} />;
+  if (data.length === 0) return <ChartEmptyState />;
   const ys = seriesKeys(options.y);
   const multiSeries = ys.length > 1;
+  const seriesColor = seriesPaint(ys, options.colors);
   const layout = options.horizontal ? "vertical" : "horizontal";
   const categoryTickFormatter = buildTickFormatter(
     data as Record<string, unknown>[],
@@ -108,7 +109,7 @@ export function BarChart({
             dataKey={y}
             name={names?.[y] ?? y}
             {...(options.stacked ? { stackId: "a" } : {})}
-            fill={multiSeries ? chartColor(i) : "hsl(var(--fp-accent))"}
+            fill={seriesColor(i)}
             radius={radius}
             maxBarSize={40}
             {...STATIC_SERIES_PROPS}

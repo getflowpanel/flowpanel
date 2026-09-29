@@ -27,8 +27,25 @@ export function fileBaseOf(exportName: string): string {
 const pascal = (key: string): string => `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
 const property = (value: string): string =>
   /^[A-Za-z_$][\w$]*$/.test(value) ? value : JSON.stringify(value);
-const entries = (values: readonly string[]): string =>
-  `{ ${values.map((value) => `${property(value)}: ${JSON.stringify(value)}`).join(", ")} }`;
+
+/** `past_due` → `Past due`, a readable stand-in label until the user picks their own. */
+function humanizeEnumValue(value: string): string {
+  const [head, ...rest] = value.replace(/[_-]+/g, " ").trim().split(/\s+/);
+  if (!head) return value;
+  return [
+    `${head.charAt(0).toUpperCase()}${head.slice(1).toLowerCase()}`,
+    ...rest.map((w) => w.toLowerCase()),
+  ].join(" ");
+}
+
+function entries(values: readonly string[]): string {
+  const rendered = values.map(
+    (value) => `${property(value)}: ${JSON.stringify(humanizeEnumValue(value))}`,
+  );
+  const oneLine = `{ ${rendered.join(", ")} }`;
+  if (oneLine.length <= 80) return oneLine;
+  return `{\n  ${rendered.join(",\n  ")},\n}`;
+}
 
 function columnSource(column: ColumnDescription, kind: ColumnKind): string {
   const field = JSON.stringify(column.key);

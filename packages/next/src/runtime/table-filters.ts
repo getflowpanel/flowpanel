@@ -1,11 +1,10 @@
-import {
-  normalizeWhere,
-  type ResolvedAdminConfig,
-  type ResourceConfig,
-  type TableWidgetOptions,
-  type WidgetContext,
-  withRange,
+import type {
+  ResolvedAdminConfig,
+  ResourceConfig,
+  TableWidgetOptions,
+  WidgetContext,
 } from "@flowpanel/core";
+import { normalizeWhere, withRange } from "@flowpanel/core/internal";
 
 /** The `resource` read's filters from `where` and `range`; `null` for a where no row can match. */
 export function tableFilters(

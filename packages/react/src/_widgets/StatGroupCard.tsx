@@ -10,8 +10,10 @@ import {
   type ResolvedFormatting,
   type Tone,
 } from "../lib/format";
+import { LABEL_TEXT } from "../lib/label-text";
 import { toneTextClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface StatGroupCardProps {
   label?: string;
@@ -40,30 +42,35 @@ function statText(
 export function StatGroupCard({ label, stats, caption }: StatGroupCardProps) {
   const formatting = useFormatting();
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeading label={label} caption={caption} />
       <CardContent className={label || caption ? "pt-0" : ""}>
-        <dl className="grid grid-cols-2 gap-3">
-          {stats.map((s, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: stats are ordered and labels may repeat
-            <div key={index} data-tone={s.tone}>
-              <dt className="text-xs text-fp-text-3 uppercase tracking-wide">{s.label}</dt>
-              <dd
-                className={cn(
-                  "mt-0.5 text-base font-medium tabular-nums",
-                  toneTextClass[s.tone ?? "default"],
-                )}
-              >
-                {s.href ? (
-                  <a href={s.href} className="hover:underline">
-                    {statText(s.value, s.format, formatting)}
-                  </a>
-                ) : (
-                  statText(s.value, s.format, formatting)
-                )}
-              </dd>
-            </div>
-          ))}
+        <dl className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-x-4 gap-y-3">
+          {stats.map((s, index) => {
+            const text = statText(s.value, s.format, formatting);
+            return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: stats are ordered and labels may repeat
+              <div key={index} data-tone={s.tone} className="min-w-0">
+                <dt className={cn("break-words", LABEL_TEXT)}>{s.label}</dt>
+                <dd
+                  className={cn(
+                    TWO_LINES,
+                    "mt-0.5 min-w-0 text-base font-medium tabular-nums",
+                    toneTextClass[s.tone ?? "default"],
+                  )}
+                  {...fullTextTitle(text)}
+                >
+                  {s.href ? (
+                    <a href={s.href} className="hover:underline">
+                      {text}
+                    </a>
+                  ) : (
+                    text
+                  )}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
       </CardContent>
     </Card>

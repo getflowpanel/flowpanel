@@ -1,4 +1,5 @@
 import type {
+  ActionEmphasis,
   ActionResult,
   DashboardAction,
   FieldDef,
@@ -18,6 +19,7 @@ import { parseActionInputSchema, validateActionOutput } from "../runtime/action-
 import { applyActionResult } from "../runtime/apply-action-result";
 import { buildHref } from "../runtime/href";
 import { bindPublisher } from "../runtime/publish";
+import { warnOnce } from "../runtime/widget-reads";
 import { withGuards } from "../runtime/with-guards";
 import type { ActionFormField } from "./action-form-field";
 import { serializeActionFormField } from "./serialize-action-field";
@@ -31,6 +33,7 @@ export interface SerializedDashboardAction {
   label: string;
   icon?: IconName;
   variant?: "default" | "destructive" | "success";
+  emphasis?: ActionEmphasis;
   confirm?: { title: string; description?: string; confirmLabel?: string };
   hasForm: boolean;
   form?: SerializedDashboardActionField[];
@@ -48,6 +51,7 @@ export function serializeDashboardAction<Input extends Record<string, unknown>, 
   };
   if (a.icon !== undefined) out.icon = a.icon;
   if (a.variant !== undefined) out.variant = a.variant;
+  if (a.emphasis !== undefined) out.emphasis = a.emphasis;
   if (a.confirm !== undefined) {
     out.confirm = typeof a.confirm === "string" ? { title: a.confirm } : a.confirm;
   }
@@ -55,6 +59,17 @@ export function serializeDashboardAction<Input extends Record<string, unknown>, 
     out.form = (a.form as FieldDef<Record<string, unknown>>[]).map(serializeActionFormField);
   }
   return out;
+}
+
+/** A screen has one primary action; name the extra ones once in development. */
+export function warnManyPrimary(actions: SerializedDashboardAction[], where: string): void {
+  const primary = actions.filter((a) => a.emphasis === "primary").map((a) => a.label);
+  if (primary.length < 2) return;
+  warnOnce(
+    `primary:${where}`,
+    `${where} has ${primary.length} primary actions (${primary.join(", ")}); ` +
+      `keep one and let the rest be secondary.`,
+  );
 }
 
 /**

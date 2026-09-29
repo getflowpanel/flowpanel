@@ -108,7 +108,7 @@ describe("timeline sources at defineAdmin", () => {
   it("needs one field that points at the record, or by, and never lets where set it", () => {
     expect(() => onCard({ resource: "notes", kind: "visit", at: "at" })).toThrow(
       `flowpanel: ${site} reads "notes" on a "users" card, but none of its columns declares ` +
-        'reference: { resource: "users" }, so it would read every row. Add the reference.',
+        'reference: { resource: "users" }, so it would read every row. Pass by, or add the reference.',
     );
     expect(() => onCard({ resource: "responses", kind: "visit", at: "sentAt" })).toThrow(
       /several of its columns point at a "users" \(userId, reviewerId\); pass by\./,

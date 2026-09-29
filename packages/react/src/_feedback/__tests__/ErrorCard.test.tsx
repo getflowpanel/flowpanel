@@ -11,8 +11,8 @@ afterEach(cleanup);
 describe("the card a failed widget leaves behind", () => {
   it("takes its whole copy from the labels", () => {
     render(<ErrorCard error={new Error("boom")} onRetry={() => {}} />);
-    expect(screen.getByText("Widget failed")).toBeTruthy();
-    expect(screen.getByText("Couldn't load this widget.")).toBeTruthy();
+    expect(screen.getByText("Couldn't load this widget")).toBeTruthy();
+    expect(screen.getByText("Its query failed. Retry, or look in the server log.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 
@@ -22,13 +22,15 @@ describe("the card a failed widget leaves behind", () => {
         <ErrorCard error={new Error("boom")} onRetry={() => {}} />
       </LabelsProvider>,
     );
-    expect(screen.getByText("Виджет не загрузился")).toBeTruthy();
+    expect(screen.getByText("Не удалось загрузить виджет")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Повторить" })).toBeTruthy();
   });
 
-  it("marks itself as a FlowPanel error surface", () => {
+  it("marks itself as a FlowPanel error surface, saying what failed in the error colour on a neutral card", () => {
     const { container } = render(<ErrorCard error={new Error("boom")} />);
-    expect(container.querySelector("[data-fp-error]")).toBeTruthy();
+    const card = container.querySelector("[data-fp-error]") as HTMLElement;
+    expect(card.className).not.toContain("border-fp-err");
+    expect(screen.getByText("Couldn't load this widget").className).toContain("text-fp-err-text");
   });
 
   it("offers the retry it was given", () => {

@@ -57,6 +57,7 @@ export type {
   ResourceControllers,
 } from "./runtime/controller-factory";
 export { buildNav, resourceNavName } from "./runtime/nav";
+export { type FlowpanelMetadata, flowpanelMetadata } from "./runtime/page-metadata";
 export { bindPublisher, publish, publishResource, subscribe } from "./runtime/publish";
 export { browserOrigin } from "./runtime/request-origin";
 export { type BuildRequestCtxArgs, buildRequestContext } from "./runtime/request-setup";

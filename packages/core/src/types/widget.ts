@@ -36,8 +36,10 @@ export interface MetricDelta {
   value: number;
   /** What the comparison is against, e.g. `"prior period"`. */
   vs: string;
-  /** Which direction is good news. `"down"` colours a fall green; `"neutral"` never colours.
+  /**
+   * Which direction is good news. `"down"` colours a fall green; `"neutral"` never colours.
    * @defaultValue "up"
+   * @deprecated Set `goodWhen` on the metric; a delta's own still wins.
    */
   goodWhen?: "up" | "down" | "neutral";
   /**
@@ -72,7 +74,13 @@ export interface MetricOptions extends CaptionOptions {
    * Query the compared period too and show the change: `previous`, or `against: "weekAgo"` for
    * the same range seven days back. Needs a numeric value; a `delta` the query returns wins.
    */
-  compare?: boolean | { goodWhen?: "up" | "down" | "neutral"; against?: "previous" | "weekAgo" };
+  compare?: boolean | { against?: "previous" | "weekAgo" };
+  /**
+   * Which direction is good news: it colours the change, and `tones` must agree with it.
+   * `"neutral"` never colours the change.
+   * @defaultValue "up"
+   */
+  goodWhen?: "up" | "down" | "neutral";
   /** Trend line drawn inside the card. */
   sparkline?: (ctx: WidgetContext) => Promise<number[]>;
   /** Semantic color of the value. */
@@ -113,8 +121,8 @@ export interface WidgetColumn<R = unknown> {
 export interface TableWidgetOptions<R = unknown> extends CaptionOptions {
   /** Card heading. */
   label?: string;
-  /** A dashboard filter key: a row's `rowKey` value sets it on the current dashboard. */
-  filter?: string;
+  /** A dashboard filter key: clicking a row sets it to the row's `rowKey` value on the current dashboard. */
+  filterOnClick?: string;
   /** Registered resource to pull rows and columns from. */
   resource?: ResourceName;
   /** Supply rows yourself instead of reading a resource. */
@@ -153,6 +161,11 @@ export interface TableWidgetOptions<R = unknown> extends CaptionOptions {
   limit?: number;
   /** Rendered in place of the table body when there are zero rows. */
   emptyState?: ReactNode;
+  /**
+   * Row height: `"compact"` sets 40px rows for a card that lists a few.
+   * @defaultValue "comfortable"
+   */
+  density?: "comfortable" | "compact";
   /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
   realtime?: RealtimeOption;
   /** Width in the dashboard's 12-column grid. */

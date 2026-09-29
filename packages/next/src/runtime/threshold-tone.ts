@@ -6,6 +6,7 @@ export function thresholdTone(
   value: unknown,
   tones: Threshold | undefined,
   volume?: number,
+  goodWhen?: string,
 ): Tone | undefined {
   if (!tones) return undefined;
   const n =
@@ -14,5 +15,5 @@ export function thresholdTone(
       : typeof value === "string" && value.trim() !== ""
         ? Number(value)
         : Number.NaN;
-  return toneFor(Number.isFinite(n) ? n : null, tones, volume);
+  return toneFor(Number.isFinite(n) ? n : null, tones, volume, goodWhen);
 }

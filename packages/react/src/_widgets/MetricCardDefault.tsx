@@ -35,10 +35,10 @@ export interface MetricCardProps {
   caption?: WidgetCaption;
 }
 
-const MOOD_PILL: Record<DeltaMood, string> = {
-  good: "bg-fp-ok/10 text-fp-ok-text",
-  bad: "bg-fp-err/10 text-fp-err-text",
-  flat: "bg-fp-bg-3 text-fp-text-3",
+const MOOD_TEXT: Record<DeltaMood, string> = {
+  good: "text-fp-ok-text",
+  bad: "text-fp-err-text",
+  flat: "text-fp-text-3",
 };
 
 interface DeltaLineProps {
@@ -67,18 +67,14 @@ function DeltaLine({
           value: print.value(delta.previous),
         });
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-xs tabular-nums">
       <span
         data-delta={view.mood}
-        className={cn(
-          "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
-          MOOD_PILL[view.mood],
-        )}
+        className={view.material ? MOOD_TEXT[view.mood] : MOOD_TEXT.flat}
       >
-        {view.glyph ? `${view.glyph} ` : ""}
-        {view.text} · {delta.vs}
+        {view.text} {delta.vs}
       </span>
-      {previous ? <span className="text-xs tabular-nums text-fp-text-3">{previous}</span> : null}
+      {previous ? <span className="text-fp-text-3">{previous}</span> : null}
     </div>
   );
 }
@@ -107,7 +103,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
     <>
       <CardHeader className="flex items-center justify-between pb-1">
         <span className="min-w-0">
-          <span className="block truncate text-sm text-fp-text-2" {...fullTextTitle(label)}>
+          <span className={cn("block text-sm text-fp-text-2", TWO_LINES)} {...fullTextTitle(label)}>
             {label}
           </span>
           <CaptionLine caption={caption} />
@@ -156,8 +152,8 @@ export function DefaultMetricCard(props: MetricCardProps) {
               values={sparkline}
               width={96}
               height={32}
-              fill="hsl(var(--fp-accent) / 0.12)"
-              className="shrink-0 text-fp-accent"
+              fill="hsl(var(--fp-data) / 0.12)"
+              className="shrink-0 text-fp-data"
             />
           ) : null}
         </div>
@@ -182,7 +178,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
       <a
         href={drilldown}
         className={cn(
-          "group block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+          "group block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
           plain ? "focus-visible:ring-inset" : "rounded-fp-lg transition-shadow hover:shadow-fp-sm",
         )}
         aria-label={label}

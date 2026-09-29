@@ -39,8 +39,8 @@ export function QueryErrorCard({
   const labels = mergeLabels(site.config.labels);
   const detail = causeMessage(cause);
   return (
-    <ServerCard className="border-fp-err/40" data-fp-error="">
-      <p className="text-sm font-medium text-fp-text-1">
+    <ServerCard data-fp-error="">
+      <p className="text-sm font-medium text-fp-err-text">
         {formatLabel(labels.errors.queryTitle, {
           resource: site.resource,
           operation: site.operation,

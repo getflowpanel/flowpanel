@@ -14,7 +14,7 @@ describe("rich column formats", () => {
     const { container } = render(renderFormatCell({ kind: "percent", heat: true }, 0.42));
     const cell = container.querySelector("[data-heat]");
     expect(cell?.getAttribute("data-heat")).toBe("2");
-    expect(cell?.className).toContain("bg-fp-accent/20");
+    expect(cell?.className).toContain("bg-fp-data/20");
     expect(cell?.textContent).toBe("42%");
   });
 

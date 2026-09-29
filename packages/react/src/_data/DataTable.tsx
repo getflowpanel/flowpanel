@@ -18,7 +18,7 @@ import { DataTableSkeleton } from "./DataTableSkeleton";
 import { type DataTableDensity, DensityToggle } from "./DensityToggle";
 import type { DataTableColumn, DataTableProps } from "./data-table-types";
 import { ImportButton } from "./ImportButton";
-import { MobileCardList } from "./MobileCardList";
+import { MobileCardFold } from "./MobileCardFold";
 import { Pagination } from "./Pagination";
 import { useColumnLayout } from "./useColumnLayout";
 import { useDataTableKeyboard } from "./useDataTableKeyboard";
@@ -136,8 +136,7 @@ export function DataTable<Row extends Record<string, unknown>>({
     setDensityOverride(null);
   }, [density]);
   const effectiveDensity = densityOverride ?? density;
-  const rowPadding = effectiveDensity === "compact" ? "py-1.5" : "py-3";
-  const cellText = effectiveDensity === "compact" ? "text-xs" : "";
+  const rowPadding = effectiveDensity === "compact" ? "py-2.5" : "py-3";
 
   const selectionApi = useDataTableSelection<Row>({
     rows,
@@ -182,17 +181,19 @@ export function DataTable<Row extends Record<string, unknown>>({
     onSortChange?.({ field: c.field, dir: nextDir });
   };
 
-  const frame = "rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-sm overflow-hidden";
+  const frame = "rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-xs overflow-hidden";
 
   const exportConfig =
-    exportable === true
-      ? { formats: ["csv"] as ("csv" | "json")[] }
-      : exportable
-        ? {
-            formats: exportable.formats ?? (["csv"] as ("csv" | "json")[]),
-            ...(exportable.fields ? { fields: exportable.fields } : {}),
-          }
-        : null;
+    rows.length === 0
+      ? null
+      : exportable === true
+        ? { formats: ["csv"] as ("csv" | "json")[] }
+        : exportable
+          ? {
+              formats: exportable.formats ?? (["csv"] as ("csv" | "json")[]),
+              ...(exportable.fields ? { fields: exportable.fields } : {}),
+            }
+          : null;
   const exportColumns = exportConfig?.fields
     ? (() => {
         const byField = new Map(columns.map((c) => [c.field, c] as const));
@@ -214,7 +215,7 @@ export function DataTable<Row extends Record<string, unknown>>({
           labels.plurals?.results ?? (total === 1 ? labels.table.result : labels.table.results),
           total,
           locale,
-          new Intl.NumberFormat(labels.dateRange.locale).format(total),
+          new Intl.NumberFormat(locale).format(total),
         )}
       </span>
       {realtimeCfg ? <LiveIndicator status={liveStatus} /> : null}
@@ -297,7 +298,8 @@ export function DataTable<Row extends Record<string, unknown>>({
       <div className={cn(frame, className)}>
         {toolbar}
         <div className="p-2">
-          <MobileCardList
+          <MobileCardFold
+            page={page}
             columns={orderedVisible}
             colIndexByField={colIndexByField}
             rows={rows}
@@ -362,7 +364,7 @@ export function DataTable<Row extends Record<string, unknown>>({
               ? labels.table.rowsHint
               : labels.table.rowsReadOnlyHint
           }
-          className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 focus-visible:ring-inset"
+          className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 focus-visible:ring-inset"
         >
           {rows.map((r, idx) => {
             // A row the projection could not identify still renders, but nothing
@@ -381,7 +383,6 @@ export function DataTable<Row extends Record<string, unknown>>({
                 colIndexByField={colIndexByField}
                 {...(prerenderedCells ? { prerenderedCells } : {})}
                 rowPadding={rowPadding}
-                cellText={cellText}
                 selectionEnabled={selectionEnabled}
                 selectionSet={selectionSet}
                 {...(inlineEditResource ? { inlineEditResource } : {})}

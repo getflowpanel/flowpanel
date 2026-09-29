@@ -86,14 +86,14 @@ below the tabs.
 
 ```ts excerpt
 tabs: [
-  related("monitors", { count: true }),
-  related("invoices", { count: true, pageSize: 10, sort: { field: "createdAt", dir: "desc" } }),
+  related("monitors"),
+  related("invoices", { pageSize: 10, sort: { field: "createdAt", dir: "desc" } }),
 ],
 ```
 
 `related` finds the filter from the one column of the target whose `reference` points at this
 resource, and hides that column. When there are none or several, `defineAdmin` says which and
-asks for `by`. `count: true` shows the number in the tab label. `widgets` render above the rows —
+asks for `by`. The tab label shows its row count by default; pass `count: false` to hide it. `widgets` render above the rows —
 a funnel over the related rows, for example.
 
 ## Show what happened

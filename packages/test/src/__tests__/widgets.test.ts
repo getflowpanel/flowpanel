@@ -2,6 +2,7 @@ import {
   type Adapter,
   type ColumnMeta,
   custom,
+  type DetailHeaderContext,
   defineAdmin,
   kv,
   metric,
@@ -10,7 +11,7 @@ import {
   type WidgetContext,
 } from "@flowpanel/kit";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
-import { resolveWidget, type WidgetContextOptions, widgetContext } from "../widgets";
+import { headerContext, resolveWidget, type WidgetContextOptions, widgetContext } from "../widgets";
 
 const PAYMENTS = [
   { id: "p1", status: "paid", amount: 10, paidAt: new Date("2026-09-20T10:00:00Z") },
@@ -178,6 +179,10 @@ describe("widgetContext over your own admin", () => {
     ],
   });
 
+  it("links a record header under the admin's own mount", () => {
+    expect(headerContext({ admin }).link({ resource: "invoice", id: 7 })).toBe("/ops/invoice/7");
+  });
+
   it("keeps the admin's mount, views and columns, and reads only the rows you pass", async () => {
     const ctx = widgetContext({ admin, rows: { invoice: [{ id: "i1", status: "paid" }] } });
     expect(ctx.link({ resource: "invoice", view: "Unpaid" })).toBe("/ops/invoice?f_status=open");
@@ -239,5 +244,18 @@ describe("resolveWidget from @flowpanel/test/widgets", () => {
   it("types its options and its context", () => {
     expectTypeOf(widgetContext).parameter(0).toEqualTypeOf<WidgetContextOptions | undefined>();
     expectTypeOf(widgetContext()).toEqualTypeOf<WidgetContext>();
+  });
+});
+
+describe("headerContext", () => {
+  it("hands a record header the admin's formatters, strings and links", () => {
+    const ctx = headerContext({ formatting: { locale: "ru-RU", timeZone: "UTC" } });
+    expect(ctx.format.date(new Date("2026-09-20T10:00:00Z"))).toBe(
+      widgetContext({ formatting: { locale: "ru-RU", timeZone: "UTC" } }).format.date(
+        new Date("2026-09-20T10:00:00Z"),
+      ),
+    );
+    expect(ctx.labels.searchPlaceholder).toBe("Поиск: {label}…");
+    expectTypeOf(ctx).toEqualTypeOf<DetailHeaderContext>();
   });
 });

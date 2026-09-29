@@ -49,12 +49,18 @@ resource(orders, {
 | --- | --- | --- |
 | `width?` | `DrawerWidth` | Panel width. Default: `"lg"`. |
 | `header?` | `(row: Row) => string` | Panel title. Defaults to the row's key. |
+| `subtitle?` | `(row: Row) => string` | The line under the title. Defaults to the resource's label. |
 | `fields?` | `DrawerFieldList<Row>` | Fields shown when no `tabs` are declared. `"*"` shows every column. |
 | `tabs?` | `DrawerTab<Row>[]` | Tabs to render instead of a flat field list. |
 | `actions?` | `DrawerAction<Row>[]` | Buttons rendered in the panel footer. |
 
 `DrawerWidth` is `"sm" | "md" | "lg" | "xl" | "2xl" | "full"`, defaulting to
 `"lg"`.
+
+The line under the title is the resource's label; `subtitle(row)` replaces it with a line
+of your own, such as a plan and a signup date. The panel never shows the row's raw id there,
+and while the row loads its title is a skeleton. The panel takes focus on open, so no focus
+ring lands on the close button, and its actions are secondary buttons.
 
 Without `tabs`, the panel renders `fields` as a flat key/value list. Field
 labels come from the matching column's `label`, and any column with a `render`
@@ -73,8 +79,11 @@ Column and field renders in a drawer run concurrently on the server and become
 static HTML in the route handler, so return text or plain elements there. A
 render must not depend on a database handle that allows one query at a time,
 such as a single transaction client; use a pooled client.
-A client component such as `LocalTime` does not render in the drawer, although
-the same `render` does on the detail page.
+A render that returns a client component — `StatusBadge`, `LocalTime`, or one of
+your own marked `"use client"` — cannot run in the route handler, where such a
+component is only a reference. The drawer then shows the cell the list page
+already rendered for that row, and the formatted value when the drawer was opened
+from anywhere else; nothing is logged. The detail page renders it as usual.
 
 A render that throws — or returns something the server cannot render — costs only
 its own cell. The server logs `[flowpanel] drawer render failed for "<field>"`
@@ -146,6 +155,11 @@ type SerializedWidget =
   | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }
   | { kind: "statGroup"; stats: { label: string; value: string | number; /* … */ }[]; /* … */ }
   | { kind: "chart"; subkind: "area" | "bar" | "line" | "pie"; label: string; dataPoints: number; /* … */ }
+  | { kind: "stat"; label: string; value: number | string; /* format, hint, href, tone */ }
+  | { kind: "kv"; items: { label: string; value: string; /* tone, href, long, rest, more */ }[]; /* … */ }
+  | { kind: "bars"; rows: { label: string; value: number; href?: string /* … */ }[]; emptyState: string; /* … */ }
+  | { kind: "funnel"; steps: { label: string; value: number; href?: string }[]; emptyState: string; /* … */ }
+  | { kind: "list"; rows: ListCardRow[]; more?: { label: string; href?: string }; emptyState: string; /* … */ }
   | { kind: "unsupported"; label?: string; reason: string; failed?: true; span?: number };
 ```
 
@@ -159,7 +173,9 @@ A drawer-hosted widget is a static card, and the wire shape above is the whole
 of what it renders: a `metric` shows its label, value, format, `sublabel` and
 `tone` — its `delta`, `href`/`drilldown` and `sparkline` are not rendered here —
 and a `table` shows its rows and columns, without `rowKey`, `rowHref`, `seeAll`
-or `emptyState`, and without applying a `limit` to a `query`'s own rows. The same
+or `emptyState`, and without applying a `limit` to a `query`'s own rows. A `bars`,
+`funnel` or `list` card shows its `emptyState` only when it is text; a node gives way to
+`labels.widget.empty`. The same
 widget in a dashboard section or a detail tab renders all of them; put a widget
 that needs them in a `detail` tab, which renders on the server.
 
@@ -201,6 +217,7 @@ you render the drawer yourself.
 | --- | --- | --- |
 | `row` | `Record<string, unknown>` |  |
 | `header` | `string` |  |
+| `subtitle?` | `string` | The line under the title, from `drawer.subtitle`. |
 | `resourceLabel` | `string` | The resource's display label, so the drawer never shows the raw registry name. |
 | `width` | `"sm" \| "md" \| "lg" \| "xl" \| "2xl" \| "full"` |  |
 | `fields` | `SerializedFieldList` |  |

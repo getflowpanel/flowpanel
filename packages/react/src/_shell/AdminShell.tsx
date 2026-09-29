@@ -72,7 +72,7 @@ export function AdminShell({
         <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <DialogPrimitive.Trigger
             aria-label={navigation.open}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-fp-sm text-fp-text-2 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-fp-sm text-fp-text-2 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </DialogPrimitive.Trigger>

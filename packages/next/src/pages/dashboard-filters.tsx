@@ -2,6 +2,7 @@
 import { SelectFilter, useLabels } from "@flowpanel/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DashboardFilterView } from "../runtime/dashboard-filters";
+import { dropTimelinePages } from "../runtime/timeline-pages";
 
 export interface DashboardFiltersProps {
   filters: DashboardFilterView[];
@@ -10,6 +11,7 @@ export interface DashboardFiltersProps {
 /** The query string with each `f_<key>` set, or removed for `null`. */
 export function filterQuery(search: string, changes: Record<string, string | null>): string {
   const params = new URLSearchParams(search);
+  dropTimelinePages(params);
   for (const [key, value] of Object.entries(changes)) {
     if (value === null) params.delete(`f_${key}`);
     else params.set(`f_${key}`, value);
@@ -43,7 +45,7 @@ export function DashboardFilters({ filters }: DashboardFiltersProps) {
         <button
           type="button"
           onClick={() => go(Object.fromEntries(filters.map((filter) => [filter.key, null])))}
-          className="text-xs text-fp-accent hover:underline"
+          className="inline-flex min-h-11 items-center rounded-fp-sm px-2 text-xs text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:min-h-6"
         >
           {words.filters.clear}
         </button>

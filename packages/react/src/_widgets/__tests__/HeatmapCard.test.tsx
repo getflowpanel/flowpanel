@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { HeatmapCard } from "../HeatmapCard";
 
@@ -69,5 +69,53 @@ describe("HeatmapCard", () => {
       />,
     );
     expect(screen.getByText("No visits")).toBeTruthy();
+  });
+
+  it("shades by class, never an inline style, and names the grid once", () => {
+    const { container } = render(
+      <HeatmapCard
+        summary="3 visits in the last 14 days"
+        weeks={[week(2), week(3)]}
+        months={[]}
+        weekdays={[]}
+        legend={{ less: "Less", more: "More" }}
+      />,
+    );
+    expect(container.querySelector("[style]")).toBeNull();
+    expect(container.querySelector("[data-level='2']")?.className).toContain("opacity-50");
+    expect(container.querySelector("[data-level='3']")?.className).toContain("opacity-75");
+    expect(screen.getByText("3 visits in the last 14 days").getAttribute("aria-hidden")).toBe(
+      "true",
+    );
+  });
+
+  it("puts a linked grid in the tab order once and moves between days with the arrow keys", () => {
+    const linked = (w: number) =>
+      Array.from({ length: 7 }, (_, d) => ({
+        key: `${w}-${d}`,
+        level: 1,
+        title: `w${w}d${d}`,
+        href: `/admin/visits?day=${w}-${d}`,
+      }));
+    render(
+      <HeatmapCard
+        summary="Visits"
+        weeks={[linked(0), linked(1)]}
+        months={[]}
+        weekdays={[]}
+        legend={{ less: "Less", more: "More" }}
+      />,
+    );
+    const links = screen.getAllByRole("link");
+    const stops = links.filter((link) => link.tabIndex === 0);
+    expect(stops.map((link) => link.getAttribute("aria-label"))).toEqual(["w1d6"]);
+    const last = screen.getByRole("link", { name: "w1d6" });
+    last.focus();
+    fireEvent.keyDown(last, { key: "ArrowLeft" });
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("w0d6");
+    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowUp" });
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("w0d5");
+    expect((document.activeElement as HTMLElement).tabIndex).toBe(0);
+    expect(last.tabIndex).toBe(-1);
   });
 });

@@ -12,6 +12,7 @@ import {
   metric,
   stat,
   statGroup,
+  tracker,
 } from "@flowpanel/core";
 import { expectAssignable, expectError, expectNotAssignable, expectType } from "tsd";
 
@@ -49,9 +50,12 @@ expectAssignable<MetricDelta>({
 expectNotAssignable<MetricDelta>({ value: 0.2, vs: "vs last week", goodWhen: "sideways" });
 
 metric("Signups", async () => 1, { compare: true });
-metric("Errors", async () => 1, { compare: { goodWhen: "down" } });
+metric("Errors", async () => 1, { compare: true, goodWhen: "down" });
+expectError(metric("Errors", async () => 1, { compare: { goodWhen: "down" } }));
+stat("Errors", 1, { goodWhen: "down", tones: { warn: 1, err: 5 } });
+tracker({ goodWhen: "up", tones: { warn: 5, err: 1 }, rows: async () => [] });
 metric("Visits", async () => 1, { compare: { against: "weekAgo" } });
-expectError(metric("Errors", async () => 1, { compare: { goodWhen: "sideways" } }));
+expectError(metric("Errors", async () => 1, { goodWhen: "sideways" }));
 expectError(metric("Visits", async () => 1, { compare: { against: "yesterday" } }));
 
 bars({

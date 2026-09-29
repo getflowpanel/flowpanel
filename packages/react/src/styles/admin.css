@@ -7,55 +7,45 @@
 [data-flowpanel-portal] {
   color-scheme: light;
 
-  /* Color (HSL triplets) */
+  /* Color (HSL triplets). Graphite greys, an ink accent for actions and one calm
+     hue for data; state tones are desaturated so colour stays rare. */
   --fp-bg-1: 0 0% 100%;
-  --fp-bg-2: 220 20% 97%;
-  --fp-bg-3: 220 16% 93.5%;
-  --fp-text-1: 224 25% 11%;
-  --fp-text-2: 220 10% 38%;
-  /* 45% (not 60%) so muted text on --fp-bg-1/2 clears WCAG AA 4.5:1. */
-  --fp-text-3: 220 10% 45%;
-  --fp-border-1: 220 14% 90%;
-  --fp-border-2: 220 12% 84%;
-  /* 50% (not 56%) so accent-text (#f5f8ff) on accent clears WCAG AA 4.5:1. */
-  --fp-accent: 220 90% 50%;
-  --fp-accent-text: 220 100% 98%;
-  /* Focus rings follow the accent unless overridden. */
+  --fp-bg-2: 220 9% 96.9%;
+  --fp-bg-3: 220 8% 93.5%;
+  --fp-text-1: 222 10% 10%;
+  --fp-text-2: 220 7% 33%;
+  --fp-text-3: 220 5% 41%;
+  --fp-border-1: 220 8% 89.5%;
+  --fp-border-2: 220 5% 53%;
+  --fp-accent: 222 10% 12%;
+  --fp-accent-text: 0 0% 100%;
   --fp-ring: var(--fp-accent);
-  /* Modal/drawer scrim — dark even in light mode. */
-  --fp-overlay: 224 35% 7%;
-  --fp-ok: 142 70% 45%;
-  --fp-warn: 38 92% 50%;
-  --fp-err: 0 84% 60%;
-  /* Neutral-informational tone. Cyan rather than blue so an `info` badge
-     never collides with a blue --fp-accent sitting in the next column. */
-  --fp-info: 199 89% 48%;
+  --fp-overlay: 222 12% 5%;
+  --fp-ok: 149 45% 36%;
+  --fp-warn: 36 72% 38%;
+  --fp-err: 4 60% 46%;
+  --fp-info: 215 16% 45%;
+  --fp-ok-text: 150 50% 27%;
+  --fp-warn-text: 34 80% 28%;
+  --fp-err-text: 3 60% 40%;
+  --fp-info-text: 214 16% 34%;
+  --fp-accent-badge-text: 222 10% 12%;
 
-  /* Dedicated badge-text tokens: same hue/saturation as the base tone,
-     lightness lowered so full-strength text on the tone's own `/10` tinted
-     background (e.g. `bg-fp-ok/10 text-fp-ok-text`) clears WCAG AA 4.5:1
-     with worst case measured on --fp-bg-2-tinted hover/active surfaces.
-     The base --fp-ok/--fp-warn/--fp-err tokens still drive solid fills
-     (StatusDot, buttons). */
-  --fp-ok-text: 142 70% 27%;
-  --fp-warn-text: 38 92% 28%;
-  --fp-err-text: 0 84% 42%;
-  --fp-info-text: 199 89% 30%;
-  --fp-accent-badge-text: 220 90% 46%;
+  /* Bars, funnels, sparklines, heat and single-series charts. Follows the first
+     chart series, so a bar and the headline line of a chart agree. */
+  --fp-data: var(--fp-chart-1);
 
-  /* Categorical chart palette — consumed by @flowpanel/charts as
-     hsl(var(--fp-chart-N)). Re-tuned per scheme in `.dark` below. */
-  --fp-chart-1: 221 83% 53%;
-  --fp-chart-2: 173 80% 36%;
-  --fp-chart-3: 38 92% 50%;
-  --fp-chart-4: 262 83% 58%;
-  --fp-chart-5: 350 89% 60%;
-  --fp-chart-6: 192 91% 36%;
-  --fp-chart-7: 84 81% 44%;
+  --fp-chart-1: 212 48% 44%;
+  --fp-chart-2: 220 6% 53%;
+  --fp-chart-3: 183 45% 33%;
+  --fp-chart-4: 38 55% 40%;
+  --fp-chart-5: 268 28% 52%;
+  --fp-chart-6: 140 24% 40%;
+  --fp-chart-7: 340 32% 50%;
 
   /* Elevation — layered, color-tokenized so dark mode can strengthen it. */
-  --fp-shadow-color: 224 40% 8%;
-  --fp-shadow-xs: 0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.06);
+  --fp-shadow-color: 222 12% 8%;
+  --fp-shadow-xs: 0 0 #0000;
   --fp-shadow-sm:
     0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.05),
     0 2px 8px -2px hsl(var(--fp-shadow-color) / 0.07);
@@ -67,10 +57,10 @@
     0 28px 64px -12px hsl(var(--fp-shadow-color) / 0.26);
 
   /* Radius */
-  --fp-radius-sm: 0.375rem;
-  --fp-radius: 0.5rem;
-  --fp-radius-lg: 0.75rem;
-  --fp-radius-xl: 1rem;
+  --fp-radius-sm: 0.25rem;
+  --fp-radius: 0.375rem;
+  --fp-radius-lg: 0.5rem;
+  --fp-radius-xl: 0.75rem;
 
   /* Spacing base (4pt grid) */
   --fp-space-unit: 4px;
@@ -95,39 +85,38 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
 [data-flowpanel-portal][data-theme="dark"] {
   color-scheme: dark;
 
-  --fp-bg-1: 222 18% 8%;
-  --fp-bg-2: 222 16% 11.5%;
-  --fp-bg-3: 222 14% 15.5%;
-  --fp-text-1: 220 20% 96%;
-  --fp-text-2: 220 11% 72%;
-  --fp-text-3: 220 9% 58%;
-  --fp-border-1: 222 14% 19%;
-  --fp-border-2: 222 13% 25%;
-  /* Default accent re-lightened for dark surfaces (4.5:1+ on --fp-bg-1/2);
-     accent-text flips dark so on-accent labels keep AA on the lighter fill.
-     Apps overriding `theme.accent` should pair it with `theme.accentDark`. */
-  --fp-accent: 217 91% 65%;
-  --fp-accent-text: 224 30% 10%;
+  /* The page is the darkest plane; surfaces sit one step up and fills above them. */
+  --fp-bg-1: 220 8% 10%;
+  --fp-bg-2: 220 9% 7%;
+  --fp-bg-3: 220 7% 14.5%;
+  --fp-text-1: 220 10% 94%;
+  --fp-text-2: 220 6% 70%;
+  --fp-text-3: 220 5% 58%;
+  --fp-border-1: 220 7% 18%;
+  --fp-border-2: 220 5% 45%;
+  --fp-accent: 220 10% 94%;
+  --fp-accent-text: 220 9% 7%;
+  --fp-overlay: 0 0% 0%;
+  --fp-ok: 149 36% 50%;
+  --fp-warn: 37 62% 56%;
+  --fp-err: 4 70% 62%;
+  --fp-info: 215 16% 60%;
+  --fp-ok-text: 150 42% 62%;
+  --fp-warn-text: 37 70% 66%;
+  --fp-err-text: 4 80% 72%;
+  --fp-info-text: 215 20% 72%;
+  --fp-accent-badge-text: 220 10% 94%;
 
-  /* Badge-text tokens re-checked against the dark surfaces above (worst
-     case --fp-bg-2 tint). ok/warn base tones already clear 4.5:1 on dark,
-     err/accent need re-lightening. */
-  --fp-ok-text: 142 70% 45%;
-  --fp-warn-text: 38 92% 50%;
-  --fp-err-text: 0 84% 68%;
-  --fp-info-text: 199 89% 60%;
-  --fp-accent-badge-text: 217 91% 68%;
+  --fp-chart-1: 212 55% 66%;
+  --fp-chart-2: 220 6% 50%;
+  --fp-chart-3: 183 40% 52%;
+  --fp-chart-4: 40 52% 58%;
+  --fp-chart-5: 268 34% 70%;
+  --fp-chart-6: 140 24% 58%;
+  --fp-chart-7: 340 36% 68%;
 
-  --fp-chart-1: 213 94% 68%;
-  --fp-chart-2: 172 66% 50%;
-  --fp-chart-3: 43 96% 56%;
-  --fp-chart-4: 255 92% 76%;
-  --fp-chart-5: 351 95% 71%;
-  --fp-chart-6: 188 86% 53%;
-  --fp-chart-7: 83 78% 55%;
-
-  --fp-shadow-color: 240 40% 2%;
-  --fp-shadow-xs: 0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.5);
+  --fp-shadow-color: 0 0% 0%;
+  --fp-shadow-xs: 0 0 #0000;
   --fp-shadow-sm:
     0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.5), 0 2px 8px -2px hsl(var(--fp-shadow-color) / 0.45);
   --fp-shadow-md:
@@ -563,6 +552,7 @@ tr.fp-row-enter > td {
   --color-fp-err-text: hsl(var(--fp-err-text));
   --color-fp-info-text: hsl(var(--fp-info-text));
   --color-fp-accent-badge-text: hsl(var(--fp-accent-badge-text));
+  --color-fp-data: hsl(var(--fp-data));
   --color-fp-chart-1: hsl(var(--fp-chart-1));
   --color-fp-chart-2: hsl(var(--fp-chart-2));
   --color-fp-chart-3: hsl(var(--fp-chart-3));

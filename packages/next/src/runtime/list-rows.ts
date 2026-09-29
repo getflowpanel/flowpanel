@@ -7,6 +7,7 @@ import type {
 } from "@flowpanel/core";
 import { formatLabel } from "@flowpanel/core";
 import type { ListCardRow } from "@flowpanel/react";
+import type { ReactNode } from "react";
 import { linkRows, resolveLink } from "./resolve-link";
 
 const SEVERITY: Partial<Record<Tone, number>> = { err: 3, warn: 2, info: 1 };
@@ -18,8 +19,8 @@ export interface ListCardData {
   rows: ListCardRow[];
   variant?: "banner";
   allClear?: string;
-  more?: { text: string; href?: string };
-  emptyState: string;
+  more?: { label: string; href?: string };
+  emptyState: ReactNode;
 }
 
 export async function listCardData(
@@ -50,7 +51,7 @@ export async function listCardData(
     ...(hidden > 0
       ? {
           more: {
-            text: formatLabel(ctx.labels.widget.more, { n: ctx.format.number(hidden) }),
+            label: formatLabel(ctx.labels.widget.more, { n: ctx.format.number(hidden) }),
             ...(moreHref ? { href: moreHref } : {}),
           },
         }

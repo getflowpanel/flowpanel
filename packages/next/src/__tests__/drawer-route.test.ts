@@ -39,6 +39,7 @@ function mkConfig(role = "admin") {
           drawer: {
             width: "lg",
             header: (row: unknown) => (row as { email: string }).email,
+            subtitle: (row: unknown) => `Mail ${(row as { email: string }).email}`,
             fields: "*",
             actions: [
               {
@@ -131,6 +132,7 @@ describe("drawerRoute", () => {
     };
     expect(body.row.id).toBe("abc");
     expect(body.header).toBe("a@b.c");
+    expect((body as { subtitle?: string }).subtitle).toBe("Mail a@b.c");
     expect(body.width).toBe("lg");
     expect(body.fields).toBe("*");
     expect(body.tabs).toBeNull();

@@ -1,4 +1,7 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { type CallExpression, Node, Project } from "ts-morph";
+import { resolveProjectModule } from "../utils/module-path";
 
 /**
  * Comments the `resource(<refMatchingName>, …)` call out of a flowpanel.config.ts
@@ -139,4 +142,50 @@ function commentOutCall(source: string, call: CallExpression): string {
 
 function stripIndent(line: string, indent: string): string {
   return line.startsWith(indent) ? line.slice(indent.length) : line.replace(/^[ \t]*/, "");
+}
+
+/** The directory a config's `resources` property is imported from, when it is not an array literal. */
+export async function findSplitResourcesDir(
+  cwd: string,
+  configFile: string,
+  source: string,
+): Promise<string | null> {
+  const project = new Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: { allowJs: true, jsx: 4 /* Preserve */ },
+  });
+  const sf = project.createSourceFile("flowpanel.config.ts", source);
+  for (const declaration of sf.getImportDeclarations()) {
+    const named = declaration
+      .getNamedImports()
+      .find((specifier) => specifier.getName() === "resources");
+    if (!named) continue;
+    const resolved = await resolveProjectModule(
+      cwd,
+      declaration.getModuleSpecifierValue(),
+      configFile,
+    );
+    if (resolved) return path.dirname(resolved);
+  }
+  return null;
+}
+
+/** Finds the file in a split-resources directory that defines `resourceName` and comments it out there. */
+export async function editSplitResourceFile(
+  dir: string,
+  resourceName: string,
+  appDir: string,
+): Promise<{ file: string; source: string; edited: string } | null> {
+  const names = await fs.readdir(dir).catch(() => [] as string[]);
+  for (const name of names.filter((n) => /\.tsx?$/.test(n) && !/^index\.tsx?$/.test(n))) {
+    const file = path.join(dir, name);
+    const source = await fs.readFile(file, "utf8");
+    try {
+      const edited = editConfigToCommentResource(source, resourceName, name, appDir);
+      return { file, source, edited };
+    } catch {
+      // This file does not define resourceName; keep looking.
+    }
+  }
+  return null;
 }

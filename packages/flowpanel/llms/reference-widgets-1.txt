@@ -64,15 +64,16 @@ What every widget `query` receives.
 | `labels` | `ResolvedLabels` | The admin's resolved chrome strings, so a widget never hard-codes English. |
 | `format` | `WidgetFormat` | The admin's formatters — locale, zone and currency from `formatting`. |
 | `sql` | `<Row = Record<string, unknown>>( strings: TemplateStringsArray, ...values: unknown[] ) => Promise<Row[]>` | One read-only statement, as a tagged template. Every interpolated value is bound as a parameter, so `${input}` can never change the statement. `Date` binds as an ISO-8601 string and `bigint` as decimal text. Throws when the configured adapter implements no `sql` capability. Runs exactly the statement you write: no tenant scope, no access rule and no soft-delete filter are applied. Add those predicates yourself, or use `count` and resource reads, which do. |
-| `count` | `<N extends ResourceName>( resource: N, where?: Where<RowOf<N>>, options?: CountOptions<RowOf<N>>, ) => Promise<number>` | Rows of a registered resource matching `where`, under the same role, access and scope checks as its list; `range` bounds a timestamp field by `ctx.dateRange`. Memoised per request by resource, `where` and range; a resource the session may not read counts `0`, and so does an `undefined`, `null` or `""` value, with a development warning. A misspelt field throws, whatever its value. |
+| `count` | `<N extends ResourceName>( resource: N, where?: Where<RowOf<N>>, options?: CountOptions<RowOf<N>>, ) => Promise<number>` | How many rows of a registered resource match `where`, under the same role, access and scope checks as its list; `range` bounds a timestamp field by `ctx.dateRange`. Memoised per request by resource, `where` and range; a resource the session may not read counts `0`, and so does an `undefined`, `null` or `""` value, with a development warning. A misspelt field throws, whatever its value. |
 | `read` | `<N extends ResourceName>( resource: N, options?: ReadOptions<RowOf<N>>, ) => Promise<RowOf<N>[]>` | Rows of a registered resource under the same role, access, scope, field and soft-delete rules as its list. Memoised per request by resource and options; a resource the session may not read returns `[]`. A misspelt field, an `undefined`, `null` or `""` value, or an unknown resource throws instead of widening the read. Rows carry the list's declared columns, `expose` and `fields`; any other property is `undefined`, even though the row type lists it. |
 | `rowOf` | `<N extends ResourceName>(resource: N) => RowOf<N>` | The record this card shows, typed by its resource. Throws on a dashboard, which has no record, and on another resource's card; the message names both. |
 
-`href` builds a link under the admin's own `basePath`, so a config never
-hand-types `/admin/…`. `href("orders")` is the list, `href("orders", id)` one
-record, and the third argument adds the list page's own query keys —
-`{ filter: { status: "paid" } }` becomes `?f_status=paid` and `{ tab: "activity" }`
-becomes `?tab=activity`.
+`link` turns a named target into an href under the admin's own `basePath`, so a config
+never hand-types `/admin/…`: `link({ resource: "orders" })` is the list, `{ resource:
+"orders", id }` one record, and `filter` and `tab` add the list page's own query keys —
+`{ filter: { status: "paid" } }` becomes `?f_status=paid`. Wherever an option or a result
+takes a link, return the target itself. `href(resource, id, { filter, tab })`, the 0.3.0
+builder, still works and is deprecated in favour of `link`.
 
 `query` memoises for the request, so two widgets that need the same figure run it
 once and the next request queries again. Pass a key and a thunk —
@@ -83,8 +84,8 @@ memo holds the promise, so a failure is shared too — the request does not retr
 Pass a function declared once, like `mrr`: one written inline —
 `query(async () => …)` — is a new function on every call and never shares.
 A function passed alone that declares a parameter receives the context: `query(hourly)` runs
-`hourly(ctx)` once for this context, so several widgets built on one SQL statement share it
-without `query(hourly, ctx)`. A function with no parameter, or only defaulted ones such as
+`hourly(ctx)` once for this context, so several widgets built on one SQL statement share it.
+A function with no parameter, or only defaulted ones such as
 `async (limit = 5) => …`, is called with no arguments, as before. A function whose first
 parameter is optional without a default (`days?: number`) now receives the context: give it a
 default (`days = 7`), or pass the argument. A context over another range — the `compare` period —
@@ -115,7 +116,7 @@ tab, and holds that record's projected fields.
 ```ts excerpt
 metric("Paid orders", async (ctx) => ({
   value: await ctx.query("paid-orders", () => countPaid(ctx.db, ctx.dateRange)),
-  href: ctx.href("orders", undefined, { filter: { status: "paid" } }),
+  href: { resource: "orders", filter: { status: "paid" } },
 }));
 ```
 
@@ -164,7 +165,8 @@ for that resource's own changes, or a list of either. When one fires, that widge
 query — the rest of the dashboard stays put. A `{ resource }` that names no registered resource
 fails at `defineAdmin` with the name that was probably meant.
 
-Every widget accepts `maxRange`, a whole number of days such as `"30d"`, for rows the
+Every widget that reads the picked range accepts `maxRange` — all but `heatmap`, which shows
+its own last `days`, and `tracker`, which shows its own `window` — a whole number of days such as `"30d"`, for rows the
 app deletes after that long. The widget queries from `max(from, to − N, now − N)`, so
 a range reaching past what is kept is cut, and a comparison never reaches past it
 either. When it is cut, the card says so: "Since 2026-08-26; older data is not kept". A
@@ -219,7 +221,7 @@ metric("With analytics consent", consentShare, {
 | --- | --- | --- |
 | `warn` | `number` | The value at which it is a warning. |
 | `err` | `number` | The value at which it is an error. |
-| `goodWhen?` | `"up" \| "down"` | `"down"`: lower is better, so at or above `warn` is bad, as for an error rate. `"up"`: higher is better, so at or below `warn` is bad, as for a success rate. Default: `"down"`. |
+| `goodWhen?` | `GoodWhen` | Which direction is good. Left out, the numbers say: `warn` below `err` means higher is worse, as for an error rate; `warn` above `err` means lower is worse, as for a success rate. Given, it must agree with them, or `defineAdmin` throws. |
 | `min?` | `number` | Below this many observations the value is `muted`: too few to judge. |
 
 Declare where a number turns bad once, and hand the same object to every place that
@@ -229,6 +231,13 @@ past `warn` and `err` it is `warn` and `err`. Below `min` observations it is `mu
 metric or stat returns its observations as `volume`, and a tracker folds them itself.
 `bars` rows carry no volume, so `min` is ignored there. An explicit `tone` always wins. `toneFor(value, threshold, volume)` gives the same
 answer for a custom widget or a list row.
+
+The numbers say which way is good: `warn` below `err` means higher is worse, as for an error
+rate, and `warn` above `err` means lower is worse, as for a success rate, so
+`{ warn: 95, err: 90 }` reads 97 as `ok`. A card that colours a value or a change — `metric`,
+`stat`, `bars` and `tracker` — takes one top-level `goodWhen`, `"up"` by default, and a
+threshold may carry its own. When either contradicts the numbers, `defineAdmin` throws and says
+which to swap.
 
 ```ts excerpt
 import { type Threshold, metric, toneFor } from "@flowpanel/kit";
@@ -261,10 +270,11 @@ A widget link names where it goes instead of spelling a path, so a renamed
 | Property | Type | Notes |
 | --- | --- | --- |
 | `dashboard` | `string` |  |
-| `range?` | `boolean` | Carry the widget's range: the preset, or `from` and `to` for a custom range. Default: `true`. |
-| `filters?` | `Record<string, string>` | Dashboard filters the link sets, by key; a link carries no filter implicitly. |
+| `range?` | `boolean` | Carry the widget's range: the preset, or `from` and `to` for a custom range. A resource link names the `daterange` field instead; a dashboard's own picker needs only `true`. Default: `true`. |
+| `filter?` | `Record<string, string>` | Dashboard filters the link sets, by key; a link carries no filter implicitly. |
 
-`filters` sets dashboard filters on the target, `{ dashboard: "/parsing", filters: { platform: "kwork" } }`.
+`filter` opens either kind of target narrowed by these values: a resource's list by its
+fields, a dashboard by its declared filters, `{ dashboard: "/parsing", filter: { platform: "kwork" } }`.
 A key the target does not declare fails at `defineAdmin` (or when a function link
 renders), with the closest key. A link never carries the current page's filters on its
 own.
@@ -284,11 +294,12 @@ once about a string that starts with the admin's own `basePath`.
 - `filter` is keyed by the target's own fields once the resource is typed. A value is
   written as it is and a `Date` as its day in the admin's zone; `{ gte, lte }` becomes
   `from~to` instants for dates and `min:max` for numbers, and an array becomes `a,b`.
-  An object with no URL form throws instead of writing `[object Object]`. `ctx.href`'s
-  `filter` is written the same way.
+  An object with no URL form throws instead of writing `[object Object]`.
 - `{ dashboard: "/system" }` is a dashboard or page by its configured `path`. It
   carries the widget's range — the preset, or `from` and `to` for a custom range —
   unless `range: false`.
+- `range` carries the current date range on both kinds: a resource needs the field name
+  its `daterange` filter reads, a dashboard only `true`, its default.
 
 A name that is not registered — resource, view, dashboard — throws when the widget
 renders and lists what is, so the widget's error card says what to fix.
@@ -321,7 +332,8 @@ be a function of the widget context that returns one — or `null` for no link.
 | `format?` | `NumericFormat` | How the number is rendered. |
 | `sublabel?` | `string` | Small caption under the value. |
 | `delta?` | `(ctx: WidgetContext) => Promise<MetricDelta \| null>` | Period-over-period change, queried alongside the value. |
-| `compare?` | `boolean \| { goodWhen?: "up" \| "down" \| "neutral"; against?: "previous" \| "weekAgo" }` | Query the compared period too and show the change: `previous`, or `against: "weekAgo"` for the same range seven days back. Needs a numeric value; a `delta` the query returns wins. |
+| `compare?` | `boolean \| { against?: "previous" \| "weekAgo" }` | Query the compared period too and show the change: `previous`, or `against: "weekAgo"` for the same range seven days back. Needs a numeric value; a `delta` the query returns wins. |
+| `goodWhen?` | `"up" \| "down" \| "neutral"` | Which direction is good news: it colours the change, and `tones` must agree with it. `"neutral"` never colours the change. Default: `"up"`. |
 | `sparkline?` | `(ctx: WidgetContext) => Promise<number[]>` | Trend line drawn inside the card. |
 | `tone?` | `Tone` | Semantic color of the value. |
 | `tones?` | `Threshold` | Tone the value against a threshold; an explicit `tone` wins. |
@@ -370,7 +382,7 @@ with `ctx.dateRange` set to `ctx.dateRange.previous` — and shows the change ag
 it with the compared value and the delta rules of `MetricDelta`. For `today` that is
 yesterday up to the same clock time; `compare: { against: "weekAgo" }` compares with the
 same range seven days earlier instead, so today reads against the same weekday last week.
-Pass `compare: { goodWhen: "down" }` for a cost or an error count. It needs a numeric
+Pass `goodWhen: "down"` beside it for a cost or an error count. It needs a numeric
 value, does nothing over a detail tab's whole history or past a widget's `maxRange`, and
 yields to a `delta` the query or the `delta` option returns.
 
@@ -402,14 +414,17 @@ metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compar
 | `goodWhen?` | `"up" \| "down" \| "neutral"` | Which direction is good news. `"down"` colours a fall green; `"neutral"` never colours. Default: `"up"`. |
 | `previous?` | `number` | The value compared against, shown muted beside the change. A count under 20 shows the absolute change (`+3`); a `percent` metric shows percentage points (`+3 pp`). |
 
-The card reads a change the way a founder does. Inside ±1 % it shows no arrow and no
-colour, and the percentage prints in the admin's locale. With `previous` set it shows
+The card reads a change the way a founder does: plain 12 px text under the value, signed
+(`+12%`, `−3`) and followed by `vs`, with no pill or arrow. Inside ±1 % it shows no sign, and
+only a change of 5 % or more takes the good or bad colour; a smaller one stays muted. The
+percentage prints in the admin's locale. With `previous` set it shows
 that value muted beside the change (`labels.widget.previous`, `"was {value}"`). A count
 whose `previous` is under 20 shows the absolute change — `+3` rather than `+150%` — and a
 `format: "percent"` metric shows its change in percentage points (`+3 pp`,
-`labels.widget.points`), so 40 % → 43 % never reads as a relative 3 %. `goodWhen: "down"`
-colours a fall green — for churn, cost or latency a drop is the good news — and
-`"neutral"` never colours.
+`labels.widget.points`), so 40 % → 43 % never reads as a relative 3 %. The metric's
+`goodWhen: "down"` colours a fall green — for churn, cost or latency a drop is the good
+news — and `"neutral"` never colours. A delta the query returns may still carry its own
+`goodWhen`, the 0.3.0 spelling, which wins.
 
 ### table
 
@@ -428,7 +443,7 @@ and format; an object overrides them.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `label?` | `string` | Card heading. |
-| `filter?` | `string` | A dashboard filter key: a row's `rowKey` value sets it on the current dashboard. |
+| `filterOnClick?` | `string` | A dashboard filter key: clicking a row sets it to the row's `rowKey` value on the current dashboard. |
 | `resource?` | `ResourceName` | Registered resource to pull rows and columns from. |
 | `query?` | `(ctx: WidgetContext) => Promise<R[]>` | Supply rows yourself instead of reading a resource. |
 | `where?` | `Record<string, unknown> \| ((ctx: WidgetContext) => Record<string, unknown>)` | Narrow the `resource` read: a filter keyed by its fields, or one computed from the context — `(c) => ({ userId: c.id })`. Values take the `ctx.read` shorthand; a missing value throws instead of reading every row. |
@@ -439,6 +454,7 @@ and format; an object overrides them.
 | `seeAll?` | `boolean \| Link` | Link the card heading. `true` links the `resource`'s own list; a `Link` names any target, and a string is used as written. |
 | `limit?` | `number` | Row cap. An explicit value caps both paths; the default applies to the `resource` read, while a `query`'s own rows are left alone unless you set it. Default: `10`. |
 | `emptyState?` | `ReactNode` | Rendered in place of the table body when there are zero rows. |
+| `density?` | `"comfortable" \| "compact"` | Row height: `"compact"` sets 40px rows for a card that lists a few. Default: `"comfortable"`. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
@@ -461,11 +477,13 @@ there still renders but never acts.
 
 `rowHref` turns rows into links. It runs on the server, once per row, and
 returning `null` leaves that row inert. `seeAll: true` links the card heading to
-the resource's list through `ctx.href`; a string is used as the href verbatim.
+the resource's list; a string is used as the href verbatim.
 
-`emptyState` replaces the table body when there are no rows — a string becomes the
-empty state's title, any other node is rendered in the card instead of the table.
-With none set the admin's `labels.widget.empty` is used. `limit` caps the rows: it
+Every card's `emptyState` takes text or any node. With no rows it replaces the table with
+one 14 px line where the rows would start, so an empty card stays short; with none set the
+admin's `labels.widget.empty` is used. `density: "compact"` sets 40 px rows. In a dashboard
+row a table or list card keeps its own height instead of stretching to its neighbours; a
+section's `align` changes that. `limit` caps the rows: it
 defaults to 10 on the `resource` path and applies to a `query`'s own rows only
 when you set it.
 
@@ -482,7 +500,7 @@ table({
   resource: "orders",
   label: "Recent orders",
   columns: ["id", { field: "total", label: "Total", format: "money", align: "right" }],
-  rowHref: (row, ctx) => ctx.href("orders", row.id),
+  rowHref: (row) => ({ resource: "orders", id: row.id }),
   seeAll: true,
   limit: 5,
 });
@@ -554,6 +572,7 @@ value is a literal or a resolver.
 | `href?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `tone?` | `Tone` | Semantic color of the value. |
 | `tones?` | `Threshold` | Tone the value against a threshold; an explicit `tone` wins. |
+| `goodWhen?` | `GoodWhen` | Which direction is good news; `tones` must agree with it. Default: `"up"`. |
 | `format?` | `NumericFormat` | How a numeric value is rendered. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
@@ -580,7 +599,7 @@ option, which stays as the fallback. A `Date` is still a value, not a result.
 stat("Open invoices", async (ctx) => {
   const filter = { customerId: ctx.id, status: "open" };
   const value = await ctx.count("invoices", filter);
-  return { value, href: ctx.href("invoices", undefined, { filter }), tone: value > 0 ? "warn" : "ok" };
+  return { value, href: { resource: "invoices", filter }, tone: value > 0 ? "warn" : "ok" };
 });
 ```
 
@@ -667,7 +686,7 @@ kv({
       label: "Failed runs",
       value: async (ctx) => {
         const value = await ctx.count("runs", { status: "failed" });
-        return { value, tone: value > 0 ? "err" : "ok", href: ctx.href("runs") };
+        return { value, tone: value > 0 ? "err" : "ok", href: { resource: "runs" } };
       },
     },
   ],
@@ -689,15 +708,15 @@ bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), form
 | Property | Type | Notes |
 | --- | --- | --- |
 | `label?` | `string` | Card heading. |
-| `filter?` | `string` | A dashboard filter key: a row's key sets it on the current dashboard. |
+| `filterOnClick?` | `string` | A dashboard filter key: clicking a bar sets it to the row's `key` on the current dashboard. |
 | `query` | `(ctx: WidgetContext) => Promise<BarRow[]>` |  |
 | `format?` | `NumericFormat` | How bar values are rendered. |
 | `max?` | `number` | The value a full bar stands for — `1` for a rate with `format: "percent"`. Default, and for a value of `0` or less: the largest value in the rows. |
 | `share?` | `boolean` | Show each row's part of the total beside its value: its own `share`, else of the rows' sum. |
-| `goodWhen?` | `"up" \| "down" \| "neutral"` | Which direction of a row's change is good news. Default: `"up"`. |
+| `goodWhen?` | `"up" \| "down" \| "neutral"` | Which direction is good news: it colours each row's change, and `tones` must agree with it. `"neutral"` never colours the change. Default: `"up"`. |
 | `tones?` | `Threshold` | Tone each bar against a threshold by its value; a row's own `tone` wins. |
 | `compare?` | `boolean \| { against?: "previous" \| "weekAgo" }` | Run the query for the compared period too and fill each row's `previous`: the period before, or `against: "weekAgo"` for the same range seven days back. Rows join by `key`, else by `label`; a row's own `previous` wins. No change shows past `maxRange` or over a whole history. |
-| `emptyState?` | `string` | Shown instead of the bars when the query returns nothing. |
+| `emptyState?` | `ReactNode` | Shown instead of the bars when the query returns nothing. Text or any node; the drawer shows only text. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
@@ -723,7 +742,7 @@ bars({
   label: "New orders by marketplace",
   share: true,
   compare: true,
-  query: async (c) => breakdown(await c.query(hourly, c), { by: "platform", value: "orders", keys: PLATFORMS }),
+  query: async (c) => breakdown(await c.query(hourly), { by: "platform", value: "orders", keys: PLATFORMS }),
 });
 ```
 
@@ -744,9 +763,10 @@ bars({
 #### funnel
 
 Stages in order. Give counts only: the card computes each step's share of the
-first step and its drop-off from the one before. The step with the largest drop-off is
-marked with the `warn` tone — label and bar — when it loses more than `alertDrop`
-of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
+first step and its drop-off from the one before, both in muted text. Colour comes only
+from a threshold you set: with `alertDrop`, the step with the largest drop-off is marked
+with the `warn` tone — label, bar and drop — when it loses more than that share of the step
+before. Without it no step is toned.
 
 `FunnelOptions`
 
@@ -755,8 +775,8 @@ of the step before (default `0.5`); pass `alertDrop: 1` to turn the mark off.
 | `label?` | `string` | Card heading. |
 | `query` | `(ctx: WidgetContext) => Promise<FunnelStep[]>` |  |
 | `format?` | `NumericFormat` | How step values are rendered. |
-| `alertDrop?` | `number` | Share lost from the step before, as a fraction, past which the step with the largest drop is marked with the `warn` tone. `1` turns the mark off. Default: `0.5`. |
-| `emptyState?` | `string` | Shown instead of the steps when the query returns nothing. |
+| `alertDrop?` | `number` | Share lost from the step before, as a fraction, past which the step with the largest drop is marked with the `warn` tone. Unset, no step is toned. |
+| `emptyState?` | `ReactNode` | Shown instead of the steps when the query returns nothing. Text or any node; the drawer shows only text. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
@@ -781,7 +801,7 @@ A short feed — latest signups, failing jobs — where a table would be too muc
 | --- | --- | --- |
 | `label?` | `string` | Card heading. |
 | `query` | `(ctx: WidgetContext) => Promise<ListRow[]>` |  |
-| `emptyState?` | `string` | Shown instead of the lines when the query returns nothing. |
+| `emptyState?` | `ReactNode` | Shown instead of the lines when the query returns nothing. Text or any node; the drawer shows only text. |
 | `variant?` | `"list" \| "banner"` | `"banner"`: a strip tinted by the worst row, rows ordered err → warn → info then by `count`, each with a glyph; with no rows it shows `allClear`. Default: `"list"`. |
 | `limit?` | `number` | Rows shown; the rest become one "N more" line. |
 | `more?` | `Link` | Where the "N more" line leads. |
@@ -797,10 +817,12 @@ the rest into one "N more" line that leads to `more`.
 ##### banner
 
 "Anything on fire": `list({ variant: "banner", span: 12 })`. Rows are ordered err, then
-warn, then info, and within each by `count`. Each carries a glyph as well as a colour
-(✕ ▲ ●), so it reads without colour vision, and the strip is tinted by its worst row.
-With no rows it shows one ✓ `allClear` line (`labels.widget.allClear`), which is the
-answer a founder wants.
+warn, then info, and within each by `count`. The first row reads as one 18 px sentence;
+the rest are dot lines in secondary text, and a screen reader hears each row's tone word
+from `labels.widget.tones` ("Error", "Warning", "OK", "Info"); a list row's dot and a stale
+caption's glyph say theirs the same way. The card stays neutral with a 3 px rule on its left
+edge in the worst row's tone, `err` or `warn`. With no rows it shows one quiet `allClear`
+line (`labels.widget.allClear`), which is the answer a founder wants.
 
 ```ts excerpt
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
@@ -861,21 +883,22 @@ A tracker renders on dashboards and in detail tabs, not in drawers.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `label?` | `string` | Card heading. |
-| `filter?` | `string` | A dashboard filter key: a row's key sets it on the current dashboard. |
+| `filterOnClick?` | `string` | A dashboard filter key: clicking a row sets it to the row's key on the current dashboard. |
 | `query?` | `(ctx: WidgetContext) => Promise<R[]>` | Rows over the window: `ctx.dateRange` is the window, not the picked range. |
 | `at?` | `keyof R & string` | The timestamp or `YYYY-MM-DD` field that places a row in a block. |
 | `by?` | `keyof R & string` | One tracker row per value of this field. |
 | `keys?` | `readonly string[]` | Values of `by` always shown, in this order. |
-| `labels?` | `Readonly<Record<string, string>> \| EnumDef` | Row names per value of `by`: a map or an `enumOf()`. |
+| `labels?` | `KeyLabels` | Row names per value of `by`: a map, an `enumOf()` or a function. |
 | `value?` | `Fold<R>` | A block's number: a field to sum or a function of its rows. Default: the row count. |
 | `volume?` | `Fold<R>` | Observations behind a block, compared with `tones.min`. Default: the row count. |
 | `tones?` | `Threshold` | Tone each block by its value; without it a block with data is `accent`. |
+| `goodWhen?` | `GoodWhen` | Which direction is good news; `tones` must agree with it. Default: `"up"`. |
 | `format?` | `NumericFormat` | How a block's value prints in its hover title. |
 | `rows?` | `(ctx: WidgetContext) => Promise<TrackerRow[]>` | Rows you built yourself, instead of `query`, `at` and `by`. |
 | `window?` | ``${number}h` \| `${number}d`` | A window ending now, independent of the date picker: hourly blocks up to 48 hours, daily blocks beyond, so `"24h"` is 24 blocks and `"14d"` is 14. Default: `"24h"`. |
 | `summary?` | `(row: TrackerRowResult, ctx: WidgetContext) => string \| Promise<string>` | Right-hand text per row, e.g. the last success; may query. |
 | `rowHref?` | `(key: string, ctx: WidgetContext) => LinkTarget \| null` | Where a row's label leads. |
-| `emptyState?` | `string` | Shown instead of the rows when there are none. |
+| `emptyState?` | `ReactNode` | Shown instead of the rows when there are none. Text or any node. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 
@@ -890,7 +913,7 @@ tracker({
   volume: "runs",
   tones: { warn: 0.3, err: 0.5, min: 20 },
   format: "percent",
-  summary: async (row, c) => lastSuccess(await c.query(platformHealth, c), row.key, c.format),
+  summary: async (row, c) => lastSuccess(await c.query(platformHealth), row.key, c.format),
   span: 12,
 });
 ```

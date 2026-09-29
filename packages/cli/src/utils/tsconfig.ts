@@ -30,3 +30,24 @@ export async function readTsconfigOptions(cwd: string): Promise<TsconfigCompiler
     ...(paths ? { paths } : {}),
   };
 }
+
+/** `tsconfig.json` `paths`, resolved to absolute directories a jiti alias map can use. */
+export async function readTsconfigAliases(cwd: string): Promise<Record<string, string>> {
+  try {
+    const compilerOptions = await readTsconfigOptions(cwd);
+    const paths = compilerOptions?.paths ?? {};
+    const baseUrl = compilerOptions?.baseUrl ?? ".";
+    const baseDir = path.resolve(cwd, baseUrl);
+    const out: Record<string, string> = {};
+    for (const [key, values] of Object.entries(paths)) {
+      const target = values?.[0];
+      if (!target) continue;
+      const cleanKey = key.replace(/\/\*$/, "");
+      const cleanTarget = target === "*" ? "." : target.replace(/\/\*$/, "");
+      out[cleanKey] = path.resolve(baseDir, cleanTarget);
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}

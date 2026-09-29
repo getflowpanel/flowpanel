@@ -5,6 +5,7 @@ import {
   type DateRangeConfig,
   dashboard,
   enumOf,
+  heatmap,
   metric,
   type RangeLimit,
   type SectionConfig,
@@ -30,6 +31,7 @@ expectAssignable<RangeLimit>("30d");
 stat("Orders", 1, { maxRange: "30d" });
 metric("Orders", async () => 1, { maxRange: "7d" });
 expectError(stat("Orders", 1, { maxRange: "30 days" }));
+expectError(heatmap({ maxRange: "30d", query: async () => [] }));
 
 expectAssignable<SectionConfig>({ variant: "strip", widgets: [] });
 expectAssignable<SectionConfig>({ variant: "cards", columns: 4, widgets: [] });
@@ -52,14 +54,31 @@ dashboard({
   sections: [
     {
       widgets: [
-        bars({ filter: "platform", query: async () => [] }),
-        table({ filter: "platform" }),
-        tracker({ filter: "platform", rows: async () => [] }),
+        bars({ filterOnClick: "platform", query: async () => [] }),
+        table({ filterOnClick: "platform" }),
+        tracker({ filterOnClick: "platform", rows: async () => [] }),
       ],
     },
   ],
 });
 declare const ctx: WidgetContext;
 expectType<Readonly<Record<string, string>>>(ctx.filters);
-expectAssignable<DashboardLink>({ dashboard: "/parsing", filters: { platform: "kwork" } });
+expectAssignable<DashboardLink>({ dashboard: "/parsing", filter: { platform: "kwork" } });
+expectNotAssignable<DashboardLink>({ dashboard: "/parsing", filters: { platform: "kwork" } });
+expectError(bars({ filter: "platform", query: async () => [] }));
 expectError<DashboardFilter>({ key: "a", options: [] });
+
+expectAssignable<import("@flowpanel/core").SectionConfig>({ align: "start", widgets: [] });
+expectError<import("@flowpanel/core").SectionConfig>({ align: "top", widgets: [] });
+expectAssignable<import("@flowpanel/core").DashboardAction>({
+  key: "sync",
+  label: "Sync",
+  emphasis: "primary",
+  run: async () => ({ ok: true }),
+});
+expectError<import("@flowpanel/core").DashboardAction>({
+  key: "sync",
+  label: "Sync",
+  emphasis: "loud",
+  run: async () => ({ ok: true }),
+});

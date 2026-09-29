@@ -1,4 +1,5 @@
 import {
+  type DetailHeaderContext,
   defineAdmin,
   type FormattingConfig,
   type LabelsConfig,
@@ -21,8 +22,10 @@ export interface WidgetContextOptions {
   rows?: Readonly<Record<string, readonly Row[]>>;
   /**
    * Your `defineAdmin` config. Its resources, columns, references, views, dashboards, labels,
-   * formatting and mount stay; only its database is replaced by `rows`. Without it, every key
-   * of `rows` is a resource whose columns are the keys its rows carry.
+   * formatting and mount stay; only its database is replaced by `rows`. It carries no tenant
+   * scope, so a scoped widget under test counts and reads across every tenant's rows, the way
+   * `adminWidgetContext` does. Without `admin`, every key of `rows` is a resource whose columns
+   * are the keys its rows carry.
    */
   admin?: ResolvedAdminConfig;
   /** The viewed record, for a record-page widget: `ctx.row`, `ctx.id` and `ctx.rowOf`. */
@@ -119,4 +122,12 @@ export function widgetContext(options: WidgetContextOptions = {}): WidgetContext
     ...(options.resource !== undefined ? { resource: options.resource } : {}),
     ...(options.filters ? { filters: options.filters } : {}),
   });
+}
+
+/** What a record page hands `detail.title`, `subtitle` and `badge`, for a test that calls them. */
+export function headerContext(
+  options: Pick<WidgetContextOptions, "admin" | "formatting" | "labels" | "basePath"> = {},
+): DetailHeaderContext {
+  const { format, labels, link } = widgetContext(options);
+  return { format, labels, link };
 }

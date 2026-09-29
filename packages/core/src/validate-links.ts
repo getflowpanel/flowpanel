@@ -25,7 +25,6 @@ interface StaticLink {
   tab?: unknown;
   filter?: unknown;
   range?: unknown;
-  filters?: unknown;
 }
 
 function checkListField(site: string, resource: string, field: string, check: LinkCheck): void {
@@ -72,11 +71,11 @@ function checkTarget(site: string, target: unknown, check: LinkCheck): void {
     if (!check.paths.has(normalizeRoutePath(link.dashboard))) {
       missing(site, "dashboard", link.dashboard, [...check.paths]);
     }
-    if (typeof link.filters === "object" && link.filters !== null) {
+    if (typeof link.filter === "object" && link.filter !== null) {
       const declared = check.dashboardFilters.get(normalizeRoutePath(link.dashboard)) ?? [];
-      for (const key of Object.keys(link.filters)) {
+      for (const key of Object.keys(link.filter)) {
         if (!declared.includes(key)) {
-          missing(`${site}.filters`, "dashboard filter", key, declared, link.dashboard);
+          missing(`${site}.filter`, "dashboard filter", key, declared, link.dashboard);
         }
       }
     }

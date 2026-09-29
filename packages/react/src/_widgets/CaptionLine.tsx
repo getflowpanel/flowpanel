@@ -1,6 +1,7 @@
 import type { WidgetCaption } from "@flowpanel/core";
 import { cn } from "../lib/cn";
 import { toneTextClass } from "../lib/tone-classes";
+import { ToneWord } from "./ToneWord";
 
 export interface CaptionLineProps {
   caption?: WidgetCaption | undefined;
@@ -20,6 +21,7 @@ export function CaptionLine({ caption }: CaptionLineProps) {
       )}
     >
       {alarming ? <span aria-hidden>{caption.tone === "err" ? "✕ " : "▲ "}</span> : null}
+      {alarming ? <ToneWord tone={caption.tone} /> : null}
       {caption.text}
     </span>
   );

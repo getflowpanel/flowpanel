@@ -5,12 +5,13 @@ import {
   isFilterRangeValue,
   resource,
   timeline,
-  writeTimelineCursor,
 } from "@flowpanel/core";
+import { writeTimelineCursor } from "@flowpanel/core/internal";
 import type { TimelineCardProps } from "@flowpanel/react";
 import type { ReactElement } from "react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderTimeline } from "../runtime/render-timeline";
+import { renderWidget } from "../runtime/render-widget";
 import { buildWidgetContext, detailTabDateRange } from "../runtime/widget-context";
 
 type Row = Record<string, unknown>;
@@ -333,6 +334,29 @@ describe("timeline sources", () => {
     });
     expect(props.groups[0]?.count).toBe("2 events");
     expect(props.groups[0]?.lines[0]?.items).toHaveLength(2);
+  });
+
+  it("bounds a record's sources where maxRange cut the history", async () => {
+    const url = "http://localhost/admin/users/u1?tab=activity";
+    const ctx = buildWidgetContext(
+      config,
+      reqCtx(url),
+      new Request(url),
+      detailTabDateRange(),
+      DATA.users?.[0],
+      "id",
+      "users",
+    );
+    const kept = timeline({
+      kinds: Kinds,
+      maxRange: "7d",
+      sources: [timeline.source("visits", { kind: "visit", at: "startedAt" })],
+    });
+    await renderWidget(kept as TimelineWidget, ctx, config, reqCtx(url));
+    const bound = calls.find((c) => c.resource === "visits")?.filters.startedAt as {
+      gte?: Date;
+    };
+    expect(bound?.gte).toEqual(at("2026-09-18T12:00:00Z"));
   });
 
   it("combines a host where bound on the at column with the page bound", async () => {

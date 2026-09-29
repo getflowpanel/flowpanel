@@ -1,5 +1,5 @@
 import type { RequestContext } from "@flowpanel/core";
-import { createElement, Fragment, type ReactNode } from "react";
+import { createElement, Fragment, isValidElement, type ReactNode } from "react";
 import type { FieldRender } from "./serialize-fields";
 
 let renderToStaticMarkupFn: ((node: ReactNode) => string) | null = null;
@@ -12,6 +12,17 @@ async function getRenderToStaticMarkup(): Promise<(node: ReactNode) => string> {
     renderToStaticMarkupFn = mod.renderToStaticMarkup;
   }
   return renderToStaticMarkupFn;
+}
+
+const CLIENT_REFERENCE = Symbol.for("react.client.reference");
+
+/** True when a node holds a client component, which only the page's RSC render can draw. */
+export function holdsClientComponent(node: unknown): boolean {
+  if (Array.isArray(node)) return node.some(holdsClientComponent);
+  if (!isValidElement(node)) return false;
+  const type = node.type as { $$typeof?: unknown } | string;
+  if (typeof type !== "string" && type?.$$typeof === CLIENT_REFERENCE) return true;
+  return Object.values(node.props as Record<string, unknown>).some(holdsClientComponent);
 }
 
 /** Every column `render` of `columns`, keyed by its field. */
@@ -28,8 +39,8 @@ export function columnRenders(columns: ReadonlyArray<unknown>): Map<string, Fiel
 }
 
 /**
- * Each render's output as static HTML, keyed by field, rendered concurrently. A
- * render that throws is logged and left out, so one bad cell costs only itself.
+ * Each render's output as static HTML, keyed by field; one that throws is logged and left out,
+ * one that returns a client component is left out quietly for the list's own cell to stand in.
  */
 export async function prerenderEach(
   renders: Map<string, FieldRender>,
@@ -42,6 +53,7 @@ export async function prerenderEach(
     [...renders].map(async ([name, render]): Promise<[string, string] | null> => {
       try {
         const node = await render(row as never, reqCtx);
+        if (holdsClientComponent(node)) return null;
         return [name, renderToStaticMarkup(createElement(Fragment, null, node))];
       } catch (error) {
         console.error(`[flowpanel] drawer render failed for "${name}"`, error);

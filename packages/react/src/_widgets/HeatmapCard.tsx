@@ -1,9 +1,12 @@
+"use client";
 import type { WidgetCaption } from "@flowpanel/core";
+import type { KeyboardEvent, ReactNode } from "react";
 import { Card, CardContent } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { EmptyLine } from "./EmptyLine";
 
 export interface HeatmapCardCell {
   key: string;
@@ -26,18 +29,33 @@ export interface HeatmapCardProps {
   tone?: Tone;
   legend: { less: string; more: string };
   /** Shown instead of the grid when every day is empty. */
-  emptyState?: string;
+  emptyState?: ReactNode;
   /** The line under the title: a cut range, freshness or coverage. */
   caption?: WidgetCaption;
 }
 
-const OPACITY = [1, 0.3, 0.5, 0.75, 1];
+const LEVEL = ["bg-fp-bg-3", "opacity-30", "opacity-50", "opacity-75", ""];
+const STEP: Record<string, number> = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 };
 
-function Cell({ cell, tone }: { cell: HeatmapCardCell | null; tone: Tone }) {
+function shade(level: number, tone: Tone): string {
+  return level === 0 ? (LEVEL[0] as string) : cn(toneFillClass[tone], LEVEL[level]);
+}
+
+function moveBetweenDays(event: KeyboardEvent<HTMLDivElement>) {
+  const step = STEP[event.key];
+  const cells = [...event.currentTarget.children];
+  const from = cells.indexOf(event.target as Element);
+  const next = step === undefined || from < 0 ? undefined : cells[from + step];
+  if (!(next instanceof HTMLAnchorElement)) return;
+  event.preventDefault();
+  (event.target as HTMLElement).tabIndex = -1;
+  next.tabIndex = 0;
+  next.focus();
+}
+
+function Cell({ cell, tone, stop }: { cell: HeatmapCardCell | null; tone: Tone; stop: boolean }) {
   if (!cell) return <span aria-hidden className="h-3 w-3" />;
-  const fill = cell.level === 0 ? "bg-fp-bg-3" : toneFillClass[tone];
-  const style = cell.level === 0 ? undefined : { opacity: OPACITY[cell.level] };
-  const box = cn("block h-3 w-3 rounded-[2px]", fill);
+  const box = cn("block h-3 w-3 rounded-[2px]", shade(cell.level, tone));
   return cell.href ? (
     // biome-ignore lint/a11y/useAnchorContent: aria-label carries the accessible name; the box is a decorative fill.
     <a
@@ -45,11 +63,14 @@ function Cell({ cell, tone }: { cell: HeatmapCardCell | null; tone: Tone }) {
       title={cell.title}
       aria-label={cell.title}
       data-level={cell.level}
-      className={box}
-      style={style}
+      tabIndex={stop ? 0 : -1}
+      className={cn(
+        box,
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+      )}
     />
   ) : (
-    <span title={cell.title} data-level={cell.level} className={box} style={style} />
+    <span title={cell.title} data-level={cell.level} className={box} />
   );
 }
 
@@ -65,14 +86,19 @@ export function HeatmapCard({
   emptyState,
   caption,
 }: HeatmapCardProps) {
-  const linked = weeks.some((week) => week.some((cell) => cell?.href));
+  const stop = weeks
+    .flat()
+    .reverse()
+    .find((cell) => cell?.href)?.key;
   return (
     <Card className="h-full">
       <CardHeading label={label} caption={caption} />
       <CardContent className={cn("space-y-2", label || caption ? "pt-0" : "")}>
-        <p className="text-xs text-fp-text-3">{summary}</p>
+        <p className="text-xs text-fp-text-3" aria-hidden={emptyState ? undefined : true}>
+          {summary}
+        </p>
         {emptyState ? (
-          <p className="text-xs text-fp-text-3">{emptyState}</p>
+          <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           <div className="overflow-x-auto">
             <div className="inline-flex gap-1">
@@ -94,15 +120,21 @@ export function HeatmapCard({
                     </span>
                   ))}
                 </div>
-                {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: both "group" and "img" accept aria-label; Biome cannot resolve the ternary role. */}
+                {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole lint/a11y/noStaticElementInteractions: the role is "group" or "img", which Biome cannot resolve through the ternary. */}
                 <div
-                  role={linked ? "group" : "img"}
+                  role={stop ? "group" : "img"}
                   aria-label={summary}
                   className="grid grid-flow-col grid-rows-7 gap-0.5"
+                  onKeyDown={stop ? moveBetweenDays : undefined}
                 >
                   {weeks.flatMap((week, w) =>
                     week.map((cell, d) => (
-                      <Cell key={cell?.key ?? `empty-${w}-${d}`} cell={cell} tone={tone} />
+                      <Cell
+                        key={cell?.key ?? `empty-${w}-${d}`}
+                        cell={cell}
+                        tone={tone}
+                        stop={cell !== null && cell.key === stop}
+                      />
                     )),
                   )}
                 </div>
@@ -114,11 +146,7 @@ export function HeatmapCard({
                 <span
                   key={level}
                   aria-hidden
-                  className={cn(
-                    "h-2.5 w-2.5 rounded-[2px]",
-                    level === 0 ? "bg-fp-bg-3" : toneFillClass[tone],
-                  )}
-                  style={level === 0 ? undefined : { opacity: OPACITY[level] }}
+                  className={cn("h-2.5 w-2.5 rounded-[2px]", shade(level, tone))}
                 />
               ))}
               <span>{legend.more}</span>

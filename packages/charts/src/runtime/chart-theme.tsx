@@ -10,16 +10,24 @@ export function chartColor(i: number): string {
   return `hsl(var(--fp-chart-${(i % CHART_TOKENS) + 1}))`;
 }
 
-/** Same palette color at partial opacity — for area-chart fills. */
-export function chartColorAlpha(i: number, alpha: number): string {
-  return `hsl(var(--fp-chart-${(i % CHART_TOKENS) + 1}) / ${alpha})`;
+/** Each series' colour: its own from `colors`, else the data colour alone or the palette in order. */
+export function seriesPaint(
+  ys: readonly string[],
+  colors: Readonly<Record<string, string>> | undefined,
+): (i: number) => string {
+  return (i) => colors?.[ys[i] ?? ""] ?? (ys.length > 1 ? chartColor(i) : "hsl(var(--fp-data))");
 }
 
-/** Legend chrome for multi-series charts — matches axis text tone. */
+function legendLabel(value: unknown) {
+  return <span style={{ color: "hsl(var(--fp-text-2))" }}>{String(value)}</span>;
+}
+
+/** Legend for multi-series charts: a coloured swatch, the name in secondary text. */
 export const LEGEND_PROPS = {
-  wrapperStyle: { fontSize: 12, color: "hsl(var(--fp-text-3))" },
+  wrapperStyle: { fontSize: 12 },
   iconType: "circle",
   iconSize: 8,
+  formatter: legendLabel,
 } as const;
 
 /** Horizontal-only dashed hairline grid. */
@@ -34,7 +42,7 @@ export const AXIS_STYLE_PROPS = {
   axisLine: false,
   tickLine: false,
   stroke: "hsl(var(--fp-text-3))",
-  tick: { fill: "hsl(var(--fp-text-3))", fontSize: 11 },
+  tick: { fill: "hsl(var(--fp-text-3))", fontSize: 12 },
 } as const;
 
 /** Hover dot for line/area series — ringed with the surface color. */

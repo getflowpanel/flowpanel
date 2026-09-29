@@ -108,11 +108,11 @@ See [Auth with better-auth](/docs/guides/auth-with-better-auth) and
 | Property | Type | Notes |
 | --- | --- | --- |
 | `brand?` | `{ name?: string; logo?: string; href?: string }` | Product name, logo and home link shown in the shell header. |
-| `accent?` | `string` | Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. |
-| `accentDark?` | `string` | Dark-mode accent override, same format as `accent`. Custom accents tuned for light surfaces usually fail WCAG contrast on dark ones — pass a re-lightened triplet here to keep both schemes accessible. |
+| `accent?` | `string` | Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. Data fills take it too unless `cssVars` sets `--fp-data`. |
+| `accentDark?` | `string` | Dark-mode accent override, same format as `accent`. Custom accents tuned for light surfaces usually fail WCAG contrast on dark ones — pass a re-lightened triplet here to keep both schemes accessible. Dark data fills take it too unless `cssVarsDark` sets `--fp-data`. |
 | `mode?` | `"light" \| "dark" \| "auto"` | Initial color scheme. `"auto"` follows the operating system. |
-| `cssVars?` | `Record<string, string>` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
-| `cssVarsDark?` | `Record<string, string>` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
+| `cssVars?` | `ThemeTokens` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
+| `cssVarsDark?` | `ThemeTokens` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
 | `components?` | `Partial<FlowpanelComponentSlots>` | Replace built-in components. See the theme-slots guide. |
 | `user?` | `(s: Session \| null) => \| { name?: string; email?: string; avatar?: string; items?: Array<{ label: string; href?: string; variant?: "default" \| "destructive" }>; signOut?: string; } \| undefined` | What the account menu shows for the current session. Return `undefined` to render no menu at all — the usual choice when there is no session. |
 
@@ -360,7 +360,7 @@ arbitrary content or server errors.
 | `searchPlaceholder?` | `string` | Resource search input placeholder. Use `{label}` for the resource's label. |
 | `actions?` | `{ edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; }` | Generic action buttons. |
 | `form?` | `{ /** Edit page heading. Use `{label}` for the resource's singular label. */ editTitle?: string; /** Create page heading. Use `{label}` for the resource's singular label. */ createTitle?: string; /** The empty choice in a select control. */ selectPlaceholder?: string; /** A reference search with nothing to offer. */ noOptions?: string; /** A reference search still in flight. */ searching?: string; /** A reference search that failed. */ loadFailed?: string; /** An empty value the write needs. Use `{label}` for the field's label. */ required?: string; /** A value that is not a number. Use `{label}`. */ invalidNumber?: string; /** A value that is neither true nor false. Use `{label}`. */ invalidBoolean?: string; /** A value that is not a date. Use `{label}`. */ invalidDate?: string; }` | Generated create and edit form chrome. |
-| `drawer?` | `{ close?: string; viewDetails?: string; }` | Drawer chrome. |
+| `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; }` | Drawer chrome. |
 | `detail?` | `{ /** A fields tab with nothing the reader is allowed to see. */ noFields?: string; /** A tab naming a resource that is not registered. Use `{resource}`. */ unknownResource?: string; /** A counted tab's label. Use `{label}` and `{count}`. */ tabCount?: string; }` | Full-page detail chrome. |
 | `related?` | `{ /** Link from a related tab to the target resource's own list. */ openList?: string; }` | Related detail-tab chrome. |
 | `notFound?` | `{ title?: string; description?: string; back?: string; }` | The admin's own not-found page, for a URL no resource or dashboard matches. |

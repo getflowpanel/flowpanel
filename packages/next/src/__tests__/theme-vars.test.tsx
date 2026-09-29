@@ -31,9 +31,11 @@ describe("ThemeVars", () => {
   });
 
   it("writes accent only to Flowpanel roots and portals", () => {
-    expect(styleText({ accent: "hsl(10 90% 50%)" })).toBe(
-      "[data-flowpanel-root],[data-flowpanel-portal]{--fp-accent:10 90% 50%}",
+    const css = styleText({ accent: "hsl(10 90% 50%)" });
+    expect(css).toMatch(
+      /^\[data-flowpanel-root\],\[data-flowpanel-portal\]\{--fp-accent:10 90% 50%;/,
     );
+    expect(css).not.toContain(":root");
   });
 
   it("accepts cssVars with or without the leading dashes", () => {
@@ -44,7 +46,7 @@ describe("ThemeVars", () => {
 
   it("writes accentDark only to namespaced dark roots and portals", () => {
     const css = styleText({ accent: "10 90% 50%", accentDark: "hsl(10 90% 68%)" });
-    expect(css).toContain("[data-flowpanel-root],[data-flowpanel-portal]{--fp-accent:10 90% 50%}");
+    expect(css).toContain("[data-flowpanel-root],[data-flowpanel-portal]{--fp-accent:10 90% 50%;");
     expect(css).toContain('html[data-flowpanel-theme="dark"] [data-flowpanel-root]');
     expect(css).toContain("--fp-accent:10 90% 68%");
     expect(css).not.toContain(":root");
@@ -62,5 +64,33 @@ describe("ThemeVars", () => {
     expect(styleText({ cssVars: { "--fp-radius": "1rem} body{display:none" } })).toBe(
       "[data-flowpanel-root],[data-flowpanel-portal]{--fp-radius:1rem bodydisplay:none}",
     );
+  });
+
+  it("paints data in the host accent when the host sets only an accent", () => {
+    const css = styleText({ accent: "142 70% 40%" }) ?? "";
+    expect(css).toContain(
+      "[data-flowpanel-root],[data-flowpanel-portal]{--fp-accent:142 70% 40%;--fp-data:var(--fp-accent)}",
+    );
+    expect(css).toMatch(/\[data-theme="dark"\]\{--fp-data:var\(--fp-chart-1\)\}$/);
+  });
+
+  it("paints dark data in the dark accent when the host sets one", () => {
+    const css = styleText({ accentDark: "142 60% 60%" }) ?? "";
+    expect(css).toContain("{--fp-accent:142 60% 60%;--fp-data:var(--fp-accent)}");
+    expect(css).not.toContain("[data-flowpanel-root],[data-flowpanel-portal]{");
+  });
+
+  it("keeps a data colour the host sets itself", () => {
+    const css =
+      styleText({
+        accent: "142 70% 40%",
+        accentDark: "142 60% 60%",
+        cssVars: { "--fp-data": "200 50% 40%" },
+        cssVarsDark: { "fp-data": "200 50% 60%" },
+      }) ?? "";
+    expect(css).not.toContain("var(--fp-accent)");
+    expect(css).not.toContain("var(--fp-chart-1)");
+    expect(css).toContain("--fp-data:200 50% 40%");
+    expect(css).toContain("--fp-data:200 50% 60%");
   });
 });

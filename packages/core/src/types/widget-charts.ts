@@ -1,4 +1,4 @@
-import type { EnumDef } from "../builders/enum-of";
+import type { KeyLabels } from "../internal/key-labels";
 import type { RealtimeOption } from "./realtime";
 import type { NumericFormat, RangeLimit, RowKey, Span } from "./widget";
 import type { CaptionOptions } from "./widget-caption";
@@ -16,8 +16,13 @@ export interface ChartOptionsBase<R = unknown> extends CaptionOptions {
    * key of the first row except `x`, in its order — the columns a `series({ by })` returns.
    */
   y?: RowKey<R> | RowKey<R>[];
-  /** Legend and tooltip name per series key: a map or an `enumOf()`. Default: the key. */
-  labels?: Readonly<Record<string, string>> | EnumDef;
+  /** Legend and tooltip name per series key: a map, an `enumOf()` or a function. Default: the key. */
+  labels?: KeyLabels;
+  /**
+   * A CSS colour per series key, e.g. `{ paid: "hsl(var(--fp-chart-1))" }`. Default: `--fp-data`
+   * for a single series, `--fp-chart-1…7` in `y` order for several.
+   */
+  colors?: Readonly<Record<string, string>>;
   /** Chart height in px.
    * @defaultValue 240
    */

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { EnumDef, EnumEntry } from "../builders/enum-of";
 import type { RealtimeOption } from "./realtime";
 import type { ResourceName } from "./registry";
@@ -56,12 +57,12 @@ export interface TimelineOptions extends CaptionOptions {
    */
   pageSize?: number;
   /**
-   * The URL namespace of the chips and the paging, `?<id>.kind=` and `?<id>.before=`.
-   * @defaultValue the detail tab's key, else "timeline"
+   * The URL namespace of the chips and the paging, `?<id>.kind=` and `?<id>.before=`; unique per page.
+   * @defaultValue the detail tab's key, else "timeline", "timeline-2", … in page order
    */
   id?: string;
-  /** Shown instead of the lines when nothing happened. */
-  emptyState?: string;
+  /** Shown instead of the lines when nothing happened. Text or any node. */
+  emptyState?: ReactNode;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */

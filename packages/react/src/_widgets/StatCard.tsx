@@ -38,7 +38,12 @@ export function StatCard({
   const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
   const content = (
     <CardContent className="space-y-1">
-      <div className="truncate text-sm font-medium text-fp-text-2">{label}</div>
+      <div
+        className={cn("text-sm font-medium text-fp-text-2", TWO_LINES)}
+        {...fullTextTitle(label)}
+      >
+        {label}
+      </div>
       <CaptionLine caption={caption} />
       <div
         className={cn(
@@ -74,7 +79,7 @@ export function StatCard({
       href={href}
       aria-label={label}
       className={cn(
-        "group block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+        "group block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
         plain ? "focus-visible:ring-inset" : "rounded-fp-lg transition-shadow hover:shadow-fp-sm",
       )}
     >

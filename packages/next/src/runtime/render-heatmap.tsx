@@ -1,20 +1,23 @@
 import {
-  dayKeyIn,
-  dayStartIn,
   formatLabel,
   type HeatmapSource,
   type HeatmapWidget,
-  heatmapGrid,
   type RequestContext,
   type ResolvedAdminConfig,
   resolveFormatting,
-  shiftDayKey,
   toDateValue,
   type WidgetContext,
-  weekStartOf,
 } from "@flowpanel/core";
+import {
+  dayKeyIn,
+  dayStartIn,
+  heatmapGrid,
+  shiftDayKey,
+  weekStartOf,
+} from "@flowpanel/core/internal";
 import { HeatmapCard, type HeatmapCardCell } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { filteredEmptyState } from "./filtered-empty";
 import { scopeToRecord } from "./record-scope";
 import { resolveLink } from "./resolve-link";
 import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
@@ -107,6 +110,7 @@ export async function renderHeatmap(
   ]);
   const weekStart = weekStartOf(locale);
   const grid = heatmapGrid(points, today, days, zone, weekStart);
+  const filtered = filteredEmptyState(ctx);
   const amount = (n: number) =>
     options.unit ? ctx.format.plural(n, options.unit) : ctx.format.number(n);
   const weeks = grid.weeks.map((week) =>
@@ -143,8 +147,8 @@ export async function renderHeatmap(
       weekdays={weekdayLabels(locale, weekStart)}
       {...(options.tone ? { tone: options.tone } : {})}
       legend={{ less: ctx.labels.heatmap.less, more: ctx.labels.heatmap.more }}
-      {...(grid.total === 0 && options.emptyState !== undefined
-        ? { emptyState: options.emptyState }
+      {...(grid.total === 0 && (filtered ?? options.emptyState) !== undefined
+        ? { emptyState: filtered ?? options.emptyState }
         : {})}
       {...(captionLine ? { caption: captionLine } : {})}
     />

@@ -19,9 +19,9 @@ describe("StatusDot", () => {
     }
   });
 
-  it("fills default with the accent, as a default bar does, and muted with grey", () => {
-    const accent = render(<StatusDot tone="default" />).container.querySelector("span");
-    expect(accent?.className).toContain("bg-fp-accent");
+  it("fills default with the data colour, as a default bar does, and muted with grey", () => {
+    const data = render(<StatusDot tone="default" />).container.querySelector("span");
+    expect(data?.className).toContain("bg-fp-data");
     cleanup();
     const grey = render(<StatusDot tone="muted" />).container.querySelector("span");
     expect(grey?.className).toContain("bg-fp-text-3");

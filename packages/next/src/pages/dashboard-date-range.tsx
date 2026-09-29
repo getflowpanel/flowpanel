@@ -3,6 +3,7 @@ import type { DateRangePreset } from "@flowpanel/core";
 import { DateRangePicker } from "@flowpanel/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
+import { dropTimelinePages } from "../runtime/timeline-pages";
 
 export interface DashboardDateRangeProps {
   /** The preset the page shows; absent when a custom `from`/`to` range won. */
@@ -34,6 +35,7 @@ export function DashboardDateRange({ preset, from, to, presets }: DashboardDateR
       {...(presets ? { presets } : {})}
       onChange={(next) => {
         const params = new URLSearchParams(searchParams?.toString() ?? "");
+        dropTimelinePages(params);
         params.delete("from");
         params.delete("to");
         if (next.preset) params.set("preset", next.preset);

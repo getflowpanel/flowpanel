@@ -88,6 +88,24 @@ describe("DataTable", () => {
     );
     expect(screen.getByText("1 333 записи")).toBeTruthy();
   });
+  it("formats the row count's number in the same locale that picks its noun", () => {
+    render(
+      <FormattingProvider value={resolveFormatting({ locale: "en-US" })}>
+        <LabelsProvider value={{ dateRange: { locale: "ru-RU" } }}>
+          <DataTable
+            columns={[{ field: "name", label: "Name" }]}
+            rows={rows}
+            total={1333}
+            page={1}
+            pageSize={10}
+            rowKey="id"
+            exportable
+          />
+        </LabelsProvider>
+      </FormattingProvider>,
+    );
+    expect(screen.getByText("1,333 results")).toBeTruthy();
+  });
   it("renders column headers and rows", () => {
     render(
       <DataTable
@@ -156,7 +174,8 @@ describe("DataTable", () => {
       />,
     );
     expect(screen.getByText("No users")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Export" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Density/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Export" })).toBeNull();
   });
 
   it("renders skeleton rows when loading", () => {

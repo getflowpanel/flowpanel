@@ -1,6 +1,6 @@
+import { toDateValue } from "../format-values";
 import { dayKeyIn, shiftDayKey, weekdayOf } from "./day-key";
-
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
+import { isCalendarDayString } from "./zone-time";
 
 /** The first day of a week in `locale`: 1 = Monday … 7 = Sunday; Monday when the runtime cannot tell. */
 export function weekStartOf(locale: string): number {
@@ -51,11 +51,9 @@ export function heatmapGrid(
   const first = shiftDayKey(today, -(days - 1));
   const totals = new Map<string, number>();
   for (const point of points) {
-    const day =
-      typeof point.at === "string" && DAY.test(point.at)
-        ? point.at
-        : dayKeyIn(new Date(point.at), timeZone);
-    if (day < first || day > today) continue;
+    const at = isCalendarDayString(point.at) ? null : toDateValue(point.at);
+    const day = at === null ? point.at : dayKeyIn(at, timeZone);
+    if (typeof day !== "string" || day < first || day > today) continue;
     const value = Number(point.value);
     totals.set(day, (totals.get(day) ?? 0) + (Number.isFinite(value) ? value : 0));
   }

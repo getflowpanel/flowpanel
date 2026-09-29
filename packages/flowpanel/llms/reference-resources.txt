@@ -61,7 +61,7 @@ export const ordersResource = resource(orders, {
 | `schema?` | `z.ZodTypeAny \| { create?: z.ZodTypeAny; update?: z.ZodTypeAny }` | Validation for writes. Overrides the schema inferred from the adapter. |
 | `writeTo?` | `unknown` | The table that create, update, delete and restore write to, when the resource reads a view. Its primary key must be a column of the view, and every field a form writes must be selected by the view too. Omitted on a view: the resource is read-only, and a declared create, update, delete or import is an error at `defineAdmin`. |
 | `create?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> }` | Create form. `disabled` removes the route, not just the button. |
-| `update?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; /** * Additional readable values available to edit-form hidden/readOnly * predicates. This never creates a control, default value, or write * permission. */ expose?: (keyof Row & string)[]; }` | Edit form. `disabled` removes the route, not just the button. |
+| `update?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; /** * Additional readable values available to edit-form hidden/readOnly * predicates. This never creates a control, default value, or write * permission. */ expose?: (keyof Row & string)[]; /** * How the record page's edit button reads: `"primary"` fills it with the accent. * @defaultValue "secondary" */ emphasis?: ActionEmphasis; }` | Edit form. `disabled` removes the route, not just the button. |
 | `delete?` | `{ disabled?: boolean; softDelete?: keyof Row & string; confirm?: string }` | Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. |
 | `actions?` | `RowAction<Row, any, any>[]` | Per-row actions, rendered inline or in the row's menu. |
 | `bulkActions?` | `BulkAction<Row, any, any>[]` | Actions applied to a selection of rows. |
@@ -74,7 +74,13 @@ export const ordersResource = resource(orders, {
 | `audit?` | `boolean` | Opt this resource out of the admin-wide audit sink. |
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
 | `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: Where<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
-| `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; }` | What the list shows when there are no rows at all. |
+| `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. * Default: `labels.widget.filtered`. */ filtered?: string; }` | What the list shows when there are no rows at all. |
+
+An empty list tells two cases apart. With nothing narrowing it, it shows `empty.title`,
+`description`, `icon` and `action`. When search or filters leave no rows it shows
+`empty.filtered` (default `labels.widget.filtered`) and a button that clears the search and
+the filters but keeps the sort. Export hides while there are no rows, and on a phone a page
+shows its first 10 rows as cards with the rest behind one "N more" button.
 
 #### Detail headings and editing
 
@@ -103,7 +109,8 @@ nullish `title` falls back to the resource's singular label and the readable row
 identifier. `detail.header` still works and still wins nothing: `title` takes
 precedence when both are declared, and `header` is deprecated for removal in 1.0.
 
-The generated edit action sits beside the heading; it is omitted when
+The generated edit action sits beside the heading as a secondary button;
+`update: { emphasis: "primary" }` fills it when editing is what the page is for. It is omitted when
 `update.disabled` is true or the resource's update access policy denies the
 request, including asynchronous policies. Set `labels.actions.edit` to translate
 its text. The edit route enforces its own authorization as well. At narrow widths
@@ -555,7 +562,9 @@ value — a join or a computed label — here and in the drawer. It runs on the 
 may be async, receives the projected row, and runs only when the reader may read
 the field `name`, which stays the field's access-control key. The renders of one
 tab run concurrently, so a render must not depend on a database handle that
-allows one query at a time. In the drawer the output becomes static HTML; see
+allows one query at a time. On the record page a render that throws costs only its own
+field: the server logs `[flowpanel] detail render failed for "<field>"` and the field shows
+its formatted value. In the drawer the output becomes static HTML; see
 [server-rendered cells](/docs/reference/drawer#server-rendered-cells) for what the
 reader sees when a render fails there:
 
@@ -614,7 +623,7 @@ candidate, since every row in the tab shares it. The tab's own row key is always
 kept, since the table needs it for row identity. A hidden column cannot be sorted
 from the URL either.
 
-An "Open list →" link appears only when it would tell the truth: every filter
+An "Open list" link appears only when it would tell the truth: every filter
 value has to be a scalar (`string`, `number`, `boolean` or `bigint`) and every
 filter field has to be one the target resource declares, since the list page
 accepts `?f_<field>=<value>` on no other terms. A tab filtered on a range, an `in`
@@ -622,7 +631,7 @@ set, or an undeclared field keeps its rows and drops the link. `sort` sets the t
 default order, falling back to the target's `defaultSort` and then to its primary
 key. Clicking a header re-sorts through the URL key `relatedSort.<key>`, written
 as `<field>.<asc|desc>` and accepted only for a visible column the target
-resource really has. Above the table, an "Open list →" link
+resource really has. Above the table, an "Open list" link
 (`labels.related.openList`) leads to the target's own list page with the
 relationship already applied as `?f_<field>=<value>`, so the full paginated list
 is one click away.
@@ -698,7 +707,7 @@ empty state.
 
 `render(row, ctx)` returns whatever you like. `row` is the projected row — the
 declared and `detail.expose` fields, nothing else — and `ctx` is a
-[`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `href`,
+[`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `link`,
 `labels` and the per-request `query` memo, the same pieces a widget query gets.
 
 `DetailTab`
@@ -737,7 +746,7 @@ What `DetailTab.render` receives as its second argument.
 | `labels` | `ResolvedLabels` | The admin's resolved chrome strings, so a widget never hard-codes English. |
 | `query` | `{ <T>(key: string, fn: () => Promise<T>): Promise<T>; <A extends unknown[], T>(fn: (...args: A) => Promise<T>, ...args: A): Promise<T>; <T>(fn: (ctx: WidgetContext<DB>) => Promise<T>): Promise<T>; }` | Memoises a query per request: a key and a thunk, or a function and its arguments. Arguments match by value for strings, numbers, booleans and dates, by identity otherwise. A function passed alone that declares a parameter is called with this context: `query(hourly)` runs `hourly(ctx)` once per context. |
 | `sql` | `<Row = Record<string, unknown>>( strings: TemplateStringsArray, ...values: unknown[] ) => Promise<Row[]>` | One read-only statement, as a tagged template. Every interpolated value is bound as a parameter, so `${input}` can never change the statement. `Date` binds as an ISO-8601 string and `bigint` as decimal text. Throws when the configured adapter implements no `sql` capability. Runs exactly the statement you write: no tenant scope, no access rule and no soft-delete filter are applied. Add those predicates yourself, or use `count` and resource reads, which do. |
-| `count` | `<N extends ResourceName>( resource: N, where?: Where<RowOf<N>>, options?: CountOptions<RowOf<N>>, ) => Promise<number>` | Rows of a registered resource matching `where`, under the same role, access and scope checks as its list; `range` bounds a timestamp field by `ctx.dateRange`. Memoised per request by resource, `where` and range; a resource the session may not read counts `0`, and so does an `undefined`, `null` or `""` value, with a development warning. A misspelt field throws, whatever its value. |
+| `count` | `<N extends ResourceName>( resource: N, where?: Where<RowOf<N>>, options?: CountOptions<RowOf<N>>, ) => Promise<number>` | How many rows of a registered resource match `where`, under the same role, access and scope checks as its list; `range` bounds a timestamp field by `ctx.dateRange`. Memoised per request by resource, `where` and range; a resource the session may not read counts `0`, and so does an `undefined`, `null` or `""` value, with a development warning. A misspelt field throws, whatever its value. |
 | `read` | `<N extends ResourceName>( resource: N, options?: ReadOptions<RowOf<N>>, ) => Promise<RowOf<N>[]>` | Rows of a registered resource under the same role, access, scope, field and soft-delete rules as its list. Memoised per request by resource and options; a resource the session may not read returns `[]`. A misspelt field, an `undefined`, `null` or `""` value, or an unknown resource throws instead of widening the read. Rows carry the list's declared columns, `expose` and `fields`; any other property is `undefined`, even though the row type lists it. |
 | `rowOf` | `<N extends ResourceName>(resource: N) => RowOf<N>` | The record this card shows, typed by its resource. Throws on a dashboard, which has no record, and on another resource's card; the message names both. |
 | `id?` | `string` | The viewed record's key as a string — `row[rowKey]`, `rowKey` defaulting to `"id"`. Absent on a dashboard, and when the key is not a string or a number. |

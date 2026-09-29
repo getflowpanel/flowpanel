@@ -1,4 +1,6 @@
-import type { ResourceConfig } from "../types/resource";
+import type { ResourceConfig } from "@flowpanel/core";
+import { quoted } from "./validate-shared";
+import { DATE_RANGE_PRESETS } from "./zone-time";
 
 type Needed = "multiselect" | "numeric-range" | "daterange";
 
@@ -13,7 +15,7 @@ function needs(value: unknown): Needed | null {
   return shaped.gte instanceof Date || shaped.lte instanceof Date ? "daterange" : "numeric-range";
 }
 
-const DATE_PRESETS = new Set(["today", "yesterday", "last7d", "last30d", "MTD", "QTD", "YTD"]);
+const DATE_PRESETS: ReadonlySet<string> = new Set(DATE_RANGE_PRESETS);
 
 function declaredFilter(
   resource: ResourceConfig,
@@ -61,7 +63,7 @@ export function filterShapeProblem(
     }
     const allowed = type === "select" ? optionValues(filter?.options) : null;
     if (allowed === null || allowed.includes(text)) return null;
-    return `its "select" filter on "${field}" offers ${allowed.map((o) => `"${o}"`).join(", ")}, so the list drops "${text}"`;
+    return `its "select" filter on "${field}" offers ${quoted(allowed)}, so the list drops "${text}"`;
   }
   if (type === needed) return null;
   const read = type ? `through a "${type}" filter` : "as plain text";

@@ -35,6 +35,9 @@ export type ActionResult<Data = never> =
 /** Button styling shared by every action kind. `"destructive"` marks a dangerous action. */
 export type ActionVariant = "default" | "destructive" | "success";
 
+/** How loud a button is: `"primary"` is the filled one a screen holds at most once. */
+export type ActionEmphasis = "primary" | "secondary";
+
 /** Confirmation prompt shown before an action runs. */
 export type ActionConfirm = string | { title: string; description?: string; confirmLabel?: string };
 
@@ -114,6 +117,12 @@ export interface DashboardAction<Input extends ActionInput = ActionInput, Output
   icon?: IconName;
   /** Button styling. */
   variant?: ActionVariant;
+  /**
+   * `"primary"` fills the button with the accent; keep one per dashboard, as more warn in
+   * development. A destructive secondary action reads in the error colour.
+   * @defaultValue "secondary"
+   */
+  emphasis?: ActionEmphasis;
   /** Ask for confirmation before running. */
   confirm?: ActionConfirm;
   /** Inputs collected before `run`, passed to it as `input`. */

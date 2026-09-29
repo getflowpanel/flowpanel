@@ -87,15 +87,16 @@ describe("related tabs at defineAdmin", () => {
 
   it("asks for by when no column references the record", () => {
     expect(() => admin([related("notes")])).toThrow(
-      'flowpanel: tab "notes" on "users" cannot tell which field of "notes" points at a "users": ' +
-        'none of its columns declares reference: { resource: "users" }. Pass by, or add the reference.',
+      'flowpanel: resource "users" tab "notes" reads "notes" on a "users" card, but none of its ' +
+        'columns declares reference: { resource: "users" }, so it would read every row. Pass by, ' +
+        "or add the reference.",
     );
   });
 
   it("asks for by when several columns reference the record", () => {
     expect(() => admin([related("responses")])).toThrow(
-      'flowpanel: tab "responses" on "users" cannot tell which field of "responses" points at a ' +
-        '"users" (userId, reviewerId); pass by.',
+      'flowpanel: resource "users" tab "responses" reads "responses" on a "users" card, and ' +
+        'several of its columns point at a "users" (userId, reviewerId); pass by.',
     );
   });
 

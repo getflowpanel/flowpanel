@@ -22,7 +22,9 @@ export const DEFAULT_LABELS: {
   related: Required<NonNullable<LabelsConfig["related"]>>;
   formError: string;
   confirm: Required<NonNullable<LabelsConfig["confirm"]>>;
-  widget: Required<NonNullable<LabelsConfig["widget"]>>;
+  widget: Required<Omit<NonNullable<LabelsConfig["widget"]>, "tones">> & {
+    tones: Required<NonNullable<NonNullable<LabelsConfig["widget"]>["tones"]>>;
+  };
   timeline: Required<NonNullable<LabelsConfig["timeline"]>>;
   heatmap: Required<NonNullable<LabelsConfig["heatmap"]>>;
   checklist: Required<NonNullable<LabelsConfig["checklist"]>>;
@@ -125,13 +127,20 @@ export const DEFAULT_LABELS: {
     export: "Export",
     import: "Import",
   },
-  drawer: { close: "Close", viewDetails: "Open full page →" },
+  drawer: {
+    close: "Close",
+    viewDetails: "Open full page",
+    loading: "Loading…",
+    noRows: "No {resource}.",
+    noWidgets: "No widgets configured.",
+    chartElsewhere: "Chart visualization lives on dashboards. Data points: {n}.",
+  },
   detail: {
     noFields: "No fields to show",
     unknownResource: "Unknown resource: {resource}",
     tabCount: "{label} · {count}",
   },
-  related: { openList: "Open list →" },
+  related: { openList: "Open list" },
   form: {
     editTitle: "Edit {label}",
     createTitle: "New {label}",
@@ -178,6 +187,7 @@ export const DEFAULT_LABELS: {
     allClear: "All clear",
     more: "{n} more",
     filtered: "Nothing matches the current filters.",
+    tones: { err: "Error", warn: "Warning", ok: "OK", info: "Info" },
   },
   timeline: {
     all: "All",
@@ -186,8 +196,8 @@ export const DEFAULT_LABELS: {
     event: "{n} event",
     events: "{n} events",
     folded: "×{n}",
-    older: "Older →",
-    newest: "← Newest",
+    older: "Older",
+    newest: "Newest",
   },
   heatmap: {
     summary: "{total} in the last {days} days",
@@ -206,8 +216,8 @@ export const DEFAULT_LABELS: {
     queryTitle: "{resource}: {operation} failed",
     queryHint: "Check the column list and the database schema. Details are in the server log.",
     requestId: "Request {id}",
-    widgetTitle: "Widget failed",
-    widgetHint: "Couldn't load this widget.",
+    widgetTitle: "Couldn't load this widget",
+    widgetHint: "Its query failed. Retry, or look in the server log.",
     retry: "Retry",
   },
   palette: {

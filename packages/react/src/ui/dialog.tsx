@@ -42,7 +42,7 @@ const DialogContent = /* @__PURE__ */ named(
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-fp-sm p-1 text-fp-text-3 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 disabled:pointer-events-none">
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-fp-sm p-1 text-fp-text-3 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 disabled:pointer-events-none">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

@@ -44,7 +44,7 @@ import {
   installMissing,
   missingDependencies,
 } from "./init-dependencies";
-import { findAppLayout } from "./init-layout";
+import { findAppLayout, patchLayoutWithSuppressHydration } from "./init-layout";
 
 interface InitOptions {
   yes?: boolean;
@@ -416,7 +416,8 @@ export function initCommand(cli: Command): void {
           ? path.relative(adminLayoutDir, cssRel).split(path.sep).join("/")
           : "@/styles/admin.css";
       // A project with route-group root layouts needs a root for this new
-      // segment too. In either case, never rewrite the host's root layout.
+      // segment too. In either case, never rewrite the host's root layout,
+      // except to add suppressHydrationWarning below (ThemeScript needs it).
       files[`${adminLayoutDir}/layout.tsx`] = await tpl(
         existingLayout ? "admin-layout.tsx.txt" : "app-layout.tsx.txt",
         {
@@ -425,9 +426,28 @@ export function initCommand(cli: Command): void {
         },
       );
 
+      const expectedContents: Record<string, string> = {};
+      let manualHydrationFix: string | null = null;
+      if (existingLayout) {
+        const existingLayoutSource = await fs.readFile(path.join(cwd, existingLayout), "utf8");
+        const patchedLayout = patchLayoutWithSuppressHydration(existingLayoutSource);
+        if (patchedLayout) {
+          files[existingLayout] = patchedLayout;
+          expectedContents[existingLayout] = existingLayoutSource;
+        } else if (!existingLayoutSource.includes("suppressHydrationWarning")) {
+          manualHydrationFix = existingLayout;
+          mountWarnings.push(
+            `Could not add suppressHydrationWarning to ${existingLayout}; add it to <html> by hand.`,
+          );
+        }
+      }
+
       const intents: FileIntent[] = Object.entries(files).map(([file, content]) => ({
         path: file,
         content,
+        ...(expectedContents[file] !== undefined
+          ? { expectedContent: expectedContents[file] }
+          : {}),
       }));
 
       const plan = await createFilesystemPlan(cwd, intents);
@@ -550,6 +570,13 @@ export function initCommand(cli: Command): void {
           `${pc.yellow("⚠")} ${pm} exited with an error while installing something else:`,
           dependencies.warning,
           "",
+        );
+      }
+      if (manualHydrationFix && depsOk) {
+        outroLines.unshift(
+          "",
+          `  ${pc.yellow("!")} Could not add suppressHydrationWarning to ${pc.cyan(manualHydrationFix)}`,
+          `    Add it to that file's <html> tag by hand — ThemeScript sets an attribute on it before hydration.`,
         );
       }
       if (authPlan && depsOk) {

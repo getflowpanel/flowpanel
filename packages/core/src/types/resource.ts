@@ -2,7 +2,7 @@
 // FilterDef / ResourceOptions) lives in one file so the pieces stay coherent.
 import type { ReactNode } from "react";
 import type { z } from "zod";
-import type { BulkAction, RowAction } from "./action";
+import type { ActionEmphasis, BulkAction, RowAction } from "./action";
 import type { QueryContext, RequestContext } from "./context";
 import type { NavGroupRef } from "./dashboard";
 import type { DetailOptions } from "./detail";
@@ -315,6 +315,11 @@ export interface ResourceOptions<Row> {
      * permission.
      */
     expose?: (keyof Row & string)[];
+    /**
+     * How the record page's edit button reads: `"primary"` fills it with the accent.
+     * @defaultValue "secondary"
+     */
+    emphasis?: ActionEmphasis;
   };
   /** Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. */
   delete?: { disabled?: boolean; softDelete?: keyof Row & string; confirm?: string };
@@ -360,6 +365,11 @@ export interface ResourceOptions<Row> {
     title?: string;
     description?: string;
     action?: { label: string; href: string };
+    /**
+     * Title when search or filters leave no rows; a button beside it clears them.
+     * Default: `labels.widget.filtered`.
+     */
+    filtered?: string;
   };
 }
 

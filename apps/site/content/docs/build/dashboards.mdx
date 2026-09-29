@@ -68,7 +68,7 @@ detail: {
 }
 ```
 
-The one difference is `ctx.row`: on a detail tab it is the projected record being viewed, so a widget query scopes itself to that row. Everything else is the widget context a dashboard hands out — `db`, `session`, `href`, `labels` and the per-request `query` memo, so two widgets in the tab asking the same question query once. A detail tab has no date picker, so `ctx.dateRange` spans the record's whole lifetime.
+The one difference is `ctx.row`: on a detail tab it is the projected record being viewed, so a widget query scopes itself to that row. Everything else is the widget context a dashboard hands out — `db`, `session`, `link`, `labels` and the per-request `query` memo, so two widgets in the tab asking the same question query once. A detail tab has no date picker, so `ctx.dateRange` spans the record's whole lifetime.
 
 ## Add a date range
 

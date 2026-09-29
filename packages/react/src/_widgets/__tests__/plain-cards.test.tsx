@@ -2,6 +2,8 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { ErrorCard } from "../../_feedback/ErrorCard";
+import { ExpiredCard } from "../ExpiredCard";
 import { DefaultMetricCard } from "../MetricCardDefault";
 import { StatCard } from "../StatCard";
 
@@ -29,5 +31,25 @@ describe("plain cards", () => {
     expect(container.querySelector("[data-plain]")).toBeTruthy();
     expect(container.querySelector(".rounded-fp-lg.border")).toBeNull();
     expect(screen.getByRole("link", { name: "Failures" }).getAttribute("href")).toBe("/admin/runs");
+  });
+
+  it("drops an expired card's frame inside a strip", () => {
+    const { container } = render(
+      <ExpiredCard plain label="Revenue" caption={{ text: "No data: kept for 30 days" }} />,
+    );
+    const cell = container.querySelector("[data-fp-expired]") as HTMLElement;
+    expect(cell.hasAttribute("data-plain")).toBe(true);
+    expect(cell.className).not.toContain("border");
+    expect(cell.className).not.toContain("shadow");
+  });
+
+  it("drops an error card's frame inside a strip and keeps it elsewhere", () => {
+    const { container, rerender } = render(<ErrorCard plain error={new Error("boom")} />);
+    const cell = () => container.querySelector("[data-fp-error]") as HTMLElement;
+    expect(cell().hasAttribute("data-plain")).toBe(true);
+    expect(cell().className).not.toContain("border");
+    rerender(<ErrorCard error={new Error("boom")} />);
+    expect(cell().className).toContain("border-fp-border-1");
+    expect(cell().className).toContain("h-full");
   });
 });

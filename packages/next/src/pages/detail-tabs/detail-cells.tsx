@@ -55,7 +55,10 @@ export interface DetailField {
   render?: (row: never, ctx: RequestContext) => React.ReactNode | Promise<React.ReactNode>;
 }
 
-/** Each field's own `render`, run concurrently and only for a field the projected row carries. */
+/**
+ * Each field's own `render`, run concurrently for a field the projected row carries; one that
+ * throws is logged and left out, so the field shows its formatted value.
+ */
 export async function renderDetailFields(
   row: Record<string, unknown>,
   fields: DetailField[],
@@ -64,9 +67,16 @@ export async function renderDetailFields(
   const rendered = await Promise.all(
     fields
       .filter((field) => field.render && Object.hasOwn(row, field.name))
-      .map(async (field) => [field.name, await field.render?.(row as never, reqCtx)] as const),
+      .map(async (field): Promise<readonly [string, React.ReactNode] | null> => {
+        try {
+          return [field.name, await field.render?.(row as never, reqCtx)];
+        } catch (error) {
+          console.error(`[flowpanel] detail render failed for "${field.name}"`, error);
+          return null;
+        }
+      }),
   );
-  return new Map(rendered);
+  return new Map(rendered.filter((entry) => entry !== null));
 }
 
 /** Flatten a declared field list to the fields the row carries; `"*"` or none means all of them. */

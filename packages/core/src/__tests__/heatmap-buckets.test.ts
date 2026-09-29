@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { dayStartIn, heatLevels, heatmapGrid, weekdayOf, weekStartOf } from "../index";
+import { dayKeyIn, dayStartIn, heatLevels, heatmapGrid, weekdayOf, weekStartOf } from "../internal";
 
 describe("heatmap buckets", () => {
   it("starts the week on the locale's first day", () => {
     expect(weekStartOf("ru-RU")).toBe(1);
     expect(weekStartOf("en-US")).toBe(7);
     expect(weekStartOf("not a locale")).toBe(1);
+  });
+
+  it("reads a zoneless timestamp string as UTC, as a date cell does", () => {
+    const { weeks } = heatmapGrid(
+      [{ at: "2026-09-24 22:30:00", value: 1 }],
+      "2026-09-25",
+      2,
+      "Europe/Moscow",
+      1,
+    );
+    const cells = weeks.flat().filter((cell) => cell !== null);
+    expect(cells.map((cell) => [cell.day, cell.value])).toEqual([
+      ["2026-09-24", 0],
+      ["2026-09-25", 1],
+    ]);
   });
 
   it("buckets instants by the zone's day across the end of DST", () => {
@@ -76,5 +91,14 @@ describe("heatmap buckets", () => {
       "2026-10-25T23:00:00.000Z",
     );
     expect(dayStartIn("2026-09-25", "UTC").toISOString()).toBe("2026-09-25T00:00:00.000Z");
+  });
+
+  it("starts a day at the first instant it has where DST skips midnight", () => {
+    const santiago = dayStartIn("2026-09-06", "America/Santiago");
+    expect(santiago.toISOString()).toBe("2026-09-06T04:00:00.000Z");
+    expect(dayKeyIn(santiago, "America/Santiago")).toBe("2026-09-06");
+    expect(dayStartIn("2026-03-08", "America/Havana").toISOString()).toBe(
+      "2026-03-08T05:00:00.000Z",
+    );
   });
 });

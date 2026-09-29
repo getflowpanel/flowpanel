@@ -13,22 +13,17 @@ export interface StatusBadgeProps {
 }
 
 const TONE_MAP: Record<string, BadgeTone> = {
-  active: "ok",
-  enabled: "ok",
-  success: "ok",
-  succeeded: "ok",
-  completed: "ok",
-  healthy: "ok",
-  pending: "warn",
-  waiting: "warn",
+  pending: "info",
+  waiting: "info",
+  processing: "info",
+  running: "info",
   warn: "warn",
   degraded: "warn",
-  processing: "warn",
   failed: "err",
   error: "err",
   rejected: "err",
-  disabled: "err",
-  canceled: "err",
+  disabled: "muted",
+  canceled: "muted",
   inactive: "muted",
   draft: "muted",
   archived: "muted",
@@ -36,8 +31,8 @@ const TONE_MAP: Record<string, BadgeTone> = {
 
 /** Pure renderer — no context dependency. Used as the registry default. */
 export function DefaultStatusBadge({ status, label, tone, className }: StatusBadgeProps) {
-  const resolved = tone ?? TONE_MAP[status.toLowerCase()] ?? "muted";
-  const compactClassName = cn("px-1.5 py-px text-[11px] leading-4", className);
+  const resolved = tone ?? TONE_MAP[status.toLowerCase()] ?? "default";
+  const compactClassName = cn("px-1.5 py-px text-xs leading-4", className);
   return (
     <DefaultBadge tone={resolved} className={compactClassName}>
       {label ?? status}

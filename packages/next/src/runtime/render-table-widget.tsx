@@ -152,7 +152,7 @@ export async function renderTableWidget(
   }
   columns = applySpecs(columns, specs);
 
-  const filter = options.filter;
+  const filter = options.filterOnClick;
   const rowHref = options.rowHref;
   const hrefs = filter
     ? rows.map((row) => {
@@ -181,6 +181,7 @@ export async function renderTableWidget(
       {...(hrefs ? { hrefs } : {})}
       {...(seeAll ? { seeAllHref: seeAll, seeAllLabel: ctx.labels.widget.seeAll } : {})}
       {...(captionLine ? { caption: captionLine } : {})}
+      {...(options.density ? { density: options.density } : {})}
     />
   );
 }

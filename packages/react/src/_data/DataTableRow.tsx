@@ -48,7 +48,6 @@ export interface DataTableRowProps<Row extends Record<string, unknown>> {
   colIndexByField: Map<string, number>;
   prerenderedCells?: (React.ReactNode | undefined)[][];
   rowPadding: string;
-  cellText: string;
   selectionEnabled: boolean;
   selectionSet: Set<string>;
   inlineEditResource?: string;
@@ -68,7 +67,6 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   colIndexByField,
   prerenderedCells,
   rowPadding,
-  cellText,
   selectionEnabled,
   selectionSet,
   inlineEditResource,
@@ -132,7 +130,6 @@ export function DataTableRow<Row extends Record<string, unknown>>({
             className={cn(
               "px-4",
               rowPadding,
-              cellText,
               ALIGN_CLASS[c.align ?? "left"],
               c.align === "right" && "tabular-nums",
               meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-1 z-[1]",

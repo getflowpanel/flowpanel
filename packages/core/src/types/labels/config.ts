@@ -166,6 +166,14 @@ export interface LabelsConfig {
   drawer?: {
     close?: string;
     viewDetails?: string;
+    /** While the record loads. */
+    loading?: string;
+    /** A resource tab with no rows. Use `{resource}`. */
+    noRows?: string;
+    /** A widgets tab that declares none. */
+    noWidgets?: string;
+    /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */
+    chartElsewhere?: string;
   };
   /** Full-page detail chrome. */
   detail?: {

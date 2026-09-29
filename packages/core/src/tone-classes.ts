@@ -11,9 +11,9 @@ export const toneTextClass: Record<Tone, string> = {
   muted: "text-fp-text-3",
 };
 
-/** Fill class per tone, for a dot, a bar or a cell. `default` is the accent fill. Server-safe. */
+/** Fill class per tone, for a dot, a bar or a cell. `default` is the data fill. Server-safe. */
 export const toneFillClass: Record<Tone, string> = {
-  default: "bg-fp-accent",
+  default: "bg-fp-data",
   accent: "bg-fp-accent",
   ok: "bg-fp-ok",
   warn: "bg-fp-warn",

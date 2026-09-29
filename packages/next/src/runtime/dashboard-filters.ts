@@ -1,5 +1,6 @@
 import type { DashboardConfig, DashboardFilter, WidgetContext } from "@flowpanel/core";
-import { isEnumDef } from "@flowpanel/core";
+import { isEnumDef } from "@flowpanel/core/internal";
+import { dropTimelinePages } from "./timeline-pages";
 
 /** A dashboard filter as its select shows it: plain choices and the value in the URL. */
 export interface DashboardFilterView {
@@ -59,6 +60,7 @@ export function filterChoices(
 
 function withParams(ctx: WidgetContext, edit: (params: URLSearchParams) => void): string {
   const url = new URL(ctx.req.url);
+  dropTimelinePages(url.searchParams);
   edit(url.searchParams);
   const path = url.pathname.replace(/\/+$/, "") || "/";
   const query = url.searchParams.toString();

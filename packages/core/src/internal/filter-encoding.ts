@@ -1,12 +1,6 @@
-type Bounds = { gte?: unknown; lte?: unknown };
+import { dayKeyIn } from "./day-key";
 
-const zoneDay = (date: Date, timeZone: string): string =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+type Bounds = { gte?: unknown; lte?: unknown };
 
 function encodeBounds({ gte, lte }: Bounds): string | null {
   if (gte === undefined && lte === undefined) return null;
@@ -24,7 +18,7 @@ function encodeBounds({ gte, lte }: Bounds): string | null {
  */
 export function encodeFilterValue(value: unknown, timeZone: string): string | null {
   if (value === undefined || value === null) return null;
-  if (value instanceof Date) return zoneDay(value, timeZone);
+  if (value instanceof Date) return dayKeyIn(value, timeZone);
   if (Array.isArray(value)) return value.length === 0 ? null : value.map(String).join(",");
   if (typeof value !== "object") return String(value);
   const shaped = value as Bounds & { op?: unknown; values?: unknown };

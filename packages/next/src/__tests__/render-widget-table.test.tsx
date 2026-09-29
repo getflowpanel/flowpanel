@@ -111,6 +111,16 @@ describe("table widget columns", () => {
   });
 });
 
+describe("table widget density", () => {
+  it("hands a compact density to the table, and none by default", async () => {
+    const query = async () => [{ id: "1" }];
+    const compact = await props({ kind: "table", options: { query, density: "compact" } } as never);
+    expect((compact as TableProps & { density?: string }).density).toBe("compact");
+    const plain = await props({ kind: "table", options: { query } } as never);
+    expect((plain as TableProps & { density?: string }).density).toBeUndefined();
+  });
+});
+
 describe("table widget row identity", () => {
   it("takes the row key from the resource", async () => {
     const rendered = await props({ kind: "table", options: { resource: "runs" } } as never);

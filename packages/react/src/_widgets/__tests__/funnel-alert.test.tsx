@@ -17,14 +17,23 @@ function stepOf(label: string): HTMLElement {
 }
 
 describe("the worst funnel drop", () => {
-  it("marks only the step with the largest drop past the default threshold", () => {
-    render(<FunnelCard steps={steps} />);
+  it("marks only the step with the largest drop past alertDrop", () => {
+    render(<FunnelCard steps={steps} alertDrop={0.5} />);
     const paid = stepOf("Paid");
     expect(paid.getAttribute("data-tone")).toBe("warn");
     expect(screen.getByText("Paid").className).toContain("text-fp-warn-text");
     expect(paid.querySelector(".bg-fp-warn")).toBeTruthy();
+    expect(screen.getByText("−90%").className).toContain("text-fp-warn-text");
     expect(stepOf("Signed up").getAttribute("data-tone")).toBeNull();
-    expect(stepOf("Signed up").querySelector(".bg-fp-accent")).toBeTruthy();
+    expect(stepOf("Signed up").querySelector(".bg-fp-data")).toBeTruthy();
+  });
+
+  it("tones nothing without an alertDrop, and prints drops in muted text", () => {
+    render(<FunnelCard steps={steps} />);
+    expect(document.querySelector("[data-tone='warn']")).toBeNull();
+    expect(document.querySelector(".bg-fp-warn")).toBeNull();
+    expect(screen.getByText("−90%").className).toContain("text-fp-text-3");
+    expect(screen.getByText("−60%").className).toContain("text-fp-text-3");
   });
 
   it("marks nothing when no drop exceeds alertDrop", () => {
@@ -32,9 +41,10 @@ describe("the worst funnel drop", () => {
     expect(document.querySelector("[data-tone='warn']")).toBeNull();
   });
 
-  it("marks nothing when every drop stays under the default", () => {
+  it("marks nothing when every drop stays under alertDrop", () => {
     render(
       <FunnelCard
+        alertDrop={0.5}
         steps={[
           { label: "Visited", value: 100 },
           { label: "Signed up", value: 60 },
@@ -52,6 +62,7 @@ describe("the worst funnel drop", () => {
   it("marks only the first of two equal worst drops", () => {
     render(
       <FunnelCard
+        alertDrop={0.5}
         steps={[
           { label: "A", value: 100 },
           { label: "B", value: 20 },
@@ -101,6 +112,6 @@ describe("the worst funnel drop", () => {
     );
     expect(container.textContent).toContain("+50%");
     expect(container.textContent).not.toContain("−-");
-    expect(screen.getByText("+50%").className).toContain("text-fp-ok-text");
+    expect(screen.getByText("+50%").className).toContain("text-fp-text-3");
   });
 });

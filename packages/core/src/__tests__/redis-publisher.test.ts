@@ -61,8 +61,9 @@ vi.mock("ioredis", () => ({
   }),
 }));
 
+import { createPublisher as rootAlias } from "../index";
 import { decodeEnvelope, decodePayload, encodeEnvelope, encodePayload } from "../runtime/envelope";
-import { createPublisher } from "../runtime/publish";
+import { createRealtimeTransport } from "../runtime/publish";
 import { createPublisher as createPublisherClient } from "../runtime/worker-publisher";
 
 /** The body @flowpanel/core 0.2 published, byte for byte (ad6afa7 runtime/publish.ts). */
@@ -175,10 +176,10 @@ describe("createPublisher — publish-only client", () => {
   });
 });
 
-describe("createPublisher — redis driver connections", () => {
+describe("createRealtimeTransport — redis driver connections", () => {
   it("attaches an error handler to every connection and swallows what it receives", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const publisher = createPublisher({ driver: "redis", url: "redis://localhost:6379" });
+    const publisher = createRealtimeTransport({ driver: "redis", url: "redis://localhost:6379" });
     await publisher.publish("orders", { id: 1 });
     publisher.subscribe("orders", () => {});
     await vi.waitFor(() => {
@@ -197,7 +198,7 @@ describe("createPublisher — redis driver connections", () => {
 
   it("logs one line per error kind rather than one per error", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const publisher = createPublisher({ driver: "redis", url: "redis://localhost:6379" });
+    const publisher = createRealtimeTransport({ driver: "redis", url: "redis://localhost:6379" });
     await publisher.publish("orders", { id: 1 });
     const connection = constructed[0] as FakeConnection;
 
@@ -211,7 +212,7 @@ describe("createPublisher — redis driver connections", () => {
   });
 
   it("creates the subscriber connection lazily, only on the first subscribe", async () => {
-    const publisher = createPublisher({ driver: "redis", url: "redis://localhost:6379" });
+    const publisher = createRealtimeTransport({ driver: "redis", url: "redis://localhost:6379" });
     await publisher.publish("orders", { id: 1 });
     expect(constructed).toHaveLength(1);
 
@@ -224,7 +225,7 @@ describe("createPublisher — redis driver connections", () => {
 
   it("duplicates the host's client for the subscriber connection", async () => {
     const host = fakeConnection(true);
-    const publisher = createPublisher({ driver: "redis", client: host });
+    const publisher = createRealtimeTransport({ driver: "redis", client: host });
     publisher.subscribe("orders", () => {});
     await vi.waitFor(() => {
       expect(duplicates).toHaveLength(1);
@@ -235,7 +236,7 @@ describe("createPublisher — redis driver connections", () => {
   });
 
   it("delivers a 0.2 body on the logical channel and unsubscribes with the last handler", async () => {
-    const publisher = createPublisher({ driver: "redis", url: "redis://localhost:6379" });
+    const publisher = createRealtimeTransport({ driver: "redis", url: "redis://localhost:6379" });
     const received: unknown[] = [];
     const off = publisher.subscribe("resource.orders", (payload) => received.push(payload));
     await vi.waitFor(() => {
@@ -255,7 +256,7 @@ describe("createPublisher — redis driver connections", () => {
   it("stays inert after close(): subscribe opens nothing and hands back a no-op disposer", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const host = fakeConnection(true);
-    const publisher = createPublisher({ driver: "redis", client: host });
+    const publisher = createRealtimeTransport({ driver: "redis", client: host });
     await publisher.close?.();
 
     const off = publisher.subscribe("orders", () => {});
@@ -269,7 +270,7 @@ describe("createPublisher — redis driver connections", () => {
 
   it("removes the error listeners it put on a host client", async () => {
     const host = fakeConnection(true);
-    const publisher = createPublisher({ driver: "redis", client: host });
+    const publisher = createRealtimeTransport({ driver: "redis", client: host });
     publisher.subscribe("orders", () => {});
     await vi.waitFor(() => {
       expect(duplicates).toHaveLength(1);
@@ -284,7 +285,7 @@ describe("createPublisher — redis driver connections", () => {
 
   it("redacts a connection string out of a logged error", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const publisher = createPublisher({ driver: "redis", url: "redis://localhost:6379" });
+    const publisher = createRealtimeTransport({ driver: "redis", url: "redis://localhost:6379" });
     await publisher.publish("orders", { id: 1 });
 
     const connection = constructed[0] as FakeConnection;
@@ -303,13 +304,13 @@ describe("createPublisher — redis driver connections", () => {
   });
 
   it("explains itself when neither url nor client is configured", () => {
-    expect(() => createPublisher({ driver: "redis" })).toThrow(/url/);
+    expect(() => createRealtimeTransport({ driver: "redis" })).toThrow(/url/);
   });
 
   it("explains itself when a client without duplicate() has to subscribe", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const host = fakeConnection();
-    const publisher = createPublisher({ driver: "redis", client: host });
+    const publisher = createRealtimeTransport({ driver: "redis", client: host });
     publisher.subscribe("orders", () => {});
 
     await vi.waitFor(() => {
@@ -320,9 +321,15 @@ describe("createPublisher — redis driver connections", () => {
   });
 });
 
-describe("createPublisher — memory driver", () => {
+describe("createPublisher from the root", () => {
+  it("is the deprecated alias of createRealtimeTransport", () => {
+    expect(rootAlias).toBe(createRealtimeTransport);
+  });
+});
+
+describe("createRealtimeTransport — memory driver", () => {
   it("delivers through the same body Redis would carry", async () => {
-    const publisher = createPublisher({ driver: "memory" });
+    const publisher = createRealtimeTransport({ driver: "memory" });
     const received: unknown[] = [];
     const off = publisher.subscribe("x", (payload) => received.push(payload));
 
@@ -335,7 +342,7 @@ describe("createPublisher — memory driver", () => {
   });
 
   it("rejects an unserializable payload whether or not anything is subscribed", async () => {
-    const publisher = createPublisher({ driver: "memory" });
+    const publisher = createRealtimeTransport({ driver: "memory" });
 
     await expect(publisher.publish("orders", { n: 1n })).rejects.toThrow(
       /realtime payload for channel "orders" is not JSON-serializable: .*BigInt/,
@@ -346,7 +353,7 @@ describe("createPublisher — memory driver", () => {
   });
 
   it("closes, and says so instead of accepting a publish that reaches nobody", async () => {
-    const publisher = createPublisher({ driver: "memory" });
+    const publisher = createRealtimeTransport({ driver: "memory" });
     const received: unknown[] = [];
     publisher.subscribe("x", (payload) => received.push(payload));
 

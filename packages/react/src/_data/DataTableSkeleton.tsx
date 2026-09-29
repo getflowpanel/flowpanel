@@ -2,6 +2,7 @@
 import type * as React from "react";
 import { cn } from "../lib/cn";
 import { resolveFieldLabel } from "../lib/humanize";
+import { LABEL_TEXT } from "../lib/label-text";
 import { Skeleton } from "../ui/skeleton";
 import type { DataTableColumn } from "./data-table-types";
 import { ALIGN_CLASS, widthToCss } from "./format-cell";
@@ -26,7 +27,7 @@ export function DataTableSkeleton<Row>({
   const skeletonRows = Array.from({ length: Math.min(pageSize, 5) });
   return (
     <table className="w-full text-sm">
-      <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
+      <thead className={LABEL_TEXT}>
         <tr>
           {selectionEnabled ? <th scope="col" className="w-10 px-4 py-2" /> : null}
           {orderedVisible.map((c) => {
@@ -39,7 +40,7 @@ export function DataTableSkeleton<Row>({
                   ? { style: { "--fp-col-w": wCss } as React.CSSProperties }
                   : {})}
                 className={cn(
-                  "px-4 py-2 font-medium",
+                  "px-4 py-2.5 font-normal",
                   ALIGN_CLASS[c.align ?? "left"],
                   wCss !== undefined && "w-[var(--fp-col-w)]",
                 )}

@@ -31,7 +31,7 @@ const TabsTrigger = /* @__PURE__ */ named(
     <TabsPrimitive.Trigger
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-fp px-3 py-1 text-sm font-medium transition-all hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-fp-bg-1 data-[state=active]:text-fp-text-1 data-[state=active]:shadow-fp-sm",
+        "inline-flex items-center justify-center whitespace-nowrap rounded-fp px-3 py-1 text-sm font-medium transition-all hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-fp-bg-1 data-[state=active]:text-fp-text-1 data-[state=active]:shadow-fp-sm",
         className,
       )}
       {...props}
@@ -48,7 +48,7 @@ const TabsContent = /* @__PURE__ */ named(
     <TabsPrimitive.Content
       ref={ref}
       className={cn(
-        "mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
+        "mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
         className,
       )}
       {...props}

@@ -2,7 +2,9 @@
 // LOC-OK: drawer shell — fields / resource / widgets / statgroup tab views plus the
 // action bar and lazy tab loading in one client component.
 import type { ColumnFormat } from "@flowpanel/core";
+import { formatLabel } from "@flowpanel/core/labels";
 import {
+  Button,
   ConfirmDialog,
   Drawer,
   DrawerContent,
@@ -15,6 +17,7 @@ import {
   type NumericFormat,
   RealtimeRefresh,
   renderFormatCell,
+  Skeleton,
   StatGroupCard,
   Tabs,
   TabsContent,
@@ -26,7 +29,7 @@ import {
   useFormatting,
   useLabels,
 } from "@flowpanel/react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { ActionFormDialog } from "../actions/ActionFormDialog";
 import type { ActionFormField, ActionFormFieldErrors } from "../actions/action-form-field";
 import { useActionRunner } from "../actions/use-action-runner";
@@ -35,6 +38,7 @@ import { toWireOptions } from "../runtime/select-options";
 import { DrawerCard, isCardWidget } from "./DrawerCard";
 import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route";
 import type { SerializedField, SerializedFieldList } from "./serialize-fields";
+import { rememberedCell } from "./table-cells";
 
 function toActionFormFields(form: SerializedDrawerAction["form"]): ActionFormField[] {
   if (!form) return [];
@@ -59,12 +63,14 @@ function FieldsView({
   prerendered,
   labels,
   formats,
+  listCell,
 }: {
   row: Record<string, unknown>;
   fields: SerializedFieldList;
   prerendered: Record<string, string>;
   labels: Record<string, string>;
   formats: Record<string, ColumnFormat>;
+  listCell: (field: string) => ReactNode | undefined;
 }) {
   const formatting = useFormatting();
   const entries = resolveFieldEntries(row, fields);
@@ -78,6 +84,8 @@ function FieldsView({
             prerendered[k] !== undefined ? (
               // biome-ignore lint/security/noDangerouslySetInnerHtml: server-prerendered from the resource's own column render
               <span dangerouslySetInnerHTML={{ __html: prerendered[k] }} />
+            ) : listCell(k) !== undefined ? (
+              listCell(k)
             ) : formats[k] !== undefined ? (
               renderFormatCell(formats[k], row[k], formatting)
             ) : (
@@ -91,17 +99,22 @@ function FieldsView({
 }
 
 function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "resource" }> }) {
+  const words = useLabels().drawer;
   if (tab.rows.length === 0) {
-    return <div className="py-6 text-sm text-fp-text-3">No {tab.resource}.</div>;
+    return (
+      <div className="py-6 text-sm text-fp-text-3">
+        {formatLabel(words.noRows, { resource: tab.resource })}
+      </div>
+    );
   }
   const cols = tab.columns.length > 0 ? tab.columns : Object.keys(tab.rows[0] ?? {});
   return (
     <div className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1">
       <table className="w-full text-sm">
-        <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
+        <thead className="bg-fp-bg-2 text-xs text-fp-text-3">
           <tr>
             {cols.map((c) => (
-              <th key={c} scope="col" className="px-4 py-2 text-left font-medium">
+              <th key={c} scope="col" className="px-4 py-2 text-left font-normal">
                 {humanize(c)}
               </th>
             ))}
@@ -129,8 +142,9 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
 
 function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "widgets" }> }) {
   const formatting = useFormatting();
+  const labels = useLabels();
   if (tab.widgets.length === 0) {
-    return <div className="py-6 text-sm text-fp-text-3">No widgets configured.</div>;
+    return <div className="py-6 text-sm text-fp-text-3">{labels.drawer.noWidgets}</div>;
   }
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -154,7 +168,9 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
           if (w.rows.length === 0) {
             return (
               <Fragment key={key}>
-                <div className="py-6 text-sm text-fp-text-3 md:col-span-2">No data.</div>
+                <div className="py-6 text-sm text-fp-text-3 md:col-span-2">
+                  {labels.widget.empty}
+                </div>
                 {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
               </Fragment>
             );
@@ -167,15 +183,15 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
             <Fragment key={key}>
               <div className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1 md:col-span-2">
                 {w.label ? (
-                  <div className="border-b border-fp-border-1 bg-fp-bg-2 px-4 py-2 text-xs font-medium uppercase tracking-wide text-fp-text-2">
+                  <div className="border-b border-fp-border-1 bg-fp-bg-2 px-4 py-2 text-xs font-medium text-fp-text-2">
                     {w.label}
                   </div>
                 ) : null}
                 <table className="w-full text-sm">
-                  <thead className="bg-fp-bg-2 text-fp-text-2 text-xs uppercase tracking-wide">
+                  <thead className="bg-fp-bg-2 text-xs text-fp-text-3">
                     <tr>
                       {cols.map((c) => (
-                        <th key={c.field} scope="col" className="px-4 py-2 text-left font-medium">
+                        <th key={c.field} scope="col" className="px-4 py-2 text-left font-normal">
                           {c.label ?? humanize(c.field)}
                         </th>
                       ))}
@@ -235,7 +251,7 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
               <div className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2">
                 <div className="font-medium text-fp-text-2">{w.label}</div>
                 <div className="mt-1 text-xs">
-                  Chart visualization lives on dashboards. Data points: {w.dataPoints}.
+                  {formatLabel(labels.drawer.chartElsewhere, { n: w.dataPoints })}
                 </div>
               </div>
               {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
@@ -258,6 +274,8 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
 
 function DrawerBody({ payload }: { payload: DrawerPayload }) {
   const { state, open } = useAdminDrawer();
+  const listCell = (field: string) =>
+    state.resource && state.id ? rememberedCell(state.resource, state.id, field) : undefined;
   const tabs = payload.tabs;
   if (!tabs || tabs.length === 0) {
     return (
@@ -267,6 +285,7 @@ function DrawerBody({ payload }: { payload: DrawerPayload }) {
         prerendered={payload.prerendered}
         labels={payload.labels}
         formats={payload.formats}
+        listCell={listCell}
       />
     );
   }
@@ -297,6 +316,7 @@ function DrawerBody({ payload }: { payload: DrawerPayload }) {
               prerendered={payload.prerendered}
               labels={payload.labels}
               formats={payload.formats}
+              listCell={listCell}
             />
           ) : t.kind === "resource" ? (
             <ResourceTabView tab={t} />
@@ -356,21 +376,16 @@ function ActionButton({
     }
   }
 
-  const variantClass =
-    action.variant === "destructive"
-      ? "bg-fp-err text-fp-accent-text hover:bg-fp-err/90"
-      : "bg-fp-accent text-fp-accent-text hover:bg-fp-accent/90";
-
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="outline"
         onClick={onClick}
         disabled={pending}
-        className={`inline-flex h-9 items-center rounded-fp-sm px-3 text-sm font-medium transition-colors disabled:opacity-50 ${variantClass}`}
+        {...(action.variant === "destructive" ? { className: "text-fp-err-text" } : {})}
       >
         {pending ? "…" : action.label}
-      </button>
+      </Button>
       {formOpen ? (
         <ActionFormDialog
           title={action.confirm ?? action.label}
@@ -462,16 +477,24 @@ export function DrawerHost() {
     >
       <DrawerHeader>
         <div className="min-w-0 pr-10">
-          <h2 className="truncate text-lg font-semibold text-fp-text-1">{title || "Loading…"}</h2>
-          {resource && id ? (
+          <h2 className="truncate text-lg font-semibold text-fp-text-1">
+            {payload ? (
+              title
+            ) : error ? (
+              humanize(resource ?? "")
+            ) : (
+              <Skeleton className="my-1 h-5 w-48" aria-hidden />
+            )}
+          </h2>
+          {resource && (payload || !error) ? (
             <p className="text-xs text-fp-text-3">
-              {payload?.resourceLabel ?? humanize(resource)} · {id}
+              {payload?.subtitle ?? payload?.resourceLabel ?? humanize(resource)}
             </p>
           ) : null}
           {payload?.detailHref ? (
             <a
               href={payload.detailHref}
-              className="mt-1 inline-block text-xs text-fp-accent underline-offset-4 hover:underline"
+              className="mt-1 inline-block text-xs text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline"
             >
               {labels.drawer.viewDetails}
             </a>
@@ -479,12 +502,9 @@ export function DrawerHost() {
         </div>
       </DrawerHeader>
       <DrawerContent>
-        {loading ? <div className="text-sm text-fp-text-3">Loading…</div> : null}
+        {loading ? <div className="text-sm text-fp-text-3">{labels.drawer.loading}</div> : null}
         {error ? (
-          <div
-            data-fp-error=""
-            className="rounded-fp-sm border border-fp-err/40 bg-fp-err/10 p-3 text-sm text-fp-err"
-          >
+          <div data-fp-error="" className="text-sm text-fp-err-text">
             {error}
           </div>
         ) : null}

@@ -1,5 +1,5 @@
 import type { ListQueryContext } from "@flowpanel/core";
-import { normalizeWhere } from "@flowpanel/core";
+import { normalizeWhere } from "@flowpanel/core/internal";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";

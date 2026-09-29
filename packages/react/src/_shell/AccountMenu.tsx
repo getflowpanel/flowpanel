@@ -72,7 +72,7 @@ export function AccountMenu({ user, align = "start", className, compact }: Accou
       <DropdownMenuTrigger
         aria-label={navigation.accountMenu}
         className={cn(
-          "flex min-h-11 w-full items-center gap-2 rounded-fp-sm px-2 py-1.5 text-left text-sm text-fp-text-1 hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 sm:min-h-9",
+          "flex min-h-11 w-full items-center gap-2 rounded-fp-sm px-2 py-1.5 text-left text-sm text-fp-text-1 hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:min-h-9",
           className,
         )}
       >

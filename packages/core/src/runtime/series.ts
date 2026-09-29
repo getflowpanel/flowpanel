@@ -32,7 +32,8 @@ export interface SeriesOptions<R> {
   /** Values of `by` present as columns, in this order, even with no rows. */
   keys?: readonly string[];
   /**
-   * `"auto"`: hours up to 2 days, days up to 92, weeks up to 400, else months.
+   * `"auto"`: hours up to 2 days, days up to 92, weeks up to 400, else months. A week starts
+   * on Monday, whatever the locale.
    * @defaultValue "auto"
    */
   grain?: Grain;
