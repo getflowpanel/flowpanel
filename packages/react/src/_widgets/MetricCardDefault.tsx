@@ -9,6 +9,7 @@ import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
 import { CaptionLine } from "./CaptionLine";
 import { type DeltaMood, deltaPrint, describeDelta } from "./delta";
+import { FIGURE } from "./figure";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface MetricCardProps {
@@ -118,14 +119,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
         <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
           <div className="grow basis-0 max-w-full">
             <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-              <span
-                className={cn(
-                  "min-w-0 truncate text-[2rem] font-semibold leading-tight tracking-tight tabular-nums",
-                  toneTextClass[tone],
-                )}
-              >
-                {display}
-              </span>
+              <span className={cn("min-w-0 truncate", FIGURE, toneTextClass[tone])}>{display}</span>
               {unit ? <span className="shrink-0 text-sm text-fp-text-3">{unit}</span> : null}
             </div>
             {sublabel ? (

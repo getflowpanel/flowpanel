@@ -2,10 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-/**
- * The kit's `llms/` files — the docs one section or one page at a time — served as generated,
- * so the site and the package cannot disagree. Built once from the repository.
- */
+// Serves the kit's generated llms/ files, so the site and the package cannot disagree.
 export const dynamic = "force-static";
 export const dynamicParams = false;
 

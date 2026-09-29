@@ -27,8 +27,8 @@ const PROOFS = [
     title: "You keep operational control",
     description:
       "Identity, migrations, deployment, observability and infrastructure remain explicit.",
-    href: "/docs/guides/multi-tenant-scope",
-    linkLabel: "Understand tenant scope",
+    href: "/docs/guides/production-readiness",
+    linkLabel: "See the checklist",
     icon: Waypoints,
   },
 ] as const;
@@ -42,7 +42,7 @@ export function ProductionModel() {
       <div className="mx-auto max-w-[1120px] px-6">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="font-mono text-xs text-[var(--color-accent)]">Production model</p>
+            <p className="font-mono text-xs text-[var(--color-fg-subtle)]">Production model</p>
             <h2
               id="production-model-title"
               className="mt-3 max-w-[22ch] text-3xl font-semibold tracking-[-0.02em] md:text-4xl"
@@ -52,7 +52,7 @@ export function ProductionModel() {
           </div>
           <Link
             href="/docs/guides/production-readiness"
-            className="inline-flex min-h-11 items-center gap-2 font-mono text-sm font-medium text-[var(--color-accent)] transition-colors hover:text-[var(--color-accent-hover)]"
+            className="inline-flex min-h-11 items-center gap-2 font-mono text-sm font-medium text-[var(--color-fg)] underline decoration-[var(--color-fg-subtle)] underline-offset-4 transition-colors hover:decoration-[var(--color-fg)]"
           >
             <span>Open the production checklist</span>
             <ArrowRight aria-hidden className="h-4 w-4" />
@@ -69,7 +69,7 @@ export function ProductionModel() {
                 index > 1 ? "sm:border-t sm:border-[var(--color-border)] lg:border-t-0" : ""
               } ${index > 0 ? "lg:border-l lg:border-[var(--color-border)]" : ""}`}
             >
-              <Icon aria-hidden className="h-5 w-5 text-[var(--color-accent)]" />
+              <Icon aria-hidden className="h-5 w-5 text-[var(--color-fg-muted)]" />
               <h3 className="mt-4 text-base font-medium">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-[var(--color-fg-muted)]">
                 {description}

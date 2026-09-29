@@ -765,8 +765,8 @@ bars({
 Stages in order. Give counts only: the card computes each step's share of the
 first step and its drop-off from the one before, both in muted text. Colour comes only
 from a threshold you set: with `alertDrop`, the step with the largest drop-off is marked
-with the `warn` tone — label, bar and drop — when it loses more than that share of the step
-before. Without it no step is toned.
+with the `warn` tone in its bar and its drop, the label staying in secondary text, when it
+loses more than that share of the step before. Without it no step is toned.
 
 `FunnelOptions`
 

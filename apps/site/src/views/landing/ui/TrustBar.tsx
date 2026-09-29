@@ -1,9 +1,5 @@
-const STACK = ["Next.js 16", "React 19", "Drizzle", "Prisma", "TypeScript"] as const;
+const STACK = ["Next.js 16.3+", "React 19", "Drizzle", "Prisma 5–6", "TypeScript"] as const;
 
-/**
- * "Works with" row under the hero CTAs. Plain wordmarks (no third-party
- * logos), accurate to the documented requirements.
- */
 export function TrustBar() {
   return (
     <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs">

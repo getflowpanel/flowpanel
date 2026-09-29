@@ -16,6 +16,8 @@ interface BoundaryProps {
   dashboardId?: string;
   /** Drop the fallback card's frame, inside a `StatStrip`. */
   plain?: boolean;
+  /** The widget's card title, which the fallback card shows. */
+  title?: string;
 }
 
 interface SentryLike {
@@ -40,17 +42,26 @@ function BoundaryFallback({
   error,
   onReset,
   plain,
+  title,
 }: {
   error: Error;
   onReset: () => void;
   plain: boolean;
+  title: string | undefined;
 }): React.JSX.Element {
   const router = useRouter();
   const handleRetry = React.useCallback(() => {
     onReset();
     router.refresh();
   }, [onReset, router]);
-  return <ErrorCard error={error} onRetry={handleRetry} {...(plain ? { plain: true } : {})} />;
+  return (
+    <ErrorCard
+      error={error}
+      onRetry={handleRetry}
+      {...(plain ? { plain: true } : {})}
+      {...(title ? { title } : {})}
+    />
+  );
 }
 
 export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
@@ -83,6 +94,7 @@ export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
           error={this.state.error}
           onReset={this.reset}
           plain={this.props.plain === true}
+          title={this.props.title}
         />
       );
     }

@@ -18,6 +18,5 @@ describe("Landing production model", () => {
     expect(html).toContain('href="/docs/guides/production-readiness"');
     expect(html).toContain('href="/docs/introduction/why-flowpanel"');
     expect(html).toContain('href="/docs/guides/permissions"');
-    expect(html).toContain('href="/docs/guides/multi-tenant-scope"');
   });
 });

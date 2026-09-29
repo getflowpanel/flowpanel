@@ -14,11 +14,6 @@ interface MediaFrameProps {
   priority?: boolean;
 }
 
-/**
- * Browser-chrome wrapper around the hero product shot. Renders both theme
- * variants; `globals.css` shows the one matching the active theme (the site
- * has no Tailwind `dark:` variant — themes flip via CSS-var tokens).
- */
 export function MediaFrame({
   srcDark,
   srcLight,

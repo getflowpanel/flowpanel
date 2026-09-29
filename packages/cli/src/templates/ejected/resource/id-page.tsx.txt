@@ -1,6 +1,4 @@
-/**
- * Ejected detail view for "{{name}}". Receives `[id]` from the route segment.
- */
+// Ejected detail view for "{{name}}".
 import { getRow } from "../actions";
 
 export default async function DetailPage({

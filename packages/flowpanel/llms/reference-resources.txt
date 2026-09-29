@@ -74,12 +74,14 @@ export const ordersResource = resource(orders, {
 | `audit?` | `boolean` | Opt this resource out of the admin-wide audit sink. |
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
 | `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: Where<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
-| `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. * Default: `labels.widget.filtered`. */ filtered?: string; }` | What the list shows when there are no rows at all. |
+| `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. `{query}` is * the search text. Default: `labels.widget.filtered`. */ filtered?: string; /** * Title when a search leaves no rows, in place of `filtered`, e.g. `"Nothing found for «{query}»"`. * Default: `filtered`. */ searched?: string; }` | What the list shows when there are no rows at all. |
 
 An empty list tells two cases apart. With nothing narrowing it, it shows `empty.title`,
 `description`, `icon` and `action`. When search or filters leave no rows it shows
 `empty.filtered` (default `labels.widget.filtered`) and a button that clears the search and
-the filters but keeps the sort. Export hides while there are no rows, and on a phone a page
+the filters, a filter's default included, but keeps the sort. While a search is set it shows
+`empty.searched` instead, when you set it; both fill `{query}` with the search text, so
+`searched: "Nothing found for «{query}»"` names what was typed. Export hides while there are no rows, and on a phone a page
 shows its first 10 rows as cards with the rest behind one "N more" button.
 
 #### Detail headings and editing
@@ -453,8 +455,29 @@ win.
 | `label?` | `string` | Control label. Defaults to a humanized `field`. |
 | `type` | `FilterType` | Which control to render, and how the value is encoded in the URL. |
 | `options?` | `\| ReadonlyArray<string> \| SelectOption[] \| ((ctx: QueryContext) => Promise<SelectOption[]>)` | Choices for `select` / `multiselect`. A function is resolved per request. |
-| `defaultValue?` | `unknown` | Applied until the operator picks a value of their own. |
-| `hidden?` | `boolean` | Apply the filter without showing a control for it. |
+| `defaultValue?` | `unknown` | Applied while the URL names no value for the filter: the list, its count, pages, export and the list API all read it, and the control shows it as chosen. Clearing the control writes an empty `f_<field>=` so the default stays off; a view or link turns it off with `null`. Takes the same values as a view's filter. |
+| `hidden?` | `boolean` | Apply the filter, and its `defaultValue`, without showing a control for it. |
+
+#### Default and hidden filters
+
+`defaultValue` narrows the list while its URL names no value for the filter. The rows, the
+total, the pages, the export and the list API read the same filters, and the control shows the
+default as chosen. Choosing the unfiltered option, or clearing the filters, writes an empty
+`f_<field>=` to the URL, so the default stays off until the operator leaves that URL. A saved
+view or a link turns a default off with `null`. `hidden: true` applies the filter, and its
+default, without a control.
+
+```ts excerpt
+filters: [
+  { field: "isTest", label: "Test accounts", type: "boolean", defaultValue: false },
+],
+views: [{ name: "Everyone", filters: { isTest: null } }],
+```
+
+A filter compares one column of the resource's own row. To filter by an expression, such as
+"a fixture email domain or an admin", or through a relation, such as a subscription's user, read
+the resource from a SQL view that computes the column and set
+[`writeTo`](#reading-a-view) to the table edits go to.
 
 #### FilterType
 

@@ -11,9 +11,7 @@ export function Card({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) 
 }
 
 export function CardHeader({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div {...p} className={cn("px-4 pt-4 pb-2 text-sm font-medium text-fp-text-1", className)} />
-  );
+  return <div {...p} className={cn("px-4 pt-4 pb-2 text-sm text-fp-text-2", className)} />;
 }
 
 export function CardContent({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) {

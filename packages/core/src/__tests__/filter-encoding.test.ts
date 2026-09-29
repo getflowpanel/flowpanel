@@ -54,4 +54,11 @@ describe("encodeFilters", () => {
     });
     expect(encodeFilters(undefined, "UTC")).toEqual({});
   });
+
+  it("writes null as an empty value, which keeps a filter's default off", () => {
+    expect(encodeFilters({ isTest: null, plan: "pro" }, "UTC")).toEqual({
+      isTest: "",
+      plan: "pro",
+    });
+  });
 });

@@ -14,6 +14,7 @@ import {
   declaredFieldSet,
   resolveFilterSpecs,
   sanitizeFilterValues,
+  withFilterDefaults,
 } from "./runtime/parse-list-params";
 import { filterReadableDeclarations, resolveReadableFieldSet } from "./runtime/readable-fields";
 import { readJsonObject } from "./runtime/request-body";
@@ -176,10 +177,12 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
           if (readable.has(field)) raw[field] = value;
         }
         const readableFilterDefs = filterReadableDeclarations(listed.options.filters, readable);
-        const specs = await resolveFilterSpecs(readableFilterDefs, {
-          db: config.adapter.db,
-          session: ctx.session,
-        });
+        const timeZone = resolveFormatting(config.formatting).timeZone;
+        const specs = await resolveFilterSpecs(
+          readableFilterDefs,
+          { db: config.adapter.db, session: ctx.session },
+          timeZone,
+        );
         const readableSearchFields = (listed.options.search ?? [])
           .map(String)
           .filter((field) => readable.has(field));
@@ -188,11 +191,7 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
             page: Number(url.searchParams.get("page") ?? 1),
             pageSize: Number(url.searchParams.get("pageSize") ?? 20),
             search: readableSearchFields.length > 0 ? (url.searchParams.get("search") ?? "") : "",
-            filters: sanitizeFilterValues(
-              raw,
-              specs,
-              resolveFormatting(config.formatting).timeZone,
-            ),
+            filters: sanitizeFilterValues(withFilterDefaults(raw, specs), specs, timeZone),
           }),
         );
       });

@@ -387,7 +387,7 @@ arbitrary content or server errors.
 | `timeline?` | `TimelineLabels` | `timeline()` chrome. |
 | `heatmap?` | `HeatmapLabels` | `heatmap()` chrome. |
 | `checklist?` | `ChecklistLabels` | `checklist()` chrome. |
-| `errors?` | `{ /** Failed page read. Use `{resource}` and `{operation}`. */ queryTitle?: string; /** What to check after a failed page read. */ queryHint?: string; /** Correlation line tying the card to the server log. Use `{id}`. */ requestId?: string; /** Failed widget, shown in the widget's own frame. */ widgetTitle?: string; widgetHint?: string; /** Button that re-runs a failed widget. */ retry?: string; }` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
+| `errors?` | `{ /** Failed page read. Use `{resource}` and `{operation}`. */ queryTitle?: string; /** What to check after a failed page read. */ queryHint?: string; /** Correlation line tying the card to the server log. Use `{id}`. */ requestId?: string; /** Failed widget, shown in the widget's own frame. */ widgetTitle?: string; widgetHint?: string; /** Button that re-runs a failed widget. */ retry?: string; /** Disclosure holding the error's own message, outside production only. */ details?: string; }` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
 | `palette?` | `{ placeholder?: string; noResults?: string; title?: string; description?: string; loading?: string; }` | ⌘K palette. |
 
 ### CommandPaletteConfig
@@ -640,12 +640,14 @@ export const ordersResource = resource(orders, {
 | `audit?` | `boolean` | Opt this resource out of the admin-wide audit sink. |
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
 | `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: Where<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
-| `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. * Default: `labels.widget.filtered`. */ filtered?: string; }` | What the list shows when there are no rows at all. |
+| `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. `{query}` is * the search text. Default: `labels.widget.filtered`. */ filtered?: string; /** * Title when a search leaves no rows, in place of `filtered`, e.g. `"Nothing found for «{query}»"`. * Default: `filtered`. */ searched?: string; }` | What the list shows when there are no rows at all. |
 
 An empty list tells two cases apart. With nothing narrowing it, it shows `empty.title`,
 `description`, `icon` and `action`. When search or filters leave no rows it shows
 `empty.filtered` (default `labels.widget.filtered`) and a button that clears the search and
-the filters but keeps the sort. Export hides while there are no rows, and on a phone a page
+the filters, a filter's default included, but keeps the sort. While a search is set it shows
+`empty.searched` instead, when you set it; both fill `{query}` with the search text, so
+`searched: "Nothing found for «{query}»"` names what was typed. Export hides while there are no rows, and on a phone a page
 shows its first 10 rows as cards with the rest behind one "N more" button.
 
 #### Detail headings and editing
@@ -1019,8 +1021,29 @@ win.
 | `label?` | `string` | Control label. Defaults to a humanized `field`. |
 | `type` | `FilterType` | Which control to render, and how the value is encoded in the URL. |
 | `options?` | `\| ReadonlyArray<string> \| SelectOption[] \| ((ctx: QueryContext) => Promise<SelectOption[]>)` | Choices for `select` / `multiselect`. A function is resolved per request. |
-| `defaultValue?` | `unknown` | Applied until the operator picks a value of their own. |
-| `hidden?` | `boolean` | Apply the filter without showing a control for it. |
+| `defaultValue?` | `unknown` | Applied while the URL names no value for the filter: the list, its count, pages, export and the list API all read it, and the control shows it as chosen. Clearing the control writes an empty `f_<field>=` so the default stays off; a view or link turns it off with `null`. Takes the same values as a view's filter. |
+| `hidden?` | `boolean` | Apply the filter, and its `defaultValue`, without showing a control for it. |
+
+#### Default and hidden filters
+
+`defaultValue` narrows the list while its URL names no value for the filter. The rows, the
+total, the pages, the export and the list API read the same filters, and the control shows the
+default as chosen. Choosing the unfiltered option, or clearing the filters, writes an empty
+`f_<field>=` to the URL, so the default stays off until the operator leaves that URL. A saved
+view or a link turns a default off with `null`. `hidden: true` applies the filter, and its
+default, without a control.
+
+```ts excerpt
+filters: [
+  { field: "isTest", label: "Test accounts", type: "boolean", defaultValue: false },
+],
+views: [{ name: "Everyone", filters: { isTest: null } }],
+```
+
+A filter compares one column of the resource's own row. To filter by an expression, such as
+"a fixture email domain or an admin", or through a relation, such as a subscription's user, read
+the resource from a SQL view that computes the column and set
+[`writeTo`](#reading-a-view) to the table edits go to.
 
 #### FilterType
 
@@ -1664,6 +1687,10 @@ resource(orders, {
 
 `DrawerWidth` is `"sm" | "md" | "lg" | "xl" | "2xl" | "full"`, defaulting to
 `"lg"`.
+
+When the resource has a `detail` page, the header carries a secondary button to it beside the
+title, below it on a phone. `labels.drawer.viewDetails` names it: "Open full page", or
+"Открыть карточку" in Russian.
 
 The line under the title is the resource's label; `subtitle(row)` replaces it with a line
 of your own, such as a plan and a signup date. The panel never shows the row's raw id there,
@@ -2608,8 +2635,8 @@ bars({
 Stages in order. Give counts only: the card computes each step's share of the
 first step and its drop-off from the one before, both in muted text. Colour comes only
 from a threshold you set: with `alertDrop`, the step with the largest drop-off is marked
-with the `warn` tone — label, bar and drop — when it loses more than that share of the step
-before. Without it no step is toned.
+with the `warn` tone in its bar and its drop, the label staying in secondary text, when it
+loses more than that share of the step before. Without it no step is toned.
 
 `FunnelOptions`
 
@@ -3291,8 +3318,9 @@ are next to the date picker from `labels.widget.updated`.
 | `widgets` | `WidgetConfig[]` |  |
 
 `variant: "strip"` draws a section's `metric` and `stat` widgets as one band divided by
-hairlines, with no card around each — the KPI row at the top of a founder screen. Deltas,
-the previous value, sparklines and links stay. `columns` sets the cells per line from the
+hairlines, with no card around each — the KPI row at the top of a founder screen. Every
+cell prints its value at one 32 px figure size, a `stat` included. Deltas, the previous
+value, sparklines and links stay. `columns` sets the cells per line from the
 `md` breakpoint (default, and for `columns: 12`: one line of up to six); below it the strip
 shows two per line.
 Another widget kind in a strip keeps its own card and warns once in development. A record
@@ -4321,7 +4349,7 @@ Empty, error, loading and toast states.
 | --- | --- |
 | `EmptyState`, `DefaultEmptyState` | "Nothing here" placeholder and its default renderer. |
 | `ErrorState` | Inline error placeholder with an optional retry action. |
-| `ErrorCard` | Error display for a caught `Error`, with an optional retry callback; `plain` drops its frame inside a `StatStrip`. |
+| `ErrorCard` | Error display for a caught `Error`, with an optional retry callback; `title` names the widget that failed, `plain` drops its frame inside a `StatStrip`. |
 | `HealthBanner` | Toned banner (e.g. degraded queue, stale data) shown above content. |
 | `ConfirmDialog`, `DefaultConfirmDialog` | Confirmation modal for destructive actions and its default renderer. |
 | `SkeletonCard`, `SkeletonTable`, `DefaultSkeletonTable` | Loading placeholders for a card and a table, and the table's default renderer. |
@@ -6029,7 +6057,7 @@ Request 5f3c…
 ```
 
 The cause always goes to `console.error` with that same id, and outside
-production the card shows the message too. Nothing else about it changes with the
+production the card keeps the message in a closed `labels.errors.details` disclosure. Nothing else about it changes with the
 environment. A `FlowpanelError` — an access denial, a not-found — keeps
 travelling, so the auth boundary above still sees it, and so does a `redirect()`
 thrown from your own code.
@@ -6046,7 +6074,9 @@ its place, so you never count cards to find it:
 «Broken» (metric, user tab "summary" widget 1): boom
 ```
 
-Outside production the card shows that line. In production it stays generic, and the
+Outside production the card keeps that line in a closed `labels.errors.details`
+disclosure under the title and the hint, so a driver's SQL never fills the page. In
+production the card has no disclosure, and the
 server log line and the Sentry tag `widget.id` carry the same name. A `custom()` widget
 is named by its `label`.
 

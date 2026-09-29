@@ -9,7 +9,7 @@ import { declaredListFields, filterShapeProblem } from "@flowpanel/core/internal
 import { MetricCard } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { resolveLink } from "./resolve-link";
-import { thresholdTone } from "./threshold-tone";
+import { valueTone } from "./threshold-tone";
 import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
 import { comparisonRange, rangedContext } from "./widget-context";
 import { columnsOf, warnOnce } from "./widget-reads";
@@ -104,10 +104,7 @@ export async function renderMetric(
   const goodWhen = found?.goodWhen ?? widget.options.goodWhen;
   const delta = found && goodWhen ? { ...found, goodWhen } : found;
   const sublabel = result.sublabel ?? widget.options.sublabel;
-  const tone =
-    result.tone ??
-    widget.options.tone ??
-    thresholdTone(result.value, widget.options.tones, result.volume, widget.options.goodWhen);
+  const tone = valueTone(result, widget.options);
   if (result.href === undefined) warnOnMismatch(widget, ctx, config);
   const drilldown = resolveLink(config, ctx, result.href ?? widget.options.drilldown);
   return (

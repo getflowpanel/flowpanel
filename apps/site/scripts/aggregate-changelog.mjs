@@ -1,15 +1,5 @@
 #!/usr/bin/env node
-/**
- * Walks every packages/*\/CHANGELOG.md and emits a single
- * content/changelog/index.mdx, grouped by version (newest first) and
- * with each package contributing its bullets under its own subheading.
- *
- * Run from anywhere; the script resolves paths relative to its own
- * location. Idempotent — committed output is regenerated in pre-release
- * CI and on demand.
- *
- *   pnpm --filter @flowpanel/site changelog
- */
+// Merges every packages/*/CHANGELOG.md into content/changelog/index.mdx, newest version first.
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -21,11 +11,9 @@ const PACKAGES_DIR = path.join(REPO_DIR, "packages");
 const OUT_DIR = path.join(SITE_DIR, "content/changelog");
 const OUT_FILE = path.join(OUT_DIR, "index.mdx");
 
-/**
- * @typedef {{ section: string; lines: string[] }} SectionBlock
- * @typedef {{ version: string; sections: SectionBlock[] }} VersionBlock
- * @typedef {{ pkg: string; versions: VersionBlock[] }} PackageChangelog
- */
+/** @typedef {{ section: string; lines: string[] }} SectionBlock */
+/** @typedef {{ version: string; sections: SectionBlock[] }} VersionBlock */
+/** @typedef {{ pkg: string; versions: VersionBlock[] }} PackageChangelog */
 
 /** @returns {Promise<PackageChangelog[]>} */
 async function readAllChangelogs() {
@@ -122,13 +110,7 @@ function parseSemver(/** @type {string} */ v) {
   return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
-/**
- * Package changelogs are prose, but this file is compiled as MDX, where `{`
- * opens an expression and `<` opens a tag. One release note that wrapped an
- * inline code span across a line break was enough to fail the site build — and
- * the site build is the production deploy. Escape both outside code, so a
- * release note can never be syntax.
- */
+// The changelog compiles as MDX, so `{` and `<` outside code are escaped; one stray brace broke the deploy.
 export function escapeMdxProse(/** @type {string} */ body) {
   let inFence = false;
   return body
@@ -144,8 +126,7 @@ export function escapeMdxProse(/** @type {string} */ body) {
 }
 
 function escapeOutsideCodeSpans(/** @type {string} */ line) {
-  // A code span opens on a run of backticks and closes on a run of the same
-  // length, so ``a ` b`` is one span rather than two.
+  // A span closes on a backtick run of the same length, so ``a ` b`` is one span.
   const spans = /(`+)(.*?)\1(?!`)/g;
   let out = "";
   let read = 0;

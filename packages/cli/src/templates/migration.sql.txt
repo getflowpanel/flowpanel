@@ -1,5 +1,4 @@
--- FlowPanel M1 baseline — Postgres flavour.
--- Adjust for MySQL / SQLite manually until the adapter emits dialect-specific SQL (M2+).
+-- FlowPanel baseline tables for Postgres; adapt by hand for MySQL or SQLite.
 
 CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
   id text PRIMARY KEY,

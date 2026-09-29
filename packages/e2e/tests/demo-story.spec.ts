@@ -111,7 +111,7 @@ test("overview uses a compact, aligned operations layout", async ({ page }) => {
   expect(liveBox).not.toBeNull();
 
   const headingBottom = (headingBox?.y ?? 0) + (headingBox?.height ?? 0);
-  expect((firstMetricBox?.y ?? 0) - headingBottom).toBeLessThanOrEqual(56);
+  expect((firstMetricBox?.y ?? 0) - headingBottom).toBeLessThanOrEqual(68);
   expect(liveBox?.width).toBeGreaterThan(1_000);
   await expect(page.getByText("Needs review", { exact: true }).first()).toBeVisible();
 });

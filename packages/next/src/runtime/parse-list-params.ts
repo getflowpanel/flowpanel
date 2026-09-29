@@ -1,4 +1,5 @@
 import type { FilterDef, FilterInValue, FilterRangeValue, FilterType } from "@flowpanel/core";
+import { encodeFilterValue } from "@flowpanel/core/internal";
 import { dayBoundsIn, isDateRangePreset, resolveDateRange } from "./date-range";
 import { toWireOptions } from "./select-options";
 
@@ -59,11 +60,15 @@ export interface ResolvedFilterSpec {
   label?: string;
   options?: { label: string; value: string }[];
   placeholder?: string;
+  /** `FilterDef.defaultValue` in its `f_<field>` URL form. */
+  defaultValue?: string;
+  hidden?: boolean;
 }
 
 export async function resolveFilterSpecs<Row>(
   defs: (keyof Row | FilterDef<Row>)[] | undefined,
   ctx: unknown,
+  timeZone = "UTC",
 ): Promise<ResolvedFilterSpec[]> {
   if (!defs || defs.length === 0) return [];
   const out: ResolvedFilterSpec[] = [];
@@ -79,17 +84,33 @@ export async function resolveFilterSpecs<Row>(
     } else if (Array.isArray(def.options)) {
       options = toWireOptions(def.options);
     }
+    const defaultValue = encodeFilterValue(def.defaultValue, timeZone);
     out.push({
       field: String(def.field),
       type: def.type,
       ...(def.label ? { label: def.label } : {}),
       ...(options ? { options } : {}),
+      ...(defaultValue !== null ? { defaultValue } : {}),
+      ...(def.hidden ? { hidden: true } : {}),
     });
   }
   return out;
 }
 
-/** `FilterDef.defaultValue` sentinels — always pass through untouched, for every filter type. */
+/** Each filter's default for a field the request names no value for; an empty value keeps it off. */
+export function withFilterDefaults(
+  filters: Record<string, unknown>,
+  specs: ReadonlyArray<ResolvedFilterSpec>,
+): Record<string, unknown> {
+  const out = { ...filters };
+  for (const spec of specs) {
+    if (spec.defaultValue !== undefined && !(spec.field in out))
+      out[spec.field] = spec.defaultValue;
+  }
+  return out;
+}
+
+/** Null sentinels a filter value may carry — always pass through untouched, for every filter type. */
 const FILTER_NULL_SENTINELS = new Set(["__null__", "__notnull__"]);
 
 /** Strict `YYYY-MM-DD` — what `<input type="date">` (`DateRangeFilter`) emits. */
@@ -121,6 +142,7 @@ function sanitizeFilterValue(
   spec: ResolvedFilterSpec | undefined,
   timeZone: string,
 ): unknown {
+  if (value === "") return undefined;
   if (FILTER_NULL_SENTINELS.has(value)) return value;
   if (!spec) return value;
 

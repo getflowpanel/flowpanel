@@ -160,6 +160,11 @@ function checkWidgets(site: string, widgets: readonly WidgetConfig[], check: Lin
 }
 
 function checkResource(name: string, resource: ResourceConfig, check: LinkCheck): void {
+  (resource.options.filters ?? []).forEach((filter, i) => {
+    if (typeof filter !== "object" || filter.defaultValue === undefined) return;
+    const site = `resource "${name}" filters[${i}].defaultValue`;
+    checkListValue(site, name, filter.field, filter.defaultValue, check);
+  });
   (resource.options.views ?? []).forEach((view, i) => {
     const site = `resource "${name}" views[${i}]`;
     for (const [field, value] of Object.entries(view.filters ?? {})) {

@@ -148,7 +148,7 @@ export async function DashboardPage({
   const encodedPath = encodeDashboardPath(dashboard.path);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       {dashboard.realtime ? (
         <RealtimeRefresh channels={realtimeChannels(dashboard.realtime)} />
       ) : null}
@@ -236,6 +236,7 @@ function WidgetSlot({
         widgetId={describeOwner(slot.owner)}
         dashboardId={dashboardPath}
         {...(slot.plain ? { plain: true } : {})}
+        {...(slot.owner.label ? { title: slot.owner.label } : {})}
       >
         <Suspense fallback={<SkeletonCard />}>
           <WidgetAsync {...slot} />

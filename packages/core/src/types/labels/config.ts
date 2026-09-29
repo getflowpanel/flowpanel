@@ -233,6 +233,8 @@ export interface LabelsConfig {
     widgetHint?: string;
     /** Button that re-runs a failed widget. */
     retry?: string;
+    /** Disclosure holding the error's own message, outside production only. */
+    details?: string;
   };
   /** ⌘K palette. */
   palette?: {

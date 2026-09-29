@@ -1,9 +1,6 @@
 import { ADAPTER_COOKIE, ADAPTERS, DEFAULT_ADAPTER } from "@/shared/lib/adapter";
 
-/**
- * Applies the stored adapter before first paint, so every page stays static:
- * reading the cookie on the server would opt the whole site out of prerendering.
- */
+// Applies the stored adapter before first paint; reading the cookie on the server would end prerendering.
 const SOURCE = `try{var m=document.cookie.match(/(?:^|;\\s*)${ADAPTER_COOKIE}=([^;]*)/);
 if(m&&${JSON.stringify(ADAPTERS)}.indexOf(m[1])>-1)document.documentElement.dataset.adapter=m[1]}catch(e){}`;
 

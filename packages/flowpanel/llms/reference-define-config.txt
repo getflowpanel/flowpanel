@@ -371,7 +371,7 @@ arbitrary content or server errors.
 | `timeline?` | `TimelineLabels` | `timeline()` chrome. |
 | `heatmap?` | `HeatmapLabels` | `heatmap()` chrome. |
 | `checklist?` | `ChecklistLabels` | `checklist()` chrome. |
-| `errors?` | `{ /** Failed page read. Use `{resource}` and `{operation}`. */ queryTitle?: string; /** What to check after a failed page read. */ queryHint?: string; /** Correlation line tying the card to the server log. Use `{id}`. */ requestId?: string; /** Failed widget, shown in the widget's own frame. */ widgetTitle?: string; widgetHint?: string; /** Button that re-runs a failed widget. */ retry?: string; }` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
+| `errors?` | `{ /** Failed page read. Use `{resource}` and `{operation}`. */ queryTitle?: string; /** What to check after a failed page read. */ queryHint?: string; /** Correlation line tying the card to the server log. Use `{id}`. */ requestId?: string; /** Failed widget, shown in the widget's own frame. */ widgetTitle?: string; widgetHint?: string; /** Button that re-runs a failed widget. */ retry?: string; /** Disclosure holding the error's own message, outside production only. */ details?: string; }` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
 | `palette?` | `{ placeholder?: string; noResults?: string; title?: string; description?: string; loading?: string; }` | ⌘K palette. |
 
 ### CommandPaletteConfig

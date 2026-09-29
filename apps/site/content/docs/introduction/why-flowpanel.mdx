@@ -1,7 +1,8 @@
 ---
 title: Why FlowPanel
-description: Decide whether an embedded, schema-aware admin is the right fit for your application.
+description: Decide whether an embedded, schema-aware admin fits your application better than a hosted tool, an admin framework or a database browser.
 kind: explanation
+metaTitle: An admin panel that lives inside your Next.js app
 ---
 
 FlowPanel is for teams that already have a Next.js application and need a reliable internal interface without building the common admin plumbing from scratch.
@@ -23,6 +24,16 @@ This also means production concerns remain yours: authorization, tenant scope, m
 Most changes stay declarative: choose fields, format values, add actions, arrange widgets, or override design tokens. A renderer handles a special value. A custom widget or page handles a composed workflow. Theme slots replace shared visual primitives.
 
 If config is no longer the right abstraction, `flowpanel eject` writes a resource, dashboard, or layout into the application. The generated source becomes yours and no longer receives FlowPanel behavior changes automatically. See [Choose an extension point](/docs/customization/overview) before ejecting.
+
+## How it compares
+
+Prisma Studio and Drizzle Studio are database browsers for developers: they show every table as it is stored. FlowPanel is for the people who operate the product. Only the resources and fields you name appear, and every request goes through your auth and role checks.
+
+react-admin and Refine are React frameworks for building an admin on top of an API. You choose a data provider and write the pages. FlowPanel queries through the Drizzle or Prisma client your app already uses and generates the pages from config, so there is no data provider to write.
+
+AdminJS mounts a separate admin on an Express, Fastify or Nest server. FlowPanel is App Router pages and route handlers inside the Next.js app you already deploy.
+
+Hosted internal-tool builders such as Retool are edited in a browser and connect to your database from their side. A FlowPanel config lives in your repository, goes through code review with the rest of the app, and no third party holds your database credentials.
 
 ## When another tool is a better fit
 

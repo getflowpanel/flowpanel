@@ -9,8 +9,16 @@ interface Layer {
 const LAYERS: ReadonlyArray<Layer> = [
   {
     title: "Tweak with config",
-    description: "Override a column renderer, add a row action, or hide a field.",
-    code: highlightTs(`columns: [{ field: "status", render: (row) => row.status }]`),
+    description: "Format a column, add a row action, or hide a field.",
+    code: highlightTs(`columns: [\n  { field: "mrr", format: { kind: "money" } },\n]`),
+  },
+  {
+    title: "Write a widget",
+    description:
+      "A custom card gets typed rows from ctx.read and styles itself with the bg-fp-* and text-fp-* classes of the Tailwind bridge.",
+    code: highlightTs(
+      `custom(Churn, async (ctx) => ({\n  rows: await ctx.read("customers", {\n    where: { status: "canceled" },\n    limit: 5,\n  }),\n}))`,
+    ),
   },
   {
     title: "Swap a component slot",
@@ -21,7 +29,7 @@ const LAYERS: ReadonlyArray<Layer> = [
   {
     title: "Take the source",
     description:
-      "One command writes a five-file scaffold into your repo, lists every file, and comments the config entry out. Every file is yours.",
+      "One command writes a five-file starter that reads through the same protected controller, and comments the config entry out. You write the rendering; auth, scope and field rules stay.",
     code: (
       <>
         <PromptLine command="pnpm flowpanel eject resource users" />
@@ -53,11 +61,11 @@ export function CustomizationLayers() {
           id="layers-title"
           className="max-w-[20ch] text-balance text-4xl font-semibold tracking-[-0.02em] md:text-5xl"
         >
-          Three layers. Take only what you need.
+          Four layers. Take only what you need.
         </h2>
         <p className="mt-4 max-w-[58ch] text-lg text-[var(--color-fg-muted)]">
-          Stay declarative, swap a single component, or take the source — without ever losing your
-          types.
+          Stay declarative, write one widget, swap a single component, or take the source, without
+          losing your types.
         </p>
 
         <ul className="mt-14 space-y-5">

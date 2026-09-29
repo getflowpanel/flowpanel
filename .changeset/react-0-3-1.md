@@ -83,3 +83,19 @@ past `alertDrop`.
 
 **Tables and drawers.** Compact rows are 40 px, Export hides at 0 rows, a phone folds a page past
 10 cards behind one button, and a long drawer value wraps. The drawer takes focus on open.
+
+**Error cards.** A failed widget card keeps the error's message in a closed «Details» disclosure outside production instead of printing it on the card.
+
+**Titles.** Card titles are secondary text at regular weight and section titles semibold, so a section reads above its cards.
+
+**Strip figures.** A `stat` and an expired cell in a `StatStrip` draw their value at the `metric`'s 32 px, so a strip has one figure size.
+
+**Funnel warn.** A funnel step past `alertDrop` tones its bar and drop only; its label stays in secondary text.
+
+**Lists past page one.** Column `render` cells show on every page of a list; page 2 and later used to fall back to the raw value.
+
+**Right-aligned sort.** A sortable right-aligned header puts its sort icon before the label, so the label ends over the figures.
+
+**Failed widgets.** `ErrorCard` takes a `title`, and a failed widget's card shows the widget's own title with the failure line under it.
+
+**Strip hints.** A `stat` hint sits as close under its figure as a `metric` sublabel.

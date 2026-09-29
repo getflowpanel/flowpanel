@@ -82,6 +82,8 @@ describe("a widget that fails on a record page", () => {
     const name = '«Broken» (metric, scraper_run tab "summary" widget 1)';
     expect((findProps(tree, ErrorCard)?.error as Error).message).toBe(`${name}: boom`);
     expect(findProps(tree, WidgetErrorBoundary)?.widgetId).toBe(name);
+    expect(findProps(tree, ErrorCard)?.title).toBe("Broken");
+    expect(findProps(tree, WidgetErrorBoundary)?.title).toBe("Broken");
     expect(String(error.mock.calls[0]?.[0])).toContain(`[flowpanel] widget ${name} failed`);
     error.mockRestore();
   });
@@ -139,6 +141,7 @@ describe("a widget on a dashboard", () => {
     expect(findProps(rendered, WidgetErrorBoundary)?.widgetId).toBe(
       "«Runs» (metric, /system section 1 widget 1)",
     );
+    expect(findProps(rendered, WidgetErrorBoundary)?.title).toBe("Runs");
   });
 });
 

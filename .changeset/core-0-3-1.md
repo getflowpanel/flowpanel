@@ -145,3 +145,11 @@ widget takes `density`, `empty.filtered` words a list that search or filters emp
 `drawer.subtitle(row)` sets the line under a drawer's title. Chart options take `colors` per
 series. `theme.cssVars` and `cssVarsDark` are typed `ThemeTokens`, so token names complete. The
 built-in labels lose their `→`/`←` and the widget error reads "Couldn't load this widget".
+
+**List filter defaults.** `defineAdmin` rejects a filter `defaultValue` its list would read as other rows, and a `null` view or link filter value encodes as an empty `f_<field>=` that turns a filter's default off.
+
+**Empty search.** `ResourceOptions.empty.searched` titles a list a search left empty, and `{query}` in it or in `empty.filtered` is the search text.
+
+**Drawer header.** The Russian `drawer.viewDetails` label reads «Открыть карточку».
+
+**Error cards.** `labels.errors.details` names the disclosure that holds a failed card's own message.

@@ -46,7 +46,7 @@ export interface DataTableRowProps<Row extends Record<string, unknown>> {
   orderedVisible: DataTableColumn<Row>[];
   pinMeta: Map<string, PinMeta>;
   colIndexByField: Map<string, number>;
-  prerenderedCells?: (React.ReactNode | undefined)[][];
+  prerenderedRow?: (React.ReactNode | undefined)[];
   rowPadding: string;
   selectionEnabled: boolean;
   selectionSet: Set<string>;
@@ -65,7 +65,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   orderedVisible,
   pinMeta,
   colIndexByField,
-  prerenderedCells,
+  prerenderedRow,
   rowPadding,
   selectionEnabled,
   selectionSet,
@@ -112,9 +112,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
         else if (meta.side === "right") cssVars["--fp-col-pin-right"] = `${meta.offset}px`;
         const originalColIdx = colIndexByField.get(c.field);
         const prerendered =
-          prerenderedCells && originalColIdx !== undefined
-            ? prerenderedCells[rowIndex]?.[originalColIdx]
-            : undefined;
+          originalColIdx !== undefined ? prerenderedRow?.[originalColIdx] : undefined;
         const cellContent = renderCellContent(
           c,
           row,

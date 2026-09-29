@@ -1,5 +1,5 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { mergeLabels } from "@flowpanel/core";
+import { formatLabel, mergeLabels } from "@flowpanel/core";
 import { Button, FlowpanelIcon } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { buildHref } from "../runtime/href";
@@ -11,10 +11,16 @@ interface EmptyProps {
   emptyAction?: ReactNode;
 }
 
-function clearedHref(config: ResolvedAdminConfig, name: string, params: URLSearchParams): string {
+function clearedHref(
+  config: ResolvedAdminConfig,
+  name: string,
+  params: URLSearchParams,
+  defaulted: ReadonlyArray<{ field: string }>,
+): string {
   const kept = new URLSearchParams(
     [...params].filter(([key]) => key !== "q" && key !== "page" && !key.startsWith("f_")),
   );
+  for (const { field } of defaulted) kept.set(`f_${field}`, "");
   const query = kept.toString();
   return `${buildHref(config, name)}${query ? `?${query}` : ""}`;
 }
@@ -33,15 +39,22 @@ export function listEmptyProps(
   resource: ResourceConfig,
   name: string,
   plural: string,
-  narrowed: { filtered: boolean; params: URLSearchParams },
+  narrowed: {
+    filtered: boolean;
+    params: URLSearchParams;
+    search?: string;
+    defaulted?: ReadonlyArray<{ field: string }>;
+  },
 ): EmptyProps {
   const empty = resource.options.empty;
   if (narrowed.filtered) {
     const labels = mergeLabels(config.labels);
+    const query = narrowed.search ?? "";
+    const title = (query && empty?.searched) || empty?.filtered || labels.widget.filtered;
     return {
-      emptyTitle: empty?.filtered ?? labels.widget.filtered,
+      emptyTitle: formatLabel(title, { query }),
       emptyAction: linkButton(
-        clearedHref(config, name, narrowed.params),
+        clearedHref(config, name, narrowed.params, narrowed.defaulted ?? []),
         labels.filters.clear,
         "outline",
       ),

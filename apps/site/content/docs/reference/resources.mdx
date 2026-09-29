@@ -2,6 +2,7 @@
 title: resource()
 description: Every option on a resource, its columns, fields and filters.
 kind: reference
+metaTitle: "resource() options reference"
 ---
 
 <ApiSignature path="../../packages/core/src/builders/resource.ts" name="resource" />
@@ -39,7 +40,9 @@ export const ordersResource = resource(orders, {
 An empty list tells two cases apart. With nothing narrowing it, it shows `empty.title`,
 `description`, `icon` and `action`. When search or filters leave no rows it shows
 `empty.filtered` (default `labels.widget.filtered`) and a button that clears the search and
-the filters but keeps the sort. Export hides while there are no rows, and on a phone a page
+the filters, a filter's default included, but keeps the sort. While a search is set it shows
+`empty.searched` instead, when you set it; both fill `{query}` with the search text, so
+`searched: "Nothing found for «{query}»"` names what was typed. Export hides while there are no rows, and on a phone a page
 shows its first 10 rows as cards with the rest behind one "N more" button.
 
 ### Detail headings and editing
@@ -369,6 +372,27 @@ were declared. So does a `select`, `multiselect` or `radio` form field. Declared
 win.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FilterDef" />
+
+### Default and hidden filters
+
+`defaultValue` narrows the list while its URL names no value for the filter. The rows, the
+total, the pages, the export and the list API read the same filters, and the control shows the
+default as chosen. Choosing the unfiltered option, or clearing the filters, writes an empty
+`f_<field>=` to the URL, so the default stays off until the operator leaves that URL. A saved
+view or a link turns a default off with `null`. `hidden: true` applies the filter, and its
+default, without a control.
+
+```ts excerpt
+filters: [
+  { field: "isTest", label: "Test accounts", type: "boolean", defaultValue: false },
+],
+views: [{ name: "Everyone", filters: { isTest: null } }],
+```
+
+A filter compares one column of the resource's own row. To filter by an expression, such as
+"a fixture email domain or an admin", or through a relation, such as a subscription's user, read
+the resource from a SQL view that computes the column and set
+[`writeTo`](#reading-a-view) to the table edits go to.
 
 ### FilterType
 

@@ -8,7 +8,7 @@ describe("TrustBar", () => {
     const html = renderToStaticMarkup(createElement(TrustBar));
 
     expect(html).toContain("Works with");
-    for (const name of ["Next.js 16", "React 19", "Drizzle", "Prisma", "TypeScript"]) {
+    for (const name of ["Next.js 16.3+", "React 19", "Drizzle", "Prisma 5–6", "TypeScript"]) {
       expect(html).toContain(name);
     }
   });

@@ -47,7 +47,12 @@ export function QueryErrorCard({
         })}
       </p>
       <p className="mt-2 text-xs text-fp-text-3">{labels.errors.queryHint}</p>
-      {detail ? <p className="mt-2 font-mono text-xs text-fp-text-3">{detail}</p> : null}
+      {detail ? (
+        <details className="mt-2 text-xs text-fp-text-3">
+          <summary className="cursor-pointer">{labels.errors.details}</summary>
+          <p className="mt-1 break-words font-mono">{detail}</p>
+        </details>
+      ) : null}
       <p className="mt-2 text-xs text-fp-text-3">
         {formatLabel(labels.errors.requestId, { id: site.requestId })}
       </p>

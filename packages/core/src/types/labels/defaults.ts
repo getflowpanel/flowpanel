@@ -219,6 +219,7 @@ export const DEFAULT_LABELS: {
     widgetTitle: "Couldn't load this widget",
     widgetHint: "Its query failed. Retry, or look in the server log.",
     retry: "Retry",
+    details: "Details",
   },
   palette: {
     placeholder: "Search resources, actions…",

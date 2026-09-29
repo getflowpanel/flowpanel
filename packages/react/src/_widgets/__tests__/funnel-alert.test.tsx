@@ -17,11 +17,12 @@ function stepOf(label: string): HTMLElement {
 }
 
 describe("the worst funnel drop", () => {
-  it("marks only the step with the largest drop past alertDrop", () => {
+  it("marks only the step with the largest drop past alertDrop, in its drop and bar", () => {
     render(<FunnelCard steps={steps} alertDrop={0.5} />);
     const paid = stepOf("Paid");
     expect(paid.getAttribute("data-tone")).toBe("warn");
-    expect(screen.getByText("Paid").className).toContain("text-fp-warn-text");
+    expect(screen.getByText("Paid").className).toContain("text-fp-text-2");
+    expect(screen.getByText("Paid").className).not.toContain("text-fp-warn-text");
     expect(paid.querySelector(".bg-fp-warn")).toBeTruthy();
     expect(screen.getByText("−90%").className).toContain("text-fp-warn-text");
     expect(stepOf("Signed up").getAttribute("data-tone")).toBeNull();

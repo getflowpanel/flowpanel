@@ -1,4 +1,5 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import { siteConfig } from "@/shared/lib/site-config";
 
 const linkClass =
@@ -21,8 +22,9 @@ export function SeeItRunning() {
           See it running.
         </h2>
         <p className="mt-4 max-w-[58ch] text-lg text-[var(--color-fg-muted)]">
-          Two complete admins live in the repo, seeded and runnable. Read the config that produced
-          them, or follow each README to start one locally.
+          Two admins live in the repo, seeded and runnable: a full SaaS ops panel and a minimal
+          Clerk-gated one. Read the config that produced them, or follow each README to start one
+          locally.
         </p>
 
         {demo ? (
@@ -30,7 +32,7 @@ export function SeeItRunning() {
             href={demo}
             target="_blank"
             rel="noreferrer"
-            className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 py-3 font-mono text-sm font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
+            className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--color-ink)] px-5 py-3 font-mono text-sm font-medium text-[var(--color-ink-fg)] transition-colors hover:bg-[var(--color-ink-hover)]"
           >
             <span>Open the live demo</span>
             <ArrowUpRight aria-hidden className="h-4 w-4" />
@@ -66,6 +68,14 @@ export function SeeItRunning() {
             </li>
           ))}
         </ul>
+
+        <Link
+          href="/docs/introduction/founder-admin"
+          className="mt-8 inline-flex min-h-11 items-center gap-2 font-mono text-sm font-medium text-[var(--color-fg)] underline decoration-[var(--color-fg-subtle)] underline-offset-4 transition-colors hover:decoration-[var(--color-fg)]"
+        >
+          <span>Build a founder admin, step by step</span>
+          <ArrowRight aria-hidden className="h-4 w-4" />
+        </Link>
       </div>
     </section>
   );

@@ -400,3 +400,19 @@ describe("DataTable", () => {
     expect(screen.getByText("Ничего не найдено")).toBeTruthy();
   });
 });
+
+describe("a right-aligned sortable header", () => {
+  it("puts its sort icon before the label, so the label ends over the figures", () => {
+    render(
+      <DataTable
+        columns={[{ field: "found", label: "Found", align: "right", sortable: true }]}
+        rows={[{ id: "1", found: 3 }]}
+        total={1}
+        page={1}
+        pageSize={10}
+        rowKey="id"
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Found" }).className).toContain("flex-row-reverse");
+  });
+});

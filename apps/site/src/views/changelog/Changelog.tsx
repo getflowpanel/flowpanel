@@ -2,13 +2,6 @@ import { DocsBody } from "fumadocs-ui/page";
 import { changelog } from "@/.source/server";
 import { getMDXComponents } from "@/shared/ui/mdx-components";
 
-/**
- * Renders the aggregated MDX produced by
- * `scripts/aggregate-changelog.mjs`. The script merges every
- * `packages/*\/CHANGELOG.md` into one file grouped by version.
- *
- * Header and footer come from the marketing layout.
- */
 export function Changelog() {
   // Single-doc collection — the aggregator emits exactly one index.mdx.
   const page = changelog[0];

@@ -112,3 +112,21 @@ its bars, sparklines and heat cells in that accent. An empty list tells no
 data from no matches and offers to clear the filters, a table or list card keeps its own height
 in a row, the drawer's subtitle is `drawer.subtitle(row)` or the resource's label with a skeleton
 title while it loads, and a 404 marks no nav item.
+
+**List filter defaults.** A list filter's `defaultValue` applies to the rows, count, pages, export and list API while the URL names no value for it, the control shows it as chosen, clearing writes an empty `f_<field>=` so it stays off, and `hidden` applies a filter without a control.
+
+**Empty search.** An empty list under a search shows `empty.searched` when set, and `empty.searched` and `empty.filtered` fill `{query}` with the search text beside the clear button.
+
+**Drawer header.** The link to a drawer's record page is a secondary button in the header beside the title instead of a 12 px text link.
+
+**Error cards.** A failed query card keeps the cause in a closed «Details» disclosure outside production instead of printing the driver's message on the page.
+
+**Section rhythm.** Dashboard sections, and the header above them, sit 32 px apart instead of 20 px.
+
+**Phones.** The dashboard action row wraps and a record page's tab strip scrolls inside itself, so neither pushes a button or the page past the screen.
+
+**Failed widgets.** A widget that fails keeps its title on its error card, on dashboards and record pages; `WidgetErrorBoundary` takes a `title` for hand-built layouts.
+
+**Missing stats.** A `stat` with no value draws its «—» muted, with or without `tones`.
+
+**Resource tables.** `table({ resource })` and other related reads use the resource's `defaultSort`, so `limit: 5` keeps the first five rows in that order instead of five arbitrary ones.

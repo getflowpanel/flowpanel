@@ -33,6 +33,7 @@ const users = resource(
         filters: { telegramLinked: false },
         sort: { field: "id", dir: "desc" },
       },
+      { name: "Everyone", filters: { isTest: null } },
     ],
   },
 );
@@ -111,6 +112,7 @@ describe("wireViews", () => {
         filters: { telegramLinked: "false" },
         sort: { field: "id", dir: "desc" },
       },
+      { name: "Everyone", filters: { isTest: "" } },
     ]);
   });
 });

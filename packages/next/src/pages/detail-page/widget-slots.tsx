@@ -48,7 +48,11 @@ export async function renderSlots(
         if (isControlFlow(failure)) throw failure;
         console.error(`[flowpanel] widget ${describeOwner(owner)} failed`, failure);
         const node = (
-          <ErrorCard error={asError(failure)} {...(frame.plain ? { plain: true } : {})} />
+          <ErrorCard
+            error={asError(failure)}
+            {...(frame.plain ? { plain: true } : {})}
+            {...(owner.label ? { title: owner.label } : {})}
+          />
         );
         return { className, owner, node };
       }
@@ -65,7 +69,11 @@ export function slotElements(
   return slots.map((slot, index) => (
     // biome-ignore lint/suspicious/noArrayIndexKey: widget order is stable
     <div key={index} className={className ?? slot.className}>
-      <WidgetErrorBoundary widgetId={describeOwner(slot.owner)} {...(plain ? { plain: true } : {})}>
+      <WidgetErrorBoundary
+        widgetId={describeOwner(slot.owner)}
+        {...(plain ? { plain: true } : {})}
+        {...(slot.owner.label ? { title: slot.owner.label } : {})}
+      >
         {slot.node}
       </WidgetErrorBoundary>
     </div>

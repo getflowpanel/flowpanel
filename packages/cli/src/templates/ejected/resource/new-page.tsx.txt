@@ -1,10 +1,4 @@
-/**
- * Ejected create view for "{{name}}". Default Next.js App Router conventions apply.
- *
- * Suggested pattern:
- *   import { AutoForm } from "@flowpanel/kit/react";
- *   import { createRow } from "./actions";
- */
+// Ejected create view for "{{name}}": wire AutoForm from "@flowpanel/kit/react" to createRow in ./actions.
 export default function NewPage() {
   return (
     <div className="p-6">

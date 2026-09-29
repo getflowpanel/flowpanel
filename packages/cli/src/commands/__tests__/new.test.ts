@@ -196,7 +196,9 @@ export default defineAdmin({ resources: [] });
 
   it("keeps the commented worked example the template ships", async () => {
     const out = editConfigToAddResource(await initTemplate("drizzle"), "users");
-    expect(out).toContain('    //   label: "Users",');
+    expect(out).toContain(
+      '    // resource(schema.users, { columns: ["email", "name", "createdAt"], search: ["email"] }),',
+    );
     expect(out).toContain("    resource(schema.users, {}),");
   });
 

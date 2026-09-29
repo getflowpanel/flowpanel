@@ -150,7 +150,11 @@ export async function readRelatedPage(
   // an unfiltered list.
   if (Object.values(filters).some((value) => value === undefined)) return empty;
   const requestedSearchFields = opts.searchFields ?? [];
-  const requestedSortField = opts.sort?.field;
+  const defaultSort = target.options.defaultSort;
+  const requestedSort =
+    opts.sort ??
+    (defaultSort ? { field: String(defaultSort.field), dir: defaultSort.dir } : undefined);
+  const requestedSortField = requestedSort?.field;
   const outputFields = declaredRowFields(target);
   for (const field of opts.extraFields ?? []) outputFields.add(field);
   const readable = await resolveReadableFieldSet(
@@ -168,7 +172,7 @@ export async function readRelatedPage(
   if (filterFields.some((field) => !readable.has(field))) return empty;
   const searchFields = requestedSearchFields.filter((field) => readable.has(field));
   if (requestedSearchFields.length > 0 && searchFields.length === 0) return empty;
-  const sort = opts.sort && readable.has(opts.sort.field) ? opts.sort : null;
+  const sort = requestedSort && readable.has(requestedSort.field) ? requestedSort : null;
   const projectedFields = opts.countOnly
     ? []
     : [...outputFields].filter((field) => readable.has(field));

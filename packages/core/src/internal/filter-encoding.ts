@@ -39,14 +39,14 @@ export function encodeFilterValue(value: unknown, timeZone: string): string | nu
   );
 }
 
-/** Filters as the list's URL values, keeping only the fields that filter something. */
+/** Filters as the list's URL values: `null` turns a filter and its default off, `undefined` is left out. */
 export function encodeFilters(
   filters: Record<string, unknown> | undefined,
   timeZone: string,
 ): Record<string, string> {
   const encoded: Record<string, string> = {};
   for (const [field, value] of Object.entries(filters ?? {})) {
-    const text = encodeFilterValue(value, timeZone);
+    const text = value === null ? "" : encodeFilterValue(value, timeZone);
     if (text !== null) encoded[field] = text;
   }
   return encoded;

@@ -12,7 +12,7 @@ describe("siteConfig URLs", () => {
 
     const { siteConfig } = await import("./site-config");
 
-    expect(siteConfig.links.demo).toBe("http://localhost:3000/admin");
+    expect(siteConfig.links.demo).toBe("http://localhost:3100/admin");
   });
 
   it("keeps the canonical site URL when the build passes an empty NEXT_PUBLIC_SITE_URL", async () => {

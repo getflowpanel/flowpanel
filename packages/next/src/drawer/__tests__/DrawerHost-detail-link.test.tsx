@@ -46,13 +46,31 @@ describe("DrawerHost detail link", () => {
     mockFetch(mkPayload("/admin/users/abc"));
 
     render(
-      <LabelsProvider value={{ drawer: { viewDetails: "Открыть страницу" } }}>
+      <LabelsProvider value={{ drawer: { viewDetails: "Открыть карточку" } }}>
         <DrawerHost />
       </LabelsProvider>,
     );
 
-    const link = await waitFor(() => screen.getByRole("link", { name: "Открыть страницу" }));
+    const link = await waitFor(() => screen.getByRole("link", { name: "Открыть карточку" }));
     expect(link.getAttribute("href")).toBe("/admin/users/abc");
+  });
+
+  it("renders the link as a secondary button in the header, beside the title", async () => {
+    mockFetch(mkPayload("/admin/users/abc"));
+
+    render(<DrawerHost />);
+
+    const link = await waitFor(() => screen.getByRole("link", { name: "Open full page" }));
+    expect(link.className).toContain("border-fp-border-2");
+    expect(link.className).toContain("h-11");
+    expect(link.className).not.toContain("text-xs");
+    expect(link.className).not.toContain("bg-fp-accent");
+    const heading = screen
+      .getAllByRole("heading", { name: "a@b.c" })
+      .find((h) => !h.className.includes("sr-only")) as HTMLElement;
+    expect(link.closest("h2")).toBeNull();
+    expect(heading.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(link.parentElement).toBe(heading.parentElement?.parentElement);
   });
 
   it("renders no link when the resource has no detail page", async () => {

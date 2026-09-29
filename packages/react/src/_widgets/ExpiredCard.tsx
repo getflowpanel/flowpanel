@@ -1,6 +1,8 @@
 import type { WidgetCaption } from "@flowpanel/core";
 import { Card, CardContent } from "../_layout/Card";
+import { cn } from "../lib/cn";
 import { CardHeading } from "./CardHeading";
+import { FIGURE } from "./figure";
 
 export interface ExpiredCardProps {
   label?: string;
@@ -14,7 +16,9 @@ export function ExpiredCard({ label, caption, plain }: ExpiredCardProps) {
   const body = (
     <>
       <CardHeading label={label} caption={caption} />
-      <CardContent className="pt-0 text-xl font-semibold text-fp-text-3">—</CardContent>
+      <CardContent className={cn("pt-0 text-fp-text-3", plain ? FIGURE : "text-xl font-semibold")}>
+        —
+      </CardContent>
     </>
   );
   return plain ? (

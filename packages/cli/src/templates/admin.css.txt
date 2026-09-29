@@ -1,3 +1,2 @@
-/* FlowPanel's component CSS is precompiled and isolated to FlowPanel roots
-   and portals. This import does not require Tailwind or a PostCSS plugin. */
+/* Precompiled FlowPanel CSS, scoped to its roots and portals; needs no Tailwind or PostCSS. */
 @import "@flowpanel/kit/styles/admin.css";

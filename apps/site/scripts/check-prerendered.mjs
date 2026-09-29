@@ -1,11 +1,6 @@
 import { readFileSync } from "node:fs";
 
-/**
- * Docs pages read repository sources — package manifests, TypeScript entry points,
- * MDX includes — none of which ship in the deployed image. Rendering them at build
- * time is the contract; a page that slips into on-demand rendering passes every
- * check and then 500s in production.
- */
+// Docs pages read repository sources the image lacks, so each must prerender or it 500s in production.
 const REQUIRED = [
   "/docs/introduction/getting-started",
   "/api/md/docs/introduction/getting-started",

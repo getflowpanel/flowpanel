@@ -177,7 +177,7 @@ Request 5f3c…
 ```
 
 The cause always goes to `console.error` with that same id, and outside
-production the card shows the message too. Nothing else about it changes with the
+production the card keeps the message in a closed `labels.errors.details` disclosure. Nothing else about it changes with the
 environment. A `FlowpanelError` — an access denial, a not-found — keeps
 travelling, so the auth boundary above still sees it, and so does a `redirect()`
 thrown from your own code.
@@ -194,7 +194,9 @@ its place, so you never count cards to find it:
 «Broken» (metric, user tab "summary" widget 1): boom
 ```
 
-Outside production the card shows that line. In production it stays generic, and the
+Outside production the card keeps that line in a closed `labels.errors.details`
+disclosure under the title and the hint, so a driver's SQL never fills the page. In
+production the card has no disclosure, and the
 server log line and the Sentry tag `widget.id` carry the same name. A `custom()` widget
 is named by its `label`.
 

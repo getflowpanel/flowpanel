@@ -89,3 +89,20 @@ describe("strip sections", () => {
     expect(card?.props.plain).toBe(true);
   });
 });
+
+describe("dashboard rhythm", () => {
+  it("spaces sections, and the header above them, 32 px apart", async () => {
+    const tree = await DashboardPage({
+      config: cfg,
+      dashboard: {
+        path: "/rhythm",
+        label: "Rhythm",
+        sections: [{ widgets: [stat("Runs", 5)] }, { label: "More", widgets: [stat("Jobs", 2)] }],
+      },
+      searchParams: new URLSearchParams(),
+      req: reqCtx.req,
+      reqCtx,
+    });
+    expect((tree as ReactElement<Props>).props.className).toBe("space-y-8");
+  });
+});

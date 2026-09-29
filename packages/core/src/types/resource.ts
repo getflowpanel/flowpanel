@@ -142,9 +142,14 @@ export interface FilterDef<Row> {
     | ReadonlyArray<string>
     | SelectOption[]
     | ((ctx: QueryContext) => Promise<SelectOption[]>);
-  /** Applied until the operator picks a value of their own. */
+  /**
+   * Applied while the URL names no value for the filter: the list, its count, pages, export and
+   * the list API all read it, and the control shows it as chosen. Clearing the control writes an
+   * empty `f_<field>=` so the default stays off; a view or link turns it off with `null`.
+   * Takes the same values as a view's filter.
+   */
   defaultValue?: unknown;
-  /** Apply the filter without showing a control for it. */
+  /** Apply the filter, and its `defaultValue`, without showing a control for it. */
   hidden?: boolean;
 }
 
@@ -366,10 +371,15 @@ export interface ResourceOptions<Row> {
     description?: string;
     action?: { label: string; href: string };
     /**
-     * Title when search or filters leave no rows; a button beside it clears them.
-     * Default: `labels.widget.filtered`.
+     * Title when search or filters leave no rows; a button beside it clears them. `{query}` is
+     * the search text. Default: `labels.widget.filtered`.
      */
     filtered?: string;
+    /**
+     * Title when a search leaves no rows, in place of `filtered`, e.g. `"Nothing found for «{query}»"`.
+     * Default: `filtered`.
+     */
+    searched?: string;
   };
 }
 

@@ -10,6 +10,7 @@ const FOOTER_LINKS: ReadonlyArray<{
   { label: "GitHub", href: siteConfig.links.github, external: true },
   { label: "Docs", href: "/docs" },
   { label: "Changelog", href: "/changelog" },
+  { label: "npm", href: siteConfig.links.npm, external: true },
   { label: "Issues", href: siteConfig.links.issues, external: true },
 ];
 

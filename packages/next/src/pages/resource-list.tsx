@@ -29,6 +29,7 @@ import {
   parseListParams,
   resolveFilterSpecs,
   sanitizeFilterValues,
+  withFilterDefaults,
 } from "../runtime/parse-list-params";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
 import { projectRowFields, selectKnownFields } from "../runtime/project-row";
@@ -101,15 +102,17 @@ export async function ResourceListPage({
     filters: rawFilters,
   } = parseListParams(searchParams, readable.defaultSort, readable.fields);
 
+  const timeZone = resolveFormatting(config.formatting).timeZone;
   const filterSpecs = await resolveFilterSpecs(
     readable.filters as Array<keyof Row | FilterDef<Row>>,
-    {
-      db: config.adapter.db,
-      session: reqCtx.session,
-    },
+    { db: config.adapter.db, session: reqCtx.session },
+    timeZone,
   );
-  const timeZone = resolveFormatting(config.formatting).timeZone;
-  const filters = sanitizeFilterValues(rawFilters, filterSpecs, timeZone);
+  const filters = sanitizeFilterValues(
+    withFilterDefaults(rawFilters, filterSpecs),
+    filterSpecs,
+    timeZone,
+  );
   const effectiveSearch = readable.searchFields.length > 0 ? search : "";
 
   const includeDeleted = !!softDelete && searchParams.get("deleted") === "1";
@@ -255,6 +258,8 @@ export async function ResourceListPage({
         {...listEmptyProps(config, resource, name, displayPlural, {
           filtered: effectiveSearch !== "" || Object.keys(filters).length > 0,
           params: searchParams,
+          search: effectiveSearch,
+          defaulted: filterSpecs.filter((f) => f.defaultValue !== undefined && !f.hidden),
         })}
       />
     </>

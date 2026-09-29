@@ -10,13 +10,6 @@ interface SiteHeaderProps {
   variant?: "marketing" | "docs";
 }
 
-/**
- * Top navigation. Two variants:
- *   - marketing — landing/changelog (logo + version chip + nav)
- *   - docs      — wider; "docs" chip + inline search trigger
- *
- * Server-rendered; only ThemeToggle and SearchTrigger are client islands.
- */
 export function SiteHeader({ variant = "marketing" }: SiteHeaderProps) {
   const isDocs = variant === "docs";
 
@@ -35,7 +28,7 @@ export function SiteHeader({ variant = "marketing" }: SiteHeaderProps) {
             className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
             aria-label={`${siteConfig.name} home`}
           >
-            <Logo size={24} className="text-[var(--color-accent)]" />
+            <Logo size={24} className="text-[var(--color-brand)]" />
             <span className="text-base font-medium text-[var(--color-fg)]">{siteConfig.name}</span>
           </Link>
           <span className="hidden rounded-md border border-[var(--color-border)] px-1.5 py-0.5 text-xs text-[var(--color-fg-muted)] sm:inline-flex">

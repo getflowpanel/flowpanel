@@ -8,17 +8,7 @@ interface PageTreeNavProps {
   items: PageTreeNode[];
 }
 
-/**
- * Renders the docs sidebar nav tree.
- *
- * The Fumadocs page tree supports three node kinds:
- *   - `folder`    — section header + nested children (one level of nesting
- *                   handled inline; deeper trees would need recursion)
- *   - `page`      — leaf link to a doc
- *   - `separator` — visual divider with optional label
- *
- * Active page gets a left-accent border + foreground color.
- */
+// Folders nest one level; a deeper tree would need recursion.
 export function PageTreeNav({ items }: PageTreeNavProps) {
   const pathname = usePathname();
 

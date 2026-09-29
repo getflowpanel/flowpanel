@@ -1,6 +1,6 @@
 # FlowPanel
 
-FlowPanel creates a typed admin interface inside an existing Next.js app from your Drizzle or Prisma schema and a small config.
+FlowPanel adds a typed admin panel to an existing Next.js app, built from your Drizzle or Prisma schema and a small config.
 
 [![npm](https://img.shields.io/npm/v/%40flowpanel%2Fkit.svg?color=blue)](https://www.npmjs.com/package/@flowpanel/kit)
 [![CI](https://github.com/getflowpanel/flowpanel/actions/workflows/ci.yml/badge.svg)](https://github.com/getflowpanel/flowpanel/actions/workflows/ci.yml)

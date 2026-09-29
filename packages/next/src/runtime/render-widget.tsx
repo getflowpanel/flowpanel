@@ -35,7 +35,7 @@ import { renderTimeline } from "./render-timeline";
 import { renderTracker } from "./render-tracker";
 import { linkRows, resolveLink } from "./resolve-link";
 import { statDisplay } from "./stat-result";
-import { thresholdTone } from "./threshold-tone";
+import { valueTone } from "./threshold-tone";
 import { type CaptionPromise, expiredCaption, NO_CAPTION, widgetCaption } from "./widget-caption";
 import { requestNow } from "./widget-context";
 import { kvItems, resolveItem, statItemOf } from "./widget-items";
@@ -117,10 +117,7 @@ export async function renderWidget(
       const statFormatting = resolveFormatting(config.formatting);
       const hint = result.hint ?? widget.options.hint;
       const href = resolveLink(config, ctx, result.href ?? widget.options.href);
-      const tone =
-        result.tone ??
-        widget.options.tone ??
-        thresholdTone(result.value, widget.options.tones, result.volume, widget.options.goodWhen);
+      const tone = valueTone(result, widget.options);
       return withRealtime(
         <StatCard
           label={widget.label}

@@ -1,17 +1,5 @@
-/**
- * DEVELOPMENT STUB — REPLACE BEFORE PRODUCTION.
- *
- * `flowpanel init` found no auth module in this project, so it scaffolded this
- * file: flowpanel.config.ts imports `getSession` from here, and without it the
- * config would not compile and `flowpanel migrate` would not run.
- *
- * It authenticates nobody. Every caller is handed the same static session and
- * the config maps it to the `admin` role, so the whole admin is open to anyone
- * who can reach it. It refuses to run in production rather than let that ship.
- *
- * Replace it with your real provider (Clerk, Lucia, NextAuth, …), or swap the
- * `auth` block in flowpanel.config.ts for `devAuth()` from "@flowpanel/kit".
- */
+// DEVELOPMENT STUB — REPLACE BEFORE PRODUCTION. Every caller is an admin; swap in your auth provider or devAuth() from "@flowpanel/kit".
+
 // Read off globalThis so the stub compiles even where @types/node is absent.
 const nodeEnv = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV;
 

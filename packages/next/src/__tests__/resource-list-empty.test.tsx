@@ -25,7 +25,9 @@ const adapter: Adapter = {
   delete: async () => undefined,
 };
 
-function admin(empty?: { title?: string; filtered?: string }) {
+type Empty = { title?: string; filtered?: string; searched?: string };
+
+function admin(empty?: Empty) {
   return defineAdmin({
     adapter,
     auth: { session: async () => null, role: () => "admin" },
@@ -44,7 +46,7 @@ function admin(empty?: { title?: string; filtered?: string }) {
   });
 }
 
-async function table(query: string, empty?: { title?: string; filtered?: string }) {
+async function table(query: string, empty?: Empty) {
   const config = admin(empty);
   const orders = config.resourcesByName.get("orders");
   if (!orders) throw new Error("orders is not registered");
@@ -82,5 +84,18 @@ describe("an empty resource list", () => {
   it("takes the host's words for the filtered case", async () => {
     const props = await table("q=zzz", { filtered: "No orders match" });
     expect(props.emptyTitle).toBe("No orders match");
+  });
+
+  it("names the search text in `searched`, and keeps the clear action", async () => {
+    const empty = { filtered: "No orders match", searched: "Nothing found for «{query}»" };
+    const searched = await table("q=zzzzqqq&sort=status", empty);
+    expect(searched.emptyTitle).toBe("Nothing found for «zzzzqqq»");
+    expect(hrefOf(searched.emptyAction)).toBe("/admin/orders?sort=status");
+    expect((await table("f_status=paid", empty)).emptyTitle).toBe("No orders match");
+  });
+
+  it("fills `{query}` in `filtered` too", async () => {
+    const props = await table("q=zzz", { filtered: "No orders for “{query}”" });
+    expect(props.emptyTitle).toBe("No orders for “zzz”");
   });
 });

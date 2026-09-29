@@ -381,7 +381,7 @@ export function DataTable<Row extends Record<string, unknown>>({
                 orderedVisible={orderedVisible}
                 pinMeta={pinMeta}
                 colIndexByField={colIndexByField}
-                {...(prerenderedCells ? { prerenderedCells } : {})}
+                {...(prerenderedCells?.[idx] ? { prerenderedRow: prerenderedCells[idx] } : {})}
                 rowPadding={rowPadding}
                 selectionEnabled={selectionEnabled}
                 selectionSet={selectionSet}
