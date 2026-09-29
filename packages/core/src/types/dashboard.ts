@@ -59,9 +59,7 @@ export interface SectionConfig {
    */
   columns?: 1 | 2 | 3 | 4 | 6 | 12;
   /**
-   * `"strip"` draws the section's `metric` and `stat` widgets as one band divided by hairlines,
-   * with no card around each; another kind renders as its own card and warns in development.
-   * `columns` is the cells per line from `md` up.
+   * `"strip"` draws the section's `metric`/`stat` widgets as one band with no card; another kind warns in development.
    * @defaultValue "cards"
    */
   variant?: "cards" | "strip";
@@ -84,7 +82,7 @@ export interface DashboardFilter {
 }
 
 export interface DashboardConfig {
-  /** Path under `basePath`. `"/"` makes this the admin's landing page. */
+  /** Path under `paths.admin`. `"/"` makes this the admin's landing page. */
   path: string;
   /** Nav entry and page title. */
   label: string;
@@ -98,11 +96,7 @@ export interface DashboardConfig {
   filters?: DashboardFilter[];
   /** Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. */
   realtime?: RealtimeOption;
-  /**
-   * Re-render the whole dashboard on an interval, e.g. `"60s"` or `"5m"`, and
-   * show how old the numbers are next to the date picker. Paused while the tab
-   * is hidden.
-   */
+  /** Re-renders the whole dashboard on an interval, e.g. `"60s"` or `"5m"`; paused while the tab is hidden. */
   refresh?: `${number}s` | `${number}m`;
   /** Widget bands, rendered top to bottom. */
   sections: SectionConfig[];
@@ -115,9 +109,9 @@ export interface DashboardConfig {
   requireRole?: string | string[] | ((session: Session | null) => boolean);
 }
 
-/** User page registered under `<basePath><path>` with a sidebar nav entry. */
+/** User page registered under `<paths.admin><path>` with a sidebar nav entry. */
 export interface PageConfig {
-  /** Path under `basePath`. */
+  /** Path under `paths.admin`. */
   path: string;
   /** Nav entry and page title. */
   label: string;
@@ -125,7 +119,7 @@ export interface PageConfig {
   icon?: IconName;
   /** Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. */
   navGroup?: NavGroupRef;
-  /** Server or client React component rendered at `<basePath><path>`. */
+  /** Server or client React component rendered at `<paths.admin><path>`. */
   component?: ComponentType<Record<string, never>>;
   /** External href used when `component` is not provided. */
   href?: string;

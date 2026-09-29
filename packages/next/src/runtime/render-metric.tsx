@@ -100,9 +100,7 @@ export async function renderMetric(
     caption,
   ]);
   const result = asResult(produced);
-  const found = result.delta ?? queriedDelta ?? comparedDelta(widget, ctx, result, before);
-  const goodWhen = found?.goodWhen ?? widget.options.goodWhen;
-  const delta = found && goodWhen ? { ...found, goodWhen } : found;
+  const delta = result.delta ?? queriedDelta ?? comparedDelta(widget, ctx, result, before);
   const sublabel = result.sublabel ?? widget.options.sublabel;
   const tone = valueTone(result, widget.options);
   if (result.href === undefined) warnOnMismatch(widget, ctx, config);
@@ -114,6 +112,7 @@ export async function renderMetric(
       {...(widget.options.format ? { format: widget.options.format } : {})}
       {...(sublabel ? { sublabel } : {})}
       delta={delta}
+      {...(widget.options.goodWhen ? { goodWhen: widget.options.goodWhen } : {})}
       {...(sparkline ? { sparkline } : {})}
       {...(tone ? { tone } : {})}
       {...(drilldown ? { drilldown } : {})}

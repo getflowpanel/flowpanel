@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import type { ListQueryContext, MutationContext } from "@flowpanel/core";
-import { FlowpanelAccessError } from "@flowpanel/core";
+import { bindAdapterScope, FlowpanelAccessError } from "@flowpanel/core";
 import { MySqlContainer, type StartedMySqlContainer } from "@testcontainers/mysql";
 import { eq } from "drizzle-orm";
 import { boolean, int, mysqlTable, varchar } from "drizzle-orm/mysql-core";
@@ -91,7 +91,10 @@ afterAll(async () => {
 });
 
 describe.skipIf(!dockerAvailable)("drizzleAdapter MySQL CRUD", () => {
-  const adapter = drizzleAdapter({ db: null as any, schema: { users }, dialect: "mysql" });
+  let adapter: ReturnType<typeof drizzleAdapter>;
+  beforeAll(() => {
+    adapter = drizzleAdapter({ db, schema: { users }, dialect: "mysql" });
+  });
 
   function ctx(overrides: Partial<ListQueryContext<any>> = {}): ListQueryContext<any> {
     return {
@@ -115,24 +118,24 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter MySQL CRUD", () => {
   }
 
   it("list returns rows with pagination", async () => {
-    const r = await adapter.list(users, ctx({ db, pageSize: 10, page: 1 }));
+    const r = await adapter.list(users, ctx({ pageSize: 10, page: 1 }));
     expect(r.total).toBe(25);
     expect(r.rows).toHaveLength(10);
   });
 
   it("list filter by equality", async () => {
-    const r = await adapter.list(users, ctx({ db, filters: { email: "u5@e.co" } }));
+    const r = await adapter.list(users, ctx({ filters: { email: "u5@e.co" } }));
     expect(r.total).toBe(1);
     expect((r.rows[0] as any).id).toBe("u5");
   });
 
   it("list search matches within declared searchFields", async () => {
-    const r = await adapter.list(users, ctx({ db, search: "User 7", searchFields: ["name"] }));
+    const r = await adapter.list(users, ctx({ search: "User 7", searchFields: ["name"] }));
     expect(r.rows.some((row: any) => row.id === "u7")).toBe(true);
   });
 
   it("FAIL-CLOSED: search has no effect when searchFields is undeclared", async () => {
-    const r = await adapter.list(users, ctx({ db, search: "User 7" }));
+    const r = await adapter.list(users, ctx({ search: "User 7" }));
     expect(r.total).toBe(25);
   });
 
@@ -160,26 +163,20 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter MySQL CRUD", () => {
   });
 
   it("list sort ascending", async () => {
-    const r = await adapter.list(
-      users,
-      ctx({ db, sort: { field: "age", dir: "asc" }, pageSize: 5 }),
-    );
+    const r = await adapter.list(users, ctx({ sort: { field: "age", dir: "asc" }, pageSize: 5 }));
     expect((r.rows[0] as any).age).toBe(20);
   });
 
   it("list sort descending", async () => {
-    const r = await adapter.list(
-      users,
-      ctx({ db, sort: { field: "age", dir: "desc" }, pageSize: 5 }),
-    );
+    const r = await adapter.list(users, ctx({ sort: { field: "age", dir: "desc" }, pageSize: 5 }));
     expect((r.rows[0] as any).age).toBe(44);
   });
 
   it("get returns a row or null", async () => {
-    expect(await adapter.get(users, { ...ctx({ db }), id: "u3" } as any)).toMatchObject({
+    expect(await adapter.get(users, { ...ctx(), id: "u3" } as any)).toMatchObject({
       id: "u3",
     });
-    expect(await adapter.get(users, { ...ctx({ db }), id: "nope" } as any)).toBeNull();
+    expect(await adapter.get(users, { ...ctx(), id: "nope" } as any)).toBeNull();
   });
 
   it("create inserts and returns the row (non-RETURNING branch)", async () => {
@@ -247,7 +244,7 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter MySQL CRUD", () => {
       input: {},
     } as any);
 
-    expect(await adapter.get(users, { ...ctx({ db }), id: "del1" } as any)).toBeNull();
+    expect(await adapter.get(users, { ...ctx(), id: "del1" } as any)).toBeNull();
   });
 });
 
@@ -279,7 +276,10 @@ describe.skipIf(!dockerAvailable)(
     it("in-scope create succeeds", async () => {
       const row: any = await itemsAdapter.create(
         items,
-        mutCtx({ id: "ok1", name: "OK", companyId: "c1" }, { applyScope: applyScopeC1 }),
+        mutCtx(
+          { id: "ok1", name: "OK", companyId: "c1" },
+          { boundScope: bindAdapterScope(applyScopeC1) },
+        ),
       );
       expect(row).toMatchObject({ id: "ok1", companyId: "c1" });
     });
@@ -296,7 +296,7 @@ describe.skipIf(!dockerAvailable)(
           items,
           mutCtx(
             { id: "hacked1", name: "Cross-tenant", companyId: "c2" },
-            { applyScope: applyScopeC1 },
+            { boundScope: bindAdapterScope(applyScopeC1) },
           ),
         ),
       ).rejects.toBeInstanceOf(FlowpanelAccessError);
@@ -316,60 +316,24 @@ describe.skipIf(!dockerAvailable)(
       expect(countAfter[0]?.c).toBe(before);
     });
 
-    it("FAIL-CLOSED: create throws when scopeRequired && no applyScope, before writing anything", async () => {
-      await expect(
-        itemsAdapter.create(
-          items,
-          mutCtx({ id: "shouldnotexist", name: "X", companyId: "c1" }, { scopeRequired: true }),
-        ),
-      ).rejects.toBeInstanceOf(FlowpanelAccessError);
-      const [rows] = (await pool.query("SELECT id FROM items WHERE id = ?", [
-        "shouldnotexist",
-      ])) as unknown as [unknown[], unknown];
-      expect(rows).toHaveLength(0);
-    });
-  },
-);
-
-describe.skipIf(!dockerAvailable)("drizzleAdapter migrations (mysql)", () => {
-  it("creates its bookkeeping table and round-trips applied ids", async () => {
-    const adapter = drizzleAdapter({ db, schema: { users } });
-
-    expect(await adapter.listAppliedMigrations?.()).toEqual(new Set());
-
-    await adapter.markMigrationApplied?.("0001_init");
-    await adapter.markMigrationApplied?.("0002_posts");
-
-    expect(await adapter.listAppliedMigrations?.()).toEqual(new Set(["0001_init", "0002_posts"]));
-  });
-
-  it("executes raw migration SQL", async () => {
-    const adapter = drizzleAdapter({ db, schema: { users } });
-    await adapter.runMigrationSql?.(`CREATE TABLE probe_mig (id VARCHAR(36) PRIMARY KEY)`);
-    const [rows] = (await pool.query("SELECT id FROM probe_mig")) as unknown as [
-      unknown[],
-      unknown,
-    ];
-    expect(rows).toHaveLength(0);
-  });
-
-  it("executes multi-statement files individually before recording the marker", async () => {
-    const adapter = drizzleAdapter({ db, schema: { users } });
-    await adapter.applyMigration?.(
-      "0003_multi_mysql",
-      `CREATE TABLE probe_mig_multi (id INT PRIMARY KEY, note VARCHAR(255) NOT NULL);
+    it("executes multi-statement files individually before recording the marker", async () => {
+      const adapter = drizzleAdapter({ db, schema: { users } });
+      await adapter.applyMigration?.(
+        "0003_multi_mysql",
+        `CREATE TABLE probe_mig_multi (id INT PRIMARY KEY, note VARCHAR(255) NOT NULL);
        INSERT INTO probe_mig_multi (id, note) VALUES (1, 'one;two');
        -- a comment semicolon must not become a statement ;
        INSERT INTO probe_mig_multi (id, note) VALUES (2, 'three');`,
-    );
+      );
 
-    const [rows] = (await pool.query(
-      "SELECT id, note FROM probe_mig_multi ORDER BY id",
-    )) as unknown as [Array<{ id: number; note: string }>, unknown];
-    expect(rows).toEqual([
-      { id: 1, note: "one;two" },
-      { id: 2, note: "three" },
-    ]);
-    expect(await adapter.listAppliedMigrations?.()).toContain("0003_multi_mysql");
-  });
-});
+      const [rows] = (await pool.query(
+        "SELECT id, note FROM probe_mig_multi ORDER BY id",
+      )) as unknown as [Array<{ id: number; note: string }>, unknown];
+      expect(rows).toEqual([
+        { id: 1, note: "one;two" },
+        { id: 2, note: "three" },
+      ]);
+      expect(await adapter.listAppliedMigrations?.()).toContain("0003_multi_mysql");
+    });
+  },
+);

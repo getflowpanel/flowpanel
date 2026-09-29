@@ -7,7 +7,6 @@ import type {
 import {
   assertResourceScope,
   authorizeOperation,
-  checkRequireRole,
   filterReadableProjection,
   formatLabel,
   mergeLabels,
@@ -77,11 +76,7 @@ export async function ResourceEditPage({
   reqCtx: providedReqCtx,
 }: ResourceEditPageProps) {
   const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
-  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
-  await authorizeOperation(
-    resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
-    reqCtx,
-  );
+  await authorizeOperation(resolveOperationAccess(resource.options.access, "update"), reqCtx);
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
@@ -98,19 +93,17 @@ export async function ResourceEditPage({
       : config.adapter.introspect(writeTarget(resource));
   const declared = declaredFormFields(resource, "update");
   const candidates = editProjectionCandidates(resource, declared, written.columns, reqCtx);
-  // Resolve policy before adapter work. The resulting selection and the local
-  // projection below share this one decision even for dynamic policies.
+  // Resolved once so the selection and the local projection below share this decision even for dynamic policies.
   const readable = await filterReadableProjection(candidates, resource.options.fieldAccess, reqCtx);
   const select = selectKnownFields(readable, intro.columns);
   const ctx: ItemQueryContext = {
     ...reqCtx,
-    db: config.adapter.db,
     dateRange: { from: new Date(0), to: new Date() },
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,
     id,
     select,
-    ...scopeBinding(config, resource, reqCtx),
+    ...scopeBinding(resource, reqCtx),
   };
   const row = (await runWithRequestContext(reqCtx, () =>
     config.adapter.get(resource.ref, ctx),

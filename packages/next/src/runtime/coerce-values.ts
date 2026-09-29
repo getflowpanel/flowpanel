@@ -9,9 +9,8 @@ export interface CoerceRowResult {
 }
 
 /**
- * Coerce a raw row's string cells to the JS type its column expects, ahead of Zod
- * validation. A cell that cannot be coerced is reported through `labels.form`,
- * naming the column the way the form's label does.
+ * Coerces a raw row's string cells to the JS type its column expects, ahead of Zod validation.
+ * A cell that cannot be coerced is reported through `labels.form`, naming the column as the form's label does.
  */
 export function coerceRowByColumns(
   columns: ColumnMeta[],
@@ -31,9 +30,7 @@ export function coerceRowByColumns(
     if (!column || typeof raw !== "string") continue;
 
     if (raw === "") {
-      // A NOT NULL column can never accept null. Omitting the key lets a
-      // database default apply, and leaves a column without one to be reported
-      // as required by the insert schema.
+      // Omitting the key lets a database default apply, or the insert schema report it as required.
       if (column.nullable) values[key] = null;
       else delete values[key];
       continue;

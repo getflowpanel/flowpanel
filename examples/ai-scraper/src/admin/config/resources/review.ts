@@ -88,7 +88,7 @@ export const review = resource(schema.matches, {
   rowClick: "drawer",
   drawer: {
     width: "lg",
-    header: (row) => `Match #${row.id}`,
+    title: (row) => `Match #${row.id}`,
     tabs: [
       {
         key: "decision",

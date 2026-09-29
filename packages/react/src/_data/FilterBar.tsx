@@ -63,8 +63,7 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
         }
       })}
       {hasAny && onClear ? (
-        // A text link, not a button: resetting is a quiet escape hatch and
-        // should not compete with the filters themselves for attention.
+        // A text link, not a button: resetting is a quiet escape hatch, not competing for attention.
         <button
           type="button"
           onClick={onClear}

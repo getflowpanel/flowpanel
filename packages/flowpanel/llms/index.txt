@@ -1,6 +1,6 @@
-# flowpanel
+# FlowPanel
 
-> The admin panel you don't have to build.
+> undefined
 > Config-first admin panel framework for Next.js 16.
 
 ```bash
@@ -21,17 +21,17 @@ documentation: blocks the docs mark `twoslash` are type-checked in CI,
 One file per section of the documentation, or per page of a section longer than 1000 lines, or per part of such a page.
 This directory is canonical; https://flowpanel.tech/llms/<file> serves the same files.
 
-- llms/introduction.txt — Getting started: Getting started, Build a founder admin, Why FlowPanel, Drizzle setup, Prisma setup, Project structure
-- llms/build.txt — Build your admin: Configuration, Resources, Forms, Add actions, Drawers, Dashboards, Build a record page, Analytics from one query, Import and export
-- llms/customization.txt — Customize the UI: Choose an extension point, Column renderers, Build a custom widget, Charts, Styling, Theme slots, Eject to source
-- llms/guides.txt — Production: Production readiness, Authenticate with better-auth, Authenticate with Clerk, Roles and permissions, Multi-tenant scope, Realtime, Realtime with Redis, Queues, Upgrade FlowPanel
-- llms/understand.txt — Understand FlowPanel: How FlowPanel works, Adapters and introspection, Type inference and registries, Request and mutation lifecycle, Server and client boundaries
+- llms/introduction.txt — Getting started: Getting started, Build a founder admin, Why FlowPanel, Drizzle setup, Prisma setup
+- llms/build.txt — Build your admin: Configuration, Resources, Forms, Add actions, Record pages and drawers, Dashboards, Import and export
+- llms/customization.txt — Customize the UI: Choose an extension point, Column renderers, Build a custom widget, Charts, Styling and theme slots, Eject to source
+- llms/guides.txt — Production: Production readiness, Authentication, Roles and permissions, Multi-tenant scope, Realtime, Queues
+- llms/understand.txt — Understand FlowPanel: How FlowPanel works, Adapters and introspection
 - llms/reference-define-config.txt — Reference: defineAdmin. The config entry point and every option it accepts.
 - llms/reference-resources.txt — Reference: resource(). Every option on a resource, its columns, fields and filters.
 - llms/reference-actions.txt — Reference: Actions. Row, bulk, dashboard and drawer actions — every option and what they return.
 - llms/reference-drawer.txt — Reference: Drawer. The row side panel — layout, tabs and actions.
-- llms/reference-widgets-1.txt — Reference: Widgets, WidgetContext, Shared option types, Thresholds, Links, metric, table, statGroup, Cards
-- llms/reference-widgets-2.txt — Reference: Widgets, timeline, heatmap, checklist, custom, Charts, Series helpers, Dashboards
+- llms/reference-widgets-1.txt — Reference: Widgets, WidgetContext, Shared option types, Thresholds, Links, metric, table, statGroup, Cards, timeline, heatmap, checklist
+- llms/reference-widgets-2.txt — Reference: Widgets, custom, Charts, Series helpers, Dashboards
 - llms/reference-queues.txt — Reference: queue(). The queue builder, its options, and how a queue key becomes a route.
 - llms/reference-contexts.txt — Reference: Contexts. What your queries, mutations and actions receive at runtime.
 - llms/reference-registry.txt — Reference: Type registry. FlowpanelTypes, FlowpanelResources, and the types that resolve through them.
@@ -42,7 +42,7 @@ This directory is canonical; https://flowpanel.tech/llms/<file> serves the same 
 - llms/reference-adapters.txt — Reference: Adapter contract. What FlowPanel needs from a database layer, method by method.
 - llms/reference-scope-realtime.txt — Reference: Scope & realtime. Tenant scoping, the publisher contract, and the rate limiter.
 - llms/reference-errors.txt — Reference: Errors. The error hierarchy, its status codes, and what reaches the operator.
-- llms/reference-cli.txt — Reference: CLI. The flowpanel command-line interface.
-- llms/reference-testing.txt — Reference: Smoke testing. Walk every page of a generated admin in one Playwright call and fail on errors, broken links and accessibility violations.
+- llms/reference-cli.txt — Reference: CLI. Every flowpanel command: init, dev, new, migrate, doctor and eject.
+- llms/reference-testing.txt — Reference: Testing. Walk every admin page in one Playwright call, and unit-test widgets and record headers over rows you pass.
 - llms/reference-eslint-plugin.txt — Reference: ESLint plugin. Five rules that catch config mistakes the type system cannot.
 - llms/troubleshooting.txt — Troubleshooting: Troubleshooting

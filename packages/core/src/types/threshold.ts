@@ -8,9 +8,8 @@ export interface Threshold {
   /** The value at which it is an error. */
   err: number;
   /**
-   * Which direction is good. Left out, the numbers say: `warn` below `err` means higher is worse,
-   * as for an error rate; `warn` above `err` means lower is worse, as for a success rate. Given,
-   * it must agree with them, or `defineAdmin` throws.
+   * Which direction is good. Left out, the numbers say it: `warn` below `err` means higher is worse, and reverse.
+   * Given, it must agree with them, or `defineAdmin` throws.
    */
   goodWhen?: GoodWhen;
   /** Below this many observations the value is `muted`: too few to judge. */

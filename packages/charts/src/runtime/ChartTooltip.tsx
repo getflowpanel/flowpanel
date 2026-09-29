@@ -30,11 +30,7 @@ const show = (
   return typeof value === "number" ? formatNumber(value, format, formatting) : String(value);
 };
 
-/**
- * Two-column tooltip: series on the left, value hard-right. Recharts' built-in
- * renderer inlines the value after the name, so numbers of different widths
- * never line up and the panel cannot be scanned down its right edge.
- */
+/** Two-column tooltip, series left and value hard-right, so values of different widths still line up. */
 export function ChartTooltip({
   active,
   payload,

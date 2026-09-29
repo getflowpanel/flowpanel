@@ -13,9 +13,9 @@ test("production readiness is one complete, navigable evaluation checklist", asy
   ).toBeVisible();
   await expect(page.getByText("control plane", { exact: false })).toBeVisible();
 
-  await expect(article.getByRole("link", { name: "Authentication with Clerk" })).toHaveAttribute(
+  await expect(article.getByRole("link", { name: "Authentication" })).toHaveAttribute(
     "href",
-    "/docs/guides/auth-with-clerk",
+    "/docs/guides/authentication",
   );
   await expect(article.getByRole("link", { name: "Roles and permissions" })).toHaveAttribute(
     "href",

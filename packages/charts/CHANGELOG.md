@@ -4,24 +4,16 @@
 
 ### Minor Changes
 
-- 072f37b: Empty charts use the configured labels, a skeleton holds the space until the chart mounts, pies show their legend by default, and tooltips and ticks format currency and dates with the admin's `formatting`.
-
-### Patch Changes
-
-- Updated dependencies [072f37b]
-- Updated dependencies [072f37b]
-  - @flowpanel/core@0.3.0
-  - @flowpanel/react@0.3.0
+- Added a skeleton that holds the space until a chart mounts.
+- Changed empty charts to use the configured labels.
+- Changed pie charts to show their legend by default.
+- Changed tooltips and ticks to format currency and dates with the admin's `formatting`.
 
 ## 0.2.0
 
 ### Patch Changes
 
-- 2804944: Chart helpers moved to their shared implementation, and the package no longer publishes before its typings are written.
-- Updated dependencies [2804944]
-- Updated dependencies [2804944]
-  - @flowpanel/core@0.2.0
-  - @flowpanel/react@0.2.0
+- Fixed the package publishing before its typings were written.
 
 ## 0.1.0
 

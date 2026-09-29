@@ -116,9 +116,8 @@ function checkWidgets(
 }
 
 /**
- * Throws at `defineAdmin` when a timeline source names a resource, a field or a kind that does
- * not exist, a `refs` field without a declared reference, or — on a record page — cannot tell
- * which field points at the record, or sets that field in a static `where`.
+ * Throws at `defineAdmin` when a timeline source names a resource, field or kind that does not exist.
+ * On a record page, also throws when it can't tell which field points at the record, or sets that field in a static `where`.
  */
 export function validateRecordSources(
   check: LinkCheck,

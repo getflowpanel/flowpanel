@@ -19,8 +19,7 @@ export async function readTsconfigOptions(cwd: string): Promise<TsconfigCompiler
     undefined,
     configPath,
   );
-  // This scan deliberately does not enumerate input files. Invalid/missing bases,
-  // cycles and malformed options must not turn a partial config into a valid alias.
+  // Invalid/missing bases, cycles and malformed options must not turn a partial config into a valid alias.
   if (parsed.errors.some(({ code }) => code !== 18002 && code !== 18003)) return null;
   const { baseUrl, paths } = parsed.options;
   // TypeScript records the config that declared paths when no baseUrl is set.

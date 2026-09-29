@@ -117,7 +117,7 @@ export const monitors = resource(schema.monitors, {
   rowClick: "drawer",
   drawer: {
     width: "lg",
-    header: (row) => row.name,
+    title: (row) => row.name,
     tabs: [
       {
         key: "detail",

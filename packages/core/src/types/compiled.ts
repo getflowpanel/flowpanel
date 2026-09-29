@@ -1,5 +1,5 @@
 import type { ResourceIntrospection } from "./adapter";
-import type { AdminConfig, ResolvedAdminConfig } from "./config";
+import type { AdminDefinition, ResolvedAdminConfig } from "./config";
 import type { ResourceConfig } from "./resource";
 
 /** @internal Normalized resource data shared by every runtime surface. */
@@ -11,7 +11,7 @@ export interface CompiledResource {
 
 /** @internal Private compiled graph. Public integrations consume it through runtime factories. */
 export interface CompiledAdmin {
-  readonly definition: AdminConfig;
+  readonly definition: AdminDefinition;
   readonly resolved: ResolvedAdminConfig;
   readonly resourcesByName: ReadonlyMap<string, CompiledResource>;
 }

@@ -92,19 +92,6 @@ describe("metric widget result object", () => {
     expect(props?.drilldown).toBe("/admin/other");
   });
 
-  it("carries goodWhen through to the card", async () => {
-    const props = await rendered(
-      {
-        kind: "metric",
-        label: "Churn",
-        query: async () => ({ value: 3, delta: { value: -0.2, vs: "prior", goodWhen: "down" } }),
-        options: {},
-      } as never,
-      MetricCard,
-    );
-    expect(props?.delta).toEqual({ value: -0.2, vs: "prior", goodWhen: "down" });
-  });
-
   it("colours a delta by the metric's own goodWhen", async () => {
     const props = await rendered(
       {
@@ -115,7 +102,8 @@ describe("metric widget result object", () => {
       } as never,
       MetricCard,
     );
-    expect(props?.delta).toEqual({ value: -0.2, vs: "prior", goodWhen: "down" });
+    expect(props?.delta).toEqual({ value: -0.2, vs: "prior" });
+    expect(props?.goodWhen).toBe("down");
   });
 });
 
@@ -148,7 +136,7 @@ describe("stat widget", () => {
           value: 4,
           tone: "warn",
           hint: "awaiting payment",
-          href: c.href("invoices"),
+          href: c.link({ resource: "invoices" }),
         }),
         options: { hint: "static", tone: "default" },
       } as never,

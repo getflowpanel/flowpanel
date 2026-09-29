@@ -116,8 +116,7 @@ export interface KvItem<R = Record<string, unknown>> {
   /** Renders the value as a link — a path, a named target, or one computed from the context. */
   href?: Link;
   /**
-   * A paragraph across the card: line breaks kept, and past `lines` lines — or about 120
-   * characters a line — the rest folded under "Show all".
+   * A paragraph across the card, line breaks kept; past `lines` lines the rest folds under "Show all".
    * @defaultValue false; `lines` defaults to 6
    */
   long?: boolean | { lines?: number };
@@ -185,18 +184,15 @@ export interface BarsOptions extends CaptionOptions {
   /** Show each row's part of the total beside its value: its own `share`, else of the rows' sum. */
   share?: boolean;
   /**
-   * Which direction is good news: it colours each row's change, and `tones` must agree with it.
-   * `"neutral"` never colours the change.
+   * Which direction is good news; colours each row's change ("neutral" doesn't), and `tones` must agree with it.
    * @defaultValue "up"
    */
   goodWhen?: "up" | "down" | "neutral";
   /** Tone each bar against a threshold by its value; a row's own `tone` wins. */
   tones?: Threshold;
   /**
-   * Run the query for the compared period too and fill each row's `previous`: the period
-   * before, or `against: "weekAgo"` for the same range seven days back. Rows join by `key`,
-   * else by `label`; a row's own `previous` wins. No change shows past `maxRange` or over a
-   * whole history.
+   * Runs the query for the compared period too and fills each row's `previous`, joined by `key` then `label`.
+   * No change shows past `maxRange` or over a whole history.
    */
   compare?: boolean | { against?: "previous" | "weekAgo" };
   /** Shown instead of the bars when the query returns nothing. Text or any node; the drawer shows only text. */

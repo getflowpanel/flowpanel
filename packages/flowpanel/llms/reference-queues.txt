@@ -1,4 +1,4 @@
-# flowpanel — Reference — queue()
+# FlowPanel — Reference — queue()
 
 ## queue()
 
@@ -8,11 +8,9 @@ Docs: https://flowpanel.tech/docs/reference/queues
 
 Documented types: queue, QueueOptions, QueueConfig
 
-`queue(ref, options)` registers one BullMQ queue as a nav entry and a page in
-the admin. FlowPanel does not implement a queue UI of its own — the page
-embeds [bull-board](https://github.com/felixmosh/bull-board) in an iframe. For
-the security consequences of that split, read
-[Queues](/docs/guides/queues) first; this page is the type surface.
+`queue(ref, options)` registers a BullMQ queue as a navigation entry whose page
+embeds [bull-board](https://github.com/felixmosh/bull-board). Setup and security:
+[Queues](/docs/guides/queues).
 
 ```ts excerpt
 import { defineAdmin, queue } from "@flowpanel/kit";
@@ -30,10 +28,8 @@ export default defineAdmin({
 });
 ```
 
-`ref` is typed `unknown` on purpose: FlowPanel never calls into BullMQ itself,
-so it does not need the `Queue` type and does not force `bullmq` into your
-type graph. The only thing it reads off the ref is `.name`, and only when
-`options.key` is absent.
+`ref` is typed `unknown`; FlowPanel reads only its `.name`, when `options.key` is
+absent.
 
 ### QueueOptions
 
@@ -49,12 +45,11 @@ type graph. The only thing it reads off the ref is `.name`, and only when
 | `key?` | `string` | Optional explicit key; defaults to queue.name. |
 | `requireRole?` | `string \| string[]` | Role required to access this queue page. |
 
-`requireRole` here is `string | string[]` — **no predicate**, unlike a
-resource's or a dashboard's. That is the same restriction actions carry.
+`requireRole` is `string | string[]`; it takes no predicate.
 
 ### QueueConfig
 
-What `queue()` returns. You pass it to `defineAdmin`; you rarely read it.
+What `queue()` returns.
 
 `QueueConfig`
 
@@ -66,18 +61,8 @@ What `queue()` returns. You pass it to `defineAdmin`; you rarely read it.
 
 ### The key, and the URL it produces
 
-`key` defaults to `ref.name` — the name you gave the BullMQ `Queue`. It is
-what the admin's own route uses:
-
-```text
-<basePath>/queues/<key>
-```
-
-`basePath` already carries its leading slash, so at the default the URL is
-`/admin/queues/email`, and under `basePath: "/internal/admin"` it is
-`/internal/admin/queues/email`.
-
-Three ways `defineAdmin` rejects a queue:
+`key` defaults to `ref.name`, and the page is `<paths.admin>/queues/<key>`, such as
+`/admin/queues/email`. `defineAdmin` rejects a queue when:
 
 | Condition | Error |
 | --- | --- |
@@ -85,14 +70,9 @@ Three ways `defineAdmin` rejects a queue:
 | Two queues resolve to the same key | `Duplicate queue key: "<key>". Each queue key must be unique.` |
 | The key is `dashboards`, `drawer` or `queues` | `queue "<key>" uses a name FlowPanel's routing reserves…` |
 
-The third is the same reserved-segment rule resources are held to — those
-three segments are matched by the admin's own routing before it ever looks at
-your names. Set `options.key` to something else.
-
 ### Reading queue state from your own code
 
-`queue()` only mounts the page. To count jobs for a dashboard widget, wrap the
-same `Queue` instances with `bullmqAdapter` and read through the returned map:
+To count jobs in a widget, wrap the same `Queue` instances with `bullmqAdapter`:
 
 ```ts excerpt
 import { bullmqAdapter } from "@flowpanel/kit/bullmq";
@@ -111,16 +91,12 @@ metric("Failed jobs", async () => jobs.queues.email.getJobCountByTypes("failed")
 });
 ```
 
-`BullMQAdapter` is `{ kind: "bullmq"; queues: Record<string, Queue> }` — a
-named map and nothing more. `BullMQAdapterOptions` is exported for symmetry
-with the other adapters; `bullmqAdapter` takes the map directly, so nothing
-consumes it.
+A queue page has no named link target, so the link spells the path.
+`BullMQAdapter` is `{ kind: "bullmq"; queues: Record<string, Queue> }`.
 
 ### Peer dependencies
 
-`bullmq` and `ioredis` are optional peers, as are `@bull-board/api`,
-`@bull-board/express` and `express` for `@flowpanel/kit/bullmq/board`. Install
-them only if you use queues:
+All optional; install them only for queues:
 
 ```bash
 pnpm add bullmq ioredis

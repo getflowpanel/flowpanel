@@ -74,7 +74,7 @@ export type SerializedDrawerTab =
 
 export interface DrawerPayload {
   row: Record<string, unknown>;
-  header: string;
+  title: string;
   /** The line under the title, from `drawer.subtitle`. */
   subtitle?: string;
   /** The resource's display label, so the drawer never shows the raw registry name. */
@@ -232,13 +232,12 @@ export function drawerRoute(config: ResolvedAdminConfig) {
         );
         const itemCtx: ItemQueryContext = {
           ...reqCtx,
-          db: config.adapter.db,
           dateRange: { from: new Date(0), to: new Date() },
           searchParams: new URLSearchParams(),
           signal: new AbortController().signal,
           id,
           select,
-          ...scopeBinding(config, resource, reqCtx),
+          ...scopeBinding(resource, reqCtx),
         };
         const row = (await runWithRequestContext(reqCtx, () =>
           config.adapter.get(resource.ref, itemCtx),
@@ -249,9 +248,9 @@ export function drawerRoute(config: ResolvedAdminConfig) {
         const projectedRow = projectRowFields(row, readableRowFields);
 
         const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
-        const header =
-          typeof drawer.header === "function"
-            ? String(drawer.header(projectedRow) ?? "")
+        const title =
+          typeof drawer.title === "function"
+            ? String(drawer.title(projectedRow) ?? "")
             : String(projectedRow[rowKey] ?? "");
 
         const tabs: SerializedDrawerTab[] | null = drawer.tabs
@@ -279,7 +278,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
         );
         const payload: DrawerPayload = {
           row: projectedRow,
-          header,
+          title,
           ...(drawer.subtitle ? { subtitle: String(drawer.subtitle(projectedRow) ?? "") } : {}),
           resourceLabel:
             (resource.options.label as string | undefined) ?? humanize(String(resourceName)),
@@ -331,79 +330,72 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
       );
     }
 
-    return withGuards(
-      config,
-      req,
-      { resource, actionAccess: action.access, actionRequireRole: action.requireRole },
-      async (reqCtx) => {
-        const itemCtx: ItemQueryContext = {
-          ...reqCtx,
-          db: config.adapter.db,
-          dateRange: { from: new Date(0), to: new Date() },
-          searchParams: new URLSearchParams(),
-          signal: new AbortController().signal,
-          id,
-          ...scopeBinding(config, resource, reqCtx),
-        };
-        const row = (await runWithRequestContext(reqCtx, () =>
-          config.adapter.get(resource.ref, itemCtx),
-        )) as Record<string, unknown> | null;
-        if (!row) {
+    return withGuards(config, req, { resource, actionAccess: action.access }, async (reqCtx) => {
+      const itemCtx: ItemQueryContext = {
+        ...reqCtx,
+        dateRange: { from: new Date(0), to: new Date() },
+        searchParams: new URLSearchParams(),
+        signal: new AbortController().signal,
+        id,
+        ...scopeBinding(resource, reqCtx),
+      };
+      const row = (await runWithRequestContext(reqCtx, () =>
+        config.adapter.get(resource.ref, itemCtx),
+      )) as Record<string, unknown> | null;
+      if (!row) {
+        return Response.json({ ok: false, error: "not found" }, { status: 404 });
+      }
+      if (action.when) {
+        const allowed = await action.when({ ...reqCtx, current: row, input: {} });
+        if (!allowed) {
           return Response.json({ ok: false, error: "not found" }, { status: 404 });
         }
-        if (action.when) {
-          const allowed = await action.when({ ...reqCtx, current: row, input: {} });
-          if (!allowed) {
-            return Response.json({ ok: false, error: "not found" }, { status: 404 });
-          }
-        }
+      }
 
-        const body = await readActionInput(req);
-        if (!body.ok) return invalidJsonResponse(body.reason);
-        const parsedInput = await parseActionInputSchema(
-          action.form as Parameters<typeof parseActionInputSchema>[0],
-          undefined,
-          body.input,
+      const body = await readActionInput(req);
+      if (!body.ok) return invalidJsonResponse(body.reason);
+      const parsedInput = await parseActionInputSchema(
+        action.form as Parameters<typeof parseActionInputSchema>[0],
+        undefined,
+        body.input,
+      );
+      if (parsedInput.issues) {
+        return Response.json(
+          { ok: false, error: "validation failed", issues: parsedInput.issues },
+          { status: 422 },
         );
-        if (parsedInput.issues) {
-          return Response.json(
-            { ok: false, error: "validation failed", issues: parsedInput.issues },
-            { status: 422 },
-          );
-        }
+      }
 
-        const actionCtx = buildActionContext(config, reqCtx, action);
+      const actionCtx = buildActionContext(config, reqCtx, action);
 
-        // A drawer action's result is typed ActionResult<never>; any data reaching here
-        // escaped the type system, so refuse it rather than forward it to the client.
-        const result = validateActionOutput(
-          undefined,
-          await runWithRequestContext(reqCtx, () => action.run(row, parsedInput.data, actionCtx)),
-        );
+      // A drawer action's result is typed ActionResult<never>; any data reaching here escaped the type system.
+      const result = validateActionOutput(
+        undefined,
+        await runWithRequestContext(reqCtx, () => action.run(row, parsedInput.data, actionCtx)),
+      );
 
-        await maybeEmitAudit(
-          result,
-          config.audit,
-          resource.options.audit,
-          buildAuditEvent(
-            reqCtx,
-            {
-              action: `${resourceName}.drawer.${actionKey}`,
-              resource: resourceName,
-              targetId: id,
-            },
-            config.auth.userId,
-          ),
-        );
+      await maybeEmitAudit(
+        result,
+        config.audit,
+        resource.options.audit,
+        buildAuditEvent(
+          reqCtx,
+          {
+            action: `${resourceName}.drawer.${actionKey}`,
+            resource: resourceName,
+            targetId: id,
+          },
+          config.auth.userId,
+        ),
+      );
 
-        if (result.ok) {
-          await applyActionResult(result, {
-            resourceName,
-            pathname: buildHref(config, resourceName),
-          });
-        }
-        return Response.json(result);
-      },
-    );
+      if (result.ok) {
+        await applyActionResult(result, {
+          resourceName,
+          pathname: buildHref(config, resourceName),
+        });
+      }
+      return Response.json(result);
+    });
   };
 }

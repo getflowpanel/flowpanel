@@ -154,8 +154,7 @@ export function importRoute(config: ResolvedAdminConfig) {
         }
       }
       if (imported > 0) {
-        // Rows are already committed and create is not idempotent, so a failed
-        // notify must never turn a partial import into a retryable error.
+        // Rows are already committed, so a failed notify must never turn this into a retryable error.
         try {
           const name = resourceNavName(resource);
           revalidatePath(buildHref(config, name));

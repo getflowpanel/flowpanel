@@ -90,7 +90,7 @@ export const customers = resource(schema.customers, {
   },
   drawer: {
     width: "lg",
-    header: (row) => row.company ?? row.email,
+    title: (row) => row.company ?? row.email,
     tabs: [
       { key: "profile", label: "Profile", fields: "*" },
       {
@@ -117,7 +117,7 @@ export const customers = resource(schema.customers, {
         key: "disable",
         label: "Disable customer",
         variant: "destructive",
-        requireRole: "admin",
+        access: "admin",
         confirm: "Disable this customer? They will lose access immediately.",
         run: disableCustomer,
       },

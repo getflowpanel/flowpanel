@@ -4,49 +4,14 @@
 
 ### Minor Changes
 
-- 072f37b: Ships `llms.txt`, the reference documentation as one file, and `@flowpanel/kit/publish` for publishing realtime events from workers.
-
-### Patch Changes
-
-- Updated dependencies [072f37b]
-- Updated dependencies [072f37b]
-- Updated dependencies [072f37b]
-- Updated dependencies [072f37b]
-- Updated dependencies [072f37b]
-- Updated dependencies [072f37b]
-  - @flowpanel/adapter-drizzle@0.3.0
-  - @flowpanel/adapter-prisma@0.3.0
-  - @flowpanel/charts@0.3.0
-  - @flowpanel/core@0.3.0
-  - @flowpanel/next@0.3.0
-  - @flowpanel/react@0.3.0
-  - @flowpanel/client@0.3.0
-  - @flowpanel/adapter-bullmq@0.3.0
+- Added `llms.txt`, the reference documentation as one file.
+- Added `@flowpanel/kit/publish` for publishing realtime events from workers.
 
 ## 0.2.0
 
 ### Minor Changes
 
-- 2804944: Re-exports track the 0.2 surface of the packages this kit bundles.
-
-### Patch Changes
-
-- Updated dependencies [2804944]
-- Updated dependencies [2804944]
-- Updated dependencies [2804944]
-- Updated dependencies [2804944]
-- Updated dependencies [2804944]
-- Updated dependencies [2804944]
-- Updated dependencies [2804944]
-- Updated dependencies [2804944]
-  - @flowpanel/adapter-bullmq@0.2.0
-  - @flowpanel/adapter-drizzle@0.2.0
-  - @flowpanel/adapter-prisma@0.2.0
-  - @flowpanel/charts@0.2.0
-  - @flowpanel/client@0.2.0
-  - @flowpanel/core@0.2.0
-  - @flowpanel/next@0.2.0
-  - @flowpanel/react@0.2.0
+- Changed the re-exports to the 0.2 API of the bundled packages.
 
 ## 0.1.0
 

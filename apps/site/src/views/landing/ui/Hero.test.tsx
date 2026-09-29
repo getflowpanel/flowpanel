@@ -7,20 +7,21 @@ vi.mock("@/shared/lib/site-config", () => ({
   siteConfig: { links: { demo: "https://demo.example.com/admin" } },
 }));
 
-describe("Hero action hierarchy", () => {
-  it("keeps the two navigation choices separate from the quick-start command", () => {
+describe("Hero", () => {
+  it("offers the live demo as the one primary action and the docs as a text link", () => {
     const html = renderToStaticMarkup(createElement(Hero));
-    const actions = html.match(/<nav aria-label="Hero actions"[\s\S]*?<\/nav>/)?.[0];
+    const actions = html.match(/<nav aria-label="Hero actions"[\s\S]*?<\/nav>/)?.[0] ?? "";
 
-    expect(actions, "the hero should expose one semantic action group").toBeDefined();
-    expect(actions ?? "").toContain("Open live demo");
-    expect(actions ?? "").toContain("Read the docs");
-    expect(actions ?? "").not.toContain("pnpm dlx");
-    expect(html).toContain('aria-label="Quick start"');
-    const quickStart = html.match(/<[^>]+aria-label="Quick start"[^>]*>/)?.[0];
-    expect(quickStart).toContain("min-w-0");
-    expect(quickStart).toContain("w-full");
-    expect(quickStart).toContain("max-w-[640px]");
-    expect(html).not.toContain(">GitHub<");
+    expect(actions).toContain('href="https://demo.example.com/admin"');
+    expect(actions).toContain("Open the live demo");
+    expect(actions).toContain('href="/docs"');
+    expect(actions.match(/bg-\[var\(--color-ink\)\]/g)).toHaveLength(1);
+  });
+
+  it("carries no release line or upgrade link", () => {
+    const html = renderToStaticMarkup(createElement(Hero));
+
+    expect(html).not.toContain("/docs/guides/upgrade");
+    expect(html).not.toMatch(/0\.3\.\d:/);
   });
 });

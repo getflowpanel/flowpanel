@@ -8,11 +8,8 @@ function sanitizeSqlParam(value: unknown): unknown {
 }
 
 /**
- * Coerce `ctx.sql` values to what every driver can bind: a `Date` to ISO-8601
- * text and a `bigint` to decimal text, and the same one level into an array's
- * own values — how an array itself binds is the adapter's business. Call this
- * from an adapter's `sql` so the same template behaves the same on Postgres,
- * MySQL and SQLite.
+ * Coerces `ctx.sql` values to what every driver can bind: a `Date` to ISO-8601 text, a `bigint` to decimal text.
+ * Call this from an adapter's `sql` so the same template behaves the same on Postgres, MySQL and SQLite.
  */
 export function sanitizeSqlParams(values: readonly unknown[]): unknown[] {
   return values.map(sanitizeSqlParam);
@@ -26,11 +23,8 @@ export interface ParseSqlRowsOptions {
 }
 
 /**
- * Normalise `ctx.sql` result rows. A free-form statement carries no column
- * types to consult, so every string shaped exactly like a zoneless
- * `YYYY-MM-DD HH:mm:ss` timestamp becomes a UTC `Date` — which is what the
- * drivers that return them mean. Cast a text column in the query to keep it a
- * string, or turn the whole pass off with `parseDates: false`.
+ * Normalises `ctx.sql` result rows: every string shaped like a zoneless `YYYY-MM-DD HH:mm:ss` timestamp becomes a UTC `Date`.
+ * Cast a text column in the query to keep it a string, or turn the whole pass off with `parseDates: false`.
  */
 export function parseSqlRows<Row>(
   rows: ReadonlyArray<Record<string, unknown>>,

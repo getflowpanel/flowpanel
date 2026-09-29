@@ -74,8 +74,7 @@ function resolveShell(
 export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = {}) {
   bindPublisher(config);
   return async function FlowpanelPage({ params, searchParams }: PageProps) {
-    // Next hands page catch-all segments over still percent-encoded, so an
-    // identifier carrying `/` or `%` only becomes itself after one decode.
+    // Next hands catch-all segments over still percent-encoded, so an id carrying `/` needs one decode.
     const slug = resolveCatchAllSegments(await params).map(decodeAtom);
     const spRaw = await searchParams;
     const sp = new URLSearchParams();

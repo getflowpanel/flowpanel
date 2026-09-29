@@ -23,8 +23,7 @@ function segments(params: Params): string[] {
 
 function creatableByCaller(resource: ResourceConfig, reqCtx: RequestContext): Promise<boolean> {
   if (resource.options.create?.disabled) return Promise.resolve(false);
-  const { access, requireRole } = resource.options;
-  return accessAllows(resolveOperationAccess(access, requireRole, "create"), reqCtx);
+  return accessAllows(resolveOperationAccess(resource.options.access, "create"), reqCtx);
 }
 
 async function titleFor(
@@ -51,9 +50,8 @@ async function titleFor(
 }
 
 /**
- * `generateMetadata` for the admin's catch-all page: each page's `<title>` is its dashboard,
- * list or record name, which the host's title template wraps. A page the caller may not open
- * names nothing, and a visitor who is not signed in sees no admin label.
+ * `generateMetadata` for the admin's catch-all page: each page's `<title>` is its dashboard, list or record name.
+ * A page the caller may not open names nothing, and a signed-out visitor sees no admin label.
  */
 export function flowpanelMetadata(config: ResolvedAdminConfig) {
   return async function generateMetadata({

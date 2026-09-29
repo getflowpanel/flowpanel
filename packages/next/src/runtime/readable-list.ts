@@ -36,8 +36,7 @@ export async function resolveReadableListSurface(
     search: resource.options.search as unknown[] | undefined,
     ...(defaultSortRaw ? { defaultSort: { field: String(defaultSortRaw.field) } } : {}),
   });
-  // One resolution for the whole page: a field policy may be async, and the
-  // list controls and the projected rows must never disagree about a field.
+  // One resolution for the whole page, so the list controls and projected rows never disagree about a field.
   const rowDeclared = declaredRowFields(resource);
   const operational = [...new Set(operationalFields)];
   const readable = await resolveReadableFieldSet(

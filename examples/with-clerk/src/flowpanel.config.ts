@@ -38,7 +38,7 @@ export default defineAdmin({
             description: "The user will be able to access the admin panel.",
           },
           hidden: (row) => row.role === "admin",
-          run: async (row, _input, { db }) => {
+          run: async (row) => {
             await db.update(schema.users).set({ role: "admin" }).where(eq(schema.users.id, row.id));
             return { ok: true, message: `Promoted ${row.email}`, refresh: true };
           },
@@ -52,7 +52,7 @@ export default defineAdmin({
             description: "They lose admin access immediately.",
           },
           hidden: (row) => row.role !== "admin",
-          run: async (row, _input, { db }) => {
+          run: async (row) => {
             await db
               .update(schema.users)
               .set({ role: "member" })
@@ -96,7 +96,7 @@ export default defineAdmin({
             title: "Publish selected posts?",
             description: "Sets `published = true`.",
           },
-          run: async (ids, _input, { db }) => {
+          run: async (ids) => {
             const numericIds = ids.map((id) => Number(id)).filter((n) => Number.isFinite(n));
             await db
               .update(schema.posts)
@@ -113,7 +113,7 @@ export default defineAdmin({
             title: "Unpublish selected posts?",
             description: "Sets `published = false`. Idempotent.",
           },
-          run: async (ids, _input, { db }) => {
+          run: async (ids) => {
             const numericIds = ids.map((id) => Number(id)).filter((n) => Number.isFinite(n));
             await db
               .update(schema.posts)

@@ -65,11 +65,7 @@ export function missingDependencies(
   return inspected.filter(({ state }) => state.installed === null);
 }
 
-/**
- * A declaration may be a workspace/file/tag/range pin the user chose, and a plain
- * install honours it. A peer declaration is not one a manager installs, so it
- * still needs an add.
- */
+// A peer declaration is not one a manager installs on a plain install, so it still needs an add.
 function installsAsDeclared({ state }: InspectedDependency): boolean {
   return state.declaration !== null && state.declaration.section !== "peerDependencies";
 }
@@ -168,9 +164,7 @@ export function dependencyReport(input: {
     add("@flowpanel/cli", cliMismatch, input.pmc.addDisplay(pinnedSpec("@flowpanel/cli"), true));
   }
 
-  // A manager that exits non-zero over an unrelated package still leaves
-  // FlowPanel installable. Say what it said, but do not invent a failure with
-  // no failing package and no command to run.
+  // A manager can exit non-zero over an unrelated package and still leave FlowPanel installable.
   const ok = failed.length === 0;
   return {
     ok,
@@ -179,8 +173,7 @@ export function dependencyReport(input: {
     ),
     failed,
     recovery,
-    // A package that never arrived is explained by the manager; one that arrived
-    // and does not fit is explained by the mismatch.
+    // A package that never arrived is explained by the manager; a wrong-fit one by the mismatch.
     reason: ok ? null : ((hasUnresolved ? input.installFailure : null) ?? details[0] ?? null),
     warning: ok ? input.installFailure : null,
   };

@@ -29,20 +29,13 @@ export function createRealtimeTransport(opts: PublisherOptions): Publisher {
   return createRedisPublisher(opts);
 }
 
-/**
- * @deprecated Renamed `createRealtimeTransport`. For a worker, use `createPublisher` from
- * `@flowpanel/kit/publish`, which never rejects on a Redis error.
- */
-export const createPublisher: (opts: PublisherOptions) => Publisher = createRealtimeTransport;
-
 function createMemoryPublisher(): Publisher {
   const subs = new Map<string, Set<(p: unknown) => void>>();
   let closed = false;
   return {
     async publish(channel, payload) {
       if (closed) throw new Error("[flowpanel] this realtime publisher is closed.");
-      // Serialize first, and always: a payload Redis would reject must not
-      // depend on whether this process happens to have a subscriber.
+      // Serialize first, and always, so a payload Redis would reject doesn't depend on having a subscriber.
       const body = encodePayload(channel, payload);
       const handlers = subs.get(channel);
       if (!handlers) return;

@@ -19,8 +19,7 @@ export async function countCoreInstances(cwd: string): Promise<number | null> {
   const cores = new Set<string>();
   let installed = false;
 
-  // One unreadable manifest left behind by an interrupted install must not
-  // silently cancel the whole duplicate-core check; skip that branch instead.
+  // One unreadable manifest must not silently cancel the whole duplicate-core check.
   async function read(dir: string): Promise<PackageManifest | null> {
     const cached = manifests.get(dir);
     if (cached) return cached;

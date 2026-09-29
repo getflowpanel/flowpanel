@@ -5,9 +5,9 @@ kind: how-to
 metaTitle: Create and edit forms
 ---
 
-FlowPanel can generate forms from adapter metadata. Declare the field lists when you need a predictable write surface, different create and update behavior, or controls the adapter cannot infer.
+Create and edit forms are generated from the table. Declare `create.fields` and `update.fields` to choose exactly what each form writes; the server rejects any other field.
 
-## Start with explicit fields
+## Declare the fields
 
 ```ts excerpt
 resource(schema.users, {
@@ -28,17 +28,15 @@ resource(schema.users, {
 })
 ```
 
-The create form can collect fields that should never be editable later. Omitted fields remain outside that form; they are not silently accepted by the write route.
+## Controls
 
-## Choose controls
+`type` picks the input: text, textarea, number, email, password, url, date, datetime, time, boolean, switch, checkbox, select, multiselect, radio, json, markdown, tags, reference, hidden or color. Add `label`, `help` or `placeholder` when the name is not enough.
 
-Use `type` for the intended input: text, textarea, number, email, password, URL, date/time, boolean controls, select variants, JSON, Markdown, tags, reference, hidden, or color. Add `label`, `help`, and `placeholder` only when the field name and control do not explain the task.
-
-`options` accepts static strings, `{ label, value }` pairs, or a server-side function. Dynamic options receive the typed query context and are resolved per request. Leave `options` out on a field whose column uses an `enumOf` badge format, and the field lists the enum's labels.
+`options` takes strings, `{ label, value }` pairs, or a function resolved on the server per request. A field whose column has an `enumOf` format lists the enum's labels without `options`.
 
 ## Relation fields
 
-A reference field stores the foreign key while showing a searchable label from another registered resource:
+A reference field stores the foreign key and shows a searchable label from another resource:
 
 ```ts excerpt
 {
@@ -53,24 +51,22 @@ A reference field stores the foreign key while showing a searchable label from a
 }
 ```
 
-The target resource's access, tenant scope, and searchable label field apply to the lookup. Register string-named resources in `FlowpanelResources` so the names and fields are checked.
+The lookup applies the target resource's access and tenant scope.
 
-## Validate on the server
+## Validation and defaults
 
-Adapter or resource schema validation is authoritative. A field `validate` rule runs afterward and can use a Zod schema or return a message. `required` also improves browser feedback, but a handcrafted request still passes through the same server checks.
+The resource schema validates first, then each field's `validate`, a Zod schema or a function returning a message. `required` also sets browser validation; the server checks it either way.
 
-Use a server `defaultValue` for trusted values such as the current tenant or initial status. Do not render sensitive defaults into the client just to post them back.
+A server `defaultValue` fills trusted values such as the tenant or an initial status without sending them to the browser.
 
-### What a rejection says
+### Rejection messages
 
-A rejected write answers with one message per field, and every message a reader can see comes from `labels.form`. A value the write needs but did not get reads as `required` — `"{label} is required"` — under the field's own `label`, or the humanized column name when the form declares no fields, so a cleared input no longer reports a type mismatch it did not cause. A value that cannot be read as its column's type reads as `invalidNumber`, `invalidBoolean` or `invalidDate` under the same label. Every other message is the one your schema or your `validate` rule wrote, passed through unchanged — including on an empty value: only the schema's own "expected a value" and "at least one character" rejections become `required`, so `z.string().min(3, "Pick a longer slug")` still says what you wrote. Translate all of them by setting `labels.form` (`RU_LABELS` already does).
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`. Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
 
 ## Restrict fields
 
-`readOnly`, `hidden`, and `requireRole` affect rendering and writes. A submitted read-only or unauthorized field is rejected by the server rather than silently applied. Use field policies when the rule depends on the operation or session.
+`readOnly`, `hidden` and `requireRole` apply to rendering and to writes. The server rejects a submitted read-only or unauthorized field. See [Roles and permissions](/docs/guides/permissions).
 
-## Understand submission
+## Submission
 
-Generated forms post to FlowPanel route handlers. A successful create returns to the resource list; a successful update returns to the row. Writes pass through auth, resource access, scope, field policy, validation, the adapter, then post-commit audit/realtime/revalidation.
-
-Use a custom page when the operation needs a multi-step transaction, several resources, or client state that does not fit a resource form. See [Request and mutation lifecycle](/docs/understand/request-lifecycle) and the generated [Resources reference](/docs/reference/resources).
+Forms post to FlowPanel's route handlers. A create returns to the list, an update to the row. For a multi-step transaction or several resources at once, build a custom page. Every option: [FieldDef](/docs/reference/resources#fielddef).

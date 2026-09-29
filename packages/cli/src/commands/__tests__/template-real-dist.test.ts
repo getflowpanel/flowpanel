@@ -59,7 +59,7 @@ async function builtKitApp(): Promise<string> {
       'import { withBetterAuth } from "@flowpanel/kit/auth";',
       'import { auth } from "@/provider";',
       "declare const action: ActionContext;",
-      "export const db: { query: unknown } = action.db;",
+      "export const db: { query: unknown } | undefined = action.unsafe?.db;",
       'export const role = (session: Session | null) => session?.user.role ?? "guest";',
       'export const preset: AuthConfig = withBetterAuth({ auth, role: (s) => s?.user.role ?? "guest" });',
       "",

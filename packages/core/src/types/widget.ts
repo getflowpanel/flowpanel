@@ -37,12 +37,6 @@ export interface MetricDelta {
   /** What the comparison is against, e.g. `"prior period"`. */
   vs: string;
   /**
-   * Which direction is good news. `"down"` colours a fall green; `"neutral"` never colours.
-   * @defaultValue "up"
-   * @deprecated Set `goodWhen` on the metric; a delta's own still wins.
-   */
-  goodWhen?: "up" | "down" | "neutral";
-  /**
    * The value compared against, shown muted beside the change. A count under 20 shows the
    * absolute change (`+3`); a `percent` metric shows percentage points (`+3 pp`).
    */
@@ -76,8 +70,7 @@ export interface MetricOptions extends CaptionOptions {
    */
   compare?: boolean | { against?: "previous" | "weekAgo" };
   /**
-   * Which direction is good news: it colours the change, and `tones` must agree with it.
-   * `"neutral"` never colours the change.
+   * Which direction is good news; colours the change ("neutral" doesn't), and `tones` must agree with it.
    * @defaultValue "up"
    */
   goodWhen?: "up" | "down" | "neutral";
@@ -128,18 +121,13 @@ export interface TableWidgetOptions<R = unknown> extends CaptionOptions {
   /** Supply rows yourself instead of reading a resource. */
   query?: (ctx: WidgetContext) => Promise<R[]>;
   /**
-   * Narrow the `resource` read: a filter keyed by its fields, or one computed from the
-   * context — `(c) => ({ userId: c.id })`. Values take the `ctx.read` shorthand; a missing
-   * value throws instead of reading every row.
+   * Narrow the `resource` read: a filter keyed by its fields, or one computed from the context — `(c) => ({ userId: c.id })`.
+   * A missing value throws instead of reading every row.
    */
   where?: Record<string, unknown> | ((ctx: WidgetContext) => Record<string, unknown>);
   /** A timestamp field of `resource` that the picked range bounds, as `ResourceLink.range` does. */
   range?: string;
-  /**
-   * Columns to show. Defaults to the resource's own list columns. A bare key
-   * takes the resource's declared header, or a humanised one; give an object to
-   * name and format a column the query produced itself.
-   */
+  /** Columns to show, defaulting to the resource's own list columns; give an object to name/format a query-produced column. */
   columns?: Array<RowKey<R> | WidgetColumn<R>>;
   /**
    * Which field identifies a row. Defaults to the resource's own key, and to
@@ -154,8 +142,7 @@ export interface TableWidgetOptions<R = unknown> extends CaptionOptions {
    */
   seeAll?: boolean | Link;
   /**
-   * Row cap. An explicit value caps both paths; the default applies to the
-   * `resource` read, while a `query`'s own rows are left alone unless you set it.
+   * Row cap. An explicit value caps both paths; the default applies only to the `resource` read.
    * @defaultValue 10
    */
   limit?: number;

@@ -63,7 +63,7 @@ export const runs = resource(schema.runs, {
   rowClick: "drawer",
   drawer: {
     width: "lg",
-    header: (row) => `Run #${row.id}`,
+    title: (row) => `Run #${row.id}`,
     tabs: [
       {
         key: "detail",

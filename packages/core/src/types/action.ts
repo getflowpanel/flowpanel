@@ -70,8 +70,6 @@ export interface RowAction<Row, Input extends ActionInput = ActionInput, Output 
   when?: (context: FieldWriteContext<Row>) => boolean | Promise<boolean>;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];
-  /** @deprecated Use `access`. This alias will be removed in 0.3. */
-  requireRole?: string | string[];
   /** Server-side handler. Runs only after every guard has passed. */
   run: (row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>;
 }
@@ -102,8 +100,6 @@ export interface BulkAction<Row, Input extends ActionInput = ActionInput, Output
   max?: number;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];
-  /** @deprecated Use `access`. This alias will be removed in 0.3. */
-  requireRole?: string | string[];
   /** Server-side handler, given every selected id. Capped at 1000 ids per call. */
   run: (ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>;
 }
@@ -118,8 +114,7 @@ export interface DashboardAction<Input extends ActionInput = ActionInput, Output
   /** Button styling. */
   variant?: ActionVariant;
   /**
-   * `"primary"` fills the button with the accent; keep one per dashboard, as more warn in
-   * development. A destructive secondary action reads in the error colour.
+   * `"primary"` fills the button with the accent; keep one per dashboard, as more warn in development.
    * @defaultValue "secondary"
    */
   emphasis?: ActionEmphasis;
@@ -135,8 +130,6 @@ export interface DashboardAction<Input extends ActionInput = ActionInput, Output
   access?: AccessRule;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];
-  /** @deprecated Use `access`. This alias will be removed in 0.3. */
-  requireRole?: string | string[];
   /** Server-side handler. Runs only after every guard has passed. */
   run: (input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>;
 }

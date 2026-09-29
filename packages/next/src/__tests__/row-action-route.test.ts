@@ -124,13 +124,13 @@ describe("rowActionRoute", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 403 when per-action requireRole fails", async () => {
+  it("returns 403 when per-action access fails", async () => {
     const config = makeConfig({
       role: "user",
       action: {
         key: "ping",
         label: "Ping",
-        requireRole: "admin",
+        access: "admin",
         run: async () => ({ ok: true }),
       },
     });

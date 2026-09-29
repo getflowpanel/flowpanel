@@ -1,4 +1,4 @@
-# flowpanel — Reference — Next.js runtime
+# FlowPanel — Reference — Next.js runtime
 
 ## Next.js runtime
 
@@ -8,9 +8,8 @@ Docs: https://flowpanel.tech/docs/reference/next-runtime
 
 Documented types: createFlowpanel, Flowpanel, FlowpanelOptions, flowpanelMetadata, handlers, stream, ApplyActionResultOptions, ResourceActions, MakeActionsOptions, FormActionResult, adminWidgetContext, AdminWidgetContextOptions, resolveWidget
 
-`@flowpanel/kit/next` binds one config to every Next.js surface: the generated
-page, HTTP handlers, request-scoped protected controllers, client metadata and
-realtime publisher.
+`@flowpanel/kit/next` binds a config to the admin page, HTTP handlers, protected
+controllers, client metadata and realtime publisher.
 
 ### createFlowpanel
 
@@ -52,18 +51,15 @@ export const runtime = "nodejs";
 | `events.publish(channel, payload?)` | Namespaced, validated realtime event. |
 | `dispose()` | Idempotent runtime cleanup hook. |
 
-Payloads passed to `events.publish` must serialize to `WireValue`, use a valid
-channel name, and remain under 64 KiB. `FlowpanelClientMetadata` is safe to send
-to a client; it contains paths and protocol metadata, never sessions or adapter
-state.
+`events.publish` payloads must serialize to `WireValue` and stay under 64 KiB.
+`FlowpanelClientMetadata` holds only paths and protocol data.
 
 #### Protected request controllers
 
-`await flowpanel.request()` authenticates once and returns a request-local
-`FlowpanelRequest`. Its typed `ResourceControllers` map exposes a
-`ResourceController<Row>` for each configured resource; `resource(name)` is the
-dynamic-name alternative. `ResourceListOptions<Row>` supports page, page size,
-search, filters, sort, projection and soft-delete visibility.
+`await flowpanel.request()` authenticates once and returns a `FlowpanelRequest`
+with a typed `ResourceController<Row>` per resource (`resource(name)` for a
+dynamic name). `ResourceListOptions<Row>` takes page, page size, search, filters,
+sort, projection and soft-delete visibility.
 
 ```ts excerpt
 const request = await flowpanel.request();
@@ -74,30 +70,15 @@ const result = await request.resources.orders.list({
 });
 ```
 
-Controllers return `FlowpanelResult` rather than throwing expected access,
-validation and not-found failures. They are not raw adapter shortcuts: every
-method applies admin/resource/operation policy, field projection, scope and
-the same mutation pipeline as the generated UI. Do not cache a
-`FlowpanelRequest` across requests.
-
-The `FlowpanelRuntime`, `FlowpanelRequest`, `ResourceControllers`,
-`ResourceController` and `ResourceListOptions` types are exported for custom
-server components and framework adapters.
+Controllers return a `FlowpanelResult` for access, validation and not-found
+failures, and apply the same policies, projection, scope and write pipeline as the
+generated UI. Do not reuse a `FlowpanelRequest` across requests.
 
 ### Flowpanel
 
-`Flowpanel(config)` is the compatibility page factory used internally by
-`createFlowpanel(config).page`. Prefer the runtime when wiring a new app.
-
-Both props are required — the returned component awaits `searchParams` as well
-as `params`, because filters, pagination, the drawer and the dashboard date
-range all live in the query string. Next.js passes both to a page component,
-so `export default Flowpanel(config)` satisfies it; a hand-written wrapper has
-to forward both.
-
-`params` is read structurally rather than by a fixed key: the first array-
-valued entry is taken as the catch-all segments, so the route folder may be
-`[[...slug]]`, `[...rest]`, or any other name.
+`Flowpanel(config)` is the page factory behind `createFlowpanel(config).page`. A
+wrapper must forward both `params` and `searchParams`. The first array-valued
+param is the catch-all, whatever the folder is named.
 
 ```ts excerpt
 // app/admin/[[...slug]]/page.tsx
@@ -115,13 +96,9 @@ export default Flowpanel(config);
 
 #### flowpanelMetadata
 
-`flowpanelMetadata(config)` is the `generateMetadata` for the same page. It titles a
-dashboard or page by its `label`, a list by the resource's plural name, a record by its
-singular name, a create page with `labels.form.createTitle` and a missing page with
-`labels.notFound.title`; your layout's `title.template` wraps it. A page the caller may not
-open, or a request without a session, gets no title. The page itself renders a
-`theme-color` meta per scheme from `--fp-bg-2`, with no export needed, so leave
-`viewport.themeColor` unset on the admin's layout.
+`flowpanelMetadata(config)` is the page's `generateMetadata`: a title per
+dashboard, list and record. Leave `viewport.themeColor` unset on the admin layout;
+the page renders its own.
 
 ```ts excerpt
 // app/admin/[[...slug]]/page.tsx
@@ -132,15 +109,12 @@ export const generateMetadata = flowpanelMetadata(config);
 export default Flowpanel(config);
 ```
 
-`FlowpanelContent(config, opts?)` is the same renderer without the shell, for
-embedding the admin inside chrome you already have. Its second parameter is
-`Omit<FlowpanelOptions, "shell">` — `shell` is not yours to set there, because
-`FlowpanelContent` *is* `Flowpanel(config, { …opts, shell: "bare" })`.
+`FlowpanelContent(config, opts?)` is `Flowpanel(config, { ...opts, shell: "bare" })`,
+for embedding the admin in your own chrome.
 
 ### handlers
 
-`handlers(config)` is the compatibility handler factory used internally by
-`createFlowpanel(config).handlers`. It returns the `FlowpanelHandlers` map:
+`handlers(config)` is the handler factory behind `createFlowpanel(config).handlers`:
 
 ```ts excerpt
 // app/api/flowpanel/[...route]/route.ts
@@ -150,10 +124,7 @@ import config from "@/flowpanel.config";
 export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = handlers(config);
 ```
 
-Each method is a `RouteHandler`: `(request, context) => Promise<Response>`.
-`RouteContext` carries the catch-all `route` params. Unsupported methods return
-the stable `method_not_allowed` envelope; `OPTIONS` advertises the enabled
-method/CORS contract.
+Each method is a `RouteHandler`, `(request, context) => Promise<Response>`.
 
 #### The routes it mounts
 
@@ -163,9 +134,9 @@ All paths are relative to `/api/flowpanel`.
 | --- | --- | --- |
 | `GET` | `/<resource>` | Typed list result for custom clients |
 | `GET` | `/<resource>/<id>` | One projected row |
-| `POST` | `/<resource>` | Create through the v1 JSON API |
-| `PATCH` / `PUT` | `/<resource>/<id>` | Update through the v1 JSON API |
-| `DELETE` | `/<resource>/<id>` | Delete through the v1 JSON API |
+| `POST` | `/<resource>` | Create (JSON API) |
+| `PATCH` / `PUT` | `/<resource>/<id>` | Update (JSON API) |
+| `DELETE` | `/<resource>/<id>` | Delete (JSON API) |
 | `GET` | `/drawer/<resource>/<id>` | Drawer payload for one row |
 | `GET` | `/<resource>/reference/<field>` | Options for a reference picker |
 | `POST` | `/<resource>/create` | Create form submit |
@@ -178,14 +149,12 @@ All paths are relative to `/api/flowpanel`.
 | `POST` | `/drawer/<resource>/<id>/actions/<action>` | Drawer action |
 | `POST` | `/dashboards/<path>/actions/<action>` | Dashboard action |
 
-Every one of them runs the same guard pipeline before its own work: the
-admin-wide role gate and rate limit, the resource gate, global read-only for
-writes, then the action's `requireRole`. See
-[Roles & permissions](/docs/guides/permissions).
+Each runs the admin role gate and rate limit, the resource gate, read-only mode
+for writes, and the action's `access`, in that order.
 
 ### stream
 
-The SSE endpoint backing realtime. Mount it on its own route.
+The SSE endpoint for realtime, on its own route.
 
 ```ts excerpt
 export function stream(
@@ -194,8 +163,7 @@ export function stream(
 ): (req: Request) => Promise<Response>;
 ```
 
-`StreamOptions` has one member — `heartbeatMs`, the interval between
-`: keep-alive` comments, defaulting to 15 s.
+`StreamOptions.heartbeatMs` sets the keep-alive interval, 15 s by default.
 
 ```ts excerpt
 // app/api/flowpanel/stream/route.ts
@@ -207,43 +175,23 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 ```
 
-`flowpanel init` scaffolds exactly that file, both route-segment exports
-included: an SSE response has to stay open and must never be statically
-rendered.
+`flowpanel init` writes this file.
 
 #### What the stream checks
 
-**No FlowPanel route requires a session — the stream is not a special case.**
-Every gate in the framework is a role check, and a role check with no
-requirement configured passes immediately. An admin with no `auth.requireRole`,
-no per-resource `requireRole` and no global `scope` therefore answers anonymous
-requests on *every* route above as well as this one: list, detail, create,
-update, delete, row/bulk/dashboard actions, import and drawer. Set
-`auth.requireRole` (a role name, a list, or a predicate such as
-`(s) => s !== null`) to gate the whole admin. `defineAdmin` warns about this in
-development; a deployment that is open on purpose — behind a VPN or an
-authenticating proxy — declares
-[`auth.allowUnauthenticated`](/docs/reference/define-config#authconfig) to
-silence the warning, and in production must pair it with `readOnly: true` or
-the config refuses to compile.
-
-When `auth.requireRole` *is* set and the caller's role fails it, the route
-answers `403` with `{ ok: false, error: "Forbidden" }` — not `401`, and not an
-open pipe. There is no separate "authenticated" check: a `requireRole`
-predicate is the only thing that can reject a session.
-
-Beyond that gate, `stream` bounds what one connection may ask for:
+Like every route, the stream is gated by `auth.requireRole`; without it, it is
+open ([AuthConfig](/docs/reference/define-config#authconfig)). A failed role check
+answers `403`. Per connection:
 
 | Limit | Value | Behavior when exceeded |
 | --- | --- | --- |
 | Channels per connection | 25 | Extra `?channel=` values are dropped, not rejected |
 | Channel name charset | `/^[A-Za-z0-9_.:-]{1,128}$/` | Non-matching names are silently ignored |
-| Per-resource role gate | `resource.<name>` channels | Dropped when the resource's own `requireRole` fails |
+| Per-resource role gate | `resource.<name>` channels | Dropped when the resource's `access.read` rejects the caller |
 | Heartbeat | 15s (`heartbeatMs`) | A `: keep-alive` comment keeps proxies from closing the response |
 
-Dropping rather than rejecting is deliberate: one bad channel in a batch must
-not kill a subscription to the other 24. A channel your client asked for but
-never receives events on is the symptom of hitting one of the first three rows.
+A channel that never receives events was probably dropped by one of the first
+three rows.
 
 ### Realtime helpers
 
@@ -257,9 +205,8 @@ function subscribe(channel: string, handler: (payload: unknown) => void): () => 
 function bindPublisher(config: ResolvedAdminConfig): void;
 ```
 
-`publishResource(name, event)` publishes to `resource.<name>` — the channel a
-resource subscribes to when it sets `realtime: true`. Use it from a worker or a
-webhook to make lists refresh:
+`publishResource(name, event)` publishes on `resource.<name>`, the channel a
+`realtime: true` resource listens on:
 
 ```ts excerpt
 import { publishResource } from "@flowpanel/kit/next";
@@ -267,73 +214,37 @@ import { publishResource } from "@flowpanel/kit/next";
 await publishResource("orders", { action: "update", id: order.id });
 ```
 
-Inside an action, prefer `ctx.publish` — it is the same publisher, already bound.
+In an action, use `ctx.publish`. `handlers`, `Flowpanel` and `stream` call
+`bindPublisher` for you; call it in your own route handlers. A worker uses
+[`@flowpanel/kit/publish`](/docs/guides/realtime#publish-from-a-worker).
 
-`bindPublisher` is called for you by `handlers`, `Flowpanel` and `stream`. You
-only need it when publishing from code that never goes through any of them —
-a standalone worker or cron, and your own route handlers, which on serverless
-are their own instances.
-
-The same three functions are re-exported from **`@flowpanel/kit/server`**,
-against the same process-wide store, so importing from either subpath in one
-process is equivalent: a `publish` sent through `/server` reaches a
-`subscribe` registered through `/next`. That subpath carries a smaller
-surface — `publish`, `publishResource`, `bindPublisher`, plus `emitAudit`,
-`requireRole`, and the request-context accessors — for server code that has no
-business importing the Next.js runtime wholesale.
-
-Publishing before `bindPublisher` has run in that process falls back to an
-in-memory publisher, which no other process can see — a Redis-configured
-deployment loses the event. FlowPanel logs one `console.warn` the first time this
-happens instead of degrading quietly, so a worker that "publishes but nothing
-refreshes" says so in its own logs.
+`@flowpanel/kit/server` re-exports `publish`, `publishResource` and
+`bindPublisher`, plus `emitAudit`, `requireRole` and the request-context
+accessors, without the rest of the Next.js runtime. Publishing before
+`bindPublisher` runs uses an in-memory publisher and warns once.
 
 ### Route handlers
 
-`handlers(config)` wires the table below to the routes listed earlier in
-[The routes it mounts](#the-routes-it-mounts). Each factory takes
-`ResolvedAdminConfig` and returns a Next.js `GET`/`POST` handler; mount one
-directly only when you need it on a path of your own, or wrapped with extra
-logic `handlers` doesn't give you a seam for.
+Factories for single [routes](#the-routes-it-mounts), for mounting one on your
+own path. Each takes `ResolvedAdminConfig` and returns a handler.
 
-**`resourceCreateRoute`** / **`resourceUpdateRoute`** — the create and edit
-form submit handlers, behind `POST /<resource>/create` and
-`POST /<resource>/<id>/edit`. Both parse `FormData`, coerce it against the
-adapter's introspected columns, and run it through `makeActions`.
+| Factory | Route |
+| --- | --- |
+| `resourceCreateRoute` | `POST /<resource>/create` |
+| `resourceUpdateRoute` | `POST /<resource>/<id>/edit` |
+| `rowActionRoute` | `POST /<resource>/<id>/actions/<action>` |
+| `bulkActionRoute` | `POST /<resource>/bulk-actions/<action>` |
+| `dashboardActionRoute` | `POST /dashboards/<path>/actions/<action>` |
+| `drawerActionRoute` | `POST /drawer/<resource>/<id>/actions/<action>` |
+| `drawerRoute` | `GET /drawer/<resource>/<id>` |
+| `inlineUpdateRoute` | `POST /<resource>/<id>/update`, for `editable: true` columns |
 
-**`rowActionRoute`** — runs a resource's row action, behind
-`POST /<resource>/<id>/actions/<action>`.
-
-**`bulkActionRoute`** — runs a resource's bulk action over a set of selected
-ids, behind `POST /<resource>/bulk-actions/<action>`.
-
-**`dashboardActionRoute`** — runs a dashboard action, behind
-`POST /dashboards/<path>/actions/<action>`. The `<path>` segment is the
-dashboard's path run through `encodeDashboardPath`.
-
-**`drawerActionRoute`** — runs a drawer action, behind
-`POST /drawer/<resource>/<id>/actions/<action>`.
-
-**`drawerRoute`** — the drawer payload handler, behind
-`GET /drawer/<resource>/<id>`. Resolves the row, its tabs, and its actions
-into the `DrawerPayload` the client drawer renders.
-
-**`inlineUpdateRoute`** — the single-cell edit handler, behind
-`POST /<resource>/<id>/update`. Only accepts a field declared `editable: true`
-on the resource's columns.
-
-Three of the routes in the table above have **no exported factory**: the
-reference-picker search (`GET /<resource>/reference/<field>`), the CSV / JSON
-import (`POST /<resource>/import`) and the soft-delete restore
-(`POST /<resource>/<id>/restore`) are handled inside `handlers()` and are not
-part of the package's export surface. Mount `handlers(config)` to get them;
-there is no supported way to mount one of the three on a path of your own.
+Reference search, import and restore have no factory; they come only with
+`handlers(config)`.
 
 #### Serialization pairs
 
-Every action route serializes its config-side action object into a wire-safe
-shape before it reaches the client — dropping server-only fields like
-handler functions.
+Action routes serialize actions for the client without server-only fields:
 
 | Config type | Serializer | Wire type |
 | --- | --- | --- |
@@ -343,18 +254,13 @@ handler functions.
 | Drawer action | — (inline in `drawerRoute`) | `SerializedDrawerAction` |
 | Drawer tab | — (inline in `drawerRoute`) | `SerializedDrawerTab` |
 
-`SerializedDashboardAction.form` is a `SerializedDashboardActionField[]` —
-each entry is the wire-safe shape of one action form field (name, label,
-type, options, …), nested inside the action rather than serialized on its
-own.
+`SerializedDashboardAction.form` is a `SerializedDashboardActionField[]`.
 
 ### applyActionResult
 
-Applies the side effects of a successful `ActionResult`: publishes to the
-channels its `refresh` names (or `publishResource` when `refresh: true` and a
-`resourceName` is given), then `revalidatePath`s the given `pathname` unless
-`refresh` is explicitly `false`. Every action route calls this after a
-successful mutation — call it yourself only from a custom route.
+Applies a successful `ActionResult`: publishes to the channels `refresh` names (or
+the resource's channel for `refresh: true`), then revalidates `pathname` unless
+`refresh` is `false`. Action routes call it; call it from your own route.
 
 `ApplyActionResultOptions`
 
@@ -370,16 +276,12 @@ function encodeDashboardPath(path: string): string;
 function decodeDashboardPath(encoded: string): string;
 ```
 
-A dashboard's `path` (e.g. `/reports/revenue`) isn't a valid single URL
-segment, so `dashboardActionRoute`'s `<dashboard>` param is the path run
-through `encodeDashboardPath`. Use the same pair when linking to or parsing a
-dashboard action route by hand.
+Encodes a dashboard `path` as the one URL segment `dashboardActionRoute` expects.
 
 ### makeActions
 
-The create / update / delete pipeline that the form routes use, available
-directly for scripts and custom routes. It applies the resource's schema, field
-rules, scope and audit — the same path the UI takes.
+The create, update and delete pipeline the form routes use, with the resource's
+schema, field rules, scope and audit.
 
 ```ts excerpt
 function makeActions(
@@ -415,15 +317,12 @@ The create and edit form routes answer with a `FormActionResult`:
 | `error?` | `string` |  |
 | `fieldErrors?` | `Record<string, string>` |  |
 
-Pass `reqCtx` when you already built one, so the caller's session and scope carry
-through instead of being resolved a second time.
+Pass `reqCtx` to reuse a request context you already built.
 
 ### buildRequestContext
 
-Builds the `RequestContext` every gate and query reads. It enforces
-`auth.requireRole` and the rate limit, so it **throws** —
-`FlowpanelAccessError` or `FlowpanelRateLimitError`. Catch it if you are writing
-your own route:
+Builds the `RequestContext`. It enforces `auth.requireRole` and the rate limit, so
+it throws `FlowpanelAccessError` or `FlowpanelRateLimitError`:
 
 ```ts excerpt
 import { buildRequestContext } from "@flowpanel/kit/next";
@@ -451,13 +350,10 @@ try {
 | `filters?` | `Readonly<Record<string, string>>` | The dashboard filters widgets read as `ctx.filters`. Default: `{}`. |
 | `url?` | `string` | Default: ``http://localhost` followed by the admin's mount`. |
 
-The context a widget receives in this admin — its memo, links, formatters, access checks and
-adapter — for a test that runs a widget's query without a request. It carries no tenant scope.
+A widget context for this admin, without a request or tenant scope, for tests.
 
-Renders a widget against the admin its context was built for, exactly as a dashboard does, and
-returns its `kind` and the props its card receives — a custom widget's own props rather than its
-frame's. A failing query rejects, and a hand-built context is refused. Most tests reach both
-through `@flowpanel/test/widgets`; see [Testing](/docs/reference/testing#unit-test-a-widget).
+Runs a widget as a dashboard does and returns its `kind` and props. Most tests use
+these through `@flowpanel/test/widgets`; see [Testing](/docs/reference/testing#unit-test-a-widget).
 
 ### Navigation
 
@@ -466,14 +362,6 @@ function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): NavGrou
 function resourceNavName(resource: ResourceConfig): string;
 ```
 
-`buildNav` produces the same entries the sidebar and tab strip render, grouped
-as Dashboards, Pages, Resources and Queues. Useful when you build your own
-chrome around a `"bare"` shell. Pass the request context to apply every
-surface's `requireRole`; the built-in shell always does this. Omitting `reqCtx`
-keeps the context-free behavior for tooling that only needs the complete site
-map. Resource entries with `hidden: true` are omitted in either mode.
-
-`resourceNavName` is `@flowpanel/core`'s `resolveResourceName` — the same
-resolver `defineAdmin` uses to key `resourcesByName` and derive the
-`resource.<name>` SSE channel. It throws if a ref's name can't be resolved,
-never a silent fallback.
+`buildNav` returns the sidebar entries, for your own chrome around a `"bare"`
+shell. Pass `reqCtx` to apply each entry's `requireRole` or resource `access`. `resourceNavName` returns
+a resource's resolved name and throws if it cannot.

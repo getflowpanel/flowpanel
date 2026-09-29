@@ -109,7 +109,6 @@ export async function assertResourceWritableInput(
 
 /** Fill `FieldDef.defaultValue` for keys absent from the input (create only). */
 export async function applyFieldDefaults(
-  config: ResolvedAdminConfig,
   resource: ResourceConfig,
   fields: FieldDef<Record<string, unknown>>[] | undefined,
   input: unknown,
@@ -128,7 +127,6 @@ export async function applyFieldDefaults(
       out[f.name] = await runWithRequestContext(reqCtx, () =>
         resolve({
           ...reqCtx,
-          db: config.adapter.db,
           dateRange: { from: new Date(0), to: new Date() },
           searchParams: new URLSearchParams(),
           signal: new AbortController().signal,
@@ -171,9 +169,8 @@ function isMissingValueIssue(issue: z.core.$ZodIssue): boolean {
 }
 
 /**
- * Turn a schema rejection into per-field messages a reader can act on: a value
- * the write needs but did not get reads as `labels.form.required` under the
- * field's own label, and every other issue keeps the message it came with.
+ * Turns a schema rejection into per-field messages: a missing required value reads as `labels.form.required`.
+ * Every other issue keeps the message it came with.
  */
 export function friendlyFieldErrors(
   fields: FieldDef<Record<string, unknown>>[] | undefined,

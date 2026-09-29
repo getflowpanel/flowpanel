@@ -25,8 +25,7 @@ export interface BetterAuthOptions {
 export function withBetterAuth(opts: BetterAuthOptions): AuthConfig {
   return {
     async session(req: Request): Promise<Session | null> {
-      // A provider that cannot answer means "not signed in", never "signed in
-      // as something unreadable": both are denied, and only one is honest.
+      // A provider that cannot answer means "not signed in", never "signed in as something unreadable".
       const s = await opts.auth.api.getSession({ headers: req.headers }).catch(() => null);
       if (s === null || typeof s !== "object") return null;
       const user = (s as { user?: unknown }).user;

@@ -11,13 +11,8 @@ export interface CreateDrawerProps {
 }
 
 /**
- * Opens the create form beside the list instead of navigating away, so the rows
- * behind stay in view. State lives in `?create=1` rather than component state:
- * the drawer then survives a refresh, is linkable, and closes on Back.
- *
- * The form still posts to its own route and redirects to the list on success,
- * which drops the param — so a successful create closes the drawer and
- * re-renders the list in the same navigation.
+ * Opens the create form beside the list instead of navigating away. State lives in `?create=1`, not component state,
+ * so the drawer survives a refresh, is linkable, and a successful create's redirect closes it by dropping the param.
  */
 export function CreateDrawer({ label, title, children }: CreateDrawerProps) {
   const url = useUrlState();

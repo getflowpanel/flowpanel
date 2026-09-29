@@ -44,8 +44,7 @@ export interface DrawerTabWidgets {
   >[];
 }
 
-// Row defaults to an index signature, not `unknown`: `keyof unknown` is `never`,
-// which would collapse `fields` on a bare `DrawerTab` (see DashboardAction.form).
+// Row defaults to an index signature, not `unknown`, whose `keyof` would collapse `fields` on a bare `DrawerTab`.
 export type DrawerTab<Row = Record<string, unknown>> =
   | DrawerTabFields<Row>
   | DrawerTabResource<Row>
@@ -86,8 +85,6 @@ export interface DrawerAction<Row = Record<string, unknown>> {
   when?: (context: FieldWriteContext<Row>) => boolean | Promise<boolean>;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];
-  /** @deprecated Use `access`. This alias will be removed in 0.3. */
-  requireRole?: string | string[];
   /** Server-side handler. Runs only after every guard has passed. */
   run: (
     row: Row,
@@ -103,7 +100,7 @@ export interface DrawerConfig<Row = Record<string, unknown>> {
    */
   width?: DrawerWidth;
   /** Panel title. Defaults to the row's key. */
-  header?: (row: Row) => string;
+  title?: (row: Row) => string;
   /** The line under the title. Defaults to the resource's label. */
   subtitle?: (row: Row) => string;
   /** Fields shown when no `tabs` are declared. `"*"` shows every column. */

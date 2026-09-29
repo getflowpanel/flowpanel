@@ -32,8 +32,7 @@ export interface SeriesOptions<R> {
   /** Values of `by` present as columns, in this order, even with no rows. */
   keys?: readonly string[];
   /**
-   * `"auto"`: hours up to 2 days, days up to 92, weeks up to 400, else months. A week starts
-   * on Monday, whatever the locale.
+   * `"auto"`: hours up to 2 days, days up to 92, weeks up to 400, else months. Weeks start Monday.
    * @defaultValue "auto"
    */
   grain?: Grain;
@@ -62,9 +61,8 @@ function warnLargeFold(count: number): void {
 }
 
 /**
- * A range of the same length ending where `range` begins. The shift is elapsed
- * time, not calendar days, so the comparison window for a week that crosses a DST
- * boundary starts an hour off the wall clock.
+ * A range of the same length ending where `range` begins.
+ * The shift is elapsed time, not calendar days, so a week crossing a DST boundary starts an hour off.
  */
 export function previousRange(range: { from: Date; to: Date }): { from: Date; to: Date } {
   const span = range.to.getTime() - range.from.getTime();
@@ -182,9 +180,8 @@ function rankSeries<R>(
 }
 
 /**
- * One point per bucket across `range` in its zone, gaps filled, one column per `by`
- * value — `value` without `by`. A bucket with no rows folds `[]`: `0` for a count or
- * a sum, whatever the function returns for a function.
+ * One point per bucket across `range` in its zone, gaps filled, one column per `by` value.
+ * A bucket with no rows folds `[]`: `0` for a count or sum, whatever the function returns for a function.
  */
 export function series<R>(
   rows: readonly R[],
@@ -242,12 +239,8 @@ export function series<R>(
 }
 
 /**
- * Turn sparse grouped rows into one point per day across `range`, so a chart
- * draws a flat stretch where nothing happened instead of skipping the day.
- * Bucketing is done in `timeZone`, else the range's own `timeZone` — so `ctx.dateRange`
- * buckets in the admin's zone — else UTC. There is one bucket per calendar day the
- * range touches, both ends included, so the `last7d` preset — `now - 7d … now` —
- * yields eight buckets whose first is a partial day.
+ * Turns sparse grouped rows into one point per day across `range`, so a chart draws flat stretches instead of gaps.
+ * Buckets in `timeZone`, else the range's own, else UTC; one bucket per calendar day touched, both ends included.
  */
 export function fillDays<R>(
   rows: R[],

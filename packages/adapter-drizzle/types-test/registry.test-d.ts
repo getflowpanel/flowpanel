@@ -64,7 +64,7 @@ expectError(ctx.count("user_vist"));
 expectError(ctx.count("user", { name: "Ann" }));
 
 declare const action: ActionContext;
-expectType<typeof db>(action.db);
+expectType<typeof db | undefined>(action.unsafe?.db);
 
 expectType<AuthSession | null>({} as Parameters<NonNullable<BetterAuthOptions["role"]>>[0]);
 withBetterAuth({

@@ -4,16 +4,14 @@ description: What your queries, mutations and actions receive at runtime.
 kind: reference
 ---
 
-Every function you hand FlowPanel — a widget query, a field's `defaultValue`, an
-action's `run`, an adapter method — receives a context object. They all extend
-`RequestContext`, so `session`, `role` and `scope` are always available.
+Every function you give FlowPanel receives a context that extends
+`RequestContext`, so `session`, `role` and `scope` are always there.
 
 ## RequestContext
 
 <AutoTypeTable path="../../packages/core/src/types/context.ts" name="RequestContext" />
 
-`req` is built from the real incoming headers even during a server render, so
-cookie- and header-based auth works identically in pages and API routes.
+`req` carries the incoming headers during server renders too.
 
 ## QueryContext
 
@@ -27,9 +25,7 @@ What an adapter's `list` receives — everything needed to build one page of row
 
 <AutoTypeTable path="../../packages/core/src/types/context.ts" name="ListQueryContext" />
 
-`searchFields` is an allowlist taken verbatim from `resource.options.search`. An
-adapter must never search columns outside it: that list is what keeps the search
-box from becoming a way to probe columns the operator cannot otherwise see.
+`searchFields` is `options.search`. An adapter must search only these columns.
 
 ## ItemQueryContext
 
@@ -49,20 +45,16 @@ What every action's `run` receives.
 
 ## Filter values
 
-Most filters arrive in `ctx.filters` as plain scalars. Two kinds arrive
-structured, and ship with runtime guards so you can narrow `unknown` safely.
+Most filters arrive in `ctx.filters` as scalars. Two arrive structured, with
+type guards.
 
 ### FilterRangeValue
 
 Produced by `daterange` and `numeric-range` filters.
 
-A `daterange` side written as a day, `2026-09-23`, covers that whole day in
-`formatting.timeZone` (UTC when it is not set): `gte` is its first millisecond and `lte`
-its last.
-
-A widget link's `range` writes both sides as ISO instants joined by `~` —
-`2026-09-22T21:00:00.000Z~2026-09-23T07:00:00.000Z` — and they arrive as exactly those
-instants, so the list shows the rows the widget counted.
+A `daterange` day such as `2026-09-23` covers that whole day in
+`formatting.timeZone` (UTC if unset). A widget link writes ISO instants joined by
+`~`, which arrive unchanged.
 
 <AutoTypeTable path="../../packages/core/src/types/context.ts" name="FilterRangeValue" />
 
@@ -90,15 +82,14 @@ for (const [field, value] of Object.entries(ctx.filters)) {
 
 ## Raw SQL and counts
 
-A widget query's [`WidgetContext`](/docs/reference/widgets#widgetcontext) — and a
-detail tab's `DetailTabContext` — carries two reads the ORM cannot express
-comfortably: `ctx.sql` and `ctx.count`.
+A [`WidgetContext`](/docs/reference/widgets#widgetcontext) and a
+`DetailTabContext` carry `ctx.sql`, `ctx.count`, `ctx.read` and `ctx.rowOf`.
 
 ### ctx.sql
 
-`ctx.sql` runs exactly the statement you write. It applies no tenant scope, no
-access rule and no soft-delete filter — add those predicates yourself, or use
-`ctx.count` and resource reads, which do.
+`ctx.sql` runs the statement as written, with no tenant scope, access rule or
+soft-delete filter. Add those predicates yourself, or use `ctx.count` and
+`ctx.read`, which apply them.
 
 ```ts excerpt
 metric("New signups", async (ctx) => {
@@ -111,55 +102,28 @@ metric("New signups", async (ctx) => {
 });
 ```
 
-In a multi-tenant admin that means writing the predicate in the statement:
-`where tenant_id = ${ctx.session?.tenantId}`. A resource read — `ctx.count`, a
-table widget's `resource`, a related tab — is the scoped primitive; a raw
-statement is not one.
-
-`ctx.sql` is a tagged template. Every interpolated value is bound as a parameter,
-so `${filter}` from a search box can never change the statement — there is no
-string-concatenating form of this API, on purpose. A `Date` binds as an ISO-8601
-string and a `bigint` as decimal text, so the same value works on Postgres, MySQL
-and SQLite. An array is a single value to the driver, and each adapter binds one
-its own way — see [the adapter reference](/docs/reference/adapters#raw-sql) before
-writing an `IN` list.
-
-Fragments compose. A Drizzle `sql` fragment interpolated into `ctx.sql` — a shared
-window, a scope, a filter built elsewhere — is bound the same way at any depth, so a
-`Date` two fragments deep still binds as ISO text on the Drizzle adapter:
+Every interpolated value is a bound parameter. A `Date` binds as ISO-8601 text and
+a `bigint` as decimal text. Arrays bind differently per adapter; see
+[Raw SQL](/docs/reference/adapters#raw-sql). Drizzle `sql` fragments nest:
 
 ```ts excerpt
 const window = (c: WidgetContext) => sql`hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
 const rows = await ctx.sql<HourRow>`select * from scraper_hourly_stats where ${window(ctx)}`;
 ```
 
-Cast counts and sums to a JavaScript number in the statement — `count(*)::int`,
-`sum(x)::float8` — because Postgres returns `int8` and `numeric` as strings to keep
-their precision. FlowPanel's series and breakdown helpers coerce numeric strings, but
-a value you read yourself arrives as text.
+Cast counts and sums in SQL (`count(*)::int`, `sum(x)::float8`): Postgres returns
+`int8` and `numeric` as strings.
 
-Results come back as plain objects. Because a free-form statement carries no
-column types to consult, every string shaped exactly like a zoneless
-`YYYY-MM-DD HH:mm:ss` (with an optional `T` separator and fractional seconds) is
-returned as a UTC `Date` — that is what the drivers returning them mean. A text
-column of your own holding such a string is parsed too. Cast it in the query, or,
-when `select *` gives you no place to cast, turn the pass off for the whole
-adapter with `parseDates: false` — `drizzleAdapter({ db, schema, parseDates: false })`
-or `prismaAdapter({ prisma, provider, parseDates: false })`. It defaults to `true`.
-
-`ctx.sql` throws when the configured adapter implements no `sql` capability. The
-error names the adapter kind; query through `ctx.db` instead.
+A string shaped like a zoneless `YYYY-MM-DD HH:mm:ss` comes back as a UTC `Date`.
+`parseDates: false` on the adapter turns that off. `ctx.sql` throws when the
+adapter has no `sql` capability.
 
 ### ctx.count
 
-`ctx.count(resource, where, { range })` counts rows of a registered resource through
-the same role, access and tenant-scope checks as any other cross-resource read, so a
-resource the current session may not read counts `0` rather than leaking a total.
-`where` takes the [where values](#where-values) `ctx.read` takes, and soft-deleted rows
-are excluded unless `where` says otherwise. A filter on a field the role may not read
-counts `0`. An `undefined`, `null` or `""` value counts `0` too, with a development
-warning — a missing value narrows to nothing rather than widening to every row. A
-misspelt field throws and names the closest column, whatever its value.
+`ctx.count(resource, where, { range })` counts rows with the resource's access,
+scope and soft-delete rules; a resource or field the session may not read counts
+`0`. `where` takes [where values](#where-values). An `undefined`, `null` or `""`
+value counts `0` and warns in development. A misspelt field throws.
 
 ```ts excerpt
 stat("Open tickets", (ctx) => ctx.count("tickets", { status: "open" }));
@@ -167,10 +131,8 @@ stat("Open tickets", (ctx) => ctx.count("tickets", { status: "open" }));
 
 ### Counting and reading a period
 
-`range` names the timestamp field that receives the widget's `ctx.dateRange`, inclusive
-on both ends, the way a link's `range` bounds the list it opens. Over a whole history —
-a record page without a date picker — it adds no bound. With `compare`, the previous
-period is counted again with its own bounds.
+`range` names the timestamp field bounded by `ctx.dateRange`, inclusive. Over a
+whole history it adds no bound.
 
 ```ts excerpt
 metric("Visits", (ctx) => ctx.count("user_visit", { userId: ctx.id }, { range: "startedAt" }), {
@@ -178,15 +140,13 @@ metric("Visits", (ctx) => ctx.count("user_visit", { userId: ctx.id }, { range: "
 });
 ```
 
-A `{ gte, lte }` on the same field in `where` narrows the period to the overlap; any
-other value on that field together with `range` throws.
+A `{ gte, lte }` on the same field in `where` narrows to the overlap.
 
 ### ctx.read
 
-`ctx.read(resource, options)` returns rows of a registered resource through the same
-role, access, tenant-scope, field and soft-delete rules as its list, so a card never
-sees a row or a field the list would hide. A resource the session may not read returns
-`[]`. Two widgets that read with the same options share one query per request.
+`ctx.read(resource, options)` returns rows with the same rules as the resource's
+list; an unreadable resource returns `[]`. Identical reads share one query per
+request.
 
 ```ts excerpt
 const profileOf = async (ctx: WidgetContext) =>
@@ -201,22 +161,14 @@ const profileOf = async (ctx: WidgetContext) =>
 kv({ label: "Profile", items: [{ label: "Rate", value: async (c) => (await profileOf(c))?.hourlyRate }] });
 ```
 
-Rows carry what the resource's list carries — its declared columns, `expose` and
-`rowKey` — plus the `fields` you ask for. Any other property is `undefined`, even
-though the row type lists it, so name every field a card reads that the list does not
-show. `sort` orders the rows and `limit` defaults to 100 and stops at 1000. A read
-that returns exactly 1000 rows warns once in development, because a total or a series
-over a cut read undercounts; narrow the `where`, or count with `ctx.count`.
-
-A misspelt resource, field, sort field or read field throws before any query, and the
-message names the closest real name.
+Rows carry the list's columns, `expose` and `rowKey`, plus `fields`; other
+properties are `undefined`. `limit` defaults to 100, maximum 1000. A misspelt name
+throws before any query.
 
 ### ctx.rowOf
 
-`ctx.rowOf(resource)` is the record the card shows, typed by its resource's row, so a
-detail widget reads `c.rowOf("user").email` with no cast. It throws on a dashboard,
-which has no record, and on another resource's card; the message names both.
-`ctx.row` stays as the untyped record.
+`ctx.rowOf(resource)` is the viewed record, typed. It throws on a dashboard or on
+another resource's page. `ctx.row` is the untyped record.
 
 ```ts excerpt
 stat("With us", async (c) => c.format.relative(c.rowOf("user").createdAt));
@@ -224,9 +176,7 @@ stat("With us", async (c) => c.format.relative(c.rowOf("user").createdAt));
 
 ### Where values
 
-A `where` is keyed by the row's own fields once the resource is typed (see
-[the type registry](/docs/reference/registry)), so a misspelt field is a compile error.
-Each value is one of:
+A `where` is keyed by the row's fields. Each value is one of:
 
 | Value | Matches |
 | --- | --- |
@@ -234,17 +184,14 @@ Each value is one of:
 | `"__null__"` / `"__notnull__"` | rows where the field is empty / not empty |
 | `{ gte, lte }` (numbers or dates, either side optional) | rows inside the bounds, inclusive |
 | `["paid", "refunded"]`, `[1, 2]` | rows equal to any of them; an empty array matches nothing; pass a boolean as a plain value, not in an array |
-| `{ op: "in", values }`, `{ op: "range", gte, lte }` | the adapter's own shapes, as a view or a 0.3.0 count wrote them |
+| `{ op: "in", values }`, `{ op: "range", gte, lte }` | the adapter's own filter shapes |
 
-A value that is `undefined`, `null` or `""`, or a range with neither bound, would match
-every row, so `ctx.read` throws on it. Leave the field out instead, or pass `"__null__"`.
-An array that holds a boolean throws too: its values reach the database as text, and on
-SQLite `"false"` matches the rows that are `true`.
+`ctx.read` throws on `undefined`, `null`, `""`, an empty range, or an array holding
+a boolean. Leave the field out, or pass `"__null__"`.
 
 ## Request-scoped access
 
-When you cannot thread a context through — a helper several calls deep, say —
-read it from AsyncLocalStorage instead of reaching for a global.
+Read the current context from AsyncLocalStorage when you cannot pass it down.
 
 ```ts excerpt
 import { getRequestContext, tryGetRequestContext } from "@flowpanel/kit";
@@ -253,6 +200,5 @@ const ctx = getRequestContext();      // throws outside a request
 const maybe = tryGetRequestContext(); // null outside a request
 ```
 
-`runWithRequestContext(ctx, fn)` establishes the scope; FlowPanel already wraps
-every adapter call and every action `run` in it. This ambient state lives in
-AsyncLocalStorage so concurrent requests do not share it.
+`runWithRequestContext(ctx, fn)` sets it; FlowPanel already wraps adapter calls
+and action `run` in it.

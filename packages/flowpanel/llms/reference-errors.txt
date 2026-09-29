@@ -1,4 +1,4 @@
-# flowpanel — Reference — Errors
+# FlowPanel — Reference — Errors
 
 ## Errors
 
@@ -8,13 +8,9 @@ Docs: https://flowpanel.tech/docs/reference/errors
 
 Documented types: FlowpanelError, FlowpanelValidationError
 
-Throw one of these from an action, an adapter, or a custom route and FlowPanel
-turns it into the right HTTP status with a message that is safe to show. Throw
-anything else and the caller gets a generic `500` — the detail is logged, never
-sent.
-
-That split is the point of the hierarchy: `safeMessage` is the part you have
-decided an operator may read.
+Throw one of these from an action, adapter or custom route and FlowPanel answers
+with its status and `safeMessage`. Any other error becomes a generic `500`, and the
+detail is logged, not sent.
 
 ### FlowpanelError
 
@@ -46,29 +42,17 @@ throw new FlowpanelError("conflict", "This order is already being processed");
 | `FlowpanelConflictError` | `conflict` | 409 | Conflict | no — yours to throw |
 | `FlowpanelRateLimitError` | `rate_limited` | 429 | Rate limit exceeded | yes |
 
-Each takes an optional message overriding the default.
-
-The last column matters when you write a `hooks.onError` or a log filter.
-FlowPanel raises `FlowpanelAccessError` for rejected admin/resource access and
-an unbound tenant scope, `FlowpanelFieldAccessError` for prohibited field
-reads/writes, `FlowpanelOperationDisabledError` for disabled mutations,
-`FlowpanelUnknownFieldError` for fields outside the resource contract,
-`FlowpanelRateLimitError` from the request prologue, and the not-found and
-validation errors from resource routes. `FlowpanelAuthError` and
-`FlowpanelConflictError` are available for application code. (The render path
-still catches `FlowpanelAuthError` if you throw one from a page — see below.)
+Each takes an optional message.
 
 #### FlowpanelValidationError
 
-The one subclass with extra state: `fieldErrors`, keyed by field name — and it
-is the **first** constructor argument, with the message second:
+It carries `fieldErrors`, keyed by field name, as the first constructor argument:
 
 ```ts excerpt
 constructor(fieldErrors: Record<string, string>, message = "Validation failed");
 ```
 
-Forms render the entries against the matching inputs instead of showing one
-banner.
+Forms show each entry beside its input.
 
 ```ts excerpt
 import { FlowpanelValidationError } from "@flowpanel/kit";
@@ -83,92 +67,56 @@ throw new FlowpanelValidationError({ email: "Already registered" }, "Could not s
 
 ### Config-time errors are not in this hierarchy
 
-`defineAdmin` throws plain `Error`s, deliberately: they happen while your
-config module evaluates, long before there is a request to map a status onto.
-They carry no `code`, no `safeMessage` and no `status`, and no `hooks.onError`
-sees them — the process fails to boot instead.
-
-What they cover: duplicate resource names, dashboard paths and queue keys;
-duplicate action keys within one list; a resource or queue named after a
-reserved route segment (`dashboards`, `drawer`, `queues`); a column a resource
-points at that the adapter does not report; an omitted `columns` on a ref the
-adapter cannot introspect; an unresolvable cross-resource reference; and a
-`rowClick: "drawer"` with no drawer.
-
-Each names the config path at fault and, where it can, the near match. See
-[Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots)
-for the full table.
+`defineAdmin` throws plain `Error`s while the config loads, so the app fails to
+start. They cover duplicate or reserved names, duplicate action keys, unknown
+columns, an unintrospectable ref without `columns`, unresolved references, and
+`rowClick: "drawer"` without a drawer. Each names the config path and the closest
+match. See [Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots).
 
 #### Did you mean
 
-A name that is not registered but is close to one that is gets the suggestion
-appended to the error: an exact match once casing and `_`/`-` are ignored, else
-the closest name within an edit distance of two.
+An unknown name close to a registered one gets a suggestion: a match ignoring case
+and `_`/`-`, else the closest within edit distance two.
 
 ```text
 resource "users" points at column "emial" via columns[0], but the adapter
 reports no such column. Did you mean "email"? Known columns: "id", "email".
 ```
 
-It applies to `columns`, `filters`, `expose`, `defaultSort.field`, `rowKey`,
-`create.fields` / `update.fields` names, the resource a `detail.tabs[]` /
-`drawer.tabs[]` entry or a `reference` points at, a related tab's `hide` and
-`sort.field`, a saved view's filter keys and `sort.field`, and every static link a
-widget carries — its resource, dashboard, view, tab, `filter` keys and `range` — as
-well as what a `metric({ count })` counts. A link, view or count `where` field must
-also be a field the target list declares, or the list would drop it and show every
-row, and its value must be one the list reads as the same rows: an array needs a
-`multiselect` filter, numeric `{ gte, lte }` a `numeric-range` one, date bounds a
-`daterange` one. A single value on a range filter (other than a preset name such as
-`last7d` on a `daterange` one) and a bare `Date` are rejected, because the list reads
-them as open-ended bounds; pass `{ gte, lte }`. Links computed by a function, `ctx.count`, `ctx.read` and
-`ctx.rowOf` are checked when they run, with the same suggestion; a count metric whose
-`where` is a function warns in development when its link would open other rows.
+It covers column, filter, sort, field, tab, reference, view and link names. A link,
+view or count `where` value must match its filter type: an array needs a
+`multiselect` filter, `{ gte, lte }` a range filter; a bare `Date` is rejected.
+Names computed at run time (function links, `ctx.count`, `ctx.read`, `ctx.rowOf`)
+are checked when they run.
 
 #### Warnings that do not stop the boot
 
-Some config problems are real but do not justify refusing to start. `defineAdmin`
-collects them on the resolved config as `warnings: readonly string[]`, prints each
-one once per process in development, and `flowpanel doctor` lists them. (`doctor`
-evaluates `flowpanel.config.ts` to read them; if that fails — a missing
-`DATABASE_URL`, say — it prints one line saying the warnings were not checked
-instead of passing silently.)
-
-The one warning today is a create form that cannot succeed:
+`defineAdmin` collects non-fatal problems in `warnings`, prints each once in
+development, and `flowpanel doctor` lists them. For example, a create form that
+cannot succeed:
 
 ```text
 resource users: create is enabled but required column `email` has no field;
 creation will always fail
 ```
 
-It fires for a column the adapter reports as non-nullable, not generated, not
-defaulted (`ColumnMeta.hasDefault`, which both shipped adapters populate) and not
-the primary key, when nothing a create write carries would fill it: not
-`create.fields`, not `columns` when `create.fields` is absent, and not
-`create.defaultValues`. An adapter that does not report `hasDefault` makes a
-defaulted column look required; declare it in `create.fields` or
-`create.defaultValues` to say otherwise.
+It fires for a required column with no default that neither `create.fields` nor
+`create.defaultValues` fills.
 
 ### On the page render path
 
-`FlowpanelAuthError` and `FlowpanelAccessError` thrown while rendering a page are
-caught by the shell, not surfaced as a crash:
+`FlowpanelAuthError` and `FlowpanelAccessError` thrown during a page render:
 
 - `auth.signInUrl` is set → redirect there.
 - `auth.forbiddenUrl` is set and the visitor is signed in → redirect there.
 - Neither → an inline "Sign in required" or "Access denied" panel.
 
-Other errors propagate to your Next.js error boundary — except for a failed
-adapter read, which has a surface of its own.
+Other errors reach your Next.js error boundary, except failed adapter reads.
 
 #### A query that failed
 
-When the adapter's `list` or `get` throws while a list page, a detail page or a
-related tab renders, FlowPanel renders its own card in place of the data instead
-of letting the page crash into the host's error boundary. The card names the
-resource and the operation through `labels.errors.queryTitle`, adds
-`labels.errors.queryHint`, and carries the request id the failure was logged
-under:
+When `list` or `get` throws, FlowPanel shows a card in place of the data with the
+request id the error was logged under:
 
 ```text
 users: list failed
@@ -176,29 +124,21 @@ Check the column list and the database schema. Details are in the server log.
 Request 5f3c…
 ```
 
-The cause always goes to `console.error` with that same id, and outside
-production the card keeps the message in a closed `labels.errors.details` disclosure. Nothing else about it changes with the
-environment. A `FlowpanelError` — an access denial, a not-found — keeps
-travelling, so the auth boundary above still sees it, and so does a `redirect()`
-thrown from your own code.
+Outside production the card also shows the message in a closed disclosure. A
+`FlowpanelError` or a `redirect()` passes through.
 
 #### Widget failures
 
-Dashboard and detail-tab widgets have their own boundary: a widget whose query or
-render throws becomes one failed card, with its copy from `labels.errors.widgetTitle`,
-`widgetHint` and `retry`. The failure names the widget by its card title, its kind and
-its place, so you never count cards to find it:
+A widget whose query or render throws becomes one failed card, named by title,
+kind and place:
 
 ```text
 «Конвейер» (custom, /system section 2 widget 1): relation "pipeline_view" does not exist
 «Broken» (metric, user tab "summary" widget 1): boom
 ```
 
-Outside production the card keeps that line in a closed `labels.errors.details`
-disclosure under the title and the hint, so a driver's SQL never fills the page. In
-production the card has no disclosure, and the
-server log line and the Sentry tag `widget.id` carry the same name. A `custom()` widget
-is named by its `label`.
+Outside production the card shows it in a closed disclosure; in production only
+the server log and the Sentry tag `widget.id` carry it.
 
 ### Returning versus throwing
 
@@ -213,42 +153,31 @@ run: async (row, input, ctx) => {
 }
 ```
 
-Return `{ ok: false }` for an outcome the operator caused and can fix — the UI
-shows the message next to the action. Throw when the request itself was not
-valid, and you want the status code to say so.
+Return `{ ok: false }` for an outcome the operator can fix; throw when the request
+itself is invalid.
 
 ### Errors the routes produce themselves
 
-Some generated-UI responses never pass through the hierarchy at all — the
-route answers directly with a string `error`. These compatibility routes are
-distinct from the v1 JSON CRUD API and protected controllers, whose
-`FlowpanelResultError` contains `code`, `message`, optional `fieldErrors`, and
-`requestId`.
+The generated UI routes answer some errors directly with a string `error`. The
+JSON CRUD API returns a `FlowpanelResultError` instead.
 
 #### 400 — malformed request body
 
-A POST that declares `Content-Type: application/json` but carries a body that
-does not parse is rejected before anything else runs:
+A JSON body that does not parse:
 
 ```json
 { "ok": false, "error": "invalid JSON body" }
 ```
 
-That covers the row-, bulk-, dashboard- and drawer-action routes and the
-inline-cell update. A non-JSON content type is parsed as form data instead and
-never reaches this branch.
-
 #### 404 — unknown resource, action or dashboard
 
-The message depends on `NODE_ENV`, on purpose. In **production** it is terse,
-so the response confirms nothing about what does exist:
+In production the message is terse:
 
 ```json
 { "ok": false, "error": "resource not found" }
 ```
 
-Outside production it names what was requested and what is registered, which
-turns "why is my action 404-ing" into a one-look answer:
+Outside production it names what is registered:
 
 ```json
 {

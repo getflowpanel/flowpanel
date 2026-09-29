@@ -34,7 +34,7 @@ const ctx = {
   session: null,
   filters: {},
   req: reqCtx.req,
-  href: (resource: string) => `/admin/${resource}`,
+  link: (target: { resource: string }) => `/admin/${target.resource}`,
   labels: DEFAULT_LABELS,
 } as unknown as WidgetContext;
 
@@ -58,7 +58,11 @@ const kv = {
     items: [
       {
         label: "Failed runs",
-        value: async (c: WidgetContext) => ({ value: 3, tone: "err", href: c.href("runs") }),
+        value: async (c: WidgetContext) => ({
+          value: 3,
+          tone: "err",
+          href: c.link({ resource: "runs" }),
+        }),
         tone: "ok",
         href: "/admin/static",
       },

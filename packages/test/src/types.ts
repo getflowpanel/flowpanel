@@ -13,15 +13,10 @@ export interface SmokeAdminOptions {
   basePath?: string;
   /** Session cookie added before the walk, for an admin behind authentication. */
   cookie?: { name: string; value: string; domain?: string };
-  /**
-   * Restrict the walk to these nav segments — `"customers"` for
-   * `/admin/customers`, `"/"` for the landing page. Every nav entry is visited
-   * when this is omitted.
-   */
+  /** Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. */
   resources?: string[];
   /**
-   * Run axe against every visited route. Needs `@axe-core/playwright`; the walk
-   * skips the scan, rather than failing, when it does not resolve.
+   * Run axe against every visited route; needs `@axe-core/playwright`, or the walk skips the scan instead of failing.
    * @defaultValue false
    */
   a11y?: boolean;
@@ -31,8 +26,7 @@ export interface SmokeAdminOptions {
    */
   maxRows?: number;
   /**
-   * On each record page the walk reaches, open every other detail tab as `?tab=<key>`
-   * and check it the way every other page is checked.
+   * On each record page, open every other detail tab as `?tab=<key>` and check it the same way.
    * @defaultValue true
    */
   tabs?: boolean;

@@ -11,8 +11,7 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-fp-accent text-fp-accent-text shadow-fp-xs hover:bg-fp-accent/85",
-        // Solid destructive rides the AA-strength err tone; bg-1 flips with the
-        // scheme, so the label stays readable on both.
+        // Solid destructive rides the AA-strength err tone; bg-1 flips with the scheme so the label stays readable.
         destructive: "bg-fp-err-text text-fp-bg-1 shadow-fp-xs hover:bg-fp-err-text/85",
         outline:
           "border border-fp-border-2 bg-fp-bg-1 text-fp-text-1 shadow-fp-xs hover:bg-fp-bg-2 hover:border-fp-border-2",

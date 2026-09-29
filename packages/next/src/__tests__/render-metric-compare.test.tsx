@@ -65,7 +65,7 @@ describe("metric({ compare })", () => {
     expect(await deltaOf(widget)).toEqual({ value: 0.2, vs: "vs previous period", previous: 100 });
   });
 
-  it("passes goodWhen through, and reads a zero base as the sign of the change", async () => {
+  it("reads a zero base as the sign of the change", async () => {
     const widget = metric("Errors", async (c) => (thisWeek(c) ? 3 : 0), {
       compare: true,
       goodWhen: "down",
@@ -74,7 +74,6 @@ describe("metric({ compare })", () => {
       value: 1,
       vs: "vs previous period",
       previous: 0,
-      goodWhen: "down",
     });
   });
 

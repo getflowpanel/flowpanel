@@ -50,10 +50,6 @@ function migrationStatements(rawSql: string, dialect: DrizzleDialect): string[] 
 
 export function createMigrationMethods(db: MigrationDb, dialect: DrizzleDialect) {
   return {
-    async runMigrationSql(rawSql: string): Promise<void> {
-      await runStatements(db, dialect, migrationStatements(rawSql, dialect));
-    },
-
     async applyMigration(id: string, rawSql: string): Promise<void> {
       const statements = migrationStatements(rawSql, dialect);
       if (typeof db.transaction !== "function") {
@@ -66,8 +62,7 @@ export function createMigrationMethods(db: MigrationDb, dialect: DrizzleDialect)
 
       if (dialect === "sqlite") {
         await db.transaction((target) => {
-          // The first write acquires SQLite's database write lock. Rechecking
-          // only after that lock closes the CLI's listApplied -> apply race.
+          // The first write acquires SQLite's lock, closing the CLI's listApplied -> apply race.
           const lock = runRawDirect(
             target,
             dialect,
@@ -115,8 +110,7 @@ export function createMigrationMethods(db: MigrationDb, dialect: DrizzleDialect)
         return;
       }
 
-      // MySQL DDL implicitly commits. The transaction callback pins one
-      // connection while its session-level advisory lock is held.
+      // The transaction callback pins one connection while its advisory lock is held.
       await db.transaction(async (target) => {
         const lockResult = await runRaw(
           target,
@@ -153,10 +147,6 @@ export function createMigrationMethods(db: MigrationDb, dialect: DrizzleDialect)
         sql.raw("SELECT id FROM _flowpanel_migrations"),
       );
       return new Set(ids);
-    },
-
-    async markMigrationApplied(id: string): Promise<void> {
-      await runRaw(db, dialect, sql`INSERT INTO _flowpanel_migrations (id) VALUES (${id})`);
     },
   };
 }

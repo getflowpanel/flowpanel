@@ -1,5 +1,5 @@
 import type { ResourceIntrospection } from "../types/adapter";
-import type { AdminConfig } from "../types/config";
+import type { AdminDefinition } from "../types/config";
 import type { ResourceConfig } from "../types/resource";
 
 export function assertUniqueActionKeys(
@@ -20,10 +20,8 @@ export function assertUniqueActionKeys(
   }
 }
 /**
- * An action dialog is rendered from a wire-serialized field list built while the page
- * renders, so it can only carry values already resolved by then. A reference picker
- * needs a search endpoint, and a function's options need an await — neither exists on
- * this path, and both would silently render an unusable control.
+ * An action dialog only carries field values already resolved when the page renders.
+ * A reference picker's search endpoint and a function's async options don't exist on this path.
  */
 export function assertServableActionForm(
   actions: ReadonlyArray<{ key: string; form?: unknown }> | undefined,
@@ -50,33 +48,17 @@ export function assertServableActionForm(
   }
 }
 
-export function assertCanonicalAccess(resource: ResourceConfig, resourceName: string): void {
-  if (resource.options.access !== undefined && resource.options.requireRole !== undefined) {
-    throw new Error(
-      `resource "${resourceName}" cannot declare both access and requireRole. ` +
-        "Move the compatibility role rule into access.",
-    );
-  }
-  const actionLists = [
-    ...(resource.options.actions ?? []),
-    ...(resource.options.bulkActions ?? []),
-    ...(resource.options.drawer?.actions ?? []),
-  ];
-  for (const action of actionLists) {
-    if ("access" in action && action.access !== undefined && action.requireRole !== undefined) {
+export function assertBulkActionLimits(resource: ResourceConfig, resourceName: string): void {
+  for (const action of resource.options.bulkActions ?? []) {
+    if (action.max === undefined) continue;
+    if (!Number.isInteger(action.max) || action.max < 1 || action.max > 10_000) {
       throw new Error(
-        `action "${action.key}" on resource "${resourceName}" cannot declare both access and requireRole.`,
+        `bulk action "${action.key}" on resource "${resourceName}" requires max between 1 and 10000.`,
       );
-    }
-    if ("max" in action && action.max !== undefined) {
-      if (!Number.isInteger(action.max) || action.max < 1 || action.max > 10_000) {
-        throw new Error(
-          `bulk action "${action.key}" on resource "${resourceName}" requires max between 1 and 10000.`,
-        );
-      }
     }
   }
 }
+
 export function assertCanonicalFieldAccess(
   resource: ResourceConfig,
   resourceName: string,
@@ -122,7 +104,7 @@ export function assertCanonicalFieldAccess(
     }
   }
 }
-export function assertProductionAuth(config: AdminConfig): void {
+export function assertProductionAuth(config: AdminDefinition): void {
   if (process.env.NODE_ENV !== "production" || config.auth.requireRole !== undefined) return;
   if (config.auth.allowUnauthenticated !== true) {
     throw new Error(

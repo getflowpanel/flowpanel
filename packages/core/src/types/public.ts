@@ -20,7 +20,6 @@ export type {
   CommandPaletteConfig,
 } from "./command";
 export type {
-  AdminConfig,
   AdminDefinition,
   AuditConfig,
   AuditEvent,

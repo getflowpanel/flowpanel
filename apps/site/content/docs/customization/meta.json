@@ -1,12 +1,4 @@
 {
   "title": "Customize the UI",
-  "pages": [
-    "overview",
-    "column-renderers",
-    "custom-widgets",
-    "charts",
-    "styling",
-    "theme-slots",
-    "eject"
-  ]
+  "pages": ["overview", "column-renderers", "custom-widgets", "charts", "styling", "eject"]
 }

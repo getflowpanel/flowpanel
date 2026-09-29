@@ -7,11 +7,7 @@ export interface ApplyActionResultOptions {
   pathname?: string;
 }
 
-/**
- * Applies side effects from successful actions: publishes updates and
- * revalidates the cache. Failures are logged, never thrown — the mutation
- * itself already succeeded.
- */
+/** Applies side effects from successful actions: publishes updates and revalidates the cache; failures only log. */
 export async function applyActionResult(
   result: ActionResult<unknown>,
   opts: ApplyActionResultOptions,

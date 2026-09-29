@@ -24,8 +24,7 @@ export function TextFilter({
   const id = React.useId();
   const [local, setLocal] = React.useState(value ?? "");
   const committed = React.useRef(value ?? "");
-  // A value arriving from outside (clear-filters, a restored view) is already
-  // committed; without this the debounce would echo it back as a change.
+  // A value arriving from outside is already committed; without this the debounce would echo it back as a change.
   React.useEffect(() => {
     setLocal(value ?? "");
     committed.current = value ?? "";

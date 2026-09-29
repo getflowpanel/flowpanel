@@ -1,4 +1,3 @@
-import type { MetricDelta } from "@flowpanel/core";
 import {
   DEFAULT_FORMATTING,
   formatNumber,
@@ -9,7 +8,7 @@ import {
 import { DEFAULT_LABELS, formatLabel } from "@flowpanel/core/labels";
 
 /** Which direction of a change is good news. */
-export type GoodWhen = NonNullable<MetricDelta["goodWhen"]>;
+export type GoodWhen = "up" | "down" | "neutral";
 export type DeltaMood = "good" | "bad" | "flat";
 
 export interface DeltaView {

@@ -12,9 +12,8 @@ function encodeBounds({ gte, lte }: Bounds): string | null {
 }
 
 /**
- * One filter value as the list's `f_<field>` URL value: a `Date` is its day in `timeZone`, a
- * range of dates `from~to` instants, a range of numbers `min:max`, a set `a,b`. `null` for a
- * value that filters nothing; an object with no URL form throws.
+ * One filter value as the list's `f_<field>` URL value: dates as day/`from~to`, numbers as `min:max`, sets as `a,b`.
+ * `null` for a value that filters nothing; an object with no URL form throws.
  */
 export function encodeFilterValue(value: unknown, timeZone: string): string | null {
   if (value === undefined || value === null) return null;

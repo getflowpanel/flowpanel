@@ -23,18 +23,12 @@ export interface AuthSessionInput {
   devAuth: boolean;
 }
 
-/**
- * A recognised provider whose auth module exports its instance rather than a
- * `getSession` is bridged through the matching preset instead of stopping the
- * install. A module that already exports `getSession` is left alone, and so is
- * `--dev-auth`.
- */
+/** Bridges a provider's auth module through the matching preset when it exports an instance instead of `getSession`. */
 export async function planAuthSession(input: AuthSessionInput): Promise<AuthSessionPlan | null> {
   const { detectedAuth, provider } = input;
   if (!provider || input.devAuth) return null;
   const { instance } = AUTH_PRESETS[provider];
-  // `validateProjectImport` answers with the problem, so no problem means the
-  // module really does export that name.
+  // `validateProjectImport` answers with the problem, so no problem means it exports that name.
   const exportsName = async (name: string): Promise<boolean> =>
     detectedAuth !== null && (await validateProjectImport(input.cwd, detectedAuth, name)) === null;
 

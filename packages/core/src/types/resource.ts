@@ -1,5 +1,4 @@
-// LOC-OK: the resource DSL type surface (ColumnDef / FieldDef / ColumnFormat /
-// FilterDef / ResourceOptions) lives in one file so the pieces stay coherent.
+// LOC-OK: the resource DSL type surface (ColumnDef / FieldDef / ColumnFormat / FilterDef / ResourceOptions) lives in one file.
 import type { ReactNode } from "react";
 import type { z } from "zod";
 import type { ActionEmphasis, BulkAction, RowAction } from "./action";
@@ -94,9 +93,8 @@ export interface ColumnDef<Row> {
   /** Row property this column reads. Omit only when `render` supplies the cell. */
   field?: keyof Row & string;
   /**
-   * Another field of the row, shown as a muted second line under the cell — the email under
-   * a name. It is loaded with the row; sort and search still use `field`. Ignored on a
-   * `reference` column.
+   * Another field of the row, shown as a muted second line under the cell — the email under a name.
+   * It is loaded with the row; sort and search still use `field`. Ignored on a `reference` column.
    */
   secondary?: keyof Row & string;
   /** Header text. Defaults to a humanized `field`. */
@@ -143,10 +141,8 @@ export interface FilterDef<Row> {
     | SelectOption[]
     | ((ctx: QueryContext) => Promise<SelectOption[]>);
   /**
-   * Applied while the URL names no value for the filter: the list, its count, pages, export and
-   * the list API all read it, and the control shows it as chosen. Clearing the control writes an
-   * empty `f_<field>=` so the default stays off; a view or link turns it off with `null`.
-   * Takes the same values as a view's filter.
+   * Applied while the URL names no value for the filter: the list, its count, pages, export and API all read it.
+   * Clearing the control writes an empty `f_<field>=` so the default stays off; a view or link turns it off with `null`.
    */
   defaultValue?: unknown;
   /** Apply the filter, and its `defaultValue`, without showing a control for it. */
@@ -186,11 +182,8 @@ export interface FieldDef<Row> {
   /** Placeholder text for empty inputs. */
   placeholder?: string;
   /**
-   * Which control to render. Omitted, a declared field renders as `"text"` —
-   * or `"reference"` when `reference` is set. The adapter's column type is
-   * consulted only by the fully generated form a resource gets when it declares
-   * no `create.fields` / `update.fields` at all, and only maps number, boolean,
-   * date and json; every other column type renders as text there too.
+   * Which control to render. Omitted, a declared field renders as `"text"` — or `"reference"` when `reference` is set.
+   * The adapter's column type is consulted only by a fully generated form, and only maps number, boolean, date and json.
    */
   type?: FieldType;
   /** Choices for `select` / `multiselect` / `radio`. A function resolves per request. */
@@ -218,11 +211,7 @@ export interface FieldDef<Row> {
   span?: 1 | 2 | 3 | 4 | 6 | 12;
   /** Fieldset heading this field is grouped under. */
   group?: string;
-  /**
-   * Detail pages and drawers only: what the field shows instead of its value — a
-   * join or a computed label. Runs on the server with the projected row, and only
-   * when the reader may read `name`.
-   */
+  /** Detail pages and drawers only: what the field shows instead of its value — a join or a computed label. */
   render?: (row: Row, ctx: RequestContext) => ReactNode | Promise<ReactNode>;
 }
 
@@ -241,11 +230,7 @@ export interface ResourceOptions<Row> {
   name?: string;
   /** Singular label shown in headings and buttons. */
   label?: string;
-  /**
-   * Label for exactly one row, e.g. `"Customer"`. Used where a heading talks
-   * about a single record — the create page's title. Falls back to `label`,
-   * then to the resource name.
-   */
+  /** Label for exactly one row, e.g. `"Customer"`, used in the create page's title. Falls back to `label`, then the resource name. */
   labelOne?: string;
   /** Plural label shown in the nav and list title. */
   plural?: string;
@@ -262,11 +247,7 @@ export interface ResourceOptions<Row> {
    */
   expose?: (keyof Row & string)[];
 
-  /**
-   * Columns of the list table, in order. A bare string is a field name.
-   * Omitted, `defineAdmin` fills it with every column the adapter introspects,
-   * in introspection order.
-   */
+  /** Columns of the list table, in order; a bare string is a field name. Omitted, `defineAdmin` fills it in introspection order. */
   columns?: (keyof Row | ColumnDef<Row>)[];
   /** Fields the search box queries. Without this, search is disabled. */
   search?: (keyof Row & string)[];
@@ -283,9 +264,7 @@ export interface ResourceOptions<Row> {
    */
   density?: "comfortable" | "compact";
   /**
-   * What a row click — and Enter on the focused row — does. `"detail"` navigates
-   * to the row's own page, `"drawer"` opens the drawer and requires `drawer`, and
-   * `false` leaves rows inert. A row the projection cannot identify never acts.
+   * What a row click — and Enter on the focused row — does. A row the projection cannot identify never acts.
    * @defaultValue `"detail"` when `detail` is configured and `drawer` is not, `"drawer"` when only `drawer` is, otherwise `false`
    */
   rowClick?: "detail" | "drawer" | false;
@@ -296,16 +275,14 @@ export interface ResourceOptions<Row> {
 
   /** Side panel opened for a single row. */
   drawer?: DrawerConfig<Row>;
-  /** Full-page view at `/<basePath>/<resource>/<id>`. */
+  /** Full-page view at `<paths.admin>/<resource>/<id>`. */
   detail?: DetailOptions<Row>;
 
   /** Validation for writes. Overrides the schema inferred from the adapter. */
   schema?: z.ZodTypeAny | { create?: z.ZodTypeAny; update?: z.ZodTypeAny };
   /**
-   * The table that create, update, delete and restore write to, when the resource reads a
-   * view. Its primary key must be a column of the view, and every field a form writes must be
-   * selected by the view too. Omitted on a view: the resource is read-only, and a declared
-   * create, update, delete or import is an error at `defineAdmin`.
+   * The table that create, update, delete and restore write to, when the resource reads a view.
+   * Omitted on a view: the resource is read-only, and a declared create/update/delete/import is an error at `defineAdmin`.
    */
   writeTo?: unknown;
   /** Create form. `disabled` removes the route, not just the button. */
@@ -314,11 +291,7 @@ export interface ResourceOptions<Row> {
   update?: {
     disabled?: boolean;
     fields?: FieldDef<Row>[];
-    /**
-     * Additional readable values available to edit-form hidden/readOnly
-     * predicates. This never creates a control, default value, or write
-     * permission.
-     */
+    /** Additional readable values available to edit-form hidden/readOnly predicates; never a control, default or write. */
     expose?: (keyof Row & string)[];
     /**
      * How the record page's edit button reads: `"primary"` fills it with the accent.
@@ -342,8 +315,6 @@ export interface ResourceOptions<Row> {
   access?: ResourceAccess<Row>;
   /** Canonical read/write policy for declared fields. */
   fieldAccess?: FieldAccessMap<Row>;
-  /** @deprecated Use `access`. This alias will be removed in 0.3. */
-  requireRole?: string | string[] | ((session: Session | null) => boolean);
 
   /** Export button. `false` removes it. Defaults to CSV and JSON of the visible columns. */
   export?: { formats?: ("csv" | "json")[]; fields?: (keyof Row & string)[] } | false;

@@ -58,8 +58,7 @@ export function AsyncSelect({
   const [error, setError] = React.useState(false);
 
   React.useEffect(() => {
-    // Adopt a label resolved after mount, but never `null` — that also fires
-    // for a just-picked remote option absent from the preloaded `options` list.
+    // Never adopt `null`: that also fires for a just-picked option absent from the preloaded list.
     if (initialLabel !== null) setLabel(initialLabel);
   }, [initialLabel]);
 

@@ -18,9 +18,8 @@ export type RateLimitConfig = RateLimitOptions & {
 
 export interface AuthConfig {
   /**
-   * Reads the current session. Called on every request and page render, and handed
-   * the request being served so a provider that inspects headers, cookies or the
-   * host — a tenant resolver, an OAuth callback check — does not have to forge one.
+   * Reads the current session. Called on every request and page render, handed the request being served.
+   * Lets a provider inspect headers, cookies or the host without forging one.
    */
   session: (req: Request) => Promise<Session | null>;
   /** Maps a session to a role string, which every `requireRole` gate compares against. */
@@ -34,11 +33,8 @@ export interface AuthConfig {
   /** Extracts the actor id for audit rows and per-user rate limiting. */
   userId?: (session: Session | null) => string | null;
   /**
-   * Declares that this admin is meant to be reachable without any role gate —
-   * a deployment already fronted by a VPN or an authenticating proxy. Silences
-   * the development-only "no access control" warning. Production refuses to
-   * start without `requireRole` unless this is `true` AND the admin is
-   * `readOnly`.
+   * Declares this admin reachable without a role gate — fronted by a VPN or authenticating proxy instead.
+   * Production refuses to start without `requireRole` unless this is `true` AND the admin is `readOnly`.
    */
   allowUnauthenticated?: boolean;
 }
@@ -98,10 +94,8 @@ export interface ThemeConfig {
    */
   accent?: string;
   /**
-   * Dark-mode accent override, same format as `accent`. Custom accents tuned
-   * for light surfaces usually fail WCAG contrast on dark ones — pass a
-   * re-lightened triplet here to keep both schemes accessible. Dark data fills take
-   * it too unless `cssVarsDark` sets `--fp-data`.
+   * Dark-mode accent override, same format as `accent`; a light-tuned accent usually fails WCAG contrast on dark.
+   * Dark data fills take it too unless `cssVarsDark` sets `--fp-data`.
    */
   accentDark?: string;
   /** Initial color scheme. `"auto"` follows the operating system. */
@@ -113,7 +107,7 @@ export interface ThemeConfig {
    * Choose foreground tokens for contrast against the actual dark background.
    */
   cssVarsDark?: ThemeTokens;
-  /** Replace built-in components. See the theme-slots guide. */
+  /** Replace built-in components. See the styling guide. */
   components?: Partial<FlowpanelComponentSlots>;
   /**
    * What the account menu shows for the current session. Return `undefined` to
@@ -217,36 +211,25 @@ export interface AdminDefinition<
   readOnly?: boolean;
   /** Mount points for the generated admin UI and HTTP API. */
   paths?: AdminPathsInput;
-  /** @deprecated Use `paths.admin`. This alias will be removed in 0.3. */
-  basePath?: string;
   /** Cross-cutting callbacks. */
   hooks?: {
     onError?: (err: Error, ctx: ErrorContext) => void | Promise<void>;
   };
 }
 
-/** @deprecated Prefer `AdminDefinition`. Kept as the 0.2 compatibility name. */
-export interface AdminConfig<
-  Resources extends readonly AnyResourceConfig[] = readonly AnyResourceConfig[],
-> extends AdminDefinition<Resources> {}
-
 export interface ResolvedAdminConfig<
   Resources extends readonly AnyResourceConfig[] = readonly AnyResourceConfig[],
-> extends AdminConfig<Resources> {
+> extends AdminDefinition<Resources> {
   readonly __resolved: true;
   readonly resources: Resources;
   readonly resourcesByName: Map<string, ResourceConfig>;
   readonly dashboardsByPath: Map<string, DashboardConfig>;
   readonly pagesByPath: Map<string, PageConfig>;
   readonly queuesByKey: Map<string, QueueConfig>;
-  /** Normalized `basePath` — leading slash, no trailing slash. Defaults to `/admin`. */
+  /** Normalized `paths.admin` — leading slash, no trailing slash. Defaults to `/admin`. */
   readonly basePath: string;
   /** Normalized mount points with leading slashes and no trailing slash. */
   readonly paths: AdminPaths;
-  /**
-   * Config problems that do not stop the admin from booting — a create form that
-   * cannot satisfy a required column, so far. `flowpanel doctor` prints them, and
-   * development prints each one once.
-   */
+  /** Config problems that do not stop the admin from booting. `flowpanel doctor` prints them; development prints each once. */
   readonly warnings: readonly string[];
 }

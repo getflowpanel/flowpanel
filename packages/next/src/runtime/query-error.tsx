@@ -61,10 +61,8 @@ export function QueryErrorCard({
 }
 
 /**
- * Run one adapter read. A FlowPanel error keeps travelling — the page's auth
- * boundary and the host's own `notFound()` both depend on it — and anything else
- * becomes a card that names the resource and the operation, with the cause in the
- * server log under this request's id.
+ * Runs one adapter read. A FlowPanel error keeps travelling, since the page's auth boundary depends on it.
+ * Anything else becomes a card naming the resource and operation, with the cause in the server log.
  */
 export async function readOrCard<T>(
   site: QuerySite,

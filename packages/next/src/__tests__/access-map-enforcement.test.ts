@@ -24,11 +24,7 @@ function roleOf(s: Session | null): string {
   return (s as { role?: string } | null)?.role ?? "guest";
 }
 
-/**
- * A resource guarded the canonical way: an `access` map and no `requireRole`.
- * `assertCanonicalAccess` rejects declaring both, so `requireRole` is necessarily
- * undefined here — which is exactly what used to leave these routes ungated.
- */
+/** A resource guarded by an `access` map alone. */
 function makeConfig(action: Record<string, unknown>, role = "support") {
   const adapter = {
     kind: "drizzle",
@@ -109,7 +105,7 @@ describe("resource access map governs action routes", () => {
   });
 
   it("lets an action carrying its own rule govern itself", async () => {
-    const delegated = { ...ungatedAction, requireRole: "support" };
+    const delegated = { ...ungatedAction, access: "support" };
     const config = makeConfig(delegated);
     const res = await rowActionRoute(config)(post(), {
       params: Promise.resolve({ resource: "payouts", id: "p1", action: "approve" }),

@@ -4,9 +4,8 @@ description: The row side panel — layout, tabs and actions.
 kind: reference
 ---
 
-A drawer is the fast path to one row: it opens over the list without losing the
-operator's place, their filters or their scroll position. Declare it on a
-resource and set `rowClick: "drawer"` to open it by clicking the row.
+A drawer shows one row over the list. Declare `drawer` on a resource and set
+`rowClick: "drawer"`. Guide: [Record pages and drawers](/docs/build/detail-cards#drawer).
 
 ```ts excerpt
 resource(orders, {
@@ -14,7 +13,7 @@ resource(orders, {
   rowClick: "drawer",
   drawer: {
     width: "xl",
-    header: (row) => `Order ${row.id}`,
+    title: (row) => `Order ${row.id}`,
     tabs: [
       { key: "summary", label: "Summary", fields: "*" },
       { key: "items", label: "Items", resource: "orderItems", filter: (row) => ({ orderId: row.id }) },
@@ -24,11 +23,11 @@ resource(orders, {
         key: "refund",
         label: "Refund",
         variant: "destructive",
-        requireRole: "admin",
+        access: "admin",
         confirm: "Refund this order?",
         form: [{ name: "reason", type: "textarea", required: true }],
         run: async (row, formData, ctx) => {
-          await refund(ctx.db, row.id, formData.reason as string);
+          await refund(db, row.id, formData.reason as string);
           return { ok: true, message: "Refunded", refresh: true };
         },
       },
@@ -44,44 +43,20 @@ resource(orders, {
 `DrawerWidth` is `"sm" | "md" | "lg" | "xl" | "2xl" | "full"`, defaulting to
 `"lg"`.
 
-When the resource has a `detail` page, the header carries a secondary button to it beside the
-title, below it on a phone. `labels.drawer.viewDetails` names it: "Open full page", or
-"Открыть карточку" in Russian.
+With a `detail` page, the header links to it (`labels.drawer.viewDetails`). The
+line under the title is the resource label unless you set `subtitle(row)`.
 
-The line under the title is the resource's label; `subtitle(row)` replaces it with a line
-of your own, such as a plan and a signup date. The panel never shows the row's raw id there,
-and while the row loads its title is a skeleton. The panel takes focus on open, so no focus
-ring lands on the close button, and its actions are secondary buttons.
-
-Without `tabs`, the panel renders `fields` as a flat key/value list. Field
-labels come from the matching column's `label`, and any column with a `render`
-function is rendered with it — so a status badge looks the same in the drawer as
-in the table.
-
-`fields` is `DrawerFieldList<Row>` — the same shape as `detail.fields`:
-`(keyof Row | FieldDef<Row>)[] | "*"`. A key your row does not have is a compile
-error, not an empty row in the panel. A `FieldDef` with its own `render` shows the computed
-value, prerendered on the server, and wins over the column's `render` —
-see [fields and sections](/docs/reference/resources#fields-and-sections).
+Without `tabs`, the drawer lists `fields` (`(keyof Row | FieldDef<Row>)[] | "*"`),
+labelled and rendered by the matching columns. A `FieldDef.render` wins over the
+column's; see [fields and sections](/docs/reference/resources#fields-and-sections).
 
 ### Server-rendered cells
 
-Column and field renders in a drawer run concurrently on the server and become
-static HTML in the route handler, so return text or plain elements there. A
-render must not depend on a database handle that allows one query at a time,
-such as a single transaction client; use a pooled client.
-A render that returns a client component — `StatusBadge`, `LocalTime`, or one of
-your own marked `"use client"` — cannot run in the route handler, where such a
-component is only a reference. The drawer then shows the cell the list page
-already rendered for that row, and the formatted value when the drawer was opened
-from anywhere else; nothing is logged. The detail page renders it as usual.
-
-A render that throws — or returns something the server cannot render — costs only
-its own cell. The server logs `[flowpanel] drawer render failed for "<field>"`
-with the error, and the reader sees the plain formatted value (the column's
-`format`, or the raw value). A field render that throws falls back to the column's
-`render` for the same field first. Both rules apply to column renders and
-`FieldDef.render` alike.
+Renders in a drawer run concurrently on the server and become static HTML, so
+return text or plain elements and use a pooled database client. A render that
+returns a client component shows the list's cell or the formatted value instead.
+A render that throws is logged as `[flowpanel] drawer render failed for "<field>"`
+and the cell shows the formatted value.
 
 ## Tabs
 
@@ -99,16 +74,8 @@ Rows of a related resource, filtered by the open row.
 
 <AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerTabResource" />
 
-The related resource's own `requireRole` still applies. A tab the operator may
-not read comes back empty rather than failing the whole panel.
-
-<Callout type="warn">
-A resource tab shows the **first 20 rows** and nothing more. There is no
-pagination, no "load more", and no count of what was left out — the drawer
-route reads one page of 20 and serializes it. For a relation that can exceed
-that, link to the target resource's own list (filtered) instead of leaning on
-the tab.
-</Callout>
+The related resource's access rules apply; a tab the operator may not read is
+empty. The tab shows the first 20 rows, with no pagination.
 
 ### DrawerTabWidgets
 
@@ -116,12 +83,9 @@ Dashboard widgets, scoped to the open row.
 
 <AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerTabWidgets" />
 
-`custom()` widgets are rejected here at compile time. The drawer payload is
-serialized over the wire, and a React component cannot cross it — use a widget
-tab of metrics/charts/tables, or a `detail` tab, which renders on the server.
-
-Each widget in the tab is flattened to a `SerializedWidget` before it crosses:
-a discriminated union over `kind`, one variant per widget type.
+`custom()` widgets are a type error here, and `timeline`, `heatmap`, `checklist` and
+`tracker` fail at `defineAdmin`; use a record page tab. Each widget is serialized
+before it reaches the browser:
 
 ```ts excerpt
 type SerializedWidget =
@@ -137,45 +101,25 @@ type SerializedWidget =
   | { kind: "unsupported"; label?: string; reason: string; failed?: true; span?: number };
 ```
 
-The queries have already run by then — a metric carries its resolved `value`,
-a chart carries only how many points it produced. A widget whose query throws
-comes back as `{ kind: "unsupported", reason, failed: true }` with a client-safe
-message and a `data-fp-error` marker, so one failing widget does not take the
-panel down with it and a smoke walk still sees the failure.
-
-A drawer-hosted widget is a static card, and the wire shape above is the whole
-of what it renders: a `metric` shows its label, value, format, `sublabel` and
-`tone` — its `delta`, `href`/`drilldown` and `sparkline` are not rendered here —
-and a `table` shows its rows and columns, without `rowKey`, `rowHref`, `seeAll`
-or `emptyState`, and without applying a `limit` to a `query`'s own rows. A `bars`,
-`funnel` or `list` card shows its `emptyState` only when it is text; a node gives way to
-`labels.widget.empty`. The same
-widget in a dashboard section or a detail tab renders all of them; put a widget
-that needs them in a `detail` tab, which renders on the server.
+A widget whose query throws becomes `{ kind: "unsupported", failed: true }` with
+a safe message. Drawer widgets are static: a metric shows no delta, link or
+sparkline, and a table has no row links.
 
 ## Actions
 
-Buttons in the panel footer. See [Actions](/docs/reference/actions#draweraction)
-for `DrawerAction` and its form spec.
-
-Drawer actions go through the same guard pipeline as every other write: the
-admin-wide role gate, the resource gate, the action's own `requireRole`, then
-input validation — all before `run`. An action the current operator cannot run
-is omitted from the drawer payload as well as blocked server-side. Setting
-`palette: true` also surfaces an authorized action in ⌘K.
+Buttons in the footer, with the same guards as every action; see
+[DrawerAction](/docs/reference/actions#draweraction). An action the operator cannot
+run is left out. `palette: true` also lists it in ⌘K.
 
 <AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerAction" />
 
 ## The payload
 
-What `GET /api/flowpanel/drawer/<resource>/<id>` answers with — worth knowing if
-you render the drawer yourself.
+What `GET /api/flowpanel/drawer/<resource>/<id>` returns.
 
 <AutoTypeTable path="../../packages/next/src/drawer/drawer-route.ts" name="DrawerPayload" />
 
 ## What crosses to the client
 
-The drawer payload carries only the resource's **declared** surface — the
-columns and fields you listed, never the raw adapter row. Columns with a
-`render` function are pre-rendered to HTML on the server, so your renderer can
-touch server-only data without shipping it.
+Only declared columns and fields, never the raw row. Rendered columns arrive as
+HTML.

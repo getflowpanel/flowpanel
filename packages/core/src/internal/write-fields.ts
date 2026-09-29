@@ -1,10 +1,6 @@
 import type { ResourceConfig } from "../types/resource";
 
-/**
- * The field names a write may carry: the declared form fields, else the
- * resource's columns. `@flowpanel/next`'s generated forms and core's create
- * warning both read this, so they cannot disagree about what a form offers.
- */
+/** The field names a write may carry: the declared form fields, else the resource's columns. */
 export function declaredWriteFields(
   resource: ResourceConfig,
   fields: ReadonlyArray<{ name: string }> | undefined,

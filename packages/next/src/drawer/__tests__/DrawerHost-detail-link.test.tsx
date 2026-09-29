@@ -16,7 +16,7 @@ import type { DrawerPayload } from "../drawer-route";
 function mkPayload(detailHref: string | null): DrawerPayload {
   return {
     row: { id: "abc", email: "a@b.c" },
-    header: "a@b.c",
+    title: "a@b.c",
     resourceLabel: "Users",
     width: "lg",
     fields: [{ name: "email" }],

@@ -56,8 +56,7 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
           : formFields;
 
       let nextValue = value;
-      // The same schema resolution as form edits and JSON PATCH: the resource's
-      // declared `schema` wins over the adapter-inferred one.
+      // The same schema resolution as form edits and JSON PATCH: a declared `schema` wins over the inferred one.
       const updateSchema = schemasFor(config, resource).update as
         | { pick?: (mask: Record<string, true>) => { safeParse: (v: unknown) => unknown } }
         | { safeParse?: (v: unknown) => unknown }
@@ -92,12 +91,11 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
 
       const itemCtx: ItemQueryContext = {
         ...reqCtx,
-        db: config.adapter.db,
         dateRange: { from: new Date(0), to: new Date() },
         searchParams: new URLSearchParams(),
         signal: new AbortController().signal,
         id,
-        ...scopeBinding(config, resource, reqCtx),
+        ...scopeBinding(resource, reqCtx),
       };
       const existing = (await runWithRequestContext(reqCtx, () =>
         config.adapter.get(resource.ref, itemCtx),
@@ -119,7 +117,7 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
         db: config.adapter.db,
         input: { [field]: nextValue } as Partial<Record<string, unknown>>,
         id,
-        ...scopeBinding(config, resource, reqCtx),
+        ...scopeBinding(resource, reqCtx),
       };
       await runWithRequestContext(reqCtx, () => config.adapter.update(writeTarget(resource), mctx));
 

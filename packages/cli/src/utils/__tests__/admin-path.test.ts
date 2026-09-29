@@ -27,12 +27,12 @@ describe("admin mount preflight", () => {
     expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
   });
 
-  it("uses the runtime legacy fallback when paths only configures the API", async () => {
+  it("defaults the admin mount when paths only configures the API", async () => {
     await write(
       "flowpanel.config.ts",
-      'export default defineAdmin({ basePath: "/ops", paths: { api: "/api/internal" } });',
+      'export default defineAdmin({ paths: { api: "/api/internal" } });',
     );
-    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/internal" });
+    expect(await readAdminMount(root)).toEqual({ path: "/admin", api: "/api/internal" });
   });
 
   it("never selects another default when a named config is re-exported", async () => {
@@ -128,8 +128,6 @@ describe("admin mount preflight", () => {
 
   it("defaults the API mount only when the config declares none", async () => {
     await write("flowpanel.config.ts", 'export default defineAdmin({ paths: { admin: "/ops" } });');
-    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
-    await write("flowpanel.config.ts", 'export default defineAdmin({ basePath: "/ops" });');
     expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
   });
 

@@ -1,6 +1,5 @@
 "use client";
-// LOC-OK: drawer shell — fields / resource / widgets / statgroup tab views plus the
-// action bar and lazy tab loading in one client component.
+// LOC-OK: drawer shell — fields/resource/widgets/statgroup tab views plus the action bar in one client component.
 import type { ColumnFormat } from "@flowpanel/core";
 import { formatLabel } from "@flowpanel/core/labels";
 import {
@@ -464,7 +463,7 @@ export function DrawerHost() {
   }, [resource, id, reloadKey]);
 
   const width = payload?.width ?? "lg";
-  const title = payload?.header ?? "";
+  const title = payload?.title ?? "";
 
   return (
     <Drawer

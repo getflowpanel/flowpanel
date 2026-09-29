@@ -36,10 +36,8 @@ export function pickedKinds(raw: string | null, known: readonly string[]): strin
 }
 
 /**
- * The page after `cursor`, newest first, across every list: a stable sort by `at` (list order
- * breaks a tie), the events after `before` dropped and the `skip` events already shown at
- * exactly `before` skipped. `next` carries the last event's moment and how many events at that
- * moment have been shown; `null` on the last page.
+ * The page after `cursor`, newest first across every list, stable-sorted by `at` (list order breaks ties).
+ * `next` carries the last event's moment and how many events at that moment have been shown; `null` on the last page.
  */
 export function mergeTimeline(
   lists: readonly (readonly TimelineEvent[])[],
@@ -75,9 +73,8 @@ export interface TimelineDay {
 }
 
 /**
- * Events under days of `timeZone`, newest first. Consecutive events of one day and one kind
- * with the same fold key — `fold`, else the title — share a line. `false` gives one group with
- * `day: null`.
+ * Events under days of `timeZone`, newest first; consecutive events sharing a day, kind and fold key share a line.
+ * `false` gives one group with `day: null`.
  */
 export function groupTimeline(
   events: readonly TimelineEvent[],

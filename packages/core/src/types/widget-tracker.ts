@@ -77,8 +77,7 @@ export interface TrackerOptions<R = Record<string, unknown>> extends CaptionOpti
   /** Rows you built yourself, instead of `query`, `at` and `by`. */
   rows?: (ctx: WidgetContext) => Promise<TrackerRow[]>;
   /**
-   * A window ending now, independent of the date picker: hourly blocks up to 48 hours,
-   * daily blocks beyond, so `"24h"` is 24 blocks and `"14d"` is 14.
+   * A window ending now, independent of the date picker: hourly blocks up to 48 hours, daily beyond.
    * @defaultValue "24h"
    */
   window?: `${number}h` | `${number}d`;

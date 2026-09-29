@@ -1,8 +1,7 @@
 import type { ChecklistLabels, HeatmapLabels, TimelineLabels, WidgetLabels } from "./widget-labels";
 
 /**
- * A count template per `Intl.PluralRules` category of the admin's
- * `formatting.locale`; a missing category falls back to `other`. Use `{n}`.
+ * A count template per `Intl.PluralRules` category of the admin's locale; a missing category falls back to `other`.
  * @example { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записи" }
  */
 export interface PluralLabel {
@@ -112,11 +111,7 @@ export interface LabelsConfig {
     selected?: string;
     clear?: string;
   };
-  /**
-   * Count templates with one form per `Intl.PluralRules` category of
-   * `formatting.locale`. When set, they win over `table.result`/`table.results`
-   * and `bulkBar.selected`.
-   */
+  /** Count templates per `Intl.PluralRules` category; when set, they win over `table.result`/`results` and `bulkBar.selected`. */
   plurals?: {
     /** The table's row count, every count `1` included. */
     results?: PluralLabel;

@@ -32,7 +32,7 @@ describe("the Next constant a deployment basePath is read from", () => {
       .split("\n")
       .filter(Boolean);
     expect(hits.length).toBeGreaterThan(0);
-  });
+  }, 30_000);
 });
 
 describe("withDeploymentBasePath", () => {

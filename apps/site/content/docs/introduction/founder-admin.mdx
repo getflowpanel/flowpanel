@@ -4,12 +4,11 @@ description: From an empty Next.js app to a deployed admin with dashboards, a re
 kind: tutorial
 ---
 
-This tutorial builds the admin a founder opens every morning. It uses the domain of the
+This tutorial builds the admin a founder opens every morning, using the domain of the
 [ScrapeAI example](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper):
-customers set up monitors, monitors produce runs, and runs find listings on marketplaces. Each
-step ends with what you should see. It assumes a Next.js 16 app with a Drizzle schema and
-better-auth; [Getting started](/docs/introduction/getting-started) covers Prisma and every
-`init` option.
+customers set up monitors, monitors produce runs, and runs find listings on marketplaces. It
+assumes a Next.js 16 app with a Drizzle schema and better-auth. Each step ends with what you
+should see.
 
 ## 1. Install
 
@@ -19,18 +18,11 @@ pnpm flowpanel migrate
 pnpm dev
 ```
 
-You should see `/admin` with an empty navigation. `init` leaves `resources` empty on purpose:
-only you know which tables belong in the admin.
+You should see `/admin` with an empty navigation.
 
-`init` also adds `suppressHydrationWarning` to your root layout's `<html>` tag if it is
-missing — the admin's theme script marks `<html>` before React hydrates it, and without that
-attribute development logs a hydration error and step 11's `smokeAdmin` fails on every route.
-If `init` could not patch the file safely, it prints the exact edit to make by hand.
+## 2. Types from your schema and your auth
 
-## 2. Take types from your schema and your auth
-
-`init` already told FlowPanel where your database, schema and session types come from. The
-config it wrote declares the first two:
+The config `init` wrote registers your database and schema:
 
 ```ts excerpt
 // flowpanel.config.ts
@@ -42,10 +34,9 @@ declare module "@flowpanel/kit" {
 }
 ```
 
-With better-auth, when your auth module exports the instance and no `getSession`, the session
-module `init` wrote under `server/lib/` (`src/server/lib/` with a `src/` layout) —
-`flowpanel-session.ts` — declares the third and wraps your auth instance in the better-auth
-preset:
+When your auth module exports a better-auth instance and no `getSession`, `init` also writes
+`server/lib/flowpanel-session.ts` (under `src/` with a `src/` layout), which registers the
+session and wraps the instance in the better-auth preset:
 
 ```ts excerpt
 // server/lib/flowpanel-session.ts
@@ -62,18 +53,16 @@ declare module "@flowpanel/kit" {
 }
 ```
 
-Every resource name, every row and `ctx.session` is now typed from sources you already own, and
-there is no list of resources to keep in sync. The preset reads the role from
-`session.user.role` and the actor id for the audit trail from `session.user.id`, so the config's
-whole `auth` block becomes one line: import `flowpanelAuth` instead of `getSession`, and write
-`auth: flowpanelAuth`.
+Set `auth: flowpanelAuth` in the config. The preset reads the role from `session.user.role`
+and the audit actor from `session.user.id`. Every resource name, row and `ctx.session` is now
+typed.
 
-You should see a type error the moment a config names a table that does not exist.
+You should see a type error when the config names a table that does not exist.
 
 ## 3. One resource per file
 
-Move the config `init` wrote into `src/admin/config/index.ts` and leave a one-line re-export at
-the root, so the admin route and the CLI both still find it:
+Move the config into `src/admin/config/index.ts` and leave a re-export at the root, so the
+admin route and the CLI still find it:
 
 ```bash
 mkdir -p src/admin/config
@@ -81,9 +70,8 @@ git mv flowpanel.config.ts src/admin/config/index.ts
 echo 'export { default } from "./src/admin/config";' > flowpanel.config.ts
 ```
 
-If the moved file imports anything by a relative path, fix those paths; the `@/…` aliases `init`
-writes need no change. Then let `flowpanel new` write one file per table, the tables others
-point at first:
+Fix any relative imports in the moved file. Then write one file per table, starting with the
+tables others point at:
 
 ```bash
 pnpm flowpanel new customers --dir src/admin/config/resources
@@ -92,12 +80,10 @@ pnpm flowpanel new runs --dir src/admin/config/resources
 pnpm flowpanel new invoices --dir src/admin/config/resources --hidden
 ```
 
-Each command follows the re-export to your schema, reads the table, picks columns by type, and
-adds the export to `src/admin/config/resources/index.ts`. A foreign key becomes a `reference`
-labelled by the target's `name` (else its `title`, else its `email`) once the target has a file of
-its own — which is why `customers` goes first; a key to a table the admin does not show stays a
-plain column, and the command says so. `--hidden` keeps invoices out of the navigation — they
-appear on the customer's page instead. Hand the array to `defineAdmin`:
+Each command reads the table, picks columns by type, and adds the export to
+`src/admin/config/resources/index.ts`. A foreign key becomes a `reference` labelled by the
+target's `name`, `title` or `email` once the target has its own file, which is why `customers`
+goes first. `--hidden` keeps invoices out of the navigation; they appear on the customer's page.
 
 ```ts excerpt
 // src/admin/config/index.ts
@@ -109,8 +95,7 @@ export default defineAdmin({
 });
 ```
 
-You should see Customers, Monitors and Runs in the navigation, each a list, and every run
-naming its monitor. The dev server picks up config changes without a restart.
+You should see Customers, Monitors and Runs in the navigation, and every run naming its monitor.
 
 ## 4. Declare each enum once
 
@@ -151,37 +136,33 @@ export const Site = enumOf({
 });
 ```
 
-`listings.site` is a text column, so `Site` lists its values itself; they are the seven
-marketplaces the example seeds (`examples/ai-scraper/src/demo/data/types.ts`, `MARKETPLACES`).
-For the three database enums, a value the database enum has and the map lacks is a compile
-error. `flowpanel new` wrote an `enumOf` stub into each resource file; delete it and use the
-shared enum wherever the column appears:
+For a database enum, a value missing from the map is a compile error. `listings.site` is a
+text column, so `Site` lists its values itself. Replace the `enumOf` stub `flowpanel new`
+wrote in each resource file with the shared enum:
 
 ```ts excerpt
 columns: [{ field: "status", format: RunStatus.format }],
 filters: [{ field: "status", type: "multiselect" }],
 ```
 
-The filter needs no `options`: a select on a column formatted by an enum lists the enum's labels,
-in the order you declared them. `RunStatus.label(value)`, `.tone(value)` and
-`.badge(value, { href })` serve widgets and record headers.
+A select filter on an enum-formatted column lists the enum's labels, so it needs no `options`.
 
 You should see coloured status badges and a status filter with four labels.
 
-## 5. A dashboard, starting from the right data call
+## 5. A dashboard
 
 Every widget receives `ctx`. Pick the call by what you need:
 
 | You want | Use | Scope, access, soft delete applied |
 |---|---|---|
 | how many rows | `ctx.count(resource, where, { range })` | yes |
-| the rows themselves | `ctx.read(resource, { where, range })` | yes |
+| the rows | `ctx.read(resource, { where, range })` | yes |
 | the record on this card | `ctx.rowOf(resource)` | yes |
-| a number only SQL can define | ``ctx.sql`…` `` | no — add the predicates |
+| a number only SQL can define | ``ctx.sql`…` `` | no, add the predicates |
 | your ORM | `ctx.db` | no |
-| one result shared by several widgets | `ctx.query(fn)` around any of the above | — |
+| one result for several widgets | `ctx.query(fn)` around any of the above | n/a |
 
-Start with a strip of numbers that compare themselves with the period before:
+Start with a strip of numbers compared with the period before:
 
 ```ts excerpt
 // src/admin/config/dashboards/overview.ts
@@ -209,10 +190,8 @@ export const overview = dashboard({
 });
 ```
 
-Add `dashboards: [overview]` to `defineAdmin`. Each number links to its own rows, with the same
-filter and the same period, and shows its change against the previous period. The period
-reaches the list through a `daterange` filter, so give each counted date one — `startedAt` on
-runs, `createdAt` on customers, and `paidAt` on invoices for step 8:
+Add `dashboards: [overview]` to `defineAdmin`. Each number links to the rows it counted, for
+the same period, through a `daterange` filter on the counted date. Give each resource one:
 
 ```ts excerpt
 // src/admin/config/resources/runs.ts
@@ -222,16 +201,15 @@ filters: [
 ],
 ```
 
-`defineAdmin` refuses a `range` that names no `daterange` filter of the counted resource, and
-says which one is missing.
+Do the same for `createdAt` on customers and `paidAt` on invoices. `defineAdmin` names a
+missing one.
 
-You should see three numbers in one band, each with a change and a link that opens the list
-filtered to exactly the rows it counted.
+You should see three numbers in one band, each with its change and a link to its rows.
 
-## 6. One SQL statement, three widgets
+## 6. One SQL statement, several widgets
 
-Some numbers only SQL can define. Write the statement once and let FlowPanel bucket, rank and
-compare it. Charts render with Recharts, an optional peer, so run `pnpm add recharts` first:
+Charts need the optional Recharts peer: `pnpm add recharts`. Write the statement once and let
+FlowPanel bucket and rank it:
 
 ```ts excerpt
 // src/admin/config/dashboards/marketplaces.ts
@@ -277,18 +255,16 @@ export const marketplaces = dashboard({
 ```
 
 Add `marketplaces` to `dashboards`. `c.query(listingsFound)` runs the statement once per
-request, and once more for the previous period that `compare` asks for. `series` buckets the
-rows into days in the admin's time zone and fills the gaps; `breakdown` ranks them with each
-one's share. `ctx.sql` applies no scope, so a multi-tenant admin adds its tenant predicate to
-the statement itself.
+request, plus once for the previous period `compare` asks for. `series` buckets rows by day in
+the admin's time zone and fills gaps; `breakdown` ranks them with shares. `ctx.sql` applies no
+scope, so a multi-tenant admin adds its tenant predicate to the statement.
 
-You should see bars with shares and changes and a line per marketplace. Click a bar and the
-whole page narrows to that marketplace; the Marketplace select beside the date picker shows it.
+You should see bars with shares and changes, and a line per marketplace. Clicking a bar
+narrows the whole page to that marketplace.
 
 ## 7. Status at a glance
 
-A tracker answers "is it healthy right now": one row per marketplace, one block per hour. It
-lives on the Marketplaces dashboard, so it shares `listingsFound` and the Marketplace filter:
+A tracker shows one row per marketplace and one block per hour. Add it to the same dashboard:
 
 ```ts excerpt
 // src/admin/config/dashboards/marketplaces.ts
@@ -309,21 +285,14 @@ const listingsByHour = tracker({
 });
 ```
 
-Append `{ widgets: [listingsByHour] }` to the `sections` of `marketplaces` from step 6. The
-tracker ignores the date picker: its window is the last 24 hours, and `ctx.dateRange` inside
-`listingsFound` is that window. `keys: Site.values` keeps every marketplace on the board even
-when an hour, or all 24, found nothing for it — without `keys`, a marketplace absent from the
-rows has no row at all, not a quiet one. `warn` above `err` reads as "fewer is worse", so an hour
-with 5 listings or fewer is a warning and an hour with one is an error; an hour with none stays
-grey, because there is nothing to judge.
+Append `{ widgets: [listingsByHour] }` to the `sections` of `marketplaces`. The tracker always
+shows the last 24 hours. `keys: Site.values` keeps a marketplace on the board when it found
+nothing. `warn` above `err` means fewer is worse: 5 listings or fewer is a warning, 1 is an
+error, and an hour with none stays grey.
 
-You should see one row per marketplace, 24 hourly blocks each, coloured by how many listings
-that hour found; a click on a row narrows the whole page to that marketplace.
+You should see 24 hourly blocks per marketplace, coloured by how many listings each hour found.
 
 ## 8. A record page
-
-Put the customer's page in its own file. `DetailOptions` types every callback by the resource's
-row:
 
 ```ts excerpt
 // src/admin/config/resources/customer-card.ts
@@ -399,18 +368,15 @@ export const customerCard = {
 } satisfies DetailOptions<RowOf<"customers">>;
 ```
 
-Pass it as `detail: customerCard` on the customers resource. `related()`'s row count in the tab
-label is on by default; pass `count: false` to hide it. The strip and the side column stay
-on every tab; the related tabs find their filter from the `customerId` reference `flowpanel new`
-wrote, and show their row counts in the tab labels. `paidInvoices` has a name of its own so a
-unit test can import it (step 11).
+Pass it as `detail: customerCard` on the customers resource. The strip and the side column stay
+on every tab. The related tabs find their filter from the `customerId` reference and show row
+counts in their labels. `paidInvoices` is exported so a unit test can import it (step 11).
 
-You should see the customer's status and plan as badges, their monitor count and the invoices
-paid in the picked period,
-their account facts beside the tabs, and an activity feed grouped by day. More in
-[Build a record page](/docs/build/detail-cards).
+You should see status and plan badges, the monitor count, the invoices paid in the picked
+period, account facts beside the tabs, and an activity feed grouped by day. See
+[Record pages and drawers](/docs/build/detail-cards).
 
-## 9. A custom widget for what config cannot say
+## 9. A custom widget
 
 A widget no built-in card fits is a server component built from kit atoms:
 
@@ -432,14 +398,14 @@ export function CrawlQueue({ waiting, failed }: { waiting: number; failed: numbe
 }
 ```
 
-`custom()` puts it in a dashboard section. `queueCounts` is your own function that returns
-`{ waiting, failed }` — from your job queue's counts, for example:
+`custom()` places it in a section. `queueCounts` is your own function returning
+`{ waiting, failed }`:
 
 ```ts excerpt
 // src/admin/config/dashboards/overview.ts
 import { custom } from "@flowpanel/kit";
 import { CrawlQueue } from "../../ui/CrawlQueue";
-import { queueCounts } from "@/server/lib/queue"; // your own function
+import { queueCounts } from "@/server/lib/queue";
 
 const crawlQueue = custom(CrawlQueue, (c) => c.query(queueCounts), {
   label: "Crawl queue",
@@ -450,14 +416,13 @@ const crawlQueue = custom(CrawlQueue, (c) => c.query(queueCounts), {
 
 Add `{ widgets: [crawlQueue] }` to the overview's `sections`.
 
-You should see a card titled "Crawl queue" that looks like its neighbours. The
-[custom widget guide](/docs/customization/custom-widgets) covers links, formatting, the Tailwind
-token bridge and tests.
+You should see a "Crawl queue" card that matches its neighbours. See
+[Build a custom widget](/docs/customization/custom-widgets).
 
 ## 10. Live updates from the worker
 
-The worker that runs crawls tells the admin when something changed. Install `ioredis`, and keep
-the realtime options in one module that both the admin config and the worker import:
+Install `ioredis`. Keep the realtime options in one module that the admin config and the worker
+both import:
 
 ```ts excerpt
 // src/shared/realtime.ts
@@ -470,8 +435,7 @@ export const realtime = {
 } satisfies PublisherOptions;
 ```
 
-Pass it to `defineAdmin` as `realtime`, in place of the memory driver `init` wrote. Then publish
-from the worker:
+Pass it to `defineAdmin` as `realtime`. Then publish from the worker:
 
 ```ts excerpt
 // worker/admin-events.ts
@@ -484,19 +448,20 @@ await adminEvents.resource("runs", { id: run.id });
 await adminEvents.publish("pipeline");
 ```
 
-Both sides use one Redis URL and one prefix. A Redis error never fails the crawl. In the admin,
-`realtime: { resource: "runs" }` on a widget, or `realtime: true` on the runs resource,
-re-renders when that event arrives; the crawl queue card from step 9 listens on `"pipeline"`.
+A Redis error never fails the crawl. `realtime: true` on the runs resource refreshes its list,
+and the crawl queue card listens on `"pipeline"`.
 
-You should see the runs list (with `realtime: true`) and the crawl queue card update while a
-crawl runs, without a reload. See
-[Realtime with Redis](/docs/guides/realtime-with-redis#publish-from-an-external-worker).
+You should see the runs list and the crawl queue card update during a crawl, without a reload.
+See [Realtime](/docs/guides/realtime#publish-from-a-worker).
 
-## 11. Test the whole admin, and one number
+## 11. Test the admin
 
-Install the test package and Playwright with `pnpm add -D @flowpanel/test @playwright/test`, and
-add a `playwright.config.ts` with a `baseURL` and a `webServer` — `smokeAdmin` navigates with
-`page.goto(basePath)`, which needs both:
+```bash
+pnpm add -D @flowpanel/test @playwright/test
+```
+
+`smokeAdmin` navigates with `page.goto(basePath)`, so Playwright needs a `baseURL` and a
+`webServer`:
 
 ```ts excerpt
 // playwright.config.ts
@@ -509,10 +474,8 @@ export default defineConfig({
 });
 ```
 
-Then walk the admin. better-auth issues a signed session through its own sign-in endpoint, not a
-bare token, so sign in with a Playwright fixture and let `smokeAdmin` reuse that context — and
-seed or promote that user to the `admin` role `requireRole` demands, or the walk lands on your
-access-denied page instead:
+better-auth issues a signed session through its sign-in endpoint, so sign in first and let
+`smokeAdmin` reuse the context. The user must have the `admin` role:
 
 ```ts excerpt
 // e2e/admin.spec.ts
@@ -529,26 +492,17 @@ test("the admin is healthy", async ({ page }) => {
 });
 ```
 
-See [Authentication](/docs/reference/testing#authentication) for the `cookie` option instead,
-which suits a session token your own code issues.
-
 The walk opens every dashboard, every list, the first record of each and every tab of that
-record, and fails on an error card, a console error or a 4xx/5xx. A single number gets a unit
-test with `widgetContext({ admin, rows })` and `resolveWidget` from `@flowpanel/test/widgets`:
-your admin's own code over rows you pass; see
-[Testing](/docs/reference/testing#unit-test-a-widget), and
-[Build a record page](/docs/build/detail-cards#test-the-card) for a test of `paidInvoices`. It
-needs Vitest itself and a small config, shown in
-[Run it in Vitest](/docs/reference/testing#run-it-in-vitest).
+record, and fails on an error card, a console error or a 4xx/5xx. To unit-test one number such
+as `paidInvoices`, see [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).
 
-You should see a green run. Break a widget on the Activity tab and the failure names that tab's
-URL, such as `/admin/customers/1?tab=activity`.
+You should see a green run. Break a widget on the Activity tab and the failure names its URL,
+such as `/admin/customers/1?tab=activity`.
 
 ## 12. Ship
 
-Work through the [production readiness checklist](/docs/guides/production-readiness): a real
-session provider, roles, tenant scope, the Redis realtime driver and a rate limit. Then deploy
-the app as you deploy any Next.js app — the admin is a route of it.
+Work through [Production readiness](/docs/guides/production-readiness), then deploy the app as
+usual: the admin is a route of it.
 
-You should see every item of the checklist ticked, the admin at `/admin` on the deployed URL
-behind your sign-in, and `smokeAdmin` green against that URL.
+You should see the admin at `/admin` on the deployed URL behind your sign-in, and `smokeAdmin`
+green against that URL.

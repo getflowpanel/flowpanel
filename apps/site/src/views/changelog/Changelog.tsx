@@ -20,7 +20,7 @@ export function Changelog() {
       <h1 className="mt-6 text-4xl font-semibold tracking-tight md:text-5xl">{title}</h1>
       <p className="mt-5 max-w-[60ch] text-lg text-[var(--color-fg-muted)]">{description}</p>
       {MDX ? (
-        <DocsBody className="mt-12">
+        <DocsBody className="mt-12 [&_h3]:mt-8 [&_h3]:mb-2 [&_h3]:text-base [&_li]:my-1">
           <MDX components={getMDXComponents()} />
         </DocsBody>
       ) : null}

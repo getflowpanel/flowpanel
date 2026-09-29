@@ -63,7 +63,6 @@ export { checkRequireRole, type RequireRole } from "./runtime/auth";
 export { type BreakdownOptions, breakdown } from "./runtime/breakdown";
 export { presetRange } from "./runtime/preset-range";
 export {
-  createPublisher,
   createRealtimeTransport,
   type Publisher,
   type PublisherOptions,

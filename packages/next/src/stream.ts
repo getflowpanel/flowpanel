@@ -31,10 +31,7 @@ async function channelAllowed(
   if (resourceName === null) return true;
   const resource = config.resourcesByName.get(resourceName);
   if (!resource) return true;
-  return accessAllows(
-    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
-    reqCtx,
-  );
+  return accessAllows(resolveOperationAccess(resource.options.access, "read"), reqCtx);
 }
 
 export function stream(
@@ -51,8 +48,7 @@ export function stream(
       reqCtx = await buildRequestContext({ req, config });
       checkRequireRole(config.auth.requireRole, reqCtx.role, reqCtx.session);
     } catch (err) {
-      // Preserve the real status: a crashing session provider is a 500 and a
-      // rate limit is a 429, not a silent 403.
+      // Preserve the real status: a crashing session provider is a 500, a rate limit a 429, not a silent 403.
       await reportUnexpectedError(
         err,
         {
@@ -71,8 +67,7 @@ export function stream(
 
     const url = new URL(req.url);
     const requestedChannels = url.searchParams.getAll("channel");
-    // Cap before the per-channel role check so a huge repeated ?channel= list can't force
-    // MAX_CHANNELS-unbounded role checks.
+    // Cap before the per-channel role check so a huge repeated ?channel= list can't force unbounded checks.
     const channels: string[] = [];
     for (const ch of requestedChannels.slice(0, MAX_CHANNELS)) {
       if (await channelAllowed(ch, config, reqCtx)) channels.push(ch);
@@ -112,8 +107,7 @@ export function stream(
           }
         }
 
-        // Disconnected during `await config.auth.session()`, before the abort listener below
-        // could attach — bail out now or the heartbeat/subscriptions leak for good.
+        // Disconnected before the abort listener could attach — bail out now or subscriptions leak for good.
         if (req.signal?.aborted) {
           cleanup();
           closeController();

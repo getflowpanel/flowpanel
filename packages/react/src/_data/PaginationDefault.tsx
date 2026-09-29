@@ -30,11 +30,8 @@ export function resolvePaginationLabels(
 }
 
 /**
- * The rendered page sequence: always the first and last page, a window around
- * the current one, and an ellipsis wherever that skips something.
- *
- * The window widens at either end so the control keeps a stable width as the
- * cursor moves — otherwise the buttons shuffle under the pointer.
+ * The rendered page sequence: first and last page, a window around the current one, an ellipsis over gaps.
+ * The window widens at either end so the control keeps a stable width as the cursor moves.
  */
 export function pageItems(page: number, pages: number, siblings = 1): (number | "gap")[] {
   if (pages <= 1) return pages === 1 ? [1] : [];

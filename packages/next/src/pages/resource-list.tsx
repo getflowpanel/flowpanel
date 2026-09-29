@@ -8,7 +8,6 @@ import type {
 import {
   assertResourceScope,
   authorizeOperation,
-  checkRequireRole,
   DEFAULT_LABELS,
   formatLabel,
   resolveFormatting,
@@ -70,11 +69,7 @@ export async function ResourceListPage({
   reqCtx: providedReqCtx,
 }: ResourceListPageProps) {
   const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
-  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
-  await authorizeOperation(
-    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
-    reqCtx,
-  );
+  await authorizeOperation(resolveOperationAccess(resource.options.access, "read"), reqCtx);
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
@@ -118,7 +113,6 @@ export async function ResourceListPage({
   const includeDeleted = !!softDelete && searchParams.get("deleted") === "1";
   const ctx: ListQueryContext<unknown> = {
     ...reqCtx,
-    db: config.adapter.db,
     dateRange: { from: new Date(0), to: new Date() },
     searchParams: readable.searchParams,
     signal: new AbortController().signal,
@@ -133,7 +127,7 @@ export async function ResourceListPage({
     ),
     ...(readable.searchFields.length > 0 ? { searchFields: readable.searchFields } : {}),
     ...(softDelete ? { softDelete: { column: String(softDelete) }, includeDeleted } : {}),
-    ...scopeBinding(config, resource, reqCtx),
+    ...scopeBinding(resource, reqCtx),
   };
 
   const listed = await readOrCard(

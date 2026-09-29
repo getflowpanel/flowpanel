@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "FlowPanel — a Next.js admin panel for Drizzle and Prisma";
+export const alt = "FlowPanel: a typed admin panel for Next.js";
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -42,16 +42,16 @@ export default function OpengraphImage() {
             maxWidth: "920px",
           }}
         >
-          The admin panel you don't have to build.
+          A typed admin panel for Next.js
         </span>
         <span style={{ fontSize: 30, color: "#a4a8ad", maxWidth: "880px" }}>
-          A typed config, split per resource, becomes a full /admin route for Next.js.
+          Describe your Drizzle or Prisma tables in one config file.
         </span>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 26, color: "#eceef0" }}>pnpm dlx @flowpanel/cli init</span>
-        <span style={{ fontSize: 26, color: "#8a8f95" }}>· MIT · flowpanel.tech</span>
+        <span style={{ fontSize: 26, color: "#8a8f95" }}>flowpanel.tech</span>
       </div>
     </div>,
     { ...size },

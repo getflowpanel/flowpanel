@@ -21,8 +21,7 @@ const reqCtx: RequestContext = {
 interface ListCall {
   filters: Record<string, unknown>;
   pageSize: number;
-  applyScope?: (query: unknown) => unknown;
-  scopeRequired?: boolean;
+  boundScope?: { apply(query: unknown): unknown };
 }
 
 function mkConfig(opts: {
@@ -40,8 +39,7 @@ function mkConfig(opts: {
       listCalls.push({
         filters: ctx.filters,
         pageSize: ctx.pageSize,
-        ...(ctx.applyScope ? { applyScope: ctx.applyScope } : {}),
-        ...(ctx.scopeRequired !== undefined ? { scopeRequired: ctx.scopeRequired } : {}),
+        ...(ctx.boundScope ? { boundScope: ctx.boundScope } : {}),
       });
       const filter = ctx.filters.id as { values?: string[] } | undefined;
       const ids = filter?.values ?? [];
@@ -221,7 +219,7 @@ describe("resolveReferences", () => {
     const rows = new Map<string, Record<string, unknown>>([["u1", { id: "u1", email: "a@x.com" }]]);
     const { config, listCalls } = mkConfig({
       rows,
-      resources: [usersResource({ requireRole: "superadmin" })],
+      resources: [usersResource({ access: { read: "superadmin" } })],
     });
     const out = await resolveReferences(
       config,
@@ -266,8 +264,7 @@ describe("resolveReferences", () => {
       [userRefColumn],
       [{ userId: "u1" }],
     );
-    expect(listCalls[0]?.scopeRequired).toBe(true);
-    listCalls[0]?.applyScope?.("q");
+    listCalls[0]?.boundScope?.apply("q");
     expect(scopeCalls).toEqual([[{ tenantId: "t1" }, "q"]]);
   });
 });

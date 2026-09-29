@@ -44,8 +44,7 @@ export function useAdminMutation<Args extends unknown[]>(
         setPending(false);
       }
     },
-    // Inline `options` literals must not defeat the memo; the two callbacks are
-    // the only values `run` reads from it.
+    // Inline `options` literals must not defeat the memo; these are the only values `run` reads from it.
     [action, options.onSuccess, options.onError],
   );
 

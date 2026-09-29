@@ -1,29 +1,29 @@
 # @flowpanel/core
 
-Core types, builders, and runtime for FlowPanel.
+FlowPanel's types, builders and runtime: `defineAdmin`, `resource`, `dashboard`, the widget builders, the adapter contract, auth presets, realtime and rate limiting. Apps use it through `@flowpanel/kit`; depend on it directly only to publish an adapter or extension.
 
-[![npm](https://img.shields.io/npm/v/@flowpanel/core.svg)](https://www.npmjs.com/package/@flowpanel/core)
+## Install
 
-> Most users should depend on **`@flowpanel/kit`** (the umbrella package) — it re-exports everything from `@flowpanel/core` and the other workspace packages. Depend on `@flowpanel/core` directly only when publishing your own FlowPanel adapter or extension.
+```bash
+pnpm add @flowpanel/core
+```
 
-## What's here
+## Example
 
-- **`defineAdmin(config)`** — the config entry point.
-- **Builders:** `resource`, `dashboard`, `page`, `metric`, `table`, `custom`, `statGroup`, `queue`.
-- **Types:** `Adapter`, `AdminConfig`, `ResolvedAdminConfig`, `WidgetContext`, `ActionContext`, `LabelsConfig`, `ThemeConfig`, `FlowpanelTypes`, `Session`, `Scope`, errors.
-- **Runtime:** `createRealtimeTransport` (memory + Redis; the root's `createPublisher` is its deprecated alias), `createRateLimiter` (memory + Redis), `runWithRequestContext`, `emitAudit`, `checkRequireRole`, `assertResourceScope`.
+```ts
+import type { Adapter } from "@flowpanel/core";
 
-## Subpath exports
+export const myAdapter: Adapter<MyClient, MyTable> = {
+  kind: "my-orm",
+  db: client,
+  introspect,
+  inferSchema,
+  list,
+  get,
+  create,
+  update,
+  delete: remove,
+};
+```
 
-- `@flowpanel/core` — main entry
-- `@flowpanel/core/labels` — `LabelsConfig` + `mergeLabels` (pure data, safe in client bundles)
-- `@flowpanel/core/auth` — `withClerk`, `withNextAuth`, `withLucia`
-- `@flowpanel/core/publish` — `createPublisher`, which a worker uses to publish realtime events
-
-## Documentation
-
-<https://flowpanel.tech>
-
-## License
-
-MIT
+[Adapter contract](https://flowpanel.tech/docs/reference/adapters) · MIT

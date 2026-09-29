@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import type { MutationContext } from "@flowpanel/core";
-import { FlowpanelAccessError } from "@flowpanel/core";
+import { bindAdapterScope, FlowpanelAccessError } from "@flowpanel/core";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { pgTable, text } from "drizzle-orm/pg-core";
@@ -103,7 +103,10 @@ describe.skipIf(!dockerAvailable)(
     it("in-scope create succeeds and is durable, including the trigger side effect", async () => {
       const row = await adapter.create(
         items,
-        mutCtx({ id: "ok1", name: "OK", companyId: "c1" }, { applyScope: applyScopeC1 }),
+        mutCtx(
+          { id: "ok1", name: "OK", companyId: "c1" },
+          { boundScope: bindAdapterScope(applyScopeC1) },
+        ),
       );
       expect(row).toMatchObject({ id: "ok1", companyId: "c1" });
       const raw = await client`SELECT id FROM items WHERE id = 'ok1'`;
@@ -119,7 +122,7 @@ describe.skipIf(!dockerAvailable)(
           items,
           mutCtx(
             { id: "hacked1", name: "Cross-tenant", companyId: "c2" },
-            { applyScope: applyScopeC1 },
+            { boundScope: bindAdapterScope(applyScopeC1) },
           ),
         ),
       ).rejects.toBeInstanceOf(FlowpanelAccessError);
@@ -131,17 +134,6 @@ describe.skipIf(!dockerAvailable)(
       expect(raw).toHaveLength(0);
       const audit = await client`SELECT item_id FROM items_audit WHERE item_id = 'hacked1'`;
       expect(audit).toHaveLength(0);
-    });
-
-    it("FAIL-CLOSED: create throws when scopeRequired && no applyScope, before writing anything", async () => {
-      await expect(
-        adapter.create(
-          items,
-          mutCtx({ id: "shouldnotexist", name: "X", companyId: "c1" }, { scopeRequired: true }),
-        ),
-      ).rejects.toBeInstanceOf(FlowpanelAccessError);
-      const raw = await client`SELECT id FROM items WHERE id = 'shouldnotexist'`;
-      expect(raw).toHaveLength(0);
     });
   },
 );

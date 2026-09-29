@@ -161,7 +161,6 @@ export function buildWidgetContext(
       req,
       ...(row ? { row } : {}),
       ...(id !== null ? { id } : {}),
-      href: (resource, recordId, opts) => widgetHref(config, timeZone, resource, recordId, opts),
       link: (target) => resolveLink(config, ctx, target) ?? "",
       query: memoQuery(new Map(), () => ctx),
       labels,
@@ -230,13 +229,11 @@ export function detailTabDateRange(): ResolvedDateRange {
 
 /** The narrower context a `DetailTab.render` callback receives, from a page's shared one. */
 export function tabContextOf(ctx: WidgetContext): DetailTabContext {
-  const { db, session, dateRange, href, link, labels, format, query, sql, count, read, rowOf, id } =
-    ctx;
+  const { db, session, dateRange, link, labels, format, query, sql, count, read, rowOf, id } = ctx;
   return {
     db,
     session,
     dateRange,
-    href,
     link,
     labels,
     format,

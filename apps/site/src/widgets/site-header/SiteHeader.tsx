@@ -2,7 +2,6 @@ import Link from "next/link";
 import { SearchTrigger } from "@/features/search-trigger";
 import { ThemeToggle } from "@/features/theme-toggle";
 import { siteConfig } from "@/shared/lib/site-config";
-import { flowpanelVersion } from "@/shared/lib/version";
 import { Logo } from "@/shared/ui/logo";
 import { GitHubLink } from "./GitHubLink";
 
@@ -31,9 +30,11 @@ export function SiteHeader({ variant = "marketing" }: SiteHeaderProps) {
             <Logo size={24} className="text-[var(--color-brand)]" />
             <span className="text-base font-medium text-[var(--color-fg)]">{siteConfig.name}</span>
           </Link>
-          <span className="hidden rounded-md border border-[var(--color-border)] px-1.5 py-0.5 text-xs text-[var(--color-fg-muted)] sm:inline-flex">
-            {isDocs ? "docs" : `v${flowpanelVersion}`}
-          </span>
+          {isDocs ? (
+            <span className="hidden rounded-md border border-[var(--color-border)] px-1.5 py-0.5 text-xs text-[var(--color-fg-muted)] sm:inline-flex">
+              docs
+            </span>
+          ) : null}
         </div>
 
         {isDocs ? (

@@ -15,7 +15,7 @@ function makeConfig(opts: {
   audit?: AuditConfig | undefined;
   resourceAudit?: boolean;
   role?: string;
-  requireRole?: string | string[];
+  access?: string | string[];
   readOnly?: boolean;
   softDelete?: string | false;
   hasRestoreMethod?: boolean;
@@ -57,7 +57,16 @@ function makeConfig(opts: {
       columns: [{ field: "id" }, { field: "email" }],
       ...(softDelete ? { delete: { softDelete } } : {}),
       ...(opts.resourceAudit === false ? { audit: false } : {}),
-      ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
+      ...(opts.access !== undefined
+        ? {
+            access: {
+              read: opts.access,
+              create: opts.access,
+              update: opts.access,
+              delete: opts.access,
+            },
+          }
+        : {}),
     },
   } as never;
 
@@ -116,8 +125,8 @@ describe("restoreRoute", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 403 when the session's role fails the resource's requireRole", async () => {
-    const handler = restoreRoute(makeConfig({ role: "viewer", requireRole: "admin" }));
+  it("returns 403 when the session's role fails the resource's access", async () => {
+    const handler = restoreRoute(makeConfig({ role: "viewer", access: "admin" }));
     const req = new Request("http://localhost/x", { method: "POST" });
     const res = await handler(req, { params: paramsFor("users", "u1") });
     expect(res.status).toBe(403);

@@ -343,7 +343,7 @@ describe("withGuards — guard order", () => {
       action: {
         key: "verify",
         label: "V",
-        requireRole: "admin",
+        access: "admin",
         form: [{ name: "reason", type: "text", required: true }],
         run,
       },

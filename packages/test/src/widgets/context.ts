@@ -21,11 +21,8 @@ export interface WidgetContextOptions {
   /** Rows per resource name. `ctx.count`, `ctx.read`, `compare` and count metrics read them. */
   rows?: Readonly<Record<string, readonly Row[]>>;
   /**
-   * Your `defineAdmin` config. Its resources, columns, references, views, dashboards, labels,
-   * formatting and mount stay; only its database is replaced by `rows`. It carries no tenant
-   * scope, so a scoped widget under test counts and reads across every tenant's rows, the way
-   * `adminWidgetContext` does. Without `admin`, every key of `rows` is a resource whose columns
-   * are the keys its rows carry.
+   * Your `defineAdmin` config, with only its database replaced by `rows`; carries no tenant scope.
+   * Without `admin`, every key of `rows` is a resource whose columns are the keys its rows carry.
    */
   admin?: ResolvedAdminConfig;
   /** The viewed record, for a record-page widget: `ctx.row`, `ctx.id` and `ctx.rowOf`. */
@@ -103,9 +100,8 @@ function overAdmin(admin: ResolvedAdminConfig, shared: Shared): ResolvedAdminCon
 }
 
 /**
- * The context a widget receives in the admin, over rows you pass instead of a database:
- * the same `count`, `read`, links, formatters, memo and `compare`. Hand it to
- * `resolveWidget`, or call a widget's query with it.
+ * The context a widget receives in the admin, over rows you pass instead of a database.
+ * Hand it to `resolveWidget`, or call a widget's query with it.
  */
 export function widgetContext(options: WidgetContextOptions = {}): WidgetContext {
   const shared: Shared = {

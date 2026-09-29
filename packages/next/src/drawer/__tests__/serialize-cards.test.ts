@@ -13,7 +13,7 @@ const reqCtx: RequestContext = {
   ip: null,
   userAgent: null,
 };
-const ctx = fakeWidgetContext({ req: reqCtx.req, row: { id: "u1" }, href: () => "/admin" });
+const ctx = fakeWidgetContext({ req: reqCtx.req, row: { id: "u1" }, link: () => "/admin" });
 
 const serialize = (w: WidgetConfig) => serializeCardWidget(w, config, reqCtx, ctx);
 

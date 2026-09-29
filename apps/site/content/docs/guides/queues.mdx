@@ -5,15 +5,11 @@ kind: how-to
 metaTitle: BullMQ queue dashboard
 ---
 
-FlowPanel registers a queue in navigation and embeds a bull-board URL. The board is a separate HTTP process, so it needs its own network and authentication boundary.
-
-## Prerequisites
+A queue adds a navigation entry whose page embeds a bull-board server in an iframe. The board is a separate HTTP process with its own token, so protect it on the network as well.
 
 ```bash
 pnpm add bullmq ioredis @bull-board/api @bull-board/express express
 ```
-
-Create the BullMQ queues in an application module and reuse those instances for workers, the board, and optional metrics.
 
 ## Register a queue
 
@@ -28,11 +24,11 @@ export const emailQueuePage = queue(emailQueue, {
 });
 ```
 
-Add it to `queues` in the root config. The queue's `.name` becomes its key unless `key` is set. `requireRole` protects the FlowPanel page and navigation entry.
+Add it to `queues` in the config. The queue's `.name` is its key unless you set `key`. `requireRole` protects the admin page, not the board server.
 
-## Start the board process
+## Start the board
 
-Put the entry point at `scripts/board-server.mts` (or `.ts`) — the location `flowpanel dev` looks for:
+`flowpanel dev` starts `scripts/board-server.mts` (or `.ts`) when `REDIS_URL` is set, unless you pass `--no-board`:
 
 ```ts excerpt
 import { startBoardServer } from "@flowpanel/kit/bullmq/board";
@@ -49,20 +45,16 @@ startBoardServer({
 });
 ```
 
-The token is required. A valid token establishes an HttpOnly board session cookie for subsequent assets and polling requests.
+The token is required. A valid token sets an HttpOnly session cookie for the board's assets and polling.
 
-## Protect the deployment boundary
+## Deploy
 
-The iframe URL is not protected by FlowPanel's `requireRole`; anyone who can reach the board port meets the board server directly. Keep it on loopback, put it behind an authenticated reverse proxy, and inject credentials server-side. A query-string token is useful for local setup but leaks through URLs and logs in a shared environment.
+Anyone who reaches the board port reaches its destructive job controls. Keep it on loopback or behind an authenticated reverse proxy, and run it as its own supervised process. A `?token=` in the URL is fine locally but leaks into logs in shared environments.
 
-`flowpanel dev` starts the board alongside Next.js when `REDIS_URL` is set and `scripts/board-server.mts` (or `.ts`) exists, unless `--no-board` is used. In production, supervise the board as a separate process with health checks and restricted network exposure.
+## Count jobs in a dashboard
 
-## Read queue state in dashboards
-
-`bullmqAdapter` wraps a named map of queue instances for application queries. Dashboard metrics may call the normal BullMQ methods through that map; they do not need the board HTTP server.
+Wrap the same queue instances with `bullmqAdapter` and call BullMQ methods from a widget; the board server is not involved. See [Reading queue state](/docs/reference/queues#reading-queue-state-from-your-own-code).
 
 ## Verify and troubleshoot
 
-Test the FlowPanel role gate and direct board URL separately. Confirm missing/invalid tokens return unauthorized, the session cookie is scoped to the board base path, and the reverse proxy supports iframe assets and polling. An unreachable `boardUrl` produces an empty/failed iframe while the rest of the admin remains available.
-
-See [Queues reference](/docs/reference/queues) for generated queue and board option types.
+Test the admin role gate and the board URL separately: a missing or wrong token returns 401. An unreachable `boardUrl` leaves the iframe empty and the rest of the admin working.

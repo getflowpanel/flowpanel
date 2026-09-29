@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPublisher } from "../publish";
+import { createRealtimeTransport } from "../publish";
 
-describe("createPublisher (memory)", () => {
+describe("createRealtimeTransport (memory)", () => {
   it("fans out to subscribers of the channel", async () => {
-    const pub = createPublisher({ driver: "memory" });
+    const pub = createRealtimeTransport({ driver: "memory" });
     const h = vi.fn();
     pub.subscribe("x", h);
     await pub.publish("x", { a: 1 });
@@ -11,7 +11,7 @@ describe("createPublisher (memory)", () => {
   });
 
   it("does not notify subscribers of other channels", async () => {
-    const pub = createPublisher({ driver: "memory" });
+    const pub = createRealtimeTransport({ driver: "memory" });
     const hX = vi.fn();
     const hY = vi.fn();
     pub.subscribe("x", hX);
@@ -22,7 +22,7 @@ describe("createPublisher (memory)", () => {
   });
 
   it("unsubscribe stops further notifications", async () => {
-    const pub = createPublisher({ driver: "memory" });
+    const pub = createRealtimeTransport({ driver: "memory" });
     const h = vi.fn();
     const unsub = pub.subscribe("x", h);
     await pub.publish("x", 1);
@@ -32,7 +32,7 @@ describe("createPublisher (memory)", () => {
   });
 
   it("handles publishes to channels with no subscribers", async () => {
-    const pub = createPublisher({ driver: "memory" });
+    const pub = createRealtimeTransport({ driver: "memory" });
     await expect(pub.publish("nobody")).resolves.toBeUndefined();
   });
 });

@@ -11,7 +11,6 @@ import {
   accessAllows,
   assertResourceScope,
   authorizeOperation,
-  checkRequireRole,
   DEFAULT_LABELS,
   filterReadableProjection,
   resolveOperationAccess,
@@ -60,20 +59,14 @@ export async function ResourceDetailPage({
   reqCtx: providedReqCtx,
 }: ResourceDetailPageProps) {
   const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
-  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
-  await authorizeOperation(
-    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
-    reqCtx,
-  );
+  await authorizeOperation(resolveOperationAccess(resource.options.access, "read"), reqCtx);
   assertResourceScope({
     hasGlobal: !!config.scope,
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
   });
 
   const baseFields = declaredDetailBaseFields(resource);
-  // Resolve every declared detail field once before adapter work. The query only
-  // receives the visible tab's fields, but policy callbacks cannot disagree
-  // between the base and optional second read.
+  // Resolved once so policy callbacks cannot disagree between the base and optional second read.
   const readable = new Set(
     await filterReadableProjection(
       [...declaredDetailPolicyFields(resource)],
@@ -131,10 +124,7 @@ export async function ResourceDetailPage({
   const ctx = buildWidgetContext(config, reqCtx, req, range, activeRow, rowKey, name);
   const canEdit =
     !resource.options.update?.disabled &&
-    (await accessAllows(
-      resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
-      reqCtx,
-    ));
+    (await accessAllows(resolveOperationAccess(resource.options.access, "update"), reqCtx));
   const [header, strip, aside, main] = await Promise.all([
     recordHeader(resource, name, baseRow, ctx, config),
     recordStrip(detail, ctx, config, reqCtx, name),
@@ -226,13 +216,12 @@ async function readDetailRow(
 ): Promise<QueryOutcome<Row | null>> {
   const ctx: ItemQueryContext = {
     ...reqCtx,
-    db: config.adapter.db,
     dateRange: { from: new Date(0), to: new Date() },
     searchParams: new URLSearchParams(),
     signal: new AbortController().signal,
     id,
     select: selectKnownFields(fields, knownColumns),
-    ...scopeBinding(config, resource, reqCtx),
+    ...scopeBinding(resource, reqCtx),
   };
   const got = await readOrCard(site, async () =>
     runWithRequestContext(reqCtx, () => config.adapter.get(resource.ref, ctx)),

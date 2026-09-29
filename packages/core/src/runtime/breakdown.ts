@@ -34,8 +34,7 @@ function groupBy<R>(rows: readonly R[], by: string): Map<string, R[]> {
 }
 
 /**
- * One ranked `BarRow` per `by` value, with its `share` of the real total; with `top`,
- * the rest fold into one `OTHER_KEY` row, and with `previous`, every row gets `previous`.
+ * One ranked `BarRow` per `by` value with its `share` of the total; with `top`, the rest fold into one `OTHER_KEY` row.
  * A declared `keys` value never folds into that rest, same as `series({ keys, top })`.
  */
 export function breakdown<R>(rows: readonly R[], opts: BreakdownOptions<R>): BarRow[] {

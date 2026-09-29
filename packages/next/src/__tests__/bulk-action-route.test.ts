@@ -151,13 +151,13 @@ describe("bulkActionRoute", () => {
     expect(res.status).toBe(400);
   });
 
-  it("403 when per-action requireRole fails", async () => {
+  it("403 when per-action access fails", async () => {
     const config = makeConfig({
       role: "user",
       action: {
         key: "verify",
         label: "V",
-        requireRole: "admin",
+        access: "admin",
         run: async () => ({ ok: true }),
       },
     });

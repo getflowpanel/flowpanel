@@ -150,8 +150,7 @@ export function Calendar({
   const dayFmt = React.useMemo(() => new Intl.DateTimeFormat(loc, { dateStyle: "long" }), [loc]);
   const today = startOfDay(new Date());
 
-  // One listener per grid rather than 84 closures across two months: the day is
-  // read back off the cell, which the roving-focus effect already relies on.
+  // One listener per grid rather than 84 closures across two months: the day is read back off the cell.
   const dayFrom = (e: React.SyntheticEvent) => {
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-day]");
     return el?.dataset.day ? fromISODate(el.dataset.day) : null;
@@ -160,8 +159,7 @@ export function Calendar({
     const d = dayFrom(e);
     if (d) onSelect(d);
   };
-  // Bound to focus as well as hover, so arrowing through a half-open range
-  // previews the band the same way the cursor does.
+  // Bound to focus as well as hover, so arrowing through a half-open range previews the band too.
   const handleOver = onHover
     ? (e: React.MouseEvent | React.FocusEvent) => {
         const d = dayFrom(e);

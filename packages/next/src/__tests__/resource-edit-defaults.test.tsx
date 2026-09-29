@@ -241,8 +241,7 @@ describe("ResourceEditPage default values", () => {
         _ref: unknown,
         _ctx: {
           select?: readonly string[];
-          scopeRequired?: boolean;
-          applyScope?: (query: unknown) => unknown;
+          boundScope?: { apply(query: unknown): unknown };
         },
       ) => ({ id: "c1", title: "Visible title", internalLock: true, token: "adapter leak" }),
     );
@@ -294,8 +293,7 @@ describe("ResourceEditPage default values", () => {
 
     expect(titlePolicyCalls).toBe(1);
     expect(get.mock.calls[0]?.[1].select).toEqual(["title", "internalLock"]);
-    expect(get.mock.calls[0]?.[1].scopeRequired).toBe(true);
-    expect(get.mock.calls[0]?.[1].applyScope?.("query")).toEqual({
+    expect(get.mock.calls[0]?.[1].boundScope?.apply("query")).toEqual({
       scope: { tenantId: "t1" },
       query: "query",
     });

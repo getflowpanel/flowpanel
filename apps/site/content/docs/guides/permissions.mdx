@@ -5,36 +5,33 @@ kind: how-to
 metaTitle: "Roles and permissions (RBAC)"
 ---
 
-FlowPanel evaluates access on server routes. UI filtering helps users understand what they can do, but it is never the authority.
+Every rule is checked on the server route; the UI only hides what a role cannot use. Rules narrow from the whole admin down to a field.
 
-## Start with an admin-wide gate
+## The whole admin
 
-Configure a session, role extractor, and `auth.requireRole`. This protects every generated page, API handler, stream, and registered surface before narrower rules run.
+`auth.requireRole` protects every page, API handler and stream. See [Authentication](/docs/guides/authentication).
 
 ```ts excerpt
 auth: {
   session: getSession,
   role: (session) => session?.user?.role ?? "guest",
-  userId: (session) => session?.user?.id ?? null,
   requireRole: ["admin", "support"],
 }
 ```
 
-## Restrict a surface
+## A dashboard, page or queue
 
-Set `requireRole` on a resource, dashboard, page, queue, or action when only a subset of admins may reach it. The generated navigation omits unavailable surfaces and the direct route repeats the check.
+`requireRole` on any of them hides it from the navigation and rejects its direct route.
 
-Use resource `access` when permission differs by operation. Keep the rule in the resource module so reviewers can see the data surface and its policy together.
+## A resource or action
 
-## Know which rule an action runs under
+`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. A resource the caller may not `read` leaves the navigation and rejects its routes.
 
-An action that declares its own `access` or `requireRole` is governed by that rule alone — the same rule that decides whether the action is offered in the UI, so a visible action is a runnable one.
+An action with its own `access` runs under that rule alone, the same one that shows it in the UI. An action without one runs under the resource's `update` rule.
 
-An action that declares neither inherits the resource's `update` rule. Actions mutate, so a resource closed to a role for writes is closed to that role's actions too. Declare a rule on the action itself when it should be reachable more widely, or when it only reads.
+## Fields
 
-## Restrict fields and writes
-
-Form fields support `requireRole`, `readOnly`, and `hidden`; resource field policies can express broader read/write rules. The server rejects submitted fields the current operation may not write. It does not rely on the browser to omit them.
+Form fields take `requireRole`, `readOnly` and `hidden`. The server rejects a submitted field the operation may not write.
 
 ```ts excerpt
 update: {
@@ -46,20 +43,16 @@ update: {
 }
 ```
 
-## Handle row-specific availability
+`fieldAccess` on a resource sets read and write rules per field.
 
-Action `hidden` and `disabled` callbacks can use the row. `hidden` removes an unavailable action and its route rejects that row/action combination. `disabled` keeps the action visible with a reason. These callbacks are useful for workflow state, but tenant isolation belongs in adapter scope so every read and by-ID write receives the predicate.
+## Rows
 
-## Add tenant scope
+An action's `hidden(row)` removes it for that row and its route rejects the pair; `disabled(row)` shows it with a reason. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
 
-Resolve the current tenant once at the root and bind it for every tenant-owned resource. FlowPanel's supported adapters fail closed when a required scope predicate is missing or produces no constraint. Follow [Multi-tenant scope](/docs/guides/multi-tenant-scope) and test cross-tenant reads and writes.
+## Read-only mode
 
-## Use read-only mode for operations, not policy design
+`readOnly: true` on the admin turns off every generated mutation, for maintenance or an incident.
 
-Global `readOnly` disables generated mutations across the admin. It is useful during maintenance or incident response, but it does not replace roles, field rules, or database-level constraints.
+## Verify
 
-## Verify every gate
-
-For each role, test the page and the underlying route. Cover list/get, create/update/delete, actions, imports, drawer related data, and queues that the role can reach. Include a handcrafted write containing a hidden or read-only field and a by-ID request for another tenant.
-
-Authorization runs before action input validation, so unauthorized callers do not receive form-shape details. See [Request and mutation lifecycle](/docs/understand/request-lifecycle) and [Contexts reference](/docs/reference/contexts).
+For each role, request the page and the route behind it: list and get, create, update and delete, actions, import, drawer tabs and queues. Include a crafted write with a read-only field. Authorization runs before input validation, so a denied caller learns nothing about the form.

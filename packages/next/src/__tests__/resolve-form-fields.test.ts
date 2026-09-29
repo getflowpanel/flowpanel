@@ -99,7 +99,7 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
 
   function configWith(opts: {
     rows?: Record<string, unknown>[];
-    requireRole?: string;
+    targetReadAccess?: string;
     registerTarget?: boolean;
     targetScope?: unknown;
     globalScope?: boolean;
@@ -122,7 +122,7 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
       ref: { __name: "users" },
       options: {
         columns: [],
-        ...(opts.requireRole ? { requireRole: opts.requireRole } : {}),
+        ...(opts.targetReadAccess ? { access: { read: opts.targetReadAccess } } : {}),
         ...(opts.targetScope ? { scope: opts.targetScope } : {}),
       },
     } as never;
@@ -170,7 +170,7 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
   });
 
   it("returns no options when the viewer's role can't read the target resource", async () => {
-    const { config: cfg, list } = configWith({ requireRole: "superadmin" });
+    const { config: cfg, list } = configWith({ targetReadAccess: "superadmin" });
     const resolved = await resolveFormFields(cfg, fields, ctx("staff"), { ownerId: "u42" });
     expect(resolved[0]?.options).toEqual([]);
     expect(list).not.toHaveBeenCalled();
@@ -195,16 +195,14 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
     const scoped = { ...ctx("admin"), scope: { tenantId: "t1" } } as RequestContext;
     await resolveFormFields(cfg, fields, scoped, { ownerId: "u42" });
     const listCtx = list.mock.calls[0]?.[1] as {
-      applyScope?: (q: unknown) => unknown;
-      scopeRequired?: boolean;
+      boundScope?: { apply(q: unknown): unknown };
     };
-    expect(listCtx.scopeRequired).toBe(true);
-    listCtx.applyScope?.("q");
+    listCtx.boundScope?.apply("q");
     expect(scopeCalls).toEqual([[{ tenantId: "t1" }, "q"]]);
   });
 
-  it("includes the label when the viewer's role satisfies the target's requireRole", async () => {
-    const { config: cfg } = configWith({ requireRole: "staff" });
+  it("includes the label when the viewer's role satisfies the target's read access", async () => {
+    const { config: cfg } = configWith({ targetReadAccess: "staff" });
     const resolved = await resolveFormFields(cfg, fields, ctx("staff"), { ownerId: "u42" });
     expect(resolved[0]?.options).toEqual([{ value: "u42", label: "owner@x.com" }]);
   });

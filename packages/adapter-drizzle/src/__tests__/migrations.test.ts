@@ -47,15 +47,13 @@ describe("drizzleAdapter migrations on sqlite", () => {
   it("creates its bookkeeping table and round-trips applied ids", async () => {
     expect(await adapter.listAppliedMigrations?.()).toEqual(new Set());
 
-    await adapter.markMigrationApplied?.("0001_init");
-    await adapter.markMigrationApplied?.("0002_posts");
+    await adapter.applyMigration?.("0001_init", "CREATE TABLE init_probe (id integer PRIMARY KEY)");
+    await adapter.applyMigration?.(
+      "0002_posts",
+      "CREATE TABLE posts_probe (id integer PRIMARY KEY)",
+    );
 
     expect(await adapter.listAppliedMigrations?.()).toEqual(new Set(["0001_init", "0002_posts"]));
-  });
-
-  it("executes raw migration SQL", async () => {
-    await adapter.runMigrationSql?.(`CREATE TABLE probe (id integer PRIMARY KEY)`);
-    expect(sqlite.prepare(`SELECT id FROM probe`).all()).toEqual([]);
   });
 
   it("applies SQL and records its id in one adapter operation", async () => {

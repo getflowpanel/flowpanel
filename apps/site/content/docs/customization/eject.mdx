@@ -5,29 +5,18 @@ kind: how-to
 metaTitle: Eject a resource or dashboard to source
 ---
 
-Eject is an ownership transfer. The CLI writes a starting scaffold into the admin route and disables the matching generated surface. From then on, your application implements, tests, and upgrades that behavior.
-
-Before ejecting, check [Choose an extension point](/docs/customization/overview). A renderer, custom widget, page, token, or theme slot usually carries less maintenance.
-
-## Preview the change
-
-```bash
-pnpm flowpanel eject resource users --dry-run
-```
-
-The config must exist and the named resource or dashboard must be registered. Dry run prints the filesystem and config plan without writing. Review it before changing a surface that already has custom route files.
+`flowpanel eject` writes a starting scaffold for a resource, dashboard or layout into your app and turns off the generated one. From then on the code is yours and gets no FlowPanel updates. Try a [smaller extension point](/docs/customization/overview) first.
 
 ## Eject a resource
 
 ```bash
+pnpm flowpanel eject resource users --dry-run
 pnpm flowpanel eject resource users
 ```
 
-The command writes list, create, detail, edit, and action stubs under `app/admin/users` or `src/app/admin/users`. These are starting points, not copies of the fully rendered runtime: you still implement database queries, policies, UI states, and tests.
+`--dry-run` prints the plan. The command writes list, create, detail, edit and action stubs under `app/admin/users`, then comments out the matching `resource(...)` entry. The stubs are a starting point: queries, policies and UI states are yours to implement. File headers record the FlowPanel version.
 
-The matching `resource(...)` entry is commented in place and an ejection breadcrumb is added. File headers record the installed FlowPanel version so future reviews can identify the scaffold baseline.
-
-A split config works too. When the root config only re-exports another module, `eject` follows it, as `flowpanel new` does. When `resources` is imported from a directory of one-file-per-resource modules, the ones `new --dir` writes, `eject resource` comments the `resource(...)` call out in the file that defines it and leaves the other files alone.
+`eject` follows a root config that re-exports another module, and a `resources` directory written by `flowpanel new --dir`, where it comments out the call in the file that defines it.
 
 ## Eject a dashboard or layout
 
@@ -36,18 +25,14 @@ pnpm flowpanel eject dashboard /monitoring
 pnpm flowpanel eject layout
 ```
 
-A dashboard creates one page at its admin path and disables the matching dashboard config. A layout creates an admin `layout.tsx`; Next.js file routing then wraps the catch-all FlowPanel pages. Layout ejection does not remove resources or dashboards from config.
+A dashboard becomes one page at its path and its config entry is turned off. A layout becomes an admin `layout.tsx` that wraps the FlowPanel pages; resources and dashboards stay in config.
 
-## Handle existing files
+## Existing files
 
-The command stops when a target file already exists. `--force` overwrites it, so use that flag only after reviewing or preserving the existing implementation. Unknown targets, missing names, and config entries that cannot be found exit with an error for CI visibility.
-
-## Understand upgrade consequences
-
-Non-ejected surfaces continue receiving FlowPanel behavior and UI updates. Ejected files do not. On upgrades, compare their recorded version with changelog entries and test them against current public component and runtime contracts.
+The command stops if a target file exists. `--force` overwrites it.
 
 ## Reverse an eject
 
-There is no merge-back command. To return to generated behavior, restore the config entry and remove or relocate the explicit Next.js route; otherwise file-based routing continues to win over the catch-all page. Any behavior that exists only in the ejected files must be re-expressed or discarded deliberately.
+Restore the config entry and delete or move the ejected route. Next.js file routing takes precedence over the catch-all page, so the route must go.
 
-See the generated [CLI reference](/docs/reference/cli#flowpanel-eject) for current arguments and flags.
+Every flag: [flowpanel eject](/docs/reference/cli#flowpanel-eject).

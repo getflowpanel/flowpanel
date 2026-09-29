@@ -37,11 +37,8 @@ function optionValues(options: unknown): string[] | null {
 }
 
 /**
- * Why the list's URL would read `value` on `field` as other rows than a count or a `where`
- * matches, or `null` when it reads the same rows. The list decodes an array only through a
- * `multiselect` filter, numeric bounds through `numeric-range`, dates through `daterange`, a
- * filter named by a bare string as text, a single value on a range filter as an open-ended
- * bound, a `Date` as its day, and a `select` filter with fixed options drops any other value.
+ * Why the list's URL would read `value` on `field` as different rows than a count or `where` match, or `null` when the same.
+ * Decoding depends on the filter type: multiselect arrays, numeric-range/daterange bounds, bare-string text, select drops others.
  */
 export function filterShapeProblem(
   resource: ResourceConfig,

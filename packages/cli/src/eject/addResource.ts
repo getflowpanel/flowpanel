@@ -62,12 +62,7 @@ function lineIndent(source: string, pos: number): string {
   return match?.[0] ?? "";
 }
 
-/**
- * Splices `callText` into the `resources` array as source text.
- *
- * ts-morph's `addElement` reprints the array, which drops the comments the init
- * scaffold leaves there as a worked example — and any the user wrote themselves.
- */
+/** Splices `callText` into the `resources` array as source text, since `addElement` would drop existing comments. */
 export function spliceIntoArray(
   source: string,
   range: { start: number; end: number; elements: number[] },

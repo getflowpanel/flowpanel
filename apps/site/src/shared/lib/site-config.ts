@@ -3,7 +3,7 @@ export const siteConfig = {
   seo: {
     title: "FlowPanel: a Next.js admin panel for Drizzle and Prisma",
     description:
-      "Add a typed admin panel to your Next.js app from one config. CRUD, dashboards, BullMQ queues and realtime on top of your Drizzle or Prisma schema. Open source, MIT.",
+      "A typed admin panel for Next.js. Describe your Drizzle or Prisma tables in one config file and get lists, forms, record pages and dashboards at /admin. Open source, MIT licensed.",
   },
   url: process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://flowpanel.tech",
 
@@ -22,25 +22,14 @@ export const siteConfig = {
       (process.env.NODE_ENV === "development" ? "http://localhost:3100/admin" : ""),
   },
 
-  /** Runnable examples in the repo, surfaced from the landing page. */
   examples: [
     {
-      name: "ai-scraper",
-      summary:
-        "An AI scraping SaaS ops admin: resources, dashboards, BullMQ queues and realtime, on Drizzle + Postgres.",
+      name: "examples/ai-scraper",
       url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper",
-      config:
-        "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper/src/admin/config",
-      readme: "https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper#run-locally",
     },
     {
-      name: "with-clerk",
-      summary:
-        "A minimal users/posts admin gated behind Clerk — middleware, provider, one line of config.",
+      name: "examples/with-clerk",
       url: "https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk",
-      config:
-        "https://github.com/getflowpanel/flowpanel/blob/main/examples/with-clerk/src/flowpanel.config.ts",
-      readme: "https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk#run-it",
     },
   ],
 } as const;

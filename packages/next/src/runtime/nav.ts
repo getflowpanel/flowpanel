@@ -19,10 +19,7 @@ export function readableByCaller(
   resource: ResourceConfig,
   reqCtx: RequestContext,
 ): Promise<boolean> {
-  return accessAllows(
-    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
-    reqCtx,
-  );
+  return accessAllows(resolveOperationAccess(resource.options.access, "read"), reqCtx);
 }
 
 function groupBuilder() {

@@ -55,7 +55,7 @@ function admin(adapter: Adapter, scoped = false) {
             : {}),
         },
       ),
-      resource({ __name: "secrets" }, { columns: ["id"], requireRole: "root" }),
+      resource({ __name: "secrets" }, { columns: ["id"], access: { read: "root" } }),
       resource(
         { __name: "people" },
         { columns: ["id"], fieldAccess: { tenantId: { read: "root" } } },

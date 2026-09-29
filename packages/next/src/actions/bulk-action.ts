@@ -141,7 +141,6 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
       {
         resource,
         actionAccess: action.access,
-        actionRequireRole: action.requireRole,
         ...(builtinDelete ? { operation: "delete" as const } : {}),
       },
       async (reqCtx) => {
@@ -192,8 +191,7 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
 
         let result: ActionResult<unknown>;
         if (builtinDelete) {
-          // One failure must not leave a half-deleted selection behind an audit
-          // entry that claims the whole batch.
+          // One failure must not leave a half-deleted selection behind an audit entry that claims the whole batch.
           const deleteAll = async (db: unknown) => {
             for (const id of ids) await deleteRow(config, resource, id, reqCtx, db);
           };

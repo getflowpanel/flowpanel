@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Adapter, AdminConfig } from "../index";
+import type { Adapter, AdminDefinition } from "../index";
 import { defineAdmin, resource } from "../index";
 
 const fakeAdapter: Adapter = {
@@ -14,7 +14,7 @@ const fakeAdapter: Adapter = {
   delete: async () => {},
 };
 
-const open: AdminConfig = {
+const open: AdminDefinition = {
   adapter: fakeAdapter,
   auth: { session: async () => null, role: () => "guest" },
   resources: [resource({ __name: "users" }, { columns: [] })],
@@ -48,10 +48,10 @@ describe("no-access-control warning", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("is silent when any resource sets requireRole", () => {
+  it("is silent when any resource sets access", () => {
     defineAdmin({
       ...open,
-      resources: [resource({ __name: "users" }, { columns: [], requireRole: "admin" })],
+      resources: [resource({ __name: "users" }, { columns: [], access: { read: "admin" } })],
     });
     expect(warn).not.toHaveBeenCalled();
   });

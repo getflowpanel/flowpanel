@@ -4,9 +4,9 @@ description: Format built-in values or render a custom server or interactive cel
 kind: how-to
 ---
 
-Column definitions control table cells and are reused by drawer/detail field rendering. Use a built-in format when it fits; reach for `render` only when the value needs application-specific presentation.
+A column's `format` covers badges, money, numbers, dates, durations, percentages, booleans and URLs. Use `render` when a cell needs your own markup or data. The same column definition renders the value in the drawer and on the record page.
 
-## Use built-in formatting
+## Built-in formats
 
 ```ts excerpt
 columns: [
@@ -23,9 +23,9 @@ columns: [
 ]
 ```
 
-Built-in badge, money, and number formats stay consistent across the admin and preserve the field's normal sort/export behavior.
+A formatted column still sorts, filters and exports by its stored value. All formats: [ColumnFormat](/docs/reference/resources#columnformat).
 
-## Render a custom server cell
+## A server cell
 
 ```tsx excerpt
 columns: [
@@ -33,30 +33,28 @@ columns: [
     field: "customerId",
     label: "Customer",
     render: async (order, ctx) => {
-      const customer = await findCustomer(ctx.db, order.customerId);
+      const customer = await findCustomer(db, order.customerId);
       return <a href={`/admin/customers/${customer.id}`}>{customer.email}</a>;
     },
   },
 ]
 ```
 
-`render` runs on the server with the row and request context. The function and database client never cross the browser boundary. Return only UI intended for the operator; the row still must be protected by resource access and scope.
+`render` runs on the server with the row and request context. For a foreign key to another resource, a `reference` gives the link and label without a query per cell.
 
-For foreign keys, prefer a declarative `reference` when the target is another registered resource. It provides a consistent link and label lookup without a per-cell query.
+## An interactive cell
 
-## Add an interactive client cell
-
-A server renderer may return a client component:
+`render` may return a client component with serializable props:
 
 ```tsx excerpt
 render: (row) => <CopyId value={String(row.id)} />
 ```
 
-Keep the client props small and serializable. The client component may manage interaction, but it should call an authorized server route for mutations rather than receiving server services as props.
+A mutation from a client cell goes through an authorized route, not through props.
 
 ## Joined or computed values
 
-Omit `field` when the cell is derived entirely from the row:
+Omit `field` when the cell is computed from the row, and set `label`:
 
 ```tsx excerpt
 {
@@ -65,12 +63,4 @@ Omit `field` when the cell is derived entirely from the row:
 }
 ```
 
-A computed-only column has no adapter field. FlowPanel cannot automatically sort, filter, inline-edit, or include it in field-based export. If those operations matter, expose the value through the data model or a custom adapter/query surface.
-
-## Check all consumers
-
-Before shipping a custom column, verify the list, drawer/detail view, export, empty value, long value, and mobile width. `hidden` affects the table but can leave the field available to another declared surface; `expose` controls additional values that may cross the generated boundary.
-
-Use a [theme slot](/docs/customization/theme-slots) when the same primitive needs to change everywhere, or a [custom page](/docs/reference/widgets#dashboards) when the entire row experience no longer fits a table.
-
-See [Resources reference](/docs/reference/resources#columnformat) for generated column types.
+A computed column has no field, so it cannot sort, filter, inline-edit or export. When those matter, compute the value in a database view.

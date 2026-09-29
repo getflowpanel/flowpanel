@@ -4,9 +4,9 @@ description: What FlowPanel needs from a database layer, method by method.
 kind: reference
 ---
 
-The adapter is the only part of FlowPanel that talks to your database.
-Implement this interface to support an ORM that has no shipped adapter — nothing
-else in the framework issues a query.
+The adapter is the only part of FlowPanel that queries your database. Implement
+this interface for a data layer without a shipped adapter. Overview:
+[Adapters and introspection](/docs/understand/adapters).
 
 Shipped adapters: [`drizzleAdapter`](/docs/introduction/drizzle) and
 [`prismaAdapter`](/docs/introduction/prisma).
@@ -15,76 +15,33 @@ Shipped adapters: [`drizzleAdapter`](/docs/introduction/drizzle) and
 
 <AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="Adapter" />
 
-`Ref` is whatever you accept in `resource(ref, …)` — a Drizzle table object, a
-Prisma delegate, or your own descriptor. `DB` is the client you expose as
-`ctx.db` everywhere.
+`Ref` is what `resource(ref, …)` accepts; `DB` is the client widgets receive as `ctx.db`.
+`kind` is a label (`"drizzle"`, `"prisma"` or your own); nothing branches on it.
 
-`kind` is `AdapterKind` — `"drizzle" | "prisma" | (string & {})`. The shipped
-kinds autocomplete; a third-party adapter picks its own label. Nothing in
-FlowPanel branches on it.
+`kind`, `db`, `introspect`, `inferSchema`, `list`, `get`, `create`, `update` and
+`delete` are required. Without `restore`, the restore button is hidden. `sql` and
+`count` back [`ctx.sql` and `ctx.count`](/docs/reference/contexts#raw-sql-and-counts).
+`applyMigration(id, sql)` and `listAppliedMigrations` power `flowpanel migrate`.
 
-`kind`, `db`, `introspect`, `inferSchema`, `list`, `get`, `create`, `update`
-and `delete` are required. `restore` is optional — an adapter without it makes
-the admin hide the restore button rather than fail at runtime. `sql` and `count`
-are optional too, and back [`ctx.sql` and `ctx.count`](/docs/reference/contexts#raw-sql-and-counts)
-in a widget query. `applyMigration`
-and `listAppliedMigrations` are optional too and power `flowpanel migrate`;
-without both, that command exits before executing SQL. The older
-`runMigrationSql` and `markMigrationApplied` hooks remain typed for adapter
-compatibility. The CLI can compose both as a temporary upgrade path and prints
-a warning because that legacy pair cannot keep SQL and its bookkeeping record
-atomic. Implement `applyMigration(id, sql)` before relying on rollback safety.
-
-Both shipped adapters execute a migration and write its applied ID through one
-adapter operation. The CLI's earlier applied-ID list is only a snapshot, so an
-adapter that permits concurrent migrators must serialize and recheck the ID at
-the database boundary. A duplicate ID becomes a no-op only after that recheck.
-
-PostgreSQL and SQLite keep every statement and the marker in one transaction —
-Drizzle and Prisma both take a lock inside it (a PostgreSQL advisory lock, a
-SQLite write lock) and recheck the ID before executing anything.
-
-MySQL implicitly commits DDL, so no tool can promise rollback for an arbitrary
-MySQL file: review migrations, make DDL restart-safe, back up production data,
-and apply them in a controlled release step. Drizzle pins one connection and
-holds a `GET_LOCK` advisory lock. Prisma cannot pin a connection, so it claims
-a durable row in `_flowpanel_migration_claims` instead: the claim serializes
-migrators, survives a crashed one, and records the statement a failed run
-stopped at. A failed claim stops later runs until you repair the schema and
-delete that row, so a half-applied file is never silently retried.
-
-Because the lock protocol and the SQL dialect differ per provider,
-`prismaAdapter` takes a required `provider` — the same value as the
-`datasource` block in `schema.prisma`.
-
-Both adapters split ordinary multi-statement SQL safely. They reject
-dialect-specific procedural scripts (for example SQLite/MySQL trigger bodies or
-stored procedures) before execution unless the body uses PostgreSQL dollar
-quoting, and Prisma also rejects MySQL executable comments and client
-directives such as `DELIMITER`, `SOURCE` and `.read`. Apply those files through
-the ORM's native migration workflow or a dialect-native runner; a rejected file
-is never recorded as applied.
+`applyMigration` must serialize migrators at the database and recheck the ID under
+the lock, so a concurrent duplicate is a no-op. The shipped adapters run each file
+and its marker in one transaction on PostgreSQL and SQLite. On MySQL, which commits
+DDL implicitly, Drizzle holds a `GET_LOCK` advisory lock and Prisma a claim row in
+`_flowpanel_migration_claims` that records where a failed run stopped; later runs
+stop until you repair the schema and delete that row. Both reject procedural
+scripts (trigger bodies, stored procedures, `DELIMITER`) unless the body uses
+PostgreSQL dollar quoting.
 
 ## Raw SQL
 
-`sql` is a tagged template, not a string API: it receives the literal parts and
-the interpolated values separately, and every value must reach the database as a
-bound parameter. An implementation that assembles a string is wrong — that is
-the injection this capability exists to avoid.
+`sql` is a tagged template: every interpolated value must reach the database as a
+bound parameter, never concatenated.
 
-`count(ref, where)` takes the same filter shape `list` reads from `ctx.filters`,
-including `"__null__"` and `"__notnull__"`. It carries no scope binding, so
-FlowPanel only calls it when the resource has no tenant predicate to apply; a
-scoped resource is counted through `list` with an empty projection instead. Every
-other guard — `requireRole`, `access`, `fieldAccess` and the soft-delete term — is
-applied before the call, so which path runs never changes the answer. Implement
-`count` anyway: it saves a query on every unscoped count.
+`count(ref, where)` takes the `list` filter shape. FlowPanel calls it only for
+unscoped resources and counts scoped ones through `list`. Both run on the
+adapter's own `db`, outside any transaction or per-request session settings.
 
-Both capabilities run on the adapter's own `db`, never a per-request handle: they
-are outside any open `adapter.transaction` and outside session settings a host
-applies per request, such as the `SET` a row-level-security scheme relies on.
-
-Two helpers keep a third-party adapter's behaviour identical to the shipped ones:
+Two helpers match the shipped adapters' behaviour:
 
 ```ts excerpt
 import { parseSqlRows, sanitizeSqlParams } from "@flowpanel/kit";
@@ -95,31 +52,18 @@ async function sql<Row>(strings: TemplateStringsArray, ...values: unknown[]) {
 }
 ```
 
-`sanitizeSqlParams` turns a `Date` into an ISO-8601 string and a `bigint` into
-decimal text, and does the same to an array's own values. `parseSqlRows` reads
-every string shaped exactly like a zoneless `YYYY-MM-DD HH:mm:ss` as a UTC `Date`,
-because a free-form statement has no column types to consult; pass
-`{ parseDates: false }` to hand every value through as the driver returned it,
-which is what both shipped adapters' `parseDates` option does.
+`sanitizeSqlParams` binds a `Date` as ISO-8601 text and a `bigint` as decimal text.
+`parseSqlRows` reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s, unless
+`{ parseDates: false }`.
 
-An array is one value to a driver, and the two shipped adapters disagree about it.
-Drizzle expands `${ids}` into a placeholder list, so `where id in (${ids})` works.
-Prisma binds the array as a single parameter, so the same template fails and the
-Postgres form is `where id = any(${ids})` — or build the list with `Prisma.join`.
-Portable configs pass one value per placeholder.
-
-Both shipped adapters normalise the driver's own row shape first: node-postgres
-answers `{ rows }`, postgres-js and the SQLite drivers the array itself, and
-mysql2 `[rows, fields]`.
+Arrays differ: Drizzle expands `${ids}` into a list, so `where id in (${ids})`
+works; Prisma binds one parameter, so write `where id = any(${ids})` or use
+`Prisma.join`.
 
 ## ResourceIntrospection
 
-Returned by `introspect`. This is what lets a resource declare `columns: ["id",
-"email"]` and get working controls, filters and validation for free.
-
-`kind: "view"` marks a ref that reads a database view. FlowPanel then writes only through
-[`ResourceOptions.writeTo`](/docs/reference/resources#reading-a-view), and a resource over a
-view without it is read-only.
+Returned by `introspect`. `kind: "view"` makes a resource read-only unless it sets
+[`writeTo`](/docs/reference/resources#reading-a-view).
 
 <AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="ResourceIntrospection" />
 
@@ -127,9 +71,8 @@ view without it is read-only.
 
 <AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="ColumnMeta" />
 
-`type` is consulted in exactly one place: the fully generated form a resource
-gets when it declares neither `create.fields` nor `update.fields`. The mapping
-is short, and everything not listed falls through to a text input:
+`type` is read only by a fully generated form (no `create.fields` or
+`update.fields`):
 
 | `ColumnMeta.type` | Generated form control |
 | --- | --- |
@@ -139,46 +82,24 @@ is short, and everything not listed falls through to a text input:
 | `json` | `json` |
 | `string`, `enum`, `array`, `reference` | `text` |
 
-Two things this table does **not** promise:
-
-- **There is no filter inference.** A bare string in `filters` always resolves
-  to a `text` filter regardless of the column's type — declare a `FilterDef`
-  with an explicit `type` for anything else.
-- **A declared field is not inferred either.** A `FieldDef` without `type`
-  renders as `"text"`, or `"reference"` when it sets `reference`. `enum`,
-  `array` and `reference` columns therefore need an explicit `FieldDef.type`
-  (plus `options` / `reference`) to get a richer control.
-
-`enumValues` and `references` are reported for your own use — nothing in the
-framework turns them into controls on their own.
+Filters and declared fields do not infer a type from the column. `enumValues` and
+`references` are reported for your own use.
 
 ## What an implementation must honor
 
-The interface is small, but three of its obligations are load-bearing. Get them
-wrong and the admin is still functional — just unsafe.
+Three obligations keep the admin safe:
 
-**Tenant scope.** When `ctx.scopeRequired` is true, every method must constrain
-its query with `ctx.applyScope`. `create` included: writing a row outside the
+**Tenant scope.** When `ctx.boundScope` is set, every method must constrain
+its query with `ctx.boundScope.apply`, and refuse a query the predicate leaves unconstrained. `create` included: writing a row outside the
 caller's scope is as much a leak as reading one.
 
-**The search allowlist.** `list` may only search columns in `ctx.searchFields`.
-Searching every text column turns the search box into a way to confirm values in
-columns the operator was never shown.
+**The search allowlist.** `list` searches only `ctx.searchFields`.
 
 **Soft delete.** When `ctx.softDelete` is set, `list` and `get` must exclude
 stamped rows unless `ctx.includeDeleted` is set, and `delete` must stamp the
 column rather than remove the row.
 
-## Declared columns are the boundary
-
-FlowPanel projects every row through the resource's declared surface before it
-crosses to the client. An adapter that returns extra columns is not a leak by
-itself — but the projection is what makes that safe, so do not bypass it in
-custom routes of your own.
-
 ## Adapter options
-
-Each shipped adapter takes its own options shape.
 
 <ApiSignature path="../../packages/adapter-drizzle/src/adapter.ts" name="drizzleAdapter" />
 
@@ -192,15 +113,11 @@ Each shipped adapter takes its own options shape.
 
 <AutoTypeTable path="../../packages/adapter-bullmq/src/adapter.ts" name="BullMQAdapterOptions" />
 
-`bullmqAdapter` is the exception: it takes the queue map itself, not an
-options object — `bullmqAdapter({ email: emailQueue, scrape: scrapeQueue })`.
-`BullMQAdapterOptions` is exported for symmetry and nothing consumes it.
+`bullmqAdapter` takes the queue map itself: `bullmqAdapter({ email: emailQueue })`.
 
 ## Also exported
 
-Each adapter package exposes the pieces its own `Adapter` is assembled from, so
-you can reuse one without adopting the whole adapter — a script that only needs
-column metadata, or a custom adapter that wants Drizzle's schema inference.
+The parts each adapter is built from:
 
 | Package | Also exports |
 | --- | --- |
@@ -208,23 +125,17 @@ column metadata, or a custom adapter that wants Drizzle's schema inference.
 | `@flowpanel/kit/prisma` | `introspect`, `inferSchema`, `PrismaDmmf` (type) |
 | `@flowpanel/kit/bullmq` | `BullMQAdapter` (type) |
 
-`introspect(ref)` returns the same `ResourceIntrospection` the framework reads;
-`inferSchema(ref)` returns the `{ create, update, select }` Zod trio a resource
-falls back to when it declares no `schema`. `PrismaDmmf` is the shape
-`prismaAdapter`'s optional `dmmf` option accepts.
+`introspect(ref)` returns a `ResourceIntrospection`; `inferSchema(ref)` returns the
+`{ create, update, select }` Zod schemas. `PrismaDmmf` is the type of the optional
+`dmmf` option.
 
 ## Export helpers
 
-`@flowpanel/kit/drizzle` also exports `toCsv` and `toJson` — standalone
-row serializers, not wired into any route by default.
+Standalone row serializers from `@flowpanel/kit/drizzle`.
 
 <ApiSignature path="../../packages/adapter-drizzle/src/export.ts" name="toCsv" />
 
 <ApiSignature path="../../packages/adapter-drizzle/src/export.ts" name="toJson" />
 
-Both project each row down to `fields` before serializing, the same
-declared-columns discipline as the rest of the framework. `toCsv` quotes
-values containing a comma, quote, or newline and stringifies `Date`s to ISO
-and objects to JSON; `toJson` returns a JSON string of the projected rows.
-Use them from a custom export route when `DataTable`'s built-in `exportable`
-option — which downloads only the rows currently on screen — isn't enough.
+Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines and
+writes `Date`s as ISO.

@@ -27,27 +27,6 @@ describe("the detail heading as configuration", () => {
     expect(props?.description).toBe("id u1");
   });
 
-  it("prefers title over the deprecated header when both are declared", async () => {
-    const props = await header({
-      label: "Customer",
-      columns: ["id", "email"],
-      detail: {
-        header: (row: Row) => `old ${String(row.email)}`,
-        title: (row: Row) => `new ${String(row.email)}`,
-      },
-    });
-    expect(props?.title).toBe("new ada@example.com");
-  });
-
-  it("keeps the deprecated header working on its own", async () => {
-    const props = await header({
-      label: "Customer",
-      columns: ["id", "email"],
-      detail: { header: (row: Row) => `old ${String(row.email)}` },
-    });
-    expect(props?.title).toBe("old ada@example.com");
-  });
-
   it("falls back when title returns nothing", async () => {
     const props = await header({
       label: "Customer",

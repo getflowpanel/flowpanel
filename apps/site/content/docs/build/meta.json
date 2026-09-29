@@ -5,10 +5,8 @@
     "resources",
     "forms",
     "actions",
-    "drawers",
-    "dashboards",
     "detail-cards",
-    "analytics",
+    "dashboards",
     "import-export"
   ]
 }

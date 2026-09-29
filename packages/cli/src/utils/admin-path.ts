@@ -127,7 +127,6 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
     }
     if (config.getProperties().some(Node.isSpreadAssignment)) return unresolved();
     const paths = config.getProperty("paths");
-    const legacy = config.getProperty("basePath");
     let value: Node | undefined;
     let apiValue: Node | undefined;
     let apiDeclared = false;
@@ -143,14 +142,10 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
       apiDeclared = api !== undefined;
       apiValue = api && Node.isPropertyAssignment(api) ? api.getInitializer() : api;
     }
-    if (!value && legacy) {
-      value = Node.isPropertyAssignment(legacy) ? legacy.getInitializer() : legacy;
-    }
     if (value && !Node.isStringLiteral(value) && !Node.isNoSubstitutionTemplateLiteral(value)) {
       return { error: `${file}: dynamic admin path; pass --path with the resolved admin URL.` };
     }
-    // A declared but non-literal `paths.api` is unknown, not the default: repairing
-    // the default would write routes the config never points at.
+    // A declared but non-literal `paths.api` is unknown, not the default.
     const staticApi =
       apiValue && (Node.isStringLiteral(apiValue) || Node.isNoSubstitutionTemplateLiteral(apiValue))
         ? apiValue.getLiteralText()

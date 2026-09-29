@@ -84,11 +84,7 @@ export const LINE_TOOLTIP_CURSOR = {
 /** Hover cursor for bar charts — a faint band highlight. */
 export const BAR_TOOLTIP_CURSOR = { fill: "hsl(var(--fp-text-1) / 0.06)" } as const;
 
-/**
- * A sparse axis: a tight tick gap prints a label under every other bar — a band
- * of timestamps nobody reads. Recharts drops ticks to satisfy the gap, so
- * narrow charts thin out on their own.
- */
+/** Recharts drops ticks to satisfy `minTickGap`, so a narrow chart's axis thins out on its own. */
 export const AXIS_TICK_PROPS = {
   interval: "preserveStartEnd",
   minTickGap: 96,

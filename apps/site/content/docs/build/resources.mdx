@@ -5,9 +5,9 @@ kind: how-to
 metaTitle: "Resources: CRUD for Drizzle tables and Prisma models"
 ---
 
-A resource is one managed data surface: list, create, edit, detail or drawer, actions, and optional import/export. Start with the smallest useful list, then expose capabilities deliberately.
+A resource is one table or model in the admin: its list, forms, record page or drawer, actions, and import and export.
 
-## Add a minimal resource
+## A minimal resource
 
 <AdapterTabs>
   <AdapterTab adapter="drizzle">
@@ -27,11 +27,11 @@ resource("User", {
   </AdapterTab>
 </AdapterTabs>
 
-`columns` controls order and exposure in the list. When omitted, FlowPanel uses every scalar column returned by adapter introspection. Explicit columns are safer for production because a new database field does not automatically become visible.
+`columns` sets which fields the list shows and in what order. Without it, every scalar column appears, including ones added later.
 
-## Choose labels and URLs
+## Labels and URLs
 
-`name` is the stable registry key and URL segment. `label` names one row; `plural` names the navigation and list. Set them when automatic humanization is ambiguous, and avoid changing `name` after links or saved views depend on it.
+`name` is the registry key and URL segment; keep it stable once links depend on it. `label` names one row and `plural` the list.
 
 ```ts excerpt
 resource(schema.people, {
@@ -42,9 +42,9 @@ resource(schema.people, {
 })
 ```
 
-## Add search, filters, and sorting
+## Search, filters and sorting
 
-Search is disabled until you name allowed fields. Filters are also explicit; their values live in the URL with sorting and pagination, so a filtered list can be shared.
+Search and filters are off until you name fields. Their values live in the URL with sorting and pagination, so a filtered list is a shareable link.
 
 ```ts excerpt
 resource(schema.orders, {
@@ -58,26 +58,22 @@ resource(schema.orders, {
 })
 ```
 
-Only configured search and filter fields reach the adapter. Do not treat the query string as permission to access an arbitrary column.
+A filter's `defaultValue` applies until the operator changes it; `hidden: true` applies it without a control. A `select` filter on an `enumOf()` column lists the enum's labels. See [Default and hidden filters](/docs/reference/resources#default-and-hidden-filters).
 
-## Add operations intentionally
+## Operations
 
-Use `actions` for one row and `bulkActions` for a selection. When delete is enabled and `bulkActions` is omitted, FlowPanel injects its built-in bulk delete; set `bulkActions: []` to opt out. See [Add actions](/docs/build/actions) for typed input, confirmation, authorization, and results.
+`actions` run on one row and `bulkActions` on a selection; see [Actions](/docs/build/actions). With delete enabled and no `bulkActions`, a bulk delete is added; `bulkActions: []` removes it. Forms are generated from the table until you declare [form fields](/docs/build/forms). [Import and export](/docs/build/import-export) are opt-in.
 
-Create and update forms are generated from introspection when their field lists are absent. In production, explicit [form fields](/docs/build/forms) make the write surface easier to audit. Configure [import and export](/docs/build/import-export) separately.
+## Access
 
-## Protect the resource
-
-`requireRole` gates the entire resource on the server. Use `access` and field policies for more specific read or write rules, and `scope` for tenant predicates. Start with [Roles and permissions](/docs/guides/permissions); use [Multi-tenant scope](/docs/guides/multi-tenant-scope) for tenant isolation.
+`access` gates the resource per operation on the server, field rules narrow it per field, and `scope` adds a tenant predicate. See [Roles and permissions](/docs/guides/permissions) and [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 
 ## Typos and column validation
 
-Drizzle table references provide field names directly to TypeScript. Prisma and other string-named resources become equally strict after you augment `FlowpanelResources`. FlowPanel also validates configured columns against adapter introspection during admin compilation, so a stale field fails near startup instead of rendering an empty cell.
+With a Drizzle table, or a Prisma model in `FlowpanelResources`, a misspelt column is a compile error. `defineAdmin` also checks every column, filter, search and sort field against the adapter's columns at startup and names the closest match.
 
-Keep that validation enabled. A custom renderer may omit `field` when it computes a cell, but ordinary columns, filters, search fields, form fields, and sort keys should always name real row properties.
+## Joined and computed data
 
-## Know the boundary
+A resource reads one table. For joined fields use a [column renderer](/docs/customization/column-renderers); for per-row aggregates read a database view and write through `writeTo` ([Reading a view](/docs/reference/resources#reading-a-view)).
 
-FlowPanel CRUD targets one adapter resource at a time. Joined fields, aggregate views, and workflows spanning several resources usually belong in a renderer, action, dashboard, or custom page. Adapter introspection supplies metadata—it does not replace domain-level validation or authorization.
-
-See [Resources reference](/docs/reference/resources) for the generated option surface and defaults.
+Every option: [resource() reference](/docs/reference/resources).

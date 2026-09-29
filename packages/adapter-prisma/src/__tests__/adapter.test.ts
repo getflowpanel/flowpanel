@@ -93,7 +93,7 @@ const baseCtx: any = {
 };
 
 describe("prismaAdapter", () => {
-  it("uses the context database delegate for every data operation", async () => {
+  it("reads through its own client and writes through the context database", async () => {
     const root = makeMockPrisma();
     root._delegate.findMany.mockResolvedValue([{ id: 1, name: "root-list" }]);
     root._delegate.count.mockResolvedValue(1);
@@ -103,9 +103,6 @@ describe("prismaAdapter", () => {
     root._delegate.delete.mockResolvedValue({ id: 1 });
 
     const tx = makeMockPrisma();
-    tx._delegate.findMany.mockResolvedValue([{ id: 1, name: "tx-list" }]);
-    tx._delegate.count.mockResolvedValue(1);
-    tx._delegate.findUnique.mockResolvedValue({ id: 1, name: "tx-get" });
     tx._delegate.create.mockResolvedValue({ id: 1, name: "tx-create" });
     tx._delegate.update
       .mockResolvedValueOnce({ id: 1, name: "tx-update" })
@@ -114,8 +111,8 @@ describe("prismaAdapter", () => {
 
     const adapter = prismaAdapter({ prisma: root, dmmf: testDmmf, provider: "postgresql" });
 
-    const listed = await adapter.list("User", { ...baseCtx, db: tx });
-    const found = await adapter.get("User", { id: "1", db: tx } as any);
+    const listed = await adapter.list("User", baseCtx);
+    const found = await adapter.get("User", { id: "1" } as any);
     const created = await adapter.create("User", { input: { name: "new" }, db: tx } as any);
     const updated = await adapter.update("User", {
       id: "1",
@@ -130,8 +127,8 @@ describe("prismaAdapter", () => {
       db: tx,
     } as any);
 
-    expect(listed.rows).toEqual([{ id: 1, name: "tx-list" }]);
-    expect(found).toEqual({ id: 1, name: "tx-get" });
+    expect(listed.rows).toEqual([{ id: 1, name: "root-list" }]);
+    expect(found).toEqual({ id: 1, name: "root-get" });
     expect(created).toEqual({ id: 1, name: "tx-create" });
     expect(updated).toEqual({ id: 1, name: "tx-update" });
     expect(tx._delegate.delete).toHaveBeenCalledWith({ where: { id: 1 } });
@@ -139,8 +136,8 @@ describe("prismaAdapter", () => {
       where: { id: 1 },
       data: { deletedAt: null },
     });
-    expect(root._delegate.findMany).not.toHaveBeenCalled();
-    expect(root._delegate.findUnique).not.toHaveBeenCalled();
+    expect(tx._delegate.findMany).not.toHaveBeenCalled();
+    expect(tx._delegate.findUnique).not.toHaveBeenCalled();
     expect(root._delegate.create).not.toHaveBeenCalled();
     expect(root._delegate.update).not.toHaveBeenCalled();
     expect(root._delegate.delete).not.toHaveBeenCalled();

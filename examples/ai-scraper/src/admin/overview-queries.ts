@@ -25,7 +25,7 @@ export async function activeMonitorCount(context: QueryContext): Promise<MetricR
       ),
     );
   const value = Number(row?.count ?? 0);
-  return { value, href: context.href("monitors"), tone: value === 0 ? "warn" : "default" };
+  return { value, href: { resource: "monitors" }, tone: value === 0 ? "warn" : "default" };
 }
 
 export async function offersDiscovered(context: QueryContext): Promise<MetricResult> {
@@ -39,7 +39,7 @@ export async function offersDiscovered(context: QueryContext): Promise<MetricRes
         inRange(schema.listings.scrapedAt, dateRange),
       ),
     );
-  return { value: Number(row?.count ?? 0), href: context.href("listings") };
+  return { value: Number(row?.count ?? 0), href: { resource: "listings" } };
 }
 
 export async function crawlSuccessRate(context: QueryContext): Promise<MetricResult> {
@@ -59,7 +59,7 @@ export async function crawlSuccessRate(context: QueryContext): Promise<MetricRes
     );
 
   const completed = Number(row?.completed ?? 0);
-  const href = context.href("runs");
+  const href = { resource: "runs" } as const;
   if (completed === 0) return { value: "—", href, tone: "muted" };
   const rate = Math.round((Number(row?.successful ?? 0) / completed) * 100);
   return { value: `${rate}%`, href, tone: rate >= 90 ? "ok" : rate >= 70 ? "warn" : "err" };
@@ -84,7 +84,7 @@ export async function reviewBacklog(context: QueryContext): Promise<MetricResult
   return {
     value,
     tone: value === 0 ? "ok" : "warn",
-    href: context.href("matches", undefined, { filter: { status: "needs_review" } }),
+    href: { resource: "matches", filter: { status: "needs_review" } },
   };
 }
 

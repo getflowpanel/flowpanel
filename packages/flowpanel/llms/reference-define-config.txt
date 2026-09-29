@@ -1,4 +1,4 @@
-# flowpanel — Reference — defineAdmin
+# FlowPanel — Reference — defineAdmin
 
 ## defineAdmin
 
@@ -6,27 +6,18 @@ The config entry point and every option it accepts.
 
 Docs: https://flowpanel.tech/docs/reference/define-config
 
-Documented types: defineAdmin, AdminConfig, AuthConfig, ThemeConfig, ShellConfig, AuditConfig, SecurityConfig, AuditEvent, PluralLabel, LabelsConfig, CommandPaletteConfig, CommandGroup, CommandItem, ResolvedAdminConfig
+Documented types: defineAdmin, AdminDefinition, AuthConfig, ThemeConfig, ShellConfig, AuditConfig, SecurityConfig, AuditEvent, PluralLabel, LabelsConfig, CommandPaletteConfig, CommandGroup, CommandItem, ResolvedAdminConfig
 
-`defineAdmin` is the only required call in your config. It takes one options
-object, validates uniqueness (resource names, dashboard paths, queue keys),
-wires the default bulk-delete action when applicable, and returns a
-`ResolvedAdminConfig` that the Next.js bridge consumes.
+`defineAdmin` takes the config object, validates it, fills defaults, and returns
+the `ResolvedAdminConfig` that `createFlowpanel` serves. It does no I/O, so a page,
+script or test can import the config freely.
 
-`defineAdmin` is pure: it performs no I/O and does not mutate module-level
-state. Importing a config from a page, script, or test has no external effect.
+### AdminDefinition
 
-Every property table below is generated at build time from the package's own
-TypeScript **source** — the same declarations the compiler reads — so a table
-cannot drift from the type it documents.
+`adapter` and `auth` are required. Without the rest you get no resources, the
+sidebar shell, English labels, no audit sink, in-process realtime and no rate limit.
 
-### AdminConfig
-
-`adapter` and `auth` are required. Everything else is optional, with sensible
-defaults: no resources rendered, sidebar shell, English labels, no audit sink,
-no realtime, no throttling.
-
-`AdminConfig`
+`AdminDefinition`
 
 | Property | Type | Notes |
 | --- | --- | --- |
@@ -49,57 +40,33 @@ no realtime, no throttling.
 | `security?` | `SecurityConfig` | Browser request protections. Same-origin mutation checks are enabled by default. |
 | `readOnly?` | `boolean` | Put the whole admin in read-only mode. |
 | `paths?` | `AdminPathsInput` | Mount points for the generated admin UI and HTTP API. |
-| `basePath?` | `string` |  |
 | `hooks?` | `{ onError?: (err: Error, ctx: ErrorContext) => void \| Promise<void>; }` | Cross-cutting callbacks. |
 
 ### AuthConfig
 
-The only part of FlowPanel that knows about your auth provider. `session` and
-`role` run on every request and every page render, so keep them cheap — cache
-inside your own session helper if they hit the network.
-
-`session` receives the request being served, so a provider that reads cookies,
-headers or the host — a tenant resolver, an OAuth callback check — can use it
-directly. A helper that ignores the argument still satisfies the type.
+`session` and `role` run on every request, so keep them cheap. `session` receives
+the request being served.
 
 `AuthConfig`
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `session` | `(req: Request) => Promise<Session \| null>` | Reads the current session. Called on every request and page render, and handed the request being served so a provider that inspects headers, cookies or the host — a tenant resolver, an OAuth callback check — does not have to forge one. |
+| `session` | `(req: Request) => Promise<Session \| null>` | Reads the current session. Called on every request and page render, handed the request being served. Lets a provider inspect headers, cookies or the host without forging one. |
 | `role` | `(session: Session \| null) => string \| Promise<string>` | Maps a session to a role string, which every `requireRole` gate compares against. |
 | `requireRole?` | `string \| string[] \| ((s: Session \| null) => boolean)` | Admin-wide gate. Blocks every route and page before anything else runs. |
 | `signInUrl?` | `string` | Where to send an unauthenticated visitor. Without it they get an inline notice. |
 | `forbiddenUrl?` | `string` | Where to send a signed-in visitor who lacks the role. |
 | `userId?` | `(session: Session \| null) => string \| null` | Extracts the actor id for audit rows and per-user rate limiting. |
-| `allowUnauthenticated?` | `boolean` | Declares that this admin is meant to be reachable without any role gate — a deployment already fronted by a VPN or an authenticating proxy. Silences the development-only "no access control" warning. Production refuses to start without `requireRole` unless this is `true` AND the admin is `readOnly`. |
+| `allowUnauthenticated?` | `boolean` | Declares this admin reachable without a role gate — fronted by a VPN or authenticating proxy instead. Production refuses to start without `requireRole` unless this is `true` AND the admin is `readOnly`. |
 
-`requireRole` is the admin-wide gate, and nothing else in FlowPanel demands a
-session: a config with no `requireRole` here, none on any resource, and no
-global `scope` serves every route and page to anonymous visitors. `defineAdmin`
-prints a warning about that in development. A deployment that is open on
-purpose — behind a VPN or an authenticating proxy — sets
-`allowUnauthenticated: true` to say so and silence the warning. Production is
-stricter: a config without `auth.requireRole` refuses to compile unless it sets
+`requireRole` is the admin-wide gate. A config with no `requireRole`, no resource
+`access` and no global `scope` serves every page to anonymous visitors, and `defineAdmin` warns
+in development; `allowUnauthenticated: true` marks that as intended. In
+production, a config without `auth.requireRole` refuses to start unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
-Five presets build an `AuthConfig` for you, all from `@flowpanel/kit/auth`
-(`devAuth` is also on the package root):
-
-| Preset | Session source | Role read from |
-| --- | --- | --- |
-| `withBetterAuth(opts)` | the better-auth instance you pass, via `auth.api.getSession` | `session.user.role` |
-| `withClerk(opts?)` | Clerk's `auth()` helper, loaded lazily | `sessionClaims.publicMetadata.role` |
-| `withNextAuth(opts)` | the `auth()` / `getServerSession` you pass | `session.user.role` |
-| `withLucia(opts)` | the Lucia instance you pass | `user.role` |
-| `devAuth(role?)` | a fixed `{ id: "dev" }` | the `role` argument, default `"admin"` |
-
-`devAuth()` is for local development and examples only: it authenticates
-nobody, sets no `requireRole`, and leaves the "no access control" warning
-firing.
-
-See [Auth with better-auth](/docs/guides/auth-with-better-auth) and
-[Auth with Clerk](/docs/guides/auth-with-clerk) for the worked setups.
+The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
+`devAuth` build an `AuthConfig`; see [Authentication](/docs/guides/authentication).
 
 ### ThemeConfig
 
@@ -109,26 +76,20 @@ See [Auth with better-auth](/docs/guides/auth-with-better-auth) and
 | --- | --- | --- |
 | `brand?` | `{ name?: string; logo?: string; href?: string }` | Product name, logo and home link shown in the shell header. |
 | `accent?` | `string` | Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. Data fills take it too unless `cssVars` sets `--fp-data`. |
-| `accentDark?` | `string` | Dark-mode accent override, same format as `accent`. Custom accents tuned for light surfaces usually fail WCAG contrast on dark ones — pass a re-lightened triplet here to keep both schemes accessible. Dark data fills take it too unless `cssVarsDark` sets `--fp-data`. |
+| `accentDark?` | `string` | Dark-mode accent override, same format as `accent`; a light-tuned accent usually fails WCAG contrast on dark. Dark data fills take it too unless `cssVarsDark` sets `--fp-data`. |
 | `mode?` | `"light" \| "dark" \| "auto"` | Initial color scheme. `"auto"` follows the operating system. |
 | `cssVars?` | `ThemeTokens` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
 | `cssVarsDark?` | `ThemeTokens` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
-| `components?` | `Partial<FlowpanelComponentSlots>` | Replace built-in components. See the theme-slots guide. |
+| `components?` | `Partial<FlowpanelComponentSlots>` | Replace built-in components. See the styling guide. |
 | `user?` | `(s: Session \| null) => \| { name?: string; email?: string; avatar?: string; items?: Array<{ label: string; href?: string; variant?: "default" \| "destructive" }>; signOut?: string; } \| undefined` | What the account menu shows for the current session. Return `undefined` to render no menu at all — the usual choice when there is no session. |
 
-`components` is typed as `Partial<FlowpanelComponentSlots>` — see
-[Theme slots](/docs/customization/theme-slots) for the ten shipped slots and how
-to register your own.
+`components` is `Partial<FlowpanelComponentSlots>`; see
+[theme slots](/docs/customization/styling#replace-a-shared-component).
 
-`accent` and `cssVars` are emitted only on `[data-flowpanel-root]` and
-`[data-flowpanel-portal]`. Dialogs and drawers carry the portal marker, so they
-receive the theme without changing the host application's tokens.
-`accentDark` and `cssVarsDark` target the same namespaced roots when
-`html[data-flowpanel-theme="dark"]` or a FlowPanel root's `data-theme="dark"`
-is active. Set `accentDark` whenever a custom `accent` is tuned for light surfaces;
-use `cssVarsDark` when custom foreground or border tokens need dark-surface values.
-Choose foreground values for contrast against the actual tinted background.
-Every `--fp-*` token is overridable:
+`accent` and `cssVars` apply to `[data-flowpanel-root]` and
+`[data-flowpanel-portal]` only, so the host's tokens are untouched.
+`accentDark` and `cssVarsDark` apply in dark mode. Every `--fp-*` token can be
+overridden:
 
 ```ts excerpt
 theme: {
@@ -140,12 +101,10 @@ theme: {
 }
 ```
 
-Colors are HSL triplets, not `hsl(...)` calls, because the tokens are consumed
-as `hsl(var(--fp-accent))`. Writing the wrapper form anyway is fine — it is
-unwrapped for you.
+Colours are HSL triplets; an `hsl(...)` wrapper is removed for you.
 
-`user` populates the account menu at the foot of the sidebar (or the right end
-of the tab strip). Return nothing from it and no menu renders:
+`user` fills the account menu at the foot of the sidebar, or the end of the tab
+strip. Return nothing and no menu renders:
 
 ```ts excerpt
 theme: {
@@ -161,8 +120,7 @@ theme: {
 
 ### ShellConfig
 
-Pass a bare string when you only need the mode: `shell: "tabs"` is shorthand for
-`shell: { mode: "tabs" }`.
+`shell: "tabs"` is shorthand for `shell: { mode: "tabs" }`.
 
 `ShellConfig`
 
@@ -174,31 +132,26 @@ Pass a bare string when you only need the mode: `shell: "tabs"` is shorthand for
 
 `ShellMode` is `"sidebar" | "tabs" | "bare"`:
 
-- `"sidebar"` — full app shell with left nav and brand. The default, for
-  standalone admins where FlowPanel owns the whole route.
-- `"tabs"` — horizontal tab strip above the content, for admins embedded under
-  a host app's existing header.
-- `"bare"` — no chrome at all; your `app/layout.tsx` supplies it. Globals
-  (toasts, drawer host, command palette, realtime) still mount.
+- `"sidebar"`: left navigation and brand. The default.
+- `"tabs"`: a tab strip above the content, for an admin under the host's own header.
+- `"bare"`: no chrome; your layout supplies it. Toasts, the drawer, the command
+  palette and realtime still mount.
 
-The shell includes a skip-to-content link by default. Set `skipLink: false`
-only when the host application layout already renders one for the same content
-target; this avoids duplicate keyboard stops without removing the affordance.
+`skipLink: false` removes the skip-to-content link when the host layout already
+renders one.
 
 #### Navigation groups
 
-The sidebar groups dashboards, pages, resources and queues under their kind's label.
-`navGroup` on any of them moves the entry into a named group instead. Groups appear in
-the order their first entry does, and entries keep the order you declared them in.
-Name a group `{ label, collapsed: true }` to fold it under its label until it holds the
-current page — journals and reference data a founder opens once a week.
+`navGroup` on a dashboard, page, resource or queue moves its entry from its kind's
+group into a named one. Groups appear in the order of their first entry. A
+`{ label, collapsed: true }` group stays folded until it holds the current page.
 
 ```ts excerpt
-const journals = { label: "Журналы", collapsed: true } as const;
+const journals = { label: "Journals", collapsed: true } as const;
 
-resource(schema.scraperRun, { plural: "Прогоны парсера", navGroup: journals });
-resource(schema.aiRun, { plural: "ИИ-прогоны", navGroup: journals });
-resource(schema.category, { plural: "Категории", navGroup: "Справочники" });
+resource(schema.scraperRun, { plural: "Scraper runs", navGroup: journals });
+resource(schema.aiRun, { plural: "AI runs", navGroup: journals });
+resource(schema.category, { plural: "Categories", navGroup: "Reference data" });
 ```
 
 With `shell: "tabs"` the groups flatten into one row of tabs, so a group's label
@@ -215,10 +168,9 @@ and `collapsed` do not show there.
 
 ### SecurityConfig
 
-Same-origin mutation protection is enabled when `security` is omitted. Add
-exact `trustedOrigins` only when another frontend must write to the admin API.
-Requests without browser `Origin` / Fetch Metadata headers remain available to
-server-to-server clients.
+Cross-origin writes are blocked by default. `trustedOrigins` allows exact
+origins. Requests without browser `Origin` or Fetch Metadata headers, such as
+server-to-server calls, pass this check.
 
 `SecurityConfig`
 
@@ -229,8 +181,7 @@ server-to-server clients.
 
 #### AuditEvent
 
-What your `sink` receives. FlowPanel never writes audit rows itself — where they
-land is entirely yours.
+What `audit.sink` receives. FlowPanel stores no audit rows itself.
 
 `AuditEvent`
 
@@ -256,34 +207,26 @@ type RateLimitOptions =
   | { driver: "redis"; url: string; limit: number; windowMs: number; keyPrefix?: string };
 ```
 
-The memory driver counts per process — use the Redis driver whenever you run
-more than one instance. A caller over the limit gets `429` from every API route.
+The memory driver counts per process; use Redis with more than one instance. A
+caller over the limit gets `429`.
 
 ### RealtimeConfig
 
-An alias of `PublisherOptions`. Without it, realtime falls back to an in-process
-bus that only reaches the instance that published — fine locally, wrong in
-production. See [Realtime in production](/docs/guides/realtime).
+An alias of `PublisherOptions`. Without it, events reach only the process that
+published them. See [Realtime](/docs/guides/realtime).
 
 ### LabelsConfig
 
-Overrides for built-in chrome. Set `labels` once in `defineAdmin`; list filters,
-pagination and the command palette use the same provider as action buttons.
-Nested groups merge with English defaults. Undefined values keep their defaults;
-empty strings are intentional overrides. A component's explicit placeholder or
-boolean label takes precedence over configuration.
+Text for the built-in UI. Groups merge over the English defaults; an undefined
+value keeps its default and an empty string is used as given. A component's own
+placeholder or label prop wins.
 
-`allOption` controls the unfiltered choice in select, multiselect and boolean
-filters. `filters` controls toolbar/reset text, boolean choices and text search.
-`pagination.page` and `pagination.pageSize` accept `{n}`; `bulkBar.selected`
-accepts `{n}` for selection counts. Pagination registry overrides receive these
-strings in their `labels` prop; `DefaultPagination` remains usable standalone.
+`pagination.page`, `pagination.pageSize` and `bulkBar.selected` take `{n}`.
 
 `plurals` holds count templates for languages whose count words change with the
 number: a `PluralLabel` has one template per `Intl.PluralRules` category of
 `formatting.locale`, with `other` as the fallback. `plurals.results` wins over
-`table.result` and `table.results` for every count, `1` included, and
-`plurals.selected` wins over `bulkBar.selected`; the string templates stay strings:
+`table.result` and `table.results`, and `plurals.selected` over `bulkBar.selected`:
 
 ```ts excerpt
 labels: {
@@ -295,10 +238,8 @@ labels: {
 ```
 
 `formatCount(label, count, locale)` from `@flowpanel/core/labels` picks the form
-the same way for your own components, and takes a plain string template too.
-`RU_LABELS` ships both plurals («1 запись», «3 записи», «5 записей»). A preset's
-plural gives way when your `labels` set the string template for the same count,
-so `table: { results: "Всего: {n}" }` shows your template.
+for your own components. A preset's plural gives way to a string template you set
+for the same count.
 
 `PluralLabel`
 
@@ -311,37 +252,16 @@ so `table: { results: "Всего: {n}" }` shows your template.
 | `many?` | `string` |  |
 | `other` | `string` |  |
 
-`navigation`, `table`, `savedViews` and `dateRange` also cover the built-in menu,
-table controls, saved-view dialog and calendar. `dateRange.locale` controls
-calendar and table-count presentation, with a deterministic `en-US` fallback on
-both server and client. It does not change stored dates, query boundaries or
-your custom column formatters.
+`dateRange.locale` sets the calendar and count formatting, falling back to
+`en-US`. `form.createTitle` and `form.editTitle` take `{label}`. `access` holds the
+sign-in and access-denied screens shown when `auth.signInUrl` or
+`auth.forbiddenUrl` is not set.
 
-`form` covers the generated create and edit pages: `createTitle` and `editTitle`
-accept `{label}` for the resource's singular label, and `selectPlaceholder`,
-`noOptions`, `searching` and `loadFailed` name the states of a select or a
-reference search. The submit button uses `actions.create` on a create form and
-`actions.save` on an edit form, and both pages offer a cancel link labelled with
-`actions.cancel` that returns to the record or its list without submitting.
-
-`access` words the screens FlowPanel renders in place of the admin when it does
-not redirect: `signInTitle` and `signInDescription` for a reader with no session
-when `auth.signInUrl` is not set, `deniedTitle` and `deniedDescription` for a
-role the admin does not allow when `auth.forbiddenUrl` is not set.
-
-A Russian `formatting.locale` (`"ru"`, `"ru-RU"`, …) switches the built-in chrome
-to Russian: `RU_LABELS` becomes the base that `labels` merges over, so a Russian
-admin sets only the strings it wants different, for example
-`labels: { actions: { new: "Добавить" } }`. Every other locale keeps English as the
-base. The preset is a complete object of plain strings, safe across the
-server/client boundary; import `RU_LABELS` from `@flowpanel/kit`, or from
-`@flowpanel/core/labels` in browser-only code, to use it with another locale. To
-keep English chrome under a Russian locale, pass `labels: DEFAULT_LABELS` (from
-the same modules); a complete label set leaves nothing for the preset to fill.
-
-Resource names, domain actions, custom renderers and validation messages supplied
-by your application remain application-owned. The preset does not translate
-arbitrary content or server errors.
+A Russian `formatting.locale` (`"ru"`, `"ru-RU"`) makes `RU_LABELS` the base that
+`labels` merges over, so set only the strings you want different, such as
+`labels: { actions: { new: "Добавить" } }`. Other locales use English. Import
+`RU_LABELS` or `DEFAULT_LABELS` from `@flowpanel/kit` (or `@flowpanel/core/labels`
+in browser code); `labels: DEFAULT_LABELS` keeps English under a Russian locale.
 
 `LabelsConfig`
 
@@ -356,7 +276,7 @@ arbitrary content or server errors.
 | `pagination?` | `{ label?: string; previous?: string; next?: string; of?: string; rowsPerPage?: string; /** Accessible page button name. Use `{n}` for the page number. */ page?: string; /** Page-size option. Use `{n}` for the row count. */ pageSize?: string; }` | Pagination chrome. |
 | `filters?` | `{ label?: string; clear?: string; yes?: string; no?: string; searchPlaceholder?: string; }` |  |
 | `bulkBar?` | `{ /** Use `{n}` for the selection count. Default: `"{n} selected"`. */ selected?: string; clear?: string; }` | Bulk action bar. |
-| `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */ events?: PluralLabel; }` | Count templates with one form per `Intl.PluralRules` category of `formatting.locale`. When set, they win over `table.result`/`table.results` and `bulkBar.selected`. |
+| `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */ events?: PluralLabel; }` | Count templates per `Intl.PluralRules` category; when set, they win over `table.result`/`results` and `bulkBar.selected`. |
 | `searchPlaceholder?` | `string` | Resource search input placeholder. Use `{label}` for the resource's label. |
 | `actions?` | `{ edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; }` | Generic action buttons. |
 | `form?` | `{ /** Edit page heading. Use `{label}` for the resource's singular label. */ editTitle?: string; /** Create page heading. Use `{label}` for the resource's singular label. */ createTitle?: string; /** The empty choice in a select control. */ selectPlaceholder?: string; /** A reference search with nothing to offer. */ noOptions?: string; /** A reference search still in flight. */ searching?: string; /** A reference search that failed. */ loadFailed?: string; /** An empty value the write needs. Use `{label}` for the field's label. */ required?: string; /** A value that is not a number. Use `{label}`. */ invalidNumber?: string; /** A value that is neither true nor false. Use `{label}`. */ invalidBoolean?: string; /** A value that is not a date. Use `{label}`. */ invalidDate?: string; }` | Generated create and edit form chrome. |
@@ -411,8 +331,7 @@ see [resource icons](/docs/reference/resources#icons).
 
 ### ResolvedAdminConfig
 
-What `defineAdmin` returns. The lookup maps are precomputed so request-time
-routing is O(1).
+What `defineAdmin` returns.
 
 `ResolvedAdminConfig`
 
@@ -424,9 +343,9 @@ routing is O(1).
 | `dashboardsByPath` | `Map<string, DashboardConfig>` |  |
 | `pagesByPath` | `Map<string, PageConfig>` |  |
 | `queuesByKey` | `Map<string, QueueConfig>` |  |
-| `basePath` | `string` | Normalized `basePath` — leading slash, no trailing slash. Defaults to `/admin`. |
+| `basePath` | `string` | Normalized `paths.admin` — leading slash, no trailing slash. Defaults to `/admin`. |
 | `paths` | `AdminPaths` | Normalized mount points with leading slashes and no trailing slash. |
-| `warnings` | `readonly string[]` | Config problems that do not stop the admin from booting — a create form that cannot satisfy a required column, so far. `flowpanel doctor` prints them, and development prints each one once. |
+| `warnings` | `readonly string[]` | Config problems that do not stop the admin from booting. `flowpanel doctor` prints them; development prints each once. |
 
 `defineAdmin` throws if two resources share a name, two dashboards or pages
 share a path, or two queues share a key.
@@ -475,31 +394,26 @@ column's `editable`), so no default delete is injected for any resource.
 
 ### Reserved names
 
-`defineAdmin` also throws when a resource name or a queue key is one of
-`dashboards`, `drawer` or `queues`. Those are the first URL segments the
-admin's own routing claims — `handlers()` matches `drawer` and `dashboards`
-positionally, and the page router matches `queues` — so a resource named after
-one has its requests captured by the wrong route. The error names the option
-to change (`options.name` for a resource, `options.key` for a queue).
+`defineAdmin` throws when a resource name or queue key is `dashboards`, `drawer`
+or `queues`: the admin's own routes use those URL segments. Change `options.name`
+on the resource or `options.key` on the queue.
 
 ### Behavior beyond validation
 
-`defineAdmin` does three things to your config on the way through, besides
-checking it:
+Besides validating, `defineAdmin`:
 
 1. **Fills `columns`** from `adapter.introspect(ref)` for any resource that
    omitted them, in introspection order. If the adapter cannot introspect the
    ref, or reports zero columns, that throws.
 2. **Injects the default bulk delete** (above).
-3. **Normalizes `basePath`** and every dashboard / page `path` — a missing
+3. **Normalizes `paths.admin`** and every dashboard / page `path` — a missing
    leading `/` is added, a trailing one stripped.
 
-None of it is I/O: `introspect` is a synchronous
-read of a table object or DMMF, not a database round trip.
+`introspect` reads the table object or DMMF; it does not query the database.
 
-#### `basePath` and a Next.js deployment `basePath`
+#### `paths` and a Next.js deployment `basePath`
 
-`basePath` and `paths.api` are app-relative: they say where the admin sits inside
+`paths.admin` and `paths.api` are app-relative: they say where the admin sits inside
 your app, not where the app sits under a domain. If `next.config` sets its own
 `basePath`, leave both alone — Next serves and links everything under that prefix
 already.
@@ -535,8 +449,7 @@ hydration. Left unset, the server and the first paint use UTC and a `LocalTime`
 switches to the reader's own zone after hydration. A `LocalTime` given its own
 `fallbackTimeZone` keeps that switch either way.
 
-With no `locale`, dates keep the sortable `YYYY-MM-DD HH:mm` shape they had
-before, and numbers keep `en-US` grouping.
+With no `locale`, dates print as `YYYY-MM-DD HH:mm` and numbers use `en-US` grouping.
 
 #### Identifiers in URLs
 

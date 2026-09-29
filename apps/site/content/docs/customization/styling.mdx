@@ -1,60 +1,25 @@
 ---
-title: Styling
-description: Load FlowPanel styles, adjust design tokens, and integrate Tailwind safely.
+title: Styling and theme slots
+description: Load FlowPanel styles, change design tokens and fonts, use the tokens in Tailwind, and replace shared components.
 kind: how-to
 metaTitle: Styling with design tokens and Tailwind
 ---
 
-FlowPanel styles are scoped to its root and portal attributes. The CLI creates an application-owned `admin.css` that imports FlowPanel's precompiled stylesheet; it does not require Tailwind or a PostCSS plugin.
+FlowPanel's stylesheet is precompiled and scoped to the admin, so it needs no Tailwind and leaves the host page alone. Change its look with design tokens, and replace shared components with theme slots.
 
 ## Use the generated stylesheet
 
-`flowpanel init` imports `styles/admin.css` or `src/styles/admin.css` from the admin route's layout. The host root layout remains unchanged. Existing installations can move the import to that segment when adopting the new scaffold.
-
-The generated stylesheet is a thin import:
+`init` writes `styles/admin.css` (or `src/styles/admin.css`) and imports it from the admin layout:
 
 ```css
 @import "@flowpanel/kit/styles/admin.css";
 ```
 
-The package-built CSS scopes its utilities, element defaults, compiler variables,
-and keyframes to `[data-flowpanel-root]` and `[data-flowpanel-portal]`. It does
-not reset the host page or publish Tailwind theme variables. Keep this import in
-the admin route layout so the host root layout remains untouched.
-
-`@flowpanel/react/styles/admin.css` remains available as a legacy source
-stylesheet for applications that intentionally compile FlowPanel with their own
-Tailwind pipeline. It is not the default scaffold and can share Tailwind's
-global utility and theme namespace. Move an existing copied admin stylesheet to
-the one-line kit import when the application no longer needs that customization.
-
-## Use FlowPanel tokens in your own Tailwind classes
-
-A custom widget or page written with Tailwind v4 can use the utilities FlowPanel's own
-components use — `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1`, `rounded-fp-lg`,
-`shadow-fp-sm`. Import the kit's token bridge after Tailwind's theme and utilities, and point
-`@source` at your admin code:
-
-```css
-@import "@flowpanel/kit/styles/admin.css";
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities) source(none);
-@import "@flowpanel/kit/styles/tailwind.css";
-@source "../admin";
-```
-
-The bridge is the one `@theme inline` block of FlowPanel's own stylesheet, copied at build
-time, so a new token reaches your classes on upgrade with no hand-kept list. `inline` is
-required: the `--fp-*` values live on the FlowPanel root, not on `:root`.
-
-For tone-driven markup, `toneTextClass` and `toneFillClass` map every `Tone` to the class the
-built-in cards use. Import them from `@flowpanel/kit` in a server component and from
-`@flowpanel/kit/react` in a client one; both hold the same classes. `default` fills with the
-data colour, as a default bar does; use `muted` for a grey dot.
+Its utilities, variables and keyframes apply only under `[data-flowpanel-root]` and `[data-flowpanel-portal]`. Keep the import in the admin layout, not the root layout.
 
 ## Change design tokens
 
-Override tokens on the FlowPanel root so the host application remains unaffected:
+Override tokens on the FlowPanel root:
 
 ```css
 [data-flowpanel-root],
@@ -62,38 +27,19 @@ Override tokens on the FlowPanel root so the host application remains unaffected
   --fp-accent: 220 90% 50%;
   --fp-radius: 0.375rem;
   --fp-font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
-  --fp-chart-1: 220 90% 55%;
+  --fp-data: 220 90% 55%;
 }
 ```
 
-The default palette is graphite greys with an ink accent for the one action a screen asks
-for, one calm blue for data and desaturated state tones. Every text token reads at 4.5:1 or
-more on every surface in both schemes, and borders, chart colours and the focus ring at 3:1.
-In dark mode the page (`--fp-bg-2`) is the darkest plane, with cards and the nav (`--fp-bg-1`)
-one step up and fills (`--fp-bg-3`) above them.
+Or set them in config with `theme.cssVars` and `theme.cssVarsDark`, typed as `ThemeTokens`. Colours are HSL triplets.
 
-Action and data colours are separate. `--fp-accent` paints primary buttons, the focus ring and
-selected controls; `--fp-data` paints bars, funnels, sparklines, heat cells, a single-series
-chart and a `default`-toned dot. `--fp-data` follows `--fp-chart-1`, so a bar and the first
-line of a chart agree: set `--fp-chart-1` to recolour both, or `--fp-data` alone to part them.
-A host that sets `theme.accent` or `accentDark` and no `--fp-data` gets data in that accent, as
-in 0.3.0; set `--fp-data` in `cssVars` to keep them apart.
+`--fp-accent` paints primary buttons, the focus ring and selected controls. `--fp-data` paints bars, funnels, sparklines, heat cells and single-series charts, and follows `--fp-chart-1`: set `--fp-chart-1` to recolour both, or `--fp-data` alone to separate them. With `theme.accent` set and no `--fp-data`, data uses the accent. `tone: "accent"` badges use `--fp-accent-badge-text`.
 
-`tone: "accent"` badges write in `--fp-accent-badge-text`, which the default palette sets to
-the ink accent, so they read like body text on a faint tint. Set `--fp-accent-badge-text` when
-your accent should show in them.
-
-`theme.cssVars` and `theme.cssVarsDark` are typed `ThemeTokens`: the token names complete in
-an editor, and any other `--fp-*` key still passes.
-
-Color values are HSL triplets unless the source stylesheet states otherwise. Prefer semantic tokens—background, text, border, accent, success, warning, error, chart palette—over selectors tied to component markup.
-
-The full, current token list is the generated stylesheet or the package stylesheet it is based on. Keeping a second hand-written token table in docs would drift.
+The default palette meets 4.5:1 for text and 3:1 for borders, chart colours and the focus ring, in both schemes. The full token list is in the package stylesheet.
 
 ## Set the typeface
 
-`--fp-font-sans` reaches the admin root and every portal (drawer, dialogs, menus), so a font
-set there applies everywhere. With `next/font`, hand it the family the loader generates:
+`--fp-font-sans` reaches the admin and every portal. With `next/font`:
 
 ```ts excerpt
 import { IBM_Plex_Sans } from "next/font/google";
@@ -105,24 +51,13 @@ defineAdmin({
 });
 ```
 
-`next/font` self-hosts and preloads the files, so no CDN link is needed. Numbers in tables and
-cards already use tabular figures.
+## Dark mode
 
-## Support dark mode
-
-FlowPanel uses its namespaced theme attribute rather than recoloring the host `.dark` tree. Configure `theme.mode` as `light`, `dark`, or `auto`; use `theme.accentDark` when the light accent lacks contrast on dark surfaces. Use `theme.cssVarsDark` for dark-only semantic foreground, surface, and border tokens.
-
-The admin page renders a `theme-color` meta for each scheme from `--fp-bg-2` (your
-`cssVars`/`cssVarsDark` value when you set one), and the theme toggle points the browser chrome
-at the chosen scheme.
-
-Test custom text/background and status pairs in both modes. Theme tokens make visual consistency possible, but the application still owns contrast and accessibility for its chosen values and custom content.
+`theme.mode` is `light`, `dark` or `auto`. FlowPanel sets its own `data-flowpanel-theme` attribute and leaves the host's `.dark` class alone. Use `theme.accentDark` and `theme.cssVarsDark` for dark-only values. The admin renders a `theme-color` meta per scheme from `--fp-bg-2`.
 
 ### Initialize the theme under CSP
 
-For an inline script rendered by a Server Component, import the pure builder from
-`@flowpanel/kit` (or `@flowpanel/core`). The React entry is a client boundary.
-Use the nonce issued by your application's CSP integration:
+`init` renders `ThemeScript` with the `x-nonce` request header. For your own inline script in a Server Component, import the builder from `@flowpanel/kit`:
 
 ```tsx excerpt
 import { buildThemeInitScript } from "@flowpanel/kit";
@@ -137,17 +72,54 @@ export function AdminThemeHead({ nonce }: { nonce: string }) {
 }
 ```
 
-Place it in the host-owned document head before hydration and use the same default
-mode as the admin config. Stored light/dark preference takes priority; when storage
-is blocked, the configured default or system preference still applies. The builder
-changes only `data-flowpanel-theme`, leaving the host's theme classes untouched.
-It does not generate CSP headers or nonces. Existing React `ThemeScript` callers
-can continue passing the same host-issued `nonce` prop.
+Place it in the document head with the same default mode as the config. A stored preference wins over the default. The script changes only `data-flowpanel-theme` and does not create CSP headers or nonces.
 
-## Apply targeted overrides safely
+## Use FlowPanel tokens in your own Tailwind classes
 
-Use token changes for system-wide appearance and normal class names inside your own custom components. Avoid reaching into FlowPanel's internal DOM structure: those selectors are not a public contract and make upgrades harder.
+A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. Import the token bridge after Tailwind and point `@source` at your admin code:
 
-When tokens cannot express the change, replace a supported [theme slot](/docs/customization/theme-slots). Eject only when behavior or page structure must change.
+```css
+@import "@flowpanel/kit/styles/admin.css";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "@flowpanel/kit/styles/tailwind.css";
+@source "../admin";
+```
 
-See [Configuration reference](/docs/reference/define-config#themeconfig) for generated theme options.
+The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`.
+
+`toneTextClass` and `toneFillClass` map each `Tone` to the classes the built-in cards use. Import them from `@flowpanel/kit` in a server component and from `@flowpanel/kit/react` in a client one.
+
+## Replace a shared component
+
+A theme slot replaces one component everywhere FlowPanel renders it:
+
+```tsx excerpt
+import { forwardRef } from "react";
+import type { ButtonProps } from "@flowpanel/kit/react";
+
+export const ProductButton = forwardRef<HTMLButtonElement, ButtonProps>(
+  function ProductButton({ className, ...props }, ref) {
+    return <button ref={ref} className={`product-button ${className ?? ""}`} {...props} />;
+  },
+);
+```
+
+```ts excerpt
+export default defineAdmin({
+  adapter,
+  auth,
+  theme: {
+    components: { Button: ProductButton },
+  },
+  resources,
+});
+```
+
+`theme.components` is typed by `FlowpanelComponentSlots`. Keep the slot's full prop contract: forward refs, pass accessibility attributes through, and keep loading and disabled states. Import each prop type from `@flowpanel/kit/react`.
+
+<ThemeSlots />
+
+`FlowpanelComponentSlots` can be augmented with your own keys for custom widgets; FlowPanel's own UI reads only the keys above.
+
+Every option: [ThemeConfig](/docs/reference/define-config#themeconfig).

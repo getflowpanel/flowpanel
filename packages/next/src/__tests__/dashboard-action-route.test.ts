@@ -97,7 +97,7 @@ describe("dashboardActionRoute", () => {
     expect(body.error).toEqual({ code: "not_found", message: "action not found" });
   });
 
-  it("returns 403 when per-action requireRole fails", async () => {
+  it("returns 403 when per-action access fails", async () => {
     const dashboard: DashboardConfig = {
       path: "/pipeline",
       label: "Pipeline",
@@ -106,7 +106,7 @@ describe("dashboardActionRoute", () => {
         {
           key: "trigger-scraper",
           label: "Trigger",
-          requireRole: "admin",
+          access: "admin",
           run: async () => ({ ok: true }),
         },
       ],
@@ -305,7 +305,7 @@ describe("serializeDashboardAction", () => {
       label: "Trigger",
       icon: "play",
       variant: "default",
-      requireRole: "admin",
+      access: "admin",
       run: async () => ({ ok: true }),
     };
     const wire = serializeDashboardAction(action);

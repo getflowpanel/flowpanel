@@ -47,10 +47,8 @@ function logOncePerKind(): PublishErrorHandler {
 }
 
 /**
- * A realtime publisher for a process that only publishes — a worker, a cron job,
- * a script. A Redis failure never rejects: it reaches `onError`, or is logged once
- * per error kind. Publishing after `close()` still throws.
- *
+ * A realtime publisher for a process that only publishes — a worker, a cron job, a script.
+ * A Redis failure never rejects: it reaches `onError`, or is logged once per error kind.
  * @example
  * const events = createPublisher({ ...adminRealtimeOptions, onError: report });
  * await events.resource("orders", { id });

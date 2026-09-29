@@ -14,11 +14,11 @@ function roleFromUser(s: Session | null): string {
   return (s as { user?: { role?: string } } | null)?.user?.role ?? "guest";
 }
 
-function makeResource(_name: string, requireRole?: string | string[]): ResourceConfig {
+function makeResource(_name: string, read?: string | string[]): ResourceConfig {
   return {
     __kind: "resource",
     ref: {},
-    options: { ...(requireRole !== undefined ? { requireRole } : {}) },
+    options: { ...(read !== undefined ? { access: { read } } : {}) },
   } as unknown as ResourceConfig;
 }
 
@@ -106,7 +106,7 @@ describe("stream() — channel validation", () => {
     await res.body?.cancel();
   });
 
-  it("rejects a resource.<name> channel when the resource's own requireRole fails", async () => {
+  it("rejects a resource.<name> channel when the resource's read access fails", async () => {
     const resourcesByName = new Map<string, ResourceConfig>([
       ["billing", makeResource("billing", "finance")],
     ]);
@@ -124,7 +124,7 @@ describe("stream() — channel validation", () => {
     await res.body?.cancel();
   });
 
-  it("allows a resource.<name> channel when the resource's requireRole passes", async () => {
+  it("allows a resource.<name> channel when the resource's read access passes", async () => {
     const resourcesByName = new Map<string, ResourceConfig>([
       ["billing", makeResource("billing", "finance")],
     ]);
@@ -142,7 +142,7 @@ describe("stream() — channel validation", () => {
     await res.body?.cancel();
   });
 
-  it("passes through resource.<name> channels for resources with no requireRole", async () => {
+  it("passes through resource.<name> channels for resources with no access rule", async () => {
     const resourcesByName = new Map<string, ResourceConfig>([["users", makeResource("users")]]);
     const config = makeConfig({ resourcesByName });
     const req = new Request("http://localhost/stream?channel=resource.users");

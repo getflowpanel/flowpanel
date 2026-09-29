@@ -92,7 +92,7 @@ export function checkContent(root: string): DocsProblem[] {
   const titles = new Map<string, string[]>();
 
   try {
-    validateDocRedirects(DOC_REDIRECTS, new Set(pageByRoute.keys()));
+    validateDocRedirects(DOC_REDIRECTS, new Set([...pageByRoute.keys(), "/changelog"]));
   } catch (error) {
     problems.push({
       code: "redirect-invalid",

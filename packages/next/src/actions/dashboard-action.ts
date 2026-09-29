@@ -116,7 +116,6 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
       {
         pageRequireRole: dashboard.requireRole,
         actionAccess: action.access,
-        actionRequireRole: action.requireRole,
       },
       async (reqCtx) => {
         const body = await readActionInput(req);

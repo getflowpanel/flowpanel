@@ -21,7 +21,7 @@ export interface RecordHeader {
   badges: Pill[];
 }
 
-/** `title` wins over the deprecated `header`; nullish output falls back to label · key. */
+/** A nullish `title` falls back to label · key. */
 export async function recordHeader(
   resource: ResourceConfig,
   name: string,
@@ -35,7 +35,7 @@ export async function recordHeader(
   const fallback = row[pk] === undefined ? label : `${label} · ${String(row[pk])}`;
   const headerCtx: DetailHeaderContext = { format: ctx.format, labels: ctx.labels, link: ctx.link };
   const [declared, subtitle, badge] = await Promise.all([
-    detail?.title ? detail.title(row, headerCtx) : detail?.header?.(row),
+    detail?.title?.(row, headerCtx),
     detail?.subtitle?.(row, headerCtx),
     detail?.badge?.(row, headerCtx),
   ]);

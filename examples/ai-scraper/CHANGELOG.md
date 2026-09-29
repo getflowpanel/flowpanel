@@ -2,21 +2,7 @@
 
 ## 0.0.6
 
-### Patch Changes
-
-- Updated dependencies [072f37b]
-- Updated dependencies [072f37b]
-  - @flowpanel/kit@0.3.0
-  - @flowpanel/react@0.3.0
-
 ## 0.0.5
-
-### Patch Changes
-
-- Updated dependencies [2804944]
-- Updated dependencies [2804944]
-  - @flowpanel/kit@0.2.0
-  - @flowpanel/react@0.2.0
 
 ## 0.0.4
 

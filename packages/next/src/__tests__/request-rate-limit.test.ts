@@ -1,10 +1,10 @@
-import type { AdminConfig, RateLimitConfig } from "@flowpanel/core";
+import type { AdminDefinition, RateLimitConfig } from "@flowpanel/core";
 import { FlowpanelRateLimitError } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
 import { buildRequestContext } from "../runtime/request-setup";
 
-function mkConfig(rateLimit?: RateLimitConfig, userId: string | null = "u1"): AdminConfig {
-  const base: AdminConfig = {
+function mkConfig(rateLimit?: RateLimitConfig, userId: string | null = "u1"): AdminDefinition {
+  const base: AdminDefinition = {
     adapter: { kind: "drizzle", db: {} } as never,
     auth: {
       session: async () => (userId ? { user: { id: userId } } : null),
@@ -81,10 +81,10 @@ describe("buildRequestContext — rate limit", () => {
   });
 
   it("keys by the session's top-level id (Clerk/Lucia session shape) when per='user'", async () => {
-    // Regression test: `AdminConfig.auth.session()` for `withClerk` / `withLucia`
+    // Regression test: `AdminDefinition.auth.session()` for `withClerk` / `withLucia`
     // returns `{ id, ... }` (no `user` wrapper) — before the `actorIdFromSession`
     // fallback fix, this silently degraded to the IP bucket for every visitor.
-    const cfg: AdminConfig = {
+    const cfg: AdminDefinition = {
       adapter: { kind: "drizzle", db: {} } as never,
       auth: {
         session: async () => ({ id: "clerk_u1" }),
@@ -102,7 +102,7 @@ describe("buildRequestContext — rate limit", () => {
   });
 
   it("uses the AuthConfig.userId contract when set, overriding the default shape", async () => {
-    const cfg: AdminConfig = {
+    const cfg: AdminDefinition = {
       adapter: { kind: "drizzle", db: {} } as never,
       auth: {
         session: async () => ({ id: "top-level-id", tenant: { userId: "tenant-user-1" } }),

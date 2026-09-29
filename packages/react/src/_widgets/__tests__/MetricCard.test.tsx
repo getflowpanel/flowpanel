@@ -63,7 +63,8 @@ describe("MetricCard", () => {
       <MetricCard
         label="Churn"
         value={3}
-        delta={{ value: -0.2, vs: "prev week", goodWhen: "down" }}
+        delta={{ value: -0.2, vs: "prev week" }}
+        goodWhen="down"
       />,
     );
     expect(container.querySelector(".text-fp-ok-text")).toBeTruthy();
@@ -75,7 +76,8 @@ describe("MetricCard", () => {
       <MetricCard
         label="Churn"
         value={3}
-        delta={{ value: 0.2, vs: "prev week", goodWhen: "down" }}
+        delta={{ value: 0.2, vs: "prev week" }}
+        goodWhen="down"
       />,
     );
     expect(container.querySelector(".text-fp-err-text")).toBeTruthy();

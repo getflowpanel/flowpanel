@@ -142,7 +142,8 @@ describe("table widget row links", () => {
       kind: "table",
       options: {
         query: async () => [{ id: "1" }, { id: "2" }],
-        rowHref: (row: { id: string }, c: WidgetContext) => c.href("runs", row.id),
+        rowHref: (row: { id: string }, c: WidgetContext) =>
+          c.link({ resource: "runs", id: row.id }),
       },
     } as never);
     expect(rendered.hrefs).toEqual(["/admin/runs/1", "/admin/runs/2"]);

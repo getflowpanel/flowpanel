@@ -4,39 +4,22 @@ description: The full @flowpanel/react export surface, grouped by what it's for.
 kind: reference
 ---
 
-`@flowpanel/react` is the component library the admin renders with. Most of it
-is consumed indirectly — resources, widgets and forms compile down to these
-components — but every export is public and safe to use directly when you
-build a custom slot, page, or `"bare"`-shell chrome around FlowPanel.
+The components the admin renders with, for custom slots, pages and `"bare"`-shell
+chrome. Import them from `@flowpanel/kit/react` (or `@flowpanel/react`).
 
 ```ts excerpt
 import { AutoForm, DataTable, useAdminTable } from "@flowpanel/kit/react";
 ```
 
-`@flowpanel/kit/react` is the specifier to reach for: `@flowpanel/kit` is what
-`flowpanel init` installs, and it re-exports this whole surface. The
-standalone `@flowpanel/react` package publishes the same exports and works
-identically — use it only when you depend on it directly rather than through
-the kit.
-
-Two neighbouring subpaths are worth knowing about, because their exports are
-*not* in the table below:
-
-- **`@flowpanel/kit/next/client`** — the client components the Next.js runtime
-  mounts around this library: `DrawerHost`, `CommandHost`,
-  `DashboardActionsBar`, `DataTableWithDrawerRows`, `CreateDrawer`,
-  `DetailTabsClient`, `SavedViewsDropdown`, `ResourceListSearch`,
-  `ResourceListFilters`, `ResourceListDeletedToggle`, `DashboardDateRange`, `DashboardFilters`,
-  `WidgetErrorBoundary`. Reach for it when you assemble a `"bare"`-shell
-  layout by hand.
-- **`@flowpanel/kit/client`** — the standalone `useAdminMutation` hook, which
-  pulls in no component library at all. See
-  [Client hooks](/docs/reference/client).
+Not listed here: `@flowpanel/kit/next/client` holds the runtime's client
+components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
+`DataTableWithDrawerRows`, `CreateDrawer`, `DetailTabsClient`,
+`SavedViewsDropdown`, `ResourceListSearch`, `ResourceListFilters`,
+`ResourceListDeletedToggle`, `DashboardDateRange`, `DashboardFilters`,
+`WidgetErrorBoundary`), and `@flowpanel/kit/client` holds
+[`useAdminMutation`](/docs/reference/client).
 
 ## Shell
-
-Chrome, navigation and the pieces a custom layout composes around admin
-content.
 
 | Export | Purpose |
 | --- | --- |
@@ -57,8 +40,8 @@ content.
 | `useComponent` | Resolves a single slot — `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
 | `useComponentOverrides` | The raw override map from the nearest `ComponentsProvider`, without defaults filled in. |
 | `LabelsProvider`, `useLabels` | Provider/reader for label overrides (pluralization, field labels). |
-| `FormattingProvider`, `useFormatting` | Provider/reader for the resolved locale, timezone and currency. `FlowpanelGlobals` fills it from `formatting`, so a widget, a table cell and a chart tooltip print the same number the same way. Read it when you render your own number and want the admin's currency rather than the default. |
-| `ApiBaseProvider`, `useApiBase` | Provider/reader for the route handlers' mount point. `FlowpanelGlobals` fills it from `paths.api`, so every client fetch — drawer, actions, inline edit, import, reference search, SSE — follows the admin wherever it is mounted. Standalone components fall back to `/api/flowpanel`. A Next.js deployment `basePath` is added here, because the browser does not add it to a fetch. |
+| `FormattingProvider`, `useFormatting` | Provider/reader for the resolved locale, time zone and currency. |
+| `ApiBaseProvider`, `useApiBase` | Provider/reader for the API mount (`paths.api`, default `/api/flowpanel`), including a Next.js `basePath`. |
 
 <AutoTypeTable path="../../packages/react/src/_shell/AdminShell.tsx" name="AdminShellProps" />
 
@@ -67,9 +50,6 @@ content.
 <AutoTypeTable path="../../packages/react/src/_shell/CommandPalette.tsx" name="CommandPaletteProps" />
 
 ## Data table & filters
-
-`DataTable` and the controls that surround it — column menus, filter inputs,
-cell renderers.
 
 | Export | Purpose |
 | --- | --- |
@@ -95,10 +75,6 @@ cell renderers.
 
 ## Forms
 
-`AutoForm` compiles a resource's declared fields into inputs; `Form` and
-`Field` are the lower-level primitives it's built from, for hand-written
-forms.
-
 | Export | Purpose |
 | --- | --- |
 | `AutoForm` | Renders a resource's create/update fields from `ResolvedField[]` or `ColumnMeta[]`. |
@@ -117,14 +93,7 @@ forms.
 
 <AutoTypeTable path="../../packages/react/src/_forms/Field.tsx" name="FieldProps" />
 
-The component is declared internally as `Field` with a `FieldProps` interface,
-but the package **renames both on export**: the value is exported as
-`FormField` and the type as `FormFieldProps`. `Field` and `FieldProps` are not
-importable names — the prefix keeps them from colliding with the many other
-`Field` components a consuming app is likely to have. The interface is
-unchanged by the rename; the property table above is generated from it.
-
-`FormField`'s `type` prop accepts:
+The table above is exported as `FormField` and `FormFieldProps`. Its `type` accepts:
 
 ```ts excerpt
 "text" | "email" | "password" | "url" | "number" | "date" | "datetime" |
@@ -133,16 +102,9 @@ unchanged by the rename; the property table above is generated from it.
 "boolean" | "switch" | "checkbox" | "hidden"
 ```
 
-That union is internal — it has a name in the source (`FieldControlType`) but
-is not exported, so type it inline or read it off
-`ComponentProps<typeof FormField>["type"]`. It is a *superset* of the
-config-level `FieldType`: `datetime-local` and `search` exist only here, which
-is why a `ResolvedField` (typed `FieldType`) always assigns cleanly into it and
-not the other way round.
+The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 
 ## Feedback
-
-Empty, error, loading and toast states.
 
 | Export | Purpose |
 | --- | --- |
@@ -156,9 +118,6 @@ Empty, error, loading and toast states.
 | `Toast`, `ToastProvider`, `useToast` | Toast host provider and the hook to fire toasts from anywhere under it. |
 
 ## Widgets
-
-Dashboard widget renderers — the components a `widget()` builder's config
-resolves into.
 
 | Export | Purpose |
 | --- | --- |
@@ -182,8 +141,6 @@ resolves into.
 
 ### Layout primitives
 
-Shared by widgets and by hand-built pages.
-
 | Export | Purpose |
 | --- | --- |
 | `Card`, `CardHeader`, `CardContent`, `CardDescription` | Generic card shell and its section slots. |
@@ -192,8 +149,6 @@ Shared by widgets and by hand-built pages.
 | `StatStrip` | A band of numbers divided by hairlines, two per line on a phone — what `section.variant: "strip"` and `detail.stats` render. |
 
 ## Atoms
-
-Small, single-purpose display components.
 
 | Export | Purpose |
 | --- | --- |
@@ -212,15 +167,12 @@ Small, single-purpose display components.
 
 ## Hooks
 
-Client hooks for building custom admin UI. All are `"use client"`.
+All hooks are client-only.
 
-**`useLiveChannel(channel, onMessage, options?)`** — subscribes to one SSE
-channel served by `stream()`. Connection pooling: hook instances that share
-the same `endpoint` + `channel` reuse one `EventSource`, refcounted, rather
-than opening one per instance. The returned `LiveStatus` runs `idle` →
-`connecting` → `live`, drops to `reconnecting` while a retry is pending, and
-reaches `offline` after six consecutive failed attempts (~30s); it returns to
-`idle` when the subscription is torn down. Retries continue while `offline`.
+**`useLiveChannel(channel, onMessage, options?)`** subscribes to one SSE channel;
+instances on the same channel share one `EventSource`. It returns a `LiveStatus`:
+`idle`, `connecting`, `live`, `reconnecting`, or `offline` after six failed
+attempts (retries continue).
 
 ```tsx excerpt
 const status = useLiveChannel("resource.orders", (payload) => {
@@ -228,65 +180,47 @@ const status = useLiveChannel("resource.orders", (payload) => {
 });
 ```
 
-**`useAdminTable()`** — reads and writes the list URL state (`?page=`,
-`?perPage=`, `?q=`, `?sort=field:dir`, `?f_<field>=value`) that `DataTable` and
-`FilterBar` render from. `pageSize` is `number | null`: `null` means no
-`?perPage=` is present and the resource's configured `pageSize` applies.
+**`useAdminTable()`** reads and writes the list URL state (`?page=`, `?perPage=`,
+`?q=`, `?sort=field:dir`, `?f_<field>=`). `pageSize` is `null` when the URL sets
+none. Setters use `router.replace`.
 
 ```tsx excerpt
 const { page, pageSize, sort, setPage, setSort } = useAdminTable();
 ```
 
-Every setter navigates with `router.replace`, not `push`: filters change on
-each keystroke, and pushing would turn Back into a walk through the filter
-history instead of a way out of the list.
+**`useUrlState()`** reads and writes typed search params.
 
-**`useUrlState()`** — general-purpose typed reader/writer for the current
-route's search params. `useAdminDrawer` is built on it; `useAdminTable` is
-not — it reads `next/navigation` directly.
-
-**`useTheme(options?)`** — reads the resolved light/dark/auto theme and
-returns a stable `toggle`/`setTheme` that persists to `localStorage`.
+**`useTheme(options?)`** returns the theme and `toggle`/`setTheme`, stored in
+`localStorage`.
 
 ```tsx excerpt
 const { theme, toggle } = useTheme();
 ```
 
-**`useToast()`** — fires a toast from anywhere under `ToastProvider` /
-`FlowpanelGlobals`.
+**`useToast()`** fires a toast under `ToastProvider` or `FlowpanelGlobals`.
 
 ```tsx excerpt
 const toast = useToast();
 toast.success("Saved");
 ```
 
-**`useOptimisticAction(serverValue, applyPatch)`** — thin wrapper over
-`React.useOptimistic` + `useTransition` for an optimistic value with a pending
-flag. It is offered for your own components; nothing shipped uses it —
-`InlineEditCell` keeps its draft in plain `useState`.
+**`useOptimisticAction(serverValue, applyPatch)`** wraps `useOptimistic` and
+`useTransition` for an optimistic value with a pending flag.
 
-**`useAdminCommand()`** — controls the ⌘K command palette's open state and
-binds the `⌘K`/`Ctrl+K` shortcut.
+**`useAdminCommand()`** controls the ⌘K palette.
 
-**`useAdminDrawer()`** — reads/writes `?drawer=<resource>:<id>` and `?drawerTab=`,
-the URL state a drawer's open/closed state and active tab live in; `?tab=` stays the page's.
+**`useAdminDrawer()`** reads and writes `?drawer=<resource>:<id>` and `?drawerTab=`.
 
-**`useDashboardParam(key, schema, fallback)`** — type-safe reader/writer for
-one dashboard URL search param, validated against a Zod schema.
+**`useDashboardParam(key, schema, fallback)`** reads and writes one dashboard
+search param, validated by a Zod schema.
 
-**`useRowNavigation()`** — returns `(href: string) => void`, the push a clicked
-table row performs. `TableWidget` uses it for `table()`'s `rowHref`; use it for
-your own row navigation so every table pushes the same way.
+**`useRowNavigation()`** returns the navigation a clicked row performs.
 
-**`useRowHrefClick(rows, rowHrefs)`** — the `DataTable` `onRowClick` for per-row
-hrefs indexed like `rows`: it pushes the clicked row's href, leaves a `null` entry
-inert and returns `undefined` when there are no hrefs. Enter on the focused row
-calls it too.
+**`useRowHrefClick(rows, rowHrefs)`** is a `DataTable` `onRowClick` for per-row
+hrefs; a `null` entry is inert.
 
-**`useMediaQuery(query)`** — subscribes to a CSS media query via
-`useSyncExternalStore`, with a server snapshot of `false` so SSR and first
-paint agree. `DataTable` uses `useMediaQuery("(max-width: 639px)")` for its
-card/table breakpoint; use the same query to match it in custom UI.
+**`useMediaQuery(query)`** subscribes to a media query, `false` on the server.
+`DataTable` switches to cards at `(max-width: 639px)`.
 
 ```tsx excerpt
 const isMobile = useMediaQuery("(max-width: 639px)");
@@ -294,39 +228,25 @@ const isMobile = useMediaQuery("(max-width: 639px)");
 
 ## Realtime
 
-Realtime status flows through a shared bus so many components can subscribe
-without opening one `EventSource` each.
+**`RealtimeProvider`** mounts one shared `EventSource` for its descendants and
+coalesces their refreshes. `Flowpanel` mounts it; mount it yourself in a
+`"bare"`-shell layout.
 
-**`RealtimeProvider`** — mounts one shared `EventSource` for every descendant
-`useRealtimeRefresh` call. It routes incoming envelopes (`{ channel, payload
-}`) to the subscribers of that channel, coalesces the resulting
-`router.refresh()`, and reconnects with backoff on error. Mount it once near
-the root of a `"bare"`-shell layout; `Flowpanel`/`AdminShell` mount it for you
-otherwise.
-
-**`useRealtimeRefresh(channels, options?)`** — subscribes a component to one
-or more channels and triggers a debounced `router.refresh()` on any event.
-Under a `RealtimeProvider` ancestor it joins the shared bus; standalone (no
-provider), `debounceMs` and `endpoint` apply directly and it opens one pooled
-`EventSource` carrying its whole channel set, shared with every other
-standalone subscriber of the same set.
+**`useRealtimeRefresh(channels, options?)`** runs a debounced `router.refresh()`
+on any event on its channels.
 
 ```tsx excerpt
 useRealtimeRefresh("resource.orders");
 ```
 
-**`RealtimeRefresh`** — the same thing as a component, for a server tree that
-has no client component to hang the hook on: `<RealtimeRefresh channels={…}
-debounceMs={…} />` renders nothing and subscribes its channels. This is what
-the dashboard widget renderer emits for a widget's `realtime` option.
+**`RealtimeRefresh`** is the same as a component that renders nothing.
 
 ```tsx excerpt
 <RealtimeRefresh channels={["resource.orders", "scraper:tick"]} />
 ```
 
-**`DevToolsPanel`** — floating "fp" panel showing realtime status, the
-active-channel list and event count. Development-only: it renders `null` when
-`NODE_ENV === "production"`. Mount it once, in development builds:
+**`DevToolsPanel`** shows realtime status, channels and event count in
+development; it renders `null` in production.
 
 ```tsx excerpt
 {process.env.NODE_ENV !== "production" && <DevToolsPanel />}
@@ -334,14 +254,11 @@ active-channel list and event count. Development-only: it renders `null` when
 
 <AutoTypeTable path="../../packages/react/src/devtools/DevToolsPanel.tsx" name="DevToolsPanelProps" />
 
-Lower-level bus access: `useRealtimeBus` (the raw `RealtimeBus`, or `null`
-outside a provider), `useRealtimeStatus`, `useRealtimeStats`
-(`{ channels, eventCount }`).
+Lower level: `useRealtimeBus`, `useRealtimeStatus`, `useRealtimeStats`.
 
 ## Theme utilities
 
-Non-React helpers behind `useTheme` and `ThemeScript`, for code that needs the
-theme outside a component.
+Helpers behind `useTheme` and `ThemeScript`.
 
 | Export | Purpose |
 | --- | --- |
@@ -349,18 +266,14 @@ theme outside a component.
 | `applyThemeClass`, `toggleTheme` | Apply a theme class to `<html>`, and flip the stored choice. |
 | `buildThemeInitScript` | Builds the inline script string `ThemeScript` renders. |
 
-`cn` (class name merge), `formatNumber`, `humanize`, `resolveFieldLabel`, and
-`triggerDownload` are general-purpose utilities exported alongside these for
-the same reason: components elsewhere in the package, and custom slots, both
-need them. `toneTextClass` and `toneFillClass` map each `Tone` to the text and fill class the
-built-in cards use; `@flowpanel/kit` exports the same classes for server components, because
-this entry is a client boundary.
+Also exported: `cn`, `formatNumber`, `humanize`, `resolveFieldLabel`,
+`triggerDownload`, and `toneTextClass` and `toneFillClass` (also in `@flowpanel/kit`
+for server components).
 
 ## Name collisions with `@flowpanel/kit`
 
-A handful of identifiers exist in both the config surface (`@flowpanel/kit`,
-re-exporting `@flowpanel/core`) and here. They are **different declarations**
-with the same name, so importing both into one module needs an alias.
+These names are different declarations in `@flowpanel/kit` and here; alias one
+when importing both.
 
 | Name | In `@flowpanel/kit` | In `@flowpanel/kit/react` |
 | --- | --- | --- |
@@ -375,20 +288,11 @@ import type { TableWidget } from "@flowpanel/kit";
 import { TableWidget as TableWidgetRenderer } from "@flowpanel/kit/react";
 ```
 
-`FormActionResult` is a fourth collision, and the harmless kind: it is
-declared **twice with identical members** — once here (what `Form` reads back
-from the route it POSTs to) and once in `@flowpanel/kit/next` (what
-`makeActions`' form routes answer with). Both are
-`{ ok: boolean; createdKey?: string; error?: string; fieldErrors?: Record<string, string> }`, so
-either import satisfies the other. They are still two declarations: if one
-ever gains a member, they stop being interchangeable.
+`FormActionResult` is declared here and in `@flowpanel/kit/next` with identical
+members.
 
 ## UI primitives
 
-`Dialog`, `Popover`, `Select`, `DropdownMenu`, `Tabs*`,
-plus `Button`, `Checkbox`, `Input`, `Label`, `Skeleton`, and `Switch`, are
-shadcn-derived primitives re-exported so custom slots and pages can be built
-in the same visual language as the rest of the admin. Each follows its
-upstream shadcn/Radix API as-is — FlowPanel does not wrap or change their
-props — so shadcn's own docs apply directly. `buttonVariants` and
-`DefaultButton` are FlowPanel additions alongside `Button`.
+`Dialog`, `Popover`, `Select`, `DropdownMenu`, `Tabs*`, `Button`, `Checkbox`,
+`Input`, `Label`, `Skeleton` and `Switch` are shadcn components with their upstream
+APIs. `buttonVariants` and `DefaultButton` accompany `Button`.

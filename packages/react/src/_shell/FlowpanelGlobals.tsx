@@ -16,11 +16,7 @@ export interface FlowpanelGlobalsProps {
   labels?: LabelsConfig;
   /** Default theme mode when the user has no stored choice. */
   themeMode?: ThemeMode;
-  /**
-   * Where the route handlers are mounted — `paths.api`, app-relative. A
-   * deployment `basePath` is prefixed here, because the browser does not add it
-   * to a fetch of its own.
-   */
+  /** Where the route handlers are mounted — `paths.api`, app-relative; a deployment `basePath` is prefixed here. */
   apiBase?: string;
   /** Override the SSE endpoint. Defaults to `${apiBase}/stream`. */
   realtimeEndpoint?: string;

@@ -1,5 +1,6 @@
 import type { BulkAction, RowAction } from "@flowpanel/kit";
 import { and, eq, inArray } from "drizzle-orm";
+import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 import { requireSandboxId } from "@/src/demo/sandbox/scope";
 import { refundInvoice } from "@/src/lib/billing";
@@ -11,7 +12,7 @@ type Match = typeof schema.matches.$inferSelect;
 type Monitor = typeof schema.monitors.$inferSelect;
 type Run = typeof schema.runs.$inferSelect;
 
-export const disableCustomer: RowAction<Customer>["run"] = async (row, _input, { db, scope }) => {
+export const disableCustomer: RowAction<Customer>["run"] = async (row, _input, { scope }) => {
   await db
     .update(schema.customers)
     .set({ deletedAt: new Date() })
@@ -23,7 +24,7 @@ export const disableCustomer: RowAction<Customer>["run"] = async (row, _input, {
 
 const setMonitorStatus =
   (status: "active" | "paused", verb: string): BulkAction<Monitor>["run"] =>
-  async (ids, _input, { db, scope }) => {
+  async (ids, _input, { scope }) => {
     const numericIds = ids.map(Number).filter(Number.isFinite);
     await db
       .update(schema.monitors)
@@ -42,7 +43,7 @@ export const resumeMonitors = setMonitorStatus("active", "Resumed");
 
 const reviewMatch =
   (status: "confirmed" | "rejected", message: string): RowAction<Match>["run"] =>
-  async (row, _input, { db, actorId, scope }) => {
+  async (row, _input, { actorId, scope }) => {
     await db
       .update(schema.matches)
       .set({ status, reviewedAt: new Date(), reviewedBy: actorId ?? "unknown" })
@@ -55,7 +56,7 @@ const reviewMatch =
 export const confirmMatch = reviewMatch("confirmed", "Match confirmed");
 export const rejectMatch = reviewMatch("rejected", "Match rejected");
 
-export const retryFailedRun: RowAction<Run>["run"] = async (row, _input, { db, scope }) => {
+export const retryFailedRun: RowAction<Run>["run"] = async (row, _input, { scope }) => {
   const sandboxId = requireSandboxId(scope);
   await retryRun(row.id, sandboxId);
   await db
@@ -75,7 +76,7 @@ export const retryFailedRun: RowAction<Run>["run"] = async (row, _input, { db, s
 export const refundPaidInvoice: RowAction<Invoice, { reason: string }>["run"] = async (
   row,
   input,
-  { db, scope },
+  { scope },
 ) => {
   await refundInvoice(row.stripeId);
   await db

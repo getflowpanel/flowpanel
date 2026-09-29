@@ -101,31 +101,9 @@ describe("migrate — adapter contract", () => {
       listAppliedMigrations: async () => new Set(["0001"]),
     });
 
-    expect(executor?.mode).toBe("adapter");
-    expect(executor?.warnings).toEqual([]);
     expect(await executor?.listAppliedMigrations()).toEqual(new Set(["0001"]));
     await executor?.applyMigration("0002", "select 1");
     expect(calls).toEqual(["0002:select 1"]);
-  });
-
-  it("runs legacy SQL before marking it and exposes the non-atomic warning", async () => {
-    const calls: string[] = [];
-    const executor = resolveMigrationExecutor({
-      runMigrationSql: async (sql) => {
-        calls.push(`run:${sql}`);
-      },
-      markMigrationApplied: async (id) => {
-        calls.push(`mark:${id}`);
-      },
-      listAppliedMigrations: async () => new Set(),
-    });
-
-    expect(executor?.mode).toBe("legacy-hooks");
-    expect(executor?.warnings).toHaveLength(1);
-    expect(executor?.warnings[0]).toContain("legacy non-atomic migration hooks");
-    expect(executor?.warnings[0]).toContain("concurrent migrators are not serialized");
-    await executor?.applyMigration("0001", "select 1");
-    expect(calls).toEqual(["run:select 1", "mark:0001"]);
   });
 
   it("rejects partial migration contracts", () => {
