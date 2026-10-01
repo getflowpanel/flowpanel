@@ -44,9 +44,7 @@ test.describe("M2.5 smokes", () => {
 
   test("Drawer opens on row click and shows header", async ({ page }) => {
     await page.goto("/admin/customers");
-    // Click the first data row (header row is index 0), on the email cell —
-    // company is the inline-edit showcase column and would start editing
-    // instead of opening the drawer if clicked.
+    // The first data row is index 1; its email cell opens the drawer.
     const firstRow = page.getByRole("row").nth(1);
     await firstRow.getByText(/@/).click();
     // Drawer surfaces as a role=dialog with the email as header.

@@ -65,4 +65,20 @@ describe("a column's secondary line", () => {
     );
     expect(screen.getByText("ada@example.com").className).toContain("text-fp-text-3");
   });
+
+  it("renders a timestamp through LocalTime, like the cell itself", () => {
+    const { container } = render(
+      <DataTable
+        columns={[{ field: "name", label: "Name", secondary: "joinedAt" }]}
+        rows={[{ id: "1", name: "Ada", joinedAt: new Date("2026-09-22T23:30:00.000Z") }]}
+        total={1}
+        page={1}
+        pageSize={10}
+        rowKey="id"
+      />,
+    );
+    expect(container.querySelector("time")?.getAttribute("dateTime")).toBe(
+      "2026-09-22T23:30:00.000Z",
+    );
+  });
 });

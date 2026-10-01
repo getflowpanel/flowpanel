@@ -65,19 +65,23 @@
     },
     "@flowpanel/kit": {
       "optional": true
+    },
+    "@playwright/test": {
+      "optional": true
     }
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.11.1",
+    "@axe-core/playwright": "catalog:",
     "@flowpanel/kit": "workspace:*",
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
-    "next": "^16.3.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "zod": "^4.0.0"
+    "zod": "catalog:"
   }
 }

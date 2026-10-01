@@ -10,7 +10,7 @@ import { newCommand } from "./commands/new";
 export function createProgram(): Command {
   const program = new Command()
     .name("flowpanel")
-    .description("Admin panels the fast way")
+    .description("Add a typed admin panel to a Next.js app")
     .version(pkg.version)
     .showSuggestionAfterError();
 

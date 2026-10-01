@@ -22,13 +22,13 @@ describe("readCompatibility", () => {
     );
   });
 
-  it("explains the checked Next.js CLI override", () => {
+  it("states the Next.js floor the CLI enforces", () => {
     expect(COMPATIBILITY_OVERRIDES).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "next",
           range: "^16.3.0",
-          reason: expect.stringMatching(/CLI.*doctor/i),
+          reason: "The CLI enforces 16.3 or newer.",
         }),
       ]),
     );

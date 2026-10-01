@@ -70,8 +70,7 @@ test.describe("M3 realtime", () => {
       const targetEmail = (await firstRowA.textContent())?.match(/\S+@\S+/)?.[0] ?? "";
       expect(targetEmail).toBeTruthy();
 
-      // Open drawer on that row in tab A, via the email cell — company is
-      // the inline-edit showcase column and would start editing instead.
+      // Open the drawer on that row in tab A from its email cell.
       await firstRowA.getByText(/@/).click();
       await expect(tabA.getByRole("dialog")).toBeVisible();
 

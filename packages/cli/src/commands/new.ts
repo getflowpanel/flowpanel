@@ -11,6 +11,7 @@ import { findAdminConfig } from "../scaffold/config-target";
 import { planNewIntoDir } from "../scaffold/plan-new";
 import { resolveProjectModule } from "../utils/module-path";
 import { writeJson, writePlanJson } from "../utils/output";
+import { noNextProject } from "../utils/project-root";
 import { readTsconfigOptions } from "../utils/tsconfig";
 
 /** Names a module exports, as far as a source scan can tell. */
@@ -113,6 +114,11 @@ export function parseAdapterKind(raw: string | undefined): AdapterKind | null {
   return ADAPTER_KINDS.includes(raw as AdapterKind) ? (raw as AdapterKind) : null;
 }
 
+/** The adapter a config source builds, so `new` writes the entry that adapter takes. */
+export function adapterKindOf(source: string): AdapterKind {
+  return /\bprismaAdapter\s*\(/.test(source) ? "prisma" : "drizzle";
+}
+
 interface NewOptions {
   table?: string;
   kind?: string;
@@ -193,7 +199,7 @@ export function newCommand(cli: Command): void {
     .command("new <resource>")
     .description("Add a resource(...) entry to the admin config")
     .option("--table <expr>", "First argument expression (default: schema.<resource>)")
-    .option("--kind <kind>", "Adapter kind: drizzle (default) or prisma", "drizzle")
+    .option("--kind <kind>", "Adapter kind: drizzle or prisma (default: the config's adapter)")
     .option("--dir <dir>", "Write the resource to <dir>/<name>.ts and add it to <dir>/index.ts")
     .option("--hidden", "Register the resource without a navigation entry")
     .option("--dry-run", "Print the filesystem plan without writing")
@@ -201,18 +207,21 @@ export function newCommand(cli: Command): void {
     .action(async (resource: string, opts: NewOptions) => {
       if (!opts.json) p.intro(pc.bgGreen(pc.black(" FlowPanel new ")));
       const cwd = process.cwd();
+      const notProject = await noNextProject(cwd);
+      if (notProject) stop(opts, notProject);
       try {
         if (opts.dir !== undefined) {
           await newIntoDir(cwd, resource, opts.dir, opts);
           return;
         }
-        const kind = parseAdapterKind(opts.kind);
-        if (kind === null) {
+        const requested = parseAdapterKind(opts.kind);
+        if (requested === null) {
           stop(opts, `Unknown --kind "${opts.kind}". Use one of: ${ADAPTER_KINDS.join(", ")}`);
         }
         const found = await findAdminConfig(cwd);
         if (!found) stop(opts, "flowpanel.config.ts not found — run `flowpanel init` first.");
         const source = await fs.readFile(found.file, "utf8");
+        const kind = opts.kind === undefined ? adapterKindOf(source) : requested;
         let resourceName = resource;
         if (kind === "drizzle" && opts.table === undefined) {
           const check = await checkSchemaExport(cwd, found.file, source, resource);

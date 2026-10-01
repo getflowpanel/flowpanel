@@ -4,7 +4,8 @@ import { DashboardDateRange, WidgetErrorBoundary } from "@flowpanel/next/client"
 import { KvCard, MetricCard, PageHeader, Section, StatCard, StatStrip } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
-import { findAll, listQueries, renderDetail } from "./detail-fixture";
+import { ResourceDetailPage } from "../pages/resource-detail";
+import { admin, findAll, listQueries, renderDetail } from "./detail-fixture";
 
 type Row = Record<string, unknown>;
 type Props = Record<string, unknown> & { children?: ReactNode };
@@ -33,6 +34,21 @@ const twoTabs = [
 ];
 
 describe("the record page", () => {
+  it("is a 404 for a record that does not exist", async () => {
+    const config = admin({ label: "User", columns: ["id"] });
+    const target = config.resourcesByName.get("users");
+    if (!target) throw new Error("fixture: users not registered");
+    await expect(
+      ResourceDetailPage({
+        config,
+        resource: target,
+        name: "users",
+        id: "missing",
+        req: new Request("http://localhost/admin/users/missing"),
+      }),
+    ).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
+  });
+
   it("renders the strip and the aside on every tab, and reads kv fields from the record", async () => {
     const detail = {
       stats: [stat("Seats", 3)],

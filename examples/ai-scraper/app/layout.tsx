@@ -9,7 +9,7 @@ import { DemoSandboxNotice } from "@/src/demo/ui/DemoSandboxNotice";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { template: "%s — ScrapeAI", default: "ScrapeAI — FlowPanel demo" },
+  title: { template: "%s — ScrapeAI", default: "ScrapeAI" },
   description: "Competitive price-intelligence operations, built with FlowPanel",
 };
 

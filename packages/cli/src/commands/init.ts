@@ -31,11 +31,19 @@ import {
 } from "../utils/detect";
 import { redactDiagnostic } from "../utils/fail";
 import { kitCompatibilityError, pinnedSpec } from "../utils/kit";
+import { plainLog } from "../utils/log";
 import { validateProjectImport } from "../utils/module-path";
 import { writeJson, writePlanJson } from "../utils/output";
+import { detectPrismaProvider } from "../utils/prisma-provider";
 import { inspectDependency } from "../utils/project-packages";
+import { noNextProject } from "../utils/project-root";
 import { tpl } from "../utils/template";
-import { type AuthSessionPlan, planAuthSession } from "./init-auth";
+import {
+  type AuthSessionPlan,
+  type DevStubReplacement,
+  planAuthSession,
+  planDevStubReplacement,
+} from "./init-auth";
 import {
   type DependencyRequirement,
   dependencyReport,
@@ -45,6 +53,24 @@ import {
   missingDependencies,
 } from "./init-dependencies";
 import { findAppLayout, patchLayoutWithSuppressHydration } from "./init-layout";
+import {
+  type AuthOutcome,
+  authNotice,
+  conflictMessage,
+  customisedSessionMessage,
+  nextSteps,
+  PROVIDER_FALLBACK_WARNING,
+  unsupportedProviderMessage,
+} from "./init-output";
+import {
+  ABORTED,
+  abortOnCancel,
+  askDevAuth,
+  askText,
+  authAnswerCheck,
+  shouldAskDevAuth,
+  writesSessionStub,
+} from "./init-prompts";
 
 interface InitOptions {
   yes?: boolean;
@@ -121,6 +147,12 @@ function runInstall(
 
 const GUESSED_AUTH_FILE = "server/lib/auth.ts";
 
+const METADATA_EXPORT = "export const generateMetadata = flowpanel.metadata;\n";
+
+function previousAdminPage(page: string): string {
+  return page.replace(METADATA_EXPORT, "");
+}
+
 /**
  * Import specifiers the generated config falls back to when nothing matched on
  * disk. Without an `@/*` alias the guess has to be relative, or it cannot resolve.
@@ -148,7 +180,7 @@ export function initCommand(cli: Command): void {
     .option("--yes", "Accept detected defaults without prompting (CI mode)")
     .option("--dry-run", "Print the filesystem plan without writing or installing")
     .option("--json", "Emit machine-readable JSON (implies --yes)")
-    .option("--path <url>", "Mount the admin at a static URL, for example /ops/admin")
+    .option("--path <path>", "Mount the admin at a static path, for example /ops/admin")
     .option("--db <module>", "Local module exporting your db or prisma client")
     .option("--schema <module>", "Local module exporting your Drizzle schema")
     .option("--auth <module>", "Local module exporting getSession(request)")
@@ -157,6 +189,12 @@ export function initCommand(cli: Command): void {
       const cwd = process.cwd();
       const unattended = opts.yes || opts.dryRun || opts.json;
       const humanOutput = !opts.json && process.stdout.isTTY;
+      const textOutput = !opts.json && !process.stdout.isTTY;
+      const colors = pc.createColors(Boolean(humanOutput));
+      const warn = (message: string) => {
+        if (humanOutput) p.log.warn(message);
+        else if (textOutput) plainLog.warn(message);
+      };
 
       if (!unattended && !process.stdin.isTTY) {
         failInit(
@@ -170,6 +208,8 @@ export function initCommand(cli: Command): void {
       const pm = pmDetection.manager;
       const pmc = pmCommands(pm);
       if (humanOutput) p.intro(pc.bgCyan(pc.black(" FlowPanel init ")));
+      const notProject = await noNextProject(cwd);
+      if (notProject) failInit(opts, notProject);
       const compatibility = await inspectProjectCompatibility(cwd);
       const prerequisiteFailure = firstCompatibilityFailure(
         compatibility.findings.filter(
@@ -195,6 +235,12 @@ export function initCommand(cli: Command): void {
       }
 
       const orm: "drizzle" | "prisma" = compatibility.orm;
+      const providerLookup = orm === "prisma" ? await detectPrismaProvider(cwd) : null;
+      if (providerLookup?.status === "unsupported") {
+        failInit(opts, unsupportedProviderMessage(providerLookup.provider));
+      }
+      const prismaProvider =
+        providerLookup?.status === "found" ? providerLookup.provider : "postgresql";
 
       const authProvider: AuthProvider | null = await detectAuthProvider(cwd);
 
@@ -239,8 +285,8 @@ export function initCommand(cli: Command): void {
       let auth = opts.auth ?? defaults.auth;
       let appName = defaults.appName;
 
-      if (unattended && guessed.length > 0 && humanOutput) {
-        p.log.warn(
+      if (unattended && guessed.length > 0) {
+        warn(
           `These paths were not detected and must resolve before installation:\n  ${guessed.join(
             "\n  ",
           )}\nUse --db and --schema to point to your modules, or re-run interactively.`,
@@ -248,54 +294,44 @@ export function initCommand(cli: Command): void {
       }
 
       if (!unattended) {
-        const appNameAns = await p.text({
-          message: "App name",
-          initialValue: defaults.appName,
-        });
-        if (p.isCancel(appNameAns)) {
-          p.cancel("Aborted — nothing was written.");
-          process.exit(1);
-        }
-        appName = appNameAns;
-
-        const dbAns = await p.text({
+        appName = await askText({ message: "App name", initialValue: defaults.appName });
+        db = await askText({
           message:
             orm === "prisma"
               ? "Prisma client path (must export `prisma`)"
               : "Drizzle db client path",
           initialValue: db,
+          check: (answer) => validateProjectImport(cwd, answer, orm === "prisma" ? "prisma" : "db"),
         });
-        if (p.isCancel(dbAns)) {
-          p.cancel("Aborted — nothing was written.");
-          process.exit(1);
-        }
-        db = dbAns;
-
         if (orm === "drizzle") {
-          const schemaAns = await p.text({
+          schemaPath = await askText({
             message: "Drizzle schema path",
             initialValue: schemaPath,
+            check: (answer) => validateProjectImport(cwd, answer),
           });
-          if (p.isCancel(schemaAns)) {
-            p.cancel("Aborted — nothing was written.");
-            process.exit(1);
-          }
-          schemaPath = schemaAns;
         }
-
-        const authAns = await p.text({
+        auth = await askText({
           message: "Auth helper path (must export getSession)",
           initialValue: auth,
+          check: authAnswerCheck({
+            plannedSession: authPlan?.specifier ?? null,
+            detectedAuth: detected.auth,
+            guessedAuth: guesses.auth,
+            validate: (answer) => validateProjectImport(cwd, answer, "getSession"),
+          }),
         });
-        if (p.isCancel(authAns)) {
-          p.cancel("Aborted — nothing was written.");
-          process.exit(1);
-        }
-        auth = authAns;
       }
 
       if (authPlan && auth !== authPlan.specifier) authPlan = null;
-      const sessionStub = detected.auth === null && auth === guesses.auth;
+      const sessionStub = writesSessionStub({
+        detectedAuth: detected.auth,
+        guessedAuth: guesses.auth,
+        answer: auth,
+      });
+      let devAuth = !!opts.devAuth;
+      if (shouldAskDevAuth({ unattended: !!unattended, sessionStub, devAuth })) {
+        devAuth = await askDevAuth();
+      }
       for (const [specifier, exportName, flag] of [
         [db, orm === "prisma" ? "prisma" : "db", "--db"],
         ...(orm === "drizzle" ? [[schemaPath, undefined, "--schema"]] : []),
@@ -309,8 +345,13 @@ export function initCommand(cli: Command): void {
           );
       }
 
-      const configTemplate =
-        orm === "prisma" ? "flowpanel.config.prisma.ts.txt" : "flowpanel.config.drizzle.ts.txt";
+      const sessionReplacement: DevStubReplacement | null =
+        devAuth && !sessionStub && !opts.auth ? await planDevStubReplacement(cwd, auth) : null;
+      if (sessionReplacement?.kind === "customised") {
+        failInit(opts, customisedSessionMessage(sessionReplacement.file));
+      }
+
+      const configTemplate = `flowpanel.config.${orm}${authPlan ? ".preset" : ""}.ts.txt`;
 
       const adminCssTemplate = "admin.css.txt";
 
@@ -339,6 +380,7 @@ export function initCommand(cli: Command): void {
         );
       }
       const mountWarnings: string[] = [];
+      if (providerLookup?.status === "missing") mountWarnings.push(PROVIDER_FALLBACK_WARNING);
       const conflictsFor = async (mount: string) => {
         const dir = `${appDir}${mount}/[[...slug]]`;
         const file = `${dir}/page.tsx`;
@@ -346,7 +388,8 @@ export function initCommand(cli: Command): void {
           CONFIG_IMPORT: configImportFor(dir, aliasMode),
         });
         const current = await fs.readFile(path.join(cwd, file), "utf8").catch(() => null);
-        return findAdminRouteConflicts(cwd, appDir, mount, current === expected ? file : undefined);
+        const ours = current === expected || current === previousAdminPage(expected);
+        return findAdminRouteConflicts(cwd, appDir, mount, ours ? file : undefined);
       };
       let routeConflicts = await conflictsFor(adminPath);
       if (
@@ -365,10 +408,8 @@ export function initCommand(cli: Command): void {
           `Nothing was written. ${adminPath} overlaps existing routes:\n  ${routeConflicts.join("\n  ")}\nChoose a free URL with --path /ops/admin.`,
         );
       }
-      if (humanOutput) {
-        for (const warning of mountWarnings) p.log.warn(warning);
-        p.note(adminPath, "Admin URL");
-      }
+      for (const warning of mountWarnings) warn(warning);
+      if (humanOutput) p.note(adminPath, "Admin URL");
       const adminPageDir = `${appDir}${adminPath}/[[...slug]]`;
       const apiRouteDir = `${appDir}${apiPath}/[...route]`;
       const sseRouteDir = `${appDir}${apiPath}/stream`;
@@ -381,6 +422,8 @@ export function initCommand(cli: Command): void {
           APP_NAME: appName,
           ADMIN_PATH: adminPath,
           API_PATH: apiPath,
+          CLI: `${pmc.exec} flowpanel`,
+          PROVIDER: prismaProvider,
         }),
         [`${adminPageDir}/page.tsx`]: await tpl("admin-page.tsx.txt", {
           CONFIG_IMPORT: configImportFor(adminPageDir, aliasMode),
@@ -399,9 +442,8 @@ export function initCommand(cli: Command): void {
       const sessionStubFile = authPlan?.file ?? guessedAuthFile(aliasMode);
       if (authPlan) files[sessionStubFile] = await tpl(authPlan.template, authPlan.vars);
       else if (sessionStub)
-        files[sessionStubFile] = await tpl(
-          opts.devAuth ? "dev-session.ts.txt" : "auth-session.ts.txt",
-        );
+        files[sessionStubFile] = await tpl(devAuth ? "dev-session.ts.txt" : "auth-session.ts.txt");
+      else if (sessionReplacement) files[sessionReplacement.file] = sessionReplacement.content;
 
       const existingLayout = await findAppLayout(cwd);
       const adminLayoutDir = `${appDir}${adminPath}`;
@@ -417,8 +459,18 @@ export function initCommand(cli: Command): void {
           CSS_IMPORT: cssImportSpec,
         },
       );
+      files[`${adminLayoutDir}/not-found.tsx`] = await tpl("admin-not-found.tsx.txt", {
+        CONFIG_IMPORT: configImportFor(adminLayoutDir, aliasMode),
+      });
 
-      const expectedContents: Record<string, string> = {};
+      const expectedContents: Record<string, string> = {
+        [`${adminPageDir}/page.tsx`]: previousAdminPage(
+          files[`${adminPageDir}/page.tsx`] as string,
+        ),
+      };
+      if (sessionReplacement) {
+        expectedContents[sessionReplacement.file] = sessionReplacement.expectedContent;
+      }
       let manualHydrationFix: string | null = null;
       if (existingLayout) {
         const existingLayoutSource = await fs.readFile(path.join(cwd, existingLayout), "utf8");
@@ -428,9 +480,9 @@ export function initCommand(cli: Command): void {
           expectedContents[existingLayout] = existingLayoutSource;
         } else if (!existingLayoutSource.includes("suppressHydrationWarning")) {
           manualHydrationFix = existingLayout;
-          mountWarnings.push(
-            `Could not add suppressHydrationWarning to ${existingLayout}; add it to <html> by hand.`,
-          );
+          const message = `Could not add suppressHydrationWarning to ${existingLayout}; add it to <html> by hand.`;
+          mountWarnings.push(message);
+          if (opts.dryRun) warn(message);
         }
       }
 
@@ -445,20 +497,11 @@ export function initCommand(cli: Command): void {
       const plan = await createFilesystemPlan(cwd, intents);
       const conflicts = plan.operations.filter((operation) => operation.kind === "conflict");
       if (conflicts.length > 0) {
-        if (opts.json) writePlanJson("init", plan, false);
-        else if (humanOutput) {
-          p.cancel(
-            `Nothing was written. FlowPanel will not overwrite files it does not own:\n  ${conflicts
-              .map((operation) => operation.path)
-              .join(
-                "\n  ",
-              )}\nMove them, merge the generated changes manually, or run doctor for details.`,
-          );
-        } else
-          process.stderr.write(
-            "FlowPanel will not overwrite files it does not own. Re-run with --json for the plan.\n",
-          );
-        process.exit(1);
+        if (opts.json) {
+          writePlanJson("init", plan, false);
+          process.exit(1);
+        }
+        failInit(opts, conflictMessage(conflicts.map((operation) => operation.path)));
       }
 
       if (opts.dryRun) {
@@ -487,15 +530,22 @@ export function initCommand(cli: Command): void {
             .join("\n"),
           "Filesystem plan",
         );
-        const confirmed = await p.confirm({ message: "Apply these changes?", initialValue: true });
-        if (p.isCancel(confirmed) || !confirmed) {
-          p.cancel("Aborted — nothing was written.");
+        const confirmed = abortOnCancel(
+          await p.confirm({ message: "Apply these changes?", initialValue: true }),
+        );
+        if (!confirmed) {
+          p.cancel(ABORTED);
           return;
         }
       }
 
       const writtenPaths = await applyFilesystemPlan(plan);
-      if (humanOutput && writtenPaths.length > 0) p.note(writtenPaths.join("\n"), "Wrote");
+      if (writtenPaths.length > 0) {
+        if (humanOutput) p.note(writtenPaths.join("\n"), "Wrote");
+        else if (textOutput) {
+          process.stdout.write(`Wrote\n${writtenPaths.map((file) => `  ${file}`).join("\n")}\n`);
+        }
+      }
 
       const beforeInstall = await inspectRequirements(cwd, REQUIRED_DEPS, inspectDependency);
       const missing = missingDependencies(beforeInstall);
@@ -510,7 +560,7 @@ export function initCommand(cli: Command): void {
         // A spinner in a pipe floods CI logs with ANSI redraw frames.
         const depSpinner = humanOutput ? p.spinner() : null;
         if (depSpinner) depSpinner.start(`Installing ${names} with ${pm}`);
-        else if (humanOutput) p.log.step(`Installing ${names} with ${pm}…`);
+        else if (textOutput) plainLog.info(`Installing ${names} with ${pm}`);
         const outcome = await installMissing({
           cwd,
           pm,
@@ -523,10 +573,10 @@ export function initCommand(cli: Command): void {
         installFailure = outcome.failure;
         if (installFailure === null) {
           if (depSpinner) depSpinner.stop(`Installed ${names}`);
-          else if (humanOutput) p.log.success(`Installed ${names}`);
+          else if (textOutput) plainLog.ok(`Installed ${names}`);
         } else {
           if (depSpinner) depSpinner.stop("Dependency install failed");
-          else if (humanOutput) p.log.error("Dependency install failed");
+          else if (textOutput) plainLog.err("Dependency install failed");
         }
       }
       const afterInstall = await inspectRequirements(cwd, REQUIRED_DEPS, inspectDependency);
@@ -543,48 +593,37 @@ export function initCommand(cli: Command): void {
         if (!depsOk) p.note(dependencies.recovery.join("\n"), "Remaining recovery");
       }
 
-      const outroLines = [
-        "Next:",
-        `  ${pc.cyan(`${pmc.run} dev`)}  ${pc.dim("— start Next.js")}`,
-        `  Open your configured Next.js origin at ${pc.cyan(adminPath)}  ${pc.dim(`— scaffolded under ${appDir}/`)}`,
-      ];
+      const authOutcome: AuthOutcome = authPlan
+        ? { kind: "preset", file: sessionStubFile, provider: authPlan.provider }
+        : sessionStub
+          ? { kind: devAuth ? "dev-stub" : "closed-stub", file: sessionStubFile }
+          : sessionReplacement
+            ? { kind: "dev-stub", file: sessionReplacement.file }
+            : { kind: "existing" };
+      const paragraphs: string[] = [];
       if (!depsOk) {
-        outroLines.splice(
-          0,
-          outroLines.length,
-          `${pc.yellow("⚠ FlowPanel init is incomplete")}`,
-          ...(dependencies.reason ? [dependencies.reason] : []),
-          ...dependencies.recovery,
+        paragraphs.push(
+          [
+            colors.yellow("⚠ FlowPanel init is incomplete"),
+            ...(dependencies.reason ? [dependencies.reason] : []),
+            ...dependencies.recovery,
+          ].join("\n"),
         );
         process.exitCode = 1;
-      } else if (dependencies.warning) {
-        outroLines.unshift(
-          `${pc.yellow("⚠")} ${pm} exited with an error while installing something else:`,
-          dependencies.warning,
-          "",
-        );
-      }
-      if (manualHydrationFix && depsOk) {
-        outroLines.unshift(
-          "",
-          `  ${pc.yellow("!")} Could not add suppressHydrationWarning to ${pc.cyan(manualHydrationFix)}`,
-          `    Add it to that file's <html> tag by hand — ThemeScript sets an attribute on it before hydration.`,
-        );
-      }
-      if (authPlan && depsOk) {
-        outroLines.unshift(
-          "",
-          `  ${pc.green("✔")} Recognised ${authPlan.provider}: ${pc.cyan(sessionStubFile)}`,
-          "    Built on the matching preset. Map auth.role to your own roles before deploying.",
-        );
-      } else if (sessionStub && depsOk) {
-        outroLines.unshift(
-          "",
-          `  ${pc.yellow("!")} Authentication setup: ${pc.cyan(sessionStubFile)}`,
-          opts.devAuth
-            ? "    --dev-auth enabled: every development request is an admin. Replace before deploying."
-            : "    Access is denied until getSession and auth.role are connected to your real provider.",
-        );
+      } else {
+        if (dependencies.warning) {
+          paragraphs.push(
+            `${colors.yellow("⚠")} ${pm} exited with an error while installing something else:\n${dependencies.warning}`,
+          );
+        }
+        if (manualHydrationFix) {
+          paragraphs.push(
+            `${colors.yellow("!")} Could not add suppressHydrationWarning to ${colors.cyan(manualHydrationFix)}\n  Add it to that file's <html> tag by hand — ThemeScript sets an attribute on it before hydration.`,
+          );
+        }
+        const notice = authNotice(authOutcome);
+        if (notice) paragraphs.push(notice);
+        paragraphs.push(nextSteps(pmc, adminPath, colors, orm === "prisma" ? "model" : "table"));
       }
       if (opts.json) {
         writeJson({
@@ -610,14 +649,16 @@ export function initCommand(cli: Command): void {
           authentication: authPlan
             ? `preset:${authPlan.provider}`
             : sessionStub
-              ? opts.devAuth
+              ? devAuth
                 ? "development"
                 : "setup-required"
-              : "existing-helper",
+              : sessionReplacement
+                ? "development"
+                : "existing-helper",
           ...(authProvider ? { authProvider } : {}),
           plan: publicPlan(plan),
         });
-      } else if (humanOutput) p.outro(outroLines.join("\n"));
-      else process.stdout.write(`${outroLines.join("\n")}\n`);
+      } else if (humanOutput) p.outro(paragraphs.join("\n\n"));
+      else process.stdout.write(`${paragraphs.join("\n\n")}\n`);
     });
 }

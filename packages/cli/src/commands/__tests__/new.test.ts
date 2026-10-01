@@ -5,7 +5,14 @@ import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 import { editConfigToAddResource } from "../../eject/addResource";
 import { tpl } from "../../utils/template";
-import { checkSchemaExport, parseAdapterKind, unlinkedColumns } from "../new";
+import {
+  adapterKindOf,
+  checkSchemaExport,
+  newCommand,
+  parseAdapterKind,
+  unlinkedColumns,
+} from "../new";
+import { runCommand } from "./command-harness";
 
 const BASE_CONFIG = `import { defineAdmin, resource } from "@flowpanel/kit";
 import * as schema from "./db/schema";
@@ -140,6 +147,8 @@ async function initTemplate(orm: "drizzle" | "prisma"): Promise<string> {
     SCHEMA: "@/server/lib/db/schema",
     AUTH: "@/server/lib/auth",
     APP_NAME: "Fixture",
+    CLI: "pnpm flowpanel",
+    PROVIDER: "postgresql",
   });
 }
 
@@ -194,24 +203,43 @@ export default defineAdmin({ resources: [] });
     expect(out).toContain('import { defineAdmin, resource } from "./admin/kit";');
   });
 
-  it("keeps the commented worked example the template ships", async () => {
-    const out = editConfigToAddResource(await initTemplate("drizzle"), "users");
-    expect(out).toContain(
-      '    // resource(schema.users, { columns: ["email", "name", "createdAt"], search: ["email"] }),',
-    );
-    expect(out).toContain("    resource(schema.users, {}),");
-  });
-
-  it("drops the import instruction it has just carried out", async () => {
+  it("removes the placeholder comment once it has added the first entry", async () => {
     for (const orm of ["drizzle", "prisma"] as const) {
       const template = await initTemplate(orm);
-      expect(template).toContain("// Add `resource` to the");
+      expect(template).toMatch(/^ {4}\/\/ pnpm flowpanel new <(table|model)> {2}adds an entry;/m);
       const out = editConfigToAddResource(template, orm === "prisma" ? "User" : "users", {
         kind: orm,
       });
-      expect(out).not.toContain("// Add `resource` to the");
+      expect(out).not.toContain("adds an entry");
       expect(out).toContain('import { defineAdmin, resource } from "@flowpanel/kit";');
+      expect(out).toMatch(/resources: \[\n {4}resource\(/);
     }
+  });
+
+  it("removes the placeholder whichever package manager wrote it", () => {
+    for (const cli of ["npx flowpanel", "yarn flowpanel", "bunx flowpanel"]) {
+      const source = `import { defineAdmin } from "@flowpanel/kit";
+export default defineAdmin({
+  resources: [
+    // ${cli} new <table>  adds an entry; or write resource(schema.users, {})
+  ],
+});
+`;
+      expect(editConfigToAddResource(source, "users")).not.toContain("adds an entry");
+    }
+  });
+
+  it("drops the import instruction that 0.3 templates carried", () => {
+    const legacy = `import { defineAdmin } from "@flowpanel/kit";
+export default defineAdmin({
+  resources: [
+    // Add \`resource\` to the "@flowpanel/kit" import above, then:
+  ],
+});
+`;
+    const out = editConfigToAddResource(legacy, "users");
+    expect(out).not.toContain("// Add `resource` to the");
+    expect(out).toContain('import { defineAdmin, resource } from "@flowpanel/kit";');
   });
 });
 
@@ -345,5 +373,52 @@ describe("unlinkedColumns", () => {
       { table: "order", column: "orderId" },
     ]);
     expect(unlinkedColumns([])).toEqual([]);
+  });
+});
+
+describe("adapterKindOf", () => {
+  it("reads the adapter the config builds", () => {
+    expect(adapterKindOf("adapter: prismaAdapter({ prisma, provider: 'postgresql' }),")).toBe(
+      "prisma",
+    );
+    expect(adapterKindOf("adapter: drizzleAdapter({ db, schema }),")).toBe("drizzle");
+    expect(adapterKindOf("export default defineAdmin({});")).toBe("drizzle");
+  });
+});
+
+describe("new command", () => {
+  const NEXT = JSON.stringify({ dependencies: { next: "16.3.4" } });
+  const PRISMA_CONFIG = `import { defineAdmin } from "@flowpanel/kit";
+import { prismaAdapter } from "@flowpanel/kit/prisma";
+import { prisma } from "./prisma";
+
+export default defineAdmin({
+  adapter: prismaAdapter({ prisma, provider: "postgresql" }),
+  resources: [
+    // pnpm flowpanel new <model>  adds an entry; or write resource("User", { columns: ["email"] })
+  ],
+});
+`;
+
+  it("writes the entry the config's adapter takes when --kind is absent", async () => {
+    const run = await runCommand(newCommand, ["new", "User", "--json"], {
+      "package.json": NEXT,
+      "flowpanel.config.ts": PRISMA_CONFIG,
+    });
+    expect(run.exit).toBeNull();
+    expect(JSON.parse(run.stdout)).toMatchObject({ command: "new", applied: true });
+  });
+
+  it("names the directory when it is not a Next.js project", async () => {
+    const run = await runCommand(newCommand, ["new", "users"], {});
+    expect(run.exit).toBe(1);
+    expect(run.stdout).toContain(`No Next.js project found in ${run.dir}.`);
+    expect(run.stdout).toContain("Run this from your project root.");
+  });
+
+  it("puts the wrong-directory message in the JSON document", async () => {
+    const run = await runCommand(newCommand, ["new", "users", "--json"], {});
+    expect(run.exit).toBe(1);
+    expect(JSON.parse(run.stdout)).toMatchObject({ command: "new", applied: false });
   });
 });

@@ -6,7 +6,7 @@ The config entry point and every option it accepts.
 
 Docs: https://flowpanel.tech/docs/reference/define-config
 
-Documented types: defineAdmin, AdminDefinition, AuthConfig, ThemeConfig, ShellConfig, AuditConfig, SecurityConfig, AuditEvent, PluralLabel, LabelsConfig, CommandPaletteConfig, CommandGroup, CommandItem, ResolvedAdminConfig
+Documented types: defineAdmin, AdminDefinition, AuthConfig, ThemeConfig, ShellConfig, AuditConfig, AuditEvent, SecurityConfig, PluralLabel, LabelsConfig, CommandPaletteConfig, CommandGroup, CommandItem, ResolvedAdminConfig
 
 `defineAdmin` takes the config object, validates it, fills defaults, and returns
 the `ResolvedAdminConfig` that `createFlowpanel` serves. It does no I/O, so a page,
@@ -166,19 +166,6 @@ and `collapsed` do not show there.
 | `enabled?` | `boolean` | Turn auditing on. Individual resources can opt out with `audit: false`. |
 | `sink?` | `(event: AuditEvent) => Promise<void>` | Where events go — your table, your log pipeline, anywhere. |
 
-### SecurityConfig
-
-Cross-origin writes are blocked by default. `trustedOrigins` allows exact
-origins. Requests without browser `Origin` or Fetch Metadata headers, such as
-server-to-server calls, pass this check.
-
-`SecurityConfig`
-
-| Property | Type | Notes |
-| --- | --- | --- |
-| `sameOrigin?` | `boolean` | Reject cross-origin write requests using Origin and Fetch Metadata headers. Enabled by default. Disable only when an upstream gateway enforces an equivalent policy. |
-| `trustedOrigins?` | `string[]` | Additional exact origins allowed to submit writes, for example `https://ops.example.com`. |
-
 #### AuditEvent
 
 What `audit.sink` receives. FlowPanel stores no audit rows itself.
@@ -195,6 +182,19 @@ What `audit.sink` receives. FlowPanel stores no audit rows itself.
 | `ip?` | `string` |  |
 | `userAgent?` | `string` |  |
 | `at` | `Date` |  |
+
+### SecurityConfig
+
+Cross-origin writes are blocked by default. `trustedOrigins` allows exact
+origins. Requests without browser `Origin` or Fetch Metadata headers, such as
+server-to-server calls, pass this check.
+
+`SecurityConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `sameOrigin?` | `boolean` | Reject cross-origin write requests using Origin and Fetch Metadata headers. Enabled by default. Disable only when an upstream gateway enforces an equivalent policy. |
+| `trustedOrigins?` | `string[]` | Additional exact origins allowed to submit writes, for example `https://ops.example.com`. |
 
 ### RateLimitConfig
 
@@ -291,7 +291,7 @@ in browser code); `labels: DEFAULT_LABELS` keeps English under a Russian locale.
 | `timeline?` | `TimelineLabels` | `timeline()` chrome. |
 | `heatmap?` | `HeatmapLabels` | `heatmap()` chrome. |
 | `checklist?` | `ChecklistLabels` | `checklist()` chrome. |
-| `errors?` | `{ /** Failed page read. Use `{resource}` and `{operation}`. */ queryTitle?: string; /** What to check after a failed page read. */ queryHint?: string; /** Correlation line tying the card to the server log. Use `{id}`. */ requestId?: string; /** Failed widget, shown in the widget's own frame. */ widgetTitle?: string; widgetHint?: string; /** Button that re-runs a failed widget. */ retry?: string; /** Disclosure holding the error's own message, outside production only. */ details?: string; }` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
+| `errors?` | `{ /** Failed page read. Use `{resource}` and `{operation}`. */ queryTitle?: string; /** What to check after a failed page read. */ queryHint?: string; /** What to check when the database refused the connection or could not be reached. */ connectionHint?: string; /** Correlation line tying the card to the server log. Use `{id}`. */ requestId?: string; /** Failed widget, shown in the widget's own frame. */ widgetTitle?: string; widgetHint?: string; /** Button that re-runs a failed widget. */ retry?: string; /** Disclosure holding the error's own message, outside production only. */ details?: string; }` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
 | `palette?` | `{ placeholder?: string; noResults?: string; title?: string; description?: string; loading?: string; }` | ⌘K palette. |
 
 ### CommandPaletteConfig
@@ -382,9 +382,8 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 
 ### Default bulk delete
 
-When a resource has delete enabled (i.e. **not** `delete: { disabled: true }`)
-and declares no `bulkActions`, `defineAdmin` injects a default `delete` bulk
-action. Set `delete.confirm` to replace its confirmation description. Opt out
+When a resource has delete enabled and declares no `bulkActions`, `defineAdmin`
+injects a default `delete` bulk action. Set `delete.confirm` to replace its confirmation description. Opt out
 with `bulkActions: []` or `delete: { disabled: true }`.
 
 `readOnly: true` short-circuits the whole rule: a read-only admin rewrites

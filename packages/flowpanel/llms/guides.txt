@@ -156,7 +156,9 @@ auth: {
 2. Signed in without the role, the page redirects to `forbiddenUrl` and the API returns 403.
 3. Signed in with the role, pages and API calls succeed.
 
-Call one action route as a non-admin as well: the server response is the proof, not a hidden button.
+Without a `signInUrl`, the page shows a sign-in screen instead of redirecting. In development it says that `auth.session` returned null and links to this guide.
+
+Call one action route as a non-admin as well and check the server response.
 
 In production, a writable admin without `auth.requireRole` refuses to start. Only an admin that is both `allowUnauthenticated: true` and `readOnly: true` may run without it.
 

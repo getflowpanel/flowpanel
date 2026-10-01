@@ -15,6 +15,7 @@ import {
   writeTarget,
 } from "@flowpanel/core";
 import { AutoForm, PageHeader } from "@flowpanel/react";
+import { notFound } from "next/navigation";
 import { writableColumns } from "../actions/field-pipeline";
 import { roleAllows } from "../runtime/action-helpers";
 import { buildApiHref, buildHref } from "../runtime/href";
@@ -23,7 +24,6 @@ import { buildRequestContext } from "../runtime/request-setup";
 import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
 import { singularLabel } from "../runtime/resource-title";
 import { scopeBinding } from "../runtime/scope-binding";
-import { NotFound } from "./not-found";
 
 export interface ResourceEditPageProps {
   config: ResolvedAdminConfig;
@@ -108,7 +108,7 @@ export async function ResourceEditPage({
   const row = (await runWithRequestContext(reqCtx, () =>
     config.adapter.get(resource.ref, ctx),
   )) as Record<string, unknown> | null;
-  if (!row) return <NotFound />;
+  if (!row) notFound();
 
   const action = buildApiHref(config, name, id, "edit");
   const projectedValues = projectRowFields(row, select);

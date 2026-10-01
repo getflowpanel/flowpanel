@@ -19,6 +19,7 @@ function renderCellContent<Row extends Record<string, unknown>>(
   prerendered: React.ReactNode | undefined,
   inlineEditResource: string | undefined,
   formatting: ResolvedFormatting,
+  rowClickable: boolean,
 ): React.ReactNode {
   // Without an identifier the update request has no row to address.
   if (c.editable && inlineEditResource && rowId !== null) {
@@ -29,6 +30,7 @@ function renderCellContent<Row extends Record<string, unknown>>(
         field={c.field}
         value={r[c.field]}
         {...(c.type ? { valueType: c.type } : {})}
+        rowClickable={rowClickable}
       />
     );
   }
@@ -84,7 +86,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
       onClick={() => onRowClick?.(row)}
       className={cn(
         // Not `transition-colors`: that list includes `outline-color`, which would fade the ring in on every move.
-        "border-t border-fp-border-1 text-fp-text-1 transition-[background-color]",
+        "group/row border-t border-fp-border-1 text-fp-text-1 transition-[background-color]",
         onRowClick && "cursor-pointer hover:bg-fp-bg-2/70",
         isSelected && "bg-fp-accent/5",
         active && "bg-fp-accent/5 outline outline-2 -outline-offset-2 outline-fp-focus/60",
@@ -117,6 +119,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
           prerendered,
           inlineEditResource,
           formatting,
+          onRowClick !== undefined,
         );
         return (
           <td

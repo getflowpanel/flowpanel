@@ -2,6 +2,7 @@ import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { FlowpanelError, formatLabel, mergeLabels } from "@flowpanel/core";
 import type * as React from "react";
 import { ServerCard } from "./_server-card";
+import { isConnectionError } from "./connection-error";
 
 /** Which read failed, in the words the reader of the page already knows. */
 export interface QuerySite {
@@ -46,7 +47,9 @@ export function QueryErrorCard({
           operation: site.operation,
         })}
       </p>
-      <p className="mt-2 text-xs text-fp-text-3">{labels.errors.queryHint}</p>
+      <p className="mt-2 text-xs text-fp-text-3">
+        {isConnectionError(cause) ? labels.errors.connectionHint : labels.errors.queryHint}
+      </p>
       {detail ? (
         <details className="mt-2 text-xs text-fp-text-3">
           <summary className="cursor-pointer">{labels.errors.details}</summary>

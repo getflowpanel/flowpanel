@@ -43,15 +43,15 @@ export function GetStarted() {
           for the first resource and dashboard.
         </p>
         <p>
-          Two examples in the repo run locally with seeded data:{" "}
+          Two examples run locally with seeded data: ScrapeAI (
           <a href={scraper.url} target="_blank" rel="noreferrer" className={linkClass}>
-            {scraper.name}
+            <InlineCode>{scraper.name}</InlineCode>
           </a>
-          , the live demo, and{" "}
+          ), the live demo, and a small admin behind Clerk (
           <a href={clerk.url} target="_blank" rel="noreferrer" className={linkClass}>
-            {clerk.name}
+            <InlineCode>{clerk.name}</InlineCode>
           </a>
-          , a small admin behind Clerk.
+          ).
         </p>
       </div>
     </Section>

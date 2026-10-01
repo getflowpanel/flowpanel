@@ -40,6 +40,13 @@ export const FIXABLE_FILES: ReadonlyArray<FixableFile> = [
     label: "Catch-all admin page",
     needsConfigImport: true,
   },
+  {
+    mount: "admin",
+    relToMount: "not-found.tsx",
+    templateName: "admin-not-found.tsx.txt",
+    label: "Not-found page",
+    needsConfigImport: true,
+  },
 ];
 
 /** `relToAppDir === null` files (currently just the seed migration) live at a fixed repo-root path. */

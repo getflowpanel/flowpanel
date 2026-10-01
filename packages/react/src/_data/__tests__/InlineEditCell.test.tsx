@@ -11,62 +11,127 @@ import { InlineEditCell } from "../InlineEditCell";
 
 afterEach(cleanup);
 
-describe("InlineEditCell", () => {
-  it("stops single-click propagation so a wrapping row-click handler doesn't fire", () => {
-    // The runtime always wires a drawer row-click handler on the <tr>;
-    // without stopPropagation activating the cell also opens the drawer.
-    const onRowClick = vi.fn();
-    render(
-      // biome-ignore lint/a11y/noStaticElementInteractions: test harness stands in for DataTableRow's <tr onClick>.
-      // biome-ignore lint/a11y/useKeyWithClickEvents: same — mirrors the real <tr>, which is also click-only.
-      <div onClick={onRowClick}>
-        <InlineEditCell resource="users" id="1" field="name" value="Alice" />
-      </div>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: /edit name/i }));
+const editButtons = () => screen.getAllByRole("button", { name: "Edit name" });
+const editButton = () => screen.getByRole("button", { name: "Edit name" });
+const editing = () => screen.queryByDisplayValue("Alice") !== null;
+
+function inRow(rowClickable: boolean) {
+  const onRowClick = vi.fn();
+  const onRowKeyDown = vi.fn();
+  render(
+    // biome-ignore lint/a11y/noStaticElementInteractions: test harness stands in for DataTableRow's <tr onClick> and the keyboard-navigable <tbody>.
+    <div onClick={onRowClick} onKeyDown={onRowKeyDown}>
+      <InlineEditCell
+        resource="users"
+        id="1"
+        field="name"
+        value="Alice"
+        {...(rowClickable ? { rowClickable: true } : {})}
+      />
+    </div>,
+  );
+  return { onRowClick, onRowKeyDown };
+}
+
+describe("InlineEditCell in a row that does not open", () => {
+  it("is one button named after the action, holding the value and the pencil", () => {
+    inRow(false);
+    expect(editButtons()).toHaveLength(1);
+    expect(editButton().textContent).toBe("Alice");
+    expect(editButton().querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("edits on a pointer click without reaching the row", () => {
+    const { onRowClick } = inRow(false);
+    fireEvent.click(editButton(), { detail: 1 });
+    expect(editing()).toBe(true);
     expect(onRowClick).not.toHaveBeenCalled();
   });
 
-  it("click enters edit mode, so button activation from any input device works", () => {
-    render(<InlineEditCell resource="users" id="1" field="name" value="Alice" />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit name" }));
-    expect(screen.getByDisplayValue("Alice")).toBeTruthy();
+  it.each(["Enter", " "])("edits on %j without bubbling to the row", (key) => {
+    const { onRowKeyDown } = inRow(false);
+    fireEvent.keyDown(editButton(), { key });
+    expect(editing()).toBe(true);
+    expect(onRowKeyDown).not.toHaveBeenCalled();
   });
 
-  it("names the cell after the action, not the pointer gesture", () => {
-    render(<InlineEditCell resource="users" id="1" field="name" value="Alice" />);
-    expect(screen.getByRole("button", { name: "Edit name" })).toBeTruthy();
+  it("does not edit on a double click event of its own", () => {
+    inRow(false);
+    fireEvent.doubleClick(editButton());
+    expect(editing()).toBe(false);
   });
 
-  it("returns focus to the cell when editing is cancelled", () => {
-    render(<InlineEditCell resource="users" id="1" field="name" value="Alice" />);
-    const cell = screen.getByRole("button", { name: "Edit name" });
-    cell.focus();
-    fireEvent.click(cell);
+  it("returns focus to the button when editing is cancelled", () => {
+    inRow(false);
+    editButton().focus();
+    fireEvent.click(editButton(), { detail: 1 });
     const input = screen.getByDisplayValue("Alice");
     expect(document.activeElement).toBe(input);
     fireEvent.keyDown(input, { key: "Escape" });
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit name" }));
+    expect(document.activeElement).toBe(editButton());
+  });
+});
+
+describe("InlineEditCell in a clickable row", () => {
+  it("shows the value as plain text and the pencil as the one edit button", () => {
+    inRow(true);
+    expect(editButtons()).toHaveLength(1);
+    expect(screen.getByText("Alice").closest("button")).toBeNull();
+    expect(screen.getByText("Alice").hasAttribute("aria-label")).toBe(false);
+    expect(editButton().querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(editButton().hasAttribute("tabindex")).toBe(false);
   });
 
-  it("double-click still enters edit mode", () => {
-    render(<InlineEditCell resource="users" id="1" field="name" value="Alice" />);
-    const cell = screen.getByRole("button", { name: /edit name/i });
-    fireEvent.doubleClick(cell);
-    expect(screen.getByDisplayValue("Alice")).toBeTruthy();
+  it("lets a pointer click on the value open the row instead of editing", () => {
+    const { onRowClick } = inRow(true);
+    fireEvent.click(screen.getByText("Alice"), { detail: 1 });
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect(editing()).toBe(false);
   });
 
-  it("Enter on the focused cell enters edit mode without bubbling to the row", () => {
-    const onRowKeyDown = vi.fn();
-    render(
-      // biome-ignore lint/a11y/noStaticElementInteractions: test harness stands in for the keyboard-navigable <tbody>.
-      <div onKeyDown={onRowKeyDown}>
-        <InlineEditCell resource="users" id="1" field="name" value="Alice" />
-      </div>,
-    );
-    fireEvent.keyDown(screen.getByRole("button", { name: /edit name/i }), { key: "Enter" });
-    expect(screen.getByDisplayValue("Alice")).toBeTruthy();
+  it("opens the row on a real double click and never starts editing", () => {
+    const { onRowClick } = inRow(true);
+    const text = screen.getByText("Alice");
+    fireEvent.click(text, { detail: 1 });
+    fireEvent.click(text, { detail: 2 });
+    fireEvent.doubleClick(text, { detail: 2 });
+    expect(onRowClick).toHaveBeenCalled();
+    expect(editing()).toBe(false);
+  });
+
+  it("edits from a pointer click on the pencil without opening the row", () => {
+    const { onRowClick } = inRow(true);
+    fireEvent.click(editButton(), { detail: 1 });
+    expect(editing()).toBe(true);
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it("edits when assistive technology activates the pencil", () => {
+    const { onRowClick } = inRow(true);
+    fireEvent.click(editButton(), { detail: 0 });
+    expect(editing()).toBe(true);
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it.each(["Enter", " "])("edits on %j on the pencil without opening the record", (key) => {
+    const { onRowClick, onRowKeyDown } = inRow(true);
+    editButton().focus();
+    fireEvent.keyDown(editButton(), { key });
+    expect(editing()).toBe(true);
     expect(onRowKeyDown).not.toHaveBeenCalled();
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it("returns focus to the pencil when editing is cancelled", () => {
+    inRow(true);
+    fireEvent.keyDown(editButton(), { key: "Enter" });
+    fireEvent.keyDown(screen.getByDisplayValue("Alice"), { key: "Escape" });
+    expect(document.activeElement).toBe(editButton());
+  });
+
+  it("keeps the pencil visible while it has focus", () => {
+    inRow(true);
+    expect(editButton().className).toContain("group-focus-within/edit:opacity-100");
   });
 });
 
@@ -77,7 +142,7 @@ describe("InlineEditCell request URL", () => {
       .mockResolvedValue({ json: async () => ({ ok: true }) } as unknown as Response);
     vi.stubGlobal("fetch", fetchMock);
     render(<InlineEditCell resource="user profile" id="a/b#c" field="name" value="Alice" />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit name" }));
+    fireEvent.click(editButton(), { detail: 1 });
     fireEvent.change(screen.getByDisplayValue("Alice"), { target: { value: "Bob" } });
     fireEvent.blur(screen.getByDisplayValue("Bob"));
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());

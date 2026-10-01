@@ -37,9 +37,7 @@ test.describe("M4a — keyboard navigation", () => {
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/#main$/);
 
-    // (3) Open the drawer by clicking the first row's email cell (company is
-    // the inline-edit showcase column and would start editing instead); Esc
-    // closes the drawer.
+    // (3) The first row's email cell opens the drawer; Esc closes it.
     await page.locator("tbody tr").first().getByText(/@/).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.keyboard.press("Escape");

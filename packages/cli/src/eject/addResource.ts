@@ -51,9 +51,8 @@ function importSpecifierFor(sf: SourceFile, identifier: string): string | null {
   return null;
 }
 
-/** The scaffold's instruction line, true until this edit adds `resource` to the import. */
-const STALE_IMPORT_HINT =
-  /^[ \t]*\/\/ Add `resource` to the "@flowpanel\/kit" import above, then:[ \t]*\r?\n/m;
+const SCAFFOLD_HINTS =
+  /^[ \t]*\/\/ (?:Add `resource` to the "@flowpanel\/kit" import above, then:|(?:pnpm|npx|yarn|bunx) flowpanel new <(?:table|model)> {2}adds an entry;[^\r\n]*)[ \t]*\r?\n/m;
 
 /** Indentation of the line `pos` sits on. */
 function lineIndent(source: string, pos: number): string {
@@ -175,7 +174,7 @@ export function editConfigToAddResource(
 
   if (arrayRange) {
     return applyInsertion(spliceIntoArray(source, arrayRange, callText), importInsertion).replace(
-      STALE_IMPORT_HINT,
+      SCAFFOLD_HINTS,
       "",
     );
   }
@@ -189,7 +188,7 @@ export function editConfigToAddResource(
     return applyInsertion(
       `${source.slice(0, trimmed)}${separator}\n${closeIndent}  resources: [\n${closeIndent}    ${callText},\n${closeIndent}  ],\n${closeIndent}${source.slice(closeBrace)}`,
       importInsertion,
-    ).replace(STALE_IMPORT_HINT, "");
+    ).replace(SCAFFOLD_HINTS, "");
   }
 
   throw new Error("new: could not find a defineAdmin({ ... }) call in flowpanel.config.ts");

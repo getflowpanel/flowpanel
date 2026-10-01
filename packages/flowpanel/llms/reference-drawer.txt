@@ -2,7 +2,7 @@
 
 ## Drawer
 
-The row side panel — layout, tabs and actions.
+Layout, tabs and actions of the row side panel.
 
 Docs: https://flowpanel.tech/docs/reference/drawer
 

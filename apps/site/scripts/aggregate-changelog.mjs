@@ -140,22 +140,14 @@ function escapeOutsideCodeSpans(/** @type {string} */ line) {
 const escapeSyntax = (/** @type {string} */ text) => text.replace(/[{<]/g, "\\$&");
 
 /** Compose the final MDX body. */
-function emit(/** @type {Map<string, Map<string, SectionBlock[]>>} */ byVersion) {
+export function emit(/** @type {Map<string, Map<string, SectionBlock[]>>} */ byVersion) {
   const versions = sortedVersions(byVersion.keys());
-  const latest = versions[0];
 
   const out = [
     "---",
     "title: Changelog",
     "description: Per-package release notes, aggregated newest-first.",
     "---",
-    "",
-    '<Callout type="warn">',
-    "The documentation on this site describes **`main`**" +
-      (latest ? `, while the latest published release is **${latest}**.` : "."),
-    "Anything documented but not listed below has not shipped yet. When a docs",
-    "page and your installed version disagree, your version wins.",
-    "</Callout>",
     "",
   ];
 

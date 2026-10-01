@@ -1,4 +1,4 @@
-// Session module for better-auth; replace the config's auth block with flowpanelAuth to use the whole preset.
+// Session module for better-auth; flowpanel.config.ts takes its auth block from flowpanelAuth.
 import { withBetterAuth } from "@flowpanel/kit/auth";
 import { auth } from "{{AUTH_MODULE}}";
 

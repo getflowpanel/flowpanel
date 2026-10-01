@@ -1,5 +1,6 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { checkRequireRole } from "@flowpanel/core";
+import { notFound } from "next/navigation";
 import type * as React from "react";
 import { DashboardPage } from "../pages/dashboard";
 import { NotFound } from "../pages/not-found";
@@ -80,7 +81,7 @@ export async function renderContent(
   if (slug[0] === "queues" && slug.length === 2) {
     const queueKey = slug[1] ?? "";
     const queue = config.queuesByKey.get(queueKey);
-    if (!queue) return <NotFound config={config} />;
+    if (!queue) notFound();
     if (queue.options.requireRole) {
       checkRequireRole(queue.options.requireRole, requestContext.role, requestContext.session);
     }
@@ -95,9 +96,8 @@ export async function renderContent(
   }
 
   const resourceName = slug[0];
-  if (!resourceName) return <NotFound config={config} />;
-  const resource = config.resourcesByName.get(resourceName);
-  if (!resource) return <NotFound config={config} />;
+  const resource = resourceName ? config.resourcesByName.get(resourceName) : undefined;
+  if (!resource) notFound();
   const name = resourceNavName(resource);
 
   if (slug.length === 1) {
@@ -113,7 +113,7 @@ export async function renderContent(
   }
 
   const id = slug[1];
-  if (!id) return <NotFound config={config} />;
+  if (!id) notFound();
   if (slug.length === 2 && id === "new") {
     return (
       <ResourceCreatePage
@@ -149,5 +149,5 @@ export async function renderContent(
       />
     );
   }
-  return <NotFound config={config} />;
+  notFound();
 }

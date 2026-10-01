@@ -95,8 +95,8 @@ export default Flowpanel(config);
 <ApiSignature path="../../packages/next/src/runtime/page-metadata.ts" name="flowpanelMetadata" />
 
 `flowpanelMetadata(config)` is the page's `generateMetadata`: a title per
-dashboard, list and record. Leave `viewport.themeColor` unset on the admin layout;
-the page renders its own.
+dashboard, list and record, and `robots: noindex`. Leave `viewport.themeColor`
+unset on the admin layout; the page renders its own.
 
 ```ts excerpt
 // app/admin/[[...slug]]/page.tsx

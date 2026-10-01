@@ -385,7 +385,7 @@ describe("serializeWidget — a failed widget and a Date", () => {
     expect(out).toMatchObject({ kind: "unsupported", failed: true });
   });
 
-  it("sends a statGroup Date over the wire already formatted in the admin's zone", async () => {
+  it("sends a statGroup Date over the wire as an instant the card renders through LocalTime", async () => {
     const cfg = { ...mkConfig(), formatting: { timeZone: "Asia/Bangkok" } } as ResolvedAdminConfig;
     const out = await serializeWidget(
       {
@@ -398,7 +398,10 @@ describe("serializeWidget — a failed widget and a Date", () => {
       reqCtx,
       widgetCtx,
     );
-    expect((out as { stats: { value: unknown }[] }).stats[0]?.value).toBe("2026-09-23 06:30");
+    expect((out as { stats: { value: unknown }[] }).stats[0]?.value).toEqual({
+      kind: "date",
+      iso: "2026-09-22T23:30:00.000Z",
+    });
   });
 });
 

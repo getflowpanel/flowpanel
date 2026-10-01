@@ -21,6 +21,7 @@ import { findAdminConfig } from "../scaffold/config-target";
 import { detectAppDir } from "../utils/detect";
 import { CLI_VERSION, installedKitVersion, kitCompatibilityError } from "../utils/kit";
 import { writeJson, writePlanJson } from "../utils/output";
+import { noNextProject } from "../utils/project-root";
 
 export type EjectTarget = "resource" | "dashboard" | "layout";
 
@@ -146,6 +147,12 @@ export function ejectCommand(cli: Command): void {
         }
 
         const cwd = process.cwd();
+        const notProject = await noNextProject(cwd);
+        if (notProject) {
+          if (options.json) writeJson({ command: "eject", applied: false, error: notProject });
+          else p.cancel(notProject);
+          process.exit(1);
+        }
         const version = await ejectVersion(cwd);
 
         try {
@@ -156,18 +163,23 @@ export function ejectCommand(cli: Command): void {
             version,
             ...(options.force ? { force: true } : {}),
           });
+          const conflicted = plan.operations.some((operation) => operation.kind === "conflict");
+          const planLines = publicPlan(plan)
+            .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
+            .join("\n");
           if (options.dryRun) {
             if (options.json) writePlanJson("eject", plan, false);
             else {
-              p.note(
-                publicPlan(plan)
-                  .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
-                  .join("\n"),
-                "Filesystem plan (no changes applied)",
-              );
+              p.note(planLines, "Filesystem plan (no changes applied)");
+              if (conflicted) p.log.warn("Use --force to overwrite.");
               p.outro(pc.dim("Dry run complete."));
             }
             return;
+          }
+          if (conflicted && !options.json) {
+            p.note(planLines, "Filesystem plan");
+            p.cancel("Nothing was written. Use --force to overwrite.");
+            process.exit(1);
           }
           const written = await applyFilesystemPlan(plan);
           if (options.json) {

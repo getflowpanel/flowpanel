@@ -11,8 +11,5 @@ const perPackage = Math.max(1, Math.floor(cpus().length / 4));
 
 export const sharedTestConfig = {
   pool: "forks",
-  poolOptions: {
-    forks: { maxForks: perPackage, minForks: 1 },
-    threads: { maxThreads: perPackage, minThreads: 1 },
-  },
+  maxWorkers: perPackage,
 } satisfies ViteUserConfig["test"];

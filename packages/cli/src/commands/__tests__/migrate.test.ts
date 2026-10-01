@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { type PackageManager, pmCommands } from "../../utils/detect";
 import { readTsconfigAliases } from "../../utils/tsconfig";
 import { migrateCommand, resolveMigrationExecutor } from "../migrate";
+import { runCommand } from "./command-harness";
 
 it("loads an alias rooted at inherited baseUrl without appending a literal wildcard", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "fp-migrate-alias-"));
@@ -70,6 +71,10 @@ describe("migrate --dry-run", () => {
         path.join(projectDir, "flowpanel.config.ts"),
         'throw new Error("dry-run must not load config");\n',
       );
+      await fs.writeFile(
+        path.join(projectDir, "package.json"),
+        JSON.stringify({ dependencies: { next: "16.3.4" } }),
+      );
       process.chdir(projectDir);
 
       const cli = new Command();
@@ -112,5 +117,60 @@ describe("migrate — adapter contract", () => {
         applyMigration: async () => undefined,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("migrate — where it runs", () => {
+  const NEXT = JSON.stringify({ dependencies: { next: "16.3.4" } });
+
+  async function runIn(files: Record<string, string>, args: string[] = []) {
+    const run = await runCommand(migrateCommand, ["migrate", ...args], files);
+    return {
+      exit: run.exit,
+      stdout: run.stdout.replaceAll(run.dir, "<cwd>"),
+      stderr: run.stderr.replaceAll(run.dir, "<cwd>"),
+    };
+  }
+
+  it("exits 1 and says to run init when there is no config, even with migrations on disk", async () => {
+    const result = await runIn({
+      "package.json": NEXT,
+      "flowpanel/migrations/0001_init.sql": "select 1;",
+    });
+    expect(result.exit).toBe(1);
+    expect(result.stderr).toContain("flowpanel.config.ts not found — run `flowpanel init` first.");
+  });
+
+  it("exits 1 for a project with no config and no migrations, as new does", async () => {
+    const result = await runIn({ "package.json": NEXT });
+    expect(result.exit).toBe(1);
+    expect(result.stderr).toContain("flowpanel.config.ts not found — run `flowpanel init` first.");
+  });
+
+  it("puts the same message in the JSON document", async () => {
+    const result = await runIn({ "package.json": NEXT }, ["--json"]);
+    expect(result.exit).toBe(1);
+    expect(JSON.parse(result.stdout)).toEqual({
+      command: "migrate",
+      applied: false,
+      error: "flowpanel.config.ts not found — run `flowpanel init` first.",
+    });
+  });
+
+  it("names the directory when it is not a Next.js project", async () => {
+    const result = await runIn({});
+    expect(result.exit).toBe(1);
+    expect(result.stderr).toContain(
+      "No Next.js project found in <cwd>. Run this from your project root.",
+    );
+  });
+
+  it("still exits 0 when the config exists and there is nothing to apply", async () => {
+    const result = await runIn({
+      "package.json": NEXT,
+      "flowpanel.config.ts": "export default {};\n",
+    });
+    expect(result.exit).toBeNull();
+    expect(result.stdout).toContain("No migrations found in flowpanel/migrations");
   });
 });

@@ -38,6 +38,7 @@ describe("createFlowpanel", () => {
     const runtime = createFlowpanel(admin);
 
     expect(typeof runtime.page).toBe("function");
+    expect(typeof runtime.notFound).toBe("function");
     expect(Object.keys(runtime.handlers).sort()).toEqual(
       ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"].sort(),
     );

@@ -1,3 +1,4 @@
+import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
 
@@ -40,6 +41,18 @@ describe("the page title", () => {
     expect(await titleOf(["nowhere"])).toBe("Page not found");
   });
 
+  it("names the root by the brand when no dashboard lives there", async () => {
+    const withoutRoot = (brand?: { name: string }) =>
+      defineAdmin({
+        adapter,
+        auth: { session: async () => ({ id: "u1" }) as never, role: () => "admin" },
+        ...(brand ? { theme: { brand } } : {}),
+        resources: [resource({ __name: "users" }, { label: "Users", columns: ["id"] })],
+      });
+    expect(await titleOf([], withoutRoot({ name: "Acme" }))).toBe("Acme");
+    expect(await titleOf([], withoutRoot())).toBeUndefined();
+  });
+
   it("names nothing the caller may not open", async () => {
     expect(await titleOf(["system"])).toBeUndefined();
   });
@@ -49,6 +62,27 @@ describe("the page title", () => {
     expect(await titleOf([], signedOut)).toBeUndefined();
     expect(await titleOf(["users"], signedOut)).toBeUndefined();
     expect(await titleOf(["nowhere"], signedOut)).toBeUndefined();
+  });
+
+  it("keeps every admin page out of search engines", async () => {
+    const noIndex = { index: false, follow: false };
+    const metadataOf = (slug: string[], config: ResolvedAdminConfig = admin()) =>
+      flowpanelMetadata(config)({ params: Promise.resolve({ slug }) });
+    expect((await metadataOf([])).robots).toEqual(noIndex);
+    expect((await metadataOf(["users", "u1"])).robots).toEqual(noIndex);
+    expect((await metadataOf(["nowhere"])).robots).toEqual(noIndex);
+    expect((await metadataOf(["system"])).robots).toEqual(noIndex);
+    expect((await metadataOf(["users"], admin(null))).robots).toEqual(noIndex);
+    const failing = defineAdmin({
+      adapter,
+      auth: {
+        session: async () => {
+          throw new Error("auth down");
+        },
+        role: () => "admin",
+      },
+    });
+    expect((await metadataOf([], failing)).robots).toEqual(noIndex);
   });
 
   it("does not name a create page the caller may not use", async () => {

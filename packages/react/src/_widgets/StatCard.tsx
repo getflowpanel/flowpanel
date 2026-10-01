@@ -1,17 +1,20 @@
 "use client";
 import type { WidgetCaption } from "@flowpanel/core";
+import { LocalTime } from "../_atoms/LocalTime";
 import { Card, CardContent } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
 import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
 import { CaptionLine } from "./CaptionLine";
+import { type CardDate, isCardDate } from "./card-date";
 import { FIGURE } from "./figure";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface StatCardProps {
   label: string;
-  value: string | number;
+  /** A `CardDate` renders as `LocalTime`, like a datetime column. */
+  value: string | number | CardDate;
   format?: NumericFormat;
   /** Small caption under the value. */
   hint?: string;
@@ -36,7 +39,13 @@ export function StatCard({
   caption,
 }: StatCardProps) {
   const formatting = useFormatting();
-  const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
+  const display = isCardDate(value) ? (
+    <LocalTime date={value.iso} />
+  ) : typeof value === "number" ? (
+    formatNumber(value, format, formatting)
+  ) : (
+    value
+  );
   const content = (
     <CardContent>
       <div className="space-y-1">

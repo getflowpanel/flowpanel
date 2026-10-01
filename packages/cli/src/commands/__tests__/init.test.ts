@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import ts from "typescript";
+import { describe, expect, it, vi } from "vitest";
 import { tpl } from "../../utils/template";
 import { guessedAuthFile, guessedPaths, initErrorPayload } from "../init";
 
@@ -67,6 +68,19 @@ describe("dev-session template", () => {
     expect(out).toContain("before deploying");
   });
 
+  it("warns once per process, not on every request", async () => {
+    const source = await tpl("dev-session.ts.txt");
+    const { outputText } = ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    });
+    const warn = vi.fn();
+    const loaded: { getSession?: () => Promise<{ user: { role: string } }> } = {};
+    new Function("exports", "console", outputText)(loaded, { warn });
+    for (let request = 0; request < 3; request++) await loaded.getSession?.();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toContain("before deploying");
+  });
+
   it("refuses to run in production instead of signing everyone in as admin", async () => {
     const out = await tpl("dev-session.ts.txt");
     expect(out).toContain('nodeEnv === "production"');
@@ -110,6 +124,26 @@ describe("init templates (resolution)", () => {
     expect(out).toContain('from "@flowpanel/kit/next"');
     expect(out).toContain('import config from "../../../flowpanel.config"');
     expect(out).toContain("export default flowpanel.page");
+  });
+
+  it("admin-page template exports the metadata the runtime derives from the config", async () => {
+    const out = await tpl("admin-page.tsx.txt", { CONFIG_IMPORT: "../../../flowpanel.config" });
+    expect(out).toContain("export const generateMetadata = flowpanel.metadata;");
+  });
+
+  it("admin-not-found template hands the runtime's not-found page to Next", async () => {
+    const out = await tpl("admin-not-found.tsx.txt", { CONFIG_IMPORT: "../../flowpanel.config" });
+    expect(out).toBe(
+      [
+        'import { createFlowpanel } from "@flowpanel/kit/next";',
+        'import config from "../../flowpanel.config";',
+        "",
+        "const flowpanel = createFlowpanel(config);",
+        "",
+        "export default flowpanel.notFound;",
+        "",
+      ].join("\n"),
+    );
   });
 
   it("app-layout template substitutes APP_NAME + CSS_IMPORT", async () => {

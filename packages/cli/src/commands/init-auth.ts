@@ -1,6 +1,9 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { AUTH_PRESETS, type AuthProvider } from "../utils/auth-provider";
 import { aliasOf, type PathAliasMode } from "../utils/detect";
-import { validateProjectImport } from "../utils/module-path";
+import { resolveProjectModule, validateProjectImport } from "../utils/module-path";
+import { tpl } from "../utils/template";
 
 const SESSION_FILE = "server/lib/flowpanel-session.ts";
 
@@ -42,4 +45,27 @@ export async function planAuthSession(input: AuthSessionInput): Promise<AuthSess
     template: `auth-session.${provider}.ts.txt`,
     vars: instance === null ? {} : { AUTH_MODULE: detectedAuth as string },
   };
+}
+
+export type DevStubReplacement =
+  | { kind: "replace"; file: string; content: string; expectedContent: string }
+  | { kind: "customised"; file: string };
+
+/** What `--dev-auth` does to the session module `specifier` already resolves to: swap an untouched stub, or refuse an edited file. */
+export async function planDevStubReplacement(
+  cwd: string,
+  specifier: string,
+): Promise<DevStubReplacement | null> {
+  const resolved = await resolveProjectModule(cwd, specifier);
+  if (!resolved) return null;
+  const file = path.relative(cwd, resolved).split(path.sep).join("/");
+  if (file.startsWith("../")) return { kind: "customised", file };
+  const [current, closed, open] = await Promise.all([
+    fs.readFile(resolved, "utf8"),
+    tpl("auth-session.ts.txt"),
+    tpl("dev-session.ts.txt"),
+  ]);
+  return current === closed || current === open
+    ? { kind: "replace", file, content: open, expectedContent: closed }
+    : { kind: "customised", file };
 }

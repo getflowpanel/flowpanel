@@ -6,8 +6,8 @@ import { sharedTestConfig } from "../../vitest.shared";
 export default defineConfig({
   test: { ...sharedTestConfig },
   plugins: [mdx(undefined, { index: false, updateViteConfig: false })],
-  esbuild: {
-    jsx: "automatic",
+  oxc: {
+    jsx: { runtime: "automatic" },
   },
   resolve: {
     alias: [

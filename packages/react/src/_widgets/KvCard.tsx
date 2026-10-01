@@ -1,17 +1,19 @@
 import type { WidgetCaption } from "@flowpanel/core";
 import type * as React from "react";
+import { LocalTime } from "../_atoms/LocalTime";
 import { Card, CardContent } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
 import { LABEL_TEXT, QUIET_LINK } from "../lib/label-text";
 import { toneTextClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { type CardDate, isCardDate } from "./card-date";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface KvCardItem {
   label: string;
-  /** Already formatted on the server, so the card renders it verbatim. */
-  value: React.ReactNode;
+  /** Already formatted on the server, so the card renders it verbatim; a `CardDate` renders as `LocalTime`. */
+  value: React.ReactNode | CardDate;
   tone?: Tone;
   /** Renders the value as a link. */
   href?: string;
@@ -32,12 +34,13 @@ export interface KvCardProps {
 }
 
 function Value({ item }: { item: KvCardItem }) {
+  const value = isCardDate(item.value) ? <LocalTime date={item.value.iso} /> : item.value;
   return item.href ? (
     <a href={item.href} className="hover:underline">
-      {item.value}
+      {value}
     </a>
   ) : (
-    item.value
+    value
   );
 }
 

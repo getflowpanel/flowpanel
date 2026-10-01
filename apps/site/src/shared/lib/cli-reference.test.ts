@@ -33,9 +33,7 @@ describe("readCliReference", () => {
       ]),
     );
     expect(docs.find((command) => command.name === "new")?.options).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ flags: "--kind <kind>", defaultValue: "drizzle" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ flags: "--kind <kind>" })]),
     );
   });
 

@@ -2,7 +2,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { planAuthSession } from "../init-auth";
+import { tpl } from "../../utils/template";
+import { planAuthSession, planDevStubReplacement } from "../init-auth";
 
 async function project(authModule: string): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "fp-initauth-"));
@@ -90,5 +91,36 @@ describe("planAuthSession", () => {
     expect(
       await planAuthSession({ ...base, detectedAuth: null, provider: "lucia", devAuth: false }),
     ).toBeNull();
+  });
+});
+
+describe("planDevStubReplacement", () => {
+  it("swaps the closed stub for the development stub", async () => {
+    const closed = await tpl("auth-session.ts.txt");
+    const cwd = await project(closed);
+    expect(await planDevStubReplacement(cwd, "@/lib/auth")).toEqual({
+      kind: "replace",
+      file: "src/lib/auth.ts",
+      content: await tpl("dev-session.ts.txt"),
+      expectedContent: closed,
+    });
+  });
+
+  it("keeps the development stub replaceable so a re-run reports it unchanged", async () => {
+    const cwd = await project(await tpl("dev-session.ts.txt"));
+    expect(await planDevStubReplacement(cwd, "@/lib/auth")).toMatchObject({ kind: "replace" });
+  });
+
+  it("refuses a file that differs from both stubs by a single byte", async () => {
+    const cwd = await project(`${await tpl("auth-session.ts.txt")}\n`);
+    expect(await planDevStubReplacement(cwd, "@/lib/auth")).toEqual({
+      kind: "customised",
+      file: "src/lib/auth.ts",
+    });
+  });
+
+  it("has nothing to say about a specifier that resolves to no file", async () => {
+    const cwd = await project(WIRED);
+    expect(await planDevStubReplacement(cwd, "@/lib/missing")).toBeNull();
   });
 });

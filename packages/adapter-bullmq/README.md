@@ -25,4 +25,6 @@ startBoardServer({
 
 The token is one shared secret. Keep the board on a private network or behind an authenticating proxy.
 
+`flowpanel dev` starts this file with `tsx` when `REDIS_URL` is set, so add it as a dev dependency: `pnpm add -D tsx`. Run it the same way on its own, or compile it, in production.
+
 [Queues](https://flowpanel.tech/docs/guides/queues) · MIT

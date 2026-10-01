@@ -22,48 +22,65 @@ function write(file: string, contents: string): void {
   fs.writeFileSync(file, contents);
 }
 
+const PROVIDER = [
+  "export const auth = Object.assign(async () => null, {",
+  "  api: { getSession: async () => null },",
+  "  $Infer: {} as { Session: { user: { id: string; role?: string } } },",
+  "});",
+  "export const lucia = {",
+  '  sessionCookieName: "session",',
+  "  validateSession: async () => ({ user: null, session: null }),",
+  "};",
+  "",
+].join("\n");
+
+interface SessionModule {
+  name: string;
+  template: string;
+  preset: boolean;
+}
+
+const SESSION_MODULES: ReadonlyArray<SessionModule> = [
+  { name: "closed stub", template: "auth-session.ts.txt", preset: false },
+  { name: "development stub", template: "dev-session.ts.txt", preset: false },
+  { name: "better-auth preset", template: "auth-session.better-auth.ts.txt", preset: true },
+  { name: "next-auth preset", template: "auth-session.next-auth.ts.txt", preset: true },
+  { name: "clerk preset", template: "auth-session.clerk.ts.txt", preset: true },
+  { name: "lucia preset", template: "auth-session.lucia.ts.txt", preset: true },
+];
+
+const CLOSED_STUB = SESSION_MODULES[0] as SessionModule;
+const BETTER_AUTH = SESSION_MODULES[2] as SessionModule;
+
 /** A scaffolded app on the repo's built kit and core, not on stubs. */
-async function builtKitApp(): Promise<string> {
+async function builtKitApp(orm: "drizzle" | "prisma", session: SessionModule): Promise<string> {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "fp-dist-")));
   roots.push(dir);
   fs.mkdirSync(path.join(dir, "node_modules/@flowpanel"), { recursive: true });
   fs.symlinkSync(KIT, path.join(dir, "node_modules/@flowpanel/kit"), "junction");
   write(path.join(dir, "src/db.ts"), "export const db = {} as { query: unknown };\n");
+  write(path.join(dir, "src/prisma.ts"), "export const prisma = {} as { $connect(): void };\n");
   write(
     path.join(dir, "src/schema.ts"),
     "export const users = {} as { $inferSelect: { id: string } };\n",
   );
-  write(
-    path.join(dir, "src/provider.ts"),
-    "export const auth = { api: { getSession: async () => null }, $Infer: {} as { Session: { user: { id: string; role?: string } } } };\n",
-  );
+  write(path.join(dir, "src/provider.ts"), PROVIDER);
   write(
     path.join(dir, "src/session.ts"),
-    await tpl("auth-session.better-auth.ts.txt", { AUTH_MODULE: "@/provider" }),
+    await tpl(session.template, { AUTH_MODULE: "@/provider" }),
   );
   write(
     path.join(dir, "flowpanel.config.ts"),
-    await tpl("flowpanel.config.drizzle.ts.txt", {
-      DB: "@/db",
+    await tpl(`flowpanel.config.${orm}${session.preset ? ".preset" : ""}.ts.txt`, {
+      DB: orm === "prisma" ? "@/prisma" : "@/db",
       SCHEMA: "@/schema",
       AUTH: "@/session",
       APP_NAME: "Fixture",
       ADMIN_PATH: "/admin",
       API_PATH: "/api/admin",
+      CLI: "pnpm flowpanel",
+      PROVIDER: "postgresql",
     }),
-  );
-  write(
-    path.join(dir, "probe.ts"),
-    [
-      'import type { ActionContext, AuthConfig, Session } from "@flowpanel/kit";',
-      'import { withBetterAuth } from "@flowpanel/kit/auth";',
-      'import { auth } from "@/provider";',
-      "declare const action: ActionContext;",
-      "export const db: { query: unknown } | undefined = action.unsafe?.db;",
-      'export const role = (session: Session | null) => session?.user.role ?? "guest";',
-      'export const preset: AuthConfig = withBetterAuth({ auth, role: (s) => s?.user.role ?? "guest" });',
-      "",
-    ].join("\n"),
   );
   return dir;
 }
@@ -89,9 +106,51 @@ function typecheck(root: string, files: string[]): string[] {
   });
 }
 
-describe.runIf(BUILT)("the scaffolded better-auth pair on the real built kit and core", () => {
+describe.runIf(BUILT)("every scaffolded config and session module on the real built kit", () => {
+  for (const orm of ["drizzle", "prisma"] as const) {
+    for (const session of SESSION_MODULES) {
+      it(`${orm} config with the ${session.name} compiles without a cast`, async () => {
+        const root = await builtKitApp(orm, session);
+        expect(typecheck(root, ["flowpanel.config.ts", "src/session.ts"])).toEqual([]);
+        expect(fs.readFileSync(path.join(root, "flowpanel.config.ts"), "utf8")).not.toMatch(
+          /\w+ as (?:\{|any\b|unknown\b)/,
+        );
+      }, 60_000);
+    }
+  }
+
   it("types the session and the db everywhere a host reads them", async () => {
-    const root = await builtKitApp();
+    const root = await builtKitApp("drizzle", BETTER_AUTH);
+    write(
+      path.join(root, "probe.ts"),
+      [
+        'import type { ActionContext, AuthConfig, Session } from "@flowpanel/kit";',
+        'import { withBetterAuth } from "@flowpanel/kit/auth";',
+        'import { auth } from "@/provider";',
+        "declare const action: ActionContext;",
+        "export const db: { query: unknown } | undefined = action.unsafe?.db;",
+        'export const role = (session: Session | null) => session?.user.role ?? "guest";',
+        'export const preset: AuthConfig = withBetterAuth({ auth, role: (s) => s?.user.role ?? "guest" });',
+        "",
+      ].join("\n"),
+    );
     expect(typecheck(root, ["flowpanel.config.ts", "src/session.ts", "probe.ts"])).toEqual([]);
+  }, 60_000);
+
+  it("types the role callback with the shape the stub returns", async () => {
+    const root = await builtKitApp("drizzle", CLOSED_STUB);
+    write(
+      path.join(root, "probe.ts"),
+      [
+        'import type { Session } from "@flowpanel/kit";',
+        'export const role = (session: Session | null): string => session?.user.role ?? "guest";',
+        "export const wrong = (session: Session | null) => session?.user.email;",
+        "",
+      ].join("\n"),
+    );
+    const errors = typecheck(root, ["flowpanel.config.ts", "src/session.ts", "probe.ts"]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("TS2339");
+    expect(errors[0]).toContain("email");
   }, 60_000);
 });

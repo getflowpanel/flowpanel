@@ -19,6 +19,7 @@ import {
 import { DashboardDateRange, DetailTabsClient } from "@flowpanel/next/client";
 import { Button, PageHeader } from "@flowpanel/react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type * as React from "react";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { buildHref } from "../runtime/href";
@@ -37,7 +38,6 @@ import { headerBadges, recordHeader } from "./detail-page/detail-header";
 import { recordRange } from "./detail-page/record-context";
 import { renderFieldsTab } from "./detail-tabs/render-fields-tab";
 import { detailFieldsForTab, renderDetailTabs } from "./detail-tabs/render-tab";
-import { NotFound } from "./not-found";
 
 type Row = Record<string, unknown>;
 
@@ -98,7 +98,7 @@ export async function ResourceDetailPage({
   });
   if (first.failed) return first.card;
   const row = first.value;
-  if (!row) return <NotFound config={config} />;
+  if (!row) notFound();
 
   const baseRow = projectRowFields(row, readableBaseFields);
   const visibleTabs = hasTabs ? (tabs ?? []).filter((tab) => !tab.hidden?.(baseRow)) : [];
@@ -116,7 +116,7 @@ export async function ResourceDetailPage({
     if (second.failed) return second.card;
     activeRow = second.value;
   }
-  if (!activeRow) return <NotFound config={config} />;
+  if (!activeRow) notFound();
 
   const detail = resource.options.detail as DetailOptions<Row> | undefined;
   const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;

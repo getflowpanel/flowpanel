@@ -215,6 +215,8 @@ export const DEFAULT_LABELS: {
   errors: {
     queryTitle: "{resource}: {operation} failed",
     queryHint: "Check the column list and the database schema. Details are in the server log.",
+    connectionHint:
+      "The database refused the connection or is unreachable. Check DATABASE_URL and that the server accepts connections.",
     requestId: "Request {id}",
     widgetTitle: "Couldn't load this widget",
     widgetHint: "Its query failed. Retry, or look in the server log.",

@@ -1,5 +1,5 @@
 ---
-title: Build a founder admin
+title: Build a complete admin
 description: From an empty Next.js app to a deployed admin with dashboards, a record page, a custom widget, live updates and a smoke test.
 kind: tutorial
 ---
@@ -14,7 +14,6 @@ should see.
 
 ```bash
 pnpm dlx @flowpanel/cli init
-pnpm flowpanel migrate
 pnpm dev
 ```
 
@@ -54,7 +53,7 @@ declare module "@flowpanel/kit" {
 ```
 
 Set `auth: flowpanelAuth` in the config. The preset reads the role from `session.user.role`
-and the audit actor from `session.user.id`. Every resource name, row and `ctx.session` is now
+and the audit actor from `session.user.id`. Every resource name, row and `ctx.session` is
 typed.
 
 You should see a type error when the config names a table that does not exist.

@@ -2,7 +2,7 @@
 
 ## Actions
 
-Row, bulk, dashboard and drawer actions — every option and what they return.
+Every option of row, bulk, dashboard and drawer actions, and what they return.
 
 Docs: https://flowpanel.tech/docs/reference/actions
 

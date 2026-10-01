@@ -1,0 +1,6 @@
+import { createFlowpanel } from "@flowpanel/kit/next";
+import config from "{{CONFIG_IMPORT}}";
+
+const flowpanel = createFlowpanel(config);
+
+export default flowpanel.notFound;

@@ -11,7 +11,7 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
-import { foldLongText, isBlank, kvDisplay } from "./kv-display";
+import { foldLongText, isBlank, kvValue } from "./kv-display";
 import { resolveLink } from "./resolve-link";
 import { statDisplay, statResultOf } from "./stat-result";
 import { warnOnce } from "./widget-reads";
@@ -44,19 +44,20 @@ export async function kvItemOf(
   const emptyText = isBlank(result.value) ? item.empty : undefined;
   const tone = result.tone ?? item.tone ?? (emptyText !== undefined ? "muted" : undefined);
   const href = resolveLink(config, ctx, result.href ?? item.href);
-  const text = emptyText ?? kvDisplay(result.value, item.format, formatting);
-  const fold = item.long
-    ? foldLongText(text, typeof item.long === "object" ? item.long.lines : undefined)
-    : null;
+  const value = emptyText ?? kvValue(result.value, item.format, formatting);
+  const fold =
+    item.long && typeof value === "string"
+      ? foldLongText(value, typeof item.long === "object" ? item.long.lines : undefined)
+      : null;
   return {
     label: item.label,
-    value: fold ? fold.head : text,
+    value: fold ? fold.head : value,
     ...(tone ? { tone } : {}),
     ...(href ? { href } : {}),
-    ...(fold
+    ...(item.long
       ? {
           long: true as const,
-          ...(fold.rest ? { rest: fold.rest, more: ctx.labels.widget.showAll } : {}),
+          ...(fold?.rest ? { rest: fold.rest, more: ctx.labels.widget.showAll } : {}),
         }
       : {}),
   };
@@ -66,7 +67,6 @@ export async function kvItemOf(
 export async function statItemOf(
   item: StatItem,
   ctx: WidgetContext,
-  formatting: ResolvedFormatting,
   config: ResolvedAdminConfig,
   reqCtx?: RequestContext,
 ) {
@@ -75,7 +75,7 @@ export async function statItemOf(
   const href = resolveLink(config, ctx, result.href);
   return {
     label: item.label,
-    value: statDisplay(result.value, formatting),
+    value: statDisplay(result.value),
     ...(item.format ? { format: item.format } : {}),
     ...(tone ? { tone } : {}),
     ...(href ? { href } : {}),

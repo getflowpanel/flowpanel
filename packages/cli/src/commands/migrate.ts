@@ -6,6 +6,7 @@ import pc from "picocolors";
 import { detectPackageManager, fileExists, pmCommands } from "../utils/detect";
 import { log } from "../utils/log";
 import { writeJson } from "../utils/output";
+import { noNextProject } from "../utils/project-root";
 import { readTsconfigAliases } from "../utils/tsconfig";
 
 interface MigrateOptions {
@@ -65,6 +66,18 @@ export function migrateCommand(cli: Command): void {
       const cwd = process.cwd();
       const pmc = pmCommands(await detectPackageManager(cwd));
       const dir = path.join(cwd, "flowpanel", "migrations");
+      const cfgPath = path.join(cwd, "flowpanel.config.ts");
+      const stop = (message: string): never => {
+        if (opts.json) writeJson({ command: "migrate", applied: false, error: message });
+        else log.err(message);
+        process.exit(1);
+      };
+
+      const notProject = await noNextProject(cwd);
+      if (notProject) stop(notProject);
+      if (!(await fileExists(cfgPath))) {
+        stop("flowpanel.config.ts not found — run `flowpanel init` first.");
+      }
 
       const files = (await fs.readdir(dir).catch(() => [] as string[]))
         .filter((f) => f.endsWith(".sql"))
@@ -74,14 +87,6 @@ export function migrateCommand(cli: Command): void {
           writeJson({ command: "migrate", applied: false, pending: [], reason: "no-migrations" });
         } else p.outro(pc.yellow(`No migrations found in ${path.relative(cwd, dir)}`));
         return;
-      }
-
-      const cfgPath = path.join(cwd, "flowpanel.config.ts");
-      if (!(await fileExists(cfgPath))) {
-        const msg = `flowpanel.config.ts not found. Run \`${pmc.dlx} @flowpanel/cli init\` first.`;
-        if (opts.json) writeJson({ command: "migrate", applied: false, error: msg });
-        else log.err(msg);
-        process.exit(1);
       }
 
       // --dry-run stops here: everything below opens a connection and creates the tracking table.

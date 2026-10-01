@@ -5,8 +5,7 @@
 
 ```bash
 pnpm dlx @flowpanel/cli init
-pnpm flowpanel migrate
-pnpm flowpanel dev
+pnpm dev
 ```
 
 Docs: https://flowpanel.tech/docs · Source: https://github.com/getflowpanel/flowpanel
@@ -21,15 +20,15 @@ documentation: blocks the docs mark `twoslash` are type-checked in CI,
 One file per section of the documentation, or per page of a section longer than 1000 lines, or per part of such a page.
 This directory is canonical; https://flowpanel.tech/llms/<file> serves the same files.
 
-- llms/introduction.txt — Getting started: Getting started, Build a founder admin, Why FlowPanel, Drizzle setup, Prisma setup
+- llms/introduction.txt — Getting started: Getting started, Build a complete admin, Why FlowPanel, Drizzle setup, Prisma setup
 - llms/build.txt — Build your admin: Configuration, Resources, Forms, Add actions, Record pages and drawers, Dashboards, Import and export
 - llms/customization.txt — Customize the UI: Choose an extension point, Column renderers, Build a custom widget, Charts, Styling and theme slots, Eject to source
 - llms/guides.txt — Production: Production readiness, Authentication, Roles and permissions, Multi-tenant scope, Realtime, Queues
 - llms/understand.txt — Understand FlowPanel: How FlowPanel works, Adapters and introspection
 - llms/reference-define-config.txt — Reference: defineAdmin. The config entry point and every option it accepts.
 - llms/reference-resources.txt — Reference: resource(). Every option on a resource, its columns, fields and filters.
-- llms/reference-actions.txt — Reference: Actions. Row, bulk, dashboard and drawer actions — every option and what they return.
-- llms/reference-drawer.txt — Reference: Drawer. The row side panel — layout, tabs and actions.
+- llms/reference-actions.txt — Reference: Actions. Every option of row, bulk, dashboard and drawer actions, and what they return.
+- llms/reference-drawer.txt — Reference: Drawer. Layout, tabs and actions of the row side panel.
 - llms/reference-widgets-1.txt — Reference: Widgets, WidgetContext, Shared option types, Thresholds, Links, metric, table, statGroup, Cards, timeline, heatmap, checklist
 - llms/reference-widgets-2.txt — Reference: Widgets, custom, Charts, Series helpers, Dashboards
 - llms/reference-queues.txt — Reference: queue(). The queue builder, its options, and how a queue key becomes a route.

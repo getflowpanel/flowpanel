@@ -3,6 +3,7 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import type { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 import type { AdminSession } from "@/src/demo/auth/session";
+import { marketplaceLabel } from "@/src/demo/data/marketplaces";
 import { requireSandboxId } from "@/src/demo/sandbox/scope";
 
 type Ctx = WidgetContext<typeof db>;
@@ -25,7 +26,7 @@ export async function offersByMarketplace(ctx: Ctx): Promise<BarRow[]> {
     .limit(5);
 
   return rows.map((row) => ({
-    label: row.site,
+    label: marketplaceLabel(row.site),
     value: Number(row.count),
     href: { resource: "listings", filter: { site: row.site } },
   }));

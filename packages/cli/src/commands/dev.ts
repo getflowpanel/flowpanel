@@ -1,10 +1,14 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
+import { createServer } from "node:net";
 import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { PNP_UNSUPPORTED } from "../utils/compatibility";
 import { detectPackageManager, platformBin, pmCommands } from "../utils/detect";
+import { inspectDependency } from "../utils/project-packages";
+import { noNextProject } from "../utils/project-root";
 
 /** The board entry point, in either module flavour. `.mts` lets a CJS app import ESM statically. */
 const BOARD_SCRIPTS = ["scripts/board-server.mts", "scripts/board-server.ts"] as const;
@@ -16,12 +20,60 @@ export async function findBoardScript(cwd: string): Promise<string | null> {
   return null;
 }
 
+export function isPortFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = createServer();
+    probe.once("error", (error: NodeJS.ErrnoException) => resolve(error.code !== "EADDRINUSE"));
+    probe.listen(port, () => probe.close(() => resolve(true)));
+  });
+}
+
+/** The project's own `next` binary, or why `next dev` cannot start here. */
+export async function devPreflight(
+  cwd: string,
+  port: string,
+): Promise<{ nextBin: string } | { error: string }> {
+  const notProject = await noNextProject(cwd);
+  if (notProject) return { error: notProject };
+  const next = await inspectDependency(cwd, "next");
+  if (next.error === "pnp-only") return { error: PNP_UNSUPPORTED };
+  if (next.installed === null) {
+    const pm = await detectPackageManager(cwd);
+    return {
+      error: `Next.js is not installed in ${cwd}. Run \`${pm} install\`, then start again.`,
+    };
+  }
+  const bin = next.installed.manifest.bin;
+  const entry = typeof bin === "string" ? bin : bin?.next;
+  if (typeof entry !== "string") {
+    return {
+      error: `The next installed in ${cwd} has no next binary. Reinstall your dependencies.`,
+    };
+  }
+  if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
+    return { error: `--port must be a number from 1 to 65535. Got "${port}".` };
+  }
+  if (!(await isPortFree(Number(port)))) {
+    return { error: `Port ${port} is in use. Pass --port <other>.` };
+  }
+  return { nextBin: path.resolve(next.installed.directory, entry) };
+}
+
+/** Runs the resolved `next` with node, so no package manager can go looking for another one. */
+export function startNext(cwd: string, nextBin: string, port: string): ChildProcess {
+  return spawn(process.execPath, [nextBin, "dev", "--port", port], {
+    cwd,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: process.env,
+  });
+}
+
 export function devCommand(cli: Command): void {
   cli
     .command("dev")
-    .description("Run Next.js dev server (and bull-board if REDIS_URL is set)")
+    .description("Run next dev, plus the queue board when REDIS_URL is set")
     .option("--port <port>", "Next.js dev port", "3000")
-    .option("--no-board", "Skip the bull-board server even if REDIS_URL is set")
+    .option("--no-board", "Skip the queue board (bull-board) even if REDIS_URL is set")
     .action(async (opts: { port: string; board: boolean }) => {
       const cwd = process.cwd();
       const children: ChildProcess[] = [];
@@ -36,13 +88,14 @@ export function devCommand(cli: Command): void {
       process.on("SIGTERM", () => shutdown(0));
 
       p.intro(pc.bgCyan(pc.black(" FlowPanel dev ")));
+      const preflight = await devPreflight(cwd, opts.port);
+      if ("error" in preflight) {
+        p.cancel(preflight.error);
+        process.exit(1);
+      }
       const pmc = pmCommands(await detectPackageManager(cwd));
       const runner = platformBin(pmc.exec);
-      const next = spawn(runner, pmc.execArgs("next", ["dev", "--port", opts.port]), {
-        cwd,
-        stdio: ["ignore", "pipe", "pipe"],
-        env: process.env,
-      });
+      const next = startNext(cwd, preflight.nextBin, opts.port);
       pipeWithPrefix(next, pc.cyan("[next] "));
       children.push(next);
 

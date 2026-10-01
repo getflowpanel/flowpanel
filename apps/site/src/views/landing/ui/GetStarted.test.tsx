@@ -11,5 +11,6 @@ describe("GetStarted", () => {
     expect(html).toContain('href="/docs/introduction/getting-started"');
     expect(html).toContain("examples/ai-scraper");
     expect(html).toContain("examples/with-clerk");
+    expect(html).toContain("ScrapeAI (");
   });
 });

@@ -1,7 +1,11 @@
 // @vitest-environment happy-dom
 
+import { resolveFormatting } from "@flowpanel/core/format";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import type * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { FormattingProvider } from "../../_provider/FormattingContext";
 import { BarsCard } from "../BarsCard";
 import { FunnelCard } from "../FunnelCard";
 import { KvCard } from "../KvCard";
@@ -150,6 +154,21 @@ describe("FunnelCard", () => {
     expect(container.textContent).not.toContain("−");
   });
 
+  it("shows no drop-off for a step that keeps everyone", () => {
+    const { container } = render(
+      <FunnelCard
+        steps={[
+          { label: "Visited", value: 1000 },
+          { label: "Signed up", value: 1000 },
+          { label: "Paid", value: 999 },
+        ]}
+      />,
+    );
+    expect(container.textContent).not.toContain("−0%");
+    expect(container.textContent).not.toContain("+0%");
+    expect(container.textContent).not.toContain("−");
+  });
+
   it("renders the empty state for no steps", () => {
     render(<FunnelCard steps={[]} emptyState="Nothing yet" />);
     expect(screen.getByText("Nothing yet")).toBeTruthy();
@@ -224,5 +243,44 @@ describe("cards with repeated labels", () => {
     );
     expect(error).not.toHaveBeenCalled();
     error.mockRestore();
+  });
+});
+
+describe("a date in a card", () => {
+  const hostZone = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "Asia/Bangkok";
+  });
+  afterAll(() => {
+    if (hostZone === undefined) delete process.env.TZ;
+    else process.env.TZ = hostZone;
+  });
+
+  const instant = { kind: "date" as const, iso: "2026-09-22T23:30:00.000Z" };
+  const cards: [string, React.ReactElement][] = [
+    ["StatCard", <StatCard key="stat" label="Joined" value={instant} />],
+    ["KvCard", <KvCard key="kv" items={[{ label: "Joined", value: instant }]} />],
+    ["StatGroupCard", <StatGroupCard key="group" stats={[{ label: "Joined", value: instant }]} />],
+    [
+      "StatGroupCard with a Date",
+      <StatGroupCard key="date" stats={[{ label: "Joined", value: new Date(instant.iso) }]} />,
+    ],
+  ];
+
+  it.each(cards)("%s paints the server zone, then the viewer's", (_name, card) => {
+    expect(renderToStaticMarkup(card)).toContain(
+      '<time dateTime="2026-09-22T23:30:00.000Z">2026-09-22 23:30</time>',
+    );
+    const { container } = render(card);
+    expect(container.querySelector("time")?.textContent).toBe("2026-09-23 06:30");
+  });
+
+  it.each(cards)("%s keeps a configured zone after hydration", (_name, card) => {
+    const { container } = render(
+      <FormattingProvider value={resolveFormatting({ timeZone: "UTC" })}>
+        {card}
+      </FormattingProvider>,
+    );
+    expect(container.querySelector("time")?.textContent).toBe("2026-09-22 23:30");
   });
 });

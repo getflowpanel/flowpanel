@@ -1,5 +1,3 @@
-import type { Session } from "@flowpanel/kit";
-
-export async function getSession(): Promise<Session | null> {
+export async function getSession(): Promise<{ user: { role: string } } | null> {
   return { user: { role: "admin" } };
 }
