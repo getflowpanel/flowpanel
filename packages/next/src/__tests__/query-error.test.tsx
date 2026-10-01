@@ -125,6 +125,31 @@ describe("a page whose adapter read failed", () => {
     expect(text).toContain("Request req-88");
   });
 
+  it("says the database refused the connection instead of blaming the schema", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const refused = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:5432"), {
+      code: "ECONNREFUSED",
+    });
+    const text = await listText(
+      adapterThatFails("list", new Error("Failed query", { cause: refused })),
+    );
+    expect(text).toContain(
+      "The database refused the connection or is unreachable. Check DATABASE_URL and that the server accepts connections.",
+    );
+    expect(text).not.toContain("Check the column list");
+    expect(text).toContain("Request req-77");
+  });
+
+  it("keeps the details disclosure for a refused connection outside production", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("NODE_ENV", "development");
+    const text = await listText(
+      adapterThatFails("list", new Error('password authentication failed for user "app"')),
+    );
+    expect(text).toContain("Details");
+    expect(text).toContain('password authentication failed for user "app"');
+  });
+
   it("speaks the admin's language", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const text = await listText(adapterThatFails("list", new Error("boom")), RU_LABELS);

@@ -14,7 +14,10 @@ type Params = Record<string, string | string[] | undefined>;
 /** The part of Next's `Metadata` the admin fills. */
 export interface FlowpanelMetadata {
   title?: string;
+  robots: { index: false; follow: false };
 }
+
+const NO_INDEX = { index: false, follow: false } as const;
 
 function segments(params: Params): string[] {
   const slug = Object.values(params).find(Array.isArray) ?? [];
@@ -38,8 +41,9 @@ async function titleFor(
   if (page) return roleAllows(page.requireRole, reqCtx) ? page.label : undefined;
   const [name, id, rest] = slug;
   if (name === "queues" && id && !rest) return config.queuesByKey.get(id)?.options.label;
-  const resource = name === undefined ? undefined : config.resourcesByName.get(name);
-  if (!resource || name === undefined) return labels.notFound.title;
+  if (name === undefined) return config.theme?.brand?.name;
+  const resource = config.resourcesByName.get(name);
+  if (!resource) return labels.notFound.title;
   if (!(await readableByCaller(resource, reqCtx))) return undefined;
   if (id === undefined) return pluralLabel(resource, name);
   if (id === "new" && !rest) {
@@ -51,7 +55,7 @@ async function titleFor(
 
 /**
  * `generateMetadata` for the admin's catch-all page: each page's `<title>` is its dashboard, list or record name.
- * A page the caller may not open names nothing, and a signed-out visitor sees no admin label.
+ * A page the caller may not open names nothing, a signed-out visitor sees no admin label, and no page is indexed.
  */
 export function flowpanelMetadata(config: ResolvedAdminConfig) {
   return async function generateMetadata({
@@ -63,11 +67,11 @@ export function flowpanelMetadata(config: ResolvedAdminConfig) {
     try {
       const url = new URL(`http://localhost${config.basePath}/${slug.join("/")}`);
       const reqCtx = await buildRequestContext({ req: await buildServerRequest(url), config });
-      if (reqCtx.session === null) return {};
+      if (reqCtx.session === null) return { robots: NO_INDEX };
       const title = await titleFor(config, slug, reqCtx);
-      return title === undefined ? {} : { title };
+      return title === undefined ? { robots: NO_INDEX } : { title, robots: NO_INDEX };
     } catch {
-      return {};
+      return { robots: NO_INDEX };
     }
   };
 }

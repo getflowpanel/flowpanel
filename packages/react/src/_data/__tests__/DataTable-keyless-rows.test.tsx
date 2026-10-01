@@ -72,8 +72,9 @@ describe("rows the projection could not identify", () => {
       />,
     );
     // One editable cell becomes a button; the keyless row stays plain text.
-    expect(screen.getAllByRole("button", { name: /a/ })).toHaveLength(1);
-    expect(screen.queryAllByRole("button", { name: /^b$/ })).toHaveLength(0);
+    expect(screen.getByText("a").closest("button")).not.toBeNull();
+    expect(screen.getByText("b").closest("button")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Edit name" })).toHaveLength(1);
   });
 
   it("does not run a keyboard shortcut on a row it cannot address", () => {

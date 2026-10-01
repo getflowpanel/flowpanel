@@ -3,7 +3,7 @@ import type * as React from "react";
 
 import { ArrayCell } from "./ArrayCell";
 import type { DataTableColumn } from "./data-table-types";
-import { formatCell, renderCellValue } from "./format-cell";
+import { renderCellValue } from "./format-cell";
 import { JsonCell } from "./JsonCell";
 import { renderFormatCell } from "./render-format";
 
@@ -28,7 +28,7 @@ export function withSecondary<Row extends Record<string, unknown>>(
   cell: React.ReactNode,
   formatting?: ResolvedFormatting,
 ): React.ReactNode {
-  const second = c.secondary === undefined ? "" : formatCell(r[c.secondary], formatting);
+  const second = c.secondary === undefined ? "" : renderCellValue(r[c.secondary], formatting);
   if (second === "") return cell;
   return (
     <>

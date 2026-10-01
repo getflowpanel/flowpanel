@@ -10,7 +10,9 @@ import {
 } from "@flowpanel/react";
 import { redirect } from "next/navigation";
 import type * as React from "react";
+import { NotFound } from "./pages/not-found";
 import { buildServerRequest } from "./runtime/build-server-request";
+import { DevAuthNote, warnNoSession } from "./runtime/dev-auth-note";
 import { decodeAtom, encodeAtom } from "./runtime/href";
 import { buildNav } from "./runtime/nav";
 import { bindPublisher } from "./runtime/publish";
@@ -111,11 +113,6 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
     );
 
     const shell = resolveShell(config, opts.shell);
-    const themeComponents = config.theme?.components as
-      | Partial<FlowpanelComponentSlots>
-      | undefined;
-    const themeMode = config.theme?.mode;
-    const labels = config.labels;
     const accountUser =
       config.theme?.user && reqCtx ? config.theme.user(reqCtx.session) : undefined;
 
@@ -149,18 +146,42 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
         </AdminShell>
       );
 
+    return <AdminFrame config={config}>{body}</AdminFrame>;
+  };
+}
+
+function AdminFrame({
+  config,
+  children,
+}: {
+  config: ResolvedAdminConfig;
+  children: React.ReactNode;
+}) {
+  const themeComponents = config.theme?.components as Partial<FlowpanelComponentSlots> | undefined;
+  const themeMode = config.theme?.mode;
+  const labels = config.labels;
+  return (
+    <FlowpanelGlobals
+      apiBase={config.paths.api}
+      {...(config.formatting ? { formatting: config.formatting } : {})}
+      {...(themeComponents ? { themeComponents } : {})}
+      {...(themeMode ? { themeMode } : {})}
+      {...(labels ? { labels } : {})}
+    >
+      <ThemeVars theme={config.theme} />
+      <ThemeColor theme={config.theme} />
+      {children}
+    </FlowpanelGlobals>
+  );
+}
+
+/** The admin's labelled "Page not found" screen, for the host's `not-found.tsx`. */
+export function FlowpanelNotFound(config: ResolvedAdminConfig) {
+  return function FlowpanelNotFoundPage() {
     return (
-      <FlowpanelGlobals
-        apiBase={config.paths.api}
-        {...(config.formatting ? { formatting: config.formatting } : {})}
-        {...(themeComponents ? { themeComponents } : {})}
-        {...(themeMode ? { themeMode } : {})}
-        {...(labels ? { labels } : {})}
-      >
-        <ThemeVars theme={config.theme} />
-        <ThemeColor theme={config.theme} />
-        {body}
-      </FlowpanelGlobals>
+      <AdminFrame config={config}>
+        <NotFound config={config} />
+      </AdminFrame>
     );
   };
 }
@@ -189,11 +210,14 @@ export async function handleRenderError(
   if (target) redirect(target);
 
   const { access } = mergeLabels(config.labels);
+  const developing = process.env.NODE_ENV !== "production";
+  if (isAuthError && developing) warnNoSession();
   // `data-fp-error` is how `smokeAdmin` tells a rendered admin from a signed-out one.
   return isAuthError ? (
     <EmptyState
       title={access.signInTitle}
       description={access.signInDescription}
+      {...(developing ? { action: <DevAuthNote /> } : {})}
       data-fp-error=""
     />
   ) : (

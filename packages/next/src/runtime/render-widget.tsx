@@ -99,10 +99,7 @@ export async function renderWidget(
         widget.options.realtime,
       );
     case "statGroup": {
-      const groupFormatting = resolveFormatting(config.formatting);
-      const stats = await Promise.all(
-        widget.options.stats.map((s) => statItemOf(s, ctx, groupFormatting, config)),
-      );
+      const stats = await Promise.all(widget.options.stats.map((s) => statItemOf(s, ctx, config)));
       return withRealtime(
         <StatGroupCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
@@ -114,14 +111,13 @@ export async function renderWidget(
     }
     case "stat": {
       const result = await resolveItem(widget.value, ctx);
-      const statFormatting = resolveFormatting(config.formatting);
       const hint = result.hint ?? widget.options.hint;
       const href = resolveLink(config, ctx, result.href ?? widget.options.href);
       const tone = valueTone(result, widget.options);
       return withRealtime(
         <StatCard
           label={widget.label}
-          value={statDisplay(result.value, statFormatting)}
+          value={statDisplay(result.value)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
           {...(hint ? { hint } : {})}
           {...(href ? { href } : {})}

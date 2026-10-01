@@ -41,7 +41,12 @@ export {
   type SerializedDrawerTab,
   type SerializedWidget,
 } from "./drawer/drawer-route";
-export { Flowpanel, FlowpanelContent, type FlowpanelOptions } from "./flowpanel-page";
+export {
+  Flowpanel,
+  FlowpanelContent,
+  FlowpanelNotFound,
+  type FlowpanelOptions,
+} from "./flowpanel-page";
 export {
   type FlowpanelHandlers,
   handlers,

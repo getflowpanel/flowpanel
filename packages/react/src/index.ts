@@ -209,6 +209,7 @@ export {
   type ChecklistCardProps,
 } from "./_widgets/ChecklistCard";
 export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget";
+export { type CardDate, isCardDate } from "./_widgets/card-date";
 export { DashboardRefresh, type DashboardRefreshProps } from "./_widgets/DashboardRefresh";
 export { ExpiredCard, type ExpiredCardProps } from "./_widgets/ExpiredCard";
 export {

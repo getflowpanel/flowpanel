@@ -7,7 +7,8 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
+import { runWithRequestContext } from "@flowpanel/core";
+import type { CardDate } from "@flowpanel/react";
 import { safeErrorMessage } from "../runtime/action-helpers";
 import {
   declaredFieldName,
@@ -68,7 +69,7 @@ export type SerializedWidget =
       label?: string;
       stats: {
         label: string;
-        value: string | number;
+        value: string | number | CardDate;
         format?: string;
         tone?: string;
         href?: string;
@@ -207,9 +208,8 @@ export async function serializeWidget(
         };
       }
       case "statGroup": {
-        const formatting = resolveFormatting(config.formatting);
         const stats = await Promise.all(
-          w.options.stats.map((s) => statItemOf(s, widgetCtx, formatting, config, reqCtx)),
+          w.options.stats.map((s) => statItemOf(s, widgetCtx, config, reqCtx)),
         );
         return {
           kind: "statGroup",

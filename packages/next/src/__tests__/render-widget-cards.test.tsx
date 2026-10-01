@@ -160,7 +160,7 @@ describe("stat widget", () => {
       } as never,
       StatCard,
     );
-    expect(props?.value).toContain("2026");
+    expect(props?.value).toEqual({ kind: "date", iso: "2026-03-04T00:00:00.000Z" });
     expect(props?.href).toBeUndefined();
   });
 });

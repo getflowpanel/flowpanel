@@ -30,6 +30,9 @@ export interface FunnelCardProps {
   caption?: WidgetCaption;
 }
 
+const visibleDrop = (drop: number | null): drop is number =>
+  drop !== null && Math.round(Math.abs(drop) * 100) !== 0;
+
 /** Stages with their share of the first step and the drop-off from the one before. */
 export function FunnelCard({
   label,
@@ -94,13 +97,13 @@ export function FunnelCard({
                     <span className="text-fp-text-3">
                       {formatPercentValue(share, formatting, 0)}
                     </span>
-                    {dropOff === null ? null : (
+                    {visibleDrop(dropOff) ? (
                       <span className={alert ? toneTextClass.warn : "text-fp-text-3"}>
                         {dropOff < 0
                           ? `+${formatPercentValue(-dropOff, formatting, 0)}`
                           : `−${formatPercentValue(dropOff, formatting, 0)}`}
                       </span>
-                    )}
+                    ) : null}
                   </span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-fp-bg-3">

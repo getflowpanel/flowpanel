@@ -1,0 +1,21 @@
+---
+"@flowpanel/next": minor
+---
+
+- Added `adminWidgetContext` and `resolveWidget` to run a widget outside a page, and `flowpanelMetadata` for page titles.
+- Changed widget links to resolve on the server; an unknown target throws with the registered names.
+- Changed date presets and `daterange` filters to start at midnight in `formatting.timeZone`.
+- Changed related tab rows to open their target record.
+- Changed a list filter's `defaultValue` to apply until the URL sets the filter.
+- Changed a failed widget card to keep its title and show the cause in a closed Details disclosure outside production.
+- Fixed a widget's `redirect()` and `notFound()` becoming an error card.
+- Fixed `table({ resource })` ignoring the resource's `defaultSort`.
+- Removed the fallbacks to resource, action and drawer `requireRole`, action `ctx.db`, `ctx.href`, detail `header` and `applyScope` (use `access`, `ctx.unsafe.db`, `ctx.link`, `title` and `boundScope`); drawer `header` is now `title`, and `DrawerPayload.header` is `DrawerPayload.title`.
+- Fixed kv, stat and stat-group dates rendering in UTC while columns used the viewer's zone.
+- Added a development note and an `Authentication guide` link to the sign-in wall outside production, and a one-time console warning with the same note.
+- Changed an unknown admin path and a record that does not exist to return 404 through `notFound()`.
+- Added `FlowpanelNotFound(config)` and `createFlowpanel(config).notFound` for the host's `not-found.tsx`: the labelled "Page not found" screen with its way back.
+- Added `robots: { index: false, follow: false }` to every admin page's metadata.
+- Changed a failed read whose error chain shows a refused or unreachable database to show `errors.connectionHint` in place of `errors.queryHint`.
+- Changed the empty-admin screen to lead with `pnpm flowpanel new <table>`, keep the config snippet as the alternative and link the getting-started guide.
+- Fixed the admin root without a dashboard being titled "Page not found"; it now carries the brand name.

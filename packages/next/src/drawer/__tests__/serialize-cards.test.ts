@@ -31,23 +31,14 @@ describe("serializing card widgets for a drawer", () => {
     expect((out as { items: { value: string }[] }).items[0]?.value).toContain("25");
   });
 
-  it("renders a Date through the admin's formatting, in a stat and in a kv row", async () => {
-    const zoned = { formatting: { timeZone: "Asia/Bangkok" } } as unknown as ResolvedAdminConfig;
+  it("carries a Date as an instant the card renders through LocalTime, in a stat and a kv row", async () => {
     const joined = new Date("2026-09-22T23:30:00.000Z");
-    const statOut = await serializeCardWidget(
-      stat("Joined", async () => joined),
-      zoned,
-      reqCtx,
-      ctx,
-    );
-    expect(statOut).toMatchObject({ value: "2026-09-23 06:30" });
-    const kvOut = await serializeCardWidget(
-      kv({ items: [{ label: "Joined", value: joined }] }),
-      zoned,
-      reqCtx,
-      ctx,
-    );
-    expect((kvOut as { items: { value: string }[] }).items[0]?.value).toBe("2026-09-23 06:30");
+    const instant = { kind: "date", iso: "2026-09-22T23:30:00.000Z" };
+    const statOut = await serialize(stat("Joined", async () => joined));
+    expect(statOut).toMatchObject({ value: instant });
+    const kvOut = await serialize(kv({ items: [{ label: "Joined", value: joined }] }));
+    expect((kvOut as { items: { value: unknown }[] }).items[0]?.value).toEqual(instant);
+    expect(JSON.parse(JSON.stringify(kvOut))).toEqual(kvOut);
   });
 
   it("carries bars, funnel and list rows with a resolved empty state", async () => {

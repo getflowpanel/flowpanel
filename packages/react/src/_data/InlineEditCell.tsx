@@ -1,10 +1,14 @@
 "use client";
+import { Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { LocalTime } from "../_atoms/LocalTime";
 import { useToast } from "../_feedback/toast-api";
 import { useApiBase } from "../_provider/ApiBaseContext";
 import { cn } from "../lib/cn";
+
+const PENCIL_REVEAL =
+  "opacity-0 group-hover/row:opacity-100 group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 [@media(hover:none)]:opacity-100";
 
 /** Editable table cell. */
 export interface InlineEditCellProps {
@@ -15,6 +19,8 @@ export interface InlineEditCellProps {
   valueType?: "string" | "number" | "boolean" | "date" | "enum" | "array" | "json" | "reference";
   /** Custom display formatter when not in edit mode. Defaults to `String(value)`. */
   display?: (v: unknown) => React.ReactNode;
+  /** The row opens on click, so the cell text passes clicks through and editing starts from the pencil or Enter. */
+  rowClickable?: boolean;
   className?: string;
 }
 
@@ -25,6 +31,7 @@ export function InlineEditCell({
   value,
   valueType,
   display,
+  rowClickable = false,
   className,
 }: InlineEditCellProps) {
   const router = useRouter();
@@ -88,29 +95,54 @@ export function InlineEditCell({
   }
 
   if (!editing) {
+    const edit = (e: React.SyntheticEvent) => {
+      e.stopPropagation();
+      setEditing(true);
+    };
+    const editOnKey = (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      edit(e);
+    };
+    const shown = display ? display(value) : formatDisplay(value, valueType);
+    if (rowClickable) {
+      return (
+        <span className="group/edit flex min-w-0 items-center gap-1">
+          <span className={cn("min-w-0 flex-1 text-fp-text-1", className)}>{shown}</span>
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={edit}
+            onKeyDown={editOnKey}
+            aria-label={`Edit ${field}`}
+            className={cn(
+              PENCIL_REVEAL,
+              "shrink-0 rounded-fp-sm p-0.5 text-fp-text-3 transition-opacity hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+            )}
+          >
+            <Pencil size={14} aria-hidden />
+          </button>
+        </span>
+      );
+    }
     return (
       <button
         ref={triggerRef}
         type="button"
-        onDoubleClick={() => setEditing(true)}
-        onClick={(e) => {
-          e.stopPropagation();
-          setEditing(true);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            e.stopPropagation();
-            setEditing(true);
-          }
-        }}
+        onClick={edit}
+        onKeyDown={editOnKey}
+        aria-label={`Edit ${field}`}
         className={cn(
-          "w-full cursor-text rounded-fp-sm text-left text-fp-text-1 transition-colors hover:-mx-1 hover:-my-0.5 hover:bg-fp-bg-3/60 hover:px-1 hover:py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+          "group/edit flex w-full min-w-0 cursor-text items-center gap-1 rounded-fp-sm text-left text-fp-text-1 transition-colors hover:-mx-1 hover:-my-0.5 hover:bg-fp-bg-3/60 hover:px-1 hover:py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
           className,
         )}
-        aria-label={`Edit ${field}`}
       >
-        {display ? display(value) : formatDisplay(value, valueType)}
+        <span className="min-w-0 flex-1">{shown}</span>
+        <Pencil
+          size={14}
+          aria-hidden
+          className={cn(PENCIL_REVEAL, "shrink-0 text-fp-text-3 transition-opacity")}
+        />
       </button>
     );
   }

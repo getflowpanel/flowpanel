@@ -9,6 +9,7 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
+import type { CardDate } from "@flowpanel/react";
 import { barRows } from "../runtime/bar-rows";
 import { type ListCardData, listCardData } from "../runtime/list-rows";
 import { realtimeProp } from "../runtime/realtime-channels";
@@ -22,7 +23,7 @@ export type SerializedCardWidget =
   | {
       kind: "stat";
       label: string;
-      value: number | string;
+      value: number | string | CardDate;
       format?: NumericFormat;
       hint?: string;
       href?: string;
@@ -35,7 +36,7 @@ export type SerializedCardWidget =
       label?: string;
       items: {
         label: string;
-        value: string;
+        value: string | CardDate;
         tone?: string;
         href?: string;
         long?: true;
@@ -90,7 +91,6 @@ export async function serializeCardWidget(
   });
   switch (w.kind) {
     case "stat": {
-      const formatting = resolveFormatting(config.formatting);
       const result = await resolveItem(w.value, ctx, reqCtx);
       const hint = result.hint ?? w.options.hint;
       const href = resolveLink(config, ctx, result.href ?? w.options.href);
@@ -101,7 +101,7 @@ export async function serializeCardWidget(
       return {
         kind: "stat",
         label: w.label,
-        value: statDisplay(result.value, formatting),
+        value: statDisplay(result.value),
         ...(w.options.format ? { format: w.options.format } : {}),
         ...(hint ? { hint } : {}),
         ...(href ? { href } : {}),

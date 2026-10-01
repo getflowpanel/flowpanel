@@ -1,10 +1,11 @@
 "use client";
 import type { WidgetCaption } from "@flowpanel/core";
+import type * as React from "react";
+import { LocalTime } from "../_atoms/LocalTime";
 import { Card, CardContent } from "../_layout/Card";
 import { useFormatting } from "../_provider/FormattingContext";
 import { cn } from "../lib/cn";
 import {
-  formatDateValue,
   formatNumber,
   type NumericFormat,
   type ResolvedFormatting,
@@ -13,12 +14,14 @@ import {
 import { LABEL_TEXT } from "../lib/label-text";
 import { toneTextClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
+import { isCardDate } from "./card-date";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface StatGroupCardProps {
   label?: string;
   stats: Array<{
     label: string;
+    /** A `Date` or a `CardDate` renders as `LocalTime`, like a datetime column. */
     value: unknown;
     format?: NumericFormat;
     tone?: Tone;
@@ -33,9 +36,10 @@ function statText(
   value: unknown,
   format: NumericFormat | undefined,
   formatting: ResolvedFormatting,
-): string {
+): React.ReactNode {
+  if (value instanceof Date) return <LocalTime date={value} />;
+  if (isCardDate(value)) return <LocalTime date={value.iso} />;
   if (typeof value === "number") return formatNumber(value, format, formatting);
-  if (value instanceof Date) return formatDateValue(value, formatting);
   return String(value ?? "—");
 }
 

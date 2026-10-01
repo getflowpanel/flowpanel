@@ -5,24 +5,40 @@ import {
   formatDateValue,
   formatNumber,
 } from "@flowpanel/core";
+import type { CardDate } from "@flowpanel/react";
+import { cardDate } from "./stat-result";
 
 const NUMERIC: ReadonlySet<string> = new Set(["currency", "percent", "bytes", "duration"]);
 const MOMENT_KINDS: ReadonlySet<string> = new Set(["date", "relative"]);
 
-/** A `kv` item's text under a column or numeric format, the same on the dashboard and the drawer. */
+type KvFormat = ColumnFormat | NumericFormat | undefined;
+
+const isMoment = (format: KvFormat): boolean =>
+  format !== undefined && MOMENT_KINDS.has(columnFormatKind(format as ColumnFormat));
+
+/** A `kv` item's text under a column or numeric format, for places that need a plain string. */
 export function kvDisplay(
   value: StatValue,
-  format: ColumnFormat | NumericFormat | undefined,
+  format: KvFormat,
   formatting: ResolvedFormatting,
 ): string {
   if (value === null || value === undefined) return "—";
-  const moment = format !== undefined && MOMENT_KINDS.has(columnFormatKind(format as ColumnFormat));
-  if (value instanceof Date && !moment) return formatDateValue(value, formatting);
+  if (value instanceof Date && !isMoment(format)) return formatDateValue(value, formatting);
   if (format === undefined) return String(value);
   if (typeof value === "number" && typeof format === "string" && NUMERIC.has(format)) {
     return formatNumber(value, format as NumericFormat, formatting);
   }
   return formatColumnValue(value, format as ColumnFormat, formatting);
+}
+
+/** A `kv` item's value for its card, the same on the dashboard and the drawer. */
+export function kvValue(
+  value: StatValue,
+  format: KvFormat,
+  formatting: ResolvedFormatting,
+): string | CardDate {
+  if (value instanceof Date && !isMoment(format)) return cardDate(value);
+  return kvDisplay(value, format, formatting);
 }
 
 /** Nothing to show: missing, or only whitespace. */

@@ -1,6 +1,6 @@
 import { resolveFormatting } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { kvDisplay } from "../runtime/kv-display";
+import { kvDisplay, kvValue } from "../runtime/kv-display";
 
 const utc = resolveFormatting();
 
@@ -22,5 +22,24 @@ describe("kvDisplay", () => {
   it("reads a numeric string the way a table cell does, as Postgres returns numeric", () => {
     expect(kvDisplay("0.423", "percent", utc)).toBe("42.3%");
     expect(kvDisplay("7500000", "duration", utc)).toBe("2 hr 5 min");
+  });
+});
+
+describe("kvValue", () => {
+  it("hands a bare Date to the card as an instant", () => {
+    expect(kvValue(new Date("2026-09-23T21:30:00Z"), undefined, utc)).toEqual({
+      kind: "date",
+      iso: "2026-09-23T21:30:00.000Z",
+    });
+  });
+
+  it("keeps a day, a relative and a non-date value a string", () => {
+    expect(kvValue(new Date("2026-09-23T21:30:00Z"), "date", utc)).toBe("2026-09-23");
+    expect(kvValue(0.423, { kind: "percent" }, utc)).toBe("42.3%");
+    expect(kvValue(null, undefined, utc)).toBe("—");
+  });
+
+  it("shows an invalid Date as missing", () => {
+    expect(kvValue(new Date("nope"), undefined, utc)).toBe("—");
   });
 });

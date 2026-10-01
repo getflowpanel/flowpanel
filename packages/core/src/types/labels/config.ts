@@ -221,6 +221,8 @@ export interface LabelsConfig {
     queryTitle?: string;
     /** What to check after a failed page read. */
     queryHint?: string;
+    /** What to check when the database refused the connection or could not be reached. */
+    connectionHint?: string;
     /** Correlation line tying the card to the server log. Use `{id}`. */
     requestId?: string;
     /** Failed widget, shown in the widget's own frame. */
