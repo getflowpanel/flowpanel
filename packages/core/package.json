@@ -166,7 +166,7 @@
   ],
   "peerDependencies": {
     "ioredis": "^5.10.0",
-    "zod": "^4.0.0"
+    "zod": "^4.6.5"
   },
   "peerDependenciesMeta": {
     "ioredis": {
@@ -180,11 +180,11 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "expect-type": "^0.20.0",
-    "react": "^19.0.0",
+    "react": "^19.3.0",
     "tsd": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "zod": "^4.0.0"
+    "zod": "^4.6.5"
   }
 }
