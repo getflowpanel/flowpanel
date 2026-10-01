@@ -243,15 +243,34 @@ jobs:
       - run: pnpm check:cli-package
 
   next-onboarding:
-    name: Packed Next onboarding (${{ matrix.package-manager }}, Tailwind ${{ matrix.tailwind }})
+    name: Packed Next onboarding (${{ matrix.package-manager }}, ${{ matrix.mode }}, Next ${{ matrix.next }})
     needs: check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         package-manager: [npm, pnpm]
-        tailwind: [none, 4]
+        mode: [none, "4"]
+        next: ["16.4.0"]
+        include:
+          - { package-manager: pnpm, mode: none, next: "15.5.27" }
+          - { package-manager: pnpm, mode: create-next-app, next: "15" }
+          - { package-manager: pnpm, mode: create-next-app, next: "16" }
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fp
+          POSTGRES_PASSWORD: fp
+        ports: ["54330:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      FLOWPANEL_ONBOARDING_DATABASE_URL: postgres://fp:fp@localhost:54330/fp
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup
@@ -260,7 +279,7 @@ jobs:
           path: packages/*/dist
           key: dist-${{ github.sha }}
           fail-on-cache-miss: true
-      - run: pnpm check:next-onboarding ${{ matrix.package-manager }} ${{ matrix.tailwind }}
+      - run: pnpm check:next-onboarding ${{ matrix.package-manager }} ${{ matrix.mode }} ${{ matrix.next }}
 
   # ── Aggregate gate: a single required status for branch protection ───────
   ci-success:

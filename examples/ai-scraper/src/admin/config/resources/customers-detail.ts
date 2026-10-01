@@ -11,8 +11,7 @@ function rowOf(ctx: WidgetContext): Partial<Customer> {
 
 export const customerTitle = (row: Customer): string => row.company ?? row.email;
 
-export const customerSubtitle = (row: Customer): string =>
-  `${labelOf(PLANS, row.plan)} · ${labelOf(STATUSES, row.status)}`;
+export const customerSubtitle = (row: Customer): string => labelOf(PLANS, row.plan);
 
 export const customerBadge = (row: Customer) => ({
   label: labelOf(STATUSES, row.status),

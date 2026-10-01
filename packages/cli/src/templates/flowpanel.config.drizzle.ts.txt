@@ -4,25 +4,20 @@ import { db } from "{{DB}}";
 import * as schema from "{{SCHEMA}}";
 import { getSession } from "{{AUTH}}";
 
-// Registers your db and schema so resource names, rows and widget reads are typed.
+// Registers your db, schema and session so resource names, rows, widget reads and roles are typed.
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
     schema: typeof schema;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
   }
-  // A resource renamed with options.name: interface FlowpanelResources { user: typeof schema.adminUserRow.$inferSelect }
 }
 
 export default defineAdmin({
   paths: { admin: "{{ADMIN_PATH}}", api: "{{API_PATH}}" },
   adapter: drizzleAdapter({ db, schema }),
 
-  auth: {
-    session: getSession,
-    role: (s) =>
-      (s as { user?: { role?: string } } | null | undefined)?.user?.role ?? "guest",
-    requireRole: "admin",
-  },
+  auth: { session: getSession, role: (s) => s?.user.role ?? "guest", requireRole: "admin" },
 
   realtime: { driver: "memory" },
 
@@ -32,7 +27,6 @@ export default defineAdmin({
   },
 
   resources: [
-    // Add `resource` to the "@flowpanel/kit" import above, then:
-    // resource(schema.users, { columns: ["email", "name", "createdAt"], search: ["email"] }),
+    // {{CLI}} new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })
   ],
 });

@@ -70,6 +70,16 @@ describe("runDoctorChecks --fix", () => {
     expect(sseAfter!.ok).toBe(true);
   });
 
+  it("writes the missing not-found page next to the admin layout", async () => {
+    const { checks: before } = await runDoctorChecks(tmp, false);
+    expect(before.find((c) => c.name === "Not-found page")?.ok).toBe(false);
+    const { checks } = await runDoctorChecks(tmp, true);
+    expect(checks.find((c) => c.name === "Not-found page")?.ok).toBe(true);
+    const content = await fs.readFile(path.join(tmp, "app/admin/not-found.tsx"), "utf8");
+    expect(content).toContain("export default flowpanel.notFound;");
+    expect(content).toContain('import config from "../../flowpanel.config";');
+  });
+
   it("writes a resolvable config import (no bare @/flowpanel.config with no alias)", async () => {
     // No tsconfig.json in this fixture → aliasMode "none" → `@/flowpanel.config`
     // would not resolve. The fix must emit a relative path instead.

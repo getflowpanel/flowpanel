@@ -32,7 +32,7 @@ export function Config() {
         <figcaption className="font-mono text-xs text-[var(--color-fg-subtle)]">
           flowpanel.config.ts
         </figcaption>
-        <pre className="mt-3 break-words whitespace-pre-wrap rounded-lg bg-[var(--color-bg-subtle)] p-4 font-mono text-xs leading-relaxed text-[var(--color-fg)] sm:p-6 sm:text-[13px]">
+        <pre className="mt-3 overflow-x-auto whitespace-pre rounded-lg bg-[var(--color-bg-subtle)] p-4 font-mono text-xs leading-relaxed text-[var(--color-fg)] sm:p-6 sm:text-[13px]">
           <code>{highlightTs(CONFIG)}</code>
         </pre>
       </figure>

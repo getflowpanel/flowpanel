@@ -374,6 +374,269 @@ describe("init end to end", () => {
     expect(payload.dependencies.failed).toEqual([]);
   });
 
+  it("writes a config that registers the session and maps the role without a cast", async () => {
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION }, [
+      "init",
+      "--yes",
+      "--json",
+    ]);
+    expect(result.code).toBe(0);
+    const config = await fs.readFile(path.join(project, "flowpanel.config.ts"), "utf8");
+    expect(config).toContain("session: NonNullable<Awaited<ReturnType<typeof getSession>>>;");
+    expect(config).toContain('role: (s) => s?.user.role ?? "guest"');
+    expect(config).toContain("// npx flowpanel new <table>  adds an entry;");
+    expect(config).not.toContain("adminUserRow");
+    const stub = await fs.readFile(path.join(project, "src/server/lib/auth.ts"), "utf8");
+    expect(stub).toContain("Promise<Session | null>");
+  });
+
+  it("hands a recognised provider's preset to auth", async () => {
+    await writeModule(project, "better-auth", { version: "1.3.0" });
+    const manifest = JSON.parse(await fs.readFile(path.join(project, "package.json"), "utf8"));
+    manifest.dependencies["better-auth"] = "1.3.0";
+    await fs.writeFile(path.join(project, "package.json"), JSON.stringify(manifest, null, 2));
+    await fs.writeFile(path.join(project, "src/server/lib/auth.ts"), "export const auth = {};\n");
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION });
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout).authentication).toBe("preset:better-auth");
+    const config = await fs.readFile(path.join(project, "flowpanel.config.ts"), "utf8");
+    expect(config).toContain('import { flowpanelAuth } from "@/server/lib/flowpanel-session";');
+    expect(config).toContain("auth: flowpanelAuth,");
+    expect(config).not.toContain("getSession");
+  });
+
+  it("scaffolds the not-found page beside the admin layout", async () => {
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION });
+    const payload = JSON.parse(result.stdout);
+    expect(payload.files.applied).toContain("src/app/admin/not-found.tsx");
+    expect(payload.plan.operations).toContainEqual({
+      kind: "create",
+      path: "src/app/admin/not-found.tsx",
+    });
+    const notFound = await fs.readFile(path.join(project, "src/app/admin/not-found.tsx"), "utf8");
+    expect(notFound).toContain(
+      'import config from "@/../flowpanel.config";'.replace("@/../", "../../../"),
+    );
+    expect(notFound).toContain("export default flowpanel.notFound;");
+    const page = await fs.readFile(
+      path.join(project, "src/app/admin/[[...slug]]/page.tsx"),
+      "utf8",
+    );
+    expect(page).toContain("export const generateMetadata = flowpanel.metadata;");
+  });
+
+  it("brings an admin page written before generateMetadata up to date", async () => {
+    const dir = path.join(project, "src/app/admin/[[...slug]]");
+    await fs.mkdir(dir, { recursive: true });
+    const previous = [
+      'import { createFlowpanel } from "@flowpanel/kit/next";',
+      'import config from "../../../../flowpanel.config";',
+      "",
+      "const flowpanel = createFlowpanel(config);",
+      "",
+      "export default flowpanel.page;",
+      "",
+    ].join("\n");
+    await fs.writeFile(path.join(dir, "page.tsx"), previous);
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION });
+    expect(result.code).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.adminPath).toBe("/admin");
+    expect(payload.plan.operations).toContainEqual({
+      kind: "modify",
+      path: "src/app/admin/[[...slug]]/page.tsx",
+    });
+    expect(await fs.readFile(path.join(dir, "page.tsx"), "utf8")).toContain("generateMetadata");
+  });
+
+  it("prints what it wrote, what it installed and where to go next when piped", async () => {
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION }, [
+      "init",
+      "--yes",
+    ]);
+    expect(result.code).toBe(0);
+    expect(result.stdout.startsWith("Wrote\n  flowpanel.config.ts\n")).toBe(true);
+    for (const file of [
+      "src/app/admin/[[...slug]]/page.tsx",
+      "src/app/admin/not-found.tsx",
+      "src/server/lib/auth.ts",
+    ]) {
+      expect(result.stdout).toContain(`\n  ${file}\n`);
+    }
+    expect(result.stdout).toContain(`Installed @flowpanel/kit@~${CLI_VERSION}`);
+    expect(result.stdout).toContain(
+      [
+        "Authentication: src/server/lib/auth.ts returns no session, so the admin denies every request until you connect your provider.",
+        "",
+        "Next",
+        "  npx flowpanel new <table>    add a resource to flowpanel.config.ts",
+        "  npm run dev                  start Next.js, then open http://localhost:3000/admin",
+        "  https://flowpanel.tech/docs/introduction/getting-started",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("says the development identity is open when --dev-auth is given", async () => {
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION }, [
+      "init",
+      "--yes",
+      "--dev-auth",
+    ]);
+    expect(result.stdout).toContain(
+      "Authentication: src/server/lib/auth.ts is an open development identity. Replace it before deploying.\n\nNext\n",
+    );
+    expect(result.stdout).not.toContain("returns no session");
+  });
+
+  describe("--dev-auth on an initialized project", () => {
+    const installed = { FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION };
+    const CUSTOMISED = "export async function getSession() {\n  return readCookie() ?? null;\n}\n";
+    const sessionFile = () => path.join(project, "src/server/lib/auth.ts");
+    const message =
+      "src/server/lib/auth.ts is already customised; edit it to return a session, or remove it and re-run init --dev-auth.";
+
+    it("replaces the untouched closed stub and says so", async () => {
+      await initRun(installed, ["init", "--yes"]);
+      const closed = await fs.readFile(sessionFile(), "utf8");
+      const result = await initRun(installed, ["init", "--yes", "--dev-auth"]);
+      expect(result.code).toBe(0);
+      expect(result.stdout.startsWith("Wrote\n  src/server/lib/auth.ts\nAuthentication:")).toBe(
+        true,
+      );
+      expect(result.stdout).toContain(
+        "Authentication: src/server/lib/auth.ts is an open development identity. Replace it before deploying.",
+      );
+      const written = await fs.readFile(sessionFile(), "utf8");
+      expect(written).not.toBe(closed);
+      expect(written).toContain("DEVELOPMENT STUB");
+    });
+
+    it("plans the replacement as a modify and reports it in --json", async () => {
+      await initRun(installed, ["init", "--yes"]);
+      const result = await initRun(installed, ["init", "--json", "--dev-auth"]);
+      const payload = JSON.parse(result.stdout);
+      expect(payload.authentication).toBe("development");
+      expect(payload.files.applied).toEqual(["src/server/lib/auth.ts"]);
+      expect(payload.plan.operations).toContainEqual({
+        kind: "modify",
+        path: "src/server/lib/auth.ts",
+      });
+    });
+
+    it("reports the development stub as unchanged on a second run", async () => {
+      await initRun(installed, ["init", "--yes", "--dev-auth"]);
+      const result = await initRun(installed, ["init", "--json", "--dev-auth"]);
+      const payload = JSON.parse(result.stdout);
+      expect(result.code).toBe(0);
+      expect(payload.files.applied).toEqual([]);
+      expect(payload.files.kept).toContain("src/server/lib/auth.ts");
+      expect(payload.authentication).toBe("development");
+    });
+
+    it("leaves a customised session module alone and exits 1", async () => {
+      await initRun(installed, ["init", "--yes"]);
+      await fs.writeFile(sessionFile(), CUSTOMISED);
+      const result = await initRun(installed, ["init", "--yes", "--dev-auth"]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toBe(`${message}\n`);
+      expect(result.stdout).toBe("");
+      expect(await fs.readFile(sessionFile(), "utf8")).toBe(CUSTOMISED);
+    });
+
+    it("refuses a customised module that predates the config, and writes nothing", async () => {
+      await fs.writeFile(sessionFile(), CUSTOMISED);
+      const result = await initRun(installed, ["init", "--yes", "--dev-auth"]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toBe(`${message}\n`);
+      expect(await fs.readFile(sessionFile(), "utf8")).toBe(CUSTOMISED);
+      await expect(fs.access(path.join(project, "flowpanel.config.ts"))).rejects.toThrow();
+    });
+
+    it("puts the refusal in the --json error payload", async () => {
+      await fs.writeFile(sessionFile(), CUSTOMISED);
+      const result = await initRun(installed, ["init", "--json", "--dev-auth"]);
+      expect(result.code).toBe(1);
+      expect(JSON.parse(result.stdout)).toEqual({
+        command: "init",
+        applied: false,
+        error: message,
+      });
+    });
+
+    it("keeps the closed stub without the flag", async () => {
+      await initRun(installed, ["init", "--yes"]);
+      const closed = await fs.readFile(sessionFile(), "utf8");
+      const result = await initRun(installed, ["init", "--json"]);
+      expect(result.code).toBe(0);
+      expect(await fs.readFile(sessionFile(), "utf8")).toBe(closed);
+    });
+  });
+
+  it("prints the mount fallback as a warning line when piped", async () => {
+    await fs.mkdir(path.join(project, "src/app/(dashboard)/admin"), { recursive: true });
+    await fs.writeFile(
+      path.join(project, "src/app/(dashboard)/admin/page.tsx"),
+      "export default function Page() { return null; }\n",
+    );
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION }, [
+      "init",
+      "--yes",
+    ]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain(
+      "! /admin is occupied by src/app/(dashboard)/admin/page.tsx; using /flowpanel.\n",
+    );
+    expect(result.stdout).toContain("then open http://localhost:3000/flowpanel");
+  });
+
+  it("lists every conflicting path when piped and changes nothing", async () => {
+    const own = 'export default { paths: { admin: "/admin", api: "/api/flowpanel" } };\n';
+    await fs.writeFile(path.join(project, "flowpanel.config.ts"), own);
+    await fs.mkdir(path.join(project, "src/app/admin"), { recursive: true });
+    await fs.writeFile(path.join(project, "src/app/admin/layout.tsx"), "// mine too\n");
+    const result = await initRun({}, ["init", "--yes"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("  flowpanel.config.ts\n");
+    expect(result.stderr).toContain("  src/app/admin/layout.tsx\n");
+    expect(result.stderr.trimEnd().split("\n").at(-1)).toBe(
+      "FlowPanel does not overwrite files it did not write.",
+    );
+    expect(await fs.readFile(path.join(project, "flowpanel.config.ts"), "utf8")).toBe(own);
+    await expect(fs.access(path.join(project, "src/app/api"))).rejects.toThrow();
+  });
+
+  it("names the directory when it is not a Next.js project", async () => {
+    project = path.join(fixtureRoot, "empty");
+    await fs.mkdir(project);
+    const result = await initRun({}, ["init", "--yes"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(`No Next.js project found in ${await fs.realpath(project)}.`);
+    expect(result.stderr).toContain("Run this from your project root.");
+  });
+
+  it("prints no escape sequences when piped under CI without NO_COLOR", async () => {
+    await fs.mkdir(path.join(project, "src/app/(dashboard)/admin"), { recursive: true });
+    await fs.writeFile(
+      path.join(project, "src/app/(dashboard)/admin/page.tsx"),
+      "export default function Page() { return null; }\n",
+    );
+    await fs.writeFile(path.join(project, "src/app/layout.tsx"), "export default 1 +;\n");
+    const env = { CI: "1", NO_COLOR: undefined, FORCE_COLOR: undefined };
+    const scenarios: Array<[NodeJS.ProcessEnv, string[]]> = [
+      [{ ...env, FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION }, ["init", "--yes"]],
+      [{ ...env, FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION }, ["init", "--dry-run"]],
+      [{ ...env, FP_FAKE: "fail" }, ["init", "--yes"]],
+    ];
+    for (const [scenario, args] of scenarios) {
+      const result = await initRun(scenario, args);
+      expect(result.stdout.length).toBeGreaterThan(0);
+      expect(result.stdout).not.toContain("\u001b[");
+      expect(result.stderr).not.toContain("\u001b[");
+      await fs.rm(path.join(project, "flowpanel.config.ts"), { force: true });
+    }
+  });
+
   it("writes nothing and exits 1 when a prerequisite is unsupported", async () => {
     await writeModule(project, "next", { version: "15.5.0" });
     const result = await initRun();
@@ -459,5 +722,63 @@ describe("init end to end", () => {
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("Could not add suppressHydrationWarning");
     expect(result.stdout).toContain("src/app/layout.tsx");
+  });
+});
+
+describe("init on a Prisma host", () => {
+  async function usePrisma(schema?: string): Promise<void> {
+    const manifest = JSON.parse(await fs.readFile(path.join(project, "package.json"), "utf8"));
+    delete manifest.dependencies["drizzle-orm"];
+    manifest.dependencies["@prisma/client"] = "5.22.0";
+    await fs.writeFile(path.join(project, "package.json"), JSON.stringify(manifest, null, 2));
+    await fs.rm(path.join(project, "node_modules/drizzle-orm"), { recursive: true });
+    await writeModule(project, "@prisma/client", { version: "5.22.0" });
+    await fs.rm(path.join(project, "src/server"), { recursive: true });
+    await fs.mkdir(path.join(project, "src/lib"), { recursive: true });
+    await fs.writeFile(path.join(project, "src/lib/prisma.ts"), "export const prisma = {};\n");
+    if (schema !== undefined) {
+      await fs.mkdir(path.join(project, "prisma"), { recursive: true });
+      await fs.writeFile(path.join(project, "prisma/schema.prisma"), schema);
+    }
+  }
+
+  const installed = { FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION };
+
+  it("writes the provider of the real datasource, not a commented one", async () => {
+    await usePrisma(
+      'datasource db {\n  // provider = "sqlite"\n  provider = "mysql"\n  url = env("DATABASE_URL")\n}\n',
+    );
+    const result = await initRun(installed);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout).warnings).toEqual([]);
+    const config = await fs.readFile(path.join(project, "flowpanel.config.ts"), "utf8");
+    expect(config).toContain('adapter: prismaAdapter({ prisma, provider: "mysql" }),');
+  });
+
+  it("refuses a provider the adapter does not support and writes nothing", async () => {
+    await usePrisma('datasource db {\n  provider = "mongodb"\n  url = env("DATABASE_URL")\n}\n');
+    const result = await initRun(installed, ["init", "--yes"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(
+      "prismaAdapter supports postgresql, mysql and sqlite; your Prisma schema uses mongodb.",
+    );
+    await expect(fs.access(path.join(project, "flowpanel.config.ts"))).rejects.toThrow();
+  });
+
+  it("falls back to postgresql with a warning when it finds no datasource", async () => {
+    await usePrisma("model User {\n  id Int @id\n}\n");
+    const json = JSON.parse((await initRun(installed)).stdout);
+    expect(json.warnings).toEqual([expect.stringContaining('wrote provider: "postgresql"')]);
+    const config = await fs.readFile(path.join(project, "flowpanel.config.ts"), "utf8");
+    expect(config).toContain('provider: "postgresql"');
+  });
+
+  it("prints that warning as a line when piped, and names a model in the next steps", async () => {
+    await usePrisma();
+    const result = await initRun(installed, ["init", "--yes"]);
+    expect(result.stdout).toContain(
+      '! Could not read the datasource provider from your Prisma schema; wrote provider: "postgresql"',
+    );
+    expect(result.stdout).toContain("npx flowpanel new <model>");
   });
 });

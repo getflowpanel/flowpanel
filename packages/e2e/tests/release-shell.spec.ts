@@ -31,7 +31,7 @@ test("@cross-browser release shell is responsive and role-aware", async ({ page,
   expect(hasHorizontalOverflow).toBe(false);
 
   await page.goto("/admin");
-  await expect(page.getByText("FlowPanel demo", { exact: true })).toBeVisible();
+  await expect(page.getByText("ScrapeAI", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "admin" })).toBeVisible();
   await expect(page.getByRole("button", { name: "support" })).toBeVisible();
   await expect(page.getByRole("link", { name: "View on GitHub" })).toBeVisible();

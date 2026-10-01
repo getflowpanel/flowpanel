@@ -79,7 +79,7 @@ Every option: [defineAdmin reference](/docs/reference/define-config).
 
 ## Resources
 
-Turn a Drizzle table or Prisma model into a focused CRUD workflow.
+Turn a Drizzle table or Prisma model into a list, forms, actions and a record page.
 
 Docs: https://flowpanel.tech/docs/build/resources
 
@@ -153,7 +153,7 @@ Every option: [resource() reference](/docs/reference/resources).
 
 ## Forms
 
-Configure safe create and edit forms with typed fields, validation, defaults, and relations.
+Configure create and edit forms with typed fields, validation, defaults and relations.
 
 Docs: https://flowpanel.tech/docs/build/forms
 

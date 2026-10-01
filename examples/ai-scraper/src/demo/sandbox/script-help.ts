@@ -1,4 +1,4 @@
-export const RESET_DEMO_HELP = `Reset one FlowPanel demo sandbox.
+export const RESET_DEMO_HELP = `Reset one ScrapeAI demo sandbox.
 
 Usage:
   pnpm demo:reset -- --sandbox local
@@ -7,7 +7,7 @@ Usage:
 The default is --sandbox local. The command restores only that sandbox and never touches another
 visitor's rows.`;
 
-export const CLEANUP_DEMO_HELP = `Delete expired FlowPanel demo sandboxes.
+export const CLEANUP_DEMO_HELP = `Delete expired ScrapeAI demo sandboxes.
 
 Usage:
   pnpm demo:cleanup -- [--force]

@@ -31,8 +31,8 @@ describe("the customer entity card", () => {
     expect(detail.title?.({ ...row, company: null }, headerCtx)).toBe("ops@northwind.test");
   });
 
-  it("identifies the account with its plan and status", () => {
-    expect(detail.subtitle?.(row, headerCtx)).toBe("Pro · Past due");
+  it("names the plan in the subtitle and leaves the status to the badge", () => {
+    expect(detail.subtitle?.(row, headerCtx)).toBe("Pro");
   });
 
   it("tones the status pill by what the status means", () => {

@@ -27,19 +27,24 @@ export type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;
 export type ResourceName = [keyof FlowpanelResources] extends [never]
   ? string
   : keyof FlowpanelResources & string;
+export type Session = FlowpanelTypes extends { session: infer S extends object }
+  ? S
+  : Record<string, unknown>;
+export interface AuthConfig {
+  session: (req: Request) => Promise<Session | null>;
+  role: (s: Session | null) => string | Promise<string>;
+  requireRole?: string | string[];
+}
 export declare function defineAdmin(config: {
-  auth?: { session?: unknown; role?: (session: unknown) => string; requireRole?: string };
+  auth?: AuthConfig;
   [key: string]: unknown;
 }): unknown;
 export declare function resource(ref: unknown, options?: unknown): unknown;
 `;
 
 const KIT_AUTH_STUB = `
-export interface AuthConfig {
-  session: (req: Request) => Promise<unknown>;
-  role: (s: unknown) => string | Promise<string>;
-  requireRole?: string | string[];
-}
+import type { AuthConfig } from "@flowpanel/core";
+export type { AuthConfig };
 export declare function withBetterAuth(o: { auth: unknown; requireRole?: string }): AuthConfig;
 export declare function withNextAuth(o: { auth: unknown; requireRole?: string }): AuthConfig;
 export declare function withClerk(o?: { requireRole?: string }): AuthConfig;
@@ -47,7 +52,13 @@ export declare function withLucia(o: { lucia: unknown; requireRole?: string }): 
 `;
 
 const KIT_INDEX_STUB = `
-export type { FlowpanelResources, FlowpanelTypes, InferDB, ResourceName } from "@flowpanel/core";
+export type {
+  FlowpanelResources,
+  FlowpanelTypes,
+  InferDB,
+  ResourceName,
+  Session,
+} from "@flowpanel/core";
 export { defineAdmin, resource } from "@flowpanel/core";
 `;
 
@@ -107,7 +118,7 @@ function kitOnlyApp(): string {
   );
   write(
     path.join(dir, "src/auth.ts"),
-    "export async function getSession(): Promise<{ user?: { role?: string } } | null> { return null; }\n",
+    "export async function getSession(): Promise<{ user: { id: string; role: string } } | null> { return null; }\n",
   );
   write(
     path.join(dir, "src/provider.ts"),
@@ -140,23 +151,25 @@ function typecheck(root: string, files: string[]): string[] {
   });
 }
 
-async function renderDrizzle(): Promise<string> {
-  return tpl("flowpanel.config.drizzle.ts.txt", {
-    DB: "@/db",
+async function renderConfig(
+  orm: "drizzle" | "prisma",
+  auth: string,
+  preset = false,
+): Promise<string> {
+  return tpl(`flowpanel.config.${orm}${preset ? ".preset" : ""}.ts.txt`, {
+    DB: orm === "prisma" ? "@/prisma" : "@/db",
     SCHEMA: "@/schema",
-    AUTH: "@/auth",
+    AUTH: auth,
     APP_NAME: "Fixture",
+    ADMIN_PATH: "/admin",
+    API_PATH: "/api/flowpanel",
+    CLI: "pnpm flowpanel",
+    PROVIDER: "postgresql",
   });
 }
 
-async function renderPrisma(): Promise<string> {
-  return tpl("flowpanel.config.prisma.ts.txt", {
-    DB: "@/prisma",
-    AUTH: "@/auth",
-    SCHEMA: "@/schema",
-    APP_NAME: "Fixture",
-  });
-}
+const renderDrizzle = () => renderConfig("drizzle", "@/auth");
+const renderPrisma = () => renderConfig("prisma", "@/auth");
 
 describe("generated flowpanel.config.ts type-checks in a kit-only scaffold", () => {
   it(
@@ -243,12 +256,7 @@ describe("the preset session module init writes per auth provider", () => {
         );
         write(
           path.join(root, "flowpanel.config.ts"),
-          await tpl("flowpanel.config.drizzle.ts.txt", {
-            DB: "@/db",
-            SCHEMA: "@/schema",
-            AUTH: "@/session",
-            APP_NAME: "Fixture",
-          }),
+          await renderConfig("drizzle", "@/session", true),
         );
         expect(typecheck(root, ["flowpanel.config.ts", "src/session.ts"])).toEqual([]);
       },
@@ -269,11 +277,49 @@ describe("the preset session module init writes per auth provider", () => {
 describe("generated config templates", () => {
   it("register the schema, and the better-auth session, on FlowpanelTypes", async () => {
     expect(await renderDrizzle()).toContain("schema: typeof schema;");
-    expect(await renderDrizzle()).toContain("interface FlowpanelResources");
     expect(await renderPrisma()).toContain("interface FlowpanelResources");
     expect(await tpl("auth-session.better-auth.ts.txt", { AUTH_MODULE: "@/provider" })).toContain(
       "session: typeof auth.$Infer.Session;",
     );
+  });
+
+  it("register the session the getSession import returns and map the role without a cast", async () => {
+    for (const rendered of [await renderDrizzle(), await renderPrisma()]) {
+      expect(rendered).toContain("session: NonNullable<Awaited<ReturnType<typeof getSession>>>;");
+      expect(rendered).toContain(
+        'auth: { session: getSession, role: (s) => s?.user.role ?? "guest", requireRole: "admin" },',
+      );
+      expect(rendered).not.toMatch(/\w+ as (?:\{|any\b|unknown\b)/);
+    }
+  });
+
+  it("the preset variants hand the whole preset to auth and register no session of their own", async () => {
+    for (const orm of ["drizzle", "prisma"] as const) {
+      const rendered = await renderConfig(orm, "@/session", true);
+      expect(rendered).toContain('import { flowpanelAuth } from "@/session";');
+      expect(rendered).toContain("auth: flowpanelAuth,");
+      expect(rendered).not.toContain("getSession");
+      expect(rendered).not.toContain("session:");
+    }
+  });
+
+  it("the preset variants differ from the session variants in the auth wiring only", async () => {
+    const wiring =
+      /^(import \{ (?:getSession|flowpanelAuth) \}.*|\s*session: NonNullable.*|\s*auth: .*|\/\/ Registers .*)\n/gm;
+    for (const orm of ["drizzle", "prisma"] as const) {
+      const strip = (source: string) => source.replace(wiring, "");
+      expect(strip(await renderConfig(orm, "@/session", true))).toBe(
+        strip(await renderConfig(orm, "@/session")),
+      );
+    }
+  });
+
+  it("the placeholder comment names the package manager's binary and no host-specific example", async () => {
+    const rendered = await tpl("flowpanel.config.drizzle.ts.txt", { CLI: "npx flowpanel" });
+    expect(rendered).toContain(
+      '// npx flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })',
+    );
+    expect(rendered).not.toContain("adminUserRow");
   });
 
   it("the prisma variant shows a row-type entry (a bare model name carries none)", async () => {

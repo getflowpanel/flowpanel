@@ -2,6 +2,7 @@
 
 // Read off globalThis so the stub compiles even where @types/node is absent.
 const nodeEnv = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV;
+let warned = false;
 
 export async function getSession(): Promise<{ id: string; user: { id: string; role: string } }> {
   if (nodeEnv === "production") {
@@ -11,9 +12,12 @@ export async function getSession(): Promise<{ id: string; user: { id: string; ro
         "real auth provider.",
     );
   }
-  console.warn(
-    "⚠ flowpanel: development session stub in use — every request is treated as an admin.\n" +
-      "  Replace getSession() in this file before deploying.",
-  );
+  if (!warned) {
+    warned = true;
+    console.warn(
+      "⚠ flowpanel: development session stub in use — every request is treated as an admin.\n" +
+        "  Replace getSession() in this file before deploying.",
+    );
+  }
   return { id: "dev", user: { id: "dev", role: "admin" } };
 }

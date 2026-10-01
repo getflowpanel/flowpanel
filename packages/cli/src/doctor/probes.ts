@@ -1,7 +1,10 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import semver from "semver";
 import { hasMarker } from "../eject/marker";
 import { detectAppDir, fileExists } from "../utils/detect";
+import { inspectDependency } from "../utils/project-packages";
 
 export { countCoreInstances } from "./installed-core";
 
@@ -61,4 +64,25 @@ export async function fixPrecondition(cwd: string): Promise<string | undefined> 
     if (await fileExists(path.join(cwd, name))) return undefined;
   }
   return `no flowpanel.config.ts in ${cwd} — this is not a FlowPanel project. Run \`flowpanel init\` first.`;
+}
+
+const TYPEGEN_SINCE = "15.5.0";
+
+/** Runs `next typegen` when `.next/types` is missing, so `tsc` finds the route and layout globals Next generates. */
+export async function ensureNextTypes(cwd: string): Promise<void> {
+  if (await fileExists(path.join(cwd, ".next/types"))) return;
+  const { installed } = await inspectDependency(cwd, "next");
+  const bin = installed?.manifest.bin;
+  const entry = typeof bin === "string" ? bin : bin?.next;
+  if (!installed || typeof entry !== "string") return;
+  const version = semver.coerce(installed.version);
+  if (version === null || semver.lt(version, TYPEGEN_SINCE)) return;
+  try {
+    execFileSync(process.execPath, [path.resolve(installed.directory, entry), "typegen"], {
+      cwd,
+      stdio: "pipe",
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+      timeout: 120_000,
+    });
+  } catch {}
 }

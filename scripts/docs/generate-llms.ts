@@ -11,7 +11,7 @@ import type { DocsProblem } from "./types";
 export const LLMS_FILE = "packages/flowpanel/llms.txt";
 
 const DOCS_ROOT = "apps/site/content/docs";
-const INSTALL = ["pnpm dlx @flowpanel/cli init", "pnpm flowpanel migrate", "pnpm flowpanel dev"];
+const INSTALL = ["pnpm dlx @flowpanel/cli init", "pnpm dev"];
 const FENCE = /^[ \t]*(```+|~~~+)[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm;
 const CODE_SPAN = /(`+)(?:(?!\1)[\s\S])+?\1/g;
 const IMPORT_STATEMENT =

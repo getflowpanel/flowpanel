@@ -140,7 +140,7 @@ export async function evaluateProjectCompatibility(cwd: string): Promise<Compati
   return (await inspectProjectCompatibility(cwd)).findings;
 }
 
-const PNP_UNSUPPORTED =
+export const PNP_UNSUPPORTED =
   "This project uses Yarn's PnP-only layout. FlowPanel reads installed packages from node_modules and never executes .pnp.cjs, so it cannot see what is installed here. Run `yarn config set nodeLinker node-modules` and reinstall, then run this command again.";
 
 export function firstCompatibilityFailure(findings: CompatibilityFinding[]): string | null {

@@ -14,28 +14,28 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.7.9",
+    "@clerk/nextjs": "^7.9.11",
     "@flowpanel/adapter-drizzle": "workspace:*",
     "@flowpanel/core": "workspace:*",
     "@flowpanel/kit": "workspace:*",
     "@flowpanel/react": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "next": "^16.3.1",
-    "pg": "^8.13.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "zod": "^4.0.0"
+    "drizzle-orm": "catalog:",
+    "next": "catalog:",
+    "pg": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.0",
+    "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
-    "@types/pg": "^8.11.0",
+    "@types/pg": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "drizzle-kit": "^0.31.10",
-    "postcss": "^8.5.26",
-    "tailwindcss": "^4.3.0",
-    "tsx": "^4.0.0",
+    "drizzle-kit": "catalog:",
+    "postcss": "catalog:",
+    "tailwindcss": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:"
   }
 }

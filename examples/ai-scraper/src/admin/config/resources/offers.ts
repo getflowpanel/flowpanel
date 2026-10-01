@@ -1,6 +1,7 @@
 import { resource } from "@flowpanel/kit";
 import { badge, money, ratingCell } from "@/src/admin/format";
 import * as schema from "@/src/db/schema";
+import { marketplaceLabel } from "@/src/demo/data/marketplaces";
 import { MARKETPLACES } from "@/src/demo/data/types";
 import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
 
@@ -25,7 +26,7 @@ export const offers = resource(schema.listings, {
       field: "site",
       type: "select",
       label: "Marketplace",
-      options: MARKETPLACES.map((site) => ({ label: site, value: site })),
+      options: MARKETPLACES.map((site) => ({ label: marketplaceLabel(site), value: site })),
     },
     {
       field: "stock",

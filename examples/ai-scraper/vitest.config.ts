@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 import { sharedTestConfig } from "../../vitest.shared";
 
 export default defineConfig({
-  esbuild: { jsx: "automatic" },
+  oxc: { jsx: { runtime: "automatic" } },
   resolve: {
     alias: [{ find: "@", replacement: fileURLToPath(new URL(".", import.meta.url)) }],
   },

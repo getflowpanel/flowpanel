@@ -20,8 +20,7 @@ From the root of a Next.js App Router app:
 
 ```bash
 pnpm dlx @flowpanel/cli init
-pnpm flowpanel migrate
-pnpm flowpanel dev
+pnpm dev
 ```
 
 ## Example
@@ -46,7 +45,7 @@ Open [http://localhost:3000/admin](http://localhost:3000/admin).
 
 ## Links
 
-- [Documentation](https://flowpanel.tech/docs/introduction/getting-started) and the [step-by-step tutorial](https://flowpanel.tech/docs/introduction/founder-admin)
+- [Documentation](https://flowpanel.tech/docs/introduction/getting-started) and the [tutorial](https://flowpanel.tech/docs/introduction/founder-admin)
 - [Live demo](https://flowpanel.tech) and its source, [`examples/ai-scraper`](examples/ai-scraper); a minimal Clerk setup in [`examples/with-clerk`](examples/with-clerk)
 - [Changelog](https://flowpanel.tech/changelog) and [roadmap](ROADMAP.md)
 - [Contributing](.github/CONTRIBUTING.md), [Discussions](https://github.com/getflowpanel/flowpanel/discussions), [Issues](https://github.com/getflowpanel/flowpanel/issues)

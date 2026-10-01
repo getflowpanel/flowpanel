@@ -16,7 +16,7 @@ Run `pnpm flowpanel doctor` first: it checks package versions, the generated rou
 
 #### “The admin renders without styles”
 
-The admin layout no longer imports `admin.css`. Restore `@import "@flowpanel/kit/styles/admin.css";` and restart. See [Styling](/docs/customization/styling#use-the-generated-stylesheet).
+The admin layout does not import `admin.css`. Restore `@import "@flowpanel/kit/styles/admin.css";` and restart. See [Styling](/docs/customization/styling#use-the-generated-stylesheet).
 
 #### “defineAdmin throws when the app boots”
 

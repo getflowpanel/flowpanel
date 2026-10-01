@@ -1,7 +1,7 @@
 {
   "name": "@flowpanel/cli",
   "version": "0.3.0",
-  "description": "CLI for FlowPanel — init, dev, new, migrate, doctor and eject",
+  "description": "CLI for FlowPanel: init, dev, new, migrate, doctor and eject",
   "keywords": [
     "flowpanel",
     "cli",
@@ -34,25 +34,25 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clack/prompts": "^1.2.0",
-    "commander": "^12.0.0",
-    "jiti": "^2.4.2",
+    "@clack/prompts": "^1.8.1",
+    "commander": "^14.0.3",
+    "jiti": "^2.7.0",
     "picocolors": "^1.1.1",
-    "semver": "^7.7.4",
-    "ts-morph": "^28.0.0"
+    "semver": "^7.8.5",
+    "ts-morph": "catalog:"
   },
   "files": [
     "dist",
     "README.md"
   ],
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.0",
+    "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
-    "@types/semver": "^7.7.1",
-    "drizzle-orm": "^0.45.2",
-    "postcss": "^8.5.26",
-    "tailwindcss": "^4.3.0",
-    "tailwindcss3": "npm:tailwindcss@^3.4.0",
+    "@types/semver": "^7.8.0",
+    "drizzle-orm": "catalog:",
+    "postcss": "catalog:",
+    "tailwindcss": "catalog:",
+    "tailwindcss3": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

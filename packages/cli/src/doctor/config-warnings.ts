@@ -14,8 +14,10 @@ interface JitiModule {
   ) => JitiInstance;
 }
 
-/** Either the config's own warnings, or why they could not be read. */
-export type ConfigWarnings = { warnings: string[] } | { unreadable: string };
+/** The config's own warnings and resource count, or why the config could not be read. */
+export type ConfigWarnings =
+  | { warnings: string[]; resourceCount?: number }
+  | { unreadable: string };
 
 function warningsOf(value: unknown): string[] {
   const warnings = (value as { warnings?: unknown } | null)?.warnings;
@@ -28,7 +30,12 @@ function firstLine(err: unknown): string {
   return (message.split("\n")[0] ?? "").trim() || "unknown error";
 }
 
-/** `defineAdmin`'s own warnings, read by evaluating `flowpanel.config.ts`. */
+function resourceCountOf(value: unknown): number | undefined {
+  const resources = (value as { resources?: unknown } | null)?.resources;
+  return Array.isArray(resources) ? resources.length : undefined;
+}
+
+/** `defineAdmin`'s own warnings and resource count, read by evaluating `flowpanel.config.ts`. */
 export async function readConfigWarnings(cwd: string): Promise<ConfigWarnings> {
   const configPath = path.join(cwd, "flowpanel.config.ts");
   if (!(await fileExists(configPath))) return { warnings: [] };
@@ -40,7 +47,12 @@ export async function readConfigWarnings(cwd: string): Promise<ConfigWarnings> {
       alias: await readTsconfigAliases(cwd),
     });
     const mod = (await jiti.import(configPath)) as { default?: unknown };
-    return { warnings: warningsOf(mod?.default ?? mod) };
+    const config = mod?.default ?? mod;
+    const resourceCount = resourceCountOf(config);
+    return {
+      warnings: warningsOf(config),
+      ...(resourceCount !== undefined ? { resourceCount } : {}),
+    };
   } catch (err) {
     return { unreadable: firstLine(err) };
   }

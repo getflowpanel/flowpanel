@@ -110,6 +110,12 @@ and `collapsed` do not show there.
 
 <AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditConfig" />
 
+### AuditEvent
+
+What `audit.sink` receives. FlowPanel stores no audit rows itself.
+
+<AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditEvent" />
+
 ## SecurityConfig
 
 Cross-origin writes are blocked by default. `trustedOrigins` allows exact
@@ -117,12 +123,6 @@ origins. Requests without browser `Origin` or Fetch Metadata headers, such as
 server-to-server calls, pass this check.
 
 <AutoTypeTable path="../../packages/core/src/types/config.ts" name="SecurityConfig" />
-
-### AuditEvent
-
-What `audit.sink` receives. FlowPanel stores no audit rows itself.
-
-<AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditEvent" />
 
 ## RateLimitConfig
 
@@ -240,9 +240,8 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 
 ## Default bulk delete
 
-When a resource has delete enabled (i.e. **not** `delete: { disabled: true }`)
-and declares no `bulkActions`, `defineAdmin` injects a default `delete` bulk
-action. Set `delete.confirm` to replace its confirmation description. Opt out
+When a resource has delete enabled and declares no `bulkActions`, `defineAdmin`
+injects a default `delete` bulk action. Set `delete.confirm` to replace its confirmation description. Opt out
 with `bulkActions: []` or `delete: { disabled: true }`.
 
 `readOnly: true` short-circuits the whole rule: a read-only admin rewrites

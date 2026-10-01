@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import * as path from "node:path";
 import pc from "picocolors";
 import { createFilesystemPlan } from "../plan/filesystem-plan";
@@ -18,26 +17,35 @@ import {
   detectPackageManager,
   detectPathAlias,
   fileExists,
+  type PmCommands,
   pmCommands,
 } from "../utils/detect";
-import { kitCompatibilityError } from "../utils/kit";
-import { inspectDependency } from "../utils/project-packages";
-import { countCoreInstances, firstDiagnostics, fixPrecondition, staleEjectMarkers } from "./probes";
+import { installedKitVersion, kitCompatibilityError, pinnedSpec } from "../utils/kit";
+import type { Check } from "./check";
+import { type ConfigWarnings, readConfigWarnings } from "./config-warnings";
+import { countCoreInstances, fixPrecondition, staleEjectMarkers } from "./probes";
 import { FIXABLE_FILES, MIGRATION_REL_DEST, makeFix } from "./templates";
+import { runTsc } from "./tsc-check";
+import { warningChecks } from "./warnings";
 
-export interface Check {
-  name: string;
-  ok: boolean;
-  hint?: string;
-  /** If present, this check is auto-fixable. Returns the intended write. */
-  fix?: () => Promise<FileIntent>;
+export type { Check };
+
+interface DoctorOptions {
+  applyFixes?: boolean;
+  quiet?: boolean;
+  adminPath?: string;
 }
 
-export async function runDoctorChecks(
-  cwd: string,
-  fix: boolean,
-  options: { applyFixes?: boolean; quiet?: boolean; adminPath?: string } = {},
-): Promise<{ checks: Check[]; bad: number; plan?: FilesystemPlan; fixBlocked?: string }> {
+interface Gathered {
+  checks: Check[];
+  mount: AdminMount;
+  kitMismatch: string | null;
+  overlapsGeneratedApi: boolean;
+  pmc: PmCommands;
+}
+
+/** The checks that read files and manifests; cheap enough to repeat after `--fix` writes. */
+async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Gathered> {
   const pm = await detectPackageManager(cwd);
   const pmc = pmCommands(pm);
   const appDir = await detectAppDir(cwd);
@@ -112,7 +120,14 @@ export async function runDoctorChecks(
     "Run: flowpanel init",
   );
   const kitMismatch = await kitCompatibilityError(cwd);
-  add("@flowpanel/kit matches this CLI", kitMismatch === null, kitMismatch ?? undefined);
+  const kitInstalled = (await installedKitVersion(cwd)) !== null;
+  add(
+    "@flowpanel/kit matches this CLI",
+    kitInstalled && kitMismatch === null,
+    kitInstalled
+      ? (kitMismatch ?? undefined)
+      : `@flowpanel/kit is not installed. Run: ${pmc.addDisplay(pinnedSpec("@flowpanel/kit"), false)}`,
+  );
   add("Admin mount configuration", !mount.error, mount.error);
 
   for (const {
@@ -139,8 +154,11 @@ export async function runDoctorChecks(
       ? configImportFor(path.dirname(relDest), aliasMode)
       : null;
 
+    const ownAdminPage = `${appDir}${mount.path}/[[...slug]]/page.tsx`;
     const collisions =
-      isAdmin && mount.path ? await findAdminRouteConflicts(cwd, appDir, mount.path, relDest) : [];
+      isAdmin && mount.path
+        ? await findAdminRouteConflicts(cwd, appDir, mount.path, ownAdminPage)
+        : [];
     if (collisions.length) {
       add(
         label,
@@ -194,31 +212,36 @@ export async function runDoctorChecks(
     );
   } catch {}
 
-  const tsc = await inspectDependency(cwd, "typescript");
-  const tscBin = tsc.installed?.manifest.bin;
-  const tscEntry =
-    typeof tscBin === "string" ? tscBin : typeof tscBin?.tsc === "string" ? tscBin.tsc : null;
-  if (!tsc.installed || !tscEntry) {
-    add("tsc --noEmit", false, "TypeScript is not installed with a tsc binary in this project.");
-  } else
-    try {
-      const absoluteBin = path.resolve(tsc.installed.directory, tscEntry);
-      execFileSync(process.execPath, [absoluteBin, "--noEmit"], {
-        cwd,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      add("tsc --noEmit", true);
-    } catch (e: unknown) {
-      const diagnostics = firstDiagnostics(e);
-      add(
-        "tsc --noEmit",
-        false,
-        diagnostics
-          ? `${diagnostics}\n    Full list: ${[pmc.exec, ...pmc.execArgs("tsc", ["--noEmit"])].join(" ")}`
-          : "TypeScript errors in project.",
-      );
-    }
+  return { checks, mount, kitMismatch, overlapsGeneratedApi, pmc };
+}
 
+/** The checks that generate Next's types, compile the project and evaluate its config; run once, after any fix. */
+async function gatherProjectChecks(
+  cwd: string,
+  pmc: PmCommands,
+): Promise<{ checks: Check[]; config: ConfigWarnings }> {
+  const tsc = await runTsc(cwd, pmc);
+  const config = await readConfigWarnings(cwd);
+  const checks: Check[] = [
+    { name: "tsc --noEmit", ok: tsc.ok, ...(tsc.hint === undefined ? {} : { hint: tsc.hint }) },
+    ...(await warningChecks(cwd, pmc, config)),
+  ];
+  return { checks, config };
+}
+
+export async function runDoctorChecks(
+  cwd: string,
+  fix: boolean,
+  options: DoctorOptions = {},
+): Promise<{
+  checks: Check[];
+  bad: number;
+  config: ConfigWarnings;
+  plan?: FilesystemPlan;
+  fixBlocked?: string;
+}> {
+  let gathered = await gatherFileChecks(cwd, options);
+  const { mount, kitMismatch, overlapsGeneratedApi } = gathered;
   let plan: FilesystemPlan | undefined;
   let fixBlocked: string | undefined;
   if (fix) {
@@ -232,7 +255,7 @@ export async function runDoctorChecks(
     if (fixBlocked) {
       if (!options.quiet) process.stderr.write(pc.red(`  ✘ --fix refused: ${fixBlocked}\n`));
     } else {
-      const fixable = checks.filter((check) => !check.ok && check.fix);
+      const fixable = gathered.checks.filter((check) => !check.ok && check.fix);
       try {
         const intents = await Promise.all(
           fixable.map((check) => check.fix?.() as Promise<FileIntent>),
@@ -240,10 +263,10 @@ export async function runDoctorChecks(
         plan = await createFilesystemPlan(cwd, intents);
         if (options.applyFixes !== false) {
           const written = await applyFilesystemPlan(plan);
-          for (const check of fixable) check.ok = true;
           if (!options.quiet) {
             for (const file of written) process.stdout.write(pc.green(`  ✔ fixed: ${file}\n`));
           }
+          if (written.length > 0) gathered = await gatherFileChecks(cwd, options);
         }
       } catch (e: unknown) {
         if (!options.quiet) {
@@ -255,10 +278,16 @@ export async function runDoctorChecks(
     }
   }
 
-  let bad = 0;
-  for (const r of checks) {
-    if (!r.ok) bad++;
-  }
+  const project = await gatherProjectChecks(cwd, gathered.pmc);
+  const checks = [...gathered.checks, ...project.checks];
+  const { config } = project;
+  const bad = checks.filter((check) => !check.ok).length;
 
-  return { checks, bad, ...(plan ? { plan } : {}), ...(fixBlocked ? { fixBlocked } : {}) };
+  return {
+    checks,
+    bad,
+    config,
+    ...(plan ? { plan } : {}),
+    ...(fixBlocked ? { fixBlocked } : {}),
+  };
 }

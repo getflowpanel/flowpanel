@@ -6,8 +6,7 @@ A typed admin panel for an existing Next.js App Router app, built from your Driz
 
 ```bash
 pnpm dlx @flowpanel/cli init
-pnpm flowpanel migrate
-pnpm flowpanel dev
+pnpm dev
 ```
 
 ## Example

@@ -1,6 +1,6 @@
 # @flowpanel/cli
 
-The `flowpanel` command: `init` adds FlowPanel to a Next.js app, `new` adds resources, `migrate` applies FlowPanel's SQL, `doctor` checks the wiring, `eject` hands a page to your code, and `dev` runs Next.js with the queue board.
+The `flowpanel` command: `init` adds FlowPanel to a Next.js app, `new` adds resources, `migrate` creates the audit tables, `doctor` checks the wiring, `eject` hands a page to your code, and `dev` runs Next.js with the queue board.
 
 ## Install
 

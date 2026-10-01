@@ -11,7 +11,7 @@ const ITEMS: ReadonlyArray<{ title: string; body: string }> = [
   },
   {
     title: "Access control",
-    body: "Sign-in through Clerk, Better Auth, Auth.js or Lucia. Roles and tenant scope are checked on the server for every request.",
+    body: "Sign-in through Clerk, Better Auth or Auth.js. Roles and tenant scope are checked on the server for every request.",
   },
   {
     title: "Queues and realtime",

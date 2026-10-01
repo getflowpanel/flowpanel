@@ -122,6 +122,9 @@ A row without a key never opens. Opening is a router push, not a link, so
 cmd-click does not open a new tab; add a column whose `render` returns an anchor
 for that.
 
+In a row that opens, an `editable` column starts editing from its pencil icon, a
+double click or Enter; a single click opens the row.
+
 #### Reading a view
 
 A resource's ref may be a database view. The list, the record page, counts, exports,
@@ -244,7 +247,7 @@ value, and a value with no label shows as is.
   format: {
     kind: "badge",
     tones: { admin: "warn" },
-    labels: { admin: "Админ", freelancer: "Фрилансер" },
+    labels: { admin: "Administrator", freelancer: "Freelancer" },
   },
 }
 ```
@@ -255,7 +258,7 @@ The other kinds:
 - `relative` shows how long ago, such as `5 minutes ago`, in the admin's `locale`.
 - `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, so a retention grid reads at a glance and still sorts by number.
 - `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
-- `boolean` prints `✓` and `✕`, or `labels: { true: "да", false: "нет" }`. SQLite's `1` and `0` read as true and false.
+- `boolean` prints `✓` and `✕`, or `labels: { true: "Yes", false: "No" }`. SQLite's `1` and `0` read as true and false.
 - `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
 - `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded. `cellTone(value, format)` returns the tone a cell gets.
 

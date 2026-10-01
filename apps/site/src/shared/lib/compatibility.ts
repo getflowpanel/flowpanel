@@ -18,8 +18,7 @@ export const COMPATIBILITY_OVERRIDES = [
   {
     id: "next",
     range: "^16.3.0",
-    reason:
-      "The CLI init and doctor commands enforce Next.js 16.3 or newer because the generated App Router wiring depends on that baseline.",
+    reason: "The CLI enforces 16.3 or newer.",
   },
 ] as const;
 

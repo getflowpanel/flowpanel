@@ -82,7 +82,7 @@ function resolveIdentifierToResourceCall(
 ): TSESTree.CallExpression | null {
   const variable = ASTUtils.findVariable(context.sourceCode.getScope(id), id);
   const def = variable?.defs[0];
-  if (!def || def.type !== "Variable") return null;
+  if (def?.type !== "Variable") return null;
   const init = def.node.init;
   if (!init || init.type !== AST_NODE_TYPES.CallExpression) return null;
   return isResourceCall(init) ? init : null;

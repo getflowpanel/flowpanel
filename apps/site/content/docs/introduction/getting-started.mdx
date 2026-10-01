@@ -5,8 +5,6 @@ kind: tutorial
 metaTitle: Add an admin panel to a Next.js app
 ---
 
-Add a working `/admin` route to an existing Next.js App Router app that already uses Drizzle or Prisma. The [ScrapeAI example](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) shows a finished admin.
-
 ## Before you start
 
 <Compatibility />
@@ -36,23 +34,23 @@ The generated `flowpanel.config.ts` has an empty `resources` array. With Drizzle
   </AdapterTab>
 </AdapterTabs>
 
-Drizzle infers the row type from the table. A Prisma resource is a model name, so the `FlowpanelResources` augmentation binds it to the generated type. A request without the `admin` role is denied on the server.
+Drizzle infers the row type from the table. A Prisma resource is a model name, so the `FlowpanelResources` augmentation binds it to the generated type. The `session` entry types the argument of `auth.role`. A request without the `admin` role is denied on the server.
 
-## Apply the migration
+## Start the admin
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000/admin](http://localhost:3000/admin). The resource is in the navigation. `pnpm flowpanel dev` runs Next.js with the [queue board](/docs/guides/queues).
+
+## Audit tables
 
 ```bash
 pnpm flowpanel migrate
 ```
 
-This applies the SQL files in `flowpanel/migrations` using `DATABASE_URL`. The initial migration is PostgreSQL SQL; adapt it before running against MySQL or SQLite.
-
-## Start the admin
-
-```bash
-pnpm flowpanel dev
-```
-
-Open [http://localhost:3000/admin](http://localhost:3000/admin). The resource is in the navigation. `flowpanel dev` runs `next dev`, plus the [queue board](/docs/guides/queues) when `REDIS_URL` and `scripts/board-server.mts` exist; `pnpm dev` works too.
+This applies `flowpanel/migrations` with `DATABASE_URL` and creates `_flowpanel_migrations` and `flowpanel_audit_log`; the SQL targets PostgreSQL. Only [`audit`](/docs/reference/define-config#auditconfig) needs these tables.
 
 ## What `init` created
 
@@ -61,17 +59,19 @@ Paths start with `src/` in a `src/app` project.
 | File | Purpose |
 | --- | --- |
 | `flowpanel.config.ts` | Resources, dashboards, auth, scope, realtime and theme |
-| `app/admin/[[...slug]]/page.tsx` | Catch-all admin page |
-| `app/admin/layout.tsx` | Imports the stylesheet and renders `ThemeScript` with the `x-nonce` request header |
+| `app/admin/[[...slug]]/page.tsx` | Catch-all admin page; exports `generateMetadata` |
+| `app/admin/layout.tsx` | Imports the stylesheet and the theme script |
+| `app/admin/not-found.tsx` | 404 page inside the admin chrome |
 | `app/api/flowpanel/[...route]/route.ts` | Resource and action handlers |
 | `app/api/flowpanel/stream/route.ts` | Authenticated SSE endpoint |
 | `styles/admin.css` | One import of the precompiled, isolated stylesheet |
-| `flowpanel/migrations/0001_init.sql` | FlowPanel's migration and audit tables |
+| `flowpanel/migrations/0001_init.sql` | SQL for `_flowpanel_migrations` and `flowpanel_audit_log` |
 
 `init` also adds `suppressHydrationWarning` to the root layout's `<html>` tag, because `ThemeScript` sets an attribute on it before hydration. If it cannot patch the file safely, it prints the edit. `flowpanel doctor --fix` restores a missing route file.
 
 ## Next
 
-- [Build a founder admin](/docs/introduction/founder-admin): a whole admin, step by step.
+- [Build a complete admin](/docs/introduction/founder-admin): dashboards, a record page, live updates and a smoke test.
+- [ScrapeAI](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper): the finished admin.
 - [Resources](/docs/build/resources), [Forms](/docs/build/forms), [Actions](/docs/build/actions).
 - [Production readiness](/docs/guides/production-readiness) before you deploy.

@@ -1,6 +1,6 @@
 # ScrapeAI
 
-The FlowPanel demo: an admin for a fictional price-intelligence SaaS whose customers set up marketplace monitors, whose runs find competing offers, and whose uncertain matches go to human review. Next.js, Drizzle and PostgreSQL.
+ScrapeAI is a fictional price-intelligence SaaS. Its customers set up marketplace monitors, the runs find competing offers, and uncertain matches go to human review. This is its admin, built with FlowPanel, and the source of the live demo. Next.js, Drizzle and PostgreSQL.
 
 ![ScrapeAI overview in FlowPanel: monitor, offer, crawl and review figures, a live throughput chart, market activity and recent runs](./public/scrapeai-overview-dark.png)
 

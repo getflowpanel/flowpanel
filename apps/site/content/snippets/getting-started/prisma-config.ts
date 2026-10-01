@@ -4,6 +4,9 @@ import { getSession } from "@/server/lib/auth";
 import { prisma, type User } from "@/server/lib/prisma";
 
 declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
+  }
   interface FlowpanelResources {
     User: User;
   }
@@ -13,7 +16,7 @@ export default defineAdmin({
   adapter: prismaAdapter({ prisma, provider: "postgresql" }),
   auth: {
     session: getSession,
-    role: (session) => (session as { user?: { role?: string } } | null)?.user?.role ?? "guest",
+    role: (s) => s?.user.role ?? "guest",
     requireRole: "admin",
   },
   resources: [

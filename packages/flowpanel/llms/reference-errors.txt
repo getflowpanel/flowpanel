@@ -133,7 +133,7 @@ A widget whose query or render throws becomes one failed card, named by title,
 kind and place:
 
 ```text
-«Конвейер» (custom, /system section 2 widget 1): relation "pipeline_view" does not exist
+«Pipeline» (custom, /system section 2 widget 1): relation "pipeline_view" does not exist
 «Broken» (metric, user tab "summary" widget 1): boom
 ```
 

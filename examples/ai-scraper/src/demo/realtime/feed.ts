@@ -1,4 +1,5 @@
 import { publish } from "@flowpanel/kit/next";
+import { marketplaceLabel } from "../data/marketplaces";
 import { findProductStory, PRODUCT_STORIES } from "../data/scenarios";
 import { MARKETPLACES } from "../data/types";
 import {
@@ -29,12 +30,6 @@ function nextThroughput(previous: number, index: number): number {
   const operationalChange = index % 17 === 0 ? -18 : index % 11 === 0 ? 16 : 0;
   return Math.max(96, Math.min(174, previous + correction + jitter + operationalChange));
 }
-
-const marketplaceLabel = (value: string) =>
-  value
-    .split("_")
-    .map((part) => `${part[0]?.toUpperCase()}${part.slice(1)}`)
-    .join(" ");
 
 export function createMarketEvent(index: number, at: Date): MarketEvent {
   const selected = PRODUCT_STORIES[index % PRODUCT_STORIES.length];
