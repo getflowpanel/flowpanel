@@ -76,6 +76,11 @@ export function patchLayoutWithSuppressHydration(source: string): string | null 
   }
 
   const close = html.getEnd() - 1;
+  const last = html.getAttributes().at(-1);
+  if (last && source.slice(last.getEnd(), close).includes("\n")) {
+    const indent = indentAt(source, last.getStart());
+    return `${source.slice(0, last.getEnd())}\n${indent}suppressHydrationWarning${source.slice(last.getEnd())}`;
+  }
   let insertAt = close;
   while (insertAt > html.getStart() && /\s/.test(source[insertAt - 1] ?? "")) insertAt--;
   return `${source.slice(0, insertAt)} suppressHydrationWarning${source.slice(insertAt)}`;

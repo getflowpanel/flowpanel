@@ -1,5 +1,5 @@
 // Ejected edit view for "{{name}}".
-export default async function EditPage({
+{{SEGMENT_CONFIG}}export default async function EditPage({
   params,
 }: {
   params: Promise<{ id: string }>;

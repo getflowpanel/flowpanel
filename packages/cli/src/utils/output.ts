@@ -13,3 +13,10 @@ export function writePlanJson(
 ): void {
   writeJson({ command, applied, plan: publicPlan(plan), ...extra });
 }
+
+/** Exits once stdout has flushed: a database pool the config opened would otherwise keep the process alive. */
+export function exitAfterFlush(code: number): Promise<void> {
+  return new Promise(() => {
+    process.stdout.write("", () => process.exit(code));
+  });
+}

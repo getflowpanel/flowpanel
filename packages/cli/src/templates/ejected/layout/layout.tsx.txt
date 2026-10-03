@@ -1,17 +1,16 @@
-// Ejected admin layout: wrap <AdminShell> with your own providers, or inline its source from @flowpanel/react.
-import { AdminShell, FlowpanelGlobals } from "@flowpanel/kit/react";
-import config from "{{CONFIG_IMPORT}}";
+// Ejected admin layout: set shell: "bare" in flowpanel.config.ts so the pages do not render a second shell.
+import { AdminShell, FlowpanelGlobals, ThemeScript } from "@flowpanel/kit/react";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
+import config from "{{CONFIG_IMPORT}}";
+import "{{CSS_IMPORT}}";
 
-export default function Layout({ children }: { children: ReactNode }) {
-  // Pass variant="tabs" for a horizontal tab strip instead of the default sidebar.
+{{SEGMENT_CONFIG}}export default async function Layout({ children }: { children: ReactNode }) {
+  const nonce = (await headers()).get("x-nonce");
   return (
     <FlowpanelGlobals labels={config.labels} apiBase={config.paths.api}>
-      <AdminShell
-        navGroups={[]}
-        currentPath="/admin"
-        brand={config.theme?.brand}
-      >
+      <ThemeScript defaultMode="auto" nonce={nonce ?? undefined} />
+      <AdminShell navGroups={[]} currentPath={config.paths.admin} brand={config.theme?.brand}>
         {children}
       </AdminShell>
     </FlowpanelGlobals>

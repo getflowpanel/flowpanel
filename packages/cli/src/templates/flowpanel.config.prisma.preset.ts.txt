@@ -3,13 +3,9 @@ import { prismaAdapter } from "@flowpanel/kit/prisma";
 import { prisma } from "{{DB}}";
 import { flowpanelAuth } from "{{AUTH}}";
 
-// Registers your client; add each model to FlowpanelResources to type its columns, filters and reads.
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof prisma;
-  }
-  interface FlowpanelResources {
-    // User: import("@prisma/client").User;
   }
 }
 

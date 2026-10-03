@@ -1,7 +1,7 @@
 // Ejected list view for "{{name}}": rows still pass the protected controller, so auth, field rules and tenant scope hold.
 import { listRows } from "./actions";
 
-export default async function Page() {
+{{SEGMENT_CONFIG}}export default async function Page() {
   const result = await listRows();
   return (
     <div className="space-y-4 p-6">

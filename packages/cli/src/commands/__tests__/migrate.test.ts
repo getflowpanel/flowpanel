@@ -121,7 +121,10 @@ describe("migrate — adapter contract", () => {
 });
 
 describe("migrate — where it runs", () => {
-  const NEXT = JSON.stringify({ dependencies: { next: "16.3.4" } });
+  const NEXT = JSON.stringify({
+    dependencies: { next: "16.3.4" },
+    packageManager: "npm@10.9.0",
+  });
 
   async function runIn(files: Record<string, string>, args: string[] = []) {
     const run = await runCommand(migrateCommand, ["migrate", ...args], files);
@@ -138,13 +141,17 @@ describe("migrate — where it runs", () => {
       "flowpanel/migrations/0001_init.sql": "select 1;",
     });
     expect(result.exit).toBe(1);
-    expect(result.stderr).toContain("flowpanel.config.ts not found — run `flowpanel init` first.");
+    expect(result.stderr).toContain(
+      "flowpanel.config.ts not found. Run `npx @flowpanel/cli init` first.",
+    );
   });
 
   it("exits 1 for a project with no config and no migrations, as new does", async () => {
     const result = await runIn({ "package.json": NEXT });
     expect(result.exit).toBe(1);
-    expect(result.stderr).toContain("flowpanel.config.ts not found — run `flowpanel init` first.");
+    expect(result.stderr).toContain(
+      "flowpanel.config.ts not found. Run `npx @flowpanel/cli init` first.",
+    );
   });
 
   it("puts the same message in the JSON document", async () => {
@@ -153,8 +160,109 @@ describe("migrate — where it runs", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       command: "migrate",
       applied: false,
-      error: "flowpanel.config.ts not found — run `flowpanel init` first.",
+      error: "flowpanel.config.ts not found. Run `npx @flowpanel/cli init` first.",
     });
+  });
+
+  it("refuses an empty DATABASE_URL instead of letting the driver fall back to localhost", async () => {
+    const saved = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+    try {
+      const result = await runIn({
+        "package.json": NEXT,
+        "flowpanel.config.ts": 'import { db } from "./db";\nexport default { adapter: db };\n',
+        "db.ts": "export const db = { url: process.env.DATABASE_URL };\n",
+        "flowpanel/migrations/0001_init.sql": "select 1;",
+      });
+      expect(result.exit).toBe(1);
+      expect(result.stderr).toContain(
+        "DATABASE_URL is empty, so the database client would connect",
+      );
+      expect(result.stderr).toContain("DATABASE_URL=… npx flowpanel migrate");
+    } finally {
+      if (saved === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = saved;
+    }
+  });
+
+  async function withUnset<T>(names: string[], run: () => Promise<T>): Promise<T> {
+    const saved = names.map((name) => [name, process.env[name]] as const);
+    for (const name of names) delete process.env[name];
+    try {
+      return await run();
+    } finally {
+      for (const [name, value] of saved) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  }
+
+  it("refuses an unset DATABASE_URL that the db module reads with no fallback", async () => {
+    const result = await withUnset(["DATABASE_URL"], () =>
+      runIn({
+        "package.json": NEXT,
+        "flowpanel.config.ts": 'import { db } from "./db";\nexport default { adapter: db };\n',
+        "db.ts": "export const db = { url: process.env.DATABASE_URL! };\n",
+        "flowpanel/migrations/0001_init.sql": "select 1;",
+      }),
+    );
+    expect(result.exit).toBe(1);
+    expect(result.stderr).toContain("DATABASE_URL is not set, so the database client");
+  });
+
+  it("does not ask for REDIS_URL or a URL the db module falls back from", async () => {
+    const result = await withUnset(["DATABASE_URL", "REDIS_URL", "NEXT_PUBLIC_APP_URL"], () =>
+      runIn({
+        "package.json": NEXT,
+        "flowpanel.config.ts": [
+          'import { db } from "./db";',
+          'import site from "./site";',
+          "const redis = process.env.REDIS_URL;",
+          "export default { adapter: db, redis, site };",
+        ].join("\n"),
+        "site.ts": "export default process.env.NEXT_PUBLIC_APP_URL;\n",
+        "db.ts": 'export const db = { url: process.env.DATABASE_URL ?? "file:local.db" };\n',
+        "flowpanel/migrations/0001_init.sql": "select 1;",
+      }),
+    );
+    expect(result.exit).toBe(1);
+    expect(result.stderr).not.toContain("is not set");
+    expect(result.stderr).toContain("The config's adapter cannot run migrations.");
+  });
+
+  it("prints JSON when the database cannot be reached", async () => {
+    const saved = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "postgres://u:p@localhost:59999/app";
+    try {
+      const result = await runIn(
+        {
+          "package.json": NEXT,
+          "flowpanel.config.ts": [
+            "const refused = Object.assign(new Error('connect ECONNREFUSED ::1:59999'), {",
+            "  code: 'ECONNREFUSED', address: '::1', port: 59999,",
+            "});",
+            "export default { adapter: {",
+            "  listAppliedMigrations: async () => { throw refused; },",
+            "  applyMigration: async () => {},",
+            "} };",
+            "",
+          ].join("\n"),
+          "flowpanel/migrations/0001_init.sql": "select 1;",
+        },
+        ["--json"],
+      );
+      expect(result.exit).toBe(1);
+      expect(JSON.parse(result.stdout)).toEqual({
+        command: "migrate",
+        applied: false,
+        migrations: [],
+        error: "Cannot reach the database at localhost:59999 (ECONNREFUSED). Check DATABASE_URL.",
+      });
+    } finally {
+      if (saved === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = saved;
+    }
   });
 
   it("names the directory when it is not a Next.js project", async () => {

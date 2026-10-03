@@ -30,14 +30,14 @@ describe("installed compatibility", () => {
   it("rejects a declared-supported Next range when the installed version is old", async () => {
     await fs.writeFile(
       path.join(root, "package.json"),
-      JSON.stringify({ dependencies: { next: "^16.3.0" } }),
+      JSON.stringify({ dependencies: { next: "^15.5.0" } }),
     );
-    await pkg("next", "16.2.9");
+    await pkg("next", "15.4.8");
     const finding = (await evaluateProjectCompatibility(root)).find(
       (item) => item.name === "next",
     )!;
     expect(finding.ok).toBe(false);
-    expect(finding.observed).toBe("16.2.9");
+    expect(finding.observed).toBe("15.4.8");
   });
 
   it("rejects prerelease runtimes and respects installed Next Node engines", async () => {
@@ -110,7 +110,7 @@ describe("PnP-only layouts", () => {
     const failure = firstCompatibilityFailure(await evaluateProjectCompatibility(root));
     expect(failure).toContain("PnP-only layout");
     expect(failure).toContain("nodeLinker node-modules");
-    expect(failure).not.toContain("Required >=16.3.0");
+    expect(failure).not.toContain("Required >=15.5.0");
   });
 });
 
@@ -124,7 +124,7 @@ describe("PnP detection boundaries", () => {
     await fs.writeFile(path.join(root, "package.json"), JSON.stringify({ name: "outer" }));
     const failure = firstCompatibilityFailure(await evaluateProjectCompatibility(app));
     expect(failure).not.toContain("PnP-only layout");
-    expect(failure).toContain("Required >=16.3.0");
+    expect(failure).toContain("Required >=15.5.0");
   });
 
   it("needs a manifest beside .pnp.cjs before calling a layout PnP", async () => {

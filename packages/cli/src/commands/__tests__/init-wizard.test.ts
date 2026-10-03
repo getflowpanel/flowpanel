@@ -127,7 +127,7 @@ describe("init wizard wiring", () => {
 
   it("accepts the default auth path without asking again, though nothing exists there", async () => {
     await init();
-    expect(textCalls("Auth helper path (must export getSession)")).toHaveLength(1);
+    expect(textCalls("Session module, as an import path (exports getSession)")).toHaveLength(1);
   });
 
   it("skips the question when a session helper already exists", async () => {
@@ -155,9 +155,12 @@ describe("init wizard wiring", () => {
   });
 
   it("asks the db question again, with the reason, until the path resolves", async () => {
-    answers["Drizzle db client path"] = ["@/lib/nowhere", "@/server/lib/db"];
+    answers["Drizzle client module, as an import path (exports db)"] = [
+      "@/lib/nowhere",
+      "@/server/lib/db",
+    ];
     await init();
-    const calls = textCalls("Drizzle db client path");
+    const calls = textCalls("Drizzle client module, as an import path (exports db)");
     expect(calls).toHaveLength(2);
     expect(calls[1]?.[0].message).toContain('Cannot resolve "@/lib/nowhere"');
     expect(calls[1]?.[0].initialValue).toBe("@/lib/nowhere");
@@ -168,8 +171,8 @@ describe("init wizard wiring", () => {
 
   it("asks the schema question again, and the auth question when the module lacks getSession", async () => {
     await write({ "src/server/lib/auth.ts": "export const nothing = 1;\n" });
-    answers["Drizzle schema path"] = ["@/nowhere", "@/server/lib/db/schema"];
-    answers["Auth helper path (must export getSession)"] = [
+    answers["Drizzle schema module, as an import path"] = ["@/nowhere", "@/server/lib/db/schema"];
+    answers["Session module, as an import path (exports getSession)"] = [
       "@/server/lib/auth",
       "@/server/lib/session",
     ];
@@ -177,10 +180,25 @@ describe("init wizard wiring", () => {
       "src/server/lib/session.ts": "export async function getSession() { return null; }\n",
     });
     await init();
-    expect(textCalls("Drizzle schema path")).toHaveLength(2);
-    const authCalls = textCalls("Auth helper path (must export getSession)");
+    expect(textCalls("Drizzle schema module, as an import path")).toHaveLength(2);
+    const authCalls = textCalls("Session module, as an import path (exports getSession)");
     expect(authCalls).toHaveLength(2);
     expect(authCalls[1]?.[0].message).toContain('does not declare export "getSession"');
+  });
+
+  it("asks before --dev-auth replaces the closed stub of an initialized project", async () => {
+    await init("--yes");
+    const session = path.join(project, "src/server/lib/auth.ts");
+    const closed = await fs.readFile(session, "utf8");
+
+    confirm.mockImplementation(async () => false);
+    await init("--dev-auth");
+    expect(asked("Apply these changes?")).toHaveLength(1);
+    expect(await fs.readFile(session, "utf8")).toBe(closed);
+
+    confirm.mockImplementation(async () => true);
+    await init("--dev-auth");
+    expect(await fs.readFile(session, "utf8")).toContain("DEVELOPMENT STUB");
   });
 
   it("exits 1 on Ctrl+C at the final question and 0 on an explicit no", async () => {

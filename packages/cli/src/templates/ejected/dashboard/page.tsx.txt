@@ -1,5 +1,5 @@
 // Ejected dashboard at "{{path}}": build it from metric, areaChart and table in "@flowpanel/kit" and MetricCard in "@flowpanel/kit/react".
-export default function Page() {
+{{SEGMENT_CONFIG}}export default function Page() {
   return (
     <div className="p-6 space-y-6">
       <header>

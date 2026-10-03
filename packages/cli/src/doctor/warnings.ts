@@ -9,10 +9,10 @@ function warning(name: string, warn: boolean, hint: string): Check {
   return { name, ok: true, ...(warn ? { warn: true, hint } : {}) };
 }
 
-function sessionHint({ file, kind }: SessionStub): string {
+function sessionHint({ file, kind }: SessionStub, pmc: PmCommands): string {
   return kind === "development"
-    ? `${file} is an open development identity. Replace it before deploying.`
-    : `${file} is still the closed stub: it returns no session, so the admin denies every request until you connect your provider.`;
+    ? `${file} signs every request in as an admin in development and throws under \`next start\`. Replace it with your auth provider before deploying.`
+    : `${file} is still the closed stub, so the admin denies every request. Return your provider's session from getSession there, or run \`${pmc.exec} flowpanel init --dev-auth\` for an open development identity.`;
 }
 
 /** Checks that never fail the run: the project works, but the admin will not be usable yet. */
@@ -27,9 +27,9 @@ export async function warningChecks(
   if (sessionStub !== null || (await fileExists(path.join(cwd, "flowpanel.config.ts")))) {
     checks.push(
       warning(
-        "Session module connected",
+        "Session module",
         sessionStub !== null,
-        sessionStub === null ? "" : sessionHint(sessionStub),
+        sessionStub === null ? "" : sessionHint(sessionStub, pmc),
       ),
     );
   }

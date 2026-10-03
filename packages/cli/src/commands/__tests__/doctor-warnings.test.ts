@@ -51,10 +51,11 @@ describe("doctor — session module warning", () => {
       "flowpanel.config.ts": CONFIG,
       "auth.ts": await tpl("auth-session.ts.txt"),
     });
-    const check = await checkNamed("Session module connected");
+    const check = await checkNamed("Session module");
     expect(check).toMatchObject({ ok: true, warn: true });
     expect(check?.hint).toContain("auth.ts is still the closed stub");
-    expect(check?.hint).toContain("returns no session");
+    expect(check?.hint).toContain("denies every request");
+    expect(check?.hint).toContain("init --dev-auth");
   });
 
   it("also recognises the closed stub 0.3 wrote", async () => {
@@ -64,7 +65,17 @@ describe("doctor — session module warning", () => {
       "auth.ts":
         "export async function getSession(_req: Request): Promise<null> {\n  return null;\n}\n",
     });
-    expect((await checkNamed("Session module connected"))?.warn).toBe(true);
+    expect((await checkNamed("Session module"))?.warn).toBe(true);
+  });
+
+  it("treats a development stub that exports more as the developer's module", async () => {
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": CONFIG,
+      "auth.ts": `${await tpl("dev-session.ts.txt")}\nexport const auth = {};\n`,
+    });
+    const check = await checkNamed("Session module");
+    expect(check).toEqual({ name: "Session module", ok: true });
   });
 
   it("stays quiet once getSession does something", async () => {
@@ -73,8 +84,8 @@ describe("doctor — session module warning", () => {
       "flowpanel.config.ts": CONFIG,
       "auth.ts": "export async function getSession() {\n  return readCookie() ?? null;\n}\n",
     });
-    const check = await checkNamed("Session module connected");
-    expect(check).toEqual({ name: "Session module connected", ok: true });
+    const check = await checkNamed("Session module");
+    expect(check).toEqual({ name: "Session module", ok: true });
   });
 
   it("warns when getSession is the development stub", async () => {
@@ -83,12 +94,12 @@ describe("doctor — session module warning", () => {
       "flowpanel.config.ts": CONFIG,
       "auth.ts": await tpl("dev-session.ts.txt"),
     });
-    const check = await checkNamed("Session module connected");
+    const check = await checkNamed("Session module");
     expect(check).toEqual({
-      name: "Session module connected",
+      name: "Session module",
       ok: true,
       warn: true,
-      hint: "auth.ts is an open development identity. Replace it before deploying.",
+      hint: "auth.ts signs every request in as an admin in development and throws under `next start`. Replace it with your auth provider before deploying.",
     });
   });
 
@@ -99,12 +110,12 @@ describe("doctor — session module warning", () => {
         'import { flowpanelAuth } from "./auth";\nexport default { flowpanelAuth };\n',
       "auth.ts": await tpl("dev-session.ts.txt"),
     });
-    expect((await checkNamed("Session module connected"))?.warn).toBeUndefined();
+    expect((await checkNamed("Session module"))?.warn).toBeUndefined();
   });
 
   it("does not exist without a config", async () => {
     await write({ "package.json": PACKAGE });
-    expect(await checkNamed("Session module connected")).toBeUndefined();
+    expect(await checkNamed("Session module")).toBeUndefined();
   });
 });
 
@@ -130,9 +141,29 @@ describe("doctor — empty resources warning", () => {
     });
   });
 
-  it("is skipped when the config cannot be evaluated", async () => {
+  it("is skipped when the config cannot be evaluated, which is a failure of its own", async () => {
     await write({ "package.json": PACKAGE, "flowpanel.config.ts": 'throw new Error("boom");\n' });
     expect(await checkNamed("Resources configured")).toBeUndefined();
+    expect(await checkNamed("flowpanel.config.ts evaluates")).toEqual({
+      name: "flowpanel.config.ts evaluates",
+      ok: false,
+      hint: "boom",
+    });
+  });
+});
+
+describe("doctor before init", () => {
+  it("asks for init once instead of a --fix that refuses", async () => {
+    await write({ "package.json": PACKAGE });
+    const { checks } = await runDoctorChecks(tmp, false, { quiet: true });
+    const failing = checks.filter((check) => !check.ok);
+    expect(failing.map((check) => check.hint).join("\n")).not.toContain("--fix");
+    expect(checks.find((check) => check.name === "flowpanel.config.ts")).toEqual({
+      name: "flowpanel.config.ts",
+      ok: false,
+      hint: "Not set up yet. Run: npx @flowpanel/cli init",
+    });
+    expect(checks.map((check) => check.name)).not.toContain("API route");
   });
 });
 
@@ -140,6 +171,7 @@ describe("doctor — DATABASE_URL warning", () => {
   it("warns when migrations exist and DATABASE_URL is unset", async () => {
     await write({
       "package.json": PACKAGE,
+      "flowpanel.config.ts": "export default {};\n",
       "flowpanel/migrations/0001_init.sql": "select 1;",
     });
     const check = await checkNamed("DATABASE_URL set");
@@ -152,20 +184,21 @@ describe("doctor — DATABASE_URL warning", () => {
     process.env.DATABASE_URL = "postgres://u:p@localhost:5432/app";
     await write({
       "package.json": PACKAGE,
+      "flowpanel.config.ts": "export default {};\n",
       "flowpanel/migrations/0001_init.sql": "select 1;",
     });
     expect(await checkNamed("DATABASE_URL set")).toEqual({ name: "DATABASE_URL set", ok: true });
   });
 
   it("is skipped when there are no migrations", async () => {
-    await write({ "package.json": PACKAGE });
+    await write({ "package.json": PACKAGE, "flowpanel.config.ts": "export default {};\n" });
     expect(await checkNamed("DATABASE_URL set")).toBeUndefined();
   });
 });
 
 describe("doctor — kit installed check", () => {
   it("fails and says how to install when the kit is not installed", async () => {
-    await write({ "package.json": PACKAGE });
+    await write({ "package.json": PACKAGE, "flowpanel.config.ts": "export default {};\n" });
     const check = await checkNamed("@flowpanel/kit matches this CLI");
     expect(check?.ok).toBe(false);
     expect(check?.hint).toContain("not installed");

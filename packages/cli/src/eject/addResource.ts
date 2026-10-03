@@ -55,7 +55,7 @@ const SCAFFOLD_HINTS =
   /^[ \t]*\/\/ (?:Add `resource` to the "@flowpanel\/kit" import above, then:|(?:pnpm|npx|yarn|bunx) flowpanel new <(?:table|model)> {2}adds an entry;[^\r\n]*)[ \t]*\r?\n/m;
 
 /** Indentation of the line `pos` sits on. */
-function lineIndent(source: string, pos: number): string {
+export function lineIndent(source: string, pos: number): string {
   const lineStart = source.lastIndexOf("\n", pos - 1) + 1;
   const match = /^[ \t]*/.exec(source.slice(lineStart, pos));
   return match?.[0] ?? "";
@@ -70,13 +70,22 @@ export function spliceIntoArray(
   const last = range.elements.at(-1);
   if (last !== undefined) {
     const indent = lineIndent(source, last);
-    return `${source.slice(0, last)},\n${indent}${callText}${source.slice(last)}`;
+    const entry = callText.split("\n").join(`\n${indent}`);
+    const lineEnd = source.indexOf("\n", last);
+    const trailing =
+      lineEnd === -1 ? null : /^\s*(,?)(\s*\/\/.*)$/.exec(source.slice(last, lineEnd));
+    if (trailing) {
+      const [, comma = "", comment = ""] = trailing;
+      return `${source.slice(0, last)},${comment}\n${indent}${entry}${comma}${source.slice(lineEnd)}`;
+    }
+    return `${source.slice(0, last)},\n${indent}${entry}${source.slice(last)}`;
   }
   const closeBracket = range.end - 1;
   const closeIndent = lineIndent(source, closeBracket);
+  const entry = callText.split("\n").join(`\n${closeIndent}  `);
   let trimmed = closeBracket;
   while (trimmed > range.start && /\s/.test(source[trimmed - 1] ?? "")) trimmed--;
-  return `${source.slice(0, trimmed)}\n${closeIndent}  ${callText},\n${closeIndent}${source.slice(
+  return `${source.slice(0, trimmed)}\n${closeIndent}  ${entry},\n${closeIndent}${source.slice(
     closeBracket,
   )}`;
 }
@@ -85,7 +94,14 @@ export function spliceIntoArray(
 export function editConfigToAddResource(
   source: string,
   resourceName: string,
-  options?: { table?: string; kind?: "drizzle" | "prisma"; filename?: string },
+  options?: {
+    table?: string;
+    kind?: "drizzle" | "prisma";
+    filename?: string;
+    /** The whole `resource(...)` call to insert; defaults to one with empty options. */
+    entry?: string;
+    hidden?: boolean;
+  },
 ): string {
   const project = new Project({
     useInMemoryFileSystem: true,
@@ -124,8 +140,8 @@ export function editConfigToAddResource(
   } else {
     firstArg = `schema.${resourceName}`;
   }
-  // No `columns` — the DSL lists every introspected column until the user narrows it.
-  const callText = `resource(${firstArg}, {})`;
+  const callText =
+    options?.entry ?? `resource(${firstArg}, ${options?.hidden ? "{ hidden: true }" : "{}"})`;
   const importInsertion = resourceImportInsertion(sf);
 
   let arrayRange: { start: number; end: number; elements: number[] } | null = null;
@@ -186,7 +202,7 @@ export function editConfigToAddResource(
     while (trimmed > 0 && /\s/.test(source[trimmed - 1] ?? "")) trimmed--;
     const separator = source[trimmed - 1] === "," ? "" : ",";
     return applyInsertion(
-      `${source.slice(0, trimmed)}${separator}\n${closeIndent}  resources: [\n${closeIndent}    ${callText},\n${closeIndent}  ],\n${closeIndent}${source.slice(closeBrace)}`,
+      `${source.slice(0, trimmed)}${separator}\n${closeIndent}  resources: [\n${closeIndent}    ${callText.split("\n").join(`\n${closeIndent}    `)},\n${closeIndent}  ],\n${closeIndent}${source.slice(closeBrace)}`,
       importInsertion,
     ).replace(SCAFFOLD_HINTS, "");
   }

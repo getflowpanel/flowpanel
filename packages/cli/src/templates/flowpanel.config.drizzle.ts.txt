@@ -4,7 +4,6 @@ import { db } from "{{DB}}";
 import * as schema from "{{SCHEMA}}";
 import { getSession } from "{{AUTH}}";
 
-// Registers your db, schema and session so resource names, rows, widget reads and roles are typed.
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
@@ -17,7 +16,11 @@ export default defineAdmin({
   paths: { admin: "{{ADMIN_PATH}}", api: "{{API_PATH}}" },
   adapter: drizzleAdapter({ db, schema }),
 
-  auth: { session: getSession, role: (s) => s?.user.role ?? "guest", requireRole: "admin" },
+  auth: {
+    session: getSession,
+{{ROLE}}
+    requireRole: "admin",
+  },
 
   realtime: { driver: "memory" },
 

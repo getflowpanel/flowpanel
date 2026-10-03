@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 import { tpl } from "../../utils/template";
+import { roleMapping } from "../init-auth";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../..");
 const KIT = path.join(REPO, "packages/flowpanel");
@@ -38,6 +39,7 @@ interface SessionModule {
   name: string;
   template: string;
   preset: boolean;
+  own?: boolean;
 }
 
 const SESSION_MODULES: ReadonlyArray<SessionModule> = [
@@ -47,7 +49,11 @@ const SESSION_MODULES: ReadonlyArray<SessionModule> = [
   { name: "next-auth preset", template: "auth-session.next-auth.ts.txt", preset: true },
   { name: "clerk preset", template: "auth-session.clerk.ts.txt", preset: true },
   { name: "lucia preset", template: "auth-session.lucia.ts.txt", preset: true },
+  { name: "own session without a role", template: "", preset: false, own: true },
 ];
+
+const OWN_SESSION =
+  "export async function getSession(): Promise<{ user: { id: string; email: string } } | null> {\n  return null;\n}\n";
 
 const CLOSED_STUB = SESSION_MODULES[0] as SessionModule;
 const BETTER_AUTH = SESSION_MODULES[2] as SessionModule;
@@ -66,8 +72,14 @@ async function builtKitApp(orm: "drizzle" | "prisma", session: SessionModule): P
   );
   write(path.join(dir, "src/provider.ts"), PROVIDER);
   write(
+    path.join(dir, "src/env.d.ts"),
+    "declare const process: { env: Record<string, string | undefined> };\n",
+  );
+  write(
     path.join(dir, "src/session.ts"),
-    await tpl(session.template, { AUTH_MODULE: "@/provider" }),
+    session.own
+      ? OWN_SESSION
+      : await tpl(session.template, { AUTH_MODULE: "@/provider", FILE: "src/session.ts" }),
   );
   write(
     path.join(dir, "flowpanel.config.ts"),
@@ -80,6 +92,7 @@ async function builtKitApp(orm: "drizzle" | "prisma", session: SessionModule): P
       API_PATH: "/api/admin",
       CLI: "pnpm flowpanel",
       PROVIDER: "postgresql",
+      ROLE: roleMapping(session.own ? "own" : "stub"),
     }),
   );
   return dir;
@@ -111,7 +124,9 @@ describe.runIf(BUILT)("every scaffolded config and session module on the real bu
     for (const session of SESSION_MODULES) {
       it(`${orm} config with the ${session.name} compiles without a cast`, async () => {
         const root = await builtKitApp(orm, session);
-        expect(typecheck(root, ["flowpanel.config.ts", "src/session.ts"])).toEqual([]);
+        expect(typecheck(root, ["flowpanel.config.ts", "src/session.ts", "src/env.d.ts"])).toEqual(
+          [],
+        );
         expect(fs.readFileSync(path.join(root, "flowpanel.config.ts"), "utf8")).not.toMatch(
           /\w+ as (?:\{|any\b|unknown\b)/,
         );
@@ -134,7 +149,9 @@ describe.runIf(BUILT)("every scaffolded config and session module on the real bu
         "",
       ].join("\n"),
     );
-    expect(typecheck(root, ["flowpanel.config.ts", "src/session.ts", "probe.ts"])).toEqual([]);
+    expect(
+      typecheck(root, ["flowpanel.config.ts", "src/session.ts", "src/env.d.ts", "probe.ts"]),
+    ).toEqual([]);
   }, 60_000);
 
   it("types the role callback with the shape the stub returns", async () => {
@@ -148,7 +165,12 @@ describe.runIf(BUILT)("every scaffolded config and session module on the real bu
         "",
       ].join("\n"),
     );
-    const errors = typecheck(root, ["flowpanel.config.ts", "src/session.ts", "probe.ts"]);
+    const errors = typecheck(root, [
+      "flowpanel.config.ts",
+      "src/session.ts",
+      "src/env.d.ts",
+      "probe.ts",
+    ]);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain("TS2339");
     expect(errors[0]).toContain("email");

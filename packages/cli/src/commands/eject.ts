@@ -1,6 +1,5 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
 import {
@@ -9,19 +8,21 @@ import {
   resourceTemplateIntents,
 } from "../eject/copyTargets";
 import {
+  definesResource,
   editConfigToCommentDashboard,
-  editConfigToCommentResource,
-  editSplitResourceFile,
+  findSplitResourceFile,
   findSplitResourcesDir,
 } from "../eject/editConfig";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent, FilesystemPlan } from "../plan/types";
 import { findAdminConfig } from "../scaffold/config-target";
+import { readAdminMount } from "../utils/admin-path";
 import { detectAppDir } from "../utils/detect";
 import { CLI_VERSION, installedKitVersion, kitCompatibilityError } from "../utils/kit";
 import { writeJson, writePlanJson } from "../utils/output";
 import { noNextProject } from "../utils/project-root";
+import { createUi } from "../utils/ui";
 
 export type EjectTarget = "resource" | "dashboard" | "layout";
 
@@ -40,68 +41,52 @@ export async function createEjectPlan(opts: RunEjectOptions): Promise<Filesystem
   const cfg = await findAdminConfig(opts.cwd);
   if (!cfg) {
     throw new Error(
-      "flowpanel.config.ts not found. Run `flowpanel init` first — eject rewrites the config to hand rendering over to your files.",
+      "flowpanel.config.ts not found. Run `pnpm dlx @flowpanel/cli init` first; eject works on a configured admin.",
     );
   }
+  const mount = await readAdminMount(opts.cwd);
+  if (mount.error) throw new Error(mount.error);
+  const adminPath = mount.path ?? "/admin";
   const appDir = await detectAppDir(opts.cwd);
   const source = await fs.readFile(cfg.file, "utf8");
   const configFilename = path.basename(cfg.file);
+  const common = {
+    cwd: opts.cwd,
+    version: opts.version,
+    adminPath,
+    ...(opts.force ? { force: true } : {}),
+  };
   let intents: FileIntent[];
 
   if (opts.target === "resource") {
     if (!opts.name) {
       throw new Error("eject resource: <name> is required (e.g. `flowpanel eject resource users`)");
     }
-    intents = await resourceTemplateIntents({
-      cwd: opts.cwd,
-      resourceName: opts.name,
-      version: opts.version,
-      ...(opts.force ? { force: true } : {}),
-    });
-    try {
-      intents.push({
-        path: path.relative(opts.cwd, cfg.file),
-        content: editConfigToCommentResource(source, opts.name, configFilename, appDir),
-        expectedContent: source,
-      });
-    } catch {
+    if (!definesResource(source, opts.name, configFilename)) {
       const splitDir = await findSplitResourcesDir(opts.cwd, cfg.file, source);
-      const found = splitDir ? await editSplitResourceFile(splitDir, opts.name, appDir) : null;
-      if (!found) {
+      const file = splitDir ? await findSplitResourceFile(splitDir, opts.name) : null;
+      if (!file) {
         const searched = splitDir
           ? `${path.relative(opts.cwd, cfg.file)} or ${path.relative(opts.cwd, splitDir)}`
           : path.relative(opts.cwd, cfg.file);
         throw new Error(`eject: resource "${opts.name}" not found in ${searched}`);
       }
-      intents.push({
-        path: path.relative(opts.cwd, found.file),
-        content: found.edited,
-        expectedContent: found.source,
-      });
     }
+    intents = await resourceTemplateIntents({ ...common, resourceName: opts.name });
   } else if (opts.target === "dashboard") {
     if (!opts.name) {
       throw new Error(
         'eject dashboard: <path> is required (e.g. `flowpanel eject dashboard "/monitoring"`)',
       );
     }
-    intents = await dashboardTemplateIntents({
-      cwd: opts.cwd,
-      dashboardPath: opts.name,
-      version: opts.version,
-      ...(opts.force ? { force: true } : {}),
-    });
+    intents = await dashboardTemplateIntents({ ...common, dashboardPath: opts.name });
     intents.push({
       path: path.relative(opts.cwd, cfg.file),
-      content: editConfigToCommentDashboard(source, opts.name, configFilename, appDir),
+      content: editConfigToCommentDashboard(source, opts.name, configFilename, appDir, adminPath),
       expectedContent: source,
     });
   } else if (opts.target === "layout") {
-    intents = await layoutTemplateIntents({
-      cwd: opts.cwd,
-      version: opts.version,
-      ...(opts.force ? { force: true } : {}),
-    });
+    intents = await layoutTemplateIntents(common);
   } else {
     throw new Error(`Unknown eject target: ${String(opts.target)}`);
   }
@@ -125,7 +110,7 @@ export function ejectCommand(cli: Command): void {
   cli
     .command("eject <target> [name]")
     .description(
-      "Eject a FlowPanel piece into your app/admin folder. Targets: resource <name>, dashboard <path>, layout.",
+      "Copy resource <name>, dashboard <path> or layout into your admin folder as code you own",
     )
     .option("--force", "Overwrite files if they already exist")
     .option("--dry-run", "Print the filesystem plan without writing")
@@ -136,23 +121,22 @@ export function ejectCommand(cli: Command): void {
         name: string | undefined,
         options: { force?: boolean; dryRun?: boolean; json?: boolean },
       ) => {
-        if (!options.json) p.intro(pc.bgYellow(pc.black(" FlowPanel eject ")));
+        const ui = createUi(options.json);
+        ui.intro(pc.bgYellow(pc.black(" FlowPanel eject ")));
+        const fail = (message: string): never => {
+          if (options.json) writeJson({ command: "eject", applied: false, error: message });
+          else ui.cancel(message);
+          process.exit(1);
+        };
 
         const validTargets: ReadonlyArray<EjectTarget> = ["resource", "dashboard", "layout"];
         if (!validTargets.includes(target as EjectTarget)) {
-          const msg = `Unknown target "${target}". Use one of: ${validTargets.join(", ")}`;
-          if (options.json) writeJson({ command: "eject", applied: false, error: msg });
-          else p.cancel(msg);
-          process.exit(1);
+          fail(`Unknown target "${target}". Use one of: ${validTargets.join(", ")}`);
         }
 
         const cwd = process.cwd();
         const notProject = await noNextProject(cwd);
-        if (notProject) {
-          if (options.json) writeJson({ command: "eject", applied: false, error: notProject });
-          else p.cancel(notProject);
-          process.exit(1);
-        }
+        if (notProject) fail(notProject);
         const version = await ejectVersion(cwd);
 
         try {
@@ -170,29 +154,35 @@ export function ejectCommand(cli: Command): void {
           if (options.dryRun) {
             if (options.json) writePlanJson("eject", plan, false);
             else {
-              p.note(planLines, "Filesystem plan (no changes applied)");
-              if (conflicted) p.log.warn("Use --force to overwrite.");
-              p.outro(pc.dim("Dry run complete."));
+              ui.note(planLines, "Filesystem plan (no changes applied)");
+              if (conflicted) ui.warn("Use --force to overwrite.");
+              ui.outro(pc.dim("Dry run complete."));
             }
             return;
           }
           if (conflicted && !options.json) {
-            p.note(planLines, "Filesystem plan");
-            p.cancel("Nothing was written. Use --force to overwrite.");
-            process.exit(1);
+            ui.note(planLines, "Filesystem plan");
+            fail("Nothing was written. Use --force to overwrite.");
           }
           const written = await applyFilesystemPlan(plan);
           if (options.json) {
             writeJson({ command: "eject", applied: true, plan: publicPlan(plan) });
-          } else {
-            if (written.length > 0) p.note(written.join("\n"), "Wrote");
-            p.outro(pc.green(`Ejected ${target}${name ? ` ${name}` : ""}`));
+            return;
           }
+          if (written.length > 0) ui.note(written.join("\n"), "Wrote");
+          if (target === "resource") {
+            ui.info(
+              `flowpanel.config.ts still registers ${name}: the ejected pages read and write rows through it.`,
+            );
+          }
+          if (target === "layout") {
+            ui.info(
+              'Set shell: "bare" in flowpanel.config.ts so the pages do not render a second shell.',
+            );
+          }
+          ui.outro(pc.green(`Ejected ${target}${name ? ` ${name}` : ""}`));
         } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (options.json) writeJson({ command: "eject", applied: false, error: msg });
-          else p.cancel(`Failed: ${msg}`);
-          process.exit(1);
+          fail(e instanceof Error ? e.message : String(e));
         }
       },
     );

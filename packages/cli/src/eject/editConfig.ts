@@ -1,54 +1,27 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { type CallExpression, Node, Project } from "ts-morph";
+import { type CallExpression, Node, Project, SyntaxKind } from "ts-morph";
 import { resolveProjectModule } from "../utils/module-path";
 
-/**
- * Comments the `resource(<refMatchingName>, …)` call out of a flowpanel.config.ts
- * source, leaving the entry in place so uncommenting reverts the eject.
- */
-export function editConfigToCommentResource(
+/** Whether a config or resource-file source registers `resourceName` through a `resource(...)` call. */
+export function definesResource(
   source: string,
   resourceName: string,
   filename = "flowpanel.config.ts",
-  appDir = "app",
-): string {
+): boolean {
   const project = new Project({
     useInMemoryFileSystem: true,
     compilerOptions: { allowJs: true, jsx: 4 /* Preserve */ },
   });
   const sf = project.createSourceFile(filename, source);
-
-  const matches: CallExpression[] = [];
-  sf.forEachDescendant((node) => {
-    if (!Node.isCallExpression(node)) return;
-    const callee = node.getExpression();
-    const calleeText = callee.getText().trim();
-    if (calleeText !== "resource") return;
-    const args = node.getArguments();
-    const first = args[0];
-    if (!first) return;
-    const text = first.getText().trim();
-
-    const dotMatch = /\.([A-Za-z_][\w$]*)\s*$/.exec(text);
-    if (dotMatch && dotMatch[1] === resourceName) {
-      matches.push(node);
-      return;
-    }
-    const stringMatch = /^["'`]([\w-]+)["'`]$/.exec(text);
-    if (stringMatch && stringMatch[1] === resourceName) {
-      matches.push(node);
-      return;
-    }
-    if (text === resourceName) matches.push(node);
+  return sf.getDescendantsOfKind(SyntaxKind.CallExpression).some((node) => {
+    if (node.getExpression().getText().trim() !== "resource") return false;
+    const text = node.getArguments()[0]?.getText().trim();
+    if (!text) return false;
+    const dotted = /\.([A-Za-z_][\w$]*)\s*$/.exec(text)?.[1];
+    const quoted = /^["'`]([\w-]+)["'`]$/.exec(text)?.[1];
+    return dotted === resourceName || quoted === resourceName || text === resourceName;
   });
-
-  if (matches.length === 0) {
-    throw new Error(`eject: resource "${resourceName}" not found in flowpanel.config.ts`);
-  }
-
-  const trimmed = commentOutAll(source, matches).replace(/\s+$/, "");
-  return `${trimmed}\n\n// ejected: ${appDir}/admin/${resourceName}\n`;
 }
 
 /** Comments the `dashboard({ path: "<dashboardPath>", … })` call out of a config. */
@@ -57,6 +30,7 @@ export function editConfigToCommentDashboard(
   dashboardPath: string,
   filename = "flowpanel.config.ts",
   appDir = "app",
+  adminPath = "/admin",
 ): string {
   const project = new Project({
     useInMemoryFileSystem: true,
@@ -91,7 +65,7 @@ export function editConfigToCommentDashboard(
 
   const slug = dashboardPath === "/" ? "" : dashboardPath;
   const trimmed = commentOutAll(source, matches).replace(/\s+$/, "");
-  return `${trimmed}\n\n// ejected: ${appDir}/admin${slug}\n`;
+  return `${trimmed}\n\n// ejected: ${appDir}${adminPath}${slug}\n`;
 }
 
 /** Applied back-to-front so each call's offsets stay valid against `source`. */
@@ -112,7 +86,9 @@ function spanOf(source: string, call: CallExpression): { start: number; end: num
 function commentOutCall(source: string, call: CallExpression): string {
   const parent = call.getParent();
   if (!parent || !Node.isArrayLiteralExpression(parent)) {
-    return `${source.slice(0, call.getStart())}undefined${source.slice(call.getEnd())}`;
+    throw new Error(
+      `eject: ${call.getExpression().getText()}(...) at offset ${call.getStart()} is not an array entry, so it cannot be turned off automatically. Remove it from the config by hand.`,
+    );
   }
 
   const { start, end } = spanOf(source, call);
@@ -169,22 +145,15 @@ export async function findSplitResourcesDir(
   return null;
 }
 
-/** Finds the file in a split-resources directory that defines `resourceName` and comments it out there. */
-export async function editSplitResourceFile(
+/** The file in a split-resources directory that registers `resourceName`, or `null`. */
+export async function findSplitResourceFile(
   dir: string,
   resourceName: string,
-  appDir: string,
-): Promise<{ file: string; source: string; edited: string } | null> {
+): Promise<string | null> {
   const names = await fs.readdir(dir).catch(() => [] as string[]);
   for (const name of names.filter((n) => /\.tsx?$/.test(n) && !/^index\.tsx?$/.test(n))) {
     const file = path.join(dir, name);
-    const source = await fs.readFile(file, "utf8");
-    try {
-      const edited = editConfigToCommentResource(source, resourceName, name, appDir);
-      return { file, source, edited };
-    } catch {
-      // This file does not define resourceName; keep looking.
-    }
+    if (definesResource(await fs.readFile(file, "utf8"), resourceName, name)) return file;
   }
   return null;
 }

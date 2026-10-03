@@ -5,6 +5,7 @@ import { createFilesystemPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent } from "../plan/types";
 import { configImportFor, detectAppDir, detectPathAlias } from "../utils/detect";
+import { blockingSegmentExport, usesCacheComponents } from "../utils/next-config";
 import { stampMarker } from "./marker";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -31,6 +32,8 @@ interface BaseCopyOptions {
   cwd: string;
   version: string;
   force?: boolean;
+  /** The admin mount, e.g. "/admin" or "/ops/admin"; ejected files land under it. */
+  adminPath?: string;
 }
 
 export interface CopyResourceOptions extends BaseCopyOptions {
@@ -88,9 +91,11 @@ async function applyIntents(cwd: string, intents: FileIntent[]): Promise<string[
 export async function resourceTemplateIntents(opts: CopyResourceOptions): Promise<FileIntent[]> {
   const templatesRoot = await resolveTemplatesRoot();
   const appDir = await detectAppDir(opts.cwd);
-  const targetDir = path.join(opts.cwd, appDir, "admin", opts.resourceName);
+  const mount = opts.adminPath ?? "/admin";
+  const targetDir = path.join(opts.cwd, appDir, mount, opts.resourceName);
   const aliasMode = await detectPathAlias(opts.cwd);
-  const configImport = configImportFor(`${appDir}/admin/${opts.resourceName}`, aliasMode);
+  const configImport = configImportFor(`${appDir}${mount}/${opts.resourceName}`, aliasMode);
+  const segmentConfig = blockingSegmentExport(await usesCacheComponents(opts.cwd));
   const intents: FileIntent[] = [];
 
   for (const [srcRel, destRel] of RESOURCE_LAYOUT) {
@@ -99,7 +104,7 @@ export async function resourceTemplateIntents(opts: CopyResourceOptions): Promis
       await stampedIntent(
         path.join(templatesRoot, srcRel),
         dest,
-        { name: opts.resourceName, CONFIG_IMPORT: configImport },
+        { name: opts.resourceName, CONFIG_IMPORT: configImport, SEGMENT_CONFIG: segmentConfig },
         opts.version,
         opts.force ?? false,
         opts.cwd,
@@ -118,13 +123,16 @@ export async function dashboardTemplateIntents(opts: CopyDashboardOptions): Prom
   const templatesRoot = await resolveTemplatesRoot();
   const appDir = await detectAppDir(opts.cwd);
   const normalized = opts.dashboardPath === "/" ? "" : opts.dashboardPath.replace(/^\//, "");
-  const dest = path.join(opts.cwd, appDir, "admin", normalized, "page.tsx");
+  const dest = path.join(opts.cwd, appDir, opts.adminPath ?? "/admin", normalized, "page.tsx");
 
   return [
     await stampedIntent(
       path.join(templatesRoot, "dashboard/page.tsx.txt"),
       dest,
-      { path: opts.dashboardPath },
+      {
+        path: opts.dashboardPath,
+        SEGMENT_CONFIG: blockingSegmentExport(await usesCacheComponents(opts.cwd)),
+      },
       opts.version,
       opts.force ?? false,
       opts.cwd,
@@ -140,14 +148,25 @@ export async function copyDashboardTemplate(opts: CopyDashboardOptions): Promise
 export async function layoutTemplateIntents(opts: CopyLayoutOptions): Promise<FileIntent[]> {
   const templatesRoot = await resolveTemplatesRoot();
   const appDir = await detectAppDir(opts.cwd);
-  const dest = path.join(opts.cwd, appDir, "admin", "layout.tsx");
+  const mount = opts.adminPath ?? "/admin";
+  const layoutDir = `${appDir}${mount}`;
+  const dest = path.join(opts.cwd, layoutDir, "layout.tsx");
   const aliasMode = await detectPathAlias(opts.cwd);
+  const cssFile = aliasMode === "strip-src" ? "src/styles/admin.css" : "styles/admin.css";
+  const cssImport =
+    aliasMode === "none"
+      ? path.relative(layoutDir, cssFile).split(path.sep).join("/")
+      : "@/styles/admin.css";
 
   return [
     await stampedIntent(
       path.join(templatesRoot, "layout/layout.tsx.txt"),
       dest,
-      { CONFIG_IMPORT: configImportFor(`${appDir}/admin`, aliasMode) },
+      {
+        CONFIG_IMPORT: configImportFor(layoutDir, aliasMode),
+        CSS_IMPORT: cssImport,
+        SEGMENT_CONFIG: blockingSegmentExport(await usesCacheComponents(opts.cwd)),
+      },
       opts.version,
       opts.force ?? false,
       opts.cwd,

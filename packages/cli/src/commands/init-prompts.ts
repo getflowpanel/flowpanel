@@ -3,7 +3,7 @@ import pc from "picocolors";
 
 export const ABORTED = "Aborted — nothing was written.";
 
-export function abortOnCancel<T>(answer: T | symbol): T {
+export function abortOnCancel<T>(answer: T | typeof p.CANCEL_SYMBOL): T {
   if (p.isCancel(answer)) {
     p.cancel(ABORTED);
     process.exit(1);

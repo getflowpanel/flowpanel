@@ -3,14 +3,10 @@ import { prismaAdapter } from "@flowpanel/kit/prisma";
 import { prisma } from "{{DB}}";
 import { getSession } from "{{AUTH}}";
 
-// Registers your client and session; add each model to FlowpanelResources to type its columns, filters and reads.
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof prisma;
     session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
-  }
-  interface FlowpanelResources {
-    // User: import("@prisma/client").User;
   }
 }
 
@@ -18,7 +14,11 @@ export default defineAdmin({
   paths: { admin: "{{ADMIN_PATH}}", api: "{{API_PATH}}" },
   adapter: prismaAdapter({ prisma, provider: "{{PROVIDER}}" }),
 
-  auth: { session: getSession, role: (s) => s?.user.role ?? "guest", requireRole: "admin" },
+  auth: {
+    session: getSession,
+{{ROLE}}
+    requireRole: "admin",
+  },
 
   realtime: { driver: "memory" },
 

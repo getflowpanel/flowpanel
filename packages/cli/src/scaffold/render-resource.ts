@@ -9,7 +9,8 @@ const LONG_TEXT =
 
 /** How a column appears in a scaffolded list: left out, formatted, or as is. */
 export function columnKind(column: ColumnDescription): ColumnKind {
-  if (column.dataType === "json") return "skip";
+  if (column.primary && /(?:UUID|Uuid|Cuid)$/.test(column.columnType)) return "skip";
+  if (column.dataType === "json" || column.dataType === "buffer") return "skip";
   if (column.length !== undefined && column.length > 200) return "skip";
   if (/Text$/.test(column.columnType) && LONG_TEXT.test(column.key)) return "skip";
   if (/Timestamp|DateTime/.test(column.columnType)) return "timestamp";
@@ -47,16 +48,26 @@ function entries(values: readonly string[]): string {
   return `{\n  ${rendered.join(",\n  ")},\n}`;
 }
 
-function columnSource(column: ColumnDescription, kind: ColumnKind): string {
+/** `userId` → `User`: a foreign key's header names the record, not its key. */
+function referenceLabel(key: string): string | null {
+  const base = key.replace(/(?:_id|Id|ID)$/, "");
+  if (base === key || base === "") return null;
+  return humanizeEnumValue(base.replace(/([a-z0-9])([A-Z])/g, "$1 $2"));
+}
+
+function columnSource(column: ColumnDescription, kind: ColumnKind, enumConsts: boolean): string {
   const field = JSON.stringify(column.key);
   if (column.references) {
     const { table, labelField } = column.references;
-    return `{ field: ${field}, reference: { resource: ${JSON.stringify(table)}, labelField: ${JSON.stringify(labelField)} } }`;
+    const label = referenceLabel(column.key);
+    return `{ field: ${field}, ${label ? `label: ${JSON.stringify(label)}, ` : ""}reference: { resource: ${JSON.stringify(table)}, labelField: ${JSON.stringify(labelField)} } }`;
   }
   if (kind === "timestamp") return `{ field: ${field}, format: { kind: "date", time: true } }`;
-  if (kind === "date") return `{ field: ${field}, format: "date" }`;
+  if (kind === "date") return `{ field: ${field}, format: { kind: "date", calendarDay: true } }`;
   if (kind === "boolean") return `{ field: ${field}, format: "boolean" }`;
-  if (kind === "enum") return `{ field: ${field}, format: ${pascal(column.key)}.format }`;
+  if (kind === "enum" && enumConsts) {
+    return `{ field: ${field}, format: ${pascal(column.key)}.format }`;
+  }
   return field;
 }
 
@@ -66,12 +77,23 @@ export interface RenderOptions {
   schemaImport: string;
 }
 
-/** The source of one resource file: `resource(schema.<export>, { columns, search, filters, defaultSort })`. */
-export function renderResourceFile(table: TableDescription, options: RenderOptions): string {
+interface Planned {
+  kept: Array<{ column: ColumnDescription; kind: ColumnKind }>;
+  enums: Array<{ column: ColumnDescription; kind: ColumnKind }>;
+}
+
+function plan(table: TableDescription): Planned {
   const kept = table.columns
     .map((column) => ({ column, kind: columnKind(column) }))
     .filter(({ kind }) => kind !== "skip");
-  const enums = kept.filter(({ column, kind }) => kind === "enum" && !column.references);
+  return { kept, enums: kept.filter(({ column, kind }) => kind === "enum" && !column.references) };
+}
+
+/** The option lines of a scaffolded `resource(...)` call, indented two spaces. */
+function optionLines(
+  { kept, enums }: Planned,
+  options: { hidden: boolean; enumConsts: boolean; name?: string },
+): string[] {
   const search = kept
     .filter(({ column }) => SEARCH_KEYS.includes(column.key) && column.dataType === "string")
     .map(({ column }) => JSON.stringify(column.key));
@@ -79,24 +101,13 @@ export function renderResourceFile(table: TableDescription, options: RenderOptio
   const sort =
     SORT_KEYS.map((key) => dated.find(({ column }) => column.key === key)).find(Boolean) ??
     kept.find(({ kind }) => kind === "timestamp");
-
-  const lines = [
-    `import { ${enums.length > 0 ? "enumOf, " : ""}resource } from "@flowpanel/kit";`,
-    `import * as schema from ${JSON.stringify(options.schemaImport)};`,
-    "",
-  ];
-  for (const { column } of enums) {
-    const values = entries(column.enumValues ?? []);
-    const call = column.enumExport
-      ? `enumOf(schema.${column.enumExport}.enumValues, ${values})`
-      : `enumOf(${values})`;
-    lines.push(`const ${pascal(column.key)} = ${call};`);
-  }
-  if (enums.length > 0) lines.push("");
-  lines.push(`export const ${table.exportName} = resource(schema.${table.exportName}, {`);
+  const lines: string[] = [];
+  if (options.name !== undefined) lines.push(`  name: ${JSON.stringify(options.name)},`);
   if (options.hidden) lines.push("  hidden: true,");
   lines.push("  columns: [");
-  for (const { column, kind } of kept) lines.push(`    ${columnSource(column, kind)},`);
+  for (const { column, kind } of kept) {
+    lines.push(`    ${columnSource(column, kind, options.enumConsts)},`);
+  }
   lines.push("  ],");
   if (search.length > 0) lines.push(`  search: [${search.join(", ")}],`);
   if (enums.length > 0) {
@@ -105,8 +116,43 @@ export function renderResourceFile(table: TableDescription, options: RenderOptio
     );
     lines.push(`  filters: [${filters.join(", ")}],`);
   }
-  if (sort)
+  if (sort) {
     lines.push(`  defaultSort: { field: ${JSON.stringify(sort.column.key)}, dir: "desc" },`);
+  }
+  return lines;
+}
+
+/** `resource(<ref>, { columns, search, filters, defaultSort })` for a config's `resources` array. */
+export function renderResourceEntry(
+  table: TableDescription,
+  ref: string,
+  options: { hidden: boolean; name?: string },
+): string {
+  return [
+    `resource(${ref}, {`,
+    ...optionLines(plan(table), { ...options, enumConsts: false }),
+    "})",
+  ].join("\n");
+}
+
+/** The source of one resource file: `resource(schema.<export>, { columns, search, filters, defaultSort })`. */
+export function renderResourceFile(table: TableDescription, options: RenderOptions): string {
+  const planned = plan(table);
+  const lines = [
+    `import { ${planned.enums.length > 0 ? "enumOf, " : ""}resource } from "@flowpanel/kit";`,
+    `import * as schema from ${JSON.stringify(options.schemaImport)};`,
+    "",
+  ];
+  for (const { column } of planned.enums) {
+    const values = entries(column.enumValues ?? []);
+    const call = column.enumExport
+      ? `enumOf(schema.${column.enumExport}.enumValues, ${values})`
+      : `enumOf(${values})`;
+    lines.push(`const ${pascal(column.key)} = ${call};`);
+  }
+  if (planned.enums.length > 0) lines.push("");
+  lines.push(`export const ${table.exportName} = resource(schema.${table.exportName}, {`);
+  lines.push(...optionLines(planned, { hidden: options.hidden, enumConsts: true }));
   lines.push("});", "");
   return lines.join("\n");
 }

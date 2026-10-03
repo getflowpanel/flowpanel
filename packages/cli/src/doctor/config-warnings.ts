@@ -58,13 +58,8 @@ export async function readConfigWarnings(cwd: string): Promise<ConfigWarnings> {
   }
 }
 
-/** Print the config's warnings, or say that they could not be checked. */
+/** Print the config's own warnings; an unreadable config is a failed check instead. */
 export function printConfigWarnings(result: ConfigWarnings): void {
-  if ("unreadable" in result) {
-    log.warn(
-      `flowpanel.config.ts could not be evaluated: ${result.unreadable}; config warnings skipped`,
-    );
-    return;
-  }
+  if ("unreadable" in result) return;
   for (const warning of result.warnings) log.warn(warning);
 }

@@ -17,6 +17,7 @@ interface DrizzleColumn {
   dataType: string;
   columnType: string;
   primary: boolean;
+  notNull: boolean;
   enumValues?: readonly string[];
   enum?: unknown;
   length?: number;
@@ -45,6 +46,7 @@ export interface ColumnDescription {
   dataType: string;
   columnType: string;
   primary: boolean;
+  notNull?: boolean;
   length?: number;
   enumValues?: readonly string[];
   /** The schema export that holds the column's `pgEnum`. */
@@ -59,7 +61,7 @@ export interface TableDescription {
   columns: ColumnDescription[];
 }
 
-const LABEL_KEYS = ["name", "title", "email"];
+export const LABEL_KEYS = ["name", "title", "email"];
 const DIALECTS: ReadonlyArray<[prefix: string, module: string]> = [
   ["Pg", "drizzle-orm/pg-core"],
   ["SQLite", "drizzle-orm/sqlite-core"],
@@ -80,8 +82,15 @@ function declarationOrder(source: string, exportName: string): number {
   return at ?? Number.POSITIVE_INFINITY;
 }
 
-function labelField(columns: Record<string, DrizzleColumn>, fallback: string): string {
-  return LABEL_KEYS.find((key) => columns[key]?.dataType === "string") ?? fallback;
+/** The text column a reference shows: a NOT NULL name, title or email first, so no row reads as its raw key. */
+export function labelField(
+  columns: ReadonlyArray<Pick<ColumnDescription, "key" | "dataType" | "notNull">>,
+  fallback: string,
+): string {
+  const text = LABEL_KEYS.map((key) => columns.find((c) => c.key === key)).filter(
+    (column) => column?.dataType === "string",
+  );
+  return (text.find((column) => column?.notNull) ?? text[0])?.key ?? fallback;
 }
 
 async function referencesOf(
@@ -107,7 +116,10 @@ async function referencesOf(
     const targetKey = keyOf(target, reference.foreignColumns[index]) ?? "id";
     found.set(key, {
       table: orm.getTableName(reference.foreignTable),
-      labelField: labelField(target, targetKey),
+      labelField: labelField(
+        Object.entries(target).map(([key, column]) => ({ key, ...column })),
+        targetKey,
+      ),
     });
   }
   return found;
@@ -141,6 +153,7 @@ export async function describeSchema(cwd: string, schemaFile: string): Promise<T
           dataType: column.dataType,
           columnType: column.columnType,
           primary: column.primary,
+          notNull: column.notNull,
           ...(column.length === undefined ? {} : { length: column.length }),
           ...(column.enumValues && column.enumValues.length > 0
             ? { enumValues: column.enumValues }

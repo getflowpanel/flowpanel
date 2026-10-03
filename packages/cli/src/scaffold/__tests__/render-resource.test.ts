@@ -56,10 +56,10 @@ describe("renderResourceFile", () => {
         "  hidden: true,",
         "  columns: [",
         '    "id",',
-        '    { field: "userId", reference: { resource: "user", labelField: "name" } },',
+        '    { field: "userId", label: "User", reference: { resource: "user", labelField: "name" } },',
         '    { field: "surface", format: Surface.format },',
         '    { field: "startedAt", format: { kind: "date", time: true } },',
-        '    { field: "day", format: "date" },',
+        '    { field: "day", format: { kind: "date", calendarDay: true } },',
         '    "firstPath",',
         '    "touches",',
         "  ],",
@@ -153,6 +153,18 @@ describe("renderResourceFile", () => {
 });
 
 describe("columnKind", () => {
+  it("leaves out a UUID or cuid primary key, which only widens the list", () => {
+    for (const columnType of ["PgUUID", "PrismaUuid", "PrismaCuid"]) {
+      expect(columnKind({ key: "id", dataType: "string", columnType, primary: true })).toBe("skip");
+    }
+    expect(
+      columnKind({ key: "id", dataType: "number", columnType: "PgSerial", primary: true }),
+    ).toBe("plain");
+    expect(
+      columnKind({ key: "ref", dataType: "string", columnType: "PgUUID", primary: false }),
+    ).toBe("plain");
+  });
+
   it("leaves out JSON, long varchar and long-text columns", () => {
     const base = { primary: false, dataType: "string" };
     expect(columnKind({ ...base, key: "meta", dataType: "json", columnType: "PgJsonb" })).toBe(
@@ -169,6 +181,7 @@ describe("columnKind", () => {
     expect(columnKind({ ...base, columnType: "SQLiteTimestamp" })).toBe("timestamp");
     expect(columnKind({ ...base, columnType: "MySqlDateTime" })).toBe("timestamp");
     expect(columnKind({ ...base, columnType: "PgDate" })).toBe("date");
+    expect(columnKind({ ...base, columnType: "PrismaDate" })).toBe("date");
     expect(columnKind({ ...base, dataType: "string", columnType: "PgDateString" })).toBe("date");
   });
 });

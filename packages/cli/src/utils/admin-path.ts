@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Node, Project } from "ts-morph";
+import { hasMarker } from "../eject/marker";
 import { resolveProjectModule } from "./module-path";
 
 /** Where `flowpanel init` mounts the route handlers when the config says nothing. */
@@ -44,6 +45,12 @@ function routeSegments(parent: string[], name: string): string[] {
   return [...segments, rest];
 }
 
+/** An ejected admin page is FlowPanel's own page moved to source, not a route in the way of the mount. */
+async function isEjected(file: string): Promise<boolean> {
+  const source = await fs.readFile(file, "utf8").catch(() => "");
+  return hasMarker(source);
+}
+
 export async function findAdminRouteConflicts(
   cwd: string,
   appDir: string,
@@ -60,7 +67,9 @@ export async function findAdminRouteConflicts(
         if (entry.name.startsWith("_") || entry.name.startsWith(".")) continue;
         await walk(rel, routeSegments(segments, entry.name));
       } else if (/^(page|route)\.[cm]?[jt]sx?$/.test(entry.name) && rel !== ignoreFile) {
-        if (overlapsMount(segments, target)) conflicts.push(rel);
+        if (overlapsMount(segments, target) && !(await isEjected(path.join(cwd, rel)))) {
+          conflicts.push(rel);
+        }
       }
     }
   }

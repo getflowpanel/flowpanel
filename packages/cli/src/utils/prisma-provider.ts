@@ -44,13 +44,9 @@ async function schemaFilesAt(cwd: string, location: string): Promise<string[]> {
   return entries.filter((name) => name.endsWith(".prisma")).map((name) => path.join(target, name));
 }
 
+/** Where `prisma` looks for the schema: prisma.config.* first, then package.json#prisma.schema. */
 async function configuredLocations(cwd: string): Promise<string[]> {
   const locations: string[] = [];
-  const manifest = await fs.readFile(path.join(cwd, "package.json"), "utf8").catch(() => "{}");
-  try {
-    const declared = (JSON.parse(manifest) as { prisma?: { schema?: unknown } }).prisma?.schema;
-    if (typeof declared === "string") locations.push(declared);
-  } catch {}
   for (const name of CONFIG_FILES) {
     const source = await fs.readFile(path.join(cwd, name), "utf8").catch(() => null);
     if (source === null) continue;
@@ -60,21 +56,33 @@ async function configuredLocations(cwd: string): Promise<string[]> {
     if (literal) locations.push(literal);
     else if (parts.length > 0) locations.push(parts.join("/"));
   }
+  const manifest = await fs.readFile(path.join(cwd, "package.json"), "utf8").catch(() => "{}");
+  try {
+    const declared = (JSON.parse(manifest) as { prisma?: { schema?: unknown } }).prisma?.schema;
+    if (typeof declared === "string") locations.push(declared);
+  } catch {}
   return locations;
+}
+
+/** The `.prisma` files of the first schema location that has any. */
+export async function findPrismaSchemaFiles(cwd: string): Promise<string[]> {
+  for (const location of [...(await configuredLocations(cwd)), ...DEFAULT_SCHEMAS]) {
+    const files = await schemaFilesAt(cwd, location);
+    if (files.length > 0) return files;
+  }
+  return [];
 }
 
 /** The provider of the project's Prisma `datasource`, read from the schema `prisma` itself would load. */
 export async function detectPrismaProvider(cwd: string): Promise<ProviderLookup> {
-  for (const location of [...(await configuredLocations(cwd)), ...DEFAULT_SCHEMAS]) {
-    for (const file of await schemaFilesAt(cwd, location)) {
-      const provider = providerIn(await fs.readFile(file, "utf8").catch(() => ""));
-      if (provider === null) continue;
-      if (provider === "postgresql" || provider === "postgres") {
-        return { status: "found", provider: "postgresql" };
-      }
-      if (provider === "mysql" || provider === "sqlite") return { status: "found", provider };
-      return { status: "unsupported", provider };
+  for (const file of await findPrismaSchemaFiles(cwd)) {
+    const provider = providerIn(await fs.readFile(file, "utf8").catch(() => ""));
+    if (provider === null) continue;
+    if (provider === "postgresql" || provider === "postgres") {
+      return { status: "found", provider: "postgresql" };
     }
+    if (provider === "mysql" || provider === "sqlite") return { status: "found", provider };
+    return { status: "unsupported", provider };
   }
   return { status: "missing" };
 }

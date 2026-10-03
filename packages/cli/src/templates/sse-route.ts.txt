@@ -2,5 +2,3 @@ import { stream } from "@flowpanel/kit/next";
 import config from "{{CONFIG_IMPORT}}";
 
 export const GET = stream(config);
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";

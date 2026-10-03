@@ -412,8 +412,8 @@ export default defineAdmin({
   it("names the directory when it is not a Next.js project", async () => {
     const run = await runCommand(newCommand, ["new", "users"], {});
     expect(run.exit).toBe(1);
-    expect(run.stdout).toContain(`No Next.js project found in ${run.dir}.`);
-    expect(run.stdout).toContain("Run this from your project root.");
+    expect(run.stderr).toContain(`No Next.js project found in ${run.dir}.`);
+    expect(run.stderr).toContain("Run this from your project root.");
   });
 
   it("puts the wrong-directory message in the JSON document", async () => {
