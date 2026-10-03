@@ -36,6 +36,18 @@ import type { MigrationDb } from "./migrations";
 import { inferSchema } from "./schema";
 import { rawSqlRows } from "./sql-params";
 
+/** Postgres 22P02: the id is not even valid text for the key's type, such as "abc" for a uuid. */
+function isInvalidKeyText(err: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current = err;
+  while (typeof current === "object" && current !== null && !seen.has(current)) {
+    seen.add(current);
+    if ((current as { code?: unknown }).code === "22P02") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 interface DrizzleLikeDb {
   select: (...args: unknown[]) => {
     from: (ref: Table) => {
@@ -321,13 +333,19 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
       if (!pkCol) return null;
       const selected = projection(cols, ctx.select);
       const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
-      const rows = (await (
-        selectFrom(db, ref, selected) as unknown as {
-          where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
-        }
-      )
-        .where(where)
-        .limit(1)) as unknown[];
+      let rows: unknown[];
+      try {
+        rows = (await (
+          selectFrom(db, ref, selected) as unknown as {
+            where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
+          }
+        )
+          .where(where)
+          .limit(1)) as unknown[];
+      } catch (err) {
+        if (isInvalidKeyText(err)) return null;
+        throw err;
+      }
       if (selected === EMPTY_PROJECTION) return rows[0] ? {} : null;
       return rows[0] ?? null;
     },

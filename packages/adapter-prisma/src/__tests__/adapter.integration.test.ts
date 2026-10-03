@@ -252,6 +252,20 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     expect(gone).toBeNull();
   });
 
+  it("creates from the email alone and leaves the defaulted columns to the database", async () => {
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    const parsed = adapter.inferSchema("TestUser").create.safeParse({ email: "lean@example.com" });
+    expect(parsed.success).toBe(true);
+
+    const created = (await adapter.create("TestUser", {
+      input: parsed.data,
+      db: undefined,
+    } as any)) as TestRow;
+    expect(created.email).toBe("lean@example.com");
+    expect(created.createdAt).toBeInstanceOf(Date);
+    expect(Boolean(created.active)).toBe(true);
+  });
+
   it("soft-delete + restore roundtrip", async () => {
     const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
 

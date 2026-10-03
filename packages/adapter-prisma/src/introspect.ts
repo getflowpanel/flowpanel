@@ -8,7 +8,13 @@ export interface PrismaDmmfField {
   isRequired: boolean;
   isUnique: boolean;
   isList: boolean;
-  hasDefault: boolean;
+  /** Set for `@default(...)`, including `autoincrement()`, `uuid()`, `cuid()` and `now()`. */
+  hasDefaultValue: boolean;
+  /** Set for `@updatedAt`; Prisma fills the value on every write. */
+  isUpdatedAt?: boolean;
+  isGenerated?: boolean;
+  /** The `@db` type and its arguments, e.g. `["Decimal", ["10", "2"]]`. */
+  nativeType?: readonly [string, readonly string[]] | null;
 }
 
 export interface PrismaDmmfEnum {
@@ -60,11 +66,10 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
       unique: field.isUnique,
       primaryKey: field.isId,
       readable: true,
-      // An id with a default (autoincrement/cuid/uuid) is database-generated.
-      writableOnCreate: !(field.isId && field.hasDefault),
+      writableOnCreate: !(field.isId && fillsItself(field)),
       writableOnUpdate: !field.isId,
-      generated: field.isId && field.hasDefault,
-      hasDefault: field.hasDefault,
+      generated: field.isId && fillsItself(field),
+      hasDefault: fillsItself(field),
     };
 
     if (field.kind === "enum") {
@@ -82,6 +87,11 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
   const result = freeze({ name: model.name, columns, primaryKey });
   byModel.set(modelName, result);
   return result;
+}
+
+/** Prisma or the database supplies the value when a create leaves it out. */
+export function fillsItself(field: PrismaDmmfField): boolean {
+  return field.hasDefaultValue || field.isUpdatedAt === true || field.isGenerated === true;
 }
 
 // Memoized: one object is shared by every caller, so it must not be mutable.

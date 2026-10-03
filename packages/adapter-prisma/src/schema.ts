@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PrismaDmmf, PrismaDmmfField } from "./introspect";
+import { fillsItself, type PrismaDmmf, type PrismaDmmfField } from "./introspect";
 
 export type { PrismaDmmf } from "./introspect";
 
@@ -52,10 +52,18 @@ export function inferSchema(
     const base = fieldToZod(field, dmmf);
     const nullable = !field.isRequired;
 
+    const filled = fillsItself(field);
+
     selectShape[field.name] = nullable ? base.optional().nullable() : base;
 
+    if (!field.isId || !filled) {
+      createShape[field.name] = nullable
+        ? base.optional().nullable()
+        : filled
+          ? base.optional()
+          : base;
+    }
     if (!field.isId) {
-      createShape[field.name] = nullable ? base.optional().nullable() : base;
       updateShape[field.name] = nullable ? base.optional().nullable() : base;
     }
   }

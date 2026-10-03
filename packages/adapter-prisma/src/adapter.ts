@@ -7,13 +7,16 @@ import {
   parseSqlRows,
   sanitizeSqlParams,
 } from "@flowpanel/core";
-import { buildFilterWhere } from "./filters";
+import { plainDecimals } from "./decimals";
+import { buildFilterWhere, numberFields } from "./filters";
 import type { PrismaDmmf } from "./introspect";
 import { introspect } from "./introspect";
 import { createMigrationMethods } from "./migration-executor";
 import {
   applyScopeToData,
   applyScopeToWhere,
+  checkedDmmf,
+  InvalidIdError,
   loadDmmf,
   type PrismaClientLike,
   pkWhere,
@@ -39,11 +42,11 @@ export type { PrismaProvider } from "./sql-statements";
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
   const EMPTY_PROJECTION = Symbol("flowpanel.emptyProjection");
-  let _dmmf: PrismaDmmf | undefined = opts.dmmf;
+  let _dmmf: PrismaDmmf | undefined;
   const prisma = opts.prisma as PrismaClientLike;
 
   function getDmmf(): PrismaDmmf {
-    if (!_dmmf) _dmmf = loadDmmf();
+    if (!_dmmf) _dmmf = opts.dmmf ? checkedDmmf(opts.dmmf) : loadDmmf();
     return _dmmf;
   }
 
@@ -76,6 +79,10 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     return projected;
   }
 
+  function plainRow<Row>(row: Row, modelName: string): Row {
+    return plainDecimals([row], getDmmf(), modelName)[0] ?? row;
+  }
+
   const canTransact = typeof prisma.$transaction === "function";
 
   return {
@@ -97,7 +104,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       const dmmf = getDmmf();
       const select = projection(modelName, ctx.select);
 
-      const where = buildFilterWhere(ctx.filters);
+      const where = buildFilterWhere(ctx.filters, numberFields(modelName, dmmf));
 
       if (ctx.search && ctx.searchFields?.length) {
         const intro = introspect(modelName, dmmf);
@@ -148,27 +155,39 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         delegate.count({ where: scopedWhere }),
       ]);
 
-      return { rows, total, page: ctx.page, pageSize: ctx.pageSize };
+      return {
+        rows: plainDecimals(rows, dmmf, modelName),
+        total,
+        page: ctx.page,
+        pageSize: ctx.pageSize,
+      };
     },
 
     async get(modelName, ctx: ItemQueryContext) {
       const delegate = getDelegate(modelName);
-      const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
-      const select = projection(modelName, ctx.select);
-      if (select === EMPTY_PROJECTION) {
-        return (await delegate.count({ where: baseWhere })) > 0 ? {} : null;
+      try {
+        const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
+        const select = projection(modelName, ctx.select);
+        if (select === EMPTY_PROJECTION) {
+          return (await delegate.count({ where: baseWhere })) > 0 ? {} : null;
+        }
+        const args = { where: baseWhere, ...(select ? { select } : {}) };
+        const result = hasScope(ctx)
+          ? await delegate.findFirst(args)
+          : await delegate.findUnique(args);
+        return result ? plainRow(result, modelName) : null;
+      } catch (err) {
+        if (err instanceof InvalidIdError || (err as { code?: unknown }).code === "P2023") {
+          return null;
+        }
+        throw err;
       }
-      const args = { where: baseWhere, ...(select ? { select } : {}) };
-      const result = hasScope(ctx)
-        ? await delegate.findFirst(args)
-        : await delegate.findUnique(args);
-      return result ?? null;
     },
 
     async create(modelName, ctx: MutationContext<unknown>) {
       const delegate = getDelegate(modelName, ctx);
       const data = applyScopeToData((ctx.input as Record<string, unknown>) ?? {}, ctx);
-      return delegate.create({ data });
+      return plainRow(await delegate.create({ data }), modelName);
     },
 
     async update(modelName, ctx: MutationContext<unknown>) {
@@ -179,9 +198,9 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         const res = await delegate.updateMany({ where: baseWhere, data: ctx.input });
         if (res.count === 0) return null;
         const row = await delegate.findFirst({ where: baseWhere });
-        return row ?? null;
+        return row ? plainRow(row, modelName) : null;
       }
-      return delegate.update({ where: baseWhere, data: ctx.input });
+      return plainRow(await delegate.update({ where: baseWhere, data: ctx.input }), modelName);
     },
 
     async delete(modelName, ctx: MutationContext<unknown>): Promise<void> {
@@ -227,7 +246,9 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     },
 
     async count(modelName, where): Promise<number> {
-      return resolveDelegate(prisma, modelName).count({ where: buildFilterWhere(where) });
+      return resolveDelegate(prisma, modelName).count({
+        where: buildFilterWhere(where, numberFields(modelName, getDmmf())),
+      });
     },
 
     ...createMigrationMethods(prisma, opts.provider),
