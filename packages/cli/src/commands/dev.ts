@@ -1,10 +1,11 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
-import { createServer } from "node:net";
+import { connect, createServer } from "node:net";
 import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { readAdminMount } from "../utils/admin-path";
 import { PNP_UNSUPPORTED } from "../utils/compatibility";
 import { detectPackageManager, platformBin, pmCommands } from "../utils/detect";
 import { inspectDependency } from "../utils/project-packages";
@@ -20,12 +21,34 @@ export async function findBoardScript(cwd: string): Promise<string | null> {
   return null;
 }
 
-export function isPortFree(port: number): Promise<boolean> {
+function answers(host: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect({ host, port });
+    socket.setTimeout(500);
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once("error", () => resolve(false));
+  });
+}
+
+function canListen(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const probe = createServer();
     probe.once("error", (error: NodeJS.ErrnoException) => resolve(error.code !== "EADDRINUSE"));
     probe.listen(port, () => probe.close(() => resolve(true)));
   });
+}
+
+/** Free only when nothing answers on IPv4 or IPv6 loopback: a server bound to one address still owns localhost. */
+export async function isPortFree(port: number): Promise<boolean> {
+  const [v4, v6] = await Promise.all([answers("127.0.0.1", port), answers("::1", port)]);
+  return !v4 && !v6 && (await canListen(port));
 }
 
 /** The project's own `next` binary, or why `next dev` cannot start here. */
@@ -72,9 +95,10 @@ export function devCommand(cli: Command): void {
   cli
     .command("dev")
     .description("Run next dev, plus the queue board when REDIS_URL is set")
-    .option("--port <port>", "Next.js dev port", "3000")
+    .option("--port <port>", "Next.js dev port (default: 3000)")
     .option("--no-board", "Skip the queue board (bull-board) even if REDIS_URL is set")
-    .action(async (opts: { port: string; board: boolean }) => {
+    .action(async (options: { port?: string; board: boolean }) => {
+      const opts = { ...options, port: options.port ?? "3000" };
       const cwd = process.cwd();
       const children: ChildProcess[] = [];
 
@@ -96,7 +120,11 @@ export function devCommand(cli: Command): void {
       const pmc = pmCommands(await detectPackageManager(cwd));
       const runner = platformBin(pmc.exec);
       const next = startNext(cwd, preflight.nextBin, opts.port);
-      pipeWithPrefix(next, pc.cyan("[next] "));
+      const mount = await readAdminMount(cwd);
+      const adminUrl = `http://localhost:${opts.port}${mount.path ?? "/admin"}`;
+      pipeWithPrefix(next, pc.cyan("[next] "), (line) => {
+        if (/\bReady in\b/.test(line)) process.stdout.write(`${pc.green("Admin:")} ${adminUrl}\n`);
+      });
       children.push(next);
 
       const boardScript = opts.board === false ? null : await findBoardScript(cwd);
@@ -126,7 +154,11 @@ export function devCommand(cli: Command): void {
     });
 }
 
-export function pipeWithPrefix(child: ChildProcess, prefix: string): void {
+export function pipeWithPrefix(
+  child: ChildProcess,
+  prefix: string,
+  onStdoutLine?: (line: string) => void,
+): void {
   const onLine = (stream: NodeJS.WritableStream) => {
     // Only the bare "undefined" line `pnpm exec <missing-bin>` opens the stream with is dropped.
     let opened = false;
@@ -139,6 +171,7 @@ export function pipeWithPrefix(child: ChildProcess, prefix: string): void {
           if (line.trim() === "undefined") continue;
         }
         stream.write(`${prefix}${line}\n`);
+        if (stream === process.stdout) onStdoutLine?.(line);
       }
     };
   };

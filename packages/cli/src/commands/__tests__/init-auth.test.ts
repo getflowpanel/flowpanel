@@ -101,7 +101,7 @@ describe("planDevStubReplacement", () => {
     expect(await planDevStubReplacement(cwd, "@/lib/auth")).toEqual({
       kind: "replace",
       file: "src/lib/auth.ts",
-      content: await tpl("dev-session.ts.txt"),
+      content: await tpl("dev-session.ts.txt", { FILE: "src/lib/auth.ts" }),
       expectedContent: closed,
     });
   });
@@ -111,8 +111,17 @@ describe("planDevStubReplacement", () => {
     expect(await planDevStubReplacement(cwd, "@/lib/auth")).toMatchObject({ kind: "replace" });
   });
 
-  it("refuses a file that differs from both stubs by a single byte", async () => {
-    const cwd = await project(`${await tpl("auth-session.ts.txt")}\n`);
+  it("still recognises the closed stub after formatting changes", async () => {
+    const cwd = await project(
+      `${await tpl("auth-session.ts.txt")}\n`.replace("return null;", "return null"),
+    );
+    expect(await planDevStubReplacement(cwd, "@/lib/auth")).toMatchObject({ kind: "replace" });
+  });
+
+  it("refuses a module that returns a real session", async () => {
+    const cwd = await project(
+      (await tpl("auth-session.ts.txt")).replace("return null;", "return auth.getSession();"),
+    );
     expect(await planDevStubReplacement(cwd, "@/lib/auth")).toEqual({
       kind: "customised",
       file: "src/lib/auth.ts",

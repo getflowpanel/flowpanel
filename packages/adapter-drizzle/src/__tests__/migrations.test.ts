@@ -331,24 +331,24 @@ describe("drizzleAdapter migration SQL validation", () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
-  it.each([
-    "mysql",
-    "sqlite",
-  ] as const)("rejects dollar-quoted bodies on %s before touching the database", async (dialect) => {
-    const db = {
-      execute: vi.fn().mockResolvedValue([[], []]),
-      run: vi.fn().mockResolvedValue(undefined),
-      transaction: vi.fn(),
-    };
-    const adapter = drizzleAdapter({ db, schema: {}, dialect });
+  it.each(["mysql", "sqlite"] as const)(
+    "rejects dollar-quoted bodies on %s before touching the database",
+    async (dialect) => {
+      const db = {
+        execute: vi.fn().mockResolvedValue([[], []]),
+        run: vi.fn().mockResolvedValue(undefined),
+        transaction: vi.fn(),
+      };
+      const adapter = drizzleAdapter({ db, schema: {}, dialect });
 
-    await expect(
-      adapter.applyMigration?.("unsafe-dollar-body", "DO $$ BEGIN SELECT 1; SELECT 2; END $$;"),
-    ).rejects.toThrow(/dollar-quoted migration SQL is only supported on PostgreSQL/);
-    expect(db.execute).not.toHaveBeenCalled();
-    expect(db.run).not.toHaveBeenCalled();
-    expect(db.transaction).not.toHaveBeenCalled();
-  });
+      await expect(
+        adapter.applyMigration?.("unsafe-dollar-body", "DO $$ BEGIN SELECT 1; SELECT 2; END $$;"),
+      ).rejects.toThrow(/dollar-quoted migration SQL is only supported on PostgreSQL/);
+      expect(db.execute).not.toHaveBeenCalled();
+      expect(db.run).not.toHaveBeenCalled();
+      expect(db.transaction).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("drizzleAdapter migrations on async sqlite", () => {

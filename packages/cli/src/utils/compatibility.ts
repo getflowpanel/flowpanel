@@ -1,5 +1,9 @@
 import semver from "semver";
+import { CACHE_COMPONENTS_NEXT, usesCacheComponents } from "./next-config";
 import { type DependencyInspection, inspectDependency } from "./project-packages";
+
+export const NEXT_RANGE = ">=15.5.0 <17.0.0";
+export const CACHE_COMPONENTS_FINDING = "Next.js with cacheComponents";
 
 export interface CompatibilityFinding {
   name: string;
@@ -50,13 +54,14 @@ function versionFinding(
 }
 
 export async function inspectProjectCompatibility(cwd: string): Promise<ProjectCompatibility> {
-  const [next, react, reactDom, drizzle, prisma, typescript] = await Promise.all([
+  const [next, react, reactDom, drizzle, prisma, typescript, cacheComponents] = await Promise.all([
     inspectDependency(cwd, "next"),
     inspectDependency(cwd, "react"),
     inspectDependency(cwd, "react-dom"),
     inspectDependency(cwd, "drizzle-orm"),
     inspectDependency(cwd, "@prisma/client"),
     inspectDependency(cwd, "typescript"),
+    usesCacheComponents(cwd),
   ]);
   const drizzleFinding = versionFinding(
     drizzle,
@@ -66,7 +71,7 @@ export async function inspectProjectCompatibility(cwd: string): Promise<ProjectC
   const prismaFinding = versionFinding(
     prisma,
     ">=5.0.0 <7.0.0",
-    "Install a supported @prisma/client version.",
+    "Install @prisma/client 5 or 6; Prisma 7 no longer ships the model metadata FlowPanel reads. See https://flowpanel.tech/docs/introduction/prisma#prisma-7",
   );
   const orm: SelectedOrm = drizzle.declaration
     ? "drizzle"
@@ -81,7 +86,7 @@ export async function inspectProjectCompatibility(cwd: string): Promise<ProjectC
   const findings = [
     versionFinding(
       next,
-      ">=16.3.0 <17.0.0",
+      NEXT_RANGE,
       "Install a supported Next.js version, then reinstall the project.",
     ),
     versionFinding(react, ">=19.0.0 <20.0.0", "Install React 19 with the project package manager."),
@@ -102,6 +107,16 @@ export async function inspectProjectCompatibility(cwd: string): Promise<ProjectC
     recovery: "Align the installed react and react-dom versions with the project package manager.",
     dependency: react,
   });
+  if (cacheComponents) {
+    findings.push({
+      ...versionFinding(
+        next,
+        `>=${CACHE_COMPONENTS_NEXT} <17.0.0`,
+        "Upgrade Next.js to 16.3 or newer, or remove `cacheComponents` from next.config.",
+      ),
+      name: CACHE_COMPONENTS_FINDING,
+    });
+  }
   findings.push(drizzleFinding, prismaFinding);
   findings.push({
     name: "typescript",

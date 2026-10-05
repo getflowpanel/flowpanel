@@ -8,9 +8,13 @@ import { inspectDependency } from "../utils/project-packages";
 
 export { countCoreInstances } from "./installed-core";
 
-export async function checkEjectMarker(cwd: string, resourceName: string): Promise<string | null> {
+export async function checkEjectMarker(
+  cwd: string,
+  resourceName: string,
+  adminPath = "/admin",
+): Promise<string | null> {
   const appDir = await detectAppDir(cwd);
-  const candidate = path.join(cwd, appDir, "admin", resourceName, "page.tsx");
+  const candidate = path.join(cwd, appDir, adminPath, resourceName, "page.tsx");
   try {
     const src = await fs.readFile(candidate, "utf8");
     if (!hasMarker(src)) {
@@ -30,15 +34,19 @@ export async function checkEjectMarker(cwd: string, resourceName: string): Promi
  * Warnings for `admin/<name>/page.tsx` files that lost their eject marker.
  * `null` means the project has no ejected resource directories at all.
  */
-export async function staleEjectMarkers(cwd: string, appDir: string): Promise<string[] | null> {
+export async function staleEjectMarkers(
+  cwd: string,
+  appDir: string,
+  adminPath = "/admin",
+): Promise<string[] | null> {
   const entries = await fs
-    .readdir(path.join(cwd, appDir, "admin"), { withFileTypes: true })
+    .readdir(path.join(cwd, appDir, adminPath), { withFileTypes: true })
     .catch(() => []);
   const names = entries
     .filter((entry) => entry.isDirectory() && !/^[[.]/.test(entry.name))
     .map((entry) => entry.name);
   if (names.length === 0) return null;
-  const warnings = await Promise.all(names.map((name) => checkEjectMarker(cwd, name)));
+  const warnings = await Promise.all(names.map((name) => checkEjectMarker(cwd, name, adminPath)));
   return warnings.filter((warning): warning is string => warning !== null);
 }
 
@@ -59,11 +67,11 @@ export function firstDiagnostics(e: unknown, limit = 5): string | null {
  * `--fix` writes route files that import `flowpanel.config`. Outside a FlowPanel
  * project that scaffolds an admin into a tree that never asked for one.
  */
-export async function fixPrecondition(cwd: string): Promise<string | undefined> {
+export async function fixPrecondition(cwd: string, dlx = "pnpm dlx"): Promise<string | undefined> {
   for (const name of ["flowpanel.config.ts", "flowpanel.config.tsx"]) {
     if (await fileExists(path.join(cwd, name))) return undefined;
   }
-  return `no flowpanel.config.ts in ${cwd} — this is not a FlowPanel project. Run \`flowpanel init\` first.`;
+  return `no flowpanel.config.ts in ${cwd}, so FlowPanel is not set up here yet. Run \`${dlx} @flowpanel/cli init\` first.`;
 }
 
 const TYPEGEN_SINCE = "15.5.0";

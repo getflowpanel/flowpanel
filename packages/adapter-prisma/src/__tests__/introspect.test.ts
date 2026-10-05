@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PrismaDmmf } from "../introspect";
 import { introspect } from "../introspect";
+import { checkedDmmf } from "../runtime";
 
 const testDmmf: PrismaDmmf = {
   datamodel: {
@@ -16,7 +17,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
           {
             name: "email",
@@ -26,7 +27,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: true,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "active",
@@ -36,7 +37,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
           {
             name: "age",
@@ -46,7 +47,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: false,
             isUnique: false,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "role",
@@ -56,7 +57,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
           {
             name: "tags",
@@ -66,7 +67,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: true,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "metadata",
@@ -76,7 +77,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: false,
             isUnique: false,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "createdAt",
@@ -86,7 +87,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
           // relation field — should be skipped
           {
@@ -97,7 +98,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: false,
             isUnique: false,
             isList: true,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
         ],
       },
@@ -193,5 +194,18 @@ describe("introspect", () => {
     expect(Object.isFrozen(meta)).toBe(true);
     expect(Object.isFrozen(meta.columns)).toBe(true);
     expect(Object.isFrozen(meta.columns[0])).toBe(true);
+  });
+});
+
+describe("a trimmed Prisma 7 DMMF", () => {
+  it("names the supported Prisma versions instead of guessing columns", () => {
+    const trimmed = {
+      datamodel: {
+        models: [{ name: "User", fields: [{ name: "id", kind: "scalar", type: "Int" }] }],
+        enums: [],
+      },
+    };
+    expect(() => checkedDmmf(trimmed)).toThrow(/Prisma 7 removed it[\s\S]*Prisma 5 and 6/);
+    expect(checkedDmmf(testDmmf)).toBe(testDmmf);
   });
 });

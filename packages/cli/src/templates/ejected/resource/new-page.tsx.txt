@@ -1,5 +1,5 @@
 // Ejected create view for "{{name}}": wire AutoForm from "@flowpanel/kit/react" to createRow in ./actions.
-export default function NewPage() {
+{{SEGMENT_CONFIG}}export default function NewPage() {
   return (
     <div className="p-6">
       <h1 className="text-xl font-semibold">New {{name}}</h1>

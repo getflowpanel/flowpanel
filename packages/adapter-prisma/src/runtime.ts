@@ -115,15 +115,29 @@ export const MIGRATIONS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS _flowpanel_migra
 )`;
 
 export function loadDmmf(): PrismaDmmf {
+  let dmmf: unknown;
   try {
-    const { Prisma } = require("@prisma/client");
-    return Prisma.dmmf as PrismaDmmf;
+    dmmf = require("@prisma/client").Prisma.dmmf;
   } catch {
     throw new Error(
       "prismaAdapter: could not load DMMF from @prisma/client. " +
-        "Make sure @prisma/client is installed and `prisma generate` has been run.",
+        "Make sure @prisma/client is installed, the schema uses the prisma-client-js generator, " +
+        "and `prisma generate` has been run.",
     );
   }
+  return checkedDmmf(dmmf);
+}
+
+/** Prisma 7 trims `Prisma.dmmf` to names and types; introspection needs ids, nullability and defaults. */
+export function checkedDmmf(dmmf: unknown): PrismaDmmf {
+  const field = (dmmf as PrismaDmmf | undefined)?.datamodel?.models?.[0]?.fields?.[0];
+  if (field !== undefined && typeof field.isId !== "boolean") {
+    throw new Error(
+      "prismaAdapter: Prisma.dmmf has no field metadata (isId, isRequired, defaults). " +
+        "Prisma 7 removed it from the generated client; FlowPanel supports Prisma 5 and 6.",
+    );
+  }
+  return dmmf as PrismaDmmf;
 }
 
 export function getDelegate(prisma: PrismaClientLike, modelName: string): PrismaDelegate {
@@ -138,6 +152,9 @@ export function getDelegate(prisma: PrismaClientLike, modelName: string): Prisma
   return delegate as PrismaDelegate;
 }
 
+/** An id that cannot be the model's key, such as "abc" for an `Int @id`. */
+export class InvalidIdError extends Error {}
+
 /** Build the primary-key predicate, coercing numeric Prisma IDs. */
 export function pkWhere(id: string, modelName: string, dmmf: PrismaDmmf): Record<string, unknown> {
   const model = dmmf.datamodel.models.find((entry) => entry.name === modelName);
@@ -146,7 +163,7 @@ export function pkWhere(id: string, modelName: string, dmmf: PrismaDmmf): Record
   if (pkField && (pkField.type === "Int" || pkField.type === "BigInt")) {
     const value = parseInt(id, 10);
     if (Number.isNaN(value)) {
-      throw new Error(
+      throw new InvalidIdError(
         `prismaAdapter: cannot coerce id "${id}" to ${pkField.type} for model "${modelName}"`,
       );
     }

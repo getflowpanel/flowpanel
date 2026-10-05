@@ -63,6 +63,17 @@ describe("admin mount preflight", () => {
     ]);
   });
 
+  it("does not count a page eject wrote as a collision, so doctor passes after eject", async () => {
+    await write(
+      "app/admin/users/page.tsx",
+      "// flowpanel: ejected @ 0.4.0 — this file is yours\nexport default function Page() {}\n",
+    );
+    await write("app/admin/reports/page.tsx", "export default function Page() {}\n");
+    expect(await findAdminRouteConflicts(root, "app", "/admin")).toEqual([
+      "app/admin/reports/page.tsx",
+    ]);
+  });
+
   it("does not treat the homepage or sibling admin-tools as a collision", async () => {
     await write("app/page.tsx");
     await write("app/admin-tools/page.tsx");
@@ -94,17 +105,12 @@ describe("admin mount preflight", () => {
     expect(await findAdminRouteConflicts(root, "app", "/ops")).toEqual([]);
   });
 
-  it.each([
-    "/",
-    "/../admin",
-    "/admin?x=1",
-    "/[admin]",
-    "/_admin",
-    "//admin",
-    "/admin%2fops",
-  ])("rejects non-static or unsafe mount %s", (value) => {
-    expect(() => normalizeAdminPath(value)).toThrow();
-  });
+  it.each(["/", "/../admin", "/admin?x=1", "/[admin]", "/_admin", "//admin", "/admin%2fops"])(
+    "rejects non-static or unsafe mount %s",
+    (value) => {
+      expect(() => normalizeAdminPath(value)).toThrow();
+    },
+  );
   it("normalizes a nested path without introducing route syntax", () => {
     expect(normalizeAdminPath("ops/admin/")).toBe("/ops/admin");
   });

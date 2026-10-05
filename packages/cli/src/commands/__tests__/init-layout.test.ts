@@ -39,7 +39,7 @@ describe("root layout hydration", () => {
   it("handles a multi-line html tag", () => {
     const source = '<html\n  lang="en"\n  className="x"\n>';
     expect(patchLayoutWithSuppressHydration(source)).toBe(
-      '<html\n  lang="en"\n  className="x" suppressHydrationWarning\n>',
+      '<html\n  lang="en"\n  className="x"\n  suppressHydrationWarning\n>',
     );
   });
 

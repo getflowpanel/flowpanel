@@ -10,18 +10,18 @@ vi.mock("node:child_process", async (importOriginal) => {
 describe("createProgram", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("constructs commands in the public help order without running actions", () => {
+  it("constructs commands in workflow order without running actions", () => {
     const exit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
 
     const program = createProgram();
 
     expect(program.commands.map((command) => command.name())).toEqual([
       "init",
+      "new",
+      "dev",
       "migrate",
       "doctor",
       "eject",
-      "dev",
-      "new",
     ]);
     expect(spawn).not.toHaveBeenCalled();
     expect(exit).not.toHaveBeenCalled();

@@ -3,5 +3,5 @@ import config from "{{CONFIG_IMPORT}}";
 
 const flowpanel = createFlowpanel(config);
 
-export const generateMetadata = flowpanel.metadata;
+{{SEGMENT_CONFIG}}export const generateMetadata = flowpanel.metadata;
 export default flowpanel.page;

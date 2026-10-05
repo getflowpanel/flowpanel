@@ -241,6 +241,32 @@ describe("devPreflight", () => {
   });
 });
 
+describe("isPortFree", () => {
+  it("sees a server bound only to 127.0.0.1, which a wildcard listen would not notice", async () => {
+    const server = createServer();
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      expect(await isPortFree(port)).toBe(false);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+});
+
+describe("pipeWithPrefix ready hook", () => {
+  it("hands each relayed stdout line to the hook", () => {
+    const { child, stdout } = fakeChild();
+    const seen: string[] = [];
+    capture(() => {
+      pipeWithPrefix(child, "[next] ", (line) => seen.push(line));
+      stdout.emit("data", Buffer.from(" ✓ Ready in 1.2s\n"));
+    });
+    expect(seen).toEqual([" ✓ Ready in 1.2s"]);
+  });
+});
+
 describe("startNext", () => {
   it("runs the resolved next with node and asks no package manager for it", async () => {
     const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "fp-dev-start-")));

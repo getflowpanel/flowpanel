@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { sessionModuleKind } from "../doctor/session-module";
 import { AUTH_PRESETS, type AuthProvider } from "../utils/auth-provider";
 import { aliasOf, type PathAliasMode } from "../utils/detect";
 import { resolveProjectModule, validateProjectImport } from "../utils/module-path";
@@ -51,7 +52,12 @@ export type DevStubReplacement =
   | { kind: "replace"; file: string; content: string; expectedContent: string }
   | { kind: "customised"; file: string };
 
-/** What `--dev-auth` does to the session module `specifier` already resolves to: swap an untouched stub, or refuse an edited file. */
+/** The development stub, naming its own file so its warnings say which file to replace. */
+export function devSessionStub(file: string): Promise<string> {
+  return tpl("dev-session.ts.txt", { FILE: file });
+}
+
+/** What `--dev-auth` does to the session module `specifier` resolves to: swap one of init's stubs, or refuse the developer's own. */
 export async function planDevStubReplacement(
   cwd: string,
   specifier: string,
@@ -60,12 +66,21 @@ export async function planDevStubReplacement(
   if (!resolved) return null;
   const file = path.relative(cwd, resolved).split(path.sep).join("/");
   if (file.startsWith("../")) return { kind: "customised", file };
-  const [current, closed, open] = await Promise.all([
-    fs.readFile(resolved, "utf8"),
-    tpl("auth-session.ts.txt"),
-    tpl("dev-session.ts.txt"),
-  ]);
-  return current === closed || current === open
-    ? { kind: "replace", file, content: open, expectedContent: closed }
-    : { kind: "customised", file };
+  const current = await fs.readFile(resolved, "utf8");
+  if (sessionModuleKind(current) === "custom") return { kind: "customised", file };
+  return { kind: "replace", file, content: await devSessionStub(file), expectedContent: current };
+}
+
+/** The `role` line of a generated config: the stubs' own session shape, or a guarded read of the developer's session. */
+export function roleMapping(sessionSource: "stub" | "own"): string {
+  if (sessionSource === "stub") return '    role: (s) => s?.user.role ?? "guest",';
+  return [
+    '    // Sessions without a string user.role count as "guest"; map your own roles here.',
+    "    role: (s) => {",
+    '      const user = s && "user" in s ? s.user : null;',
+    '      return user && typeof user === "object" && "role" in user && typeof user.role === "string"',
+    "        ? user.role",
+    '        : "guest";',
+    "    },",
+  ].join("\n");
 }

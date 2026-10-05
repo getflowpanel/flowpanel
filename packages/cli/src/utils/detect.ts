@@ -44,7 +44,8 @@ export function isSupportedNextVersion(version: string | null): boolean {
   if (!version) return false;
   const match = /(\d+)\.(\d+)/.exec(version);
   if (!match?.[1] || !match[2]) return false;
-  return Number(match[1]) === 16 && Number(match[2]) >= 3;
+  const major = Number(match[1]);
+  return major === 16 || (major === 15 && Number(match[2]) >= 5);
 }
 
 export async function detectStack(cwd: string): Promise<Stack> {
@@ -82,7 +83,7 @@ export async function detectPathAlias(cwd: string): Promise<PathAliasMode> {
 }
 
 export function aliasOf(relPath: string, mode: PathAliasMode): string {
-  const noExt = relPath.replace(/\.tsx?$/, "");
+  const noExt = relPath.replace(/\.tsx?$/, "").replace(/\/index$/, "");
   if (mode === "strip-src") return `@/${noExt.replace(/^src\//, "")}`;
   if (mode === "root") return `@/${noExt}`;
   return `./${noExt}`;

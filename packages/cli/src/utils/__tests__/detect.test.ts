@@ -83,11 +83,11 @@ describe("detect*", () => {
 });
 
 describe("isSupportedNextVersion", () => {
-  it.each(["^16.3.0", "16.3.1", ">=16.4.0 <17"])("accepts %s", (version) => {
+  it.each(["^15.5.0", "15.5.27", "^16.0.0", "16.3.1", ">=16.4.0 <17"])("accepts %s", (version) => {
     expect(isSupportedNextVersion(version)).toBe(true);
   });
 
-  it.each([null, "latest", "^15.5.23", "^16.2.12", "^17.0.0"])("rejects %s", (version) => {
+  it.each([null, "latest", "^14.2.0", "15.4.8", "^17.0.0"])("rejects %s", (version) => {
     expect(isSupportedNextVersion(version)).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { reexportedFrom } from "../config-target";
-import { describeSchema } from "../describe-schema";
+import { describeSchema, labelField } from "../describe-schema";
 
 const PROJECT = join(dirname(fileURLToPath(import.meta.url)), "fixtures/project");
 
@@ -52,6 +52,18 @@ describe("describeSchema", () => {
       enumExport: "activitySurface",
     });
     expect(visit?.columns.find((c) => c.key === "firstPath")?.length).toBe(160);
+  });
+});
+
+describe("labelField", () => {
+  it("prefers a NOT NULL name, title or email, so no row reads as its raw key", () => {
+    const columns = [
+      { key: "name", dataType: "string", notNull: false },
+      { key: "email", dataType: "string", notNull: true },
+    ];
+    expect(labelField(columns, "id")).toBe("email");
+    expect(labelField(columns.slice(0, 1), "id")).toBe("name");
+    expect(labelField([{ key: "total", dataType: "number" }], "id")).toBe("id");
   });
 });
 

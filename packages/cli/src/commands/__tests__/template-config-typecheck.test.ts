@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 import { tpl } from "../../utils/template";
+import { roleMapping } from "../init-auth";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TYPECHECK_TIMEOUT_MS = 20_000;
@@ -121,6 +122,10 @@ function kitOnlyApp(): string {
     "export async function getSession(): Promise<{ user: { id: string; role: string } } | null> { return null; }\n",
   );
   write(
+    path.join(dir, "src/env.d.ts"),
+    "declare const process: { env: Record<string, string | undefined> };\n",
+  );
+  write(
     path.join(dir, "src/provider.ts"),
     "export const auth = { api: { getSession: async () => null }, $Infer: {} as { Session: { user: { id: string; role?: string } } } };\nexport const lucia = {} as { sessionCookieName: string };\n",
   );
@@ -155,6 +160,7 @@ async function renderConfig(
   orm: "drizzle" | "prisma",
   auth: string,
   preset = false,
+  session: "stub" | "own" = "stub",
 ): Promise<string> {
   return tpl(`flowpanel.config.${orm}${preset ? ".preset" : ""}.ts.txt`, {
     DB: orm === "prisma" ? "@/prisma" : "@/db",
@@ -165,6 +171,7 @@ async function renderConfig(
     API_PATH: "/api/flowpanel",
     CLI: "pnpm flowpanel",
     PROVIDER: "postgresql",
+    ROLE: roleMapping(session),
   });
 }
 
@@ -198,9 +205,12 @@ describe("generated flowpanel.config.ts type-checks in a kit-only scaffold", () 
       const root = kitOnlyApp();
       // What init writes when it finds no auth module: the stub replaces the
       // fixture's own src/auth.ts and has to keep the config compiling.
-      write(path.join(root, "src/auth.ts"), await tpl("dev-session.ts.txt"));
+      write(
+        path.join(root, "src/auth.ts"),
+        await tpl("dev-session.ts.txt", { FILE: "src/auth.ts" }),
+      );
       write(path.join(root, "flowpanel.config.ts"), await renderDrizzle());
-      expect(typecheck(root, ["flowpanel.config.ts", "src/auth.ts"])).toEqual([]);
+      expect(typecheck(root, ["flowpanel.config.ts", "src/auth.ts", "src/env.d.ts"])).toEqual([]);
     },
     TYPECHECK_TIMEOUT_MS,
   );
@@ -225,8 +235,8 @@ describe("generated flowpanel.config.ts type-checks in a kit-only scaffold", () 
     async () => {
       const root = kitOnlyApp();
       const filled = (await renderPrisma()).replace(
-        '// User: import("@prisma/client").User;',
-        "User: { id: string };",
+        "  interface FlowpanelTypes {",
+        "  interface FlowpanelResources {\n    User: { id: string };\n  }\n  interface FlowpanelTypes {",
       );
       expect(filled).toContain("User: { id: string };");
       write(path.join(root, "flowpanel.config.ts"), filled);
@@ -243,6 +253,68 @@ describe("generated flowpanel.config.ts type-checks in a kit-only scaffold", () 
     TYPECHECK_TIMEOUT_MS,
   );
 });
+
+const OWN_SESSIONS: Record<string, string> = {
+  "with a string role": "{ user: { id: string; role: string } }",
+  "without a role": "{ user: { id: string; email: string } }",
+  "Auth.js shaped": "{ user?: { name?: string | null; email?: string | null }; expires: string }",
+  "better-auth shaped": "{ session: { id: string }; user: { id: string; role?: string | null } }",
+  "without a user": "{ userId: string }",
+};
+
+describe("every ORM and session source type-checks", () => {
+  for (const orm of ["drizzle", "prisma"] as const) {
+    for (const [stub, template] of [
+      ["closed stub", "auth-session.ts.txt"],
+      ["development stub", "dev-session.ts.txt"],
+    ] as const) {
+      it(
+        `${orm} with the ${stub}`,
+        async () => {
+          const root = kitOnlyApp();
+          write(path.join(root, "src/auth.ts"), await tpl(template, { FILE: "src/auth.ts" }));
+          write(path.join(root, "flowpanel.config.ts"), await renderConfig(orm, "@/auth"));
+          expect(typecheck(root, ["flowpanel.config.ts", "src/auth.ts", "src/env.d.ts"])).toEqual(
+            [],
+          );
+        },
+        TYPECHECK_TIMEOUT_MS,
+      );
+    }
+    for (const [label, shape] of Object.entries(OWN_SESSIONS)) {
+      it(
+        `${orm} with the project's own session ${label}`,
+        async () => {
+          const root = kitOnlyApp();
+          write(
+            path.join(root, "src/auth.ts"),
+            `export async function getSession(): Promise<${shape} | null> { return null; }\n`,
+          );
+          write(
+            path.join(root, "flowpanel.config.ts"),
+            await renderConfig(orm, "@/auth", false, "own"),
+          );
+          expect(typecheck(root, ["flowpanel.config.ts", "src/auth.ts"])).toEqual([]);
+        },
+        TYPECHECK_TIMEOUT_MS,
+      );
+    }
+  }
+});
+
+it(
+  "the stub mapping alone fails on a session without user.role, which is why own sessions get the guarded one",
+  async () => {
+    const root = kitOnlyApp();
+    write(
+      path.join(root, "src/auth.ts"),
+      `export async function getSession(): Promise<${OWN_SESSIONS["without a role"]} | null> { return null; }\n`,
+    );
+    write(path.join(root, "flowpanel.config.ts"), await renderConfig("drizzle", "@/auth"));
+    expect(typecheck(root, ["flowpanel.config.ts", "src/auth.ts"]).join("\n")).toContain("TS2339");
+  },
+  TYPECHECK_TIMEOUT_MS,
+);
 
 describe("the preset session module init writes per auth provider", () => {
   for (const provider of ["better-auth", "next-auth", "clerk", "lucia"] as const) {
@@ -277,7 +349,6 @@ describe("the preset session module init writes per auth provider", () => {
 describe("generated config templates", () => {
   it("register the schema, and the better-auth session, on FlowpanelTypes", async () => {
     expect(await renderDrizzle()).toContain("schema: typeof schema;");
-    expect(await renderPrisma()).toContain("interface FlowpanelResources");
     expect(await tpl("auth-session.better-auth.ts.txt", { AUTH_MODULE: "@/provider" })).toContain(
       "session: typeof auth.$Infer.Session;",
     );
@@ -287,7 +358,7 @@ describe("generated config templates", () => {
     for (const rendered of [await renderDrizzle(), await renderPrisma()]) {
       expect(rendered).toContain("session: NonNullable<Awaited<ReturnType<typeof getSession>>>;");
       expect(rendered).toContain(
-        'auth: { session: getSession, role: (s) => s?.user.role ?? "guest", requireRole: "admin" },',
+        '    session: getSession,\n    role: (s) => s?.user.role ?? "guest",',
       );
       expect(rendered).not.toMatch(/\w+ as (?:\{|any\b|unknown\b)/);
     }
@@ -305,7 +376,7 @@ describe("generated config templates", () => {
 
   it("the preset variants differ from the session variants in the auth wiring only", async () => {
     const wiring =
-      /^(import \{ (?:getSession|flowpanelAuth) \}.*|\s*session: NonNullable.*|\s*auth: .*|\/\/ Registers .*)\n/gm;
+      /^(?:import \{ (?:getSession|flowpanelAuth) \}.*|\s*session: NonNullable.*|\s*auth: (?:flowpanelAuth,|\{[\s\S]*?\n {2}\},))\n/gm;
     for (const orm of ["drizzle", "prisma"] as const) {
       const strip = (source: string) => source.replace(wiring, "");
       expect(strip(await renderConfig(orm, "@/session", true))).toBe(
@@ -322,8 +393,8 @@ describe("generated config templates", () => {
     expect(rendered).not.toContain("adminUserRow");
   });
 
-  it("the prisma variant shows a row-type entry (a bare model name carries none)", async () => {
-    expect(await renderPrisma()).toContain('User: import("@prisma/client").User;');
+  it("the prisma variant leaves FlowpanelResources to new, so a fresh config has no empty interface", async () => {
+    expect(await renderPrisma()).not.toContain("FlowpanelResources");
   });
 
   it("the umbrella re-exports the canonical core declarations", () => {

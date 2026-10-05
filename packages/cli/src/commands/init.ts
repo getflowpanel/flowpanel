@@ -5,9 +5,11 @@ import * as path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { findSessionStub } from "../doctor/session-module";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent } from "../plan/types";
+import { adminPageSource, isGeneratedAdminPage } from "../utils/admin-page";
 import {
   DEFAULT_API_PATH,
   findAdminRouteConflicts,
@@ -27,22 +29,32 @@ import {
   detectSchema,
   fileExists,
   type PathAliasMode,
+  type PmCommands,
   pmCommands,
 } from "../utils/detect";
 import { redactDiagnostic } from "../utils/fail";
 import { kitCompatibilityError, pinnedSpec } from "../utils/kit";
 import { plainLog } from "../utils/log";
-import { validateProjectImport } from "../utils/module-path";
+import { resolveProjectModule, validateProjectImport } from "../utils/module-path";
+import { blockingSegmentExport, usesCacheComponents } from "../utils/next-config";
 import { writeJson, writePlanJson } from "../utils/output";
 import { detectPrismaProvider } from "../utils/prisma-provider";
-import { inspectDependency } from "../utils/project-packages";
+import { inspectDependency, projectManifest } from "../utils/project-packages";
 import { noNextProject } from "../utils/project-root";
+import {
+  dialectFromDependencies,
+  drizzleDialectFrom,
+  migrationTemplate,
+  type SqlDialect,
+} from "../utils/sql-dialect";
 import { tpl } from "../utils/template";
 import {
   type AuthSessionPlan,
   type DevStubReplacement,
+  devSessionStub,
   planAuthSession,
   planDevStubReplacement,
+  roleMapping,
 } from "./init-auth";
 import {
   type DependencyRequirement,
@@ -52,15 +64,21 @@ import {
   installMissing,
   missingDependencies,
 } from "./init-dependencies";
+import { planDevAuthOnProject } from "./init-dev-auth";
 import { findAppLayout, patchLayoutWithSuppressHydration } from "./init-layout";
 import {
   type AuthOutcome,
+  adminUrl,
   authNotice,
   conflictMessage,
   customisedSessionMessage,
+  type MissingModule,
+  missingModuleMessage,
   nextSteps,
+  noOrmMessage,
   PROVIDER_FALLBACK_WARNING,
   unsupportedProviderMessage,
+  wrapWords,
 } from "./init-output";
 import {
   ABORTED,
@@ -146,12 +164,7 @@ function runInstall(
 }
 
 const GUESSED_AUTH_FILE = "server/lib/auth.ts";
-
-const METADATA_EXPORT = "export const generateMetadata = flowpanel.metadata;\n";
-
-function previousAdminPage(page: string): string {
-  return page.replace(METADATA_EXPORT, "");
-}
+const MIGRATION_FILE = "flowpanel/migrations/0001_init.sql";
 
 /**
  * Import specifiers the generated config falls back to when nothing matched on
@@ -168,9 +181,72 @@ export function guessedPaths(
   };
 }
 
+/** Project-relative file a guessed specifier resolves to. */
+function guessedFile(relPath: string, aliasMode: PathAliasMode): string {
+  return aliasMode === "strip-src" ? `src/${relPath}` : relPath;
+}
+
 /** Project-relative file the guessed `auth` specifier resolves to. */
 export function guessedAuthFile(aliasMode: PathAliasMode): string {
-  return aliasMode === "strip-src" ? `src/${GUESSED_AUTH_FILE}` : GUESSED_AUTH_FILE;
+  return guessedFile(GUESSED_AUTH_FILE, aliasMode);
+}
+
+function noticeWidth(): number {
+  return Math.max(40, Math.min(process.stdout.columns ?? 80, 100) - 4);
+}
+
+/** `init --dev-auth` on a project init already set up: only the session module changes. */
+async function devAuthOnProject(
+  cwd: string,
+  opts: InitOptions,
+  pmc: PmCommands,
+  humanOutput: boolean,
+): Promise<void> {
+  const planned = await planDevAuthOnProject(cwd);
+  if (planned.kind === "refuse") failInit(opts, planned.message);
+  const { file, plan } = planned;
+  const lines = publicPlan(plan).operations.map((op) => `${op.kind.padEnd(6)} ${op.path}`);
+  if (opts.dryRun) {
+    if (opts.json) writePlanJson("init", plan, false, { authentication: "development" });
+    else if (humanOutput) {
+      p.note(lines.join("\n"), "Filesystem plan (no changes applied)");
+      p.outro(pc.dim("Dry run complete."));
+    } else process.stdout.write(`${lines.join("\n")}\n`);
+    return;
+  }
+  const changes = plan.operations.some((op) => op.kind !== "skip");
+  if (changes && !opts.yes && !opts.json) {
+    p.note(lines.join("\n"), "Filesystem plan");
+    const confirmed = abortOnCancel(
+      await p.confirm({ message: "Apply these changes?", initialValue: true }),
+    );
+    if (!confirmed) {
+      p.cancel(ABORTED);
+      return;
+    }
+  }
+  const written = await applyFilesystemPlan(plan);
+  if (opts.json) {
+    writeJson({
+      command: "init",
+      applied: written.length > 0,
+      files: { applied: written },
+      authentication: "development",
+      plan: publicPlan(plan),
+    });
+    return;
+  }
+  const done =
+    written.length > 0
+      ? `Wrote ${file}`
+      : `${file} is already the development identity; nothing changed.`;
+  const notice = authNotice({ kind: "dev-stub", file }, pmc) ?? "";
+  const url = adminUrl((await readAdminMount(cwd)).path ?? "/admin");
+  if (humanOutput) {
+    p.log.success(done);
+    p.log.warn(wrapWords(notice, noticeWidth()));
+    p.outro(`Admin: ${pc.cyan(url)}`);
+  } else process.stdout.write(`${done}\n! ${notice}\nAdmin: ${url}\n`);
 }
 
 export function initCommand(cli: Command): void {
@@ -210,6 +286,10 @@ export function initCommand(cli: Command): void {
       if (humanOutput) p.intro(pc.bgCyan(pc.black(" FlowPanel init ")));
       const notProject = await noNextProject(cwd);
       if (notProject) failInit(opts, notProject);
+      if (opts.devAuth && (await fileExists(path.join(cwd, "flowpanel.config.ts")))) {
+        await devAuthOnProject(cwd, opts, pmc, Boolean(humanOutput));
+        return;
+      }
       const compatibility = await inspectProjectCompatibility(cwd);
       const prerequisiteFailure = firstCompatibilityFailure(
         compatibility.findings.filter(
@@ -219,10 +299,7 @@ export function initCommand(cli: Command): void {
       if (prerequisiteFailure) failInit(opts, prerequisiteFailure);
       const selectedOrm = compatibility.ormFinding;
       if (compatibility.orm === null || selectedOrm === null) {
-        failInit(
-          opts,
-          `No ORM detected. Install one: ${pmc.addDisplay("drizzle-orm", false)}  (or ${pmc.addDisplay("@prisma/client prisma", false)}).`,
-        );
+        failInit(opts, noOrmMessage(pmc));
       }
       if (!selectedOrm.ok) {
         const failure = firstCompatibilityFailure([selectedOrm]);
@@ -275,43 +352,33 @@ export function initCommand(cli: Command): void {
         auth: authPlan?.specifier ?? detected.auth ?? guesses.auth,
         appName: path.basename(cwd),
       };
-      const guessed = [
-        detected.db === null ? `db client   ${defaults.db}` : null,
-        orm === "drizzle" && detected.schema === null ? `schema      ${defaults.schema}` : null,
-      ].filter(Boolean) as string[];
-
       let db = opts.db ?? defaults.db;
       let schemaPath = opts.schema ?? defaults.schema;
       let auth = opts.auth ?? defaults.auth;
       let appName = defaults.appName;
 
-      if (unattended && guessed.length > 0) {
-        warn(
-          `These paths were not detected and must resolve before installation:\n  ${guessed.join(
-            "\n  ",
-          )}\nUse --db and --schema to point to your modules, or re-run interactively.`,
-        );
-      }
-
       if (!unattended) {
-        appName = await askText({ message: "App name", initialValue: defaults.appName });
+        appName = await askText({
+          message: "App name, shown as the sidebar brand",
+          initialValue: defaults.appName,
+        });
         db = await askText({
           message:
             orm === "prisma"
-              ? "Prisma client path (must export `prisma`)"
-              : "Drizzle db client path",
+              ? "Prisma client module, as an import path (exports prisma)"
+              : "Drizzle client module, as an import path (exports db)",
           initialValue: db,
           check: (answer) => validateProjectImport(cwd, answer, orm === "prisma" ? "prisma" : "db"),
         });
         if (orm === "drizzle") {
           schemaPath = await askText({
-            message: "Drizzle schema path",
+            message: "Drizzle schema module, as an import path",
             initialValue: schemaPath,
             check: (answer) => validateProjectImport(cwd, answer),
           });
         }
         auth = await askText({
-          message: "Auth helper path (must export getSession)",
+          message: "Session module, as an import path (exports getSession)",
           initialValue: auth,
           check: authAnswerCheck({
             plannedSession: authPlan?.specifier ?? null,
@@ -332,26 +399,58 @@ export function initCommand(cli: Command): void {
       if (shouldAskDevAuth({ unattended: !!unattended, sessionStub, devAuth })) {
         devAuth = await askDevAuth();
       }
-      for (const [specifier, exportName, flag] of [
-        [db, orm === "prisma" ? "prisma" : "db", "--db"],
-        ...(orm === "drizzle" ? [[schemaPath, undefined, "--schema"]] : []),
-        ...(!sessionStub && !authPlan ? [[auth, "getSession", "--auth"]] : []),
-      ] as Array<[string, string | undefined, string]>) {
+      const guessedDb: MissingModule = {
+        kind: orm === "prisma" ? "prisma" : "db",
+        file: guessedFile(orm === "prisma" ? "lib/prisma.ts" : "server/lib/db.ts", aliasMode),
+        flag: "--db",
+      };
+      const guessedSchema: MissingModule = {
+        kind: "schema",
+        file: guessedFile("server/lib/db/schema.ts", aliasMode),
+        flag: "--schema",
+      };
+      const imports: Array<[string, string | undefined, string, MissingModule | null]> = [
+        [db, orm === "prisma" ? "prisma" : "db", "--db", db === guesses.db ? guessedDb : null],
+      ];
+      if (orm === "drizzle") {
+        imports.push([
+          schemaPath,
+          undefined,
+          "--schema",
+          schemaPath === guesses.schema ? guessedSchema : null,
+        ]);
+      }
+      if (!sessionStub && !authPlan) imports.push([auth, "getSession", "--auth", null]);
+      const missingModules: MissingModule[] = [];
+      for (const [specifier, exportName, flag, guess] of imports) {
         const problem = await validateProjectImport(cwd, specifier, exportName);
-        if (problem)
+        if (!problem) continue;
+        if (guess && (await resolveProjectModule(cwd, specifier)) === null) {
+          missingModules.push(guess);
+        } else {
           failInit(
             opts,
             `Nothing was written. ${problem}\nUse ${flag} <module> to select your module.`,
           );
+        }
       }
+      if (missingModules.length > 0) failInit(opts, missingModuleMessage(missingModules, pmc));
 
       const sessionReplacement: DevStubReplacement | null =
         devAuth && !sessionStub && !opts.auth ? await planDevStubReplacement(cwd, auth) : null;
       if (sessionReplacement?.kind === "customised") {
-        failInit(opts, customisedSessionMessage(sessionReplacement.file));
+        failInit(opts, customisedSessionMessage(sessionReplacement.file, false));
       }
 
       const configTemplate = `flowpanel.config.${orm}${authPlan ? ".preset" : ""}.ts.txt`;
+      const manifest = await projectManifest(cwd);
+      const drizzleDialect =
+        orm === "drizzle"
+          ? ((await drizzleDialectFrom(cwd, [schemaPath, db])) ??
+            dialectFromDependencies({ ...manifest?.dependencies, ...manifest?.devDependencies }))
+          : null;
+      const dialect: SqlDialect =
+        orm === "prisma" ? prismaProvider : (drizzleDialect ?? "postgresql");
 
       const adminCssTemplate = "admin.css.txt";
 
@@ -381,14 +480,18 @@ export function initCommand(cli: Command): void {
       }
       const mountWarnings: string[] = [];
       if (providerLookup?.status === "missing") mountWarnings.push(PROVIDER_FALLBACK_WARNING);
+      if (orm === "drizzle" && drizzleDialect === null) {
+        mountWarnings.push(
+          "Could not tell from your Drizzle modules whether the database is PostgreSQL, MySQL or SQLite; flowpanel/migrations/0001_init.sql is written for PostgreSQL.",
+        );
+      }
       const conflictsFor = async (mount: string) => {
         const dir = `${appDir}${mount}/[[...slug]]`;
         const file = `${dir}/page.tsx`;
-        const expected = await tpl("admin-page.tsx.txt", {
-          CONFIG_IMPORT: configImportFor(dir, aliasMode),
-        });
         const current = await fs.readFile(path.join(cwd, file), "utf8").catch(() => null);
-        const ours = current === expected || current === previousAdminPage(expected);
+        const ours =
+          current !== null &&
+          (await isGeneratedAdminPage(current, configImportFor(dir, aliasMode)));
         return findAdminRouteConflicts(cwd, appDir, mount, ours ? file : undefined);
       };
       let routeConflicts = await conflictsFor(adminPath);
@@ -409,25 +512,30 @@ export function initCommand(cli: Command): void {
         );
       }
       for (const warning of mountWarnings) warn(warning);
-      if (humanOutput) p.note(adminPath, "Admin URL");
+      if (humanOutput) p.log.info(`Admin URL: ${adminPath}`);
       const adminPageDir = `${appDir}${adminPath}/[[...slug]]`;
       const apiRouteDir = `${appDir}${apiPath}/[...route]`;
       const sseRouteDir = `${appDir}${apiPath}/stream`;
 
+      const cacheComponents = await usesCacheComponents(cwd);
       const files: Record<string, string> = {
-        "flowpanel.config.ts": await tpl(configTemplate, {
-          DB: db,
-          SCHEMA: schemaPath,
-          AUTH: auth,
-          APP_NAME: appName,
-          ADMIN_PATH: adminPath,
-          API_PATH: apiPath,
-          CLI: `${pmc.exec} flowpanel`,
-          PROVIDER: prismaProvider,
-        }),
-        [`${adminPageDir}/page.tsx`]: await tpl("admin-page.tsx.txt", {
-          CONFIG_IMPORT: configImportFor(adminPageDir, aliasMode),
-        }),
+        "flowpanel.config.ts":
+          (await fs.readFile(path.join(cwd, "flowpanel.config.ts"), "utf8").catch(() => null)) ??
+          (await tpl(configTemplate, {
+            DB: db,
+            SCHEMA: schemaPath,
+            AUTH: auth,
+            APP_NAME: appName,
+            ADMIN_PATH: adminPath,
+            API_PATH: apiPath,
+            CLI: `${pmc.exec} flowpanel`,
+            PROVIDER: prismaProvider,
+            ROLE: roleMapping(sessionStub || sessionReplacement ? "stub" : "own"),
+          })),
+        [`${adminPageDir}/page.tsx`]: await adminPageSource(
+          configImportFor(adminPageDir, aliasMode),
+          cacheComponents,
+        ),
         [`${apiRouteDir}/route.ts`]: await tpl("api-route.ts.txt", {
           CONFIG_IMPORT: configImportFor(apiRouteDir, aliasMode),
         }),
@@ -435,14 +543,17 @@ export function initCommand(cli: Command): void {
           CONFIG_IMPORT: configImportFor(sseRouteDir, aliasMode),
         }),
         [cssRel]: await tpl(adminCssTemplate),
-        "flowpanel/migrations/0001_init.sql": await tpl("migration.sql.txt"),
+        [MIGRATION_FILE]:
+          (await fs.readFile(path.join(cwd, MIGRATION_FILE), "utf8").catch(() => null)) ??
+          (await tpl(migrationTemplate(dialect))),
       };
 
-      // Nothing on disk exports getSession, so the imported path must be created too.
       const sessionStubFile = authPlan?.file ?? guessedAuthFile(aliasMode);
       if (authPlan) files[sessionStubFile] = await tpl(authPlan.template, authPlan.vars);
       else if (sessionStub)
-        files[sessionStubFile] = await tpl(devAuth ? "dev-session.ts.txt" : "auth-session.ts.txt");
+        files[sessionStubFile] = devAuth
+          ? await devSessionStub(sessionStubFile)
+          : await tpl("auth-session.ts.txt");
       else if (sessionReplacement) files[sessionReplacement.file] = sessionReplacement.content;
 
       const existingLayout = await findAppLayout(cwd);
@@ -457,17 +568,23 @@ export function initCommand(cli: Command): void {
         {
           APP_NAME: appName,
           CSS_IMPORT: cssImportSpec,
+          SEGMENT_CONFIG: blockingSegmentExport(cacheComponents),
         },
       );
       files[`${adminLayoutDir}/not-found.tsx`] = await tpl("admin-not-found.tsx.txt", {
         CONFIG_IMPORT: configImportFor(adminLayoutDir, aliasMode),
       });
 
-      const expectedContents: Record<string, string> = {
-        [`${adminPageDir}/page.tsx`]: previousAdminPage(
-          files[`${adminPageDir}/page.tsx`] as string,
-        ),
-      };
+      const expectedContents: Record<string, string> = {};
+      const currentAdminPage = await fs
+        .readFile(path.join(cwd, `${adminPageDir}/page.tsx`), "utf8")
+        .catch(() => null);
+      if (
+        currentAdminPage !== null &&
+        (await isGeneratedAdminPage(currentAdminPage, configImportFor(adminPageDir, aliasMode)))
+      ) {
+        expectedContents[`${adminPageDir}/page.tsx`] = currentAdminPage;
+      }
       if (sessionReplacement) {
         expectedContents[sessionReplacement.file] = sessionReplacement.expectedContent;
       }
@@ -497,29 +614,57 @@ export function initCommand(cli: Command): void {
       const plan = await createFilesystemPlan(cwd, intents);
       const conflicts = plan.operations.filter((operation) => operation.kind === "conflict");
       if (conflicts.length > 0) {
+        const message = conflictMessage(conflicts.map((operation) => operation.path));
         if (opts.json) {
-          writePlanJson("init", plan, false);
+          writePlanJson("init", plan, false, { error: message });
           process.exit(1);
         }
-        failInit(opts, conflictMessage(conflicts.map((operation) => operation.path)));
+        failInit(opts, message);
       }
 
+      const plannedAuth: AuthOutcome = authPlan
+        ? { kind: "preset", file: sessionStubFile, provider: authPlan.provider }
+        : sessionStub
+          ? { kind: devAuth ? "dev-stub" : "closed-stub", file: sessionStubFile }
+          : sessionReplacement
+            ? { kind: "dev-stub", file: sessionReplacement.file }
+            : { kind: "existing" };
+      const authentication = authPlan
+        ? `preset:${authPlan.provider}`
+        : plannedAuth.kind === "dev-stub"
+          ? "development"
+          : plannedAuth.kind === "closed-stub"
+            ? "setup-required"
+            : "existing-helper";
+
       if (opts.dryRun) {
-        if (opts.json) writePlanJson("init", plan, false);
+        const sessionLabel = {
+          "closed-stub": "closed stub, denies every request",
+          "dev-stub": "open development identity",
+          preset: "provider preset",
+          existing: "your module",
+        }[plannedAuth.kind];
+        const modules = {
+          db,
+          ...(orm === "drizzle" ? { schema: schemaPath } : {}),
+          session: "file" in plannedAuth ? plannedAuth.file : auth,
+          migration: dialect,
+        };
+        const detectedLines = [
+          `db client   ${db}`,
+          ...(orm === "drizzle" ? [`schema      ${schemaPath}`] : []),
+          `session     ${modules.session} (${sessionLabel})`,
+          `migration   ${dialect}`,
+        ];
+        const planLines = publicPlan(plan).operations.map(
+          (operation) => `${operation.kind.padEnd(6)} ${operation.path}`,
+        );
+        if (opts.json) writePlanJson("init", plan, false, { modules, authentication });
         else if (humanOutput) {
-          const preview = publicPlan(plan);
-          p.note(
-            preview.operations
-              .map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
-              .join("\n"),
-            "Filesystem plan (no changes applied)",
-          );
+          p.note(detectedLines.join("\n"), "Modules");
+          p.note(planLines.join("\n"), "Filesystem plan (no changes applied)");
           p.outro(pc.dim("Dry run complete."));
-        } else {
-          for (const operation of publicPlan(plan).operations) {
-            process.stdout.write(`${operation.kind} ${operation.path}\n`);
-          }
-        }
+        } else process.stdout.write(`${[...detectedLines, "", ...planLines].join("\n")}\n`);
         return;
       }
 
@@ -540,11 +685,19 @@ export function initCommand(cli: Command): void {
       }
 
       const writtenPaths = await applyFilesystemPlan(plan);
-      if (writtenPaths.length > 0) {
-        if (humanOutput) p.note(writtenPaths.join("\n"), "Wrote");
-        else if (textOutput) {
-          process.stdout.write(`Wrote\n${writtenPaths.map((file) => `  ${file}`).join("\n")}\n`);
-        }
+      const wrote =
+        writtenPaths.length === 0
+          ? "Already set up; nothing changed."
+          : `Wrote ${writtenPaths.length} file${writtenPaths.length === 1 ? "" : "s"}`;
+      if (humanOutput) {
+        if (unattended && writtenPaths.length > 0) p.note(writtenPaths.join("\n"), "Wrote");
+        else p.log.success(wrote);
+      } else if (textOutput) {
+        process.stdout.write(
+          writtenPaths.length > 0
+            ? `Wrote\n${writtenPaths.map((file) => `  ${file}`).join("\n")}\n`
+            : `${wrote}\n`,
+        );
       }
 
       const beforeInstall = await inspectRequirements(cwd, REQUIRED_DEPS, inspectDependency);
@@ -588,43 +741,16 @@ export function initCommand(cli: Command): void {
         kitMismatch: await kitCompatibilityError(cwd),
       });
       const depsOk = dependencies.ok;
-      if (humanOutput) {
-        if (dependencies.reason) p.note(dependencies.reason, `${pm} said`);
-        if (!depsOk) p.note(dependencies.recovery.join("\n"), "Remaining recovery");
-      }
 
-      const authOutcome: AuthOutcome = authPlan
-        ? { kind: "preset", file: sessionStubFile, provider: authPlan.provider }
-        : sessionStub
-          ? { kind: devAuth ? "dev-stub" : "closed-stub", file: sessionStubFile }
-          : sessionReplacement
-            ? { kind: "dev-stub", file: sessionReplacement.file }
+      const stub = await findSessionStub(cwd);
+      const authOutcome: AuthOutcome =
+        plannedAuth.kind === "preset"
+          ? plannedAuth
+          : stub
+            ? { kind: stub.kind === "closed" ? "closed-stub" : "dev-stub", file: stub.file }
             : { kind: "existing" };
-      const paragraphs: string[] = [];
-      if (!depsOk) {
-        paragraphs.push(
-          [
-            colors.yellow("⚠ FlowPanel init is incomplete"),
-            ...(dependencies.reason ? [dependencies.reason] : []),
-            ...dependencies.recovery,
-          ].join("\n"),
-        );
-        process.exitCode = 1;
-      } else {
-        if (dependencies.warning) {
-          paragraphs.push(
-            `${colors.yellow("⚠")} ${pm} exited with an error while installing something else:\n${dependencies.warning}`,
-          );
-        }
-        if (manualHydrationFix) {
-          paragraphs.push(
-            `${colors.yellow("!")} Could not add suppressHydrationWarning to ${colors.cyan(manualHydrationFix)}\n  Add it to that file's <html> tag by hand — ThemeScript sets an attribute on it before hydration.`,
-          );
-        }
-        const notice = authNotice(authOutcome);
-        if (notice) paragraphs.push(notice);
-        paragraphs.push(nextSteps(pmc, adminPath, colors, orm === "prisma" ? "model" : "table"));
-      }
+      const notice = authNotice(authOutcome, pmc);
+
       if (opts.json) {
         writeJson({
           command: "init",
@@ -646,19 +772,56 @@ export function initCommand(cli: Command): void {
           },
           adminPath,
           warnings: mountWarnings,
-          authentication: authPlan
-            ? `preset:${authPlan.provider}`
-            : sessionStub
-              ? devAuth
-                ? "development"
-                : "setup-required"
-              : sessionReplacement
-                ? "development"
-                : "existing-helper",
+          authentication,
           ...(authProvider ? { authProvider } : {}),
           plan: publicPlan(plan),
         });
-      } else if (humanOutput) p.outro(paragraphs.join("\n\n"));
-      else process.stdout.write(`${paragraphs.join("\n\n")}\n`);
+        if (!depsOk) process.exitCode = 1;
+        return;
+      }
+
+      if (!depsOk) {
+        process.exitCode = 1;
+        const incomplete = [
+          ...(dependencies.reason ? [dependencies.reason] : []),
+          ...dependencies.recovery,
+        ].join("\n");
+        if (humanOutput) {
+          p.note(incomplete, "FlowPanel init is incomplete");
+          p.outro(colors.yellow("Run the commands above, then init again."));
+        } else process.stdout.write(`! FlowPanel init is incomplete\n${incomplete}\n`);
+        return;
+      }
+      const warnings = [
+        ...(dependencies.warning
+          ? [`${pm} exited with an error while installing something else:\n${dependencies.warning}`]
+          : []),
+        ...(manualHydrationFix
+          ? [
+              `Could not add suppressHydrationWarning to ${manualHydrationFix}. Add it to that file's <html> tag by hand; ThemeScript sets an attribute on it before hydration.`,
+            ]
+          : []),
+        ...(notice && authOutcome.kind !== "preset" ? [notice] : []),
+      ];
+      const info = notice && authOutcome.kind === "preset" ? notice : null;
+      const url = adminUrl(adminPath);
+      const next = nextSteps(pmc, colors, orm === "prisma" ? "model" : "table");
+      if (humanOutput) {
+        for (const warning of warnings) p.log.warn(wrapWords(warning, noticeWidth()));
+        if (info) p.log.info(wrapWords(info, noticeWidth()));
+        p.note(next, "Next");
+        p.outro(`Admin: ${colors.cyan(url)}`);
+      } else {
+        const lines = [
+          ...warnings.map((warning) => `! ${warning}`),
+          ...(info ? [info] : []),
+          "",
+          "Next",
+          ...next.split("\n").map((line) => `  ${line}`),
+          "",
+          `Admin: ${url}`,
+        ];
+        process.stdout.write(`${lines.join("\n")}\n`);
+      }
     });
 }

@@ -48,7 +48,7 @@ describe("planNewIntoDir", () => {
     expect(intents[0]?.content).toContain("export const userVisit = resource(schema.userVisit, {");
     expect(intents[0]?.content).toContain("  hidden: true,");
     expect(intents[0]?.content).toContain(
-      '{ field: "userId", reference: { resource: "user", labelField: "name" } },',
+      '{ field: "userId", label: "User", reference: { resource: "user", labelField: "name" } },',
     );
     expect(intents[1]?.content).toContain('import { userVisit } from "./user-visit";');
     const plan = publicPlan(await createFilesystemPlan(cwd, intents));
@@ -119,7 +119,7 @@ describe("planNewIntoDir", () => {
     const { intents, unlinked } = await planNewIntoDir(cwd, "invoice", { dir: DIR, hidden: false });
     expect(unlinked).toEqual([]);
     expect(intents[0]?.content).toContain(
-      '{ field: "userId", reference: { resource: "members", labelField: "name" } },',
+      '{ field: "userId", label: "User", reference: { resource: "members", labelField: "name" } },',
     );
   });
 

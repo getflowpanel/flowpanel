@@ -11,7 +11,7 @@ function field(name: string, type: string, over: Partial<PrismaDmmfField> = {}):
     isRequired: true,
     isUnique: false,
     isList: false,
-    hasDefault: false,
+    hasDefaultValue: false,
     ...over,
   };
 }
@@ -116,13 +116,11 @@ describe("prismaAdapter with a non-`id` primary key", () => {
     expect(prisma._delegate.findUnique).toHaveBeenCalledWith({ where: { ticketNo: 42 } });
   });
 
-  it("still throws when the id cannot be coerced to a numeric @id field", async () => {
+  it("reads an id that cannot be a numeric @id field as no row", async () => {
     const prisma = makeMockPrisma();
     const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
 
-    await expect(adapter.get("Ticket", { id: "abc", db: undefined } as never)).rejects.toThrow(
-      /cannot coerce/,
-    );
+    await expect(adapter.get("Ticket", { id: "abc", db: undefined } as never)).resolves.toBeNull();
   });
 
   it("introspect reports the @id field as the primary key", () => {

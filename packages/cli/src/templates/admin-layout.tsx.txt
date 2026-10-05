@@ -2,7 +2,7 @@ import { ThemeScript } from "@flowpanel/kit/react";
 import { headers } from "next/headers";
 import "{{CSS_IMPORT}}";
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+{{SEGMENT_CONFIG}}export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const nonce = (await headers()).get("x-nonce");
   return (
     <>

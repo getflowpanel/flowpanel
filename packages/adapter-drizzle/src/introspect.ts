@@ -49,6 +49,13 @@ function freeze(intro: ResourceIntrospection): ResourceIntrospection {
   return Object.freeze(intro);
 }
 
+/** A `numeric`/`decimal` column Drizzle reads and writes as text, such as `numeric(10, 2)`. */
+export function isDecimalText(column: unknown): boolean {
+  if (typeof column !== "object" || column === null) return false;
+  const { dataType, columnType } = column as { dataType?: unknown; columnType?: unknown };
+  return dataType === "string" && /numeric|decimal/i.test(String(columnType ?? ""));
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: drizzle column internals are not publicly typed; col.dataType / col.columnType are read via runtime-guarded String() coercion.
 function mapType(col: any): ColumnMeta["type"] {
   const dt = String(col.dataType ?? "").toLowerCase();
@@ -58,6 +65,7 @@ function mapType(col: any): ColumnMeta["type"] {
   if (ct.includes("array")) return "array";
   if (dt.includes("json") || ct.includes("json")) return "json";
   if (dt.includes("bool") || ct.includes("bool")) return "boolean";
+  if (isDecimalText(col)) return "number";
   if (
     dt.includes("int") ||
     dt.includes("numeric") ||

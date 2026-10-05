@@ -52,7 +52,7 @@ describe("askText", () => {
   });
 
   it("aborts without writing when the prompt is cancelled", async () => {
-    text.mockResolvedValueOnce(Symbol("clack:cancel"));
+    text.mockResolvedValueOnce(p.CANCEL_SYMBOL);
     const exit = vi.spyOn(process, "exit").mockImplementation((() => {
       throw new Error("exit");
     }) as never);

@@ -26,3 +26,8 @@ export function generatePrismaClient(
   execSync(`pnpm exec prisma generate --schema=prisma/${schema}`, { stdio: "ignore" });
   return require(`../../node_modules/.prisma/${output}`).PrismaClient;
 }
+
+/** The `Prisma.dmmf` of a client `generatePrismaClient` built. */
+export function generatedDmmf(output: string): unknown {
+  return require(`../../node_modules/.prisma/${output}`).Prisma.dmmf;
+}

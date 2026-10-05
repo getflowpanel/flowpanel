@@ -55,12 +55,9 @@ describe("printing them", () => {
     expect(written.mock.calls[0]?.[0]).toContain("create will fail");
   });
 
-  it("says out loud that the warnings were not checked", () => {
+  it("prints nothing for an unreadable config, which doctor reports as a failed check", () => {
     const written = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     printConfigWarnings({ unreadable: "DATABASE_URL is not set" });
-    expect(written).toHaveBeenCalledTimes(1);
-    expect(written.mock.calls[0]?.[0]).toContain(
-      "flowpanel.config.ts could not be evaluated: DATABASE_URL is not set; config warnings skipped",
-    );
+    expect(written).not.toHaveBeenCalled();
   });
 });

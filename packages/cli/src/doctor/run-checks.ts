@@ -1,8 +1,11 @@
+// LOC-OK: doctor runs its checks in one ordered pass, so the printed order is the documented one.
 import * as path from "node:path";
 import pc from "picocolors";
+import { noOrmMessage } from "../commands/init-output";
 import { createFilesystemPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent, FilesystemPlan } from "../plan/types";
+import { findAdminConfig } from "../scaffold/config-target";
 import {
   type AdminMount,
   findAdminRouteConflicts,
@@ -21,6 +24,9 @@ import {
   pmCommands,
 } from "../utils/detect";
 import { installedKitVersion, kitCompatibilityError, pinnedSpec } from "../utils/kit";
+import { usesCacheComponents } from "../utils/next-config";
+import { configDialect, migrationTemplate } from "../utils/sql-dialect";
+import { cacheComponentsChecks } from "./cache-components";
 import type { Check } from "./check";
 import { type ConfigWarnings, readConfigWarnings } from "./config-warnings";
 import { countCoreInstances, fixPrecondition, staleEjectMarkers } from "./probes";
@@ -83,9 +89,10 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
   const reactPair = compatible("React and React DOM versions match");
   const typescript = compatible("typescript");
   const node = compatible("Node.js");
-  const nextDeps = "next@^16.3.0 react@^19 react-dom@^19";
+  const nextDeps = "next@^16 react@^19 react-dom@^19";
+  const nextVersion = next?.dependency.installed?.version;
   add(
-    "Next.js ≥ 16.3 < 17",
+    nextVersion ? `Next.js ${nextVersion} (15.5 or 16)` : "Next.js 15.5 or 16",
     next?.ok ?? false,
     next?.dependency.declaration === null
       ? `Next.js is not in package.json. Install: ${pmc.addDisplay(nextDeps, false)}`
@@ -111,14 +118,12 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
     orm === null ? "ORM adapter (Drizzle or Prisma)" : `ORM adapter (${orm})`,
     ormFinding?.ok ?? false,
     orm === null
-      ? `Install one: ${pmc.addDisplay("drizzle-orm", false)} or ${pmc.addDisplay("@prisma/client", false)}`
+      ? noOrmMessage(pmc)
       : `Found ${ormFinding?.observed}. Required ${ormFinding?.required}. ${ormFinding?.recovery}`,
   );
-  add(
-    "flowpanel.config.ts",
-    await fileExists(path.join(cwd, "flowpanel.config.ts")),
-    "Run: flowpanel init",
-  );
+  const initialised = (await findAdminConfig(cwd)) !== null;
+  add("flowpanel.config.ts", initialised, `Not set up yet. Run: ${pmc.dlx} @flowpanel/cli init`);
+  if (!initialised) return { checks, mount, kitMismatch: null, overlapsGeneratedApi, pmc };
   const kitMismatch = await kitCompatibilityError(cwd);
   const kitInstalled = (await installedKitVersion(cwd)) !== null;
   add(
@@ -130,13 +135,17 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
   );
   add("Admin mount configuration", !mount.error, mount.error);
 
+  const migrationTemplateName = migrationTemplate((await configDialect(cwd)) ?? "postgresql");
+  const cacheComponents = await usesCacheComponents(cwd);
   for (const {
     mount: mountKind,
     relToMount,
-    templateName,
+    templateName: fileTemplate,
     label,
     needsConfigImport,
+    optional,
   } of FIXABLE_FILES) {
+    const templateName = mountKind === null ? migrationTemplateName : fileTemplate;
     const isAdmin = mountKind === "admin";
     if (isAdmin && !mount.path) continue;
     // A configured but dynamic `paths.api` names files this run cannot know.
@@ -168,13 +177,21 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
       continue;
     }
 
-    add(
-      label,
-      exists,
-      "Run: flowpanel doctor --fix",
-      exists ? undefined : async () => makeFix(relDest, templateName, configImport),
-    );
+    const hint = `Run: ${pmc.exec} flowpanel doctor --fix`;
+    const fix = exists
+      ? undefined
+      : async () => makeFix(relDest, templateName, configImport, cacheComponents);
+    if (optional) {
+      checks.push({
+        name: label,
+        ok: true,
+        ...(exists ? {} : { warn: true, hint }),
+        ...(fix ? { fix } : {}),
+      });
+    } else add(label, exists, hint, fix);
   }
+
+  checks.push(...(await cacheComponentsChecks(cwd, compatibility, appDir, mount, aliasMode)));
 
   try {
     const coreCount = await countCoreInstances(cwd);
@@ -191,7 +208,7 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
   } catch {}
 
   try {
-    const stale = await staleEjectMarkers(cwd, appDir);
+    const stale = await staleEjectMarkers(cwd, appDir, mount.path ?? "/admin");
     if (stale !== null) {
       add(
         "Ejected admin pages carry the eject marker",
@@ -220,10 +237,16 @@ async function gatherProjectChecks(
   cwd: string,
   pmc: PmCommands,
 ): Promise<{ checks: Check[]; config: ConfigWarnings }> {
+  if ((await findAdminConfig(cwd)) === null) return { checks: [], config: { warnings: [] } };
   const tsc = await runTsc(cwd, pmc);
   const config = await readConfigWarnings(cwd);
   const checks: Check[] = [
     { name: "tsc --noEmit", ok: tsc.ok, ...(tsc.hint === undefined ? {} : { hint: tsc.hint }) },
+    {
+      name: "flowpanel.config.ts evaluates",
+      ok: !("unreadable" in config),
+      ...("unreadable" in config ? { hint: config.unreadable } : {}),
+    },
     ...(await warningChecks(cwd, pmc, config)),
   ];
   return { checks, config };
@@ -251,27 +274,27 @@ export async function runDoctorChecks(
       (overlapsGeneratedApi
         ? "Admin mount overlaps the generated API routes; automatic repair is unsafe."
         : undefined) ??
-      (await fixPrecondition(cwd));
+      (await fixPrecondition(cwd, gathered.pmc.dlx));
     if (fixBlocked) {
-      if (!options.quiet) process.stderr.write(pc.red(`  ✘ --fix refused: ${fixBlocked}\n`));
+      if (!options.quiet) process.stderr.write(`${pc.red("✗")} --fix refused: ${fixBlocked}\n`);
     } else {
-      const fixable = gathered.checks.filter((check) => !check.ok && check.fix);
+      const fixes = gathered.checks.flatMap((check) =>
+        (!check.ok || check.warn) && check.fix ? [check.fix] : [],
+      );
       try {
-        const intents = await Promise.all(
-          fixable.map((check) => check.fix?.() as Promise<FileIntent>),
-        );
+        const intents: FileIntent[] = await Promise.all(fixes.map((fix) => fix()));
         plan = await createFilesystemPlan(cwd, intents);
         if (options.applyFixes !== false) {
           const written = await applyFilesystemPlan(plan);
           if (!options.quiet) {
-            for (const file of written) process.stdout.write(pc.green(`  ✔ fixed: ${file}\n`));
+            for (const file of written) process.stdout.write(`${pc.green("✓")} fixed: ${file}\n`);
           }
           if (written.length > 0) gathered = await gatherFileChecks(cwd, options);
         }
       } catch (e: unknown) {
         if (!options.quiet) {
           process.stderr.write(
-            pc.red(`  ✘ fix failed: ${e instanceof Error ? e.message : String(e)}\n`),
+            `${pc.red("✗")} fix failed: ${e instanceof Error ? e.message : String(e)}\n`,
           );
         }
       }

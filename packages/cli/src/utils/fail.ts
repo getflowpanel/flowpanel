@@ -105,6 +105,15 @@ function endpointOfError(e: ErrorLike): string | null {
   );
 }
 
+/** The host as DATABASE_URL spells it (`localhost`, not the `[::1]` it resolved to) when the ports agree. */
+function preferWrittenHost(found: string | null, url: string | undefined): string | null {
+  const written = endpointFromUrl(url);
+  if (found === null) return written;
+  if (written === null) return found;
+  const port = (endpoint: string) => /:(\d+)$/.exec(endpoint)?.[1] ?? null;
+  return port(found) !== null && port(found) === port(written) ? written : found;
+}
+
 function children(e: ErrorLike): ErrorLike[] {
   const nested = Array.isArray(e.errors) ? e.errors : [];
   return [...nested, e.cause].filter((c): c is ErrorLike => typeof c === "object" && c !== null);
@@ -135,11 +144,45 @@ export function connectionFailure(err: unknown): { code: string; endpoint: strin
     );
     const code = named ?? SOCKET_CODE_PATTERN.exec(message)?.[1];
     if (code) {
-      return { code, endpoint: findEndpoint(e) ?? endpointFromUrl(process.env.DATABASE_URL) };
+      return { code, endpoint: preferWrittenHost(findEndpoint(e), process.env.DATABASE_URL) };
     }
     queue.push(...children(e));
   }
   return null;
+}
+
+/** One readable line for a thrown value, plus the lines that explain it, without printing anything. */
+export function describeFatal(err: unknown): {
+  message: string;
+  details: string[];
+  hints: string[];
+} {
+  const messages = messageChain(err).map(redactDiagnostic);
+  const debug = Boolean(process.env.FLOWPANEL_DEBUG);
+  const unreachable = connectionFailure(err);
+  if (!process.env.DATABASE_URL && messageChain(err).some(looksLikeMissingDbUrl)) {
+    return {
+      message: "Could not connect to the database: DATABASE_URL is not set.",
+      details: messages.slice(1).map((cause) => `Caused by: ${cause}`),
+      hints: [
+        "  Add it to .env (or .env.local) next to package.json, or pass it inline:",
+        "    DATABASE_URL=postgres://user:pass@host:5432/db pnpm flowpanel migrate",
+      ],
+    };
+  }
+  if (unreachable) {
+    const where = unreachable.endpoint ? ` at ${unreachable.endpoint}` : "";
+    return {
+      message: `Cannot reach the database${where} (${unreachable.code}). Check DATABASE_URL.`,
+      details: debug ? messages : [],
+      hints: [],
+    };
+  }
+  return {
+    message: messages[0] ?? "Unknown error",
+    details: messages.slice(1).map((cause) => `Caused by: ${cause}`),
+    hints: [],
+  };
 }
 
 /**
@@ -147,25 +190,11 @@ export function connectionFailure(err: unknown): { code: string; endpoint: strin
  * Node stack trace. `FLOWPANEL_DEBUG=1` keeps the stack for bug reports.
  */
 export function reportFatal(err: unknown): void {
-  const messages = messageChain(err).map(redactDiagnostic);
-  const debug = Boolean(process.env.FLOWPANEL_DEBUG);
-  const unreachable = connectionFailure(err);
-  let details = messages.slice(1).map((cause) => `Caused by: ${cause}`);
-
-  if (!process.env.DATABASE_URL && messageChain(err).some(looksLikeMissingDbUrl)) {
-    log.err("Could not connect to the database — DATABASE_URL is not set.");
-    log.dim("  Add it to .env (or .env.local) next to package.json, or pass it inline:");
-    log.dim("    DATABASE_URL=postgres://user:pass@host:5432/db pnpm flowpanel migrate");
-  } else if (unreachable) {
-    const where = unreachable.endpoint ? ` at ${unreachable.endpoint}` : "";
-    log.err(`Cannot reach the database${where} (${unreachable.code}). Check DATABASE_URL.`);
-    details = debug ? messages : [];
-  } else {
-    log.err(messages[0] ?? "Unknown error");
-  }
+  const { message, details, hints } = describeFatal(err);
+  log.err(message);
+  for (const line of hints) log.dim(line);
   for (const line of details) log.err(line);
-
-  if (debug && err instanceof Error && err.stack) {
+  if (process.env.FLOWPANEL_DEBUG && err instanceof Error && err.stack) {
     log.dim(redactDiagnostic(err.stack));
   } else {
     log.dim("  Re-run with FLOWPANEL_DEBUG=1 for the failed query and stack trace.");

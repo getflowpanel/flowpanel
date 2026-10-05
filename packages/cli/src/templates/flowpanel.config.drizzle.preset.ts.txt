@@ -4,7 +4,6 @@ import { db } from "{{DB}}";
 import * as schema from "{{SCHEMA}}";
 import { flowpanelAuth } from "{{AUTH}}";
 
-// Registers your db and schema so resource names, rows and widget reads are typed.
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;

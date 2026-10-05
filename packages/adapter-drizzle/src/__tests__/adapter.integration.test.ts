@@ -1,11 +1,20 @@
 import { execSync } from "node:child_process";
 import type { ListQueryContext } from "@flowpanel/core";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  numeric,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { drizzleAdapter } from "../index";
+import { drizzleAdapter, inferSchema } from "../index";
 
 // Check Docker availability synchronously so describe.skipIf works at module load time.
 function isDockerAvailable(): boolean {
@@ -28,6 +37,12 @@ const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+const tokens = pgTable("tokens", { id: uuid("id").primaryKey().defaultRandom() });
+const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  total: numeric("total", { precision: 10, scale: 2 }).notNull(),
+});
+
 let container: StartedPostgreSqlContainer;
 let db: ReturnType<typeof drizzle>;
 let client: ReturnType<typeof postgres>;
@@ -47,6 +62,8 @@ beforeAll(async () => {
       created_at timestamp NOT NULL DEFAULT now()
     )
   `;
+  await client`CREATE TABLE tokens (id uuid PRIMARY KEY DEFAULT gen_random_uuid())`;
+  await client`CREATE TABLE orders (id serial PRIMARY KEY, total numeric(10, 2) NOT NULL)`;
   for (let i = 0; i < 25; i++) {
     await client`
       INSERT INTO users (id, email, name, age)
@@ -219,6 +236,25 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
       id: "u3",
     });
     expect(await adapter.get(users, { ...ctx(), id: "nope" } as any)).toBeNull();
+  });
+
+  it("get answers null for an id that is not valid text for a uuid key", async () => {
+    const tokenAdapter = drizzleAdapter({ db, schema: { tokens }, dialect: "pg" });
+    expect(await tokenAdapter.get(tokens, { ...ctx(), id: "not-a-uuid" } as any)).toBeNull();
+  });
+
+  it("writes a form's number to a numeric column and reads it back at the column's scale", async () => {
+    const orderAdapter = drizzleAdapter({ db, schema: { orders }, dialect: "pg" });
+    const parsed = inferSchema(orders).create.safeParse({ total: 12.5 });
+    expect(parsed.success).toBe(true);
+    const created: any = await orderAdapter.create(orders, { ...ctx(), input: parsed.data } as any);
+    expect(created.total).toBe("12.50");
+    await orderAdapter.create(orders, { ...ctx(), input: { total: "3.10" } } as any);
+    const inRange = await orderAdapter.list(
+      orders,
+      ctx({ filters: { total: { op: "range", gte: 10 } }, pageSize: 50 }),
+    );
+    expect(inRange.rows.map((row: any) => row.total)).toEqual(["12.50"]);
   });
 
   it("create, update, delete roundtrip", async () => {

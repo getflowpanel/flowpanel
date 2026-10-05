@@ -16,9 +16,10 @@ export async function runCommand(
   register: (cli: Command) => void,
   args: string[],
   files: Record<string, string>,
+  parent: string = os.tmpdir(),
 ): Promise<CommandRun> {
   const originalCwd = process.cwd();
-  const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "fp-command-")));
+  const dir = await fs.realpath(await fs.mkdtemp(path.join(parent, "fp-command-")));
   const stdout: string[] = [];
   const stderr: string[] = [];
   let exit: number | null = null;

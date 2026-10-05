@@ -15,10 +15,7 @@ describe("eject command", () => {
     const result = await runCommand(ejectCommand, ["eject", "layout"], EXISTING);
     expect(result.exit).toBe(1);
     expect(result.stdout).toContain("conflict app/admin/layout.tsx");
-    expect(result.stdout).toContain("Use --force to overwrite.");
-    expect(result.stdout.indexOf("conflict app/admin/layout.tsx")).toBeLessThan(
-      result.stdout.indexOf("Use --force to overwrite."),
-    );
+    expect(result.stderr).toContain("Nothing was written. Use --force to overwrite.");
   });
 
   it("prints the same hint on a dry run and keeps exit 0", async () => {
@@ -60,8 +57,8 @@ describe("eject command", () => {
   it("names the directory when it is not a Next.js project", async () => {
     const result = await runCommand(ejectCommand, ["eject", "layout"], {});
     expect(result.exit).toBe(1);
-    expect(result.stdout).toContain(`No Next.js project found in ${result.dir}.`);
-    expect(result.stdout).toContain("Run this from your project root.");
+    expect(result.stderr).toContain(`No Next.js project found in ${result.dir}.`);
+    expect(result.stderr).toContain("Run this from your project root.");
   });
 
   it("keeps the JSON error for a conflict", async () => {

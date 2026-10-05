@@ -59,10 +59,11 @@ export async function inspectRequirements(
   );
 }
 
+/** Not installed, or installed but absent from package.json, where the next install would prune it. */
 export function missingDependencies(
   inspected: ReadonlyArray<InspectedDependency>,
 ): InspectedDependency[] {
-  return inspected.filter(({ state }) => state.installed === null);
+  return inspected.filter(({ state }) => state.installed === null || state.declaration === null);
 }
 
 // A peer declaration is not one a manager installs on a plain install, so it still needs an add.
@@ -98,7 +99,7 @@ export async function installMissing(input: {
   for (const entry of input.missing) {
     if (attempts.length > 0) {
       const current = await input.inspect(input.cwd, entry.dependency.pkg);
-      if (current.installed !== null) continue;
+      if (current.installed !== null && current.declaration !== null) continue;
     }
     const args = installArgs(entry, input.pmc);
     const result = await input.run(input.pm, args, input.cwd);
@@ -143,7 +144,9 @@ export function dependencyReport(input: {
     const detail =
       entry.state.error === "invalid-manifest"
         ? `${pkg} is installed in this project but its package manifest cannot be read.`
-        : `The package manager completed, but ${pkg} did not resolve in this project.`;
+        : entry.state.installed === null
+          ? `The package manager completed, but ${pkg} did not resolve in this project.`
+          : `${pkg} is installed but missing from package.json, so the next install would remove it.`;
     add(pkg, detail, recoveryFor(entry, input.pm, input.pmc));
   }
 

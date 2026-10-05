@@ -70,9 +70,11 @@ describe("runDoctorChecks --fix", () => {
     expect(sseAfter!.ok).toBe(true);
   });
 
-  it("writes the missing not-found page next to the admin layout", async () => {
-    const { checks: before } = await runDoctorChecks(tmp, false);
-    expect(before.find((c) => c.name === "Not-found page")?.ok).toBe(false);
+  it("warns about a missing not-found page and writes it next to the admin layout", async () => {
+    const { checks: before, bad } = await runDoctorChecks(tmp, false);
+    expect(before.find((c) => c.name === "Not-found page")).toMatchObject({ ok: true, warn: true });
+    expect(before.filter((c) => !c.ok).map((c) => c.name)).not.toContain("Not-found page");
+    expect(bad).toBe(before.filter((c) => !c.ok).length);
     const { checks } = await runDoctorChecks(tmp, true);
     expect(checks.find((c) => c.name === "Not-found page")?.ok).toBe(true);
     const content = await fs.readFile(path.join(tmp, "app/admin/not-found.tsx"), "utf8");
@@ -101,8 +103,8 @@ describe("runDoctorChecks --fix", () => {
     try {
       const { plan, fixBlocked } = await runDoctorChecks(bare, true, { quiet: true });
       expect(plan).toBeUndefined();
-      expect(fixBlocked).toMatch(/not a FlowPanel project/);
-      expect(fixBlocked).toContain("flowpanel init");
+      expect(fixBlocked).toMatch(/FlowPanel is not set up here yet/);
+      expect(fixBlocked).toContain("@flowpanel/cli init");
       expect(await fs.readdir(bare)).toEqual([]);
     } finally {
       await fs.rm(bare, { recursive: true, force: true });

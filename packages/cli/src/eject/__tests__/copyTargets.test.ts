@@ -117,9 +117,59 @@ describe("copyLayoutTemplate config import", () => {
     const layout = await fs.readFile(path.join(tmp, "app/admin/layout.tsx"), "utf8");
     expect(layout).not.toContain("{{");
   });
+
+  it("exports instant = false when next.config turns on cacheComponents", async () => {
+    await fs.mkdir(path.join(tmp, "app"), { recursive: true });
+    await fs.writeFile(
+      path.join(tmp, "next.config.ts"),
+      "export default { cacheComponents: true };\n",
+    );
+    await copyLayoutTemplate({ cwd: tmp, version: "1.0.0" });
+    const layout = await fs.readFile(path.join(tmp, "app/admin/layout.tsx"), "utf8");
+    expect(layout).toContain(
+      "export const instant = false;\n\nexport default async function Layout(",
+    );
+  });
+
+  it("leaves instant out without cacheComponents", async () => {
+    await fs.mkdir(path.join(tmp, "app"), { recursive: true });
+    await copyLayoutTemplate({ cwd: tmp, version: "1.0.0" });
+    const layout = await fs.readFile(path.join(tmp, "app/admin/layout.tsx"), "utf8");
+    expect(layout).not.toContain("instant");
+  });
 });
 
 describe("ejected resource templates", () => {
+  it("export instant = false from every page when next.config turns on cacheComponents", async () => {
+    await fs.mkdir(path.join(tmp, "app"), { recursive: true });
+    await fs.writeFile(
+      path.join(tmp, "next.config.ts"),
+      "export default { cacheComponents: true };\n",
+    );
+    await copyResourceTemplates({ cwd: tmp, resourceName: "users", version: "1.0.0" });
+    await copyDashboardTemplate({ cwd: tmp, dashboardPath: "/", version: "1.0.0" });
+    for (const page of [
+      "users/page.tsx",
+      "users/new/page.tsx",
+      "users/[id]/page.tsx",
+      "users/[id]/edit/page.tsx",
+      "page.tsx",
+    ]) {
+      const source = await fs.readFile(path.join(tmp, "app/admin", page), "utf8");
+      expect(source, page).toMatch(/\nexport const instant = false;\n\nexport default /);
+    }
+  });
+
+  it("leave instant and placeholders out without cacheComponents", async () => {
+    await fs.mkdir(path.join(tmp, "app"), { recursive: true });
+    await copyResourceTemplates({ cwd: tmp, resourceName: "users", version: "1.0.0" });
+    await copyDashboardTemplate({ cwd: tmp, dashboardPath: "/", version: "1.0.0" });
+    for (const page of ["users/page.tsx", "users/[id]/page.tsx", "page.tsx"]) {
+      const source = await fs.readFile(path.join(tmp, "app/admin", page), "utf8");
+      expect(source, page).not.toMatch(/instant|\{\{/);
+    }
+  });
+
   it("use the public protected controller instead of adapter internals", async () => {
     await copyResourceTemplates({ cwd: tmp, resourceName: "users", version: "1.0.0" });
     const actions = await fs.readFile(path.join(tmp, "app/admin/users/actions.ts"), "utf8");

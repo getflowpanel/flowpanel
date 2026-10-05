@@ -2,7 +2,8 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prismaAdapter } from "../adapter";
 import type { PrismaDmmf } from "../introspect";
-import { generatePrismaClient, isDockerAvailable } from "./provider-clients";
+import { checkedDmmf } from "../runtime";
+import { generatedDmmf, generatePrismaClient, isDockerAvailable } from "./provider-clients";
 
 const dmmf: PrismaDmmf = { datamodel: { models: [], enums: [] } };
 const dockerAvailable = isDockerAvailable();
@@ -64,5 +65,64 @@ describe.skipIf(!dockerAvailable)("prismaAdapter — migrations on PostgreSQL", 
     )) as Array<{ tablename: string }>;
     expect(tables).toHaveLength(1);
     expect(await adapter.listAppliedMigrations?.()).toContain("0003_race");
+  });
+});
+
+describe.skipIf(!dockerAvailable)("prismaAdapter — writes on PostgreSQL", () => {
+  let container: StartedPostgreSqlContainer;
+  let prisma: any;
+  let adapter: ReturnType<typeof prismaAdapter>;
+
+  beforeAll(async () => {
+    container = await new PostgreSqlContainer("postgres:16-alpine").start();
+    const PrismaClient = generatePrismaClient("postgres.prisma", "test-client-postgres");
+    prisma = new PrismaClient({ datasources: { db: { url: container.getConnectionUri() } } });
+    await prisma.$connect();
+    await prisma.$executeRawUnsafe(`CREATE TABLE "TestUser" (
+      id serial PRIMARY KEY, email text NOT NULL UNIQUE, name text,
+      active boolean NOT NULL DEFAULT true, age integer, "deletedAt" timestamp(3),
+      "createdAt" timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE test_orders (
+      id serial PRIMARY KEY, user_id integer NOT NULL REFERENCES "TestUser"(id),
+      total numeric(10, 2) NOT NULL, status text NOT NULL DEFAULT 'pending')`);
+    adapter = prismaAdapter({
+      prisma,
+      dmmf: checkedDmmf(generatedDmmf("test-client-postgres")),
+      provider: "postgresql",
+    });
+  });
+
+  afterAll(async () => {
+    await prisma?.$disconnect();
+    await container?.stop();
+  });
+
+  it("creates rows from the required columns and lets the database fill the defaults", async () => {
+    const user = adapter.inferSchema("TestUser").create.safeParse({ email: "ann@example.com" });
+    expect(user.success).toBe(true);
+    const created = (await adapter.create("TestUser", { input: user.data } as any)) as {
+      id: number;
+      createdAt: Date;
+    };
+    expect(created.createdAt).toBeInstanceOf(Date);
+
+    const order = adapter
+      .inferSchema("TestOrder")
+      .create.safeParse({ userId: created.id, total: 12.5 });
+    expect(order.success).toBe(true);
+    const placed = (await adapter.create("TestOrder", { input: order.data } as any)) as {
+      status: string;
+    };
+    expect(placed.status).toBe("pending");
+  });
+
+  it("reports a missing foreign key with the constraint Prisma names", async () => {
+    const error = await adapter
+      .create("TestOrder", { input: { userId: 999_999, total: 1 } } as any)
+      .catch((caught: unknown) => caught);
+    expect(error).toMatchObject({
+      code: "P2003",
+      meta: { field_name: expect.stringMatching(/^test_orders_user_id_fkey/) },
+    });
   });
 });

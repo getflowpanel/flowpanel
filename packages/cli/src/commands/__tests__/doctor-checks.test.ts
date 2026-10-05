@@ -42,7 +42,7 @@ async function check(name: string): Promise<Check> {
 describe("doctor — Next.js check", () => {
   it("says Next.js is missing rather than offering an upgrade", async () => {
     await seedPkg({});
-    const nextCheck = await check("Next.js ≥ 16.3 < 17");
+    const nextCheck = await check("Next.js 15.5 or 16");
     expect(nextCheck.ok).toBe(false);
     expect(nextCheck.hint).toContain("not in package.json");
     expect(nextCheck.hint).not.toContain("Upgrade:");
@@ -50,7 +50,7 @@ describe("doctor — Next.js check", () => {
 
   it("offers an upgrade when a too-old Next.js is installed", async () => {
     await seedPkg({ next: "15.0.0" });
-    const nextCheck = await check("Next.js ≥ 16.3 < 17");
+    const nextCheck = await check("Next.js 15.0.0 (15.5 or 16)");
     expect(nextCheck.ok).toBe(false);
     expect(nextCheck.hint).toContain("Found 15.0.0");
   });

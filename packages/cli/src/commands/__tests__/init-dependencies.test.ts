@@ -28,7 +28,11 @@ function absent(
   };
 }
 
-function present(name: string, version: string, specifier?: string): DependencyInspection {
+function present(
+  name: string,
+  version: string,
+  specifier: string | null = `~${version}`,
+): DependencyInspection {
   return {
     name,
     declaration: specifier ? { section: "dependencies", specifier } : null,
@@ -47,6 +51,15 @@ function pair(kit: DependencyInspection, cli: DependencyInspection): InspectedDe
 const [major, minor] = CLI_VERSION.split(".");
 const sameMinorPreview = `${major}.${minor}.99-quality.0`;
 const otherMinor = `${Number(major) + 1}.0.0`;
+
+describe("missingDependencies", () => {
+  it("counts a package installed but absent from package.json, which the next install prunes", () => {
+    const undeclared = present("@flowpanel/kit", CLI_VERSION, null);
+    expect(missingDependencies(pair(undeclared, present("@flowpanel/cli", CLI_VERSION)))).toEqual([
+      { dependency: KIT, state: undeclared },
+    ]);
+  });
+});
 
 describe("installMissing", () => {
   it("stops asking the manager for a package a previous command already installed", async () => {

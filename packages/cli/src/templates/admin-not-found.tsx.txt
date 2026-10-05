@@ -3,4 +3,6 @@ import config from "{{CONFIG_IMPORT}}";
 
 const flowpanel = createFlowpanel(config);
 
+export const metadata = flowpanel.notFoundMetadata;
+
 export default flowpanel.notFound;

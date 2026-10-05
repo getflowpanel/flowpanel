@@ -16,7 +16,7 @@ const dmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
         ],
       },
@@ -63,7 +63,7 @@ describe("prismaAdapter sql capability", () => {
   it("reads a zoneless timestamp string in the result as UTC", async () => {
     const { sql: query } = adapterFor([{ at: "2026-01-02 03:04:05", label: "2026-01-02" }]);
     const [row] = await query<{ at: Date; label: string }>`select at, label from "User"`;
-    expect((row?.at as Date).toISOString()).toBe("2026-01-02T03:04:05.000Z");
+    expect((row!.at as Date).toISOString()).toBe("2026-01-02T03:04:05.000Z");
     expect(row?.label).toBe("2026-01-02");
   });
 
