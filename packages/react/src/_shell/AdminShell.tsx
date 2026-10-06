@@ -16,6 +16,8 @@ export interface AdminShellProps {
   user?: AccountMenuUser;
   navGroups: NavGroup[];
   currentPath: string;
+  /** The admin's mount path; its nav entry is active only on that page. Inferred from the entries when unset. */
+  rootHref?: string;
   /** Set false when the host layout already provides the page's skip link. */
   showSkipLink?: boolean;
   children: React.ReactNode;
@@ -28,6 +30,7 @@ export function AdminShell({
   user,
   navGroups,
   currentPath,
+  rootHref,
   showSkipLink = true,
   children,
 }: AdminShellProps) {
@@ -55,6 +58,7 @@ export function AdminShell({
         <AdminTabs
           groups={navGroups}
           currentPath={currentPath}
+          rootHref={rootHref}
           {...(brand !== undefined ? { brand } : {})}
           {...(user !== undefined ? { user } : {})}
         />
@@ -92,6 +96,7 @@ export function AdminShell({
               <AdminNav
                 groups={navGroups}
                 currentPath={currentPath}
+                rootHref={rootHref}
                 {...(brand !== undefined ? { brand } : {})}
                 {...(user !== undefined ? { user } : {})}
               />
@@ -103,6 +108,7 @@ export function AdminShell({
         <AdminNav
           groups={navGroups}
           currentPath={currentPath}
+          rootHref={rootHref}
           {...(brand !== undefined ? { brand } : {})}
           {...(user !== undefined ? { user } : {})}
         />

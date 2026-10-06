@@ -3,12 +3,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { buildApiHref, buildHref, buildPath, decodeAtom, encodeAtom } from "../runtime/href";
 
 const config = {
-  basePath: "/admin",
   paths: { admin: "/admin", api: "/api/flowpanel" },
 } as unknown as ResolvedAdminConfig;
 
 const mounted = {
-  basePath: "/ops/admin",
   paths: { admin: "/ops/admin", api: "/internal/fp" },
 } as unknown as ResolvedAdminConfig;
 
@@ -20,6 +18,12 @@ describe("buildHref", () => {
   it("returns the mount for no segments and keeps a nested mount intact", () => {
     expect(buildHref(config)).toBe("/admin");
     expect(buildHref(mounted, "user")).toBe("/ops/admin/user");
+  });
+
+  it("builds single-slash links when the admin is mounted at the site root", () => {
+    const root = { paths: { admin: "/", api: "/api/flowpanel" } } as unknown as ResolvedAdminConfig;
+    expect(buildHref(root)).toBe("/");
+    expect(buildHref(root, "users", 7)).toBe("/users/7");
   });
 
   it("escapes a separator inside an identifier instead of routing on it", () => {
@@ -92,7 +96,6 @@ describe("buildApiHref", () => {
     expect(
       buildApiHref(
         {
-          basePath: "/admin",
           paths: { admin: "/admin", api: "/admin/api" },
         } as unknown as ResolvedAdminConfig,
         "user",

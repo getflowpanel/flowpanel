@@ -11,7 +11,7 @@ FlowPanel reads the session from your existing auth provider and checks a role o
 | --- | --- | --- |
 | `withBetterAuth(opts)` | the better-auth instance you pass | `session.user.role` |
 | `withClerk(opts?)` | Clerk's `auth()` helper | `sessionClaims.publicMetadata.role` |
-| `withNextAuth(opts)` | the `auth()` or `getServerSession` you pass | `session.user.role` |
+| `withNextAuth(opts)` | the `auth` function you pass: Auth.js v5's `auth`, or `() => getServerSession(authOptions)` on NextAuth v4 | `session.user.role` |
 | `withLucia(opts)` | the Lucia instance you pass | `user.role` |
 | `devAuth(role?)` | a fixed `{ id: "dev" }` | the `role` argument, default `"admin"` |
 
@@ -36,7 +36,7 @@ export default defineAdmin({
 });
 ```
 
-`init` writes this wiring when it finds `better-auth`. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
+`init` writes this wiring when it finds `better-auth`: the preset goes in `server/lib/flowpanel-session.ts` as `flowpanelAuth`, and the config uses `auth: flowpanelAuth`. Add `signInUrl` and `forbiddenUrl` there. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
 
 When the role lives in your own table, `role` can be async:
 
@@ -100,8 +100,8 @@ auth: {
 
 Without a `signInUrl`, the page shows a sign-in screen instead of redirecting. In development it says that `auth.session` returned null and links to this guide.
 
-Call one action route as a non-admin as well and check the server response.
+Call one action route as a non-admin as well, such as `POST /api/flowpanel/orders/1/actions/refund` with a non-admin session cookie, and check that it answers 403.
 
-In production, a writable admin without `auth.requireRole` refuses to start. Only an admin that is both `allowUnauthenticated: true` and `readOnly: true` may run without it.
+In production, an admin without `auth.requireRole` refuses to start unless it sets both `allowUnauthenticated: true` and `readOnly: true`.
 
 Every option: [AuthConfig](/docs/reference/define-config#authconfig).

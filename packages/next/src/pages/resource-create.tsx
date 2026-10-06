@@ -2,17 +2,20 @@ import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowp
 import {
   assertResourceScope,
   authorizeOperation,
-  formatLabel,
   mergeLabels,
   resolveOperationAccess,
-  writeTarget,
 } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
 import { buildApiHref, buildHref } from "../runtime/href";
 import { buildRequestContext } from "../runtime/request-setup";
-import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
-import { singularLabel } from "../runtime/resource-title";
+import {
+  declaredFormFields,
+  deniedFieldWrites,
+  resolveFormFields,
+} from "../runtime/resolve-form-fields";
+import { singularTitle } from "../runtime/resource-title";
 
 export interface ResourceCreatePageProps {
   config: ResolvedAdminConfig;
@@ -36,25 +39,27 @@ export async function ResourceCreatePage({
     resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
   });
 
+  const labels = mergeLabels(config.labels);
   if (resource.options.create?.disabled) {
-    return <div className="text-fp-text-3">Create is disabled for this resource.</div>;
+    return <div className="text-fp-text-3">{labels.form.createDisabled}</div>;
   }
 
   const intro = config.adapter.introspect(writeTarget(resource));
   const action = buildApiHref(config, name, "create");
   const declared = declaredFormFields(resource, "create");
-  const fields = declared ? await resolveFormFields(config, declared, reqCtx) : undefined;
+  const denied = await deniedFieldWrites(resource, reqCtx, null);
+  const fields = declared
+    ? await resolveFormFields(config, declared, reqCtx, undefined, denied)
+    : undefined;
 
-  const labels = mergeLabels(config.labels);
   return (
     <>
-      <PageHeader
-        title={formatLabel(labels.form.createTitle, { label: singularLabel(resource, name) })}
-      />
+      <PageHeader title={singularTitle(labels.form.createTitle, resource, name)} />
       <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
         <AutoForm
           action={action}
           columns={writableColumns(resource, intro.columns, declared)}
+          hide={[...denied]}
           {...(fields ? { fields } : {})}
           submitLabel={labels.actions.create}
           cancelHref={buildHref(config, name)}

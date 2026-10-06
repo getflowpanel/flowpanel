@@ -10,6 +10,7 @@ import { toneFillClass, toneTextClass } from "../lib/tone-classes";
 import { barWidthClass } from "./bar-width";
 import { CardHeading } from "./CardHeading";
 import { EmptyLine } from "./EmptyLine";
+import { ToneWord } from "./ToneWord";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface FunnelCardStep {
@@ -99,6 +100,7 @@ export function FunnelCard({
                     </span>
                     {visibleDrop(dropOff) ? (
                       <span className={alert ? toneTextClass.warn : "text-fp-text-3"}>
+                        {alert ? <ToneWord tone="warn" /> : null}
                         {dropOff < 0
                           ? `+${formatPercentValue(-dropOff, formatting, 0)}`
                           : `−${formatPercentValue(dropOff, formatting, 0)}`}

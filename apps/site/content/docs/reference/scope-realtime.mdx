@@ -4,8 +4,6 @@ description: Tenant scoping, the publisher contract, and the rate limiter.
 kind: reference
 ---
 
-Tenant scope, the realtime publisher, and the rate limiter.
-
 ## Scope
 
 A scope is resolved once per request and applied by the adapter to every query.
@@ -13,6 +11,7 @@ Guide: [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 
 ```ts excerpt
 type Scope = Record<string, unknown> | null;
+// FlowpanelTypes["session"] when you register it, else Record<string, unknown>
 type Session = Record<string, unknown>;
 ```
 
@@ -27,8 +26,11 @@ defineAdmin({
 });
 ```
 
-The returned object reaches every context as `ctx.scope`, and the adapter
-receives the resource's predicate bound to it as `ctx.boundScope`.
+The returned object reaches resource predicates as their first argument, and
+policies, mutations and actions as `ctx.scope`. The adapter receives the
+resource's predicate bound to it as `ctx.boundScope`. Widgets get no `ctx.scope`:
+`ctx.count` and `ctx.read` apply the scope for you, and a `ctx.sql` or `ctx.db`
+query must read the tenant from `ctx.session`.
 
 ### The opt-out is mandatory
 
@@ -110,13 +112,11 @@ The publisher is bound per process from `config.realtime` and rebinds when the
 options change. It warns once when the driver is `memory` while `REDIS_URL` or
 `FLOWPANEL_REDIS_URL` is set:
 
-```
+```text
 [flowpanel] realtime driver is memory while REDIS_URL is set — other instances
 and workers will not receive events; set realtime: { driver: 'redis', url:
 process.env.REDIS_URL } in defineAdmin
 ```
-
-
 
 ## RateLimiter
 
@@ -127,5 +127,6 @@ function createRateLimiter(opts: RateLimitOptions): RateLimiter;
 ```
 
 `check` returns `false` over the limit, which becomes a `429`. With `per: "user"`
-the key is `AuthConfig.userId`, or the IP without one. The memory driver counts
-per process; its Redis key prefix defaults to `"fp:rl:"`.
+the key is `AuthConfig.userId`, else the session's `id` or `user.id`, else the IP.
+The memory driver counts per process. The Redis driver's key prefix defaults to
+`"fp:rl:"`.

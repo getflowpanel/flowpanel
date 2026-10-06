@@ -8,8 +8,8 @@ Docs: https://flowpanel.tech/docs/reference/drawer
 
 Documented types: DrawerConfig, DrawerTabFields, DrawerTabResource, DrawerTabWidgets, DrawerAction, DrawerPayload
 
-A drawer shows one row over the list. Declare `drawer` on a resource and set
-`rowClick: "drawer"`. Guide: [Record pages and drawers](/docs/build/detail-cards#drawer).
+A drawer shows one row over the list. Declare `drawer` on a resource; a row click
+opens it unless `rowClick` says otherwise. Guide: [Record pages and drawers](/docs/build/detail-cards#drawer).
 
 ```ts excerpt
 resource(orders, {
@@ -20,7 +20,7 @@ resource(orders, {
     title: (row) => `Order ${row.id}`,
     tabs: [
       { key: "summary", label: "Summary", fields: "*" },
-      { key: "items", label: "Items", resource: "orderItems", filter: (row) => ({ orderId: row.id }) },
+      { key: "items", label: "Items", resource: "order_items", filter: (row) => ({ orderId: row.id }) },
     ],
     actions: [
       {
@@ -115,26 +115,27 @@ Dashboard widgets, scoped to the open row.
 | `label` | `string` |  |
 | `widgets` | `Exclude< WidgetConfig, CustomWidget \| TimelineWidget \| HeatmapWidget \| ChecklistWidget \| TrackerWidget >[]` | `custom()`, `tracker()` and page-rendered widgets (`timeline`, `heatmap`, `checklist`) are not renderable here — the drawer serializes over the wire. |
 
-`custom()` widgets are a type error here, and `timeline`, `heatmap`, `checklist` and
-`tracker` fail at `defineAdmin`; use a record page tab. Each widget is serialized
+`custom`, `timeline`, `heatmap`, `checklist` and `tracker` widgets are a type error
+here, and the last four also fail at `defineAdmin`; use a record page tab. Each widget is serialized
 before it reaches the browser:
 
 ```ts excerpt
 type SerializedWidget =
   | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
   | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }
-  | { kind: "statGroup"; stats: { label: string; value: string | number; /* … */ }[]; /* … */ }
+  | { kind: "statGroup"; stats: { label: string; value: string | number | CardDate; /* … */ }[]; /* … */ }
   | { kind: "chart"; subkind: "area" | "bar" | "line" | "pie"; label: string; dataPoints: number; /* … */ }
-  | { kind: "stat"; label: string; value: number | string; /* format, hint, href, tone */ }
-  | { kind: "kv"; items: { label: string; value: string; /* tone, href, long, rest, more */ }[]; /* … */ }
+  | { kind: "stat"; label: string; value: number | string | CardDate; /* format, hint, href, tone */ }
+  | { kind: "kv"; items: { label: string; value: string | CardDate; /* tone, href, long, rest, more */ }[]; /* … */ }
   | { kind: "bars"; rows: { label: string; value: number; href?: string /* … */ }[]; emptyState: string; /* … */ }
   | { kind: "funnel"; steps: { label: string; value: number; href?: string }[]; emptyState: string; /* … */ }
   | { kind: "list"; rows: ListCardRow[]; more?: { label: string; href?: string }; emptyState: string; /* … */ }
   | { kind: "unsupported"; label?: string; reason: string; failed?: true; span?: number };
 ```
 
-A widget whose query throws becomes `{ kind: "unsupported", failed: true }` with
-a safe message. Drawer widgets are static: a metric shows no delta, link or
+`CardDate` is `{ kind: "date"; iso: string }`, an instant the card renders in the
+viewer's time zone. A widget whose query throws becomes
+`{ kind: "unsupported", failed: true }` with a safe message. Drawer widgets are static: a metric shows no delta, link or
 sparkline, and a table has no row links.
 
 ### Actions

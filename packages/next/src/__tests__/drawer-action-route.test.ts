@@ -54,6 +54,7 @@ function makeConfig(
     resources: [resource],
     resourcesByName: new Map([["jobs", resource]]),
     dashboardsByPath: new Map(),
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return config;

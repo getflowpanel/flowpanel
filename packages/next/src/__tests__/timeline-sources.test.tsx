@@ -247,9 +247,9 @@ describe("timeline sources", () => {
     expect(lines.map((l) => l.href)).toEqual([
       "/admin/orders/o1",
       "/admin/visits/v1",
-      undefined,
-      undefined,
-      undefined,
+      "/admin/messages/m1",
+      "/admin/messages/m2",
+      "/admin/notifications/n2",
     ]);
     expect(lines[4]?.tone).toBe("err");
   });
@@ -435,7 +435,7 @@ describe("timeline source links follow each resource's own open mode", () => {
     resources: [
       resource({ __name: "users2" }, { columns: ["id"] }),
       resource({ __name: "flags" }, { columns: ["id", "label"], drawer: {} }),
-      resource({ __name: "plainlogs" }, { columns: ["id", "label"] }),
+      resource({ __name: "plainlogs" }, { columns: ["id", "label"], rowClick: false }),
       resource(
         { __name: "reports" },
         {
@@ -518,7 +518,7 @@ describe("timeline source links follow each resource's own open mode", () => {
     expect(line?.href).toContain("drawer=reports%3Ar2");
   });
 
-  it("gives no href when the ref target has neither a detail page nor a drawer", async () => {
+  it("gives no href when the ref target's rows do not open", async () => {
     const w = timeline({
       kinds: flagKinds,
       sources: [

@@ -14,6 +14,12 @@ describe("the detail heading as configuration", () => {
     expect((await header({ label: "Customer", columns: ["id"] }))?.title).toBe("Customer · u1");
   });
 
+  it("falls back to the row's name, title or email before the key", async () => {
+    expect((await header({ label: "Customer", columns: ["id", "email"] }))?.title).toBe(
+      "ada@example.com",
+    );
+  });
+
   it("uses title for the heading, subtitle for the line under it", async () => {
     const props = await header({
       label: "Customer",

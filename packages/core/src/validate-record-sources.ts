@@ -53,7 +53,7 @@ export function checkRecordSource(
     ]);
   const where =
     typeof source.where === "object" && source.where !== null ? Object.keys(source.where) : [];
-  for (const field of [...fields, ...where]) checkField(`${site}`, source.resource, field, check);
+  for (const field of [...fields, ...where]) checkField(site, source.resource, field, check);
   if (source.by !== undefined) checkField(`${site}.by`, source.resource, source.by, check);
   if (parent === null) return target;
   const field = recordFieldOf(site, source, target, parent);

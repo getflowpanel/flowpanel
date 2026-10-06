@@ -4,8 +4,11 @@ description: What your queries, mutations and actions receive at runtime.
 kind: reference
 ---
 
-Every function you give FlowPanel receives a context that extends
-`RequestContext`, so `session`, `role` and `scope` are always there.
+Adapter methods, mutations, actions and option resolvers receive a context that
+extends `RequestContext`, so `session`, `role` and `scope` are there. Widgets and
+record pages get their own: `WidgetContext` has `session` but no `role` or `scope`,
+`DetailTabContext` is a subset of `WidgetContext`, and `DetailHeaderContext` has
+only `format`, `labels` and `link`.
 
 ## RequestContext
 
@@ -15,13 +18,13 @@ Every function you give FlowPanel receives a context that extends
 
 ## QueryContext
 
-Base context for reads. Widget queries and `options` resolvers receive this.
+Base context for reads. Field `options` and `defaultValue` resolvers receive it. Widget queries receive [`WidgetContext`](/docs/reference/widgets#widgetcontext) instead.
 
 <AutoTypeTable path="../../packages/core/src/types/context.ts" name="QueryContext" />
 
 ## ListQueryContext
 
-What an adapter's `list` receives — everything needed to build one page of rows.
+What an adapter's `list` receives: everything needed to build one page of rows.
 
 <AutoTypeTable path="../../packages/core/src/types/context.ts" name="ListQueryContext" />
 
@@ -60,7 +63,7 @@ A `daterange` day such as `2026-09-23` covers that whole day in
 
 ### FilterInValue
 
-Produced by `multiselect` filters — match any of `values`.
+Produced by `multiselect` filters: match any of `values`.
 
 <AutoTypeTable path="../../packages/core/src/types/context.ts" name="FilterInValue" />
 

@@ -5,7 +5,7 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { humanize, runWithRequestContext } from "@flowpanel/core";
+import { accessAllows, humanize, runWithRequestContext } from "@flowpanel/core";
 import type { ResolvedField } from "@flowpanel/react";
 import { roleAllows } from "./action-helpers";
 import { readRelatedRows } from "./require-authorized";
@@ -21,11 +21,31 @@ export function declaredFormFields(
 }
 
 /** Evaluate a `boolean | (values) => boolean` field option server-side. */
-function fieldFlag(
+export function fieldFlag(
   flag: boolean | ((values: Partial<Record<string, unknown>>) => boolean) | undefined,
   values: Partial<Record<string, unknown>>,
 ): boolean {
   return typeof flag === "function" ? flag(values) : (flag ?? false);
+}
+
+/** Fields `fieldAccess.write` keeps this caller from writing, judged as the form renders them: before any input. */
+export async function deniedFieldWrites(
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+  current: Record<string, unknown> | null,
+): Promise<ReadonlySet<string>> {
+  const denied = new Set<string>();
+  const context = { ...reqCtx, current, input: {} };
+  for (const [name, policy] of Object.entries(resource.options.fieldAccess ?? {})) {
+    const write = policy?.write;
+    if (write === undefined) continue;
+    const allowed =
+      typeof write === "function"
+        ? Boolean(await write(context))
+        : await accessAllows(write, context);
+    if (!allowed) denied.add(name);
+  }
+  return denied;
 }
 
 /** Resolve just the CURRENT value's label for a `reference` field — a single PK lookup, not a list. */
@@ -54,6 +74,7 @@ export async function resolveFormFields(
   fields: FieldDef<Record<string, unknown>>[],
   reqCtx: RequestContext,
   row?: Record<string, unknown>,
+  denied: ReadonlySet<string> = new Set(),
 ): Promise<ResolvedField[]> {
   const queryCtx: QueryContext = {
     ...reqCtx,
@@ -93,7 +114,7 @@ export async function resolveFormFields(
         ...(f.help ? { help: f.help } : {}),
         ...(f.placeholder ? { placeholder: f.placeholder } : {}),
         ...(f.required ? { required: f.required } : {}),
-        ...(fieldFlag(f.readOnly, values) ? { readOnly: true } : {}),
+        ...(fieldFlag(f.readOnly, values) || denied.has(f.name) ? { readOnly: true } : {}),
         ...(defaultValue !== undefined ? { defaultValue } : {}),
         ...(f.span ? { span: f.span } : {}),
         ...(f.group ? { group: f.group } : {}),

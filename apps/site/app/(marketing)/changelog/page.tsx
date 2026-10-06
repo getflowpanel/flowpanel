@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ogImages } from "@/shared/lib/og-image";
 
 export { Changelog as default } from "@/views/changelog";
 
@@ -14,5 +15,12 @@ export const metadata: Metadata = {
     url: "/changelog",
     siteName: "FlowPanel",
     type: "website",
+    images: ogImages,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Changelog · FlowPanel",
+    description,
+    images: ogImages,
   },
 };

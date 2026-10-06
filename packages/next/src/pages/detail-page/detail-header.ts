@@ -21,7 +21,17 @@ export interface RecordHeader {
   badges: Pill[];
 }
 
-/** A nullish `title` falls back to label · key. */
+const LABEL_KEYS = ["name", "title", "email"];
+
+function labelValue(row: Row): string | undefined {
+  for (const key of LABEL_KEYS) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim() !== "") return value;
+  }
+  return undefined;
+}
+
+/** A nullish `title` falls back to the row's name, title or email, then to label · key. */
 export async function recordHeader(
   resource: ResourceConfig,
   name: string,
@@ -32,7 +42,8 @@ export async function recordHeader(
   const detail = resource.options.detail as DetailOptions<Row> | undefined;
   const pk = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
   const label = singularLabel(resource, name);
-  const fallback = row[pk] === undefined ? label : `${label} · ${String(row[pk])}`;
+  const fallback =
+    labelValue(row) ?? (row[pk] === undefined ? label : `${label} · ${String(row[pk])}`);
   const headerCtx: DetailHeaderContext = { format: ctx.format, labels: ctx.labels, link: ctx.link };
   const [declared, subtitle, badge] = await Promise.all([
     detail?.title?.(row, headerCtx),

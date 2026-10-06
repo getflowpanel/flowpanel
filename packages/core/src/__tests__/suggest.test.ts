@@ -24,6 +24,9 @@ describe("near", () => {
 
   it("does not treat a short name as near every other short name", () => {
     expect(near("qty", ["id"])).toBeNull();
+    expect(near("x", ["id"])).toBeNull();
+    expect(near("ab", ["id"])).toBeNull();
+    expect(near("nme", ["name"])).toBe("name");
   });
 });
 

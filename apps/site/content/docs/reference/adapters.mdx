@@ -71,19 +71,20 @@ Returned by `introspect`. `kind: "view"` makes a resource read-only unless it se
 
 <AutoTypeTable path="../../packages/core/src/types/adapter.ts" name="ColumnMeta" />
 
-`type` is read only by a fully generated form (no `create.fields` or
-`update.fields`):
+`type` and `enumValues` drive a fully generated form (no `create.fields` or
+`update.fields`) and editable list cells:
 
-| `ColumnMeta.type` | Generated form control |
-| --- | --- |
-| `number` | `number` |
-| `boolean` | `checkbox` |
-| `date` | `datetime-local` |
-| `json` | `json` |
-| `string`, `enum`, `array`, `reference` | `text` |
+| Column | Generated form control | Editable cell |
+| --- | --- | --- |
+| has `enumValues` | `select` | text |
+| `number` | `number` | `number` |
+| `boolean` | `checkbox` | text |
+| `date` | `datetime-local` | `datetime-local` |
+| `json` | `json` | text |
+| anything else | `text` | text |
 
-Filters and declared fields do not infer a type from the column. `enumValues` and
-`references` are reported for your own use.
+Filters and declared fields do not infer a type from the column. `references` is
+reported for your own use.
 
 ## What an implementation must honor
 
@@ -111,9 +112,12 @@ column rather than remove the row.
 
 <AutoTypeTable path="../../packages/adapter-prisma/src/adapter.ts" name="PrismaAdapterOptions" />
 
-<AutoTypeTable path="../../packages/adapter-bullmq/src/adapter.ts" name="BullMQAdapterOptions" />
+`prismaAdapter` needs `provider`, a `PrismaProvider`: `"postgresql"`, `"mysql"` or
+`"sqlite"`. An adapter may also implement `transaction(run)`; both built-in
+adapters do, and the built-in bulk delete uses it so a failure deletes nothing.
 
-`bullmqAdapter` takes the queue map itself: `bullmqAdapter({ email: emailQueue })`.
+`bullmqAdapter` takes the queue map itself, with no options object:
+`bullmqAdapter({ email: emailQueue })`.
 
 ## Also exported
 
@@ -137,5 +141,6 @@ Standalone row serializers from `@flowpanel/kit/drizzle`.
 
 <ApiSignature path="../../packages/adapter-drizzle/src/export.ts" name="toJson" />
 
-Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines and
-writes `Date`s as ISO.
+Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines,
+writes `Date`s as ISO, and prefixes a value starting with `=`, `+`, `-`, `@`, a tab
+or a carriage return with `'`, so a spreadsheet does not run it as a formula.

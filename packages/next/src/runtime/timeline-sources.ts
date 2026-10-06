@@ -1,15 +1,16 @@
-import {
-  type ColumnDef,
-  type EnumDef,
-  type LinkTarget,
-  type RequestContext,
-  type ResolvedAdminConfig,
-  type TimelineEvent,
-  type TimelinePage,
-  type TimelineSource,
-  toDateValue,
-  type WidgetContext,
+import type {
+  ColumnDef,
+  EnumDef,
+  LinkTarget,
+  RequestContext,
+  ResolvedAdminConfig,
+  TimelineEvent,
+  TimelinePage,
+  TimelineSource,
+  WidgetContext,
 } from "@flowpanel/core";
+import { toDateValue } from "@flowpanel/core/format";
+import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
 import { scopeToRecord, viewedRecord } from "./record-scope";
 import { frameworkHref } from "./resolve-link";
 import { resolveReferences } from "./resolve-references";
@@ -100,7 +101,7 @@ export async function sourceEvents(
   );
   if (rows.length === 0) return [];
   const target = config.resourcesByName.get(source.resource);
-  const rowKey = (target?.options.rowKey as string | undefined) ?? "id";
+  const rowKey = (target?.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
   const refDefs = ((target?.options.columns ?? []) as Array<string | ColumnDef<Row>>).filter(
     (column): column is ColumnDef<Row> =>
       typeof column === "object" && refs.includes(String(column.field)),
@@ -130,7 +131,7 @@ export async function sourceEvents(
     }
     if (refMode === "detail") return { resource: firstRef.reference.resource, id: String(refId) };
     if (refMode !== "drawer") return undefined;
-    const refRowKey = (refTarget.options.rowKey as string | undefined) ?? "id";
+    const refRowKey = (refTarget.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
     const built = openRowHrefs(
       config,
       firstRef.reference.resource,

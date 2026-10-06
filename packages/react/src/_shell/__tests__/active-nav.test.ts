@@ -46,4 +46,19 @@ describe("activeNavHref", () => {
     expect(activeNavHref(nested, "/admin/users/import")).toBe("/admin/users/import");
     expect(activeNavHref(nested, "/admin/nowhere")).toBeUndefined();
   });
+
+  it("keeps a list active on its records when the nav has no overview, given the mount path", () => {
+    const users = [
+      {
+        items: [
+          { label: "Users", href: "/admin/users" },
+          { label: "Import", href: "/admin/users/import" },
+        ],
+      },
+    ];
+    expect(activeNavHref(users, "/admin/users/42", "/admin")).toBe("/admin/users");
+    expect(activeNavHref(users, "/admin/users/import", "/admin")).toBe("/admin/users/import");
+    expect(activeNavHref(groups, "/admin/orders/42", "/admin")).toBe("/admin/orders");
+    expect(activeNavHref(groups, "/admin/unknown", "/admin")).toBeUndefined();
+  });
 });

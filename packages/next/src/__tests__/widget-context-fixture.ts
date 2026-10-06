@@ -1,5 +1,6 @@
 import type { LinkTarget, WidgetContext } from "@flowpanel/core";
-import { bindFormat, DEFAULT_FORMATTING, DEFAULT_LABELS } from "@flowpanel/core";
+import { DEFAULT_FORMATTING, DEFAULT_LABELS } from "@flowpanel/core";
+import { bindFormat } from "@flowpanel/core/internal";
 
 type Thunk = () => Promise<unknown>;
 type Call = (...args: unknown[]) => Promise<unknown>;

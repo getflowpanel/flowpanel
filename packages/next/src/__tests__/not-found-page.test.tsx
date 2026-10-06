@@ -35,5 +35,6 @@ describe("createFlowpanel(config).notFound", () => {
     expect(screen.getByText("Nothing here")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to admin" }).getAttribute("href")).toBe("/ops");
     expect(container.querySelector("[data-flowpanel-root]")).not.toBeNull();
+    expect(document.title).toBe("Nothing here");
   });
 });

@@ -62,9 +62,10 @@ Without `REDIS_URL` the queue screens are absent. To try them:
 docker run -d -p 6379:6379 redis:7-alpine
 export REDIS_URL=redis://localhost:6379
 export BOARD_TOKEN=$(openssl rand -hex 16)
-pnpm --filter ai-scraper flowpanel:board
 pnpm --filter ai-scraper dev
 ```
+
+In a second terminal with the same `REDIS_URL` and `BOARD_TOKEN`, start the board: `pnpm --filter ai-scraper flowpanel:board`.
 
 Set `BOARD_URL` to a browser-reachable HTTPS origin when deployed.
 

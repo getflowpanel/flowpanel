@@ -15,14 +15,17 @@ export function AdminTabs({
   brand,
   user,
   currentPath,
+  rootHref,
 }: {
   groups: NavGroup[];
   brand?: ShellBrand | undefined;
   user?: AccountMenuUser | undefined;
   currentPath: string;
+  /** The admin's mount path; its entry is active only on that page. */
+  rootHref?: string | undefined;
 }) {
   const { navigation } = useLabels();
-  const activeHref = activeNavHref(groups, currentPath);
+  const activeHref = activeNavHref(groups, currentPath, rootHref);
   const hasBrand = Boolean(brand?.name ?? brand?.logo);
   const items = groups.flatMap((g) => g.items);
   const activeRef = useRef<HTMLAnchorElement | null>(null);

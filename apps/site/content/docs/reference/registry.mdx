@@ -46,8 +46,8 @@ type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;
 | Declaration | Reached from |
 | --- | --- |
 | `WidgetContext<DB = InferDB>` | every widget `query`, a `StatItem.value` resolver, a `custom()` widget's `props` resolver |
-| `ActionContext<Db = InferDB>` | every row / bulk / dashboard / drawer action `run` — those signatures name `ActionContext<InferDB>` explicitly |
-| `Adapter<DB = InferDB, Ref>` | the adapter's own `db` property |
+| `ActionContext<Db = InferDB>` | every row, bulk, dashboard and drawer action `run`; those signatures name `ActionContext<InferDB>` explicitly |
+| `Adapter<DB = InferDB, Ref = unknown>` | the adapter's own `db` property |
 
 The adapter contexts (`QueryContext` and those built on it) default `Db` to
 `unknown`, and carry no client: a `FieldDef.options` or `defaultValue` resolver
@@ -77,12 +77,13 @@ The row of a known resource.
 ## FlowpanelResources
 
 A map of resource name to row type, keyed by the name `defineAdmin` uses (the SQL
-table name unless `options.name` is set). With Prisma, register every model here:
+table name unless `options.name` is set). With Prisma, register every model here,
+under the resource's `name` when it has one, as `flowpanel new` does:
 
 ```ts excerpt
 declare module "@flowpanel/kit" {
   interface FlowpanelResources {
-    User: import("@prisma/client").User;
+    users: import("@prisma/client").User;
   }
 }
 ```
@@ -106,7 +107,10 @@ type InferRow<Ref> = Ref extends { $inferSelect: infer R }
 ```
 
 `resource(ref, options)` types `options` by `InferRow<Ref>`: a Drizzle table's
-`$inferSelect`, a registered name's row, or `Record<string, unknown>`.
+`$inferSelect`, a registered name's row, or `Record<string, unknown>`. With
+`options.name`, a string ref such as a Prisma model reads the row registered under
+that name first, so `resource("User", { name: "users" })` checks its columns against
+the `users` entry.
 
 ### ResourceName
 

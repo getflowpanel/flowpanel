@@ -202,12 +202,12 @@ in your own code.
 A `goodWhen` that contradicts the numbers makes `defineAdmin` throw.
 
 ```ts excerpt
-import { type Threshold, metric, toneFor } from "@flowpanel/kit";
+import { type Threshold, metric, resource, toneFor } from "@flowpanel/kit";
 
 const ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
 
 metric("Run errors", async (c) => ({ value: rate, volume: runs }), { format: "percent", tones: ERRORS });
-const column = { field: "errorRate", format: { kind: "percent", tones: ERRORS } };
+resource(schema.runs, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
 toneFor(rate, ERRORS, runs);
 ```
 
@@ -221,7 +221,7 @@ A widget link names its target instead of spelling a path.
 | --- | --- | --- |
 | `resource` | `N` |  |
 | `id?` | `string \| number` | One record's page instead of the list. |
-| `filter?` | `true extends ManyNames<N> ? Record<string, unknown> : Where<RowOf<N>>` | List filters keyed by the target's fields: a value, `{ gte, lte }` or an array, written as the list's own `f_<field>` URL keys. Any keys while the link does not name one resource. |
+| `filter?` | `true extends ManyNames<N> ? Record<string, unknown> : ListFilters<RowOf<N>>` | List filters keyed by the target's fields: a value, `{ gte, lte }` or an array, written as the list's own `f_<field>` URL keys. Any keys while the link does not name one resource. |
 | `view?` | `string` | A view from the resource's `views`, applied by name before `filter`. |
 | `tab?` | `string` | A detail tab, with `id`. |
 | `range?` | `true extends ManyNames<N> ? string : keyof RowOf<N> & string` | A `daterange` filter field that receives the widget's range, bound for bound. |

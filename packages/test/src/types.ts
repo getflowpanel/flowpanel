@@ -7,10 +7,10 @@ export interface A11yViolation {
 
 export interface SmokeAdminOptions {
   /**
-   * Where the admin is mounted, matching `createFlowpanel`'s `basePath`.
+   * Where the admin is mounted: the config's `paths.admin`.
    * @defaultValue "/admin"
    */
-  basePath?: string;
+  paths?: { admin?: string };
   /** Session cookie added before the walk, for an admin behind authentication. */
   cookie?: { name: string; value: string; domain?: string };
   /** Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. */

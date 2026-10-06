@@ -1,4 +1,4 @@
-// Next's deployment basePath; Link and the router prefix it for you, but a raw fetch or form action must not.
+// Next's deployment basePath: Link and the router add it themselves, a raw fetch or form action has to add it.
 function deploymentBasePath(): string {
   const base = process.env.__NEXT_ROUTER_BASEPATH ?? "";
   // A basePath is always rooted; anything else is an unset or mangled value.

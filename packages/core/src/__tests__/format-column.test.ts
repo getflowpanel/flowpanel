@@ -151,6 +151,15 @@ describe("formatColumnValue — dates, relative time, percent, duration, boolean
     expect(formatColumnValue("2026-09-23", "date", newYork)).toBe("2026-09-23");
   });
 
+  it("keeps a SQL date read as midnight UTC on its day when the column says calendarDay", () => {
+    const losAngeles = resolveFormatting({ timeZone: "America/Los_Angeles" });
+    const day = new Date("2026-10-07T00:00:00Z");
+    expect(formatColumnValue(day, "date", losAngeles)).toBe("2026-10-06");
+    expect(formatColumnValue(day, { kind: "date", calendarDay: true }, losAngeles)).toBe(
+      "2026-10-07",
+    );
+  });
+
   it("renders a percent, a duration in ms or s, a boolean and a url", () => {
     expect(formatColumnValue(0.4231, { kind: "percent", digits: 2 }, utc)).toBe("42.31%");
     expect(formatColumnValue(0.4231, { kind: "percent", digits: -1 }, utc)).toBe("42%");

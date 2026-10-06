@@ -152,12 +152,12 @@ in your own code.
 A `goodWhen` that contradicts the numbers makes `defineAdmin` throw.
 
 ```ts excerpt
-import { type Threshold, metric, toneFor } from "@flowpanel/kit";
+import { type Threshold, metric, resource, toneFor } from "@flowpanel/kit";
 
 const ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
 
 metric("Run errors", async (c) => ({ value: rate, volume: runs }), { format: "percent", tones: ERRORS });
-const column = { field: "errorRate", format: { kind: "percent", tones: ERRORS } };
+resource(schema.runs, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
 toneFor(rate, ERRORS, runs);
 ```
 
@@ -842,7 +842,8 @@ stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DashboardFilter" />
 
 `filters` adds a select per entry beside the date picker, stored in the URL as
-`f_<key>`. `options` takes a list, an `enumOf()` or a function.
+`f_<key>`. `options` takes `SelectOption[]`, an `enumOf()`, or a function of the
+widget context; a plain string list is not accepted.
 
 `filterOnClick: "<key>"` on `bars`, `tracker` or `table` sets that filter on click,
 replacing the row's link. It is rejected on a record page or in a drawer.

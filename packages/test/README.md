@@ -15,7 +15,7 @@ import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/test";
 
 test("the admin is healthy", async ({ page }) => {
-  await smokeAdmin(page, { basePath: "/admin", a11y: true });
+  await smokeAdmin(page, { paths: { admin: "/admin" }, a11y: true });
 });
 ```
 

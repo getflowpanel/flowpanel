@@ -28,6 +28,7 @@ function renderCellContent<Row extends Record<string, unknown>>(
         resource={inlineEditResource}
         id={rowId}
         field={c.field}
+        {...(c.label ? { label: c.label } : {})}
         value={r[c.field]}
         {...(c.type ? { valueType: c.type } : {})}
         rowClickable={rowClickable}

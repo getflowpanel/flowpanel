@@ -16,25 +16,29 @@ import {
   mergeLabels,
   resolveOperationAccess,
   runWithRequestContext,
-  writeTarget,
 } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
 import { revalidatePath } from "next/cache";
 import { actorIdFromSession } from "../runtime/action-helpers";
 import { buildServerRequest } from "../runtime/build-server-request";
+import { explainWrite } from "../runtime/constraint-error";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { deleteRow } from "../runtime/delete-row";
+import { keepUntouchedTimes } from "../runtime/form-dates";
 import { buildHref } from "../runtime/href";
 import { resourceNavName } from "../runtime/nav";
 import { bindPublisher, publishResource } from "../runtime/publish";
 import { readRow } from "../runtime/read-row";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAuthorized } from "../runtime/require-authorized";
-import { declaredFormFields } from "../runtime/resolve-form-fields";
+import { declaredFormFields, deniedFieldWrites } from "../runtime/resolve-form-fields";
 import { scopeBinding } from "../runtime/scope-binding";
 import {
   applyFieldDefaults,
   assertResourceWritableInput,
+  formInput,
   friendlyFieldErrors,
+  missingRequiredErrors,
   runFieldValidators,
   schemasFor,
 } from "./field-pipeline";
@@ -50,6 +54,13 @@ export interface MakeActionsOptions {
   reqCtx?: RequestContext;
   /** Publish + revalidate per call. Default `true`; set `false` to batch-notify once yourself. */
   publish?: boolean;
+  /** The input is a posted form, which also carries the fields it showed read-only. */
+  fromForm?: boolean;
+}
+
+function dateColumnsOf(config: ResolvedAdminConfig, resource: ResourceConfig): Set<string> {
+  const { columns } = config.adapter.introspect(writeTarget(resource));
+  return new Set(columns.filter((c) => c.type === "date").map((c) => c.name));
 }
 
 export function makeActions(
@@ -118,13 +129,17 @@ export function makeActions(
       }
 
       const fields = declaredFormFields(resource, "create");
-      const safe = await assertResourceWritableInput(resource, fields, input, null, reqCtx);
+      const denied = await deniedFieldWrites(resource, reqCtx, null);
+      const submitted = opts.fromForm ? formInput(fields, input, null, reqCtx, denied) : input;
+      const safe = await assertResourceWritableInput(resource, fields, submitted, null, reqCtx);
       const withDefaults = await applyFieldDefaults(resource, fields, safe, reqCtx);
+      const missing = missingRequiredErrors(fields, withDefaults, null, reqCtx, labels, denied);
       const parsed = schemas.create.safeParse(withDefaults);
       if (!parsed.success) {
         const fieldErrors = friendlyFieldErrors(fields, withDefaults, parsed.error, labels);
-        throw new FlowpanelValidationError(fieldErrors);
+        throw new FlowpanelValidationError({ ...fieldErrors, ...missing });
       }
+      if (Object.keys(missing).length > 0) throw new FlowpanelValidationError(missing);
       const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);
       if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
 
@@ -134,8 +149,8 @@ export function makeActions(
         input: parsed.data as Partial<Record<string, unknown>>,
         ...scopeBinding(resource, reqCtx),
       };
-      const row = (await runWithRequestContext(reqCtx, () =>
-        config.adapter.create(writeTarget(resource), mctx),
+      const row = (await explainWrite(config, resource, "create", () =>
+        runWithRequestContext(reqCtx, () => config.adapter.create(writeTarget(resource), mctx)),
       )) as Record<string, unknown> | null | undefined;
       const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
       const rowId = row && typeof row === "object" ? row[rowKey] : undefined;
@@ -174,12 +189,22 @@ export function makeActions(
         config.adapter.get(resource.ref, itemCtx),
       )) as Record<string, unknown> | null;
       if (!current) throw new FlowpanelNotFoundError();
-      const safe = await assertResourceWritableInput(resource, fields, input, current, reqCtx);
+      const denied = await deniedFieldWrites(resource, reqCtx, current);
+      const submitted = opts.fromForm
+        ? keepUntouchedTimes(
+            formInput(fields, input, current, reqCtx, denied),
+            current,
+            dateColumnsOf(config, resource),
+          )
+        : input;
+      const safe = await assertResourceWritableInput(resource, fields, submitted, current, reqCtx);
+      const missing = missingRequiredErrors(fields, safe, current, reqCtx, labels, denied);
       const parsed = schemas.update.safeParse(safe);
       if (!parsed.success) {
         const fieldErrors = friendlyFieldErrors(fields, safe, parsed.error, labels);
-        throw new FlowpanelValidationError(fieldErrors);
+        throw new FlowpanelValidationError({ ...fieldErrors, ...missing });
       }
+      if (Object.keys(missing).length > 0) throw new FlowpanelValidationError(missing);
       const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);
       if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
 
@@ -190,8 +215,8 @@ export function makeActions(
         id,
         ...scopeBinding(resource, reqCtx),
       };
-      const written = await runWithRequestContext(reqCtx, () =>
-        config.adapter.update(writeTarget(resource), mctx),
+      const written = await explainWrite(config, resource, "update", () =>
+        runWithRequestContext(reqCtx, () => config.adapter.update(writeTarget(resource), mctx)),
       );
       if (!written) throw new FlowpanelNotFoundError();
       const row =

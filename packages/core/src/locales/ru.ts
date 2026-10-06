@@ -30,6 +30,9 @@ export const RU_LABELS: ResolvedLabels = {
     selectRow: "Выбрать запись {id}",
     selectAll: "Выбрать все записи на странице",
     deselectAll: "Снять выбор со всех записей на странице",
+    empty: "{label}: записей нет",
+    editCell: "Изменить: {label}",
+    saved: "Сохранено",
   },
   dateRange: {
     locale: "ru-RU",
@@ -116,6 +119,10 @@ export const RU_LABELS: ResolvedLabels = {
     noRows: "Нет записей: {resource}.",
     noWidgets: "Виджетов нет.",
     chartElsewhere: "График показывается на дашборде. Точек: {n}.",
+    unsupported:
+      "Виджет {kind} показывается на дашборде и в карточке записи, но не в боковой панели.",
+    title: "Запись",
+    loadFailed: "Не удалось загрузить запись.",
   },
   detail: {
     noFields: "Нет полей для показа",
@@ -134,6 +141,13 @@ export const RU_LABELS: ResolvedLabels = {
     invalidNumber: "«{label}»: нужно число",
     invalidBoolean: "«{label}»: нужно да или нет",
     invalidDate: "«{label}»: нужна дата",
+    taken: "«{label}»: такое значение уже есть",
+    conflict: "Запись с такими значениями уже есть",
+    missingReference: "«{label}»: такой записи нет",
+    missingLink: "Связанной записи нет",
+    inUse: "На эту запись ссылаются другие записи",
+    createDisabled: "В этом разделе нельзя создавать записи.",
+    editDisabled: "В этом разделе нельзя редактировать записи.",
   },
   notFound: {
     title: "Страница не найдена",
@@ -156,7 +170,7 @@ export const RU_LABELS: ResolvedLabels = {
     justNow: "только что",
     secondsAgo: "{n} с назад",
     minutesAgo: "{n} мин назад",
-    chartsMissing: "Пакет charts не установлен — выполните `pnpm add @flowpanel/charts`.",
+    chartsMissing: "Для графиков нужен recharts. Выполните `pnpm add recharts`.",
     previous: "было {value}",
     points: "{value} п.п.",
     vsPrevious: "к прошлому периоду",

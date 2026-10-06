@@ -121,6 +121,32 @@ describe("AutoForm", () => {
     );
     const input = screen.getByLabelText("SKU") as HTMLInputElement;
     expect(input.readOnly).toBe(true);
+    expect(input.getAttribute("aria-readonly")).toBe("true");
+    expect(input.className).toContain("aria-readonly:bg-fp-bg-2");
+    expect(input.className).toContain("aria-readonly:focus-visible:ring-0");
+  });
+
+  it("marks a readOnly textarea and select read-only for assistive tech and styles", () => {
+    render(
+      <AutoForm
+        action="/api/x"
+        fields={[
+          { name: "notes", label: "Notes", type: "textarea", readOnly: true },
+          {
+            name: "status",
+            label: "Status",
+            type: "select",
+            readOnly: true,
+            options: [{ label: "Active", value: "active" }],
+          },
+        ]}
+      />,
+    );
+    for (const name of ["Notes", "Status"]) {
+      const control = screen.getByLabelText(name);
+      expect(control.getAttribute("aria-readonly")).toBe("true");
+      expect(control.className).toContain("aria-readonly:bg-fp-bg-2");
+    }
   });
 
   it("disables readOnly selects and mirrors the value in a hidden input", () => {

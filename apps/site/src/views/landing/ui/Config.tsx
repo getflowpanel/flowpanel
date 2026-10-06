@@ -25,8 +25,8 @@ export function Config() {
   return (
     <Section
       id="config"
-      title="One config file"
-      lead="List the tables and columns you want. Anything you leave out stays hidden, and a misspelt column name fails the type check."
+      title="A typed config"
+      lead="List the tables and columns you want, in one file or one per resource. Anything you leave out stays hidden, and a misspelt column name fails the type check."
     >
       <figure className="min-w-0">
         <figcaption className="font-mono text-xs text-[var(--color-fg-subtle)]">

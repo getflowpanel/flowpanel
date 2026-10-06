@@ -7,12 +7,13 @@ export function encodeAtom(value: string | number): string {
 }
 
 function join(config: ResolvedAdminConfig, parts: string[]): string {
-  if (parts.length === 0) return config.basePath || "/";
-  return `${config.basePath}/${parts.join("/")}`;
+  const base = config.paths.admin === "/" ? "" : config.paths.admin;
+  if (parts.length === 0) return base || "/";
+  return `${base}/${parts.join("/")}`;
 }
 
 /**
- * Builds a URL under the admin's `basePath` from identity atoms, kept as-is since a key column can hold a leading slash.
+ * Builds a URL under the admin's `paths.admin` from identity atoms, kept as-is since a key column can hold a leading slash.
  * Callers with no identifier build no URL — see `identityOf` in the table.
  */
 export function buildHref(

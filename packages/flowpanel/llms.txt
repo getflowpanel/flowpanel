@@ -1,7 +1,7 @@
 # FlowPanel
 
-> undefined
-> Config-first admin panel framework for Next.js 16.
+> A typed admin panel for Next.js. Describe your Drizzle or Prisma tables in a typed config and get lists, forms, record pages and dashboards at /admin. Open source, MIT licensed.
+> Admin panel for Next.js in one package: config builders, Drizzle and Prisma adapters, the App Router runtime, React UI and auth presets.
 
 ```bash
 pnpm dlx @flowpanel/cli init
@@ -81,7 +81,7 @@ production, a config without `auth.requireRole` refuses to start unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
 The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
-`devAuth` build an `AuthConfig`; see [Authentication](/docs/guides/authentication).
+`devAuth`, imported from `@flowpanel/kit/auth`, build an `AuthConfig`; see [Authentication](/docs/guides/authentication).
 
 ### ThemeConfig
 
@@ -116,7 +116,7 @@ theme: {
 }
 ```
 
-Colours are HSL triplets; an `hsl(...)` wrapper is removed for you.
+Colours are HSL triplets. `accent` and `accentDark` may also be written as `hsl(...)`, and the wrapper is removed for you; `cssVars` and `cssVarsDark` are written as given.
 
 `user` fills the account menu at the foot of the sidebar, or the end of the tab
 strip. Return nothing and no menu renders:
@@ -252,8 +252,8 @@ labels: {
 },
 ```
 
-`formatCount(label, count, locale)` from `@flowpanel/core/labels` picks the form
-for your own components. A preset's plural gives way to a string template you set
+`formatCount(label, count, locale)` from `@flowpanel/kit` picks the form in your
+own server code. A preset's plural gives way to a string template you set
 for the same count.
 
 `PluralLabel`
@@ -275,8 +275,8 @@ sign-in and access-denied screens shown when `auth.signInUrl` or
 A Russian `formatting.locale` (`"ru"`, `"ru-RU"`) makes `RU_LABELS` the base that
 `labels` merges over, so set only the strings you want different, such as
 `labels: { actions: { new: "Добавить" } }`. Other locales use English. Import
-`RU_LABELS` or `DEFAULT_LABELS` from `@flowpanel/kit` (or `@flowpanel/core/labels`
-in browser code); `labels: DEFAULT_LABELS` keeps English under a Russian locale.
+`RU_LABELS` or `DEFAULT_LABELS` from `@flowpanel/kit`; `labels: DEFAULT_LABELS`
+keeps English under a Russian locale.
 
 `LabelsConfig`
 
@@ -285,7 +285,7 @@ in browser code); `labels: DEFAULT_LABELS` keeps English under a Russian locale.
 | `noResults?` | `string` | Empty list state — used when a resource list returns 0 rows. |
 | `allOption?` | `string` | Empty filter / select dropdown — the "any/all" sentinel. |
 | `navigation?` | `{ skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; scrollHint?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; }` |  |
-| `table?` | `{ /** Templates use `{n}`. Separate one/many templates avoid English suffixes. */ result?: string; results?: string; actions?: string; rowActions?: string; rowsHint?: string; rowsReadOnlyHint?: string; selectRow?: string; selectAll?: string; deselectAll?: string; }` |  |
+| `table?` | `{ /** Templates use `{n}`. Separate one/many templates avoid English suffixes. */ result?: string; results?: string; actions?: string; rowActions?: string; rowsHint?: string; rowsReadOnlyHint?: string; selectRow?: string; selectAll?: string; deselectAll?: string; /** Title of a list with no rows and no `emptyState`. Use `{label}` for the plural label. */ empty?: string; /** The pencil on an editable cell. Use `{label}` for the column label. */ editCell?: string; /** After an editable cell saves. */ saved?: string; }` |  |
 | `dateRange?` | `{ /** Locale for calendar presentation; identical during SSR and hydration. */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
 | `savedViews?` | `{ save?: string; saveTrigger?: string; name?: string; current?: string; label?: string; yours?: string; saveCurrent?: string; saved?: string; deleted?: string; delete?: string; storageError?: string; }` |  |
 | `pagination?` | `{ label?: string; previous?: string; next?: string; of?: string; rowsPerPage?: string; /** Accessible page button name. Use `{n}` for the page number. */ page?: string; /** Page-size option. Use `{n}` for the row count. */ pageSize?: string; }` | Pagination chrome. |
@@ -294,8 +294,8 @@ in browser code); `labels: DEFAULT_LABELS` keeps English under a Russian locale.
 | `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */ events?: PluralLabel; }` | Count templates per `Intl.PluralRules` category; when set, they win over `table.result`/`results` and `bulkBar.selected`. |
 | `searchPlaceholder?` | `string` | Resource search input placeholder. Use `{label}` for the resource's label. |
 | `actions?` | `{ edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; }` | Generic action buttons. |
-| `form?` | `{ /** Edit page heading. Use `{label}` for the resource's singular label. */ editTitle?: string; /** Create page heading. Use `{label}` for the resource's singular label. */ createTitle?: string; /** The empty choice in a select control. */ selectPlaceholder?: string; /** A reference search with nothing to offer. */ noOptions?: string; /** A reference search still in flight. */ searching?: string; /** A reference search that failed. */ loadFailed?: string; /** An empty value the write needs. Use `{label}` for the field's label. */ required?: string; /** A value that is not a number. Use `{label}`. */ invalidNumber?: string; /** A value that is neither true nor false. Use `{label}`. */ invalidBoolean?: string; /** A value that is not a date. Use `{label}`. */ invalidDate?: string; }` | Generated create and edit form chrome. |
-| `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; }` | Drawer chrome. |
+| `form?` | `{ /** Edit page heading. Use `{label}` for the resource's singular label. */ editTitle?: string; /** Create page heading. Use `{label}` for the resource's singular label. */ createTitle?: string; /** The empty choice in a select control. */ selectPlaceholder?: string; /** A reference search with nothing to offer. */ noOptions?: string; /** A reference search still in flight. */ searching?: string; /** A reference search that failed. */ loadFailed?: string; /** An empty value the write needs. Use `{label}` for the field's label. */ required?: string; /** A value that is not a number. Use `{label}`. */ invalidNumber?: string; /** A value that is neither true nor false. Use `{label}`. */ invalidBoolean?: string; /** A value that is not a date. Use `{label}`. */ invalidDate?: string; /** A value a unique column already holds. Use `{label}`. */ taken?: string; /** A unique violation the database did not tie to one column. */ conflict?: string; /** A reference to a row that does not exist. Use `{label}`. */ missingReference?: string; /** A foreign key violation the database did not tie to one column. */ missingLink?: string; /** A delete that other rows still reference. */ inUse?: string; /** The create page of a resource with `create.disabled`. */ createDisabled?: string; /** The edit page of a resource with `update.disabled`. */ editDisabled?: string; }` | Generated create and edit form chrome. |
+| `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; /** A widget kind a drawer does not draw. Use `{kind}`. */ unsupported?: string; /** The dialog's name before the record loads. */ title?: string; /** The record could not be loaded. */ loadFailed?: string; }` | Drawer chrome. |
 | `detail?` | `{ /** A fields tab with nothing the reader is allowed to see. */ noFields?: string; /** A tab naming a resource that is not registered. Use `{resource}`. */ unknownResource?: string; /** A counted tab's label. Use `{label}` and `{count}`. */ tabCount?: string; }` | Full-page detail chrome. |
 | `related?` | `{ /** Link from a related tab to the target resource's own list. */ openList?: string; }` | Related detail-tab chrome. |
 | `notFound?` | `{ title?: string; description?: string; back?: string; }` | The admin's own not-found page, for a URL no resource or dashboard matches. |
@@ -358,14 +358,13 @@ What `defineAdmin` returns.
 | `dashboardsByPath` | `Map<string, DashboardConfig>` |  |
 | `pagesByPath` | `Map<string, PageConfig>` |  |
 | `queuesByKey` | `Map<string, QueueConfig>` |  |
-| `basePath` | `string` | Normalized `paths.admin` — leading slash, no trailing slash. Defaults to `/admin`. |
 | `paths` | `AdminPaths` | Normalized mount points with leading slashes and no trailing slash. |
 | `warnings` | `readonly string[]` | Config problems that do not stop the admin from booting. `flowpanel doctor` prints them; development prints each once. |
 
 `defineAdmin` throws if two resources share a name, two dashboards or pages
 share a path, or two queues share a key.
 
-It also throws when a config points at a resource name nothing resolves to —
+It also throws when a config points at a resource name nothing resolves to:
 `reference.resource` on a column or field, a drawer or detail tab's `resource`,
 or a `table()` widget's `resource`. The names it checks against are the
 *resolved* ones, so a Drizzle table declared as `pgTable("ai_usage", …)` is
@@ -414,13 +413,11 @@ on the resource or `options.key` on the queue.
 
 ### Behavior beyond validation
 
-Besides validating, `defineAdmin`:
-
 1. **Fills `columns`** from `adapter.introspect(ref)` for any resource that
    omitted them, in introspection order. If the adapter cannot introspect the
    ref, or reports zero columns, that throws.
 2. **Injects the default bulk delete** (above).
-3. **Normalizes `paths.admin`** and every dashboard / page `path` — a missing
+3. **Normalizes `paths.admin`** and every dashboard and page `path`: a missing
    leading `/` is added, a trailing one stripped.
 
 `introspect` reads the table object or DMMF; it does not query the database.
@@ -429,17 +426,18 @@ Besides validating, `defineAdmin`:
 
 `paths.admin` and `paths.api` are app-relative: they say where the admin sits inside
 your app, not where the app sits under a domain. If `next.config` sets its own
-`basePath`, leave both alone — Next serves and links everything under that prefix
+`basePath`, leave both alone. Next serves and links everything under that prefix
 already.
 
 FlowPanel adds the deployment prefix for you to the requests the browser issues
 by itself: the client fetches built from `paths.api`, the generated form actions
 and the SSE endpoint. `Link`, router navigation and `revalidatePath` are prefixed
-by Next and are left untouched. Only a fetch you write yourself against
-`paths.api` needs the helper:
+by Next and are left untouched. Only a fetch you write yourself in a client
+component against `paths.api` needs the helper. Server code calls the runtime
+through `createFlowpanel(config).request()` instead of fetching its own routes.
 
 ```ts excerpt
-import { withDeploymentBasePath } from "@flowpanel/kit/react"; // or "@flowpanel/core/paths" on the server
+import { withDeploymentBasePath } from "@flowpanel/kit/react";
 
 await fetch(`${withDeploymentBasePath(config.paths.api)}/user/u1/actions/verify`, {
   method: "POST",
@@ -469,7 +467,7 @@ With no `locale`, dates print as `YYYY-MM-DD HH:mm` and numbers use `en-US` grou
 
 Record identifiers are percent-encoded into the URL and decoded once when the page
 route reads them back, so an id containing `/`, `%`, `?`, `#` or a space addresses
-the record it names. Configured dashboard and page paths keep their separators —
+the record it names. Configured dashboard and page paths keep their separators:
 `/reports/weekly` stays two segments.
 
 A row whose projection did not include the key column is displayed but not treated
@@ -483,7 +481,7 @@ Every option on a resource, its columns, fields and filters.
 
 Docs: https://flowpanel.tech/docs/reference/resources
 
-Documented types: resource, ResourceOptions, ColumnDef, formatColumnValue, formatNumber, badgeProps, enumOf, EnumDef, FieldDef, FilterDef, DetailOptions, DetailHeaderContext, DetailBadge, related, RelatedOptions, DetailTab, DetailTabContext, ListResult, ResourceConfig
+Documented types: resource, ResourceOptions, ColumnDef, formatColumnValue, formatNumber, enumOf, EnumDef, FieldDef, FilterDef, DetailOptions, DetailHeaderContext, DetailBadge, related, RelatedOptions, DetailTab, DetailTabContext, ListResult, ResourceConfig
 
 `ref` is a Drizzle table or a Prisma model name. The row type comes from
 [`InferRow<Ref>`](/docs/reference/registry#inferrow), which types `columns`,
@@ -513,7 +511,7 @@ export const ordersResource = resource(orders, {
 | --- | --- | --- |
 | `name?` | `string` | URL segment and registry key. Defaults to the adapter's table name. |
 | `label?` | `string` | Singular label shown in headings and buttons. |
-| `labelOne?` | `string` | Label for exactly one row, e.g. `"Customer"`, used in the create page's title. Falls back to `label`, then the resource name. |
+| `labelOne?` | `string` | Label for exactly one row, e.g. `"Customer"`, used in record, create and edit titles. Falls back to `label`, then the resource name made singular: `order_items` reads "Order item". |
 | `plural?` | `string` | Plural label shown in the nav and list title. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
 | `hidden?` | `boolean` | Keep the resource out of the navigation — its routes still work. |
@@ -525,7 +523,7 @@ export const ordersResource = resource(orders, {
 | `defaultSort?` | `{ field: keyof Row & string; dir: "asc" \| "desc" }` | Sort applied when the URL carries none. |
 | `pageSize?` | `number` | Rows per page. Default: `20`. |
 | `density?` | `"comfortable" \| "compact"` | Row height preset for the list table. Default: `"comfortable"`. |
-| `rowClick?` | `"detail" \| "drawer" \| false` | What a row click — and Enter on the focused row — does. A row the projection cannot identify never acts. Default: ``"detail"` when `detail` is configured and `drawer` is not, `"drawer"` when only `drawer` is, otherwise `false``. |
+| `rowClick?` | `"detail" \| "drawer" \| false` | What a row click — and Enter on the focused row — does. A row the projection cannot identify never acts. Default: ``"drawer"` when `drawer` is configured, otherwise `"detail"``. |
 | `rowKey?` | `keyof Row & string` | Property holding each row's unique id. Default: `"id"`. |
 | `drawer?` | `DrawerConfig<Row>` | Side panel opened for a single row. |
 | `detail?` | `DetailOptions<Row>` | Full-page view at `<paths.admin>/<resource>/<id>`. |
@@ -539,11 +537,11 @@ export const ordersResource = resource(orders, {
 | `scope?` | `"bypass" \| ((scope: Scope, query: unknown) => unknown)` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
 | `access?` | `ResourceAccess<Row>` | Canonical operation-level authorization. |
 | `fieldAccess?` | `FieldAccessMap<Row>` | Canonical read/write policy for declared fields. |
-| `export?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Export button. `false` removes it. Defaults to CSV and JSON of the visible columns. |
+| `export?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Export button, off unless set. `formats` defaults to `["csv"]`; `fields` defaults to the visible columns. |
 | `import?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Import button. Off unless set; rows are created through the normal write path. |
 | `audit?` | `boolean` | Opt this resource out of the admin-wide audit sink. |
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
-| `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: Where<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
+| `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: ListFilters<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
 | `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. `{query}` is * the search text. Default: `labels.widget.filtered`. */ filtered?: string; /** * Title when a search leaves no rows, in place of `filtered`, e.g. `"Nothing found for «{query}»"`. * Default: `filtered`. */ searched?: string; }` | What the list shows when there are no rows at all. |
 
 An empty list shows `empty.title`, `description`, `icon` and `action`. When search
@@ -568,8 +566,8 @@ detail: {
 }
 ```
 
-A nullish return leaves the slot empty; a nullish `title` falls back to the
-resource label and the row identifier.
+A nullish return leaves the slot empty; a nullish `title` falls back to the row's
+`name`, `title` or `email`, then to the resource label and the row identifier.
 
 The Edit button sits beside the heading as a secondary button;
 `update: { emphasis: "primary" }` fills it. It is hidden when `update.disabled` is
@@ -589,8 +587,9 @@ chooses and orders the fields in it; omitted, every readable declared field show
 | `"drawer"` | Opens the [drawer](/docs/reference/drawer). Requires a `drawer` config; `defineAdmin` refuses the combination without one. |
 | `false` | Rows render, but a click does nothing. |
 
-Omitted, it follows the resource: `"detail"` when `detail` is configured and
-`drawer` is not, `"drawer"` when only a drawer is, and `false` when neither is.
+Omitted, it follows the resource: `"drawer"` when a drawer is configured, with or
+without `detail`, and `"detail"` otherwise. The record page renders without a
+`detail` config, so every row opens unless you set `rowClick: false`.
 An explicit value always wins, so `rowClick: "detail"` on a resource that also
 has a drawer sends the click to the page and leaves the drawer to its own
 affordances.
@@ -701,7 +700,7 @@ type ColumnFormat =
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
   | { kind: "money"; currency?: string; scale?: number }
   | { kind: "number"; tones?: Threshold }
-  | { kind: "date"; time?: boolean }
+  | { kind: "date"; time?: boolean; calendarDay?: boolean }
   | { kind: "percent"; digits?: number; heat?: boolean; tones?: Threshold }
   | { kind: "duration"; unit?: "ms" | "s"; tones?: Threshold }
   | { kind: "boolean"; labels?: { true?: string; false?: string } }
@@ -731,13 +730,13 @@ value, and a value with no label shows as is.
 
 The other kinds:
 
-- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the time. A `YYYY-MM-DD` value shows as itself; a zoneless `YYYY-MM-DD HH:mm:ss` is read as UTC.
+- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the time. A `YYYY-MM-DD` value shows as itself; a zoneless `YYYY-MM-DD HH:mm:ss` is read as UTC. Set `calendarDay: true` for a SQL `date` column, such as a Prisma `@db.Date` or a Drizzle `date({ mode: "date" })`: the driver returns midnight UTC, and the cell shows that day in every time zone.
 - `relative` shows how long ago, such as `5 minutes ago`, in the admin's `locale`.
-- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, so a retention grid reads at a glance and still sorts by number.
+- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, for a retention grid that still sorts by number.
 - `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
 - `boolean` prints `✓` and `✕`, or `labels: { true: "Yes", false: "No" }`. SQLite's `1` and `0` read as true and false.
 - `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
-- `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded. `cellTone(value, format)` returns the tone a cell gets.
+- `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded.
 
 ```ts excerpt
 columns: [
@@ -758,16 +757,10 @@ The formatters behind every cell, card and export. Each takes the admin's
 resolved `formatting`.
 
 `formatColumnValue` renders a `ColumnFormat`; `formatNumber` renders a widget's
-`NumericFormat` (`number`, `currency`, `percent`, `bytes`, `duration`). Both are in
-`@flowpanel/core`, and `@flowpanel/react` re-exports `formatNumber`.
-`badgeProps(format, value)` returns the props a badge cell passes to `StatusBadge`,
-or `null` for an empty value.
-
-`formatDurationValue`, `formatPercentValue`, `formatRelativeValue` and
-`formatBooleanValue` print one kind each; `columnFormatKind`, `percentHeatLevel` and
-`urlCellParts` describe what a format asks for; `toDateValue` and `toBooleanValue`
-read raw values as cells do. `formatDurationCompact` prints only the largest unit,
-such as `2.1h`, as chart axes do.
+`NumericFormat` (`number`, `currency`, `percent`, `bytes`, `duration`). Import both
+from `@flowpanel/kit`; `@flowpanel/kit/react` also exports `formatNumber`.
+`formatDurationValue`, `formatPercentValue` and `formatRelativeValue` print one
+kind each.
 
 ### Enums
 
@@ -813,7 +806,10 @@ itself and a missing one as `—`; `badge()` returns `null` for a missing value;
 ### FieldDef
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
-`form`. The server enforces every rule.
+`form`. `required` marks the control required and the server rejects a missing
+value. `readOnly` and `requireRole` apply to rendering and to writes; a function
+`readOnly` is called with the stored row, so it guards edits. `hidden` only removes
+the control.
 
 `FieldDef`
 
@@ -826,7 +822,7 @@ An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
 | `type?` | `FieldType` | Which control to render. Omitted, a declared field renders as `"text"` — or `"reference"` when `reference` is set. The adapter's column type is consulted only by a fully generated form, and only maps number, boolean, date and json. |
 | `options?` | `\| ReadonlyArray<string> \| SelectOption[] \| ((ctx: QueryContext) => Promise<SelectOption[]>)` | Choices for `select` / `multiselect` / `radio`. A function resolves per request. |
 | `reference?` | `ReferenceSpec` | Turn the field into a searchable picker over another resource. |
-| `required?` | `boolean` | Mark the field required in the form. Server-side validation still comes from `schema`. |
+| `required?` | `boolean` | Require a value. The form marks it, and the server rejects a create that leaves it empty or an edit that clears it. |
 | `readOnly?` | `boolean \| ((values: Partial<Row>) => boolean)` | Render non-editable. Enforced server-side, not just in the UI. |
 | `hidden?` | `boolean \| ((values: Partial<Row>) => boolean)` | Leave the field out of the form entirely. |
 | `requireRole?` | `string \| string[] \| ((session: Session \| null) => boolean)` | Restrict who may see and write this field. Enforced on every write route. |
@@ -917,7 +913,7 @@ export const card = {
 } satisfies DetailOptions<RowOf<"user">>;
 ```
 
-- `title`, `subtitle` and `badge` receive the row and a `DetailHeaderContext` — the
+- `title`, `subtitle` and `badge` receive the row and a `DetailHeaderContext`: the
   admin's `format`, `labels` and `link`. `badge` returns one pill or a list, in order;
   `null` entries are dropped, and a pill with `href` is a link.
 - `stats` renders as a hairline strip under the header, on every tab.
@@ -971,8 +967,8 @@ The header, strip, aside and open tab share one widget context, so a repeated
 A tab on the record page. The open tab is the `?tab=<key>` query parameter, and
 only that tab runs on the server.
 
-A tab declares exactly one kind of content, and they resolve in this order:
-`render`, `widgets`, `resource`, then fields.
+A tab shows `render` when it has one. Otherwise it shows its `widgets` and its
+`resource` list, widgets above the rows, or its fields when it has neither.
 
 #### Fields and sections
 
@@ -1135,8 +1131,9 @@ What `DetailTab.render` receives as its second argument.
 type SelectOption = { label: string; value: string | number | boolean };
 ```
 
-Wherever `options` is accepted, you may pass `string[]`, `SelectOption[]`, or a
-function resolved per request.
+A filter's or field's `options` takes `string[]`, `SelectOption[]`, or a function
+resolved per request. A dashboard filter takes `SelectOption[]`, an `enumOf()`, or
+a function of the widget context. A drawer action input takes `string[]`.
 
 ### ListResult
 
@@ -1228,8 +1225,9 @@ that row.
 
 ### BulkAction
 
-Runs on the selection. `run` receives the IDs. Over 1000 IDs the route answers
-`422 too many ids (max 1000)` and `run` does not execute.
+Runs on the selection. `run` receives the IDs. `max` caps the selection, 1000 by
+default and at most 10000; over it the route answers `422 too many ids (max N)` and
+`run` does not execute.
 
 `BulkAction`
 
@@ -1244,9 +1242,9 @@ Runs on the selection. `run` receives the IDs. Over 1000 IDs the route answers
 | `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
 | `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
 | `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
-| `max?` | `number` | Maximum selected ids accepted by this action. Default: `1000`. |
+| `max?` | `number` | Maximum selected ids accepted by this action, from 1 to 10000. Default: `1000`. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `run` | `(ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler, given every selected id. Capped at 1000 ids per call. |
+| `run` | `(ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler, given every selected id, never more than `max`. |
 
 `bulkAction<Row, Input>()` types the form input. With delete enabled and no
 `bulkActions`, a default bulk delete is added; `bulkActions: []` removes it.
@@ -1337,7 +1335,8 @@ What every `run` returns.
 
 `ActionInput` defaults to `Record<string, unknown>`. `{ ok: false, error }` shows
 `error` to the operator as written. A thrown `FlowpanelError` keeps its status;
-anything else becomes a logged `500`.
+anything else becomes a `500` and goes to `hooks.onError`, or, without a hook, to one
+`console.error` line with its request id.
 
 ### ActionContext
 
@@ -1366,8 +1365,8 @@ Docs: https://flowpanel.tech/docs/reference/drawer
 
 Documented types: DrawerConfig, DrawerTabFields, DrawerTabResource, DrawerTabWidgets, DrawerAction, DrawerPayload
 
-A drawer shows one row over the list. Declare `drawer` on a resource and set
-`rowClick: "drawer"`. Guide: [Record pages and drawers](/docs/build/detail-cards#drawer).
+A drawer shows one row over the list. Declare `drawer` on a resource; a row click
+opens it unless `rowClick` says otherwise. Guide: [Record pages and drawers](/docs/build/detail-cards#drawer).
 
 ```ts excerpt
 resource(orders, {
@@ -1378,7 +1377,7 @@ resource(orders, {
     title: (row) => `Order ${row.id}`,
     tabs: [
       { key: "summary", label: "Summary", fields: "*" },
-      { key: "items", label: "Items", resource: "orderItems", filter: (row) => ({ orderId: row.id }) },
+      { key: "items", label: "Items", resource: "order_items", filter: (row) => ({ orderId: row.id }) },
     ],
     actions: [
       {
@@ -1473,26 +1472,27 @@ Dashboard widgets, scoped to the open row.
 | `label` | `string` |  |
 | `widgets` | `Exclude< WidgetConfig, CustomWidget \| TimelineWidget \| HeatmapWidget \| ChecklistWidget \| TrackerWidget >[]` | `custom()`, `tracker()` and page-rendered widgets (`timeline`, `heatmap`, `checklist`) are not renderable here — the drawer serializes over the wire. |
 
-`custom()` widgets are a type error here, and `timeline`, `heatmap`, `checklist` and
-`tracker` fail at `defineAdmin`; use a record page tab. Each widget is serialized
+`custom`, `timeline`, `heatmap`, `checklist` and `tracker` widgets are a type error
+here, and the last four also fail at `defineAdmin`; use a record page tab. Each widget is serialized
 before it reaches the browser:
 
 ```ts excerpt
 type SerializedWidget =
   | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
   | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }
-  | { kind: "statGroup"; stats: { label: string; value: string | number; /* … */ }[]; /* … */ }
+  | { kind: "statGroup"; stats: { label: string; value: string | number | CardDate; /* … */ }[]; /* … */ }
   | { kind: "chart"; subkind: "area" | "bar" | "line" | "pie"; label: string; dataPoints: number; /* … */ }
-  | { kind: "stat"; label: string; value: number | string; /* format, hint, href, tone */ }
-  | { kind: "kv"; items: { label: string; value: string; /* tone, href, long, rest, more */ }[]; /* … */ }
+  | { kind: "stat"; label: string; value: number | string | CardDate; /* format, hint, href, tone */ }
+  | { kind: "kv"; items: { label: string; value: string | CardDate; /* tone, href, long, rest, more */ }[]; /* … */ }
   | { kind: "bars"; rows: { label: string; value: number; href?: string /* … */ }[]; emptyState: string; /* … */ }
   | { kind: "funnel"; steps: { label: string; value: number; href?: string }[]; emptyState: string; /* … */ }
   | { kind: "list"; rows: ListCardRow[]; more?: { label: string; href?: string }; emptyState: string; /* … */ }
   | { kind: "unsupported"; label?: string; reason: string; failed?: true; span?: number };
 ```
 
-A widget whose query throws becomes `{ kind: "unsupported", failed: true }` with
-a safe message. Drawer widgets are static: a metric shows no delta, link or
+`CardDate` is `{ kind: "date"; iso: string }`, an instant the card renders in the
+viewer's time zone. A widget whose query throws becomes
+`{ kind: "unsupported", failed: true }` with a safe message. Drawer widgets are static: a metric shows no delta, link or
 sparkline, and a table has no row links.
 
 ### Actions
@@ -1744,12 +1744,12 @@ in your own code.
 A `goodWhen` that contradicts the numbers makes `defineAdmin` throw.
 
 ```ts excerpt
-import { type Threshold, metric, toneFor } from "@flowpanel/kit";
+import { type Threshold, metric, resource, toneFor } from "@flowpanel/kit";
 
 const ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
 
 metric("Run errors", async (c) => ({ value: rate, volume: runs }), { format: "percent", tones: ERRORS });
-const column = { field: "errorRate", format: { kind: "percent", tones: ERRORS } };
+resource(schema.runs, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
 toneFor(rate, ERRORS, runs);
 ```
 
@@ -1763,7 +1763,7 @@ A widget link names its target instead of spelling a path.
 | --- | --- | --- |
 | `resource` | `N` |  |
 | `id?` | `string \| number` | One record's page instead of the list. |
-| `filter?` | `true extends ManyNames<N> ? Record<string, unknown> : Where<RowOf<N>>` | List filters keyed by the target's fields: a value, `{ gte, lte }` or an array, written as the list's own `f_<field>` URL keys. Any keys while the link does not name one resource. |
+| `filter?` | `true extends ManyNames<N> ? Record<string, unknown> : ListFilters<RowOf<N>>` | List filters keyed by the target's fields: a value, `{ gte, lte }` or an array, written as the list's own `f_<field>` URL keys. Any keys while the link does not name one resource. |
 | `view?` | `string` | A view from the resource's `views`, applied by name before `filter`. |
 | `tab?` | `string` | A detail tab, with `id`. |
 | `range?` | `true extends ManyNames<N> ? string : keyof RowOf<N> & string` | A `daterange` filter field that receives the widget's range, bound for bound. |
@@ -2813,7 +2813,8 @@ stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 | `options` | `SelectOption[] \| EnumDef \| ((ctx: WidgetContext) => Promise<SelectOption[]>)` | The choices: a list, an `enumOf()`, or a function of the context. |
 
 `filters` adds a select per entry beside the date picker, stored in the URL as
-`f_<key>`. `options` takes a list, an `enumOf()` or a function.
+`f_<key>`. `options` takes `SelectOption[]`, an `enumOf()`, or a function of the
+widget context; a plain string list is not accepted.
 
 `filterOnClick: "<key>"` on `bars`, `tracker` or `table` sets that filter on click,
 replacing the row's link. It is rejected on a record page or in a drawer.
@@ -2978,8 +2979,11 @@ Docs: https://flowpanel.tech/docs/reference/contexts
 
 Documented types: RequestContext, QueryContext, ListQueryContext, ItemQueryContext, MutationContext, ActionContext, FilterRangeValue, FilterInValue
 
-Every function you give FlowPanel receives a context that extends
-`RequestContext`, so `session`, `role` and `scope` are always there.
+Adapter methods, mutations, actions and option resolvers receive a context that
+extends `RequestContext`, so `session`, `role` and `scope` are there. Widgets and
+record pages get their own: `WidgetContext` has `session` but no `role` or `scope`,
+`DetailTabContext` is a subset of `WidgetContext`, and `DetailHeaderContext` has
+only `format`, `labels` and `link`.
 
 ### RequestContext
 
@@ -2999,7 +3003,7 @@ Every function you give FlowPanel receives a context that extends
 
 ### QueryContext
 
-Base context for reads. Widget queries and `options` resolvers receive this.
+Base context for reads. Field `options` and `defaultValue` resolvers receive it. Widget queries receive [`WidgetContext`](/docs/reference/widgets#widgetcontext) instead.
 
 `QueryContext`
 
@@ -3014,7 +3018,7 @@ Base context for reads. Widget queries and `options` resolvers receive this.
 
 ### ListQueryContext
 
-What an adapter's `list` receives — everything needed to build one page of rows.
+What an adapter's `list` receives: everything needed to build one page of rows.
 
 `ListQueryContext`
 
@@ -3088,7 +3092,7 @@ A `daterange` day such as `2026-09-23` covers that whole day in
 
 #### FilterInValue
 
-Produced by `multiselect` filters — match any of `values`.
+Produced by `multiselect` filters: match any of `values`.
 
 `FilterInValue`
 
@@ -3284,8 +3288,8 @@ type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;
 | Declaration | Reached from |
 | --- | --- |
 | `WidgetContext<DB = InferDB>` | every widget `query`, a `StatItem.value` resolver, a `custom()` widget's `props` resolver |
-| `ActionContext<Db = InferDB>` | every row / bulk / dashboard / drawer action `run` — those signatures name `ActionContext<InferDB>` explicitly |
-| `Adapter<DB = InferDB, Ref>` | the adapter's own `db` property |
+| `ActionContext<Db = InferDB>` | every row, bulk, dashboard and drawer action `run`; those signatures name `ActionContext<InferDB>` explicitly |
+| `Adapter<DB = InferDB, Ref = unknown>` | the adapter's own `db` property |
 
 The adapter contexts (`QueryContext` and those built on it) default `Db` to
 `unknown`, and carry no client: a `FieldDef.options` or `defaultValue` resolver
@@ -3315,12 +3319,13 @@ The row of a known resource.
 ### FlowpanelResources
 
 A map of resource name to row type, keyed by the name `defineAdmin` uses (the SQL
-table name unless `options.name` is set). With Prisma, register every model here:
+table name unless `options.name` is set). With Prisma, register every model here,
+under the resource's `name` when it has one, as `flowpanel new` does:
 
 ```ts excerpt
 declare module "@flowpanel/kit" {
   interface FlowpanelResources {
-    User: import("@prisma/client").User;
+    users: import("@prisma/client").User;
   }
 }
 ```
@@ -3344,7 +3349,10 @@ type InferRow<Ref> = Ref extends { $inferSelect: infer R }
 ```
 
 `resource(ref, options)` types `options` by `InferRow<Ref>`: a Drizzle table's
-`$inferSelect`, a registered name's row, or `Record<string, unknown>`.
+`$inferSelect`, a registered name's row, or `Record<string, unknown>`. With
+`options.name`, a string ref such as a Prisma model reads the row registered under
+that name first, so `resource("User", { name: "users" })` checks its columns against
+the `users` entry.
 
 #### ResourceName
 
@@ -3398,7 +3406,7 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 `DataTableWithDrawerRows`, `CreateDrawer`, `DetailTabsClient`,
 `SavedViewsDropdown`, `ResourceListSearch`, `ResourceListFilters`,
 `ResourceListDeletedToggle`, `DashboardDateRange`, `DashboardFilters`,
-`WidgetErrorBoundary`), and `@flowpanel/kit/client` holds
+`RelatedTabTable`, `WidgetErrorBoundary`), and `@flowpanel/kit/client` holds
 [`useAdminMutation`](/docs/reference/client).
 
 ### Shell
@@ -3414,12 +3422,12 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 | `CommandPalette` | The ⌘K command palette, built on `cmdk`. |
 | `Drawer`, `DrawerHeader`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. |
 | `DetailShell` | Chrome around a resource detail page. |
-| `FlowpanelGlobals` | Mounts cross-cutting globals (toast host, theme script, shortcuts) once per admin. |
+| `FlowpanelGlobals` | Mounts the component, formatting, API-base and label providers, the realtime provider, the toast host and the theme runtime, once per admin. |
 | `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. `badges` renders several pills in order, each an optional link. |
 | `ShortcutsCheatsheet`, `DEFAULT_SHORTCUTS` | The `?`-triggered keyboard shortcuts overlay and the shortcut list it ships with. |
 | `ThemeScript` | Inline script that applies the stored theme class before hydration, avoiding a flash. |
 | `ComponentsProvider`, `useComponents` | Provider/reader for the `FlowpanelComponentSlots` override map. |
-| `useComponent` | Resolves a single slot — `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
+| `useComponent` | Resolves a single slot: `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
 | `useComponentOverrides` | The raw override map from the nearest `ComponentsProvider`, without defaults filled in. |
 | `LabelsProvider`, `useLabels` | Provider/reader for label overrides (pluralization, field labels). |
 | `FormattingProvider`, `useFormatting` | Provider/reader for the resolved locale, time zone and currency. |
@@ -3434,6 +3442,7 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 | `user?` | `AccountMenuUser` |  |
 | `navGroups` | `NavGroup[]` |  |
 | `currentPath` | `string` |  |
+| `rootHref?` | `string` | The admin's mount path; its nav entry is active only on that page. Inferred from the entries when unset. |
 | `showSkipLink?` | `boolean` | Set false when the host layout already provides the page's skip link. |
 | `children` | `React.ReactNode` |  |
 
@@ -3479,8 +3488,8 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 | `ReferencePicker` | Search-and-select control for picking a referenced row. |
 | `MobileCardList` | Card layout `DataTable` switches to under the mobile breakpoint. |
 | `KV`, `KVRow` | Key/value list layout, used by card and drawer field views. |
-| `renderFormatCell` | Renders a declarative `ColumnFormat` value — the function `DataTable` cells call internally. |
-| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell`, `ToneText` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time, a boolean and a number coloured by its threshold — use them in a custom cell to match the table. |
+| `renderFormatCell` | Renders a declarative `ColumnFormat` value. `DataTable` cells call it internally. |
+| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell`, `ToneText` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time, a boolean and a number coloured by its threshold. Use them in a custom cell to match the table. |
 
 `DataTableProps`
 
@@ -3533,14 +3542,14 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 | Export | Purpose |
 | --- | --- |
 | `AutoForm` | Renders a resource's create/update fields from `ResolvedField[]` or `ColumnMeta[]`. |
-| `Form` | Conform + Zod form wrapper — POSTs to a route and surfaces field errors. |
+| `Form` | Conform and Zod form wrapper. It POSTs to a route and shows field errors. |
 | `useFormContext` | Reads the current `Form`'s conform metadata; throws outside a `Form`. |
 | `FormField` | One labeled input, switched on its `type` prop (see below). |
 | `FormError` | Renders the form-level error from `useFormContext`. |
 | `FormSection` | Labeled fieldset grouping for `AutoForm`/`Form` fields. |
 | `FormSubmit` | Submit button that reflects the form's pending state. |
 | `AsyncSelect` | Debounced async-search select, used by reference fields. |
-| `ResolvedField` (type) | The server-resolved field shape `AutoForm` consumes — see `field-types.ts`. |
+| `ResolvedField` (type) | The server-resolved field shape `AutoForm` consumes. |
 
 `AutoFormProps`
 
@@ -3612,7 +3621,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | Export | Purpose |
 | --- | --- |
 | `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. `plain` drops the card frame for a strip cell. |
-| `StatCard` | Renders a `stat()` widget — one number, a hint and an optional link. `plain` drops the card frame for a strip cell. |
+| `StatCard` | Renders a `stat()` widget: one number, a hint and an optional link. `plain` drops the card frame for a strip cell. |
 | `StatGroupCard` | Renders a `statGroup()` widget. |
 | `KvCard` | Renders a `kv()` widget as a label/value grid. `long` items span the card and fold the rest under `more`. |
 | `BarsCard` | Renders a `bars()` widget, sizing each bar against `max` or the largest row. |
@@ -3636,7 +3645,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | `Card`, `CardHeader`, `CardContent`, `CardDescription` | Generic card shell and its section slots. |
 | `MetricGrid` | Responsive grid for laying out `MetricCard`s. |
 | `Section`, `SectionLabel`, `Divider`, `spanClass` | Section wrapper with a label/description, a divider rule, and the `Span` → CSS class map dashboards use for widget width. |
-| `StatStrip` | A band of numbers divided by hairlines, two per line on a phone — what `section.variant: "strip"` and `detail.stats` render. |
+| `StatStrip` | A band of numbers divided by hairlines, two per line on a phone. `section.variant: "strip"` and `detail.stats` render it. |
 
 ### Atoms
 
@@ -3645,7 +3654,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | `Avatar`, `DefaultAvatar` | User/entity avatar and its default renderer. |
 | `Badge`, `DefaultBadge` | Toned inline badge and its default renderer. |
 | `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
-| `StatusDot` | Small dot in any `Tone` — `ok` by default. |
+| `StatusDot` | Small dot in any `Tone`, `ok` by default. |
 | `LiveIndicator` | Realtime connection status indicator (see `LiveStatus`). |
 | `LocalTime` | Absolute timestamp in the configured `formatting.timeZone`, or the viewer's zone after hydration when none is set. |
 | `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
@@ -3723,8 +3732,8 @@ const isMobile = useMediaQuery("(max-width: 639px)");
 ### Realtime
 
 **`RealtimeProvider`** mounts one shared `EventSource` for its descendants and
-coalesces their refreshes. `Flowpanel` mounts it; mount it yourself in a
-`"bare"`-shell layout.
+coalesces their refreshes. `Flowpanel` mounts it in every shell mode, `"bare"`
+included. Mount it yourself only around components rendered outside that page.
 
 **`useRealtimeRefresh(channels, options?)`** runs a debounced `router.refresh()`
 on any event on its channels.
@@ -3765,7 +3774,9 @@ Helpers behind `useTheme` and `ThemeScript`.
 | `buildThemeInitScript` | Builds the inline script string `ThemeScript` renders. |
 
 Also exported: `cn`, `formatNumber`, `humanize`, `resolveFieldLabel`,
-`triggerDownload`, and `toneTextClass` and `toneFillClass` (also in `@flowpanel/kit`
+`triggerDownload`, `withDeploymentBasePath` (prefixes a Next.js `basePath`),
+`StandaloneFormFields` (form controls outside a schema-driven `<Form>`), the
+`CardDate` type (a serialized date a card renders through `LocalTime`), and `toneTextClass` and `toneFillClass` (also in `@flowpanel/kit`
 for server components).
 
 ### Name collisions with `@flowpanel/kit`
@@ -3777,9 +3788,7 @@ when importing both.
 | --- | --- | --- |
 | `TableWidget` | The `table()` builder's return **type** (`{ kind: "table"; options }`). | The **component** that renders one. |
 | `CustomWidget` | The `custom()` builder's return **type**. | The **component** that wraps one. |
-| `Tone` | The config-level tone vocabulary used by `format: "badge"`, widget `tone`, … | The same vocabulary, re-declared next to `formatNumber`. |
-| `NumericFormat` | The widget/metric format union. | The same union, re-declared next to `formatNumber`. |
-| `DrawerWidth` | `DrawerConfig["width"]`, the config option. | `DrawerProps["width"]`, the component prop — an identical union, declared separately. |
+| `DrawerWidth` | `DrawerConfig["width"]`, the config option. | `DrawerProps["width"]`, the component prop: the same union, declared separately. |
 
 ```ts excerpt
 import type { TableWidget } from "@flowpanel/kit";
@@ -3831,7 +3840,6 @@ export default flowpanel.page;
 import { flowpanel } from "@/src/flowpanel";
 
 export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
-export const runtime = "nodejs";
 ```
 
 `createFlowpanel(definition)` returns a frozen `FlowpanelRuntime`:
@@ -3839,12 +3847,14 @@ export const runtime = "nodejs";
 | Member | Purpose |
 | --- | --- |
 | `page` | Generated catch-all page component. |
-| `metadata` | The page's `generateMetadata`: a `title` per dashboard, list and record. |
+| `metadata` | The page's `generateMetadata`: a `title` per dashboard, list, record and form ("New user", "Edit user"), or the sign-in or access-denied wall's, and `noindex`. |
+| `notFound` | The admin's not-found screen, titled "Page not found": `export default flowpanel.notFound;` in `not-found.tsx`. It answers 404, or 200 under `cacheComponents`, where Next has already streamed the static shell. |
+| `notFoundMetadata` | The not-found page's metadata, "Page not found" and `noindex`: `export const metadata = flowpanel.notFoundMetadata;` in `not-found.tsx` titles the server's HTML, not only the page after it loads. |
 | `handlers` | `FlowpanelHandlers` for REST and generated-UI routes. |
 | `request()` | Current request's protected `FlowpanelRequest`. |
 | `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/client`. |
 | `events.publish(channel, payload?)` | Namespaced, validated realtime event. |
-| `dispose()` | Idempotent runtime cleanup hook. |
+| `dispose()` | Stops this runtime's `events.publish`. Idempotent. The process-wide publisher stays open for other runtimes. |
 
 `events.publish` payloads must serialize to `WireValue` and stay under 64 KiB.
 `FlowpanelClientMetadata` holds only paths and protocol data.
@@ -3853,7 +3863,8 @@ export const runtime = "nodejs";
 
 `await flowpanel.request()` authenticates once and returns a `FlowpanelRequest`
 with a typed `ResourceController<Row>` per resource (`resource(name)` for a
-dynamic name). `ResourceListOptions<Row>` takes page, page size, search, filters,
+dynamic name), `dashboard(path).action(key, input?)` for a dashboard action, and
+the `requestId`. `ResourceListOptions<Row>` takes page, page size, search, filters,
 sort, projection and soft-delete visibility.
 
 ```ts excerpt
@@ -3872,8 +3883,8 @@ generated UI. Do not reuse a `FlowpanelRequest` across requests.
 ### Flowpanel
 
 `Flowpanel(config)` is the page factory behind `createFlowpanel(config).page`. A
-wrapper must forward both `params` and `searchParams`. The first array-valued
-param is the catch-all, whatever the folder is named.
+wrapper must forward both `params` and `searchParams`. The catch-all is the `slug`
+param, else `rest`, else the first array-valued param, whatever the folder is named.
 
 ```ts excerpt
 // app/admin/[[...slug]]/page.tsx
@@ -3944,8 +3955,9 @@ All paths are relative to `/api/flowpanel`.
 | `POST` | `/drawer/<resource>/<id>/actions/<action>` | Drawer action |
 | `POST` | `/dashboards/<path>/actions/<action>` | Dashboard action |
 
-Each runs the admin role gate and rate limit, the resource gate, read-only mode
-for writes, and the action's `access`, in that order.
+Each runs, in order: the same-origin check for writes, the admin role gate and
+rate limit, read-only mode for writes, the resource gate and its `access`, a
+dashboard's `requireRole`, and the action's `access`.
 
 ### stream
 
@@ -3966,8 +3978,6 @@ import { stream } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
 export const GET = stream(config);
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 ```
 
 `flowpanel init` writes this file.
@@ -4046,8 +4056,8 @@ Action routes serialize actions for the client without server-only fields:
 | `RowAction` | `serializeRowAction` | `SerializedRowAction` |
 | `BulkAction` | `serializeBulkAction` | `SerializedBulkAction` |
 | `DashboardAction` | `serializeDashboardAction` | `SerializedDashboardAction` |
-| Drawer action | — (inline in `drawerRoute`) | `SerializedDrawerAction` |
-| Drawer tab | — (inline in `drawerRoute`) | `SerializedDrawerTab` |
+| Drawer action | none, inline in `drawerRoute` | `SerializedDrawerAction` |
+| Drawer tab | none, inline in `drawerRoute` | `SerializedDrawerTab` |
 
 `SerializedDashboardAction.form` is a `SerializedDashboardActionField[]`.
 
@@ -4100,6 +4110,7 @@ function makeActions(
 | --- | --- | --- |
 | `reqCtx?` | `RequestContext` | Reuse a caller-built `RequestContext` instead of building one per call. |
 | `publish?` | `boolean` | Publish + revalidate per call. Default `true`; set `false` to batch-notify once yourself. |
+| `fromForm?` | `boolean` | The input is a posted form, which also carries the fields it showed read-only. |
 
 The create and edit form routes answer with a `FormActionResult`:
 
@@ -4120,13 +4131,14 @@ Builds the `RequestContext`. It enforces `auth.requireRole` and the rate limit, 
 it throws `FlowpanelAccessError` or `FlowpanelRateLimitError`:
 
 ```ts excerpt
+import { FlowpanelError, type RequestContext } from "@flowpanel/kit";
 import { buildRequestContext } from "@flowpanel/kit/next";
 
-let reqCtx;
+let reqCtx: RequestContext;
 try {
   reqCtx = await buildRequestContext({ req, config });
 } catch (err) {
-  // FlowpanelError carries the right status
+  if (!(err instanceof FlowpanelError)) throw err;
   return Response.json({ ok: false, error: err.safeMessage }, { status: err.status });
 }
 ```
@@ -4153,11 +4165,11 @@ these through `@flowpanel/test/widgets`; see [Testing](/docs/reference/testing#u
 ### Navigation
 
 ```ts excerpt
-function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): NavGroup[];
+function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): Promise<NavGroup[]>;
 function resourceNavName(resource: ResourceConfig): string;
 ```
 
-`buildNav` returns the sidebar entries, for your own chrome around a `"bare"`
+`buildNav` resolves to the sidebar entries, for your own chrome around a `"bare"`
 shell. Pass `reqCtx` to apply each entry's `requireRole` or resource `access`. `resourceNavName` returns
 a resource's resolved name and throws if it cannot.
 
@@ -4190,34 +4202,43 @@ With `@flowpanel/kit`, import from `@flowpanel/kit/client`.
 
 ### Create a client
 
-Pass the server runtime's serializable metadata to the browser client:
+The client needs the runtime's metadata: `createFlowpanel(config).client`. Read it in a Server Component and pass it to the client component as a prop, so the config, adapter and database client stay on the server:
 
-```ts excerpt
-// server module
+```tsx excerpt
+// app/orders/page.tsx
 import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
+import { OrdersPanel } from "./orders-panel";
 
-export const flowpanel = createFlowpanel(config);
-export const flowpanelMetadata = flowpanel.client;
+const flowpanel = createFlowpanel(config);
+
+export default function OrdersPage() {
+  return <OrdersPanel metadata={flowpanel.client} />;
+}
 ```
 
 ```tsx excerpt
+// app/orders/orders-panel.tsx
 "use client";
 
-import { createFlowpanelClient } from "@flowpanel/kit/client";
-import { flowpanelMetadata } from "./runtime";
+import { createFlowpanelClient, type FlowpanelClientMetadata } from "@flowpanel/kit/client";
 
-const client = createFlowpanelClient(flowpanelMetadata);
-const orders = client.resource<Order>("orders");
-const result = await orders.list({
-  page: 1,
-  pageSize: 25,
-  search: "acme",
-  filters: { status: "open" },
-});
-
-if (!result.ok) {
-  console.error(result.error.code, result.error.message);
+export function OrdersPanel({ metadata }: { metadata: FlowpanelClientMetadata }) {
+  async function loadOpenOrders() {
+    const orders = createFlowpanelClient(metadata).resource<Order>("orders");
+    const result = await orders.list({
+      page: 1,
+      pageSize: 25,
+      search: "acme",
+      filters: { status: "open" },
+    });
+    if (!result.ok) console.error(result.error.code, result.error.message);
+  }
+  return (
+    <button type="button" onClick={loadOpenOrders}>
+      Load open orders
+    </button>
+  );
 }
 ```
 
@@ -4259,7 +4280,7 @@ isFlowpanelErrorCode("anything"); // false
 
 ### Mutation state hook
 
-`useAdminMutation` tracks pending and error state for an async function.
+`useAdminMutation` tracks pending and error state for an async function that resolves to an `ActionResult` (`{ ok: true, ... }` or `{ ok: false, error }`).
 
 ```tsx excerpt
 "use client";
@@ -4295,7 +4316,7 @@ export function ArchiveButton({ id }: { id: string }) {
 | `onSuccess?` | `(result: Extract<ActionResult, { ok: true }>) => void` |  |
 | `onError?` | `(message: string) => void` |  |
 
-`run` never throws: a rejection or `{ ok: false }` sets `error`. `reset()` clears
+`run` never throws: a rejection sets `error` to its message, and `{ ok: false, error }` sets `error` to that string. `reset()` clears
 it. For optimistic values, see [`useOptimisticAction`](/docs/reference/react-components#hooks).
 
 ## Runtime contracts
@@ -4383,8 +4404,9 @@ to the four `ResourceOperation` values: `read`, `create`, `update`, `delete`.
 
 - `filterReadableProjection(fields, policy, context)` removes fields the
   caller may not read before the adapter query is built.
-- `assertWritableInput(input, knownFields, policy, context)` rejects unknown,
-  sensitive or forbidden writes. It does not silently drop them.
+- `assertWritableInput({ declaredFields, policies, input, context })` resolves to
+  the input as `Partial<Row>`. It throws on an unknown, sensitive or forbidden
+  field; it never drops one silently.
 
 ### Bound adapter scope
 
@@ -4425,7 +4447,8 @@ code-to-HTTP-status table.
   redacts unexpected failures to `internal`.
 - `resultResponse(result)` produces a JSON `Response` with the canonical status.
 - `reportUnexpectedError(error, context, onError)` invokes `hooks.onError` at
-  most once for the same error object. `ErrorContext` includes request,
+  most once for the same error object, and skips a `FlowpanelError` entirely.
+  Without `onError` it logs the error once with `console.error` and the request id. `ErrorContext` includes request,
   operation, actor, IP and user-agent diagnostics but no submitted secrets.
 
 An action should throw a FlowPanel error or return an `ActionResult` rather than
@@ -4439,7 +4462,7 @@ What FlowPanel needs from a database layer, method by method.
 
 Docs: https://flowpanel.tech/docs/reference/adapters
 
-Documented types: Adapter, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions, BullMQAdapterOptions, toCsv, toJson
+Documented types: Adapter, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions, toCsv, toJson
 
 The adapter is the only part of FlowPanel that queries your database. Implement
 this interface for a data layer without a shipped adapter. Overview:
@@ -4550,19 +4573,20 @@ Returned by `introspect`. `kind: "view"` makes a resource read-only unless it se
 | `hasDefault?` | `boolean` | The database or ORM fills the column when the insert omits it. |
 | `sensitive?` | `boolean` | Adapter-discovered secret. Always excluded from generated read projections. |
 
-`type` is read only by a fully generated form (no `create.fields` or
-`update.fields`):
+`type` and `enumValues` drive a fully generated form (no `create.fields` or
+`update.fields`) and editable list cells:
 
-| `ColumnMeta.type` | Generated form control |
-| --- | --- |
-| `number` | `number` |
-| `boolean` | `checkbox` |
-| `date` | `datetime-local` |
-| `json` | `json` |
-| `string`, `enum`, `array`, `reference` | `text` |
+| Column | Generated form control | Editable cell |
+| --- | --- | --- |
+| has `enumValues` | `select` | text |
+| `number` | `number` | `number` |
+| `boolean` | `checkbox` | text |
+| `date` | `datetime-local` | `datetime-local` |
+| `json` | `json` | text |
+| anything else | `text` | text |
 
-Filters and declared fields do not infer a type from the column. `enumValues` and
-`references` are reported for your own use.
+Filters and declared fields do not infer a type from the column. `references` is
+reported for your own use.
 
 ### What an implementation must honor
 
@@ -4598,13 +4622,12 @@ column rather than remove the row.
 | `dmmf?` | `PrismaDmmf` |  |
 | `parseDates?` | `boolean` | Reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s; turn off if a text column holds timestamp-shaped strings `select *` cannot cast. Default: `true`. |
 
-`BullMQAdapterOptions`
+`prismaAdapter` needs `provider`, a `PrismaProvider`: `"postgresql"`, `"mysql"` or
+`"sqlite"`. An adapter may also implement `transaction(run)`; both built-in
+adapters do, and the built-in bulk delete uses it so a failure deletes nothing.
 
-| Property | Type | Notes |
-| --- | --- | --- |
-| `queues` | `Record<string, Queue>` |  |
-
-`bullmqAdapter` takes the queue map itself: `bullmqAdapter({ email: emailQueue })`.
+`bullmqAdapter` takes the queue map itself, with no options object:
+`bullmqAdapter({ email: emailQueue })`.
 
 ### Also exported
 
@@ -4624,8 +4647,9 @@ The parts each adapter is built from:
 
 Standalone row serializers from `@flowpanel/kit/drizzle`.
 
-Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines and
-writes `Date`s as ISO.
+Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines,
+writes `Date`s as ISO, and prefixes a value starting with `=`, `+`, `-`, `@`, a tab
+or a carriage return with `'`, so a spreadsheet does not run it as a formula.
 
 ## Scope & realtime
 
@@ -4635,8 +4659,6 @@ Docs: https://flowpanel.tech/docs/reference/scope-realtime
 
 Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher, createRealtimeTransport, createPublisher, PublisherClient, RedisLike, ResourceChange, encodeEnvelope, decodeEnvelope, RateLimiter
 
-Tenant scope, the realtime publisher, and the rate limiter.
-
 ### Scope
 
 A scope is resolved once per request and applied by the adapter to every query.
@@ -4644,6 +4666,7 @@ Guide: [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 
 ```ts excerpt
 type Scope = Record<string, unknown> | null;
+// FlowpanelTypes["session"] when you register it, else Record<string, unknown>
 type Session = Record<string, unknown>;
 ```
 
@@ -4663,8 +4686,11 @@ defineAdmin({
 });
 ```
 
-The returned object reaches every context as `ctx.scope`, and the adapter
-receives the resource's predicate bound to it as `ctx.boundScope`.
+The returned object reaches resource predicates as their first argument, and
+policies, mutations and actions as `ctx.scope`. The adapter receives the
+resource's predicate bound to it as `ctx.boundScope`. Widgets get no `ctx.scope`:
+`ctx.count` and `ctx.read` apply the scope for you, and a `ctx.sql` or `ctx.db`
+query must read the tenant from `ctx.session`.
 
 #### The opt-out is mandatory
 
@@ -4767,7 +4793,7 @@ The publisher is bound per process from `config.realtime` and rebinds when the
 options change. It warns once when the driver is `memory` while `REDIS_URL` or
 `FLOWPANEL_REDIS_URL` is set:
 
-```
+```text
 [flowpanel] realtime driver is memory while REDIS_URL is set — other instances
 and workers will not receive events; set realtime: { driver: 'redis', url:
 process.env.REDIS_URL } in defineAdmin
@@ -4786,8 +4812,9 @@ function createRateLimiter(opts: RateLimitOptions): RateLimiter;
 ```
 
 `check` returns `false` over the limit, which becomes a `429`. With `per: "user"`
-the key is `AuthConfig.userId`, or the IP without one. The memory driver counts
-per process; its Redis key prefix defaults to `"fp:rl:"`.
+the key is `AuthConfig.userId`, else the session's `id` or `user.id`, else the IP.
+The memory driver counts per process. The Redis driver's key prefix defaults to
+`"fp:rl:"`.
 
 ## Errors
 
@@ -4798,8 +4825,12 @@ Docs: https://flowpanel.tech/docs/reference/errors
 Documented types: FlowpanelError, FlowpanelValidationError
 
 Throw one of these from an action, adapter or custom route and FlowPanel answers
-with its status and `safeMessage`. Any other error becomes a generic `500`, and the
-detail is logged, not sent.
+with its status and `safeMessage`. Any other error becomes a generic `500` with no
+detail in the response beyond its `requestId`.
+FlowPanel passes the error to `hooks.onError`, so send it to your logger there.
+Without a hook it logs one `console.error` with the operation and the same request
+id. In development the log has the whole error; in production only the first line of
+the error and its cause, so query parameters and the values they carry stay out of it.
 
 ### FlowpanelError
 
@@ -4822,16 +4853,17 @@ throw new FlowpanelError("conflict", "This order is already being processed");
 | Class | `code` | Status | Default message | Raised by FlowPanel? |
 | --- | --- | --- | --- | --- |
 | `FlowpanelValidationError` | `validation_failed` | 422 | Validation failed | yes |
-| `FlowpanelAuthError` | `unauthenticated` | 401 | Authentication required | yours to throw |
+| `FlowpanelAuthError` | `unauthenticated` | 401 | Authentication required | no, yours to throw |
 | `FlowpanelAccessError` | `forbidden` | 403 | Forbidden | yes |
 | `FlowpanelFieldAccessError` | `field_forbidden` | 403 | `Field "x" cannot be changed.` | yes |
 | `FlowpanelOperationDisabledError` | `operation_disabled` | 403 | This operation is disabled. | yes |
 | `FlowpanelUnknownFieldError` | `unknown_field` | 400 | `Unknown field: "x".` | yes |
 | `FlowpanelNotFoundError` | `not_found` | 404 | Not found | yes |
-| `FlowpanelConflictError` | `conflict` | 409 | Conflict | no — yours to throw |
+| `FlowpanelConflictError` | `conflict` | 409 | Conflict | yes, for a database conflict |
 | `FlowpanelRateLimitError` | `rate_limited` | 429 | Rate limit exceeded | yes |
 
-Each takes an optional message.
+Each takes an optional message, except the two field errors, which take the field
+name, and `FlowpanelValidationError`, which takes its field errors first.
 
 #### FlowpanelValidationError
 
@@ -4853,6 +4885,25 @@ throw new FlowpanelValidationError({
 // with a banner message as well:
 throw new FlowpanelValidationError({ email: "Already registered" }, "Could not save");
 ```
+
+### Database constraint violations
+
+A create, edit, inline edit or delete that breaks a database constraint does not
+become a `500`. FlowPanel reads the Postgres, MySQL, SQLite or Prisma error, through
+any wrapping error, and answers with a message from `labels.form`:
+
+| Violation | Column known | Answer |
+| --- | --- | --- |
+| Unique | yes | 422, `taken` on the field: "Email is already taken" |
+| Unique | no, e.g. a composite key | 409, `conflict` |
+| Foreign key on a write | yes | 422, `missingReference` on the field |
+| Foreign key on a write | no | 409, `missingLink` |
+| Foreign key on a delete | either | 409, `inUse` |
+| NOT NULL | yes | 422, `required` on the field |
+
+The column is matched to the resource's field by name, ignoring case and `_`, so
+`user_id` reaches `userId`. A violation without a column it can match, and any
+other database error, stays a `500` and is reported as above.
 
 ### Config-time errors are not in this hierarchy
 
@@ -4947,44 +4998,46 @@ itself is invalid.
 
 ### Errors the routes produce themselves
 
-The generated UI routes answer some errors directly with a string `error`. The
-JSON CRUD API returns a `FlowpanelResultError` instead.
+The generated UI routes answer some errors directly with a string `error`:
 
-#### 400 — malformed request body
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid JSON body` | A JSON body that does not parse. |
+| 400 | `JSON body must be an object` | A JSON array or scalar. |
+| 400 | `invalid form data` | A form body that does not parse. |
+| 413 | `request body is too large` | A body over the size limit. |
+| 403 | `Cross-origin write requests are not allowed.` | The default browser origin guard blocks a mutation. |
+| 403 | `This admin is read-only.` | `readOnly: true` blocks a write. |
+| 422 | `too many ids (max N)` | A bulk action gets more ids than its `max`. |
+| 422 | `validation failed` | An action `form` fails validation; the body adds an `issues` array. See [Actions → Validation](/docs/reference/actions#validation). |
 
-A JSON body that does not parse:
+The JSON CRUD API that the [typed client](/docs/reference/client) calls answers with
+a `FlowpanelResultError`, `{ ok: false, error: { code, message } }`, instead:
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 400 | `bad_request` | A body that does not parse or is not a JSON object. |
+| 405 | `method_not_allowed` | A method the route does not serve; `Allow` lists the ones it does. |
+| 413 | `payload_too_large` | A JSON body over 1 MiB. |
+| 415 | `unsupported_media_type` | A write without `Content-Type: application/json`. |
+
+#### 404: unknown resource, action or dashboard
+
+The UI routes answer with the same short body in every environment. The message
+names the kind: `resource`, `action` or `dashboard`.
 
 ```json
-{ "ok": false, "error": "invalid JSON body" }
+{ "ok": false, "error": { "code": "not_found", "message": "action not found" } }
 ```
 
-#### 404 — unknown resource, action or dashboard
+Outside production the server console also prints what is registered:
 
-In production the message is terse:
-
-```json
-{ "ok": false, "error": "resource not found" }
+```text
+[flowpanel] action not found: "refnud". Registered actions: "refund", "cancel".
 ```
 
-Outside production it names what is registered:
-
-```json
-{
-  "ok": false,
-  "error": "action not found: \"refnud\". Registered actions: \"refund\", \"cancel\"."
-}
-```
-
-`kind` is one of `resource`, `action` or `dashboard`.
-
-#### 403 / 422 from the guard pipeline
-
-`403 Cross-origin write requests are not allowed.` when the default browser
-origin guard blocks a mutation; `403 This admin is read-only.` when
-`readOnly: true` blocks a write;
-`422 too many ids (max 1000)` when a bulk action exceeds its cap;
-`422 validation failed` with an `issues` array when an action `form` fails
-validation. See [Actions → Validation](/docs/reference/actions#validation).
+The JSON CRUD API answers `{ "code": "not_found", "message": "not found" }` for an
+unknown route or resource.
 
 ## CLI
 
@@ -4998,7 +5051,7 @@ commands run as `pnpm flowpanel <command>`. The CLI uses the package manager of
 your lockfile.
 
 `flowpanel [options] [command]` — Add a typed admin panel to a Next.js app
-- `-V, --version` output the version number
+- `-V, --version` Print the version
 
 `flowpanel init [options]` — Initialize FlowPanel in this project
 - `--yes` Accept detected defaults without prompting (CI mode)
@@ -5010,6 +5063,19 @@ your lockfile.
 - `--auth <module>` Local module exporting getSession(request)
 - `--dev-auth` Explicitly use an open development-only admin identity
 
+`flowpanel new [options] <resource>` — Add a resource for a table or model to the admin config
+- `<resource>`
+- `--table <expr>` The resource's first argument, as code (default: schema.<resource> on Drizzle, the model name on Prisma)
+- `--kind <kind>` Adapter kind: drizzle or prisma (default: the config's adapter)
+- `--dir <dir>` Write the resource to <dir>/<name>.ts and add it to <dir>/index.ts
+- `--hidden` Register the resource without a navigation entry
+- `--dry-run` Print the filesystem plan without writing
+- `--json` Emit machine-readable JSON
+
+`flowpanel dev [options]` — Run next dev, plus the queue board when REDIS_URL is set
+- `--port <port>` Next.js dev port (default: 3000)
+- `--no-board` Skip the queue board (bull-board) even if REDIS_URL is set
+
 `flowpanel migrate [options]` — Apply SQL migrations from flowpanel/migrations/
 - `--dry-run` Print migrations that would be applied without running them
 - `--json` Emit machine-readable JSON
@@ -5020,23 +5086,10 @@ your lockfile.
 - `--json` Emit machine-readable JSON
 - `--path <path>` Resolved admin path when the config uses a dynamic one
 
-`flowpanel eject [options] <target> [name]` — Eject a FlowPanel piece into your app/admin folder. Targets: resource <name>, dashboard <path>, layout.
+`flowpanel eject [options] <target> [name]` — Copy resource <name>, dashboard <path> or layout into your admin folder as code you own
 - `<target>`
 - `[name]`
 - `--force` Overwrite files if they already exist
-- `--dry-run` Print the filesystem plan without writing
-- `--json` Emit machine-readable JSON
-
-`flowpanel dev [options]` — Run next dev, plus the queue board when REDIS_URL is set
-- `--port <port>` Next.js dev port Default: `3000`.
-- `--no-board` Skip the queue board (bull-board) even if REDIS_URL is set
-
-`flowpanel new [options] <resource>` — Add a resource(...) entry to the admin config
-- `<resource>`
-- `--table <expr>` First argument expression (default: schema.<resource>)
-- `--kind <kind>` Adapter kind: drizzle or prisma (default: the config's adapter)
-- `--dir <dir>` Write the resource to <dir>/<name>.ts and add it to <dir>/index.ts
-- `--hidden` Register the resource without a navigation entry
 - `--dry-run` Print the filesystem plan without writing
 - `--json` Emit machine-readable JSON
 
@@ -5069,31 +5122,27 @@ an open development identity; the answer defaults to no.
 │
 ◇  Detected stack ───────────────────────────────────────╮
 │                                                        │
-│  Next.js 16.3.7 · React 19.2.8 · TypeScript · Drizzle  │
+│  Next.js 16.4.0 · React 19.3.0 · TypeScript · Drizzle  │
 │                                                        │
 ├────────────────────────────────────────────────────────╯
 │
-◇  App name
+◇  App name, shown as the sidebar brand
 │  my-app
 │
-◇  Drizzle db client path
-│  @/db/index
+◇  Drizzle client module, as an import path (exports db)
+│  @/db
 │
-◇  Drizzle schema path
+◇  Drizzle schema module, as an import path
 │  @/db/schema
 │
-◇  Auth helper path (must export getSession)
+◇  Session module, as an import path (exports getSession)
 │  @/server/lib/auth
 │
 ◇  No session helper found. Use an open development-only admin identity for now?
 │  Writes a dev stub that refuses to run in production; replace it with your provider before deploying.
 │  Yes
 │
-◇  Admin URL ─╮
-│             │
-│  /admin     │
-│             │
-├─────────────╯
+●  Admin URL: /admin
 │
 ◇  Filesystem plan ──────────────────────────────────╮
 │                                                    │
@@ -5113,33 +5162,30 @@ an open development identity; the answer defaults to no.
 ◇  Apply these changes?
 │  Yes
 │
-◇  Wrote ─────────────────────────────────────╮
-│                                             │
-│  flowpanel.config.ts                        │
-│  src/app/admin/[[...slug]]/page.tsx         │
-│  src/app/api/flowpanel/[...route]/route.ts  │
-│  src/app/api/flowpanel/stream/route.ts      │
-│  src/styles/admin.css                       │
-│  flowpanel/migrations/0001_init.sql         │
-│  src/server/lib/auth.ts                     │
-│  src/app/admin/layout.tsx                   │
-│  src/app/admin/not-found.tsx                │
-│  src/app/layout.tsx                         │
-│                                             │
-├─────────────────────────────────────────────╯
+◆  Wrote 10 files
 │
 ◇  Installed @flowpanel/kit@~0.4.0, @flowpanel/cli@~0.4.0
 │
-└  Authentication: src/server/lib/auth.ts is an open development identity. Replace it before deploying.
-
-Next
-  pnpm flowpanel new <table>    add a resource to flowpanel.config.ts
-  pnpm dev                      start Next.js, then open http://localhost:3000/admin
-  https://flowpanel.tech/docs/introduction/getting-started
+▲  src/server/lib/auth.ts signs every request in as an admin in development and throws
+│  under `next start`. Replace it with your auth provider before deploying.
+│
+◇  Next ─────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                │
+│  pnpm flowpanel new <table>    add a resource to flowpanel.config.ts                           │
+│  pnpm dev                      start Next.js and open the admin URL below                      │
+│  pnpm flowpanel migrate        only if you turn on the audit log: creates flowpanel_audit_log  │
+│  https://flowpanel.tech/docs/introduction/getting-started                                      │
+│                                                                                                │
+├────────────────────────────────────────────────────────────────────────────────────────────────╯
+│
+└  Admin: http://localhost:3000/admin
 ```
 
 The closing block names the next commands and the admin URL at the dev server's
-default port. The line above it depends on the session module `init` wrote or found.
+default port. The warning above it depends on the session module `init` wrote or
+found: the closed stub denies every request until `getSession` returns your
+provider's session, or until `pnpm flowpanel init --dev-auth` swaps in the open
+development identity.
 
 What varies:
 
@@ -5148,10 +5194,15 @@ What varies:
   `--path /ops/admin`. If the fallback is taken too, nothing is written.
 - **Admin route**: the catch-all page exports `generateMetadata`, which sets the page
   title from the resource or dashboard, and `not-found.tsx` beside the layout renders
-  FlowPanel's not-found page for the admin route.
+  FlowPanel's not-found page for the admin route. When `next.config` turns on
+  `cacheComponents`, the page also exports `instant = false`, so `next dev` does not
+  log "encountered uncached data" on every admin page.
 - **Admin layout**: imports the stylesheet and renders `ThemeScript` with the
   `x-nonce` request header. Under a strict `script-src`, your middleware must set
   `x-nonce` and the matching CSP header; FlowPanel does not write that middleware.
+  When `next.config` turns on `cacheComponents`, as `create-next-app` does from
+  Next.js 16.4, the layout also exports `instant = false`, which lets the admin read
+  the request before it renders.
   `init` adds `suppressHydrationWarning` to the root layout's `<html>` tag, or prints
   the edit when it cannot patch the file. Without a root layout, the admin gets its
   own.
@@ -5161,18 +5212,30 @@ What varies:
   [preset](/docs/guides/authentication). Otherwise it writes a closed `getSession`
   adapter. `--dev-auth`, or a yes to the wizard question, writes an open development
   identity that warns once per process and refuses to run in production. On an
-  initialized project, `--dev-auth` replaces the session module when it is still the
-  untouched closed stub, and a module you edited stops `init` with exit `1` and
-  nothing written.
+  initialized project, `--dev-auth` touches only the module the config imports
+  `getSession` from: it replaces it while it is still one of `init`'s stubs, after
+  `flowpanel new` or any other edit, and asks first in a terminal. A module that
+  exports anything else, or whose `getSession` you changed, is your own: `init` stops
+  with exit `1` and nothing written, saying what to change instead.
+- **Role mapping**: with `init`'s stub the config reads `s?.user.role`. With your
+  own `getSession` it reads `user.role` only when it is a string and treats other
+  sessions as `"guest"`, so the config compiles for any session type.
+- **Migration**: `flowpanel/migrations/0001_init.sql` is written for the project's
+  database: PostgreSQL, MySQL or SQLite, read from the Prisma provider or the Drizzle
+  modules. An existing file is kept.
 - **Piped output**: without a terminal, `init --yes` prints the files it wrote, the
   install result, every warning and the closing block as plain lines, with no colour
   codes, also under `CI`.
 - **Prisma provider**: the config's `provider` comes from the `datasource` in the
-  Prisma schema: `package.json#prisma.schema`, the literal `schema` in
-  `prisma.config.ts`, `prisma/schema.prisma` or `prisma/schema/`. A provider other
+  Prisma schema: the literal `schema` in `prisma.config.ts`,
+  `package.json#prisma.schema`, `prisma/schema.prisma` or `prisma/schema/`. A provider other
   than `postgresql`, `mysql` or `sqlite` stops `init` with nothing written. When no
   datasource is found, `init` writes `postgresql` and warns.
-- **Install**: skipped for packages already in `package.json`.
+- **Install**: skipped for packages already in `package.json` and installed. A
+  package in `node_modules` but missing from `package.json` is added, so the next
+  install does not remove it.
+- **Dry run**: `--dry-run` lists the db, schema and session modules it would use, the
+  session outcome and the migration dialect, then the plan.
 
 #### When `init` stops
 
@@ -5180,15 +5243,19 @@ What varies:
   other commands say the same outside a project root.
 - **Neither Drizzle nor Prisma in `package.json`**: exits `1` with the install
   command.
+- **No Drizzle client, schema or Prisma client at the guessed paths**: exits `1`
+  with a starting file for each and the `--db` and `--schema` flags that point at
+  yours.
 - **No terminal and no `--yes`, `--dry-run` or `--json`**: exits `1`. Pass `--yes`
   in CI.
 - **A failed install**: keeps the files, prints the commands to run by hand, and
   exits `1`. So does an installed `@flowpanel/kit` or `@flowpanel/cli` from another
   minor version.
 
-Re-running `init` skips matching files. A conflicting file stops it with nothing
-written and every conflicting path listed. `--yes` accepts detected paths; it never
-overwrites.
+Re-running `init` keeps `flowpanel.config.ts` and skips matching files, and says
+`Already set up; nothing changed.` when there is nothing to write. A conflicting
+file stops it with nothing written and every conflicting path listed. `--yes`
+accepts detected paths; it never overwrites.
 
 ### flowpanel migrate
 
@@ -5207,11 +5274,18 @@ $ pnpm flowpanel migrate
 tell which are applied. `--json` returns the pending and applied lists. Applied IDs
 live in `_flowpanel_migrations`.
 
-Without `flowpanel.config.ts` it exits `1` and says to run `flowpanel init`, as `new`
-does. When the database cannot be reached, the first line is `Cannot reach the
-database at <host>:<port> (<code>). Check DATABASE_URL.` for Drizzle and Prisma alike;
+Without `flowpanel.config.ts` it exits `1` and says to run `init`, as `new` does.
+Before it connects, it checks the connection variable your database client reads
+(usually `DATABASE_URL`): when it is unset or empty, `migrate` exits `1` and says
+what to set, so the driver never falls back to `localhost`. It reads the modules
+the config imports `db` or `prisma` from, plus the Prisma schema; a variable with a
+fallback in code, such as `?? "file:local.db"`, is not required. When the database
+cannot be reached, the first line is `Cannot reach the database at
+<host>:<port> (<code>). Check DATABASE_URL.` for Drizzle and Prisma alike;
 the code is the socket error or Prisma's `P1001`, `P1002` or `P1017`.
-`FLOWPANEL_DEBUG=1` adds the failed SQL and the stack trace.
+`FLOWPANEL_DEBUG=1` adds the failed SQL and the stack trace. Under `--json` the
+failure is a JSON document with an `error` field, and `applied` is `false` when
+nothing ran.
 
 Migrators are serialized at the database, and a concurrent duplicate is a no-op.
 On PostgreSQL and SQLite each file and its marker share one transaction. MySQL
@@ -5232,19 +5306,30 @@ Every command reads `.env.local`, then `.env`; shell variables win.
 
 Runs these checks:
 
-- Next.js ≥ 16.3 and < 17, and TypeScript installed
-- an ORM the adapters support — Drizzle or Prisma
-- `flowpanel.config.ts` exists
+- Next.js 15.5 or newer within 15 or 16, and TypeScript installed
+- React and React DOM installed at supported, matching versions, and a supported Node.js
+- an ORM the adapters support: Drizzle or Prisma
+- `flowpanel.config.ts` exists; before `init`, this is the only check after the
+  prerequisites, and its hint is `pnpm dlx @flowpanel/cli init`
 - `@flowpanel/kit` is installed and matches the CLI's minor version
-- the five generated files exist: the API route, the SSE route, the seed
-  migration, the catch-all admin page, and the not-found page
+- the admin mount in the config (`paths.admin`) resolves to a static path
+- the generated files exist: the API route, the SSE route, the seed migration and
+  the catch-all admin page. A missing not-found page is a warning that `--fix` still
+  repairs
 - only one reachable `@flowpanel/core` installation across the installed
   dependency graph, including package-local peers and third-party plugins.
   Stale pnpm store entries are ignored; uninstalled projects skip this check
 - no destructive row/bulk action declared without a `confirm`
-- `tsc --noEmit` passes; when `.next/types` is missing and Next is 15.5 or later,
-  `doctor` runs `next typegen` first, which writes `.next/types`, so the route and
-  layout globals Next generates exist
+- every ejected admin page still carries its eject marker
+- with `cacheComponents` on: Next.js 16.3 or newer, no `runtime`, `dynamic`,
+  `revalidate` or `fetchCache` export in the generated routes and admin page, and
+  `instant = false` in the catch-all admin page and in an admin layout that reads the
+  request. `--fix` adds it to a catch-all page `init` wrote; a page you edited gets
+  the hint only
+- `tsc --noEmit` passes. When `.next/types` is missing, `doctor` runs `next typegen`
+  first, so the route and layout types Next generates exist
+- `flowpanel.config.ts` evaluates; an error there is a failure with the error as
+  its hint
 
 Three more checks warn without failing the run: a session module that is still the
 closed stub (`getSession` returns `null`) or the open development identity from
@@ -5267,7 +5352,7 @@ were all that was missing. Other failures print a hint. A failed check exits non
 
 ### flowpanel eject
 
-`flowpanel eject [options] <target> [name]` — Eject a FlowPanel piece into your app/admin folder. Targets: resource <name>, dashboard <path>, layout.
+`flowpanel eject [options] <target> [name]` — Copy resource <name>, dashboard <path> or layout into your admin folder as code you own
 - `<target>`
 - `[name]`
 - `--force` Overwrite files if they already exist
@@ -5283,15 +5368,17 @@ $ pnpm flowpanel eject dashboard "/monitoring"
 $ pnpm flowpanel eject layout
 ```
 
-It writes the files and comments out the config entry, as one transaction. When a
-target file exists, the plan is printed with `Use --force to overwrite.`: a dry run
-exits `0` and a real run exits `1`. `--force` replaces existing files. It follows a
-re-exporting root config and a `new --dir` resources directory.
+It writes the files under the admin mount, as one transaction. An ejected resource
+stays in the config, because the ejected `actions.ts` reads rows through it; an ejected
+dashboard's entry is commented out. When a target file exists, the plan is printed with
+`Use --force to overwrite.`: a dry run exits `0` and a real run exits `1`. `--force`
+replaces existing files. It follows a re-exporting root config and a `new --dir`
+resources directory.
 
 ### flowpanel dev
 
 `flowpanel dev [options]` — Run next dev, plus the queue board when REDIS_URL is set
-- `--port <port>` Next.js dev port Default: `3000`.
+- `--port <port>` Next.js dev port (default: 3000)
 - `--no-board` Skip the queue board (bull-board) even if REDIS_URL is set
 
 Runs `next dev`, plus the queue board (bull-board) when `scripts/board-server.mts`
@@ -5304,14 +5391,17 @@ says how to set `nodeLinker` to `node-modules`. A busy port stops it with `Port 
 $ pnpm flowpanel dev --port 3000
 ```
 
-Output is prefixed `[next]` and `[board]`; when one exits, both stop.
-`--no-board` skips the queue board.
+A port counts as busy when anything answers on `127.0.0.1` or `::1`.
+Output is prefixed `[next]` and `[board]`; when Next.js is ready, `dev` prints the
+admin URL. When one process exits, both stop.
+`--no-board` skips the queue board. The board runs with `tsx` from your project, so
+install it as a dev dependency (`pnpm add -D tsx`) when you use queues.
 
 ### flowpanel new
 
-`flowpanel new [options] <resource>` — Add a resource(...) entry to the admin config
+`flowpanel new [options] <resource>` — Add a resource for a table or model to the admin config
 - `<resource>`
-- `--table <expr>` First argument expression (default: schema.<resource>)
+- `--table <expr>` The resource's first argument, as code (default: schema.<resource> on Drizzle, the model name on Prisma)
 - `--kind <kind>` Adapter kind: drizzle or prisma (default: the config's adapter)
 - `--dir <dir>` Write the resource to <dir>/<name>.ts and add it to <dir>/index.ts
 - `--hidden` Register the resource without a navigation entry
@@ -5328,12 +5418,22 @@ $ pnpm flowpanel new posts
 └  Added resource "posts" to flowpanel.config.ts
 ```
 
-It adds `resource(schema.posts, {})` to the `resources` array, with no `columns`, so
-the list shows every column until you narrow it. It also adds `resource` to the
+It reads the table from your schema and adds an entry with its columns, search
+fields, filters and default sort to the `resources` array, chosen the same way as
+`--dir` below; an enum column gets a `select` filter. It also adds `resource` to the
 `@flowpanel/kit` import when missing and removes the placeholder comment that `init`
 wrote above the array. It checks the schema has the table, by SQL name or export
 name, and exits `1` if not, or if the resource exists. It follows a root config that
-re-exports another module.
+re-exports another module, and when the config reads a `--dir` directory, `new`
+writes there. `--hidden` without `--dir` adds `hidden: true` to the entry.
+
+On Prisma it reads `schema.prisma`: `new users` resolves to the model mapped to
+that table (`User`), and an unknown name exits `1` with the list of models. The
+entry gets `name` set to the `@@map` table name, or the model in plural snake case
+(`OrderItem` becomes `order_items`), so the URL and navigation read like a Drizzle
+table's. A relation field becomes a `reference` when the target model already has a
+resource. The model is added to `FlowpanelResources` under that name, so its rows and
+the references to it are typed.
 
 #### One file per resource
 
@@ -5363,7 +5463,9 @@ export const userVisit = resource(schema.userVisit, {
 });
 ```
 
-and adds it to `admin/config/resources/index.ts`. Columns are chosen by type; an
+and adds it to `admin/config/resources/index.ts`. The first time, it also imports
+that directory's `resources` into `flowpanel.config.ts` and spreads it into the
+array; when the config is shaped differently it prints the line to add. Columns are chosen by type; an
 enum gets an `enumOf` stub; a foreign key becomes a `reference` labelled by the
 target's `name`, `title` or `email` when the target already has a file, so scaffold
 referenced tables first. JSON and long text are left out, `name`, `title` and
@@ -5371,12 +5473,12 @@ referenced tables first. JSON and long text are left out, `name`, `title` and
 `--hidden` keeps the resource out of the navigation.
 
 Re-running changes nothing; a different existing file stops it. `--dir` is
-Drizzle only. Without `--dir`, a config whose `resources` is not an array literal
-is left alone.
+Drizzle only. Without `--dir`, a config whose `resources` comes from a `--dir`
+directory gets the new file there; any other `resources` that is not an array
+literal is left unchanged, and `new` exits `1`.
 
-`--table <expr>` sets the table expression and skips the schema check. `--kind`
-defaults to the adapter the config builds; `--kind prisma` writes
-`resource("<name>", {})`, with the name as a string, so pass the Prisma model name.
+`--table <expr>` sets the table expression, skips the schema check and writes empty
+options. `--kind` defaults to the adapter the config builds.
 
 ## Testing
 
@@ -5403,14 +5505,14 @@ import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/test";
 
 test("the admin is healthy", async ({ page }) => {
-  await smokeAdmin(page, { basePath: "/admin", a11y: true });
+  await smokeAdmin(page, { paths: { admin: "/admin" }, a11y: true });
 });
 ```
 
-The walk starts at `basePath`, opens every dashboard and list in the navigation,
+The walk starts at `paths.admin`, opens every dashboard and list in the navigation,
 then opens each list's first row as its record page or drawer. On a record page it
-opens every tab (`tabs: false` skips them), so a failure names its URL, such as
-`/admin/users/1?tab=activity`. A drawer is checked on its first tab.
+opens every other tab as `?tab=<key>` (`tabs: false` skips them), so a failure
+names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its first tab.
 
 ### What it asserts
 
@@ -5420,7 +5522,7 @@ opens every tab (`tabs: false` skips them), so a failure names its URL, such as
 | Nothing wrote to `console.error` | `console.error: <text>` |
 | No page rendered `[data-fp-error]` | `<route>: rendered a FlowPanel error surface` |
 | Zero WCAG 2.2 AA violations, with `a11y` | `<route>: axe <rule> (<impact>)` |
-| The navigation has at least one route | `smokeAdmin found no navigation under <basePath> …` |
+| The navigation has at least one route | `smokeAdmin found no navigation under <paths.admin> …` |
 
 `[data-fp-error]` marks FlowPanel's error cards: a failed widget, a failed read, a
 failed drawer. A walk that finds no routes fails. Pages count as loaded when `main`
@@ -5432,7 +5534,7 @@ is visible, since realtime pages never reach network idle.
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `basePath?` | `string` | Where the admin is mounted, matching `createFlowpanel`'s `basePath`. Default: `"/admin"`. |
+| `paths?` | `{ admin?: string }` | Where the admin is mounted: the config's `paths.admin`. Default: `"/admin"`. |
 | `cookie?` | `{ name: string; value: string; domain?: string }` | Session cookie added before the walk, for an admin behind authentication. |
 | `resources?` | `string[]` | Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. |
 | `a11y?` | `boolean` | Run axe against every visited route; needs `@axe-core/playwright`, or the walk skips the scan instead of failing. Default: `false`. |
@@ -5462,7 +5564,7 @@ and the report as JSON.
 import { smokeAdmin } from "@flowpanel/test";
 
 const report = await smokeAdmin(page, {
-  basePath: "/admin",
+  paths: { admin: "/admin" },
   cookie: { name: "session", value: process.env.E2E_SESSION ?? "" },
   resources: ["/", "customers", "orders"],
   maxRows: 3,
@@ -5525,14 +5627,14 @@ references. Access rules apply, so pass `session` and `role`; tenant scope does 
 | `role?` | `string` | The role access checks compare. Default: `"admin"`. |
 | `formatting?` | `FormattingConfig` | Without `admin`: locale, zone and currency, as `defineAdmin` takes them. |
 | `labels?` | `LabelsConfig` | Without `admin`: overrides of the admin's strings. |
-| `basePath?` | `string` | Without `admin`: where the admin is mounted. Default: `"/admin"`. |
+| `paths?` | `{ admin?: string }` | Without `admin`: where the admin is mounted, as `defineAdmin` takes `paths`. Default: ``{ admin: "/admin" }``. |
 
 `headerContext` builds the second argument of `detail.title`, `subtitle` and
 `badge`:
 
 ```ts excerpt
 import { headerContext } from "@flowpanel/test/widgets";
-import { admin } from "@/src/admin/config";
+import admin from "@/admin/config";
 
 const ctx = headerContext({ admin });
 expect(customers.options.detail?.title?.(row, ctx)).toBe("Northwind Audio");
@@ -5558,7 +5660,7 @@ export default defineConfig({
 
 ### Playwright config
 
-`smokeAdmin` calls `page.goto(basePath)`, so set a `baseURL` and a `webServer`:
+`smokeAdmin` calls `page.goto(paths.admin)`, so set a `baseURL` and a `webServer`:
 
 ```ts excerpt
 // playwright.config.ts
@@ -5651,10 +5753,12 @@ export default [
 In a `"use client"` file, flags imports of:
 
 - `server-only` and any `*/server-only` specifier;
-- an app-local path containing a `/server/` segment, or ending in `/server`;
-- `@/db` and `@/db/…`, plus the `~/db`, `src/db` and `./db` variants.
+- any specifier with a `/server` segment, such as `@/server/lib/auth` or
+  `react-dom/server`, except `next/server`;
+- an app-local path (`@/`, `~/`, `./`, `../`, `src/`) with a `db` segment, such as
+  `@/db` or `../lib/db/client`.
 
-Package entry points such as `next/server` and `import type` are ignored.
+`import type` is ignored.
 
 #### `audit-row-action-needs-confirm`
 
@@ -5681,7 +5785,8 @@ actions: [
 
 Flags two `resource()` entries in one `defineAdmin` with the same name, read from a
 literal `options.name` or a string ref. Identifiers resolve through a
-`const x = resource(…)` in the same file.
+`const x = resource(…)` in the same file; the same unresolved identifier listed
+twice is flagged too.
 
 #### `prefer-shorthand-filter`
 
@@ -5707,5 +5812,6 @@ filters: [{ field: "status", type: "select", options: ["active", "archived"] }];
 
 #### `no-typo-column-keyword`
 
-Flags the lower-case slips `userid`, `createdat`, `updatedat` and `isactive` in
-`columns`, for untyped rows. Not autofixable.
+Flags `userid`, `createdat`, `updatedat` and `isactive`, in any casing other than
+the camelCase one, in `columns`. The rule reads the source only, so it also catches
+them where the rows are untyped. Not autofixable.

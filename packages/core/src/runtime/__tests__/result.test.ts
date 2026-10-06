@@ -48,4 +48,26 @@ describe("safe runtime results", () => {
     });
     expect(JSON.stringify(result)).not.toContain("database password");
   });
+
+  it("keeps query parameters out of the production log", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const cause = new Error('duplicate key value violates unique constraint "users_email_key"');
+      const error = new Error(
+        "Failed query: insert into users values ($1, $2)\nparams: ada@example.com,hunter2",
+        {
+          cause,
+        },
+      );
+      await reportUnexpectedError(error, context);
+      const printed = log.mock.calls.flat().join(" ");
+      expect(printed).toContain("requestId req_42");
+      expect(printed).toContain("users_email_key");
+      expect(printed).not.toContain("hunter2");
+    } finally {
+      log.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
 });

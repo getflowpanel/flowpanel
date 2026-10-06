@@ -36,11 +36,11 @@ The resource's row type fell back to `Record<string, unknown>`, usually because 
 
 ### “Production refuses to start without requireRole”
 
-A writable production admin needs `auth.requireRole`. Only a deliberately public admin may set `allowUnauthenticated: true`, and then only with `readOnly: true`. See [Authentication](/docs/guides/authentication#verify).
+A production admin needs `auth.requireRole`. Only a deliberately public admin may run without it, and it must set both `allowUnauthenticated: true` and `readOnly: true`. See [Authentication](/docs/guides/authentication#verify).
 
 ### “A tenant can address another tenant's row”
 
-A resource has no scope, a custom query leaves out `ctx.scope`, or create accepts a tenant field from the form. See [Verify isolation](/docs/guides/multi-tenant-scope#verify-isolation).
+A resource has no scope, a custom `ctx.sql` or `ctx.db` query leaves out the tenant predicate, or create accepts a tenant field from the form. See [Verify isolation](/docs/guides/multi-tenant-scope#verify-isolation).
 
 ## Data and forms
 
@@ -76,9 +76,9 @@ The browser cannot reach `boardUrl`, the board token is missing, or the proxy bl
 
 ## Customization
 
-### “Charts package not installed”
+### “Module not found: Can't resolve 'recharts'”
 
-Run `pnpm add recharts`. See [Charts](/docs/customization/charts).
+Chart widgets render with Recharts, which your app installs: run `pnpm add recharts`. The admin's chart placeholder names the same package. See [Charts](/docs/customization/charts).
 
 ### “A computed column will not sort, filter, edit or export”
 

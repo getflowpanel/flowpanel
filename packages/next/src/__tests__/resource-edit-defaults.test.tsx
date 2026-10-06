@@ -77,6 +77,21 @@ const columns: ColumnMeta[] = [
   { name: "internalLock", type: "boolean", nullable: true, unique: false, primaryKey: false },
 ];
 
+describe("ResourceEditPage date defaults", () => {
+  it("fills a timestamp's control on the admin's wall clock", async () => {
+    const dated: ColumnMeta[] = [
+      { name: "id", type: "string", nullable: false, unique: true, primaryKey: true },
+      { name: "createdAt", type: "date", nullable: false, unique: false, primaryKey: false },
+    ];
+    const props = await autoFormProps(
+      { id: "c1", createdAt: new Date("2026-10-06T23:37:07.623Z") },
+      dated,
+      { columns: ["id", "createdAt"] },
+    );
+    expect(props.defaultValues).toEqual({ createdAt: "2026-10-06T23:37" });
+  });
+});
+
 describe("ResourceEditPage default values", () => {
   it("fails closed under global scope before loading an unscoped row", async () => {
     let getCalls = 0;

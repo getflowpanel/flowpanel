@@ -8,18 +8,15 @@ import { MobileCardList, type MobileCardListProps } from "./MobileCardList";
 /** Cards a phone shows before the rest of the page folds behind one button. */
 export const MOBILE_ROWS = 10;
 
-/** The phone's card list, folded past `MOBILE_ROWS`; unfolding moves focus to the first new card. */
+/** The phone's card list, folded past `MOBILE_ROWS`; unfolding moves focus to the first new card. Key it by page to fold again. */
 export function MobileCardFold<Row extends Record<string, unknown>>({
-  page,
   rows,
   ...props
-}: MobileCardListProps<Row> & { page: number }) {
+}: MobileCardListProps<Row>) {
   const labels = useLabels();
   const [unfolded, setUnfolded] = React.useState(false);
   const focusFirstNew = React.useRef(false);
   const holder = React.useRef<HTMLDivElement>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new page starts folded again.
-  React.useEffect(() => setUnfolded(false), [page]);
   React.useEffect(() => {
     if (!unfolded || !focusFirstNew.current) return;
     focusFirstNew.current = false;

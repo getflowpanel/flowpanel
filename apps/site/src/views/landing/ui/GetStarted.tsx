@@ -31,7 +31,7 @@ export function GetStarted() {
         <CopyButton text={INSTALL_CMD} />
       </div>
       <p className="mt-4 text-sm text-[var(--color-fg-subtle)]">
-        Requires Next.js 16.3+, React 19, and Drizzle 0.45+ or Prisma 5–6.
+        Requires Next.js 15.5 or 16, React 19, and Drizzle 0.45+ or Prisma 5–6.
       </p>
 
       <div className="mt-10 max-w-[58ch] space-y-4 leading-relaxed text-[var(--color-fg-muted)]">
@@ -40,7 +40,11 @@ export function GetStarted() {
           <Link href="/docs/introduction/getting-started" className={linkClass}>
             getting started guide
           </Link>{" "}
-          for the first resource and dashboard.
+          for the first resource, then{" "}
+          <Link href="/docs/introduction/founder-admin" className={linkClass}>
+            build a complete admin
+          </Link>{" "}
+          for dashboards and record pages.
         </p>
         <p>
           Two examples run locally with seeded data: ScrapeAI (

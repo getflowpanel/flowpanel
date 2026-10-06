@@ -41,9 +41,16 @@ Write one SQL statement per screen area that returns plain rows for the picked r
 
 ```ts excerpt
 import { barChart } from "@flowpanel/kit/charts";
-import { bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
+import { bars, breakdown, enumOf, series, type WidgetContext } from "@flowpanel/kit";
 
 type HourRow = { at: Date; platform: string; runs: number; failed: number; orders: number };
+
+const Platform = enumOf(["upwork", "fiverr", "freelancer"], {
+  upwork: "Upwork",
+  fiverr: "Fiverr",
+  freelancer: "Freelancer",
+});
+const PLATFORMS = Platform.values;
 
 const hourly = (c: WidgetContext) => c.sql<HourRow>`
   select hour as at, platform, runs_total as runs, runs_failed as failed, orders_new as orders
@@ -82,7 +89,14 @@ export const SUCCESS: Threshold = { warn: 0.9, err: 0.8 };
 
 `tracker()` shows one row per key and one block per hour for the last 24 hours, coloured by a threshold. `banner()` lists problems by severity and says "all clear" when there are none:
 
+`value` takes a column name or a fold over the bucket's rows, such as an error rate:
+
 ```ts excerpt
+const errorRate = (rows: HourRow[]) => {
+  const runs = rows.reduce((sum, row) => sum + row.runs, 0);
+  return runs === 0 ? null : rows.reduce((sum, row) => sum + row.failed, 0) / runs;
+};
+
 tracker({ label: "Marketplaces · 24 h", query: hourly, at: "at", by: "platform", labels: Platform, value: errorRate, volume: "runs", tones: RUN_ERRORS, format: "percent", span: 12 });
 
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });

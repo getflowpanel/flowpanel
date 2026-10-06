@@ -48,6 +48,7 @@ function makeConfig(
     resourcesByName: new Map([["users", resource]]),
     dashboardsByPath: new Map(),
     ...(opts.rateLimit ? { rateLimit: opts.rateLimit } : {}),
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return { config, created };

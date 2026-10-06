@@ -44,6 +44,19 @@ describe("widgetContext reads", () => {
     expect(widgetContext({ rows: { payment: PAYMENTS } }).filters).toEqual({});
   });
 
+  it("reads a zoneless timestamp as UTC, as the SQL adapters do, in any process zone", async () => {
+    const zone = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    try {
+      const late = [{ id: "v1", at: "2026-09-21 23:30:00" }];
+      const ctx = widgetContext({ rows: { visit: late }, range: WEEK });
+      expect(await ctx.count("visit", {}, { range: "at" })).toBe(0);
+    } finally {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
+  });
+
   it("counts by value, range, set and bounds, as the admin does", async () => {
     const ctx = widgetContext({ rows: { payment: PAYMENTS }, range: WEEK });
     expect(await ctx.count("payment", { status: "paid" })).toBe(2);
@@ -110,7 +123,11 @@ describe("widgetContext reads", () => {
 
 describe("widgetContext links", () => {
   it("writes filters, sets, tabs and the range as the admin's lists read them", () => {
-    const ctx = widgetContext({ rows: { payment: PAYMENTS }, range: WEEK, basePath: "/new-admin" });
+    const ctx = widgetContext({
+      rows: { payment: PAYMENTS },
+      range: WEEK,
+      paths: { admin: "/new-admin" },
+    });
     expect(ctx.link({ resource: "payment", filter: { status: "paid" } })).toBe(
       "/new-admin/payment?f_status=paid",
     );
@@ -250,11 +267,7 @@ describe("resolveWidget from @flowpanel/test/widgets", () => {
 describe("headerContext", () => {
   it("hands a record header the admin's formatters, strings and links", () => {
     const ctx = headerContext({ formatting: { locale: "ru-RU", timeZone: "UTC" } });
-    expect(ctx.format.date(new Date("2026-09-20T10:00:00Z"))).toBe(
-      widgetContext({ formatting: { locale: "ru-RU", timeZone: "UTC" } }).format.date(
-        new Date("2026-09-20T10:00:00Z"),
-      ),
-    );
+    expect(ctx.format.date(new Date("2026-09-20T10:00:00Z"))).toBe("20.09.2026");
     expect(ctx.labels.searchPlaceholder).toBe("Поиск: {label}…");
     expectTypeOf(ctx).toEqualTypeOf<DetailHeaderContext>();
   });

@@ -129,7 +129,7 @@ describe("the slow-widget line", () => {
 
   it("counts a query another widget already ran as the second widget's memo hit", async () => {
     const config = {
-      basePath: "/admin",
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       adapter: { kind: "drizzle", db: {} },
       labels: {},
       resourcesByName: new Map(),

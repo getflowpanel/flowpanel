@@ -1,15 +1,17 @@
 import {
-  badgeProps,
   type ColumnFormat,
-  cellTone,
-  columnFormatKind,
   DEFAULT_FORMATTING,
   formatColumnValue,
-  percentHeatLevel,
   type ResolvedFormatting,
+} from "@flowpanel/core";
+import {
+  badgeProps,
+  cellTone,
+  columnFormatKind,
+  percentHeatLevel,
   toBooleanValue,
   urlCellParts,
-} from "@flowpanel/core";
+} from "@flowpanel/core/format";
 import {
   BooleanCell,
   HeatCell,

@@ -8,7 +8,7 @@ import { renderWidget } from "../runtime/render-widget";
 import { fakeWidgetContext } from "./widget-context-fixture";
 
 const cfg: ResolvedAdminConfig = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: {} },
   auth: { session: async () => null, role: () => "admin" },
   resources: [],
@@ -103,6 +103,6 @@ describe("dashboard rhythm", () => {
       req: reqCtx.req,
       reqCtx,
     });
-    expect((tree as ReactElement<Props>).props.className).toBe("space-y-8");
+    expect((tree as ReactElement<Props>).props.className).toContain("space-y-8");
   });
 });

@@ -1,7 +1,7 @@
 # FlowPanel
 
-> undefined
-> Config-first admin panel framework for Next.js 16.
+> A typed admin panel for Next.js. Describe your Drizzle or Prisma tables in a typed config and get lists, forms, record pages and dashboards at /admin. Open source, MIT licensed.
+> Admin panel for Next.js in one package: config builders, Drizzle and Prisma adapters, the App Router runtime, React UI and auth presets.
 
 ```bash
 pnpm dlx @flowpanel/cli init
@@ -23,7 +23,7 @@ This directory is canonical; https://flowpanel.tech/llms/<file> serves the same 
 - llms/introduction.txt — Getting started: Getting started, Build a complete admin, Why FlowPanel, Drizzle setup, Prisma setup
 - llms/build.txt — Build your admin: Configuration, Resources, Forms, Add actions, Record pages and drawers, Dashboards, Import and export
 - llms/customization.txt — Customize the UI: Choose an extension point, Column renderers, Build a custom widget, Charts, Styling and theme slots, Eject to source
-- llms/guides.txt — Production: Production readiness, Authentication, Roles and permissions, Multi-tenant scope, Realtime, Queues
+- llms/guides.txt — Production: Production readiness, Authentication, Roles and permissions, Multi-tenant scope, Realtime, Queues, Upgrade from 0.3
 - llms/understand.txt — Understand FlowPanel: How FlowPanel works, Adapters and introspection
 - llms/reference-define-config.txt — Reference: defineAdmin. The config entry point and every option it accepts.
 - llms/reference-resources.txt — Reference: resource(). Every option on a resource, its columns, fields and filters.

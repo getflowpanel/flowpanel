@@ -11,10 +11,15 @@ import {
 import { redirect } from "next/navigation";
 import type * as React from "react";
 import { NotFound } from "./pages/not-found";
-import { buildServerRequest } from "./runtime/build-server-request";
 import { DevAuthNote, warnNoSession } from "./runtime/dev-auth-note";
-import { decodeAtom, encodeAtom } from "./runtime/href";
+import { buildHref, decodeAtom } from "./runtime/href";
 import { buildNav } from "./runtime/nav";
+import {
+  type PageParams,
+  pageRequest,
+  resolveCatchAllSegments,
+  toSearchParams,
+} from "./runtime/page-url";
 import { bindPublisher } from "./runtime/publish";
 import { renderContent } from "./runtime/render-content";
 import { buildRequestContext } from "./runtime/request-setup";
@@ -22,22 +27,12 @@ import { ThemeColor, ThemeVars } from "./runtime/theme-vars";
 
 export { renderContent } from "./runtime/render-content";
 
-type PageParams = Record<string, string | string[] | undefined>;
 type PageProps = {
   params: Promise<PageParams>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<PageParams>;
 };
 
-export function resolveCatchAllSegments(params: PageParams): string[] {
-  const slug = params.slug;
-  if (Array.isArray(slug)) return slug;
-  const rest = params.rest;
-  if (Array.isArray(rest)) return rest;
-  for (const v of Object.values(params)) {
-    if (Array.isArray(v)) return v;
-  }
-  return [];
-}
+export { resolveCatchAllSegments };
 
 export interface FlowpanelOptions {
   /** Override `config.shell` at render time. */
@@ -78,21 +73,8 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
   return async function FlowpanelPage({ params, searchParams }: PageProps) {
     // Next hands catch-all segments over still percent-encoded, so an id carrying `/` needs one decode.
     const slug = resolveCatchAllSegments(await params).map(decodeAtom);
-    const spRaw = await searchParams;
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(spRaw)) {
-      if (Array.isArray(v)) {
-        for (const item of v) sp.append(k, item);
-      } else if (v !== undefined) {
-        sp.set(k, v);
-      }
-    }
-
-    const slugPath = `/${slug.map(encodeAtom).join("/")}`;
-    const currentPath = slugPath === "/" ? config.basePath || "/" : `${config.basePath}${slugPath}`;
-    const url = new URL(`http://localhost${config.basePath}${slugPath}`);
-    for (const [k, v] of sp.entries()) url.searchParams.append(k, v);
-    const req = await buildServerRequest(url);
+    const sp = toSearchParams(await searchParams);
+    const { path: currentPath, req } = await pageRequest(config, slug, sp);
 
     let content: React.ReactNode;
     let reqCtx: RequestContext | undefined;
@@ -136,7 +118,8 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
         <AdminShell
           variant={shell.mode}
           navGroups={navGroups}
-          currentPath={slug.length === 0 ? config.basePath || "/" : currentPath}
+          currentPath={currentPath}
+          rootHref={buildHref(config)}
           showSkipLink={shell.showSkipLink}
           {...(shell.brand !== undefined ? { brand: shell.brand } : {})}
           {...(accountUser ? { user: accountUser } : {})}
@@ -180,6 +163,7 @@ export function FlowpanelNotFound(config: ResolvedAdminConfig) {
   return function FlowpanelNotFoundPage() {
     return (
       <AdminFrame config={config}>
+        <title>{mergeLabels(config.labels).notFound.title}</title>
         <NotFound config={config} />
       </AdminFrame>
     );

@@ -13,6 +13,7 @@ import {
   type DrawerConfig,
   type DrawerTabWidgets,
   defineAdmin,
+  type InferNamedRow,
   type InferRow,
   type LabelsConfig,
   metric,
@@ -77,6 +78,12 @@ expectAssignable<{ __kind: "resource" }>(r);
 // ── InferRow<Ref> resolves string refs from augmented FlowpanelResources ──
 expectType<{ id: number; email: string }>({} as InferRow<"users">);
 expectType<Record<string, unknown>>({} as InferRow<"unknown_resource">);
+
+// ── a named Prisma-style resource checks its options against the row registered under its name ──
+resource("User", { name: "users", columns: ["email"] });
+expectError(resource("User", { name: "users", columns: ["nope"] }));
+expectType<{ id: number; email: string }>({} as InferNamedRow<"User", "users">);
+expectType<Record<string, unknown>>({} as InferNamedRow<"User", "people">);
 
 // ── metric builder produces a kind: "metric" widget ──────────────────────
 const m = metric("Users", async () => 0);

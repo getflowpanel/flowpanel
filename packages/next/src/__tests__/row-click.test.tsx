@@ -88,8 +88,14 @@ describe("what a row click does, by configuration", () => {
     expect(props?.rowHrefs).toBeUndefined();
   });
 
-  it("leaves rows inert when the resource configures neither", async () => {
+  it("opens the record page when the resource configures neither", async () => {
     const props = await tableProps({ columns: ["id", "email"] });
+    expect(props?.rowHrefs).toEqual(["/admin/users/u1", "/admin/users/u2"]);
+    expect(props?.openDrawerOnRowClick).toBeUndefined();
+  });
+
+  it("leaves rows inert when the resource sets rowClick: false", async () => {
+    const props = await tableProps({ columns: ["id", "email"], rowClick: false });
     expect(props?.rowHrefs).toBeUndefined();
     expect(props?.openDrawerOnRowClick).toBeUndefined();
   });

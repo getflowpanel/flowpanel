@@ -19,22 +19,49 @@ pnpm dlx @flowpanel/cli init
 
 `init` detects the package manager, ORM, app directory, path alias, database client, schema and auth helper, asks you to confirm the paths, then installs `@flowpanel/kit` and a local `@flowpanel/cli`. It stops on a conflicting file and writes nothing. `--dry-run` prints the plan without writing; `--path /ops/admin` picks the mount.
 
-When the CLI finds no `getSession` helper, it writes a closed session adapter: connect your provider and map `auth.role` before you open the admin. `--dev-auth` writes an open development identity that refuses to run in production.
+With npm, run `npx @flowpanel/cli init` and then `npx flowpanel <command>`. Yarn and bun work the same way.
+
+## Connect auth
+
+The admin requires the `admin` role on every request, so it needs your session.
+
+- When `init` finds better-auth, Auth.js, Clerk or Lucia, it writes the matching preset to `server/lib/flowpanel-session.ts`, and the config uses its `flowpanelAuth`. Make sure your user's session carries the `admin` role.
+- Otherwise it writes a session module whose `getSession` returns `null`, so every request is denied. Return your session from it, or run `pnpm flowpanel init --dev-auth` for a development identity that refuses to run in production.
+
+[Authentication](/docs/guides/authentication) covers each provider and how the role is read.
 
 ## Add your first resource
 
-The generated `flowpanel.config.ts` has an empty `resources` array. With Drizzle, `pnpm flowpanel new <table>` writes the entry for you; see [flowpanel new](/docs/reference/cli#flowpanel-new). By hand:
+The generated `flowpanel.config.ts` has an empty `resources` array. `pnpm flowpanel new <table>` (the model name with Prisma) writes the entry for you; see [flowpanel new](/docs/reference/cli#flowpanel-new). To write it yourself, add `resource` to the `@flowpanel/kit` import and put this entry in `resources`, keeping the rest of the file:
 
 <AdapterTabs>
   <AdapterTab adapter="drizzle">
-    <include>../../snippets/getting-started/drizzle-config.ts</include>
+```ts excerpt
+resources: [
+  resource(schema.users, {
+    columns: ["email", "name", "role", "createdAt"],
+    search: ["email", "name"],
+    defaultSort: { field: "createdAt", dir: "desc" },
+  }),
+],
+```
   </AdapterTab>
   <AdapterTab adapter="prisma">
-    <include>../../snippets/getting-started/prisma-config.ts</include>
+```ts excerpt
+resources: [
+  resource("User", {
+    name: "users",
+    columns: ["email", "name", "role", "createdAt"],
+    search: ["email", "name"],
+    defaultSort: { field: "createdAt", dir: "desc" },
+  }),
+],
+```
+Then add `interface FlowpanelResources { users: import("@prisma/client").User }` inside the `declare module "@flowpanel/kit"` block, so the columns are checked against the model. `flowpanel new` does this for you.
   </AdapterTab>
 </AdapterTabs>
 
-Drizzle infers the row type from the table. A Prisma resource is a model name, so the `FlowpanelResources` augmentation binds it to the generated type. The `session` entry types the argument of `auth.role`. A request without the `admin` role is denied on the server.
+Drizzle infers the row type from the table. A Prisma resource is a model name, so `FlowpanelResources` binds it to the generated type. Registering `session` on `FlowpanelTypes` gives the `s` in `auth.role` your session type, so `s.user.role` type-checks.
 
 ## Start the admin
 
@@ -42,7 +69,9 @@ Drizzle infers the row type from the table. A Prisma resource is a model name, s
 pnpm dev
 ```
 
-Open [http://localhost:3000/admin](http://localhost:3000/admin). The resource is in the navigation. `pnpm flowpanel dev` runs Next.js with the [queue board](/docs/guides/queues).
+Open [http://localhost:3000/admin](http://localhost:3000/admin). The resource is in the navigation. A sign-in screen means the request had no session with the `admin` role; see [Connect auth](#connect-auth).
+
+`pnpm flowpanel dev` runs Next.js too, and also starts the [queue board](/docs/guides/queues) when `REDIS_URL` is set and `scripts/board-server.mts` exists. Only the board needs `tsx` (`pnpm add -D tsx`).
 
 ## Audit tables
 
@@ -50,7 +79,7 @@ Open [http://localhost:3000/admin](http://localhost:3000/admin). The resource is
 pnpm flowpanel migrate
 ```
 
-This applies `flowpanel/migrations` with `DATABASE_URL` and creates `_flowpanel_migrations` and `flowpanel_audit_log`; the SQL targets PostgreSQL. Only [`audit`](/docs/reference/define-config#auditconfig) needs these tables.
+This applies `flowpanel/migrations` through the database client in `flowpanel.config.ts` and creates `_flowpanel_migrations` and `flowpanel_audit_log`. `init` writes the SQL for your database: PostgreSQL, MySQL or SQLite. Only the audit log needs these tables; turn it on with `audit: { enabled: true }` in the config. See [`AuditConfig`](/docs/reference/define-config#auditconfig).
 
 ## What `init` created
 

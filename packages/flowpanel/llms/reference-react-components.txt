@@ -20,7 +20,7 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 `DataTableWithDrawerRows`, `CreateDrawer`, `DetailTabsClient`,
 `SavedViewsDropdown`, `ResourceListSearch`, `ResourceListFilters`,
 `ResourceListDeletedToggle`, `DashboardDateRange`, `DashboardFilters`,
-`WidgetErrorBoundary`), and `@flowpanel/kit/client` holds
+`RelatedTabTable`, `WidgetErrorBoundary`), and `@flowpanel/kit/client` holds
 [`useAdminMutation`](/docs/reference/client).
 
 ### Shell
@@ -36,12 +36,12 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 | `CommandPalette` | The ⌘K command palette, built on `cmdk`. |
 | `Drawer`, `DrawerHeader`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. |
 | `DetailShell` | Chrome around a resource detail page. |
-| `FlowpanelGlobals` | Mounts cross-cutting globals (toast host, theme script, shortcuts) once per admin. |
+| `FlowpanelGlobals` | Mounts the component, formatting, API-base and label providers, the realtime provider, the toast host and the theme runtime, once per admin. |
 | `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. `badges` renders several pills in order, each an optional link. |
 | `ShortcutsCheatsheet`, `DEFAULT_SHORTCUTS` | The `?`-triggered keyboard shortcuts overlay and the shortcut list it ships with. |
 | `ThemeScript` | Inline script that applies the stored theme class before hydration, avoiding a flash. |
 | `ComponentsProvider`, `useComponents` | Provider/reader for the `FlowpanelComponentSlots` override map. |
-| `useComponent` | Resolves a single slot — `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
+| `useComponent` | Resolves a single slot: `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
 | `useComponentOverrides` | The raw override map from the nearest `ComponentsProvider`, without defaults filled in. |
 | `LabelsProvider`, `useLabels` | Provider/reader for label overrides (pluralization, field labels). |
 | `FormattingProvider`, `useFormatting` | Provider/reader for the resolved locale, time zone and currency. |
@@ -56,6 +56,7 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 | `user?` | `AccountMenuUser` |  |
 | `navGroups` | `NavGroup[]` |  |
 | `currentPath` | `string` |  |
+| `rootHref?` | `string` | The admin's mount path; its nav entry is active only on that page. Inferred from the entries when unset. |
 | `showSkipLink?` | `boolean` | Set false when the host layout already provides the page's skip link. |
 | `children` | `React.ReactNode` |  |
 
@@ -101,8 +102,8 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 | `ReferencePicker` | Search-and-select control for picking a referenced row. |
 | `MobileCardList` | Card layout `DataTable` switches to under the mobile breakpoint. |
 | `KV`, `KVRow` | Key/value list layout, used by card and drawer field views. |
-| `renderFormatCell` | Renders a declarative `ColumnFormat` value — the function `DataTable` cells call internally. |
-| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell`, `ToneText` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time, a boolean and a number coloured by its threshold — use them in a custom cell to match the table. |
+| `renderFormatCell` | Renders a declarative `ColumnFormat` value. `DataTable` cells call it internally. |
+| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell`, `ToneText` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time, a boolean and a number coloured by its threshold. Use them in a custom cell to match the table. |
 
 `DataTableProps`
 
@@ -155,14 +156,14 @@ components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
 | Export | Purpose |
 | --- | --- |
 | `AutoForm` | Renders a resource's create/update fields from `ResolvedField[]` or `ColumnMeta[]`. |
-| `Form` | Conform + Zod form wrapper — POSTs to a route and surfaces field errors. |
+| `Form` | Conform and Zod form wrapper. It POSTs to a route and shows field errors. |
 | `useFormContext` | Reads the current `Form`'s conform metadata; throws outside a `Form`. |
 | `FormField` | One labeled input, switched on its `type` prop (see below). |
 | `FormError` | Renders the form-level error from `useFormContext`. |
 | `FormSection` | Labeled fieldset grouping for `AutoForm`/`Form` fields. |
 | `FormSubmit` | Submit button that reflects the form's pending state. |
 | `AsyncSelect` | Debounced async-search select, used by reference fields. |
-| `ResolvedField` (type) | The server-resolved field shape `AutoForm` consumes — see `field-types.ts`. |
+| `ResolvedField` (type) | The server-resolved field shape `AutoForm` consumes. |
 
 `AutoFormProps`
 
@@ -234,7 +235,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | Export | Purpose |
 | --- | --- |
 | `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. `plain` drops the card frame for a strip cell. |
-| `StatCard` | Renders a `stat()` widget — one number, a hint and an optional link. `plain` drops the card frame for a strip cell. |
+| `StatCard` | Renders a `stat()` widget: one number, a hint and an optional link. `plain` drops the card frame for a strip cell. |
 | `StatGroupCard` | Renders a `statGroup()` widget. |
 | `KvCard` | Renders a `kv()` widget as a label/value grid. `long` items span the card and fold the rest under `more`. |
 | `BarsCard` | Renders a `bars()` widget, sizing each bar against `max` or the largest row. |
@@ -258,7 +259,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | `Card`, `CardHeader`, `CardContent`, `CardDescription` | Generic card shell and its section slots. |
 | `MetricGrid` | Responsive grid for laying out `MetricCard`s. |
 | `Section`, `SectionLabel`, `Divider`, `spanClass` | Section wrapper with a label/description, a divider rule, and the `Span` → CSS class map dashboards use for widget width. |
-| `StatStrip` | A band of numbers divided by hairlines, two per line on a phone — what `section.variant: "strip"` and `detail.stats` render. |
+| `StatStrip` | A band of numbers divided by hairlines, two per line on a phone. `section.variant: "strip"` and `detail.stats` render it. |
 
 ### Atoms
 
@@ -267,7 +268,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | `Avatar`, `DefaultAvatar` | User/entity avatar and its default renderer. |
 | `Badge`, `DefaultBadge` | Toned inline badge and its default renderer. |
 | `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
-| `StatusDot` | Small dot in any `Tone` — `ok` by default. |
+| `StatusDot` | Small dot in any `Tone`, `ok` by default. |
 | `LiveIndicator` | Realtime connection status indicator (see `LiveStatus`). |
 | `LocalTime` | Absolute timestamp in the configured `formatting.timeZone`, or the viewer's zone after hydration when none is set. |
 | `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
@@ -345,8 +346,8 @@ const isMobile = useMediaQuery("(max-width: 639px)");
 ### Realtime
 
 **`RealtimeProvider`** mounts one shared `EventSource` for its descendants and
-coalesces their refreshes. `Flowpanel` mounts it; mount it yourself in a
-`"bare"`-shell layout.
+coalesces their refreshes. `Flowpanel` mounts it in every shell mode, `"bare"`
+included. Mount it yourself only around components rendered outside that page.
 
 **`useRealtimeRefresh(channels, options?)`** runs a debounced `router.refresh()`
 on any event on its channels.
@@ -387,7 +388,9 @@ Helpers behind `useTheme` and `ThemeScript`.
 | `buildThemeInitScript` | Builds the inline script string `ThemeScript` renders. |
 
 Also exported: `cn`, `formatNumber`, `humanize`, `resolveFieldLabel`,
-`triggerDownload`, and `toneTextClass` and `toneFillClass` (also in `@flowpanel/kit`
+`triggerDownload`, `withDeploymentBasePath` (prefixes a Next.js `basePath`),
+`StandaloneFormFields` (form controls outside a schema-driven `<Form>`), the
+`CardDate` type (a serialized date a card renders through `LocalTime`), and `toneTextClass` and `toneFillClass` (also in `@flowpanel/kit`
 for server components).
 
 ### Name collisions with `@flowpanel/kit`
@@ -399,9 +402,7 @@ when importing both.
 | --- | --- | --- |
 | `TableWidget` | The `table()` builder's return **type** (`{ kind: "table"; options }`). | The **component** that renders one. |
 | `CustomWidget` | The `custom()` builder's return **type**. | The **component** that wraps one. |
-| `Tone` | The config-level tone vocabulary used by `format: "badge"`, widget `tone`, … | The same vocabulary, re-declared next to `formatNumber`. |
-| `NumericFormat` | The widget/metric format union. | The same union, re-declared next to `formatNumber`. |
-| `DrawerWidth` | `DrawerConfig["width"]`, the config option. | `DrawerProps["width"]`, the component prop — an identical union, declared separately. |
+| `DrawerWidth` | `DrawerConfig["width"]`, the config option. | `DrawerProps["width"]`, the component prop: the same union, declared separately. |
 
 ```ts excerpt
 import type { TableWidget } from "@flowpanel/kit";

@@ -13,9 +13,11 @@ import {
   formatLabel,
   humanize,
   runWithRequestContext,
-  writeTarget,
 } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
 import type { z } from "zod";
+import { roleAllows } from "../runtime/action-helpers";
+import { fieldFlag } from "../runtime/resolve-form-fields";
 
 export { declaredWriteFields };
 
@@ -70,23 +72,83 @@ function effectiveFieldPolicies(
     ...(resource.options.fieldAccess as FieldAccessMap<Record<string, unknown>> | undefined),
   };
   for (const field of fields ?? []) {
-    if (policies[field.name]?.write !== undefined) continue;
-    if (field.requireRole !== undefined) {
-      const requireRole = field.requireRole;
-      policies[field.name] = {
-        ...policies[field.name],
-        write:
-          typeof requireRole === "function" ? ({ session }) => requireRole(session) : requireRole,
-      };
+    if (fieldFlag(field.readOnly, current ?? {})) {
+      policies[field.name] = { ...policies[field.name], write: false };
       continue;
     }
-    const readOnly =
-      typeof field.readOnly === "function"
-        ? current !== null && field.readOnly(current)
-        : field.readOnly === true;
-    if (readOnly) policies[field.name] = { ...policies[field.name], write: false };
+    const requireRole = field.requireRole;
+    if (requireRole === undefined || policies[field.name]?.write !== undefined) continue;
+    policies[field.name] = {
+      ...policies[field.name],
+      write:
+        typeof requireRole === "function" ? ({ session }) => requireRole(session) : requireRole,
+    };
   }
   return policies;
+}
+
+/** Whether the generated form shows this field as an editable control to this caller. */
+function formOffersField(
+  field: FieldDef<Record<string, unknown>>,
+  reqCtx: RequestContext,
+  shown: Record<string, unknown>,
+  denied: ReadonlySet<string>,
+): boolean {
+  return (
+    !denied.has(field.name) &&
+    roleAllows(field.requireRole, reqCtx) &&
+    !fieldFlag(field.hidden, shown) &&
+    !fieldFlag(field.readOnly, shown)
+  );
+}
+
+/** A posted form also carries read-only and unrendered fields for display; only editable ones are input. */
+export function formInput(
+  fields: FieldDef<Record<string, unknown>>[] | undefined,
+  input: unknown,
+  current: Record<string, unknown> | null,
+  reqCtx: RequestContext,
+  denied: ReadonlySet<string>,
+): unknown {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return input;
+  const out: Record<string, unknown> = { ...input };
+  for (const name of denied) delete out[name];
+  for (const field of fields ?? []) {
+    if (!formOffersField(field, reqCtx, current ?? {}, denied)) delete out[field.name];
+  }
+  return out;
+}
+
+function isEmptyValue(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string") return value.trim() === "";
+  return Array.isArray(value) && value.length === 0;
+}
+
+/**
+ * `required` fields the form showed as editable that this write leaves empty.
+ * On update (`current` set) only submitted keys count, so an untouched field keeps its stored value.
+ */
+export function missingRequiredErrors(
+  fields: FieldDef<Record<string, unknown>>[] | undefined,
+  values: Record<string, unknown>,
+  current: Record<string, unknown> | null,
+  reqCtx: RequestContext,
+  labels: ResolvedLabels,
+  denied: ReadonlySet<string>,
+): Record<string, string> {
+  const shown = current ?? {};
+  const out: Record<string, string> = {};
+  for (const field of fields ?? []) {
+    if (field.required !== true) continue;
+    if (current !== null && !Object.hasOwn(values, field.name)) continue;
+    if (!isEmptyValue(values[field.name])) continue;
+    if (!formOffersField(field, reqCtx, shown, denied)) continue;
+    out[field.name] = formatLabel(labels.form.required, {
+      label: field.label ?? humanize(field.name),
+    });
+  }
+  return out;
 }
 
 /** Reject undeclared or forbidden submitted fields; never silently strip them. */
@@ -111,11 +173,10 @@ export async function assertResourceWritableInput(
 export async function applyFieldDefaults(
   resource: ResourceConfig,
   fields: FieldDef<Record<string, unknown>>[] | undefined,
-  input: unknown,
+  input: Record<string, unknown>,
   reqCtx: RequestContext,
-): Promise<unknown> {
-  if (typeof input !== "object" || input === null) return input;
-  const out = { ...(input as Record<string, unknown>) };
+): Promise<Record<string, unknown>> {
+  const out = { ...input };
   for (const [name, value] of Object.entries(resource.options.create?.defaultValues ?? {})) {
     if (out[name] === undefined) out[name] = value;
   }
@@ -163,14 +224,23 @@ export async function runFieldValidators(
 
 /** A missing value, as the schema reports one — never an author's own message. */
 function isMissingValueIssue(issue: z.core.$ZodIssue): boolean {
-  if (issue.code === "invalid_type") return true;
+  if (issue.code === "invalid_type" || issue.code === "invalid_value") return true;
   // Zod's own ">=1 characters" wording; an authored `.min(1, "…")` passes through.
   return issue.code === "too_small" && issue.minimum === 1 && issue.message.startsWith("Too small");
 }
 
+// Zod's own wording only; an authored `z.number({ message })` passes through.
+function isNotANumberIssue(issue: z.core.$ZodIssue): boolean {
+  return (
+    issue.code === "invalid_type" &&
+    issue.expected === "number" &&
+    issue.message.startsWith("Invalid input")
+  );
+}
+
 /**
- * Turns a schema rejection into per-field messages: a missing required value reads as `labels.form.required`.
- * Every other issue keeps the message it came with.
+ * Turns a schema rejection into per-field messages: a missing required value reads as `labels.form.required`,
+ * a value that is not a number as `labels.form.invalidNumber`. Every other issue keeps the message it came with.
  */
 export function friendlyFieldErrors(
   fields: FieldDef<Record<string, unknown>>[] | undefined,
@@ -187,10 +257,13 @@ export function friendlyFieldErrors(
     const value = values[key];
     const isEmpty = value === undefined || value === null || value === "";
     const field = fieldByName.get(key);
+    const label = field?.label ?? humanize(field?.name ?? key);
     out[key] =
       isEmpty && isMissingValueIssue(issue)
-        ? formatLabel(labels.form.required, { label: field?.label ?? humanize(field?.name ?? key) })
-        : issue.message;
+        ? formatLabel(labels.form.required, { label })
+        : isNotANumberIssue(issue)
+          ? formatLabel(labels.form.invalidNumber, { label })
+          : issue.message;
   }
   return out;
 }

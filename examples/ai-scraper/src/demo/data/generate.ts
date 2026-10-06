@@ -1,4 +1,5 @@
 import { MATCH_MODELS } from "../../lib/ai-models";
+import { marketplaceLabel } from "./marketplaces";
 import { PRODUCT_STORIES, SCENARIOS } from "./scenarios";
 import type { DemoData, Marketplace, ProductStory } from "./types";
 
@@ -22,12 +23,6 @@ const SITE_HOST: Record<Marketplace, string> = {
 const atDaysAgo = (now: Date, days: number, hour: number) =>
   new Date(now.getTime() - days * DAY - hour * 60 * MINUTE);
 
-const titleCaseMarketplace = (marketplace: Marketplace) =>
-  marketplace
-    .split("_")
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
-
 export function generateDemoData({ now }: { now: Date }): DemoData {
   const customers: DemoData["customers"] = SCENARIOS.map((scenario, index) => ({
     id: index + 1,
@@ -45,12 +40,12 @@ export function generateDemoData({ now }: { now: Date }): DemoData {
     const segment = index % SCENARIOS.length;
     const first = FIRST_NAMES[index % FIRST_NAMES.length] ?? "Alex";
     const last = LAST_NAMES[(index * 5) % LAST_NAMES.length] ?? "Kim";
-    const company = `${BACKGROUND_PREFIXES[Math.floor(index / 6)]} ${BACKGROUND_SUFFIXES[segment]}`;
+    const company = `${BACKGROUND_PREFIXES[index % BACKGROUND_PREFIXES.length]} ${BACKGROUND_SUFFIXES[segment]}`;
     const plan = (["starter", "pro", "business", "pro"] as const)[index % 4] ?? "starter";
     const status = index % 17 === 0 ? "past_due" : index % 11 === 0 ? "trialing" : "active";
     customers.push({
       id: customers.length + 1,
-      email: `${first}.${last}.${index + 1}@${company.toLowerCase().replaceAll(" ", "")}.com`,
+      email: `${first}.${last}@${company.replaceAll(" ", "")}.com`.toLowerCase(),
       name: `${first} ${last}`,
       company,
       plan,
@@ -71,7 +66,7 @@ export function generateDemoData({ now }: { now: Date }): DemoData {
       monitors.push({
         id: monitors.length + 1,
         customerId,
-        name: `${titleCaseMarketplace(marketplace)} · ${scenario.segment}`,
+        name: `${marketplaceLabel(marketplace)} · ${scenario.segment}`,
         targetUrl: `https://${SITE_HOST[marketplace]}/search?q=${encodeURIComponent(scenario.segment)}`,
         schedule: marketIndex === 0 ? "hourly" : "daily",
         status: customerId % 11 === 0 && marketIndex === 1 ? "paused" : "active",

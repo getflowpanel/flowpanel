@@ -53,8 +53,8 @@ detail: {
 }
 ```
 
-A nullish return leaves the slot empty; a nullish `title` falls back to the
-resource label and the row identifier.
+A nullish return leaves the slot empty; a nullish `title` falls back to the row's
+`name`, `title` or `email`, then to the resource label and the row identifier.
 
 The Edit button sits beside the heading as a secondary button;
 `update: { emphasis: "primary" }` fills it. It is hidden when `update.disabled` is
@@ -74,8 +74,9 @@ chooses and orders the fields in it; omitted, every readable declared field show
 | `"drawer"` | Opens the [drawer](/docs/reference/drawer). Requires a `drawer` config; `defineAdmin` refuses the combination without one. |
 | `false` | Rows render, but a click does nothing. |
 
-Omitted, it follows the resource: `"detail"` when `detail` is configured and
-`drawer` is not, `"drawer"` when only a drawer is, and `false` when neither is.
+Omitted, it follows the resource: `"drawer"` when a drawer is configured, with or
+without `detail`, and `"detail"` otherwise. The record page renders without a
+`detail` config, so every row opens unless you set `rowClick: false`.
 An explicit value always wins, so `rowClick: "detail"` on a resource that also
 has a drawer sends the click to the page and leaves the drawer to its own
 affordances.
@@ -171,7 +172,7 @@ type ColumnFormat =
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
   | { kind: "money"; currency?: string; scale?: number }
   | { kind: "number"; tones?: Threshold }
-  | { kind: "date"; time?: boolean }
+  | { kind: "date"; time?: boolean; calendarDay?: boolean }
   | { kind: "percent"; digits?: number; heat?: boolean; tones?: Threshold }
   | { kind: "duration"; unit?: "ms" | "s"; tones?: Threshold }
   | { kind: "boolean"; labels?: { true?: string; false?: string } }
@@ -201,13 +202,13 @@ value, and a value with no label shows as is.
 
 The other kinds:
 
-- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the time. A `YYYY-MM-DD` value shows as itself; a zoneless `YYYY-MM-DD HH:mm:ss` is read as UTC.
+- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the time. A `YYYY-MM-DD` value shows as itself; a zoneless `YYYY-MM-DD HH:mm:ss` is read as UTC. Set `calendarDay: true` for a SQL `date` column, such as a Prisma `@db.Date` or a Drizzle `date({ mode: "date" })`: the driver returns midnight UTC, and the cell shows that day in every time zone.
 - `relative` shows how long ago, such as `5 minutes ago`, in the admin's `locale`.
-- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, so a retention grid reads at a glance and still sorts by number.
+- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, for a retention grid that still sorts by number.
 - `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
 - `boolean` prints `✓` and `✕`, or `labels: { true: "Yes", false: "No" }`. SQLite's `1` and `0` read as true and false.
 - `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
-- `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded. `cellTone(value, format)` returns the tone a cell gets.
+- `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded.
 
 ```ts excerpt
 columns: [
@@ -231,19 +232,11 @@ resolved `formatting`.
 
 <ApiSignature path="../../packages/core/src/format-column.ts" name="formatNumber" />
 
-<ApiSignature path="../../packages/core/src/format-column.ts" name="badgeProps" />
-
 `formatColumnValue` renders a `ColumnFormat`; `formatNumber` renders a widget's
-`NumericFormat` (`number`, `currency`, `percent`, `bytes`, `duration`). Both are in
-`@flowpanel/core`, and `@flowpanel/react` re-exports `formatNumber`.
-`badgeProps(format, value)` returns the props a badge cell passes to `StatusBadge`,
-or `null` for an empty value.
-
-`formatDurationValue`, `formatPercentValue`, `formatRelativeValue` and
-`formatBooleanValue` print one kind each; `columnFormatKind`, `percentHeatLevel` and
-`urlCellParts` describe what a format asks for; `toDateValue` and `toBooleanValue`
-read raw values as cells do. `formatDurationCompact` prints only the largest unit,
-such as `2.1h`, as chart axes do.
+`NumericFormat` (`number`, `currency`, `percent`, `bytes`, `duration`). Import both
+from `@flowpanel/kit`; `@flowpanel/kit/react` also exports `formatNumber`.
+`formatDurationValue`, `formatPercentValue` and `formatRelativeValue` print one
+kind each.
 
 ## Enums
 
@@ -280,7 +273,10 @@ itself and a missing one as `—`; `badge()` returns `null` for a missing value;
 ## FieldDef
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
-`form`. The server enforces every rule.
+`form`. `required` marks the control required and the server rejects a missing
+value. `readOnly` and `requireRole` apply to rendering and to writes; a function
+`readOnly` is called with the stored row, so it guards edits. `hidden` only removes
+the control.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FieldDef" />
 
@@ -356,7 +352,7 @@ export const card = {
 } satisfies DetailOptions<RowOf<"user">>;
 ```
 
-- `title`, `subtitle` and `badge` receive the row and a `DetailHeaderContext` — the
+- `title`, `subtitle` and `badge` receive the row and a `DetailHeaderContext`: the
   admin's `format`, `labels` and `link`. `badge` returns one pill or a list, in order;
   `null` entries are dropped, and a pill with `href` is a link.
 - `stats` renders as a hairline strip under the header, on every tab.
@@ -386,8 +382,8 @@ The header, strip, aside and open tab share one widget context, so a repeated
 A tab on the record page. The open tab is the `?tab=<key>` query parameter, and
 only that tab runs on the server.
 
-A tab declares exactly one kind of content, and they resolve in this order:
-`render`, `widgets`, `resource`, then fields.
+A tab shows `render` when it has one. Otherwise it shows its `widgets` and its
+`resource` list, widgets above the rows, or its fields when it has neither.
 
 ### Fields and sections
 
@@ -504,8 +500,9 @@ What `DetailTab.render` receives as its second argument.
 type SelectOption = { label: string; value: string | number | boolean };
 ```
 
-Wherever `options` is accepted, you may pass `string[]`, `SelectOption[]`, or a
-function resolved per request.
+A filter's or field's `options` takes `string[]`, `SelectOption[]`, or a function
+resolved per request. A dashboard filter takes `SelectOption[]`, an `enumOf()`, or
+a function of the widget context. A drawer action input takes `string[]`.
 
 ## ListResult
 

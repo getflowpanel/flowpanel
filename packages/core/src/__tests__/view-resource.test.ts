@@ -5,8 +5,8 @@ import {
   defineAdmin,
   type ResourceOptions,
   resource,
-  writeTarget,
 } from "../index";
+import { writeTarget } from "../internal/write-target";
 
 const meta = (name: string, primaryKey = false): ColumnMeta => ({
   name,

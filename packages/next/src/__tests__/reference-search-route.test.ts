@@ -237,7 +237,7 @@ describe("referenceSearchRoute", () => {
     withGlobalScope(config, { source: "bypass", target: scopePredicate });
     const handler = referenceSearchRoute(config);
     await handler(reqFor("orders", "ownerId", ""), { params: paramsFor("orders", "ownerId") });
-    (scopeCapture[0]?.boundScope as { apply(q: unknown): unknown }).apply("q");
+    (scopeCapture[0]!.boundScope as { apply(q: unknown): unknown }).apply("q");
     expect(scopePredicate).toHaveBeenCalledWith({ tenantId: "t1" }, "q");
   });
 });

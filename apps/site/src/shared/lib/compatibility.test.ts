@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { COMPATIBILITY_OVERRIDES, readCompatibility } from "./compatibility";
+import { readCompatibility } from "./compatibility";
 
 describe("readCompatibility", () => {
   it("reads supported versions from package metadata", () => {
@@ -14,22 +14,10 @@ describe("readCompatibility", () => {
           range: ">=20",
           source: "packages/cli/package.json#engines.node",
         }),
-        expect.objectContaining({ id: "next", range: "^16.3.0" }),
+        expect.objectContaining({ id: "next", range: ">=15.5.0 <17.0.0" }),
         expect.objectContaining({ id: "react", range: "^19.0.0" }),
         expect.objectContaining({ id: "drizzle", range: ">=0.45.2 <1.0.0" }),
         expect.objectContaining({ id: "prisma", range: ">=5.0.0 <7.0.0" }),
-      ]),
-    );
-  });
-
-  it("states the Next.js floor the CLI enforces", () => {
-    expect(COMPATIBILITY_OVERRIDES).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "next",
-          range: "^16.3.0",
-          reason: "The CLI enforces 16.3 or newer.",
-        }),
       ]),
     );
   });

@@ -102,7 +102,7 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
   if (tab.rows.length === 0) {
     return (
       <div className="py-6 text-sm text-fp-text-3">
-        {formatLabel(words.noRows, { resource: tab.resource })}
+        {formatLabel(words.noRows, { resource: tab.label })}
       </div>
     );
   }
@@ -263,7 +263,8 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
             {...(w.failed ? { "data-fp-error": "" } : {})}
             className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2"
           >
-            {w.reason}
+            {w.label ? <div className="font-medium text-fp-text-2">{w.label}</div> : null}
+            <div className={w.label ? "mt-1 text-xs" : undefined}>{w.reason}</div>
           </div>
         );
       })}
@@ -446,7 +447,7 @@ export function DrawerHost() {
           const body = (await res.json().catch(() => ({ error: res.statusText }))) as {
             error?: string;
           };
-          throw new Error(body.error ?? `error ${res.status}`);
+          throw new Error(body.error ?? labels.drawer.loadFailed);
         }
         return (await res.json()) as DrawerPayload;
       })
@@ -456,7 +457,7 @@ export function DrawerHost() {
       })
       .catch((e: unknown) => {
         if ((e as { name?: string })?.name === "AbortError") return;
-        setError(e instanceof Error ? e.message : "failed to load");
+        setError(e instanceof Error ? e.message : labels.drawer.loadFailed);
         setLoading(false);
       });
     return () => ctrl.abort();
@@ -472,7 +473,7 @@ export function DrawerHost() {
         if (!v) close();
       }}
       width={width}
-      title={title || "Drawer"}
+      title={title || labels.drawer.title}
     >
       <DrawerHeader className="flex-col pr-14 sm:flex-row">
         <div className="min-w-0 max-w-full sm:flex-1">

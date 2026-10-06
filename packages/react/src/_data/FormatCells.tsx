@@ -7,6 +7,7 @@ import {
   toDateValue,
 } from "@flowpanel/core/format";
 import { useLabels } from "../_provider/LabelsContext";
+import { ToneWord } from "../_widgets/ToneWord";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
@@ -110,6 +111,7 @@ export interface ToneTextProps {
 export function ToneText({ tone, text }: ToneTextProps) {
   return (
     <span data-tone={tone} className={`tabular-nums ${toneTextClass[tone]}`}>
+      <ToneWord tone={tone} />
       {text}
     </span>
   );

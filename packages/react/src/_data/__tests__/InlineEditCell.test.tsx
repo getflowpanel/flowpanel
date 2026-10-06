@@ -7,12 +7,14 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
 }));
 
+import { ToastContext } from "../../_feedback/toast-api";
+import { LabelsProvider } from "../../_provider/LabelsContext";
 import { InlineEditCell } from "../InlineEditCell";
 
 afterEach(cleanup);
 
-const editButtons = () => screen.getAllByRole("button", { name: "Edit name" });
-const editButton = () => screen.getByRole("button", { name: "Edit name" });
+const editButtons = () => screen.getAllByRole("button", { name: "Edit Name" });
+const editButton = () => screen.getByRole("button", { name: "Edit Name" });
 const editing = () => screen.queryByDisplayValue("Alice") !== null;
 
 function inRow(rowClickable: boolean) {
@@ -148,5 +150,45 @@ describe("InlineEditCell request URL", () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/flowpanel/user%20profile/a%2Fb%23c/update");
     vi.unstubAllGlobals();
+  });
+});
+
+describe("InlineEditCell save failure", () => {
+  it("toasts the field's own message, such as a taken value", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        json: async () => ({
+          ok: false,
+          error: "Validation failed",
+          fieldErrors: { name: "Name is already taken" },
+        }),
+      } as unknown as Response),
+    );
+    const error = vi.fn();
+    const noop = () => undefined;
+    render(
+      <ToastContext.Provider
+        value={{ error, success: noop, info: noop, warning: noop, dismiss: noop }}
+      >
+        <InlineEditCell resource="users" id="1" field="name" value="Alice" />
+      </ToastContext.Provider>,
+    );
+    fireEvent.click(editButton(), { detail: 1 });
+    fireEvent.change(screen.getByDisplayValue("Alice"), { target: { value: "Bob" } });
+    fireEvent.blur(screen.getByDisplayValue("Bob"));
+    await vi.waitFor(() => expect(error).toHaveBeenCalledWith("Name is already taken"));
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("InlineEditCell's words", () => {
+  it("names the edit button after the column label, in the admin's language", () => {
+    render(
+      <LabelsProvider value={{ table: { editCell: "Изменить: {label}" } }}>
+        <InlineEditCell resource="users" id="1" field="full_name" label="Имя" value="Alice" />
+      </LabelsProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Изменить: Имя" })).toBeTruthy();
   });
 });

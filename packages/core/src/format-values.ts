@@ -221,7 +221,7 @@ export function percentHeatLevel(value: unknown, format: ColumnFormat): number |
   if (typeof format !== "object" || format.kind !== "percent" || !format.heat) return null;
   const n =
     typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
-  if (!Number.isFinite(n) || value === "") return null;
+  if (!Number.isFinite(n) || (typeof value === "string" && value.trim() === "")) return null;
   return Math.round(Math.min(1, Math.max(0, n)) * 5);
 }
 

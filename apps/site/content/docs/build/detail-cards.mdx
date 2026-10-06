@@ -6,6 +6,8 @@ kind: how-to
 
 A record page shows one row at `/admin/<resource>/<id>`: a header, a strip of numbers, facts beside the tabs, related rows and activity. A drawer shows a row over the list without leaving it. Every piece is optional.
 
+A row click opens the record page, even before you add `detail`: without it the page lists the row's readable fields with an Edit button. Declare a `drawer` and the click opens it instead; `rowClick: false` keeps rows from opening.
+
 ## Keep the card in its own file
 
 ```ts excerpt
@@ -35,7 +37,7 @@ A `null` badge is dropped; `href` makes a badge a link.
 
 ## Period
 
-`dateRange` puts a date picker in the header. Its range reaches `stats`, `aside` and widget tabs. Related tabs, the timeline and the heatmap keep their own span. Without `dateRange` there is no picker and widgets see the whole history.
+`dateRange` puts a date picker in the header. Its range reaches `stats`, `aside` and widget tabs. Related tabs, the timeline and the heatmap keep their own period: related tabs list every row, a timeline pages through the whole history, and a heatmap shows its last `days` days. Without `dateRange` there is no picker and widgets see the whole history.
 
 ## Key numbers
 
@@ -123,7 +125,7 @@ resource(schema.orders, {
     title: (order) => `Order ${order.number}`,
     tabs: [
       { key: "summary", label: "Summary", fields: "*" },
-      { key: "items", label: "Items", resource: "orderItems", filter: (order) => ({ orderId: order.id }) },
+      { key: "items", label: "Items", resource: "order_items", filter: (order) => ({ orderId: order.id }) },
     ],
   },
 })
@@ -135,8 +137,8 @@ resource(schema.orders, {
 
 ```ts excerpt
 import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
-import admin from "@/src/admin/config";
-import { paidInvoices } from "@/src/admin/config/resources/customer-card";
+import admin from "@/admin/config";
+import { paidInvoices } from "@/admin/config/resources/customer-card";
 
 const ctx = widgetContext({ admin, resource: "customers", row: customer, rows: { invoices } });
 const { props } = await resolveWidget(paidInvoices, ctx);

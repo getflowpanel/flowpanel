@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { badgeProps, enumOf, formatColumnValue } from "../index";
+import { badgeProps } from "../format-column";
+import { enumOf, formatColumnValue } from "../index";
 
 const Plan = enumOf(["free", "starter", "pro"], {
   free: ["Free", "muted"],
@@ -61,5 +62,14 @@ describe("enumOf", () => {
       label: "Free",
       tone: "muted",
     });
+  });
+
+  it("reads a number or boolean column the same way the badge format does", () => {
+    const active = enumOf({ "1": ["Active", "ok"], "0": "Off", true: "Yes" });
+    expect(active.label(1)).toBe("Active");
+    expect(active.tone(1)).toBe("ok");
+    expect(active.badge(0)).toEqual({ label: "Off", tone: "default" });
+    expect(active.label(true)).toBe("Yes");
+    expect(active.label(2)).toBe("2");
   });
 });

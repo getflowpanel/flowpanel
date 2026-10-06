@@ -240,9 +240,8 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   warnIfNoAccessControl(config, resources);
   warnCreateFieldsOnce(warnings);
 
-  const basePath = normalizeRoutePath(config.paths?.admin ?? "/admin");
   const paths = {
-    admin: basePath,
+    admin: normalizeRoutePath(config.paths?.admin ?? "/admin"),
     api: normalizeRoutePath(config.paths?.api ?? "/api/flowpanel"),
   };
   const labels = localeLabels(config.formatting?.locale, config.labels);
@@ -256,7 +255,6 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     dashboardsByPath,
     pagesByPath,
     queuesByKey,
-    basePath,
     paths,
     warnings,
   };

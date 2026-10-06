@@ -1,5 +1,6 @@
 import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
-import { runWithRequestContext, writeTarget } from "@flowpanel/core";
+import { runWithRequestContext } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
 import { buildAuditEvent, maybeEmitAudit, notFoundResponse } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { buildHref } from "../runtime/href";

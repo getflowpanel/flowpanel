@@ -45,7 +45,7 @@ export default function OpengraphImage() {
           A typed admin panel for Next.js
         </span>
         <span style={{ fontSize: 30, color: "#a4a8ad", maxWidth: "880px" }}>
-          Describe your Drizzle or Prisma tables in one config file.
+          Describe your Drizzle or Prisma tables in a typed config.
         </span>
       </div>
 

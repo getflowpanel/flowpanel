@@ -9,6 +9,7 @@ import {
   normalize,
   readPages,
   renderPage,
+  unexpanded,
 } from "./generate-llms";
 import type { DocsProblem } from "./types";
 
@@ -130,11 +131,17 @@ export function checkLlmsTopics(root: string, context?: ExpansionContext): DocsP
   const leftover = existsSync(directory)
     ? readdirSync(directory).filter((file) => !expected.has(file))
     : [];
-  return [...stale, ...leftover].map((file) => ({
-    code: "llms-topics-stale",
-    file: `${LLMS_TOPICS_DIR}/${file}`,
-    line: 1,
-    message: `${LLMS_TOPICS_DIR}/${file} no longer matches the documentation.`,
-    suggestion: "Run pnpm docs:llms.",
-  }));
+  const raw = [...expected].flatMap(([file, text]) =>
+    unexpanded(`${LLMS_TOPICS_DIR}/${file}`, text),
+  );
+  return [
+    ...raw,
+    ...[...stale, ...leftover].map((file) => ({
+      code: "llms-topics-stale",
+      file: `${LLMS_TOPICS_DIR}/${file}`,
+      line: 1,
+      message: `${LLMS_TOPICS_DIR}/${file} no longer matches the documentation.`,
+      suggestion: "Run pnpm docs:llms.",
+    })),
+  ];
 }

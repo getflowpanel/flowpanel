@@ -52,7 +52,7 @@ export function adminWidgetContext(
   config: ResolvedAdminConfig,
   options: AdminWidgetContextOptions = {},
 ): WidgetContext {
-  const req = new Request(options.url ?? `http://localhost${config.basePath}`);
+  const req = new Request(options.url ?? `http://localhost${config.paths.admin}`);
   const reqCtx: RequestContext = {
     req,
     session: options.session ?? null,

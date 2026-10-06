@@ -45,8 +45,8 @@ export interface WidgetContextOptions {
   formatting?: FormattingConfig;
   /** Without `admin`: overrides of the admin's strings. */
   labels?: LabelsConfig;
-  /** Without `admin`: where the admin is mounted. @defaultValue "/admin" */
-  basePath?: string;
+  /** Without `admin`: where the admin is mounted, as `defineAdmin` takes `paths`. @defaultValue `{ admin: "/admin" }` */
+  paths?: { admin?: string };
 }
 
 type Shared = Pick<MemorySource, "rows" | "sql" | "db">;
@@ -72,7 +72,7 @@ function stubAdmin(options: WidgetContextOptions, shared: Shared): ResolvedAdmin
       allowUnauthenticated: true,
     },
     readOnly: true,
-    paths: { admin: options.basePath ?? "/admin" },
+    paths: { admin: options.paths?.admin ?? "/admin" },
     ...(options.formatting ? { formatting: options.formatting } : {}),
     ...(options.labels ? { labels: options.labels } : {}),
     resources: names.map((name) =>
@@ -122,7 +122,7 @@ export function widgetContext(options: WidgetContextOptions = {}): WidgetContext
 
 /** What a record page hands `detail.title`, `subtitle` and `badge`, for a test that calls them. */
 export function headerContext(
-  options: Pick<WidgetContextOptions, "admin" | "formatting" | "labels" | "basePath"> = {},
+  options: Pick<WidgetContextOptions, "admin" | "formatting" | "labels" | "paths"> = {},
 ): DetailHeaderContext {
   const { format, labels, link } = widgetContext(options);
   return { format, labels, link };

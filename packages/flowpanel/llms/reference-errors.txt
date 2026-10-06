@@ -9,8 +9,12 @@ Docs: https://flowpanel.tech/docs/reference/errors
 Documented types: FlowpanelError, FlowpanelValidationError
 
 Throw one of these from an action, adapter or custom route and FlowPanel answers
-with its status and `safeMessage`. Any other error becomes a generic `500`, and the
-detail is logged, not sent.
+with its status and `safeMessage`. Any other error becomes a generic `500` with no
+detail in the response beyond its `requestId`.
+FlowPanel passes the error to `hooks.onError`, so send it to your logger there.
+Without a hook it logs one `console.error` with the operation and the same request
+id. In development the log has the whole error; in production only the first line of
+the error and its cause, so query parameters and the values they carry stay out of it.
 
 ### FlowpanelError
 
@@ -33,16 +37,17 @@ throw new FlowpanelError("conflict", "This order is already being processed");
 | Class | `code` | Status | Default message | Raised by FlowPanel? |
 | --- | --- | --- | --- | --- |
 | `FlowpanelValidationError` | `validation_failed` | 422 | Validation failed | yes |
-| `FlowpanelAuthError` | `unauthenticated` | 401 | Authentication required | yours to throw |
+| `FlowpanelAuthError` | `unauthenticated` | 401 | Authentication required | no, yours to throw |
 | `FlowpanelAccessError` | `forbidden` | 403 | Forbidden | yes |
 | `FlowpanelFieldAccessError` | `field_forbidden` | 403 | `Field "x" cannot be changed.` | yes |
 | `FlowpanelOperationDisabledError` | `operation_disabled` | 403 | This operation is disabled. | yes |
 | `FlowpanelUnknownFieldError` | `unknown_field` | 400 | `Unknown field: "x".` | yes |
 | `FlowpanelNotFoundError` | `not_found` | 404 | Not found | yes |
-| `FlowpanelConflictError` | `conflict` | 409 | Conflict | no — yours to throw |
+| `FlowpanelConflictError` | `conflict` | 409 | Conflict | yes, for a database conflict |
 | `FlowpanelRateLimitError` | `rate_limited` | 429 | Rate limit exceeded | yes |
 
-Each takes an optional message.
+Each takes an optional message, except the two field errors, which take the field
+name, and `FlowpanelValidationError`, which takes its field errors first.
 
 #### FlowpanelValidationError
 
@@ -64,6 +69,25 @@ throw new FlowpanelValidationError({
 // with a banner message as well:
 throw new FlowpanelValidationError({ email: "Already registered" }, "Could not save");
 ```
+
+### Database constraint violations
+
+A create, edit, inline edit or delete that breaks a database constraint does not
+become a `500`. FlowPanel reads the Postgres, MySQL, SQLite or Prisma error, through
+any wrapping error, and answers with a message from `labels.form`:
+
+| Violation | Column known | Answer |
+| --- | --- | --- |
+| Unique | yes | 422, `taken` on the field: "Email is already taken" |
+| Unique | no, e.g. a composite key | 409, `conflict` |
+| Foreign key on a write | yes | 422, `missingReference` on the field |
+| Foreign key on a write | no | 409, `missingLink` |
+| Foreign key on a delete | either | 409, `inUse` |
+| NOT NULL | yes | 422, `required` on the field |
+
+The column is matched to the resource's field by name, ignoring case and `_`, so
+`user_id` reaches `userId`. A violation without a column it can match, and any
+other database error, stays a `500` and is reported as above.
 
 ### Config-time errors are not in this hierarchy
 
@@ -158,41 +182,43 @@ itself is invalid.
 
 ### Errors the routes produce themselves
 
-The generated UI routes answer some errors directly with a string `error`. The
-JSON CRUD API returns a `FlowpanelResultError` instead.
+The generated UI routes answer some errors directly with a string `error`:
 
-#### 400 — malformed request body
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid JSON body` | A JSON body that does not parse. |
+| 400 | `JSON body must be an object` | A JSON array or scalar. |
+| 400 | `invalid form data` | A form body that does not parse. |
+| 413 | `request body is too large` | A body over the size limit. |
+| 403 | `Cross-origin write requests are not allowed.` | The default browser origin guard blocks a mutation. |
+| 403 | `This admin is read-only.` | `readOnly: true` blocks a write. |
+| 422 | `too many ids (max N)` | A bulk action gets more ids than its `max`. |
+| 422 | `validation failed` | An action `form` fails validation; the body adds an `issues` array. See [Actions → Validation](/docs/reference/actions#validation). |
 
-A JSON body that does not parse:
+The JSON CRUD API that the [typed client](/docs/reference/client) calls answers with
+a `FlowpanelResultError`, `{ ok: false, error: { code, message } }`, instead:
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 400 | `bad_request` | A body that does not parse or is not a JSON object. |
+| 405 | `method_not_allowed` | A method the route does not serve; `Allow` lists the ones it does. |
+| 413 | `payload_too_large` | A JSON body over 1 MiB. |
+| 415 | `unsupported_media_type` | A write without `Content-Type: application/json`. |
+
+#### 404: unknown resource, action or dashboard
+
+The UI routes answer with the same short body in every environment. The message
+names the kind: `resource`, `action` or `dashboard`.
 
 ```json
-{ "ok": false, "error": "invalid JSON body" }
+{ "ok": false, "error": { "code": "not_found", "message": "action not found" } }
 ```
 
-#### 404 — unknown resource, action or dashboard
+Outside production the server console also prints what is registered:
 
-In production the message is terse:
-
-```json
-{ "ok": false, "error": "resource not found" }
+```text
+[flowpanel] action not found: "refnud". Registered actions: "refund", "cancel".
 ```
 
-Outside production it names what is registered:
-
-```json
-{
-  "ok": false,
-  "error": "action not found: \"refnud\". Registered actions: \"refund\", \"cancel\"."
-}
-```
-
-`kind` is one of `resource`, `action` or `dashboard`.
-
-#### 403 / 422 from the guard pipeline
-
-`403 Cross-origin write requests are not allowed.` when the default browser
-origin guard blocks a mutation; `403 This admin is read-only.` when
-`readOnly: true` blocks a write;
-`422 too many ids (max 1000)` when a bulk action exceeds its cap;
-`422 validation failed` with an `issues` array when an action `form` fails
-validation. See [Actions → Validation](/docs/reference/actions#validation).
+The JSON CRUD API answers `{ "code": "not_found", "message": "not found" }` for an
+unknown route or resource.

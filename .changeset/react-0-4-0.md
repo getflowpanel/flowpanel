@@ -2,17 +2,32 @@
 "@flowpanel/react": minor
 ---
 
-- Added `TimelineCard`, `HeatmapCard`, `ChecklistCard`, `TrackerCard`, `StatStrip` and `ListBanner`.
+- Added `TimelineCard`, `HeatmapCard`, `ChecklistCard`, `TrackerCard`, `StatStrip`, `ListBanner` (with `ListBannerProps`), `CaptionLine` and `ExpiredCard`.
 - Added `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell` and `ToneText` for custom cells.
 - Changed the default look to a graphite palette with one data colour, `--fp-data`.
 - Changed widget values, bar fills and list dots to show their tone.
 - Changed `LocalTime` to keep a configured `formatting.timeZone` after hydration.
-- Changed the drawer to keep its tab in `?drawerTab=` instead of `?tab=`.
-- Changed `tailwind-merge` to `^3.0.0`, so `cn()` merges Tailwind v4 utilities.
+- Breaking: the drawer keeps its tab in `?drawerTab=` instead of `?tab=`.
+- Changed `cn()` to merge Tailwind v4 classes.
 - Fixed column `render` cells showing the raw value after page one.
 - Fixed duplicate-key errors on repeated labels in lists, bars, funnels and `kv`.
-- Changed `MetricCard` to take `goodWhen` as its own prop instead of reading it from `delta`.
+- Breaking: `MetricCard` takes `goodWhen` as its own prop instead of reading it from `delta`.
 - Added `CardDate`, an instant that `StatCard`, `KvCard` and `StatGroupCard` render through `LocalTime`; `StatGroupCard` renders a bare `Date` the same way.
 - Fixed a column's `secondary` timestamp rendering in UTC while the cell used the viewer's zone.
 - Fixed `FunnelCard` showing `−0%` for a step that loses no one.
 - Changed a single click on an editable cell in a clickable row to open the row; editing starts from the pencil or Enter, and `InlineEditCell` takes `rowClickable` for it.
+- Added `useRowHrefClick`, a `DataTable` `onRowClick` that opens each row's own link, and `toneTextClass` and `toneFillClass` for client components (the same maps as `@flowpanel/core`).
+- Changed the tones `StatusBadge` infers from a status: success words such as `active` and `completed` are no longer green, `pending`, `waiting` and `processing` are `info` instead of `warn`, `disabled` and `canceled` are `muted` instead of `err`, and an unknown status is `default`. Pass `tone` to keep a colour.
+- Changed `DataTable` on phones to show the first 10 cards and fold the rest behind one button.
+- Changed `DataTable`'s compact density to keep the regular text size, and its export button to hide while there are no rows.
+- Added `badges` to `PageHeader`, `collapsible` to `NavGroup`, `presets` to `DateRangePicker`, `caption` and `density` to `TableWidget`, and `title` and `plain` to `ErrorCard`.
+- Changed `StatusDot` to take every `Tone`.
+- Added `rootHref` to `AdminShell`, `AdminNav` and `AdminTabs`: the admin root's entry is active only on its own page, and a list stays active on its records when the nav has no overview entry.
+- Added `data-variant` and `data-size` to `Button`, for tests and host styles to read.
+- Fixed `InlineEditCell` showing English toasts and naming its button after the raw field key; the words come from labels, and a new `label` prop names the column.
+- Raised the minimum Radix UI, sonner and tailwind-merge versions to their current releases.
+- Changed the Next.js peer range to `>=15.5.0 <17.0.0`, so Next.js 15.5 and newer 15.x releases work as well as 16.
+- Changed the bundled icons to lucide-react 1.x; every icon keeps its shape.
+- Changed `InlineEditCell` to toast the field's own message when a save is refused, such as "Email is already taken".
+- Changed a read-only text, textarea and select field to look read-only in forms and drawers: a muted background and text, no hover border, focus ring or caret, and `aria-readonly`.
+- Fixed a form losing the server's messages in `next dev`, where React's reset after the action cleared them in the same tick; the messages and the typed values now stay.

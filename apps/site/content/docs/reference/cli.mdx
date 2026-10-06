@@ -33,31 +33,27 @@ an open development identity; the answer defaults to no.
 │
 ◇  Detected stack ───────────────────────────────────────╮
 │                                                        │
-│  Next.js 16.3.7 · React 19.2.8 · TypeScript · Drizzle  │
+│  Next.js 16.4.0 · React 19.3.0 · TypeScript · Drizzle  │
 │                                                        │
 ├────────────────────────────────────────────────────────╯
 │
-◇  App name
+◇  App name, shown as the sidebar brand
 │  my-app
 │
-◇  Drizzle db client path
-│  @/db/index
+◇  Drizzle client module, as an import path (exports db)
+│  @/db
 │
-◇  Drizzle schema path
+◇  Drizzle schema module, as an import path
 │  @/db/schema
 │
-◇  Auth helper path (must export getSession)
+◇  Session module, as an import path (exports getSession)
 │  @/server/lib/auth
 │
 ◇  No session helper found. Use an open development-only admin identity for now?
 │  Writes a dev stub that refuses to run in production; replace it with your provider before deploying.
 │  Yes
 │
-◇  Admin URL ─╮
-│             │
-│  /admin     │
-│             │
-├─────────────╯
+●  Admin URL: /admin
 │
 ◇  Filesystem plan ──────────────────────────────────╮
 │                                                    │
@@ -77,33 +73,30 @@ an open development identity; the answer defaults to no.
 ◇  Apply these changes?
 │  Yes
 │
-◇  Wrote ─────────────────────────────────────╮
-│                                             │
-│  flowpanel.config.ts                        │
-│  src/app/admin/[[...slug]]/page.tsx         │
-│  src/app/api/flowpanel/[...route]/route.ts  │
-│  src/app/api/flowpanel/stream/route.ts      │
-│  src/styles/admin.css                       │
-│  flowpanel/migrations/0001_init.sql         │
-│  src/server/lib/auth.ts                     │
-│  src/app/admin/layout.tsx                   │
-│  src/app/admin/not-found.tsx                │
-│  src/app/layout.tsx                         │
-│                                             │
-├─────────────────────────────────────────────╯
+◆  Wrote 10 files
 │
 ◇  Installed @flowpanel/kit@~0.4.0, @flowpanel/cli@~0.4.0
 │
-└  Authentication: src/server/lib/auth.ts is an open development identity. Replace it before deploying.
-
-Next
-  pnpm flowpanel new <table>    add a resource to flowpanel.config.ts
-  pnpm dev                      start Next.js, then open http://localhost:3000/admin
-  https://flowpanel.tech/docs/introduction/getting-started
+▲  src/server/lib/auth.ts signs every request in as an admin in development and throws
+│  under `next start`. Replace it with your auth provider before deploying.
+│
+◇  Next ─────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                │
+│  pnpm flowpanel new <table>    add a resource to flowpanel.config.ts                           │
+│  pnpm dev                      start Next.js and open the admin URL below                      │
+│  pnpm flowpanel migrate        only if you turn on the audit log: creates flowpanel_audit_log  │
+│  https://flowpanel.tech/docs/introduction/getting-started                                      │
+│                                                                                                │
+├────────────────────────────────────────────────────────────────────────────────────────────────╯
+│
+└  Admin: http://localhost:3000/admin
 ```
 
 The closing block names the next commands and the admin URL at the dev server's
-default port. The line above it depends on the session module `init` wrote or found.
+default port. The warning above it depends on the session module `init` wrote or
+found: the closed stub denies every request until `getSession` returns your
+provider's session, or until `pnpm flowpanel init --dev-auth` swaps in the open
+development identity.
 
 What varies:
 
@@ -112,10 +105,15 @@ What varies:
   `--path /ops/admin`. If the fallback is taken too, nothing is written.
 - **Admin route**: the catch-all page exports `generateMetadata`, which sets the page
   title from the resource or dashboard, and `not-found.tsx` beside the layout renders
-  FlowPanel's not-found page for the admin route.
+  FlowPanel's not-found page for the admin route. When `next.config` turns on
+  `cacheComponents`, the page also exports `instant = false`, so `next dev` does not
+  log "encountered uncached data" on every admin page.
 - **Admin layout**: imports the stylesheet and renders `ThemeScript` with the
   `x-nonce` request header. Under a strict `script-src`, your middleware must set
   `x-nonce` and the matching CSP header; FlowPanel does not write that middleware.
+  When `next.config` turns on `cacheComponents`, as `create-next-app` does from
+  Next.js 16.4, the layout also exports `instant = false`, which lets the admin read
+  the request before it renders.
   `init` adds `suppressHydrationWarning` to the root layout's `<html>` tag, or prints
   the edit when it cannot patch the file. Without a root layout, the admin gets its
   own.
@@ -125,18 +123,30 @@ What varies:
   [preset](/docs/guides/authentication). Otherwise it writes a closed `getSession`
   adapter. `--dev-auth`, or a yes to the wizard question, writes an open development
   identity that warns once per process and refuses to run in production. On an
-  initialized project, `--dev-auth` replaces the session module when it is still the
-  untouched closed stub, and a module you edited stops `init` with exit `1` and
-  nothing written.
+  initialized project, `--dev-auth` touches only the module the config imports
+  `getSession` from: it replaces it while it is still one of `init`'s stubs, after
+  `flowpanel new` or any other edit, and asks first in a terminal. A module that
+  exports anything else, or whose `getSession` you changed, is your own: `init` stops
+  with exit `1` and nothing written, saying what to change instead.
+- **Role mapping**: with `init`'s stub the config reads `s?.user.role`. With your
+  own `getSession` it reads `user.role` only when it is a string and treats other
+  sessions as `"guest"`, so the config compiles for any session type.
+- **Migration**: `flowpanel/migrations/0001_init.sql` is written for the project's
+  database: PostgreSQL, MySQL or SQLite, read from the Prisma provider or the Drizzle
+  modules. An existing file is kept.
 - **Piped output**: without a terminal, `init --yes` prints the files it wrote, the
   install result, every warning and the closing block as plain lines, with no colour
   codes, also under `CI`.
 - **Prisma provider**: the config's `provider` comes from the `datasource` in the
-  Prisma schema: `package.json#prisma.schema`, the literal `schema` in
-  `prisma.config.ts`, `prisma/schema.prisma` or `prisma/schema/`. A provider other
+  Prisma schema: the literal `schema` in `prisma.config.ts`,
+  `package.json#prisma.schema`, `prisma/schema.prisma` or `prisma/schema/`. A provider other
   than `postgresql`, `mysql` or `sqlite` stops `init` with nothing written. When no
   datasource is found, `init` writes `postgresql` and warns.
-- **Install**: skipped for packages already in `package.json`.
+- **Install**: skipped for packages already in `package.json` and installed. A
+  package in `node_modules` but missing from `package.json` is added, so the next
+  install does not remove it.
+- **Dry run**: `--dry-run` lists the db, schema and session modules it would use, the
+  session outcome and the migration dialect, then the plan.
 
 ### When `init` stops
 
@@ -144,15 +154,19 @@ What varies:
   other commands say the same outside a project root.
 - **Neither Drizzle nor Prisma in `package.json`**: exits `1` with the install
   command.
+- **No Drizzle client, schema or Prisma client at the guessed paths**: exits `1`
+  with a starting file for each and the `--db` and `--schema` flags that point at
+  yours.
 - **No terminal and no `--yes`, `--dry-run` or `--json`**: exits `1`. Pass `--yes`
   in CI.
 - **A failed install**: keeps the files, prints the commands to run by hand, and
   exits `1`. So does an installed `@flowpanel/kit` or `@flowpanel/cli` from another
   minor version.
 
-Re-running `init` skips matching files. A conflicting file stops it with nothing
-written and every conflicting path listed. `--yes` accepts detected paths; it never
-overwrites.
+Re-running `init` keeps `flowpanel.config.ts` and skips matching files, and says
+`Already set up; nothing changed.` when there is nothing to write. A conflicting
+file stops it with nothing written and every conflicting path listed. `--yes`
+accepts detected paths; it never overwrites.
 
 ## flowpanel migrate
 
@@ -169,11 +183,18 @@ $ pnpm flowpanel migrate
 tell which are applied. `--json` returns the pending and applied lists. Applied IDs
 live in `_flowpanel_migrations`.
 
-Without `flowpanel.config.ts` it exits `1` and says to run `flowpanel init`, as `new`
-does. When the database cannot be reached, the first line is `Cannot reach the
-database at <host>:<port> (<code>). Check DATABASE_URL.` for Drizzle and Prisma alike;
+Without `flowpanel.config.ts` it exits `1` and says to run `init`, as `new` does.
+Before it connects, it checks the connection variable your database client reads
+(usually `DATABASE_URL`): when it is unset or empty, `migrate` exits `1` and says
+what to set, so the driver never falls back to `localhost`. It reads the modules
+the config imports `db` or `prisma` from, plus the Prisma schema; a variable with a
+fallback in code, such as `?? "file:local.db"`, is not required. When the database
+cannot be reached, the first line is `Cannot reach the database at
+<host>:<port> (<code>). Check DATABASE_URL.` for Drizzle and Prisma alike;
 the code is the socket error or Prisma's `P1001`, `P1002` or `P1017`.
-`FLOWPANEL_DEBUG=1` adds the failed SQL and the stack trace.
+`FLOWPANEL_DEBUG=1` adds the failed SQL and the stack trace. Under `--json` the
+failure is a JSON document with an `error` field, and `applied` is `false` when
+nothing ran.
 
 Migrators are serialized at the database, and a concurrent duplicate is a no-op.
 On PostgreSQL and SQLite each file and its marker share one transaction. MySQL
@@ -190,19 +211,30 @@ Every command reads `.env.local`, then `.env`; shell variables win.
 
 Runs these checks:
 
-- Next.js ≥ 16.3 and < 17, and TypeScript installed
-- an ORM the adapters support — Drizzle or Prisma
-- `flowpanel.config.ts` exists
+- Next.js 15.5 or newer within 15 or 16, and TypeScript installed
+- React and React DOM installed at supported, matching versions, and a supported Node.js
+- an ORM the adapters support: Drizzle or Prisma
+- `flowpanel.config.ts` exists; before `init`, this is the only check after the
+  prerequisites, and its hint is `pnpm dlx @flowpanel/cli init`
 - `@flowpanel/kit` is installed and matches the CLI's minor version
-- the five generated files exist: the API route, the SSE route, the seed
-  migration, the catch-all admin page, and the not-found page
+- the admin mount in the config (`paths.admin`) resolves to a static path
+- the generated files exist: the API route, the SSE route, the seed migration and
+  the catch-all admin page. A missing not-found page is a warning that `--fix` still
+  repairs
 - only one reachable `@flowpanel/core` installation across the installed
   dependency graph, including package-local peers and third-party plugins.
   Stale pnpm store entries are ignored; uninstalled projects skip this check
 - no destructive row/bulk action declared without a `confirm`
-- `tsc --noEmit` passes; when `.next/types` is missing and Next is 15.5 or later,
-  `doctor` runs `next typegen` first, which writes `.next/types`, so the route and
-  layout globals Next generates exist
+- every ejected admin page still carries its eject marker
+- with `cacheComponents` on: Next.js 16.3 or newer, no `runtime`, `dynamic`,
+  `revalidate` or `fetchCache` export in the generated routes and admin page, and
+  `instant = false` in the catch-all admin page and in an admin layout that reads the
+  request. `--fix` adds it to a catch-all page `init` wrote; a page you edited gets
+  the hint only
+- `tsc --noEmit` passes. When `.next/types` is missing, `doctor` runs `next typegen`
+  first, so the route and layout types Next generates exist
+- `flowpanel.config.ts` evaluates; an error there is a failure with the error as
+  its hint
 
 Three more checks warn without failing the run: a session module that is still the
 closed stub (`getSession` returns `null`) or the open development identity from
@@ -236,10 +268,12 @@ $ pnpm flowpanel eject dashboard "/monitoring"
 $ pnpm flowpanel eject layout
 ```
 
-It writes the files and comments out the config entry, as one transaction. When a
-target file exists, the plan is printed with `Use --force to overwrite.`: a dry run
-exits `0` and a real run exits `1`. `--force` replaces existing files. It follows a
-re-exporting root config and a `new --dir` resources directory.
+It writes the files under the admin mount, as one transaction. An ejected resource
+stays in the config, because the ejected `actions.ts` reads rows through it; an ejected
+dashboard's entry is commented out. When a target file exists, the plan is printed with
+`Use --force to overwrite.`: a dry run exits `0` and a real run exits `1`. `--force`
+replaces existing files. It follows a re-exporting root config and a `new --dir`
+resources directory.
 
 ## flowpanel dev
 
@@ -255,8 +289,11 @@ says how to set `nodeLinker` to `node-modules`. A busy port stops it with `Port 
 $ pnpm flowpanel dev --port 3000
 ```
 
-Output is prefixed `[next]` and `[board]`; when one exits, both stop.
-`--no-board` skips the queue board.
+A port counts as busy when anything answers on `127.0.0.1` or `::1`.
+Output is prefixed `[next]` and `[board]`; when Next.js is ready, `dev` prints the
+admin URL. When one process exits, both stop.
+`--no-board` skips the queue board. The board runs with `tsx` from your project, so
+install it as a dev dependency (`pnpm add -D tsx`) when you use queues.
 
 ## flowpanel new
 
@@ -272,12 +309,22 @@ $ pnpm flowpanel new posts
 └  Added resource "posts" to flowpanel.config.ts
 ```
 
-It adds `resource(schema.posts, {})` to the `resources` array, with no `columns`, so
-the list shows every column until you narrow it. It also adds `resource` to the
+It reads the table from your schema and adds an entry with its columns, search
+fields, filters and default sort to the `resources` array, chosen the same way as
+`--dir` below; an enum column gets a `select` filter. It also adds `resource` to the
 `@flowpanel/kit` import when missing and removes the placeholder comment that `init`
 wrote above the array. It checks the schema has the table, by SQL name or export
 name, and exits `1` if not, or if the resource exists. It follows a root config that
-re-exports another module.
+re-exports another module, and when the config reads a `--dir` directory, `new`
+writes there. `--hidden` without `--dir` adds `hidden: true` to the entry.
+
+On Prisma it reads `schema.prisma`: `new users` resolves to the model mapped to
+that table (`User`), and an unknown name exits `1` with the list of models. The
+entry gets `name` set to the `@@map` table name, or the model in plural snake case
+(`OrderItem` becomes `order_items`), so the URL and navigation read like a Drizzle
+table's. A relation field becomes a `reference` when the target model already has a
+resource. The model is added to `FlowpanelResources` under that name, so its rows and
+the references to it are typed.
 
 ### One file per resource
 
@@ -307,7 +354,9 @@ export const userVisit = resource(schema.userVisit, {
 });
 ```
 
-and adds it to `admin/config/resources/index.ts`. Columns are chosen by type; an
+and adds it to `admin/config/resources/index.ts`. The first time, it also imports
+that directory's `resources` into `flowpanel.config.ts` and spreads it into the
+array; when the config is shaped differently it prints the line to add. Columns are chosen by type; an
 enum gets an `enumOf` stub; a foreign key becomes a `reference` labelled by the
 target's `name`, `title` or `email` when the target already has a file, so scaffold
 referenced tables first. JSON and long text are left out, `name`, `title` and
@@ -315,9 +364,9 @@ referenced tables first. JSON and long text are left out, `name`, `title` and
 `--hidden` keeps the resource out of the navigation.
 
 Re-running changes nothing; a different existing file stops it. `--dir` is
-Drizzle only. Without `--dir`, a config whose `resources` is not an array literal
-is left alone.
+Drizzle only. Without `--dir`, a config whose `resources` comes from a `--dir`
+directory gets the new file there; any other `resources` that is not an array
+literal is left unchanged, and `new` exits `1`.
 
-`--table <expr>` sets the table expression and skips the schema check. `--kind`
-defaults to the adapter the config builds; `--kind prisma` writes
-`resource("<name>", {})`, with the name as a string, so pass the Prisma model name.
+`--table <expr>` sets the table expression, skips the schema check and writes empty
+options. `--kind` defaults to the adapter the config builds.

@@ -15,6 +15,7 @@ const HISTORY_LIMIT = 36;
 const SNAPSHOT_LIMIT = 5;
 const BASE_OFFERS_PER_MINUTE = 132;
 const LIVE_SIGNAL_VERSION = 2;
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const THROUGHPUT_JITTER = [2, -3, 4, -1, 3, -2, 1, -4, 3, 0] as const;
 const KINDS: readonly MarketEventKind[] = [
   "price_drop",
@@ -39,8 +40,8 @@ export function createMarketEvent(index: number, at: Date): MarketEvent {
   const kind = KINDS[index % KINDS.length] ?? "crawl_completed";
   const delta = 3 + ((index * 7) % 15);
   const details: Record<MarketEventKind, string> = {
-    price_drop: `Price dropped ${delta}% to $${((product.ourPriceCents * (100 - delta)) / 10_000).toFixed(2)}`,
-    price_rise: `Price rose ${delta}% to $${((product.ourPriceCents * (100 + delta)) / 10_000).toFixed(2)}`,
+    price_drop: `Price dropped ${delta}% to ${usd.format((product.ourPriceCents * (100 - delta)) / 10_000)}`,
+    price_rise: `Price rose ${delta}% to ${usd.format((product.ourPriceCents * (100 + delta)) / 10_000)}`,
     stock_change: index % 2 === 0 ? "Back in stock" : "Stock is running low",
     crawl_completed: `${24 + (index % 73)} offers checked`,
   };

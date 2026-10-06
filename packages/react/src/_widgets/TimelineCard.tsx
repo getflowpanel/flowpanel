@@ -145,7 +145,11 @@ export function TimelineCard({
       <CardContent className={cn("space-y-4", label || caption ? "pt-0" : "")}>
         {chips.length > 2 ? (
           // biome-ignore lint/a11y/useSemanticElements: filter links, not form fields; a nav would add a landmark per card
-          <div role="group" aria-label={label} className="flex flex-wrap gap-1.5">
+          <div
+            role="group"
+            {...(label ? { "aria-label": label } : {})}
+            className="flex flex-wrap gap-1.5"
+          >
             {chips.map((chip) => (
               <a
                 key={chip.key}

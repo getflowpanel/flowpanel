@@ -26,4 +26,4 @@ Sign up at [http://localhost:3000](http://localhost:3000), then in the Clerk das
 2. Set your user's `publicMetadata.role` to `"admin"`.
 3. Open `/admin`.
 
-Without the role, FlowPanel redirects to `forbiddenUrl`. Postgres listens on port `54330`.
+Without the role, `/admin` shows an access-denied page. Pass `forbiddenUrl` to `withClerk` to redirect there instead. Postgres listens on port `54330`.

@@ -37,6 +37,7 @@ const cfg: ResolvedAdminConfig = {
   resources: [],
   resourcesByName: new Map(),
   dashboardsByPath: new Map(),
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   __resolved: true,
 } as never;
 
@@ -376,6 +377,7 @@ describe("renderWidget — table widget row projection", () => {
       resources: [usersResource],
       resourcesByName: new Map([["users", usersResource]]),
       dashboardsByPath: new Map(),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
     const widget: WidgetConfig = {
@@ -423,6 +425,7 @@ describe("renderWidget — table widget row projection", () => {
       resources: [usersResource],
       resourcesByName: new Map([["users", usersResource]]),
       dashboardsByPath: new Map(),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
     const widget: WidgetConfig = {
@@ -452,6 +455,7 @@ describe("renderWidget — resource table widget cell pipeline", () => {
       resourcesByName: new Map(resources.map((r) => [(r.ref as { __name: string }).__name, r])),
       dashboardsByPath: new Map(),
       ...(scope ? { scope } : {}),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
   }
@@ -599,6 +603,7 @@ describe("renderWidget — cross-resource authorization", () => {
       resourcesByName: new Map([["users", usersResource]]),
       dashboardsByPath: new Map(),
       ...(globalScope ? { scope: globalScope } : {}),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
     return { cfg, list };
@@ -661,6 +666,7 @@ describe("renderWidget — cross-resource authorization", () => {
       resources: [usersResource],
       resourcesByName: new Map([["users", usersResource]]),
       dashboardsByPath: new Map(),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
 

@@ -40,10 +40,9 @@ describe("dashboard action emphasis", () => {
     const sync = screen.getByRole("button", { name: "Sync" });
     const fix = screen.getByRole("button", { name: "Fix" });
     const drop = screen.getByRole("button", { name: "Drop" });
-    expect(sync.className).toContain("border-fp-border-2");
-    expect(sync.className).not.toContain("bg-fp-accent");
-    expect(fix.className).toContain("bg-fp-accent");
-    expect(drop.className).toContain("border-fp-border-2");
+    expect(sync.dataset.variant).toBe("outline");
+    expect(fix.dataset.variant).toBe("default");
+    expect(drop.dataset.variant).toBe("outline");
     expect(drop.className).toContain("text-fp-err-text");
   });
 

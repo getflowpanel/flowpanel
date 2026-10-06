@@ -24,14 +24,14 @@ export function frameworkHref(href: string): string {
 }
 
 function warnMountLiteral(config: ResolvedAdminConfig, href: string): void {
-  const base = config.basePath;
+  const base = config.paths.admin;
   if (process.env.NODE_ENV === "production" || !base || base === "/" || warned.has(href)) return;
   if (frameworkHrefs.has(href)) return;
   if (href !== base && !href.startsWith(`${base}/`) && !href.startsWith(`${base}?`)) return;
   warned.add(href);
   console.warn(
     `[flowpanel] link "${href}" spells the admin's mount path. Name the target instead — ` +
-      '{ resource: "…" } or { dashboard: "/…" } — so a renamed basePath cannot break it.',
+      '{ resource: "…" } or { dashboard: "/…" } — so a renamed mount path cannot break it.',
   );
 }
 

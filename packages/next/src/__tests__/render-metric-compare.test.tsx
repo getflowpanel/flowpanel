@@ -12,7 +12,7 @@ import { renderWidget } from "../runtime/render-widget";
 import { buildWidgetContext, detailTabDateRange } from "../runtime/widget-context";
 
 const config = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: {} },
   labels: {},
   resourcesByName: new Map(),

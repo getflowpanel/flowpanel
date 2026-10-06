@@ -47,8 +47,8 @@ export function listEmptyProps(
   },
 ): EmptyProps {
   const empty = resource.options.empty;
+  const labels = mergeLabels(config.labels);
   if (narrowed.filtered) {
-    const labels = mergeLabels(config.labels);
     const query = narrowed.search ?? "";
     const title = (query && empty?.searched) || empty?.filtered || labels.widget.filtered;
     return {
@@ -61,7 +61,7 @@ export function listEmptyProps(
     };
   }
   return {
-    emptyTitle: empty?.title ?? `No ${plural}`,
+    emptyTitle: empty?.title ?? formatLabel(labels.table.empty, { label: plural }),
     ...(empty?.description ? { emptyDescription: empty.description } : {}),
     ...(empty?.icon ? { emptyIcon: <FlowpanelIcon name={empty.icon} className="h-6 w-6" /> } : {}),
     ...(empty?.action ? { emptyAction: linkButton(empty.action.href, empty.action.label) } : {}),

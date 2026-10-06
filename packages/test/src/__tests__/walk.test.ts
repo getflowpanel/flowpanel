@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isUnderBasePath, noNavigation, normalizeBasePath, runSmoke, withTab } from "../walk";
+import { isUnderAdminPath, noNavigation, normalizeAdminPath, runSmoke, withTab } from "../walk";
 import { element, query } from "./fake-dom";
 import { FakePage, type FakeRoute } from "./fake-page";
 
@@ -15,18 +15,18 @@ function admin(overrides: Record<string, FakeRoute> = {}): Record<string, FakeRo
   };
 }
 
-describe("normalizeBasePath", () => {
+describe("normalizeAdminPath", () => {
   it.each([
     ["/admin", "/admin"],
     ["/admin/", "/admin"],
     ["admin", "/admin"],
     ["/", "/"],
   ])("normalizes %s to %s", (input, expected) => {
-    expect(normalizeBasePath(input)).toBe(expected);
+    expect(normalizeAdminPath(input)).toBe(expected);
   });
 });
 
-describe("isUnderBasePath", () => {
+describe("isUnderAdminPath", () => {
   it.each([
     ["/admin", true],
     ["/admin/customers", true],
@@ -35,7 +35,7 @@ describe("isUnderBasePath", () => {
     ["/adminx/customers", false],
     ["/other", false],
   ])("decides %s", (route, expected) => {
-    expect(isUnderBasePath(route, "/admin")).toBe(expected);
+    expect(isUnderAdminPath(route, "/admin")).toBe(expected);
   });
 });
 
@@ -62,10 +62,10 @@ describe("runSmoke", () => {
     );
   });
 
-  it("fails when basePath points somewhere that is not an admin", async () => {
+  it("fails when paths.admin points somewhere that is not an admin", async () => {
     const page = new FakePage(admin());
 
-    await expect(runSmoke(page, { basePath: "/nope" }, null)).rejects.toThrow(
+    await expect(runSmoke(page, { paths: { admin: "/nope" } }, null)).rejects.toThrow(
       noNavigation("/nope"),
     );
   });

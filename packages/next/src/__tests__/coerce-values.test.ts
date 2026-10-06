@@ -35,6 +35,16 @@ describe("coerceRowByColumns", () => {
     expect(fieldErrors).toEqual({});
   });
 
+  it("reads a datetime-local value on the form's zone when one is given", () => {
+    const { values } = coerce(
+      columns,
+      { bornAt: "2026-10-07T02:37" },
+      DEFAULT_LABELS,
+      "Europe/Moscow",
+    );
+    expect(values.bornAt).toEqual(new Date("2026-10-06T23:37:00Z"));
+  });
+
   it("nulls an empty string on a nullable column", () => {
     const { values, fieldErrors } = coerceRowByColumns(columns, { age: "", bornAt: "" });
     expect(values).toEqual({ age: null, bornAt: null });

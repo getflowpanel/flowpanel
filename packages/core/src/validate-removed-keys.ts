@@ -6,7 +6,7 @@ function actionsOf(list: unknown): Named[] {
 
 function reject(where: string): never {
   throw new Error(
-    `${where} sets requireRole, which it does not read. Gate it with access instead.`,
+    `flowpanel: ${where} sets requireRole, which was removed in 0.4. Gate it with access instead.`,
   );
 }
 
@@ -16,7 +16,9 @@ export function assertNoRequireRole(name: string, options: Record<string, unknow
   for (const part of ["detail", "drawer"] as const) {
     const section = options[part] as Record<string, unknown> | undefined;
     if (section && "header" in section) {
-      throw new Error(`resource "${name}" ${part}.header is not read. Name it ${part}.title.`);
+      throw new Error(
+        `flowpanel: resource "${name}" ${part}.header was removed in 0.4. Name it ${part}.title.`,
+      );
     }
   }
   const drawer = options.drawer as { actions?: unknown } | undefined;
@@ -41,5 +43,5 @@ export function assertNoDashboardActionRequireRole(path: string, actions: unknow
 /** Fails a config that still mounts the admin with `basePath`, which would send every link to the default mount. */
 export function assertNoBasePath(config: Record<string, unknown>): void {
   if ("basePath" in config)
-    throw new Error("basePath is not read. Mount the admin with paths.admin.");
+    throw new Error("flowpanel: basePath was removed in 0.4. Mount the admin with paths.admin.");
 }

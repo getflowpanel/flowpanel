@@ -85,18 +85,25 @@ for (const file of publicTextFiles) {
 }
 
 const kit = JSON.parse(read("packages/flowpanel/package.json"));
-if (kit.peerDependencies.next.includes("16")) {
-  for (const file of publicTextFiles) {
-    if (/Next\.js 15\+/.test(read(file))) {
+const nextFloor = /(\d+\.\d+)/.exec(kit.peerDependencies.next)?.[1];
+for (const file of [...publicTextFiles, "apps/site/src/views/landing/ui/GetStarted.tsx"]) {
+  for (const match of read(file).matchAll(/Next\.js (\d+(?:\.\d+)?)\+/g)) {
+    if (`${match[1]}${match[1]?.includes(".") ? "" : ".0"}` !== nextFloor) {
       problems.push(
-        `${file}: says Next.js 15+ but the package peer range is ${kit.peerDependencies.next}`,
+        `${file}: says Next.js ${match[1]}+ but the package peer range is ${kit.peerDependencies.next}`,
       );
     }
   }
 }
+function resolveCatalog(name, specifier) {
+  if (specifier !== "catalog:") return specifier;
+  const key = name.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  return new RegExp(`^ {2}"?${key}"?: "?([^"\\n]+)"?$`, "m").exec(read("pnpm-workspace.yaml"))?.[1];
+}
+
 for (const example of ["examples/ai-scraper/package.json", "examples/with-clerk/package.json"]) {
   const pkg = JSON.parse(read(example));
-  const zod = pkg.dependencies?.zod ?? pkg.devDependencies?.zod;
+  const zod = resolveCatalog("zod", pkg.dependencies?.zod ?? pkg.devDependencies?.zod);
   if (!zod?.includes("4")) {
     problems.push(
       `${example}: uses zod ${String(zod)} but @flowpanel/kit peers on ${kit.peerDependencies.zod}`,
@@ -117,12 +124,10 @@ for (const file of walk("apps/site", (path) => /\.[jt]sx?$/.test(path))) {
   }
 }
 
-const namedRelease = readdirSync(join(root, ".changeset"))
-  .map((file) => ({ file, match: /^release-(\d+)-(\d+)-(\d+)\.md$/.exec(file) }))
-  .find(({ match }) => match !== null);
-if (namedRelease?.match) {
-  const expectedVersion = namedRelease.match.slice(1).join(".");
-  const releaseId = namedRelease.file.slice(0, -3);
+const versionedChangesets = readdirSync(join(root, ".changeset"))
+  .map((file) => ({ file, match: /-(\d+)-(\d+)-(\d+)\.md$/.exec(file) }))
+  .filter(({ match }) => match !== null);
+if (versionedChangesets.length > 0) {
   const tempDir = mkdtempSync(join(tmpdir(), "flowpanel-release-plan-"));
   const outputPath = join(tempDir, "status.json");
   try {
@@ -132,14 +137,20 @@ if (namedRelease?.match) {
       stdio: "pipe",
     });
     const status = JSON.parse(readFileSync(outputPath, "utf8"));
-    const planned = status.releases.filter(
-      (release) => release.name.startsWith("@flowpanel/") && release.changesets.includes(releaseId),
-    );
-    for (const release of planned) {
-      if (release.newVersion !== expectedVersion) {
-        problems.push(
-          `${namedRelease.file}: plans ${release.name}@${release.newVersion}, expected ${expectedVersion}`,
-        );
+    for (const { file, match } of versionedChangesets) {
+      const expectedVersion = match.slice(1).join(".");
+      const changesetId = file.slice(0, -3);
+      const planned = status.releases.filter(
+        (release) =>
+          release.name.startsWith("@flowpanel/") && release.changesets.includes(changesetId),
+      );
+      if (planned.length === 0) problems.push(`${file}: plans no @flowpanel package release`);
+      for (const release of planned) {
+        if (release.newVersion !== expectedVersion) {
+          problems.push(
+            `${file}: plans ${release.name}@${release.newVersion}, expected ${expectedVersion}`,
+          );
+        }
       }
     }
   } finally {
@@ -151,7 +162,7 @@ const coreDist = join(root, "packages/core/dist");
 if (!existsSync(coreDist)) {
   problems.push("packages/core/dist: missing; run pnpm build before check:release");
 } else {
-  for (const file of readdirSync(coreDist)) {
+  for (const file of readdirSync(coreDist, { recursive: true, encoding: "utf8" })) {
     if (!/\.d\.c?ts$/.test(file) || file.startsWith("index.")) continue;
     if (
       /\btype Session =|\binterface FlowpanelTypes\b/.test(

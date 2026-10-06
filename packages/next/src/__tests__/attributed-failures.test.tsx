@@ -80,7 +80,7 @@ describe("a widget that fails on a record page", () => {
       "scraper_run",
     );
     const name = '«Broken» (metric, scraper_run tab "summary" widget 1)';
-    expect((findProps(tree, ErrorCard)?.error as Error).message).toBe(`${name}: boom`);
+    expect((findProps(tree, ErrorCard)!.error as Error).message).toBe(`${name}: boom`);
     expect(findProps(tree, WidgetErrorBoundary)?.widgetId).toBe(name);
     expect(findProps(tree, ErrorCard)?.title).toBe("Broken");
     expect(findProps(tree, WidgetErrorBoundary)?.title).toBe("Broken");
@@ -135,7 +135,7 @@ describe("a widget on a dashboard", () => {
       reqCtx,
     });
     const slot = slotOf(page);
-    const rendered = (slot?.type as (props: Record<string, unknown>) => ReactNode)(
+    const rendered = (slot!.type as (props: Record<string, unknown>) => ReactNode)(
       slot?.props ?? {},
     );
     expect(findProps(rendered, WidgetErrorBoundary)?.widgetId).toBe(

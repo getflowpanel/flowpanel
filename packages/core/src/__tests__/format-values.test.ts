@@ -142,6 +142,7 @@ describe("column format helpers", () => {
     expect(percentHeatLevel(0.42, { kind: "percent", heat: true })).toBe(2);
     expect(percentHeatLevel(1.7, { kind: "percent", heat: true })).toBe(5);
     expect(percentHeatLevel(0.42, "percent")).toBeNull();
+    expect(percentHeatLevel(" ", { kind: "percent", heat: true })).toBeNull();
     expect(percentHeatLevel("n/a", { kind: "percent", heat: true })).toBeNull();
   });
 

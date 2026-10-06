@@ -57,15 +57,14 @@ const FOCUS_RING_ALPHA = 0.6;
 const SURFACES = ["--fp-bg-1", "--fp-bg-2", "--fp-bg-3"];
 
 describe.each(Object.entries(schemes))("default %s palette", (_, scheme) => {
-  it.each([
-    "--fp-text-1",
-    "--fp-text-2",
-    "--fp-text-3",
-  ])("%s reads at 4.5:1 on every surface", (text) => {
-    for (const surface of SURFACES) {
-      expect(contrast(rgb(scheme, text), rgb(scheme, surface))).toBeGreaterThanOrEqual(4.5);
-    }
-  });
+  it.each(["--fp-text-1", "--fp-text-2", "--fp-text-3"])(
+    "%s reads at 4.5:1 on every surface",
+    (text) => {
+      for (const surface of SURFACES) {
+        expect(contrast(rgb(scheme, text), rgb(scheme, surface))).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
 
   it.each([
     ["--fp-ok-text", "--fp-ok"],

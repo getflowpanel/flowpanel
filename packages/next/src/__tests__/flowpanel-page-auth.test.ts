@@ -31,7 +31,7 @@ import { QueuePage } from "../pages/queue-page";
 import { ResourceListPage } from "../pages/resource-list";
 import { UserPage } from "../pages/user-page";
 import { Welcome } from "../pages/welcome";
-import { DEV_AUTH_NOTE, DevAuthNote } from "../runtime/dev-auth-note";
+import { DevAuthNote, devAuthNote } from "../runtime/dev-auth-note";
 
 function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdminConfig {
   return {
@@ -45,7 +45,7 @@ function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdmin
     dashboardsByPath: new Map(),
     pagesByPath: new Map(),
     queuesByKey: new Map(),
-    basePath: "/admin",
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
     ...overrides,
   } as ResolvedAdminConfig;
@@ -344,7 +344,7 @@ describe("the sign-in wall for a developer", () => {
     await fresh(new FreshAccessError(), config, new Request("http://localhost/admin"));
     await fresh(new FreshAccessError(), config, new Request("http://localhost/admin"));
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn).toHaveBeenCalledWith(`[flowpanel] ${DEV_AUTH_NOTE}`);
+    expect(warn).toHaveBeenCalledWith(`[flowpanel] ${devAuthNote()}`);
   });
 
   it("leaves production output unchanged", async () => {

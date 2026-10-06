@@ -1,7 +1,9 @@
 import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
-import { runWithRequestContext, writeTarget } from "@flowpanel/core";
+import { runWithRequestContext } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
 import { buildAuditEvent, maybeEmitAudit, notFoundResponse } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
+import { explainWrite } from "../runtime/constraint-error";
 import { buildHref } from "../runtime/href";
 import { bindPublisher } from "../runtime/publish";
 import { readJsonObject, requestBodyErrorResponse } from "../runtime/request-body";
@@ -119,7 +121,9 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
         id,
         ...scopeBinding(resource, reqCtx),
       };
-      await runWithRequestContext(reqCtx, () => config.adapter.update(writeTarget(resource), mctx));
+      await explainWrite(config, resource, "update", () =>
+        runWithRequestContext(reqCtx, () => config.adapter.update(writeTarget(resource), mctx)),
+      );
 
       await maybeEmitAudit(
         { ok: true },

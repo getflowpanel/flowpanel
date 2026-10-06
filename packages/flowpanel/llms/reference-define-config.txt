@@ -66,7 +66,7 @@ production, a config without `auth.requireRole` refuses to start unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
 The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
-`devAuth` build an `AuthConfig`; see [Authentication](/docs/guides/authentication).
+`devAuth`, imported from `@flowpanel/kit/auth`, build an `AuthConfig`; see [Authentication](/docs/guides/authentication).
 
 ### ThemeConfig
 
@@ -101,7 +101,7 @@ theme: {
 }
 ```
 
-Colours are HSL triplets; an `hsl(...)` wrapper is removed for you.
+Colours are HSL triplets. `accent` and `accentDark` may also be written as `hsl(...)`, and the wrapper is removed for you; `cssVars` and `cssVarsDark` are written as given.
 
 `user` fills the account menu at the foot of the sidebar, or the end of the tab
 strip. Return nothing and no menu renders:
@@ -237,8 +237,8 @@ labels: {
 },
 ```
 
-`formatCount(label, count, locale)` from `@flowpanel/core/labels` picks the form
-for your own components. A preset's plural gives way to a string template you set
+`formatCount(label, count, locale)` from `@flowpanel/kit` picks the form in your
+own server code. A preset's plural gives way to a string template you set
 for the same count.
 
 `PluralLabel`
@@ -260,8 +260,8 @@ sign-in and access-denied screens shown when `auth.signInUrl` or
 A Russian `formatting.locale` (`"ru"`, `"ru-RU"`) makes `RU_LABELS` the base that
 `labels` merges over, so set only the strings you want different, such as
 `labels: { actions: { new: "Добавить" } }`. Other locales use English. Import
-`RU_LABELS` or `DEFAULT_LABELS` from `@flowpanel/kit` (or `@flowpanel/core/labels`
-in browser code); `labels: DEFAULT_LABELS` keeps English under a Russian locale.
+`RU_LABELS` or `DEFAULT_LABELS` from `@flowpanel/kit`; `labels: DEFAULT_LABELS`
+keeps English under a Russian locale.
 
 `LabelsConfig`
 
@@ -270,7 +270,7 @@ in browser code); `labels: DEFAULT_LABELS` keeps English under a Russian locale.
 | `noResults?` | `string` | Empty list state — used when a resource list returns 0 rows. |
 | `allOption?` | `string` | Empty filter / select dropdown — the "any/all" sentinel. |
 | `navigation?` | `{ skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; scrollHint?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; }` |  |
-| `table?` | `{ /** Templates use `{n}`. Separate one/many templates avoid English suffixes. */ result?: string; results?: string; actions?: string; rowActions?: string; rowsHint?: string; rowsReadOnlyHint?: string; selectRow?: string; selectAll?: string; deselectAll?: string; }` |  |
+| `table?` | `{ /** Templates use `{n}`. Separate one/many templates avoid English suffixes. */ result?: string; results?: string; actions?: string; rowActions?: string; rowsHint?: string; rowsReadOnlyHint?: string; selectRow?: string; selectAll?: string; deselectAll?: string; /** Title of a list with no rows and no `emptyState`. Use `{label}` for the plural label. */ empty?: string; /** The pencil on an editable cell. Use `{label}` for the column label. */ editCell?: string; /** After an editable cell saves. */ saved?: string; }` |  |
 | `dateRange?` | `{ /** Locale for calendar presentation; identical during SSR and hydration. */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
 | `savedViews?` | `{ save?: string; saveTrigger?: string; name?: string; current?: string; label?: string; yours?: string; saveCurrent?: string; saved?: string; deleted?: string; delete?: string; storageError?: string; }` |  |
 | `pagination?` | `{ label?: string; previous?: string; next?: string; of?: string; rowsPerPage?: string; /** Accessible page button name. Use `{n}` for the page number. */ page?: string; /** Page-size option. Use `{n}` for the row count. */ pageSize?: string; }` | Pagination chrome. |
@@ -279,8 +279,8 @@ in browser code); `labels: DEFAULT_LABELS` keeps English under a Russian locale.
 | `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */ events?: PluralLabel; }` | Count templates per `Intl.PluralRules` category; when set, they win over `table.result`/`results` and `bulkBar.selected`. |
 | `searchPlaceholder?` | `string` | Resource search input placeholder. Use `{label}` for the resource's label. |
 | `actions?` | `{ edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; }` | Generic action buttons. |
-| `form?` | `{ /** Edit page heading. Use `{label}` for the resource's singular label. */ editTitle?: string; /** Create page heading. Use `{label}` for the resource's singular label. */ createTitle?: string; /** The empty choice in a select control. */ selectPlaceholder?: string; /** A reference search with nothing to offer. */ noOptions?: string; /** A reference search still in flight. */ searching?: string; /** A reference search that failed. */ loadFailed?: string; /** An empty value the write needs. Use `{label}` for the field's label. */ required?: string; /** A value that is not a number. Use `{label}`. */ invalidNumber?: string; /** A value that is neither true nor false. Use `{label}`. */ invalidBoolean?: string; /** A value that is not a date. Use `{label}`. */ invalidDate?: string; }` | Generated create and edit form chrome. |
-| `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; }` | Drawer chrome. |
+| `form?` | `{ /** Edit page heading. Use `{label}` for the resource's singular label. */ editTitle?: string; /** Create page heading. Use `{label}` for the resource's singular label. */ createTitle?: string; /** The empty choice in a select control. */ selectPlaceholder?: string; /** A reference search with nothing to offer. */ noOptions?: string; /** A reference search still in flight. */ searching?: string; /** A reference search that failed. */ loadFailed?: string; /** An empty value the write needs. Use `{label}` for the field's label. */ required?: string; /** A value that is not a number. Use `{label}`. */ invalidNumber?: string; /** A value that is neither true nor false. Use `{label}`. */ invalidBoolean?: string; /** A value that is not a date. Use `{label}`. */ invalidDate?: string; /** A value a unique column already holds. Use `{label}`. */ taken?: string; /** A unique violation the database did not tie to one column. */ conflict?: string; /** A reference to a row that does not exist. Use `{label}`. */ missingReference?: string; /** A foreign key violation the database did not tie to one column. */ missingLink?: string; /** A delete that other rows still reference. */ inUse?: string; /** The create page of a resource with `create.disabled`. */ createDisabled?: string; /** The edit page of a resource with `update.disabled`. */ editDisabled?: string; }` | Generated create and edit form chrome. |
+| `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; /** A widget kind a drawer does not draw. Use `{kind}`. */ unsupported?: string; /** The dialog's name before the record loads. */ title?: string; /** The record could not be loaded. */ loadFailed?: string; }` | Drawer chrome. |
 | `detail?` | `{ /** A fields tab with nothing the reader is allowed to see. */ noFields?: string; /** A tab naming a resource that is not registered. Use `{resource}`. */ unknownResource?: string; /** A counted tab's label. Use `{label}` and `{count}`. */ tabCount?: string; }` | Full-page detail chrome. |
 | `related?` | `{ /** Link from a related tab to the target resource's own list. */ openList?: string; }` | Related detail-tab chrome. |
 | `notFound?` | `{ title?: string; description?: string; back?: string; }` | The admin's own not-found page, for a URL no resource or dashboard matches. |
@@ -343,14 +343,13 @@ What `defineAdmin` returns.
 | `dashboardsByPath` | `Map<string, DashboardConfig>` |  |
 | `pagesByPath` | `Map<string, PageConfig>` |  |
 | `queuesByKey` | `Map<string, QueueConfig>` |  |
-| `basePath` | `string` | Normalized `paths.admin` — leading slash, no trailing slash. Defaults to `/admin`. |
 | `paths` | `AdminPaths` | Normalized mount points with leading slashes and no trailing slash. |
 | `warnings` | `readonly string[]` | Config problems that do not stop the admin from booting. `flowpanel doctor` prints them; development prints each once. |
 
 `defineAdmin` throws if two resources share a name, two dashboards or pages
 share a path, or two queues share a key.
 
-It also throws when a config points at a resource name nothing resolves to —
+It also throws when a config points at a resource name nothing resolves to:
 `reference.resource` on a column or field, a drawer or detail tab's `resource`,
 or a `table()` widget's `resource`. The names it checks against are the
 *resolved* ones, so a Drizzle table declared as `pgTable("ai_usage", …)` is
@@ -399,13 +398,11 @@ on the resource or `options.key` on the queue.
 
 ### Behavior beyond validation
 
-Besides validating, `defineAdmin`:
-
 1. **Fills `columns`** from `adapter.introspect(ref)` for any resource that
    omitted them, in introspection order. If the adapter cannot introspect the
    ref, or reports zero columns, that throws.
 2. **Injects the default bulk delete** (above).
-3. **Normalizes `paths.admin`** and every dashboard / page `path` — a missing
+3. **Normalizes `paths.admin`** and every dashboard and page `path`: a missing
    leading `/` is added, a trailing one stripped.
 
 `introspect` reads the table object or DMMF; it does not query the database.
@@ -414,17 +411,18 @@ Besides validating, `defineAdmin`:
 
 `paths.admin` and `paths.api` are app-relative: they say where the admin sits inside
 your app, not where the app sits under a domain. If `next.config` sets its own
-`basePath`, leave both alone — Next serves and links everything under that prefix
+`basePath`, leave both alone. Next serves and links everything under that prefix
 already.
 
 FlowPanel adds the deployment prefix for you to the requests the browser issues
 by itself: the client fetches built from `paths.api`, the generated form actions
 and the SSE endpoint. `Link`, router navigation and `revalidatePath` are prefixed
-by Next and are left untouched. Only a fetch you write yourself against
-`paths.api` needs the helper:
+by Next and are left untouched. Only a fetch you write yourself in a client
+component against `paths.api` needs the helper. Server code calls the runtime
+through `createFlowpanel(config).request()` instead of fetching its own routes.
 
 ```ts excerpt
-import { withDeploymentBasePath } from "@flowpanel/kit/react"; // or "@flowpanel/core/paths" on the server
+import { withDeploymentBasePath } from "@flowpanel/kit/react";
 
 await fetch(`${withDeploymentBasePath(config.paths.api)}/user/u1/actions/verify`, {
   method: "POST",
@@ -454,7 +452,7 @@ With no `locale`, dates print as `YYYY-MM-DD HH:mm` and numbers use `en-US` grou
 
 Record identifiers are percent-encoded into the URL and decoded once when the page
 route reads them back, so an id containing `/`, `%`, `?`, `#` or a space addresses
-the record it names. Configured dashboard and page paths keep their separators —
+the record it names. Configured dashboard and page paths keep their separators:
 `/reports/weekly` stays two segments.
 
 A row whose projection did not include the key column is displayed but not treated

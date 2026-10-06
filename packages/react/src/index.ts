@@ -209,7 +209,7 @@ export {
   type ChecklistCardProps,
 } from "./_widgets/ChecklistCard";
 export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget";
-export { type CardDate, isCardDate } from "./_widgets/card-date";
+export type { CardDate } from "./_widgets/card-date";
 export { DashboardRefresh, type DashboardRefreshProps } from "./_widgets/DashboardRefresh";
 export { ExpiredCard, type ExpiredCardProps } from "./_widgets/ExpiredCard";
 export {
@@ -219,7 +219,7 @@ export {
 } from "./_widgets/FunnelCard";
 export { HeatmapCard, type HeatmapCardCell, type HeatmapCardProps } from "./_widgets/HeatmapCard";
 export { KvCard, type KvCardItem, type KvCardProps } from "./_widgets/KvCard";
-export { ListBanner } from "./_widgets/ListBanner";
+export { ListBanner, type ListBannerProps } from "./_widgets/ListBanner";
 export { ListCard, type ListCardProps, type ListCardRow } from "./_widgets/ListCard";
 export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard";
 export { DefaultMetricCard } from "./_widgets/MetricCardDefault";

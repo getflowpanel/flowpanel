@@ -5,10 +5,11 @@ import { prisma, type User } from "@/server/lib/prisma";
 
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
+    db: typeof prisma;
     session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
   }
   interface FlowpanelResources {
-    User: User;
+    users: User;
   }
 }
 
@@ -21,6 +22,7 @@ export default defineAdmin({
   },
   resources: [
     resource("User", {
+      name: "users",
       columns: ["email", "name", "role", "createdAt"],
       search: ["email", "name"],
       defaultSort: { field: "createdAt", dir: "desc" },

@@ -63,7 +63,7 @@ function makeConfig(): ResolvedAdminConfig {
       ["orders", orders],
     ]),
     dashboardsByPath: new Map([["/", overview]]),
-    basePath: "/admin",
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
 }

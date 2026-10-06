@@ -55,4 +55,16 @@ describe("StatStrip", () => {
     expect(band).toContain("bg-fp-bg-1");
     expect(band).toContain("[&>*]:shadow-[0_0_0_1px_hsl(var(--fp-border-1))]");
   });
+
+  it("counts only the cells that render, so a hidden one leaves no empty column", () => {
+    const show = false;
+    render(
+      <StatStrip>
+        <div>a</div>
+        {show && <div>b</div>}
+        {null}
+      </StatStrip>,
+    );
+    expect(screen.getByText("a").parentElement?.className).toContain("md:grid-cols-1");
+  });
 });

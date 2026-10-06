@@ -118,8 +118,8 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
   const unwatch: Array<() => void> = [];
   let ctor: RedisCtor | null = null;
   let owned: Array<{ quit?(): Promise<unknown> }> = [];
-  let pub: RedisLike | null = null;
-  let sub: (RedisLike & RedisSubscriber) | null = null;
+  let pub: Promise<RedisLike> | null = null;
+  let sub: Promise<RedisLike & RedisSubscriber> | null = null;
   let closed = false;
   let warnedClosed = false;
 
@@ -158,10 +158,14 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
     return connection;
   }
 
-  async function publisher(): Promise<RedisLike> {
+  function publisher(): Promise<RedisLike> {
     if (pub) return pub;
-    pub = opts.client ?? (await connect());
-    return pub;
+    const pending = opts.client ? Promise.resolve(opts.client) : connect();
+    pub = pending;
+    pending.catch(() => {
+      if (pub === pending) pub = null;
+    });
+    return pending;
   }
 
   function dispatch(wire: string, raw: string): void {
@@ -170,18 +174,28 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
     for (const handler of handlers.get(channel) ?? []) handler(payload);
   }
 
-  async function subscriber(): Promise<RedisLike & RedisSubscriber> {
-    if (sub) return sub;
+  async function openSubscriber(): Promise<RedisLike & RedisSubscriber> {
     const duplicated = opts.client?.duplicate?.();
+    let connection: RedisLike & RedisSubscriber;
     if (isSubscriber(duplicated)) {
       unwatch.push(watchErrors(duplicated, seen));
       owned.push(duplicated as Connection);
-      sub = duplicated;
+      connection = duplicated;
     } else {
-      sub = await connect();
+      connection = await connect();
     }
-    sub.on("message", dispatch);
-    return sub;
+    connection.on("message", dispatch);
+    return connection;
+  }
+
+  function subscriber(): Promise<RedisLike & RedisSubscriber> {
+    if (sub) return sub;
+    const pending = openSubscriber();
+    sub = pending;
+    pending.catch(() => {
+      if (sub === pending) sub = null;
+    });
+    return pending;
   }
 
   async function publish(channel: string, payload?: unknown): Promise<void> {
@@ -227,7 +241,11 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
         set?.delete(handler);
         if (set?.size === 0) {
           handlers.delete(channel);
-          void sub?.unsubscribe(wireChannel(channel));
+          void sub
+            ?.then((connection) => connection.unsubscribe(wireChannel(channel)))
+            .catch((err) => {
+              console.error(`[flowpanel] redis unsubscribe failed: ${safeReason(err)}`);
+            });
         }
       };
     },

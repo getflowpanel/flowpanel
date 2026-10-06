@@ -50,7 +50,7 @@ function makeConfig(opts: {
     resources: [],
     resourcesByName: new Map(),
     dashboardsByPath,
-    basePath: "/admin",
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return config;

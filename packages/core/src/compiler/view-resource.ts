@@ -84,7 +84,7 @@ export function viewResource(
   if (declared.length > 0) {
     throw new Error(
       `flowpanel: resource "${name}" reads the view "${introspection.name}" and cannot write ` +
-        `(${declared.join(", ")}); set writeTo: <table> or disable create/update/delete`,
+        `(${declared.join(", ")}); set writeTo: <table> or disable create/update/delete.`,
     );
   }
   return {

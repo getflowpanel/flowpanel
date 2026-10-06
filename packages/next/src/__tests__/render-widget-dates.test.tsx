@@ -13,7 +13,7 @@ const JOINED = new Date("2026-09-22T23:30:00.000Z");
 
 function admin(timeZone?: string, locale?: string): ResolvedAdminConfig {
   return {
-    basePath: "/admin",
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     adapter: { kind: "drizzle", db: {}, introspect: () => ({ name: "x", columns: [] }) },
     auth: { session: async () => null, role: () => "admin" },
     formatting: { ...(timeZone ? { timeZone } : {}), ...(locale ? { locale } : {}) },

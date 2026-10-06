@@ -24,11 +24,19 @@ export function errorResult(error: unknown, requestId: string): FlowpanelResult<
   };
 }
 
+/** The first line of an error and its cause: a driver puts query parameters, and so submitted values, on later lines. */
+function summarize(error: Error): string {
+  const firstLine = (value: Error) => `${value.name}: ${value.message.split("\n", 1)[0]}`;
+  return error.cause instanceof Error
+    ? `${firstLine(error)} (cause: ${firstLine(error.cause)})`
+    : firstLine(error);
+}
+
 function normalizeUnexpected(error: unknown): Error {
   return error instanceof Error ? error : new Error("Non-Error value was thrown", { cause: error });
 }
 
-/** Invoke the diagnostic hook at most once for the same unexpected Error object. */
+/** Invoke the diagnostic hook, or log with the request id when none is set, at most once per Error object. */
 export async function reportUnexpectedError(
   thrown: unknown,
   context: ErrorContext,
@@ -38,7 +46,13 @@ export async function reportUnexpectedError(
   const error = normalizeUnexpected(thrown);
   if (reportedErrors.has(error)) return;
   reportedErrors.add(error);
-  if (!onError) return;
+  if (!onError) {
+    const where = context.operation ?? context.route ?? `${context.method} ${context.url}`;
+    const prefix = `[flowpanel] ${where} failed, requestId ${context.requestId}:`;
+    if (process.env.NODE_ENV === "production") console.error(prefix, summarize(error));
+    else console.error(prefix, error);
+    return;
+  }
   try {
     await onError(error, context);
   } catch (hookError) {

@@ -54,7 +54,7 @@ const adapter: Adapter = {
 };
 
 const cfg: ResolvedAdminConfig = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter,
   auth: { session: async () => null, role: () => "admin" },
   resources: [runs],

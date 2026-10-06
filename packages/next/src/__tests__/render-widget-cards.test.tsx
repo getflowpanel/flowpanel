@@ -12,7 +12,7 @@ import { renderWidget } from "../runtime/render-widget";
 import { fakeWidgetContext } from "./widget-context-fixture";
 
 const cfg: ResolvedAdminConfig = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: {}, introspect: () => ({ name: "x", columns: [] }) },
   auth: { session: async () => null, role: () => "admin" },
   formatting: { locale: "en-US", currency: "EUR" },

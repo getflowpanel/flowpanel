@@ -3,7 +3,7 @@ import { Section } from "./Section";
 const ITEMS: ReadonlyArray<{ title: string; body: string }> = [
   {
     title: "Lists and forms",
-    body: "Sorting and pagination on every list, plus the search fields and filters you name. Create and edit forms follow your schema.",
+    body: "Sorting and pagination on every list, plus the search fields and filters you name. Forms infer number, date, boolean, JSON and enum inputs from your schema; declare fields for references and validation.",
   },
   {
     title: "Dashboards and record pages",
@@ -11,7 +11,7 @@ const ITEMS: ReadonlyArray<{ title: string; body: string }> = [
   },
   {
     title: "Access control",
-    body: "Sign-in through Clerk, Better Auth or Auth.js. Roles and tenant scope are checked on the server for every request.",
+    body: "Uses the Clerk, Better Auth, Auth.js or Lucia session your app already has. Roles and tenant scope are checked on the server for every request.",
   },
   {
     title: "Queues and realtime",

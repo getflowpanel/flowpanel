@@ -6,7 +6,7 @@ Verify FlowPanel's ownership, security, data, scaling, and release boundaries be
 
 Docs: https://flowpanel.tech/docs/guides/production-readiness
 
-The review to do before an admin takes production traffic. FlowPanel runs inside your Next.js process with your database client and your auth; there is no FlowPanel control plane, so each item below is yours.
+Do this review before an admin takes production traffic. FlowPanel runs inside your Next.js process with your database client and your auth; there is no FlowPanel control plane, so each item below is yours.
 
 ### Runtime and data ownership
 
@@ -43,7 +43,7 @@ Log FlowPanel request IDs, alert on auth, scope, rate-limit, adapter and post-co
 
 ### Browser smoke test
 
-Run `smokeAdmin` from `@flowpanel/test` in CI. It opens every dashboard, list and first record, and fails on a 4xx/5xx, a console error, a FlowPanel error card or an axe WCAG 2.2 AA violation. See [Testing](/docs/reference/testing).
+Run `smokeAdmin` from `@flowpanel/test` in CI. It opens every dashboard, list and first record, and fails on a 4xx/5xx, a console error, a FlowPanel error card, and, with `a11y: true` and `@axe-core/playwright` installed, an axe WCAG 2.2 AA violation. See [Testing](/docs/reference/testing).
 
 ### Release checklist
 
@@ -69,7 +69,7 @@ FlowPanel reads the session from your existing auth provider and checks a role o
 | --- | --- | --- |
 | `withBetterAuth(opts)` | the better-auth instance you pass | `session.user.role` |
 | `withClerk(opts?)` | Clerk's `auth()` helper | `sessionClaims.publicMetadata.role` |
-| `withNextAuth(opts)` | the `auth()` or `getServerSession` you pass | `session.user.role` |
+| `withNextAuth(opts)` | the `auth` function you pass: Auth.js v5's `auth`, or `() => getServerSession(authOptions)` on NextAuth v4 | `session.user.role` |
 | `withLucia(opts)` | the Lucia instance you pass | `user.role` |
 | `devAuth(role?)` | a fixed `{ id: "dev" }` | the `role` argument, default `"admin"` |
 
@@ -94,7 +94,7 @@ export default defineAdmin({
 });
 ```
 
-`init` writes this wiring when it finds `better-auth`. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
+`init` writes this wiring when it finds `better-auth`: the preset goes in `server/lib/flowpanel-session.ts` as `flowpanelAuth`, and the config uses `auth: flowpanelAuth`. Add `signInUrl` and `forbiddenUrl` there. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
 
 When the role lives in your own table, `role` can be async:
 
@@ -158,9 +158,9 @@ auth: {
 
 Without a `signInUrl`, the page shows a sign-in screen instead of redirecting. In development it says that `auth.session` returned null and links to this guide.
 
-Call one action route as a non-admin as well and check the server response.
+Call one action route as a non-admin as well, such as `POST /api/flowpanel/orders/1/actions/refund` with a non-admin session cookie, and check that it answers 403.
 
-In production, a writable admin without `auth.requireRole` refuses to start. Only an admin that is both `allowUnauthenticated: true` and `readOnly: true` may run without it.
+In production, an admin without `auth.requireRole` refuses to start unless it sets both `allowUnauthenticated: true` and `readOnly: true`.
 
 Every option: [AuthConfig](/docs/reference/define-config#authconfig).
 
@@ -196,7 +196,7 @@ An action with its own `access` runs under that rule alone, the same one that sh
 
 ### Fields
 
-Form fields take `requireRole`, `readOnly` and `hidden`. The server rejects a submitted field the operation may not write.
+Form fields take `requireRole` and `readOnly`, which the server enforces. The form shows a field the caller may not write as read-only or leaves it out, and its route drops that field from what it saves; an API or programmatic write that carries it is rejected. `hidden` is not an access rule; it only removes the control.
 
 ```ts excerpt
 update: {
@@ -208,11 +208,11 @@ update: {
 }
 ```
 
-`fieldAccess` on a resource sets read and write rules per field.
+`fieldAccess` on a resource sets read and write rules per field. A field its `write` rule denies is treated like a `readOnly` one: read-only on the form, rejected from the API. A field's `readOnly` wins over its `fieldAccess.write`.
 
 ### Rows
 
-An action's `hidden(row)` removes it for that row and its route rejects the pair; `disabled(row)` shows it with a reason. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
+A row action's `when` is a server-side row condition: it runs on the loaded row, and the route answers 404 when it returns false. `hidden(row)` removes the action for that row and its route also answers 404; `disabled(row)` shows it with a reason and its route answers 409. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
 
 ### Read-only mode
 
@@ -245,43 +245,51 @@ export default defineAdmin({
 });
 ```
 
-The value reaches resource predicates, policies, actions and widget queries as `ctx.scope`.
+`session` is typed by the `session` you register on `FlowpanelTypes`; see [Registry](/docs/reference/registry).
+
+The value reaches resource predicates as their first argument, and policies and actions as `ctx.scope`. Widgets get no scope: `ctx.count` and `ctx.read` apply it for you, and a `ctx.sql` or `ctx.db` query reads the tenant from `ctx.session`.
 
 ### Bind each resource
 
 ```ts excerpt
+import type { QueryContext } from "@flowpanel/kit";
+import { eq, type SQL } from "drizzle-orm";
+
 resource(schema.orders, {
   columns: ["number", "status", "total", "createdAt"],
-  scope: ({ tenantId }, query) => query.where(eq(schema.orders.tenantId, tenantId)),
+  scope: (scope, query) =>
+    (query as { where(condition: SQL): unknown }).where(
+      eq(schema.orders.tenantId, scope?.tenantId as string),
+    ),
   create: {
     fields: [
-      "number",
-      "status",
-      "total",
+      { name: "number" },
+      { name: "status" },
+      { name: "total" },
       {
         name: "tenantId",
         type: "hidden",
         hidden: true,
-        defaultValue: async ({ scope }) => scope.tenantId,
+        defaultValue: async (ctx: QueryContext) => ctx.scope?.tenantId,
       },
     ],
   },
 })
 ```
 
-With Drizzle, `query` is a query builder. With Prisma it is the `where` object; merge the tenant into it:
+`scope` is typed loosely because the adapter decides what `query` is: with Drizzle, something you call `.where(condition)` on; with Prisma, the `where` object. Merge the tenant into it:
 
 ```ts excerpt
-scope: ({ tenantId }, where) => ({ ...(where as object), tenantId }),
+scope: (scope, where) => ({ ...(where as object), tenantId: scope?.tenantId }),
 ```
 
-The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue`, as above, so the operator cannot choose it.
+The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue` on a hidden field, as above, so the form never shows it. A hidden field does not stop a crafted request from sending another tenant ID; the adapter does. Drizzle checks that the created row matches the scope and Prisma merges the scope into the data, so the write fails or lands in the caller's tenant.
 
 ### Fail closed
 
 With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither, or whose predicate adds no constraint, throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
 
-`ctx.sql` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself.
+`ctx.sql`, `ctx.db` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself, reading the tenant from `ctx.session`.
 
 ### Verify isolation
 
@@ -292,7 +300,7 @@ With fixtures for two tenants, check that:
 3. update, delete, restore and row actions cannot reach the other tenant;
 4. create cannot set another tenant ID;
 5. references and related tabs stay scoped;
-6. dashboard queries filter by `ctx.scope`.
+6. dashboard queries that use `ctx.sql` or `ctx.db` filter by the tenant from `ctx.session`.
 
 Every option: [Scope reference](/docs/reference/scope-realtime#scope).
 
@@ -306,14 +314,14 @@ A committed change publishes a small event; lists and widgets subscribed to its 
 
 ### Subscribe
 
-`realtime: true` on a resource refreshes its list and record pages. A widget takes a channel name, `{ resource: "orders" }`, or a list of them:
+`realtime: true` on a resource refreshes its list. A record page does not subscribe on its own; give its widgets their own `realtime: { resource: "orders" }`. A widget takes a channel name, `{ resource: "orders" }`, or a list of them:
 
 ```ts excerpt
 metric("Open orders", openOrders, { realtime: { resource: "orders" } });
 custom(Pipeline, pipelineProps, { realtime: "pipeline" });
 ```
 
-Generated creates, updates, deletes and actions publish on their resource automatically. In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/server`.
+Generated creates, updates and deletes publish on their resource automatically. An action publishes when it returns `refresh: true` (its resource) or channels (`refresh: "pipeline"` or a list). In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/server`.
 
 ### Choose the driver
 
@@ -336,7 +344,7 @@ export default defineAdmin({
 });
 ```
 
-Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel warns at startup when it runs the memory driver while `REDIS_URL` is set.
+Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel warns on the first request when it runs the memory driver while `REDIS_URL` is set.
 
 ### Publish from a worker
 
@@ -367,15 +375,15 @@ await adminEvents.resource("orders", { id: order.id });
 await adminEvents.publish("pipeline");
 ```
 
-`resource(name, { id })` refreshes that resource's lists and record pages; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.
+`resource(name, { id })` refreshes that resource's lists and the widgets subscribed to it; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.
 
 A Redis error never fails the job: the call resolves and the error goes to `onError`, or is logged once per error kind. Create the publisher once per process and `close()` it on shutdown. To reuse a configured `ioredis` client, pass it instead of a URL: `createPublisher({ redis, keyPrefix })`.
 
 ### Production
 
-- Authenticate the stream route like the rest of the admin.
+- The stream route checks `auth.requireRole` itself. If middleware protects the admin (Clerk, a proxy), include the stream path.
 - Turn off reverse-proxy buffering for the stream path.
-- Set proxy and load-balancer idle timeouts above the heartbeat interval.
+- Set proxy and load-balancer idle timeouts above 15 s, the stream heartbeat.
 - Allow enough long-lived connections for your operators.
 - Monitor reconnects, stream errors and publish failures.
 
@@ -412,6 +420,8 @@ export const emailQueuePage = queue(emailQueue, {
 
 Add it to `queues` in the config. The queue's `.name` is its key unless you set `key`. `requireRole` protects the admin page, not the board server.
 
+The page embeds `boardUrl` in an iframe, and the board accepts a `?token=` query, an `Authorization: Bearer` header or its session cookie. Locally, append `?token=<BOARD_TOKEN>` to `boardUrl`. Elsewhere, put the board behind a reverse proxy that adds `Authorization: Bearer <token>`, and point `boardUrl` at the proxy; without either, the iframe shows a 401.
+
 ### Start the board
 
 `flowpanel dev` starts `scripts/board-server.mts` (or `.ts`) when `REDIS_URL` is set, unless you pass `--no-board`:
@@ -444,3 +454,70 @@ Wrap the same queue instances with `bullmqAdapter` and call BullMQ methods from 
 ### Verify and troubleshoot
 
 Test the admin role gate and the board URL separately: a missing or wrong token returns 401. An unreachable `boardUrl` leaves the iframe empty and the rest of the admin working.
+
+## Upgrade from 0.3
+
+Every option and export that 0.4 removed or renamed, what to write instead, and the behaviour that changed.
+
+Docs: https://flowpanel.tech/docs/guides/upgrade
+
+Every `@flowpanel/*` package releases under one version. Update them together:
+
+```bash
+pnpm up "@flowpanel/*" --latest
+```
+
+### Removed and renamed
+
+These names were deprecated in 0.3 and are gone in 0.4. TypeScript reports each one. `defineAdmin` also throws at startup on a leftover `requireRole` on a resource or action, `basePath`, or a detail or drawer `header`, so a config that skips the type check fails instead of leaving a resource open.
+
+| 0.3 | 0.4 |
+| --- | --- |
+| `requireRole: "admin"` on a resource | `access: { read: "admin", create: "admin", update: "admin", delete: "admin" }` |
+| `requireRole` on a row, bulk, drawer or dashboard action | `access: "admin"` (a role, a list of roles, or a function) |
+| `ctx.db` in an action's `run` | your own `db` import, or `unsafe: ["db"]` on the action and `ctx.unsafe.db` |
+| `ctx.db` in a field `options` or `defaultValue` resolver | your own `db` import |
+| `ctx.href(target)` in a widget | `ctx.link(target)` |
+| `detail.header` | `detail.title` |
+| `drawer.header` | `drawer.title` |
+| `DrawerPayload.header` | `DrawerPayload.title` |
+| `goodWhen` on a metric's returned `delta` | `goodWhen` on the `metric()` options; `MetricCard` takes it as a prop |
+| `basePath: "/ops"` | `paths: { admin: "/ops" }` |
+| `AdminConfig` | `AdminDefinition` |
+| `createPublisher` from `@flowpanel/kit` (the realtime transport) | `createRealtimeTransport`. The worker `createPublisher` in `@flowpanel/kit/publish` keeps its name but no longer rejects when Redis fails; see below. |
+| `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
+| `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration` |
+
+A field's own `requireRole` stays: it still limits who sees and writes that field.
+
+### Behaviour that changed
+
+- `defineAdmin` throws at startup when the config names a resource, column or filter that does not exist, such as a stale column in `columns` or a `reference` to a renamed resource. The error names the closest match. 0.3 ignored the name, so run `pnpm flowpanel doctor` after upgrading.
+- A resource `scope` function that returns the query unchanged now throws instead of running it unscoped.
+- A list row opens its record page when the resource has no drawer, even without `detail`. Set `rowClick: false` to keep rows from opening.
+- The drawer keeps its open tab in `?drawerTab=` instead of `?tab=`. Update saved links that open a drawer on a tab.
+- Date presets and `daterange` filters start at midnight in `formatting.timeZone`.
+- With a Russian `formatting.locale`, the built-in text is Russian. Your `labels` still win, so set them to keep English text.
+- `fillDays` buckets days in `range.timeZone` when its options name no zone, and a zoneless timestamp string without seconds, such as `"2026-10-07T10:00"`, stays text instead of reading as a date.
+- The worker `createPublisher` from `@flowpanel/kit/publish` resolves when Redis fails instead of rejecting. The error goes to `onError`, or is logged once per kind, so a worker that retried on a rejection should pass `onError` and retry there.
+- Widget links resolve on the server. A link to a resource or dashboard the config does not register throws and names the registered ones.
+- `ChartRenderer` takes the card's link as a `drilldown` href and no longer reads `options.drilldown`. Pass the resolved link, or the chart card has no link.
+- `resolveOperationAccess(access, operation)` takes two arguments; drop the third, `requireRole`, argument.
+- `StatusBadge` infers different tones: `active` and `completed` are no longer green, `pending`, `waiting` and `processing` are `info` instead of `warn`, `disabled` and `canceled` are `muted` instead of `err`, and an unknown status is `default`. Pass `tone` to keep a colour.
+- The default look is a graphite palette with one data colour, `--fp-data`, and a single-series chart draws in it without the area gradient. Set the tokens in [Styling](/docs/customization/styling#change-design-tokens) to keep your colours.
+- Related tab rows open their target record, and a single click on an editable cell in a clickable row opens the row; editing starts from the pencil or Enter.
+- A list filter's `defaultValue` applies until the URL sets that filter.
+- Drizzle forms reject a fractional value for an integer column before it reaches the database.
+- Every `flowpanel` command stops with an error on an extra argument, and `migrate` stops before connecting when the database URL your client reads is unset or empty.
+- A resource form field with `required: true` is now checked on the server, so a create that leaves it empty, or an edit that clears it, fails even on a nullable column.
+- An edit form that empties a NOT NULL column fails with the field's "is required" message instead of keeping the old value.
+- A unique, foreign key or NOT NULL violation from the database answers 422 with a field message, or 409, instead of a 500. Any other unexpected error is logged with its request id when `hooks.onError` is not set, and a form route answers it with `requestId` and "Internal server error" instead of "Action failed".
+- The Prisma adapter returns `Decimal` columns as strings at their `@db.Decimal` scale, such as `"49.90"`, instead of `Decimal` objects; Prisma 5 does not report the scale, so there the string is `"49.9"`. Code that calls `.toNumber()` on a value from `ctx.read` should use `Number(value)`.
+- A Drizzle `numeric` or `decimal` column is a number field with a number filter instead of a text box. Its value is still a string, and a value that is not a number fails with "… must be a number".
+- The Prisma and Drizzle adapters' `get` returns `null` for an id that cannot be the key, such as `abc` for an `Int` id or a malformed UUID, so the record page shows not found instead of an error.
+- A resource without `labelOne` or `label` names one record by its singular name, "User" for `users`, and the "New …" and "Edit …" titles put the label mid-sentence: "New customer".
+- A field's `readOnly` now applies to writes even when the field also sets `requireRole`, and a `readOnly` function receives the stored row on edit. `readOnly` also wins over the resource's `fieldAccess.write`.
+- A form field that `fieldAccess.write` denies to the signed-in role shows read-only, and saving the form no longer fails with "cannot be changed".
+- An unknown admin path and a missing record render your `not-found.tsx` through `notFound()`, with a 404 status. Under `cacheComponents` Next has already streamed the static shell, so the status stays 200 and the page carries `noindex`. Add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix`.
+
+The [changelog](/changelog) lists every other change, per package.

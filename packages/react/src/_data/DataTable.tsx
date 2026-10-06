@@ -296,7 +296,7 @@ export function DataTable<Row extends Record<string, unknown>>({
         {toolbar}
         <div className="p-2">
           <MobileCardFold
-            page={page}
+            key={page}
             columns={orderedVisible}
             colIndexByField={colIndexByField}
             rows={rows}

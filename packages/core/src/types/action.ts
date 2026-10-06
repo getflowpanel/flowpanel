@@ -94,13 +94,13 @@ export interface BulkAction<Row, Input extends ActionInput = ActionInput, Output
   outputSchema?: z.ZodType<Output>;
   /** Restrict the action to a role. Enforced before `run`. */
   access?: AccessRule;
-  /** Maximum selected ids accepted by this action.
+  /** Maximum selected ids accepted by this action, from 1 to 10000.
    * @defaultValue 1000
    */
   max?: number;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];
-  /** Server-side handler, given every selected id. Capped at 1000 ids per call. */
+  /** Server-side handler, given every selected id, never more than `max`. */
   run: (ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>;
 }
 

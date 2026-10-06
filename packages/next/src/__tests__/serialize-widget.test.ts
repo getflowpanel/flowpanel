@@ -257,7 +257,7 @@ describe("serializeWidget — error & unknown", () => {
     );
     expect(out).toEqual({
       kind: "unsupported",
-      reason: "custom widgets are not supported in drawers yet",
+      reason: "A custom widget shows on dashboards and record pages, not in a drawer.",
     });
   });
 
@@ -267,7 +267,7 @@ describe("serializeWidget — error & unknown", () => {
     expect(out).toMatchObject({ kind: "unsupported" });
   });
 
-  it("catches query() errors without leaking the raw message to the browser", async () => {
+  it("keeps the title of a failed widget without leaking the raw message to the browser", async () => {
     const widget: WidgetConfig = {
       kind: "metric",
       label: "Boom",
@@ -277,7 +277,12 @@ describe("serializeWidget — error & unknown", () => {
       options: {},
     } as never;
     const out = await serializeWidget(widget, mkConfig(), reqCtx, widgetCtx);
-    expect(out).toEqual({ kind: "unsupported", reason: "widget query failed", failed: true });
+    expect(out).toEqual({
+      kind: "unsupported",
+      label: "Boom",
+      reason: "Its query failed. Retry, or look in the server log.",
+      failed: true,
+    });
   });
 });
 

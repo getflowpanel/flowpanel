@@ -7,7 +7,7 @@ import { renderFormatCell } from "../render-format";
 afterEach(cleanup);
 
 describe("threshold cells", () => {
-  it("colours the cell text in each tone", () => {
+  it("colours the cell text in each tone and says the tone to a screen reader", () => {
     const tones = { warn: 0.3, err: 0.5 };
     const { container } = render(
       <>
@@ -19,11 +19,12 @@ describe("threshold cells", () => {
     const cells = [...container.querySelectorAll("[data-tone]")];
     expect(cells.map((cell) => cell.getAttribute("data-tone"))).toEqual(["ok", "warn", "err"]);
     expect(cells[2]?.className).toContain("text-fp-err-text");
-    expect(cells.map((cell) => cell.textContent)).toEqual(["10%", "40%", "60%"]);
+    expect(cells.map((cell) => cell.textContent)).toEqual(["OK 10%", "Warning 40%", "Error 60%"]);
+    expect(cells[1]?.querySelector(".sr-only")?.textContent).toBe("Warning ");
   });
 
   it("keeps a plain percent cell plain", () => {
-    const { container } = render(<>{renderFormatCell({ kind: "percent" }, 0.6)}</>);
+    const { container } = render(renderFormatCell({ kind: "percent" }, 0.6));
     expect(container.querySelector("[data-tone]")).toBeNull();
   });
 });

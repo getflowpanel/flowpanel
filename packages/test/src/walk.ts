@@ -16,14 +16,14 @@ export type A11yScanner = () => Promise<A11yFinding[]>;
 
 interface Walk {
   page: SmokePage;
-  basePath: string;
+  adminPath: string;
   scan: A11yScanner | null;
   report: SmokeAdminReport;
   failures: string[];
   tabs: boolean;
 }
 
-export function normalizeBasePath(value: string): string {
+export function normalizeAdminPath(value: string): string {
   const trimmed = value.trim().replace(/\/+$/, "");
   if (trimmed === "") return "/";
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
@@ -52,14 +52,14 @@ export function withTab(route: string, key: string): string {
 }
 
 /** `/admin` and `/admin/orders` are under the admin; `/administrators` is not. */
-export function isUnderBasePath(route: string, basePath: string): boolean {
-  if (basePath === "/") return route.startsWith("/");
+export function isUnderAdminPath(route: string, adminPath: string): boolean {
+  if (adminPath === "/") return route.startsWith("/");
   const path = route.split("?")[0] ?? "";
-  return path === basePath || path.startsWith(`${basePath}/`);
+  return path === adminPath || path.startsWith(`${adminPath}/`);
 }
 
-function segmentOf(route: string, basePath: string): string {
-  const rest = route.slice(basePath === "/" ? 0 : basePath.length).split("?")[0] ?? "";
+function segmentOf(route: string, adminPath: string): string {
+  const rest = route.slice(adminPath === "/" ? 0 : adminPath.length).split("?")[0] ?? "";
   const segment = rest.replace(/^\/+/, "").split("/")[0] ?? "";
   return segment === "" ? "/" : segment;
 }
@@ -70,9 +70,9 @@ async function navRoutes(walk: Walk, resources: string[] | undefined): Promise<s
   for (const link of await walk.page.locator(`${NAV} a`).all()) {
     const href = await link.getAttribute("href");
     const route = href === null ? null : sameOriginRoute(href, origin);
-    if (route === null || !isUnderBasePath(route, walk.basePath)) continue;
+    if (route === null || !isUnderAdminPath(route, walk.adminPath)) continue;
     if (routes.includes(route)) continue;
-    if (resources && !resources.includes(segmentOf(route, walk.basePath))) continue;
+    if (resources && !resources.includes(segmentOf(route, walk.adminPath))) continue;
     routes.push(route);
   }
   return routes;
@@ -135,8 +135,8 @@ async function openRows(walk: Walk, route: string, maxRows: number): Promise<voi
 }
 
 /** A walk that found nothing to walk is the failure it looks most like a pass. */
-export function noNavigation(basePath: string): string {
-  return `smokeAdmin found no navigation under ${basePath} — is the admin mounted there, and is the session signed in?`;
+export function noNavigation(adminPath: string): string {
+  return `smokeAdmin found no navigation under ${adminPath} — is the admin mounted there, and is the session signed in?`;
 }
 
 export function smokeFailure(report: SmokeAdminReport, failures: string[]): Error {
@@ -154,7 +154,7 @@ export function smokeFailure(report: SmokeAdminReport, failures: string[]): Erro
 // The session must exist before the first page inspected, or errors get attributed to the sign-in screen instead.
 async function applyCookie(
   page: SmokePage,
-  basePath: string,
+  adminPath: string,
   cookie: NonNullable<SmokeAdminOptions["cookie"]>,
 ): Promise<void> {
   const { name, value, domain } = cookie;
@@ -162,7 +162,7 @@ async function applyCookie(
     await page.context().addCookies([{ name, value, domain, path: "/" }]);
     return;
   }
-  await page.goto(basePath);
+  await page.goto(adminPath);
   await page.context().addCookies([{ name, value, url: new URL(page.url()).origin }]);
 }
 
@@ -173,21 +173,21 @@ export async function runSmoke(
 ): Promise<SmokeAdminReport> {
   const report: SmokeAdminReport = { visited: [], consoleErrors: [], a11yViolations: [] };
   const failures: string[] = [];
-  const basePath = normalizeBasePath(options.basePath ?? "/admin");
-  const walk: Walk = { page, basePath, scan, report, failures, tabs: options.tabs ?? true };
+  const adminPath = normalizeAdminPath(options.paths?.admin ?? "/admin");
+  const walk: Walk = { page, adminPath, scan, report, failures, tabs: options.tabs ?? true };
   const maxRows = Math.max(0, options.maxRows ?? 1);
 
-  if (options.cookie) await applyCookie(page, basePath, options.cookie);
+  if (options.cookie) await applyCookie(page, adminPath, options.cookie);
   page.on("console", (message) => {
     if (message.type() === "error") report.consoleErrors.push(message.text());
   });
 
-  await open(walk, basePath);
+  await open(walk, adminPath);
   const routes = await navRoutes(walk, options.resources);
-  if (routes.length === 0) failures.push(noNavigation(basePath));
+  if (routes.length === 0) failures.push(noNavigation(adminPath));
 
   for (const route of routes) {
-    if (route !== basePath) await open(walk, route);
+    if (route !== adminPath) await open(walk, route);
     await openRows(walk, route, maxRows);
   }
 

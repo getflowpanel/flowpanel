@@ -51,7 +51,7 @@ describe("PieChart", () => {
     }[];
     expect(tooltip).toBeTruthy();
     const rendered = ChartTooltip({
-      ...(tooltip?.props.content as ReactElement<ChartTooltipProps>).props,
+      ...(tooltip!.props.content as ReactElement<ChartTooltipProps>).props,
       active: true,
       label: "success",
       payload: [{ name: "success", value: 1234, color: "#000", dataKey: "count" }],
@@ -70,7 +70,7 @@ describe("PieChart", () => {
         props: { content?: ReactElement<ChartTooltipProps> };
       }[];
       const rendered = ChartTooltip({
-        ...(tooltip?.props.content as ReactElement<ChartTooltipProps>).props,
+        ...(tooltip!.props.content as ReactElement<ChartTooltipProps>).props,
         active: true,
         label: "success",
         payload: [{ name: "success", value: 1234, color: "#000", dataKey: "count" }],
@@ -97,7 +97,7 @@ describe("PieChart", () => {
     const [tooltip] = findElements(el, Tooltip) as {
       props: { content?: ReactElement<ChartTooltipProps> };
     }[];
-    const props = (tooltip?.props.content as ReactElement<ChartTooltipProps>).props;
+    const props = (tooltip!.props.content as ReactElement<ChartTooltipProps>).props;
     expect(props.compact).toBe(true);
     const rendered = ChartTooltip({
       ...props,

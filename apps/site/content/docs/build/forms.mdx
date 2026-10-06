@@ -32,7 +32,7 @@ resource(schema.users, {
 
 `type` picks the input: text, textarea, number, email, password, url, date, datetime, time, boolean, switch, checkbox, select, multiselect, radio, json, markdown, tags, reference, hidden or color. Add `label`, `help` or `placeholder` when the name is not enough.
 
-`options` takes strings, `{ label, value }` pairs, or a function resolved on the server per request. A field whose column has an `enumOf` format lists the enum's labels without `options`.
+`options` takes strings, `{ label, value }` pairs, or a function resolved on the server per request. A `select`, `multiselect` or `radio` field whose column has an `enumOf` format lists the enum's labels without `options`.
 
 ## Relation fields
 
@@ -42,30 +42,28 @@ A reference field stores the foreign key and shows a searchable label from anoth
 {
   name: "customerId",
   label: "Customer",
-  reference: {
-    resource: "customers",
-    valueField: "id",
-    labelField: "email",
-  },
+  reference: { resource: "customers", labelField: "email" },
   required: true,
 }
 ```
 
-The lookup applies the target resource's access and tenant scope.
+The stored value is the target's primary key. The lookup applies the target resource's access and tenant scope.
 
 ## Validation and defaults
 
-The resource schema validates first, then each field's `validate`, a Zod schema or a function returning a message. `required` also sets browser validation; the server checks it either way.
+The resource schema validates first, then each field's `validate`, a Zod schema or a function returning a message. `required` marks the control required and the server rejects a missing value. A NOT NULL column without `required` is checked too: a create that leaves it empty, or an edit that clears it, fails with its "is required" message.
 
-A server `defaultValue` fills trusted values such as the tenant or an initial status without sending them to the browser.
+A timestamp column gets a `datetime-local` control that shows the stored time on the admin's clock, `formatting.timeZone` (UTC when unset), and the server reads the posted time in that zone. Saving without touching it keeps the stored seconds. A `type: "date"` field shows the day.
+
+`defaultValue` fills a key the submission left empty, on the server. On a visible field it also pre-fills the control, so the browser sees it. Put trusted values such as the tenant on a `hidden: true` field, or in `create.defaultValues`, to keep them off the page.
 
 ### Rejection messages
 
-A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`. Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
 
 ## Restrict fields
 
-`readOnly`, `hidden` and `requireRole` apply to rendering and to writes. The server rejects a submitted read-only or unauthorized field. See [Roles and permissions](/docs/guides/permissions).
+`readOnly`, `requireRole` and the resource's `fieldAccess.write` apply to rendering and to writes. The form shows a field the user may not write as read-only, leaves out one their role cannot see, and its route drops both from what it saves; an API or programmatic write that carries such a field is rejected. `readOnly` wins over `fieldAccess.write`. A `readOnly` function is called with the stored row, so it can lock a field on edit depending on the record. `hidden` only removes the control. See [Roles and permissions](/docs/guides/permissions).
 
 ## Submission
 

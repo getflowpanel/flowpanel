@@ -173,12 +173,21 @@ describe("what the card must not swallow", () => {
   });
 
   it("lets a Next redirect keep travelling", async () => {
-    const redirect = Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;/login" });
+    const redirect = Object.assign(new Error("NEXT_REDIRECT"), {
+      digest: "NEXT_REDIRECT;replace;/login;307;",
+    });
     await expect(
       readOrCard(site, async () => {
         throw redirect;
       }),
     ).rejects.toBe(redirect);
+  });
+
+  it("cards an ordinary error that happens to carry a digest", async () => {
+    const outcome = await readOrCard(site, async () => {
+      throw Object.assign(new Error("boom"), { digest: "2338412745" });
+    });
+    expect(outcome.failed).toBe(true);
   });
 
   it("returns the value untouched when the read succeeds", async () => {

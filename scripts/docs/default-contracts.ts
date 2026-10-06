@@ -24,10 +24,9 @@ export const DEFAULT_DOC_CONTRACTS = [
   {
     typeName: "ResourceOptions",
     member: "rowClick",
-    value:
-      '`"detail"` when `detail` is configured and `drawer` is not, `"drawer"` when only `drawer` is, otherwise `false`',
+    value: '`"drawer"` when `drawer` is configured, otherwise `"detail"`',
     consumerFile: "packages/next/src/runtime/row-click.ts",
-    consumerExpression: 'if (resource.options.detail && !hasDrawer) return "detail";',
+    consumerExpression: 'return hasDrawer ? "drawer" : "detail";',
   },
   {
     typeName: "ResourceOptions",

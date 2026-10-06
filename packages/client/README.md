@@ -13,6 +13,7 @@ pnpm add @flowpanel/kit
 ```ts
 import { createFlowpanelClient, isFlowpanelErrorResult } from "@flowpanel/kit/client";
 
+// metadata is createFlowpanel(config).client, passed from a Server Component as a prop.
 const client = createFlowpanelClient(metadata);
 const result = await client.resource<{ id: string; email: string }>("users").list({ pageSize: 25 });
 

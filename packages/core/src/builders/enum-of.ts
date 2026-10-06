@@ -64,13 +64,22 @@ export function enumOf(
     labels[value] = entry.label;
     tones[value] = entry.tone;
   }
-  const known = (value: unknown): value is string =>
-    typeof value === "string" && Object.hasOwn(labels, value);
+  const keyOf = (value: unknown): string | null => {
+    const key =
+      typeof value === "number" || typeof value === "bigint" || typeof value === "boolean"
+        ? String(value)
+        : value;
+    return typeof key === "string" && Object.hasOwn(labels, key) ? key : null;
+  };
   const label = (value: unknown): string => {
     if (value === null || value === undefined) return "—";
-    return known(value) ? (labels[value] as string) : String(value);
+    const key = keyOf(value);
+    return key === null ? String(value) : (labels[key] ?? key);
   };
-  const tone = (value: unknown): Tone => (known(value) ? (tones[value] as Tone) : "default");
+  const tone = (value: unknown): Tone => {
+    const key = keyOf(value);
+    return key === null ? "default" : (tones[key] ?? "default");
+  };
   return {
     values,
     labels,

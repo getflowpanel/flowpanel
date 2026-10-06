@@ -6,7 +6,8 @@ import { ErrorCard, HealthBanner, ToastProvider } from "@flowpanel/react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/admin/users",
   useSearchParams: () => new URLSearchParams("drawer=users:27"),
@@ -167,7 +168,9 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
               key: "stats",
               label: "Stats",
               kind: "widgets",
-              widgets: [{ kind: "unsupported", reason: "widget query failed", failed: true }],
+              widgets: [
+                { kind: "unsupported", label: "Revenue", reason: "Query failed", failed: true },
+              ],
             },
           ],
           actions: [],
@@ -184,7 +187,8 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
       </ToastProvider>,
     );
     await waitFor(() => expect(document.querySelector("[data-fp-error]")).toBeTruthy());
-    expect(screen.getByText("widget query failed")).toBeTruthy();
+    expect(screen.getByText("Query failed")).toBeTruthy();
+    expect(screen.getByText("Revenue")).toBeTruthy();
   });
 
   it("tags a drawer whose payload read failed", async () => {

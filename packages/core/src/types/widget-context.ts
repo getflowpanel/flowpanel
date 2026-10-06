@@ -2,7 +2,7 @@ import type { WidgetDateRange } from "./dashboard";
 import type { PluralLabel, ResolvedLabels } from "./labels";
 import type { InferDB, ResourceName, RowOf } from "./registry";
 import type { Session } from "./session";
-import type { CountOptions, ReadOptions, Where } from "./where";
+import type { CountOptions, ListFilters, ReadOptions, Where } from "./where";
 
 type MomentInput = Date | string | number | null | undefined;
 type NumberInput = number | null | undefined;
@@ -45,7 +45,7 @@ export interface ResourceLink<N extends ResourceName = ResourceName> {
    * List filters keyed by the target's fields: a value, `{ gte, lte }` or an array, written as
    * the list's own `f_<field>` URL keys. Any keys while the link does not name one resource.
    */
-  filter?: true extends ManyNames<N> ? Record<string, unknown> : Where<RowOf<N>>;
+  filter?: true extends ManyNames<N> ? Record<string, unknown> : ListFilters<RowOf<N>>;
   /** A view from the resource's `views`, applied by name before `filter`. */
   view?: string;
   /** A detail tab, with `id`. */

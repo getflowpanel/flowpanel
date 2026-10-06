@@ -9,14 +9,14 @@ A committed change publishes a small event; lists and widgets subscribed to its 
 
 ## Subscribe
 
-`realtime: true` on a resource refreshes its list and record pages. A widget takes a channel name, `{ resource: "orders" }`, or a list of them:
+`realtime: true` on a resource refreshes its list. A record page does not subscribe on its own; give its widgets their own `realtime: { resource: "orders" }`. A widget takes a channel name, `{ resource: "orders" }`, or a list of them:
 
 ```ts excerpt
 metric("Open orders", openOrders, { realtime: { resource: "orders" } });
 custom(Pipeline, pipelineProps, { realtime: "pipeline" });
 ```
 
-Generated creates, updates, deletes and actions publish on their resource automatically. In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/server`.
+Generated creates, updates and deletes publish on their resource automatically. An action publishes when it returns `refresh: true` (its resource) or channels (`refresh: "pipeline"` or a list). In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/server`.
 
 ## Choose the driver
 
@@ -39,7 +39,7 @@ export default defineAdmin({
 });
 ```
 
-Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel warns at startup when it runs the memory driver while `REDIS_URL` is set.
+Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel warns on the first request when it runs the memory driver while `REDIS_URL` is set.
 
 ## Publish from a worker
 
@@ -70,15 +70,15 @@ await adminEvents.resource("orders", { id: order.id });
 await adminEvents.publish("pipeline");
 ```
 
-`resource(name, { id })` refreshes that resource's lists and record pages; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.
+`resource(name, { id })` refreshes that resource's lists and the widgets subscribed to it; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.
 
 A Redis error never fails the job: the call resolves and the error goes to `onError`, or is logged once per error kind. Create the publisher once per process and `close()` it on shutdown. To reuse a configured `ioredis` client, pass it instead of a URL: `createPublisher({ redis, keyPrefix })`.
 
 ## Production
 
-- Authenticate the stream route like the rest of the admin.
+- The stream route checks `auth.requireRole` itself. If middleware protects the admin (Clerk, a proxy), include the stream path.
 - Turn off reverse-proxy buffering for the stream path.
-- Set proxy and load-balancer idle timeouts above the heartbeat interval.
+- Set proxy and load-balancer idle timeouts above 15 s, the stream heartbeat.
 - Allow enough long-lived connections for your operators.
 - Monitor reconnects, stream errors and publish failures.
 

@@ -22,43 +22,51 @@ export default defineAdmin({
 });
 ```
 
-The value reaches resource predicates, policies, actions and widget queries as `ctx.scope`.
+`session` is typed by the `session` you register on `FlowpanelTypes`; see [Registry](/docs/reference/registry).
+
+The value reaches resource predicates as their first argument, and policies and actions as `ctx.scope`. Widgets get no scope: `ctx.count` and `ctx.read` apply it for you, and a `ctx.sql` or `ctx.db` query reads the tenant from `ctx.session`.
 
 ## Bind each resource
 
 ```ts excerpt
+import type { QueryContext } from "@flowpanel/kit";
+import { eq, type SQL } from "drizzle-orm";
+
 resource(schema.orders, {
   columns: ["number", "status", "total", "createdAt"],
-  scope: ({ tenantId }, query) => query.where(eq(schema.orders.tenantId, tenantId)),
+  scope: (scope, query) =>
+    (query as { where(condition: SQL): unknown }).where(
+      eq(schema.orders.tenantId, scope?.tenantId as string),
+    ),
   create: {
     fields: [
-      "number",
-      "status",
-      "total",
+      { name: "number" },
+      { name: "status" },
+      { name: "total" },
       {
         name: "tenantId",
         type: "hidden",
         hidden: true,
-        defaultValue: async ({ scope }) => scope.tenantId,
+        defaultValue: async (ctx: QueryContext) => ctx.scope?.tenantId,
       },
     ],
   },
 })
 ```
 
-With Drizzle, `query` is a query builder. With Prisma it is the `where` object; merge the tenant into it:
+`scope` is typed loosely because the adapter decides what `query` is: with Drizzle, something you call `.where(condition)` on; with Prisma, the `where` object. Merge the tenant into it:
 
 ```ts excerpt
-scope: ({ tenantId }, where) => ({ ...(where as object), tenantId }),
+scope: (scope, where) => ({ ...(where as object), tenantId: scope?.tenantId }),
 ```
 
-The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue`, as above, so the operator cannot choose it.
+The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue` on a hidden field, as above, so the form never shows it. A hidden field does not stop a crafted request from sending another tenant ID; the adapter does. Drizzle checks that the created row matches the scope and Prisma merges the scope into the data, so the write fails or lands in the caller's tenant.
 
 ## Fail closed
 
 With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither, or whose predicate adds no constraint, throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
 
-`ctx.sql` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself.
+`ctx.sql`, `ctx.db` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself, reading the tenant from `ctx.session`.
 
 ## Verify isolation
 
@@ -69,6 +77,6 @@ With fixtures for two tenants, check that:
 3. update, delete, restore and row actions cannot reach the other tenant;
 4. create cannot set another tenant ID;
 5. references and related tabs stay scoped;
-6. dashboard queries filter by `ctx.scope`.
+6. dashboard queries that use `ctx.sql` or `ctx.db` filter by the tenant from `ctx.session`.
 
 Every option: [Scope reference](/docs/reference/scope-realtime#scope).

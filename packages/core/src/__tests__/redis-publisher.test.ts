@@ -1,12 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+
+type Listen = (event: string, cb: (...args: unknown[]) => void) => FakeConnection;
 
 interface FakeConnection {
-  publish: ReturnType<typeof vi.fn>;
-  subscribe: ReturnType<typeof vi.fn>;
-  unsubscribe: ReturnType<typeof vi.fn>;
-  on: ReturnType<typeof vi.fn>;
-  off: ReturnType<typeof vi.fn>;
-  quit: ReturnType<typeof vi.fn>;
+  publish: Mock<(channel: string, message: string) => Promise<number>>;
+  subscribe: Mock<(channel: string) => Promise<number>>;
+  unsubscribe: Mock<(channel: string) => Promise<number>>;
+  on: Mock<Listen>;
+  off: Mock<Listen>;
+  quit: Mock<() => Promise<string>>;
   duplicate?: () => FakeConnection;
   emit(event: string, ...args: unknown[]): void;
   errorListeners(): number;
@@ -54,7 +56,7 @@ function fakeConnection(withDuplicate = false): FakeConnection {
 }
 
 vi.mock("ioredis", () => ({
-  default: vi.fn(() => {
+  default: vi.fn(function Redis() {
     const connection = fakeConnection();
     constructed.push(connection);
     return connection;
@@ -249,7 +251,30 @@ describe("createRealtimeTransport — redis driver connections", () => {
     expect(received).toEqual([{ action: "create" }, undefined, "not json"]);
 
     off();
-    expect(constructed[0]?.unsubscribe).toHaveBeenCalledWith("flowpanel:resource.orders");
+    await vi.waitFor(() => {
+      expect(constructed[0]?.unsubscribe).toHaveBeenCalledWith("flowpanel:resource.orders");
+    });
+  });
+
+  it("opens one publisher and one subscriber connection under concurrent first use", async () => {
+    const publisher = createRealtimeTransport({ driver: "redis", url: "redis://localhost:6379" });
+    await Promise.all([
+      publisher.publish("orders", { id: 1 }),
+      publisher.publish("orders", { id: 2 }),
+      publisher.publish("orders", { id: 3 }),
+    ]);
+    expect(constructed).toHaveLength(1);
+
+    const offA = publisher.subscribe("a", () => {});
+    publisher.subscribe("b", () => {});
+    await vi.waitFor(() => {
+      expect(constructed[1]?.subscribe).toHaveBeenCalledTimes(2);
+    });
+    expect(constructed).toHaveLength(2);
+    offA();
+    await vi.waitFor(() => {
+      expect(constructed[1]?.unsubscribe).toHaveBeenCalledWith("flowpanel:a");
+    });
   });
 
   it("stays inert after close(): subscribe opens nothing and hands back a no-op disposer", async () => {
