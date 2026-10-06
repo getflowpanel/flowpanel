@@ -74,7 +74,6 @@ async function paidDollars(ctx: WidgetContext): Promise<StatResult> {
   };
 }
 
-/** Named so a unit test can import it directly, as `resolveWidget` expects a widget config. */
 export const openInvoicesWidget = stat("Open invoices", openInvoices, { span: 3 });
 
 export const customerTabs: DetailTab<Customer>[] = [

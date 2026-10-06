@@ -41,7 +41,13 @@ export const DefaultButton = /* @__PURE__ */ named(
     ({ className, variant, size, asChild, ...props }, ref) => {
       const Comp = asChild ? Slot : "button";
       return (
-        <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+        <Comp
+          className={cn(buttonVariants({ variant, size, className }))}
+          data-variant={variant ?? "default"}
+          data-size={size ?? "default"}
+          ref={ref}
+          {...props}
+        />
       );
     },
   ),

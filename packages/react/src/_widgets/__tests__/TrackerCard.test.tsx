@@ -96,4 +96,9 @@ describe("TrackerCard", () => {
     expect(screen.getByTitle("api-gateway-production-eu").className).toContain("truncate");
     expect(screen.getByTitle("99.98% uptime over 90 days").className).toContain("truncate");
   });
+
+  it("says the row's tone in words, not only with its dot", () => {
+    const { container } = render(<TrackerCard rows={rows} />);
+    expect(container.querySelector("[data-tone='err'] .sr-only")?.textContent).toBe("Error ");
+  });
 });

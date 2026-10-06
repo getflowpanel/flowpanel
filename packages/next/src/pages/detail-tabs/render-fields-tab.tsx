@@ -15,6 +15,7 @@ import {
   detailValue,
   renderDetailFields,
   selectFields,
+  withReferenceCells,
 } from "./detail-cells";
 
 interface BlockArgs<Row> {
@@ -72,18 +73,24 @@ export async function renderFieldsTab<Row extends Record<string, unknown>>(
   row: Row,
   spec: FieldsTabSpec<Row>,
 ): Promise<ReactNode> {
-  const cells = buildDetailCells(resource, row, reqCtx);
   const formatting = resolveFormatting(config.formatting);
   const emptyState = spec.emptyState ?? mergeLabels(config.labels).detail.noFields;
   const sections = spec.sections?.length
     ? spec.sections.map((section) => ({ ...section, list: selectFields(row, section.fields) }))
     : null;
   const flat = sections ? [] : selectFields(row, spec.fields);
-  const rendered = await renderDetailFields(
-    row,
-    sections ? sections.flatMap((section) => section.list) : flat,
-    reqCtx,
-  );
+  const shown = sections ? sections.flatMap((section) => section.list) : flat;
+  const [cells, rendered] = await Promise.all([
+    withReferenceCells(
+      config,
+      reqCtx,
+      resource,
+      row,
+      new Set(shown.map((field) => field.name)),
+      buildDetailCells(resource, row, reqCtx),
+    ),
+    renderDetailFields(row, shown, reqCtx),
+  ]);
   const block = (fields: DetailField[]) =>
     fieldsBlock<Row>({ row, fields, cells, formatting, rendered, emptyState });
 

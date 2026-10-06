@@ -1,3 +1,4 @@
+export { bindFormat } from "../bind-format";
 export { didYouMean } from "../suggest";
 export { type ChecklistRow, checklistRows, isDone } from "./checklist-rows";
 export { clockIn, dayKeyIn, dayStartIn, shiftDayKey, weekdayOf } from "./day-key";
@@ -23,9 +24,11 @@ export {
   writeTimelineCursor,
 } from "./timeline-merge";
 export { assertColumn, normalizeWhere, whereValue, withRange } from "./where";
+export { writeTarget } from "./write-target";
 export {
   type CalendarDay,
   DATE_RANGE_PRESETS,
+  formatCalendarDay,
   isDateRangePreset,
   resolvePreset,
   shiftCalendarDays,

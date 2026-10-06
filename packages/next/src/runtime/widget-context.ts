@@ -9,8 +9,8 @@ import type {
   WidgetContext,
   WidgetDateRange,
 } from "@flowpanel/core";
-import { bindFormat, mergeLabels, resolveFormatting } from "@flowpanel/core";
-import { encodeFilters } from "@flowpanel/core/internal";
+import { mergeLabels, resolveFormatting } from "@flowpanel/core";
+import { bindFormat, encodeFilters } from "@flowpanel/core/internal";
 import { previousRangeFor, shiftRange } from "./date-range";
 import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
 import { buildHref } from "./href";

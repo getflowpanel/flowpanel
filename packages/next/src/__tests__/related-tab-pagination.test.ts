@@ -138,21 +138,21 @@ describe("a related history longer than one page", () => {
     const table = await tableFor("?tab=scores");
     expect(table?.page).toBe(1);
     expect(table?.total).toBe(26);
-    expect((table?.rows as { id: string }[]).map((r) => r.id)).toHaveLength(25);
+    expect((table!.rows as { id: string }[]).map((r) => r.id)).toHaveLength(25);
   });
 
   it("reaches the last record through its own namespaced page key", async () => {
     const table = await tableFor("?tab=scores&relatedPage.scores=2");
     expect(table?.page).toBe(2);
     expect(table?.total).toBe(26);
-    expect((table?.rows as { id: string }[]).map((r) => r.id)).toEqual(["s26"]);
+    expect((table!.rows as { id: string }[]).map((r) => r.id)).toEqual(["s26"]);
     expect(table?.pageParam).toBe("relatedPage.scores");
   });
 
   it("corrects a page past the end back to the last one that has rows", async () => {
     const table = await tableFor("?tab=scores&relatedPage.scores=9");
     expect(table?.page).toBe(2);
-    expect((table?.rows as { id: string }[]).map((r) => r.id)).toEqual(["s26"]);
+    expect((table!.rows as { id: string }[]).map((r) => r.id)).toEqual(["s26"]);
   });
 
   it("treats garbage and zero as the first page", async () => {
@@ -173,7 +173,7 @@ describe("a related history longer than one page", () => {
   it("ignores another tab's page key", async () => {
     const table = await tableFor("?tab=scores&relatedPage.other=2");
     expect(table?.page).toBe(1);
-    expect((table?.rows as { id: string }[])[0]?.id).toBe("s1");
+    expect((table!.rows as { id: string }[])[0]?.id).toBe("s1");
   });
 
   it("queries only the active tab", async () => {

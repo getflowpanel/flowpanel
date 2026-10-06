@@ -18,7 +18,7 @@ const maxRangeContext = (widget: WidgetConfig, ctx: WidgetContext) =>
   retainedRange(widget, ctx).ctx;
 
 const config = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: {} },
   labels: {},
   resourcesByName: new Map(),

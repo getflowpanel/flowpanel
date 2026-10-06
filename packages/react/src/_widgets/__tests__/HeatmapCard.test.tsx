@@ -71,7 +71,7 @@ describe("HeatmapCard", () => {
     expect(screen.getByText("No visits")).toBeTruthy();
   });
 
-  it("shades by class, never an inline style, and names the grid once", () => {
+  it("shades the fill, not the element, so a focus ring keeps its strength, and names the grid once", () => {
     const { container } = render(
       <HeatmapCard
         summary="3 visits in the last 14 days"
@@ -82,8 +82,10 @@ describe("HeatmapCard", () => {
       />,
     );
     expect(container.querySelector("[style]")).toBeNull();
-    expect(container.querySelector("[data-level='2']")?.className).toContain("opacity-50");
-    expect(container.querySelector("[data-level='3']")?.className).toContain("opacity-75");
+    expect(container.querySelector("[data-level='2']")?.className).toContain("bg-fp-data/50");
+    expect(container.querySelector("[data-level='3']")?.className).toContain("bg-fp-data/75");
+    const cells = [...container.querySelectorAll("[data-level]")];
+    expect(cells.some((cell) => cell.className.includes("opacity-"))).toBe(false);
     expect(screen.getByText("3 visits in the last 14 days").getAttribute("aria-hidden")).toBe(
       "true",
     );

@@ -107,7 +107,7 @@ describe("ResourceDetailPage — column pipeline", () => {
     const rows = findAllElements(node, KVRow);
     const plan = rows.find((r) => r.label === "Plan tier");
     expect(rows.map((r) => r.label)).toEqual(["ID", "Plan tier"]);
-    expect((plan?.value as ReactElement).type).toBe(StatusBadge);
+    expect((plan!.value as ReactElement).type).toBe(StatusBadge);
   });
 
   it("humanizes fields no column covers and formats them generically", async () => {

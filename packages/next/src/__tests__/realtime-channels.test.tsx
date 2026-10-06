@@ -8,7 +8,7 @@ import { renderWidget } from "../runtime/render-widget";
 import { fakeWidgetContext } from "./widget-context-fixture";
 
 const config = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   resources: [],
   resourcesByName: new Map(),
   dashboardsByPath: new Map(),

@@ -5,9 +5,9 @@ import {
   type RequestContext,
   type ResolvedAdminConfig,
   resolveFormatting,
-  toDateValue,
   type WidgetContext,
 } from "@flowpanel/core";
+import { toDateValue } from "@flowpanel/core/format";
 import {
   dayKeyIn,
   dayStartIn,

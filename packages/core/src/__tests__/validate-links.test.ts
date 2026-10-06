@@ -229,7 +229,7 @@ describe("static links at defineAdmin", () => {
       /\.where names column "statuss" on "scraper_run".*Did you mean "status"\?/,
     );
     expect(boot([metric("E", { count: "scraper_run", range: "platform" })])).toThrow(
-      /\.range names daterange filter "platform" on "scraper_run"/,
+      /\.range counts "scraper_run" rows by "platform".*no daterange filter on "platform".*its own drilldown/s,
     );
     expect(
       boot([metric("E", { count: "scraper_run", range: "platform" }, { drilldown: "/runs" })]),

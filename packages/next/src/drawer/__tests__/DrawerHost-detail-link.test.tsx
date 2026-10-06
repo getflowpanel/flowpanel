@@ -61,10 +61,8 @@ describe("DrawerHost detail link", () => {
     render(<DrawerHost />);
 
     const link = await waitFor(() => screen.getByRole("link", { name: "Open full page" }));
-    expect(link.className).toContain("border-fp-border-2");
-    expect(link.className).toContain("h-11");
-    expect(link.className).not.toContain("text-xs");
-    expect(link.className).not.toContain("bg-fp-accent");
+    expect(link.dataset.variant).toBe("outline");
+    expect(link.dataset.size).toBe("sm");
     const heading = screen
       .getAllByRole("heading", { name: "a@b.c" })
       .find((h) => !h.className.includes("sr-only")) as HTMLElement;

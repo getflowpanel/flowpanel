@@ -11,7 +11,7 @@ import type { FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec } from "./registry";
 import type { Scope, Session } from "./session";
 import type { Threshold } from "./threshold";
-import type { Where } from "./where";
+import type { ListFilters } from "./where";
 import type { Tone } from "./widget";
 
 export type {
@@ -53,6 +53,8 @@ export type ColumnFormat =
       kind: "date";
       /** Show the clock as well as the day. */
       time?: boolean;
+      /** The value is a calendar day stored as midnight UTC, as a SQL `date` column is; show that day in every time zone. */
+      calendarDay?: boolean;
     }
   | {
       kind: "percent";
@@ -193,7 +195,7 @@ export interface FieldDef<Row> {
     | ((ctx: QueryContext) => Promise<SelectOption[]>);
   /** Turn the field into a searchable picker over another resource. */
   reference?: ReferenceSpec;
-  /** Mark the field required in the form. Server-side validation still comes from `schema`. */
+  /** Require a value. The form marks it, and the server rejects a create that leaves it empty or an edit that clears it. */
   required?: boolean;
   /** Render non-editable. Enforced server-side, not just in the UI. */
   readOnly?: boolean | ((values: Partial<Row>) => boolean);
@@ -230,7 +232,7 @@ export interface ResourceOptions<Row> {
   name?: string;
   /** Singular label shown in headings and buttons. */
   label?: string;
-  /** Label for exactly one row, e.g. `"Customer"`, used in the create page's title. Falls back to `label`, then the resource name. */
+  /** Label for exactly one row, e.g. `"Customer"`, used in record, create and edit titles. Falls back to `label`, then the resource name made singular: `order_items` reads "Order item". */
   labelOne?: string;
   /** Plural label shown in the nav and list title. */
   plural?: string;
@@ -265,7 +267,7 @@ export interface ResourceOptions<Row> {
   density?: "comfortable" | "compact";
   /**
    * What a row click — and Enter on the focused row — does. A row the projection cannot identify never acts.
-   * @defaultValue `"detail"` when `detail` is configured and `drawer` is not, `"drawer"` when only `drawer` is, otherwise `false`
+   * @defaultValue `"drawer"` when `drawer` is configured, otherwise `"detail"`
    */
   rowClick?: "detail" | "drawer" | false;
   /** Property holding each row's unique id.
@@ -316,7 +318,7 @@ export interface ResourceOptions<Row> {
   /** Canonical read/write policy for declared fields. */
   fieldAccess?: FieldAccessMap<Row>;
 
-  /** Export button. `false` removes it. Defaults to CSV and JSON of the visible columns. */
+  /** Export button, off unless set. `formats` defaults to `["csv"]`; `fields` defaults to the visible columns. */
   export?: { formats?: ("csv" | "json")[]; fields?: (keyof Row & string)[] } | false;
   /** Import button. Off unless set; rows are created through the normal write path. */
   import?: { formats?: ("csv" | "json")[]; fields?: (keyof Row & string)[] } | false;
@@ -330,7 +332,7 @@ export interface ResourceOptions<Row> {
     name: string;
     description?: string;
     /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */
-    filters?: Where<Row>;
+    filters?: ListFilters<Row>;
     sort?: { field: keyof Row & string; dir: "asc" | "desc" };
     search?: string;
   }>;

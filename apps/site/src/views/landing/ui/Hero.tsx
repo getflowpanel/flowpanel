@@ -17,7 +17,7 @@ export function Hero() {
         </h1>
 
         <p className="mt-6 max-w-[54ch] text-lg leading-relaxed text-[var(--color-fg-muted)] md:text-xl">
-          Describe your Drizzle or Prisma tables in one config file. FlowPanel serves lists, forms,
+          Describe your Drizzle or Prisma tables in a typed config. FlowPanel serves lists, forms,
           record pages and dashboards at <InlineCode>/admin</InlineCode> inside your app.
         </p>
 

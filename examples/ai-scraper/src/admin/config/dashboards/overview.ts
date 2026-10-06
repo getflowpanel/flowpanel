@@ -95,7 +95,7 @@ export const overview = dashboard({
       columns: 4,
       widgets: [
         stat("Paying accounts", (ctx) => ctx.count("customers", { status: "active" }), {
-          hint: "status: active",
+          hint: "active subscriptions",
         }),
         stat("Products tracked", (ctx) => ctx.count("products"), { hint: "customer catalogs" }),
         stat("Failed runs", (ctx) => ctx.count("runs", { status: "failed" }), { hint: "all time" }),

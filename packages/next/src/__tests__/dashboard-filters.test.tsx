@@ -51,7 +51,7 @@ const parsing: DashboardConfig = {
 };
 
 const config = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: {} },
   labels: {},
   resourcesByName: new Map(),
@@ -221,7 +221,7 @@ describe("dashboard filters", () => {
     });
     const props = propsOf(node, DashboardFilters);
     expect(
-      (props?.filters as Array<{ key: string; value: string | null }>).map((f) => [f.key, f.value]),
+      (props!.filters as Array<{ key: string; value: string | null }>).map((f) => [f.key, f.value]),
     ).toEqual([
       ["platform", "kwork"],
       ["kind", null],

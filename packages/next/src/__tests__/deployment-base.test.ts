@@ -19,8 +19,7 @@ const nextVersion = (
 describe("the Next constant a deployment basePath is read from", () => {
   it("runs against a Next release FlowPanel supports", () => {
     const [major, minor] = nextVersion.split(".").map(Number) as [number, number];
-    expect(major).toBe(16);
-    expect(minor).toBeGreaterThanOrEqual(3);
+    expect(major === 16 || (major === 15 && minor >= 5)).toBe(true);
   });
 
   it("is still the name Next itself replaces", () => {

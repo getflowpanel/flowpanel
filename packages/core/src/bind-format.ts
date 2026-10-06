@@ -12,8 +12,8 @@ import type { WidgetFormat } from "./types/widget-context";
 
 const MISSING = "—";
 
-const isMissing = (value: unknown): value is null | undefined =>
-  value === null || value === undefined;
+const isMissing = (value: number | null | undefined): value is null | undefined =>
+  value === null || value === undefined || Number.isNaN(value);
 
 /** The admin's formatters bound to its `formatting` — what a widget reads as `ctx.format`. */
 export function bindFormat(formatting: ResolvedFormatting): WidgetFormat {
@@ -28,7 +28,12 @@ export function bindFormat(formatting: ResolvedFormatting): WidgetFormat {
       moment(value, (date) =>
         formatDayValue(date, formatting, isCalendarDay(value) ? "UTC" : formatting.timeZone),
       ),
-    dateTime: (value) => moment(value, (date) => formatDateValue(date, formatting)),
+    dateTime: (value) =>
+      moment(value, (date) =>
+        isCalendarDay(value)
+          ? formatDayValue(date, formatting, "UTC")
+          : formatDateValue(date, formatting),
+      ),
     relative: (value, now) => moment(value, (date) => formatRelativeValue(date, formatting, now)),
     number: (value, digits) =>
       isMissing(value)

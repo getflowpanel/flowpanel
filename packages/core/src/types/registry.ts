@@ -34,6 +34,13 @@ export type InferRow<Ref> = Ref extends { $inferSelect: infer R }
     ? AllResources[Ref]
     : Record<string, unknown>;
 
+/** The row a named `resource(ref, { name })` checks against: a Drizzle table's own, else the row registered under `name`, else the ref's. */
+export type InferNamedRow<Ref, Name extends string> = Ref extends { $inferSelect: infer R }
+  ? R
+  : Name extends keyof AllResources
+    ? AllResources[Name]
+    : InferRow<Ref>;
+
 export type ResourceName = [keyof AllResources] extends [never]
   ? string
   : keyof AllResources & string;

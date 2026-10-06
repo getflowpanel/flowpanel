@@ -11,6 +11,13 @@ import { DEFAULT_LABELS, formatLabel } from "@flowpanel/core/labels";
 export type GoodWhen = "up" | "down" | "neutral";
 export type DeltaMood = "good" | "bad" | "flat";
 
+/** The text colour of a change, by whether it is good news. */
+export const MOOD_TEXT: Record<DeltaMood, string> = {
+  good: "text-fp-ok-text",
+  bad: "text-fp-err-text",
+  flat: "text-fp-text-3",
+};
+
 export interface DeltaView {
   /** Signed: `+12%`, `−3`, `+2 pp`; unsigned inside the neutral band. */
   text: string;
@@ -56,6 +63,7 @@ function differenceText(
 ): string | null {
   if (typeof current !== "number" || previous === undefined) return null;
   if (format === "percent") return `${sign}${print.points(Math.abs(current - previous) * 100)}`;
+  if (previous === 0) return `${sign}${print.value(Math.abs(current))}`;
   const count = (format === undefined || format === "number") && Number.isInteger(previous);
   if (!count || Math.abs(previous) >= SMALL_BASE) return null;
   return `${sign}${print.value(Math.abs(current - previous))}`;

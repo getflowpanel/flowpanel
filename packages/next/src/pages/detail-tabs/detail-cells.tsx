@@ -4,13 +4,17 @@ import type {
   DetailTab,
   FieldDef,
   RequestContext,
+  ResolvedAdminConfig,
   ResolvedFormatting,
   ResourceConfig,
 } from "@flowpanel/core";
+import { ReferenceCell } from "@flowpanel/react";
 import type * as React from "react";
 import { formatFieldValue } from "../../runtime/format-field-value";
+import { buildHref } from "../../runtime/href";
 import { prerenderResourceCells } from "../../runtime/prerender-cells";
 import { renderColumnFormat } from "../../runtime/render-column-format";
+import { resolveReferences } from "../../runtime/resolve-references";
 
 export interface DetailCell {
   label?: string;
@@ -37,6 +41,37 @@ export function buildDetailCells<Row extends Record<string, unknown>>(
     out.set(c.field as string, cell);
   });
   return out;
+}
+
+/** A shown `reference` column reads as its record's label with a link, as the list shows it. */
+export async function withReferenceCells<Row extends Record<string, unknown>>(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  resource: ResourceConfig,
+  row: Row,
+  shown: ReadonlySet<string>,
+  cells: Map<string, DetailCell>,
+): Promise<Map<string, DetailCell>> {
+  const defs = (resource.options.columns ?? []) as ReadonlyArray<keyof Row | ColumnDef<Row>>;
+  const references = defs.filter(
+    (def): def is ColumnDef<Row> =>
+      typeof def === "object" && def.reference !== undefined && shown.has(String(def.field)),
+  );
+  if (references.length === 0) return cells;
+  const labelsByField = await resolveReferences<Row>(config, reqCtx, references, [row]);
+  for (const def of references) {
+    const field = String(def.field);
+    const raw = row[field];
+    const label =
+      raw === null || raw === undefined ? undefined : labelsByField.get(field)?.get(String(raw));
+    if (label === undefined || !def.reference) continue;
+    const href = buildHref(config, def.reference.resource, String(raw));
+    cells.set(field, {
+      ...cells.get(field),
+      node: <ReferenceCell label={String(label)} href={href} />,
+    });
+  }
+  return cells;
 }
 
 export function detailValue(

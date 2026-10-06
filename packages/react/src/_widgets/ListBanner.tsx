@@ -42,8 +42,11 @@ function Text({ row, className }: { row: Row; className: string }) {
   );
 }
 
+/** Same props as `ListCard`. */
+export type ListBannerProps = ListCardProps;
+
 /** "Anything on fire": the worst row as a sentence, the rest as dot lines, or one all-clear line. */
-export function ListBanner({ label, rows, allClear, more, caption }: ListCardProps) {
+export function ListBanner({ label, rows, allClear, more, caption }: ListBannerProps) {
   const worst = rows.some((row) => row.tone === "err")
     ? "err"
     : rows.some((row) => row.tone === "warn")

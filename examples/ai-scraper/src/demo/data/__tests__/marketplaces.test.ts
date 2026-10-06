@@ -3,18 +3,20 @@ import { marketplaceLabel } from "../marketplaces";
 import { MARKETPLACES } from "../types";
 
 describe("marketplaceLabel", () => {
-  it("capitalises each word of a snake_case marketplace", () => {
+  it("spells each marketplace the way the store does", () => {
     expect(marketplaceLabel("best_buy")).toBe("Best Buy");
+    expect(marketplaceLabel("ebay")).toBe("eBay");
+    expect(marketplaceLabel("media_markt")).toBe("MediaMarkt");
     expect(marketplaceLabel("mercado_libre")).toBe("Mercado Libre");
   });
 
-  it("capitalises a single word", () => {
-    expect(marketplaceLabel("amazon")).toBe("Amazon");
-  });
-
-  it("leaves no underscore in any known marketplace", () => {
+  it("labels every known marketplace", () => {
     for (const marketplace of MARKETPLACES) {
       expect(marketplaceLabel(marketplace)).not.toContain("_");
     }
+  });
+
+  it("passes an unknown value through", () => {
+    expect(marketplaceLabel("etsy")).toBe("etsy");
   });
 });

@@ -126,7 +126,7 @@ describe("a column's secondary field", () => {
       req: new Request("http://localhost/admin/users/u1?tab=scores"),
     });
     const table = findAll(tree, RelatedTabTable)[0];
-    expect((table?.columns as Record<string, unknown>[])[0]).toMatchObject({
+    expect((table!.columns as Record<string, unknown>[])[0]).toMatchObject({
       field: "id",
       secondary: "note",
     });

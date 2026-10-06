@@ -37,7 +37,7 @@ import { resolveReadableListSurface } from "../runtime/readable-list";
 import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
 import { resolveReferences } from "../runtime/resolve-references";
-import { pluralLabel } from "../runtime/resource-title";
+import { labelInSentence, pluralLabel } from "../runtime/resource-title";
 import { detailRowHrefs, resolveRowClick } from "../runtime/row-click";
 import { rowIdentity } from "../runtime/row-identity";
 import { wireViews } from "../runtime/saved-views";
@@ -201,12 +201,13 @@ export async function ResourceListPage({
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {readable.searchFields.length > 0 ? (
           <ResourceListSearch
-            placeholder={formatLabel(
-              config.labels?.searchPlaceholder ?? DEFAULT_LABELS.searchPlaceholder,
-              {
-                label: displayPlural,
-              },
-            )}
+            placeholder={
+              config.labels?.searchPlaceholder === undefined
+                ? formatLabel(DEFAULT_LABELS.searchPlaceholder, {
+                    label: labelInSentence(displayPlural),
+                  })
+                : formatLabel(config.labels.searchPlaceholder, { label: displayPlural })
+            }
           />
         ) : null}
         <div className="flex-1">

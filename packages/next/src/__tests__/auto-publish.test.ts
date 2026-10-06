@@ -53,6 +53,7 @@ function fakeConfig(): { config: ResolvedAdminConfig; resource: ResourceConfig }
     resources: [resource],
     resourcesByName: new Map([["widgets", resource]]),
     dashboardsByPath: new Map(),
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return { config, resource };

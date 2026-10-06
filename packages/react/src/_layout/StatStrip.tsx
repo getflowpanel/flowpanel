@@ -22,7 +22,7 @@ const MD_COLUMNS: Record<number, string> = {
 
 /** Numbers as one band divided by hairlines, with no card around each — a KPI strip. */
 export function StatStrip({ label, description, columns, className, children }: StatStripProps) {
-  const cells = Math.min(Math.max(Children.count(children), 1), 6);
+  const cells = Math.min(Math.max(Children.toArray(children).length, 1), 6);
   return (
     <section className={cn("space-y-3", className)} data-strip="">
       {label ? (

@@ -14,14 +14,6 @@ export interface CompatibilityItem {
   source: string;
 }
 
-export const COMPATIBILITY_OVERRIDES = [
-  {
-    id: "next",
-    range: "^16.3.0",
-    reason: "The CLI enforces 16.3 or newer.",
-  },
-] as const;
-
 function readPackage(root: string, path: string): PackageMetadata {
   return JSON.parse(readFileSync(join(root, path), "utf8")) as PackageMetadata;
 }
@@ -37,7 +29,6 @@ export function readCompatibility(root: string): CompatibilityItem[] {
   const react = readPackage(root, "packages/react/package.json");
   const drizzle = readPackage(root, "packages/adapter-drizzle/package.json");
   const prisma = readPackage(root, "packages/adapter-prisma/package.json");
-  const nextOverride = COMPATIBILITY_OVERRIDES.find((item) => item.id === "next");
 
   return [
     {
@@ -50,13 +41,11 @@ export function readCompatibility(root: string): CompatibilityItem[] {
     {
       id: "next",
       requirement: "Next.js",
-      range:
-        nextOverride?.range ??
-        requireValue(
-          next.peerDependencies?.next,
-          "packages/next/package.json#peerDependencies.next",
-        ),
-      note: nextOverride?.reason ?? "App Router only.",
+      range: requireValue(
+        next.peerDependencies?.next,
+        "packages/next/package.json#peerDependencies.next",
+      ),
+      note: "App Router only. With `cacheComponents` on, 16.3 or newer.",
       source: "packages/next/package.json#peerDependencies.next",
     },
     {
@@ -86,7 +75,7 @@ export function readCompatibility(root: string): CompatibilityItem[] {
         prisma.peerDependencies?.["@prisma/client"],
         "packages/adapter-prisma/package.json#peerDependencies.@prisma/client",
       ),
-      note: "Required only when using the Prisma adapter.",
+      note: "Prisma 5 and 6, only when using the Prisma adapter. Prisma 7 is not supported yet.",
       source: "packages/adapter-prisma/package.json#peerDependencies.@prisma/client",
     },
   ];

@@ -8,7 +8,7 @@ import {
 } from "../runtime/widget-context";
 
 const config = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: { tag: "db" } },
   labels: { widget: { empty: "Nothing here" } },
   resourcesByName: new Map(),

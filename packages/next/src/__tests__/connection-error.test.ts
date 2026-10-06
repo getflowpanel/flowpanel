@@ -16,6 +16,12 @@ describe("isConnectionError", () => {
     "3D000",
     "08001",
     "08006",
+    "57P03",
+    "53300",
+    "ER_ACCESS_DENIED_ERROR",
+    "ER_BAD_DB_ERROR",
+    "PROTOCOL_CONNECTION_LOST",
+    "SQLITE_CANTOPEN",
   ])("reads the %s code as a connection failure", (code) => {
     expect(isConnectionError(coded(code))).toBe(true);
   });

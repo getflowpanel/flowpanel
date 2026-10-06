@@ -4,7 +4,7 @@ import { buildWidgetContext, detailTabDateRange, rangedContext } from "../runtim
 import { fakeWidgetContext } from "./widget-context-fixture";
 
 const config = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: {} },
   formatting: { timeZone: "Europe/Moscow" },
   labels: {},

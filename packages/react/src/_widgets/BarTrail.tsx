@@ -4,13 +4,7 @@ import {
   type NumericFormat,
   type ResolvedFormatting,
 } from "@flowpanel/core/format";
-import { type DeltaMood, deltaPrint, describeDelta, type GoodWhen } from "./delta";
-
-const MOOD_TEXT: Record<DeltaMood, string> = {
-  good: "text-fp-ok-text",
-  bad: "text-fp-err-text",
-  flat: "text-fp-text-3",
-};
+import { deltaPrint, describeDelta, type GoodWhen, MOOD_TEXT } from "./delta";
 
 export interface BarTrailProps {
   value: number;

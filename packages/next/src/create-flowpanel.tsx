@@ -4,7 +4,11 @@ import { withDeploymentBasePath } from "@flowpanel/core/paths";
 import { Flowpanel, FlowpanelNotFound } from "./flowpanel-page";
 import { handlers as createHandlers, type FlowpanelHandlers } from "./handlers";
 import type { FlowpanelRequest } from "./runtime/controller-factory";
-import { flowpanelMetadata } from "./runtime/page-metadata";
+import {
+  type FlowpanelMetadata,
+  flowpanelMetadata,
+  flowpanelNotFoundMetadata,
+} from "./runtime/page-metadata";
 import { bindPublisher, publish } from "./runtime/publish";
 import { createRequestRuntime } from "./runtime/request-runtime";
 import {
@@ -19,6 +23,8 @@ export interface FlowpanelRuntime<Resources extends readonly AnyResourceConfig[]
   readonly metadata: ReturnType<typeof flowpanelMetadata>;
   /** The admin's `not-found.tsx`: `export default flowpanel.notFound;` shows the labelled "Page not found" screen. */
   readonly notFound: ReturnType<typeof FlowpanelNotFound>;
+  /** The `not-found.tsx` metadata: `export const metadata = flowpanel.notFoundMetadata;` titles the 404 in the server's HTML. */
+  readonly notFoundMetadata: FlowpanelMetadata;
   readonly handlers: FlowpanelHandlers;
   request(): Promise<FlowpanelRequest<Resources>>;
   readonly client: FlowpanelClientMetadata;
@@ -54,6 +60,7 @@ export function createFlowpanel<const Resources extends readonly AnyResourceConf
     page: Flowpanel(config),
     metadata: flowpanelMetadata(config),
     notFound: FlowpanelNotFound(config),
+    notFoundMetadata: flowpanelNotFoundMetadata(config),
     handlers: createHandlers(config),
     request,
     // `api` is what a browser fetches, so it carries the basePath; `admin` is prefixed by the router itself.

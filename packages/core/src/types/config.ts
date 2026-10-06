@@ -226,8 +226,6 @@ export interface ResolvedAdminConfig<
   readonly dashboardsByPath: Map<string, DashboardConfig>;
   readonly pagesByPath: Map<string, PageConfig>;
   readonly queuesByKey: Map<string, QueueConfig>;
-  /** Normalized `paths.admin` — leading slash, no trailing slash. Defaults to `/admin`. */
-  readonly basePath: string;
   /** Normalized mount points with leading slashes and no trailing slash. */
   readonly paths: AdminPaths;
   /** Config problems that do not stop the admin from booting. `flowpanel doctor` prints them; development prints each once. */

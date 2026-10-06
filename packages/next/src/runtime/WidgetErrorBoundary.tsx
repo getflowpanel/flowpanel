@@ -1,6 +1,6 @@
 "use client";
 import { ErrorCard } from "@flowpanel/react";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import * as React from "react";
 
 interface State {
@@ -68,6 +68,7 @@ export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
   override state: State = { error: null };
 
   static getDerivedStateFromError(error: Error): State {
+    unstable_rethrow(error);
     return { error };
   }
 

@@ -9,7 +9,7 @@ import { expect, test } from "@playwright/test";
 test.describe("@flowpanel/test", () => {
   test("smokeAdmin walks the whole demo admin without an error", async ({ page }) => {
     test.setTimeout(180_000);
-    const report = await smokeAdmin(page, { basePath: "/admin", a11y: true });
+    const report = await smokeAdmin(page, { paths: { admin: "/admin" }, a11y: true });
 
     expect(report.consoleErrors).toEqual([]);
     expect(report.a11yViolations).toEqual([]);

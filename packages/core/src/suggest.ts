@@ -21,17 +21,18 @@ const squash = (value: string): string => value.toLowerCase().replace(/[_-]/g, "
 
 /**
  * The known name a typo most likely meant: an exact match once casing and word
- * separators are ignored, else the closest within an edit distance of two.
+ * separators are ignored, else the closest within an edit distance that grows with the name, up to two.
  */
 export function near(target: string, known: readonly string[]): string | null {
   const squashed = squash(target);
   const same = known.find((candidate) => squash(candidate) === squashed);
   if (same !== undefined) return same;
 
+  const max = target.length <= 2 ? 0 : target.length <= 4 ? 1 : 2;
   let best: string | null = null;
-  let bestDistance = 3;
+  let bestDistance = max + 1;
   for (const candidate of known) {
-    const d = distance(target, candidate, 2);
+    const d = distance(target, candidate, max);
     if (d < bestDistance) {
       best = candidate;
       bestDistance = d;

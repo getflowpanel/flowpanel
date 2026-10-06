@@ -7,7 +7,11 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
+import {
+  declaredFormFields,
+  deniedFieldWrites,
+  resolveFormFields,
+} from "../runtime/resolve-form-fields";
 
 const ctx = (role: string): RequestContext => ({ role, session: null }) as RequestContext;
 
@@ -205,5 +209,35 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
     const { config: cfg } = configWith({ targetReadAccess: "staff" });
     const resolved = await resolveFormFields(cfg, fields, ctx("staff"), { ownerId: "u42" });
     expect(resolved[0]?.options).toEqual([{ value: "u42", label: "owner@x.com" }]);
+  });
+});
+
+describe("deniedFieldWrites", () => {
+  it("names the fields fieldAccess.write keeps this caller from writing", async () => {
+    const resource = resourceWith({
+      columns: [],
+      fieldAccess: {
+        plan: { write: "owner" },
+        note: { write: ["owner", "editor"] },
+        locked: {
+          write: ({ current }: { current: Record<string, unknown> | null }) => !current?.frozen,
+        },
+        email: { read: "owner" },
+      },
+    });
+    expect([...(await deniedFieldWrites(resource, ctx("editor"), { frozen: true }))]).toEqual([
+      "plan",
+      "locked",
+    ]);
+    expect([...(await deniedFieldWrites(resource, ctx("owner"), null))]).toEqual([]);
+  });
+
+  it("renders a denied field read-only, like readOnly", async () => {
+    const fields: Fields = [{ name: "name" }, { name: "plan" }];
+    const resolved = await resolveFormFields(config, fields, ctx("editor"), {}, new Set(["plan"]));
+    expect(resolved.map((f) => [f.name, f.readOnly])).toEqual([
+      ["name", undefined],
+      ["plan", true],
+    ]);
   });
 });

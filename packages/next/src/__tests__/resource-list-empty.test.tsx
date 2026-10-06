@@ -27,9 +27,10 @@ const adapter: Adapter = {
 
 type Empty = { title?: string; filtered?: string; searched?: string };
 
-function admin(empty?: Empty) {
+function admin(empty?: Empty, locale?: string) {
   return defineAdmin({
     adapter,
+    ...(locale ? { formatting: { locale } } : {}),
     auth: { session: async () => null, role: () => "admin" },
     resources: [
       resource(
@@ -46,8 +47,8 @@ function admin(empty?: Empty) {
   });
 }
 
-async function table(query: string, empty?: Empty) {
-  const config = admin(empty);
+async function table(query: string, empty?: Empty, locale?: string) {
+  const config = admin(empty, locale);
   const orders = config.resourcesByName.get("orders");
   if (!orders) throw new Error("orders is not registered");
   const tree = await ResourceListPage({
@@ -97,5 +98,10 @@ describe("an empty resource list", () => {
   it("fills `{query}` in `filtered` too", async () => {
     const props = await table("q=zzz", { filtered: "No orders for “{query}”" });
     expect(props.emptyTitle).toBe("No orders for “zzz”");
+  });
+
+  it("words the no-data title in the admin's locale", async () => {
+    const props = await table("", undefined, "ru-RU");
+    expect(props.emptyTitle).toBe("Orders: записей нет");
   });
 });

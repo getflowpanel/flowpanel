@@ -61,11 +61,11 @@ function mkConfig() {
 
 describe("ResourceListPage — row projection", () => {
   it.each([
-    { labels: undefined, expected: "Search Пользователи…" },
+    { labels: undefined, expected: "Search пользователи…" },
     // JavaScript consumers and optional translation maps can supply an explicit undefined.
     {
       labels: { searchPlaceholder: undefined } as unknown as LabelsConfig,
-      expected: "Search Пользователи…",
+      expected: "Search пользователи…",
     },
     { labels: { searchPlaceholder: "Поиск: {label}…" }, expected: "Поиск: Пользователи…" },
     { labels: { searchPlaceholder: "" }, expected: "" },

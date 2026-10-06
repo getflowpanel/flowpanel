@@ -18,6 +18,7 @@ describe("bindFormat", () => {
 
   it("keeps a YYYY-MM-DD value on its own day", () => {
     expect(newYork.date("2026-09-23")).toBe("2026-09-23");
+    expect(newYork.dateTime("2026-09-23")).toBe("2026-09-23");
   });
 
   it("says how long ago against the given clock", () => {
@@ -46,5 +47,10 @@ describe("bindFormat", () => {
     expect(ru.number(undefined)).toBe("—");
     expect(ru.money(null)).toBe("—");
     expect(ru.duration(null)).toBe("—");
+  });
+
+  it("prints a dash for a missing or NaN number", () => {
+    expect(en.money(Number.NaN)).toBe("—");
+    expect(en.number(null)).toBe("—");
   });
 });

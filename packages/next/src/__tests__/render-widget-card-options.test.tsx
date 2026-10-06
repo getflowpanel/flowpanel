@@ -12,7 +12,7 @@ import { serializeWidget } from "../drawer/serialize-widget";
 import { renderWidget } from "../runtime/render-widget";
 
 const cfg = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   auth: { session: async () => null, role: () => "admin" },
   resources: [],
   resourcesByName: new Map(),

@@ -1,6 +1,5 @@
 export { type AdapterScopeContext, resolveScopeApplier } from "./adapter-scope";
 export { devAuth } from "./auth/dev";
-export { bindFormat } from "./bind-format";
 export { checklist, filled, heatmap } from "./builders/activity";
 export { dashboard, page } from "./builders/dashboard";
 export { type EnumDef, type EnumEntry, enumOf } from "./builders/enum-of";
@@ -24,36 +23,24 @@ export {
 export { isBuiltinBulkDelete } from "./compiler/builtin-bulk-delete";
 export { defineAdmin } from "./define-admin";
 export {
-  type BadgeCellProps,
-  badgeProps,
-  type ColumnFormatKind,
-  cellTone,
-  columnFormatKind,
   DEFAULT_FORMATTING,
   type FormattingConfig,
-  formatBooleanValue,
   formatColumnValue,
   formatDateValue,
   formatDayValue,
-  formatDurationCompact,
   formatDurationValue,
   formatNumber,
   formatPercentValue,
   formatRelativeValue,
-  percentHeatLevel,
   type ResolvedFormatting,
   resolveFormatting,
-  toBooleanValue,
-  toDateValue,
   toneFillClass,
   toneTextClass,
-  urlCellParts,
 } from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
 export { assertCountWhereColumns } from "./internal/count-where";
 export type { KeyLabels } from "./internal/key-labels";
 export { declaredWriteFields } from "./internal/write-fields";
-export { writeTarget } from "./internal/write-target";
 export { RU_LABELS } from "./locales/ru";
 export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";
 export { assertWritableInput, filterReadableProjection } from "./policy/fields";

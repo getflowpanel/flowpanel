@@ -157,8 +157,14 @@ describe("a related tab's rows open like the target's own list", () => {
     expect((await relatedTable("withDetail", "u3"))?.rowHrefs).toBeUndefined();
   });
 
+  it("open the record page when the target configures neither detail nor drawer", async () => {
+    expect((await relatedTable("plain"))?.rowHrefs).toEqual([
+      "/admin/plain/a%2F1",
+      "/admin/plain/a2",
+    ]);
+  });
+
   it("stay inert when the target's list rows are inert", async () => {
-    expect((await relatedTable("plain"))?.rowHrefs).toBeUndefined();
     expect((await relatedTable("optedOut"))?.rowHrefs).toBeUndefined();
   });
 });

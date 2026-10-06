@@ -46,6 +46,12 @@ export interface LabelsConfig {
     selectRow?: string;
     selectAll?: string;
     deselectAll?: string;
+    /** Title of a list with no rows and no `emptyState`. Use `{label}` for the plural label. */
+    empty?: string;
+    /** The pencil on an editable cell. Use `{label}` for the column label. */
+    editCell?: string;
+    /** After an editable cell saves. */
+    saved?: string;
   };
   dateRange?: {
     /** Locale for calendar presentation; identical during SSR and hydration. */
@@ -156,6 +162,20 @@ export interface LabelsConfig {
     invalidBoolean?: string;
     /** A value that is not a date. Use `{label}`. */
     invalidDate?: string;
+    /** A value a unique column already holds. Use `{label}`. */
+    taken?: string;
+    /** A unique violation the database did not tie to one column. */
+    conflict?: string;
+    /** A reference to a row that does not exist. Use `{label}`. */
+    missingReference?: string;
+    /** A foreign key violation the database did not tie to one column. */
+    missingLink?: string;
+    /** A delete that other rows still reference. */
+    inUse?: string;
+    /** The create page of a resource with `create.disabled`. */
+    createDisabled?: string;
+    /** The edit page of a resource with `update.disabled`. */
+    editDisabled?: string;
   };
   /** Drawer chrome. */
   drawer?: {
@@ -169,6 +189,12 @@ export interface LabelsConfig {
     noWidgets?: string;
     /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */
     chartElsewhere?: string;
+    /** A widget kind a drawer does not draw. Use `{kind}`. */
+    unsupported?: string;
+    /** The dialog's name before the record loads. */
+    title?: string;
+    /** The record could not be loaded. */
+    loadFailed?: string;
   };
   /** Full-page detail chrome. */
   detail?: {

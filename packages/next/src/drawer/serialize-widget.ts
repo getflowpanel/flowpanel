@@ -7,7 +7,7 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
+import { formatLabel, mergeLabels, runWithRequestContext } from "@flowpanel/core";
 import type { CardDate } from "@flowpanel/react";
 import { safeErrorMessage } from "../runtime/action-helpers";
 import {
@@ -88,12 +88,20 @@ export type SerializedWidget =
     }
   | { kind: "unsupported"; label?: string; reason: string; failed?: true; span?: number };
 
+const CHART_SUBKIND = {
+  areaChart: "area",
+  barChart: "bar",
+  lineChart: "line",
+  pieChart: "pie",
+} as const;
+
 export async function serializeWidget(
   w: WidgetConfig,
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
   pickedCtx: WidgetContext,
 ): Promise<SerializedWidget> {
+  const labels = mergeLabels(config.labels);
   const kept = retainedRange(w, pickedCtx);
   if (kept.expired) {
     const label = widgetLabel(w);
@@ -224,18 +232,9 @@ export async function serializeWidget(
       case "lineChart":
       case "pieChart": {
         const data = (await runWithRequestContext(reqCtx, () => w.query(widgetCtx))) as unknown[];
-        const subkind = (
-          w.kind === "areaChart"
-            ? "area"
-            : w.kind === "barChart"
-              ? "bar"
-              : w.kind === "lineChart"
-                ? "line"
-                : "pie"
-        ) as "area" | "bar" | "line" | "pie";
         return {
           kind: "chart",
-          subkind,
+          subkind: CHART_SUBKIND[w.kind],
           label: w.label,
           dataPoints: data.length,
           ...(w.options.span ? { span: w.options.span } : {}),
@@ -247,14 +246,16 @@ export async function serializeWidget(
         if (card) return card;
         return {
           kind: "unsupported",
-          reason: `${w.kind} widgets are not supported in drawers yet`,
+          reason: formatLabel(labels.drawer.unsupported, { kind: w.kind }),
         };
       }
     }
   } catch (err) {
+    const label = widgetLabel(w);
     return {
       kind: "unsupported",
-      reason: safeErrorMessage(err, "widget query failed"),
+      ...(label ? { label } : {}),
+      reason: safeErrorMessage(err, labels.errors.widgetHint),
       failed: true,
     };
   }

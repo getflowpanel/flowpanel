@@ -7,7 +7,7 @@ import { renderWidget } from "../runtime/render-widget";
 import { buildWidgetContext } from "../runtime/widget-context";
 
 const config = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: {} },
   labels: {},
   formatting: { timeZone: "Europe/Moscow" },
@@ -66,7 +66,7 @@ describe("tracker widget", () => {
     const ctx = buildWidgetContext(config, reqCtx, reqCtx.req, today);
     const props = cardProps(await renderWidget(widget, ctx, config, reqCtx));
     expect(seen).toEqual(["2026-09-20T10:00:00.000Z|2026-09-21T09:30:00.000Z"]);
-    const row = (props?.rows as Array<Record<string, unknown>>)[0];
+    const row = (props!.rows as Array<Record<string, unknown>>)[0];
     expect(row).toMatchObject({
       key: "kwork",
       label: "kwork",
@@ -74,7 +74,7 @@ describe("tracker widget", () => {
       summary: "last block err",
       href: "/runs?platform=kwork",
     });
-    expect((row?.cells as Array<{ title: string }>).at(-2)?.title).toBe(
+    expect((row!.cells as Array<{ title: string }>).at(-2)?.title).toBe(
       "2026-09-21 11:00 · 66.7% · 30 observed",
     );
   });
@@ -89,8 +89,8 @@ describe("tracker widget", () => {
     });
     const ctx = buildWidgetContext(config, reqCtx, reqCtx.req, today);
     const props = cardProps(await renderWidget(widget, ctx, config, reqCtx));
-    const row = (props?.rows as Array<Record<string, unknown>>)[0];
-    expect((row?.cells as Array<{ title: string }>).at(-2)?.title).toBe(
+    const row = (props!.rows as Array<Record<string, unknown>>)[0];
+    expect((row!.cells as Array<{ title: string }>).at(-2)?.title).toBe(
       "2026-09-21 11:00 · 2.0 KB · 1 observed",
     );
   });

@@ -14,7 +14,7 @@ describe("realtime options", () => {
       );
     expect(
       narrow,
-      "declare `realtime?: RealtimeOption` so `{ resource }` targets type-check (wave D Ruling 3)",
+      "declare `realtime?: RealtimeOption` so `{ resource }` targets type-check",
     ).toEqual([]);
   });
 });

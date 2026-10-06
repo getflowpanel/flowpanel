@@ -1,11 +1,14 @@
 "use client";
+import { formatLabel } from "@flowpanel/core/labels";
 import { Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { LocalTime } from "../_atoms/LocalTime";
 import { useToast } from "../_feedback/toast-api";
 import { useApiBase } from "../_provider/ApiBaseContext";
+import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
+import { humanize } from "../lib/humanize";
 
 const PENCIL_REVEAL =
   "opacity-0 group-hover/row:opacity-100 group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 [@media(hover:none)]:opacity-100";
@@ -15,6 +18,8 @@ export interface InlineEditCellProps {
   resource: string;
   id: string;
   field: string;
+  /** The column's label, for the edit button's accessible name. Defaults to the humanized field. */
+  label?: string;
   value: unknown;
   valueType?: "string" | "number" | "boolean" | "date" | "enum" | "array" | "json" | "reference";
   /** Custom display formatter when not in edit mode. Defaults to `String(value)`. */
@@ -28,6 +33,7 @@ export function InlineEditCell({
   resource,
   id,
   field,
+  label,
   value,
   valueType,
   display,
@@ -37,6 +43,8 @@ export function InlineEditCell({
   const router = useRouter();
   const toast = useToast();
   const apiBase = useApiBase();
+  const labels = useLabels();
+  const editLabel = formatLabel(labels.table.editCell, { label: label ?? humanize(field) });
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<string>(() => valueToInputString(value, valueType));
   const [pending, setPending] = React.useState(false);
@@ -72,16 +80,18 @@ export function InlineEditCell({
           body: JSON.stringify({ field, value: parsed }),
         },
       );
-      const result = (await res.json()) as { ok: true } | { ok: false; error: string };
+      const result = (await res.json()) as
+        | { ok: true }
+        | { ok: false; error: string; fieldErrors?: Record<string, string> };
       if (!result.ok) {
-        toast.error(result.error || "Update failed");
+        toast.error(result.fieldErrors?.[field] || result.error || labels.formError);
         setDraft(original);
       } else {
-        toast.success("Saved");
+        toast.success(labels.table.saved);
         router.refresh();
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Network error");
+    } catch {
+      toast.error(labels.formError);
       setDraft(original);
     } finally {
       setPending(false);
@@ -114,7 +124,7 @@ export function InlineEditCell({
             type="button"
             onClick={edit}
             onKeyDown={editOnKey}
-            aria-label={`Edit ${field}`}
+            aria-label={editLabel}
             className={cn(
               PENCIL_REVEAL,
               "shrink-0 rounded-fp-sm p-0.5 text-fp-text-3 transition-opacity hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
@@ -131,7 +141,7 @@ export function InlineEditCell({
         type="button"
         onClick={edit}
         onKeyDown={editOnKey}
-        aria-label={`Edit ${field}`}
+        aria-label={editLabel}
         className={cn(
           "group/edit flex w-full min-w-0 cursor-text items-center gap-1 rounded-fp-sm text-left text-fp-text-1 transition-colors hover:-mx-1 hover:-my-0.5 hover:bg-fp-bg-3/60 hover:px-1 hover:py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
           className,

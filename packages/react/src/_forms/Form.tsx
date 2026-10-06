@@ -139,12 +139,25 @@ export function Form<S extends $ZodType>({
   return (
     <FormActionDispatchContext.Provider value={formAction}>
       <FormCtx.Provider value={ctxValue}>
-        <form {...formProps} action={formAction} className={cn("space-y-4", className)}>
+        <form
+          {...formProps}
+          action={formAction}
+          onReset={keepAfterAction}
+          className={cn("space-y-4", className)}
+        >
           {children}
         </form>
       </FormCtx.Provider>
     </FormActionDispatchContext.Provider>
   );
+}
+
+/**
+ * React resets a form after its action settles, and conform clears its errors on that reset; in
+ * `next dev` the reset lands after the server's errors render. The form has no reset button, so keep both.
+ */
+function keepAfterAction(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
 }
 
 /** Turn the JSON `{ ok, error?, fieldErrors? }` response into a conform SubmissionResult. */

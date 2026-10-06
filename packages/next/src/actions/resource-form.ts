@@ -3,8 +3,9 @@ import {
   FlowpanelError,
   FlowpanelValidationError,
   mergeLabels,
-  writeTarget,
+  resolveFormatting,
 } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
 import { notFoundResponse } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
 import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
@@ -45,7 +46,10 @@ function renderedFieldShapes(
     }));
 }
 
-/** FormData → plain object, decoded per control then coerced to each column's real JS type. */
+/**
+ * FormData → plain object, decoded per control then coerced to each column's real JS type.
+ * An edit that empties a NOT NULL column sends null, so the update schema reports it as required.
+ */
 function coerceFormData(
   fd: FormData,
   resource: ResourceConfig,
@@ -56,9 +60,19 @@ function coerceFormData(
   for (const [k, v] of fd.entries()) raw[k] = v;
   Object.assign(raw, readFormValues(renderedFieldShapes(resource, config, mode), fd));
   const { columns } = config.adapter.introspect(writeTarget(resource));
-  const { values, fieldErrors } = coerceRowByColumns(columns, raw, mergeLabels(config.labels));
+  const { values, fieldErrors } = coerceRowByColumns(
+    columns,
+    raw,
+    mergeLabels(config.labels),
+    resolveFormatting(config.formatting).timeZone,
+  );
   for (const [k, v] of Object.entries(values)) {
     if (v === "") values[k] = null;
+  }
+  if (mode === "update") {
+    for (const column of columns) {
+      if (!column.nullable && raw[column.name] === "") values[column.name] = null;
+    }
   }
   return { values, fieldErrors };
 }
@@ -76,17 +90,24 @@ async function parseFormBody(
   return parsed.ok ? { ok: true, ...coerceFormData(parsed.value, resource, config, mode) } : parsed;
 }
 
-function formActionError(err: unknown): { status: number; body: FormActionResult } {
+/** A `FlowpanelError` as the form's answer; anything else goes back to `withGuards`, which reports it. */
+function formActionError(err: unknown): Response {
   if (err instanceof FlowpanelValidationError) {
-    return {
-      status: err.status,
-      body: { ok: false, error: err.safeMessage, fieldErrors: err.fieldErrors },
-    };
+    return Response.json(
+      {
+        ok: false,
+        error: err.safeMessage,
+        fieldErrors: err.fieldErrors,
+      } satisfies FormActionResult,
+      { status: err.status },
+    );
   }
   if (err instanceof FlowpanelError) {
-    return { status: err.status, body: { ok: false, error: err.safeMessage } };
+    return Response.json({ ok: false, error: err.safeMessage } satisfies FormActionResult, {
+      status: err.status,
+    });
   }
-  return { status: 500, body: { ok: false, error: "Action failed" } };
+  throw err;
 }
 
 export function resourceCreateRoute(config: ResolvedAdminConfig) {
@@ -107,7 +128,7 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
       const parsed = await parseFormBody(req, resource, config, "create");
       if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
 
-      const actions = makeActions(config, resource, { reqCtx });
+      const actions = makeActions(config, resource, { reqCtx, fromForm: true });
       try {
         if (Object.keys(parsed.fieldErrors).length > 0) {
           throw new FlowpanelValidationError(parsed.fieldErrors);
@@ -125,8 +146,7 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
             : {}),
         } satisfies FormActionResult);
       } catch (err) {
-        const { status, body } = formActionError(err);
-        return Response.json(body, { status });
+        return formActionError(err);
       }
     });
   };
@@ -150,7 +170,7 @@ export function resourceUpdateRoute(config: ResolvedAdminConfig) {
       const parsed = await parseFormBody(req, resource, config, "update");
       if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
 
-      const actions = makeActions(config, resource, { reqCtx });
+      const actions = makeActions(config, resource, { reqCtx, fromForm: true });
       try {
         if (Object.keys(parsed.fieldErrors).length > 0) {
           throw new FlowpanelValidationError(parsed.fieldErrors);
@@ -158,8 +178,7 @@ export function resourceUpdateRoute(config: ResolvedAdminConfig) {
         await actions.update(id, parsed.values);
         return Response.json({ ok: true } satisfies FormActionResult);
       } catch (err) {
-        const { status, body } = formActionError(err);
-        return Response.json(body, { status });
+        return formActionError(err);
       }
     });
   };

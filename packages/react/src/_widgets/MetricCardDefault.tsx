@@ -8,7 +8,7 @@ import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
 import { CaptionLine } from "./CaptionLine";
-import { type DeltaMood, deltaPrint, describeDelta, type GoodWhen } from "./delta";
+import { deltaPrint, describeDelta, type GoodWhen, MOOD_TEXT } from "./delta";
 import { FIGURE } from "./figure";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
@@ -37,12 +37,6 @@ export interface MetricCardProps {
   /** The line under the label: a cut range, freshness or coverage. */
   caption?: WidgetCaption;
 }
-
-const MOOD_TEXT: Record<DeltaMood, string> = {
-  good: "text-fp-ok-text",
-  bad: "text-fp-err-text",
-  flat: "text-fp-text-3",
-};
 
 interface DeltaLineProps {
   delta: MetricDelta;
@@ -84,7 +78,7 @@ function DeltaLine({
   );
 }
 
-/** Pure renderer — no context dependency. Used as the registry default. */
+/** The registry default. Formatting and labels come in as props; only the caption's spoken tone reads the labels context. */
 export function DefaultMetricCard(props: MetricCardProps) {
   const {
     label,

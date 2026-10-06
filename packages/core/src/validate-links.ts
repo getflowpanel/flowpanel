@@ -2,6 +2,7 @@ import { normalizeRoutePath } from "./compiler/route-graph";
 import { filterShapeProblem } from "./internal/filter-shape";
 import { declaredListFields } from "./internal/list-fields";
 import { checkColumn, missing } from "./internal/validate-shared";
+import { didYouMean } from "./suggest";
 import type { DashboardConfig } from "./types/dashboard";
 import type { MetricCountSource } from "./types/metric-count";
 import type { ResourceConfig } from "./types/resource";
@@ -55,13 +56,29 @@ function checkListValue(
   );
 }
 
-function checkRangeFilter(site: string, resource: string, field: string, check: LinkCheck): void {
+function rangeFilters(resource: string, check: LinkCheck): string[] {
   const filters = (check.resourcesByName.get(resource)?.options.filters ?? []) as unknown[];
-  const ranges = filters.flatMap((filter) => {
+  return filters.flatMap((filter) => {
     const def = filter as { field?: unknown; type?: unknown };
     return def.type === "daterange" && typeof def.field === "string" ? [def.field] : [];
   });
+}
+
+function checkRangeFilter(site: string, resource: string, field: string, check: LinkCheck): void {
+  const ranges = rangeFilters(resource, check);
   if (!ranges.includes(field)) missing(site, "daterange filter", field, ranges, resource);
+}
+
+/** A count card links to the rows it counts, so its `range` must be a range the list can filter by. */
+function checkCountRange(site: string, resource: string, field: string, check: LinkCheck): void {
+  const ranges = rangeFilters(resource, check);
+  if (ranges.includes(field)) return;
+  throw new Error(
+    `flowpanel: ${site} counts "${resource}" rows by "${field}", and the card links to those rows, ` +
+      `but the "${resource}" list has no daterange filter on "${field}".` +
+      `${didYouMean(field, ranges)} Add { field: "${field}", type: "daterange" } to its filters, ` +
+      "or give the card its own drilldown.",
+  );
 }
 
 function checkTarget(site: string, target: unknown, check: LinkCheck): void {
@@ -112,7 +129,7 @@ function checkCountSource(site: string, source: MetricCountSource, check: LinkCh
     }
   }
   if (source.range === undefined) return;
-  if (source.linked) checkRangeFilter(`${site}.range`, source.resource, source.range, check);
+  if (source.linked) checkCountRange(`${site}.range`, source.resource, source.range, check);
   else checkColumn(`${site}.range`, source.resource, source.range, check);
 }
 

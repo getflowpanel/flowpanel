@@ -7,7 +7,7 @@ export type RowClickMode = "detail" | "drawer" | false;
 
 /**
  * Resolves `ResourceOptions.rowClick`. A declared value wins; `"drawer"` still needs a drawer to open.
- * Without one: detail page if configured, else drawer if configured, else rows are inert.
+ * Undeclared: the drawer when one is configured, else the record page, which renders without `detail`.
  */
 export function resolveRowClick(resource: ResourceConfig): RowClickMode {
   const hasDrawer = !!resource.options.drawer;
@@ -16,8 +16,7 @@ export function resolveRowClick(resource: ResourceConfig): RowClickMode {
     if (declared === "drawer") return hasDrawer ? "drawer" : false;
     return declared;
   }
-  if (resource.options.detail && !hasDrawer) return "detail";
-  return hasDrawer ? "drawer" : false;
+  return hasDrawer ? "drawer" : "detail";
 }
 
 /** The record page a drawer row opens over: its path, its query and the tab holding the row. */

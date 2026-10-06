@@ -56,7 +56,7 @@ export interface ErrorContext {
   readonly userAgent: string | null;
 }
 
-/** Base context for reads. Widget queries and option resolvers receive this. */
+/** Base context for reads. Field `options` and `defaultValue` resolvers receive this; widget queries get `WidgetContext`. */
 export interface QueryContext<Db = unknown> extends RequestContext {
   /** Explicit escape hatch for trusted application callbacks. */
   unsafe?: { db: Db };

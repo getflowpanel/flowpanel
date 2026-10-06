@@ -28,7 +28,6 @@ export const DOC_REDIRECTS = [
   { source: "/docs/core-concepts/queues", destination: "/docs/guides/queues" },
   { source: "/docs/core-concepts/realtime-multi-instance", destination: "/docs/guides/realtime" },
   { source: "/docs/guides/troubleshooting", destination: "/docs/troubleshooting" },
-  { source: "/docs/guides/upgrade", destination: "/changelog" },
   { source: "/docs/guides/auth-with-clerk", destination: "/docs/guides/authentication" },
   { source: "/docs/guides/auth-with-better-auth", destination: "/docs/guides/authentication" },
   { source: "/docs/guides/realtime-with-redis", destination: "/docs/guides/realtime" },

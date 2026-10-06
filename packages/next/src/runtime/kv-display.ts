@@ -1,10 +1,6 @@
 import type { ColumnFormat, NumericFormat, ResolvedFormatting, StatValue } from "@flowpanel/core";
-import {
-  columnFormatKind,
-  formatColumnValue,
-  formatDateValue,
-  formatNumber,
-} from "@flowpanel/core";
+import { formatColumnValue, formatDateValue, formatNumber } from "@flowpanel/core";
+import { columnFormatKind } from "@flowpanel/core/format";
 import type { CardDate } from "@flowpanel/react";
 import { cardDate } from "./stat-result";
 

@@ -3,7 +3,7 @@ export const siteConfig = {
   seo: {
     title: "FlowPanel: a Next.js admin panel for Drizzle and Prisma",
     description:
-      "A typed admin panel for Next.js. Describe your Drizzle or Prisma tables in one config file and get lists, forms, record pages and dashboards at /admin. Open source, MIT licensed.",
+      "A typed admin panel for Next.js. Describe your Drizzle or Prisma tables in a typed config and get lists, forms, record pages and dashboards at /admin. Open source, MIT licensed.",
   },
   url: process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://flowpanel.tech",
 

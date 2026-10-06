@@ -1,3 +1,5 @@
+import { cliCommand } from "../runtime/cli-command";
+
 const GETTING_STARTED_URL =
   "https://flowpanel.tech/docs/introduction/getting-started#add-your-first-resource";
 
@@ -18,7 +20,7 @@ export function Welcome() {
         <code className={INLINE}>resources</code> is empty. Add the first one:
       </p>
       <pre className={`mt-4 ${BLOCK}`}>
-        <code>{"pnpm flowpanel new <table>"}</code>
+        <code>{cliCommand("new <table>")}</code>
       </pre>
       <p className="mt-6 text-sm text-fp-text-3">
         Or add it to <code className={INLINE}>flowpanel.config.ts</code>:

@@ -112,22 +112,23 @@ describe("renderColumnFormat / renderFormatCell parity", () => {
   // === "object"` on the client vs. an extra `format.kind === "badge"` on the
   // server. Both are reachable only through the enclosing badge guard, so the
   // extra check was dead; this pins that they agree.
-  it.each(
-    badgeCases,
-  )("server and client resolve the %s tone identically", (_name, format, value) => {
-    type BadgeProps = { status: string; tone?: string; label?: string };
-    const server = renderColumnFormat(format, value);
-    const client = renderFormatCell(format, value);
-    if (!isValidElement(server)) {
-      expect(server).toBe(client);
-      return;
-    }
-    const a = (server as ReactElement<BadgeProps>).props;
-    const b = (client as ReactElement<BadgeProps>).props;
-    expect(a.status).toBe(b.status);
-    expect(a.tone).toBe(b.tone);
-    expect(a.label).toBe(b.label);
-  });
+  it.each(badgeCases)(
+    "server and client resolve the %s tone identically",
+    (_name, format, value) => {
+      type BadgeProps = { status: string; tone?: string; label?: string };
+      const server = renderColumnFormat(format, value);
+      const client = renderFormatCell(format, value);
+      if (!isValidElement(server)) {
+        expect(server).toBe(client);
+        return;
+      }
+      const a = (server as ReactElement<BadgeProps>).props;
+      const b = (client as ReactElement<BadgeProps>).props;
+      expect(a.status).toBe(b.status);
+      expect(a.tone).toBe(b.tone);
+      expect(a.label).toBe(b.label);
+    },
+  );
 });
 
 describe("renderColumnFormat / renderFormatCell parity — date, percent, duration, boolean, url, relative", () => {
@@ -153,14 +154,15 @@ describe("renderColumnFormat / renderFormatCell parity — date, percent, durati
     ["boolean", "boolean", true, BooleanCell],
   ];
 
-  it.each(
-    elementCases,
-  )("server and client render a %s as the same element", (_name, format, value, type) => {
-    const server = renderColumnFormat(format, value) as ReactElement<Record<string, unknown>>;
-    const client = renderFormatCell(format, value) as ReactElement<Record<string, unknown>>;
-    expect(isValidElement(server)).toBe(true);
-    expect(server.type).toBe(type);
-    expect(client.type).toBe(type);
-    expect(server.props).toEqual(client.props);
-  });
+  it.each(elementCases)(
+    "server and client render a %s as the same element",
+    (_name, format, value, type) => {
+      const server = renderColumnFormat(format, value) as ReactElement<Record<string, unknown>>;
+      const client = renderFormatCell(format, value) as ReactElement<Record<string, unknown>>;
+      expect(isValidElement(server)).toBe(true);
+      expect(server.type).toBe(type);
+      expect(client.type).toBe(type);
+      expect(server.props).toEqual(client.props);
+    },
+  );
 });

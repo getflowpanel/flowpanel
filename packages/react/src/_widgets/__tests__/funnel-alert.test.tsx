@@ -25,7 +25,9 @@ describe("the worst funnel drop", () => {
     expect(screen.getByText("Paid").className).not.toContain("text-fp-warn-text");
     expect(paid.querySelector(".bg-fp-warn")).toBeTruthy();
     expect(screen.getByText("−90%").className).toContain("text-fp-warn-text");
+    expect(paid.querySelector(".sr-only")?.textContent).toBe("Warning ");
     expect(stepOf("Signed up").getAttribute("data-tone")).toBeNull();
+    expect(stepOf("Signed up").querySelector(".sr-only")).toBeNull();
     expect(stepOf("Signed up").querySelector(".bg-fp-data")).toBeTruthy();
   });
 

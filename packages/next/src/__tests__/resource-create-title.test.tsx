@@ -81,15 +81,15 @@ describe("ResourceCreatePage title", () => {
   it("prefers labelOne", async () => {
     await expect(
       titleFor({ columns: ["id"], label: "Customers", labelOne: "Customer" }),
-    ).resolves.toBe("New Customer");
+    ).resolves.toBe("New customer");
   });
 
   it("falls back to label", async () => {
-    await expect(titleFor({ columns: ["id"], label: "Customers" })).resolves.toBe("New Customers");
+    await expect(titleFor({ columns: ["id"], label: "Customers" })).resolves.toBe("New customers");
   });
 
-  it("falls back to the resource name", async () => {
-    await expect(titleFor({ columns: ["id"] })).resolves.toBe("New customers");
+  it("falls back to the resource name made singular", async () => {
+    await expect(titleFor({ columns: ["id"] })).resolves.toBe("New customer");
   });
 
   it("uses the configured heading template and its {label} slot", async () => {

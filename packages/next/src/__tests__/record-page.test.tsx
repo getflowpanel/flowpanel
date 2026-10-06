@@ -100,7 +100,7 @@ describe("the record page", () => {
         aside: [kv({ record: async () => ({ meta }), items: [{ label: "Meta", field: "meta" }] })],
       },
     });
-    const [item] = findAll(tree, KvCard)[0]?.items as Array<Record<string, unknown>>;
+    const [item] = findAll(tree, KvCard)[0]!.items as Array<Record<string, unknown>>;
     expect(item).not.toHaveProperty("tone");
     expect(item).not.toHaveProperty("href");
   });
@@ -189,11 +189,12 @@ describe("the record page", () => {
       detail: { aside: [stat("Seats", 3)], tabs: twoTabs },
     });
     const layout = first(tree, (el) => el.props["data-record-layout"] !== undefined);
-    expect(layout?.props.className).toBe("grid gap-4 lg:grid-cols-12");
-    const [main, side] = layout?.props.children as ReactElement<Props>[];
-    expect(main?.props.className).toBe("min-w-0 lg:col-span-8");
+    expect(layout?.props.className).toContain("lg:grid-cols-12");
+    const [main, side] = layout!.props.children as ReactElement<Props>[];
+    expect(main?.type).not.toBe("aside");
+    expect(main?.props.className).toContain("lg:col-span-8");
     expect(side?.type).toBe("aside");
-    expect(side?.props.className).toBe("min-w-0 space-y-3 lg:col-span-4");
+    expect(side?.props.className).toContain("lg:col-span-4");
   });
 
   it("lays a widgets tab with spans on 12 columns", async () => {

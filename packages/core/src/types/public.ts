@@ -89,6 +89,7 @@ export type {
   FlowpanelResources,
   FlowpanelTypes,
   InferDB,
+  InferNamedRow,
   InferRow,
   ReferenceSpec,
   ResourceName,
@@ -112,7 +113,7 @@ export type {
 } from "./resource";
 export type { Scope, ScopeContext, Session } from "./session";
 export type { GoodWhen, Threshold } from "./threshold";
-export type { CountOptions, ReadOptions, Where, WhereValue } from "./where";
+export type { CountOptions, ListFilters, ReadOptions, Where, WhereValue } from "./where";
 export type {
   AreaChartOptions,
   AreaChartWidget,

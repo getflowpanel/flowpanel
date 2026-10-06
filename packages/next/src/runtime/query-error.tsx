@@ -1,5 +1,6 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { FlowpanelError, formatLabel, mergeLabels } from "@flowpanel/core";
+import { unstable_rethrow } from "next/navigation";
 import type * as React from "react";
 import { ServerCard } from "./_server-card";
 import { isConnectionError } from "./connection-error";
@@ -19,9 +20,14 @@ export type QueryOutcome<T> =
   | { failed: false; value: T }
   | { failed: true; card: React.JSX.Element };
 
-/** Next signals redirect and not-found by throwing; those throws are not failures. */
+/** Next signals redirect, not-found and prerender bailouts by throwing; those throws are not failures. */
 export function isControlFlow(err: unknown): boolean {
-  return typeof (err as { digest?: unknown } | null)?.digest === "string";
+  try {
+    unstable_rethrow(err);
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 function causeMessage(err: unknown): string | null {

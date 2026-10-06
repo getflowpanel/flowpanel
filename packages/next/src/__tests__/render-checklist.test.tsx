@@ -7,7 +7,7 @@ import { renderChecklist } from "../runtime/render-checklist";
 import { fakeWidgetContext } from "./widget-context-fixture";
 
 const cfg = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   resourcesByName: new Map(),
   __resolved: true,
 } as unknown as ResolvedAdminConfig;

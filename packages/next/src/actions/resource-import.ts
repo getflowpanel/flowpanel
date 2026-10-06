@@ -1,5 +1,6 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
-import { FlowpanelValidationError, mergeLabels, writeTarget } from "@flowpanel/core";
+import { FlowpanelValidationError, mergeLabels } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
 import { revalidatePath } from "next/cache";
 import { notFoundResponse, safeErrorMessage } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";

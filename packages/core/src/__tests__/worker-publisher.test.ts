@@ -13,7 +13,7 @@ interface MockConnection {
 const constructed: MockConnection[] = [];
 
 vi.mock("ioredis", () => ({
-  default: vi.fn((url: string) => {
+  default: vi.fn(function Redis(url: string) {
     const connection: MockConnection = {
       url,
       publish: vi.fn(async () => 1),

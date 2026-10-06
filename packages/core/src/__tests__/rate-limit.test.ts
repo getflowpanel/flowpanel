@@ -7,7 +7,9 @@ const redisClient = {
 };
 
 vi.mock("ioredis", () => ({
-  default: vi.fn(() => redisClient),
+  default: vi.fn(function Redis() {
+    return redisClient;
+  }),
 }));
 
 import { createRateLimiter } from "../runtime/rate-limit";

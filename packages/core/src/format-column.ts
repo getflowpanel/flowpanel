@@ -185,8 +185,11 @@ function formatMoment(
   const date = toDateValue(value);
   if (date === null) return String(value);
   if (columnFormatKind(format) === "relative") return formatRelativeValue(date, formatting);
-  if (isCalendarDay(value)) return formatDayValue(date, formatting, "UTC");
-  const withTime = typeof format === "object" && format.kind === "date" && format.time === true;
+  const dateFormat = typeof format === "object" && format.kind === "date" ? format : null;
+  if (isCalendarDay(value) || dateFormat?.calendarDay === true) {
+    return formatDayValue(date, formatting, "UTC");
+  }
+  const withTime = dateFormat?.time === true;
   return withTime ? formatDateValue(date, formatting) : formatDayValue(date, formatting);
 }
 

@@ -83,7 +83,7 @@ describe("an editable cell", () => {
     columns: [{ field: "name" as const, editable: true }],
     inlineEditResource: "users",
   };
-  const editButtons = () => screen.getAllByRole("button", { name: "Edit name" });
+  const editButtons = () => screen.getAllByRole("button", { name: "Edit Name" });
   const editing = () => screen.queryByDisplayValue("a") !== null;
 
   it.each([
@@ -93,7 +93,7 @@ describe("an editable cell", () => {
     render(<DataTable {...editable} {...(clickable ? { onRowClick: vi.fn() } : {})} />);
     expect(editButtons()).toHaveLength(baseProps.rows.length);
     for (const row of document.querySelectorAll("tbody tr")) {
-      expect(row.querySelectorAll('button[aria-label="Edit name"]')).toHaveLength(1);
+      expect(row.querySelectorAll('button[aria-label="Edit Name"]')).toHaveLength(1);
     }
   });
 

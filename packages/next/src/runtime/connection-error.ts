@@ -15,6 +15,12 @@ const CONNECTION_CODES: ReadonlySet<string> = new Set([
   "P1002",
   "P1003",
   "P1017",
+  "57P03",
+  "53300",
+  "ER_ACCESS_DENIED_ERROR",
+  "ER_BAD_DB_ERROR",
+  "PROTOCOL_CONNECTION_LOST",
+  "SQLITE_CANTOPEN",
 ]);
 
 const CONNECTION_MESSAGES = [

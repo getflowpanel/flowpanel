@@ -261,38 +261,41 @@ describe("Field — label association does not point at a hidden input", () => {
       extra: { options: OPTIONS },
       getControl: () => screen.getByRole("combobox"),
     },
-  ])("type=$type: visible control owns field.id, no hidden input keeps it", ({
-    type,
-    fieldName,
-    extra,
-    getControl,
-  }: {
-    type: string;
-    fieldName: FieldName;
-    extra?: Record<string, unknown>;
-    getControl: () => HTMLElement;
-  }) => {
-    const { container } = render(
-      <FormContext.Provider value={ctx}>
-        <Field name={fieldName} label="My Label" type={type as never} {...(extra ?? {})} />
-      </FormContext.Provider>,
-    );
-    const label = container.querySelector("label");
-    const control = getControl();
-    expect(label?.getAttribute("for")).toBe(control.id);
-    expect(control.id).toBeTruthy();
-    const hiddenInput = container.querySelector('input[type="hidden"]');
-    expect(hiddenInput?.hasAttribute("id")).toBe(false);
-    // `getByLabelText` matches via `<label for>` OR `aria-label` independently — it
-    // doesn't compute the real accessible name, so it would resolve the control here
-    // even with a competing `aria-label` still set (verified: this line alone does
-    // NOT catch that regression). The discriminating check is that no `aria-label`
-    // survives on a control that already has a `<label>` — per the accname spec,
-    // `aria-label` wins over `<label for>`, so if both were present the announced
-    // name would be the placeholder, not "My Label".
-    expect(screen.getByLabelText("My Label")).toBe(control);
-    expect(control.hasAttribute("aria-label")).toBe(false);
-  });
+  ])(
+    "type=$type: visible control owns field.id, no hidden input keeps it",
+    ({
+      type,
+      fieldName,
+      extra,
+      getControl,
+    }: {
+      type: string;
+      fieldName: FieldName;
+      extra?: Record<string, unknown>;
+      getControl: () => HTMLElement;
+    }) => {
+      const { container } = render(
+        <FormContext.Provider value={ctx}>
+          <Field name={fieldName} label="My Label" type={type as never} {...(extra ?? {})} />
+        </FormContext.Provider>,
+      );
+      const label = container.querySelector("label");
+      const control = getControl();
+      expect(label?.getAttribute("for")).toBe(control.id);
+      expect(control.id).toBeTruthy();
+      const hiddenInput = container.querySelector('input[type="hidden"]');
+      expect(hiddenInput?.hasAttribute("id")).toBe(false);
+      // `getByLabelText` matches via `<label for>` OR `aria-label` independently — it
+      // doesn't compute the real accessible name, so it would resolve the control here
+      // even with a competing `aria-label` still set (verified: this line alone does
+      // NOT catch that regression). The discriminating check is that no `aria-label`
+      // survives on a control that already has a `<label>` — per the accname spec,
+      // `aria-label` wins over `<label for>`, so if both were present the announced
+      // name would be the placeholder, not "My Label".
+      expect(screen.getByLabelText("My Label")).toBe(control);
+      expect(control.hasAttribute("aria-label")).toBe(false);
+    },
+  );
 
   it("type=reference without a `label` prop: the combobox keeps an accessible name (aria-label fallback), not zero", () => {
     render(
@@ -315,21 +318,20 @@ describe("Field — label association does not point at a hidden input", () => {
       fieldName: "select" as const,
       extra: { options: SELECT_OPTIONS },
     },
-  ])("type=$type: group carries role=group + aria-labelledby to the label", ({
-    type,
-    fieldName,
-    extra,
-  }) => {
-    const { container } = render(
-      <FormContext.Provider value={ctx}>
-        <Field name={fieldName} label="My Label" type={type as never} {...extra} />
-      </FormContext.Provider>,
-    );
-    const group = screen.getByRole("group");
-    const label = container.querySelector("label");
-    expect(label?.id).toBeTruthy();
-    expect(group.getAttribute("aria-labelledby")).toBe(label?.id);
-  });
+  ])(
+    "type=$type: group carries role=group + aria-labelledby to the label",
+    ({ type, fieldName, extra }) => {
+      const { container } = render(
+        <FormContext.Provider value={ctx}>
+          <Field name={fieldName} label="My Label" type={type as never} {...extra} />
+        </FormContext.Provider>,
+      );
+      const group = screen.getByRole("group");
+      const label = container.querySelector("label");
+      expect(label?.id).toBeTruthy();
+      expect(group.getAttribute("aria-labelledby")).toBe(label?.id);
+    },
+  );
 });
 
 // `Form` calls `useRouter()` unconditionally.

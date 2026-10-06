@@ -19,12 +19,19 @@ export interface MemorySource {
 const key = (value: unknown): string =>
   value instanceof Date ? value.toISOString() : String(value);
 
+const ZONELESS = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
+
+/** A zoneless timestamp is UTC, as the SQL adapters read it, whatever zone the test runs in. */
+function parseTime(value: string): number {
+  return ZONELESS.test(value) ? Date.parse(`${value.replace(" ", "T")}Z`) : Date.parse(value);
+}
+
 function order(value: unknown): number | null {
   if (value instanceof Date) return value.getTime();
   if (typeof value === "number") return value;
   if (typeof value === "bigint") return Number(value);
   if (typeof value !== "string") return null;
-  const parsed = /^\d{4}-\d{2}-\d{2}/.test(value) ? Date.parse(value) : Number(value);
+  const parsed = /^\d{4}-\d{2}-\d{2}/.test(value) ? parseTime(value) : Number(value);
   return Number.isNaN(parsed) ? null : parsed;
 }
 

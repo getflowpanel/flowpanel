@@ -13,7 +13,7 @@ import { JsonEditor } from "../_data/JsonEditor";
 import { TagInput } from "../_data/TagInput";
 import { useLabels } from "../_provider/LabelsContext";
 import { Checkbox } from "../ui/checkbox";
-import { Input } from "../ui/input";
+import { Input, READ_ONLY_CLASS } from "../ui/input";
 import { Switch } from "../ui/switch";
 import { AsyncSelect, type AsyncSelectOption } from "./AsyncSelect";
 import type { FieldControlType } from "./Field";
@@ -40,11 +40,10 @@ function InertWhenReadOnly({
   );
 }
 
-const CONTROL_CLASS =
-  "w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-sm shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25";
+const CONTROL_CLASS = `w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-sm shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25 ${READ_ONLY_CLASS} aria-readonly:focus:border-fp-border-1 aria-readonly:focus:ring-0`;
 
 /** A native `<select>`, since the form posts to a route, dressed to match `ui/select`'s trigger and chevron. */
-const SELECT_CLASS = `${CONTROL_CLASS} h-9 appearance-none py-0 pr-9 text-fp-text-1 disabled:cursor-not-allowed disabled:opacity-50`;
+const SELECT_CLASS = `${CONTROL_CLASS} h-9 appearance-none py-0 pr-9 text-fp-text-1 disabled:cursor-not-allowed disabled:opacity-50 aria-readonly:disabled:cursor-default aria-readonly:disabled:opacity-100`;
 
 type ScalarInputType =
   | "text"
@@ -277,7 +276,7 @@ export function ScalarField({
       onChange={(e) => control.change(e.target.value)}
       {...(placeholder ? { placeholder } : {})}
       {...(autoComplete ? { autoComplete } : {})}
-      {...(readOnly ? { readOnly: true } : {})}
+      {...(readOnly ? { readOnly: true, "aria-readonly": true } : {})}
       {...aria}
     />
   );
@@ -306,7 +305,7 @@ export function TextareaField({
       onChange={(e) => control.change(e.target.value)}
       rows={markdown ? 8 : 4}
       {...(placeholder ? { placeholder } : {})}
-      {...(readOnly ? { readOnly: true } : {})}
+      {...(readOnly ? { readOnly: true, "aria-readonly": true } : {})}
       {...aria}
       className={`${CONTROL_CLASS} ${markdown ? "font-mono" : ""}`}
     />
@@ -343,7 +342,7 @@ export function SelectField({
           {...getSelectProps(field, { value: false })}
           value={control.value ?? ""}
           onChange={(e) => control.change(e.target.value)}
-          {...(readOnly ? { disabled: true } : {})}
+          {...(readOnly ? { disabled: true, "aria-readonly": true } : {})}
           {...aria}
           className={SELECT_CLASS}
         >

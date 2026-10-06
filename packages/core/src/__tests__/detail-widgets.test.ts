@@ -86,7 +86,7 @@ describe("timelines at defineAdmin", () => {
       "timeline-3",
       "timeline-2",
     ]);
-    expect((board.dashboards?.[0]?.sections[0]?.widgets[0] as TimelineWidget).options.id).toBe(
+    expect((board.dashboards![0]!.sections[0]!.widgets[0] as TimelineWidget).options.id).toBe(
       "timeline",
     );
   });

@@ -21,7 +21,14 @@ export type WhereValue =
 export type Where<R> = R extends unknown
   ? string extends keyof R
     ? Record<string, unknown>
-    : { [K in keyof R & string]?: WhereValue | null | undefined }
+    : { [K in keyof R & string]?: WhereValue | undefined }
+  : never;
+
+/** List filters for a link or a view, as `Where` reads them, where `null` turns off a filter's `defaultValue`. */
+export type ListFilters<R> = R extends unknown
+  ? string extends keyof R
+    ? Record<string, unknown>
+    : { [K in keyof R & string]?: WhereValue | null }
   : never;
 
 /** Which rows `ctx.read` returns, and in what order. */

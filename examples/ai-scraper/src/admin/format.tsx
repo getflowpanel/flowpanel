@@ -53,10 +53,15 @@ export const urlCell = (url: string | null | undefined) => {
 export const modelBadge = (model: string | null | undefined) =>
   model == null ? "—" : <StatusBadge status={modelLabel(model)} />;
 
-/** Milliseconds → "820 ms" / "1.4 s". */
+/** Milliseconds → "820 ms", "1.4 s", "28 min" or "1 h 5 min". */
 export const formatDuration = (ms: number | null | undefined) => {
   if (ms == null) return "—";
-  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return minutes % 60 === 0 ? `${hours} h` : `${hours} h ${minutes % 60} min`;
 };
 
 /** Star rating like "★ 4.8" (warn-toned star + tabular number). */

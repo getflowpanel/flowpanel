@@ -211,66 +211,67 @@ describe("ResourceDetailPage — row projection", () => {
   it.each([
     { query: "?tab=overview", label: "a requested unconditional tab" },
     { query: "?tab=missing", label: "the first unconditional tab for an unknown key" },
-  ])("loads active fields in one read for $label despite other hidden predicates", async ({
-    query,
-  }) => {
-    const queries: ItemQueryContext[] = [];
-    const config = defineAdmin({
-      adapter: {
-        ...mkAdapter(
-          { id: "1", email: "a@b.co", overviewOnly: "overview", guardedOnly: "guarded" },
-          [],
-        ),
-        introspect: () => ({
-          name: "users",
-          primaryKey: "id",
-          columns: ["id", "email", "overviewOnly", "guardedOnly"].map((name) => ({
-            name,
-            type: "string" as const,
-            nullable: false,
-            unique: false,
-            primaryKey: name === "id",
-          })),
-        }),
-        get: async (_ref, ctx) => {
-          queries.push(ctx);
-          return { id: "1", email: "a@b.co", overviewOnly: "overview", guardedOnly: "guarded" };
-        },
-      },
-      auth: { session: async () => null, role: () => "admin" },
-      resources: [
-        resource(
-          { __name: "users" },
-          {
-            columns: ["id", "email"],
-            detail: {
-              tabs: [
-                { key: "overview", label: "Overview", fields: ["overviewOnly"] },
-                {
-                  key: "guarded",
-                  label: "Guarded",
-                  hidden: () => true,
-                  fields: ["guardedOnly"],
-                },
-              ],
-            },
+  ])(
+    "loads active fields in one read for $label despite other hidden predicates",
+    async ({ query }) => {
+      const queries: ItemQueryContext[] = [];
+      const config = defineAdmin({
+        adapter: {
+          ...mkAdapter(
+            { id: "1", email: "a@b.co", overviewOnly: "overview", guardedOnly: "guarded" },
+            [],
+          ),
+          introspect: () => ({
+            name: "users",
+            primaryKey: "id",
+            columns: ["id", "email", "overviewOnly", "guardedOnly"].map((name) => ({
+              name,
+              type: "string" as const,
+              nullable: false,
+              unique: false,
+              primaryKey: name === "id",
+            })),
+          }),
+          get: async (_ref, ctx) => {
+            queries.push(ctx);
+            return { id: "1", email: "a@b.co", overviewOnly: "overview", guardedOnly: "guarded" };
           },
-        ),
-      ],
-    });
+        },
+        auth: { session: async () => null, role: () => "admin" },
+        resources: [
+          resource(
+            { __name: "users" },
+            {
+              columns: ["id", "email"],
+              detail: {
+                tabs: [
+                  { key: "overview", label: "Overview", fields: ["overviewOnly"] },
+                  {
+                    key: "guarded",
+                    label: "Guarded",
+                    hidden: () => true,
+                    fields: ["guardedOnly"],
+                  },
+                ],
+              },
+            },
+          ),
+        ],
+      });
 
-    await ResourceDetailPage({
-      config,
-      resource: config.resourcesByName.get("users")!,
-      name: "users",
-      id: "1",
-      req: new Request(`http://localhost/admin/users/1${query}`),
-    });
+      await ResourceDetailPage({
+        config,
+        resource: config.resourcesByName.get("users")!,
+        name: "users",
+        id: "1",
+        req: new Request(`http://localhost/admin/users/1${query}`),
+      });
 
-    expect(queries).toHaveLength(1);
-    expect(queries[0]?.select).toEqual(["id", "email", "overviewOnly"]);
-    expect(queries[0]?.select).not.toContain("guardedOnly");
-  });
+      expect(queries).toHaveLength(1);
+      expect(queries[0]?.select).toEqual(["id", "email", "overviewOnly"]);
+      expect(queries[0]?.select).not.toContain("guardedOnly");
+    },
+  );
 
   it("uses the configured heading with only authorized row fields", async () => {
     const seenRows: Record<string, unknown>[] = [];
@@ -312,95 +313,92 @@ describe("ResourceDetailPage — row projection", () => {
     { update: "admin", disabled: false, shown: false },
     { update: async () => true, disabled: false, shown: true },
     { update: true, disabled: true, shown: false },
-  ])("gates the edit action with update access and disabled: $shown", async ({
-    update,
-    disabled,
-    shown,
-  }) => {
-    const config = defineAdmin({
-      adapter: mkAdapter({ id: "1" }, []),
-      auth: { session: async () => ({ id: "support" }), role: () => "support" },
-      labels: { actions: { edit: "Редактировать" } },
-      resources: [
-        resource(
-          { __name: "users" },
-          { columns: ["id"], access: { read: true, update }, update: { disabled } },
-        ),
-      ],
-    });
-    const node = await ResourceDetailPage({
-      config,
-      resource: config.resourcesByName.get("users")!,
-      name: "users",
-      id: "1",
-      req: new Request("http://localhost/admin/users/1"),
-    });
-    const actions = findAllElements(node, PageHeader)[0]?.actions as ReactNode;
-    // A Next Link, not a bare anchor: it carries the deployment basePath.
-    const links = findAllElements(actions, Link);
-    expect(links).toHaveLength(shown ? 1 : 0);
-    if (shown) {
-      expect(links[0]?.children).toBe("Редактировать");
-      expect(links[0]?.href).toBe("/admin/users/1/edit");
-    }
-  });
+  ])(
+    "gates the edit action with update access and disabled: $shown",
+    async ({ update, disabled, shown }) => {
+      const config = defineAdmin({
+        adapter: mkAdapter({ id: "1" }, []),
+        auth: { session: async () => ({ id: "support" }), role: () => "support" },
+        labels: { actions: { edit: "Редактировать" } },
+        resources: [
+          resource(
+            { __name: "users" },
+            { columns: ["id"], access: { read: true, update }, update: { disabled } },
+          ),
+        ],
+      });
+      const node = await ResourceDetailPage({
+        config,
+        resource: config.resourcesByName.get("users")!,
+        name: "users",
+        id: "1",
+        req: new Request("http://localhost/admin/users/1"),
+      });
+      const actions = findAllElements(node, PageHeader)[0]?.actions as ReactNode;
+      // A Next Link, not a bare anchor: it carries the deployment basePath.
+      const links = findAllElements(actions, Link);
+      expect(links).toHaveLength(shown ? 1 : 0);
+      if (shown) {
+        expect(links[0]?.children).toBe("Редактировать");
+        expect(links[0]?.href).toBe("/admin/users/1/edit");
+      }
+    },
+  );
 
-  it.each([
-    undefined,
-    "activity",
-    "missing",
-    "hidden",
-  ])("renders only the active visible tab for ?tab=%s", async (tab) => {
-    const rendered: string[] = [];
-    const config = defineAdmin({
-      adapter: mkAdapter({ id: "1", email: "user@example.com" }, []),
-      auth: { session: async () => null, role: () => "admin" },
-      resources: [
-        resource(
-          { __name: "users" },
-          {
-            columns: ["id", "email"],
-            detail: {
-              tabs: [
-                {
-                  key: "overview",
-                  label: "Overview",
-                  render: () => {
-                    rendered.push("overview");
-                    return null;
+  it.each([undefined, "activity", "missing", "hidden"])(
+    "renders only the active visible tab for ?tab=%s",
+    async (tab) => {
+      const rendered: string[] = [];
+      const config = defineAdmin({
+        adapter: mkAdapter({ id: "1", email: "user@example.com" }, []),
+        auth: { session: async () => null, role: () => "admin" },
+        resources: [
+          resource(
+            { __name: "users" },
+            {
+              columns: ["id", "email"],
+              detail: {
+                tabs: [
+                  {
+                    key: "overview",
+                    label: "Overview",
+                    render: () => {
+                      rendered.push("overview");
+                      return null;
+                    },
                   },
-                },
-                {
-                  key: "activity",
-                  label: "Activity",
-                  render: () => {
-                    rendered.push("activity");
-                    return null;
+                  {
+                    key: "activity",
+                    label: "Activity",
+                    render: () => {
+                      rendered.push("activity");
+                      return null;
+                    },
                   },
-                },
-                {
-                  key: "hidden",
-                  label: "Hidden",
-                  hidden: () => true,
-                  render: () => {
-                    throw new Error("private tab executed");
+                  {
+                    key: "hidden",
+                    label: "Hidden",
+                    hidden: () => true,
+                    render: () => {
+                      throw new Error("private tab executed");
+                    },
                   },
-                },
-              ],
+                ],
+              },
             },
-          },
-        ),
-      ],
-    });
-    await ResourceDetailPage({
-      config,
-      resource: config.resourcesByName.get("users")!,
-      name: "users",
-      id: "1",
-      req: new Request(`http://localhost/admin/users/1${tab ? `?tab=${tab}` : ""}`),
-    });
-    expect(rendered).toEqual([tab === "activity" ? "activity" : "overview"]);
-  });
+          ),
+        ],
+      });
+      await ResourceDetailPage({
+        config,
+        resource: config.resourcesByName.get("users")!,
+        name: "users",
+        id: "1",
+        req: new Request(`http://localhost/admin/users/1${tab ? `?tab=${tab}` : ""}`),
+      });
+      expect(rendered).toEqual([tab === "activity" ? "activity" : "overview"]);
+    },
+  );
 
   it("no detail.tabs: KV fallback drops undeclared fields (declared surface only)", async () => {
     const adapter = mkAdapter(
@@ -590,7 +588,7 @@ describe("ResourceDetailPage — row projection", () => {
       req: new Request("http://localhost/admin/users/1"),
     });
 
-    expect(findAllElements(node, PageHeader)[0]?.title).toBe("users");
+    expect(findAllElements(node, PageHeader)[0]?.title).toBe("User");
   });
 
   it("passes only declared, readable, and explicitly exposed fields to no-tabs column renderers", async () => {

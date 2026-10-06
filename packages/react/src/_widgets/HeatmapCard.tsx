@@ -4,7 +4,6 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { Card, CardContent } from "../_layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
-import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
 import { EmptyLine } from "./EmptyLine";
 
@@ -34,11 +33,22 @@ export interface HeatmapCardProps {
   caption?: WidgetCaption;
 }
 
-const LEVEL = ["bg-fp-bg-3", "opacity-30", "opacity-50", "opacity-75", ""];
+const EMPTY = "bg-fp-bg-3";
 const STEP: Record<string, number> = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 };
 
+/** Levels 1 to 4 shade the fill's own alpha, so a focus ring on the cell keeps full strength. */
+const SHADES: Record<Tone, readonly [string, string, string, string]> = {
+  default: ["bg-fp-data/30", "bg-fp-data/50", "bg-fp-data/75", "bg-fp-data"],
+  accent: ["bg-fp-data/30", "bg-fp-data/50", "bg-fp-data/75", "bg-fp-data"],
+  ok: ["bg-fp-ok/30", "bg-fp-ok/50", "bg-fp-ok/75", "bg-fp-ok"],
+  warn: ["bg-fp-warn/30", "bg-fp-warn/50", "bg-fp-warn/75", "bg-fp-warn"],
+  err: ["bg-fp-err/30", "bg-fp-err/50", "bg-fp-err/75", "bg-fp-err"],
+  info: ["bg-fp-info/30", "bg-fp-info/50", "bg-fp-info/75", "bg-fp-info"],
+  muted: ["bg-fp-text-3/30", "bg-fp-text-3/50", "bg-fp-text-3/75", "bg-fp-text-3"],
+};
+
 function shade(level: number, tone: Tone): string {
-  return level === 0 ? (LEVEL[0] as string) : cn(toneFillClass[tone], LEVEL[level]);
+  return level === 0 ? EMPTY : (SHADES[tone][Math.min(level, 4) - 1] ?? EMPTY);
 }
 
 function moveBetweenDays(event: KeyboardEvent<HTMLDivElement>) {

@@ -318,6 +318,25 @@ describe("withGuards — handler errors", () => {
     expect(onError.mock.calls[0]?.[1]).not.toHaveProperty("db");
     expect(onError.mock.calls[0]?.[1]).not.toHaveProperty("scope");
   });
+
+  it("logs an unexpected failure with its request id when no onError is set", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { config, resource } = makeConfig({});
+    const thrown = new Error("duplicate key");
+    const res = await withGuards(
+      config,
+      new Request("http://localhost/x", { method: "POST", headers: { "x-request-id": "req_log" } }),
+      { resource, operation: "create" },
+      async () => {
+        throw thrown;
+      },
+    );
+    expect(res.status).toBe(500);
+    expect(res.headers.get("x-request-id")).toBe("req_log");
+    expect(log).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith("[flowpanel] create failed, requestId req_log:", thrown);
+    log.mockRestore();
+  });
 });
 
 describe("withGuards — operation policy", () => {

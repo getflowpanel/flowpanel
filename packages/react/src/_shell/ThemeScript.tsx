@@ -1,3 +1,5 @@
+"use client";
+
 import { buildThemeInitScript, type ThemeMode } from "../lib/theme";
 
 export interface ThemeScriptProps {
@@ -6,10 +8,18 @@ export interface ThemeScriptProps {
   nonce?: string;
 }
 
-/** Inline `<script>` that runs synchronously before React hydration to apply the persisted theme. */
+/**
+ * Inline `<script>` that applies the persisted theme before hydration.
+ * A client render (a not-found or error boundary) emits it as an inert data block, so React does not warn about an unexecuted script.
+ */
 export function ThemeScript({ defaultMode = "auto", nonce }: ThemeScriptProps) {
   return (
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted constant builder, no user input
-    <script nonce={nonce} dangerouslySetInnerHTML={{ __html: buildThemeInitScript(defaultMode) }} />
+    <script
+      nonce={nonce}
+      type={typeof window === "undefined" ? undefined : "application/json"}
+      suppressHydrationWarning
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted constant builder, no user input
+      dangerouslySetInnerHTML={{ __html: buildThemeInitScript(defaultMode) }}
+    />
   );
 }

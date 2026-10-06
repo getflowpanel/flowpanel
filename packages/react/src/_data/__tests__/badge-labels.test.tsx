@@ -15,14 +15,14 @@ describe("badge format labels", () => {
   };
 
   it("shows the label and keeps the tone keyed by the raw value", () => {
-    const { container } = render(<>{renderFormatCell(format, "admin")}</>);
+    const { container } = render(renderFormatCell(format, "admin"));
     expect(screen.getByText("Админ")).toBeTruthy();
     expect(container.querySelector("span")?.className).toMatch(/fp-warn/);
     expect(container.querySelector("span")?.className).not.toContain("capitalize");
   });
 
   it("falls back to the spaced raw value for a value with no label", () => {
-    render(<>{renderFormatCell(format, "past_due")}</>);
+    render(renderFormatCell(format, "past_due"));
     expect(screen.getByText("past due")).toBeTruthy();
   });
 
