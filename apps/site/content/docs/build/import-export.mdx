@@ -19,7 +19,7 @@ resource(schema.users, {
 })
 ```
 
-Export reads through the resource's list, so access, scope and field rules apply. Only `fields` are written.
+Export is off until you set `export`. It writes the rows on the current page, after access, scope and field rules have applied, in `fields` order. Each entry in `fields` must also be a column or in `detail.expose`. To export every matching row, raise the page size or use a background job.
 
 ## Import
 

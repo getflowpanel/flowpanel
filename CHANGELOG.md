@@ -1,5 +1,5 @@
-# flowpanel changelog
+# FlowPanel changelog
 
-## 0.1.0
+Release notes for every package, newest first, are at [flowpanel.tech/changelog](https://flowpanel.tech/changelog). Each package also keeps its own `CHANGELOG.md` under `packages/`.
 
-First public release. Per-package detail lives in each package's `CHANGELOG.md`.
+To move from 0.3 to 0.4, follow the [upgrade guide](https://flowpanel.tech/docs/guides/upgrade).

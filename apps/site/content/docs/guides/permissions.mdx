@@ -31,7 +31,7 @@ An action with its own `access` runs under that rule alone, the same one that sh
 
 ## Fields
 
-Form fields take `requireRole`, `readOnly` and `hidden`. The server rejects a submitted field the operation may not write.
+Form fields take `requireRole` and `readOnly`, which the server enforces. The form shows a field the caller may not write as read-only or leaves it out, and its route drops that field from what it saves; an API or programmatic write that carries it is rejected. `hidden` is not an access rule; it only removes the control.
 
 ```ts excerpt
 update: {
@@ -43,11 +43,11 @@ update: {
 }
 ```
 
-`fieldAccess` on a resource sets read and write rules per field.
+`fieldAccess` on a resource sets read and write rules per field. A field its `write` rule denies is treated like a `readOnly` one: read-only on the form, rejected from the API. A field's `readOnly` wins over its `fieldAccess.write`.
 
 ## Rows
 
-An action's `hidden(row)` removes it for that row and its route rejects the pair; `disabled(row)` shows it with a reason. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
+A row action's `when` is a server-side row condition: it runs on the loaded row, and the route answers 404 when it returns false. `hidden(row)` removes the action for that row and its route also answers 404; `disabled(row)` shows it with a reason and its route answers 409. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
 
 ## Read-only mode
 

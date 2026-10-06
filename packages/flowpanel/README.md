@@ -1,6 +1,6 @@
 # @flowpanel/kit
 
-A typed admin panel for an existing Next.js App Router app, built from your Drizzle or Prisma schema and one config file. It runs inside your app, with your database client and your auth. This package re-exports every FlowPanel package under subpaths such as `@flowpanel/kit/next`, `@flowpanel/kit/drizzle` and `@flowpanel/kit/auth`.
+A typed admin panel for an existing Next.js App Router app, built from your Drizzle or Prisma schema and a typed config. It runs inside your app, with your database client and your auth. This package re-exports every FlowPanel package under subpaths such as `@flowpanel/kit/next`, `@flowpanel/kit/drizzle` and `@flowpanel/kit/auth`.
 
 ## Install
 

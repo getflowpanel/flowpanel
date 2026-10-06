@@ -76,7 +76,7 @@ Place it in the document head with the same default mode as the config. A stored
 
 ## Use FlowPanel tokens in your own Tailwind classes
 
-A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. Import the token bridge after Tailwind and point `@source` at your admin code:
+A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. In the CSS file that imports Tailwind, such as `app/globals.css`, import the token bridge after Tailwind and point `@source` at your admin code, relative to that file:
 
 ```css
 @import "@flowpanel/kit/styles/admin.css";
@@ -95,12 +95,14 @@ The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `i
 A theme slot replaces one component everywhere FlowPanel renders it:
 
 ```tsx excerpt
+"use client";
+
 import { forwardRef } from "react";
-import type { ButtonProps } from "@flowpanel/kit/react";
+import { type ButtonProps, cn, DefaultButton } from "@flowpanel/kit/react";
 
 export const ProductButton = forwardRef<HTMLButtonElement, ButtonProps>(
   function ProductButton({ className, ...props }, ref) {
-    return <button ref={ref} className={`product-button ${className ?? ""}`} {...props} />;
+    return <DefaultButton ref={ref} className={cn("product-button", className)} {...props} />;
   },
 );
 ```
@@ -116,7 +118,7 @@ export default defineAdmin({
 });
 ```
 
-`theme.components` is typed by `FlowpanelComponentSlots`. Keep the slot's full prop contract: forward refs, pass accessibility attributes through, and keep loading and disabled states. Import each prop type from `@flowpanel/kit/react`.
+`theme.components` is typed by `FlowpanelComponentSlots`. A slot component must be a client component (`"use client"`). Keep the slot's full prop contract: forward refs, pass accessibility attributes through, and keep `variant`, `size`, `asChild` and `disabled` working. Wrapping the default renderer, as above, keeps all of them. Import each prop type from `@flowpanel/kit/react`.
 
 <ThemeSlots />
 

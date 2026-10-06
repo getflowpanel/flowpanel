@@ -10,7 +10,7 @@ FlowPanel adds a typed admin panel to an existing Next.js app, built from your D
 | Requirement | Supported range |
 | --- | --- |
 | Node.js | `>=20` |
-| Next.js | `^16.3.0` |
+| Next.js | `>=15.5.0 <17.0.0` |
 | React | `^19.0.0` |
 | Drizzle ORM | `>=0.45.2 <1.0.0` |
 | Prisma Client | `>=5.0.0 <7.0.0` |
@@ -46,7 +46,7 @@ Open [http://localhost:3000/admin](http://localhost:3000/admin).
 ## Links
 
 - [Documentation](https://flowpanel.tech/docs/introduction/getting-started) and the [tutorial](https://flowpanel.tech/docs/introduction/founder-admin)
-- [Live demo](https://flowpanel.tech) and its source, [`examples/ai-scraper`](examples/ai-scraper); a minimal Clerk setup in [`examples/with-clerk`](examples/with-clerk)
+- [Live demo](https://demo.flowpanel.tech/admin) and its source, [`examples/ai-scraper`](examples/ai-scraper); a minimal Clerk setup in [`examples/with-clerk`](examples/with-clerk)
 - [Changelog](https://flowpanel.tech/changelog) and [roadmap](ROADMAP.md)
 - [Contributing](.github/CONTRIBUTING.md), [Discussions](https://github.com/getflowpanel/flowpanel/discussions), [Issues](https://github.com/getflowpanel/flowpanel/issues)
 - [MIT license](LICENSE)

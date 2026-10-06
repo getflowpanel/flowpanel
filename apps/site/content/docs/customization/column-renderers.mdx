@@ -32,15 +32,15 @@ columns: [
   {
     field: "customerId",
     label: "Customer",
-    render: async (order, ctx) => {
+    render: async (order) => {
       const customer = await findCustomer(db, order.customerId);
-      return <a href={`/admin/customers/${customer.id}`}>{customer.email}</a>;
+      return customer ? <strong>{customer.email}</strong> : "Unknown customer";
     },
   },
 ]
 ```
 
-`render` runs on the server with the row and request context. For a foreign key to another resource, a `reference` gives the link and label without a query per cell.
+`render` runs on the server with the row and the request context as its second argument. For a foreign key to another resource, a `reference` gives the link and label without a query per cell.
 
 ## An interactive cell
 

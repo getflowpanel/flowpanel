@@ -22,16 +22,16 @@ import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/test";
 
 test("the admin is healthy", async ({ page }) => {
-  await smokeAdmin(page, { basePath: "/admin", a11y: true });
+  await smokeAdmin(page, { paths: { admin: "/admin" }, a11y: true });
 });
 ```
 
 <ApiSignature path="../../packages/test/src/smoke-admin.ts" name="smokeAdmin" />
 
-The walk starts at `basePath`, opens every dashboard and list in the navigation,
+The walk starts at `paths.admin`, opens every dashboard and list in the navigation,
 then opens each list's first row as its record page or drawer. On a record page it
-opens every tab (`tabs: false` skips them), so a failure names its URL, such as
-`/admin/users/1?tab=activity`. A drawer is checked on its first tab.
+opens every other tab as `?tab=<key>` (`tabs: false` skips them), so a failure
+names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its first tab.
 
 ## What it asserts
 
@@ -41,7 +41,7 @@ opens every tab (`tabs: false` skips them), so a failure names its URL, such as
 | Nothing wrote to `console.error` | `console.error: <text>` |
 | No page rendered `[data-fp-error]` | `<route>: rendered a FlowPanel error surface` |
 | Zero WCAG 2.2 AA violations, with `a11y` | `<route>: axe <rule> (<impact>)` |
-| The navigation has at least one route | `smokeAdmin found no navigation under <basePath> …` |
+| The navigation has at least one route | `smokeAdmin found no navigation under <paths.admin> …` |
 
 `[data-fp-error]` marks FlowPanel's error cards: a failed widget, a failed read, a
 failed drawer. A walk that finds no routes fails. Pages count as loaded when `main`
@@ -62,7 +62,7 @@ and the report as JSON.
 import { smokeAdmin } from "@flowpanel/test";
 
 const report = await smokeAdmin(page, {
-  basePath: "/admin",
+  paths: { admin: "/admin" },
   cookie: { name: "session", value: process.env.E2E_SESSION ?? "" },
   resources: ["/", "customers", "orders"],
   maxRows: 3,
@@ -118,7 +118,7 @@ references. Access rules apply, so pass `session` and `role`; tenant scope does 
 
 ```ts excerpt
 import { headerContext } from "@flowpanel/test/widgets";
-import { admin } from "@/src/admin/config";
+import admin from "@/admin/config";
 
 const ctx = headerContext({ admin });
 expect(customers.options.detail?.title?.(row, ctx)).toBe("Northwind Audio");
@@ -146,7 +146,7 @@ export default defineConfig({
 
 ## Playwright config
 
-`smokeAdmin` calls `page.goto(basePath)`, so set a `baseURL` and a `webServer`:
+`smokeAdmin` calls `page.goto(paths.admin)`, so set a `baseURL` and a `webServer`:
 
 ```ts excerpt
 // playwright.config.ts

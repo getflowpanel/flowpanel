@@ -5,6 +5,7 @@ import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { AdapterScript, DEFAULT_ADAPTER } from "@/features/adapter-switcher";
+import { ogImages } from "@/shared/lib/og-image";
 import { siteConfig } from "@/shared/lib/site-config";
 
 export const metadata: Metadata = {
@@ -19,11 +20,13 @@ export const metadata: Metadata = {
     description: siteConfig.seo.description,
     siteName: "FlowPanel",
     type: "website",
+    images: ogImages,
   },
   twitter: {
     card: "summary_large_image",
     title: siteConfig.seo.title,
     description: siteConfig.seo.description,
+    images: ogImages,
   },
 };
 

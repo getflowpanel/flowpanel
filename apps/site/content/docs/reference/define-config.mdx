@@ -32,7 +32,7 @@ production, a config without `auth.requireRole` refuses to start unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
 The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
-`devAuth` build an `AuthConfig`; see [Authentication](/docs/guides/authentication).
+`devAuth`, imported from `@flowpanel/kit/auth`, build an `AuthConfig`; see [Authentication](/docs/guides/authentication).
 
 ## ThemeConfig
 
@@ -56,7 +56,7 @@ theme: {
 }
 ```
 
-Colours are HSL triplets; an `hsl(...)` wrapper is removed for you.
+Colours are HSL triplets. `accent` and `accentDark` may also be written as `hsl(...)`, and the wrapper is removed for you; `cssVars` and `cssVarsDark` are written as given.
 
 `user` fills the account menu at the foot of the sidebar, or the end of the tab
 strip. Return nothing and no menu renders:
@@ -165,8 +165,8 @@ labels: {
 },
 ```
 
-`formatCount(label, count, locale)` from `@flowpanel/core/labels` picks the form
-for your own components. A preset's plural gives way to a string template you set
+`formatCount(label, count, locale)` from `@flowpanel/kit` picks the form in your
+own server code. A preset's plural gives way to a string template you set
 for the same count.
 
 <AutoTypeTable path="../../packages/core/src/types/labels/config.ts" name="PluralLabel" />
@@ -179,8 +179,8 @@ sign-in and access-denied screens shown when `auth.signInUrl` or
 A Russian `formatting.locale` (`"ru"`, `"ru-RU"`) makes `RU_LABELS` the base that
 `labels` merges over, so set only the strings you want different, such as
 `labels: { actions: { new: "Добавить" } }`. Other locales use English. Import
-`RU_LABELS` or `DEFAULT_LABELS` from `@flowpanel/kit` (or `@flowpanel/core/labels`
-in browser code); `labels: DEFAULT_LABELS` keeps English under a Russian locale.
+`RU_LABELS` or `DEFAULT_LABELS` from `@flowpanel/kit`; `labels: DEFAULT_LABELS`
+keeps English under a Russian locale.
 
 <AutoTypeTable path="../../packages/core/src/types/labels/config.ts" name="LabelsConfig" />
 
@@ -208,7 +208,7 @@ What `defineAdmin` returns.
 `defineAdmin` throws if two resources share a name, two dashboards or pages
 share a path, or two queues share a key.
 
-It also throws when a config points at a resource name nothing resolves to —
+It also throws when a config points at a resource name nothing resolves to:
 `reference.resource` on a column or field, a drawer or detail tab's `resource`,
 or a `table()` widget's `resource`. The names it checks against are the
 *resolved* ones, so a Drizzle table declared as `pgTable("ai_usage", …)` is
@@ -257,13 +257,11 @@ on the resource or `options.key` on the queue.
 
 ## Behavior beyond validation
 
-Besides validating, `defineAdmin`:
-
 1. **Fills `columns`** from `adapter.introspect(ref)` for any resource that
    omitted them, in introspection order. If the adapter cannot introspect the
    ref, or reports zero columns, that throws.
 2. **Injects the default bulk delete** (above).
-3. **Normalizes `paths.admin`** and every dashboard / page `path` — a missing
+3. **Normalizes `paths.admin`** and every dashboard and page `path`: a missing
    leading `/` is added, a trailing one stripped.
 
 `introspect` reads the table object or DMMF; it does not query the database.
@@ -272,17 +270,18 @@ Besides validating, `defineAdmin`:
 
 `paths.admin` and `paths.api` are app-relative: they say where the admin sits inside
 your app, not where the app sits under a domain. If `next.config` sets its own
-`basePath`, leave both alone — Next serves and links everything under that prefix
+`basePath`, leave both alone. Next serves and links everything under that prefix
 already.
 
 FlowPanel adds the deployment prefix for you to the requests the browser issues
 by itself: the client fetches built from `paths.api`, the generated form actions
 and the SSE endpoint. `Link`, router navigation and `revalidatePath` are prefixed
-by Next and are left untouched. Only a fetch you write yourself against
-`paths.api` needs the helper:
+by Next and are left untouched. Only a fetch you write yourself in a client
+component against `paths.api` needs the helper. Server code calls the runtime
+through `createFlowpanel(config).request()` instead of fetching its own routes.
 
 ```ts excerpt
-import { withDeploymentBasePath } from "@flowpanel/kit/react"; // or "@flowpanel/core/paths" on the server
+import { withDeploymentBasePath } from "@flowpanel/kit/react";
 
 await fetch(`${withDeploymentBasePath(config.paths.api)}/user/u1/actions/verify`, {
   method: "POST",
@@ -312,7 +311,7 @@ With no `locale`, dates print as `YYYY-MM-DD HH:mm` and numbers use `en-US` grou
 
 Record identifiers are percent-encoded into the URL and decoded once when the page
 route reads them back, so an id containing `/`, `%`, `?`, `#` or a space addresses
-the record it names. Configured dashboard and page paths keep their separators —
+the record it names. Configured dashboard and page paths keep their separators:
 `/reports/weekly` stays two segments.
 
 A row whose projection did not include the key column is displayed but not treated

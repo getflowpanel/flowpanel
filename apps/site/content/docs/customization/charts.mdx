@@ -26,7 +26,7 @@ lineChart("Signups", async ({ db, dateRange }) => {
 
 The query runs on the server and returns a flat array: one `x` value and numeric series per row. Use `series()` to bucket rows by time and fill gaps; see [Dashboards](/docs/build/dashboards#one-query-several-widgets).
 
-Without `y`, a chart plots every numeric key of its rows except `x`. `labels` names the series (a map, an `enumOf()` or a function). One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y` order, and `colors` pins a series to a colour.
+Without `y`, a chart widget plots every numeric key of its rows except `x`; that inference runs on the server. `labels` names the series (a map, an `enumOf()` or a function). One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y` order, and `colors` pins a series to a colour.
 
 ## Client data
 
@@ -39,5 +39,7 @@ export function Preview({ data }: { data: Array<{ day: string; count: number }> 
   return <LineChart data={data} options={{ x: "day", y: "count" }} />;
 }
 ```
+
+The client components in `@flowpanel/kit/charts/runtime` do not infer series: pass `y` (one key or a list).
 
 Every option: [Charts reference](/docs/reference/widgets#charts).

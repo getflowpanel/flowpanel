@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkLlms, generateLlmsText, LLMS_FILE } from "../docs/generate-llms";
+import { siteConfig } from "../../apps/site/src/shared/lib/site-config";
+import { checkLlms, generateLlmsText, LLMS_FILE, unexpanded } from "../docs/generate-llms";
 import {
   checkLlmsTopics,
   generateLlmsTopics,
@@ -42,7 +43,25 @@ const PAGE = [
   "",
   '<CliReference command="init" />',
   "",
+  "## Setup",
+  "",
+  "<Compatibility />",
+  "",
+  "<AdapterTabs>",
+  '  <AdapterTab adapter="drizzle">',
+  "    <include>../../snippets/setup.ts</include>",
+  "  </AdapterTab>",
+  "</AdapterTabs>",
+  "",
 ].join("\n");
+
+const MANIFESTS: Record<string, object> = {
+  "packages/cli/package.json": { engines: { node: ">=20" } },
+  "packages/next/package.json": { peerDependencies: { next: "^16.0.0" } },
+  "packages/react/package.json": { peerDependencies: { react: "^19.0.0" } },
+  "packages/adapter-drizzle/package.json": { peerDependencies: { "drizzle-orm": ">=0.45.0" } },
+  "packages/adapter-prisma/package.json": { peerDependencies: { "@prisma/client": ">=5.0.0" } },
+};
 
 const TYPES = [
   "export interface WidgetContext {",
@@ -66,6 +85,15 @@ function fixtureRoot(): string {
   mkdirSync(join(root, "packages/flowpanel"), { recursive: true });
   writeFileSync(join(root, "apps/site/content/docs/reference/widgets.mdx"), PAGE);
   writeFileSync(join(root, "packages/example/types.ts"), TYPES);
+  mkdirSync(join(root, "apps/site/content/snippets"), { recursive: true });
+  writeFileSync(
+    join(root, "apps/site/content/snippets/setup.ts"),
+    'export const setup = "from the snippet";\n',
+  );
+  for (const [file, manifest] of Object.entries(MANIFESTS)) {
+    mkdirSync(join(root, file, ".."), { recursive: true });
+    writeFileSync(join(root, file), JSON.stringify(manifest));
+  }
   writeFileSync(
     join(root, "packages/flowpanel/package.json"),
     JSON.stringify({ name: "@fixture/kit", description: "A fixture kit" }),
@@ -80,6 +108,29 @@ describe("llms.txt generation", () => {
     expect(text.split("\n")[0]?.startsWith("# ")).toBe(true);
     expect(text).toContain("> A fixture kit.");
     expect(text).toContain("pnpm dlx @flowpanel/cli init");
+  });
+
+  it("quotes the site description instead of a missing field", () => {
+    const text = generateLlmsText(fixtureRoot());
+
+    expect(text).toContain(`> ${siteConfig.seo.description}`);
+    expect(text).not.toContain("undefined");
+  });
+
+  it("inlines included snippets and the compatibility table", () => {
+    const text = generateLlmsText(fixtureRoot());
+
+    expect(text).toContain('```ts\nexport const setup = "from the snippet";\n```');
+    expect(text).toContain("##### Drizzle");
+    expect(text).toContain("| Next.js | `^16.0.0` |");
+    expect(text).not.toMatch(/<include|<Compatibility|<AdapterTab/);
+  });
+
+  it("reports MDX that reaches the output unexpanded", () => {
+    expect(unexpanded("llms.txt", "# Docs\n\n<include>a.ts</include>\n")).toEqual([
+      expect.objectContaining({ code: "llms-unexpanded", line: 3 }),
+    ]);
+    expect(unexpanded("llms.txt", "# Docs\n")).toEqual([]);
   });
 
   it("says which code blocks are type-checked, and keeps the marker that decides it", () => {

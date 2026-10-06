@@ -6,7 +6,7 @@ Every option on a resource, its columns, fields and filters.
 
 Docs: https://flowpanel.tech/docs/reference/resources
 
-Documented types: resource, ResourceOptions, ColumnDef, formatColumnValue, formatNumber, badgeProps, enumOf, EnumDef, FieldDef, FilterDef, DetailOptions, DetailHeaderContext, DetailBadge, related, RelatedOptions, DetailTab, DetailTabContext, ListResult, ResourceConfig
+Documented types: resource, ResourceOptions, ColumnDef, formatColumnValue, formatNumber, enumOf, EnumDef, FieldDef, FilterDef, DetailOptions, DetailHeaderContext, DetailBadge, related, RelatedOptions, DetailTab, DetailTabContext, ListResult, ResourceConfig
 
 `ref` is a Drizzle table or a Prisma model name. The row type comes from
 [`InferRow<Ref>`](/docs/reference/registry#inferrow), which types `columns`,
@@ -36,7 +36,7 @@ export const ordersResource = resource(orders, {
 | --- | --- | --- |
 | `name?` | `string` | URL segment and registry key. Defaults to the adapter's table name. |
 | `label?` | `string` | Singular label shown in headings and buttons. |
-| `labelOne?` | `string` | Label for exactly one row, e.g. `"Customer"`, used in the create page's title. Falls back to `label`, then the resource name. |
+| `labelOne?` | `string` | Label for exactly one row, e.g. `"Customer"`, used in record, create and edit titles. Falls back to `label`, then the resource name made singular: `order_items` reads "Order item". |
 | `plural?` | `string` | Plural label shown in the nav and list title. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
 | `hidden?` | `boolean` | Keep the resource out of the navigation — its routes still work. |
@@ -48,7 +48,7 @@ export const ordersResource = resource(orders, {
 | `defaultSort?` | `{ field: keyof Row & string; dir: "asc" \| "desc" }` | Sort applied when the URL carries none. |
 | `pageSize?` | `number` | Rows per page. Default: `20`. |
 | `density?` | `"comfortable" \| "compact"` | Row height preset for the list table. Default: `"comfortable"`. |
-| `rowClick?` | `"detail" \| "drawer" \| false` | What a row click — and Enter on the focused row — does. A row the projection cannot identify never acts. Default: ``"detail"` when `detail` is configured and `drawer` is not, `"drawer"` when only `drawer` is, otherwise `false``. |
+| `rowClick?` | `"detail" \| "drawer" \| false` | What a row click — and Enter on the focused row — does. A row the projection cannot identify never acts. Default: ``"drawer"` when `drawer` is configured, otherwise `"detail"``. |
 | `rowKey?` | `keyof Row & string` | Property holding each row's unique id. Default: `"id"`. |
 | `drawer?` | `DrawerConfig<Row>` | Side panel opened for a single row. |
 | `detail?` | `DetailOptions<Row>` | Full-page view at `<paths.admin>/<resource>/<id>`. |
@@ -62,11 +62,11 @@ export const ordersResource = resource(orders, {
 | `scope?` | `"bypass" \| ((scope: Scope, query: unknown) => unknown)` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
 | `access?` | `ResourceAccess<Row>` | Canonical operation-level authorization. |
 | `fieldAccess?` | `FieldAccessMap<Row>` | Canonical read/write policy for declared fields. |
-| `export?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Export button. `false` removes it. Defaults to CSV and JSON of the visible columns. |
+| `export?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Export button, off unless set. `formats` defaults to `["csv"]`; `fields` defaults to the visible columns. |
 | `import?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Import button. Off unless set; rows are created through the normal write path. |
 | `audit?` | `boolean` | Opt this resource out of the admin-wide audit sink. |
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
-| `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: Where<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
+| `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: ListFilters<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
 | `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. `{query}` is * the search text. Default: `labels.widget.filtered`. */ filtered?: string; /** * Title when a search leaves no rows, in place of `filtered`, e.g. `"Nothing found for «{query}»"`. * Default: `filtered`. */ searched?: string; }` | What the list shows when there are no rows at all. |
 
 An empty list shows `empty.title`, `description`, `icon` and `action`. When search
@@ -91,8 +91,8 @@ detail: {
 }
 ```
 
-A nullish return leaves the slot empty; a nullish `title` falls back to the
-resource label and the row identifier.
+A nullish return leaves the slot empty; a nullish `title` falls back to the row's
+`name`, `title` or `email`, then to the resource label and the row identifier.
 
 The Edit button sits beside the heading as a secondary button;
 `update: { emphasis: "primary" }` fills it. It is hidden when `update.disabled` is
@@ -112,8 +112,9 @@ chooses and orders the fields in it; omitted, every readable declared field show
 | `"drawer"` | Opens the [drawer](/docs/reference/drawer). Requires a `drawer` config; `defineAdmin` refuses the combination without one. |
 | `false` | Rows render, but a click does nothing. |
 
-Omitted, it follows the resource: `"detail"` when `detail` is configured and
-`drawer` is not, `"drawer"` when only a drawer is, and `false` when neither is.
+Omitted, it follows the resource: `"drawer"` when a drawer is configured, with or
+without `detail`, and `"detail"` otherwise. The record page renders without a
+`detail` config, so every row opens unless you set `rowClick: false`.
 An explicit value always wins, so `rowClick: "detail"` on a resource that also
 has a drawer sends the click to the page and leaves the drawer to its own
 affordances.
@@ -224,7 +225,7 @@ type ColumnFormat =
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
   | { kind: "money"; currency?: string; scale?: number }
   | { kind: "number"; tones?: Threshold }
-  | { kind: "date"; time?: boolean }
+  | { kind: "date"; time?: boolean; calendarDay?: boolean }
   | { kind: "percent"; digits?: number; heat?: boolean; tones?: Threshold }
   | { kind: "duration"; unit?: "ms" | "s"; tones?: Threshold }
   | { kind: "boolean"; labels?: { true?: string; false?: string } }
@@ -254,13 +255,13 @@ value, and a value with no label shows as is.
 
 The other kinds:
 
-- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the time. A `YYYY-MM-DD` value shows as itself; a zoneless `YYYY-MM-DD HH:mm:ss` is read as UTC.
+- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the time. A `YYYY-MM-DD` value shows as itself; a zoneless `YYYY-MM-DD HH:mm:ss` is read as UTC. Set `calendarDay: true` for a SQL `date` column, such as a Prisma `@db.Date` or a Drizzle `date({ mode: "date" })`: the driver returns midnight UTC, and the cell shows that day in every time zone.
 - `relative` shows how long ago, such as `5 minutes ago`, in the admin's `locale`.
-- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, so a retention grid reads at a glance and still sorts by number.
+- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, for a retention grid that still sorts by number.
 - `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
 - `boolean` prints `✓` and `✕`, or `labels: { true: "Yes", false: "No" }`. SQLite's `1` and `0` read as true and false.
 - `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
-- `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded. `cellTone(value, format)` returns the tone a cell gets.
+- `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded.
 
 ```ts excerpt
 columns: [
@@ -281,16 +282,10 @@ The formatters behind every cell, card and export. Each takes the admin's
 resolved `formatting`.
 
 `formatColumnValue` renders a `ColumnFormat`; `formatNumber` renders a widget's
-`NumericFormat` (`number`, `currency`, `percent`, `bytes`, `duration`). Both are in
-`@flowpanel/core`, and `@flowpanel/react` re-exports `formatNumber`.
-`badgeProps(format, value)` returns the props a badge cell passes to `StatusBadge`,
-or `null` for an empty value.
-
-`formatDurationValue`, `formatPercentValue`, `formatRelativeValue` and
-`formatBooleanValue` print one kind each; `columnFormatKind`, `percentHeatLevel` and
-`urlCellParts` describe what a format asks for; `toDateValue` and `toBooleanValue`
-read raw values as cells do. `formatDurationCompact` prints only the largest unit,
-such as `2.1h`, as chart axes do.
+`NumericFormat` (`number`, `currency`, `percent`, `bytes`, `duration`). Import both
+from `@flowpanel/kit`; `@flowpanel/kit/react` also exports `formatNumber`.
+`formatDurationValue`, `formatPercentValue` and `formatRelativeValue` print one
+kind each.
 
 ### Enums
 
@@ -336,7 +331,10 @@ itself and a missing one as `—`; `badge()` returns `null` for a missing value;
 ### FieldDef
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
-`form`. The server enforces every rule.
+`form`. `required` marks the control required and the server rejects a missing
+value. `readOnly` and `requireRole` apply to rendering and to writes; a function
+`readOnly` is called with the stored row, so it guards edits. `hidden` only removes
+the control.
 
 `FieldDef`
 
@@ -349,7 +347,7 @@ An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
 | `type?` | `FieldType` | Which control to render. Omitted, a declared field renders as `"text"` — or `"reference"` when `reference` is set. The adapter's column type is consulted only by a fully generated form, and only maps number, boolean, date and json. |
 | `options?` | `\| ReadonlyArray<string> \| SelectOption[] \| ((ctx: QueryContext) => Promise<SelectOption[]>)` | Choices for `select` / `multiselect` / `radio`. A function resolves per request. |
 | `reference?` | `ReferenceSpec` | Turn the field into a searchable picker over another resource. |
-| `required?` | `boolean` | Mark the field required in the form. Server-side validation still comes from `schema`. |
+| `required?` | `boolean` | Require a value. The form marks it, and the server rejects a create that leaves it empty or an edit that clears it. |
 | `readOnly?` | `boolean \| ((values: Partial<Row>) => boolean)` | Render non-editable. Enforced server-side, not just in the UI. |
 | `hidden?` | `boolean \| ((values: Partial<Row>) => boolean)` | Leave the field out of the form entirely. |
 | `requireRole?` | `string \| string[] \| ((session: Session \| null) => boolean)` | Restrict who may see and write this field. Enforced on every write route. |
@@ -440,7 +438,7 @@ export const card = {
 } satisfies DetailOptions<RowOf<"user">>;
 ```
 
-- `title`, `subtitle` and `badge` receive the row and a `DetailHeaderContext` — the
+- `title`, `subtitle` and `badge` receive the row and a `DetailHeaderContext`: the
   admin's `format`, `labels` and `link`. `badge` returns one pill or a list, in order;
   `null` entries are dropped, and a pill with `href` is a link.
 - `stats` renders as a hairline strip under the header, on every tab.
@@ -494,8 +492,8 @@ The header, strip, aside and open tab share one widget context, so a repeated
 A tab on the record page. The open tab is the `?tab=<key>` query parameter, and
 only that tab runs on the server.
 
-A tab declares exactly one kind of content, and they resolve in this order:
-`render`, `widgets`, `resource`, then fields.
+A tab shows `render` when it has one. Otherwise it shows its `widgets` and its
+`resource` list, widgets above the rows, or its fields when it has neither.
 
 #### Fields and sections
 
@@ -658,8 +656,9 @@ What `DetailTab.render` receives as its second argument.
 type SelectOption = { label: string; value: string | number | boolean };
 ```
 
-Wherever `options` is accepted, you may pass `string[]`, `SelectOption[]`, or a
-function resolved per request.
+A filter's or field's `options` takes `string[]`, `SelectOption[]`, or a function
+resolved per request. A dashboard filter takes `SelectOption[]`, an `enumOf()`, or
+a function of the widget context. A drawer action input takes `string[]`.
 
 ### ListResult
 

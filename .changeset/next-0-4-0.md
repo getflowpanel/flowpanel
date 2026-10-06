@@ -5,17 +5,36 @@
 - Added `adminWidgetContext` and `resolveWidget` to run a widget outside a page, and `flowpanelMetadata` for page titles.
 - Changed widget links to resolve on the server; an unknown target throws with the registered names.
 - Changed date presets and `daterange` filters to start at midnight in `formatting.timeZone`.
+- Changed a list row to open its record page when the resource has no drawer, with or without `detail`, so a new resource's rows open and reach Edit. `rowClick: false` keeps rows from opening.
 - Changed related tab rows to open their target record.
 - Changed a list filter's `defaultValue` to apply until the URL sets the filter.
-- Changed a failed widget card to keep its title and show the cause in a closed Details disclosure outside production.
-- Fixed a widget's `redirect()` and `notFound()` becoming an error card.
+- Changed a failed widget card, in a drawer too, to keep its title and show the cause in a closed Details disclosure outside production.
+- Fixed a widget's `redirect()`, `notFound()` and `forbidden()` becoming an error card, on the server and in the browser.
 - Fixed `table({ resource })` ignoring the resource's `defaultSort`.
-- Removed the fallbacks to resource, action and drawer `requireRole`, action `ctx.db`, `ctx.href`, detail `header` and `applyScope` (use `access`, `ctx.unsafe.db`, `ctx.link`, `title` and `boundScope`); drawer `header` is now `title`, and `DrawerPayload.header` is `DrawerPayload.title`.
+- Breaking: `DrawerPayload.header` is now `DrawerPayload.title`. The other removed 0.3 aliases are listed under @flowpanel/core and in the [upgrade guide](https://flowpanel.tech/docs/guides/upgrade).
 - Fixed kv, stat and stat-group dates rendering in UTC while columns used the viewer's zone.
-- Added a development note and an `Authentication guide` link to the sign-in wall outside production, and a one-time console warning with the same note.
-- Changed an unknown admin path and a record that does not exist to return 404 through `notFound()`.
-- Added `FlowpanelNotFound(config)` and `createFlowpanel(config).notFound` for the host's `not-found.tsx`: the labelled "Page not found" screen with its way back.
+- Added a development note and a link to the authentication guide to the sign-in wall outside production, and a one-time console warning with the same note.
+- Changed an unknown admin path and a record that does not exist to render the not-found page through `notFound()`: a 404, or a 200 with `noindex` under `cacheComponents`, where Next has already streamed the static shell.
+- Added `FlowpanelNotFound(config)` and `createFlowpanel(config).notFound` for the host's `not-found.tsx`: the labelled "Page not found" screen with its way back, which also titles the page.
+- Added `createFlowpanel(config).notFoundMetadata`: `export const metadata = flowpanel.notFoundMetadata;` in `not-found.tsx` titles the server's HTML "Page not found", not only the page after it loads.
 - Added `robots: { index: false, follow: false }` to every admin page's metadata.
-- Changed a failed read whose error chain shows a refused or unreachable database to show `errors.connectionHint` in place of `errors.queryHint`.
-- Changed the empty-admin screen to lead with `pnpm flowpanel new <table>`, keep the config snippet as the alternative and link the getting-started guide.
+- Changed a failed read whose error chain shows a refused or unreachable Postgres, MySQL, SQLite or Prisma connection to show `errors.connectionHint` in place of `errors.queryHint`.
+- Changed the empty-admin screen to lead with `flowpanel new <table>`, written for the package manager that started the server (`pnpm`, `npx`, `yarn` or `bunx`), keep the config snippet as the alternative and link the getting-started guide.
 - Fixed the admin root without a dashboard being titled "Page not found"; it now carries the brand name.
+- Changed `required` on a create or edit form field to hold on the server: a create that leaves the field empty, or an edit that clears it, fails with the field's "is required" message. A field the form hides or shows read-only to that user is not checked.
+- Fixed a field with `requireRole` skipping its `readOnly` check, and a function `readOnly` not applying on create, where it gets an empty row. A field's `readOnly` now also wins over the resource's `fieldAccess.write`.
+- Fixed saving a form that shows a read-only field, has a field the signed-in role cannot see, or has a field `fieldAccess.write` keeps from that role, failing with "cannot be changed". The form shows such a field read-only and its route drops it; an API or programmatic write that carries it is still rejected.
+- Fixed links doubling the slash when the admin is mounted at `/`.
+- Fixed English left in a translated admin: an empty list's title, the drawer's name, its load error, its note for a widget it does not draw, and the create and edit pages of a disabled operation now come from labels.
+- Fixed an empty drawer tab naming the raw table instead of the tab.
+- Fixed the admin logging a `crypto.randomUUID()` prerender error on every request under `cacheComponents`; the page now waits for the incoming request before it reads it.
+- Changed the Next.js peer range to `>=15.5.0 <17.0.0`, so Next.js 15.5 and newer 15.x releases work as well as 16.
+- Changed a resource without `labelOne` or `label` to name one record by its name made singular and readable: `users` reads "User" on the record page and "New user" and "Edit user" on its forms, where `New {label}` and `Edit {label}` now put the label mid-sentence ("New customer").
+- Changed the sign-in and access-denied walls to title the page "Sign in required" and "Access denied" instead of the host's title.
+- Fixed an edit form that empties a NOT NULL column answering ok and keeping the old value. It now fails with the field's "is required" message, as a create does.
+- Fixed a unique, foreign key or NOT NULL violation from Postgres, MySQL, SQLite or Prisma failing a create, edit, inline edit or delete with a bare 500. A known column gets a field message ("Email is already taken") with a 422; otherwise the answer is a 409 with `labels.form.conflict`, `missingLink` or `inUse`.
+- Changed a form route's unexpected failure to reach `hooks.onError` and answer with its `requestId`, like the JSON API.
+- Fixed the edit form showing an empty date for a stored timestamp. A `datetime-local` control now shows `YYYY-MM-DDTHH:mm` in `formatting.timeZone` and a `date` control `YYYY-MM-DD`; the server reads a posted time in the same zone, and an untouched timestamp keeps its seconds.
+- Changed a JSON create or edit whose value is not a number for a number column to answer with `labels.form.invalidNumber` ("Total must be a number"), as the form already did, instead of Zod's "expected number" text. A schema's own message is kept.
+- Changed the record page heading without `detail.title` to show the row's `name`, `title` or `email` ("Ann") before falling back to "User · <id>".
+- Changed a `reference` column on the record page to show the referenced record's label with a link ("Ann"), as the list does, instead of the raw foreign key.

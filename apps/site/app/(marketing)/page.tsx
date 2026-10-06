@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ogImages } from "@/shared/lib/og-image";
 import { siteConfig } from "@/shared/lib/site-config";
 import { flowpanelVersion } from "@/shared/lib/version";
 import { JsonLd } from "@/shared/ui/json-ld";
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
     url: "/",
     siteName: "FlowPanel",
     type: "website",
+    images: ogImages,
   },
 };
 

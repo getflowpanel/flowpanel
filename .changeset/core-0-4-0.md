@@ -2,19 +2,31 @@
 "@flowpanel/core": minor
 ---
 
+- Breaking: removed the options and exports deprecated in 0.3: `requireRole` on resources and actions, `ctx.db` in actions and option resolvers, `ctx.href`, detail and drawer `header`, a delta's own `goodWhen`, `basePath`, `AdminConfig`, the root `createPublisher`, and the adapter aliases `applyScope`, `scopeRequired`, `runMigrationSql` and `markMigrationApplied`. The [upgrade guide](https://flowpanel.tech/docs/guides/upgrade) gives the replacement for each.
+- Breaking: `defineAdmin` throws at startup on a leftover `requireRole` on a resource or action, `basePath`, or a detail or drawer `header`, instead of ignoring it.
 - Added `ctx.read`, `rowOf`, `link`, `format`, `filters` and a typed `where` for `count` to the widget context.
-- Added typed resources and session from `schema` and `session` registered on `FlowpanelTypes`.
-- Added `LinkTarget`, one link shape for every widget link.
-- Added checks in `defineAdmin` for every name a config references, with the closest match.
+- Added typed resource names, rows and session: register `schema` and `session` on `FlowpanelTypes`.
+- Added `InferNamedRow`: `resource("User", { name: "users" })` checks its options against the row `FlowpanelResources` registers under `users`, so a Prisma resource with its own name is typed.
+- Added `LinkTarget`, one link shape for every widget link, and `ListFilters`, its filter type, where `null` turns a default off.
+- Added checks in `defineAdmin` for the resource, column and filter names a config references; a typo fails at startup with the closest match.
 - Added the `timeline`, `heatmap`, `checklist` and `tracker` widgets.
-- Added `enumOf()` and the `date`, `relative`, `percent`, `duration`, `boolean` and `url` column formats.
-- Added count metrics, `compare`, `goodWhen` and `Threshold` tones.
+- Added `enumOf()` and the `date`, `relative`, `percent`, `duration`, `boolean` and `url` column formats; `date` takes `calendarDay: true` for a SQL `date` column read as midnight UTC.
+- Added metrics that count rows (`metric(label, { count })`), compare with the previous period (`compare`), and tone their value against a `Threshold` (`tones`), with `goodWhen` on the metric.
 - Added `maxRange`, `freshness` and `coverage` to every widget.
 - Added `detail.stats`, `detail.aside`, `related()` tabs and `FieldDef.render`.
 - Added resources over database views that write through `writeTo`.
 - Added dashboard `filters`, `filterOnClick`, `dateRange.presets` and `navGroup`.
 - Added the `series()`, `breakdown()` and `presetRange()` helpers.
 - Added Russian base labels for a Russian `formatting.locale`.
-- Removed the deprecated aliases `requireRole` on resources, actions and drawer actions, `ctx.db` on actions and option resolvers, `applyScope` and `scopeRequired`, `ctx.href`, detail `header`, a delta's own `goodWhen`, `basePath`, `AdminConfig`, `runMigrationSql`, `markMigrationApplied` and the root `createPublisher` (use `access`, your own `db` import (or `unsafe: ["db"]` and `ctx.unsafe.db` on an action), `boundScope`, `ctx.link`, `title`, the metric's `goodWhen`, `paths.admin`, `AdminDefinition`, `applyMigration` and `createRealtimeTransport`); drawer `header` is now `title`.
-- Changed `defineAdmin` to fail at boot on a leftover `requireRole` on a resource or action, `basePath`, or a detail or drawer `header`.
 - Added `errors.connectionHint` for refused or unreachable database connections.
+- Added `labels.table.empty`, `labels.table.editCell`, `labels.table.saved`, `labels.drawer.title`, `labels.drawer.loadFailed`, `labels.drawer.unsupported`, `labels.form.createDisabled` and `labels.form.editDisabled`, with Russian text.
+- Changed `labels.widget.chartsMissing` to say charts need `recharts` and to run `pnpm add recharts`.
+- Fixed concurrent first publishes or subscribes opening one Redis connection each.
+- Changed `resolveOperationAccess(access, operation)` to take two arguments; the `requireRole` argument is gone.
+- Changed `createPublisher` from `@flowpanel/core/publish` to resolve when Redis fails: the error goes to `onError`, or is logged once per kind. A caller that retried on a rejection should pass `onError`. It also takes the admin's `realtime` options.
+- Changed `fillDays` to bucket days in `range.timeZone` when its options name no zone.
+- Changed a zoneless timestamp string without seconds, such as `"2026-10-07T10:00"`, to stay text instead of reading as a date.
+- Changed the Redis realtime and rate-limit drivers to accept ioredis 6 as well as 5.
+- Fixed an unhandled rejection when the Redis realtime driver unsubscribes on a closed or failed connection; it now logs the reason.
+- Added `labels.form.taken`, `conflict`, `missingReference`, `missingLink` and `inUse` for writes the database refuses, with Russian text.
+- Changed `reportUnexpectedError` to log the error once with `console.error` and its request id when no `hooks.onError` is set; before, nothing was logged. In production the log keeps only the first line of the error and its cause, so query parameters stay out of it.

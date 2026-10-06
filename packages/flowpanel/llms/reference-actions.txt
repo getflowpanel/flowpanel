@@ -65,8 +65,9 @@ that row.
 
 ### BulkAction
 
-Runs on the selection. `run` receives the IDs. Over 1000 IDs the route answers
-`422 too many ids (max 1000)` and `run` does not execute.
+Runs on the selection. `run` receives the IDs. `max` caps the selection, 1000 by
+default and at most 10000; over it the route answers `422 too many ids (max N)` and
+`run` does not execute.
 
 `BulkAction`
 
@@ -81,9 +82,9 @@ Runs on the selection. `run` receives the IDs. Over 1000 IDs the route answers
 | `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
 | `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
 | `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
-| `max?` | `number` | Maximum selected ids accepted by this action. Default: `1000`. |
+| `max?` | `number` | Maximum selected ids accepted by this action, from 1 to 10000. Default: `1000`. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `run` | `(ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler, given every selected id. Capped at 1000 ids per call. |
+| `run` | `(ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler, given every selected id, never more than `max`. |
 
 `bulkAction<Row, Input>()` types the form input. With delete enabled and no
 `bulkActions`, a default bulk delete is added; `bulkActions: []` removes it.
@@ -174,7 +175,8 @@ What every `run` returns.
 
 `ActionInput` defaults to `Record<string, unknown>`. `{ ok: false, error }` shows
 `error` to the operator as written. A thrown `FlowpanelError` keeps its status;
-anything else becomes a logged `500`.
+anything else becomes a `500` and goes to `hooks.onError`, or, without a hook, to one
+`console.error` line with its request id.
 
 ### ActionContext
 

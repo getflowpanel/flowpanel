@@ -61,10 +61,12 @@ export default [
 In a `"use client"` file, flags imports of:
 
 - `server-only` and any `*/server-only` specifier;
-- an app-local path containing a `/server/` segment, or ending in `/server`;
-- `@/db` and `@/db/…`, plus the `~/db`, `src/db` and `./db` variants.
+- any specifier with a `/server` segment, such as `@/server/lib/auth` or
+  `react-dom/server`, except `next/server`;
+- an app-local path (`@/`, `~/`, `./`, `../`, `src/`) with a `db` segment, such as
+  `@/db` or `../lib/db/client`.
 
-Package entry points such as `next/server` and `import type` are ignored.
+`import type` is ignored.
 
 #### `audit-row-action-needs-confirm`
 
@@ -91,7 +93,8 @@ actions: [
 
 Flags two `resource()` entries in one `defineAdmin` with the same name, read from a
 literal `options.name` or a string ref. Identifiers resolve through a
-`const x = resource(…)` in the same file.
+`const x = resource(…)` in the same file; the same unresolved identifier listed
+twice is flagged too.
 
 #### `prefer-shorthand-filter`
 
@@ -117,5 +120,6 @@ filters: [{ field: "status", type: "select", options: ["active", "archived"] }];
 
 #### `no-typo-column-keyword`
 
-Flags the lower-case slips `userid`, `createdat`, `updatedat` and `isactive` in
-`columns`, for untyped rows. Not autofixable.
+Flags `userid`, `createdat`, `updatedat` and `isactive`, in any casing other than
+the camelCase one, in `columns`. The rule reads the source only, so it also catches
+them where the rows are untyped. Not autofixable.

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { basename, join } from "node:path";
-import type { Project } from "ts-morph";
+import { basename, dirname, join, resolve } from "node:path";
+import { type Project, SyntaxKind } from "ts-morph";
+import { readCompatibility } from "../../apps/site/src/shared/lib/compatibility";
 import { siteConfig } from "../../apps/site/src/shared/lib/site-config";
 import { createProgram } from "../../packages/cli/src/program";
 import { buildCliReference, type CliCommandDoc } from "./cli-metadata";
@@ -21,6 +22,11 @@ const HOLD_PATTERN = /@@flowpanel-block-(\d+)@@/g;
 const TYPED_COMPONENT = /<(?:AutoTypeTable|ApiSignature)\b[^<>]*?\bname="([^"]+)"[^<>]*?\/>/g;
 const TYPE_TABLE = /<AutoTypeTable\b([^<>]*?)\/>/g;
 const CLI_REFERENCE = /<CliReference\b([^<>]*?)\/>/g;
+const COMPATIBILITY = /<Compatibility\s*\/>/g;
+const THEME_SLOTS = /<ThemeSlots\s*\/>/g;
+const INCLUDE = /^[ \t]*<include(?:\s[^>]*)?>([^<]+\.(tsx?))<\/include>[ \t]*$/gm;
+const ADAPTER_TAB = /^[ \t]*<AdapterTab\s+adapter="([^"]+)">[ \t]*$/gm;
+const THEME_SLOTS_FILE = "packages/react/src/_provider/ComponentsContext.tsx";
 const ATTRIBUTE = /([A-Za-z][\w-]*)="([^"]*)"/g;
 
 export interface DocsPage {
@@ -72,6 +78,7 @@ function stripProse(prose: string): string {
 }
 
 export interface ExpansionContext {
+  root: string;
   siteRoot: string;
   project: Project;
   cli: CliCommandDoc[];
@@ -100,13 +107,53 @@ function renderCliReference(cli: CliCommandDoc[], name: string | undefined): str
   return commands.map(renderCliCommand).join("\n\n");
 }
 
+function renderCompatibility(root: string): string {
+  const rows = readCompatibility(root).map(
+    (item) => `| ${item.requirement} | \`${item.range}\` | ${item.note} |`,
+  );
+  return ["| Requirement | Supported range | Note |", "| --- | --- | --- |", ...rows].join("\n");
+}
+
+function renderThemeSlots(context: ExpansionContext): string {
+  const file = join(context.root, THEME_SLOTS_FILE);
+  const source = context.project.getSourceFile(file) ?? context.project.addSourceFileAtPath(file);
+  const rows = source
+    .getDescendantsOfKind(SyntaxKind.InterfaceDeclaration)
+    .filter((declaration) => declaration.getName() === "FlowpanelComponentSlots")
+    .flatMap((declaration) => declaration.getProperties())
+    .map((property) => ({
+      name: property.getName(),
+      type: property.getTypeNode()?.getText() ?? property.getType().getText(property),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(
+      (slot) =>
+        `| \`${slot.name}\` | \`${slot.type.replace(/\s+/g, " ").replaceAll("|", "\\|")}\` |`,
+    );
+  return ["| Slot | Component contract |", "| --- | --- |", ...rows].join("\n");
+}
+
+/** Inlines `<include>` snippets as fenced code, the way the site's raw docs do. */
+export function expandIncludes(body: string, directory: string): string {
+  return body.replace(INCLUDE, (_match, target: string, language: string) => {
+    const code = readFileSync(resolve(directory, target.trim()), "utf8");
+    return `\`\`\`${language}\n${code.trimEnd()}\n\`\`\``;
+  });
+}
+
 function expandComponents(
   masked: string,
   context: ExpansionContext | undefined,
   hold: (text: string) => string,
 ): string {
-  if (!context) return masked;
-  return masked
+  const tabbed = masked.replace(
+    ADAPTER_TAB,
+    (_match, adapter: string) => `#### ${adapter.charAt(0).toUpperCase()}${adapter.slice(1)}\n`,
+  );
+  if (!context) return tabbed;
+  return tabbed
+    .replace(COMPATIBILITY, () => hold(renderCompatibility(context.root)))
+    .replace(THEME_SLOTS, () => hold(renderThemeSlots(context)))
     .replace(TYPE_TABLE, (_match, attrs: string) => {
       const { path, name } = attributes(attrs);
       if (!path || !name) return "";
@@ -161,7 +208,7 @@ export function readPages(root: string, section: string, context: ExpansionConte
   });
   return files.map((file) => {
     const { data, body } = parseFrontmatter(readFileSync(file, "utf8"));
-    const { text, types } = stripMdx(body, context);
+    const { text, types } = stripMdx(expandIncludes(body, dirname(file)), context);
     return {
       title: data.title ?? basename(file, ".mdx"),
       description: data.description ?? "",
@@ -197,7 +244,7 @@ export function header(root: string, source = "the reference documentation"): st
   return [
     `# ${siteConfig.name}`,
     "",
-    `> ${siteConfig.description}`,
+    `> ${siteConfig.seo.description}`,
     ...(description ? [`> ${description}.`] : []),
     "",
     "```bash",
@@ -217,6 +264,7 @@ export function header(root: string, source = "the reference documentation"): st
 /** The type project and CLI reference that `<AutoTypeTable>` and CLI blocks expand against. */
 export function expansionContext(root: string): ExpansionContext {
   return {
+    root,
     siteRoot: join(root, "apps/site"),
     project: createTypeProject(root),
     cli: buildCliReference(createProgram()),
@@ -235,12 +283,31 @@ export function normalize(text: string): string {
     .trimEnd();
 }
 
+const UNEXPANDED = /<include\b|<Compatibility\b|<ThemeSlots\b|^> undefined$/m;
+
+/** Flags MDX the generator copied through instead of expanding. */
+export function unexpanded(file: string, text: string): DocsProblem[] {
+  const match = UNEXPANDED.exec(text);
+  if (!match) return [];
+  return [
+    {
+      code: "llms-unexpanded",
+      file,
+      line: text.slice(0, match.index).split("\n").length,
+      message: `${file} contains \`${match[0]}\` instead of the content it stands for.`,
+      suggestion: "Expand the component in scripts/docs/generate-llms.ts.",
+    },
+  ];
+}
+
 export function checkLlms(root: string, context?: ExpansionContext): DocsProblem[] {
   const file = join(root, LLMS_FILE);
   const generated = generateLlmsText(root, context);
+  const problems = unexpanded(LLMS_FILE, generated);
   const current = existsSync(file) ? readFileSync(file, "utf8") : "";
-  if (normalize(current) === normalize(generated)) return [];
+  if (normalize(current) === normalize(generated)) return problems;
   return [
+    ...problems,
     {
       code: "llms-stale",
       file: LLMS_FILE,

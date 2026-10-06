@@ -6,7 +6,7 @@ What FlowPanel needs from a database layer, method by method.
 
 Docs: https://flowpanel.tech/docs/reference/adapters
 
-Documented types: Adapter, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions, BullMQAdapterOptions, toCsv, toJson
+Documented types: Adapter, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions, toCsv, toJson
 
 The adapter is the only part of FlowPanel that queries your database. Implement
 this interface for a data layer without a shipped adapter. Overview:
@@ -117,19 +117,20 @@ Returned by `introspect`. `kind: "view"` makes a resource read-only unless it se
 | `hasDefault?` | `boolean` | The database or ORM fills the column when the insert omits it. |
 | `sensitive?` | `boolean` | Adapter-discovered secret. Always excluded from generated read projections. |
 
-`type` is read only by a fully generated form (no `create.fields` or
-`update.fields`):
+`type` and `enumValues` drive a fully generated form (no `create.fields` or
+`update.fields`) and editable list cells:
 
-| `ColumnMeta.type` | Generated form control |
-| --- | --- |
-| `number` | `number` |
-| `boolean` | `checkbox` |
-| `date` | `datetime-local` |
-| `json` | `json` |
-| `string`, `enum`, `array`, `reference` | `text` |
+| Column | Generated form control | Editable cell |
+| --- | --- | --- |
+| has `enumValues` | `select` | text |
+| `number` | `number` | `number` |
+| `boolean` | `checkbox` | text |
+| `date` | `datetime-local` | `datetime-local` |
+| `json` | `json` | text |
+| anything else | `text` | text |
 
-Filters and declared fields do not infer a type from the column. `enumValues` and
-`references` are reported for your own use.
+Filters and declared fields do not infer a type from the column. `references` is
+reported for your own use.
 
 ### What an implementation must honor
 
@@ -165,13 +166,12 @@ column rather than remove the row.
 | `dmmf?` | `PrismaDmmf` |  |
 | `parseDates?` | `boolean` | Reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s; turn off if a text column holds timestamp-shaped strings `select *` cannot cast. Default: `true`. |
 
-`BullMQAdapterOptions`
+`prismaAdapter` needs `provider`, a `PrismaProvider`: `"postgresql"`, `"mysql"` or
+`"sqlite"`. An adapter may also implement `transaction(run)`; both built-in
+adapters do, and the built-in bulk delete uses it so a failure deletes nothing.
 
-| Property | Type | Notes |
-| --- | --- | --- |
-| `queues` | `Record<string, Queue>` |  |
-
-`bullmqAdapter` takes the queue map itself: `bullmqAdapter({ email: emailQueue })`.
+`bullmqAdapter` takes the queue map itself, with no options object:
+`bullmqAdapter({ email: emailQueue })`.
 
 ### Also exported
 
@@ -191,5 +191,6 @@ The parts each adapter is built from:
 
 Standalone row serializers from `@flowpanel/kit/drizzle`.
 
-Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines and
-writes `Date`s as ISO.
+Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines,
+writes `Date`s as ISO, and prefixes a value starting with `=`, `+`, `-`, `@`, a tab
+or a carriage return with `'`, so a spreadsheet does not run it as a formula.

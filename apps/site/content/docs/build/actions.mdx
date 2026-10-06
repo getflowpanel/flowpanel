@@ -41,7 +41,7 @@ resource(schema.users, { columns: ["email", "status"], actions: [suspend] });
 - A drawer action sits in the drawer footer beside the open row.
 - A dashboard action receives only its form input and sits in the dashboard header.
 
-Actions are secondary buttons. Give the one action a screen is for `emphasis: "primary"`, or `update: { emphasis: "primary" }` for the Edit button.
+Actions render as secondary buttons. A dashboard action takes `emphasis: "primary"` to become the filled button, and `update: { emphasis: "primary" }` does the same for the record page's Edit button. Row, bulk and drawer actions have no emphasis option.
 
 ## Authorization
 

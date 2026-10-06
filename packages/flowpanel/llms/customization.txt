@@ -50,15 +50,15 @@ columns: [
   {
     field: "customerId",
     label: "Customer",
-    render: async (order, ctx) => {
+    render: async (order) => {
       const customer = await findCustomer(db, order.customerId);
-      return <a href={`/admin/customers/${customer.id}`}>{customer.email}</a>;
+      return customer ? <strong>{customer.email}</strong> : "Unknown customer";
     },
   },
 ]
 ```
 
-`render` runs on the server with the row and request context. For a foreign key to another resource, a `reference` gives the link and label without a query per cell.
+`render` runs on the server with the row and the request context as its second argument. For a foreign key to another resource, a `reference` gives the link and label without a query per cell.
 
 ### An interactive cell
 
@@ -214,7 +214,7 @@ lineChart("Signups", async ({ db, dateRange }) => {
 
 The query runs on the server and returns a flat array: one `x` value and numeric series per row. Use `series()` to bucket rows by time and fill gaps; see [Dashboards](/docs/build/dashboards#one-query-several-widgets).
 
-Without `y`, a chart plots every numeric key of its rows except `x`. `labels` names the series (a map, an `enumOf()` or a function). One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y` order, and `colors` pins a series to a colour.
+Without `y`, a chart widget plots every numeric key of its rows except `x`; that inference runs on the server. `labels` names the series (a map, an `enumOf()` or a function). One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y` order, and `colors` pins a series to a colour.
 
 ### Client data
 
@@ -227,6 +227,8 @@ export function Preview({ data }: { data: Array<{ day: string; count: number }> 
   return <LineChart data={data} options={{ x: "day", y: "count" }} />;
 }
 ```
+
+The client components in `@flowpanel/kit/charts/runtime` do not infer series: pass `y` (one key or a list).
 
 Every option: [Charts reference](/docs/reference/widgets#charts).
 
@@ -307,7 +309,7 @@ Place it in the document head with the same default mode as the config. A stored
 
 ### Use FlowPanel tokens in your own Tailwind classes
 
-A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. Import the token bridge after Tailwind and point `@source` at your admin code:
+A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. In the CSS file that imports Tailwind, such as `app/globals.css`, import the token bridge after Tailwind and point `@source` at your admin code, relative to that file:
 
 ```css
 @import "@flowpanel/kit/styles/admin.css";
@@ -326,12 +328,14 @@ The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `i
 A theme slot replaces one component everywhere FlowPanel renders it:
 
 ```tsx excerpt
+"use client";
+
 import { forwardRef } from "react";
-import type { ButtonProps } from "@flowpanel/kit/react";
+import { type ButtonProps, cn, DefaultButton } from "@flowpanel/kit/react";
 
 export const ProductButton = forwardRef<HTMLButtonElement, ButtonProps>(
   function ProductButton({ className, ...props }, ref) {
-    return <button ref={ref} className={`product-button ${className ?? ""}`} {...props} />;
+    return <DefaultButton ref={ref} className={cn("product-button", className)} {...props} />;
   },
 );
 ```
@@ -347,7 +351,20 @@ export default defineAdmin({
 });
 ```
 
-`theme.components` is typed by `FlowpanelComponentSlots`. Keep the slot's full prop contract: forward refs, pass accessibility attributes through, and keep loading and disabled states. Import each prop type from `@flowpanel/kit/react`.
+`theme.components` is typed by `FlowpanelComponentSlots`. A slot component must be a client component (`"use client"`). Keep the slot's full prop contract: forward refs, pass accessibility attributes through, and keep `variant`, `size`, `asChild` and `disabled` working. Wrapping the default renderer, as above, keeps all of them. Import each prop type from `@flowpanel/kit/react`.
+
+| Slot | Component contract |
+| --- | --- |
+| `Avatar` | `import("react").ComponentType<AvatarProps>` |
+| `Badge` | `import("react").ComponentType<BadgeProps>` |
+| `Button` | `import("react").ComponentType<ButtonProps>` |
+| `ConfirmDialog` | `import("react").ComponentType<ConfirmDialogProps>` |
+| `EmptyState` | `import("react").ComponentType<EmptyStateProps>` |
+| `MetricCard` | `import("react").ComponentType<MetricCardProps>` |
+| `PageHeader` | `import("react").ComponentType<PageHeaderProps>` |
+| `Pagination` | `import("react").ComponentType<PaginationProps>` |
+| `SkeletonTable` | `import("react").ComponentType<SkeletonTableProps>` |
+| `StatusBadge` | `import("react").ComponentType<StatusBadgeProps>` |
 
 `FlowpanelComponentSlots` can be augmented with your own keys for custom widgets; FlowPanel's own UI reads only the keys above.
 
@@ -359,7 +376,7 @@ Transfer a resource, dashboard, or layout from generated behavior to application
 
 Docs: https://flowpanel.tech/docs/customization/eject
 
-`flowpanel eject` writes a starting scaffold for a resource, dashboard or layout into your app and turns off the generated one. From then on the code is yours and gets no FlowPanel updates. Try a [smaller extension point](/docs/customization/overview) first.
+`flowpanel eject` writes a starting scaffold for a resource, dashboard or layout into your app, and Next.js serves your files instead of the generated ones. From then on the code is yours and gets no FlowPanel updates. Try a [smaller extension point](/docs/customization/overview) first.
 
 ### Eject a resource
 
@@ -368,9 +385,9 @@ pnpm flowpanel eject resource users --dry-run
 pnpm flowpanel eject resource users
 ```
 
-`--dry-run` prints the plan. The command writes list, create, detail, edit and action stubs under `app/admin/users`, then comments out the matching `resource(...)` entry. The stubs are a starting point: queries, policies and UI states are yours to implement. File headers record the FlowPanel version.
+`--dry-run` prints the plan. The command writes list, create, detail, edit and action stubs under the admin mount (`paths.admin`, so `app/admin/users` by default). Next.js serves those files instead of the generated pages. The `resource(...)` entry stays in the config: `actions.ts` reads and writes rows through it, so access rules and scope still apply. The stubs are a starting point: queries and UI states are yours to implement. When next.config turns on `cacheComponents`, each ejected page exports `instant = false` so it can read the database before it renders; drop it once you wrap the data access in `<Suspense>`. File headers record the FlowPanel version. An ejected page renders outside FlowPanel's page, so it has none of the providers or the `data-flowpanel-root` element the admin stylesheet targets; wrap it in `FlowpanelGlobals` from `@flowpanel/kit/react` to use FlowPanel components there.
 
-`eject` follows a root config that re-exports another module, and a `resources` directory written by `flowpanel new --dir`, where it comments out the call in the file that defines it.
+`eject` finds the resource in a root config that re-exports another module, and in a `resources` directory written by `flowpanel new --dir`.
 
 ### Eject a dashboard or layout
 
@@ -379,7 +396,9 @@ pnpm flowpanel eject dashboard /monitoring
 pnpm flowpanel eject layout
 ```
 
-A dashboard becomes one page at its path and its config entry is turned off. A layout becomes an admin `layout.tsx` that wraps the FlowPanel pages; resources and dashboards stay in config.
+A dashboard becomes one page at its path and its config entry is commented out.
+
+A layout becomes the admin's `layout.tsx` with `AdminShell` around the FlowPanel pages, keeping the `admin.css` import and `ThemeScript`, plus `export const instant = false` when next.config turns on `cacheComponents`; resources and dashboards stay in config. `init` already wrote a layout there, so `eject layout` stops unless you pass `--force`. Set `shell: "bare"` in the config afterwards, or the pages draw a second shell inside yours.
 
 ### Existing files
 
@@ -387,6 +406,6 @@ The command stops if a target file exists. `--force` overwrites it.
 
 ### Reverse an eject
 
-Restore the config entry and delete or move the ejected route. Next.js file routing takes precedence over the catch-all page, so the route must go.
+Delete or move the ejected route: Next.js file routing takes precedence over the catch-all page. For a dashboard, also uncomment its config entry.
 
 Every flag: [flowpanel eject](/docs/reference/cli#flowpanel-eject).

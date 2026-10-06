@@ -10,4 +10,9 @@ export const OPTION_ALLOWLIST: OptionAllowlistEntry[] = [
     member: "$inferSelect",
     reason: "Drizzle's own table brand, matched by a conditional type and never read at runtime.",
   },
+  {
+    type: "InferNamedRow",
+    member: "$inferSelect",
+    reason: "Drizzle's own table brand, matched by a conditional type and never read at runtime.",
+  },
 ];

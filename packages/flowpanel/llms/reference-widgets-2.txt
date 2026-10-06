@@ -274,7 +274,8 @@ stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 | `options` | `SelectOption[] \| EnumDef \| ((ctx: WidgetContext) => Promise<SelectOption[]>)` | The choices: a list, an `enumOf()`, or a function of the context. |
 
 `filters` adds a select per entry beside the date picker, stored in the URL as
-`f_<key>`. `options` takes a list, an `enumOf()` or a function.
+`f_<key>`. `options` takes `SelectOption[]`, an `enumOf()`, or a function of the
+widget context; a plain string list is not accepted.
 
 `filterOnClick: "<key>"` on `bars`, `tracker` or `table` sets that filter on click,
 replacing the row's link. It is rejected on a record page or in a drawer.

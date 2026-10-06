@@ -29,34 +29,43 @@ With `@flowpanel/kit`, import from `@flowpanel/kit/client`.
 
 ### Create a client
 
-Pass the server runtime's serializable metadata to the browser client:
+The client needs the runtime's metadata: `createFlowpanel(config).client`. Read it in a Server Component and pass it to the client component as a prop, so the config, adapter and database client stay on the server:
 
-```ts excerpt
-// server module
+```tsx excerpt
+// app/orders/page.tsx
 import { createFlowpanel } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
+import { OrdersPanel } from "./orders-panel";
 
-export const flowpanel = createFlowpanel(config);
-export const flowpanelMetadata = flowpanel.client;
+const flowpanel = createFlowpanel(config);
+
+export default function OrdersPage() {
+  return <OrdersPanel metadata={flowpanel.client} />;
+}
 ```
 
 ```tsx excerpt
+// app/orders/orders-panel.tsx
 "use client";
 
-import { createFlowpanelClient } from "@flowpanel/kit/client";
-import { flowpanelMetadata } from "./runtime";
+import { createFlowpanelClient, type FlowpanelClientMetadata } from "@flowpanel/kit/client";
 
-const client = createFlowpanelClient(flowpanelMetadata);
-const orders = client.resource<Order>("orders");
-const result = await orders.list({
-  page: 1,
-  pageSize: 25,
-  search: "acme",
-  filters: { status: "open" },
-});
-
-if (!result.ok) {
-  console.error(result.error.code, result.error.message);
+export function OrdersPanel({ metadata }: { metadata: FlowpanelClientMetadata }) {
+  async function loadOpenOrders() {
+    const orders = createFlowpanelClient(metadata).resource<Order>("orders");
+    const result = await orders.list({
+      page: 1,
+      pageSize: 25,
+      search: "acme",
+      filters: { status: "open" },
+    });
+    if (!result.ok) console.error(result.error.code, result.error.message);
+  }
+  return (
+    <button type="button" onClick={loadOpenOrders}>
+      Load open orders
+    </button>
+  );
 }
 ```
 
@@ -98,7 +107,7 @@ isFlowpanelErrorCode("anything"); // false
 
 ### Mutation state hook
 
-`useAdminMutation` tracks pending and error state for an async function.
+`useAdminMutation` tracks pending and error state for an async function that resolves to an `ActionResult` (`{ ok: true, ... }` or `{ ok: false, error }`).
 
 ```tsx excerpt
 "use client";
@@ -134,5 +143,5 @@ export function ArchiveButton({ id }: { id: string }) {
 | `onSuccess?` | `(result: Extract<ActionResult, { ok: true }>) => void` |  |
 | `onError?` | `(message: string) => void` |  |
 
-`run` never throws: a rejection or `{ ok: false }` sets `error`. `reset()` clears
+`run` never throws: a rejection sets `error` to its message, and `{ ok: false, error }` sets `error` to that string. `reset()` clears
 it. For optimistic values, see [`useOptimisticAction`](/docs/reference/react-components#hooks).

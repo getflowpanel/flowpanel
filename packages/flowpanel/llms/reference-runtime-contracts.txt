@@ -85,8 +85,9 @@ to the four `ResourceOperation` values: `read`, `create`, `update`, `delete`.
 
 - `filterReadableProjection(fields, policy, context)` removes fields the
   caller may not read before the adapter query is built.
-- `assertWritableInput(input, knownFields, policy, context)` rejects unknown,
-  sensitive or forbidden writes. It does not silently drop them.
+- `assertWritableInput({ declaredFields, policies, input, context })` resolves to
+  the input as `Partial<Row>`. It throws on an unknown, sensitive or forbidden
+  field; it never drops one silently.
 
 ### Bound adapter scope
 
@@ -127,7 +128,8 @@ code-to-HTTP-status table.
   redacts unexpected failures to `internal`.
 - `resultResponse(result)` produces a JSON `Response` with the canonical status.
 - `reportUnexpectedError(error, context, onError)` invokes `hooks.onError` at
-  most once for the same error object. `ErrorContext` includes request,
+  most once for the same error object, and skips a `FlowpanelError` entirely.
+  Without `onError` it logs the error once with `console.error` and the request id. `ErrorContext` includes request,
   operation, actor, IP and user-agent diagnostics but no submitted secrets.
 
 An action should throw a FlowPanel error or return an `ActionResult` rather than

@@ -34,7 +34,6 @@ export default flowpanel.page;
 import { flowpanel } from "@/src/flowpanel";
 
 export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
-export const runtime = "nodejs";
 ```
 
 `createFlowpanel(definition)` returns a frozen `FlowpanelRuntime`:
@@ -42,12 +41,14 @@ export const runtime = "nodejs";
 | Member | Purpose |
 | --- | --- |
 | `page` | Generated catch-all page component. |
-| `metadata` | The page's `generateMetadata`: a `title` per dashboard, list and record. |
+| `metadata` | The page's `generateMetadata`: a `title` per dashboard, list, record and form ("New user", "Edit user"), or the sign-in or access-denied wall's, and `noindex`. |
+| `notFound` | The admin's not-found screen, titled "Page not found": `export default flowpanel.notFound;` in `not-found.tsx`. It answers 404, or 200 under `cacheComponents`, where Next has already streamed the static shell. |
+| `notFoundMetadata` | The not-found page's metadata, "Page not found" and `noindex`: `export const metadata = flowpanel.notFoundMetadata;` in `not-found.tsx` titles the server's HTML, not only the page after it loads. |
 | `handlers` | `FlowpanelHandlers` for REST and generated-UI routes. |
 | `request()` | Current request's protected `FlowpanelRequest`. |
 | `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/client`. |
 | `events.publish(channel, payload?)` | Namespaced, validated realtime event. |
-| `dispose()` | Idempotent runtime cleanup hook. |
+| `dispose()` | Stops this runtime's `events.publish`. Idempotent. The process-wide publisher stays open for other runtimes. |
 
 `events.publish` payloads must serialize to `WireValue` and stay under 64 KiB.
 `FlowpanelClientMetadata` holds only paths and protocol data.
@@ -56,7 +57,8 @@ export const runtime = "nodejs";
 
 `await flowpanel.request()` authenticates once and returns a `FlowpanelRequest`
 with a typed `ResourceController<Row>` per resource (`resource(name)` for a
-dynamic name). `ResourceListOptions<Row>` takes page, page size, search, filters,
+dynamic name), `dashboard(path).action(key, input?)` for a dashboard action, and
+the `requestId`. `ResourceListOptions<Row>` takes page, page size, search, filters,
 sort, projection and soft-delete visibility.
 
 ```ts excerpt
@@ -77,8 +79,8 @@ generated UI. Do not reuse a `FlowpanelRequest` across requests.
 <ApiSignature path="../../packages/next/src/flowpanel-page.tsx" name="Flowpanel" />
 
 `Flowpanel(config)` is the page factory behind `createFlowpanel(config).page`. A
-wrapper must forward both `params` and `searchParams`. The first array-valued
-param is the catch-all, whatever the folder is named.
+wrapper must forward both `params` and `searchParams`. The catch-all is the `slug`
+param, else `rest`, else the first array-valued param, whatever the folder is named.
 
 ```ts excerpt
 // app/admin/[[...slug]]/page.tsx
@@ -149,8 +151,9 @@ All paths are relative to `/api/flowpanel`.
 | `POST` | `/drawer/<resource>/<id>/actions/<action>` | Drawer action |
 | `POST` | `/dashboards/<path>/actions/<action>` | Dashboard action |
 
-Each runs the admin role gate and rate limit, the resource gate, read-only mode
-for writes, and the action's `access`, in that order.
+Each runs, in order: the same-origin check for writes, the admin role gate and
+rate limit, read-only mode for writes, the resource gate and its `access`, a
+dashboard's `requireRole`, and the action's `access`.
 
 ## stream
 
@@ -173,8 +176,6 @@ import { stream } from "@flowpanel/kit/next";
 import config from "@/flowpanel.config";
 
 export const GET = stream(config);
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 ```
 
 `flowpanel init` writes this file.
@@ -253,8 +254,8 @@ Action routes serialize actions for the client without server-only fields:
 | `RowAction` | `serializeRowAction` | `SerializedRowAction` |
 | `BulkAction` | `serializeBulkAction` | `SerializedBulkAction` |
 | `DashboardAction` | `serializeDashboardAction` | `SerializedDashboardAction` |
-| Drawer action | — (inline in `drawerRoute`) | `SerializedDrawerAction` |
-| Drawer tab | — (inline in `drawerRoute`) | `SerializedDrawerTab` |
+| Drawer action | none, inline in `drawerRoute` | `SerializedDrawerAction` |
+| Drawer tab | none, inline in `drawerRoute` | `SerializedDrawerTab` |
 
 `SerializedDashboardAction.form` is a `SerializedDashboardActionField[]`.
 
@@ -304,13 +305,14 @@ Builds the `RequestContext`. It enforces `auth.requireRole` and the rate limit, 
 it throws `FlowpanelAccessError` or `FlowpanelRateLimitError`:
 
 ```ts excerpt
+import { FlowpanelError, type RequestContext } from "@flowpanel/kit";
 import { buildRequestContext } from "@flowpanel/kit/next";
 
-let reqCtx;
+let reqCtx: RequestContext;
 try {
   reqCtx = await buildRequestContext({ req, config });
 } catch (err) {
-  // FlowpanelError carries the right status
+  if (!(err instanceof FlowpanelError)) throw err;
   return Response.json({ ok: false, error: err.safeMessage }, { status: err.status });
 }
 ```
@@ -331,10 +333,10 @@ these through `@flowpanel/test/widgets`; see [Testing](/docs/reference/testing#u
 ## Navigation
 
 ```ts excerpt
-function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): NavGroup[];
+function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): Promise<NavGroup[]>;
 function resourceNavName(resource: ResourceConfig): string;
 ```
 
-`buildNav` returns the sidebar entries, for your own chrome around a `"bare"`
+`buildNav` resolves to the sidebar entries, for your own chrome around a `"bare"`
 shell. Pass `reqCtx` to apply each entry's `requireRole` or resource `access`. `resourceNavName` returns
 a resource's resolved name and throws if it cannot.

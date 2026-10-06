@@ -147,6 +147,14 @@ export function checkApi(root: string, options: CheckApiOptions = {}): DocsProbl
         ? (project.getSourceFile(path) ?? project.addSourceFileAtPath(path))
         : undefined;
       const exported = sourceFile?.getExportSymbols().some((symbol) => symbol.getName() === name);
+      if (match[1] === "ApiSignature" && exported && !exportedNames.has(name))
+        problems.push({
+          code: "api-component-public",
+          file: display,
+          line: lineAt(source, match.index),
+          message: `${match[1]} documents ${name}, which no package entry exports.`,
+          suggestion: "Document a public export or remove the block.",
+        });
       if (!exported)
         problems.push({
           code: "api-component-symbol",
