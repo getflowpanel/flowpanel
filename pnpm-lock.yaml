@@ -231,9 +231,6 @@ importers:
       '@flowpanel/kit':
         specifier: workspace:*
         version: link:../../packages/flowpanel
-      '@flowpanel/react':
-        specifier: workspace:*
-        version: link:../../packages/react
       bullmq:
         specifier: 'catalog:'
         version: 6.3.11(ioredis@6.0.0)(pg@8.23.1)
@@ -259,9 +256,6 @@ importers:
         specifier: 'catalog:'
         version: 4.6.5
     devDependencies:
-      '@flowpanel/test':
-        specifier: workspace:*
-        version: link:../../packages/test
       '@tailwindcss/postcss':
         specifier: 'catalog:'
         version: 4.3.3
@@ -301,18 +295,9 @@ importers:
       '@clerk/nextjs':
         specifier: ^7.9.11
         version: 7.9.11(next@16.4.0(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@flowpanel/adapter-drizzle':
-        specifier: workspace:*
-        version: link:../../packages/adapter-drizzle
-      '@flowpanel/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@flowpanel/kit':
         specifier: workspace:*
         version: link:../../packages/flowpanel
-      '@flowpanel/react':
-        specifier: workspace:*
-        version: link:../../packages/react
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.3(@prisma/client@7.7.0(prisma@5.22.0)(typescript@5.9.3))(@types/better-sqlite3@9.6.0)(@types/pg@8.23.1)(better-sqlite3@13.0.3)(mysql2@3.24.5(@types/node@22.20.5))(pg@8.23.1)(postgres@3.4.9)(prisma@5.22.0)
@@ -391,7 +376,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5)(jsdom@30.1.2)(vite@8.3.3(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+        version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5)(jsdom@30.1.2)(vite@8.3.3(@types/node@22.20.5)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/adapter-drizzle:
     dependencies:
@@ -480,7 +465,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5)(jsdom@30.1.2)(vite@8.3.3(@types/node@22.20.5)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+        version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5)(jsdom@30.1.2)(vite@8.3.3(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -493,6 +478,9 @@ importers:
       '@flowpanel/react':
         specifier: workspace:*
         version: link:../react
+      recharts:
+        specifier: 'catalog:'
+        version: 3.10.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@18.3.1)(react@19.3.0)(redux@5.0.1)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -503,9 +491,6 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.3.0
-      recharts:
-        specifier: 'catalog:'
-        version: 3.10.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@18.3.1)(react@19.3.0)(redux@5.0.1)
       tsup:
         specifier: 'catalog:'
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.29)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)
@@ -637,9 +622,9 @@ importers:
       '@axe-core/playwright':
         specifier: 'catalog:'
         version: 4.13.0(playwright-core@1.63.0)
-      '@flowpanel/test':
+      '@flowpanel/kit':
         specifier: workspace:*
-        version: link:../test
+        version: link:../flowpanel
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.63.0
@@ -677,11 +662,78 @@ importers:
 
   packages/flowpanel:
     dependencies:
+      '@conform-to/react':
+        specifier: ^1.21.1
+        version: 1.21.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@conform-to/zod':
+        specifier: ^1.21.1
+        version: 1.21.1(zod@4.6.5)
+      '@prisma/client':
+        specifier: '>=5.0.0 <7.0.0'
+        version: 5.22.0(prisma@5.22.0)
+      '@radix-ui/react-alert-dialog':
+        specifier: ^1.1.24
+        version: 1.1.24(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@radix-ui/react-checkbox':
+        specifier: ^1.3.12
+        version: 1.3.12(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@radix-ui/react-dialog':
+        specifier: ^1.2.0
+        version: 1.2.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@radix-ui/react-dropdown-menu':
+        specifier: ^2.1.25
+        version: 2.1.25(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@radix-ui/react-label':
+        specifier: ^2.1.16
+        version: 2.1.16(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@radix-ui/react-popover':
+        specifier: ^1.2.0
+        version: 1.2.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@radix-ui/react-select':
+        specifier: ^2.3.8
+        version: 2.3.8(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@radix-ui/react-slot':
+        specifier: ^1.4.0
+        version: 1.4.0(@types/react@19.3.0)(react@19.3.0)
+      '@radix-ui/react-switch':
+        specifier: ^1.3.8
+        version: 1.3.8(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@radix-ui/react-tabs':
+        specifier: ^1.1.22
+        version: 1.1.22(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: 'catalog:'
+        version: 2.1.1
+      cmdk:
+        specifier: ^1.1.1
+        version: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      drizzle-zod:
+        specifier: ^0.8.3
+        version: 0.8.3(drizzle-orm@0.45.3(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@9.6.0)(@types/pg@8.23.1)(better-sqlite3@13.0.3)(mysql2@3.24.5(@types/node@22.20.5))(pg@8.23.1)(postgres@3.4.9)(prisma@5.22.0))(zod@4.6.5)
+      lucide-react:
+        specifier: ^1.52.0
+        version: 1.52.0(@types/react@19.3.0)(react@19.3.0)
+      recharts:
+        specifier: 'catalog:'
+        version: 3.10.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@18.3.1)(react@19.3.0)(redux@5.0.1)
+      sonner:
+        specifier: ^2.0.8
+        version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      tailwind-merge:
+        specifier: 'catalog:'
+        version: 3.7.0
+    devDependencies:
+      '@axe-core/playwright':
+        specifier: 'catalog:'
+        version: 4.13.0(playwright-core@1.63.0)
       '@bull-board/api':
-        specifier: '>=6.0.0 <10.0.0'
+        specifier: ^9.10.4
         version: 9.10.4(@bull-board/ui@9.10.4(bullmq@6.3.11(ioredis@6.0.0)(pg@8.23.1))(typescript@5.9.3))(bullmq@6.3.11(ioredis@6.0.0)(pg@8.23.1))(typescript@5.9.3)
       '@bull-board/express':
-        specifier: '>=6.0.0 <10.0.0'
+        specifier: ^9.10.4
         version: 9.10.4(bullmq@6.3.11(ioredis@6.0.0)(pg@8.23.1))(typescript@5.9.3)
       '@flowpanel/adapter-bullmq':
         specifier: workspace:*
@@ -707,40 +759,30 @@ importers:
       '@flowpanel/react':
         specifier: workspace:*
         version: link:../react
-      '@prisma/client':
-        specifier: '>=5.0.0 <7.0.0'
-        version: 5.22.0(prisma@5.22.0)
-      bullmq:
-        specifier: ^5.0.0 || ^6.0.0
-        version: 6.3.11(ioredis@6.0.0)(pg@8.23.1)
-      drizzle-orm:
-        specifier: '>=0.45.2 <1.0.0'
-        version: 0.45.3(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@9.6.0)(@types/pg@8.23.1)(better-sqlite3@13.0.3)(mysql2@3.24.5(@types/node@22.20.5))(pg@8.23.1)(postgres@3.4.9)(prisma@5.22.0)
-      express:
-        specifier: ^4.19.0 || ^5.0.0
-        version: 5.2.1
-      ioredis:
-        specifier: ^5.10.0 || ^6.0.0
-        version: 6.0.0
-      next:
-        specifier: '>=15.5.0 <17.0.0'
-        version: 16.4.0(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      react:
-        specifier: ^19.0.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.3.0(react@19.3.0)
-      recharts:
-        specifier: ^2.15.0 || ^3.0.0
-        version: 3.10.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@18.3.1)(react@19.3.0)(redux@5.0.1)
-      zod:
-        specifier: ^4.0.0
-        version: 4.6.5
-    devDependencies:
+      '@flowpanel/test':
+        specifier: workspace:*
+        version: link:../test
+      '@playwright/test':
+        specifier: 'catalog:'
+        version: 1.63.0
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.5
+      bullmq:
+        specifier: 'catalog:'
+        version: 6.3.11(ioredis@6.0.0)(pg@8.23.1)
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.3(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@9.6.0)(@types/pg@8.23.1)(better-sqlite3@13.0.3)(mysql2@3.24.5(@types/node@22.20.5))(pg@8.23.1)(postgres@3.4.9)(prisma@5.22.0)
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
+      ioredis:
+        specifier: ^6.0.0
+        version: 6.0.0
+      next:
+        specifier: 'catalog:'
+        version: 16.4.0(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       postcss:
         specifier: 'catalog:'
         version: 8.5.29
@@ -750,21 +792,30 @@ importers:
       postcss-value-parser:
         specifier: ^4.2.0
         version: 4.2.0
+      react:
+        specifier: 'catalog:'
+        version: 19.3.0
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.3.0(react@19.3.0)
       tailwindcss3:
         specifier: 'catalog:'
         version: tailwindcss@3.4.19(tsx@4.23.15)(yaml@2.9.1)
-      tsup:
-        specifier: 'catalog:'
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.29)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
         version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5)(jsdom@30.1.2)(vite@8.3.3(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
 
   packages/next:
     dependencies:
+      '@flowpanel/charts':
+        specifier: workspace:*
+        version: link:../charts
       '@flowpanel/core':
         specifier: workspace:*
         version: link:../core
@@ -778,9 +829,6 @@ importers:
         specifier: 'catalog:'
         version: 3.7.0
     devDependencies:
-      '@flowpanel/charts':
-        specifier: workspace:*
-        version: link:../charts
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -925,13 +973,17 @@ importers:
         version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5)(jsdom@30.1.2)(vite@8.3.3(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/test:
+    dependencies:
+      '@flowpanel/core':
+        specifier: workspace:*
+        version: link:../core
+      '@flowpanel/next':
+        specifier: workspace:*
+        version: link:../next
     devDependencies:
       '@axe-core/playwright':
         specifier: 'catalog:'
         version: 4.13.0(playwright-core@1.63.0)
-      '@flowpanel/kit':
-        specifier: workspace:*
-        version: link:../flowpanel
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.63.0
@@ -10014,7 +10066,7 @@ snapshots:
       obug: 2.2.1
       std-env: 4.3.0
       tinyrainbow: 3.2.0
-      vitest: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5)(jsdom@30.1.2)(vite@8.3.3(@types/node@22.20.5)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      vitest: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5)(jsdom@30.1.2)(vite@8.3.3(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   '@vitest/istanbul-lib-coverage@1.0.2': {}
 
@@ -10826,6 +10878,11 @@ snapshots:
       pg: 8.23.1
       postgres: 3.4.9
       prisma: 5.22.0
+
+  drizzle-zod@0.8.3(drizzle-orm@0.45.3(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@9.6.0)(@types/pg@8.23.1)(better-sqlite3@13.0.3)(mysql2@3.24.5(@types/node@22.20.5))(pg@8.23.1)(postgres@3.4.9)(prisma@5.22.0))(zod@4.6.5):
+    dependencies:
+      drizzle-orm: 0.45.3(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@9.6.0)(@types/pg@8.23.1)(better-sqlite3@13.0.3)(mysql2@3.24.5(@types/node@22.20.5))(pg@8.23.1)(postgres@3.4.9)(prisma@5.22.0)
+      zod: 4.6.5
 
   drizzle-zod@0.8.3(drizzle-orm@0.45.3(@prisma/client@7.7.0(prisma@5.22.0)(typescript@5.9.3))(@types/better-sqlite3@9.6.0)(@types/pg@8.23.1)(better-sqlite3@13.0.3)(mysql2@3.24.5(@types/node@22.20.5))(pg@8.23.1)(postgres@3.4.9)(prisma@5.22.0))(zod@4.6.5):
     dependencies:

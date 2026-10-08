@@ -4,16 +4,12 @@ description: Add server-queried chart widgets or render FlowPanel chart componen
 kind: how-to
 ---
 
-Line, area, bar and pie charts render with Recharts, an optional peer. Dashboard builders come from `@flowpanel/kit/charts`; React components for client data from `@flowpanel/kit/charts/runtime`.
-
-```bash
-pnpm add recharts
-```
+Recharts draws the line, area, bar and pie charts and installs with the kit. The chart builders come from `@flowpanel/kit` with the other widgets; the React components for client data come from `@flowpanel/kit/charts`.
 
 ## A dashboard chart
 
 ```ts excerpt
-import { lineChart } from "@flowpanel/kit/charts";
+import { lineChart } from "@flowpanel/kit";
 
 lineChart("Signups", async ({ db, dateRange }) => {
   return findDailySignups(db, dateRange);
@@ -33,13 +29,13 @@ Without `y`, a chart widget plots every numeric key of its rows except `x`; that
 ```tsx excerpt
 "use client";
 
-import { LineChart } from "@flowpanel/kit/charts/runtime";
+import { LineChart } from "@flowpanel/kit/charts";
 
 export function Preview({ data }: { data: Array<{ day: string; count: number }> }) {
   return <LineChart data={data} options={{ x: "day", y: "count" }} />;
 }
 ```
 
-The client components in `@flowpanel/kit/charts/runtime` do not infer series: pass `y` (one key or a list).
+The client components in `@flowpanel/kit/charts` do not infer series: pass `y` (one key or a list).
 
 Every option: [Charts reference](/docs/reference/widgets#charts).

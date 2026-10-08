@@ -5,23 +5,29 @@ kind: how-to
 metaTitle: "Roles and permissions (RBAC)"
 ---
 
-Every rule is checked on the server route; the UI only hides what a role cannot use. Rules narrow from the whole admin down to a field.
+Every rule is checked on the server route; the UI only hides what a role cannot use. Rules narrow from the whole admin down to a field, and each one is an `AccessRule`: `true` or `false`, a role, a list of roles, or a function of `{ session, role, scope }` that may be async.
 
 ## The whole admin
 
-`auth.requireRole` protects every page, API handler and stream. See [Authentication](/docs/guides/authentication).
+`auth.access` protects every page, API handler and stream. See [Authentication](/docs/guides/authentication).
 
 ```ts excerpt
 auth: {
   session: getSession,
   role: (session) => session?.user?.role ?? "guest",
-  requireRole: ["admin", "support"],
+  access: ["admin", "support"],
 }
 ```
 
 ## A dashboard, page or queue
 
-`requireRole` on any of them hides it from the navigation and rejects its direct route.
+`access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`.
+
+```ts excerpt
+dashboard({ path: "/finance", label: "Finance", access: "admin", sections });
+page({ path: "/audit", label: "Audit", component: AuditPage, access: ["admin", "support"] });
+queue(emailQueue, { label: "Emails", boardUrl, access: "admin" });
+```
 
 ## A resource or action
 
@@ -31,19 +37,22 @@ An action with its own `access` runs under that rule alone, the same one that sh
 
 ## Fields
 
-Form fields take `requireRole` and `readOnly`, which the server enforces. The form shows a field the caller may not write as read-only or leaves it out, and its route drops that field from what it saves; an API or programmatic write that carries it is rejected. `hidden` is not an access rule; it only removes the control.
+`fieldAccess` on a resource is the one field policy: a `read` and a `write` rule per field. A field its `write` rule denies is treated like a `readOnly` one: read-only on the form, rejected from the API. A field the caller may neither read nor write is left out of the form. The route drops both from what it saves; an API or programmatic write that carries such a field is rejected. A field's `readOnly` wins over its `fieldAccess.write`. `hidden` is not an access rule; it only removes the control.
 
 ```ts excerpt
-update: {
-  fields: [
-    { name: "name", required: true },
-    { name: "role", type: "select", options: ["member", "admin"], requireRole: "admin" },
-    { name: "createdAt", readOnly: true },
-  ],
-}
+resource(users, {
+  fieldAccess: {
+    role: { read: "admin", write: "admin" },
+  },
+  update: {
+    fields: [
+      { name: "name", required: true },
+      { name: "role", type: "select", options: ["member", "admin"] },
+      { name: "createdAt", readOnly: true },
+    ],
+  },
+});
 ```
-
-`fieldAccess` on a resource sets read and write rules per field. A field its `write` rule denies is treated like a `readOnly` one: read-only on the form, rejected from the API. A field's `readOnly` wins over its `fieldAccess.write`.
 
 ## Rows
 

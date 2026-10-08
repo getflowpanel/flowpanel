@@ -31,7 +31,7 @@ export function generateDemoData({ now }: { now: Date }): DemoData {
     company: scenario.company,
     plan: scenario.plan,
     status: "active",
-    createdAt: atDaysAgo(now, index + 1, 9),
+    createdAt: atDaysAgo(now, 120 + index, 9),
     lastSeenAt: atDaysAgo(now, 0, index + 1),
     deletedAt: null,
   }));
@@ -50,7 +50,7 @@ export function generateDemoData({ now }: { now: Date }): DemoData {
       company,
       plan,
       status,
-      createdAt: atDaysAgo(now, 8 + index * 2, 8 + (index % 8)),
+      createdAt: atDaysAgo(now, 126 + index * 2, 8 + (index % 8)),
       lastSeenAt: status === "active" ? atDaysAgo(now, index % 5, index % 12) : null,
       deletedAt: null,
     });

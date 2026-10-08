@@ -8,7 +8,7 @@ if (liveQueues.length === 0) {
   process.exit(1);
 }
 
-// This port is outside the admin — FlowPanel's `requireRole` does not reach it.
+// This port is outside the admin — FlowPanel's `auth.access` does not reach it.
 const token = process.env.BOARD_TOKEN ?? "";
 if (!token) {
   console.error("BOARD_TOKEN is required — the board exposes destructive job controls.");

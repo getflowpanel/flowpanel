@@ -81,6 +81,7 @@ interface PackageEntry {
   packageName: string;
   exportPath: string;
   entryPath: string;
+  published: boolean;
 }
 
 function workspaceEntries(packagesDir: string): PackageEntry[] {
@@ -93,22 +94,21 @@ function workspaceEntries(packagesDir: string): PackageEntry[] {
     const packageJsonPath = join(packageDir, "package.json");
     if (!existsSync(packageJsonPath)) continue;
     const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as PackageJson;
-    if (!packageJson.name || packageJson.private || !packageJson.exports) continue;
+    if (!packageJson.name || !packageJson.exports) continue;
+    const published = packageJson.private !== true;
     for (const exportPath of Object.keys(packageJson.exports).sort(compareText)) {
       if (exportPath === "./package.json") continue;
       const target = findTypesTarget(packageJson.exports[exportPath]);
       if (!target) continue;
       const entryPath = resolveSourceEntry(packageDir, exportPath, target);
-      if (entryPath) entries.push({ packageName: packageJson.name, exportPath, entryPath });
+      if (entryPath)
+        entries.push({ packageName: packageJson.name, exportPath, entryPath, published });
     }
   }
   return entries;
 }
 
-/**
- * Workspace specifiers resolve to source, not to a sibling package's `dist`
- * types, so a re-exported symbol is read from the declaration its author wrote.
- */
+/** Workspace specifiers, private packages' too, resolve to source, so a re-export reads the declaration its author wrote. */
 function sourcePaths(entries: PackageEntry[]): Record<string, string[]> {
   const paths: Record<string, string[]> = {};
   for (const entry of entries) {
@@ -236,7 +236,7 @@ export function collectPublicSymbols(root: string): PublicSymbol[] {
 
   const result: PublicSymbol[] = [];
 
-  for (const { packageName, exportPath, entryPath } of entries) {
+  for (const { packageName, exportPath, entryPath } of entries.filter((e) => e.published)) {
     const entry = project.getSourceFile(entryPath) ?? project.addSourceFileAtPath(entryPath);
 
     for (const exported of entry.getExportSymbols()) {

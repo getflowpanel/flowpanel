@@ -233,6 +233,30 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
     background-image: none;
     cursor: pointer;
   }
+
+  [data-flowpanel-root] :where(table),
+  [data-flowpanel-portal] :where(table) {
+    border-collapse: collapse;
+    border-color: inherit;
+    text-indent: 0;
+  }
+
+  [data-flowpanel-root] :where(img, svg, video, canvas, audio, iframe, embed, object),
+  [data-flowpanel-portal] :where(img, svg, video, canvas, audio, iframe, embed, object) {
+    display: block;
+    vertical-align: middle;
+  }
+
+  [data-flowpanel-root] :where(img, video),
+  [data-flowpanel-portal] :where(img, video) {
+    max-width: 100%;
+    height: auto;
+  }
+
+  [data-flowpanel-root] :where(textarea),
+  [data-flowpanel-portal] :where(textarea) {
+    resize: vertical;
+  }
 }
 
 /* Motion: Radix keeps a node mounted until its exit animation finishes, so one fp-anim-* class gives both directions. */

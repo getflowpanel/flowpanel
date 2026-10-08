@@ -17,7 +17,7 @@ import { resource } from "@flowpanel/kit";
 import { orders } from "@/db/schema";
 
 export const ordersResource = resource(orders, {
-  label: "Order",
+  labelOne: "Order",
   plural: "Orders",
   icon: "shopping-cart",
   columns: ["id", "customerEmail", { field: "total", format: "money" }, "status"],
@@ -35,9 +35,9 @@ export const ordersResource = resource(orders, {
 | Property | Type | Notes |
 | --- | --- | --- |
 | `name?` | `string` | URL segment and registry key. Defaults to the adapter's table name. |
-| `label?` | `string` | Singular label shown in headings and buttons. |
-| `labelOne?` | `string` | Label for exactly one row, e.g. `"Customer"`, used in record, create and edit titles. Falls back to `label`, then the resource name made singular: `order_items` reads "Order item". |
-| `plural?` | `string` | Plural label shown in the nav and list title. |
+| `label?` | `string` | The one name for both a row and the list when they read the same, such as `"Staff"`. `labelOne` overrides it for one row and `plural` for the list; without any of the three, the resource name is humanized: `order_items` reads "Order items" and one row "Order item". |
+| `labelOne?` | `string` | Name for exactly one row, e.g. `"Customer"`: record, create and edit titles and the drawer. Falls back to `label`. |
+| `plural?` | `string` | Name for the list: the nav entry, the list title and the detail crumb. Falls back to `label`. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
 | `hidden?` | `boolean` | Keep the resource out of the navigation — its routes still work. |
 | `navGroup?` | `NavGroupRef` | Sidebar group for this resource. Default: the Resources group. |
@@ -49,17 +49,17 @@ export const ordersResource = resource(orders, {
 | `pageSize?` | `number` | Rows per page. Default: `20`. |
 | `density?` | `"comfortable" \| "compact"` | Row height preset for the list table. Default: `"comfortable"`. |
 | `rowClick?` | `"detail" \| "drawer" \| false` | What a row click — and Enter on the focused row — does. A row the projection cannot identify never acts. Default: ``"drawer"` when `drawer` is configured, otherwise `"detail"``. |
-| `rowKey?` | `keyof Row & string` | Property holding each row's unique id. Default: `"id"`. |
+| `rowKey?` | `keyof Row & string` | Property holding each row's unique id. Default: `the table's primary key, else `"id"``. |
 | `drawer?` | `DrawerConfig<Row>` | Side panel opened for a single row. |
 | `detail?` | `DetailOptions<Row>` | Full-page view at `<paths.admin>/<resource>/<id>`. |
 | `schema?` | `z.ZodTypeAny \| { create?: z.ZodTypeAny; update?: z.ZodTypeAny }` | Validation for writes. Overrides the schema inferred from the adapter. |
-| `writeTo?` | `unknown` | The table that create, update, delete and restore write to, when the resource reads a view. Omitted on a view: the resource is read-only, and a declared create/update/delete/import is an error at `defineAdmin`. |
-| `create?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> }` | Create form. `disabled` removes the route, not just the button. |
+| `writeTo?` | `AdapterRef` | The table that create, update, delete and restore write to, when the resource reads a view. Omitted on a view: the resource is read-only, and a declared create/update/delete/import is an error at `defineAdmin`. |
+| `create?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> }` | Create form. `disabled` removes the route, not just the button. `defaultValues` fills keys a create leaves empty, on the server only, and wins over a field's own `defaultValue`. |
 | `update?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; /** Additional readable values available to edit-form hidden/readOnly predicates; never a control, default or write. */ expose?: (keyof Row & string)[]; /** * How the record page's edit button reads: `"primary"` fills it with the accent. * @defaultValue "secondary" */ emphasis?: ActionEmphasis; }` | Edit form. `disabled` removes the route, not just the button. |
 | `delete?` | `{ disabled?: boolean; softDelete?: keyof Row & string; confirm?: string }` | Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. |
 | `actions?` | `RowAction<Row, any, any>[]` | Per-row actions, rendered inline or in the row's menu. |
 | `bulkActions?` | `BulkAction<Row, any, any>[]` | Actions applied to a selection of rows. |
-| `scope?` | `"bypass" \| ((scope: Scope, query: unknown) => unknown)` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
+| `scope?` | `"bypass" \| ResourceScope` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
 | `access?` | `ResourceAccess<Row>` | Canonical operation-level authorization. |
 | `fieldAccess?` | `FieldAccessMap<Row>` | Canonical read/write policy for declared fields. |
 | `export?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Export button, off unless set. `formats` defaults to `["csv"]`; `fields` defaults to the visible columns. |
@@ -68,6 +68,11 @@ export const ordersResource = resource(orders, {
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
 | `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: ListFilters<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
 | `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. `{query}` is * the search text. Default: `labels.widget.filtered`. */ filtered?: string; /** * Title when a search leaves no rows, in place of `filtered`, e.g. `"Nothing found for «{query}»"`. * Default: `filtered`. */ searched?: string; }` | What the list shows when there are no rows at all. |
+
+`label` names both one row and the list, so it suits a word that reads the same
+either way. Set `labelOne` and `plural` when they differ: a resource with only
+`label: "Order"` titles its list "Order" too. Without any of the three, the
+resource name is humanized and made singular for one row.
 
 An empty list shows `empty.title`, `description`, `icon` and `action`. When search
 or filters leave no rows it shows `empty.filtered` (or `empty.searched` during a
@@ -332,9 +337,11 @@ itself and a missing one as `—`; `badge()` returns `null` for a missing value;
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
 `form`. `required` marks the control required and the server rejects a missing
-value. `readOnly` and `requireRole` apply to rendering and to writes; a function
+value. `readOnly` and the resource's `fieldAccess` apply to rendering and to writes; a function
 `readOnly` is called with the stored row, so it guards edits. `hidden` only removes
-the control.
+the control. `defaultValue` fills a key a create leaves empty and pre-fills a visible
+control; the resource's `create.defaultValues` fills keys on the server only and wins
+when both name the same key.
 
 `FieldDef`
 
@@ -350,9 +357,8 @@ the control.
 | `required?` | `boolean` | Require a value. The form marks it, and the server rejects a create that leaves it empty or an edit that clears it. |
 | `readOnly?` | `boolean \| ((values: Partial<Row>) => boolean)` | Render non-editable. Enforced server-side, not just in the UI. |
 | `hidden?` | `boolean \| ((values: Partial<Row>) => boolean)` | Leave the field out of the form entirely. |
-| `requireRole?` | `string \| string[] \| ((session: Session \| null) => boolean)` | Restrict who may see and write this field. Enforced on every write route. |
 | `validate?` | `\| z.ZodTypeAny \| ((value: unknown, values: Partial<Row>) => string \| null \| Promise<string \| null>)` | Per-field validation, run server-side after the resource schema. |
-| `defaultValue?` | `unknown \| ((ctx: QueryContext) => Promise<unknown>)` | Value used when creating, for keys the operator left empty. |
+| `defaultValue?` | `unknown \| ((ctx: QueryContext) => Promise<unknown>)` | Value used when creating, for keys the operator left empty; a visible field also pre-fills with it. The resource's `create.defaultValues` wins for the same key. |
 | `span?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Width in a 12-column form grid. Defaults to full width. |
 | `group?` | `string` | Fieldset heading this field is grouped under. |
 | `render?` | `(row: Row, ctx: RequestContext) => ReactNode \| Promise<ReactNode>` | Detail pages and drawers only: what the field shows instead of its value — a join or a computed label. |

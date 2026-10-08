@@ -5,7 +5,7 @@ kind: how-to
 metaTitle: "Upgrade FlowPanel from 0.3 to 0.4"
 ---
 
-Every `@flowpanel/*` package releases under one version. Update them together:
+FlowPanel 0.4 publishes three packages: `@flowpanel/kit`, `@flowpanel/cli` and `@flowpanel/eslint-plugin`. Update them together, and remove any other `@flowpanel/*` package from package.json:
 
 ```bash
 pnpm up "@flowpanel/*" --latest
@@ -13,12 +13,27 @@ pnpm up "@flowpanel/*" --latest
 
 ## Removed and renamed
 
-These names were deprecated in 0.3 and are gone in 0.4. TypeScript reports each one. `defineAdmin` also throws at startup on a leftover `requireRole` on a resource or action, `basePath`, or a detail or drawer `header`, so a config that skips the type check fails instead of leaving a resource open.
+These names are gone in 0.4. Most were deprecated in 0.3; `requireRole` goes everywhere because every gate now takes the same `access` rule. TypeScript reports each one. `defineAdmin` also throws at startup on a leftover `requireRole` on the auth block, a resource, a row, bulk, drawer or dashboard action and its form fields, a create or update form field, a dashboard, a page or a queue, `basePath`, or a detail or drawer `header`, and each auth preset throws when given `requireRole`, so a config that skips the type check fails instead of leaving a resource open.
 
 | 0.3 | 0.4 |
 | --- | --- |
+| an import from `@flowpanel/core`, `next`, `react`, `client`, `charts`, `test` or an adapter package | the same names from `@flowpanel/kit` or its subpath: `/next`, `/react`, `/client`, `/charts`, `/test`, `/drizzle`, `/prisma`, `/bullmq` |
+| `areaChart`, `barChart`, `lineChart`, `pieChart` from `@flowpanel/kit/charts` | the same builders from `@flowpanel/kit` |
+| chart components from `@flowpanel/kit/charts/runtime` | the same components from `@flowpanel/kit/charts` |
+| `@flowpanel/kit/server` | `publish`, `publishResource`, `bindPublisher`, `emitAudit` from `@flowpanel/kit/next`; `requireAccess` and the request-context accessors from `@flowpanel/kit` |
 | `requireRole: "admin"` on a resource | `access: { read: "admin", create: "admin", update: "admin", delete: "admin" }` |
 | `requireRole` on a row, bulk, drawer or dashboard action | `access: "admin"` (a role, a list of roles, or a function) |
+| `auth: { requireRole: "admin" }`, `withClerk({ requireRole: "admin" })` and the other auth presets | `auth: { access: "admin" }`, `withClerk({ access: "admin" })` |
+| `requireRole` on a `dashboard()`, `page()` or `queue()` | `access` on the same object; a queue now also takes a function |
+| `requireRole: "admin"` on a create or update form field | `fieldAccess: { field: { read: "admin", write: "admin" } }` on the resource |
+| `requireRole` on an action's `form` field | remove it: it never gated anything; gate the whole action with `access` |
+| a function `requireRole: (session) => …` | `access: ({ session, role, scope }) => …` |
+| `auth: { requireRole: (s) => s !== null }` | `auth: { access: ({ session }) => session !== null }`. Do not just rename the key: `access: (s) => s !== null` receives `{ session, role, scope }`, which is never null, and lets every visitor in. `defineAdmin` warns about it in development and refuses to start in production. |
+| `requireRole` from `@flowpanel/kit/server` | `requireAccess(rule, getRequestContext())` from `@flowpanel/kit`, which throws the same access error |
+| `checkRequireRole` and the `RequireRole` type | `requireAccess` and `AccessRule` |
+| `authorizeOperation(rule, context)` | `requireAccess(rule, context)` |
+| `emitAudit` from `@flowpanel/kit` | `emitAudit` from `@flowpanel/kit/next` |
+| `isBuiltinBulkDelete`, `assertCountWhereColumns`, `declaredWriteFields` from `@flowpanel/kit` | removed: runtime internals with no public replacement |
 | `ctx.db` in an action's `run` | your own `db` import, or `unsafe: ["db"]` on the action and `ctx.unsafe.db` |
 | `ctx.db` in a field `options` or `defaultValue` resolver | your own `db` import |
 | `ctx.href(target)` in a widget | `ctx.link(target)` |
@@ -32,7 +47,7 @@ These names were deprecated in 0.3 and are gone in 0.4. TypeScript reports each 
 | `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
 | `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration` |
 
-A field's own `requireRole` stays: it still limits who sees and writes that field.
+A field gated by `fieldAccess` shows read-only to a caller its `write` rule denies, and leaves the form only when its `read` rule denies them too. 0.3 left a `requireRole` field out of the form entirely.
 
 ## Behaviour that changed
 
@@ -47,6 +62,7 @@ A field's own `requireRole` stays: it still limits who sees and writes that fiel
 - Widget links resolve on the server. A link to a resource or dashboard the config does not register throws and names the registered ones.
 - `ChartRenderer` takes the card's link as a `drilldown` href and no longer reads `options.drilldown`. Pass the resolved link, or the chart card has no link.
 - `resolveOperationAccess(access, operation)` takes two arguments; drop the third, `requireRole`, argument.
+- An action, form, drawer, inline-edit, import or restore route answers a failure as `{ ok: false, error, code, requestId?, fieldErrors? }`. A form validation failure carries `fieldErrors` instead of an `issues` array, and a 404 has a string `error`. Code that read `issues` from these routes should read `fieldErrors`.
 - `StatusBadge` infers different tones: `active` and `completed` are no longer green, `pending`, `waiting` and `processing` are `info` instead of `warn`, `disabled` and `canceled` are `muted` instead of `err`, and an unknown status is `default`. Pass `tone` to keep a colour.
 - The default look is a graphite palette with one data colour, `--fp-data`, and a single-series chart draws in it without the area gradient. Set the tokens in [Styling](/docs/customization/styling#change-design-tokens) to keep your colours.
 - Related tab rows open their target record, and a single click on an editable cell in a clickable row opens the row; editing starts from the pencil or Enter.
@@ -60,7 +76,7 @@ A field's own `requireRole` stays: it still limits who sees and writes that fiel
 - A Drizzle `numeric` or `decimal` column is a number field with a number filter instead of a text box. Its value is still a string, and a value that is not a number fails with "… must be a number".
 - The Prisma and Drizzle adapters' `get` returns `null` for an id that cannot be the key, such as `abc` for an `Int` id or a malformed UUID, so the record page shows not found instead of an error.
 - A resource without `labelOne` or `label` names one record by its singular name, "User" for `users`, and the "New …" and "Edit …" titles put the label mid-sentence: "New customer".
-- A field's `readOnly` now applies to writes even when the field also sets `requireRole`, and a `readOnly` function receives the stored row on edit. `readOnly` also wins over the resource's `fieldAccess.write`.
+- A field's `readOnly` now applies to writes, and a `readOnly` function receives the stored row on edit. `readOnly` also wins over the resource's `fieldAccess.write`.
 - A form field that `fieldAccess.write` denies to the signed-in role shows read-only, and saving the form no longer fails with "cannot be changed".
 - An unknown admin path and a missing record render your `not-found.tsx` through `notFound()`, with a 404 status. Under `cacheComponents` Next has already streamed the static shell, so the status stays 200 and the page carries `noindex`. Add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix`.
 

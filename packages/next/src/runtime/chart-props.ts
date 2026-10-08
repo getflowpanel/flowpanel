@@ -11,7 +11,7 @@ import { keyLabel } from "@flowpanel/core/internal";
 type ChartWidget = AreaChartWidget | BarChartWidget | LineChartWidget | PieChartWidget;
 
 export interface ChartProps {
-  options: Record<string, unknown>;
+  options: ChartWidget["options"];
   seriesLabels?: Record<string, string>;
 }
 

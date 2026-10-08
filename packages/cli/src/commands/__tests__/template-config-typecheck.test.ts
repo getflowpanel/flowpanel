@@ -44,7 +44,7 @@ export declare function resource(ref: unknown, options?: unknown): unknown;
 `;
 
 const KIT_AUTH_STUB = `
-import type { AuthConfig } from "@flowpanel/core";
+import type { AuthConfig } from "./core/index.js";
 export type { AuthConfig };
 export declare function withBetterAuth(o: { auth: unknown; access?: string }): AuthConfig;
 export declare function withNextAuth(o: { auth: unknown; access?: string }): AuthConfig;
@@ -59,14 +59,14 @@ export type {
   InferDB,
   ResourceName,
   Session,
-} from "@flowpanel/core";
-export { defineAdmin, resource } from "@flowpanel/core";
+} from "./core/index.js";
+export { defineAdmin, resource } from "./core/index.js";
 `;
 
 /**
- * A scaffolded app as pnpm lays it out: `@flowpanel/kit` at the app root,
- * `@flowpanel/core` reachable only from inside the kit. `flowpanel init`
- * installs the umbrella, so this is what the generated config has to compile
+ * A scaffolded app with `@flowpanel/kit` at the app root and core shipped
+ * inside the kit's dist, as the published kit lays it out. `flowpanel init`
+ * installs only the kit, so this is what the generated config has to compile
  * against.
  */
 function kitOnlyApp(): string {
@@ -99,17 +99,7 @@ function kitOnlyApp(): string {
     "export declare function prismaAdapter(o: unknown): unknown;\n",
   );
 
-  const core = path.join(kit, "node_modules/@flowpanel/core");
-  write(
-    path.join(core, "package.json"),
-    JSON.stringify({
-      name: "@flowpanel/core",
-      version: "0.1.0",
-      type: "module",
-      exports: { ".": { types: "./dist/index.d.ts", import: "./dist/index.js" } },
-    }),
-  );
-  write(path.join(core, "dist/index.d.ts"), CORE_STUB);
+  write(path.join(kit, "dist/core/index.d.ts"), CORE_STUB);
 
   write(path.join(dir, "src/db.ts"), "export const db = {} as { query: unknown };\n");
   write(path.join(dir, "src/prisma.ts"), "export const prisma = {} as { $connect(): void };\n");

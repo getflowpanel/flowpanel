@@ -1,6 +1,6 @@
 # with-clerk
 
-The smallest FlowPanel admin behind Clerk: two resources, one dashboard, and `auth: withClerk({ requireRole: "admin" })` in `src/flowpanel.config.ts`.
+The smallest FlowPanel admin behind Clerk: two resources, one dashboard, and `auth: withClerk({ access: "admin" })` in `src/flowpanel.config.ts`.
 
 ## Run it
 

@@ -1,28 +1,8 @@
-import type { ColumnFormat, Tone } from "@flowpanel/kit";
+import type { ColumnFormat } from "@flowpanel/kit";
 import { StatusBadge } from "@flowpanel/kit/react";
 import type { CSSProperties } from "react";
 import { modelLabel } from "@/src/lib/ai-models";
 
-// Tones for domain statuses `format: "badge"` cannot infer; plans stay neutral.
-const STATUS_TONES: Record<string, Tone> = {
-  trialing: "warn", // customers.status
-  past_due: "err",
-  paused: "warn", // monitors.status
-  queued: "muted", // runs.status — nothing is happening yet
-  running: "info", // …and this one is, so it must not look the same
-  open: "warn", // invoices.status
-  paid: "ok",
-  void: "err",
-  refunded: "muted",
-  in_stock: "ok", // listings.stock
-  low_stock: "warn",
-  out_of_stock: "err",
-  confirmed: "ok", // matches.status
-  needs_review: "warn",
-};
-
-/** `format: badge` on any status column — a themed pill, toned per value. */
-export const badge: ColumnFormat = { kind: "badge", tones: STATUS_TONES };
 /** `format: money` on any integer-cents column — renders "$12.34". */
 export const money: ColumnFormat = { kind: "money", scale: 100 };
 

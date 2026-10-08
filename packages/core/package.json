@@ -1,22 +1,9 @@
 {
   "name": "@flowpanel/core",
   "version": "0.3.0",
+  "private": true,
   "description": "Core of FlowPanel: types, defineAdmin, builders and runtime helpers",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "admin-panel",
-    "nextjs",
-    "rbac",
-    "crud"
-  ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/core"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -143,8 +130,6 @@
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack .",
-    "lint:publish": "publint --strict",
     "test:types": "tsd",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -176,10 +161,6 @@
     }
   },
   "sideEffects": false,
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "peerDependencies": {
     "ioredis": "^5.10.0 || ^6.0.0",
     "react": "^19.0.0",

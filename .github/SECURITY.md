@@ -23,7 +23,7 @@ Alternative: email the maintainer (see the `flowpanel` package.json
 
 Include:
 
-- Affected package name and version (e.g., `@flowpanel/next@0.1.0`).
+- Affected package name and version (e.g., `@flowpanel/kit@0.4.0`).
 - Reproduction steps — minimal repro repo, or paste a snippet.
 - Expected vs. actual behavior.
 - Your assessment of severity (low / medium / high / critical).

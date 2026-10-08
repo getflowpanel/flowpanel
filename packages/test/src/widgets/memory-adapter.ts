@@ -1,5 +1,5 @@
-import type { Adapter, ColumnMeta, ListQueryContext } from "@flowpanel/kit";
-import { isFilterInValue, isFilterRangeValue } from "@flowpanel/kit";
+import type { Adapter, ColumnMeta, ListQueryContext } from "@flowpanel/core";
+import { isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
 
 export type Row = Record<string, unknown>;
 

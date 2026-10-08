@@ -20,11 +20,11 @@ import { emailQueue } from "@/server/queues";
 export const emailQueuePage = queue(emailQueue, {
   label: "Email",
   boardUrl: "https://internal.example.com/queues/email",
-  requireRole: "admin",
+  access: "admin",
 });
 ```
 
-Add it to `queues` in the config. The queue's `.name` is its key unless you set `key`. `requireRole` protects the admin page, not the board server.
+Add it to `queues` in the config. The queue's `.name` is its key unless you set `key`. `access` protects the admin page, not the board server.
 
 The page embeds `boardUrl` in an iframe, and the board accepts a `?token=` query, an `Authorization: Bearer` header or its session cookie. Locally, append `?token=<BOARD_TOKEN>` to `boardUrl`. Elsewhere, put the board behind a reverse proxy that adds `Authorization: Bearer <token>`, and point `boardUrl` at the proxy; without either, the iframe shows a 401.
 

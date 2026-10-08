@@ -47,15 +47,22 @@ export function GetStarted() {
           for dashboards and record pages.
         </p>
         <p>
-          Two examples run locally with seeded data: ScrapeAI (
+          Two examples run locally with seeded data:{" "}
           <a href={scraper.url} target="_blank" rel="noreferrer" className={linkClass}>
             <InlineCode>{scraper.name}</InlineCode>
           </a>
-          ), the live demo, and a small admin behind Clerk (
+          , the live demo, and{" "}
           <a href={clerk.url} target="_blank" rel="noreferrer" className={linkClass}>
             <InlineCode>{clerk.name}</InlineCode>
           </a>
-          ).
+          , a small admin behind Clerk.
+        </p>
+        <p>
+          FlowPanel is pre-1.0: a minor release may change the API, and each one comes with an{" "}
+          <Link href="/docs/guides/upgrade" className={linkClass}>
+            upgrade guide
+          </Link>
+          .
         </p>
       </div>
     </Section>

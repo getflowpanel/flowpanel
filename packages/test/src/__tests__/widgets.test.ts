@@ -9,7 +9,7 @@ import {
   resource,
   type WidgetConfig,
   type WidgetContext,
-} from "@flowpanel/kit";
+} from "@flowpanel/core";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { headerContext, resolveWidget, type WidgetContextOptions, widgetContext } from "../widgets";
 
@@ -211,7 +211,7 @@ describe("widgetContext over your own admin", () => {
   });
 });
 
-describe("resolveWidget from @flowpanel/test/widgets", () => {
+describe("resolveWidget from @flowpanel/kit/test/widgets", () => {
   it("resolves a count metric to its number and the rows it counted", async () => {
     const ctx = widgetContext({ rows: { payment: PAYMENTS } });
     const widget = metric("Paid", { count: "payment", where: { status: "paid" } });

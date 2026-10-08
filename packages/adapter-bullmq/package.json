@@ -1,22 +1,9 @@
 {
   "name": "@flowpanel/adapter-bullmq",
   "version": "0.3.0",
+  "private": true,
   "description": "BullMQ queue UIs for FlowPanel via bull-board",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "adapter",
-    "bullmq",
-    "bull-board",
-    "queue"
-  ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/adapter-bullmq"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -32,17 +19,11 @@
     "./package.json": "./package.json"
   },
   "sideEffects": false,
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only",
-    "lint:publish": "publint --strict",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
   },

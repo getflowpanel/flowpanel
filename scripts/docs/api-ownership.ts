@@ -52,7 +52,7 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
-    sourcePrefix: "packages/charts/src/builders/",
+    sourcePrefix: "packages/core/src/builders/charts.ts",
     page: "/docs/reference/widgets",
     anchor: "charts",
     guidance: true,
@@ -126,12 +126,6 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
-    sourcePrefix: "packages/core/src/compiler/",
-    page: "/docs/reference/runtime-contracts",
-    anchor: "compiler-runtime-contract",
-    guidance: false,
-  },
-  {
     sourcePrefix: "packages/core/src/define-admin.ts",
     page: "/docs/reference/define-config",
     guidance: true,
@@ -152,12 +146,6 @@ export const API_OWNERSHIP_RULES = [
     sourcePrefix: "packages/core/src/tone-for.ts",
     page: "/docs/reference/widgets",
     anchor: "thresholds",
-    guidance: true,
-  },
-  {
-    sourcePrefix: "packages/core/src/bind-format.ts",
-    page: "/docs/reference/widgets",
-    anchor: "widgetformat",
     guidance: true,
   },
   {
@@ -203,11 +191,6 @@ export const API_OWNERSHIP_RULES = [
   },
   {
     sourcePrefix: "packages/core/src/runtime/audit.ts",
-    page: "/docs/reference/runtime-contracts",
-    guidance: true,
-  },
-  {
-    sourcePrefix: "packages/core/src/runtime/auth.ts",
     page: "/docs/reference/runtime-contracts",
     guidance: true,
   },
@@ -466,12 +449,6 @@ export const API_OWNERSHIP_RULES = [
   },
   { sourcePrefix: "packages/next/src/actions/", page: "/docs/reference/actions", guidance: true },
   {
-    sourcePrefix: "packages/next/src/command/",
-    page: "/docs/reference/react-components",
-    anchor: "command-palette",
-    guidance: true,
-  },
-  {
     sourcePrefix: "packages/next/src/controllers/",
     page: "/docs/reference/next-runtime",
     anchor: "controllers",
@@ -492,12 +469,6 @@ export const API_OWNERSHIP_RULES = [
     sourcePrefix: "packages/next/src/handlers.ts",
     page: "/docs/reference/next-runtime",
     anchor: "route-handlers",
-    guidance: true,
-  },
-  {
-    sourcePrefix: "packages/next/src/pages/",
-    page: "/docs/reference/react-components",
-    anchor: "next-components",
     guidance: true,
   },
   {

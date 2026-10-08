@@ -213,7 +213,7 @@ What varies:
   exits `1`. So does an installed `@flowpanel/kit` or `@flowpanel/cli` from another
   minor version.
 
-Re-running `init` keeps `flowpanel.config.ts` and skips matching files, and says
+Re-running `init` keeps `flowpanel.config.ts` (or `.tsx`) and skips matching files, and says
 `Already set up; nothing changed.` when there is nothing to write. A conflicting
 file stops it with nothing written and every conflicting path listed. `--yes`
 accepts detected paths; it never overwrites.
@@ -270,17 +270,16 @@ Runs these checks:
 - Next.js 15.5 or newer within 15 or 16, and TypeScript installed
 - React and React DOM installed at supported, matching versions, and a supported Node.js
 - an ORM the adapters support: Drizzle or Prisma
-- `flowpanel.config.ts` exists; before `init`, this is the only check after the
-  prerequisites, and its hint is `pnpm dlx @flowpanel/cli init`
+- `flowpanel.config.ts` (or `flowpanel.config.tsx`) exists; before `init`, this is
+  the only check after the prerequisites, and its hint is `pnpm dlx @flowpanel/cli init`
 - `@flowpanel/kit` is installed and matches the CLI's minor version
 - the admin mount in the config (`paths.admin`) resolves to a static path
 - the generated files exist: the API route, the SSE route, the seed migration and
   the catch-all admin page. A missing not-found page is a warning that `--fix` still
   repairs
-- only one reachable `@flowpanel/core` installation across the installed
+- only one reachable `@flowpanel/kit` installation across the installed
   dependency graph, including package-local peers and third-party plugins.
   Stale pnpm store entries are ignored; uninstalled projects skip this check
-- no destructive row/bulk action declared without a `confirm`
 - every ejected admin page still carries its eject marker
 - with `cacheComponents` on: Next.js 16.3 or newer, no `runtime`, `dynamic`,
   `revalidate` or `fetchCache` export in the generated routes and admin page, and
@@ -288,16 +287,25 @@ Runs these checks:
   request. `--fix` adds it to a catch-all page `init` wrote; a page you edited gets
   the hint only
 - `tsc --noEmit` passes. When `.next/types` is missing, `doctor` runs `next typegen`
-  first, so the route and layout types Next generates exist
+  first, so the route and layout types Next generates exist. When `next typegen`
+  fails, the `tsc` hint shows its error first, then what `tsc` reported
 - `flowpanel.config.ts` evaluates; an error there is a failure with the error as
-  its hint
+  its hint. With a `.tsx` config, this check and the one above name that file
 
 Three more checks warn without failing the run: a session module that is still the
 closed stub (`getSession` returns `null`) or the open development identity from
 `init --dev-auth`, an empty `resources` array, and a missing `DATABASE_URL` while
 `flowpanel/migrations/` holds SQL files. A warning prints as a yellow `!` line and
-carries `"warn": true` in `--json`, where `hint` appears on failing and warning
-checks only.
+carries `"warn": true` in `--json`. A check that crashes is a warning too, with
+`Could not check:` and the first line of the error as its hint.
+
+When no `eslint.config.*` in the project, or above it up to the repository or
+workspace root, loads `@flowpanel/eslint-plugin`, `doctor` adds a note
+(a `·` line, `"info": true` in `--json`) that suggests the
+[ESLint plugin](/docs/reference/eslint-plugin); its `audit-row-action-needs-confirm`
+rule flags a destructive action without a `confirm`. A note never fails the run or
+counts as a warning. In `--json`, `hint` appears on failing checks, warnings and
+notes only.
 
 Mount checks follow route groups, parallel slots and intercepting routes.
 

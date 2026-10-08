@@ -1,7 +1,8 @@
-@import "tailwindcss";
-@import "@flowpanel/react/styles/admin.css";
-@source "../../../../packages/react/src";
-@source "../../../../packages/next/src";
+@import "@flowpanel/kit/styles/admin.css";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "@flowpanel/kit/styles/tailwind.css";
+@source "..";
 
 html,
 body {

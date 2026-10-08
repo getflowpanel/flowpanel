@@ -34,7 +34,7 @@ This directory is canonical; https://flowpanel.tech/llms/<file> serves the same 
 - llms/reference-queues.txt — Reference: queue(). The queue builder, its options, and how a queue key becomes a route.
 - llms/reference-contexts.txt — Reference: Contexts. What your queries, mutations and actions receive at runtime.
 - llms/reference-registry.txt — Reference: Type registry. FlowpanelTypes, FlowpanelResources, and the types that resolve through them.
-- llms/reference-react-components.txt — Reference: React components. The full @flowpanel/react export surface, grouped by what it's for.
+- llms/reference-react-components.txt — Reference: React components. The full @flowpanel/kit/react export surface, grouped by what it's for.
 - llms/reference-next-runtime.txt — Reference: Next.js runtime. createFlowpanel, generated pages, route handlers, protected controllers and realtime helpers.
 - llms/reference-client.txt — Reference: Typed client. Call the protected FlowPanel HTTP API from custom React UI, then add mutation state where needed.
 - llms/reference-runtime-contracts.txt — Reference: Runtime contracts. Low-level policy, result, adapter and pipeline APIs for custom runtimes and third-party adapters.

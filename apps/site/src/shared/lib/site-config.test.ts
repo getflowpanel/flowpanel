@@ -15,6 +15,15 @@ describe("siteConfig URLs", () => {
     expect(siteConfig.links.demo).toBe("http://localhost:3100/admin");
   });
 
+  it("opens the hosted demo when a production build has no demo URL", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_URL", "");
+
+    const { siteConfig } = await import("./site-config");
+
+    expect(siteConfig.links.demo).toBe("https://demo.flowpanel.tech/admin");
+  });
+
   it("keeps the canonical site URL when the build passes an empty NEXT_PUBLIC_SITE_URL", async () => {
     // The Dockerfile declares the ARG, so an unset build arg reaches Next as "".
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");

@@ -8,10 +8,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CORE_INDEX = path.join(HERE, "../../../core/src/index.ts");
 const CORE_INTERNAL = path.join(HERE, "../../../core/src/internal/index.ts");
 const KIT_INDEX = path.join(HERE, "../index.ts");
-const KIT_NEXT_CLIENT = path.join(HERE, "../next-client.ts");
 const KIT_PUBLISH = path.join(HERE, "../publish.ts");
 const KIT_PACKAGE_JSON = path.join(HERE, "../../package.json");
-const KIT_TSUP_CONFIG = path.join(HERE, "../../tsup.config.ts");
 
 /** Names an entry barrel exposes, including the kit's canonical core star re-export. */
 function exportedNames(file: string, visited = new Set<string>()): Set<string> {
@@ -75,9 +73,8 @@ describe("@flowpanel/kit re-exports all of @flowpanel/core", () => {
   });
 
   it("has no core symbol the umbrella omits", () => {
-    // `@flowpanel/core` is a transitive dependency of the kit, so under pnpm it
-    // is not resolvable from a consumer app: anything core exports but the kit
-    // does not re-export has no reachable import path at all.
+    // `@flowpanel/core` ships inside the kit and is not published: anything core
+    // exports but the kit root does not re-export has no import path at all.
     const missing = [...core].filter((name) => !kit.has(name)).sort();
     expect(missing).toEqual([]);
   });
@@ -106,28 +103,6 @@ describe("@flowpanel/core keeps its plumbing off the root the kit re-exports", (
   });
 });
 
-describe("@flowpanel/kit exposes a ./next/client subpath re-exporting @flowpanel/next/client", () => {
-  it("src/next-client.ts re-exports @flowpanel/next/client", () => {
-    const source = readFileSync(KIT_NEXT_CLIENT, "utf8");
-    expect(source).toContain('export * from "@flowpanel/next/client"');
-  });
-
-  it("package.json wires ./next/client to dist/next-client", () => {
-    const pkg = JSON.parse(readFileSync(KIT_PACKAGE_JSON, "utf8")) as {
-      exports: Record<string, { types?: string; import?: string }>;
-    };
-    expect(pkg.exports["./next/client"]).toEqual({
-      types: "./dist/next-client.d.ts",
-      import: "./dist/next-client.js",
-    });
-  });
-
-  it("tsup.config.ts builds the next-client entry from src/next-client.ts", () => {
-    const source = readFileSync(KIT_TSUP_CONFIG, "utf8");
-    expect(source).toMatch(/"next-client":\s*"src\/next-client\.ts"/);
-  });
-});
-
 describe("@flowpanel/kit exposes a ./publish subpath re-exporting @flowpanel/core/publish", () => {
   it("src/publish.ts re-exports @flowpanel/core/publish", () => {
     const source = readFileSync(KIT_PUBLISH, "utf8");
@@ -144,16 +119,54 @@ describe("@flowpanel/kit exposes a ./publish subpath re-exporting @flowpanel/cor
     });
   });
 
-  it("tsup.config.ts builds the publish entry from src/publish.ts", () => {
-    const source = readFileSync(KIT_TSUP_CONFIG, "utf8");
-    expect(source).toMatch(/publish:\s*"src\/publish\.ts"/);
-  });
-
   it("re-exports the same symbols @flowpanel/core/publish declares", async () => {
     const [kit, core] = await Promise.all([
       import("../publish"),
       import("@flowpanel/core/publish"),
     ]);
     expect(Object.keys(kit).sort()).toEqual(Object.keys(core).sort());
+  });
+});
+
+describe("@flowpanel/kit keeps one subpath per job", () => {
+  const pkg = JSON.parse(readFileSync(KIT_PACKAGE_JSON, "utf8")) as {
+    exports: Record<string, unknown>;
+  };
+
+  it("exposes exactly the documented subpaths", () => {
+    expect(Object.keys(pkg.exports).sort()).toEqual(
+      [
+        ".",
+        "./auth",
+        "./bullmq",
+        "./bullmq/board",
+        "./charts",
+        "./client",
+        "./drizzle",
+        "./next",
+        "./package.json",
+        "./prisma",
+        "./publish",
+        "./react",
+        "./styles/admin.css",
+        "./styles/tailwind.css",
+        "./test",
+        "./test/widgets",
+      ].sort(),
+    );
+  });
+
+  it("serves the chart builders from the root, next to the other widget builders", () => {
+    const kit = exportedNames(KIT_INDEX);
+    for (const name of ["areaChart", "barChart", "lineChart", "pieChart", "metric"]) {
+      expect(kit.has(name), name).toBe(true);
+    }
+  });
+
+  it("gives @flowpanel/kit/test a require condition for Playwright projects compiled to CommonJS", () => {
+    expect(pkg.exports["./test"]).toEqual({
+      import: { types: "./dist/test.d.ts", default: "./dist/test.js" },
+      require: { types: "./dist/test/index.d.cts", default: "./dist/test/index.cjs" },
+    });
   });
 });

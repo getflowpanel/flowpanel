@@ -182,7 +182,7 @@ itself is invalid.
 
 ### Errors the routes produce themselves
 
-The generated UI routes answer some errors directly with a string `error`:
+The generated UI routes (actions, forms, drawers, inline edits, import and restore) answer every failure as `{ ok: false, error, code, requestId?, fieldErrors? }`: `error` is a string to show, `code` a `FlowpanelErrorCode`, and `requestId` is set once the guards have run. Some errors come from the routes themselves:
 
 | Status | `error` | When |
 | --- | --- | --- |
@@ -193,7 +193,8 @@ The generated UI routes answer some errors directly with a string `error`:
 | 403 | `Cross-origin write requests are not allowed.` | The default browser origin guard blocks a mutation. |
 | 403 | `This admin is read-only.` | `readOnly: true` blocks a write. |
 | 422 | `too many ids (max N)` | A bulk action gets more ids than its `max`. |
-| 422 | `validation failed` | An action `form` fails validation; the body adds an `issues` array. See [Actions → Validation](/docs/reference/actions#validation). |
+| 404 | `resource not found`, `action not found`, `dashboard not found` | The route names something the config does not register, such as an action removed since the page loaded. |
+| 422 | `validation failed` | An action `form` fails validation; `fieldErrors` holds one message per field. See [Actions → Validation](/docs/reference/actions#validation). |
 
 The JSON CRUD API that the [typed client](/docs/reference/client) calls answers with
 a `FlowpanelResultError`, `{ ok: false, error: { code, message } }`, instead:

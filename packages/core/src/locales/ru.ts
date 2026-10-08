@@ -170,7 +170,6 @@ export const RU_LABELS: ResolvedLabels = {
     justNow: "только что",
     secondsAgo: "{n} с назад",
     minutesAgo: "{n} мин назад",
-    chartsMissing: "Для графиков нужен recharts. Выполните `pnpm add recharts`.",
     previous: "было {value}",
     points: "{value} п.п.",
     noChange: "Без изменений",

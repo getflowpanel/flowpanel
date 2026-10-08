@@ -19,7 +19,9 @@ export const siteConfig = {
     // Hosted examples/ai-scraper; in development it expects the example on port 3100.
     demo:
       process.env.NEXT_PUBLIC_DEMO_URL?.trim() ||
-      (process.env.NODE_ENV === "development" ? "http://localhost:3100/admin" : ""),
+      (process.env.NODE_ENV === "development"
+        ? "http://localhost:3100/admin"
+        : "https://demo.flowpanel.tech/admin"),
   },
 
   examples: [

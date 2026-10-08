@@ -187,7 +187,6 @@ export const DEFAULT_LABELS: {
     justNow: "just now",
     secondsAgo: "{n}s ago",
     minutesAgo: "{n}m ago",
-    chartsMissing: "Charts need recharts. Run `pnpm add recharts`.",
     previous: "was {value}",
     points: "{value} pp",
     noChange: "No change",

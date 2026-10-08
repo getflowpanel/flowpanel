@@ -1,11 +1,51 @@
-/* This demo consumes workspace:* builds, so it scans workspace sources for
-   utilities; a real app scans the node_modules dist output of @flowpanel
-   packages, as scaffolded by create-flowpanel. */
 @import "tailwindcss";
-@import "@flowpanel/react/styles/admin.css";
-@source "../../../packages/react/src";
-@source "../../../packages/next/src";
-@source "../../../packages/charts/src";
+@import "@flowpanel/kit/styles/admin.css";
+@import "@flowpanel/kit/styles/tailwind.css";
+
+/* The demo's own header and pages sit outside the FlowPanel root, so they carry their own palette. */
+@theme inline {
+  --color-demo-page: hsl(var(--demo-page));
+  --color-demo-surface: hsl(var(--demo-surface));
+  --color-demo-hover: hsl(var(--demo-hover));
+  --color-demo-text: hsl(var(--demo-text));
+  --color-demo-muted: hsl(var(--demo-muted));
+  --color-demo-subtle: hsl(var(--demo-subtle));
+  --color-demo-border: hsl(var(--demo-border));
+  --color-demo-border-strong: hsl(var(--demo-border-strong));
+  --color-demo-accent: hsl(var(--demo-accent));
+  --color-demo-accent-text: hsl(var(--demo-accent-text));
+  --shadow-demo-xs: 0 1px 2px 0 hsl(var(--demo-shadow) / 0.045);
+}
+
+:root {
+  color-scheme: light;
+  --demo-page: 220 9% 96.9%;
+  --demo-surface: 0 0% 100%;
+  --demo-hover: 220 8% 93.5%;
+  --demo-text: 222 10% 10%;
+  --demo-muted: 220 7% 33%;
+  --demo-subtle: 220 5% 41%;
+  --demo-border: 220 8% 89.5%;
+  --demo-border-strong: 220 5% 53%;
+  --demo-accent: 222 10% 12%;
+  --demo-accent-text: 0 0% 100%;
+  --demo-shadow: 222 12% 8%;
+}
+
+html[data-flowpanel-theme="dark"] {
+  color-scheme: dark;
+  --demo-page: 220 9% 7%;
+  --demo-surface: 220 8% 10%;
+  --demo-hover: 220 7% 14.5%;
+  --demo-text: 220 10% 94%;
+  --demo-muted: 220 6% 70%;
+  --demo-subtle: 220 5% 58%;
+  --demo-border: 220 7% 18%;
+  --demo-border-strong: 220 5% 45%;
+  --demo-accent: 220 10% 94%;
+  --demo-accent-text: 220 9% 7%;
+  --demo-shadow: 0 0% 0%;
+}
 
 html,
 body {
@@ -14,9 +54,15 @@ body {
 }
 
 body {
-  font-family: var(--fp-font-sans);
-  background: hsl(var(--fp-bg-2));
-  color: hsl(var(--fp-text-1));
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
 }
 
 /* Demo-only shape overrides; colours stay on the FlowPanel default. */

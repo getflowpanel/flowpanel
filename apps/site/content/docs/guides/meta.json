@@ -6,7 +6,6 @@
     "permissions",
     "multi-tenant-scope",
     "realtime",
-    "queues",
-    "upgrade"
+    "queues"
   ]
 }

@@ -34,10 +34,8 @@ import { eq, type SQL } from "drizzle-orm";
 
 resource(schema.orders, {
   columns: ["number", "status", "total", "createdAt"],
-  scope: (scope, query) =>
-    (query as { where(condition: SQL): unknown }).where(
-      eq(schema.orders.tenantId, scope?.tenantId as string),
-    ),
+  scope: (scope, query: { where(condition: SQL): unknown }) =>
+    query.where(eq(schema.orders.tenantId, scope?.tenantId as string)),
   create: {
     fields: [
       { name: "number" },
@@ -54,10 +52,10 @@ resource(schema.orders, {
 })
 ```
 
-`scope` is typed loosely because the adapter decides what `query` is: with Drizzle, something you call `.where(condition)` on; with Prisma, the `where` object. Merge the tenant into it:
+The adapter decides what `query` is, so annotate it: with Drizzle, something you call `.where(condition)` on; with Prisma, the `where` object. Merge the tenant into it:
 
 ```ts excerpt
-scope: (scope, where) => ({ ...(where as object), tenantId: scope?.tenantId }),
+scope: (scope, where: Record<string, unknown>) => ({ ...where, tenantId: scope?.tenantId }),
 ```
 
 The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue` on a hidden field, as above, so the form never shows it. A hidden field does not stop a crafted request from sending another tenant ID; the adapter does. Drizzle checks that the created row matches the scope and Prisma merges the scope into the data, so the write fails or lands in the caller's tenant.

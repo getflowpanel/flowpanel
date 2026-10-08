@@ -13,23 +13,23 @@ import {
 const BUFFER_LIMIT = 20;
 const HISTORY_LIMIT = 36;
 const SNAPSHOT_LIMIT = 5;
-const BASE_OFFERS_PER_MINUTE = 132;
-const LIVE_SIGNAL_VERSION = 2;
+const BASE_PAGE_RATE = 26;
+const LIVE_SIGNAL_VERSION = 3;
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const THROUGHPUT_JITTER = [2, -3, 4, -1, 3, -2, 1, -4, 3, 0] as const;
 const KINDS: readonly MarketEventKind[] = [
   "price_drop",
   "price_rise",
   "stock_change",
-  "crawl_completed",
+  "crawl_progress",
 ];
 
-function nextThroughput(previous: number, index: number): number {
-  const baseline = index % 40 < 20 ? 144 : 132;
+function nextPageRate(previous: number, index: number): number {
+  const baseline = index % 40 < 20 ? 28 : 24;
   const correction = Math.round((baseline - previous) * 0.25);
   const jitter = THROUGHPUT_JITTER[index % THROUGHPUT_JITTER.length] ?? 0;
-  const operationalChange = index % 17 === 0 ? -18 : index % 11 === 0 ? 16 : 0;
-  return Math.max(96, Math.min(174, previous + correction + jitter + operationalChange));
+  const slowPage = index % 17 === 0 ? -6 : index % 11 === 0 ? 5 : 0;
+  return Math.max(14, Math.min(38, previous + correction + jitter + slowPage));
 }
 
 export function createMarketEvent(index: number, at: Date): MarketEvent {
@@ -37,13 +37,13 @@ export function createMarketEvent(index: number, at: Date): MarketEvent {
   if (!selected) throw new Error("Market activity requires at least one product story");
   const product = findProductStory(selected.key);
   const marketplace = MARKETPLACES[index % MARKETPLACES.length] ?? "amazon";
-  const kind = KINDS[index % KINDS.length] ?? "crawl_completed";
+  const kind = KINDS[index % KINDS.length] ?? "crawl_progress";
   const delta = 3 + ((index * 7) % 15);
   const details: Record<MarketEventKind, string> = {
     price_drop: `Price dropped ${delta}% to ${usd.format((product.ourPriceCents * (100 - delta)) / 10_000)}`,
     price_rise: `Price rose ${delta}% to ${usd.format((product.ourPriceCents * (100 + delta)) / 10_000)}`,
     stock_change: index % 2 === 0 ? "Back in stock" : "Stock is running low",
-    crawl_completed: `${24 + (index % 73)} offers checked`,
+    crawl_progress: `${24 + (index % 73)} pages crawled so far`,
   };
 
   return {
@@ -60,11 +60,8 @@ interface LiveOperationsState {
   signalVersion: number;
   timer: ReturnType<typeof setInterval> | null;
   index: number;
-  offersPerMinute: number;
-  priceChangesToday: number;
-  concurrentCrawls: number;
   avgMatchLatencyMs: number;
-  throughputHistory: number[];
+  pageRateHistory: number[];
   events: MarketEvent[];
 }
 
@@ -79,23 +76,17 @@ function createState(): LiveOperationsState {
       new Date(now - offset * LIVE_OPERATIONS_INTERVAL_MS),
     ),
   );
-  const throughputHistory = [BASE_OFFERS_PER_MINUTE - 14];
+  const pageRateHistory = [BASE_PAGE_RATE - 4];
   for (let index = 1; index < HISTORY_LIMIT; index += 1) {
-    throughputHistory.push(nextThroughput(throughputHistory[index - 1] ?? 118, index));
+    pageRateHistory.push(nextPageRate(pageRateHistory[index - 1] ?? BASE_PAGE_RATE, index));
   }
-  const offersPerMinute = throughputHistory.at(-1) ?? BASE_OFFERS_PER_MINUTE;
-  const current = new Date(now);
-  const minutesToday = current.getHours() * 60 + current.getMinutes();
 
   return {
     signalVersion: LIVE_SIGNAL_VERSION,
     timer: null,
     index: HISTORY_LIMIT + SNAPSHOT_LIMIT,
-    offersPerMinute,
-    priceChangesToday: Math.round((minutesToday * BASE_OFFERS_PER_MINUTE) / 6),
-    concurrentCrawls: 4,
     avgMatchLatencyMs: 640,
-    throughputHistory,
+    pageRateHistory,
     events,
   };
 }
@@ -122,23 +113,18 @@ function startTicker(current: LiveOperationsState): void {
 
 function snapshot(current: LiveOperationsState): LiveOperationsSnapshot {
   return {
-    offersPerMinute: current.offersPerMinute,
-    priceChangesToday: current.priceChangesToday,
-    concurrentCrawls: current.concurrentCrawls,
+    pageRateHistory: current.pageRateHistory.slice(-HISTORY_LIMIT),
     avgMatchLatencyMs: current.avgMatchLatencyMs,
-    throughputHistory: current.throughputHistory.slice(-HISTORY_LIMIT),
     events: current.events.slice(0, SNAPSHOT_LIMIT),
   };
 }
 
 function advance(current: LiveOperationsState): LiveOperationsSnapshot {
   current.index += 1;
-  current.offersPerMinute = nextThroughput(current.offersPerMinute, current.index);
-  current.priceChangesToday += 1;
+  const previous = current.pageRateHistory.at(-1) ?? BASE_PAGE_RATE;
+  current.pageRateHistory.push(nextPageRate(previous, current.index));
+  if (current.pageRateHistory.length > HISTORY_LIMIT) current.pageRateHistory.shift();
   current.avgMatchLatencyMs = 520 + ((current.index * 37) % 320);
-  if (current.index % 3 === 0) current.concurrentCrawls = 3 + ((current.index / 3) % 4);
-  current.throughputHistory.push(current.offersPerMinute);
-  if (current.throughputHistory.length > HISTORY_LIMIT) current.throughputHistory.shift();
   current.events.unshift(createMarketEvent(current.index, new Date()));
   if (current.events.length > BUFFER_LIMIT) current.events.length = BUFFER_LIMIT;
   return snapshot(current);

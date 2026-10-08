@@ -1,22 +1,9 @@
 {
   "name": "@flowpanel/next",
   "version": "0.3.0",
+  "private": true,
   "description": "Next.js App Router integration for FlowPanel: pages, route handlers, drawers, actions and SSE",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "admin-panel",
-    "nextjs",
-    "app-router",
-    "react"
-  ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/next"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -34,17 +21,11 @@
   "sideEffects": [
     "./dist/index.js"
   ],
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only",
-    "lint:publish": "publint --strict",
     "test:types": "tsd",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -64,25 +45,19 @@
     }
   },
   "dependencies": {
+    "@flowpanel/charts": "workspace:*",
     "@flowpanel/core": "workspace:*",
     "@flowpanel/react": "workspace:*",
     "clsx": "catalog:",
     "tailwind-merge": "catalog:"
   },
   "peerDependencies": {
-    "@flowpanel/charts": ">=0.1.0 <1.0.0",
     "next": ">=15.5.0 <17.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^4.0.0"
   },
-  "peerDependenciesMeta": {
-    "@flowpanel/charts": {
-      "optional": true
-    }
-  },
   "devDependencies": {
-    "@flowpanel/charts": "workspace:*",
     "@testing-library/react": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

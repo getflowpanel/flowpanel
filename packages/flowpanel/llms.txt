@@ -67,17 +67,18 @@ the request being served.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `session` | `(req: Request) => Promise<Session \| null>` | Reads the current session. Called on every request and page render, handed the request being served. Lets a provider inspect headers, cookies or the host without forging one. |
-| `role` | `(session: Session \| null) => string \| Promise<string>` | Maps a session to a role string, which every `requireRole` gate compares against. |
-| `requireRole?` | `string \| string[] \| ((s: Session \| null) => boolean)` | Admin-wide gate. Blocks every route and page before anything else runs. |
+| `role` | `(session: Session \| null) => string \| Promise<string>` | Maps a session to a role string, which every role-name `access` rule compares against. |
+| `access?` | `AccessRule` | Who may enter the admin at all. Checked on every route and page before anything else runs, so a predicate sees `scope` as `null`. |
 | `signInUrl?` | `string` | Where to send an unauthenticated visitor. Without it they get an inline notice. |
 | `forbiddenUrl?` | `string` | Where to send a signed-in visitor who lacks the role. |
 | `userId?` | `(session: Session \| null) => string \| null` | Extracts the actor id for audit rows and per-user rate limiting. |
-| `allowUnauthenticated?` | `boolean` | Declares this admin reachable without a role gate — fronted by a VPN or authenticating proxy instead. Production refuses to start without `requireRole` unless this is `true` AND the admin is `readOnly`. |
+| `allowUnauthenticated?` | `boolean` | Declares this admin reachable without a role gate — fronted by a VPN or authenticating proxy instead. Production refuses to start without `access` unless this is `true` AND the admin is `readOnly`. |
 
-`requireRole` is the admin-wide gate. A config with no `requireRole`, no resource
-`access` and no global `scope` serves every page to anonymous visitors, and `defineAdmin` warns
+`access` is the admin-wide gate, the same `AccessRule` a resource, dashboard, page or
+queue takes. It runs before `scope` resolves, so a function rule sees `scope` as `null`.
+A config with no `auth.access`, no resource `access` and no global `scope` serves every page to anonymous visitors, and `defineAdmin` warns
 in development; `allowUnauthenticated: true` marks that as intended. In
-production, a config without `auth.requireRole` refuses to start unless it sets
+production, a config without `auth.access` refuses to start unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
 The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
@@ -492,7 +493,7 @@ import { resource } from "@flowpanel/kit";
 import { orders } from "@/db/schema";
 
 export const ordersResource = resource(orders, {
-  label: "Order",
+  labelOne: "Order",
   plural: "Orders",
   icon: "shopping-cart",
   columns: ["id", "customerEmail", { field: "total", format: "money" }, "status"],
@@ -510,9 +511,9 @@ export const ordersResource = resource(orders, {
 | Property | Type | Notes |
 | --- | --- | --- |
 | `name?` | `string` | URL segment and registry key. Defaults to the adapter's table name. |
-| `label?` | `string` | Singular label shown in headings and buttons. |
-| `labelOne?` | `string` | Label for exactly one row, e.g. `"Customer"`, used in record, create and edit titles. Falls back to `label`, then the resource name made singular: `order_items` reads "Order item". |
-| `plural?` | `string` | Plural label shown in the nav and list title. |
+| `label?` | `string` | The one name for both a row and the list when they read the same, such as `"Staff"`. `labelOne` overrides it for one row and `plural` for the list; without any of the three, the resource name is humanized: `order_items` reads "Order items" and one row "Order item". |
+| `labelOne?` | `string` | Name for exactly one row, e.g. `"Customer"`: record, create and edit titles and the drawer. Falls back to `label`. |
+| `plural?` | `string` | Name for the list: the nav entry, the list title and the detail crumb. Falls back to `label`. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
 | `hidden?` | `boolean` | Keep the resource out of the navigation — its routes still work. |
 | `navGroup?` | `NavGroupRef` | Sidebar group for this resource. Default: the Resources group. |
@@ -524,17 +525,17 @@ export const ordersResource = resource(orders, {
 | `pageSize?` | `number` | Rows per page. Default: `20`. |
 | `density?` | `"comfortable" \| "compact"` | Row height preset for the list table. Default: `"comfortable"`. |
 | `rowClick?` | `"detail" \| "drawer" \| false` | What a row click — and Enter on the focused row — does. A row the projection cannot identify never acts. Default: ``"drawer"` when `drawer` is configured, otherwise `"detail"``. |
-| `rowKey?` | `keyof Row & string` | Property holding each row's unique id. Default: `"id"`. |
+| `rowKey?` | `keyof Row & string` | Property holding each row's unique id. Default: `the table's primary key, else `"id"``. |
 | `drawer?` | `DrawerConfig<Row>` | Side panel opened for a single row. |
 | `detail?` | `DetailOptions<Row>` | Full-page view at `<paths.admin>/<resource>/<id>`. |
 | `schema?` | `z.ZodTypeAny \| { create?: z.ZodTypeAny; update?: z.ZodTypeAny }` | Validation for writes. Overrides the schema inferred from the adapter. |
-| `writeTo?` | `unknown` | The table that create, update, delete and restore write to, when the resource reads a view. Omitted on a view: the resource is read-only, and a declared create/update/delete/import is an error at `defineAdmin`. |
-| `create?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> }` | Create form. `disabled` removes the route, not just the button. |
+| `writeTo?` | `AdapterRef` | The table that create, update, delete and restore write to, when the resource reads a view. Omitted on a view: the resource is read-only, and a declared create/update/delete/import is an error at `defineAdmin`. |
+| `create?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> }` | Create form. `disabled` removes the route, not just the button. `defaultValues` fills keys a create leaves empty, on the server only, and wins over a field's own `defaultValue`. |
 | `update?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; /** Additional readable values available to edit-form hidden/readOnly predicates; never a control, default or write. */ expose?: (keyof Row & string)[]; /** * How the record page's edit button reads: `"primary"` fills it with the accent. * @defaultValue "secondary" */ emphasis?: ActionEmphasis; }` | Edit form. `disabled` removes the route, not just the button. |
 | `delete?` | `{ disabled?: boolean; softDelete?: keyof Row & string; confirm?: string }` | Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. |
 | `actions?` | `RowAction<Row, any, any>[]` | Per-row actions, rendered inline or in the row's menu. |
 | `bulkActions?` | `BulkAction<Row, any, any>[]` | Actions applied to a selection of rows. |
-| `scope?` | `"bypass" \| ((scope: Scope, query: unknown) => unknown)` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
+| `scope?` | `"bypass" \| ResourceScope` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
 | `access?` | `ResourceAccess<Row>` | Canonical operation-level authorization. |
 | `fieldAccess?` | `FieldAccessMap<Row>` | Canonical read/write policy for declared fields. |
 | `export?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Export button, off unless set. `formats` defaults to `["csv"]`; `fields` defaults to the visible columns. |
@@ -543,6 +544,11 @@ export const ordersResource = resource(orders, {
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
 | `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: ListFilters<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
 | `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. `{query}` is * the search text. Default: `labels.widget.filtered`. */ filtered?: string; /** * Title when a search leaves no rows, in place of `filtered`, e.g. `"Nothing found for «{query}»"`. * Default: `filtered`. */ searched?: string; }` | What the list shows when there are no rows at all. |
+
+`label` names both one row and the list, so it suits a word that reads the same
+either way. Set `labelOne` and `plural` when they differ: a resource with only
+`label: "Order"` titles its list "Order" too. Without any of the three, the
+resource name is humanized and made singular for one row.
 
 An empty list shows `empty.title`, `description`, `icon` and `action`. When search
 or filters leave no rows it shows `empty.filtered` (or `empty.searched` during a
@@ -807,9 +813,11 @@ itself and a missing one as `—`; `badge()` returns `null` for a missing value;
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
 `form`. `required` marks the control required and the server rejects a missing
-value. `readOnly` and `requireRole` apply to rendering and to writes; a function
+value. `readOnly` and the resource's `fieldAccess` apply to rendering and to writes; a function
 `readOnly` is called with the stored row, so it guards edits. `hidden` only removes
-the control.
+the control. `defaultValue` fills a key a create leaves empty and pre-fills a visible
+control; the resource's `create.defaultValues` fills keys on the server only and wins
+when both name the same key.
 
 `FieldDef`
 
@@ -825,9 +833,8 @@ the control.
 | `required?` | `boolean` | Require a value. The form marks it, and the server rejects a create that leaves it empty or an edit that clears it. |
 | `readOnly?` | `boolean \| ((values: Partial<Row>) => boolean)` | Render non-editable. Enforced server-side, not just in the UI. |
 | `hidden?` | `boolean \| ((values: Partial<Row>) => boolean)` | Leave the field out of the form entirely. |
-| `requireRole?` | `string \| string[] \| ((session: Session \| null) => boolean)` | Restrict who may see and write this field. Enforced on every write route. |
 | `validate?` | `\| z.ZodTypeAny \| ((value: unknown, values: Partial<Row>) => string \| null \| Promise<string \| null>)` | Per-field validation, run server-side after the resource schema. |
-| `defaultValue?` | `unknown \| ((ctx: QueryContext) => Promise<unknown>)` | Value used when creating, for keys the operator left empty. |
+| `defaultValue?` | `unknown \| ((ctx: QueryContext) => Promise<unknown>)` | Value used when creating, for keys the operator left empty; a visible field also pre-fills with it. The resource's `create.defaultValues` wins for the same key. |
 | `span?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Width in a 12-column form grid. Defaults to full width. |
 | `group?` | `string` | Fieldset heading this field is grouped under. |
 | `render?` | `(row: Row, ctx: RequestContext) => ReactNode \| Promise<ReactNode>` | Detail pages and drawers only: what the field shows instead of its value — a join or a computed label. |
@@ -1355,7 +1362,7 @@ The last argument to every `run`.
 ### Validation
 
 A `form` is validated on the server before `run`: `required`, then each field's
-`validate`. A failure returns `422` with an `issues` array.
+`validate`. A failure returns `422` with `fieldErrors`, one message per field.
 
 ## Drawer
 
@@ -1556,8 +1563,7 @@ On a record page or in a drawer, `ctx.row` is the record. A drawer renders
 [static cards](/docs/reference/drawer#drawertabwidgets).
 
 ```ts excerpt
-import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
-import { areaChart } from "@flowpanel/kit/charts";
+import { areaChart, dashboard, metric, statGroup, table } from "@flowpanel/kit";
 
 export const overview = dashboard({
   path: "/",
@@ -2556,10 +2562,10 @@ Your own component in the grid. `props` is a value or a server function. See
 
 ### Charts
 
-Chart builders live in `@flowpanel/kit/charts`, so Recharts loads only when used.
+The chart builders come from `@flowpanel/kit`. Recharts loads only when a chart is on the page.
 
 ```ts excerpt
-import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts";
+import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit";
 ```
 
 Each takes `(label, query, options)`. `x` and `y` (`category` and `value` on a pie)
@@ -2713,8 +2719,7 @@ A preset's bounds now, in the admin's zone, for a query that needs a fixed windo
 beside the picked one. Pass the same `now` to widgets sharing a query.
 
 ```ts excerpt
-import { barChart } from "@flowpanel/kit/charts";
-import { bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
+import { barChart, bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
 
 const hourly = (c: WidgetContext) => c.sql<{ at: Date; platform: string; orders: number }>`
   select hour as at, platform, orders_new as orders
@@ -2756,7 +2761,7 @@ Both return their argument, typed.
 | `sections` | `SectionConfig[]` | Widget bands, rendered top to bottom. |
 | `actions?` | `DashboardAction<any, any>[]` | Optional top-bar action buttons rendered in the dashboard page header. |
 | `hideActionsBar?` | `boolean` | Hide the default `DashboardActionsBar`. |
-| `requireRole?` | `string \| string[] \| ((session: Session \| null) => boolean)` | Restrict access to this dashboard. |
+| `access?` | `AccessRule` | Who may see and open this dashboard and run its actions. |
 
 `refresh` (`"<n>s"` or `"<n>m"`) re-renders the dashboard on that interval while the
 tab is visible and shows the data's age by the date picker.
@@ -2866,7 +2871,7 @@ dashboard({
 | `navGroup?` | `NavGroupRef` | Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. |
 | `component?` | `ComponentType<Record<string, never>>` | Server or client React component rendered at `<paths.admin><path>`. |
 | `href?` | `string` | External href used when `component` is not provided. |
-| `requireRole?` | `string \| string[] \| ((session: Session \| null) => boolean)` | Restrict access to this page. |
+| `access?` | `AccessRule` | Who may see and open this page. |
 
 ## queue()
 
@@ -2890,7 +2895,7 @@ export default defineAdmin({
     queue(emailQueue, {
       label: "Email",
       boardUrl: `http://localhost:3001/queue/email?token=${process.env.BOARD_TOKEN}`,
-      requireRole: "admin",
+      access: "admin",
     }),
   ],
 });
@@ -2911,9 +2916,9 @@ absent.
 | `navGroup?` | `NavGroupRef` | Sidebar group for this queue. Default: the Queues group. |
 | `boardUrl` | `string` | Full URL (e.g., http://localhost:3001/scraper) to the bull-board UI. |
 | `key?` | `string` | Optional explicit key; defaults to queue.name. |
-| `requireRole?` | `string \| string[]` | Role required to access this queue page. |
+| `access?` | `AccessRule` | Who may see and open this queue page. |
 
-`requireRole` is `string | string[]`; it takes no predicate.
+`access` takes the same `AccessRule` as a resource: a role, a list of roles, or a function.
 
 ### QueueConfig
 
@@ -2924,7 +2929,7 @@ What `queue()` returns.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `__kind` | `"queue"` |  |
-| `ref` | `unknown` |  |
+| `ref` | `QueueRef` |  |
 | `options` | `QueueOptions` |  |
 
 ### The key, and the URL it produces
@@ -3388,26 +3393,22 @@ A foreign-key target for `ColumnDef.reference` and `FieldDef.reference`.
 
 ## React components
 
-The full @flowpanel/react export surface, grouped by what it's for.
+The full @flowpanel/kit/react export surface, grouped by what it's for.
 
 Docs: https://flowpanel.tech/docs/reference/react-components
 
 Documented types: AdminShellProps, DrawerProps, CommandPaletteProps, DataTableProps, AutoFormProps, FormProps, FieldProps, FlowpanelIconProps, DevToolsPanelProps
 
 The components the admin renders with, for custom slots, pages and `"bare"`-shell
-chrome. Import them from `@flowpanel/kit/react` (or `@flowpanel/react`).
+chrome. Import them from `@flowpanel/kit/react`.
 
 ```ts excerpt
 import { AutoForm, DataTable, useAdminTable } from "@flowpanel/kit/react";
 ```
 
-Not listed here: `@flowpanel/kit/next/client` holds the runtime's client
-components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
-`DataTableWithDrawerRows`, `CreateDrawer`, `DetailTabsClient`,
-`SavedViewsDropdown`, `ResourceListSearch`, `ResourceListFilters`,
-`ResourceListDeletedToggle`, `DashboardDateRange`, `DashboardFilters`,
-`RelatedTabTable`, `WidgetErrorBoundary`), and `@flowpanel/kit/client` holds
-[`useAdminMutation`](/docs/reference/client).
+Not listed here: `@flowpanel/kit/client` holds
+[`useAdminMutation`](/docs/reference/client), and `@flowpanel/kit/charts` the
+[chart components](/docs/customization/charts#client-data).
 
 ### Shell
 
@@ -3655,7 +3656,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | `Badge`, `DefaultBadge` | Toned inline badge and its default renderer. |
 | `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
 | `StatusDot` | Small dot in any `Tone`, `ok` by default. |
-| `LiveIndicator` | Realtime connection status indicator (see `LiveStatus`). |
+| `LiveIndicator` | Realtime connection status indicator for a `RealtimeStatus`. |
 | `LocalTime` | Absolute timestamp in the configured `formatting.timeZone`, or the viewer's zone after hydration when none is set. |
 | `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
 | `Sparkline` | Minimal inline trend line for a numeric series. |
@@ -3673,7 +3674,8 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 All hooks are client-only.
 
 **`useLiveChannel(channel, onMessage, options?)`** subscribes to one SSE channel;
-instances on the same channel share one `EventSource`. It returns a `LiveStatus`:
+instances on the same channel share one `EventSource`. It returns a `RealtimeStatus`
+(`LiveStatus` is the same type under its 0.3 name):
 `idle`, `connecting`, `live`, `reconnecting`, or `offline` after six failed
 attempts (retries continue).
 
@@ -3852,7 +3854,7 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 | `notFoundMetadata` | The not-found page's metadata, "Page not found" and `noindex`: `export const metadata = flowpanel.notFoundMetadata;` in `not-found.tsx` titles the server's HTML, not only the page after it loads. |
 | `handlers` | `FlowpanelHandlers` for REST and generated-UI routes. |
 | `request()` | Current request's protected `FlowpanelRequest`. |
-| `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/client`. |
+| `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/kit/client`. |
 | `events.publish(channel, payload?)` | Namespaced, validated realtime event. |
 | `dispose()` | Stops this runtime's `events.publish`. Idempotent. The process-wide publisher stays open for other runtimes. |
 
@@ -3957,7 +3959,7 @@ All paths are relative to `/api/flowpanel`.
 
 Each runs, in order: the same-origin check for writes, the admin role gate and
 rate limit, read-only mode for writes, the resource gate and its `access`, a
-dashboard's `requireRole`, and the action's `access`.
+dashboard's `access`, and the action's `access`.
 
 ### stream
 
@@ -3984,15 +3986,16 @@ export const GET = stream(config);
 
 #### What the stream checks
 
-Like every route, the stream is gated by `auth.requireRole`; without it, it is
+Like every route, the stream is gated by `auth.access`; without it, it is
 open ([AuthConfig](/docs/reference/define-config#authconfig)). A failed role check
 answers `403`. Per connection:
 
 | Limit | Value | Behavior when exceeded |
 | --- | --- | --- |
 | Channels per connection | 25 | Extra `?channel=` values are dropped, not rejected |
-| Channel name charset | `/^[A-Za-z0-9_.:-]{1,128}$/` | Non-matching names are silently ignored |
-| Per-resource role gate | `resource.<name>` channels | Dropped when the resource's `access.read` rejects the caller |
+| Channel name charset | `/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/` | Non-matching names are silently ignored |
+| Per-resource role gate | `resource.<name>` channels | Dropped when the resource is not registered or its `access.read` rejects the caller |
+| Tenant scope | `resource.<name>` of a resource with `scope` | Each event carries only its `action`, never a row id or row data |
 | Heartbeat | 15s (`heartbeatMs`) | A `: keep-alive` comment keeps proxies from closing the response |
 
 A channel that never receives events was probably dropped by one of the first
@@ -4023,10 +4026,20 @@ In an action, use `ctx.publish`. `handlers`, `Flowpanel` and `stream` call
 `bindPublisher` for you; call it in your own route handlers. A worker uses
 [`@flowpanel/kit/publish`](/docs/guides/realtime#publish-from-a-worker).
 
-`@flowpanel/kit/server` re-exports `publish`, `publishResource` and
-`bindPublisher`, plus `emitAudit`, `requireRole` and the request-context
-accessors, without the rest of the Next.js runtime. Publishing before
-`bindPublisher` runs uses an in-memory publisher and warns once.
+`publish`, `publishResource`, `bindPublisher` and `emitAudit` come from
+`@flowpanel/kit/next`; `requireAccess` and the request-context accessors from
+`@flowpanel/kit`. Publishing before `bindPublisher` runs uses an in-memory
+publisher and warns once.
+
+`requireAccess(rule, ctx)` throws `FlowpanelAccessError` when an `AccessRule`
+rejects the context, and a missing rule denies, so a server action can reuse the
+admin's rules:
+
+```ts excerpt
+import { getRequestContext, requireAccess } from "@flowpanel/kit";
+
+await requireAccess(["admin", "support"], getRequestContext());
+```
 
 ### Route handlers
 
@@ -4073,6 +4086,7 @@ the resource's channel for `refresh: true`), then revalidates `pathname` unless
 | --- | --- | --- |
 | `resourceName?` | `string` |  |
 | `pathname?` | `string` |  |
+| `change?` | `{ action: "create" \| "update" \| "delete" }` | A change FlowPanel made itself, published on `resource.<resourceName>` whatever `refresh` says. |
 
 ### Dashboard path encoding
 
@@ -4127,7 +4141,7 @@ Pass `reqCtx` to reuse a request context you already built.
 
 ### buildRequestContext
 
-Builds the `RequestContext`. It enforces `auth.requireRole` and the rate limit, so
+Builds the `RequestContext`. It enforces `auth.access` and the rate limit, so
 it throws `FlowpanelAccessError` or `FlowpanelRateLimitError`:
 
 ```ts excerpt
@@ -4160,7 +4174,7 @@ try {
 A widget context for this admin, without a request or tenant scope, for tests.
 
 Runs a widget as a dashboard does and returns its `kind` and props. Most tests use
-these through `@flowpanel/test/widgets`; see [Testing](/docs/reference/testing#unit-test-a-widget).
+these through `@flowpanel/kit/test/widgets`; see [Testing](/docs/reference/testing#unit-test-a-widget).
 
 ### Navigation
 
@@ -4170,7 +4184,7 @@ function resourceNavName(resource: ResourceConfig): string;
 ```
 
 `buildNav` resolves to the sidebar entries, for your own chrome around a `"bare"`
-shell. Pass `reqCtx` to apply each entry's `requireRole` or resource `access`. `resourceNavName` returns
+shell. Pass `reqCtx` to apply each entry's `access`, or a resource's `access.read`. `resourceNavName` returns
 a resource's resolved name and throws if it cannot.
 
 ## Typed client
@@ -4181,7 +4195,7 @@ Docs: https://flowpanel.tech/docs/reference/client
 
 Documented types: createFlowpanelClient, UseAdminMutation, UseAdminMutationOptions
 
-`@flowpanel/client` calls the admin's HTTP API from custom browser UI. Calls go
+`@flowpanel/kit/client` calls the admin's HTTP API from custom browser UI. Calls go
 through the same auth, access, scope, validation and audit as generated pages.
 
 ```ts excerpt
@@ -4195,10 +4209,8 @@ import {
   type FlowpanelFetchOptions,
   type FlowpanelListOptions,
   type FlowpanelResourceClient,
-} from "@flowpanel/client";
+} from "@flowpanel/kit/client";
 ```
-
-With `@flowpanel/kit`, import from `@flowpanel/kit/client`.
 
 ### Create a client
 
@@ -4325,7 +4337,7 @@ Low-level policy, result, adapter and pipeline APIs for custom runtimes and thir
 
 Docs: https://flowpanel.tech/docs/reference/runtime-contracts
 
-Lower-level `@flowpanel/core` contracts for adapter authors and custom
+Lower-level contracts from `@flowpanel/kit` for adapter authors and custom
 integrations. An app built with `defineAdmin` and `createFlowpanel` does not need
 them.
 
@@ -4333,12 +4345,12 @@ them.
 import {
   accessAllows,
   assertWritableInput,
-  authorizeOperation,
   bindAdapterScope,
   resolveScopeApplier,
   errorResult,
   filterReadableProjection,
   reportUnexpectedError,
+  requireAccess,
   resolveOperationAccess,
   resultResponse,
   FLOWPANEL_ERROR_STATUS,
@@ -4363,7 +4375,7 @@ import {
   type JsonValue,
   type ResourceAccess,
   type ResourceOperation,
-} from "@flowpanel/core";
+} from "@flowpanel/kit";
 ```
 
 ### Definitions and paths
@@ -4395,8 +4407,9 @@ to the four `ResourceOperation` values: `read`, `create`, `update`, `delete`.
 - `accessAllows(rule, context)` evaluates one normalized rule.
 - `resolveOperationAccess(access, operation)` returns the rule `access` sets for
   that operation, or `undefined` when it sets none.
-- `authorizeOperation(rule, context)` throws the safe access error when the
-  resolved rule rejects the request.
+- `requireAccess(rule, context)` throws the safe access error when the rule rejects
+  the request. It takes a rule, and a missing one denies; pass `true` to allow
+  everyone.
 
 `FieldAccess<Row>` adds `read`, `write` and `sensitive` policy. A
 `FieldAccessMap<Row>` maps it by field name; write predicates receive
@@ -4703,7 +4716,7 @@ query.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `hasGlobal` | `boolean` |  |
-| `resourceScope` | `"bypass" \| ((...args: unknown[]) => unknown) \| undefined` |  |
+| `resourceScope` | `"bypass" \| ResourceScope \| undefined` |  |
 
 FlowPanel runs this check per request; call it only in your own adapter or route.
 
@@ -4998,7 +5011,7 @@ itself is invalid.
 
 ### Errors the routes produce themselves
 
-The generated UI routes answer some errors directly with a string `error`:
+The generated UI routes (actions, forms, drawers, inline edits, import and restore) answer every failure as `{ ok: false, error, code, requestId?, fieldErrors? }`: `error` is a string to show, `code` a `FlowpanelErrorCode`, and `requestId` is set once the guards have run. Some errors come from the routes themselves:
 
 | Status | `error` | When |
 | --- | --- | --- |
@@ -5009,7 +5022,8 @@ The generated UI routes answer some errors directly with a string `error`:
 | 403 | `Cross-origin write requests are not allowed.` | The default browser origin guard blocks a mutation. |
 | 403 | `This admin is read-only.` | `readOnly: true` blocks a write. |
 | 422 | `too many ids (max N)` | A bulk action gets more ids than its `max`. |
-| 422 | `validation failed` | An action `form` fails validation; the body adds an `issues` array. See [Actions → Validation](/docs/reference/actions#validation). |
+| 404 | `resource not found`, `action not found`, `dashboard not found` | The route names something the config does not register, such as an action removed since the page loaded. |
+| 422 | `validation failed` | An action `form` fails validation; `fieldErrors` holds one message per field. See [Actions → Validation](/docs/reference/actions#validation). |
 
 The JSON CRUD API that the [typed client](/docs/reference/client) calls answers with
 a `FlowpanelResultError`, `{ ok: false, error: { code, message } }`, instead:
@@ -5252,7 +5266,7 @@ What varies:
   exits `1`. So does an installed `@flowpanel/kit` or `@flowpanel/cli` from another
   minor version.
 
-Re-running `init` keeps `flowpanel.config.ts` and skips matching files, and says
+Re-running `init` keeps `flowpanel.config.ts` (or `.tsx`) and skips matching files, and says
 `Already set up; nothing changed.` when there is nothing to write. A conflicting
 file stops it with nothing written and every conflicting path listed. `--yes`
 accepts detected paths; it never overwrites.
@@ -5309,17 +5323,16 @@ Runs these checks:
 - Next.js 15.5 or newer within 15 or 16, and TypeScript installed
 - React and React DOM installed at supported, matching versions, and a supported Node.js
 - an ORM the adapters support: Drizzle or Prisma
-- `flowpanel.config.ts` exists; before `init`, this is the only check after the
-  prerequisites, and its hint is `pnpm dlx @flowpanel/cli init`
+- `flowpanel.config.ts` (or `flowpanel.config.tsx`) exists; before `init`, this is
+  the only check after the prerequisites, and its hint is `pnpm dlx @flowpanel/cli init`
 - `@flowpanel/kit` is installed and matches the CLI's minor version
 - the admin mount in the config (`paths.admin`) resolves to a static path
 - the generated files exist: the API route, the SSE route, the seed migration and
   the catch-all admin page. A missing not-found page is a warning that `--fix` still
   repairs
-- only one reachable `@flowpanel/core` installation across the installed
+- only one reachable `@flowpanel/kit` installation across the installed
   dependency graph, including package-local peers and third-party plugins.
   Stale pnpm store entries are ignored; uninstalled projects skip this check
-- no destructive row/bulk action declared without a `confirm`
 - every ejected admin page still carries its eject marker
 - with `cacheComponents` on: Next.js 16.3 or newer, no `runtime`, `dynamic`,
   `revalidate` or `fetchCache` export in the generated routes and admin page, and
@@ -5327,16 +5340,25 @@ Runs these checks:
   request. `--fix` adds it to a catch-all page `init` wrote; a page you edited gets
   the hint only
 - `tsc --noEmit` passes. When `.next/types` is missing, `doctor` runs `next typegen`
-  first, so the route and layout types Next generates exist
+  first, so the route and layout types Next generates exist. When `next typegen`
+  fails, the `tsc` hint shows its error first, then what `tsc` reported
 - `flowpanel.config.ts` evaluates; an error there is a failure with the error as
-  its hint
+  its hint. With a `.tsx` config, this check and the one above name that file
 
 Three more checks warn without failing the run: a session module that is still the
 closed stub (`getSession` returns `null`) or the open development identity from
 `init --dev-auth`, an empty `resources` array, and a missing `DATABASE_URL` while
 `flowpanel/migrations/` holds SQL files. A warning prints as a yellow `!` line and
-carries `"warn": true` in `--json`, where `hint` appears on failing and warning
-checks only.
+carries `"warn": true` in `--json`. A check that crashes is a warning too, with
+`Could not check:` and the first line of the error as its hint.
+
+When no `eslint.config.*` in the project, or above it up to the repository or
+workspace root, loads `@flowpanel/eslint-plugin`, `doctor` adds a note
+(a `·` line, `"info": true` in `--json`) that suggests the
+[ESLint plugin](/docs/reference/eslint-plugin); its `audit-row-action-needs-confirm`
+rule flags a destructive action without a `confirm`. A note never fails the run or
+counts as a warning. In `--json`, `hint` appears on failing checks, warnings and
+notes only.
 
 Mount checks follow route groups, parallel slots and intercepting routes.
 
@@ -5488,21 +5510,22 @@ Docs: https://flowpanel.tech/docs/reference/testing
 
 Documented types: smokeAdmin, SmokeAdminOptions, SmokeAdminReport, A11yViolation, widgetContext, WidgetContextOptions, headerContext
 
-`@flowpanel/test` is a dev dependency. `smokeAdmin` walks a running admin in
-Playwright and fails on a broken page; `@flowpanel/test/widgets` unit-tests a
-widget over rows you pass.
+`@flowpanel/kit/test` holds `smokeAdmin`, which walks a running admin in
+Playwright and fails on a broken page; `@flowpanel/kit/test/widgets` unit-tests a
+widget over rows you pass. Playwright is an optional peer of the kit, so install
+it as a dev dependency; no other kit subpath loads it.
 
 ```sh
-pnpm add -D @flowpanel/test @playwright/test
+pnpm add -D @playwright/test @axe-core/playwright
 ```
 
-Install `@axe-core/playwright` too for the accessibility checks.
+`@axe-core/playwright` runs the accessibility checks: with `a11y: true` and no `@axe-core/playwright`, `smokeAdmin` fails and names the package to install.
 
 ### smokeAdmin
 
 ```ts excerpt
 import { test } from "@playwright/test";
-import { smokeAdmin } from "@flowpanel/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
 
 test("the admin is healthy", async ({ page }) => {
   await smokeAdmin(page, { paths: { admin: "/admin" }, a11y: true });
@@ -5537,7 +5560,7 @@ is visible, since realtime pages never reach network idle.
 | `paths?` | `{ admin?: string }` | Where the admin is mounted: the config's `paths.admin`. Default: `"/admin"`. |
 | `cookie?` | `{ name: string; value: string; domain?: string }` | Session cookie added before the walk, for an admin behind authentication. |
 | `resources?` | `string[]` | Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. |
-| `a11y?` | `boolean` | Run axe against every visited route; needs `@axe-core/playwright`, or the walk skips the scan instead of failing. Default: `false`. |
+| `a11y?` | `boolean` | Run axe against every visited route. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package. Default: `false`. |
 | `maxRows?` | `number` | How many rows of each list the walk opens. Default: `1`. |
 | `tabs?` | `boolean` | On each record page, open every other detail tab as `?tab=<key>` and check it the same way. Default: `true`. |
 
@@ -5561,7 +5584,7 @@ is visible, since realtime pages never reach network idle.
 and the report as JSON.
 
 ```ts excerpt
-import { smokeAdmin } from "@flowpanel/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
 
 const report = await smokeAdmin(page, {
   paths: { admin: "/admin" },
@@ -5583,7 +5606,7 @@ console.log(`${report.visited.length} routes visited`);
 `resolveWidget` runs the widget as a dashboard does and returns its card's props.
 
 ```ts excerpt
-import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
+import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
 import { expect, it } from "vitest";
 import { paidToday } from "@/admin/config/dashboards/money";
 
@@ -5633,14 +5656,14 @@ references. Access rules apply, so pass `session` and `role`; tenant scope does 
 `badge`:
 
 ```ts excerpt
-import { headerContext } from "@flowpanel/test/widgets";
+import { headerContext } from "@flowpanel/kit/test/widgets";
 import admin from "@/admin/config";
 
 const ctx = headerContext({ admin });
 expect(customers.options.detail?.title?.(row, ctx)).toBe("Northwind Audio");
 ```
 
-`@flowpanel/test/widgets` is ESM-only.
+`@flowpanel/kit/test/widgets` is ESM-only; `@flowpanel/kit/test` also loads with `require`, for Playwright projects compiled to CommonJS.
 
 #### Run it in Vitest
 
@@ -5682,7 +5705,7 @@ next-auth and other providers that sign sessions, sign in first; `smokeAdmin` re
 the page's context.
 
 ```ts excerpt
-import { smokeAdmin } from "@flowpanel/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
 
 await page.goto("/login");
 await page.getByLabel("Email").fill("admin@example.com");

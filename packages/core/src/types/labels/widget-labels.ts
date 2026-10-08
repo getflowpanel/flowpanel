@@ -13,8 +13,6 @@ export interface WidgetLabels {
   secondsAgo?: string;
   /** Use `{n}` for the minute count. */
   minutesAgo?: string;
-  /** Shown where a chart would be when @flowpanel/charts is missing. */
-  chartsMissing?: string;
   /** The value a change is measured against, beside a metric's change. Use `{value}`. */
   previous?: string;
   /** A rate's change in percentage points. Use `{value}`. */

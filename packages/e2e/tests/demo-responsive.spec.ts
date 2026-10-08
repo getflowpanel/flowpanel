@@ -58,5 +58,5 @@ test("the seven-screen product story stays navigable without page overflow", asy
     await expectNoPageOverflow(page);
   }
 
-  await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Matches" })).toBeVisible();
 });

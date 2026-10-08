@@ -27,6 +27,5 @@ export const queues = readSandboxConfig().publicMode
         label: label(q.name),
         icon: "workflow",
         boardUrl: iframeBoardUrl(q.name),
-        hidden: true,
       }),
     );

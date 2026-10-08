@@ -1,62 +1,38 @@
 {
   "name": "@flowpanel/charts",
   "version": "0.3.0",
+  "private": true,
   "description": "Recharts-backed chart widgets for FlowPanel dashboards",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "dashboard",
-    "charts",
-    "recharts",
-    "react"
-  ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/charts"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./runtime": {
-      "types": "./dist/runtime.d.ts",
-      "import": "./dist/runtime.js"
-    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only",
-    "lint:publish": "publint --strict",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@flowpanel/core": "workspace:*",
-    "@flowpanel/react": "workspace:*"
+    "@flowpanel/react": "workspace:*",
+    "recharts": "catalog:"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
-    "recharts": "^2.15.0 || ^3.0.0"
+    "react": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "react": "catalog:",
-    "recharts": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "@flowpanel/kit": "workspace:*",
-    "@flowpanel/react": "workspace:*",
     "bullmq": "catalog:",
     "drizzle-orm": "catalog:",
     "next": "catalog:",
@@ -32,7 +31,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@flowpanel/test": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",

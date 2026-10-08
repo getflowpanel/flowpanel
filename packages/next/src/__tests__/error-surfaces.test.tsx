@@ -51,7 +51,7 @@ function Boom(): never {
 }
 
 /**
- * `@flowpanel/test`'s walk finds a page that rendered while the read under it
+ * `@flowpanel/kit/test`'s walk finds a page that rendered while the read under it
  * failed by looking for `[data-fp-error]`. Every surface that says "this failed"
  * has to carry it, or the smoke test reports a healthy admin.
  */

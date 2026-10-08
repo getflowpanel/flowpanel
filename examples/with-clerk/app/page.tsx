@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 /**
  * Landing page: redirect signed-in users to /admin (where FlowPanel's
- * `withClerk({ requireRole: "admin" })` will further gate on role), and show
+ * `withClerk({ access: "admin" })` will further gate on role), and show
  * Clerk's <SignIn> widget to everyone else.
  */
 export default async function Home() {

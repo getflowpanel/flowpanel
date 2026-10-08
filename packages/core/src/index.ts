@@ -1,6 +1,7 @@
 export { type AdapterScopeContext, resolveScopeApplier } from "./adapter-scope";
 export { devAuth } from "./auth/dev";
 export { checklist, filled, heatmap } from "./builders/activity";
+export { areaChart, barChart, lineChart, pieChart } from "./builders/charts";
 export { dashboard, page } from "./builders/dashboard";
 export { type EnumDef, type EnumEntry, enumOf } from "./builders/enum-of";
 export { queue } from "./builders/queue";

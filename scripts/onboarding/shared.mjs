@@ -66,8 +66,15 @@ async function digests(directory, prefix = "") {
   return out;
 }
 
-/** Fails unless each package under `consumer/node_modules` holds exactly the files of its packed tarball. */
+/** Fails unless `node_modules/@flowpanel` holds exactly `names`, each with the files of its packed tarball. */
 export async function assertInstalledFromTarballs(consumer, tarballs, names) {
+  const installedScope = (await readdir(path.join(consumer, "node_modules/@flowpanel"))).sort();
+  const expected = names.map((name) => name.replace("@flowpanel/", "")).sort();
+  if (installedScope.join() !== expected.join()) {
+    throw new Error(
+      `node_modules/@flowpanel holds ${installedScope.join(", ")}; expected only ${expected.join(", ")}`,
+    );
+  }
   for (const name of names) {
     const unpacked = await mkdtemp(path.join(path.dirname(consumer), "unpacked-"));
     try {

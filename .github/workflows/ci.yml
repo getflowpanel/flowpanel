@@ -50,12 +50,15 @@ jobs:
       - name: Packed CLI clean-room install
         run: pnpm check:cli-package
 
-      # ── Publish-readiness gates (scripts added by package owners) ──────────
-      - name: publint (package.json export correctness)
-        run: pnpm -r --filter "./packages/*" --filter "!@flowpanel/e2e" run lint:publish
+      - name: Packed kit installs alone and loads every subpath
+        run: pnpm check:kit-package
 
-      - name: attw (are-the-types-wrong)
-        run: pnpm -r --filter "./packages/*" --filter "!@flowpanel/e2e" run lint:attw
+      # ── Publish-readiness gates (scripts added by package owners) ──────────
+      - name: publint (package.json export correctness of the published packages)
+        run: pnpm -r --filter "./packages/*" run lint:publish
+
+      - name: attw (are-the-types-wrong, every published entry point)
+        run: pnpm -r --filter "./packages/*" run lint:attw
 
       - name: Type tests (tsd)
         run: pnpm -r test:types
@@ -66,7 +69,7 @@ jobs:
         run: |
           pattern=':[[:space:]]*any\b|\bas[[:space:]]+any\b'
           found=0
-          for idx in packages/*/src/index.ts; do
+          for idx in packages/*/src/index.ts packages/*/src/index.tsx; do
             if grep -qnE "$pattern" "$idx" 2>/dev/null; then
               echo "❌ $idx contains \`any\` in public exports"
               grep -nE "$pattern" "$idx"
@@ -116,9 +119,7 @@ jobs:
           git diff --exit-code -- apps/site/content/changelog/index.mdx
 
       - name: Bundle-size budgets (.size-limit.json)
-        run: |
-          pnpm --filter @flowpanel/kit exec size-limit
-          pnpm --filter @flowpanel/charts exec size-limit
+        run: pnpm --filter @flowpanel/kit exec size-limit
 
       - name: Changesets name real workspace packages
         # The version PR consumes every changeset by design, so "each change

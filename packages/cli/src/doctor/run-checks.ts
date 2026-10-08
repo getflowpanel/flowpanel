@@ -28,7 +28,7 @@ import { configDialect, migrationTemplate } from "../utils/sql-dialect";
 import { cacheComponentsChecks } from "./cache-components";
 import type { Check } from "./check";
 import { type ConfigWarnings, firstLine, readConfigWarnings } from "./config-warnings";
-import { countCoreInstances, fixPrecondition, staleEjectMarkers } from "./probes";
+import { countKitInstances, fixPrecondition, staleEjectMarkers } from "./probes";
 import { FIXABLE_FILES, MIGRATION_REL_DEST, makeFix } from "./templates";
 import { runTsc } from "./tsc-check";
 import { warningChecks } from "./warnings";
@@ -205,14 +205,14 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
     }
   };
 
-  await probe("Single @flowpanel/core instance", async () => {
-    const coreCount = await countCoreInstances(cwd);
-    if (coreCount === null) return;
+  await probe("Single @flowpanel/kit instance", async () => {
+    const kitCount = await countKitInstances(cwd);
+    if (kitCount === null) return;
     add(
-      "Single @flowpanel/core instance",
-      coreCount <= 1,
-      coreCount > 1
-        ? `Found ${coreCount} active @flowpanel/core installations. ` +
+      "Single @flowpanel/kit instance",
+      kitCount <= 1,
+      kitCount > 1
+        ? `Found ${kitCount} active @flowpanel/kit installations. ` +
             `Align FlowPanel versions and peer dependency ranges, then reinstall with your lockfile.`
         : undefined,
     );

@@ -17,10 +17,10 @@ Your own component in the grid. `props` is a value or a server function. See
 
 ### Charts
 
-Chart builders live in `@flowpanel/kit/charts`, so Recharts loads only when used.
+The chart builders come from `@flowpanel/kit`. Recharts loads only when a chart is on the page.
 
 ```ts excerpt
-import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts";
+import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit";
 ```
 
 Each takes `(label, query, options)`. `x` and `y` (`category` and `value` on a pie)
@@ -174,8 +174,7 @@ A preset's bounds now, in the admin's zone, for a query that needs a fixed windo
 beside the picked one. Pass the same `now` to widgets sharing a query.
 
 ```ts excerpt
-import { barChart } from "@flowpanel/kit/charts";
-import { bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
+import { barChart, bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
 
 const hourly = (c: WidgetContext) => c.sql<{ at: Date; platform: string; orders: number }>`
   select hour as at, platform, orders_new as orders
@@ -217,7 +216,7 @@ Both return their argument, typed.
 | `sections` | `SectionConfig[]` | Widget bands, rendered top to bottom. |
 | `actions?` | `DashboardAction<any, any>[]` | Optional top-bar action buttons rendered in the dashboard page header. |
 | `hideActionsBar?` | `boolean` | Hide the default `DashboardActionsBar`. |
-| `requireRole?` | `string \| string[] \| ((session: Session \| null) => boolean)` | Restrict access to this dashboard. |
+| `access?` | `AccessRule` | Who may see and open this dashboard and run its actions. |
 
 `refresh` (`"<n>s"` or `"<n>m"`) re-renders the dashboard on that interval while the
 tab is visible and shows the data's age by the date picker.
@@ -327,4 +326,4 @@ dashboard({
 | `navGroup?` | `NavGroupRef` | Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. |
 | `component?` | `ComponentType<Record<string, never>>` | Server or client React component rendered at `<paths.admin><path>`. |
 | `href?` | `string` | External href used when `component` is not provided. |
-| `requireRole?` | `string \| string[] \| ((session: Session \| null) => boolean)` | Restrict access to this page. |
+| `access?` | `AccessRule` | Who may see and open this page. |

@@ -250,7 +250,7 @@ export async function renderWidget(
     case "lineChart":
     case "pieChart": {
       const chart = await renderChartWidget(widget, ctx, config, pending);
-      return chart.missing ? chart.node : withRealtime(chart.node, widget.options.realtime);
+      return withRealtime(chart, widget.options.realtime);
     }
   }
 }

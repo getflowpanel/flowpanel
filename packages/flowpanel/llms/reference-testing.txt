@@ -8,21 +8,22 @@ Docs: https://flowpanel.tech/docs/reference/testing
 
 Documented types: smokeAdmin, SmokeAdminOptions, SmokeAdminReport, A11yViolation, widgetContext, WidgetContextOptions, headerContext
 
-`@flowpanel/test` is a dev dependency. `smokeAdmin` walks a running admin in
-Playwright and fails on a broken page; `@flowpanel/test/widgets` unit-tests a
-widget over rows you pass.
+`@flowpanel/kit/test` holds `smokeAdmin`, which walks a running admin in
+Playwright and fails on a broken page; `@flowpanel/kit/test/widgets` unit-tests a
+widget over rows you pass. Playwright is an optional peer of the kit, so install
+it as a dev dependency; no other kit subpath loads it.
 
 ```sh
-pnpm add -D @flowpanel/test @playwright/test
+pnpm add -D @playwright/test @axe-core/playwright
 ```
 
-Install `@axe-core/playwright` too for the accessibility checks.
+`@axe-core/playwright` runs the accessibility checks: with `a11y: true` and no `@axe-core/playwright`, `smokeAdmin` fails and names the package to install.
 
 ### smokeAdmin
 
 ```ts excerpt
 import { test } from "@playwright/test";
-import { smokeAdmin } from "@flowpanel/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
 
 test("the admin is healthy", async ({ page }) => {
   await smokeAdmin(page, { paths: { admin: "/admin" }, a11y: true });
@@ -57,7 +58,7 @@ is visible, since realtime pages never reach network idle.
 | `paths?` | `{ admin?: string }` | Where the admin is mounted: the config's `paths.admin`. Default: `"/admin"`. |
 | `cookie?` | `{ name: string; value: string; domain?: string }` | Session cookie added before the walk, for an admin behind authentication. |
 | `resources?` | `string[]` | Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. |
-| `a11y?` | `boolean` | Run axe against every visited route; needs `@axe-core/playwright`, or the walk skips the scan instead of failing. Default: `false`. |
+| `a11y?` | `boolean` | Run axe against every visited route. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package. Default: `false`. |
 | `maxRows?` | `number` | How many rows of each list the walk opens. Default: `1`. |
 | `tabs?` | `boolean` | On each record page, open every other detail tab as `?tab=<key>` and check it the same way. Default: `true`. |
 
@@ -81,7 +82,7 @@ is visible, since realtime pages never reach network idle.
 and the report as JSON.
 
 ```ts excerpt
-import { smokeAdmin } from "@flowpanel/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
 
 const report = await smokeAdmin(page, {
   paths: { admin: "/admin" },
@@ -103,7 +104,7 @@ console.log(`${report.visited.length} routes visited`);
 `resolveWidget` runs the widget as a dashboard does and returns its card's props.
 
 ```ts excerpt
-import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
+import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
 import { expect, it } from "vitest";
 import { paidToday } from "@/admin/config/dashboards/money";
 
@@ -153,14 +154,14 @@ references. Access rules apply, so pass `session` and `role`; tenant scope does 
 `badge`:
 
 ```ts excerpt
-import { headerContext } from "@flowpanel/test/widgets";
+import { headerContext } from "@flowpanel/kit/test/widgets";
 import admin from "@/admin/config";
 
 const ctx = headerContext({ admin });
 expect(customers.options.detail?.title?.(row, ctx)).toBe("Northwind Audio");
 ```
 
-`@flowpanel/test/widgets` is ESM-only.
+`@flowpanel/kit/test/widgets` is ESM-only; `@flowpanel/kit/test` also loads with `require`, for Playwright projects compiled to CommonJS.
 
 #### Run it in Vitest
 
@@ -202,7 +203,7 @@ next-auth and other providers that sign sessions, sign in first; `smokeAdmin` re
 the page's context.
 
 ```ts excerpt
-import { smokeAdmin } from "@flowpanel/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
 
 await page.goto("/login");
 await page.getByLabel("Email").fill("admin@example.com");

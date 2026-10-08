@@ -15,7 +15,7 @@ Do this review before an admin takes production traffic. FlowPanel runs inside y
 
 ## Security boundary
 
-- **Authentication.** Replace any development session with real auth and set `auth.requireRole`. See [Authentication](/docs/guides/authentication).
+- **Authentication.** Replace any development session with real auth and set `auth.access`. See [Authentication](/docs/guides/authentication).
 - **Roles.** Use resource and action `access` and field rules; the server rejects fields an operation may not write. See [Roles and permissions](/docs/guides/permissions).
 - **Tenants.** Scope every tenant-owned resource. The first-party adapters fail closed when a bound scope does not constrain the query. See [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 - **Origins.** Cross-origin writes are blocked by default. Add exact `security.trustedOrigins` only for another frontend that must write. Server-to-server clients without an `Origin` header pass this check, so authenticate them yourself.
@@ -42,12 +42,12 @@ Log FlowPanel request IDs, alert on auth, scope, rate-limit, adapter and post-co
 
 ## Browser smoke test
 
-Run `smokeAdmin` from `@flowpanel/test` in CI. It opens every dashboard, list and first record, and fails on a 4xx/5xx, a console error, a FlowPanel error card, and, with `a11y: true` and `@axe-core/playwright` installed, an axe WCAG 2.2 AA violation. See [Testing](/docs/reference/testing).
+Run `smokeAdmin` from `@flowpanel/kit/test` in CI. It opens every dashboard, list and first record, and fails on a 4xx/5xx, a console error, a FlowPanel error card, and, with `a11y: true` and `@axe-core/playwright` installed, an axe WCAG 2.2 AA violation. See [Testing](/docs/reference/testing).
 
 ## Release checklist
 
 - [ ] Real authentication; unauthenticated requests fail.
-- [ ] `auth.requireRole` and resource policies have allowed and denied tests.
+- [ ] `auth.access` and resource policies have allowed and denied tests.
 - [ ] Every tenant-owned resource is scoped; cross-tenant reads and writes fail.
 - [ ] Trusted origins are set only where needed.
 - [ ] Forms, imports, exports, actions and hidden resources expose nothing unintended.

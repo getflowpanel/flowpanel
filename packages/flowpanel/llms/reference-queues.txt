@@ -22,7 +22,7 @@ export default defineAdmin({
     queue(emailQueue, {
       label: "Email",
       boardUrl: `http://localhost:3001/queue/email?token=${process.env.BOARD_TOKEN}`,
-      requireRole: "admin",
+      access: "admin",
     }),
   ],
 });
@@ -43,9 +43,9 @@ absent.
 | `navGroup?` | `NavGroupRef` | Sidebar group for this queue. Default: the Queues group. |
 | `boardUrl` | `string` | Full URL (e.g., http://localhost:3001/scraper) to the bull-board UI. |
 | `key?` | `string` | Optional explicit key; defaults to queue.name. |
-| `requireRole?` | `string \| string[]` | Role required to access this queue page. |
+| `access?` | `AccessRule` | Who may see and open this queue page. |
 
-`requireRole` is `string | string[]`; it takes no predicate.
+`access` takes the same `AccessRule` as a resource: a role, a list of roles, or a function.
 
 ### QueueConfig
 
@@ -56,7 +56,7 @@ What `queue()` returns.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `__kind` | `"queue"` |  |
-| `ref` | `unknown` |  |
+| `ref` | `QueueRef` |  |
 | `options` | `QueueOptions` |  |
 
 ### The key, and the URL it produces

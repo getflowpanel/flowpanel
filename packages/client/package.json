@@ -1,22 +1,9 @@
 {
   "name": "@flowpanel/client",
   "version": "0.3.0",
+  "private": true,
   "description": "Typed browser client for FlowPanel's HTTP API, plus useAdminMutation",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "admin-panel",
-    "nextjs",
-    "react",
-    "hooks"
-  ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/client"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -28,17 +15,11 @@
     "./package.json": "./package.json"
   },
   "sideEffects": false,
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only",
-    "lint:publish": "publint --strict",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
   },

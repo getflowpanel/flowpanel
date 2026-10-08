@@ -16,7 +16,7 @@ Do this review before an admin takes production traffic. FlowPanel runs inside y
 
 ### Security boundary
 
-- **Authentication.** Replace any development session with real auth and set `auth.requireRole`. See [Authentication](/docs/guides/authentication).
+- **Authentication.** Replace any development session with real auth and set `auth.access`. See [Authentication](/docs/guides/authentication).
 - **Roles.** Use resource and action `access` and field rules; the server rejects fields an operation may not write. See [Roles and permissions](/docs/guides/permissions).
 - **Tenants.** Scope every tenant-owned resource. The first-party adapters fail closed when a bound scope does not constrain the query. See [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 - **Origins.** Cross-origin writes are blocked by default. Add exact `security.trustedOrigins` only for another frontend that must write. Server-to-server clients without an `Origin` header pass this check, so authenticate them yourself.
@@ -43,12 +43,12 @@ Log FlowPanel request IDs, alert on auth, scope, rate-limit, adapter and post-co
 
 ### Browser smoke test
 
-Run `smokeAdmin` from `@flowpanel/test` in CI. It opens every dashboard, list and first record, and fails on a 4xx/5xx, a console error, a FlowPanel error card, and, with `a11y: true` and `@axe-core/playwright` installed, an axe WCAG 2.2 AA violation. See [Testing](/docs/reference/testing).
+Run `smokeAdmin` from `@flowpanel/kit/test` in CI. It opens every dashboard, list and first record, and fails on a 4xx/5xx, a console error, a FlowPanel error card, and, with `a11y: true` and `@axe-core/playwright` installed, an axe WCAG 2.2 AA violation. See [Testing](/docs/reference/testing).
 
 ### Release checklist
 
 - [ ] Real authentication; unauthenticated requests fail.
-- [ ] `auth.requireRole` and resource policies have allowed and denied tests.
+- [ ] `auth.access` and resource policies have allowed and denied tests.
 - [ ] Every tenant-owned resource is scoped; cross-tenant reads and writes fail.
 - [ ] Trusted origins are set only where needed.
 - [ ] Forms, imports, exports, actions and hidden resources expose nothing unintended.
@@ -86,7 +86,7 @@ export default defineAdmin({
   adapter,
   auth: withBetterAuth({
     auth,
-    requireRole: "admin",
+    access: "admin",
     signInUrl: "/sign-in",
     forbiddenUrl: "/",
   }),
@@ -101,7 +101,7 @@ When the role lives in your own table, `role` can be async:
 ```ts excerpt
 auth: withBetterAuth({
   auth,
-  requireRole: "admin",
+  access: "admin",
   role: async (session) => {
     const id = (session?.user as { id?: string } | undefined)?.id;
     if (!id) return "guest";
@@ -127,7 +127,7 @@ import { withClerk } from "@flowpanel/kit/auth";
 export default defineAdmin({
   adapter,
   auth: withClerk({
-    requireRole: "admin",
+    access: "admin",
     signInUrl: "/sign-in",
     forbiddenUrl: "/",
   }),
@@ -144,11 +144,11 @@ auth: {
   session: getSession,
   role: (session) => session?.user?.role ?? "guest",
   userId: (session) => session?.user?.id ?? null,
-  requireRole: ["admin", "support"],
+  access: ["admin", "support"],
 }
 ```
 
-`session` receives the request. Both `session` and `role` run on every request.
+`session` receives the request. Both `session` and `role` run on every request. `access` takes the same rule as everywhere else: a role, a list of roles, or a function of `{ session, role }`. It runs before `scope`, so a function sees `scope` as `null`.
 
 ### Verify
 
@@ -160,7 +160,7 @@ Without a `signInUrl`, the page shows a sign-in screen instead of redirecting. I
 
 Call one action route as a non-admin as well, such as `POST /api/flowpanel/orders/1/actions/refund` with a non-admin session cookie, and check that it answers 403.
 
-In production, an admin without `auth.requireRole` refuses to start unless it sets both `allowUnauthenticated: true` and `readOnly: true`.
+In production, an admin without `auth.access` refuses to start unless it sets both `allowUnauthenticated: true` and `readOnly: true`.
 
 Every option: [AuthConfig](/docs/reference/define-config#authconfig).
 
@@ -170,23 +170,29 @@ Enforce admin, resource, action, field, row, and tenant access on the server.
 
 Docs: https://flowpanel.tech/docs/guides/permissions
 
-Every rule is checked on the server route; the UI only hides what a role cannot use. Rules narrow from the whole admin down to a field.
+Every rule is checked on the server route; the UI only hides what a role cannot use. Rules narrow from the whole admin down to a field, and each one is an `AccessRule`: `true` or `false`, a role, a list of roles, or a function of `{ session, role, scope }` that may be async.
 
 ### The whole admin
 
-`auth.requireRole` protects every page, API handler and stream. See [Authentication](/docs/guides/authentication).
+`auth.access` protects every page, API handler and stream. See [Authentication](/docs/guides/authentication).
 
 ```ts excerpt
 auth: {
   session: getSession,
   role: (session) => session?.user?.role ?? "guest",
-  requireRole: ["admin", "support"],
+  access: ["admin", "support"],
 }
 ```
 
 ### A dashboard, page or queue
 
-`requireRole` on any of them hides it from the navigation and rejects its direct route.
+`access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`.
+
+```ts excerpt
+dashboard({ path: "/finance", label: "Finance", access: "admin", sections });
+page({ path: "/audit", label: "Audit", component: AuditPage, access: ["admin", "support"] });
+queue(emailQueue, { label: "Emails", boardUrl, access: "admin" });
+```
 
 ### A resource or action
 
@@ -196,19 +202,22 @@ An action with its own `access` runs under that rule alone, the same one that sh
 
 ### Fields
 
-Form fields take `requireRole` and `readOnly`, which the server enforces. The form shows a field the caller may not write as read-only or leaves it out, and its route drops that field from what it saves; an API or programmatic write that carries it is rejected. `hidden` is not an access rule; it only removes the control.
+`fieldAccess` on a resource is the one field policy: a `read` and a `write` rule per field. A field its `write` rule denies is treated like a `readOnly` one: read-only on the form, rejected from the API. A field the caller may neither read nor write is left out of the form. The route drops both from what it saves; an API or programmatic write that carries such a field is rejected. A field's `readOnly` wins over its `fieldAccess.write`. `hidden` is not an access rule; it only removes the control.
 
 ```ts excerpt
-update: {
-  fields: [
-    { name: "name", required: true },
-    { name: "role", type: "select", options: ["member", "admin"], requireRole: "admin" },
-    { name: "createdAt", readOnly: true },
-  ],
-}
+resource(users, {
+  fieldAccess: {
+    role: { read: "admin", write: "admin" },
+  },
+  update: {
+    fields: [
+      { name: "name", required: true },
+      { name: "role", type: "select", options: ["member", "admin"] },
+      { name: "createdAt", readOnly: true },
+    ],
+  },
+});
 ```
-
-`fieldAccess` on a resource sets read and write rules per field. A field its `write` rule denies is treated like a `readOnly` one: read-only on the form, rejected from the API. A field's `readOnly` wins over its `fieldAccess.write`.
 
 ### Rows
 
@@ -257,10 +266,8 @@ import { eq, type SQL } from "drizzle-orm";
 
 resource(schema.orders, {
   columns: ["number", "status", "total", "createdAt"],
-  scope: (scope, query) =>
-    (query as { where(condition: SQL): unknown }).where(
-      eq(schema.orders.tenantId, scope?.tenantId as string),
-    ),
+  scope: (scope, query: { where(condition: SQL): unknown }) =>
+    query.where(eq(schema.orders.tenantId, scope?.tenantId as string)),
   create: {
     fields: [
       { name: "number" },
@@ -277,10 +284,10 @@ resource(schema.orders, {
 })
 ```
 
-`scope` is typed loosely because the adapter decides what `query` is: with Drizzle, something you call `.where(condition)` on; with Prisma, the `where` object. Merge the tenant into it:
+The adapter decides what `query` is, so annotate it: with Drizzle, something you call `.where(condition)` on; with Prisma, the `where` object. Merge the tenant into it:
 
 ```ts excerpt
-scope: (scope, where) => ({ ...(where as object), tenantId: scope?.tenantId }),
+scope: (scope, where: Record<string, unknown>) => ({ ...where, tenantId: scope?.tenantId }),
 ```
 
 The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue` on a hidden field, as above, so the form never shows it. A hidden field does not stop a crafted request from sending another tenant ID; the adapter does. Drizzle checks that the created row matches the scope and Prisma merges the scope into the data, so the write fails or lands in the caller's tenant.
@@ -321,7 +328,7 @@ metric("Open orders", openOrders, { realtime: { resource: "orders" } });
 custom(Pipeline, pipelineProps, { realtime: "pipeline" });
 ```
 
-Generated creates, updates and deletes publish on their resource automatically. An action publishes when it returns `refresh: true` (its resource) or channels (`refresh: "pipeline"` or a list). In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/server`.
+Generated creates, updates and deletes publish on their resource automatically. An action publishes when it returns `refresh: true` (its resource) or channels (`refresh: "pipeline"` or a list). In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/next`.
 
 ### Choose the driver
 
@@ -381,7 +388,7 @@ A Redis error never fails the job: the call resolves and the error goes to `onEr
 
 ### Production
 
-- The stream route checks `auth.requireRole` itself. If middleware protects the admin (Clerk, a proxy), include the stream path.
+- The stream route checks `auth.access` itself. If middleware protects the admin (Clerk, a proxy), include the stream path.
 - Turn off reverse-proxy buffering for the stream path.
 - Set proxy and load-balancer idle timeouts above 15 s, the stream heartbeat.
 - Allow enough long-lived connections for your operators.
@@ -414,11 +421,11 @@ import { emailQueue } from "@/server/queues";
 export const emailQueuePage = queue(emailQueue, {
   label: "Email",
   boardUrl: "https://internal.example.com/queues/email",
-  requireRole: "admin",
+  access: "admin",
 });
 ```
 
-Add it to `queues` in the config. The queue's `.name` is its key unless you set `key`. `requireRole` protects the admin page, not the board server.
+Add it to `queues` in the config. The queue's `.name` is its key unless you set `key`. `access` protects the admin page, not the board server.
 
 The page embeds `boardUrl` in an iframe, and the board accepts a `?token=` query, an `Authorization: Bearer` header or its session cookie. Locally, append `?token=<BOARD_TOKEN>` to `boardUrl`. Elsewhere, put the board behind a reverse proxy that adds `Authorization: Bearer <token>`, and point `boardUrl` at the proxy; without either, the iframe shows a 401.
 
@@ -461,7 +468,7 @@ Every option and export that 0.4 removed or renamed, what to write instead, and 
 
 Docs: https://flowpanel.tech/docs/guides/upgrade
 
-Every `@flowpanel/*` package releases under one version. Update them together:
+FlowPanel 0.4 publishes three packages: `@flowpanel/kit`, `@flowpanel/cli` and `@flowpanel/eslint-plugin`. Update them together, and remove any other `@flowpanel/*` package from package.json:
 
 ```bash
 pnpm up "@flowpanel/*" --latest
@@ -469,12 +476,27 @@ pnpm up "@flowpanel/*" --latest
 
 ### Removed and renamed
 
-These names were deprecated in 0.3 and are gone in 0.4. TypeScript reports each one. `defineAdmin` also throws at startup on a leftover `requireRole` on a resource or action, `basePath`, or a detail or drawer `header`, so a config that skips the type check fails instead of leaving a resource open.
+These names are gone in 0.4. Most were deprecated in 0.3; `requireRole` goes everywhere because every gate now takes the same `access` rule. TypeScript reports each one. `defineAdmin` also throws at startup on a leftover `requireRole` on the auth block, a resource, a row, bulk, drawer or dashboard action and its form fields, a create or update form field, a dashboard, a page or a queue, `basePath`, or a detail or drawer `header`, and each auth preset throws when given `requireRole`, so a config that skips the type check fails instead of leaving a resource open.
 
 | 0.3 | 0.4 |
 | --- | --- |
+| an import from `@flowpanel/core`, `next`, `react`, `client`, `charts`, `test` or an adapter package | the same names from `@flowpanel/kit` or its subpath: `/next`, `/react`, `/client`, `/charts`, `/test`, `/drizzle`, `/prisma`, `/bullmq` |
+| `areaChart`, `barChart`, `lineChart`, `pieChart` from `@flowpanel/kit/charts` | the same builders from `@flowpanel/kit` |
+| chart components from `@flowpanel/kit/charts/runtime` | the same components from `@flowpanel/kit/charts` |
+| `@flowpanel/kit/server` | `publish`, `publishResource`, `bindPublisher`, `emitAudit` from `@flowpanel/kit/next`; `requireAccess` and the request-context accessors from `@flowpanel/kit` |
 | `requireRole: "admin"` on a resource | `access: { read: "admin", create: "admin", update: "admin", delete: "admin" }` |
 | `requireRole` on a row, bulk, drawer or dashboard action | `access: "admin"` (a role, a list of roles, or a function) |
+| `auth: { requireRole: "admin" }`, `withClerk({ requireRole: "admin" })` and the other auth presets | `auth: { access: "admin" }`, `withClerk({ access: "admin" })` |
+| `requireRole` on a `dashboard()`, `page()` or `queue()` | `access` on the same object; a queue now also takes a function |
+| `requireRole: "admin"` on a create or update form field | `fieldAccess: { field: { read: "admin", write: "admin" } }` on the resource |
+| `requireRole` on an action's `form` field | remove it: it never gated anything; gate the whole action with `access` |
+| a function `requireRole: (session) => …` | `access: ({ session, role, scope }) => …` |
+| `auth: { requireRole: (s) => s !== null }` | `auth: { access: ({ session }) => session !== null }`. Do not just rename the key: `access: (s) => s !== null` receives `{ session, role, scope }`, which is never null, and lets every visitor in. `defineAdmin` warns about it in development and refuses to start in production. |
+| `requireRole` from `@flowpanel/kit/server` | `requireAccess(rule, getRequestContext())` from `@flowpanel/kit`, which throws the same access error |
+| `checkRequireRole` and the `RequireRole` type | `requireAccess` and `AccessRule` |
+| `authorizeOperation(rule, context)` | `requireAccess(rule, context)` |
+| `emitAudit` from `@flowpanel/kit` | `emitAudit` from `@flowpanel/kit/next` |
+| `isBuiltinBulkDelete`, `assertCountWhereColumns`, `declaredWriteFields` from `@flowpanel/kit` | removed: runtime internals with no public replacement |
 | `ctx.db` in an action's `run` | your own `db` import, or `unsafe: ["db"]` on the action and `ctx.unsafe.db` |
 | `ctx.db` in a field `options` or `defaultValue` resolver | your own `db` import |
 | `ctx.href(target)` in a widget | `ctx.link(target)` |
@@ -488,7 +510,7 @@ These names were deprecated in 0.3 and are gone in 0.4. TypeScript reports each 
 | `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
 | `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration` |
 
-A field's own `requireRole` stays: it still limits who sees and writes that field.
+A field gated by `fieldAccess` shows read-only to a caller its `write` rule denies, and leaves the form only when its `read` rule denies them too. 0.3 left a `requireRole` field out of the form entirely.
 
 ### Behaviour that changed
 
@@ -503,6 +525,7 @@ A field's own `requireRole` stays: it still limits who sees and writes that fiel
 - Widget links resolve on the server. A link to a resource or dashboard the config does not register throws and names the registered ones.
 - `ChartRenderer` takes the card's link as a `drilldown` href and no longer reads `options.drilldown`. Pass the resolved link, or the chart card has no link.
 - `resolveOperationAccess(access, operation)` takes two arguments; drop the third, `requireRole`, argument.
+- An action, form, drawer, inline-edit, import or restore route answers a failure as `{ ok: false, error, code, requestId?, fieldErrors? }`. A form validation failure carries `fieldErrors` instead of an `issues` array, and a 404 has a string `error`. Code that read `issues` from these routes should read `fieldErrors`.
 - `StatusBadge` infers different tones: `active` and `completed` are no longer green, `pending`, `waiting` and `processing` are `info` instead of `warn`, `disabled` and `canceled` are `muted` instead of `err`, and an unknown status is `default`. Pass `tone` to keep a colour.
 - The default look is a graphite palette with one data colour, `--fp-data`, and a single-series chart draws in it without the area gradient. Set the tokens in [Styling](/docs/customization/styling#change-design-tokens) to keep your colours.
 - Related tab rows open their target record, and a single click on an editable cell in a clickable row opens the row; editing starts from the pencil or Enter.
@@ -516,7 +539,7 @@ A field's own `requireRole` stays: it still limits who sees and writes that fiel
 - A Drizzle `numeric` or `decimal` column is a number field with a number filter instead of a text box. Its value is still a string, and a value that is not a number fails with "… must be a number".
 - The Prisma and Drizzle adapters' `get` returns `null` for an id that cannot be the key, such as `abc` for an `Int` id or a malformed UUID, so the record page shows not found instead of an error.
 - A resource without `labelOne` or `label` names one record by its singular name, "User" for `users`, and the "New …" and "Edit …" titles put the label mid-sentence: "New customer".
-- A field's `readOnly` now applies to writes even when the field also sets `requireRole`, and a `readOnly` function receives the stored row on edit. `readOnly` also wins over the resource's `fieldAccess.write`.
+- A field's `readOnly` now applies to writes, and a `readOnly` function receives the stored row on edit. `readOnly` also wins over the resource's `fieldAccess.write`.
 - A form field that `fieldAccess.write` denies to the signed-in role shows read-only, and saving the form no longer fails with "cannot be changed".
 - An unknown admin path and a missing record render your `not-found.tsx` through `notFound()`, with a 404 status. Under `cacheComponents` Next has already streamed the static shell, so the status stays 200 and the page carries `noindex`. Add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix`.
 

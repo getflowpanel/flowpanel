@@ -9,7 +9,7 @@ import * as schema from "@/db/schema";
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  auth: withClerk({ requireRole: "admin" }),
+  auth: withClerk({ access: "admin" }),
   resources: [
     resource(schema.customers, {
       columns: ["email", "plan", "status", "mrr", "createdAt"],
@@ -26,7 +26,7 @@ export function Config() {
     <Section
       id="config"
       title="A typed config"
-      lead="List the tables and columns you want, in one file or one per resource. Anything you leave out stays hidden, and a misspelt column name fails the type check."
+      lead="List the tables and columns you want, in one file or one per resource. Anything you leave out stays hidden. With Drizzle, or a registered Prisma model, a misspelt column name fails the type check."
     >
       <figure className="min-w-0">
         <figcaption className="font-mono text-xs text-[var(--color-fg-subtle)]">

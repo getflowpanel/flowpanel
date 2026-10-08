@@ -2,26 +2,22 @@
 
 ## React components
 
-The full @flowpanel/react export surface, grouped by what it's for.
+The full @flowpanel/kit/react export surface, grouped by what it's for.
 
 Docs: https://flowpanel.tech/docs/reference/react-components
 
 Documented types: AdminShellProps, DrawerProps, CommandPaletteProps, DataTableProps, AutoFormProps, FormProps, FieldProps, FlowpanelIconProps, DevToolsPanelProps
 
 The components the admin renders with, for custom slots, pages and `"bare"`-shell
-chrome. Import them from `@flowpanel/kit/react` (or `@flowpanel/react`).
+chrome. Import them from `@flowpanel/kit/react`.
 
 ```ts excerpt
 import { AutoForm, DataTable, useAdminTable } from "@flowpanel/kit/react";
 ```
 
-Not listed here: `@flowpanel/kit/next/client` holds the runtime's client
-components (`DrawerHost`, `CommandHost`, `DashboardActionsBar`,
-`DataTableWithDrawerRows`, `CreateDrawer`, `DetailTabsClient`,
-`SavedViewsDropdown`, `ResourceListSearch`, `ResourceListFilters`,
-`ResourceListDeletedToggle`, `DashboardDateRange`, `DashboardFilters`,
-`RelatedTabTable`, `WidgetErrorBoundary`), and `@flowpanel/kit/client` holds
-[`useAdminMutation`](/docs/reference/client).
+Not listed here: `@flowpanel/kit/client` holds
+[`useAdminMutation`](/docs/reference/client), and `@flowpanel/kit/charts` the
+[chart components](/docs/customization/charts#client-data).
 
 ### Shell
 
@@ -269,7 +265,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | `Badge`, `DefaultBadge` | Toned inline badge and its default renderer. |
 | `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
 | `StatusDot` | Small dot in any `Tone`, `ok` by default. |
-| `LiveIndicator` | Realtime connection status indicator (see `LiveStatus`). |
+| `LiveIndicator` | Realtime connection status indicator for a `RealtimeStatus`. |
 | `LocalTime` | Absolute timestamp in the configured `formatting.timeZone`, or the viewer's zone after hydration when none is set. |
 | `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
 | `Sparkline` | Minimal inline trend line for a numeric series. |
@@ -287,7 +283,8 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 All hooks are client-only.
 
 **`useLiveChannel(channel, onMessage, options?)`** subscribes to one SSE channel;
-instances on the same channel share one `EventSource`. It returns a `LiveStatus`:
+instances on the same channel share one `EventSource`. It returns a `RealtimeStatus`
+(`LiveStatus` is the same type under its 0.3 name):
 `idle`, `connecting`, `live`, `reconnecting`, or `offline` after six failed
 attempts (retries continue).
 

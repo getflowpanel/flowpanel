@@ -18,7 +18,8 @@ export function Hero() {
 
         <p className="mt-6 max-w-[54ch] text-lg leading-relaxed text-[var(--color-fg-muted)] md:text-xl">
           Describe your Drizzle or Prisma tables in a typed config. FlowPanel serves lists, forms,
-          record pages and dashboards at <InlineCode>/admin</InlineCode> inside your app.
+          record pages and dashboards at <InlineCode>/admin</InlineCode> inside your app, with your
+          database client and your auth. FlowPanel hosts nothing: your rows never leave your app.
         </p>
 
         <nav
@@ -26,11 +27,12 @@ export function Hero() {
           className="mt-10 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:gap-8"
         >
           <a
-            href={demo || "#start"}
-            {...(demo ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            href={demo}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex min-h-12 touch-manipulation items-center justify-center rounded-lg bg-[var(--color-ink)] px-6 py-3 text-sm font-medium text-[var(--color-ink-fg)] transition-colors duration-200 hover:bg-[var(--color-ink-hover)] active:bg-[var(--color-ink-hover)]"
           >
-            {demo ? "Open the live demo" : "Get started"}
+            Open the live demo
           </a>
           <Link
             href="/docs"
@@ -44,7 +46,7 @@ export function Hero() {
           <MediaFrame
             srcDark="/admin-overview-dark.png"
             srcLight="/admin-overview-light.png"
-            alt="FlowPanel admin in a Next.js app: the Overview dashboard with a date range, four metric cards and a live panel with a crawl-rate chart and a market activity feed"
+            alt="FlowPanel admin in a Next.js app: the Overview dashboard with a date range, four metric cards, two of them compared with the previous week, and a live panel with a crawl-rate chart and a market activity feed"
             width={2880}
             height={1380}
             url="localhost:3000/admin"

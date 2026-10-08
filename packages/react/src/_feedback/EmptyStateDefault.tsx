@@ -6,7 +6,7 @@ export interface EmptyStateProps {
   action?: React.ReactNode;
   /** A glyph above the title, such as a resource's `empty.icon`. */
   icon?: React.ReactNode;
-  /** Marks the state as a failure, so `@flowpanel/test`'s `smokeAdmin` finds it. */
+  /** Marks the state as a failure, so `@flowpanel/kit/test`'s `smokeAdmin` finds it. */
   "data-fp-error"?: "";
 }
 

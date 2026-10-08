@@ -69,8 +69,9 @@ test("demo persona makes the field-level policy visible", async ({ page }) => {
   await page.getByRole("row").filter({ hasText: "NWA-APP2-USB-C" }).first().click();
   const drawer = page.getByRole("dialog");
   await expect(drawer).toBeVisible();
-  await expect(drawer.getByText("Product", { exact: true })).toBeVisible();
-  await expect(drawer.getByText("Our price", { exact: true })).toHaveCount(0);
+  const detail = drawer.getByRole("tabpanel", { name: "Detail" });
+  await expect(detail.getByText("Product", { exact: true })).toBeVisible();
+  await expect(detail.getByText("Our price", { exact: true })).toHaveCount(0);
   // The drawer is modal: the persona switch behind it is unreachable until it closes.
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();

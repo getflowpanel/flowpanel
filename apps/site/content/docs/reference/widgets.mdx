@@ -10,8 +10,7 @@ On a record page or in a drawer, `ctx.row` is the record. A drawer renders
 [static cards](/docs/reference/drawer#drawertabwidgets).
 
 ```ts excerpt
-import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
-import { areaChart } from "@flowpanel/kit/charts";
+import { areaChart, dashboard, metric, statGroup, table } from "@flowpanel/kit";
 
 export const overview = dashboard({
   path: "/",
@@ -663,10 +662,10 @@ Your own component in the grid. `props` is a value or a server function. See
 
 ## Charts
 
-Chart builders live in `@flowpanel/kit/charts`, so Recharts loads only when used.
+The chart builders come from `@flowpanel/kit`. Recharts loads only when a chart is on the page.
 
 ```ts excerpt
-import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts";
+import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit";
 ```
 
 Each takes `(label, query, options)`. `x` and `y` (`category` and `value` on a pie)
@@ -697,25 +696,25 @@ lineChart("Signups", signupsByPlan, {
 
 ### areaChart
 
-<ApiSignature path="../../packages/charts/src/builders/areaChart.ts" name="areaChart" />
+<ApiSignature path="../../packages/core/src/builders/charts.ts" name="areaChart" />
 
 <AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="AreaChartOptions" />
 
 ### barChart
 
-<ApiSignature path="../../packages/charts/src/builders/barChart.ts" name="barChart" />
+<ApiSignature path="../../packages/core/src/builders/charts.ts" name="barChart" />
 
 <AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="BarChartOptions" />
 
 ### lineChart
 
-<ApiSignature path="../../packages/charts/src/builders/lineChart.ts" name="lineChart" />
+<ApiSignature path="../../packages/core/src/builders/charts.ts" name="lineChart" />
 
 <AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="LineChartOptions" />
 
 ### pieChart
 
-<ApiSignature path="../../packages/charts/src/builders/pieChart.ts" name="pieChart" />
+<ApiSignature path="../../packages/core/src/builders/charts.ts" name="pieChart" />
 
 Pie charts take `category` / `value` instead of `x` / `y`. The slice legend is on
 unless you pass `showLegend: false`.
@@ -770,8 +769,7 @@ A preset's bounds now, in the admin's zone, for a query that needs a fixed windo
 beside the picked one. Pass the same `now` to widgets sharing a query.
 
 ```ts excerpt
-import { barChart } from "@flowpanel/kit/charts";
-import { bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
+import { barChart, bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
 
 const hourly = (c: WidgetContext) => c.sql<{ at: Date; platform: string; orders: number }>`
   select hour as at, platform, orders_new as orders

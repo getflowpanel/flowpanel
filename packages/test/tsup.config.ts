@@ -18,6 +18,6 @@ export default defineConfig([
     outExtension: () => ({ js: ".mjs" }),
     dts: true,
     splitting: false,
-    external: ["@flowpanel/kit", "@flowpanel/kit/next"],
+    external: ["@flowpanel/core", "@flowpanel/next"],
   },
 ]);
