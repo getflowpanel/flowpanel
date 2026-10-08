@@ -5,6 +5,8 @@ import { publish, publishResource } from "./publish";
 export interface ApplyActionResultOptions {
   resourceName?: string;
   pathname?: string;
+  /** A change FlowPanel made itself, published on `resource.<resourceName>` whatever `refresh` says. */
+  change?: { action: "create" | "update" | "delete" };
 }
 
 /** Applies side effects from successful actions: publishes updates and revalidates the cache; failures only log. */
@@ -16,7 +18,9 @@ export async function applyActionResult(
   const refresh = result.refresh;
 
   try {
-    if (refresh === true && opts.resourceName) {
+    if (opts.change && opts.resourceName) {
+      await publishResource(opts.resourceName, opts.change);
+    } else if (refresh === true && opts.resourceName) {
       await publishResource(opts.resourceName, { action: "update" });
     } else {
       const channels =

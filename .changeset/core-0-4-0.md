@@ -3,7 +3,9 @@
 ---
 
 - Breaking: removed the options and exports deprecated in 0.3: `requireRole` on resources and actions, `ctx.db` in actions and option resolvers, `ctx.href`, detail and drawer `header`, a delta's own `goodWhen`, `basePath`, `AdminConfig`, the root `createPublisher`, and the adapter aliases `applyScope`, `scopeRequired`, `runMigrationSql` and `markMigrationApplied`. The [upgrade guide](https://flowpanel.tech/docs/guides/upgrade) gives the replacement for each.
-- Breaking: `defineAdmin` throws at startup on a leftover `requireRole` on a resource or action, `basePath`, or a detail or drawer `header`, instead of ignoring it.
+- Breaking: removed `requireRole` everywhere so every gate takes one `AccessRule`: dashboards, pages and queues take `access`, `auth.requireRole` and the auth presets' `requireRole` became `access`, and a form field is gated by the resource's `fieldAccess`. A queue's `access` also takes a function.
+- Breaking: renamed `authorizeOperation` to `requireAccess` and removed `checkRequireRole` and the `RequireRole` type.
+- Breaking: `defineAdmin` throws at startup on a leftover `requireRole` anywhere, `basePath`, or a detail or drawer `header`, instead of ignoring it, and each auth preset throws when given `requireRole`.
 - Added `ctx.read`, `rowOf`, `link`, `format`, `filters` and a typed `where` for `count` to the widget context.
 - Added typed resource names, rows and session: register `schema` and `session` on `FlowpanelTypes`.
 - Added `InferNamedRow`: `resource("User", { name: "users" })` checks its options against the row `FlowpanelResources` registers under `users`, so a Prisma resource with its own name is typed.
@@ -30,3 +32,12 @@
 - Fixed an unhandled rejection when the Redis realtime driver unsubscribes on a closed or failed connection; it now logs the reason.
 - Added `labels.form.taken`, `conflict`, `missingReference`, `missingLink` and `inUse` for writes the database refuses, with Russian text.
 - Changed `reportUnexpectedError` to log the error once with `console.error` and its request id when no `hooks.onError` is set; before, nothing was logged. In production the log keeps only the first line of the error and its cause, so query parameters stay out of it.
+- Removed `isBuiltinBulkDelete`, `assertCountWhereColumns`, `declaredWriteFields` and `emitAudit` from the package root; they serve the FlowPanel runtime and live in `@flowpanel/core/internal`. `emitAudit` is still exported from `@flowpanel/kit/server`.
+- Added `react` as an optional peer dependency, since the type declarations import React types.
+- Changed the untyped slots to real types: `writeTo` takes an `AdapterRef` (a table, view or model name), `queue()` takes a `QueueRef`, and a resource `scope` is a `ResourceScope` whose `query` you annotate with your adapter's shape instead of casting it.
+- Changed `defineAdmin` to resolve a resource's `rowKey` once: the declared one, else the table's primary key, else `"id"`.
+- Fixed `withLucia` claiming it needs Next.js 16.3 when `next/headers` cannot load; it now says it works only in a Next.js app's server code.
+- Changed the "could not introspect" startup error to carry the adapter's own error as its `cause`, so a missing table or a wrong model name shows up in the stack.
+- Added a startup check that asks a function `auth.access` about a signed-out visitor: if it lets them in, `defineAdmin` warns in development and refuses to start in production unless the admin is declared public and read-only, as for an admin without `auth.access`. A removed `requireRole` written as a function now gets an error that shows the new argument.
+- Changed `requireAccess` to require a rule: a missing one denies instead of allowing.
+- Added `labels.widget.noChange`, with Russian text.

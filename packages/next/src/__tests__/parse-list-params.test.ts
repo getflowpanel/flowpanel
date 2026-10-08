@@ -1,3 +1,4 @@
+import type { RequestContext } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
 import {
   declaredFieldSet,
@@ -5,6 +6,8 @@ import {
   resolveFilterSpecs,
   sanitizeFilterValues,
 } from "../runtime/parse-list-params";
+
+const reqCtx = { session: null, role: "admin", scope: null } as RequestContext;
 
 describe("parseListParams", () => {
   it("parses page, q, sort, f_* filters", () => {
@@ -93,24 +96,47 @@ describe("declaredFieldSet", () => {
 
 describe("resolveFilterSpecs", () => {
   it("converts string keys to text filter defs", async () => {
-    const r = await resolveFilterSpecs(["email"], {});
+    const r = await resolveFilterSpecs(["email"], reqCtx);
     expect(r).toEqual([{ field: "email", type: "text" }]);
   });
 
   it("passes through explicit FilterDef with inline options", async () => {
     const r = await resolveFilterSpecs(
       [{ field: "plan", type: "select", label: "Plan", options: [{ label: "Pro", value: "pro" }] }],
-      {},
+      reqCtx,
     );
     expect(r).toEqual([
       { field: "plan", type: "select", label: "Plan", options: [{ label: "Pro", value: "pro" }] },
     ]);
   });
 
+  it("hands an options function the request's scope and query string", async () => {
+    const seen: { tenant?: unknown; tab?: string | null } = {};
+    const scoped = { ...reqCtx, scope: { tenantId: "t1" } } as RequestContext;
+    const r = await resolveFilterSpecs(
+      [
+        {
+          field: "category",
+          type: "select",
+          options: async (ctx) => {
+            seen.tenant = ctx.scope?.tenantId;
+            seen.tab = ctx.searchParams.get("tab");
+            return [{ label: "Tools", value: "tools" }];
+          },
+        },
+      ],
+      scoped,
+      "UTC",
+      new URLSearchParams("tab=open"),
+    );
+    expect(seen).toEqual({ tenant: "t1", tab: "open" });
+    expect(r[0]?.options).toEqual([{ label: "Tools", value: "tools" }]);
+  });
+
   it("awaits async options callback", async () => {
     const r = await resolveFilterSpecs(
       [{ field: "tag", type: "multiselect", options: async () => [{ label: "X", value: "x" }] }],
-      {},
+      reqCtx,
     );
     expect(r[0]?.options).toEqual([{ label: "X", value: "x" }]);
   });

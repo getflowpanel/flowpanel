@@ -22,14 +22,14 @@ describe("withNextAuth", () => {
     expect(cfg.role(null)).toBe("guest");
   });
 
-  it("forwards requireRole and url overrides", () => {
+  it("forwards access and url overrides", () => {
     const cfg = withNextAuth({
       auth: async () => null,
-      requireRole: "admin",
+      access: "admin",
       signInUrl: "/login",
       forbiddenUrl: "/forbidden",
     });
-    expect(cfg.requireRole).toBe("admin");
+    expect(cfg.access).toBe("admin");
     expect(cfg.signInUrl).toBe("/login");
     expect(cfg.forbiddenUrl).toBe("/forbidden");
   });

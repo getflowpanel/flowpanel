@@ -9,6 +9,7 @@ import { findSessionStub } from "../doctor/session-module";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent } from "../plan/types";
+import { findAdminConfig } from "../scaffold/config-target";
 import { adminPageSource, isGeneratedAdminPage } from "../utils/admin-page";
 import {
   DEFAULT_API_PATH,
@@ -27,7 +28,6 @@ import {
   detectPackageManagerDetails,
   detectPathAlias,
   detectSchema,
-  fileExists,
   type PathAliasMode,
   type PmCommands,
   pmCommands,
@@ -36,7 +36,7 @@ import { redactDiagnostic } from "../utils/fail";
 import { kitCompatibilityError, pinnedSpec } from "../utils/kit";
 import { plainLog } from "../utils/log";
 import { resolveProjectModule, validateProjectImport } from "../utils/module-path";
-import { blockingSegmentExport, usesCacheComponents } from "../utils/next-config";
+import { usesCacheComponents } from "../utils/next-config";
 import { writeJson, writePlanJson } from "../utils/output";
 import { detectPrismaProvider } from "../utils/prisma-provider";
 import { inspectDependency, projectManifest } from "../utils/project-packages";
@@ -54,7 +54,6 @@ import {
   devSessionStub,
   planAuthSession,
   planDevStubReplacement,
-  roleMapping,
 } from "./init-auth";
 import {
   type DependencyRequirement,
@@ -89,6 +88,12 @@ import {
   shouldAskDevAuth,
   writesSessionStub,
 } from "./init-prompts";
+import {
+  configImportTemplateCall,
+  configTemplateCall,
+  layoutTemplateCall,
+  renderCall,
+} from "./init-templates";
 
 interface InitOptions {
   yes?: boolean;
@@ -286,7 +291,8 @@ export function initCommand(cli: Command): void {
       if (humanOutput) p.intro(pc.bgCyan(pc.black(" FlowPanel init ")));
       const notProject = await noNextProject(cwd);
       if (notProject) failInit(opts, notProject);
-      if (opts.devAuth && (await fileExists(path.join(cwd, "flowpanel.config.ts")))) {
+      const existingConfig = await findAdminConfig(cwd);
+      if (opts.devAuth && existingConfig !== null) {
         await devAuthOnProject(cwd, opts, pmc, Boolean(humanOutput));
         return;
       }
@@ -442,7 +448,6 @@ export function initCommand(cli: Command): void {
         failInit(opts, customisedSessionMessage(sessionReplacement.file, false));
       }
 
-      const configTemplate = `flowpanel.config.${orm}${authPlan ? ".preset" : ""}.ts.txt`;
       const manifest = await projectManifest(cwd);
       const drizzleDialect =
         orm === "drizzle"
@@ -499,7 +504,7 @@ export function initCommand(cli: Command): void {
         routeConflicts.length &&
         !opts.path &&
         adminPath === "/admin" &&
-        !(await fileExists(path.join(cwd, "flowpanel.config.ts")))
+        existingConfig === null
       ) {
         mountWarnings.push(`/admin is occupied by ${routeConflicts.join(", ")}; using /flowpanel.`);
         adminPath = "/flowpanel";
@@ -518,30 +523,39 @@ export function initCommand(cli: Command): void {
       const sseRouteDir = `${appDir}${apiPath}/stream`;
 
       const cacheComponents = await usesCacheComponents(cwd);
+      const configRel = existingConfig
+        ? path.relative(cwd, existingConfig.root).split(path.sep).join("/")
+        : "flowpanel.config.ts";
       const files: Record<string, string> = {
-        "flowpanel.config.ts":
-          (await fs.readFile(path.join(cwd, "flowpanel.config.ts"), "utf8").catch(() => null)) ??
-          (await tpl(configTemplate, {
-            DB: db,
-            SCHEMA: schemaPath,
-            AUTH: auth,
-            APP_NAME: appName,
-            ADMIN_PATH: adminPath,
-            API_PATH: apiPath,
-            CLI: `${pmc.exec} flowpanel`,
-            PROVIDER: prismaProvider,
-            ROLE: roleMapping(sessionStub || sessionReplacement ? "stub" : "own"),
-          })),
+        [configRel]:
+          (existingConfig
+            ? await fs.readFile(existingConfig.root, "utf8").catch(() => null)
+            : null) ??
+          (await renderCall(
+            configTemplateCall({
+              orm,
+              preset: authPlan !== null,
+              db,
+              schema: schemaPath,
+              auth,
+              appName,
+              adminPath,
+              apiPath,
+              cli: `${pmc.exec} flowpanel`,
+              provider: prismaProvider,
+              session: sessionStub || sessionReplacement ? "stub" : "own",
+            }),
+          )),
         [`${adminPageDir}/page.tsx`]: await adminPageSource(
           configImportFor(adminPageDir, aliasMode),
           cacheComponents,
         ),
-        [`${apiRouteDir}/route.ts`]: await tpl("api-route.ts.txt", {
-          CONFIG_IMPORT: configImportFor(apiRouteDir, aliasMode),
-        }),
-        [`${sseRouteDir}/route.ts`]: await tpl("sse-route.ts.txt", {
-          CONFIG_IMPORT: configImportFor(sseRouteDir, aliasMode),
-        }),
+        [`${apiRouteDir}/route.ts`]: await renderCall(
+          configImportTemplateCall("api-route.ts.txt", configImportFor(apiRouteDir, aliasMode)),
+        ),
+        [`${sseRouteDir}/route.ts`]: await renderCall(
+          configImportTemplateCall("sse-route.ts.txt", configImportFor(sseRouteDir, aliasMode)),
+        ),
         [cssRel]: await tpl(adminCssTemplate),
         [MIGRATION_FILE]:
           (await fs.readFile(path.join(cwd, MIGRATION_FILE), "utf8").catch(() => null)) ??
@@ -549,7 +563,7 @@ export function initCommand(cli: Command): void {
       };
 
       const sessionStubFile = authPlan?.file ?? guessedAuthFile(aliasMode);
-      if (authPlan) files[sessionStubFile] = await tpl(authPlan.template, authPlan.vars);
+      if (authPlan) files[sessionStubFile] = await renderCall(authPlan);
       else if (sessionStub)
         files[sessionStubFile] = devAuth
           ? await devSessionStub(sessionStubFile)
@@ -563,17 +577,15 @@ export function initCommand(cli: Command): void {
           ? path.relative(adminLayoutDir, cssRel).split(path.sep).join("/")
           : "@/styles/admin.css";
       // Never rewrite the host's root layout, except to add suppressHydrationWarning (ThemeScript needs it).
-      files[`${adminLayoutDir}/layout.tsx`] = await tpl(
-        existingLayout ? "admin-layout.tsx.txt" : "app-layout.tsx.txt",
-        {
-          APP_NAME: appName,
-          CSS_IMPORT: cssImportSpec,
-          SEGMENT_CONFIG: blockingSegmentExport(cacheComponents),
-        },
+      files[`${adminLayoutDir}/layout.tsx`] = await renderCall(
+        layoutTemplateCall(existingLayout !== null, appName, cssImportSpec, cacheComponents),
       );
-      files[`${adminLayoutDir}/not-found.tsx`] = await tpl("admin-not-found.tsx.txt", {
-        CONFIG_IMPORT: configImportFor(adminLayoutDir, aliasMode),
-      });
+      files[`${adminLayoutDir}/not-found.tsx`] = await renderCall(
+        configImportTemplateCall(
+          "admin-not-found.tsx.txt",
+          configImportFor(adminLayoutDir, aliasMode),
+        ),
+      );
 
       const expectedContents: Record<string, string> = {};
       const currentAdminPage = await fs

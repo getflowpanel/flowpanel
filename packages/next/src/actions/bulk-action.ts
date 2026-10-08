@@ -5,11 +5,9 @@ import type {
   IconName,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
-import {
-  FlowpanelNotFoundError,
-  isBuiltinBulkDelete,
-  runWithRequestContext,
-} from "@flowpanel/core";
+import { FlowpanelNotFoundError, runWithRequestContext } from "@flowpanel/core";
+import { isBuiltinBulkDelete } from "@flowpanel/core/internal";
+import { actionFailure, validationFailure } from "../runtime/action-failure";
 import {
   buildActionContext,
   buildAuditEvent,
@@ -108,6 +106,28 @@ async function parseBulkBody(req: Request): Promise<BulkBody> {
 
 /** Hard cap on the number of ids a single bulk action may target. */
 const MAX_BULK = 1000;
+const EXISTENCE_CHECKS_AT_ONCE = 16;
+
+/** Runs `check` over `ids` with at most `limit` in flight; the first rejection rejects the run. */
+async function eachLimited(
+  ids: readonly string[],
+  limit: number,
+  check: (id: string) => Promise<void>,
+): Promise<void> {
+  let next = 0;
+  let failed = false;
+  const worker = async (): Promise<void> => {
+    for (let id = ids[next++]; id !== undefined && !failed; id = ids[next++]) {
+      try {
+        await check(id);
+      } catch (err) {
+        failed = true;
+        throw err;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, ids.length) }, worker));
+}
 
 export function bulkActionRoute(config: ResolvedAdminConfig) {
   bindPublisher(config);
@@ -155,17 +175,14 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
             return invalidJsonResponse(body.reason);
           }
           if (body.reason === "input") {
-            return Response.json({ ok: false, error: "input must be an object" }, { status: 400 });
+            return actionFailure("bad_request", "input must be an object");
           }
-          return Response.json(
-            { ok: false, error: "ids must be a non-empty array of strings" },
-            { status: 400 },
-          );
+          return actionFailure("bad_request", "ids must be a non-empty array of strings");
         }
         const ids = [...new Set(body.ids)];
         const max = action.max ?? MAX_BULK;
         if (ids.length > max) {
-          return Response.json({ ok: false, error: `too many ids (max ${max})` }, { status: 422 });
+          return actionFailure("validation_failed", `too many ids (max ${max})`);
         }
 
         const parsedInput = await parseActionInputSchema(
@@ -174,20 +191,15 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
           body.input,
         );
         if (parsedInput.issues) {
-          return Response.json(
-            { ok: false, error: "validation failed", issues: parsedInput.issues },
-            { status: 422 },
-          );
+          return validationFailure(parsedInput.issues, reqCtx.requestId);
         }
 
         const actionCtx = buildActionContext(config, reqCtx, action);
 
-        await Promise.all(
-          ids.map(async (id) => {
-            const row = await readRow(config, resource, id, reqCtx);
-            if (!row) throw new FlowpanelNotFoundError();
-          }),
-        );
+        await eachLimited(ids, EXISTENCE_CHECKS_AT_ONCE, async (id) => {
+          const row = await readRow(config, resource, id, reqCtx);
+          if (!row) throw new FlowpanelNotFoundError();
+        });
 
         let result: ActionResult<unknown>;
         if (builtinDelete) {
@@ -228,6 +240,7 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
           await applyActionResult(result, {
             resourceName,
             pathname: buildHref(config, resourceName),
+            ...(builtinDelete ? { change: { action: "delete" as const } } : {}),
           });
         }
 

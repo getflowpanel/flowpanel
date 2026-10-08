@@ -6,6 +6,7 @@ import type { DashboardConfig, PageConfig } from "./dashboard";
 import type { FormattingConfig } from "./formatting";
 import type { LabelsConfig } from "./labels";
 import type { AdminPaths, AdminPathsInput } from "./paths";
+import type { AccessRule } from "./policy";
 import type { QueueConfig } from "./queue";
 import type { RealtimeConfig } from "./realtime";
 import type { AnyResourceConfig, ResourceConfig } from "./resource";
@@ -22,10 +23,13 @@ export interface AuthConfig {
    * Lets a provider inspect headers, cookies or the host without forging one.
    */
   session: (req: Request) => Promise<Session | null>;
-  /** Maps a session to a role string, which every `requireRole` gate compares against. */
+  /** Maps a session to a role string, which every role-name `access` rule compares against. */
   role: (session: Session | null) => string | Promise<string>;
-  /** Admin-wide gate. Blocks every route and page before anything else runs. */
-  requireRole?: string | string[] | ((s: Session | null) => boolean);
+  /**
+   * Who may enter the admin at all. Checked on every route and page before anything else runs,
+   * so a predicate sees `scope` as `null`.
+   */
+  access?: AccessRule;
   /** Where to send an unauthenticated visitor. Without it they get an inline notice. */
   signInUrl?: string;
   /** Where to send a signed-in visitor who lacks the role. */
@@ -34,7 +38,7 @@ export interface AuthConfig {
   userId?: (session: Session | null) => string | null;
   /**
    * Declares this admin reachable without a role gate — fronted by a VPN or authenticating proxy instead.
-   * Production refuses to start without `requireRole` unless this is `true` AND the admin is `readOnly`.
+   * Production refuses to start without `access` unless this is `true` AND the admin is `readOnly`.
    */
   allowUnauthenticated?: boolean;
 }

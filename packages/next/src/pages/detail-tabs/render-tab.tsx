@@ -7,7 +7,7 @@ import type {
 } from "@flowpanel/core";
 import { resolveResourceName } from "@flowpanel/core";
 import type { ReactNode } from "react";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../../runtime/defaults";
+import { rowKeyOf } from "../../runtime/row-identity";
 import { buildWidgetContext, detailTabDateRange, tabContextOf } from "../../runtime/widget-context";
 import { renderFieldsTab } from "./render-fields-tab";
 import { renderRelatedTab } from "./render-related-tab";
@@ -39,7 +39,7 @@ export async function renderDetailTab<Row extends Record<string, unknown>>({
   searchParams,
   ctx,
 }: DetailTabArgs<Row>): Promise<ReactNode> {
-  const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = rowKeyOf(resource);
   const name = resolveResourceName(resource);
   const shared =
     ctx ?? buildWidgetContext(config, reqCtx, req, detailTabDateRange(), row, rowKey, name);
@@ -70,7 +70,7 @@ export async function renderDetailTabs<Row extends Record<string, unknown>>(
   },
 ): Promise<Array<{ key: string; label: string; content: ReactNode }>> {
   const { visible, active, ...rest } = args;
-  const rowKey = (rest.resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = rowKeyOf(rest.resource);
   const ctx =
     rest.ctx ??
     buildWidgetContext(

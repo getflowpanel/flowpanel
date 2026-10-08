@@ -40,6 +40,27 @@ export interface PrismaAdapterOptions<P = unknown> {
 export { MIGRATIONS_TABLE_DDL } from "./runtime";
 export type { PrismaProvider } from "./sql-statements";
 
+/** Prisma's P2025 for the row itself (not a nested connect) means it is gone: `null`, as the adapter contract says. */
+function isGoneRow(err: unknown): boolean {
+  if (typeof err !== "object" || err === null || !("code" in err) || err.code !== "P2025") {
+    return false;
+  }
+  const cause =
+    "meta" in err && typeof err.meta === "object" && err.meta !== null && "cause" in err.meta
+      ? err.meta.cause
+      : undefined;
+  return typeof cause !== "string" || /^Record to (update|delete)/.test(cause);
+}
+
+async function missingAsNull<T>(write: Promise<T>): Promise<T | null> {
+  try {
+    return await write;
+  } catch (err) {
+    if (isGoneRow(err)) return null;
+    throw err;
+  }
+}
+
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
   const EMPTY_PROJECTION = Symbol("flowpanel.emptyProjection");
   let _dmmf: PrismaDmmf | undefined;
@@ -200,7 +221,8 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         const row = await delegate.findFirst({ where: baseWhere });
         return row ? plainRow(row, modelName) : null;
       }
-      return plainRow(await delegate.update({ where: baseWhere, data: ctx.input }), modelName);
+      const row = await missingAsNull(delegate.update({ where: baseWhere, data: ctx.input }));
+      return row === null ? null : plainRow(row, modelName);
     },
 
     async delete(modelName, ctx: MutationContext<unknown>): Promise<void> {
@@ -212,12 +234,14 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         if (hasScope(ctx)) {
           await delegate.updateMany({ where: baseWhere, data: { [softCol]: new Date() } });
         } else {
-          await delegate.update({ where: baseWhere, data: { [softCol]: new Date() } });
+          await missingAsNull(
+            delegate.update({ where: baseWhere, data: { [softCol]: new Date() } }),
+          );
         }
       } else if (hasScope(ctx)) {
         await delegate.deleteMany({ where: baseWhere });
       } else {
-        await delegate.delete({ where: baseWhere });
+        await missingAsNull(delegate.delete({ where: baseWhere }));
       }
     },
 
@@ -231,7 +255,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       if (hasScope(ctx)) {
         await delegate.updateMany({ where: baseWhere, data: { [softCol]: null } });
       } else {
-        await delegate.update({ where: baseWhere, data: { [softCol]: null } });
+        await missingAsNull(delegate.update({ where: baseWhere, data: { [softCol]: null } }));
       }
     },
 

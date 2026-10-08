@@ -2,7 +2,7 @@
 import { withClerk } from "@flowpanel/kit/auth";
 
 export const flowpanelAuth = withClerk({
-  requireRole: "admin",
+  access: "admin",
 });
 
 export const getSession = flowpanelAuth.session;

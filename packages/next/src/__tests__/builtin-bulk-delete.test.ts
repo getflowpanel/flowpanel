@@ -7,9 +7,10 @@ vi.mock("../runtime/publish", () => ({
   bindPublisher: vi.fn(),
 }));
 
-import type { Adapter, MutationContext } from "@flowpanel/core";
+import type { Adapter, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { bulkActionRoute } from "../actions/bulk-action";
+import { publishResource } from "../runtime/publish";
 
 const deleted: { id: unknown; softDelete: unknown }[] = [];
 
@@ -66,6 +67,32 @@ const params = Promise.resolve({ resource: "items", action: "delete" });
 describe("the compiler-injected bulk delete", () => {
   beforeEach(() => {
     deleted.length = 0;
+    vi.mocked(publishResource).mockReset();
+  });
+
+  it("tells realtime subscribers the rows are gone, as a single delete does", async () => {
+    const res = await bulkActionRoute(makeConfig())(deleteReq(["a", "b"]), { params });
+    expect(res.status).toBe(200);
+    expect(publishResource).toHaveBeenCalledWith("items", { action: "delete" });
+  });
+
+  it("checks that the selected rows exist a few at a time, not all at once", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const config: ResolvedAdminConfig = makeConfig();
+    config.adapter.get = async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight -= 1;
+      return { id: "a", title: "A" };
+    };
+    const ids = Array.from({ length: 60 }, (_, i) => `id-${i}`);
+    const res = await bulkActionRoute(config)(deleteReq(ids), { params });
+    expect(res.status).toBe(200);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(16);
+    expect(deleted).toHaveLength(60);
   });
 
   it("deletes every selected row instead of returning a sentinel", async () => {

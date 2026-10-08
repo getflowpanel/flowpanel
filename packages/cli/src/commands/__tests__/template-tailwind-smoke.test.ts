@@ -17,7 +17,7 @@ const legacySource = readFileSync(resolve(process.cwd(), "../react/src/styles/ad
 
 describe("scaffolded stylesheet", () => {
   it("imports the package-built stylesheet without a Tailwind directive or source scan", async () => {
-    for (const template of ["admin.css.txt", "admin.css.v3.txt"]) {
+    for (const template of ["admin.css.txt"]) {
       const css = await tpl(template);
       expect(css).toContain('@import "@flowpanel/kit/styles/admin.css";');
       expect(css).not.toMatch(/^@(tailwind|source|theme)\b/m);

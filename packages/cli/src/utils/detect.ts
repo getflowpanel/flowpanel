@@ -2,17 +2,6 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { readTsconfigOptions } from "./tsconfig";
 
-export interface Stack {
-  nextjs: string | null;
-  nextjsMajor: number | null;
-  typescript: boolean;
-  drizzle: boolean;
-  prisma: boolean;
-  bullmq: boolean;
-  tailwind: boolean;
-  tailwindMajor: number | null;
-}
-
 export async function fileExists(p: string): Promise<boolean> {
   try {
     await fs.access(p);
@@ -31,40 +20,6 @@ export async function readPkg(cwd: string): Promise<Record<string, unknown>> {
   } catch {
     return {};
   }
-}
-
-function majorOf(v: string | undefined): number | null {
-  if (!v) return null;
-  const m = /(\d+)/.exec(v);
-  return m?.[1] ? Number(m[1]) : null;
-}
-
-/** True when the declared range names a Next.js release FlowPanel supports. */
-export function isSupportedNextVersion(version: string | null): boolean {
-  if (!version) return false;
-  const match = /(\d+)\.(\d+)/.exec(version);
-  if (!match?.[1] || !match[2]) return false;
-  const major = Number(match[1]);
-  return major === 16 || (major === 15 && Number(match[2]) >= 5);
-}
-
-export async function detectStack(cwd: string): Promise<Stack> {
-  const pkg = await readPkg(cwd);
-  const deps: Record<string, string> = {
-    ...((pkg.dependencies as Record<string, string> | undefined) ?? {}),
-    ...((pkg.devDependencies as Record<string, string> | undefined) ?? {}),
-  };
-  const tw = deps.tailwindcss;
-  return {
-    nextjs: deps.next ?? null,
-    nextjsMajor: majorOf(deps.next),
-    typescript: !!deps.typescript,
-    drizzle: !!deps["drizzle-orm"],
-    prisma: !!deps["@prisma/client"],
-    bullmq: !!deps.bullmq,
-    tailwind: !!tw,
-    tailwindMajor: majorOf(tw),
-  };
 }
 
 /** How the project maps `@/*` to filesystem paths in `tsconfig.json`. */

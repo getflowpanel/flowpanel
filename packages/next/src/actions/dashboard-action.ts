@@ -7,6 +7,7 @@ import type {
   ResolvedAdminConfig,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
+import { validationFailure } from "../runtime/action-failure";
 import {
   buildActionContext,
   buildAuditEvent,
@@ -114,7 +115,7 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
       config,
       req,
       {
-        pageRequireRole: dashboard.requireRole,
+        pageAccess: dashboard.access,
         actionAccess: action.access,
       },
       async (reqCtx) => {
@@ -126,10 +127,7 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
           body.input,
         );
         if (parsedInput.issues) {
-          return Response.json(
-            { ok: false, error: "validation failed", issues: parsedInput.issues },
-            { status: 422 },
-          );
+          return validationFailure(parsedInput.issues, reqCtx.requestId);
         }
 
         const actionCtx = buildActionContext(config, reqCtx, action);

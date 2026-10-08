@@ -57,15 +57,15 @@ describe("withBetterAuth", () => {
     expect(cfg.userId?.(null)).toBeNull();
   });
 
-  it("forwards requireRole and url overrides", () => {
+  it("forwards access and url overrides", () => {
     const cfg = withBetterAuth({
       auth: betterAuth(null).auth,
-      requireRole: "admin",
+      access: "admin",
       signInUrl: "/sign-in",
       forbiddenUrl: "/forbidden",
       userId: () => "fixed",
     });
-    expect(cfg.requireRole).toBe("admin");
+    expect(cfg.access).toBe("admin");
     expect(cfg.signInUrl).toBe("/sign-in");
     expect(cfg.forbiddenUrl).toBe("/forbidden");
     expect(cfg.userId?.({ user: { id: "u1" } })).toBe("fixed");

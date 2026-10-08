@@ -11,6 +11,7 @@ export type {
 export type {
   Adapter,
   AdapterKind,
+  AdapterRef,
   ColumnMeta,
   ResourceIntrospection,
 } from "./adapter";
@@ -82,7 +83,7 @@ export type {
   ResourceAccess,
   ResourceOperation,
 } from "./policy";
-export type { QueueConfig, QueueOptions } from "./queue";
+export type { QueueConfig, QueueOptions, QueueRef } from "./queue";
 export type { RealtimeConfig, RealtimeOption, RealtimeTarget } from "./realtime";
 export type {
   AllResources,
@@ -109,6 +110,7 @@ export type {
   ListResult,
   ResourceConfig,
   ResourceOptions,
+  ResourceScope,
   SelectOption,
 } from "./resource";
 export type { Scope, ScopeContext, Session } from "./session";

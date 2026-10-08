@@ -1,11 +1,13 @@
 "use client";
 import * as React from "react";
 import { useApiBase } from "../_provider/ApiBaseContext";
+import { reportListenerError } from "../lib/report-listener-error";
 import { backoffDelay, DEFAULT_RECONNECT_MAX_MS } from "../realtime/backoff";
-import { statusForAttempt } from "../realtime/context";
+import { type RealtimeStatus, statusForAttempt } from "../realtime/context";
 import { readFrame } from "../realtime/frame";
 
-export type LiveStatus = "idle" | "connecting" | "live" | "reconnecting" | "offline";
+/** The same states as `RealtimeStatus`, under the name 0.3 shipped. */
+export type LiveStatus = RealtimeStatus;
 
 export interface UseLiveChannelOptions {
   /** Override the SSE endpoint. Defaults to the admin's mount point + `/stream`. */
@@ -27,10 +29,10 @@ interface PoolEntry {
   refs: number;
   attempt: number;
   timer: ReturnType<typeof setTimeout> | null;
-  status: LiveStatus;
+  status: RealtimeStatus;
   /** Channel → callbacks. One entry can carry several channels on one EventSource. */
   listeners: Map<string, Set<Listener>>;
-  statusListeners: Set<(s: LiveStatus) => void>;
+  statusListeners: Set<(s: RealtimeStatus) => void>;
 }
 
 // Module-level Map: client-side per-browser-tab state, not cross-request server state, so I-10 does not apply.
@@ -40,7 +42,7 @@ function keyOf(endpoint: string, channels: string[]): string {
   return `${endpoint}\n${channels.join("|")}`;
 }
 
-function setEntryStatus(entry: PoolEntry, status: LiveStatus): void {
+function setEntryStatus(entry: PoolEntry, status: RealtimeStatus): void {
   if (entry.status === status) return;
   entry.status = status;
   entry.statusListeners.forEach((fn) => {
@@ -54,8 +56,8 @@ function dispatch(entry: PoolEntry, channel: string, value: unknown): void {
   for (const fn of Array.from(set)) {
     try {
       fn(value);
-    } catch {
-      // one listener's error must not block delivery to the others.
+    } catch (error) {
+      reportListenerError(error);
     }
   }
 }
@@ -108,7 +110,7 @@ function acquire(
   channels: string[],
   maxMs: number,
   onMessage: Listener,
-  onStatus: (s: LiveStatus) => void,
+  onStatus: (s: RealtimeStatus) => void,
 ): () => void {
   const key = keyOf(endpoint, channels);
   const existing = pool.get(key);
@@ -164,7 +166,7 @@ export function acquireLiveChannels(
   endpoint: string,
   channels: string[],
   onMessage: Listener,
-  onStatus: (s: LiveStatus) => void = () => undefined,
+  onStatus: (s: RealtimeStatus) => void = () => undefined,
   maxMs = DEFAULT_RECONNECT_MAX_MS,
 ): () => void {
   const list = Array.from(new Set(channels.filter(Boolean))).sort();
@@ -177,7 +179,7 @@ export function useLiveChannel(
   channel: string,
   onMessage: (payload: unknown) => void,
   opts: UseLiveChannelOptions = {},
-): LiveStatus {
+): RealtimeStatus {
   const cbRef = React.useRef(onMessage);
   React.useEffect(() => {
     cbRef.current = onMessage;
@@ -188,7 +190,7 @@ export function useLiveChannel(
   const endpoint = opts.endpoint ?? `${apiBase}/stream`;
   const maxMs = opts.reconnectMaxMs ?? DEFAULT_RECONNECT_MAX_MS;
 
-  const [status, setStatus] = React.useState<LiveStatus>(() => {
+  const [status, setStatus] = React.useState<RealtimeStatus>(() => {
     if (!enabled) return "idle";
     return pool.get(keyOf(endpoint, [channel]))?.status ?? "idle";
   });

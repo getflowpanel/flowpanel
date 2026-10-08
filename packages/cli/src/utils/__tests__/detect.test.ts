@@ -12,8 +12,6 @@ import {
   detectPackageManagerDetails,
   detectPathAlias,
   detectSchema,
-  detectStack,
-  isSupportedNextVersion,
   platformBin,
   pmCommands,
 } from "../detect";
@@ -49,17 +47,6 @@ describe("detect*", () => {
     await fs.rm(tmp, { recursive: true, force: true });
   });
 
-  it("detectStack pulls Next, TS, Drizzle, Tailwind", async () => {
-    const s = await detectStack(tmp);
-    expect(s.nextjs).toBe("^16.3.0");
-    expect(s.nextjsMajor).toBe(16);
-    expect(s.typescript).toBe(true);
-    expect(s.drizzle).toBe(true);
-    expect(s.prisma).toBe(false);
-    expect(s.tailwind).toBe(true);
-    expect(s.tailwindMajor).toBe(4);
-  });
-
   it("detectDbClient returns @/ path when src/server/lib/db.ts exists", async () => {
     expect(await detectDbClient(tmp)).toBe("@/server/lib/db");
   });
@@ -79,16 +66,6 @@ describe("detect*", () => {
     } finally {
       await fs.rm(empty, { recursive: true, force: true });
     }
-  });
-});
-
-describe("isSupportedNextVersion", () => {
-  it.each(["^15.5.0", "15.5.27", "^16.0.0", "16.3.1", ">=16.4.0 <17"])("accepts %s", (version) => {
-    expect(isSupportedNextVersion(version)).toBe(true);
-  });
-
-  it.each([null, "latest", "^14.2.0", "15.4.8", "^17.0.0"])("rejects %s", (version) => {
-    expect(isSupportedNextVersion(version)).toBe(false);
   });
 });
 

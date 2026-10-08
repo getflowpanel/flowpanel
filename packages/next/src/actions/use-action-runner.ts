@@ -2,8 +2,8 @@
 import { triggerDownload, useToast } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import type { ActionInputIssue } from "../runtime/action-schema";
-import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field";
+import type { ActionFormFieldErrors } from "./action-form-field";
+import { readActionFailure } from "./read-action-failure";
 
 /** What an action route answers with: `ActionResult`, serialized. */
 export type ActionServerResult =
@@ -14,7 +14,7 @@ export type ActionServerResult =
       refresh?: boolean | string | string[];
       download?: { filename: string; data: string; mime?: string };
     }
-  | { ok: false; error?: string; issues?: ActionInputIssue[] };
+  | { ok: false; error?: unknown; code?: string; fieldErrors?: Record<string, string> };
 
 export interface RunActionOptions {
   /** Toast shown on success when the action names no message of its own. */
@@ -51,11 +51,8 @@ export function useActionRunner(): (
           .catch(() => ({ ok: false, error: res.statusText }))) as ActionServerResult;
 
         if (!res.ok || result.ok === false) {
-          const fieldErrors = mapActionIssuesToFieldErrors(
-            "issues" in result ? result.issues : undefined,
-          );
+          const { message, fieldErrors } = readActionFailure(result);
           if (fieldErrors) return fieldErrors;
-          const message = "error" in result ? result.error : undefined;
           toast.error(message || opts.failureMessage);
           return null;
         }

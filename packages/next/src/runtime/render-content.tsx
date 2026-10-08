@@ -1,5 +1,5 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { checkRequireRole } from "@flowpanel/core";
+import { accessAllows } from "@flowpanel/core";
 import { notFound } from "next/navigation";
 import type * as React from "react";
 import { DashboardPage } from "../pages/dashboard";
@@ -11,12 +11,12 @@ import { ResourceEditPage } from "../pages/resource-edit";
 import { ResourceListPage } from "../pages/resource-list";
 import { UserPage } from "../pages/user-page";
 import { Welcome } from "../pages/welcome";
-import { roleAllows } from "./action-helpers";
 import { matchDashboard } from "./dashboard-routing";
 import { buildHref } from "./href";
 import { readableByCaller, resourceNavName } from "./nav";
 import { matchPage } from "./page-routing";
 import { buildRequestContext } from "./request-setup";
+import { requireAccessIfSet } from "./require-access";
 
 /** Resolve an authenticated admin route to its server-rendered page. */
 export async function renderContent(
@@ -29,9 +29,7 @@ export async function renderContent(
   const requestContext = reqCtx ?? (await buildRequestContext({ req, config }));
   const dash = matchDashboard(slug, config);
   if (dash) {
-    if (dash.requireRole !== undefined) {
-      checkRequireRole(dash.requireRole, requestContext.role, requestContext.session);
-    }
+    await requireAccessIfSet(dash.access, requestContext);
     return (
       <DashboardPage
         config={config}
@@ -45,9 +43,7 @@ export async function renderContent(
 
   const userPage = matchPage(slug, config);
   if (userPage) {
-    if (userPage.requireRole !== undefined) {
-      checkRequireRole(userPage.requireRole, requestContext.role, requestContext.session);
-    }
+    await requireAccessIfSet(userPage.access, requestContext);
     return <UserPage page={userPage} />;
   }
 
@@ -82,16 +78,16 @@ export async function renderContent(
     const queueKey = slug[1] ?? "";
     const queue = config.queuesByKey.get(queueKey);
     if (!queue) notFound();
-    if (queue.options.requireRole) {
-      checkRequireRole(queue.options.requireRole, requestContext.role, requestContext.session);
-    }
-    const navigation = [...config.queuesByKey.entries()]
-      .filter(([, item]) => roleAllows(item.options.requireRole, requestContext))
-      .map(([key, item]) => ({
+    await requireAccessIfSet(queue.options.access, requestContext);
+    const navigation: { label: string; href: string; active: boolean }[] = [];
+    for (const [key, item] of config.queuesByKey) {
+      if (!(await accessAllows(item.options.access, requestContext))) continue;
+      navigation.push({
         label: item.options.label,
         href: buildHref(config, "queues", key),
         active: key === queueKey,
-      }));
+      });
+    }
     return <QueuePage queue={queue} navigation={navigation} />;
   }
 

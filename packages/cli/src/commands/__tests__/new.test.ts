@@ -5,6 +5,7 @@ import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 import { editConfigToAddResource } from "../../eject/addResource";
 import { tpl } from "../../utils/template";
+import { roleMapping } from "../init-auth";
 import {
   adapterKindOf,
   checkSchemaExport,
@@ -147,8 +148,11 @@ async function initTemplate(orm: "drizzle" | "prisma"): Promise<string> {
     SCHEMA: "@/server/lib/db/schema",
     AUTH: "@/server/lib/auth",
     APP_NAME: "Fixture",
+    ADMIN_PATH: "/admin",
+    API_PATH: "/api/flowpanel",
     CLI: "pnpm flowpanel",
     PROVIDER: "postgresql",
+    ROLE: roleMapping("stub"),
   });
 }
 

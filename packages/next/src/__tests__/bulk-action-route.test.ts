@@ -117,7 +117,12 @@ describe("bulkActionRoute", () => {
       params: Promise.resolve({ resource: "items", action: "verify" }),
     });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ ok: false, error: "input must be an object" });
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "input must be an object",
+      code: "bad_request",
+      requestId: expect.any(String),
+    });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -335,7 +340,7 @@ describe("bulkActionRoute", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 422 with issues when input fails the action's required form field", async () => {
+  it("returns 422 with field errors when input fails the action's required form field", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig({
       action: {
@@ -352,7 +357,7 @@ describe("bulkActionRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toBe("validation failed");
-    expect(body.issues).toEqual([{ path: ["id"], message: "id is required" }]);
+    expect(body.fieldErrors).toEqual({ id: "id is required" });
     expect(run).not.toHaveBeenCalled();
   });
 

@@ -630,6 +630,20 @@ describe("init end to end", () => {
     expect(result.stdout).toContain("! src/server/lib/auth.ts returns no session");
   });
 
+  it("keeps a flowpanel.config.tsx and writes no second config beside it", async () => {
+    const installed = { FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION };
+    await initRun(installed, ["init", "--yes"]);
+    const ts = path.join(project, "flowpanel.config.ts");
+    const tsx = path.join(project, "flowpanel.config.tsx");
+    await fs.rename(ts, tsx);
+    const before = await fs.readFile(tsx, "utf8");
+    const result = await initRun(installed, ["init", "--yes"]);
+    expect(result.code).toBe(0);
+    expect(result.stdout.startsWith("Already set up; nothing changed.\n")).toBe(true);
+    await expect(fs.access(ts)).rejects.toThrow();
+    expect(await fs.readFile(tsx, "utf8")).toBe(before);
+  });
+
   it("shows starting files for the modules it cannot find, instead of a bare path error", async () => {
     await fs.rm(path.join(project, "src/server/lib/db.ts"));
     await fs.rm(path.join(project, "src/server/lib/db/schema.ts"));

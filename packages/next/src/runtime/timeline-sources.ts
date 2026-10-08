@@ -15,7 +15,7 @@ import { scopeToRecord, viewedRecord } from "./record-scope";
 import { frameworkHref } from "./resolve-link";
 import { resolveReferences } from "./resolve-references";
 import { openRowHrefs, resolveRowClick } from "./row-click";
-import { rowIdentity } from "./row-identity";
+import { rowIdentity, rowKeyOf } from "./row-identity";
 import { retainedSince } from "./widget-context";
 import { authorizedRead } from "./widget-reads";
 
@@ -101,7 +101,7 @@ export async function sourceEvents(
   );
   if (rows.length === 0) return [];
   const target = config.resourcesByName.get(source.resource);
-  const rowKey = (target?.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = target ? rowKeyOf(target) : DEFAULT_RESOURCE_ROW_KEY;
   const refDefs = ((target?.options.columns ?? []) as Array<string | ColumnDef<Row>>).filter(
     (column): column is ColumnDef<Row> =>
       typeof column === "object" && refs.includes(String(column.field)),
@@ -131,7 +131,7 @@ export async function sourceEvents(
     }
     if (refMode === "detail") return { resource: firstRef.reference.resource, id: String(refId) };
     if (refMode !== "drawer") return undefined;
-    const refRowKey = (refTarget.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+    const refRowKey = rowKeyOf(refTarget);
     const built = openRowHrefs(
       config,
       firstRef.reference.resource,

@@ -70,7 +70,7 @@ describe("dashboardActionRoute", () => {
     });
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toEqual({ code: "not_found", message: "dashboard not found" });
+    expect(body).toMatchObject({ error: "dashboard not found", code: "not_found" });
   });
 
   it("returns 404 when the action key is not in dashboard.actions", async () => {
@@ -94,7 +94,7 @@ describe("dashboardActionRoute", () => {
     });
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toEqual({ code: "not_found", message: "action not found" });
+    expect(body).toMatchObject({ error: "action not found", code: "not_found" });
   });
 
   it("returns 403 when per-action access fails", async () => {
@@ -210,7 +210,7 @@ describe("dashboardActionRoute", () => {
     expect(body.error).toBe("Internal server error");
   });
 
-  it("returns 422 with issues when input fails the action's required form field", async () => {
+  it("returns 422 with field errors when input fails the action's required form field", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const dashboard: DashboardConfig = {
       path: "/pipeline",
@@ -238,7 +238,7 @@ describe("dashboardActionRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toBe("validation failed");
-    expect(body.issues).toEqual([{ path: ["queue"], message: "queue is required" }]);
+    expect(body.fieldErrors).toEqual({ queue: "queue is required" });
     expect(run).not.toHaveBeenCalled();
   });
 

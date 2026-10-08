@@ -1,5 +1,6 @@
 import type { NavGroupRef } from "./dashboard";
 import type { IconName } from "./icon";
+import type { AccessRule } from "./policy";
 
 export interface QueueOptions {
   /** Nav entry and page title for this queue. */
@@ -14,12 +15,17 @@ export interface QueueOptions {
   boardUrl: string;
   /** Optional explicit key; defaults to queue.name. */
   key?: string;
-  /** Role required to access this queue page. */
-  requireRole?: string | string[];
+  /** Who may see and open this queue page. */
+  access?: AccessRule;
+}
+
+/** A BullMQ `Queue`, or any object whose `name` is the queue's key. */
+export interface QueueRef {
+  readonly name?: string;
 }
 
 export interface QueueConfig {
   __kind: "queue";
-  ref: unknown; // BullMQ Queue instance
+  ref: QueueRef;
   options: QueueOptions;
 }

@@ -72,7 +72,7 @@ describe("doctor — session module warning", () => {
     await write({
       "package.json": PACKAGE,
       "flowpanel.config.ts": CONFIG,
-      "auth.ts": `${await tpl("dev-session.ts.txt")}\nexport const auth = {};\n`,
+      "auth.ts": `${await tpl("dev-session.ts.txt", { FILE: "auth.ts" })}\nexport const auth = {};\n`,
     });
     const check = await checkNamed("Session module");
     expect(check).toEqual({ name: "Session module", ok: true });
@@ -92,7 +92,7 @@ describe("doctor — session module warning", () => {
     await write({
       "package.json": PACKAGE,
       "flowpanel.config.ts": CONFIG,
-      "auth.ts": await tpl("dev-session.ts.txt"),
+      "auth.ts": await tpl("dev-session.ts.txt", { FILE: "auth.ts" }),
     });
     const check = await checkNamed("Session module");
     expect(check).toEqual({
@@ -108,7 +108,7 @@ describe("doctor — session module warning", () => {
       "package.json": PACKAGE,
       "flowpanel.config.ts":
         'import { flowpanelAuth } from "./auth";\nexport default { flowpanelAuth };\n',
-      "auth.ts": await tpl("dev-session.ts.txt"),
+      "auth.ts": await tpl("dev-session.ts.txt", { FILE: "auth.ts" }),
     });
     expect((await checkNamed("Session module"))?.warn).toBeUndefined();
   });
@@ -149,6 +149,27 @@ describe("doctor — empty resources warning", () => {
       ok: false,
       hint: "boom",
     });
+  });
+
+  it("evaluates a flowpanel.config.tsx instead of passing without reading it", async () => {
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.tsx": 'throw new Error("tsx boom");\n',
+    });
+    expect(await checkNamed("flowpanel.config.tsx")).toMatchObject({ ok: true });
+    expect(await checkNamed("flowpanel.config.tsx evaluates")).toEqual({
+      name: "flowpanel.config.tsx evaluates",
+      ok: false,
+      hint: "tsx boom",
+    });
+  });
+
+  it("reads the resources of a flowpanel.config.tsx", async () => {
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.tsx": "export default { resources: [] };\n",
+    });
+    expect(await checkNamed("Resources configured")).toMatchObject({ ok: true, warn: true });
   });
 });
 
@@ -320,7 +341,7 @@ describe("doctor output", () => {
     expect(out.join("")).toContain("✓ All checks passed.");
   });
 
-  it("prints hints only on failing checks and warnings in JSON, and flags a warning", async () => {
+  it("prints hints only on failing checks, warnings and notes in JSON, and flags each", async () => {
     await write({
       "package.json": PACKAGE,
       "flowpanel.config.ts": "export default { resources: [] };\n",
@@ -334,9 +355,26 @@ describe("doctor output", () => {
     expect(named("Node.js supported")).toEqual({ name: "Node.js supported", ok: true });
     const failing = checks.find((check) => check.ok === false);
     expect(failing?.hint).toEqual(expect.any(String));
+    expect(named("ESLint plugin")).toMatchObject({ ok: true, info: true });
+    expect(named("ESLint plugin")?.hint).toContain("@flowpanel/eslint-plugin");
     for (const check of checks) {
-      if (check.ok === true && check.warn !== true) expect(check).not.toHaveProperty("hint");
+      if (check.ok === true && check.warn !== true && check.info !== true) {
+        expect(check).not.toHaveProperty("hint");
+      }
     }
+  });
+
+  it("prints the ESLint plugin suggestion as a note that is not a warning", async () => {
+    process.env.DATABASE_URL = "postgres://u:p@localhost:5432/app";
+    await installedProject();
+    await runDoctorChecks(tmp, true, { quiet: true });
+    out.length = 0;
+    await doctor();
+    const text = out.join("");
+    expect(text).toMatch(
+      /· ESLint plugin\n {4}Add @flowpanel\/eslint-plugin to your ESLint config/,
+    );
+    expect(text).toContain("✓ All checks passed.");
   });
 
   it("says where it ran when the directory is not a Next.js project", async () => {
@@ -353,6 +391,66 @@ describe("doctor output", () => {
       ok: false,
       error: `No Next.js project found in ${tmp}. Run this from your project root.`,
     });
+  });
+});
+
+describe("doctor — ESLint plugin note", () => {
+  it("is gone once the flat config loads the plugin", async () => {
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": "export default { resources: [] };\n",
+      "eslint.config.mjs":
+        'import flowpanel from "@flowpanel/eslint-plugin";\nexport default [flowpanel.configs.recommended];\n',
+    });
+    expect(await checkNamed("ESLint plugin")).toBeUndefined();
+  });
+
+  it("is gone when the workspace root above the project loads the plugin", async () => {
+    await write({
+      "pnpm-workspace.yaml": "packages:\n  - apps/*\n",
+      "eslint.config.mjs":
+        'import flowpanel from "@flowpanel/eslint-plugin";\nexport default [flowpanel.configs.recommended];\n',
+      "apps/admin/package.json": PACKAGE,
+      "apps/admin/flowpanel.config.ts": "export default { resources: [] };\n",
+    });
+    const { checks } = await runDoctorChecks(path.join(tmp, "apps/admin"), false);
+    expect(checks.map((check) => check.name)).toContain("Resources configured");
+    expect(checks.map((check) => check.name)).not.toContain("ESLint plugin");
+  });
+
+  it("stops looking at the workspace root", async () => {
+    await write({
+      "eslint.config.mjs": 'import flowpanel from "@flowpanel/eslint-plugin";\n',
+      "repo/pnpm-workspace.yaml": "packages:\n  - apps/*\n",
+      "repo/apps/admin/package.json": PACKAGE,
+      "repo/apps/admin/flowpanel.config.ts": "export default { resources: [] };\n",
+    });
+    const { checks } = await runDoctorChecks(path.join(tmp, "repo/apps/admin"), false);
+    expect(checks.map((check) => check.name)).toContain("ESLint plugin");
+  });
+
+  it("no longer fails doctor over a destructive action, which the lint rule reports", async () => {
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts":
+        'export default { resources: [{ name: "users", actions: [{ key: "purge", variant: "destructive" }] }] };\n',
+    });
+    const { checks } = await runDoctorChecks(tmp, false);
+    expect(checks.map((check) => check.name)).not.toContain("Destructive actions have confirm");
+  });
+});
+
+describe("doctor — a probe that crashes", () => {
+  it("shows a warning naming the check and the error instead of dropping it", async () => {
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": "export default { resources: [] };\n",
+      "app/admin/users/page.tsx/keep": "",
+    });
+    const check = await checkNamed("Ejected admin pages carry the eject marker");
+    expect(check).toMatchObject({ ok: true, warn: true });
+    expect(check?.hint).toMatch(/^Could not check: EISDIR/);
+    expect(check?.hint).not.toContain("\n");
   });
 });
 
@@ -398,6 +496,21 @@ describe("doctor — tsc check", () => {
     await runDoctorChecks(tmp, true, { quiet: true });
     expect(await fs.readFile(path.join(tmp, "typegen.log"), "utf8")).toBe("typegen routes=true\n");
     expect(await fs.readFile(path.join(tmp, "tsc.log"), "utf8")).toBe("--noEmit\n");
+  });
+
+  it("names a failed next typegen as the reason tsc failed", async () => {
+    await installedProject({
+      "node_modules/next/bin/next.js":
+        'process.stderr.write("Error: typegen could not read next.config.ts\\n");\nprocess.exit(1);\n',
+    });
+    const check = (await runDoctorChecks(tmp, false)).checks.find(
+      (entry) => entry.name === "tsc --noEmit",
+    );
+    expect(check?.ok).toBe(false);
+    expect(check?.hint).toMatch(/^next typegen failed, so tsc ran without the route types/);
+    expect(check?.hint).toContain("Error: typegen could not read next.config.ts");
+    expect(check?.hint).toContain("tsc then reported:");
+    expect(check?.hint).toContain("NEXT_GLOBAL");
   });
 
   it("checks again after --fix, so one run ends green", async () => {

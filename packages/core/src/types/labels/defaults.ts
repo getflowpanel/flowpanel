@@ -190,6 +190,7 @@ export const DEFAULT_LABELS: {
     chartsMissing: "Charts need recharts. Run `pnpm add recharts`.",
     previous: "was {value}",
     points: "{value} pp",
+    noChange: "No change",
     vsPrevious: "vs previous period",
     vsWeekAgo: "vs a week earlier",
     other: "Other",

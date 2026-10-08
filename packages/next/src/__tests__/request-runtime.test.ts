@@ -23,7 +23,7 @@ describe("request runtime", () => {
       auth: {
         session: async () => ({ id: "operator-1" }),
         role,
-        requireRole: "admin",
+        access: "admin",
       },
     });
     const req = new Request("http://localhost/admin");
@@ -45,7 +45,7 @@ describe("request runtime", () => {
         role: async () => {
           throw new Error("Identity provider unavailable");
         },
-        requireRole: "admin",
+        access: "admin",
       },
       scope: () => {
         scoped = true;

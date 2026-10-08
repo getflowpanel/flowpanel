@@ -15,7 +15,7 @@ import { importRoute } from "../actions/resource-import";
 import { restoreRoute } from "../actions/restore";
 import { drawerRoute } from "../drawer/drawer-route";
 
-function makeConfig(opts: { requireRole?: string; rateLimited?: boolean } = {}) {
+function makeConfig(opts: { access?: string; rateLimited?: boolean } = {}) {
   const adapter = {
     kind: "drizzle",
     db: {},
@@ -52,7 +52,7 @@ function makeConfig(opts: { requireRole?: string; rateLimited?: boolean } = {}) 
     auth: {
       session: async () => null,
       role: () => "anonymous",
-      ...(opts.requireRole ? { requireRole: opts.requireRole } : {}),
+      ...(opts.access ? { access: opts.access } : {}),
     },
     ...(opts.rateLimited ? { rateLimit: { driver: "memory", limit: 1, windowMs: 60_000 } } : {}),
     resources: [resource],
@@ -112,7 +112,7 @@ function routesUnder(config: ResolvedAdminConfig) {
 }
 
 describe("every route enforces the admin-wide role gate before its own work", () => {
-  for (const route of routesUnder(makeConfig({ requireRole: "admin" }))) {
+  for (const route of routesUnder(makeConfig({ access: "admin" }))) {
     it(`${route.name} answers 403 instead of throwing`, async () => {
       const res = await route.call();
       expect(res.status).toBe(403);
@@ -134,7 +134,7 @@ describe("every route maps a rate-limit rejection to 429", () => {
 });
 
 describe("inline-update authenticates before it validates", () => {
-  const config = makeConfig({ requireRole: "admin" });
+  const config = makeConfig({ access: "admin" });
 
   it("does not reveal which columns are editable", async () => {
     const res = await inlineUpdateRoute(config)(

@@ -7,16 +7,9 @@ import type {
   ResolvedLabels,
   ResourceConfig,
 } from "@flowpanel/core";
-import {
-  assertWritableInput,
-  declaredWriteFields,
-  formatLabel,
-  humanize,
-  runWithRequestContext,
-} from "@flowpanel/core";
-import { writeTarget } from "@flowpanel/core/internal";
+import { assertWritableInput, formatLabel, humanize, runWithRequestContext } from "@flowpanel/core";
+import { declaredWriteFields, writeTarget } from "@flowpanel/core/internal";
 import type { z } from "zod";
-import { roleAllows } from "../runtime/action-helpers";
 import { fieldFlag } from "../runtime/resolve-form-fields";
 
 export { declaredWriteFields };
@@ -74,15 +67,7 @@ function effectiveFieldPolicies(
   for (const field of fields ?? []) {
     if (fieldFlag(field.readOnly, current ?? {})) {
       policies[field.name] = { ...policies[field.name], write: false };
-      continue;
     }
-    const requireRole = field.requireRole;
-    if (requireRole === undefined || policies[field.name]?.write !== undefined) continue;
-    policies[field.name] = {
-      ...policies[field.name],
-      write:
-        typeof requireRole === "function" ? ({ session }) => requireRole(session) : requireRole,
-    };
   }
   return policies;
 }
@@ -90,15 +75,11 @@ function effectiveFieldPolicies(
 /** Whether the generated form shows this field as an editable control to this caller. */
 function formOffersField(
   field: FieldDef<Record<string, unknown>>,
-  reqCtx: RequestContext,
   shown: Record<string, unknown>,
   denied: ReadonlySet<string>,
 ): boolean {
   return (
-    !denied.has(field.name) &&
-    roleAllows(field.requireRole, reqCtx) &&
-    !fieldFlag(field.hidden, shown) &&
-    !fieldFlag(field.readOnly, shown)
+    !denied.has(field.name) && !fieldFlag(field.hidden, shown) && !fieldFlag(field.readOnly, shown)
   );
 }
 
@@ -107,14 +88,13 @@ export function formInput(
   fields: FieldDef<Record<string, unknown>>[] | undefined,
   input: unknown,
   current: Record<string, unknown> | null,
-  reqCtx: RequestContext,
   denied: ReadonlySet<string>,
 ): unknown {
   if (typeof input !== "object" || input === null || Array.isArray(input)) return input;
   const out: Record<string, unknown> = { ...input };
   for (const name of denied) delete out[name];
   for (const field of fields ?? []) {
-    if (!formOffersField(field, reqCtx, current ?? {}, denied)) delete out[field.name];
+    if (!formOffersField(field, current ?? {}, denied)) delete out[field.name];
   }
   return out;
 }
@@ -133,7 +113,6 @@ export function missingRequiredErrors(
   fields: FieldDef<Record<string, unknown>>[] | undefined,
   values: Record<string, unknown>,
   current: Record<string, unknown> | null,
-  reqCtx: RequestContext,
   labels: ResolvedLabels,
   denied: ReadonlySet<string>,
 ): Record<string, string> {
@@ -143,7 +122,7 @@ export function missingRequiredErrors(
     if (field.required !== true) continue;
     if (current !== null && !Object.hasOwn(values, field.name)) continue;
     if (!isEmptyValue(values[field.name])) continue;
-    if (!formOffersField(field, reqCtx, shown, denied)) continue;
+    if (!formOffersField(field, shown, denied)) continue;
     out[field.name] = formatLabel(labels.form.required, {
       label: field.label ?? humanize(field.name),
     });

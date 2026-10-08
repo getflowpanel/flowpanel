@@ -107,7 +107,7 @@ describe("planDevStubReplacement", () => {
   });
 
   it("keeps the development stub replaceable so a re-run reports it unchanged", async () => {
-    const cwd = await project(await tpl("dev-session.ts.txt"));
+    const cwd = await project(await tpl("dev-session.ts.txt", { FILE: "src/lib/auth.ts" }));
     expect(await planDevStubReplacement(cwd, "@/lib/auth")).toMatchObject({ kind: "replace" });
   });
 

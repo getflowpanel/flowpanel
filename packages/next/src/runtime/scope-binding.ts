@@ -13,5 +13,5 @@ export function scopeBinding(resource: ResourceConfig, reqCtx: RequestContext): 
   if (typeof resourceScope !== "function") return {};
   const scopeValue = reqCtx.scope;
   const predicate = resourceScope as (scope: unknown, query: unknown) => unknown;
-  return { boundScope: bindAdapterScope((query: unknown) => predicate(scopeValue, query)) };
+  return { boundScope: bindAdapterScope((query) => predicate(scopeValue, query)) };
 }

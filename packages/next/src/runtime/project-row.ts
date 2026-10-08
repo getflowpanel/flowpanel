@@ -1,6 +1,6 @@
 import type { RequestContext, ResourceConfig } from "@flowpanel/core";
 import { filterReadableProjection } from "@flowpanel/core";
-import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
+import { rowKeyOf } from "./row-identity";
 
 /** Add a single declared-field entry to `fields`. */
 function addField(fields: Set<string>, entry: unknown): void {
@@ -36,7 +36,7 @@ export function declaredRowFields(resource: ResourceConfig): Set<string> {
     if (typeof secondary === "string" && secondary) fields.add(secondary);
   }
   addFieldList(fields, options.expose);
-  fields.add(options.rowKey ?? DEFAULT_RESOURCE_ROW_KEY);
+  fields.add(rowKeyOf(resource));
 
   return fields;
 }

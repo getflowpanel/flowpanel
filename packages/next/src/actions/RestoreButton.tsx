@@ -2,6 +2,7 @@
 import { Button, useApiBase, useLabels, useToast } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { readActionFailure } from "./read-action-failure";
 
 export interface RestoreButtonProps {
   resource: string;
@@ -22,12 +23,9 @@ export function RestoreButton({ resource, id }: RestoreButtonProps) {
         `${apiBase}/${encodeURIComponent(resource)}/${encodeURIComponent(id)}/restore`,
         { method: "POST" },
       );
-      const result = (await res.json()) as
-        | { ok: true }
-        | { ok: false; error?: string | { message?: string } };
+      const result = (await res.json()) as { ok: boolean };
       if (!result.ok) {
-        const message = typeof result.error === "string" ? result.error : result.error?.message;
-        toast.error(message || `${labels.actions.restore} failed`);
+        toast.error(readActionFailure(result).message || `${labels.actions.restore} failed`);
         return;
       }
       toast.success(labels.actions.restore);

@@ -314,8 +314,11 @@ describe("useLiveChannel", () => {
     });
 
     it("isolates one listener's throw so the other still gets the payload exactly once", () => {
+      const boom = new Error("boom");
+      const report = vi.fn();
+      vi.stubGlobal("reportError", report);
       const handlerA = vi.fn(() => {
-        throw new Error("boom");
+        throw boom;
       });
       const handlerB = vi.fn();
       render(<Pooled showA showB onA={handlerA} onB={handlerB} />);
@@ -326,6 +329,8 @@ describe("useLiveChannel", () => {
       expect(handlerA).toHaveBeenCalledTimes(1);
       expect(handlerB).toHaveBeenCalledTimes(1);
       expect(handlerB).toHaveBeenCalledWith({ hi: 1 });
+      expect(report).toHaveBeenCalledWith(boom);
+      vi.unstubAllGlobals();
     });
   });
 });

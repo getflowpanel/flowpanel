@@ -20,7 +20,7 @@ function admin(session: unknown = { id: "u1" }) {
     auth: { session: async () => session as never, role: () => "admin" },
     dashboards: [
       { path: "/", label: "Overview", sections: [] },
-      { path: "/system", label: "System", sections: [], requireRole: "owner" },
+      { path: "/system", label: "System", sections: [], access: "owner" },
     ],
     resources: [
       resource({ __name: "users" }, { label: "Users", labelOne: "User", columns: ["id"] }),
@@ -76,7 +76,7 @@ describe("the page title", () => {
     const gated = (session: unknown, role: string) =>
       defineAdmin({
         adapter,
-        auth: { session: async () => session as never, role: () => role, requireRole: "admin" },
+        auth: { session: async () => session as never, role: () => role, access: "admin" },
         resources: [resource({ __name: "users" }, { label: "Users", columns: ["id"] })],
       });
     expect(await titleOf(["users"], gated(null, "guest"))).toBe("Sign in required");
@@ -140,7 +140,7 @@ describe("the page title", () => {
         queue({ name: "mail" }, { label: "Mail", boardUrl: "http://board/mail", key: "mail" }),
         queue(
           { name: "billing" },
-          { label: "Billing", boardUrl: "http://board/b", key: "billing", requireRole: "owner" },
+          { label: "Billing", boardUrl: "http://board/b", key: "billing", access: "owner" },
         ),
       ],
       resources: [resource({ __name: "users" }, { label: "Users", columns: ["id"] })],

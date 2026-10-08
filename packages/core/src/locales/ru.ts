@@ -173,6 +173,7 @@ export const RU_LABELS: ResolvedLabels = {
     chartsMissing: "Для графиков нужен recharts. Выполните `pnpm add recharts`.",
     previous: "было {value}",
     points: "{value} п.п.",
+    noChange: "Без изменений",
     vsPrevious: "к прошлому периоду",
     vsWeekAgo: "к прошлой неделе",
     other: "Другое",

@@ -8,7 +8,7 @@ import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
 import { CaptionLine } from "./CaptionLine";
-import { deltaPrint, describeDelta, type GoodWhen, MOOD_TEXT } from "./delta";
+import { deltaPrint, describeDelta, type GoodWhen, MOOD_TEXT, NEUTRAL_BAND } from "./delta";
 import { FIGURE } from "./figure";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
@@ -34,6 +34,8 @@ export interface MetricCardProps {
   previousLabel?: string;
   /** How a rate's change in points reads, `{value}` filled — injected by `MetricCard`. */
   pointsLabel?: string;
+  /** Shown instead of a change inside the neutral band — injected by `MetricCard`. */
+  noChangeLabel?: string;
   /** The line under the label: a cut range, freshness or coverage. */
   caption?: WidgetCaption;
 }
@@ -46,6 +48,7 @@ interface DeltaLineProps {
   formatting: ResolvedFormatting | undefined;
   previousLabel: string | undefined;
   pointsLabel: string | undefined;
+  noChangeLabel: string | undefined;
 }
 
 function DeltaLine({
@@ -56,9 +59,17 @@ function DeltaLine({
   formatting,
   previousLabel,
   pointsLabel,
+  noChangeLabel,
 }: DeltaLineProps) {
   const print = deltaPrint(format, formatting, pointsLabel);
   const view = describeDelta({ ...delta, goodWhen }, value, format, print);
+  if (Math.abs(delta.value) < NEUTRAL_BAND) {
+    return (
+      <p data-delta="flat" className="mt-1 text-xs text-fp-text-3">
+        {noChangeLabel ?? DEFAULT_LABELS.widget.noChange} {delta.vs}
+      </p>
+    );
+  }
   const previous =
     delta.previous === undefined
       ? null
@@ -96,6 +107,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
     formatting,
     previousLabel,
     pointsLabel,
+    noChangeLabel,
     caption,
   } = props;
   const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
@@ -138,6 +150,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
                 formatting={formatting}
                 previousLabel={previousLabel}
                 pointsLabel={pointsLabel}
+                noChangeLabel={noChangeLabel}
               />
             ) : null}
           </div>

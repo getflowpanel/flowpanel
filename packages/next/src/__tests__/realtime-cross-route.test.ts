@@ -17,7 +17,7 @@ function makeConfig(): ResolvedAdminConfig {
       session: async () => ({ user: { id: "u1", role: "admin" } }),
       role: () => "admin",
     },
-    resourcesByName: new Map(),
+    resourcesByName: new Map([["users", { __kind: "resource", ref: {}, options: {} }]]),
     realtime: { driver: "memory" },
   } as unknown as ResolvedAdminConfig;
 }

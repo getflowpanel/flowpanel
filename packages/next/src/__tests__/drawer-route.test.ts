@@ -30,7 +30,7 @@ const fakeAdapter: Adapter = {
 function mkConfig(role = "admin") {
   return defineAdmin({
     adapter: fakeAdapter,
-    auth: { session: async () => null, role: () => role, requireRole: () => true },
+    auth: { session: async () => null, role: () => role, access: () => true },
     resources: [
       resource(
         { __name: "users" },
@@ -81,20 +81,22 @@ describe("drawerRoute", () => {
     const res = await handler(mkReq(), {
       params: Promise.resolve({ resource: "unknown", id: "abc" }),
     });
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "resource not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "resource not found",
+      code: "not_found",
+    });
   });
 
   it("stays terse in production", async () => {
     const original = process.env.NODE_ENV;
+    const config = mkConfig();
     process.env.NODE_ENV = "production";
     try {
-      const res = await drawerRoute(mkConfig())(mkReq(), {
+      const res = await drawerRoute(config)(mkReq(), {
         params: Promise.resolve({ resource: "unknown", id: "abc" }),
       });
-      expect((await res.json()).error).toEqual({
-        code: "not_found",
-        message: "resource not found",
-      });
+      expect(await res.json()).toMatchObject({ error: "resource not found", code: "not_found" });
     } finally {
       process.env.NODE_ENV = original;
     }
@@ -150,13 +152,30 @@ describe("drawerRoute", () => {
     expect(body.actions.map((action) => action.key)).toEqual(["resend-welcome"]);
   });
 
-  it("ships the resource's display label, humanizing the registry name when none is set", async () => {
+  it("names one row as the record page does, making the registry name singular when no label is set", async () => {
     const handler = drawerRoute(mkConfig());
     const res = await handler(mkReq(), {
       params: Promise.resolve({ resource: "users", id: "abc" }),
     });
     const body = (await res.json()) as { resourceLabel: string };
-    expect(body.resourceLabel).toBe("Users");
+    expect(body.resourceLabel).toBe("User");
+  });
+
+  it("prefers labelOne over label for the row's name", async () => {
+    const config = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "users" },
+          { label: "People", labelOne: "Person", columns: ["id"], drawer: { fields: "*" } },
+        ),
+      ],
+    });
+    const res = await drawerRoute(config)(mkReq(), {
+      params: Promise.resolve({ resource: "users", id: "abc" }),
+    });
+    expect(((await res.json()) as { resourceLabel: string }).resourceLabel).toBe("Person");
   });
 
   it("prefers the resource's configured label over the registry name", async () => {

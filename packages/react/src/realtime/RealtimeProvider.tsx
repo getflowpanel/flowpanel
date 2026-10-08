@@ -1,8 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-
 import { useApiBase } from "../_provider/ApiBaseContext";
+import { reportListenerError } from "../lib/report-listener-error";
 import { backoffDelay, DEFAULT_RECONNECT_MAX_MS } from "./backoff";
 import {
   type Callback,
@@ -102,7 +102,9 @@ function RealtimeProviderInner({
     for (const listener of state.statsListeners) {
       try {
         listener();
-      } catch {}
+      } catch (error) {
+        reportListenerError(error);
+      }
     }
   }, []);
 
@@ -114,7 +116,9 @@ function RealtimeProviderInner({
     for (const listener of state.statusListeners) {
       try {
         listener(next);
-      } catch {}
+      } catch (error) {
+        reportListenerError(error);
+      }
     }
   }, []);
 
@@ -175,7 +179,9 @@ function RealtimeProviderInner({
         for (const cb of Array.from(set)) {
           try {
             cb(payload);
-          } catch {}
+          } catch (error) {
+            reportListenerError(error);
+          }
         }
       }
       if (state.isHidden) state.pendingWhileHidden = true;

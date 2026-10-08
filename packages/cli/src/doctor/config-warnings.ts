@@ -1,5 +1,4 @@
-import * as path from "node:path";
-import { fileExists } from "../utils/detect";
+import { findAdminConfig } from "../scaffold/config-target";
 import { log } from "../utils/log";
 import { readTsconfigAliases } from "../utils/tsconfig";
 
@@ -25,7 +24,7 @@ function warningsOf(value: unknown): string[] {
   return warnings.filter((entry): entry is string => typeof entry === "string");
 }
 
-function firstLine(err: unknown): string {
+export function firstLine(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   return (message.split("\n")[0] ?? "").trim() || "unknown error";
 }
@@ -35,10 +34,10 @@ function resourceCountOf(value: unknown): number | undefined {
   return Array.isArray(resources) ? resources.length : undefined;
 }
 
-/** `defineAdmin`'s own warnings and resource count, read by evaluating `flowpanel.config.ts`. */
+/** `defineAdmin`'s own warnings and resource count, read by evaluating the project's config. */
 export async function readConfigWarnings(cwd: string): Promise<ConfigWarnings> {
-  const configPath = path.join(cwd, "flowpanel.config.ts");
-  if (!(await fileExists(configPath))) return { warnings: [] };
+  const configPath = (await findAdminConfig(cwd))?.root;
+  if (configPath === undefined) return { warnings: [] };
   try {
     const { createJiti } = (await import("jiti")) as JitiModule;
     const jiti = createJiti(cwd, {

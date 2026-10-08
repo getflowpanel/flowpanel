@@ -1,4 +1,4 @@
-import type { ResourceConfig } from "../types/resource";
+import type { ResourceConfig } from "@flowpanel/core";
 
 /** The field names a write may carry: the declared form fields, else the resource's columns. */
 export function declaredWriteFields(

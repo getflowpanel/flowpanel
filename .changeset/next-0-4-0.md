@@ -22,7 +22,7 @@
 - Changed the empty-admin screen to lead with `flowpanel new <table>`, written for the package manager that started the server (`pnpm`, `npx`, `yarn` or `bunx`), keep the config snippet as the alternative and link the getting-started guide.
 - Fixed the admin root without a dashboard being titled "Page not found"; it now carries the brand name.
 - Changed `required` on a create or edit form field to hold on the server: a create that leaves the field empty, or an edit that clears it, fails with the field's "is required" message. A field the form hides or shows read-only to that user is not checked.
-- Fixed a field with `requireRole` skipping its `readOnly` check, and a function `readOnly` not applying on create, where it gets an empty row. A field's `readOnly` now also wins over the resource's `fieldAccess.write`.
+- Fixed a function `readOnly` not applying on create, where it gets an empty row. A field's `readOnly` now also wins over the resource's `fieldAccess.write`.
 - Fixed saving a form that shows a read-only field, has a field the signed-in role cannot see, or has a field `fieldAccess.write` keeps from that role, failing with "cannot be changed". The form shows such a field read-only and its route drops it; an API or programmatic write that carries it is still rejected.
 - Fixed links doubling the slash when the admin is mounted at `/`.
 - Fixed English left in a translated admin: an empty list's title, the drawer's name, its load error, its note for a widget it does not draw, and the create and edit pages of a disabled operation now come from labels.
@@ -38,3 +38,12 @@
 - Changed a JSON create or edit whose value is not a number for a number column to answer with `labels.form.invalidNumber` ("Total must be a number"), as the form already did, instead of Zod's "expected number" text. A schema's own message is kept.
 - Changed the record page heading without `detail.title` to show the row's `name`, `title` or `email` ("Ann") before falling back to "User · <id>".
 - Changed a `reference` column on the record page to show the referenced record's label with a link ("Ann"), as the list does, instead of the raw foreign key.
+- Changed dashboard, page and queue gates, the admin-wide gate and the stream to read `access`; a dashboard action runs only when both the dashboard's and the action's `access` admit the caller.
+- Changed forms to leave out a field the caller may neither read nor write under `fieldAccess`, and to show one they may only read as read-only.
+- Fixed the drawer naming its row with `label` and ignoring `labelOne`; it now uses the same name as the record page.
+- Changed every action and form route to answer a failure as `{ ok: false, error, code, requestId?, fieldErrors? }`. A form validation failure carries `fieldErrors` instead of `issues`, and a 404 is a string, so a stale tab that runs a removed action shows "action not found" instead of an empty toast.
+- Fixed a resource whose primary key is not `id` and that sets no `rowKey`: lists, record pages, drawers, forms and related tabs now key rows by the primary key, as the JSON API already did.
+- Fixed the stream subscribing to `resource.<name>` for a resource the config does not register, and sending a tenant-scoped resource's row id to every subscriber: such an event now carries only its `action`. The stream and `events.publish` share one channel-name rule.
+- Fixed the built-in bulk delete publishing no `resource.<name>` event, so open lists of that resource now refresh as they do after a single delete. Its existence check reads at most 16 rows at a time instead of the whole selection at once.
+- Fixed an inline cell edit answering success, publishing and auditing when the row was deleted between the read and the write; it answers 404.
+- Fixed a list filter's `options` function getting no `scope`, `role` or `searchParams`, so one that read `ctx.scope` failed the page with a 500; it now gets the request's full query context.

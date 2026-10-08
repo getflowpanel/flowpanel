@@ -4,7 +4,7 @@ import { auth } from "{{AUTH_MODULE}}";
 
 export const flowpanelAuth = withBetterAuth({
   auth,
-  requireRole: "admin",
+  access: "admin",
   // role: async (session) => (await findMember(session?.user?.id))?.role ?? "guest",
 });
 

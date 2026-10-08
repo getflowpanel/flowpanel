@@ -1,7 +1,6 @@
 import type { AccessContext, RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
 import {
   accessAllows,
-  checkRequireRole,
   errorResult,
   FlowpanelError,
   reportUnexpectedError,
@@ -9,12 +8,12 @@ import {
 } from "@flowpanel/core";
 import { encodeEnvelope } from "@flowpanel/core/publish";
 import { bindPublisher, subscribe } from "./runtime/publish";
+import { CHANNEL_PATTERN, channelResource } from "./runtime/realtime-channels";
 import { buildRequestContext } from "./runtime/request-setup";
 
 const HEARTBEAT_MS = 15_000;
 
 const MAX_CHANNELS = 25;
-const CHANNEL_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
 
 export interface StreamOptions {
   heartbeatMs?: number;
@@ -27,11 +26,28 @@ async function channelAllowed(
   reqCtx: AccessContext,
 ): Promise<boolean> {
   if (!CHANNEL_PATTERN.test(channel)) return false;
-  const resourceName = channel.startsWith("resource.") ? channel.slice("resource.".length) : null;
+  const resourceName = channelResource(channel);
   if (resourceName === null) return true;
   const resource = config.resourcesByName.get(resourceName);
-  if (!resource) return true;
+  if (!resource) return false;
   return accessAllows(resolveOperationAccess(resource.options.access, "read"), reqCtx);
+}
+
+/**
+ * What a subscriber receives. A tenant-scoped resource's event keeps only its `action`, so no row id
+ * or row data crosses tenants; the admin's own subscribers only refresh, so they lose nothing.
+ */
+function deliverable(channel: string, config: ResolvedAdminConfig): (payload: unknown) => unknown {
+  const name = channelResource(channel);
+  const resource = name === null ? undefined : config.resourcesByName.get(name);
+  if (typeof resource?.options.scope !== "function") return (payload) => payload;
+  return (payload) =>
+    typeof payload === "object" &&
+    payload !== null &&
+    "action" in payload &&
+    typeof payload.action === "string"
+      ? { action: payload.action }
+      : {};
 }
 
 export function stream(
@@ -46,7 +62,6 @@ export function stream(
     let reqCtx: RequestContext;
     try {
       reqCtx = await buildRequestContext({ req, config });
-      checkRequireRole(config.auth.requireRole, reqCtx.role, reqCtx.session);
     } catch (err) {
       // Preserve the real status: a crashing session provider is a 500, a rate limit a 429, not a silent 403.
       await reportUnexpectedError(
@@ -117,8 +132,9 @@ export function stream(
         safeEnqueue("event: ready\ndata: {}\n\n");
 
         for (const ch of channels) {
+          const shape = deliverable(ch, config);
           const dispose = subscribe(ch, (payload) => {
-            safeEnqueue(`event: message\ndata: ${encodeEnvelope(ch, payload)}\n\n`);
+            safeEnqueue(`event: message\ndata: ${encodeEnvelope(ch, shape(payload))}\n\n`);
           });
           disposers.push(dispose);
         }

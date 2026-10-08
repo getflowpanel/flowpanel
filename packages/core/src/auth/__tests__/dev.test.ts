@@ -24,7 +24,7 @@ describe("devAuth", () => {
 
   it("declares no access control of its own", () => {
     const config = devAuth();
-    expect(config.requireRole).toBeUndefined();
+    expect(config.access).toBeUndefined();
     expect(config.allowUnauthenticated).toBeUndefined();
   });
 

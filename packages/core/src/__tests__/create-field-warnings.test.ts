@@ -35,12 +35,15 @@ function adapterWith(columns: ColumnMeta[]): Adapter {
   };
 }
 
-const auth = { session: async () => null, role: () => "admin" };
+const auth = {
+  session: async () => ({ id: "u1" }),
+  role: (session: unknown) => (session ? "admin" : "guest"),
+};
 
 function admin(options: Record<string, unknown>, columns = COLUMNS) {
   return defineAdmin({
     adapter: adapterWith(columns),
-    auth: { ...auth, requireRole: "admin" },
+    auth: { ...auth, access: "admin" },
     resources: [resource({ __name: "users" }, options as never)],
   });
 }

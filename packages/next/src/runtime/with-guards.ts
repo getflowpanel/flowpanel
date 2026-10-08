@@ -2,14 +2,11 @@ import type {
   AccessRule,
   ErrorContext,
   RequestContext,
-  RequireRole,
   ResolvedAdminConfig,
   ResourceConfig,
   ResourceOperation,
 } from "@flowpanel/core";
 import {
-  authorizeOperation,
-  checkRequireRole,
   errorResult as coreErrorResult,
   FlowpanelAccessError,
   FlowpanelError,
@@ -17,14 +14,16 @@ import {
   reportUnexpectedError,
   resolveOperationAccess,
 } from "@flowpanel/core";
+import { actionFailure, withRequestId } from "./action-failure";
 import { actorIdFromSession } from "./action-helpers";
 import { browserOrigin } from "./request-origin";
 import { buildRequestContext, requestIdFrom } from "./request-setup";
+import { requireAccessIfSet } from "./require-access";
 import { requireAuthorized } from "./require-authorized";
 
 export interface GuardSpec {
   resource?: ResourceConfig | undefined;
-  pageRequireRole?: RequireRole | undefined;
+  pageAccess?: AccessRule | undefined;
   actionAccess?: AccessRule | undefined;
   operation?: ResourceOperation | undefined;
   route?: string | undefined;
@@ -45,19 +44,15 @@ function errorResponse(
   const result = coreErrorResult(err, requestId);
   if (result.ok) throw new Error("errorResult unexpectedly returned success");
   const status = err instanceof FlowpanelError ? err.status : 500;
-  const headers = { "x-request-id": requestId };
-  if (envelope === "result") return Response.json(result, { status, headers });
+  if (envelope === "result") {
+    return Response.json(result, { status, headers: { "x-request-id": requestId } });
+  }
   const { code, message, fieldErrors } = result.error;
-  return Response.json(
-    {
-      ok: false,
-      error: message,
-      code,
-      requestId,
-      ...(fieldErrors ? { fieldErrors } : {}),
-    },
-    { status, headers },
-  );
+  return actionFailure(code, message, {
+    status,
+    requestId,
+    ...(fieldErrors ? { fieldErrors } : {}),
+  });
 }
 
 const CROSS_ORIGIN_ERROR = "Cross-origin write requests are not allowed.";
@@ -139,7 +134,7 @@ export async function withGuards(
     const operation = spec.operation ?? (spec.actionAccess !== undefined ? undefined : "update");
     if (operation) {
       try {
-        await authorizeOperation(
+        await requireAccessIfSet(
           resolveOperationAccess(spec.resource.options.access, operation),
           reqCtx,
         );
@@ -149,9 +144,9 @@ export async function withGuards(
     }
   }
 
-  if (spec.pageRequireRole !== undefined) {
+  if (spec.pageAccess !== undefined) {
     try {
-      checkRequireRole(spec.pageRequireRole, reqCtx.role, reqCtx.session);
+      await requireAccessIfSet(spec.pageAccess, reqCtx);
     } catch (err) {
       return errorResponse(err, requestId, spec.envelope);
     }
@@ -159,14 +154,15 @@ export async function withGuards(
 
   if (spec.actionAccess !== undefined) {
     try {
-      await authorizeOperation(spec.actionAccess, reqCtx);
+      await requireAccessIfSet(spec.actionAccess, reqCtx);
     } catch (err) {
       return errorResponse(err, requestId, spec.envelope);
     }
   }
 
   try {
-    return await handler(reqCtx);
+    const res = await handler(reqCtx);
+    return spec.envelope === "result" ? res : await withRequestId(res, requestId);
   } catch (err) {
     const context = errorContext(req, requestId, spec, reqCtx);
     await reportUnexpectedError(err, context, config.hooks?.onError);

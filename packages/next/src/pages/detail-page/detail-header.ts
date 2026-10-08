@@ -8,9 +8,9 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import type { ReactNode } from "react";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../../runtime/defaults";
 import { resolveLink } from "../../runtime/resolve-link";
 import { singularLabel } from "../../runtime/resource-title";
+import { rowKeyOf } from "../../runtime/row-identity";
 
 type Row = Record<string, unknown>;
 type Pill = { label: string; tone?: Tone; href?: string };
@@ -40,7 +40,7 @@ export async function recordHeader(
   config: ResolvedAdminConfig,
 ): Promise<RecordHeader> {
   const detail = resource.options.detail as DetailOptions<Row> | undefined;
-  const pk = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const pk = rowKeyOf(resource);
   const label = singularLabel(resource, name);
   const fallback =
     labelValue(row) ?? (row[pk] === undefined ? label : `${label} · ${String(row[pk])}`);

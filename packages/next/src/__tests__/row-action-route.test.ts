@@ -236,7 +236,12 @@ describe("rowActionRoute", () => {
     });
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ ok: false, error: "JSON body must be an object" });
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "JSON body must be an object",
+      code: "bad_request",
+      requestId: expect.any(String),
+    });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -256,7 +261,12 @@ describe("rowActionRoute", () => {
     });
 
     expect(res.status).toBe(413);
-    expect(await res.json()).toEqual({ ok: false, error: "request body is too large" });
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "request body is too large",
+      code: "payload_too_large",
+      requestId: expect.any(String),
+    });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -321,7 +331,7 @@ describe("rowActionRoute", () => {
     expect(body.error).not.toContain("secret");
   });
 
-  it("returns 422 with issues when input fails the action's required form field", async () => {
+  it("returns 422 with field errors when input fails the action's required form field", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig({
       action: {
@@ -344,7 +354,7 @@ describe("rowActionRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).toBe("validation failed");
-    expect(body.issues).toEqual([{ path: ["status"], message: "status is required" }]);
+    expect(body.fieldErrors).toEqual({ status: "status is required" });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -375,7 +385,7 @@ describe("rowActionRoute", () => {
     });
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.issues).toEqual([{ path: ["status"], message: "status cannot be banned" }]);
+    expect(body.fieldErrors).toEqual({ status: "status cannot be banned" });
     expect(run).not.toHaveBeenCalled();
   });
 

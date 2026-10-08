@@ -13,13 +13,13 @@ describe("withClerk", () => {
     expect(cfg.role({})).toBe("guest");
   });
 
-  it("forwards requireRole, signInUrl, forbiddenUrl", () => {
+  it("forwards access, signInUrl, forbiddenUrl", () => {
     const cfg = withClerk({
-      requireRole: ["admin", "support"],
+      access: ["admin", "support"],
       signInUrl: "/sign-in",
       forbiddenUrl: "/403",
     });
-    expect(cfg.requireRole).toEqual(["admin", "support"]);
+    expect(cfg.access).toEqual(["admin", "support"]);
     expect(cfg.signInUrl).toBe("/sign-in");
     expect(cfg.forbiddenUrl).toBe("/403");
   });

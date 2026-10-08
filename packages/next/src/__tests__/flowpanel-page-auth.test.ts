@@ -51,7 +51,7 @@ function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdmin
   } as ResolvedAdminConfig;
 }
 
-describe("renderContent — admin-wide requireRole", () => {
+describe("renderContent — admin-wide access", () => {
   it("opens the first resource the caller can read, not merely the first visible resource", async () => {
     const denied = {
       __kind: "resource",
@@ -84,13 +84,13 @@ describe("renderContent — admin-wide requireRole", () => {
     );
   });
 
-  it("rejects a dashboard render when admin-wide requireRole fails, even without its own gate", async () => {
+  it("rejects a dashboard render when admin-wide access fails, even without its own gate", async () => {
     const dash: DashboardConfig = { path: "/", label: "Home", sections: [] };
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "viewer" } }),
         role: () => "viewer",
-        requireRole: "admin",
+        access: "admin",
       },
       dashboards: [dash],
       dashboardsByPath: new Map([["/", dash]]),
@@ -101,13 +101,13 @@ describe("renderContent — admin-wide requireRole", () => {
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
   });
 
-  it("renders the dashboard when admin-wide requireRole passes and the dashboard has no own gate", async () => {
+  it("renders the dashboard when admin-wide access passes and the dashboard has no own gate", async () => {
     const dash: DashboardConfig = { path: "/", label: "Home", sections: [] };
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "admin" } }),
         role: () => "admin",
-        requireRole: "admin",
+        access: "admin",
       },
       dashboards: [dash],
       dashboardsByPath: new Map([["/", dash]]),
@@ -122,13 +122,13 @@ describe("renderContent — admin-wide requireRole", () => {
     expect(isValidElement(node) && node.type).toBe(DashboardPage);
   });
 
-  it("rejects a user page render when admin-wide requireRole fails, even without its own gate", async () => {
+  it("rejects a user page render when admin-wide access fails, even without its own gate", async () => {
     const page: PageConfig = { path: "/reports", label: "Reports", component: () => null };
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "viewer" } }),
         role: () => "viewer",
-        requireRole: "admin",
+        access: "admin",
       },
       pagesByPath: new Map([["/reports", page]]),
     } as never);
@@ -143,13 +143,13 @@ describe("renderContent — admin-wide requireRole", () => {
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
   });
 
-  it("renders the user page when admin-wide requireRole passes and the page has no own gate", async () => {
+  it("renders the user page when admin-wide access passes and the page has no own gate", async () => {
     const page: PageConfig = { path: "/reports", label: "Reports", component: () => null };
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "admin" } }),
         role: () => "admin",
-        requireRole: "admin",
+        access: "admin",
       },
       pagesByPath: new Map([["/reports", page]]),
     } as never);
@@ -163,7 +163,7 @@ describe("renderContent — admin-wide requireRole", () => {
     expect(isValidElement(node) && node.type).toBe(UserPage);
   });
 
-  it("rejects a queue render when admin-wide requireRole fails, even without its own gate", async () => {
+  it("rejects a queue render when admin-wide access fails, even without its own gate", async () => {
     const queue: QueueConfig = {
       __kind: "queue",
       ref: {} as never,
@@ -173,7 +173,7 @@ describe("renderContent — admin-wide requireRole", () => {
       auth: {
         session: async () => ({ user: { id: "u1", role: "viewer" } }),
         role: () => "viewer",
-        requireRole: "admin",
+        access: "admin",
       },
       queuesByKey: new Map([["scraper", queue]]),
     } as never);
@@ -188,7 +188,7 @@ describe("renderContent — admin-wide requireRole", () => {
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
   });
 
-  it("renders the queue when admin-wide requireRole passes and the queue has no own gate", async () => {
+  it("renders the queue when admin-wide access passes and the queue has no own gate", async () => {
     const queue: QueueConfig = {
       __kind: "queue",
       ref: {} as never,
@@ -203,7 +203,7 @@ describe("renderContent — admin-wide requireRole", () => {
       auth: {
         session: async () => ({ user: { id: "u1", role: "admin" } }),
         role: () => "admin",
-        requireRole: "admin",
+        access: "admin",
       },
       queuesByKey: new Map([
         ["scraper", queue],
@@ -380,12 +380,12 @@ describe("renderContent — root slug on an empty config", () => {
     expect(isValidElement(node) && node.type).toBe(Welcome);
   });
 
-  it("rejects Welcome on an empty config when admin-wide requireRole fails, same as sibling branches", async () => {
+  it("rejects Welcome on an empty config when admin-wide access fails, same as sibling branches", async () => {
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "viewer" } }),
         role: () => "viewer",
-        requireRole: "admin",
+        access: "admin",
       },
     } as never);
 

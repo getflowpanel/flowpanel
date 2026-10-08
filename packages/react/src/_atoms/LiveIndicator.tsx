@@ -1,12 +1,12 @@
 "use client";
-import type { LiveStatus } from "../hooks/useLiveChannel";
+import type { RealtimeStatus } from "../realtime/context";
 
 export interface LiveIndicatorProps {
-  status: LiveStatus;
+  status: RealtimeStatus;
   className?: string;
 }
 
-const LABEL: Record<LiveStatus, string> = {
+const LABEL: Record<RealtimeStatus, string> = {
   idle: "Idle",
   connecting: "Connecting…",
   live: "Live",
@@ -14,7 +14,7 @@ const LABEL: Record<LiveStatus, string> = {
   offline: "Offline",
 };
 
-const DOT: Record<LiveStatus, string> = {
+const DOT: Record<RealtimeStatus, string> = {
   idle: "bg-fp-text-3",
   connecting: "bg-fp-text-3 animate-pulse",
   live: "bg-fp-ok",

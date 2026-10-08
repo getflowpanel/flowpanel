@@ -20,7 +20,6 @@ export {
   table,
   tracker,
 } from "./builders/widget";
-export { isBuiltinBulkDelete } from "./compiler/builtin-bulk-delete";
 export { defineAdmin } from "./define-admin";
 export {
   DEFAULT_FORMATTING,
@@ -38,15 +37,11 @@ export {
   toneTextClass,
 } from "./format-column";
 export { humanize, resolveFieldLabel } from "./humanize";
-export { assertCountWhereColumns } from "./internal/count-where";
 export type { KeyLabels } from "./internal/key-labels";
-export { declaredWriteFields } from "./internal/write-fields";
 export { RU_LABELS } from "./locales/ru";
-export { accessAllows, authorizeOperation, resolveOperationAccess } from "./policy/access";
+export { accessAllows, requireAccess, resolveOperationAccess } from "./policy/access";
 export { assertWritableInput, filterReadableProjection } from "./policy/fields";
 export { resolveResourceName } from "./resource-name";
-export { emitAudit } from "./runtime/audit";
-export { checkRequireRole, type RequireRole } from "./runtime/auth";
 export { type BreakdownOptions, breakdown } from "./runtime/breakdown";
 export { presetRange } from "./runtime/preset-range";
 export {

@@ -298,9 +298,8 @@ describe("actorIdFromSession (via audit event)", () => {
 describe("field rules on the write path", () => {
   it("update rejects a role-gated submitted field declared in the fallback form", async () => {
     const { config, resource } = makeConfig({});
-    (resource.options as { create?: unknown }).create = {
-      fields: [{ name: "email", requireRole: "owner" }],
-    };
+    (resource.options as { create?: unknown }).create = { fields: [{ name: "email" }] };
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { email: { write: "owner" } };
     const seen = vi.fn();
     (config.adapter as { update: unknown }).update = async (
       _ref: unknown,
@@ -372,9 +371,8 @@ describe("field rules on the write path", () => {
 
   it("reports a required gated field as an access error, not a phantom validation error", async () => {
     const { config, resource } = makeConfig({});
-    (resource.options as { create?: unknown }).create = {
-      fields: [{ name: "email", requireRole: "owner" }],
-    };
+    (resource.options as { create?: unknown }).create = { fields: [{ name: "email" }] };
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { email: { write: "owner" } };
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
       code: "field_forbidden",
@@ -478,11 +476,9 @@ describe("field rules on the write path", () => {
       },
     });
     (resource.options as { create?: unknown }).create = {
-      fields: [
-        { name: "email" },
-        { name: "note", requireRole: "owner", defaultValue: "server-default" },
-      ],
+      fields: [{ name: "email" }, { name: "note", defaultValue: "server-default" }],
     };
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { note: { write: "owner" } };
     const seen = vi.fn();
     (config.adapter as { create: unknown }).create = async (
       _ref: unknown,
@@ -494,6 +490,29 @@ describe("field rules on the write path", () => {
     const actions = makeActions(config, resource);
     await actions.create({ email: "a@b.com" });
     expect(seen).toHaveBeenCalledWith({ email: "a@b.com", note: "server-default" });
+  });
+
+  it("lets create.defaultValues win over a field's own defaultValue for the same empty key", async () => {
+    const { config, resource } = makeConfig({
+      schema: {
+        create: z.object({ email: z.string().email(), note: z.string() }),
+        update: updateSchema,
+      },
+    });
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email" }, { name: "note", defaultValue: "from-field" }],
+      defaultValues: { note: "from-resource" },
+    };
+    const seen = vi.fn();
+    (config.adapter as { create: unknown }).create = async (
+      _ref: unknown,
+      mctx: { input: unknown },
+    ) => {
+      seen(mctx.input);
+      return { id: "u1" };
+    };
+    await makeActions(config, resource).create({ email: "a@b.com" });
+    expect(seen).toHaveBeenCalledWith({ email: "a@b.com", note: "from-resource" });
   });
 
   it("reuses a caller-supplied RequestContext instead of building one per call", async () => {
@@ -561,8 +580,9 @@ describe("required fields on the server", () => {
     const { config, resource } = withFields([
       { name: "email", required: true, hidden: true },
       { name: "name", required: true, readOnly: () => true },
-      { name: "status", required: true, requireRole: "owner" },
+      { name: "status", required: true },
     ]);
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { status: { write: "owner" } };
     await expect(makeActions(config, resource).create({})).resolves.toBeTruthy();
   });
 
@@ -588,12 +608,13 @@ describe("required fields on the server", () => {
   });
 });
 
-describe("readOnly next to requireRole", () => {
+describe("readOnly next to fieldAccess", () => {
   it("keeps a role-gated field read-only for a role that passes the gate", async () => {
     const { config, resource } = makeConfig({});
     (resource.options as { create?: unknown }).create = {
-      fields: [{ name: "email", requireRole: "admin", readOnly: true }],
+      fields: [{ name: "email", readOnly: true }],
     };
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { email: { write: "admin" } };
     await expect(makeActions(config, resource).create({ email: "a@b.com" })).rejects.toMatchObject({
       code: "field_forbidden",
       field: "email",

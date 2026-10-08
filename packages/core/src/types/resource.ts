@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import type { z } from "zod";
 import type { ActionEmphasis, BulkAction, RowAction } from "./action";
+import type { AdapterRef } from "./adapter";
 import type { QueryContext, RequestContext } from "./context";
 import type { NavGroupRef } from "./dashboard";
 import type { DetailOptions } from "./detail";
@@ -9,7 +10,7 @@ import type { DrawerConfig } from "./drawer";
 import type { IconName } from "./icon";
 import type { FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec } from "./registry";
-import type { Scope, Session } from "./session";
+import type { Scope } from "./session";
 import type { Threshold } from "./threshold";
 import type { ListFilters } from "./where";
 import type { Tone } from "./widget";
@@ -201,13 +202,14 @@ export interface FieldDef<Row> {
   readOnly?: boolean | ((values: Partial<Row>) => boolean);
   /** Leave the field out of the form entirely. */
   hidden?: boolean | ((values: Partial<Row>) => boolean);
-  /** Restrict who may see and write this field. Enforced on every write route. */
-  requireRole?: string | string[] | ((session: Session | null) => boolean);
   /** Per-field validation, run server-side after the resource schema. */
   validate?:
     | z.ZodTypeAny
     | ((value: unknown, values: Partial<Row>) => string | null | Promise<string | null>);
-  /** Value used when creating, for keys the operator left empty. */
+  /**
+   * Value used when creating, for keys the operator left empty; a visible field also pre-fills with it.
+   * The resource's `create.defaultValues` wins for the same key.
+   */
   defaultValue?: unknown | ((ctx: QueryContext) => Promise<unknown>);
   /** Width in a 12-column form grid. Defaults to full width. */
   span?: 1 | 2 | 3 | 4 | 6 | 12;
@@ -227,14 +229,24 @@ export interface ListResult<Row> {
   pageSize: number;
 }
 
+/**
+ * Narrows one query to the caller's tenant. The adapter decides what `query` is, so annotate it:
+ * Drizzle passes a builder to call `.where(condition)` on, Prisma the `where` object to merge into.
+ */
+export type ResourceScope = (scope: Scope, query: never) => unknown;
+
 export interface ResourceOptions<Row> {
   /** URL segment and registry key. Defaults to the adapter's table name. */
   name?: string;
-  /** Singular label shown in headings and buttons. */
+  /**
+   * The one name for both a row and the list when they read the same, such as `"Staff"`.
+   * `labelOne` overrides it for one row and `plural` for the list; without any of the three,
+   * the resource name is humanized: `order_items` reads "Order items" and one row "Order item".
+   */
   label?: string;
-  /** Label for exactly one row, e.g. `"Customer"`, used in record, create and edit titles. Falls back to `label`, then the resource name made singular: `order_items` reads "Order item". */
+  /** Name for exactly one row, e.g. `"Customer"`: record, create and edit titles and the drawer. Falls back to `label`. */
   labelOne?: string;
-  /** Plural label shown in the nav and list title. */
+  /** Name for the list: the nav entry, the list title and the detail crumb. Falls back to `label`. */
   plural?: string;
   /** Serializable Lucide icon rendered in navigation and the command palette. */
   icon?: IconName;
@@ -271,7 +283,7 @@ export interface ResourceOptions<Row> {
    */
   rowClick?: "detail" | "drawer" | false;
   /** Property holding each row's unique id.
-   * @defaultValue "id"
+   * @defaultValue the table's primary key, else `"id"`
    */
   rowKey?: keyof Row & string;
 
@@ -286,8 +298,11 @@ export interface ResourceOptions<Row> {
    * The table that create, update, delete and restore write to, when the resource reads a view.
    * Omitted on a view: the resource is read-only, and a declared create/update/delete/import is an error at `defineAdmin`.
    */
-  writeTo?: unknown;
-  /** Create form. `disabled` removes the route, not just the button. */
+  writeTo?: AdapterRef;
+  /**
+   * Create form. `disabled` removes the route, not just the button. `defaultValues` fills keys a
+   * create leaves empty, on the server only, and wins over a field's own `defaultValue`.
+   */
   create?: { disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> };
   /** Edit form. `disabled` removes the route, not just the button. */
   update?: {
@@ -312,7 +327,7 @@ export interface ResourceOptions<Row> {
   bulkActions?: BulkAction<Row, any, any>[];
 
   /** How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. */
-  scope?: "bypass" | ((scope: Scope, query: unknown) => unknown);
+  scope?: "bypass" | ResourceScope;
   /** Canonical operation-level authorization. */
   access?: ResourceAccess<Row>;
   /** Canonical read/write policy for declared fields. */

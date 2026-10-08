@@ -6,7 +6,6 @@ import {
   mergeLabels,
   resolveOperationAccess,
 } from "@flowpanel/core";
-import { roleAllows } from "./action-helpers";
 import { matchDashboard } from "./dashboard-routing";
 import { decodeAtom } from "./href";
 import { readableByCaller } from "./nav";
@@ -39,14 +38,15 @@ async function titleFor(
 ): Promise<string | undefined> {
   const labels = mergeLabels(config.labels);
   const dashboard = matchDashboard(slug, config);
-  if (dashboard) return roleAllows(dashboard.requireRole, reqCtx) ? dashboard.label : undefined;
+  if (dashboard)
+    return (await accessAllows(dashboard.access, reqCtx)) ? dashboard.label : undefined;
   const page = matchPage(slug, config);
-  if (page) return roleAllows(page.requireRole, reqCtx) ? page.label : undefined;
+  if (page) return (await accessAllows(page.access, reqCtx)) ? page.label : undefined;
   const [name, id, rest, ...extra] = slug;
   if (name === "queues" && id && rest === undefined) {
     const queue = config.queuesByKey.get(id);
     if (!queue) return labels.notFound.title;
-    return roleAllows(queue.options.requireRole, reqCtx) ? queue.options.label : undefined;
+    return (await accessAllows(queue.options.access, reqCtx)) ? queue.options.label : undefined;
   }
   if (name === undefined) return config.theme?.brand?.name;
   const resource = config.resourcesByName.get(name);

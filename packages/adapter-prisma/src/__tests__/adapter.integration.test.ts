@@ -252,6 +252,13 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     expect(gone).toBeNull();
   });
 
+  it("updates a missing row to null and deletes it as a no-op, without P2025", async () => {
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    const ghost = { id: "999999", input: { name: "Nobody" }, db: undefined } as any;
+    await expect(adapter.update("TestUser", ghost)).resolves.toBeNull();
+    await expect(adapter.delete!("TestUser", ghost)).resolves.toBeUndefined();
+  });
+
   it("creates from the email alone and leaves the defaulted columns to the database", async () => {
     const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
     const parsed = adapter.inferSchema("TestUser").create.safeParse({ email: "lean@example.com" });
@@ -326,7 +333,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
           db: tx,
         } as any);
         await adapter.delete!("TestUser", {
-          id: "2147483647",
+          id: "not-an-int",
           input: {},
           db: tx,
         } as any);

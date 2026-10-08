@@ -2,6 +2,7 @@ import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { FlowpanelValidationError, mergeLabels } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
 import { revalidatePath } from "next/cache";
+import { actionFailure } from "../runtime/action-failure";
 import { notFoundResponse, safeErrorMessage } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
 import { buildHref } from "../runtime/href";
@@ -75,17 +76,17 @@ export function importRoute(config: ResolvedAdminConfig) {
     }
     const importOpt = resource.options.import;
     if (!importOpt) {
-      return Response.json({ ok: false, error: "import not enabled" }, { status: 404 });
+      return actionFailure("not_found", "import not enabled");
     }
 
     if (resource.options.create?.disabled) {
-      return Response.json({ ok: false, error: "create is disabled" }, { status: 403 });
+      return actionFailure("operation_disabled", "create is disabled");
     }
 
     return withGuards(config, req, { resource, operation: "create" }, async (reqCtx) => {
       const declaredLength = req.headers.get("content-length");
       if (declaredLength !== null && Number(declaredLength) > MAX_IMPORT_REQUEST_BYTES) {
-        return Response.json({ ok: false, error: "file too large" }, { status: 413 });
+        return actionFailure("payload_too_large", "file too large");
       }
 
       let raw: string;
@@ -93,43 +94,37 @@ export function importRoute(config: ResolvedAdminConfig) {
         raw = await readBodyCapped(req, MAX_IMPORT_REQUEST_BYTES);
       } catch (e) {
         if (e instanceof BodyTooLargeError) {
-          return Response.json({ ok: false, error: "file too large" }, { status: 413 });
+          return actionFailure("payload_too_large", "file too large");
         }
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
+        return actionFailure("bad_request", "bad request");
       }
 
       let body: { format?: unknown; content?: unknown };
       try {
         body = JSON.parse(raw);
       } catch {
-        return Response.json({ ok: false, error: "bad request" }, { status: 400 });
+        return actionFailure("bad_request", "bad request");
       }
       const format = body.format === "json" ? "json" : "csv";
       const formats = importOpt.formats ?? ["csv", "json"];
       if (!formats.includes(format)) {
-        return Response.json(
-          { ok: false, error: `format "${format}" not allowed` },
-          { status: 400 },
-        );
+        return actionFailure("bad_request", `format "${format}" not allowed`);
       }
       if (typeof body.content !== "string") {
-        return Response.json({ ok: false, error: "missing file content" }, { status: 400 });
+        return actionFailure("bad_request", "missing file content");
       }
       if (body.content.length > MAX_IMPORT_BYTES) {
-        return Response.json({ ok: false, error: "file too large" }, { status: 413 });
+        return actionFailure("payload_too_large", "file too large");
       }
 
       let rows: Record<string, unknown>[];
       try {
         rows = parseImport(format, body.content);
       } catch (e) {
-        return Response.json({ ok: false, error: safeErrorMessage(e) }, { status: 400 });
+        return actionFailure("bad_request", safeErrorMessage(e));
       }
       if (rows.length > MAX_IMPORT_ROWS) {
-        return Response.json(
-          { ok: false, error: `too many rows (max ${MAX_IMPORT_ROWS})` },
-          { status: 422 },
-        );
+        return actionFailure("validation_failed", `too many rows (max ${MAX_IMPORT_ROWS})`);
       }
 
       const allowed = importOpt.fields as string[] | undefined;

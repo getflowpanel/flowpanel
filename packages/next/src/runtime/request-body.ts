@@ -1,3 +1,5 @@
+import { actionFailure } from "./action-failure";
+
 export const MAX_WRITE_BODY_BYTES = 1024 * 1024;
 
 export type RequestBodyError =
@@ -106,13 +108,10 @@ export async function readActionObject(
 
 export function requestBodyErrorResponse(reason: RequestBodyError): Response {
   if (reason === "payload-too-large") {
-    return Response.json({ ok: false, error: "request body is too large" }, { status: 413 });
+    return actionFailure("payload_too_large", "request body is too large");
   }
-  if (reason === "object-required") {
-    return Response.json({ ok: false, error: "JSON body must be an object" }, { status: 400 });
-  }
-  if (reason === "invalid-form") {
-    return Response.json({ ok: false, error: "invalid form data" }, { status: 400 });
-  }
-  return Response.json({ ok: false, error: "invalid JSON body" }, { status: 400 });
+  if (reason === "object-required")
+    return actionFailure("bad_request", "JSON body must be an object");
+  if (reason === "invalid-form") return actionFailure("bad_request", "invalid form data");
+  return actionFailure("bad_request", "invalid JSON body");
 }

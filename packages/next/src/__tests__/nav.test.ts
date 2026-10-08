@@ -117,11 +117,11 @@ describe("buildNav", () => {
       auth: { session: async () => null, role: () => "support" },
       dashboards: [
         dashboard({ path: "/", label: "Overview", sections: [] }),
-        dashboard({ path: "/finance", label: "Finance", requireRole: "admin", sections: [] }),
+        dashboard({ path: "/finance", label: "Finance", access: "admin", sections: [] }),
       ],
       pages: [
         page({ path: "/guide", label: "Guide", component: () => null }),
-        page({ path: "/audit", label: "Audit", component: () => null, requireRole: "admin" }),
+        page({ path: "/audit", label: "Audit", component: () => null, access: "admin" }),
       ],
       resources: [
         resource({ __name: "users" }, { columns: [], plural: "Users" }),
@@ -131,7 +131,7 @@ describe("buildNav", () => {
         queue({ name: "jobs" }, { label: "Jobs", boardUrl: "http://localhost/jobs" }),
         queue(
           { name: "billing" },
-          { label: "Billing", boardUrl: "http://localhost/billing", requireRole: "admin" },
+          { label: "Billing", boardUrl: "http://localhost/billing", access: "admin" },
         ),
       ],
     });

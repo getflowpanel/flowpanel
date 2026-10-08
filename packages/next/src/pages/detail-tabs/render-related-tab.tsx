@@ -8,7 +8,6 @@ import type {
 import { mergeLabels, resolveFormatting } from "@flowpanel/core";
 import { RelatedTabTable } from "@flowpanel/next/client";
 import type { ReactNode } from "react";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../../runtime/defaults";
 import { declaredFieldSet, parsePage } from "../../runtime/parse-list-params";
 import { prerenderResourceCells } from "../../runtime/prerender-cells";
 import { projectRowFields } from "../../runtime/project-row";
@@ -16,6 +15,7 @@ import { readOrCard } from "../../runtime/query-error";
 import { withReferenceCells } from "../../runtime/reference-cells";
 import { readRelatedPage } from "../../runtime/require-authorized";
 import { openRowHrefs } from "../../runtime/row-click";
+import { rowKeyOf } from "../../runtime/row-identity";
 import { widgetHref } from "../../runtime/widget-context";
 
 const RELATED_TAB_PAGE_SIZE = 25;
@@ -161,7 +161,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   );
   const openList = openListFilter(filters, declaredFieldSet(target.options));
   // A hidden column is hidden from the payload too, not just from the header.
-  const rowKey = (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = rowKeyOf(target);
   const visible = new Set<string>([
     ...columns.flatMap((column) => [
       column.field as string,

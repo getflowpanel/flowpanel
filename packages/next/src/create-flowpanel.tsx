@@ -10,6 +10,7 @@ import {
   flowpanelNotFoundMetadata,
 } from "./runtime/page-metadata";
 import { bindPublisher, publish } from "./runtime/publish";
+import { CHANNEL_PATTERN } from "./runtime/realtime-channels";
 import { createRequestRuntime } from "./runtime/request-runtime";
 import {
   type FlowpanelClientMetadata,
@@ -44,7 +45,6 @@ function isResolved<Resources extends readonly AnyResourceConfig[]>(
   return "__resolved" in definition && definition.__resolved === true;
 }
 
-const CHANNEL = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const MAX_EVENT_BYTES = 64 * 1024;
 
 /** Bind one typed admin definition to all supported Next.js runtime surfaces. */
@@ -71,7 +71,7 @@ export function createFlowpanel<const Resources extends readonly AnyResourceConf
     events: Object.freeze({
       async publish(channel: string, payload?: unknown) {
         if (disposed) throw new Error("This Flowpanel runtime has been disposed.");
-        if (!CHANNEL.test(channel)) throw new Error("Invalid Flowpanel event channel.");
+        if (!CHANNEL_PATTERN.test(channel)) throw new Error("Invalid Flowpanel event channel.");
         const wirePayload = payload === undefined ? undefined : toWireValue(payload, "payload");
         if (wirePayload !== undefined) {
           const bytes = new TextEncoder().encode(JSON.stringify(wirePayload)).byteLength;

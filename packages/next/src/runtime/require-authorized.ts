@@ -1,7 +1,5 @@
 import {
-  assertCountWhereColumns,
   assertResourceScope,
-  authorizeOperation,
   FlowpanelAccessError,
   type ListQueryContext,
   type RequestContext,
@@ -11,15 +9,17 @@ import {
   resolveResourceName,
   runWithRequestContext,
 } from "@flowpanel/core";
+import { assertCountWhereColumns } from "@flowpanel/core/internal";
 import { declaredRowFields, projectRowFields, selectKnownFields } from "./project-row";
 import { resolveReadableFieldSet } from "./readable-fields";
+import { requireAccessIfSet } from "./require-access";
 import { scopeBinding } from "./scope-binding";
 
 /** Runs the resource's scope check. */
 export function requireAuthorized(config: ResolvedAdminConfig, resource: ResourceConfig): void {
   assertResourceScope({
     hasGlobal: !!config.scope,
-    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+    resourceScope: resource.options.scope,
   });
 }
 
@@ -80,7 +80,7 @@ export async function readRelatedCount(
 
   try {
     requireAuthorized(config, target);
-    await authorizeOperation(resolveOperationAccess(target.options.access, "read"), reqCtx);
+    await requireAccessIfSet(resolveOperationAccess(target.options.access, "read"), reqCtx);
   } catch (err) {
     if (err instanceof FlowpanelAccessError) return null;
     throw err;
@@ -117,7 +117,7 @@ export async function readRelatedPage(
 ): Promise<RelatedPage | null> {
   try {
     requireAuthorized(config, target);
-    await authorizeOperation(resolveOperationAccess(target.options.access, "read"), reqCtx);
+    await requireAccessIfSet(resolveOperationAccess(target.options.access, "read"), reqCtx);
   } catch (err) {
     if (err instanceof FlowpanelAccessError) return null;
     throw err;

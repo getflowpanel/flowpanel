@@ -28,12 +28,17 @@ async function loadAxeBuilder(): Promise<AxeBuilderCtor | null> {
 }
 
 /**
- * `@axe-core/playwright` is an optional peer: a project that has not installed
- * it gets the walk without the scan rather than a resolution failure.
+ * `@axe-core/playwright` is an optional peer, needed only for `a11y: true`. Asking for the scan
+ * without it fails, so a project that forgot the install never reads a pass it did not earn.
  */
-export async function createAxeScanner(page: Page): Promise<A11yScanner | null> {
+export async function createAxeScanner(page: Page): Promise<A11yScanner> {
   const AxeBuilder = await loadAxeBuilder();
-  if (!AxeBuilder) return null;
+  if (!AxeBuilder) {
+    throw new Error(
+      "smokeAdmin: a11y: true needs @axe-core/playwright. Install it as a dev dependency, " +
+        "or drop a11y.",
+    );
+  }
   return async () => {
     const { violations } = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
     return violations.map((violation) => ({

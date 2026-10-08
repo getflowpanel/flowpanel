@@ -434,6 +434,31 @@ describe("RealtimeProvider", () => {
     expect(instances).toHaveLength(1);
   });
 
+  it("reports a throwing subscriber and still delivers to the others", async () => {
+    const boom = new Error("widget handler broke");
+    const report = vi.fn();
+    vi.stubGlobal("reportError", report);
+    const throwing = vi.fn(() => {
+      throw boom;
+    });
+    const healthy = vi.fn();
+    render(
+      <RealtimeProvider refreshDebounceMs={10}>
+        <Sub channels={["a"]} cb={throwing} />
+        <Sub channels={["a"]} cb={healthy} />
+      </RealtimeProvider>,
+    );
+    await flushReopen();
+    act(() => instances[0]!.open());
+    act(() => {
+      instances[0]!.message(JSON.stringify({ channel: "a", payload: 1 }));
+    });
+    expect(throwing).toHaveBeenCalled();
+    expect(healthy).toHaveBeenCalledWith(1);
+    expect(report).toHaveBeenCalledWith(boom);
+    vi.unstubAllGlobals();
+  });
+
   it("routes an envelope to only its own channel's subscriber", async () => {
     const cbA = vi.fn();
     const cbB = vi.fn();

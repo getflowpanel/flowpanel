@@ -8,6 +8,7 @@ import { buildApiHref, buildHref } from "../runtime/href";
 import {
   declaredFormFields,
   deniedFieldWrites,
+  hiddenFormFields,
   resolveFormFields,
 } from "../runtime/resolve-form-fields";
 import { singularTitle } from "../runtime/resource-title";
@@ -30,7 +31,14 @@ export async function buildResourceListCreateAction({
   const declared = declaredFormFields(resource, "create");
   const denied = await deniedFieldWrites(resource, reqCtx, null);
   const fields = declared
-    ? await resolveFormFields(config, declared, reqCtx, undefined, denied)
+    ? await resolveFormFields(
+        config,
+        declared,
+        reqCtx,
+        undefined,
+        denied,
+        await hiddenFormFields(resource, reqCtx, denied),
+      )
     : undefined;
   const labels = mergeLabels(config.labels);
 
