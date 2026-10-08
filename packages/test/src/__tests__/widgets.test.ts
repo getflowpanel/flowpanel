@@ -186,7 +186,7 @@ describe("widgetContext over your own admin", () => {
   };
   const admin = defineAdmin({
     adapter: database,
-    auth: { session: async () => null, role: () => "admin", requireRole: "admin" },
+    auth: { session: async () => null, role: () => "admin", access: "admin" },
     paths: { admin: "/ops" },
     resources: [
       resource(

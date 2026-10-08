@@ -4,7 +4,7 @@ import { lucia } from "{{AUTH_MODULE}}";
 
 export const flowpanelAuth = withLucia({
   lucia,
-  requireRole: "admin",
+  access: "admin",
 });
 
 export const getSession = flowpanelAuth.session;

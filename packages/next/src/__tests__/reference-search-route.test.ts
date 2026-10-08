@@ -6,7 +6,7 @@ interface FixtureOpts {
   role?: string;
   sourceReadAccess?: string;
   targetReadAccess?: string;
-  fieldRequireRole?: string;
+  fieldReadAccess?: string;
   registerTarget?: boolean;
   /** All rows a real DB would hold — `list` filters by `ctx.search` server-side. */
   targetRows?: { id: string; email: string }[];
@@ -47,13 +47,13 @@ function makeConfig(opts: FixtureOpts) {
     options: {
       columns: [],
       ...(opts.sourceReadAccess ? { access: { read: opts.sourceReadAccess } } : {}),
+      ...(opts.fieldReadAccess ? { fieldAccess: { ownerId: { read: opts.fieldReadAccess } } } : {}),
       create: {
         fields: [
           {
             name: "ownerId",
             type: "reference",
             reference: { resource: "users", labelField: "email" },
-            ...(opts.fieldRequireRole ? { requireRole: opts.fieldRequireRole } : {}),
           },
           { name: "title" },
         ],
@@ -134,8 +134,8 @@ describe("referenceSearchRoute", () => {
     expect(res.status).toBe(403);
   });
 
-  it("enforces field-level authorization: 403 when the session lacks the reference field's role", async () => {
-    const { config } = makeConfig({ role: "staff", fieldRequireRole: "admin" });
+  it("enforces field-level authorization: 403 when fieldAccess hides the reference field", async () => {
+    const { config } = makeConfig({ role: "staff", fieldReadAccess: "admin" });
     const handler = referenceSearchRoute(config);
     const res = await handler(reqFor("orders", "ownerId"), {
       params: paramsFor("orders", "ownerId"),

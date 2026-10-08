@@ -7,7 +7,7 @@ function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdmin
       session: async () => ({ user: { id: "u1", role: "admin" } }),
       role: () => "admin",
     },
-    resourcesByName: new Map(),
+    resourcesByName: new Map([["users", { __kind: "resource", ref: {}, options: {} }]]),
     ...overrides,
   } as ResolvedAdminConfig;
 }

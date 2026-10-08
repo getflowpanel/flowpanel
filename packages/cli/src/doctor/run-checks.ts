@@ -13,7 +13,6 @@ import {
   readAdminMount,
 } from "../utils/admin-path";
 import { inspectProjectCompatibility } from "../utils/compatibility";
-import { findDestructiveWithoutConfirm } from "../utils/config-scan";
 import {
   configImportFor,
   detectAppDir,
@@ -28,7 +27,7 @@ import { usesCacheComponents } from "../utils/next-config";
 import { configDialect, migrationTemplate } from "../utils/sql-dialect";
 import { cacheComponentsChecks } from "./cache-components";
 import type { Check } from "./check";
-import { type ConfigWarnings, readConfigWarnings } from "./config-warnings";
+import { type ConfigWarnings, firstLine, readConfigWarnings } from "./config-warnings";
 import { countCoreInstances, fixPrecondition, staleEjectMarkers } from "./probes";
 import { FIXABLE_FILES, MIGRATION_REL_DEST, makeFix } from "./templates";
 import { runTsc } from "./tsc-check";
@@ -121,8 +120,13 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
       ? noOrmMessage(pmc)
       : `Found ${ormFinding?.observed}. Required ${ormFinding?.required}. ${ormFinding?.recovery}`,
   );
-  const initialised = (await findAdminConfig(cwd)) !== null;
-  add("flowpanel.config.ts", initialised, `Not set up yet. Run: ${pmc.dlx} @flowpanel/cli init`);
+  const adminConfig = await findAdminConfig(cwd);
+  const initialised = adminConfig !== null;
+  add(
+    adminConfig ? path.basename(adminConfig.root) : "flowpanel.config.ts",
+    initialised,
+    `Not set up yet. Run: ${pmc.dlx} @flowpanel/cli init`,
+  );
   if (!initialised) return { checks, mount, kitMismatch: null, overlapsGeneratedApi, pmc };
   const kitMismatch = await kitCompatibilityError(cwd);
   const kitInstalled = (await installedKitVersion(cwd)) !== null;
@@ -193,41 +197,36 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
 
   checks.push(...(await cacheComponentsChecks(cwd, compatibility, appDir, mount, aliasMode)));
 
-  try {
+  const probe = async (name: string, run: () => Promise<void>): Promise<void> => {
+    try {
+      await run();
+    } catch (e) {
+      checks.push({ name, ok: true, warn: true, hint: `Could not check: ${firstLine(e)}` });
+    }
+  };
+
+  await probe("Single @flowpanel/core instance", async () => {
     const coreCount = await countCoreInstances(cwd);
-    if (coreCount !== null) {
-      add(
-        "Single @flowpanel/core instance",
-        coreCount <= 1,
-        coreCount > 1
-          ? `Found ${coreCount} active @flowpanel/core installations. ` +
-              `Align FlowPanel versions and peer dependency ranges, then reinstall with your lockfile.`
-          : undefined,
-      );
-    }
-  } catch {}
-
-  try {
-    const stale = await staleEjectMarkers(cwd, appDir, mount.path ?? "/admin");
-    if (stale !== null) {
-      add(
-        "Ejected admin pages carry the eject marker",
-        stale.length === 0,
-        stale.length > 0 ? stale.join("\n    ") : undefined,
-      );
-    }
-  } catch {}
-
-  try {
-    const missingConfirm = await findDestructiveWithoutConfirm(cwd);
+    if (coreCount === null) return;
     add(
-      "Destructive actions have confirm",
-      missingConfirm.length === 0,
-      missingConfirm.length > 0
-        ? `Destructive actions without confirm:\n    ${missingConfirm.join("\n    ")}`
+      "Single @flowpanel/core instance",
+      coreCount <= 1,
+      coreCount > 1
+        ? `Found ${coreCount} active @flowpanel/core installations. ` +
+            `Align FlowPanel versions and peer dependency ranges, then reinstall with your lockfile.`
         : undefined,
     );
-  } catch {}
+  });
+
+  await probe("Ejected admin pages carry the eject marker", async () => {
+    const stale = await staleEjectMarkers(cwd, appDir, mount.path ?? "/admin");
+    if (stale === null) return;
+    add(
+      "Ejected admin pages carry the eject marker",
+      stale.length === 0,
+      stale.length > 0 ? stale.join("\n    ") : undefined,
+    );
+  });
 
   return { checks, mount, kitMismatch, overlapsGeneratedApi, pmc };
 }
@@ -237,13 +236,14 @@ async function gatherProjectChecks(
   cwd: string,
   pmc: PmCommands,
 ): Promise<{ checks: Check[]; config: ConfigWarnings }> {
-  if ((await findAdminConfig(cwd)) === null) return { checks: [], config: { warnings: [] } };
+  const adminConfig = await findAdminConfig(cwd);
+  if (adminConfig === null) return { checks: [], config: { warnings: [] } };
   const tsc = await runTsc(cwd, pmc);
   const config = await readConfigWarnings(cwd);
   const checks: Check[] = [
     { name: "tsc --noEmit", ok: tsc.ok, ...(tsc.hint === undefined ? {} : { hint: tsc.hint }) },
     {
-      name: "flowpanel.config.ts evaluates",
+      name: `${path.basename(adminConfig.root)} evaluates`,
       ok: !("unreadable" in config),
       ...("unreadable" in config ? { hint: config.unreadable } : {}),
     },

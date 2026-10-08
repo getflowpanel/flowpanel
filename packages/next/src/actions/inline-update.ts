@@ -1,6 +1,7 @@
 import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
+import { actionFailure, validationFailure } from "../runtime/action-failure";
 import { buildAuditEvent, maybeEmitAudit, notFoundResponse } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { explainWrite } from "../runtime/constraint-error";
@@ -25,7 +26,7 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
       return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     if (resource.options.update?.disabled) {
-      return Response.json({ ok: false, error: "editing is disabled" }, { status: 403 });
+      return actionFailure("operation_disabled", "editing is disabled");
     }
 
     return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {
@@ -34,7 +35,7 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
       const body = parsedBody.value as { field?: unknown; value?: unknown };
 
       if (typeof body.field !== "string" || !body.field) {
-        return Response.json({ ok: false, error: "field is required" }, { status: 400 });
+        return actionFailure("bad_request", "field is required");
       }
       const field = body.field;
       const value = body.value;
@@ -45,10 +46,7 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
         return def.field === field && def.editable === true;
       });
       if (!isEditable) {
-        return Response.json(
-          { ok: false, error: `column '${field}' is not editable` },
-          { status: 403 },
-        );
+        return actionFailure("field_forbidden", `column '${field}' is not editable`);
       }
 
       const formFields = declaredFormFields(resource, "update");
@@ -82,10 +80,7 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
               path: i.path.map((p) => (typeof p === "symbol" ? p.toString() : p)),
               message: i.message,
             }));
-            return Response.json(
-              { ok: false, error: "validation failed", issues },
-              { status: 422 },
-            );
+            return validationFailure(issues, reqCtx.requestId);
           }
           if (parsed.data && field in parsed.data) nextValue = parsed.data[field];
         }
@@ -103,7 +98,7 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
         config.adapter.get(resource.ref, itemCtx),
       )) as Record<string, unknown> | null;
       if (!existing) {
-        return Response.json({ ok: false, error: "not found" }, { status: 404 });
+        return actionFailure("not_found", "not found");
       }
 
       await assertResourceWritableInput(
@@ -121,9 +116,10 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
         id,
         ...scopeBinding(resource, reqCtx),
       };
-      await explainWrite(config, resource, "update", () =>
+      const written = await explainWrite(config, resource, "update", () =>
         runWithRequestContext(reqCtx, () => config.adapter.update(writeTarget(resource), mctx)),
       );
+      if (written === null) return actionFailure("not_found", "not found");
 
       await maybeEmitAudit(
         { ok: true },

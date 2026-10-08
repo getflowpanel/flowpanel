@@ -18,9 +18,18 @@ async function resolveTemplatesDir(): Promise<string> {
   throw new Error(`FlowPanel CLI templates not found. Tried: ${candidates.join(", ")}`);
 }
 
-/** Substitutes {{KEY}} placeholders with `vars[KEY]`. */
-export function renderTemplate(source: string, vars: Record<string, string>): string {
-  return source.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) => vars[k] ?? "");
+/** Substitutes {{KEY}} placeholders with `vars[KEY]`; a placeholder without a value throws. */
+export function renderTemplate(
+  source: string,
+  vars: Record<string, string>,
+  name = "template",
+): string {
+  return source.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => {
+    const value = Object.hasOwn(vars, key) ? vars[key] : undefined;
+    if (value === undefined)
+      throw new Error(`${name} uses {{${key}}}, but no value was given for it.`);
+    return value;
+  });
 }
 
 export async function loadTemplate(name: string): Promise<string> {
@@ -29,5 +38,5 @@ export async function loadTemplate(name: string): Promise<string> {
 }
 
 export async function tpl(name: string, vars: Record<string, string> = {}): Promise<string> {
-  return renderTemplate(await loadTemplate(name), vars);
+  return renderTemplate(await loadTemplate(name), vars, name);
 }

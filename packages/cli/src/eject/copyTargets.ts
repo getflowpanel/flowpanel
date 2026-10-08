@@ -6,6 +6,7 @@ import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent } from "../plan/types";
 import { configImportFor, detectAppDir, detectPathAlias } from "../utils/detect";
 import { blockingSegmentExport, usesCacheComponents } from "../utils/next-config";
+import { renderTemplate } from "../utils/template";
 import { stampMarker } from "./marker";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -64,10 +65,8 @@ async function stampedIntent(
   cwd: string,
 ): Promise<FileIntent> {
   const raw = await fs.readFile(templatePath, "utf8");
-  const substituted = Object.entries(vars).reduce(
-    (acc, [key, value]) => acc.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), value),
-    raw,
-  );
+  const name = path.relative(path.dirname(path.dirname(templatePath)), templatePath);
+  const substituted = renderTemplate(raw, vars, `ejected/${name.split(path.sep).join("/")}`);
   const stamped = stampMarker(substituted, version);
   return {
     path: path.relative(cwd, destination),

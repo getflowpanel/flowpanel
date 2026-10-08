@@ -178,11 +178,7 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
         }
         const readableFilterDefs = filterReadableDeclarations(listed.options.filters, readable);
         const timeZone = resolveFormatting(config.formatting).timeZone;
-        const specs = await resolveFilterSpecs(
-          readableFilterDefs,
-          { db: config.adapter.db, session: ctx.session },
-          timeZone,
-        );
+        const specs = await resolveFilterSpecs(readableFilterDefs, ctx, timeZone, url.searchParams);
         const readableSearchFields = (listed.options.search ?? [])
           .map(String)
           .filter((field) => readable.has(field));

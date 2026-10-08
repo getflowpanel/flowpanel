@@ -3,6 +3,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import semver from "semver";
 import { hasMarker } from "../eject/marker";
+import { findAdminConfig } from "../scaffold/config-target";
 import { detectAppDir, fileExists } from "../utils/detect";
 import { inspectDependency } from "../utils/project-packages";
 
@@ -68,23 +69,21 @@ export function firstDiagnostics(e: unknown, limit = 5): string | null {
  * project that scaffolds an admin into a tree that never asked for one.
  */
 export async function fixPrecondition(cwd: string, dlx = "pnpm dlx"): Promise<string | undefined> {
-  for (const name of ["flowpanel.config.ts", "flowpanel.config.tsx"]) {
-    if (await fileExists(path.join(cwd, name))) return undefined;
-  }
+  if ((await findAdminConfig(cwd)) !== null) return undefined;
   return `no flowpanel.config.ts in ${cwd}, so FlowPanel is not set up here yet. Run \`${dlx} @flowpanel/cli init\` first.`;
 }
 
 const TYPEGEN_SINCE = "15.5.0";
 
-/** Runs `next typegen` when `.next/types` is missing, so `tsc` finds the route and layout globals Next generates. */
-export async function ensureNextTypes(cwd: string): Promise<void> {
-  if (await fileExists(path.join(cwd, ".next/types"))) return;
+/** Runs `next typegen` when `.next/types` is missing; returns why it failed, or `null`. */
+export async function ensureNextTypes(cwd: string): Promise<string | null> {
+  if (await fileExists(path.join(cwd, ".next/types"))) return null;
   const { installed } = await inspectDependency(cwd, "next");
   const bin = installed?.manifest.bin;
   const entry = typeof bin === "string" ? bin : bin?.next;
-  if (!installed || typeof entry !== "string") return;
+  if (!installed || typeof entry !== "string") return null;
   const version = semver.coerce(installed.version);
-  if (version === null || semver.lt(version, TYPEGEN_SINCE)) return;
+  if (version === null || semver.lt(version, TYPEGEN_SINCE)) return null;
   try {
     execFileSync(process.execPath, [path.resolve(installed.directory, entry), "typegen"], {
       cwd,
@@ -92,5 +91,8 @@ export async function ensureNextTypes(cwd: string): Promise<void> {
       env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
       timeout: 120_000,
     });
-  } catch {}
+    return null;
+  } catch (e) {
+    return firstDiagnostics(e) ?? (e instanceof Error ? e.message : String(e));
+  }
 }

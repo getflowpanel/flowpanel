@@ -7,7 +7,6 @@ import type {
 } from "@flowpanel/core";
 import {
   assertResourceScope,
-  authorizeOperation,
   DEFAULT_LABELS,
   formatLabel,
   resolveFormatting,
@@ -22,7 +21,7 @@ import {
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
 import { PageHeader } from "@flowpanel/react";
-import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { DEFAULT_RESOURCE_PAGE_SIZE } from "../runtime/defaults";
 import { resourceNavName } from "../runtime/nav";
 import {
   parseListParams,
@@ -36,10 +35,11 @@ import { readOrCard } from "../runtime/query-error";
 import { resolveReadableListSurface } from "../runtime/readable-list";
 import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
+import { requireAccessIfSet } from "../runtime/require-access";
 import { resolveReferences } from "../runtime/resolve-references";
 import { labelInSentence, pluralLabel } from "../runtime/resource-title";
 import { detailRowHrefs, resolveRowClick } from "../runtime/row-click";
-import { rowIdentity } from "../runtime/row-identity";
+import { rowIdentity, rowKeyOf } from "../runtime/row-identity";
 import { wireViews } from "../runtime/saved-views";
 import { scopeBinding } from "../runtime/scope-binding";
 import { resolveResourceListActions } from "./resource-list-actions";
@@ -69,10 +69,10 @@ export async function ResourceListPage({
   reqCtx: providedReqCtx,
 }: ResourceListPageProps) {
   const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
-  await authorizeOperation(resolveOperationAccess(resource.options.access, "read"), reqCtx);
+  await requireAccessIfSet(resolveOperationAccess(resource.options.access, "read"), reqCtx);
   assertResourceScope({
     hasGlobal: !!config.scope,
-    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+    resourceScope: resource.options.scope,
   });
 
   const name = resourceNavName(resource);
@@ -100,8 +100,9 @@ export async function ResourceListPage({
   const timeZone = resolveFormatting(config.formatting).timeZone;
   const filterSpecs = await resolveFilterSpecs(
     readable.filters as Array<keyof Row | FilterDef<Row>>,
-    { db: config.adapter.db, session: reqCtx.session },
+    reqCtx,
     timeZone,
+    searchParams,
   );
   const filters = sanitizeFilterValues(
     withFilterDefaults(rawFilters, filterSpecs),
@@ -166,7 +167,7 @@ export async function ResourceListPage({
     fkLabels,
   );
 
-  const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = rowKeyOf(resource);
   const rowClick = resolveRowClick(resource);
   const rowHrefs =
     rowClick === "detail" ? detailRowHrefs(config, name, clientRows, rowKey) : undefined;

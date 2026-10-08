@@ -31,6 +31,7 @@ import {
 import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { ActionFormDialog } from "../actions/ActionFormDialog";
 import type { ActionFormField, ActionFormFieldErrors } from "../actions/action-form-field";
+import { readActionFailure } from "../actions/read-action-failure";
 import { useActionRunner } from "../actions/use-action-runner";
 import { formatFieldValue } from "../runtime/format-field-value";
 import { toWireOptions } from "../runtime/select-options";
@@ -444,10 +445,8 @@ export function DrawerHost() {
     })
       .then(async (res) => {
         if (!res.ok) {
-          const body = (await res.json().catch(() => ({ error: res.statusText }))) as {
-            error?: string;
-          };
-          throw new Error(body.error ?? labels.drawer.loadFailed);
+          const body: unknown = await res.json().catch(() => ({ error: res.statusText }));
+          throw new Error(readActionFailure(body).message ?? labels.drawer.loadFailed);
         }
         return (await res.json()) as DrawerPayload;
       })

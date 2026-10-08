@@ -1,4 +1,4 @@
-import type { AuditConfig, AuditEvent } from "../types/config";
+import type { AuditConfig, AuditEvent } from "@flowpanel/core";
 
 export async function emitAudit(cfg: AuditConfig | undefined, event: AuditEvent): Promise<void> {
   if (!cfg) return;

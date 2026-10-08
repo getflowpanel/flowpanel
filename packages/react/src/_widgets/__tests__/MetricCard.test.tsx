@@ -51,6 +51,21 @@ describe("MetricCard", () => {
     expect(screen.queryByText(/▲|▼/)).toBeNull();
   });
 
+  it("says there was no change instead of a zero delta, without repeating the value", () => {
+    const { container } = render(
+      <MetricCard
+        label="Crawl success"
+        value={0.95}
+        format="percent"
+        delta={{ value: 0, previous: 0.95, vs: "vs previous period" }}
+      />,
+    );
+    const delta = container.querySelector("[data-delta]") as HTMLElement;
+    expect(delta.textContent).toBe("No change vs previous period");
+    expect(delta.dataset.delta).toBe("flat");
+    expect(screen.queryByText(/was /)).toBeNull();
+  });
+
   it("leaves an immaterial change uncoloured even when it is good news", () => {
     const { container } = render(
       <MetricCard label="Visits" value={103} delta={{ value: 0.03, vs: "prev" }} />,

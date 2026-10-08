@@ -16,6 +16,11 @@ export interface DataTableSkeletonProps<Row> {
   rowEndCellLabel: string;
 }
 
+/** Placeholder rows a loading table shows: its page size, at most five. */
+export function skeletonRowCount(pageSize: number): number {
+  return Math.min(pageSize, 5);
+}
+
 export function DataTableSkeleton<Row>({
   orderedVisible,
   pageSize,
@@ -24,7 +29,7 @@ export function DataTableSkeleton<Row>({
   rowEndCell,
   rowEndCellLabel,
 }: DataTableSkeletonProps<Row>) {
-  const skeletonRows = Array.from({ length: Math.min(pageSize, 5) });
+  const skeletonRows = Array.from({ length: skeletonRowCount(pageSize) });
   return (
     <table className="w-full text-sm">
       <thead className={LABEL_TEXT}>

@@ -6,7 +6,6 @@ import type {
 } from "@flowpanel/core";
 import {
   assertResourceScope,
-  authorizeOperation,
   filterReadableProjection,
   mergeLabels,
   resolveFormatting,
@@ -17,14 +16,15 @@ import { writeTarget } from "@flowpanel/core/internal";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { notFound } from "next/navigation";
 import { writableColumns } from "../actions/field-pipeline";
-import { roleAllows } from "../runtime/action-helpers";
 import { dateInputFor, dateInputValue } from "../runtime/form-dates";
 import { buildApiHref, buildHref } from "../runtime/href";
 import { projectRowFields, selectKnownFields } from "../runtime/project-row";
 import { buildRequestContext } from "../runtime/request-setup";
+import { requireAccessIfSet } from "../runtime/require-access";
 import {
   declaredFormFields,
   deniedFieldWrites,
+  hiddenFormFields,
   resolveFormFields,
 } from "../runtime/resolve-form-fields";
 import { singularTitle } from "../runtime/resource-title";
@@ -52,23 +52,16 @@ function editProjectionCandidates(
     generated?: boolean;
     writableOnUpdate?: boolean;
   }>,
-  reqCtx: RequestContext,
 ): string[] {
   const candidates = new Set<string>();
-  const definitions = new Map((fields ?? []).map((field) => [field.name, field]));
   if (fields) {
-    for (const field of fields) {
-      if (roleAllows(field.requireRole, reqCtx)) candidates.add(field.name);
-    }
+    for (const field of fields) candidates.add(field.name);
   } else {
     for (const column of writableColumns(resource, [...columns], undefined, "update")) {
       candidates.add(column.name);
     }
   }
-  for (const name of resource.options.update?.expose ?? []) {
-    const definition = definitions.get(name);
-    if (!definition || roleAllows(definition.requireRole, reqCtx)) candidates.add(name);
-  }
+  for (const name of resource.options.update?.expose ?? []) candidates.add(name);
   return [...candidates];
 }
 
@@ -81,10 +74,10 @@ export async function ResourceEditPage({
   reqCtx: providedReqCtx,
 }: ResourceEditPageProps) {
   const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
-  await authorizeOperation(resolveOperationAccess(resource.options.access, "update"), reqCtx);
+  await requireAccessIfSet(resolveOperationAccess(resource.options.access, "update"), reqCtx);
   assertResourceScope({
     hasGlobal: !!config.scope,
-    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+    resourceScope: resource.options.scope,
   });
 
   const labels = mergeLabels(config.labels);
@@ -98,7 +91,7 @@ export async function ResourceEditPage({
       ? intro
       : config.adapter.introspect(writeTarget(resource));
   const declared = declaredFormFields(resource, "update");
-  const candidates = editProjectionCandidates(resource, declared, written.columns, reqCtx);
+  const candidates = editProjectionCandidates(resource, declared, written.columns);
   // Resolved once so the selection and the local projection below share this decision even for dynamic policies.
   const readable = await filterReadableProjection(candidates, resource.options.fieldAccess, reqCtx);
   const select = selectKnownFields(readable, intro.columns);
@@ -120,7 +113,14 @@ export async function ResourceEditPage({
   const projectedValues = projectRowFields(row, select);
   const denied = await deniedFieldWrites(resource, reqCtx, projectedValues);
   const fields = declared
-    ? await resolveFormFields(config, declared, reqCtx, projectedValues, denied)
+    ? await resolveFormFields(
+        config,
+        declared,
+        reqCtx,
+        projectedValues,
+        denied,
+        await hiddenFormFields(resource, reqCtx, denied),
+      )
     : undefined;
   const columns = writableColumns(resource, written.columns, declared, "update");
   const defaultFields = fields

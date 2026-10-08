@@ -17,7 +17,7 @@ export default defineAdmin({
   auth: {
     session: getSession,
 {{ROLE}}
-    requireRole: "admin",
+    access: "admin",
   },
 
   realtime: { driver: "memory" },

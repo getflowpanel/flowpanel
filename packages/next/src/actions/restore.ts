@@ -1,6 +1,7 @@
 import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
+import { actionFailure } from "../runtime/action-failure";
 import { buildAuditEvent, maybeEmitAudit, notFoundResponse } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { buildHref } from "../runtime/href";
@@ -23,14 +24,12 @@ export function restoreRoute(config: ResolvedAdminConfig) {
 
     const softDelete = resource.options.delete?.softDelete;
     if (!softDelete) {
-      return Response.json(
-        { ok: false, error: "resource does not support restore" },
-        { status: 404 },
-      );
+      return actionFailure("not_found", "resource does not support restore");
     }
     if (typeof config.adapter.restore !== "function") {
-      return Response.json(
-        { ok: false, error: "the configured adapter does not implement restore" },
+      return actionFailure(
+        "operation_disabled",
+        "the configured adapter does not implement restore",
         { status: 501 },
       );
     }
@@ -51,7 +50,7 @@ export function restoreRoute(config: ResolvedAdminConfig) {
         config.adapter.get(resource.ref, itemCtx),
       )) as Record<string, unknown> | null;
       if (!existing) {
-        return Response.json({ ok: false, error: "not found" }, { status: 404 });
+        return actionFailure("not_found", "not found");
       }
 
       const mctx: MutationContext<Record<string, unknown>> = {

@@ -1,2 +1,0 @@
-/* Kept for projects set up on Tailwind v3; the CSS is precompiled and needs no Tailwind. */
-@import "@flowpanel/kit/styles/admin.css";

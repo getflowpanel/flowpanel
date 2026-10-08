@@ -4,6 +4,8 @@ import { formatCount } from "@flowpanel/core/labels";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { LiveIndicator } from "../_atoms/LiveIndicator";
+import type { EmptyStateProps } from "../_feedback/EmptyStateDefault";
+import { useComponentOverrides } from "../_provider/ComponentsContext";
 import { useFormatting } from "../_provider/FormattingContext";
 import { useLabels } from "../_provider/LabelsContext";
 import { useLiveChannel } from "../hooks/useLiveChannel";
@@ -13,7 +15,7 @@ import { useRealtimeBus, useRealtimeStatus } from "../realtime/hooks";
 import { ExportButton } from "./csv-export";
 import { DataTableHeader } from "./DataTableHeader";
 import { DataTableRow } from "./DataTableRow";
-import { DataTableSkeleton } from "./DataTableSkeleton";
+import { DataTableSkeleton, skeletonRowCount } from "./DataTableSkeleton";
 import { type DataTableDensity, DensityToggle } from "./DensityToggle";
 import type { DataTableColumn, DataTableProps } from "./data-table-types";
 import { ImportButton } from "./ImportButton";
@@ -80,6 +82,8 @@ export function DataTable<Row extends Record<string, unknown>>({
   const { locale } = useFormatting();
   const rowEndCellLabel = rowEndCellLabelOverride ?? labels.table.actions;
   const effectiveEmptyTitle = emptyTitle ?? labels.noResults;
+  const { EmptyState: EmptyOverride, SkeletonTable: SkeletonOverride } = useComponentOverrides();
+  const Empty = EmptyOverride ?? TableEmptyState;
 
   const layout = useColumnLayout<Row>({
     columns,
@@ -242,14 +246,18 @@ export function DataTable<Row extends Record<string, unknown>>({
     return (
       <div className={cn(frame, className)} aria-busy="true">
         {toolbar}
-        <DataTableSkeleton
-          orderedVisible={orderedVisible}
-          pageSize={pageSize}
-          rowPadding={rowPadding}
-          selectionEnabled={selectionEnabled}
-          rowEndCell={rowEndCell}
-          rowEndCellLabel={rowEndCellLabel}
-        />
+        {SkeletonOverride ? (
+          <SkeletonOverride rows={skeletonRowCount(pageSize)} columns={orderedVisible.length} />
+        ) : (
+          <DataTableSkeleton
+            orderedVisible={orderedVisible}
+            pageSize={pageSize}
+            rowPadding={rowPadding}
+            selectionEnabled={selectionEnabled}
+            rowEndCell={rowEndCell}
+            rowEndCellLabel={rowEndCellLabel}
+          />
+        )}
       </div>
     );
   }
@@ -258,21 +266,12 @@ export function DataTable<Row extends Record<string, unknown>>({
     return (
       <div className={cn(frame, className)}>
         {toolbar}
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          {emptyIcon ? (
-            <div
-              className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-3/60 text-2xl text-fp-text-2"
-              aria-hidden="true"
-            >
-              {emptyIcon}
-            </div>
-          ) : null}
-          <div className="text-base font-medium text-fp-text-1">{effectiveEmptyTitle}</div>
-          {emptyDescription ? (
-            <div className="mt-1 text-sm text-fp-text-3">{emptyDescription}</div>
-          ) : null}
-          {emptyAction ? <div className="mt-4">{emptyAction}</div> : null}
-        </div>
+        <Empty
+          title={effectiveEmptyTitle}
+          {...(emptyDescription ? { description: emptyDescription } : {})}
+          {...(emptyAction ? { action: emptyAction } : {})}
+          {...(emptyIcon ? { icon: emptyIcon } : {})}
+        />
         {/* An empty page of a non-empty set still needs a way back to the rows. */}
         {total > 0 ? (
           <Pagination
@@ -404,6 +403,25 @@ export function DataTable<Row extends Record<string, unknown>>({
         {...(pageSizeOptions ? { pageSizeOptions } : {})}
         {...(onPageSizeChange ? { onPageSizeChange } : {})}
       />
+    </div>
+  );
+}
+
+/** The table's own empty state, which a host's `EmptyState` slot replaces. */
+function TableEmptyState({ title, description, action, icon }: EmptyStateProps) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      {icon ? (
+        <div
+          className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-3/60 text-2xl text-fp-text-2"
+          aria-hidden="true"
+        >
+          {icon}
+        </div>
+      ) : null}
+      <div className="text-base font-medium text-fp-text-1">{title}</div>
+      {description ? <div className="mt-1 text-sm text-fp-text-3">{description}</div> : null}
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }

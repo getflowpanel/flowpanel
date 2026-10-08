@@ -9,8 +9,14 @@ import { noNextProject } from "../utils/project-root";
 
 export { type Check, runDoctorChecks };
 
-function jsonCheck({ name, ok, warn, hint }: Check) {
-  return { name, ok, ...(warn ? { warn: true } : {}), ...(hint && (!ok || warn) ? { hint } : {}) };
+function jsonCheck({ name, ok, warn, info, hint }: Check) {
+  return {
+    name,
+    ok,
+    ...(warn ? { warn: true } : {}),
+    ...(info ? { info: true } : {}),
+    ...(hint && (!ok || warn || info) ? { hint } : {}),
+  };
 }
 
 export function doctorCommand(cli: Command): void {
@@ -58,9 +64,10 @@ export function doctorCommand(cli: Command): void {
 
       for (const r of checks) {
         if (r.warn) log.warn(r.name);
+        else if (r.info) log.info(r.name);
         else if (r.ok) log.ok(r.name);
         else log.err(r.name);
-        if ((!r.ok || r.warn) && r.hint) process.stdout.write(`    ${pc.dim(r.hint)}\n`);
+        if ((!r.ok || r.warn || r.info) && r.hint) process.stdout.write(`    ${pc.dim(r.hint)}\n`);
       }
 
       if (plan && opts.dryRun) {

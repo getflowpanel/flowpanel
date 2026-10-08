@@ -1,4 +1,5 @@
-import type { AuthConfig, Session } from "@flowpanel/core";
+import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
+import { assertNoAuthRequireRole } from "../validate-removed-keys";
 
 /** Minimal duck-type for a Lucia v3+ instance. */
 export interface LuciaLike {
@@ -12,8 +13,8 @@ export interface LuciaLike {
 export interface LuciaAuthOptions {
   /** Your Lucia instance. */
   lucia: LuciaLike;
-  /** Roles allowed into the admin. */
-  requireRole?: string | string[] | ((s: Session | null) => boolean);
+  /** Who may enter the admin: a role, a role list, or a predicate. */
+  access?: AccessRule;
   signInUrl?: string;
   forbiddenUrl?: string;
   /** Extract the role from the Lucia user. Defaults to `user.role || "guest"`. */
@@ -24,6 +25,7 @@ export interface LuciaAuthOptions {
 
 /** First-class Lucia (v3+) integration. */
 export function withLucia(opts: LuciaAuthOptions): AuthConfig {
+  assertNoAuthRequireRole("withLucia", opts);
   return {
     async session(): Promise<Session | null> {
       const specifier = "next/headers";
@@ -32,7 +34,7 @@ export function withLucia(opts: LuciaAuthOptions): AuthConfig {
       } | null;
       if (!mod) {
         throw new Error(
-          "withLucia: next/headers is unavailable. Lucia integration requires Next.js 16.3+.",
+          "withLucia: could not load next/headers to read the session cookie. withLucia works only in a Next.js app's server code.",
         );
       }
       const cookieStore = await mod.cookies();
@@ -53,7 +55,7 @@ export function withLucia(opts: LuciaAuthOptions): AuthConfig {
         const id = (s as { id?: unknown } | null)?.id;
         return id === undefined || id === null ? null : String(id);
       }),
-    ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
+    ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),
     ...(opts.forbiddenUrl ? { forbiddenUrl: opts.forbiddenUrl } : {}),
   };

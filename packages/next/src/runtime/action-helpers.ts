@@ -4,10 +4,11 @@ import type {
   AuditConfig,
   AuditEvent,
   RequestContext,
-  RequireRole,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
-import { accessAllows, checkRequireRole, emitAudit } from "@flowpanel/core";
+import { accessAllows } from "@flowpanel/core";
+import { emitAudit } from "@flowpanel/core/internal";
+import { actionFailure } from "./action-failure";
 import { publish } from "./publish";
 import { type RequestBodyError, readActionObject, requestBodyErrorResponse } from "./request-body";
 
@@ -39,10 +40,7 @@ export function notFoundResponse(
     const known = registered.length > 0 ? registered.map((n) => `"${n}"`).join(", ") : "(none)";
     console.warn(`[flowpanel] ${kind} not found: "${requested}". Registered ${kind}s: ${known}.`);
   }
-  return Response.json(
-    { ok: false, error: { code: "not_found", message: `${kind} not found` } },
-    { status: 404 },
-  );
+  return actionFailure("not_found", `${kind} not found`);
 }
 
 function idString(id: unknown): string | null {
@@ -84,17 +82,6 @@ export function buildActionContext(
       await publish(channel, payload);
     },
   };
-}
-
-/** Non-throwing role check, used for field-level RBAC (`FieldDef.requireRole`). */
-export function roleAllows(requireRole: RequireRole | undefined, reqCtx: RequestContext): boolean {
-  if (requireRole === undefined) return true;
-  try {
-    checkRequireRole(requireRole, reqCtx.role, reqCtx.session);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** Keep only the actions whose `access` admits the caller. */

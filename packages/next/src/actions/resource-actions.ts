@@ -7,8 +7,6 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import {
-  authorizeOperation,
-  emitAudit,
   FlowpanelAccessError,
   FlowpanelNotFoundError,
   FlowpanelOperationDisabledError,
@@ -17,12 +15,11 @@ import {
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { writeTarget } from "@flowpanel/core/internal";
+import { emitAudit, writeTarget } from "@flowpanel/core/internal";
 import { revalidatePath } from "next/cache";
 import { actorIdFromSession } from "../runtime/action-helpers";
 import { buildServerRequest } from "../runtime/build-server-request";
 import { explainWrite } from "../runtime/constraint-error";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { deleteRow } from "../runtime/delete-row";
 import { keepUntouchedTimes } from "../runtime/form-dates";
 import { buildHref } from "../runtime/href";
@@ -30,8 +27,10 @@ import { resourceNavName } from "../runtime/nav";
 import { bindPublisher, publishResource } from "../runtime/publish";
 import { readRow } from "../runtime/read-row";
 import { buildRequestContext } from "../runtime/request-setup";
+import { requireAccessIfSet } from "../runtime/require-access";
 import { requireAuthorized } from "../runtime/require-authorized";
 import { declaredFormFields, deniedFieldWrites } from "../runtime/resolve-form-fields";
+import { rowKeyOf } from "../runtime/row-identity";
 import { scopeBinding } from "../runtime/scope-binding";
 import {
   applyFieldDefaults,
@@ -122,7 +121,7 @@ export function makeActions(
     async create(input) {
       const reqCtx = await ctxFor(buildHref(config, name, "new"));
       requireAuthorized(config, resource);
-      await authorizeOperation(resolveOperationAccess(resource.options.access, "create"), reqCtx);
+      await requireAccessIfSet(resolveOperationAccess(resource.options.access, "create"), reqCtx);
       if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
       if (resource.options.create?.disabled) {
         throw new FlowpanelOperationDisabledError("Create is disabled for this resource.");
@@ -130,10 +129,10 @@ export function makeActions(
 
       const fields = declaredFormFields(resource, "create");
       const denied = await deniedFieldWrites(resource, reqCtx, null);
-      const submitted = opts.fromForm ? formInput(fields, input, null, reqCtx, denied) : input;
+      const submitted = opts.fromForm ? formInput(fields, input, null, denied) : input;
       const safe = await assertResourceWritableInput(resource, fields, submitted, null, reqCtx);
       const withDefaults = await applyFieldDefaults(resource, fields, safe, reqCtx);
-      const missing = missingRequiredErrors(fields, withDefaults, null, reqCtx, labels, denied);
+      const missing = missingRequiredErrors(fields, withDefaults, null, labels, denied);
       const parsed = schemas.create.safeParse(withDefaults);
       if (!parsed.success) {
         const fieldErrors = friendlyFieldErrors(fields, withDefaults, parsed.error, labels);
@@ -152,7 +151,7 @@ export function makeActions(
       const row = (await explainWrite(config, resource, "create", () =>
         runWithRequestContext(reqCtx, () => config.adapter.create(writeTarget(resource), mctx)),
       )) as Record<string, unknown> | null | undefined;
-      const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+      const rowKey = rowKeyOf(resource);
       const rowId = row && typeof row === "object" ? row[rowKey] : undefined;
       await baseAudit(`${name}.create`, reqCtx, {
         ...(rowId !== undefined && rowId !== null ? { targetId: String(rowId) } : {}),
@@ -170,7 +169,7 @@ export function makeActions(
     async update(id, input) {
       const reqCtx = await ctxFor(buildHref(config, name, id, "edit"));
       requireAuthorized(config, resource);
-      await authorizeOperation(resolveOperationAccess(resource.options.access, "update"), reqCtx);
+      await requireAccessIfSet(resolveOperationAccess(resource.options.access, "update"), reqCtx);
       if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
       if (resource.options.update?.disabled) {
         throw new FlowpanelOperationDisabledError("Update is disabled for this resource.");
@@ -192,13 +191,13 @@ export function makeActions(
       const denied = await deniedFieldWrites(resource, reqCtx, current);
       const submitted = opts.fromForm
         ? keepUntouchedTimes(
-            formInput(fields, input, current, reqCtx, denied),
+            formInput(fields, input, current, denied),
             current,
             dateColumnsOf(config, resource),
           )
         : input;
       const safe = await assertResourceWritableInput(resource, fields, submitted, current, reqCtx);
-      const missing = missingRequiredErrors(fields, safe, current, reqCtx, labels, denied);
+      const missing = missingRequiredErrors(fields, safe, current, labels, denied);
       const parsed = schemas.update.safeParse(safe);
       if (!parsed.success) {
         const fieldErrors = friendlyFieldErrors(fields, safe, parsed.error, labels);
@@ -236,7 +235,7 @@ export function makeActions(
     async delete(id) {
       const reqCtx = await ctxFor(buildHref(config, name, id));
       requireAuthorized(config, resource);
-      await authorizeOperation(resolveOperationAccess(resource.options.access, "delete"), reqCtx);
+      await requireAccessIfSet(resolveOperationAccess(resource.options.access, "delete"), reqCtx);
       if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
       if (resource.options.delete?.disabled) {
         throw new FlowpanelOperationDisabledError("Delete is disabled for this resource.");

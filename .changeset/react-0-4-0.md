@@ -31,3 +31,8 @@
 - Changed `InlineEditCell` to toast the field's own message when a save is refused, such as "Email is already taken".
 - Changed a read-only text, textarea and select field to look read-only in forms and drawers: a muted background and text, no hover border, focus ring or caret, and `aria-readonly`.
 - Fixed a form losing the server's messages in `next dev`, where React's reset after the action cleared them in the same tick; the messages and the typed values now stay.
+- Added `code` and `requestId` to `FormActionResult`, matching what the form routes send.
+- Fixed `DataTable` and `MobileCardList` drawing their own empty state and skeleton, so the `EmptyState` and `SkeletonTable` slots now change lists too. Without an override they look as before. `EmptyStateProps` gained `icon`.
+- Fixed a realtime subscriber that throws vanishing without a trace: its error now reaches `reportError`, or is rethrown on a microtask, and the other subscribers still get the event.
+- Changed `LiveStatus` to an alias of `RealtimeStatus`, the one name for a realtime connection's state.
+- Changed a metric whose change rounds to nothing to read "No change vs previous period" instead of a zero delta and the repeated value.

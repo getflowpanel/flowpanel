@@ -12,11 +12,9 @@ export async function accessAllows(
   return roles.includes(context.role);
 }
 
-export async function authorizeOperation(
-  rule: AccessRule | undefined,
-  context: AccessContext,
-): Promise<void> {
-  if (!(await accessAllows(rule, context))) throw new FlowpanelAccessError();
+/** Throws `FlowpanelAccessError` unless `rule` admits the caller. A missing rule denies. */
+export async function requireAccess(rule: AccessRule, context: AccessContext): Promise<void> {
+  if (rule === undefined || !(await accessAllows(rule, context))) throw new FlowpanelAccessError();
 }
 
 /** The rule a resource's `access` sets for one operation; `undefined` allows it. */

@@ -34,7 +34,7 @@ export type Session = FlowpanelTypes extends { session: infer S extends object }
 export interface AuthConfig {
   session: (req: Request) => Promise<Session | null>;
   role: (s: Session | null) => string | Promise<string>;
-  requireRole?: string | string[];
+  access?: string | string[];
 }
 export declare function defineAdmin(config: {
   auth?: AuthConfig;
@@ -46,10 +46,10 @@ export declare function resource(ref: unknown, options?: unknown): unknown;
 const KIT_AUTH_STUB = `
 import type { AuthConfig } from "@flowpanel/core";
 export type { AuthConfig };
-export declare function withBetterAuth(o: { auth: unknown; requireRole?: string }): AuthConfig;
-export declare function withNextAuth(o: { auth: unknown; requireRole?: string }): AuthConfig;
-export declare function withClerk(o?: { requireRole?: string }): AuthConfig;
-export declare function withLucia(o: { lucia: unknown; requireRole?: string }): AuthConfig;
+export declare function withBetterAuth(o: { auth: unknown; access?: string }): AuthConfig;
+export declare function withNextAuth(o: { auth: unknown; access?: string }): AuthConfig;
+export declare function withClerk(o?: { access?: string }): AuthConfig;
+export declare function withLucia(o: { lucia: unknown; access?: string }): AuthConfig;
 `;
 
 const KIT_INDEX_STUB = `
@@ -386,7 +386,7 @@ describe("generated config templates", () => {
   });
 
   it("the placeholder comment names the package manager's binary and no host-specific example", async () => {
-    const rendered = await tpl("flowpanel.config.drizzle.ts.txt", { CLI: "npx flowpanel" });
+    const rendered = (await renderDrizzle()).replaceAll("pnpm flowpanel", "npx flowpanel");
     expect(rendered).toContain(
       '// npx flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })',
     );

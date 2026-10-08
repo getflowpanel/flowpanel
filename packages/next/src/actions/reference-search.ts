@@ -1,5 +1,7 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
-import { notFoundResponse, roleAllows } from "../runtime/action-helpers";
+import { accessAllows } from "@flowpanel/core";
+import { actionFailure } from "../runtime/action-failure";
+import { notFoundResponse } from "../runtime/action-helpers";
 import { readRelatedRows } from "../runtime/require-authorized";
 import { declaredFormFields } from "../runtime/resolve-form-fields";
 import { withGuards } from "../runtime/with-guards";
@@ -27,15 +29,15 @@ export function referenceSearchRoute(config: ResolvedAdminConfig) {
           declaredFormFields(resource, "create")?.find((f) => f.name === field);
         const ref = fieldDef?.reference;
         if (!ref) {
-          return Response.json({ ok: false, error: "not a reference field" }, { status: 404 });
+          return actionFailure("not_found", "not a reference field");
         }
-        if (!roleAllows(fieldDef.requireRole, reqCtx)) {
-          return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
+        if (!(await accessAllows(resource.options.fieldAccess?.[field]?.read, reqCtx))) {
+          return actionFailure("forbidden", "forbidden");
         }
 
         const target = config.resourcesByName.get(ref.resource);
         if (!target) {
-          return Response.json({ ok: false, error: "reference target not found" }, { status: 404 });
+          return actionFailure("not_found", "reference target not found");
         }
 
         const pk = config.adapter.introspect(target.ref).primaryKey;
@@ -47,7 +49,7 @@ export function referenceSearchRoute(config: ResolvedAdminConfig) {
           extraFields: [pk, ref.labelField],
         });
         if (!rows) {
-          return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
+          return actionFailure("forbidden", "forbidden");
         }
 
         const options = rows.map((row) => ({

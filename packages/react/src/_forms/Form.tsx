@@ -20,6 +20,9 @@ export interface FormActionResult {
   /** Stable row key returned after create; appended to redirects as a one-shot entry marker. */
   createdKey?: string;
   error?: string;
+  /** The `FlowpanelErrorCode` of a failure. */
+  code?: string;
+  requestId?: string;
   fieldErrors?: Record<string, string>;
 }
 

@@ -6,6 +6,7 @@ import type {
   RowAction,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
+import { actionFailure, validationFailure } from "../runtime/action-failure";
 import {
   buildActionContext,
   buildAuditEvent,
@@ -93,27 +94,27 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
         config.adapter.get(resource.ref, itemCtx),
       )) as Record<string, unknown> | null;
       if (!row) {
-        return Response.json({ ok: false, error: "not found" }, { status: 404 });
+        return actionFailure("not_found", "not found");
       }
 
       if (action.when) {
         const allowed = await action.when({ ...reqCtx, current: row, input: {} });
         if (!allowed) {
-          return Response.json({ ok: false, error: "not found" }, { status: 404 });
+          return actionFailure("not_found", "not found");
         }
       }
 
       if (action.hidden) {
         const isHidden = await action.hidden(row, reqCtx);
         if (isHidden) {
-          return Response.json({ ok: false, error: "not found" }, { status: 404 });
+          return actionFailure("not_found", "not found");
         }
       }
       if (action.disabled) {
         const reason = action.disabled(row);
         if (reason) {
           const msg = typeof reason === "string" ? reason : "action disabled for this row";
-          return Response.json({ ok: false, error: msg }, { status: 409 });
+          return actionFailure("conflict", msg);
         }
       }
 
@@ -126,10 +127,7 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
         input,
       );
       if (parsedInput.issues) {
-        return Response.json(
-          { ok: false, error: "validation failed", issues: parsedInput.issues },
-          { status: 422 },
-        );
+        return validationFailure(parsedInput.issues, reqCtx.requestId);
       }
 
       const actionCtx = buildActionContext(config, reqCtx, action);

@@ -10,7 +10,6 @@ import type {
 import {
   accessAllows,
   assertResourceScope,
-  authorizeOperation,
   DEFAULT_LABELS,
   filterReadableProjection,
   resolveOperationAccess,
@@ -21,7 +20,6 @@ import { Button, PageHeader } from "@flowpanel/react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type * as React from "react";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { buildHref } from "../runtime/href";
 import {
   declaredDetailBaseFields,
@@ -31,6 +29,8 @@ import {
 } from "../runtime/project-row";
 import { type QueryOutcome, type QuerySite, readOrCard } from "../runtime/query-error";
 import { buildRequestContext } from "../runtime/request-setup";
+import { requireAccessIfSet } from "../runtime/require-access";
+import { rowKeyOf } from "../runtime/row-identity";
 import { scopeBinding } from "../runtime/scope-binding";
 import { buildWidgetContext } from "../runtime/widget-context";
 import { recordAside, recordLayout, recordStrip } from "./detail-page/detail-body";
@@ -59,10 +59,10 @@ export async function ResourceDetailPage({
   reqCtx: providedReqCtx,
 }: ResourceDetailPageProps) {
   const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
-  await authorizeOperation(resolveOperationAccess(resource.options.access, "read"), reqCtx);
+  await requireAccessIfSet(resolveOperationAccess(resource.options.access, "read"), reqCtx);
   assertResourceScope({
     hasGlobal: !!config.scope,
-    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+    resourceScope: resource.options.scope,
   });
 
   const baseFields = declaredDetailBaseFields(resource);
@@ -119,7 +119,7 @@ export async function ResourceDetailPage({
   if (!activeRow) notFound();
 
   const detail = resource.options.detail as DetailOptions<Row> | undefined;
-  const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = rowKeyOf(resource);
   const range = recordRange(config, detail, searchParams);
   const ctx = buildWidgetContext(config, reqCtx, req, range, activeRow, rowKey, name);
   const canEdit =

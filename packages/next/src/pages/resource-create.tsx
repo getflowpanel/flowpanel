@@ -1,18 +1,15 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import {
-  assertResourceScope,
-  authorizeOperation,
-  mergeLabels,
-  resolveOperationAccess,
-} from "@flowpanel/core";
+import { assertResourceScope, mergeLabels, resolveOperationAccess } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
 import { buildApiHref, buildHref } from "../runtime/href";
 import { buildRequestContext } from "../runtime/request-setup";
+import { requireAccessIfSet } from "../runtime/require-access";
 import {
   declaredFormFields,
   deniedFieldWrites,
+  hiddenFormFields,
   resolveFormFields,
 } from "../runtime/resolve-form-fields";
 import { singularTitle } from "../runtime/resource-title";
@@ -33,10 +30,10 @@ export async function ResourceCreatePage({
   reqCtx: providedReqCtx,
 }: ResourceCreatePageProps) {
   const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
-  await authorizeOperation(resolveOperationAccess(resource.options.access, "create"), reqCtx);
+  await requireAccessIfSet(resolveOperationAccess(resource.options.access, "create"), reqCtx);
   assertResourceScope({
     hasGlobal: !!config.scope,
-    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+    resourceScope: resource.options.scope,
   });
 
   const labels = mergeLabels(config.labels);
@@ -49,7 +46,14 @@ export async function ResourceCreatePage({
   const declared = declaredFormFields(resource, "create");
   const denied = await deniedFieldWrites(resource, reqCtx, null);
   const fields = declared
-    ? await resolveFormFields(config, declared, reqCtx, undefined, denied)
+    ? await resolveFormFields(
+        config,
+        declared,
+        reqCtx,
+        undefined,
+        denied,
+        await hiddenFormFields(resource, reqCtx, denied),
+      )
     : undefined;
 
   return (

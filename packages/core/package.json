@@ -182,10 +182,14 @@
   ],
   "peerDependencies": {
     "ioredis": "^5.10.0 || ^6.0.0",
+    "react": "^19.0.0",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "ioredis": {
+      "optional": true
+    },
+    "react": {
       "optional": true
     }
   },

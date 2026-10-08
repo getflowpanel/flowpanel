@@ -8,11 +8,11 @@ vi.mock("../runtime/publish", () => ({
 }));
 
 import type {
+  AccessRule,
   Adapter,
   BulkAction,
   ErrorContext,
   RateLimitConfig,
-  RequireRole,
   ResolvedAdminConfig,
   ResourceAccess,
   ResourceConfig,
@@ -27,7 +27,7 @@ type Row = { id: string; reason: string };
 function makeConfig(opts: {
   action?: BulkAction<Row>;
   role?: string;
-  authRequireRole?: RequireRole;
+  authAccess?: AccessRule;
   rateLimit?: RateLimitConfig;
   readOnly?: boolean;
   security?: SecurityConfig;
@@ -61,7 +61,7 @@ function makeConfig(opts: {
     auth: {
       session: async () => null,
       role: () => opts.role ?? "admin",
-      ...(opts.authRequireRole !== undefined ? { requireRole: opts.authRequireRole } : {}),
+      ...(opts.authAccess !== undefined ? { access: opts.authAccess } : {}),
     },
     ...(opts.rateLimit ? { rateLimit: opts.rateLimit } : {}),
     ...(opts.readOnly ? { readOnly: true } : {}),
@@ -230,8 +230,8 @@ describe("withGuards — errors from buildRequestContext keep their status", () 
     });
   });
 
-  it("maps the admin-wide auth.requireRole failure to 403, not a bare 500", async () => {
-    const { config, resource } = makeConfig({ role: "user", authRequireRole: "admin" });
+  it("maps the admin-wide auth.access failure to 403, not a bare 500", async () => {
+    const { config, resource } = makeConfig({ role: "user", authAccess: "admin" });
     const handler = vi.fn(async () => Response.json({ ok: true }));
     const res = await withGuards(config, jsonReq({}), { resource }, handler);
 
@@ -374,7 +374,7 @@ describe("withGuards — guard order", () => {
 
     expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.issues).toBeUndefined();
+    expect(body.fieldErrors).toBeUndefined();
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -397,7 +397,7 @@ describe("withGuards — guard order", () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toBe("This admin is read-only.");
-    expect(body.issues).toBeUndefined();
+    expect(body.fieldErrors).toBeUndefined();
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -417,9 +417,7 @@ describe("withGuards — guard order", () => {
     });
 
     expect(res.status).toBe(422);
-    expect((await res.json()).issues).toEqual([
-      { path: ["reason"], message: "reason is required" },
-    ]);
+    expect((await res.json()).fieldErrors).toEqual({ reason: "reason is required" });
     expect(run).not.toHaveBeenCalled();
   });
 });

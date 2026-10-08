@@ -9,3 +9,5 @@ expectAssignable<ResourceIntrospection>({ name: "v", kind: "view", columns: [], 
 expectAssignable<ResourceIntrospection>({ name: "t", columns: [], primaryKey: "id" });
 expectError<ResourceIntrospection>({ name: "v", kind: "matview", columns: [], primaryKey: "id" });
 expectAssignable<ResourceOptions<{ id: string }>>({ writeTo: table });
+expectAssignable<ResourceOptions<{ id: string }>>({ writeTo: "User" });
+expectError<ResourceOptions<{ id: string }>>({ writeTo: true });

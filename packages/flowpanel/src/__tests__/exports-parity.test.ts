@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CORE_INDEX = path.join(HERE, "../../../core/src/index.ts");
+const CORE_INTERNAL = path.join(HERE, "../../../core/src/internal/index.ts");
 const KIT_INDEX = path.join(HERE, "../index.ts");
 const KIT_NEXT_CLIENT = path.join(HERE, "../next-client.ts");
 const KIT_PUBLISH = path.join(HERE, "../publish.ts");
@@ -79,6 +80,29 @@ describe("@flowpanel/kit re-exports all of @flowpanel/core", () => {
     // does not re-export has no reachable import path at all.
     const missing = [...core].filter((name) => !kit.has(name)).sort();
     expect(missing).toEqual([]);
+  });
+});
+
+describe("@flowpanel/core keeps its plumbing off the root the kit re-exports", () => {
+  it("exports no name from both the root and @flowpanel/core/internal", () => {
+    const internal = exportedNames(CORE_INTERNAL);
+    expect(internal.size).toBeGreaterThan(20);
+    const root = exportedNames(CORE_INDEX);
+    expect([...internal].filter((name) => root.has(name)).sort()).toEqual([]);
+  });
+
+  it("serves the runtime-only helpers from internal, not the root", () => {
+    const root = exportedNames(CORE_INDEX);
+    const internal = exportedNames(CORE_INTERNAL);
+    for (const name of [
+      "assertCountWhereColumns",
+      "declaredWriteFields",
+      "emitAudit",
+      "isBuiltinBulkDelete",
+    ]) {
+      expect(root.has(name), name).toBe(false);
+      expect(internal.has(name), name).toBe(true);
+    }
   });
 });
 

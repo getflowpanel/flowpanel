@@ -4,7 +4,7 @@ import { auth } from "{{AUTH_MODULE}}";
 
 export const flowpanelAuth = withNextAuth({
   auth,
-  requireRole: "admin",
+  access: "admin",
 });
 
 export const getSession = flowpanelAuth.session;

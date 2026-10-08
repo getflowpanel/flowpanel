@@ -1,6 +1,9 @@
 export { bindFormat } from "../bind-format";
+export { isBuiltinBulkDelete } from "../compiler/builtin-bulk-delete";
+export { emitAudit } from "../runtime/audit";
 export { didYouMean } from "../suggest";
 export { type ChecklistRow, checklistRows, isDone } from "./checklist-rows";
+export { assertCountWhereColumns } from "./count-where";
 export { clockIn, dayKeyIn, dayStartIn, shiftDayKey, weekdayOf } from "./day-key";
 export { encodeFilters, encodeFilterValue } from "./filter-encoding";
 export { filterShapeProblem } from "./filter-shape";
@@ -24,6 +27,7 @@ export {
   writeTimelineCursor,
 } from "./timeline-merge";
 export { assertColumn, normalizeWhere, whereValue, withRange } from "./where";
+export { declaredWriteFields } from "./write-fields";
 export { writeTarget } from "./write-target";
 export {
   type CalendarDay,

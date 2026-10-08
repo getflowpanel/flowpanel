@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Node, Project } from "ts-morph";
 import { hasMarker } from "../eject/marker";
+import { findAdminConfig } from "../scaffold/config-target";
 import { resolveProjectModule } from "./module-path";
 
 /** Where `flowpanel init` mounts the route handlers when the config says nothing. */
@@ -172,6 +173,6 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
       return { error: `${file}: ${e instanceof Error ? e.message : String(e)}` };
     }
   }
-  const root = await resolveProjectModule(cwd, "./flowpanel.config");
-  return root ? read(root) : { path: "/admin", api: DEFAULT_API_PATH };
+  const config = await findAdminConfig(cwd);
+  return config ? read(config.root) : { path: "/admin", api: DEFAULT_API_PATH };
 }

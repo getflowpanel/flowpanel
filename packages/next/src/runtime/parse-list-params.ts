@@ -1,4 +1,12 @@
-import type { FilterDef, FilterInValue, FilterRangeValue, FilterType } from "@flowpanel/core";
+import type {
+  FilterDef,
+  FilterInValue,
+  FilterRangeValue,
+  FilterType,
+  QueryContext,
+  RequestContext,
+} from "@flowpanel/core";
+import { runWithRequestContext } from "@flowpanel/core";
 import { encodeFilterValue } from "@flowpanel/core/internal";
 import { dayBoundsIn, isDateRangePreset, resolveDateRange } from "./date-range";
 import { toWireOptions } from "./select-options";
@@ -65,12 +73,20 @@ export interface ResolvedFilterSpec {
   hidden?: boolean;
 }
 
+/** Each filter's control; an `options` function gets the request's query context, scope included. */
 export async function resolveFilterSpecs<Row>(
   defs: (keyof Row | FilterDef<Row>)[] | undefined,
-  ctx: unknown,
+  reqCtx: RequestContext,
   timeZone = "UTC",
+  searchParams: URLSearchParams = new URLSearchParams(),
 ): Promise<ResolvedFilterSpec[]> {
   if (!defs || defs.length === 0) return [];
+  const queryCtx: QueryContext = {
+    ...reqCtx,
+    dateRange: { from: new Date(0), to: new Date() },
+    searchParams,
+    signal: new AbortController().signal,
+  };
   const out: ResolvedFilterSpec[] = [];
   for (const d of defs) {
     if (typeof d === "string" || typeof d === "number" || typeof d === "symbol") {
@@ -79,8 +95,9 @@ export async function resolveFilterSpecs<Row>(
     }
     const def = d as FilterDef<Row>;
     let options: { label: string; value: string }[] | undefined;
-    if (typeof def.options === "function") {
-      options = toWireOptions(await def.options(ctx as never));
+    const resolve = def.options;
+    if (typeof resolve === "function") {
+      options = toWireOptions(await runWithRequestContext(reqCtx, () => resolve(queryCtx)));
     } else if (Array.isArray(def.options)) {
       options = toWireOptions(def.options);
     }

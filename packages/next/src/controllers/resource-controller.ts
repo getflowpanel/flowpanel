@@ -8,7 +8,6 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import {
-  authorizeOperation,
   errorResult,
   FlowpanelNotFoundError,
   FlowpanelUnknownFieldError,
@@ -19,14 +18,16 @@ import {
 } from "@flowpanel/core";
 import { makeActions } from "../actions/resource-actions";
 import { actorIdFromSession } from "../runtime/action-helpers";
-import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { DEFAULT_RESOURCE_PAGE_SIZE } from "../runtime/defaults";
 import { declaredFieldSet, MAX_PAGE } from "../runtime/parse-list-params";
 import { projectAuthorizedRow, projectAuthorizedRows } from "../runtime/project-row";
 import {
   resolveReadableFieldSet,
   sanitizeReadableListSearchParams,
 } from "../runtime/readable-fields";
+import { requireAccessIfSet } from "../runtime/require-access";
 import { requireAuthorized } from "../runtime/require-authorized";
+import { rowKeyOf } from "../runtime/row-identity";
 import { scopeBinding } from "../runtime/scope-binding";
 import { createActionController } from "./action-controller";
 
@@ -69,7 +70,7 @@ function requestId(ctx: RequestContext): string {
   return ctx.requestId ?? "unknown";
 }
 
-function exposure(resource: ResourceConfig, config: ResolvedAdminConfig): string[] {
+function exposure(resource: ResourceConfig): string[] {
   const fields = new Set<string>();
   const add = (value: unknown) => {
     if (typeof value === "string" && value) fields.add(value);
@@ -80,23 +81,16 @@ function exposure(resource: ResourceConfig, config: ResolvedAdminConfig): string
   };
   for (const value of resource.options.columns ?? []) add(value);
   for (const value of resource.options.expose ?? []) add(value);
-  fields.add(
-    String(
-      resource.options.rowKey ??
-        config.adapter.introspect(resource.ref).primaryKey ??
-        DEFAULT_RESOURCE_ROW_KEY,
-    ),
-  );
+  fields.add(rowKeyOf(resource));
   return [...fields];
 }
 
 async function selectedFields(
-  config: ResolvedAdminConfig,
   resource: ResourceConfig,
   ctx: RequestContext,
   requested?: readonly string[],
 ): Promise<string[]> {
-  const allowed = exposure(resource, config);
+  const allowed = exposure(resource);
   const allowedSet = new Set(allowed);
   const selected = requested ? [...new Set(requested)] : allowed;
   if (selected.length > MAX_COLUMNS) {
@@ -141,7 +135,7 @@ async function authorizeRead(
   ctx: RequestContext,
 ): Promise<void> {
   requireAuthorized(config, resource);
-  await authorizeOperation(resolveOperationAccess(resource.options.access, "read"), ctx);
+  await requireAccessIfSet(resolveOperationAccess(resource.options.access, "read"), ctx);
 }
 
 export function createResourceController<Row extends Record<string, unknown>>(
@@ -173,7 +167,6 @@ export function createResourceController<Row extends Record<string, unknown>>(
             ? requestedSize
             : Math.min(resource.options.pageSize ?? DEFAULT_RESOURCE_PAGE_SIZE, MAX_PAGE_SIZE);
         const select = await selectedFields(
-          config,
           resource,
           ctx,
           options.select as readonly string[] | undefined,
@@ -237,7 +230,6 @@ export function createResourceController<Row extends Record<string, unknown>>(
       return execute(config, ctx, "resource.get", async () => {
         await authorizeRead(config, resource, ctx);
         const select = await selectedFields(
-          config,
           resource,
           ctx,
           options.select as readonly string[] | undefined,

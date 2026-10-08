@@ -2,7 +2,7 @@ import { writeTarget } from "../internal/write-target";
 import { RU_LABELS } from "../locales/ru";
 import { reservedNameError } from "../reserved-names";
 import { resolveResourceName } from "../resource-name";
-import type { Adapter, ResourceIntrospection } from "../types/adapter";
+import type { ResourceIntrospection } from "../types/adapter";
 import type { CompiledAdmin, CompiledResource } from "../types/compiled";
 import type { AdminDefinition, ResolvedAdminConfig } from "../types/config";
 import type { DashboardConfig, PageConfig } from "../types/dashboard";
@@ -13,11 +13,7 @@ import { validateDashboardFilters } from "../validate-dashboard-filters";
 import { type LinkCheck, validateLinks } from "../validate-links";
 import { validateRealtime } from "../validate-realtime";
 import { validateRecordSources } from "../validate-record-sources";
-import {
-  assertNoBasePath,
-  assertNoDashboardActionRequireRole,
-  assertNoRequireRole,
-} from "../validate-removed-keys";
+import { assertNoRemovedConfigKeys, assertNoRequireRole } from "../validate-removed-keys";
 import { validateResourceColumns } from "../validate-resource-columns";
 import { validateResourceRefs } from "../validate-resource-refs";
 import { validateThresholds } from "../validate-thresholds";
@@ -26,6 +22,7 @@ import { warnIfNoAccessControl } from "../warn-open-admin";
 import { createBuiltinBulkDelete } from "./builtin-bulk-delete";
 import { resolveDetailWidgets } from "./detail-widgets";
 import { withEnumOptions } from "./enum-options";
+import { tryIntrospect } from "./introspect";
 import { resolveRelatedTabs } from "./related-tabs";
 import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
 import { withDashboardTimelineIds } from "./timeline-ids";
@@ -66,12 +63,14 @@ function readOnlyResource(resource: ResourceConfig): ResourceConfig {
   };
 }
 
-function tryIntrospect(adapter: Adapter, ref: unknown): ResourceIntrospection | null {
-  try {
-    return adapter.introspect(ref);
-  } catch {
-    return null;
-  }
+/** Every runtime path reads one row key: the declared `rowKey`, else the introspected primary key, else `"id"`. */
+function withRowKey(
+  resource: ResourceConfig,
+  introspection: ResourceIntrospection | null,
+): ResourceConfig {
+  if (resource.options.rowKey !== undefined) return resource;
+  const rowKey = introspection?.primaryKey || "id";
+  return { ...resource, options: { ...resource.options, rowKey } };
 }
 
 function normalizeDeclaredRoutePath(raw: string): string {
@@ -92,7 +91,7 @@ function localeLabels(
 export function compileAdmin<const Resources extends readonly AnyResourceConfig[]>(
   config: AdminDefinition<Resources>,
 ): CompiledAdmin {
-  assertNoBasePath(config as unknown as Record<string, unknown>);
+  assertNoRemovedConfigKeys(config as unknown as Record<string, unknown>);
   assertProductionAuth(config);
   const resources: ResourceConfig[] = [];
   const resourcesByName = new Map<string, ResourceConfig>();
@@ -123,7 +122,8 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     assertServableActionForm(raw.options.actions, name, "options.actions");
     assertServableActionForm(raw.options.bulkActions, name, "options.bulkActions");
     assertBulkActionLimits(raw, name);
-    const introspection = tryIntrospect(config.adapter, raw.ref);
+    const probe = tryIntrospect(config.adapter, raw.ref);
+    const introspection = probe.introspection;
     const viewed = viewResource(name, raw, introspection, config.adapter);
 
     let resource: ResourceConfig = viewed;
@@ -148,6 +148,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
         throw new Error(
           `resource "${name}" omits options.columns, but the adapter could not introspect its ` +
             "ref, so there is nothing to fill them from. Declare options.columns explicitly.",
+          probe.error === undefined ? undefined : { cause: probe.error },
         );
       }
       resource = {
@@ -159,11 +160,11 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     const written =
       resource.options.writeTo === undefined
         ? introspection
-        : tryIntrospect(config.adapter, writeTarget(resource));
+        : tryIntrospect(config.adapter, writeTarget(resource)).introspection;
     if (written) warnings.push(...createFieldWarnings(name, resource, written));
     assertCanonicalFieldAccess(resource, name, introspection);
 
-    resource = withEnumOptions(resource);
+    resource = withEnumOptions(withRowKey(resource, introspection));
     resources.push(resource);
     resourcesByName.set(name, resource);
     compiledResourcesByName.set(name, {
@@ -176,7 +177,6 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   const dashboards = (config.dashboards ?? []).map(withDashboardTimelineIds);
   const dashboardsByPath = new Map<string, DashboardConfig>();
   for (const dashboard of dashboards) {
-    assertNoDashboardActionRequireRole(dashboard.path, dashboard.actions);
     const path = normalizeDeclaredRoutePath(dashboard.path);
     if (dashboardsByPath.has(path)) {
       throw new Error(`Duplicate dashboard path: "${dashboard.path}".`);
@@ -198,7 +198,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
 
   const queuesByKey = new Map<string, QueueConfig>();
   for (const queue of config.queues ?? []) {
-    const name = (queue.ref as { name?: string })?.name;
+    const name = queue.ref?.name;
     const key = queue.options.key ?? name;
     if (!key) throw new Error("queue() requires options.key when the queue has no .name");
     if (queuesByKey.has(key)) {

@@ -2,6 +2,8 @@
 import type { ResolvedFormatting } from "@flowpanel/core/format";
 import { formatLabel } from "@flowpanel/core/labels";
 import * as React from "react";
+import type { EmptyStateProps } from "../_feedback/EmptyStateDefault";
+import { useComponent } from "../_provider/ComponentsContext";
 import { useFormatting } from "../_provider/FormattingContext";
 import { useLabels } from "../_provider/LabelsContext";
 import { cn } from "../lib/cn";
@@ -49,6 +51,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
 }: MobileCardListProps<Row>) {
   const labels = useLabels();
   const formatting = useFormatting();
+  const Empty = useComponent("EmptyState", CardEmptyState);
   const visible = React.useMemo(() => columns.filter((c) => !c.hidden), [columns]);
   const colIndex = React.useMemo(() => {
     if (colIndexByField) return colIndexByField;
@@ -78,24 +81,14 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   if (rows.length === 0) {
     return (
       <div
-        className={cn(
-          "flex flex-col items-center justify-center rounded-fp border border-fp-border-1 bg-fp-bg-1 px-6 py-16 text-center",
-          className,
-        )}
+        className={cn("flex flex-col rounded-fp border border-fp-border-1 bg-fp-bg-1", className)}
       >
-        {emptyIcon ? (
-          <div
-            className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-2 text-2xl text-fp-text-2"
-            aria-hidden="true"
-          >
-            {emptyIcon}
-          </div>
-        ) : null}
-        <div className="text-base font-medium text-fp-text-1">{emptyTitle ?? labels.noResults}</div>
-        {emptyDescription ? (
-          <div className="mt-1 text-sm text-fp-text-3">{emptyDescription}</div>
-        ) : null}
-        {emptyAction ? <div className="mt-4">{emptyAction}</div> : null}
+        <Empty
+          title={emptyTitle ?? labels.noResults}
+          {...(emptyDescription ? { description: emptyDescription } : {})}
+          {...(emptyAction ? { action: emptyAction } : {})}
+          {...(emptyIcon ? { icon: emptyIcon } : {})}
+        />
       </div>
     );
   }
@@ -221,4 +214,23 @@ function renderCell<Row extends Record<string, unknown>>(
   const cell =
     pre !== undefined ? pre : c.render ? c.render(r) : renderDefaultCell(c, r, formatting);
   return withSecondary(c, r, cell, formatting);
+}
+
+/** The card list's own empty state, which a host's `EmptyState` slot replaces. */
+function CardEmptyState({ title, description, action, icon }: EmptyStateProps) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+      {icon ? (
+        <div
+          className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-2 text-2xl text-fp-text-2"
+          aria-hidden="true"
+        >
+          {icon}
+        </div>
+      ) : null}
+      <div className="text-base font-medium text-fp-text-1">{title}</div>
+      {description ? <div className="mt-1 text-sm text-fp-text-3">{description}</div> : null}
+      {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  );
 }

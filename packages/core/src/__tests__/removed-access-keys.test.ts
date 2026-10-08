@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { withClerk } from "../auth/clerk";
 import type { Adapter, ColumnMeta } from "../index";
-import { dashboard, defineAdmin, resource } from "../index";
+import { dashboard, defineAdmin, page, queue, resource } from "../index";
 
 const meta = (name: string): ColumnMeta => ({
   name,
@@ -50,6 +51,70 @@ describe("a config that gates access with requireRole where only access is read"
       actions: [{ key: "sync", label: "Sync", requireRole: "admin", handler: async () => {} }],
     } as never);
     expect(() => define({}, { dashboards: [board] })).toThrow(/sync.*requireRole.*access/);
+  });
+
+  it("fails at boot on a dashboard, a page or a queue", () => {
+    const board = dashboard({ path: "/", label: "Overview", requireRole: "admin" } as never);
+    expect(() => define({}, { dashboards: [board] })).toThrow(
+      /dashboard "\/".*requireRole.*access/,
+    );
+    const help = page({ path: "/help", label: "Help", href: "/x", requireRole: "admin" } as never);
+    expect(() => define({}, { pages: [help] })).toThrow(/page "\/help".*requireRole.*access/);
+    const jobs = queue({ name: "jobs" }, {
+      label: "Jobs",
+      boardUrl: "/b",
+      requireRole: "admin",
+    } as never);
+    expect(() => define({}, { queues: [jobs] })).toThrow(/queue "jobs".*requireRole.*access/);
+  });
+
+  it("fails at boot on a form field and names its fieldAccess entry", () => {
+    const fields = [{ name: "email", requireRole: "admin" }];
+    expect(() => define({ create: { fields } })).toThrow(
+      /users" create field "email".*requireRole.*fieldAccess\.email/,
+    );
+    expect(() => define({ update: { fields } })).toThrow(/update field "email"/);
+  });
+
+  it("names the new argument when the removed requireRole was a function", () => {
+    const auth = {
+      session: async () => null,
+      role: () => "guest",
+      requireRole: (s: unknown) => s !== null,
+    };
+    expect(() => define({}, { auth })).toThrow(
+      /auth\.access instead\. A rule function receives \{ session, role, scope \}, not the session: write \(\{ session \}\) => session !== null/,
+    );
+    const board = dashboard({ path: "/", label: "Overview", requireRole: () => true } as never);
+    expect(() => define({}, { dashboards: [board] })).toThrow(
+      /receives \{ session, role, scope \}/,
+    );
+    expect(() => withClerk({ requireRole: (s: unknown) => !!s } as never)).toThrow(
+      /withClerk sets requireRole.*\(\{ session \}\) => session !== null/,
+    );
+    expect(() => define({}, { auth: { ...auth, requireRole: "admin" } })).not.toThrow(
+      /receives \{ session/,
+    );
+  });
+
+  it("says an action form field's requireRole never gated anything", () => {
+    const action = {
+      key: "ban",
+      label: "Ban",
+      form: [{ name: "reason", requireRole: "admin" }],
+      run: async () => ({ ok: true }),
+    };
+    expect(() => define({ actions: [action] })).toThrow(
+      /action "ban" field "reason" sets requireRole, which never gated.*gate the whole action with access/,
+    );
+  });
+
+  it("fails at boot on auth.requireRole and on an auth adapter given requireRole", () => {
+    const auth = { session: async () => null, role: () => "guest", requireRole: "admin" };
+    expect(() => define({}, { auth })).toThrow(/auth sets requireRole.*auth\.access/);
+    expect(() => withClerk({ requireRole: "admin" } as never)).toThrow(
+      /withClerk sets requireRole.*access/,
+    );
   });
 });
 

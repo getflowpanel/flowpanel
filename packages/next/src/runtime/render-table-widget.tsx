@@ -18,7 +18,7 @@ import { realtimeProp } from "./realtime-channels";
 import { withReferenceCells } from "./reference-cells";
 import { readRelatedRows } from "./require-authorized";
 import { resolveLink } from "./resolve-link";
-import { rowIdentity } from "./row-identity";
+import { rowIdentity, rowKeyOf } from "./row-identity";
 import { tableFilters } from "./table-filters";
 import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
 
@@ -99,8 +99,7 @@ export async function renderTableWidget(
   const specs = options.columns as ColumnSpec[] | undefined;
   const wanted = specs?.map(specField);
   const resource = options.resource ? config.resourcesByName.get(options.resource) : undefined;
-  const rowKey =
-    options.rowKey ?? (resource?.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = options.rowKey ?? (resource ? rowKeyOf(resource) : DEFAULT_RESOURCE_ROW_KEY);
 
   let rows: WidgetRow[] = [];
   let columns: PrerenderedColumn<WidgetRow>[] = [];

@@ -230,6 +230,8 @@ describe("resourceCreateRoute", () => {
     expect(await res.json()).toEqual({
       ok: false,
       error: "Validation failed",
+      code: "validation_failed",
+      requestId: expect.any(String),
       fieldErrors: { email: "Email is already taken" },
     });
   });
@@ -321,6 +323,8 @@ describe("resourceUpdateRoute", () => {
     expect(await res.json()).toEqual({
       ok: false,
       error: "Validation failed",
+      code: "validation_failed",
+      requestId: expect.any(String),
       fieldErrors: { email: "Email is required" },
     });
     expect(captured.value).toBeUndefined();
@@ -419,9 +423,11 @@ describe("required and read-only fields through the form routes", () => {
 
   it("saves an edit form for a role that cannot see a role-gated field", async () => {
     const captured: { value?: unknown } = {};
-    const handler = resourceUpdateRoute(
-      configWithFields([{ name: "email" }, { name: "priceCents", requireRole: "admin" }], captured),
-    );
+    const config = configWithFields([{ name: "email" }, { name: "priceCents" }], captured);
+    Object.assign(config.resourcesByName.get("users")?.options ?? {}, {
+      fieldAccess: { priceCents: { read: "admin", write: "admin" } },
+    });
+    const handler = resourceUpdateRoute(config);
     const res = await handler(
       formRequest("http://localhost/x", { email: "c@d.com" }),
       editParams(),

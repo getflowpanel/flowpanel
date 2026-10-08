@@ -164,13 +164,14 @@ describe("ResourceEditPage default values", () => {
                 return values.internalLock === true;
               },
             },
-            { name: "adminOnly", requireRole: "admin" },
+            { name: "adminOnly" },
           ],
         },
         fieldAccess: {
           writeOnly: { read: false, write: true },
           secret: { sensitive: true, write: true },
           readDenied: { read: "admin" },
+          adminOnly: { read: "admin", write: "admin" },
         },
       },
       (ctx) => {
@@ -229,6 +230,7 @@ describe("ResourceEditPage default values", () => {
           writeOnly: { read: false, write: true },
           secret: { sensitive: true, write: true },
           readDenied: { read: "admin" },
+          adminOnly: { read: "admin", write: "admin" },
         },
       },
       (ctx) => {

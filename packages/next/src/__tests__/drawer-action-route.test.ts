@@ -229,7 +229,7 @@ describe("drawerActionRoute", () => {
     });
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.issues).toEqual([{ path: ["reason"], message: "reason is required" }]);
+    expect(body.fieldErrors).toEqual({ reason: "reason is required" });
     // The guard must run *before* the handler — otherwise a hand-crafted POST
     // reaches user code with input the form would have rejected.
     expect(run).not.toHaveBeenCalled();
@@ -261,7 +261,7 @@ describe("drawerActionRoute", () => {
     });
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.issues).toEqual([{ path: ["reason"], message: "already flagged as duplicate" }]);
+    expect(body.fieldErrors).toEqual({ reason: "already flagged as duplicate" });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -291,7 +291,7 @@ describe("drawerActionRoute", () => {
     });
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.issues).toEqual([{ path: ["reason"], message: "already flagged as duplicate" }]);
+    expect(body.fieldErrors).toEqual({ reason: "already flagged as duplicate" });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -385,7 +385,11 @@ describe("drawerActionRoute — error quality", () => {
       params: Promise.resolve({ resource: "ghost", id: "1", action: "approve" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "resource not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "resource not found",
+      code: "not_found",
+    });
   });
 
   it("never names the drawer's action keys in the response body", async () => {
@@ -393,7 +397,11 @@ describe("drawerActionRoute — error quality", () => {
       params: Promise.resolve({ resource: "jobs", id: "1", action: "missing" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "action not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "action not found",
+      code: "not_found",
+    });
   });
 
   it("stays terse in production", async () => {
@@ -403,10 +411,7 @@ describe("drawerActionRoute — error quality", () => {
       const res = await drawerActionRoute(makeConfig(okAction))(jsonReq("{}"), {
         params: Promise.resolve({ resource: "ghost", id: "1", action: "approve" }),
       });
-      expect((await res.json()).error).toEqual({
-        code: "not_found",
-        message: "resource not found",
-      });
+      expect(await res.json()).toMatchObject({ error: "resource not found", code: "not_found" });
     } finally {
       process.env.NODE_ENV = original;
     }

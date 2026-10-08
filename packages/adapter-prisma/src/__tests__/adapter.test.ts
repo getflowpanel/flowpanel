@@ -143,6 +143,73 @@ describe("prismaAdapter", () => {
     expect(root._delegate.delete).not.toHaveBeenCalled();
   });
 
+  it("answers a missing row on update with null and on delete with nothing, like Drizzle", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    const missing = Object.assign(new Error("Record to update not found."), { code: "P2025" });
+    _delegate.update.mockRejectedValue(missing);
+    _delegate.delete.mockRejectedValue(missing);
+    const adapter = prismaAdapter({
+      prisma: { user: delegate },
+      dmmf: testDmmf,
+      provider: "postgresql",
+    });
+    await expect(
+      adapter.update("User", { ...baseCtx, id: "1", input: { email: "x" } }),
+    ).resolves.toBeNull();
+    await expect(
+      adapter.delete("User", { ...baseCtx, id: "1", input: {} }),
+    ).resolves.toBeUndefined();
+    await expect(
+      adapter.delete("User", {
+        ...baseCtx,
+        id: "1",
+        input: {},
+        softDelete: { column: "deletedAt" },
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("keeps a P2025 from a nested connect, which is not the row going missing", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.update.mockRejectedValue(
+      Object.assign(new Error("No 'Team' record found for a nested connect."), {
+        code: "P2025",
+        meta: {
+          cause:
+            "No 'Team' record(s) (needed to inline the relation) was found for a nested connect.",
+        },
+      }),
+    );
+    const adapter = prismaAdapter({
+      prisma: { user: delegate },
+      dmmf: testDmmf,
+      provider: "postgresql",
+    });
+    await expect(adapter.update("User", { ...baseCtx, id: "1", input: {} })).rejects.toThrow(
+      "nested connect",
+    );
+    _delegate.update.mockRejectedValue(
+      Object.assign(new Error("gone"), {
+        code: "P2025",
+        meta: { cause: "Record to update not found." },
+      }),
+    );
+    await expect(adapter.update("User", { ...baseCtx, id: "1", input: {} })).resolves.toBeNull();
+  });
+
+  it("still throws any other Prisma error from an update", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.update.mockRejectedValue(Object.assign(new Error("Unique"), { code: "P2002" }));
+    const adapter = prismaAdapter({
+      prisma: { user: delegate },
+      dmmf: testDmmf,
+      provider: "postgresql",
+    });
+    await expect(adapter.update("User", { ...baseCtx, id: "1", input: {} })).rejects.toThrow(
+      "Unique",
+    );
+  });
+
   it("list returns rows and total", async () => {
     const { user: delegate, _delegate } = makeMockPrisma();
     _delegate.findMany.mockResolvedValue([{ id: 1, email: "a@b.com" }]);

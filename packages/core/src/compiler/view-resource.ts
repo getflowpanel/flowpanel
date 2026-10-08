@@ -2,6 +2,7 @@ import { quoted } from "../internal/validate-shared";
 import { didYouMean } from "../suggest";
 import type { Adapter, ResourceIntrospection } from "../types/adapter";
 import type { ResourceConfig } from "../types/resource";
+import { tryIntrospect } from "./introspect";
 
 function declaredWrites(resource: ResourceConfig): string[] {
   const o = resource.options;
@@ -17,21 +18,13 @@ function declaredWrites(resource: ResourceConfig): string[] {
   return out;
 }
 
-function introspectTarget(adapter: Adapter, ref: unknown): ResourceIntrospection | null {
-  try {
-    return adapter.introspect(ref);
-  } catch {
-    return null;
-  }
-}
-
 function checkWriteTarget(
   name: string,
   resource: ResourceConfig,
   view: ResourceIntrospection | null,
   adapter: Adapter,
 ): void {
-  const target = introspectTarget(adapter, resource.options.writeTo);
+  const target = tryIntrospect(adapter, resource.options.writeTo).introspection;
   if (!target || target.columns.length === 0) return;
   if (target.kind === "view") {
     throw new Error(

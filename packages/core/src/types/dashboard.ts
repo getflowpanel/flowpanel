@@ -2,9 +2,9 @@ import type { ComponentType } from "react";
 import type { EnumDef } from "../builders/enum-of";
 import type { DashboardAction } from "./action";
 import type { IconName } from "./icon";
+import type { AccessRule } from "./policy";
 import type { RealtimeOption } from "./realtime";
 import type { SelectOption } from "./resource";
-import type { Session } from "./session";
 import type { WidgetConfig } from "./widget";
 import type { WidgetContext } from "./widget-context";
 
@@ -105,8 +105,8 @@ export interface DashboardConfig {
   actions?: DashboardAction<any, any>[];
   /** Hide the default `DashboardActionsBar`. */
   hideActionsBar?: boolean;
-  /** Restrict access to this dashboard. */
-  requireRole?: string | string[] | ((session: Session | null) => boolean);
+  /** Who may see and open this dashboard and run its actions. */
+  access?: AccessRule;
 }
 
 /** User page registered under `<paths.admin><path>` with a sidebar nav entry. */
@@ -123,6 +123,6 @@ export interface PageConfig {
   component?: ComponentType<Record<string, never>>;
   /** External href used when `component` is not provided. */
   href?: string;
-  /** Restrict access to this page. */
-  requireRole?: string | string[] | ((session: Session | null) => boolean);
+  /** Who may see and open this page. */
+  access?: AccessRule;
 }

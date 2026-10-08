@@ -45,7 +45,7 @@ export function resolveRelatedTabs(
 ): ResourceConfig {
   const tabs = resource.options.detail?.tabs as DetailTab<Row>[] | undefined;
   if (!tabs || tabs.length === 0) return resource;
-  const rowKey = (resource.options.rowKey as string | undefined) ?? "id";
+  const rowKey = resource.options.rowKey ?? "id";
   const resolved = tabs.map((tab) => resolveTab(name, rowKey, tab, byName));
   if (resolved.every((tab, index) => tab === tabs[index])) return resource;
   return {

@@ -6,15 +6,16 @@ import {
   resolveFormatting,
 } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
+import { actionFailure } from "../runtime/action-failure";
 import { notFoundResponse } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import {
   type RequestBodyError,
   readRequestFormData,
   requestBodyErrorResponse,
 } from "../runtime/request-body";
 import { declaredFormFields } from "../runtime/resolve-form-fields";
+import { rowKeyOf } from "../runtime/row-identity";
 import { withGuards } from "../runtime/with-guards";
 import { declaredWriteFields } from "./field-pipeline";
 import { type FormFieldShape, readFormValues } from "./form-values";
@@ -92,22 +93,11 @@ async function parseFormBody(
 
 /** A `FlowpanelError` as the form's answer; anything else goes back to `withGuards`, which reports it. */
 function formActionError(err: unknown): Response {
-  if (err instanceof FlowpanelValidationError) {
-    return Response.json(
-      {
-        ok: false,
-        error: err.safeMessage,
-        fieldErrors: err.fieldErrors,
-      } satisfies FormActionResult,
-      { status: err.status },
-    );
-  }
-  if (err instanceof FlowpanelError) {
-    return Response.json({ ok: false, error: err.safeMessage } satisfies FormActionResult, {
-      status: err.status,
-    });
-  }
-  throw err;
+  if (!(err instanceof FlowpanelError)) throw err;
+  return actionFailure(err.code, err.safeMessage, {
+    status: err.status,
+    ...(err instanceof FlowpanelValidationError ? { fieldErrors: err.fieldErrors } : {}),
+  });
 }
 
 export function resourceCreateRoute(config: ResolvedAdminConfig) {
@@ -121,7 +111,7 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
       return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     if (resource.options.create?.disabled) {
-      return Response.json({ ok: false, error: "create is disabled" }, { status: 403 });
+      return actionFailure("operation_disabled", "create is disabled");
     }
 
     return withGuards(config, req, { resource, operation: "create" }, async (reqCtx) => {
@@ -134,7 +124,7 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
           throw new FlowpanelValidationError(parsed.fieldErrors);
         }
         const created = await actions.create(parsed.values);
-        const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+        const rowKey = rowKeyOf(resource);
         const createdValue =
           created && typeof created === "object"
             ? (created as Record<string, unknown>)[rowKey]
@@ -163,7 +153,7 @@ export function resourceUpdateRoute(config: ResolvedAdminConfig) {
       return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
     }
     if (resource.options.update?.disabled) {
-      return Response.json({ ok: false, error: "editing is disabled" }, { status: 403 });
+      return actionFailure("operation_disabled", "editing is disabled");
     }
 
     return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {

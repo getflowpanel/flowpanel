@@ -42,7 +42,7 @@ const adapter: Adapter = {
 
 const config = defineAdmin({
   adapter,
-  auth: { session: async () => null, role: () => "admin", requireRole: "admin" },
+  auth: { session: async () => null, role: () => "admin", access: "admin" },
   resources: [resource({ __name: "users" }, { columns: ["id"] })],
 });
 

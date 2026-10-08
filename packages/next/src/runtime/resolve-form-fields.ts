@@ -7,7 +7,6 @@ import type {
 } from "@flowpanel/core";
 import { accessAllows, humanize, runWithRequestContext } from "@flowpanel/core";
 import type { ResolvedField } from "@flowpanel/react";
-import { roleAllows } from "./action-helpers";
 import { readRelatedRows } from "./require-authorized";
 import { toWireOptions } from "./select-options";
 
@@ -48,6 +47,24 @@ export async function deniedFieldWrites(
   return denied;
 }
 
+/** Denied fields the caller may not read either: a form leaves them out instead of showing an empty locked control. */
+export async function hiddenFormFields(
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+  denied: ReadonlySet<string>,
+): Promise<ReadonlySet<string>> {
+  const hidden = new Set<string>();
+  const policies = new Map(Object.entries(resource.options.fieldAccess ?? {}));
+  for (const name of denied) {
+    const policy = policies.get(name);
+    const unreadable =
+      policy?.sensitive === true ||
+      (policy?.read !== undefined && !(await accessAllows(policy.read, reqCtx)));
+    if (unreadable) hidden.add(name);
+  }
+  return hidden;
+}
+
 /** Resolve just the CURRENT value's label for a `reference` field — a single PK lookup, not a list. */
 async function resolveReferenceCurrentOption(
   config: ResolvedAdminConfig,
@@ -75,6 +92,7 @@ export async function resolveFormFields(
   reqCtx: RequestContext,
   row?: Record<string, unknown>,
   denied: ReadonlySet<string> = new Set(),
+  hidden: ReadonlySet<string> = new Set(),
 ): Promise<ResolvedField[]> {
   const queryCtx: QueryContext = {
     ...reqCtx,
@@ -83,9 +101,7 @@ export async function resolveFormFields(
     signal: new AbortController().signal,
   };
   const values = row ?? {};
-  const visible = fields.filter(
-    (f) => roleAllows(f.requireRole, reqCtx) && !fieldFlag(f.hidden, values),
-  );
+  const visible = fields.filter((f) => !hidden.has(f.name) && !fieldFlag(f.hidden, values));
   return Promise.all(
     visible.map(async (f): Promise<ResolvedField> => {
       const opts = f.options;

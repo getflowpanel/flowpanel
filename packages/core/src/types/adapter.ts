@@ -43,6 +43,9 @@ export interface ResourceIntrospection {
   kind?: "table" | "view";
 }
 
+/** What a resource reads or writes: a Drizzle table or view, a Prisma model name, or a custom adapter's own handle. */
+export type AdapterRef = string | object;
+
 /** Adapter identity. The shipped kinds autocomplete; third-party kinds are free-form. */
 export type AdapterKind = "drizzle" | "prisma" | (string & {});
 

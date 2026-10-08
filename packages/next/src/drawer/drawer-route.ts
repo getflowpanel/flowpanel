@@ -10,7 +10,8 @@ import type {
   ResolvedAdminConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { humanize, runWithRequestContext } from "@flowpanel/core";
+import { runWithRequestContext } from "@flowpanel/core";
+import { actionFailure, validationFailure } from "../runtime/action-failure";
 import {
   buildActionContext,
   buildAuditEvent,
@@ -22,7 +23,6 @@ import {
 } from "../runtime/action-helpers";
 import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
 import { applyActionResult } from "../runtime/apply-action-result";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
 import { buildHref } from "../runtime/href";
 import {
   declaredDrawerRowFields,
@@ -36,6 +36,8 @@ import {
   resolveReadableFieldSet,
 } from "../runtime/readable-fields";
 import { readRelatedRows } from "../runtime/require-authorized";
+import { singularLabel } from "../runtime/resource-title";
+import { rowKeyOf } from "../runtime/row-identity";
 import { scopeBinding } from "../runtime/scope-binding";
 import { buildWidgetContext } from "../runtime/widget-context";
 import { withGuards } from "../runtime/with-guards";
@@ -210,10 +212,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
     }
     const drawer: DrawerConfig | undefined = resource.options.drawer;
     if (!drawer) {
-      return Response.json(
-        { ok: false, error: `resource "${resourceName}" has no drawer config` },
-        { status: 400 },
-      );
+      return actionFailure("bad_request", `resource "${resourceName}" has no drawer config`);
     }
 
     return withGuards(
@@ -243,11 +242,11 @@ export function drawerRoute(config: ResolvedAdminConfig) {
           config.adapter.get(resource.ref, itemCtx),
         )) as Record<string, unknown> | null;
         if (!row) {
-          return Response.json({ ok: false, error: "not found" }, { status: 404 });
+          return actionFailure("not_found", "not found");
         }
         const projectedRow = projectRowFields(row, readableRowFields);
 
-        const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+        const rowKey = rowKeyOf(resource);
         const title =
           typeof drawer.title === "function"
             ? String(drawer.title(projectedRow) ?? "")
@@ -280,8 +279,7 @@ export function drawerRoute(config: ResolvedAdminConfig) {
           row: projectedRow,
           title,
           ...(drawer.subtitle ? { subtitle: String(drawer.subtitle(projectedRow) ?? "") } : {}),
-          resourceLabel:
-            (resource.options.label as string | undefined) ?? humanize(String(resourceName)),
+          resourceLabel: singularLabel(resource, String(resourceName)),
           width: drawer.width ?? "lg",
           fields: serializeFields(drawer.fields ?? "*", readableRowFields),
           tabs,
@@ -343,12 +341,12 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
         config.adapter.get(resource.ref, itemCtx),
       )) as Record<string, unknown> | null;
       if (!row) {
-        return Response.json({ ok: false, error: "not found" }, { status: 404 });
+        return actionFailure("not_found", "not found");
       }
       if (action.when) {
         const allowed = await action.when({ ...reqCtx, current: row, input: {} });
         if (!allowed) {
-          return Response.json({ ok: false, error: "not found" }, { status: 404 });
+          return actionFailure("not_found", "not found");
         }
       }
 
@@ -360,10 +358,7 @@ export function drawerActionRoute(config: ResolvedAdminConfig) {
         body.input,
       );
       if (parsedInput.issues) {
-        return Response.json(
-          { ok: false, error: "validation failed", issues: parsedInput.issues },
-          { status: 422 },
-        );
+        return validationFailure(parsedInput.issues, reqCtx.requestId);
       }
 
       const actionCtx = buildActionContext(config, reqCtx, action);

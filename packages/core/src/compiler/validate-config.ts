@@ -1,3 +1,4 @@
+import { accessAdmitsSignedOut } from "../auth-probe";
 import type { ResourceIntrospection } from "../types/adapter";
 import type { AdminDefinition } from "../types/config";
 import type { ResourceConfig } from "../types/resource";
@@ -92,30 +93,25 @@ export function assertCanonicalFieldAccess(
       );
     }
   }
-
-  for (const field of [
-    ...(resource.options.create?.fields ?? []),
-    ...(resource.options.update?.fields ?? []),
-  ]) {
-    if (policies[field.name]?.write !== undefined && field.requireRole !== undefined) {
-      throw new Error(
-        `field "${field.name}" on resource "${resourceName}" cannot declare both fieldAccess.write and requireRole.`,
-      );
-    }
-  }
 }
 export function assertProductionAuth(config: AdminDefinition): void {
-  if (process.env.NODE_ENV !== "production" || config.auth.requireRole !== undefined) return;
+  if (process.env.NODE_ENV !== "production") return;
+  const admitsSignedOut = accessAdmitsSignedOut(config.auth);
+  if (config.auth.access !== undefined && !admitsSignedOut) return;
   if (config.auth.allowUnauthenticated !== true) {
     throw new Error(
-      "A production admin requires auth.requireRole. For a deliberately public admin, set " +
-        "auth.allowUnauthenticated: true and readOnly: true.",
+      admitsSignedOut
+        ? "auth.access lets a signed-out visitor in: it allowed { session: null }. A rule function " +
+            "receives { session, role, scope }, so write ({ session }) => session !== null. For a " +
+            "deliberately public admin, set auth.allowUnauthenticated: true and readOnly: true."
+        : "A production admin requires auth.access. For a deliberately public admin, set " +
+            "auth.allowUnauthenticated: true and readOnly: true.",
     );
   }
   if (config.readOnly !== true) {
     throw new Error(
       "A production admin with auth.allowUnauthenticated must also set readOnly: true. " +
-        "Writable deployments require a real authentication adapter and auth.requireRole.",
+        "Writable deployments require a real authentication adapter and auth.access.",
     );
   }
 }

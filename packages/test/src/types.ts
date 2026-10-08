@@ -16,7 +16,7 @@ export interface SmokeAdminOptions {
   /** Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. */
   resources?: string[];
   /**
-   * Run axe against every visited route; needs `@axe-core/playwright`, or the walk skips the scan instead of failing.
+   * Run axe against every visited route. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package.
    * @defaultValue false
    */
   a11y?: boolean;

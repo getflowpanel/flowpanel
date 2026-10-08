@@ -1,4 +1,4 @@
-import type { BulkAction } from "../types/action";
+import type { BulkAction } from "@flowpanel/core";
 
 /** Marks the bulk delete the compiler injects so the runtime binds it to the resource delete path. */
 export const BUILTIN_BULK_DELETE: unique symbol = Symbol.for("flowpanel.builtin.bulk-delete");

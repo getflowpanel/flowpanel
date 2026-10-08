@@ -7,7 +7,6 @@ import type {
 import { accessAllows, resolveOperationAccess, resolveResourceName } from "@flowpanel/core";
 import { mergeLabels } from "@flowpanel/core/labels";
 import type { NavEntry, NavGroup } from "@flowpanel/react";
-import { roleAllows } from "./action-helpers";
 import { buildHref, buildPath } from "./href";
 import { pluralLabel } from "./resource-title";
 
@@ -51,7 +50,7 @@ export async function buildNav(
   const { groups, place } = groupBuilder();
 
   for (const d of config.dashboardsByPath.values()) {
-    if (reqCtx && !roleAllows(d.requireRole, reqCtx)) continue;
+    if (reqCtx && !(await accessAllows(d.access, reqCtx))) continue;
     place(navigation.dashboards, d.navGroup, {
       label: d.label,
       href: d.path === "/" ? buildHref(config) : buildPath(config, d.path),
@@ -60,7 +59,7 @@ export async function buildNav(
   }
 
   for (const p of config.pagesByPath.values()) {
-    if (reqCtx && !roleAllows(p.requireRole, reqCtx)) continue;
+    if (reqCtx && !(await accessAllows(p.access, reqCtx))) continue;
     const own = p.path === "/" ? buildHref(config) : buildPath(config, p.path);
     place(navigation.pages, p.navGroup, {
       label: p.label,
@@ -81,7 +80,7 @@ export async function buildNav(
   }
 
   for (const [key, q] of config.queuesByKey.entries()) {
-    if (q.options.hidden || (reqCtx && !roleAllows(q.options.requireRole, reqCtx))) continue;
+    if (q.options.hidden || (reqCtx && !(await accessAllows(q.options.access, reqCtx)))) continue;
     place(navigation.queues, q.options.navGroup, {
       label: q.options.label,
       href: buildHref(config, "queues", key),

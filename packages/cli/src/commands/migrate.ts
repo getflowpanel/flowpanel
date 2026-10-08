@@ -2,8 +2,9 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
+import { findAdminConfig } from "../scaffold/config-target";
 import { missingConnectionEnv } from "../utils/db-env";
-import { detectPackageManager, fileExists, pmCommands } from "../utils/detect";
+import { detectPackageManager, pmCommands } from "../utils/detect";
 import { describeFatal } from "../utils/fail";
 import { exitAfterFlush, writeJson } from "../utils/output";
 import { noNextProject } from "../utils/project-root";
@@ -69,7 +70,6 @@ export function migrateCommand(cli: Command): void {
       const cwd = process.cwd();
       const pmc = pmCommands(await detectPackageManager(cwd));
       const dir = path.join(cwd, "flowpanel", "migrations");
-      const cfgPath = path.join(cwd, "flowpanel.config.ts");
       const stop: (message: string) => never = (message) => {
         if (opts.json) writeJson({ command: "migrate", applied: false, error: message });
         else ui.cancel(message);
@@ -78,9 +78,11 @@ export function migrateCommand(cli: Command): void {
 
       const notProject = await noNextProject(cwd);
       if (notProject) stop(notProject);
-      if (!(await fileExists(cfgPath))) {
+      const adminConfig = await findAdminConfig(cwd);
+      if (adminConfig === null) {
         stop(`flowpanel.config.ts not found. Run \`${pmc.dlx} @flowpanel/cli init\` first.`);
       }
+      const cfgPath = adminConfig.root;
 
       const files = (await fs.readdir(dir).catch(() => [] as string[]))
         .filter((f) => f.endsWith(".sql"))
@@ -140,7 +142,9 @@ export function migrateCommand(cli: Command): void {
         const mod = (await jiti.import(cfgPath)) as { default?: MaybeConfig } | MaybeConfig;
         config = ((mod as { default?: MaybeConfig }).default ?? mod) as MaybeConfig;
       } catch (e) {
-        stop(`Failed to load flowpanel.config.ts: ${e instanceof Error ? e.message : String(e)}`);
+        stop(
+          `Failed to load ${path.basename(cfgPath)}: ${e instanceof Error ? e.message : String(e)}`,
+        );
       }
 
       const executor = resolveMigrationExecutor(config.adapter);

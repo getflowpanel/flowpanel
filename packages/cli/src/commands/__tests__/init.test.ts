@@ -4,6 +4,7 @@ import { adminPageSource, isGeneratedAdminPage } from "../../utils/admin-page";
 import { blockingSegmentExport } from "../../utils/next-config";
 import { tpl } from "../../utils/template";
 import { guessedAuthFile, guessedPaths, initErrorPayload } from "../init";
+import { configTemplateCall, renderCall } from "../init-templates";
 
 describe("init JSON errors", () => {
   it("uses the same stable machine-readable envelope for preflight failures", () => {
@@ -54,12 +55,12 @@ describe("guessedAuthFile", () => {
 
 describe("dev-session template", () => {
   it("exports the getSession the config imports", async () => {
-    const out = await tpl("dev-session.ts.txt");
+    const out = await tpl("dev-session.ts.txt", { FILE: "src/server/lib/auth.ts" });
     expect(out).toContain("export async function getSession()");
   });
 
   it("returns a static session the config's role mapper reads as admin", async () => {
-    const out = await tpl("dev-session.ts.txt");
+    const out = await tpl("dev-session.ts.txt", { FILE: "src/server/lib/auth.ts" });
     expect(out).toContain('role: "admin"');
   });
 
@@ -89,7 +90,7 @@ describe("dev-session template", () => {
   });
 
   it("refuses to run in production instead of signing everyone in as admin", async () => {
-    const out = await tpl("dev-session.ts.txt");
+    const out = await tpl("dev-session.ts.txt", { FILE: "src/server/lib/auth.ts" });
     expect(out).toContain('process.env.NODE_ENV === "production"');
     expect(out).toMatch(/throw new Error\(/);
   });
@@ -97,12 +98,21 @@ describe("dev-session template", () => {
 
 describe("init templates (resolution)", () => {
   it("substitutes DB/SCHEMA/AUTH/APP_NAME into config template", async () => {
-    const out = await tpl("flowpanel.config.drizzle.ts.txt", {
-      DB: "@/server/db",
-      SCHEMA: "@/server/schema",
-      AUTH: "@/server/auth",
-      APP_NAME: "Acme",
-    });
+    const out = await renderCall(
+      configTemplateCall({
+        orm: "drizzle",
+        preset: false,
+        db: "@/server/db",
+        schema: "@/server/schema",
+        auth: "@/server/auth",
+        appName: "Acme",
+        adminPath: "/admin",
+        apiPath: "/api/flowpanel",
+        cli: "pnpm flowpanel",
+        provider: "postgresql",
+        session: "stub",
+      }),
+    );
     expect(out).toContain('import { db } from "@/server/db"');
     expect(out).toContain('import * as schema from "@/server/schema"');
     expect(out).toContain('import { getSession } from "@/server/auth"');
@@ -127,14 +137,20 @@ describe("init templates (resolution)", () => {
   });
 
   it("admin-page template substitutes CONFIG_IMPORT", async () => {
-    const out = await tpl("admin-page.tsx.txt", { CONFIG_IMPORT: "../../../flowpanel.config" });
+    const out = await tpl("admin-page.tsx.txt", {
+      CONFIG_IMPORT: "../../../flowpanel.config",
+      SEGMENT_CONFIG: "",
+    });
     expect(out).toContain('from "@flowpanel/kit/next"');
     expect(out).toContain('import config from "../../../flowpanel.config"');
     expect(out).toContain("export default flowpanel.page");
   });
 
   it("admin-page template exports the metadata the runtime derives from the config", async () => {
-    const out = await tpl("admin-page.tsx.txt", { CONFIG_IMPORT: "../../../flowpanel.config" });
+    const out = await tpl("admin-page.tsx.txt", {
+      CONFIG_IMPORT: "../../../flowpanel.config",
+      SEGMENT_CONFIG: "",
+    });
     expect(out).toContain("export const generateMetadata = flowpanel.metadata;");
   });
 
@@ -181,6 +197,7 @@ describe("init templates (resolution)", () => {
     const out = await tpl("app-layout.tsx.txt", {
       APP_NAME: "Acme",
       CSS_IMPORT: "@/styles/admin.css",
+      SEGMENT_CONFIG: "",
     });
     expect(out).toContain('import "@/styles/admin.css";');
     expect(out).toContain('title: "Acme — Admin"');
@@ -193,6 +210,7 @@ describe("init templates (resolution)", () => {
     const out = await tpl("app-layout.tsx.txt", {
       APP_NAME: "Acme",
       CSS_IMPORT: "@/styles/admin.css",
+      SEGMENT_CONFIG: "",
     });
     expect(out).toContain('import { headers } from "next/headers";');
     expect(out).toContain('const nonce = (await headers()).get("x-nonce");');
@@ -201,7 +219,10 @@ describe("init templates (resolution)", () => {
   });
 
   it("admin-layout renders the theme script with the host's CSP nonce", async () => {
-    const out = await tpl("admin-layout.tsx.txt", { CSS_IMPORT: "@/styles/admin.css" });
+    const out = await tpl("admin-layout.tsx.txt", {
+      CSS_IMPORT: "@/styles/admin.css",
+      SEGMENT_CONFIG: "",
+    });
     expect(out).toContain('import "@/styles/admin.css";');
     expect(out).toContain('import { ThemeScript } from "@flowpanel/kit/react";');
     expect(out).toContain('import { headers } from "next/headers";');
@@ -230,7 +251,7 @@ describe("init templates (resolution)", () => {
   });
 
   it("writes a compiler-free stylesheet import regardless of the host Tailwind version", async () => {
-    for (const template of ["admin.css.txt", "admin.css.v3.txt"]) {
+    for (const template of ["admin.css.txt"]) {
       const out = await tpl(template);
       expect(out).toContain('@import "@flowpanel/kit/styles/admin.css";');
       expect(out).not.toMatch(/^@(tailwind|source|theme)\b/m);

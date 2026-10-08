@@ -1,6 +1,7 @@
 import type { AdminDefinition, RateLimiter, RequestContext, Scope, Session } from "@flowpanel/core";
-import { checkRequireRole, createRateLimiter, FlowpanelRateLimitError } from "@flowpanel/core";
+import { createRateLimiter, FlowpanelRateLimitError } from "@flowpanel/core";
 import { actorIdFromSession } from "./action-helpers";
+import { requireAccessIfSet } from "./require-access";
 
 export interface BuildRequestCtxArgs {
   req: Request;
@@ -48,7 +49,7 @@ async function resolveRequestContext({
 }: BuildRequestCtxArgs): Promise<RequestContext> {
   const session: Session | null = await config.auth.session(req);
   const role = await config.auth.role(session);
-  checkRequireRole(config.auth.requireRole, role, session);
+  await requireAccessIfSet(config.auth.access, { session, role, scope: null });
 
   let scope: Scope = null;
   if (config.scope) {

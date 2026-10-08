@@ -10,7 +10,7 @@ vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 let tmp: string;
 
-/** Seed a minimal package.json so detectStack doesn't blow up */
+/** Seed a minimal package.json so the project reads as a Next.js app. */
 async function seedPkg(dir: string): Promise<void> {
   await fs.writeFile(
     path.join(dir, "package.json"),

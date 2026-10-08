@@ -1,8 +1,9 @@
 import { FlowpanelAccessError } from "../types/error";
+import type { ResourceScope } from "../types/resource";
 
 export interface ScopeCheckInput {
   hasGlobal: boolean;
-  resourceScope: "bypass" | ((...args: unknown[]) => unknown) | undefined;
+  resourceScope: "bypass" | ResourceScope | undefined;
 }
 
 export function assertResourceScope({ hasGlobal, resourceScope }: ScopeCheckInput): void {

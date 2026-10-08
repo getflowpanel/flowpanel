@@ -15,8 +15,9 @@ export async function runTsc(
   if (!tsc.installed || !entry) {
     return { ok: false, hint: "TypeScript is not installed with a tsc binary in this project." };
   }
+  let typegenFailure: string | null = null;
   try {
-    await ensureNextTypes(cwd);
+    typegenFailure = await ensureNextTypes(cwd);
     execFileSync(process.execPath, [path.resolve(tsc.installed.directory, entry), "--noEmit"], {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -24,6 +25,12 @@ export async function runTsc(
     return { ok: true };
   } catch (e: unknown) {
     const diagnostics = firstDiagnostics(e);
+    if (typegenFailure !== null) {
+      return {
+        ok: false,
+        hint: `next typegen failed, so tsc ran without the route types Next generates. Fix this first:\n    ${typegenFailure}${diagnostics ? `\n    tsc then reported:\n    ${diagnostics}` : ""}`,
+      };
+    }
     return {
       ok: false,
       hint: diagnostics

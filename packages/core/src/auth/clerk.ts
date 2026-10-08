@@ -1,8 +1,9 @@
-import type { AuthConfig, Session } from "@flowpanel/core";
+import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
+import { assertNoAuthRequireRole } from "../validate-removed-keys";
 
 export interface ClerkAuthOptions {
-  /** Roles allowed into the admin. Pass a single role, an array, or a custom predicate. */
-  requireRole?: string | string[] | ((s: Session | null) => boolean);
+  /** Who may enter the admin: a role, a role list, or a predicate. */
+  access?: AccessRule;
   /** URL to redirect unauthenticated users to. */
   signInUrl?: string;
   /** URL to redirect users without the required role. */
@@ -15,6 +16,7 @@ export interface ClerkAuthOptions {
 
 /** First-class Clerk integration. */
 export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
+  assertNoAuthRequireRole("withClerk", opts);
   return {
     async session(): Promise<Session | null> {
       const specifier = "@clerk/nextjs/server";
@@ -41,7 +43,7 @@ export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
         const id = (s as { id?: unknown } | null)?.id;
         return typeof id === "string" ? id : null;
       }),
-    ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
+    ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),
     ...(opts.forbiddenUrl ? { forbiddenUrl: opts.forbiddenUrl } : {}),
   };

@@ -10,6 +10,7 @@ import { RealtimeRefresh } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
 import { renderWidget } from "./render-widget";
+import { rowKeyOf } from "./row-identity";
 import { buildWidgetContext } from "./widget-context";
 
 export interface AdminWidgetContextOptions {
@@ -67,7 +68,7 @@ export function adminWidgetContext(
     preset: options.range?.preset ?? ("custom" as const),
   };
   const owner = options.resource ? config.resourcesByName.get(options.resource) : undefined;
-  const rowKey = owner?.options.rowKey ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = owner ? rowKeyOf(owner) : DEFAULT_RESOURCE_ROW_KEY;
   const ctx = buildWidgetContext(
     config,
     reqCtx,

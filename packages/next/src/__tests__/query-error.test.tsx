@@ -34,7 +34,11 @@ function adapterThatFails(on: "list" | "get", err: unknown): Adapter {
 function admin(adapter: Adapter, labels?: LabelsConfig) {
   return defineAdmin({
     adapter,
-    auth: { session: async () => null, role: () => "admin", requireRole: "admin" },
+    auth: {
+      session: async () => ({ id: "u1" }),
+      role: (session) => (session ? "admin" : "guest"),
+      access: "admin",
+    },
     ...(labels ? { labels } : {}),
     resources: [resource({ __name: "users" }, { columns: ["id", "email"] })],
   });

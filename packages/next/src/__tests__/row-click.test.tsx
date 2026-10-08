@@ -61,7 +61,7 @@ function findAll(tree: ReactNode, type: unknown, out: Record<string, unknown>[] 
 async function tableProps(options: Record<string, unknown>) {
   const config = defineAdmin({
     adapter,
-    auth: { session: async () => null, role: () => "admin", requireRole: "admin" },
+    auth: { session: async () => null, role: () => "admin", access: "admin" },
     resources: [resource({ __name: "users" }, options as never)],
   });
   const users = config.resourcesByName.get("users");
@@ -129,7 +129,7 @@ describe("what a row click does, by configuration", () => {
     };
     const config = defineAdmin({
       adapter: wild,
-      auth: { session: async () => null, role: () => "admin", requireRole: "admin" },
+      auth: { session: async () => null, role: () => "admin", access: "admin" },
       resources: [
         resource({ __name: "users" }, { columns: ["id", "email"], detail: { fields: ["email"] } }),
       ],
