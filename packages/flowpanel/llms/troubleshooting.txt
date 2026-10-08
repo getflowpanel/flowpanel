@@ -6,7 +6,7 @@ Find a FlowPanel error by symptom, fix its cause, and verify the result.
 
 Docs: https://flowpanel.tech/docs/troubleshooting
 
-Run `pnpm flowpanel doctor` first: it checks package versions, the generated routes, duplicate `@flowpanel/core` copies and the typecheck. Then find the symptom below.
+Run `pnpm flowpanel doctor` first: it checks package versions, the generated routes, duplicate `@flowpanel/kit` copies and the typecheck. Then find the symptom below.
 
 ### Setup and configuration
 
@@ -36,9 +36,9 @@ The resource's row type fell back to `Record<string, unknown>`, usually because 
 
 `publicMetadata.role` is missing from the session token, stale, or not the required role. Add it to the token, set the role, and refresh the session. See [Authentication](/docs/guides/authentication#clerk).
 
-#### “Production refuses to start without requireRole”
+#### “Production refuses to start without auth.access”
 
-A production admin needs `auth.requireRole`. Only a deliberately public admin may run without it, and it must set both `allowUnauthenticated: true` and `readOnly: true`. See [Authentication](/docs/guides/authentication#verify).
+A production admin needs `auth.access`. Only a deliberately public admin may run without it, and it must set both `allowUnauthenticated: true` and `readOnly: true`. See [Authentication](/docs/guides/authentication#verify).
 
 #### “A tenant can address another tenant's row”
 
@@ -78,10 +78,6 @@ The browser cannot reach `boardUrl`, the board token is missing, or the proxy bl
 
 ### Customization
 
-#### “Module not found: Can't resolve 'recharts'”
-
-Chart widgets render with Recharts, which your app installs: run `pnpm add recharts`. The admin's chart placeholder names the same package. See [Charts](/docs/customization/charts).
-
 #### “A computed column will not sort, filter, edit or export”
 
 A column without `field` has nothing to sort or filter on. Compute the value in a view, or keep it display-only. See [Joined or computed values](/docs/customization/column-renderers#joined-or-computed-values).
@@ -94,7 +90,7 @@ Next.js routes files before FlowPanel's catch-all. Delete or move the ejected ro
 
 #### “getRequestContext() called outside of a request scope”
 
-The call is outside a request, or two copies of `@flowpanel/core` are installed. Use `tryGetRequestContext()` where the context is optional, and align FlowPanel package versions (`pnpm list @flowpanel/core`). See [Request-scoped access](/docs/reference/contexts#request-scoped-access).
+The call is outside a request, or two copies of `@flowpanel/kit` are installed. Use `tryGetRequestContext()` where the context is optional, and align FlowPanel package versions (`pnpm list @flowpanel/kit`). See [Request-scoped access](/docs/reference/contexts#request-scoped-access).
 
 #### “Which widget is slow”
 

@@ -94,7 +94,7 @@ describe("ScrapeAI domain schema", () => {
     }
   });
 
-  it("keeps historical offers when their run is retained or protected from hard deletion", () => {
+  it("keeps historical listings when their run is retained or protected from hard deletion", () => {
     const expected = ["sandbox_id", "run_id"];
     const runForeignKey = getTableConfig(schema.listings).foreignKeys.find((candidate) => {
       const actual = candidate.reference().columns.map((column) => column.name);

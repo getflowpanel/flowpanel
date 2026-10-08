@@ -6,7 +6,7 @@ Low-level policy, result, adapter and pipeline APIs for custom runtimes and thir
 
 Docs: https://flowpanel.tech/docs/reference/runtime-contracts
 
-Lower-level `@flowpanel/core` contracts for adapter authors and custom
+Lower-level contracts from `@flowpanel/kit` for adapter authors and custom
 integrations. An app built with `defineAdmin` and `createFlowpanel` does not need
 them.
 
@@ -14,12 +14,12 @@ them.
 import {
   accessAllows,
   assertWritableInput,
-  authorizeOperation,
   bindAdapterScope,
   resolveScopeApplier,
   errorResult,
   filterReadableProjection,
   reportUnexpectedError,
+  requireAccess,
   resolveOperationAccess,
   resultResponse,
   FLOWPANEL_ERROR_STATUS,
@@ -44,7 +44,7 @@ import {
   type JsonValue,
   type ResourceAccess,
   type ResourceOperation,
-} from "@flowpanel/core";
+} from "@flowpanel/kit";
 ```
 
 ### Definitions and paths
@@ -76,8 +76,9 @@ to the four `ResourceOperation` values: `read`, `create`, `update`, `delete`.
 - `accessAllows(rule, context)` evaluates one normalized rule.
 - `resolveOperationAccess(access, operation)` returns the rule `access` sets for
   that operation, or `undefined` when it sets none.
-- `authorizeOperation(rule, context)` throws the safe access error when the
-  resolved rule rejects the request.
+- `requireAccess(rule, context)` throws the safe access error when the rule rejects
+  the request. It takes a rule, and a missing one denies; pass `true` to allow
+  everyone.
 
 `FieldAccess<Row>` adds `read`, `write` and `sensitive` policy. A
 `FieldAccessMap<Row>` maps it by field name; write predicates receive

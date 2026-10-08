@@ -57,10 +57,16 @@ const PAGE = [
 
 const MANIFESTS: Record<string, object> = {
   "packages/cli/package.json": { engines: { node: ">=20" } },
-  "packages/next/package.json": { peerDependencies: { next: "^16.0.0" } },
-  "packages/react/package.json": { peerDependencies: { react: "^19.0.0" } },
-  "packages/adapter-drizzle/package.json": { peerDependencies: { "drizzle-orm": ">=0.45.0" } },
-  "packages/adapter-prisma/package.json": { peerDependencies: { "@prisma/client": ">=5.0.0" } },
+  "packages/flowpanel/package.json": {
+    name: "@fixture/kit",
+    description: "A fixture kit",
+    peerDependencies: {
+      "@prisma/client": ">=5.0.0",
+      "drizzle-orm": ">=0.45.0",
+      next: "^16.0.0",
+      react: "^19.0.0",
+    },
+  },
 };
 
 const TYPES = [
@@ -94,10 +100,6 @@ function fixtureRoot(): string {
     mkdirSync(join(root, file, ".."), { recursive: true });
     writeFileSync(join(root, file), JSON.stringify(manifest));
   }
-  writeFileSync(
-    join(root, "packages/flowpanel/package.json"),
-    JSON.stringify({ name: "@fixture/kit", description: "A fixture kit" }),
-  );
   return root;
 }
 

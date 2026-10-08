@@ -25,10 +25,11 @@ the request being served.
 
 <AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuthConfig" />
 
-`requireRole` is the admin-wide gate. A config with no `requireRole`, no resource
-`access` and no global `scope` serves every page to anonymous visitors, and `defineAdmin` warns
+`access` is the admin-wide gate, the same `AccessRule` a resource, dashboard, page or
+queue takes. It runs before `scope` resolves, so a function rule sees `scope` as `null`.
+A config with no `auth.access`, no resource `access` and no global `scope` serves every page to anonymous visitors, and `defineAdmin` warns
 in development; `allowUnauthenticated: true` marks that as intended. In
-production, a config without `auth.requireRole` refuses to start unless it sets
+production, a config without `auth.access` refuses to start unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
 The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and

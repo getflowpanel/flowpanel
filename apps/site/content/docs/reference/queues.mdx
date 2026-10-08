@@ -20,7 +20,7 @@ export default defineAdmin({
     queue(emailQueue, {
       label: "Email",
       boardUrl: `http://localhost:3001/queue/email?token=${process.env.BOARD_TOKEN}`,
-      requireRole: "admin",
+      access: "admin",
     }),
   ],
 });
@@ -33,7 +33,7 @@ absent.
 
 <AutoTypeTable path="../../packages/core/src/types/queue.ts" name="QueueOptions" />
 
-`requireRole` is `string | string[]`; it takes no predicate.
+`access` takes the same `AccessRule` as a resource: a role, a list of roles, or a function.
 
 ## QueueConfig
 

@@ -106,4 +106,4 @@ The last argument to every `run`.
 ## Validation
 
 A `form` is validated on the server before `run`: `required`, then each field's
-`validate`. A failure returns `422` with an `issues` array.
+`validate`. A failure returns `422` with `fieldErrors`, one message per field.

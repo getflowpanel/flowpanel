@@ -4,7 +4,7 @@ description: From an empty Next.js app to a deployed admin with dashboards, a re
 kind: tutorial
 ---
 
-This tutorial builds the admin a founder opens every morning, using the domain of the [ScrapeAI example](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper): customers set up monitors, monitors produce runs, and runs find listings on marketplaces. It assumes a Next.js 16 app with a Drizzle schema and better-auth. Each step ends with what you should see.
+This tutorial builds the admin a founder opens every morning, using the domain of the [ScrapeAI example](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper): customers set up monitors, monitors produce runs, and runs find listings on marketplaces. It assumes a Next.js 16 app created by `create-next-app` with a `src/` directory, a Drizzle schema and better-auth. Imports use that app's default alias, `@/*` for `./src/*`, so `@/db/schema` is `src/db/schema.ts`. Each step ends with what you should see.
 
 ## 1. Install
 
@@ -29,14 +29,14 @@ declare module "@flowpanel/kit" {
 }
 ```
 
-When your auth module exports a better-auth instance and no `getSession`, `init` also writes `server/lib/flowpanel-session.ts` (under `src/` with a `src/` layout), which registers the session and wraps the instance in the better-auth preset:
+When your auth module exports a better-auth instance and no `getSession`, `init` also writes `src/server/lib/flowpanel-session.ts`, which registers the session and wraps the instance in the better-auth preset:
 
 ```ts excerpt
-// server/lib/flowpanel-session.ts
+// src/server/lib/flowpanel-session.ts
 import { withBetterAuth } from "@flowpanel/kit/auth";
-import { auth } from "@/src/lib/auth";
+import { auth } from "@/lib/auth";
 
-export const flowpanelAuth = withBetterAuth({ auth, requireRole: "admin" });
+export const flowpanelAuth = withBetterAuth({ auth, access: "admin" });
 export const getSession = flowpanelAuth.session;
 
 declare module "@flowpanel/kit" {
@@ -88,7 +88,7 @@ You should see Customers, Monitors and Runs in the navigation, and every run nam
 ```ts excerpt
 // src/admin/config/enums.ts
 import { enumOf } from "@flowpanel/kit";
-import { accountStatus, planTier, runStatus } from "@/src/db/schema";
+import { accountStatus, planTier, runStatus } from "@/db/schema";
 
 export const RunStatus = enumOf(runStatus.enumValues, {
   queued: ["Queued", "muted"],
@@ -190,12 +190,11 @@ You should see three numbers in one band, each with its change and a link to its
 
 ## 6. One SQL statement, several widgets
 
-Charts need the optional Recharts peer: `pnpm add recharts`. Write the statement once and let FlowPanel bucket and rank it:
+Write the statement once and let FlowPanel bucket and rank it:
 
 ```ts excerpt
 // src/admin/config/dashboards/marketplaces.ts
-import { bars, breakdown, dashboard, series, type WidgetContext } from "@flowpanel/kit";
-import { lineChart } from "@flowpanel/kit/charts";
+import { bars, breakdown, dashboard, lineChart, series, type WidgetContext } from "@flowpanel/kit";
 import { Site } from "../enums";
 
 const listingsFound = (c: WidgetContext) =>
@@ -374,7 +373,7 @@ export function CrawlQueue({ waiting, failed }: { waiting: number; failed: numbe
 // src/admin/config/dashboards/overview.ts
 import { custom } from "@flowpanel/kit";
 import { CrawlQueue } from "../../ui/CrawlQueue";
-import { queueCounts } from "@/src/server/lib/queue";
+import { queueCounts } from "@/server/lib/queue";
 
 const crawlQueue = custom(CrawlQueue, (c) => c.query(queueCounts), {
   label: "Crawl queue",
@@ -407,7 +406,7 @@ Pass it to `defineAdmin` as `realtime`. Then publish from the worker:
 ```ts excerpt
 // worker/admin-events.ts
 import { createPublisher } from "@flowpanel/kit/publish";
-import { realtime } from "@/src/shared/realtime";
+import { realtime } from "@/shared/realtime";
 
 export const adminEvents = createPublisher(realtime);
 
@@ -429,7 +428,7 @@ You should see the runs list and the crawl queue card update during a crawl, wit
 ## 11. Test the admin
 
 ```bash
-pnpm add -D @flowpanel/test @playwright/test
+pnpm add -D @playwright/test @axe-core/playwright
 ```
 
 `smokeAdmin` navigates with `page.goto(paths.admin)`, so Playwright needs a `baseURL` and a `webServer`:
@@ -450,7 +449,7 @@ better-auth issues a signed session through its sign-in endpoint, so sign in fir
 ```ts excerpt
 // e2e/admin.spec.ts
 import { test } from "@playwright/test";
-import { smokeAdmin } from "@flowpanel/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
 
 test("the admin is healthy", async ({ page }) => {
   await page.goto("/login");

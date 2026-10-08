@@ -1,20 +1,21 @@
 [
   {
-    "name": "flowpanel/react (UI bundle)",
+    "name": "@flowpanel/kit/react (UI bundle)",
     "path": "dist/react.js",
     "import": "{ AdminShell, DataTable, AutoForm, Form }",
     "limit": "79 KB"
   },
   {
-    "name": "flowpanel/client (hooks)",
+    "name": "@flowpanel/kit/client (hooks)",
     "path": "dist/client.js",
     "import": "{ useAdminMutation }",
     "limit": "25 KB"
   },
   {
-    "name": "flowpanel/charts (lazy runtime shim; recharts is a peer)",
-    "path": "dist/charts-runtime.js",
-    "import": "{ AreaChart, BarChart, PieChart }",
-    "limit": "10 KB"
+    "name": "@flowpanel/kit/charts (own code; Recharts not counted)",
+    "path": "dist/charts.js",
+    "import": "{ AreaChart, BarChart, LineChart, PieChart }",
+    "limit": "8 KB",
+    "ignore": ["recharts"]
   }
 ]

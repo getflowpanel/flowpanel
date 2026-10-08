@@ -11,15 +11,15 @@ const ITEMS: ReadonlyArray<{ title: string; body: string }> = [
   },
   {
     title: "Access control",
-    body: "Uses the Clerk, Better Auth, Auth.js or Lucia session your app already has. Roles and tenant scope are checked on the server for every request.",
+    body: "Uses the Clerk, Better Auth or Auth.js session your app already has. Roles and tenant scope are checked on the server for every request.",
   },
   {
     title: "Queues and realtime",
     body: "BullMQ queue pages. Lists and widgets update over server-sent events.",
   },
   {
-    title: "Runs in your app",
-    body: "The admin is a route in your Next.js app. FlowPanel never receives your database credentials or rows.",
+    title: "A smoke test",
+    body: "One Playwright call opens every dashboard and list, the record pages of the first rows and their tabs, and fails on an error card, a console error or a failed request.",
   },
   {
     title: "Custom code",

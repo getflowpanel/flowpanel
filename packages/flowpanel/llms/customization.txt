@@ -173,7 +173,7 @@ export function Pipeline({ stages, runsHref, updated }: PipelineProps) {
 ### Test it
 
 ```ts excerpt
-import { resolveWidget, widgetContext } from "@flowpanel/test/widgets";
+import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
 import { expect, it } from "vitest";
 import { pipelineWidget } from "@/admin/config/dashboards/system";
 
@@ -192,16 +192,12 @@ Add server-queried chart widgets or render FlowPanel chart components from clien
 
 Docs: https://flowpanel.tech/docs/customization/charts
 
-Line, area, bar and pie charts render with Recharts, an optional peer. Dashboard builders come from `@flowpanel/kit/charts`; React components for client data from `@flowpanel/kit/charts/runtime`.
-
-```bash
-pnpm add recharts
-```
+Recharts draws the line, area, bar and pie charts and installs with the kit. The chart builders come from `@flowpanel/kit` with the other widgets; the React components for client data come from `@flowpanel/kit/charts`.
 
 ### A dashboard chart
 
 ```ts excerpt
-import { lineChart } from "@flowpanel/kit/charts";
+import { lineChart } from "@flowpanel/kit";
 
 lineChart("Signups", async ({ db, dateRange }) => {
   return findDailySignups(db, dateRange);
@@ -221,14 +217,14 @@ Without `y`, a chart widget plots every numeric key of its rows except `x`; that
 ```tsx excerpt
 "use client";
 
-import { LineChart } from "@flowpanel/kit/charts/runtime";
+import { LineChart } from "@flowpanel/kit/charts";
 
 export function Preview({ data }: { data: Array<{ day: string; count: number }> }) {
   return <LineChart data={data} options={{ x: "day", y: "count" }} />;
 }
 ```
 
-The client components in `@flowpanel/kit/charts/runtime` do not infer series: pass `y` (one key or a list).
+The client components in `@flowpanel/kit/charts` do not infer series: pass `y` (one key or a list).
 
 Every option: [Charts reference](/docs/reference/widgets#charts).
 
@@ -319,7 +315,9 @@ A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as 
 @source "../admin";
 ```
 
-The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`.
+The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`. An app that already imports all of Tailwind keeps `@import "tailwindcss";` first and adds the two FlowPanel imports after it.
+
+FlowPanel renders its root, `[data-flowpanel-root]`, around the admin pages, and the `fp-*` utilities apply only inside it. Keep your app's header, layout and other pages outside that root, styled with your own classes; [`examples/ai-scraper`](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) wraps the admin in its own header that way. Inside the root, a class FlowPanel uses itself keeps FlowPanel's definition, so a variant of it from your build does not apply next to it: in a custom widget, `grid-cols-2 sm:grid-cols-4` stays at two columns. Write the base value as an arbitrary value, such as `grid-cols-[repeat(2,minmax(0,1fr))] sm:grid-cols-4`.
 
 `toneTextClass` and `toneFillClass` map each `Tone` to the classes the built-in cards use. Import them from `@flowpanel/kit` in a server component and from `@flowpanel/kit/react` in a client one.
 
@@ -365,6 +363,8 @@ export default defineAdmin({
 | `Pagination` | `import("react").ComponentType<PaginationProps>` |
 | `SkeletonTable` | `import("react").ComponentType<SkeletonTableProps>` |
 | `StatusBadge` | `import("react").ComponentType<StatusBadgeProps>` |
+
+`EmptyState` also replaces an empty list, on a phone too, and receives the list's `empty.icon` as `icon`. `SkeletonTable` replaces a loading list and receives its `rows` and `columns`.
 
 `FlowpanelComponentSlots` can be augmented with your own keys for custom widgets; FlowPanel's own UI reads only the keys above.
 

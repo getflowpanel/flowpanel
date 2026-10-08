@@ -75,7 +75,8 @@ const facadeRules: Array<[string, RegExp]> = [
   ["packages/flowpanel/src/index.ts", /from\s+["']@flowpanel\/(?!core["'])/],
   ["packages/flowpanel/src/client.ts", /from\s+["']@flowpanel\/(?!client["'])/],
   ["packages/flowpanel/src/react.ts", /from\s+["']@flowpanel\/(?!react["'])/],
-  ["packages/flowpanel/src/next-client.ts", /from\s+["']@flowpanel\/(?!next\/client["'])/],
+  ["packages/flowpanel/src/next.ts", /from\s+["']@flowpanel\/(?!next["'])/],
+  ["packages/flowpanel/src/charts.ts", /from\s+["']@flowpanel\/(?!charts["'])/],
 ];
 for (const [file, forbidden] of facadeRules) {
   const src = readFileSync(file, "utf-8");

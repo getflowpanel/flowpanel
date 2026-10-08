@@ -17,7 +17,7 @@ test("dashboard renders metric cards", async ({ page }) => {
 
 test("overview is built from the widget primitives its config declares", async ({ page }) => {
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: "Where the offers come from" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Where the listings come from" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Account health" })).toBeVisible();
   for (const label of ["Top marketplaces", "Matching pipeline", "Failing crawls", "AI spend"]) {
     await expect(page.getByText(label, { exact: true })).toBeVisible();

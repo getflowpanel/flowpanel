@@ -1,21 +1,9 @@
 {
   "name": "@flowpanel/adapter-prisma",
   "version": "0.3.0",
+  "private": true,
   "description": "Prisma ORM adapter for FlowPanel",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "adapter",
-    "prisma",
-    "orm"
-  ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/adapter-prisma"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -29,8 +17,6 @@
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only",
-    "lint:publish": "publint --strict",
     "pretest:unit": "prisma generate --schema=prisma/schema.prisma",
     "test:types": "tsd",
     "test:unit": "vitest run",
@@ -63,10 +49,6 @@
       "optional": true
     }
   },
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "dependencies": {
     "@flowpanel/core": "workspace:*"
   },

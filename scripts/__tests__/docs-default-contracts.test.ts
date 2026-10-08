@@ -54,7 +54,7 @@ describe("documented defaults", () => {
       .join("\n");
 
     expect(nextSource.match(/DEFAULT_RESOURCE_PAGE_SIZE/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
-    expect(nextSource.match(/DEFAULT_RESOURCE_ROW_KEY/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(nextSource.match(/rowKeyOf\(/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
     expect(chartSource.match(/\?\? DEFAULT_CHART_HEIGHT/g)?.length ?? 0).toBe(4);
   });
 });

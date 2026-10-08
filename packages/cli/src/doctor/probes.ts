@@ -7,7 +7,7 @@ import { findAdminConfig } from "../scaffold/config-target";
 import { detectAppDir, fileExists } from "../utils/detect";
 import { inspectDependency } from "../utils/project-packages";
 
-export { countCoreInstances } from "./installed-core";
+export { countKitInstances } from "./installed-kit";
 
 export async function checkEjectMarker(
   cwd: string,

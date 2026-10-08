@@ -52,7 +52,7 @@ query.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `hasGlobal` | `boolean` |  |
-| `resourceScope` | `"bypass" \| ((...args: unknown[]) => unknown) \| undefined` |  |
+| `resourceScope` | `"bypass" \| ResourceScope \| undefined` |  |
 
 FlowPanel runs this check per request; call it only in your own adapter or route.
 

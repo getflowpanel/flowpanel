@@ -2,7 +2,7 @@
   "name": "with-clerk",
   "private": true,
   "version": "0.0.3",
-  "description": "FlowPanel + Clerk auth integration — minimal showcase of withClerk({ requireRole: 'admin' })",
+  "description": "FlowPanel + Clerk auth integration — minimal showcase of withClerk({ access: 'admin' })",
   "scripts": {
     "build": "next build --webpack",
     "db:push": "drizzle-kit push",
@@ -15,10 +15,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.11",
-    "@flowpanel/adapter-drizzle": "workspace:*",
-    "@flowpanel/core": "workspace:*",
     "@flowpanel/kit": "workspace:*",
-    "@flowpanel/react": "workspace:*",
     "drizzle-orm": "catalog:",
     "next": "catalog:",
     "pg": "catalog:",

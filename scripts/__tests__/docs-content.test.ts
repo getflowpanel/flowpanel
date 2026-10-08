@@ -44,4 +44,33 @@ describe("documentation content checks", () => {
       ]),
     );
   });
+
+  it("accepts a page that another group lists by relative path", () => {
+    const root = mkdtempSync(join(tmpdir(), "flowpanel-docs-borrowed-"));
+    fixtures.push(root);
+    const docs = join(root, "apps/site/content/docs");
+    mkdirSync(join(docs, "intro"), { recursive: true });
+    mkdirSync(join(docs, "guides"), { recursive: true });
+    writeFileSync(
+      join(docs, "meta.json"),
+      JSON.stringify({ title: "Docs", pages: ["intro", "guides"] }),
+    );
+    writeFileSync(
+      join(docs, "intro/meta.json"),
+      JSON.stringify({ title: "Intro", pages: ["start", "../guides/upgrade"] }),
+    );
+    writeFileSync(join(docs, "guides/meta.json"), JSON.stringify({ title: "Guides", pages: [] }));
+    writeFileSync(
+      join(docs, "intro/start.mdx"),
+      "---\ntitle: Start\ndescription: Start here.\nkind: tutorial\n---\n",
+    );
+    writeFileSync(
+      join(docs, "guides/upgrade.mdx"),
+      "---\ntitle: Upgrade\ndescription: Upgrade.\nkind: how-to\n---\n",
+    );
+
+    const codes = checkContent(root).map((problem) => problem.code);
+
+    expect(codes).not.toContain("navigation-missing");
+  });
 });

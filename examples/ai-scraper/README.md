@@ -1,8 +1,11 @@
 # ScrapeAI
 
-ScrapeAI is a fictional price-intelligence SaaS. Its customers set up marketplace monitors, the runs find competing offers, and uncertain matches go to human review. This is its admin, built with FlowPanel, and the source of the live demo. Next.js, Drizzle and PostgreSQL.
+ScrapeAI is a fictional price-intelligence SaaS. Its customers set up marketplace monitors, the runs find competing listings, and uncertain matches go to human review. This is its admin, built with FlowPanel, and the source of the live demo. Next.js, Drizzle and PostgreSQL.
 
-![ScrapeAI overview in FlowPanel: monitor, offer, crawl and review figures, a live throughput chart, market activity and recent runs](./public/scrapeai-overview-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./public/scrapeai-overview-dark.png">
+  <img alt="ScrapeAI overview in FlowPanel: monitor, listing, crawl and review figures, two of them compared with the previous week, a live crawl-rate chart and market activity" src="./public/scrapeai-overview-light.png">
+</picture>
 
 ## Run locally
 
@@ -21,13 +24,13 @@ Open [http://localhost:3000](http://localhost:3000) and choose **Open admin**. T
 
 ## Screens
 
-- **Overview**: monitors, offers, crawl success, review backlog, live throughput and recent runs, each linking to its rows.
-- **Customers**: search, filters, inline edit, import and export, related monitors, products and invoices.
+- **Overview**: monitors, listings found and crawl success against the previous week, the review backlog, live crawl rate and recent runs. Each number links to the rows it counts.
+- **Customers**: search, filters, inline edit, import and export. Each customer has a record page with counts, account facts and related monitors, products and invoices.
 - **Monitors**: typed forms, schedule and status filters, bulk pause and resume.
 - **Runs**: crawl history with throughput, duration, retries and AI usage.
-- **Offers**: full-text search, numeric filters, export, and each offer's AI match.
+- **Listings**: full-text search, marketplace, stock and date filters, export, and each listing's AI match.
 - **Products**: grouped forms, customer references, field-level roles.
-- **Review**: ambiguous matches, lowest confidence first, with Confirm and Reject.
+- **Matches**: ambiguous matches, lowest confidence first, with Confirm and Reject.
 
 ## Where the code is
 
@@ -35,10 +38,12 @@ Open [http://localhost:3000](http://localhost:3000) and choose **Open admin**. T
 | --- | --- |
 | Admin config, auth, security, theme | `src/admin/config/index.ts` |
 | Resources | `src/admin/config/resources/` |
+| Enum labels and tones, declared once | `src/admin/config/enums.ts` |
+| Customer record page | `src/admin/config/resources/customer-card.ts` |
 | Overview dashboard | `src/admin/config/dashboards/overview.ts` |
 | Dashboard queries | `src/admin/overview-queries.ts` |
 | Live operations widget | `src/admin/LiveOperations.tsx` |
-| Widget and header tests | `src/admin/__tests__/`, `src/admin/config/resources/__tests__/` |
+| Widget and header tests | `src/admin/__tests__/` |
 | Drizzle schema | `src/db/schema.ts` |
 | Demo data, personas, realtime feed and sandboxes | `src/demo/` |
 
@@ -46,7 +51,7 @@ Open [http://localhost:3000](http://localhost:3000) and choose **Open admin**. T
 
 ## Seed and reset
 
-`db:seed` creates the `local` sandbox: 48 customers, 36 monitors, 60 products, 252 runs and 240 offers, 26 of them awaiting review. Reset it with `pnpm --filter ai-scraper demo:reset -- --sandbox local`; remove expired browser sandboxes with `pnpm --filter ai-scraper demo:cleanup -- --force`.
+`db:seed` creates the `local` sandbox: 48 customers, 36 monitors, 60 products, 252 runs and 240 listings, 26 of them awaiting review. Reset it with `pnpm --filter ai-scraper demo:reset -- --sandbox local`; remove expired browser sandboxes with `pnpm --filter ai-scraper demo:cleanup -- --force`.
 
 ## Public demo
 

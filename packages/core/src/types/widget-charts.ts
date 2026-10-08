@@ -7,7 +7,7 @@ import type { Link, WidgetContext } from "./widget-context";
 /** How the x-axis prints a date key. */
 export type ChartBucket = "minute" | "hour" | "day" | "week" | "month" | "year" | "auto";
 
-/** Charts are defined in @flowpanel/charts but their config lives in core. */
+/** Options every chart widget takes. */
 export interface ChartOptionsBase<R = unknown> extends CaptionOptions {
   /** Row key plotted on the x-axis. */
   x: RowKey<R>;

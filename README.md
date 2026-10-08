@@ -2,7 +2,12 @@
 
 FlowPanel adds a typed admin panel to an existing Next.js app, built from your Drizzle or Prisma schema and a small config. It runs inside your app, with your database client and your auth.
 
-[![ScrapeAI overview in FlowPanel: key figures, a live throughput chart, market activity and recent runs](examples/ai-scraper/public/scrapeai-overview-dark.png)](examples/ai-scraper)
+<a href="examples/ai-scraper">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="examples/ai-scraper/public/scrapeai-overview-dark.png">
+    <img alt="ScrapeAI overview in FlowPanel: four key figures, two of them compared with the previous week, a live crawl-rate chart and market activity" src="examples/ai-scraper/public/scrapeai-overview-light.png">
+  </picture>
+</a>
 
 ## Install
 
@@ -36,12 +41,22 @@ import * as schema from "@/server/lib/db/schema";
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  auth: withBetterAuth({ auth, requireRole: "admin" }),
+  auth: withBetterAuth({ auth, access: "admin" }),
   resources: [resource(schema.users, { columns: ["email", "name", "createdAt"], search: ["email"] })],
 });
 ```
 
 Open [http://localhost:3000/admin](http://localhost:3000/admin).
+
+## Packages
+
+| Package | What it is |
+| --- | --- |
+| [`@flowpanel/kit`](packages/flowpanel) | Everything that runs in your app: config builders, the Drizzle, Prisma and BullMQ adapters, the Next.js runtime, the UI, charts and test helpers, under subpaths |
+| [`@flowpanel/cli`](packages/cli) | `init`, `new`, `doctor`, `migrate`, `dev` and `eject` |
+| [`@flowpanel/eslint-plugin`](packages/eslint-plugin) | Optional lint rules for admin configs |
+
+FlowPanel is pre-1.0: a minor release may change the API, and each one comes with an [upgrade guide](https://flowpanel.tech/docs/guides/upgrade).
 
 ## Links
 

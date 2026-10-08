@@ -16,7 +16,7 @@ metric("Open orders", openOrders, { realtime: { resource: "orders" } });
 custom(Pipeline, pipelineProps, { realtime: "pipeline" });
 ```
 
-Generated creates, updates and deletes publish on their resource automatically. An action publishes when it returns `refresh: true` (its resource) or channels (`refresh: "pipeline"` or a list). In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/server`.
+Generated creates, updates and deletes publish on their resource automatically. An action publishes when it returns `refresh: true` (its resource) or channels (`refresh: "pipeline"` or a list). In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/next`.
 
 ## Choose the driver
 
@@ -76,7 +76,7 @@ A Redis error never fails the job: the call resolves and the error goes to `onEr
 
 ## Production
 
-- The stream route checks `auth.requireRole` itself. If middleware protects the admin (Clerk, a proxy), include the stream path.
+- The stream route checks `auth.access` itself. If middleware protects the admin (Clerk, a proxy), include the stream path.
 - Turn off reverse-proxy buffering for the stream path.
 - Set proxy and load-balancer idle timeouts above 15 s, the stream heartbeat.
 - Allow enough long-lived connections for your operators.

@@ -52,17 +52,18 @@ the request being served.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `session` | `(req: Request) => Promise<Session \| null>` | Reads the current session. Called on every request and page render, handed the request being served. Lets a provider inspect headers, cookies or the host without forging one. |
-| `role` | `(session: Session \| null) => string \| Promise<string>` | Maps a session to a role string, which every `requireRole` gate compares against. |
-| `requireRole?` | `string \| string[] \| ((s: Session \| null) => boolean)` | Admin-wide gate. Blocks every route and page before anything else runs. |
+| `role` | `(session: Session \| null) => string \| Promise<string>` | Maps a session to a role string, which every role-name `access` rule compares against. |
+| `access?` | `AccessRule` | Who may enter the admin at all. Checked on every route and page before anything else runs, so a predicate sees `scope` as `null`. |
 | `signInUrl?` | `string` | Where to send an unauthenticated visitor. Without it they get an inline notice. |
 | `forbiddenUrl?` | `string` | Where to send a signed-in visitor who lacks the role. |
 | `userId?` | `(session: Session \| null) => string \| null` | Extracts the actor id for audit rows and per-user rate limiting. |
-| `allowUnauthenticated?` | `boolean` | Declares this admin reachable without a role gate — fronted by a VPN or authenticating proxy instead. Production refuses to start without `requireRole` unless this is `true` AND the admin is `readOnly`. |
+| `allowUnauthenticated?` | `boolean` | Declares this admin reachable without a role gate — fronted by a VPN or authenticating proxy instead. Production refuses to start without `access` unless this is `true` AND the admin is `readOnly`. |
 
-`requireRole` is the admin-wide gate. A config with no `requireRole`, no resource
-`access` and no global `scope` serves every page to anonymous visitors, and `defineAdmin` warns
+`access` is the admin-wide gate, the same `AccessRule` a resource, dashboard, page or
+queue takes. It runs before `scope` resolves, so a function rule sees `scope` as `null`.
+A config with no `auth.access`, no resource `access` and no global `scope` serves every page to anonymous visitors, and `defineAdmin` warns
 in development; `allowUnauthenticated: true` marks that as intended. In
-production, a config without `auth.requireRole` refuses to start unless it sets
+production, a config without `auth.access` refuses to start unless it sets
 both `allowUnauthenticated: true` and `readOnly: true`.
 
 The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and

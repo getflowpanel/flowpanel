@@ -20,7 +20,7 @@ export const overview = dashboard({
     {
       variant: "strip",
       widgets: [
-        metric("Sign-ups", { count: "users", range: "createdAt" }, { compare: true }),
+        metric("New customers", { count: "customers", range: "createdAt" }, { compare: true }),
         metric("Failed runs", { count: "runs", where: { status: "failed" }, range: "startedAt" }, {
           compare: true,
           goodWhen: "down",
@@ -40,37 +40,35 @@ A section sets `columns` and widgets set `span` on a 12-column grid. `variant: "
 Write one SQL statement per screen area that returns plain rows for the picked range. Share it with `ctx.query(fn)` so it runs once, and fold it per widget: `series()` for a chart over time, `breakdown()` for ranked bars.
 
 ```ts excerpt
-import { barChart } from "@flowpanel/kit/charts";
-import { bars, breakdown, enumOf, series, type WidgetContext } from "@flowpanel/kit";
+import { barChart, bars, breakdown, enumOf, series, type WidgetContext } from "@flowpanel/kit";
 
-type HourRow = { at: Date; platform: string; runs: number; failed: number; orders: number };
+type HourRow = { at: Date; site: string; runs: number; failed: number; listings: number };
 
-const Platform = enumOf(["upwork", "fiverr", "freelancer"], {
-  upwork: "Upwork",
-  fiverr: "Fiverr",
-  freelancer: "Freelancer",
+const Site = enumOf(["amazon", "ebay", "walmart"], {
+  amazon: "Amazon",
+  ebay: "eBay",
+  walmart: "Walmart",
 });
-const PLATFORMS = Platform.values;
 
 const hourly = (c: WidgetContext) => c.sql<HourRow>`
-  select hour as at, platform, runs_total as runs, runs_failed as failed, orders_new as orders
-  from scraper_hourly_stats where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
+  select hour as at, site, runs_total as runs, runs_failed as failed, listings_found as listings
+  from crawl_hourly_stats where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
 
-const byPlatform = bars({
-  label: "New orders by marketplace",
+const bySite = bars({
+  label: "Listings by marketplace",
   share: true,
   compare: true,
-  query: async (c) => breakdown(await c.query(hourly), { by: "platform", value: "orders", keys: PLATFORMS, labels: Platform }),
+  query: async (c) => breakdown(await c.query(hourly), { by: "site", value: "listings", keys: Site.values, labels: Site }),
 });
 
 const byDay = barChart(
-  "New orders by day",
-  async (c) => series(await c.query(hourly), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
-  { x: "date", labels: Platform, stacked: true },
+  "Listings by day",
+  async (c) => series(await c.query(hourly), c.dateRange, { at: "at", by: "site", value: "listings", grain: "day" }),
+  { x: "date", labels: Site, stacked: true },
 );
 ```
 
-Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL; `series` buckets in the admin's zone and fills gaps. `keys` keeps a platform with no orders in the comparison. Above about 50,000 rows, group by hour in SQL first. `ctx.sql` applies no scope or access rules: add tenant predicates yourself.
+Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL; `series` buckets in the admin's zone and fills gaps. `keys` keeps a marketplace with no listings in the comparison. Above about 50,000 rows, group by hour in SQL first. `ctx.sql` applies no scope or access rules: add tenant predicates yourself.
 
 ## Thresholds
 
@@ -87,9 +85,7 @@ export const SUCCESS: Threshold = { warn: 0.9, err: 0.8 };
 
 ## Status and priorities
 
-`tracker()` shows one row per key and one block per hour for the last 24 hours, coloured by a threshold. `banner()` lists problems by severity and says "all clear" when there are none:
-
-`value` takes a column name or a fold over the bucket's rows, such as an error rate:
+`tracker()` shows one row per key and one block per hour for the last 24 hours, coloured by a threshold. Its `value` takes a column name or a fold over the bucket's rows, such as an error rate. `banner()` lists problems by severity and says "all clear" when there are none.
 
 ```ts excerpt
 const errorRate = (rows: HourRow[]) => {
@@ -97,7 +93,7 @@ const errorRate = (rows: HourRow[]) => {
   return runs === 0 ? null : rows.reduce((sum, row) => sum + row.failed, 0) / runs;
 };
 
-tracker({ label: "Marketplaces · 24 h", query: hourly, at: "at", by: "platform", labels: Platform, value: errorRate, volume: "runs", tones: RUN_ERRORS, format: "percent", span: 12 });
+tracker({ label: "Marketplaces · 24 h", query: hourly, at: "at", by: "site", labels: Site, value: errorRate, volume: "runs", tones: RUN_ERRORS, format: "percent", span: 12 });
 
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
 ```
@@ -109,14 +105,14 @@ A dashboard filter adds a select beside the date picker; widgets read it as `ctx
 ```ts excerpt
 import type { DashboardFilter } from "@flowpanel/kit";
 
-const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
+const marketplace: DashboardFilter = { key: "site", label: "Marketplace", options: Site };
 ```
 
-Pass `filters: [byPlatform]` to the dashboard, bind `ctx.filters.platform` in the shared statement, and set `filterOnClick: "platform"` on the widgets.
+Pass `filters: [marketplace]` to the dashboard, bind `ctx.filters.site` in the shared statement, and set `filterOnClick: "site"` on the widgets.
 
 ## Links, freshness and refresh
 
-- `drilldown: { resource: "ai_run", view: "Errors", range: "createdAt" }` links a number to its rows; see [Links](/docs/reference/widgets#links).
+- `drilldown: { resource: "runs", view: "Failed", range: "startedAt" }` links a number to its rows; see [Links](/docs/reference/widgets#links).
 - `maxRange`, `freshness` and `coverage` add a caption saying how old or complete the numbers are; see [Captions](/docs/reference/widgets#captions).
 - `refresh: "60s"` re-renders the page on an interval while the tab is visible. `realtime` on a widget re-runs only that widget on an event.
 - Dashboard `actions` appear in the page header.

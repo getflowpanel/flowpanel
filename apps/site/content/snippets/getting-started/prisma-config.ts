@@ -18,7 +18,7 @@ export default defineAdmin({
   auth: {
     session: getSession,
     role: (s) => s?.user.role ?? "guest",
-    requireRole: "admin",
+    access: "admin",
   },
   resources: [
     resource("User", {

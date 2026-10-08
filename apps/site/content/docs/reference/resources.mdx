@@ -16,7 +16,7 @@ import { resource } from "@flowpanel/kit";
 import { orders } from "@/db/schema";
 
 export const ordersResource = resource(orders, {
-  label: "Order",
+  labelOne: "Order",
   plural: "Orders",
   icon: "shopping-cart",
   columns: ["id", "customerEmail", { field: "total", format: "money" }, "status"],
@@ -30,6 +30,11 @@ export const ordersResource = resource(orders, {
 ## ResourceOptions
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceOptions" />
+
+`label` names both one row and the list, so it suits a word that reads the same
+either way. Set `labelOne` and `plural` when they differ: a resource with only
+`label: "Order"` titles its list "Order" too. Without any of the three, the
+resource name is humanized and made singular for one row.
 
 An empty list shows `empty.title`, `description`, `icon` and `action`. When search
 or filters leave no rows it shows `empty.filtered` (or `empty.searched` during a
@@ -274,9 +279,11 @@ itself and a missing one as `—`; `badge()` returns `null` for a missing value;
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
 `form`. `required` marks the control required and the server rejects a missing
-value. `readOnly` and `requireRole` apply to rendering and to writes; a function
+value. `readOnly` and the resource's `fieldAccess` apply to rendering and to writes; a function
 `readOnly` is called with the stored row, so it guards edits. `hidden` only removes
-the control.
+the control. `defaultValue` fills a key a create leaves empty and pre-fills a visible
+control; the resource's `create.defaultValues` fills keys on the server only and wins
+when both name the same key.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FieldDef" />
 

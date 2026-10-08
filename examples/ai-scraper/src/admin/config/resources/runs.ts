@@ -1,14 +1,12 @@
 import { resource } from "@flowpanel/kit";
-import { badge, formatDuration } from "@/src/admin/format";
+import { formatDuration } from "@/src/admin/format";
 import { retryFailedRun } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
+import { RunStatus } from "../enums";
 
 export const runs = resource(schema.runs, {
   ...sandboxResourcePolicy(schema.runs.sandboxId),
-  name: "runs",
-  label: "Runs",
-  labelOne: "Run",
   icon: "refresh",
   columns: [
     {
@@ -16,9 +14,9 @@ export const runs = resource(schema.runs, {
       label: "Monitor",
       reference: { resource: "monitors", labelField: "name" },
     },
-    { field: "status", format: badge },
+    { field: "status", format: RunStatus.format },
     { field: "pagesCrawled", label: "Pages", align: "right" },
-    { field: "itemsExtracted", label: "Offers", align: "right" },
+    { field: "itemsExtracted", label: "Items", align: "right" },
     {
       field: "durationMs",
       label: "Duration",
@@ -28,16 +26,7 @@ export const runs = resource(schema.runs, {
     { field: "startedAt", label: "Started" },
   ],
   filters: [
-    {
-      field: "status",
-      type: "multiselect",
-      options: [
-        { label: "Queued", value: "queued" },
-        { label: "Running", value: "running" },
-        { label: "Success", value: "success" },
-        { label: "Failed", value: "failed" },
-      ],
-    },
+    { field: "status", type: "multiselect" },
     { field: "startedAt", type: "daterange" },
   ],
   defaultSort: { field: "startedAt", dir: "desc" },
@@ -80,7 +69,7 @@ export const runs = resource(schema.runs, {
       },
       {
         key: "listings",
-        label: "Offers",
+        label: "Listings",
         resource: "listings",
         filter: (row) => ({ runId: row.id }),
       },

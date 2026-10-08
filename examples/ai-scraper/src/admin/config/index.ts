@@ -10,25 +10,17 @@ import { overview } from "./dashboards/overview";
 import { aiUsage } from "./resources/ai-usage";
 import { customers } from "./resources/customers";
 import { invoices } from "./resources/invoices";
+import { listings } from "./resources/listings";
+import { matches } from "./resources/matches";
 import { monitors } from "./resources/monitors";
-import { offers } from "./resources/offers";
 import { products } from "./resources/products";
-import { review } from "./resources/review";
 import { runs } from "./resources/runs";
 
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
-  }
-  interface FlowpanelResources {
-    customers: typeof schema.customers.$inferSelect;
-    monitors: typeof schema.monitors.$inferSelect;
-    runs: typeof schema.runs.$inferSelect;
-    products: typeof schema.products.$inferSelect;
-    listings: typeof schema.listings.$inferSelect;
-    matches: typeof schema.matches.$inferSelect;
-    invoices: typeof schema.invoices.$inferSelect;
-    ai_usage: typeof schema.aiUsage.$inferSelect;
+    schema: typeof schema;
+    session: AdminSession;
   }
 }
 
@@ -37,7 +29,7 @@ const sandboxConfig = readSandboxConfig();
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
   readOnly: sandboxConfig.readOnly,
-  scope: ({ session }) => ({ sandboxId: requireSandboxId(session as AdminSession | null) }),
+  scope: ({ session }) => ({ sandboxId: requireSandboxId(session) }),
   realtime: { driver: "memory" },
   audit: {
     enabled: true,
@@ -50,23 +42,16 @@ export default defineAdmin({
   rateLimit: { driver: "memory", limit: 240, windowMs: 60_000, per: "ip", enabled: true },
   auth: {
     session: (req) => getDemoSession(req),
-    role: (s) => (s as AdminSession | null)?.role ?? "guest",
-    userId: (s) => (s as AdminSession | null)?.user.id ?? null,
-    requireRole: ["admin", "support"],
+    role: (s) => s?.role ?? "guest",
+    userId: (s) => s?.user.id ?? null,
+    access: ["admin", "support"],
   },
   shell: { mode: "tabs", brand: false, skipLink: false },
   theme: {
-    user: (s) => {
-      const session = s as AdminSession | null;
-      if (!session) return undefined;
-      return {
-        name: session.user.name,
-        email: session.email,
-        items: [{ label: `Role: ${session.role}` }],
-      };
-    },
+    user: (s) =>
+      s ? { name: s.user.name, email: s.email, items: [{ label: `Role: ${s.role}` }] } : undefined,
   },
-  resources: [customers, monitors, runs, offers, products, review, invoices, aiUsage],
+  resources: [customers, monitors, runs, listings, products, matches, invoices, aiUsage],
   queues,
   dashboards: [overview],
 });

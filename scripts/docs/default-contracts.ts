@@ -31,9 +31,9 @@ export const DEFAULT_DOC_CONTRACTS = [
   {
     typeName: "ResourceOptions",
     member: "rowKey",
-    value: '"id"',
-    consumerFile: "packages/next/src/runtime/defaults.ts",
-    consumerExpression: 'export const DEFAULT_RESOURCE_ROW_KEY = "id";',
+    value: 'the table\'s primary key, else `"id"`',
+    consumerFile: "packages/core/src/compiler/compile-admin.ts",
+    consumerExpression: 'const rowKey = introspection?.primaryKey || "id";',
   },
   {
     typeName: "BulkAction",

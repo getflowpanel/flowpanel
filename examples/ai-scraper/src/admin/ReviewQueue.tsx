@@ -7,10 +7,11 @@ export interface ReviewOutcome {
 
 export interface ReviewQueueProps {
   pending: number;
+  href: string;
   outcomes: ReviewOutcome[];
 }
 
-export function ReviewQueue({ pending, outcomes }: ReviewQueueProps) {
+export function ReviewQueue({ pending, href, outcomes }: ReviewQueueProps) {
   return (
     <section
       aria-labelledby="review-queue-title"
@@ -54,7 +55,7 @@ export function ReviewQueue({ pending, outcomes }: ReviewQueueProps) {
       </div>
 
       <a
-        href="/admin/matches"
+        href={href}
         className="mx-3 mt-3 mb-3 rounded-fp px-3 py-2.5 text-sm font-medium text-fp-accent transition-colors hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
       >
         Open review queue

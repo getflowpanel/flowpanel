@@ -86,7 +86,9 @@ A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as 
 @source "../admin";
 ```
 
-The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`.
+The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`. An app that already imports all of Tailwind keeps `@import "tailwindcss";` first and adds the two FlowPanel imports after it.
+
+FlowPanel renders its root, `[data-flowpanel-root]`, around the admin pages, and the `fp-*` utilities apply only inside it. Keep your app's header, layout and other pages outside that root, styled with your own classes; [`examples/ai-scraper`](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) wraps the admin in its own header that way. Inside the root, a class FlowPanel uses itself keeps FlowPanel's definition, so a variant of it from your build does not apply next to it: in a custom widget, `grid-cols-2 sm:grid-cols-4` stays at two columns. Write the base value as an arbitrary value, such as `grid-cols-[repeat(2,minmax(0,1fr))] sm:grid-cols-4`.
 
 `toneTextClass` and `toneFillClass` map each `Tone` to the classes the built-in cards use. Import them from `@flowpanel/kit` in a server component and from `@flowpanel/kit/react` in a client one.
 
@@ -121,6 +123,8 @@ export default defineAdmin({
 `theme.components` is typed by `FlowpanelComponentSlots`. A slot component must be a client component (`"use client"`). Keep the slot's full prop contract: forward refs, pass accessibility attributes through, and keep `variant`, `size`, `asChild` and `disabled` working. Wrapping the default renderer, as above, keeps all of them. Import each prop type from `@flowpanel/kit/react`.
 
 <ThemeSlots />
+
+`EmptyState` also replaces an empty list, on a phone too, and receives the list's `empty.icon` as `icon`. `SkeletonTable` replaces a loading list and receives its `rows` and `columns`.
 
 `FlowpanelComponentSlots` can be augmented with your own keys for custom widgets; FlowPanel's own UI reads only the keys above.
 

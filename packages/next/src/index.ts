@@ -1,3 +1,4 @@
+export { emitAudit } from "@flowpanel/core/internal";
 export {
   bulkActionRoute,
   type SerializedBulkAction,

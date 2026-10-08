@@ -85,6 +85,35 @@ for (const file of publicTextFiles) {
 }
 
 const kit = JSON.parse(read("packages/flowpanel/package.json"));
+const PUBLISHED = ["@flowpanel/cli", "@flowpanel/eslint-plugin", "@flowpanel/kit"];
+const published = manifestFiles
+  .filter((file) => file.startsWith("packages/"))
+  .map((file) => JSON.parse(read(file)))
+  .filter((manifest) => !manifest.private)
+  .map((manifest) => manifest.name)
+  .sort();
+if (published.join() !== PUBLISHED.join()) {
+  problems.push(
+    `packages: publishes ${published.join(", ")}; expected only ${PUBLISHED.join(", ")}`,
+  );
+}
+for (const field of ["dependencies", "peerDependencies", "optionalDependencies"]) {
+  for (const name of Object.keys(kit[field] ?? {})) {
+    if (name.startsWith("@flowpanel/")) {
+      problems.push(
+        `packages/flowpanel/package.json: ${field} names ${name}, which ships inside the kit`,
+      );
+    }
+  }
+}
+for (const file of manifestFiles.filter((path) => /^(?:apps|examples)\//.test(path))) {
+  const manifest = JSON.parse(read(file));
+  for (const name of Object.keys({ ...manifest.dependencies, ...manifest.devDependencies })) {
+    if (name.startsWith("@flowpanel/") && !PUBLISHED.includes(name)) {
+      problems.push(`${file}: depends on ${name}, which ships inside @flowpanel/kit`);
+    }
+  }
+}
 const nextFloor = /(\d+\.\d+)/.exec(kit.peerDependencies.next)?.[1];
 for (const file of [...publicTextFiles, "apps/site/src/views/landing/ui/GetStarted.tsx"]) {
   for (const match of read(file).matchAll(/Next\.js (\d+(?:\.\d+)?)\+/g)) {
@@ -170,7 +199,7 @@ if (!existsSync(coreDist)) {
       )
     ) {
       problems.push(
-        `packages/core/dist/${file}: declares its own Session or FlowpanelTypes, which a host's registration cannot reach; import them from "@flowpanel/core"`,
+        `packages/core/dist/${file}: declares its own Session or FlowpanelTypes, which a host's registration cannot reach; import them from the core root`,
       );
     }
   }

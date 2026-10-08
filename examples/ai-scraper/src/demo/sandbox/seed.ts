@@ -5,7 +5,7 @@ import { generateDemoData } from "../data/generate";
 import { SANDBOX_ABSOLUTE_MS, SANDBOX_INACTIVITY_MS } from "./config";
 import { SeedMappingError, seedRows } from "./seed-rows";
 
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 type Db = NodePgDatabase<typeof schema>;
 type Transaction = Parameters<Parameters<Db["transaction"]>[0]>[0];

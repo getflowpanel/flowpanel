@@ -9,15 +9,9 @@ The Prisma adapter reads model metadata from DMMF and runs queries through your 
 
 ## Prisma 7
 
-Prisma 7 is the current `latest` on npm, and FlowPanel 0.4 does not support it yet. Its generated client no longer carries the field metadata in `Prisma.dmmf` (ids, nullability, defaults) that the adapter reads to build columns and forms.
+Prisma 7's generated client no longer carries the field metadata in `Prisma.dmmf` (ids, nullability, defaults) that the adapter reads to build columns and forms.
 
-On Prisma 7, `init` and `doctor` stop with:
-
-```txt
-@prisma/client is unsupported. Found 7.10.0. Required >=5.0.0 <7.0.0.
-```
-
-and a hand-written config fails when the admin loads, with `prismaAdapter: Prisma.dmmf has no field metadata`.
+On Prisma 7, `init` and `doctor` stop with `@prisma/client is unsupported`, followed by the version they found and the supported range, `>=5.0.0 <7.0.0`. A hand-written config fails when the admin loads, with `prismaAdapter: Prisma.dmmf has no field metadata`.
 
 Stay on Prisma 6, keep the `prisma-client-js` generator in `schema.prisma`, and generate the client again:
 

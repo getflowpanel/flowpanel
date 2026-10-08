@@ -16,13 +16,13 @@ declare module "@flowpanel/kit" {
 }
 
 /**
- * `withClerk({ requireRole: "admin" })` is the only auth wiring needed:
+ * `withClerk({ access: "admin" })` is the only auth wiring needed:
  * `clerkMiddleware()` in `proxy.ts` populates `auth()`, and `withClerk` reads
  * `sessionClaims.publicMetadata.role`.
  */
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  auth: withClerk({ requireRole: "admin" }),
+  auth: withClerk({ access: "admin" }),
   resources: [
     resource(schema.users, {
       label: "Users",

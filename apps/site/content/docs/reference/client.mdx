@@ -4,7 +4,7 @@ description: Call the protected FlowPanel HTTP API from custom React UI, then ad
 kind: reference
 ---
 
-`@flowpanel/client` calls the admin's HTTP API from custom browser UI. Calls go
+`@flowpanel/kit/client` calls the admin's HTTP API from custom browser UI. Calls go
 through the same auth, access, scope, validation and audit as generated pages.
 
 ```ts excerpt
@@ -18,10 +18,8 @@ import {
   type FlowpanelFetchOptions,
   type FlowpanelListOptions,
   type FlowpanelResourceClient,
-} from "@flowpanel/client";
+} from "@flowpanel/kit/client";
 ```
-
-With `@flowpanel/kit`, import from `@flowpanel/kit/client`.
 
 ## Create a client
 

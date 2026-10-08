@@ -19,10 +19,17 @@ describe("the founder overview", () => {
     const headline = overview.sections[0]?.widgets ?? [];
     expect(headline.map((widget) => (widget.kind === "metric" ? widget.label : null))).toEqual([
       "Active monitors",
-      "Offers discovered",
+      "Listings found",
       "Crawl success",
       "Needs review",
     ]);
+  });
+
+  it("compares the period-bound headline numbers with the period before", () => {
+    const compared = (overview.sections[0]?.widgets ?? []).flatMap((widget) =>
+      widget.kind === "metric" && widget.options.compare ? [widget.label] : [],
+    );
+    expect(compared).toEqual(["Listings found", "Crawl success"]);
   });
 
   it("links the recent-runs table to a row's page and to the full list", () => {
@@ -33,7 +40,7 @@ describe("the founder overview", () => {
     expect(table.options.resource).toBe("runs");
   });
 
-  it("keeps the realtime operations surface as the one custom widget", () => {
+  it("keeps the live operations panel and the review queue as the only custom widgets", () => {
     expect(kinds.filter((kind) => kind === "custom")).toHaveLength(2);
   });
 });

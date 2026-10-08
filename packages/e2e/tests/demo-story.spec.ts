@@ -4,12 +4,7 @@ test("canonical demo exposes one coherent seven-screen journey", async ({ page }
   await page.goto("/admin");
   const nav = page.getByRole("navigation", { name: "Admin" });
 
-  await expect(
-    page.getByText(
-      "Monitor customer catalogs, marketplace coverage, crawl health, and AI-assisted matching.",
-    ),
-  ).toBeVisible();
-  for (const label of ["Active monitors", "Offers discovered", "Crawl success", "Needs review"]) {
+  for (const label of ["Active monitors", "Listings found", "Crawl success", "Needs review"]) {
     await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
   }
   for (const removed of [
@@ -26,18 +21,18 @@ test("canonical demo exposes one coherent seven-screen journey", async ({ page }
     "Customers",
     "Monitors",
     "Runs",
-    "Offers",
+    "Listings",
     "Products",
-    "Review",
+    "Matches",
   ]);
 
   for (const [href, heading] of [
     ["/admin/customers", "Customers"],
     ["/admin/monitors", "Monitors"],
     ["/admin/runs", "Runs"],
-    ["/admin/listings", "Offers"],
+    ["/admin/listings", "Listings"],
     ["/admin/products", "Products"],
-    ["/admin/matches", "Review"],
+    ["/admin/matches", "Matches"],
   ] as const) {
     await page.goto(href);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(heading);
@@ -57,8 +52,8 @@ test("command palette mirrors primary navigation without hidden datasets", async
   await page.keyboard.press("Meta+K");
 
   await expect(page.getByPlaceholder("Search resources, actions…")).toBeVisible();
-  await expect(page.getByRole("option", { name: "Offers", exact: true })).toHaveCount(1);
-  for (const label of ["Open offers", "Open invoices", "Open AI usage"]) {
+  await expect(page.getByRole("option", { name: "Listings", exact: true })).toHaveCount(1);
+  for (const label of ["Open listings", "Open invoices", "Open AI usage"]) {
     await expect(page.getByRole("option", { name: label, exact: true })).toHaveCount(0);
   }
 });

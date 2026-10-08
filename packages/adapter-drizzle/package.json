@@ -1,22 +1,9 @@
 {
   "name": "@flowpanel/adapter-drizzle",
   "version": "0.3.0",
+  "private": true,
   "description": "Drizzle ORM adapter for FlowPanel",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "adapter",
-    "drizzle",
-    "drizzle-orm",
-    "orm"
-  ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/adapter-drizzle"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -30,8 +17,6 @@
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only",
-    "lint:publish": "publint --strict",
     "test:types": "tsd",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -64,10 +49,6 @@
     "drizzle-orm": ">=0.45.2 <1.0.0",
     "zod": "^4.0.0"
   },
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "dependencies": {
     "@flowpanel/core": "workspace:*",
     "drizzle-zod": "^0.8.3"

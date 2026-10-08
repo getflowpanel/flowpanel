@@ -46,7 +46,7 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 | `notFoundMetadata` | The not-found page's metadata, "Page not found" and `noindex`: `export const metadata = flowpanel.notFoundMetadata;` in `not-found.tsx` titles the server's HTML, not only the page after it loads. |
 | `handlers` | `FlowpanelHandlers` for REST and generated-UI routes. |
 | `request()` | Current request's protected `FlowpanelRequest`. |
-| `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/client`. |
+| `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/kit/client`. |
 | `events.publish(channel, payload?)` | Namespaced, validated realtime event. |
 | `dispose()` | Stops this runtime's `events.publish`. Idempotent. The process-wide publisher stays open for other runtimes. |
 
@@ -153,7 +153,7 @@ All paths are relative to `/api/flowpanel`.
 
 Each runs, in order: the same-origin check for writes, the admin role gate and
 rate limit, read-only mode for writes, the resource gate and its `access`, a
-dashboard's `requireRole`, and the action's `access`.
+dashboard's `access`, and the action's `access`.
 
 ## stream
 
@@ -182,15 +182,16 @@ export const GET = stream(config);
 
 ### What the stream checks
 
-Like every route, the stream is gated by `auth.requireRole`; without it, it is
+Like every route, the stream is gated by `auth.access`; without it, it is
 open ([AuthConfig](/docs/reference/define-config#authconfig)). A failed role check
 answers `403`. Per connection:
 
 | Limit | Value | Behavior when exceeded |
 | --- | --- | --- |
 | Channels per connection | 25 | Extra `?channel=` values are dropped, not rejected |
-| Channel name charset | `/^[A-Za-z0-9_.:-]{1,128}$/` | Non-matching names are silently ignored |
-| Per-resource role gate | `resource.<name>` channels | Dropped when the resource's `access.read` rejects the caller |
+| Channel name charset | `/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/` | Non-matching names are silently ignored |
+| Per-resource role gate | `resource.<name>` channels | Dropped when the resource is not registered or its `access.read` rejects the caller |
+| Tenant scope | `resource.<name>` of a resource with `scope` | Each event carries only its `action`, never a row id or row data |
 | Heartbeat | 15s (`heartbeatMs`) | A `: keep-alive` comment keeps proxies from closing the response |
 
 A channel that never receives events was probably dropped by one of the first
@@ -221,10 +222,20 @@ In an action, use `ctx.publish`. `handlers`, `Flowpanel` and `stream` call
 `bindPublisher` for you; call it in your own route handlers. A worker uses
 [`@flowpanel/kit/publish`](/docs/guides/realtime#publish-from-a-worker).
 
-`@flowpanel/kit/server` re-exports `publish`, `publishResource` and
-`bindPublisher`, plus `emitAudit`, `requireRole` and the request-context
-accessors, without the rest of the Next.js runtime. Publishing before
-`bindPublisher` runs uses an in-memory publisher and warns once.
+`publish`, `publishResource`, `bindPublisher` and `emitAudit` come from
+`@flowpanel/kit/next`; `requireAccess` and the request-context accessors from
+`@flowpanel/kit`. Publishing before `bindPublisher` runs uses an in-memory
+publisher and warns once.
+
+`requireAccess(rule, ctx)` throws `FlowpanelAccessError` when an `AccessRule`
+rejects the context, and a missing rule denies, so a server action can reuse the
+admin's rules:
+
+```ts excerpt
+import { getRequestContext, requireAccess } from "@flowpanel/kit";
+
+await requireAccess(["admin", "support"], getRequestContext());
+```
 
 ## Route handlers
 
@@ -301,7 +312,7 @@ Pass `reqCtx` to reuse a request context you already built.
 
 ## buildRequestContext
 
-Builds the `RequestContext`. It enforces `auth.requireRole` and the rate limit, so
+Builds the `RequestContext`. It enforces `auth.access` and the rate limit, so
 it throws `FlowpanelAccessError` or `FlowpanelRateLimitError`:
 
 ```ts excerpt
@@ -328,7 +339,7 @@ A widget context for this admin, without a request or tenant scope, for tests.
 <ApiSignature path="../../packages/next/src/runtime/resolve-widget.ts" name="resolveWidget" />
 
 Runs a widget as a dashboard does and returns its `kind` and props. Most tests use
-these through `@flowpanel/test/widgets`; see [Testing](/docs/reference/testing#unit-test-a-widget).
+these through `@flowpanel/kit/test/widgets`; see [Testing](/docs/reference/testing#unit-test-a-widget).
 
 ## Navigation
 
@@ -338,5 +349,5 @@ function resourceNavName(resource: ResourceConfig): string;
 ```
 
 `buildNav` resolves to the sidebar entries, for your own chrome around a `"bare"`
-shell. Pass `reqCtx` to apply each entry's `requireRole` or resource `access`. `resourceNavName` returns
+shell. Pass `reqCtx` to apply each entry's `access`, or a resource's `access.read`. `resourceNavName` returns
 a resource's resolved name and throws if it cannot.

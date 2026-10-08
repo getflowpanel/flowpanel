@@ -1,16 +1,15 @@
-import { type FieldDef, type InferRow, resource } from "@flowpanel/kit";
+import { type FieldDef, type RowOf, resource } from "@flowpanel/kit";
 import { asc, eq } from "drizzle-orm";
 import { money } from "@/src/admin/format";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
-import type { AdminSession } from "@/src/demo/auth/session";
 import { PRODUCT_STORIES } from "@/src/demo/data/scenarios";
 import { requireSandboxId, sandboxField, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
 
 const CATEGORIES = [...new Set(PRODUCT_STORIES.map((product) => product.category))].sort();
 const sandboxPolicy = sandboxResourcePolicy(schema.products.sandboxId);
 
-const fields: FieldDef<InferRow<typeof schema.products>>[] = [
+const fields: FieldDef<RowOf<"products">>[] = [
   {
     name: "sku",
     label: "SKU",
@@ -35,10 +34,9 @@ const fields: FieldDef<InferRow<typeof schema.products>>[] = [
   },
   {
     name: "ourPriceCents",
-    label: "Our price (cents)",
+    label: "Our price",
     type: "number",
-    help: "Integer cents.",
-    requireRole: "admin",
+    help: "In cents: 39999 is $399.99.",
     span: 6,
     group: "Pricing & ownership",
   },
@@ -54,9 +52,6 @@ const fields: FieldDef<InferRow<typeof schema.products>>[] = [
 
 export const products = resource(schema.products, {
   ...sandboxPolicy,
-  name: "products",
-  label: "Products",
-  labelOne: "Product",
   icon: "package",
   columns: [
     { field: "sku", label: "SKU" },
@@ -81,7 +76,7 @@ export const products = resource(schema.products, {
           await db
             .select({ id: schema.customers.id, company: schema.customers.company })
             .from(schema.customers)
-            .where(eq(schema.customers.sandboxId, requireSandboxId(ctx.session as AdminSession)))
+            .where(eq(schema.customers.sandboxId, requireSandboxId(ctx.session)))
             .orderBy(asc(schema.customers.company))
         ).map((customer) => ({
           label: customer.company ?? `Customer #${customer.id}`,
@@ -93,9 +88,9 @@ export const products = resource(schema.products, {
   defaultSort: { field: "createdAt", dir: "desc" },
   fieldAccess: {
     ...sandboxPolicy.fieldAccess,
-    ourPriceCents: { read: "admin" },
+    ourPriceCents: { read: "admin", write: "admin" },
   },
-  create: { fields: [...fields, sandboxField<InferRow<typeof schema.products>>()] },
+  create: { fields: [...fields, sandboxField<RowOf<"products">>()] },
   update: { fields },
   delete: {
     confirm: "Permanently delete selected products and their matches? This cannot be undone.",

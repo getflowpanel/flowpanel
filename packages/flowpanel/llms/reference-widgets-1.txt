@@ -14,8 +14,7 @@ On a record page or in a drawer, `ctx.row` is the record. A drawer renders
 [static cards](/docs/reference/drawer#drawertabwidgets).
 
 ```ts excerpt
-import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
-import { areaChart } from "@flowpanel/kit/charts";
+import { areaChart, dashboard, metric, statGroup, table } from "@flowpanel/kit";
 
 export const overview = dashboard({
   path: "/",

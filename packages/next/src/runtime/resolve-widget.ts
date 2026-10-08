@@ -129,7 +129,7 @@ export async function resolveWidget(
   if (!bound) {
     throw new Error(
       "flowpanel: resolveWidget needs a context from adminWidgetContext(), or from widgetContext() " +
-        "in @flowpanel/test/widgets; a hand-built context carries no admin to render against.",
+        "in @flowpanel/kit/test/widgets; a hand-built context carries no admin to render against.",
     );
   }
   const node = await renderWidget(widget, ctx, bound.config, bound.reqCtx);
