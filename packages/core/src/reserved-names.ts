@@ -1,7 +1,14 @@
 import { FlowpanelConfigError } from "./types/config-error";
 
 /** First URL segments the admin's own routing claims before it ever looks at a resource or queue name. */
-export const RESERVED_ROUTE_SEGMENTS: readonly string[] = ["dashboards", "drawer", "queues"];
+export const RESERVED_ROUTE_SEGMENTS: readonly string[] = [
+  "audit-log",
+  "dashboards",
+  "drawer",
+  "export",
+  "palette",
+  "queues",
+];
 
 const LIST = RESERVED_ROUTE_SEGMENTS.map((s) => `"${s}"`).join(", ");
 

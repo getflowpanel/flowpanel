@@ -6,7 +6,7 @@ What FlowPanel needs from a database layer, method by method.
 
 Docs: https://flowpanel.tech/docs/reference/adapters
 
-Documented types: Adapter, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions, toCsv, toJson
+Documented types: Adapter, AuditLogStore, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions, toCsv, toJson
 
 The adapter is the only part of FlowPanel that queries your database. Implement
 this interface for a data layer without a shipped adapter. Overview:
@@ -36,6 +36,7 @@ Shipped adapters: [`drizzleAdapter`](/docs/introduction/drizzle) and
 | `count?` | `(ref: Ref, where?: Record<string, unknown>) => Promise<number>` | Counts matching rows without reading them; `where` is the same filter shape `list` receives. Without it, FlowPanel counts through `list` with an empty projection instead. |
 | `applyMigration?` | `(id: string, sql: string) => Promise<void>` | Optional migration support, used by `flowpanel migrate`. A concurrent-safe implementation must serialize and recheck `id` at the database boundary. |
 | `listAppliedMigrations?` | `() => Promise<Set<string>>` |  |
+| `auditLog?` | `AuditLogStore` | The `flowpanel_audit_log` table that `flowpanel migrate` creates. Without it, `audit` needs a `sink`. |
 
 `Ref` is what `resource(ref, …)` accepts; `DB` is the client widgets receive as `ctx.db`.
 `kind` is a label (`"drizzle"`, `"prisma"` or your own); nothing branches on it.
@@ -53,6 +54,24 @@ DDL implicitly, Drizzle holds a `GET_LOCK` advisory lock and Prisma a claim row 
 stop until you repair the schema and delete that row. Both reject procedural
 scripts (trigger bodies, stored procedures, `DELIMITER`) unless the body uses
 PostgreSQL dollar quoting.
+
+### Audit log
+
+`auditLog` is the `flowpanel_audit_log` table that `0001_init.sql` creates. The
+admin appends each [audit event](/docs/guides/audit-log) to it and reads the record
+History tabs and the Audit log page from it. The shipped adapters bind every value
+through the same client `flowpanel migrate` uses. `list` returns events newest
+first; with `scope` set, only those whose stored tenant key equals `scope.key`.
+`append` writes one row per id in `targetIds`. Without `auditLog`, an admin with
+`audit` on needs a `sink`.
+
+`AuditLogStore`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `append` | `(event: AuditEvent) => Promise<void>` |  |
+| `list` | `(query: AuditLogQuery) => Promise<AuditLogPage>` |  |
+| `facets` | `(query: Pick<AuditLogQuery, "scope" \| "visible" \| "from">) => Promise<AuditLogFacets>` | Who acted and what ran among the events `query` selects, newest actors first. |
 
 ### Raw SQL
 
@@ -94,6 +113,7 @@ Returned by `introspect`. `kind: "view"` makes a resource read-only unless it se
 | `name` | `string` | Table name, used as the resource's default `name`. |
 | `columns` | `ColumnMeta[]` |  |
 | `primaryKey` | `string` |  |
+| `keyColumns?` | `readonly string[]` | Every column of a composite primary key, in order, when the adapter can see them. |
 | `kind?` | `"table" \| "view"` | What the ref is. A view has no write path of its own; see `ResourceOptions.writeTo`. Default: `"table"`. |
 
 ### ColumnMeta
@@ -107,6 +127,7 @@ Returned by `introspect`. `kind: "view"` makes a resource read-only unless it se
 | `nullable` | `boolean` |  |
 | `unique` | `boolean` |  |
 | `primaryKey` | `boolean` |  |
+| `integer?` | `boolean` | A `number` column that holds whole numbers only, such as `integer` or `bigint`; `false` for decimals and floats. |
 | `enumValues?` | `readonly string[]` | Allowed values, for `enum` columns. |
 | `references?` | `{ table: string; column: string }` | Foreign key target, when the column references another table. |
 | `maxLength?` | `number` |  |
@@ -169,6 +190,16 @@ column rather than remove the row.
 `prismaAdapter` needs `provider`, a `PrismaProvider`: `"postgresql"`, `"mysql"` or
 `"sqlite"`. An adapter may also implement `transaction(run)`; both built-in
 adapters do, and the built-in bulk delete uses it so a failure deletes nothing.
+On better-sqlite3 the Drizzle adapter's transaction is `BEGIN IMMEDIATE` and
+`COMMIT` on the shared connection: it is isolated from other transactions, but a
+plain query another request runs on that connection while the transaction awaits
+joins it, and rolls back with it.
+
+`list` receives `tiebreak` when a read needs a stable order across pages, as the
+export does: the key columns to order by after `sort`. They come from
+`introspect().keyColumns` for a composite key (a Drizzle table-level
+`primaryKey()` or a Prisma `@@id`), else the primary key when it is a real column;
+a resource whose key the adapter cannot see gets none, and its export is unordered.
 
 `bullmqAdapter` takes the queue map itself, with no options object:
 `bullmqAdapter({ email: emailQueue })`.

@@ -6,7 +6,7 @@ const PORT = new URL(BASE_URL).port || "3100";
 
 export default defineConfig({
   testDir: "./tests",
-  testIgnore: "demo-readonly.spec.ts",
+  testIgnore: ["demo-readonly.spec.ts", "ru-locale.spec.mts"],
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   workers: 1,

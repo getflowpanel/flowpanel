@@ -1,6 +1,6 @@
 "use client";
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
-import { Check } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 import * as React from "react";
 import { cn } from "../lib/cn";
 import { named } from "../lib/named";
@@ -18,11 +18,18 @@ export const Checkbox = /* @__PURE__ */ named(
       )}
       {...props}
     >
-      <span className="fp-flex fp-h-4 fp-w-4 fp-shrink-0 fp-items-center fp-justify-center fp-rounded-[0.25rem] fp-border fp-border-line-strong fp-bg-surface fp-text-on-accent fp-shadow-xs fp-transition-colors group-hover:fp-border-faint group-data-[state=checked]:fp-border-accent group-data-[state=checked]:fp-bg-accent">
+      <span className="fp-flex fp-h-4 fp-w-4 fp-shrink-0 fp-items-center fp-justify-center fp-rounded-[0.25rem] fp-border fp-border-line-strong fp-bg-surface fp-text-on-accent fp-shadow-xs fp-transition-colors group-hover:fp-border-faint group-data-[state=checked]:fp-border-accent group-data-[state=checked]:fp-bg-accent group-data-[state=indeterminate]:fp-border-accent group-data-[state=indeterminate]:fp-bg-accent">
         <CheckboxPrimitive.Indicator
           className={cn("fp-flex fp-items-center fp-justify-center fp-text-current")}
         >
-          <Check className="fp-h-3 fp-w-3" strokeWidth={3} />
+          <Check
+            className="fp-h-3 fp-w-3 group-data-[state=indeterminate]:fp-hidden"
+            strokeWidth={3}
+          />
+          <Minus
+            className="fp-hidden fp-h-3 fp-w-3 group-data-[state=indeterminate]:fp-block"
+            strokeWidth={3}
+          />
         </CheckboxPrimitive.Indicator>
       </span>
     </CheckboxPrimitive.Root>

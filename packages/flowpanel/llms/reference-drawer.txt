@@ -51,7 +51,7 @@ resource(orders, {
 | `subtitle?` | `(row: Row) => string` | The line under the title. Defaults to the resource's label. |
 | `fields?` | `DrawerFieldList<Row>` | Fields shown when no `tabs` are declared. `"*"` shows every column. |
 | `tabs?` | `DrawerTab<Row>[]` | Tabs to render instead of a flat field list. |
-| `actions?` | `DrawerAction<Row>[]` | Buttons rendered in the panel footer. |
+| `actions?` | `DrawerAction<Row>[]` | The row's own actions, in the header menu of the drawer and the record page. |
 
 `DrawerWidth` is `"sm" | "md" | "lg" | "xl" | "2xl" | "full"`, defaulting to
 `"lg"`.
@@ -140,9 +140,14 @@ sparkline, and a table has no row links.
 
 ### Actions
 
-Buttons in the footer, with the same guards as every action; see
+The drawer's header holds the record's Edit button and one menu with the
+resource's row actions, these drawer actions and Delete, the same menu the
+record page shows. Each runs with the same guards as every action; see
 [DrawerAction](/docs/reference/actions#draweraction). An action the operator cannot
-run is left out. `palette: true` also lists it in ⌘K.
+run, or whose `when` rejects the open row, is left out, and a deleted row offers
+only Restore. `placement: "inline"` keeps an action as a button beside Edit, for
+the one a reviewer clicks on every row. `palette: true` also lists a drawer
+action in ⌘K.
 
 `DrawerAction`
 
@@ -151,6 +156,7 @@ run is left out. `palette: true` also lists it in ⌘K.
 | `key` | `string` | Stable identifier, used in the action's URL. |
 | `label` | `string` |  |
 | `variant?` | `"default" \| "destructive"` | `"destructive"` styles the button as dangerous. |
+| `placement?` | `"inline" \| "menu"` | `"inline"`: a button beside Edit instead of an entry in the record's menu. Default: `"menu"`. |
 | `confirm?` | `string` | Ask for confirmation with this message before running. |
 | `form?` | `DrawerFieldFormSpec[]` | Inputs collected before `run`, passed to it as `formData`. |
 | `palette?` | `boolean` | Also offer the action in the command palette. |
@@ -179,6 +185,9 @@ What `GET /api/flowpanel/drawer/<resource>/<id>` returns.
 | `labels` | `Record<string, string>` | Field → column label, so drawer rows read like their table headers. |
 | `formats` | `Record<string, ColumnFormat>` | Field → column `format`. Plain data, rendered client-side exactly as the table does. |
 | `detailHref` | `string \| null` | The record's own page, when the resource configures `detail`. |
+| `deleted` | `boolean` | Soft-deleted, shown only to a caller who could restore it. |
+| `deletedTitle?` | `string` | The notice over a deleted row: "This customer was deleted". |
+| `restorable` | `boolean` | A deleted row whose resource takes updates, so Restore can bring it back. |
 
 ### What crosses to the client
 

@@ -238,7 +238,7 @@ describe("dashboardActionRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toBe("validation failed");
-    expect(body.fieldErrors).toEqual({ queue: "queue is required" });
+    expect(body.fieldErrors).toEqual({ queue: "Queue is required" });
     expect(run).not.toHaveBeenCalled();
   });
 

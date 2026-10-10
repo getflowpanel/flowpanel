@@ -1,11 +1,26 @@
 export { bindFormat } from "../bind-format";
 export { isBuiltinBulkDelete } from "../compiler/builtin-bulk-delete";
-export { emitAudit } from "../runtime/audit";
+export { emitAudit, isAuditActive } from "../runtime/audit";
+export {
+  AUDIT_COUNT_CAP,
+  type AuditSqlDialect,
+  type AuditSqlExecutor,
+  type AuditSqlStatement,
+  auditScopeKey,
+  sqlAuditLog,
+} from "../runtime/audit-sql";
 export { clientIpFrom } from "../runtime/client-ip";
 export { didYouMean } from "../suggest";
 export { type ChecklistRow, checklistRows, isDone } from "./checklist-rows";
 export { assertCountWhereColumns } from "./count-where";
 export { csvField } from "./csv-field";
+export { parseCsvRows } from "./csv-rows";
+export {
+  DASHBOARD_ACTION_PREFIX,
+  DASHBOARD_AUDIT_RESOURCE,
+  dashboardActionAudit,
+  dashboardActionKey,
+} from "./dashboard-audit";
 export { clockIn, dayKeyIn, dayStartIn, shiftDayKey, weekdayOf } from "./day-key";
 export { encodeFilters, encodeFilterValue } from "./filter-encoding";
 export { filterShapeProblem } from "./filter-shape";

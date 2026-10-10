@@ -22,7 +22,8 @@ export default defineAdmin({
   queues: [
     queue(emailQueue, {
       label: "Email",
-      boardUrl: `http://localhost:3001/queue/email?token=${process.env.BOARD_TOKEN}`,
+      boardUrl: "http://localhost:3001/queue/email",
+      boardSecret: process.env.BOARD_SECRET,
       access: "admin",
     }),
   ],
@@ -31,6 +32,38 @@ export default defineAdmin({
 
 `ref` is typed `unknown`; FlowPanel reads only its `.name`, when `options.key` is
 absent.
+
+With `boardSecret`, each render of the queue page adds
+`?fp_board=link.<key>.<expires>.<signature>` to `boardUrl`: an HMAC-SHA256 of the
+queue key and an expiry one minute ahead, keyed by the secret. `startBoardServer`
+with the same `auth.secret` checks the signature, the expiry and that the key names
+one of its queues, then adds that queue to a signed session cookie. Each queue in
+the session expires an hour after its own latest link, so opening one queue page
+never keeps another alive. The board shows, and acts on, only the queues in the
+session, so a user who may open one queue page cannot reach another queue on the
+same board; Redis-wide statistics and the metrics of other queues answer `404` to
+a session. The
+secret never reaches the browser. A copied link works for its minute, for its one
+queue. The queue key must be the BullMQ queue's name or its key in the board's
+`queues`. `boardUrl` may be relative when the board sits behind the admin's own
+proxy.
+
+### startBoardServer
+
+`startBoardServer(options)` from `@flowpanel/kit/bullmq/board` starts the board on
+its own port and returns the Node `Server`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `queues` | required | The BullMQ queues to show, keyed by name |
+| `auth.secret` | required | Checks signed links; also accepted as `Authorization: Bearer <secret>` from a reverse proxy, which reaches every queue. A list accepts each secret and signs sessions with the first, so a secret can rotate |
+| `port` | `3001` | Port to listen on |
+| `bindHost` | `127.0.0.1` | Interface to bind |
+| `basePath` | `/` | Path the board is mounted at, and the cookie's path |
+| `trustedProxies` | `0` | Proxies in front that set `X-Forwarded-Proto`; with one, the session cookie is `Secure` behind TLS termination |
+
+A request without a valid link, cookie or bearer gets `401`. `auth.token` and
+`?token=` links are gone: `startBoardServer` throws when given `auth.token`.
 
 ### QueueOptions
 
@@ -42,7 +75,8 @@ absent.
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
 | `hidden?` | `boolean` | Keep the queue route registered but omit it from primary navigation. |
 | `navGroup?` | `NavGroupRef` | Sidebar group for this queue. Default: the Queues group. |
-| `boardUrl` | `string` | Full URL (e.g., http://localhost:3001/scraper) to the bull-board UI. |
+| `boardUrl` | `string` | Full URL (e.g., http://localhost:3001/queue/email) to the bull-board UI. |
+| `boardSecret?` | `string` | The board server's `auth.secret`. The page then adds a link signed for this queue that expires in a minute, so the secret itself never reaches the browser. |
 | `key?` | `string` | Optional explicit key; defaults to queue.name. |
 | `access?` | `AccessRule` | Who may see and open this queue page. |
 
@@ -69,7 +103,7 @@ What `queue()` returns.
 | --- | --- |
 | No `.name` on the ref **and** no `options.key` | `[flowpanel] queues[<index>]: the queue has no name to key it by. Set key in its options.` |
 | Two queues resolve to the same key | `[flowpanel] queue "<key>": two queues use this key. Give each queue its own key.` |
-| The key is `dashboards`, `drawer` or `queues` | `[flowpanel] queue "<key>": the name is one FlowPanel's routing reserves…` |
+| The key is `dashboards`, `drawer`, `export` or `queues` | `[flowpanel] queue "<key>": the name is one FlowPanel's routing reserves…` |
 
 ### Reading queue state from your own code
 

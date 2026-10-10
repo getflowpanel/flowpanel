@@ -91,7 +91,7 @@ describe("a Date in a card renders through LocalTime, like a datetime column", (
   it("paints a time element in every card", async () => {
     for (const widget of [statWidget, groupWidget, kvWidget]) {
       const html = await painted(widget as never, admin());
-      expect(html).toMatch(/<time datetime="2026-09-22T23:30:00.000Z">/i);
+      expect(html).toMatch(/<time datetime="2026-09-22T23:30:00.000Z" title="[^"]+">/i);
     }
   });
 

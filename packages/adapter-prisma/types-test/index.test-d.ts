@@ -6,7 +6,7 @@ import { expectAssignable, expectError } from "tsd";
 
 declare const prisma: object;
 
-// `kind` is an open union since ADR 0016 — the factory still labels itself.
+// `kind` is an open union; the factory still labels itself.
 // Factory accepts an explicit dmmf or falls back to runtime resolution.
 const aWithDmmf = prismaAdapter({
   prisma,

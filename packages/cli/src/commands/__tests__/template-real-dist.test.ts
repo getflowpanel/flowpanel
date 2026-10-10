@@ -204,7 +204,7 @@ describe.runIf(BUILT)("every scaffolded config and session module on the real bu
   const POST_ROW =
     '{ id: number; title: string; authorId: string; status: "draft" | "live"; publishedAt: Date | null }';
 
-  it("types the reference picker new writes for a Drizzle foreign key", async () => {
+  it("types the reference column new writes for a Drizzle foreign key", async () => {
     const root = await builtKitApp("drizzle", CLOSED_STUB);
     write(
       path.join(root, "src/blog.ts"),
@@ -222,7 +222,7 @@ describe.runIf(BUILT)("every scaffolded config and session module on the real bu
     expect(typecheck(root, ["probe.ts", "src/env.d.ts"])).toEqual([]);
   }, 60_000);
 
-  it("types the reference picker new writes for a Prisma relation", async () => {
+  it("types the reference column new writes for a Prisma relation", async () => {
     const root = await builtKitApp("prisma", CLOSED_STUB);
     const model = { ...POSTS, exportName: "Post" };
     write(

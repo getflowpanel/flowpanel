@@ -18,7 +18,7 @@ import type {
   WidgetConfig,
 } from "../index";
 
-describe("M2 public types", () => {
+describe("dashboard public types", () => {
   it("DashboardConfig shape matches spec", () => {
     expectTypeOf<DashboardConfig>().toMatchTypeOf<{
       path: string;

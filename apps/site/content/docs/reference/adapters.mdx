@@ -32,6 +32,18 @@ stop until you repair the schema and delete that row. Both reject procedural
 scripts (trigger bodies, stored procedures, `DELIMITER`) unless the body uses
 PostgreSQL dollar quoting.
 
+## Audit log
+
+`auditLog` is the `flowpanel_audit_log` table that `0001_init.sql` creates. The
+admin appends each [audit event](/docs/guides/audit-log) to it and reads the record
+History tabs and the Audit log page from it. The shipped adapters bind every value
+through the same client `flowpanel migrate` uses. `list` returns events newest
+first; with `scope` set, only those whose stored tenant key equals `scope.key`.
+`append` writes one row per id in `targetIds`. Without `auditLog`, an admin with
+`audit` on needs a `sink`.
+
+<AutoTypeTable path="../../packages/core/src/types/audit.ts" name="AuditLogStore" />
+
 ## Raw SQL
 
 `sql` is a tagged template: every interpolated value must reach the database as a
@@ -115,6 +127,16 @@ column rather than remove the row.
 `prismaAdapter` needs `provider`, a `PrismaProvider`: `"postgresql"`, `"mysql"` or
 `"sqlite"`. An adapter may also implement `transaction(run)`; both built-in
 adapters do, and the built-in bulk delete uses it so a failure deletes nothing.
+On better-sqlite3 the Drizzle adapter's transaction is `BEGIN IMMEDIATE` and
+`COMMIT` on the shared connection: it is isolated from other transactions, but a
+plain query another request runs on that connection while the transaction awaits
+joins it, and rolls back with it.
+
+`list` receives `tiebreak` when a read needs a stable order across pages, as the
+export does: the key columns to order by after `sort`. They come from
+`introspect().keyColumns` for a composite key (a Drizzle table-level
+`primaryKey()` or a Prisma `@@id`), else the primary key when it is a real column;
+a resource whose key the adapter cannot see gets none, and its export is unordered.
 
 `bullmqAdapter` takes the queue map itself, with no options object:
 `bullmqAdapter({ email: emailQueue })`.

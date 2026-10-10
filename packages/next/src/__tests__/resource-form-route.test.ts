@@ -32,6 +32,7 @@ function makeConfig(opts: {
   updateReturn?: Record<string, unknown> | null;
   createCaptured?: { value?: unknown };
   updateCaptured?: { value?: unknown };
+  createFields?: unknown[];
 }) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -79,6 +80,7 @@ function makeConfig(opts: {
           }
         : {}),
       ...(opts.createDisabled ? { create: { disabled: true } } : {}),
+      ...(opts.createFields ? { create: { fields: opts.createFields } } : {}),
       ...(opts.updateDisabled ? { update: { disabled: true } } : {}),
     },
   } as never;
@@ -104,6 +106,36 @@ function formRequest(url: string, fields: Record<string, string>): Request {
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   return new Request(url, { method: "POST", body: fd });
 }
+
+describe("a money field", () => {
+  const fields = [{ name: "email" }, { name: "priceCents", label: "Price", type: "money" }];
+
+  it("stores the typed amount in minor units", async () => {
+    const captured: { value?: unknown } = {};
+    const handler = resourceCreateRoute(
+      makeConfig({ createCaptured: captured, createFields: fields }),
+    );
+    const req = formRequest("http://localhost/x", { email: "a@b.com", priceCents: "399.99" });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
+    expect(res.status).toBe(200);
+    expect(captured.value).toEqual({ email: "a@b.com", priceCents: 39999 });
+  });
+
+  it("refuses more decimals than the currency keeps, naming the field", async () => {
+    const captured: { value?: unknown } = {};
+    const handler = resourceCreateRoute(
+      makeConfig({ createCaptured: captured, createFields: fields }),
+    );
+    const req = formRequest("http://localhost/x", { email: "a@b.com", priceCents: "3.999" });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { fieldErrors?: Record<string, string> };
+    expect(body.fieldErrors).toEqual({
+      priceCents: "Price has more decimals than its currency keeps. Enter an amount like 12.50",
+    });
+    expect(captured.value).toBeUndefined();
+  });
+});
 
 describe("resourceCreateRoute", () => {
   beforeEach(() => {

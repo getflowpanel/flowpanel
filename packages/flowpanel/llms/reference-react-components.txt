@@ -30,11 +30,11 @@ Not listed here: `@flowpanel/kit/client` holds
 | `Brand` | Renders a `ShellBrand` (logo/name) in the shell header. |
 | `Breadcrumbs` | Breadcrumb trail from a `BreadcrumbItem[]`. |
 | `CommandPalette` | The ⌘K command palette, built on `cmdk`. |
-| `Drawer`, `DrawerHeader`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. |
+| `Drawer`, `DrawerHeader`, `DrawerTitle`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. A `DrawerTitle` is the visible heading that names the dialog; without one, `title` (or `labels.drawer.title`) names it for screen readers. On close, focus goes back to the element that opened the drawer, or to `returnFocus()` when that element is gone. |
 | `DetailShell` | Chrome around a resource detail page. |
 | `FlowpanelGlobals` | Mounts the component, formatting, API-base and label providers, the realtime provider, the toast host and the theme runtime, once per admin. |
 | `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. `badges` renders several pills in order, each an optional link. |
-| `ShortcutsCheatsheet`, `DEFAULT_SHORTCUTS` | The `?`-triggered keyboard shortcuts overlay and the shortcut list it ships with. |
+| `ShortcutsCheatsheet` | The keyboard shortcuts sheet. `FlowpanelGlobals` mounts it: `?` opens it and `/` focuses the list's search box, outside text fields. Without `shortcuts` it lists the admin's own keys in its labels' language. |
 | `ThemeScript` | Inline script that applies the stored theme class before hydration, avoiding a flash. |
 | `ComponentsProvider`, `useComponents` | Provider/reader for the `FlowpanelComponentSlots` override map. |
 | `useComponent` | Resolves a single slot: `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
@@ -63,8 +63,9 @@ Not listed here: `@flowpanel/kit/client` holds
 | `open` | `boolean` |  |
 | `onOpenChange` | `(open: boolean) => void` |  |
 | `width?` | `DrawerWidth` |  |
-| `title?` | `string` |  |
+| `title?` | `string` | The dialog's name for screen readers when it shows no `DrawerTitle`; defaults to `labels.drawer.title`. |
 | `description?` | `string` |  |
+| `returnFocus?` | `() => HTMLElement \| null \| undefined` | Where focus goes on close when the element that opened the drawer is gone. |
 | `children?` | `React.ReactNode` |  |
 | `className?` | `string` |  |
 
@@ -89,6 +90,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `ColumnVisibilityMenu` | Toolbar menu for showing/hiding columns. |
 | `DensityToggle` | Toggles `DataTableDensity` (row spacing) in the toolbar. |
 | `FilterBar` | Renders a `FilterBarSpec[]` as the filter row above the table. |
+| `FilterSheet` | Shows its children in line from the `sm` breakpoint up, and on a phone behind one "Filters (n)" button that opens them in a bottom sheet. `active` is the number of set filters. |
 | `BooleanFilter`, `DateRangeFilter`, `MultiSelectFilter`, `NumericRangeFilter`, `SelectFilter`, `TagFilter`, `TextFilter` | One filter control per `ColumnMeta.type`, each driven by `FilterBar`. `DateRangeFilter` opens a two-month range calendar with presets. |
 | `DateRangePicker` | Standalone preset dropdown (Today, Last 7 days, MTD, …) for dashboards; `presets` narrows and orders the list, and a `from`/`to` value without a preset shows as its two days. |
 | `Pagination`, `DefaultPagination` | Page controls under the table and their default renderer. |
@@ -143,9 +145,10 @@ Not listed here: `@flowpanel/kit/client` holds
 | `inlineEditResource?` | `string` |  |
 | `mobileLayout?` | `"card" \| "scroll" \| false` | Mobile layout when the viewport is narrower than 640px. |
 | `enteringRowKeys?` | `string[]` | Stable keys that should receive the one-shot, reduced-motion-safe entry treatment. |
-| `exportable?` | `boolean \| { formats?: ("csv" \| "json")[]; fields?: string[] }` | When set, renders an "Export" button in the toolbar that downloads the rows currently on screen. |
+| `exportable?` | `boolean \| { formats?: ("csv" \| "json")[]; fields?: string[]; resource?: string }` | When set, renders an "Export" button in the toolbar. With `resource`, the server exports every row matching the page's filters; without it, the rows on screen are downloaded. |
 | `importable?` | `{ resource: string; formats: ("csv" \| "json")[] }` |  |
 | `showDensityToggle?` | `boolean` |  |
+| `rowLabel?` | `string` | What one row is, mid-sentence ("run"): phone cards read "Open run 36". |
 
 ### Forms
 
@@ -158,6 +161,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `FormError` | Renders the form-level error from `useFormContext`. |
 | `FormSection` | Labeled fieldset grouping for `AutoForm`/`Form` fields. |
 | `FormSubmit` | Submit button that reflects the form's pending state. |
+| `confirmLeave` | `confirmLeave(proceed)` runs `proceed` now, or after the reader agrees to drop a form's unsaved changes. Call it before your own navigation or drawer close; links in the admin already go through it. |
 | `AsyncSelect` | Debounced async-search select, used by reference fields. |
 | `ResolvedField` (type) | The server-resolved field shape `AutoForm` consumes. |
 
@@ -168,12 +172,14 @@ Not listed here: `@flowpanel/kit/client` holds
 | `action` | `string` | POST target for the submission — see `FormProps.action` (`Form.tsx`). |
 | `fields?` | `ResolvedField[]` | Explicit field specs from a resource's `create.fields` / `update.fields` (resolved server-side). |
 | `columns?` | `ColumnMeta[]` |  |
+| `columnFields?` | `ResolvedField[]` | Generated form only: controls that replace the column of the same name, such as a column's reference picker. |
 | `hide?` | `string[]` |  |
 | `defaultValues?` | `Record<string, unknown>` |  |
 | `submitLabel?` | `string` | Defaults to `labels.actions.save`. An explicit value wins, including `""`. |
 | `className?` | `string` |  |
 | `redirectTo?` | `string` | Client-side navigation target on a successful submit — see `FormProps.redirectTo`. |
 | `cancelHref?` | `string` | Renders a cancel link back to this record or its list. It never submits. |
+| `successMessage?` | `string` | Toast shown after a successful submit — see `FormProps.successMessage`. |
 
 `FormProps`
 
@@ -186,6 +192,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `className?` | `string` |  |
 | `id?` | `string` |  |
 | `redirectTo?` | `string` | Where to navigate after a successful submit (e.g. back to the list, or to the created row). |
+| `successMessage?` | `string` | Toast shown after a successful submit, such as "Customer created". |
 
 `FieldProps`
 
@@ -201,6 +208,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `autoComplete?` | `string` |  |
 | `readOnly?` | `boolean` | Render the control non-editable while keeping its value in the submission. |
 | `referenceSearchUrl?` | `string` |  |
+| `currency?` | `string` | `money` only: the ISO 4217 code shown beside the amount. Defaults to `formatting.currency`. |
 
 The table above is exported as `FormField` and `FormFieldProps`. Its `type` accepts:
 
@@ -282,11 +290,14 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 
 All hooks are client-only.
 
-**`useLiveChannel(channel, onMessage, options?)`** subscribes to one SSE channel;
-instances on the same channel share one `EventSource`. It returns a `RealtimeStatus`
-(`LiveStatus` is the same type under its 0.3 name):
-`idle`, `connecting`, `live`, `reconnecting`, or `offline` after six failed
-attempts (retries continue).
+**`useLiveChannel(channel, onMessage, options?)`** subscribes to one SSE channel and
+hands you each payload. Under `RealtimeProvider` (every admin page) it joins the admin's
+one `EventSource` and does not refresh the route; without a provider, hooks on the same
+endpoint share one. It returns a `RealtimeStatus` (`LiveStatus` is the same type under
+its 0.3 name): `idle`, `connecting`, `live` once the server's first frame arrives,
+`reconnecting` from the first error until a frame arrives again, or `offline` once
+failures have lasted 30 seconds (retries continue). A stream the server ends on purpose reconnects
+without leaving `live`.
 
 ```tsx
 const status = useLiveChannel("resource.orders", (payload) => {
@@ -294,7 +305,7 @@ const status = useLiveChannel("resource.orders", (payload) => {
 });
 ```
 
-**`useAdminTable()`** reads and writes the list URL state (`?page=`, `?perPage=`,
+**`useAdminTable()`** reads and writes the list URL state (`?page=`, `?pageSize=`,
 `?q=`, `?sort=field:dir`, `?f_<field>=`). `pageSize` is `null` when the URL sets
 none. Setters use `router.replace`.
 

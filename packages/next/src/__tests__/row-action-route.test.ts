@@ -354,7 +354,7 @@ describe("rowActionRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).toBe("validation failed");
-    expect(body.fieldErrors).toEqual({ status: "status is required" });
+    expect(body.fieldErrors).toEqual({ status: "Status is required" });
     expect(run).not.toHaveBeenCalled();
   });
 

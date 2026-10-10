@@ -126,3 +126,34 @@ describe("the compiler-injected bulk delete", () => {
     expect(deleted).toHaveLength(0);
   });
 });
+
+describe("declared bulk actions keep the built-in delete", () => {
+  const archive = { key: "archive", label: "Archive", run: async () => ({ ok: true }) };
+  const keys = (options: Record<string, unknown>): string[] => {
+    const config: ResolvedAdminConfig = makeConfig(options);
+    const items = config.resourcesByName.get("items");
+    return (items?.options.bulkActions ?? []).map((action) => action.key);
+  };
+
+  it("appends Delete after the host's own bulk actions", () => {
+    expect(keys({ bulkActions: [archive] })).toEqual(["archive", "delete"]);
+  });
+
+  it("leaves it out when delete is disabled or bulk delete is turned off", () => {
+    expect(keys({ bulkActions: [archive], delete: { disabled: true } })).toEqual(["archive"]);
+    expect(keys({ bulkActions: [archive], delete: { bulk: false } })).toEqual(["archive"]);
+  });
+
+  it("lets a host's own delete bulk action stand in for it", () => {
+    expect(keys({ bulkActions: [{ ...archive, key: "delete" }] })).toEqual(["delete"]);
+  });
+
+  it("keeps quiet about a confirm with bulk delete off: the record page and drawer show it", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    makeConfig({ delete: { bulk: false, confirm: "Delete for good?" } });
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("delete.confirm"));
+    warn.mockRestore();
+    vi.unstubAllEnvs();
+  });
+});

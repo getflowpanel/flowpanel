@@ -53,7 +53,10 @@ export const matches = resource(schema.matches, {
   ],
   create: { disabled: true },
   delete: {
-    confirm: "Permanently delete selected review decisions? This cannot be undone.",
+    confirm: {
+      one: "The review decision is deleted for good. This cannot be undone.",
+      other: "{n} review decisions are deleted for good. This cannot be undone.",
+    },
   },
   actions: [
     {

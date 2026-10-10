@@ -9,7 +9,7 @@ export interface PrismaDelegate {
   findMany: (args: {
     where?: Record<string, unknown>;
     select?: Record<string, boolean>;
-    orderBy?: Record<string, "asc" | "desc">;
+    orderBy?: Record<string, "asc" | "desc"> | Array<Record<string, "asc" | "desc">>;
     skip?: number;
     take?: number;
   }) => Promise<unknown[]>;

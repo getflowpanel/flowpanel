@@ -12,6 +12,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { DrawerHost } from "../DrawerHost";
+import { RECORD_DEFAULTS } from "./payload-fixture";
 
 afterEach(() => {
   cleanup();
@@ -50,6 +51,7 @@ describe("drawer cells", () => {
     openDrawer({
       row: { id: "27", seenAt: "2026-09-23T11:55:00Z", paidAt: "2026-09-23T21:30:00Z" },
       tabs: [],
+      ...RECORD_DEFAULTS,
       formats: { seenAt: "relative", paidAt: "date" },
     });
     await vi.waitFor(() => expect(screen.getByText("5 минут назад")).toBeTruthy());
@@ -59,6 +61,7 @@ describe("drawer cells", () => {
   it("print a widget table's column format", async () => {
     openDrawer({
       row: { id: "27" },
+      ...RECORD_DEFAULTS,
       formats: {},
       tabs: [
         {

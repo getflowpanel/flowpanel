@@ -1,7 +1,9 @@
 "use client";
-import { ErrorCard } from "@flowpanel/react";
+import { Button, useLabels } from "@flowpanel/react";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import * as React from "react";
+import { RequestId } from "../pages/RequestId";
+import { FailureCard } from "./failure-card";
 
 interface State {
   error: Error | null;
@@ -37,29 +39,47 @@ function getSentry(): SentryLike | null {
   return null;
 }
 
-/** Functional fallback rendered when the boundary caught an error. */
+/** The failed widget's card: its own title, what to do, Retry, and the digest the server log printed. */
 function BoundaryFallback({
   error,
   onReset,
   plain,
   title,
 }: {
-  error: Error;
+  error: Error & { digest?: string };
   onReset: () => void;
   plain: boolean;
   title: string | undefined;
 }): React.JSX.Element {
   const router = useRouter();
-  const handleRetry = React.useCallback(() => {
-    onReset();
-    router.refresh();
-  }, [onReset, router]);
+  const { errors } = useLabels();
+  const [pending, startTransition] = React.useTransition();
+  const developing = process.env.NODE_ENV !== "production";
   return (
-    <ErrorCard
-      error={error}
-      onRetry={handleRetry}
-      {...(plain ? { plain: true } : {})}
-      {...(title ? { title } : {})}
+    <FailureCard
+      {...(title ? { heading: title } : {})}
+      title={errors.widgetTitle}
+      hint={error.digest ? `${errors.widgetHint} ${errors.reportHint}` : errors.widgetHint}
+      detail={developing && error.message ? { summary: errors.details, text: error.message } : null}
+      plain={plain}
+      actions={
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() =>
+              startTransition(() => {
+                onReset();
+                router.refresh();
+              })
+            }
+          >
+            {errors.retry}
+          </Button>
+          {error.digest ? <RequestId id={error.digest} kind="digest" /> : null}
+        </>
+      }
     />
   );
 }

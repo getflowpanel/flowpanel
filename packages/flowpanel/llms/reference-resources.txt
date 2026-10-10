@@ -56,15 +56,15 @@ export const ordersResource = resource(orders, {
 | `writeTo?` | `AdapterRef` | The table that create, update, delete and restore write to, when the resource reads a view. Omitted on a view: the resource is read-only, and a declared create/update/delete/import is an error at `defineAdmin`. |
 | `create?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> }` | Create form. `disabled` removes the route, not just the button. `defaultValues` fills keys a create leaves empty, on the server only, and wins over a field's own `defaultValue`. |
 | `update?` | `{ disabled?: boolean; fields?: FieldDef<Row>[]; /** Additional readable values available to edit-form hidden/readOnly predicates; never a control, default or write. */ expose?: (keyof Row & string)[]; /** * How the record page's edit button reads: `"primary"` fills it with the accent. * @defaultValue "secondary" */ emphasis?: ActionEmphasis; }` | Edit form. `disabled` removes the route, not just the button. |
-| `delete?` | `{ disabled?: boolean; softDelete?: keyof Row & string; confirm?: string }` | Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. |
+| `delete?` | `{ disabled?: boolean; softDelete?: keyof Row & string; /** * Text under the Delete confirmation. `{ one, other }` (any `PluralLabel` form) picks the wording * by how many rows go, `{n}` the count: one record on its page, the selection in the bulk menu. */ confirm?: string \| PluralLabel; /** Offer Delete in the bulk menu, after your own bulk actions. Default `true`. */ bulk?: boolean; }` | Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. |
 | `actions?` | `RowAction<Row, any, any>[]` | Per-row actions, rendered inline or in the row's menu. |
 | `bulkActions?` | `BulkAction<Row, any, any>[]` | Actions applied to a selection of rows. |
 | `scope?` | `"bypass" \| ResourceScope` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
 | `access?` | `ResourceAccess<Row>` | Canonical operation-level authorization. |
 | `fieldAccess?` | `FieldAccessMap<Row>` | Canonical read/write policy for declared fields. |
-| `export?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Export button, off unless set. `formats` defaults to `["csv"]`; `fields` defaults to the visible columns. |
+| `export?` | `\| { formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[]; /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */ maxRows?: number; } \| false` | Export button, off unless set: every row matching the list's filters, search and sort, as the user may read them. `formats` defaults to `["csv"]`; `fields` defaults to the columns. |
 | `import?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Import button. Off unless set; rows are created through the normal write path. |
-| `audit?` | `boolean` | Opt this resource out of the admin-wide audit sink. |
+| `audit?` | `boolean` | `false` records no audit events for this resource, and its records show no History tab. |
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
 | `views?` | `Array<{ name: string; description?: string; /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */ filters?: ListFilters<Row>; sort?: { field: keyof Row & string; dir: "asc" \| "desc" }; search?: string; }>` | Filter / sort presets offered as a dropdown above the list. |
 | `empty?` | `{ /** Serializable Lucide icon rendered above the empty-state title. */ icon?: IconName; title?: string; description?: string; action?: { label: string; href: string }; /** * Title when search or filters leave no rows; a button beside it clears them. `{query}` is * the search text. Default: `labels.widget.filtered`. */ filtered?: string; /** * Title when a search leaves no rows, in place of `filtered`, e.g. `"Nothing found for «{query}»"`. * Default: `filtered`. */ searched?: string; }` | What the list shows when there are no rows at all. |
@@ -74,10 +74,16 @@ either way. Set `labelOne` and `plural` when they differ: a resource with only
 `label: "Order"` titles its list "Order" too. Without any of the three, the
 resource name is humanized and made singular for one row.
 
-An empty list shows `empty.title`, `description`, `icon` and `action`. When search
-or filters leave no rows it shows `empty.filtered` (or `empty.searched` during a
-search; both fill `{query}`) and a button that clears them. On a phone the list
-shows 10 rows as cards with the rest behind "N more".
+An empty list shows `empty.title`, `description`, `icon` and `action`. Without
+them it says "No customers", "Customers you create show up here." and offers
+"Create customer" when the reader may create rows. When search or filters leave
+no rows it shows `empty.filtered` (or `empty.searched` during a search; both fill
+`{query}`) and a button that clears them. On a phone the list shows 10 rows as
+cards with the rest behind "N more".
+
+Search, filters, sort and pages load in place: the rows dim and a thin bar runs
+along the table while the next ones are on their way. A filter, sort or page
+change is a history entry, so Back undoes it; typing in the search box is not.
 
 #### Detail headings and editing
 
@@ -185,7 +191,10 @@ A `daterange` filter also takes a preset name (`today`, `yesterday`, `last7d`,
 `last30d`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
 fields the list declares in `columns`, `filters` or `search`, with values that
 match the filter type; `defineAdmin` rejects the rest. For "older than N days",
-compute the number in a view and use a `numeric-range` filter.
+compute the number in a view and use a `numeric-range` filter. The menu button
+names the view whose filters, sort and search match the list, counting the
+resource's `defaultSort` and filter defaults, so `?f_status=needs_review` reads
+"View: Needs review".
 
 ### ColumnDef
 
@@ -355,6 +364,9 @@ when both name the same key.
 | `type?` | `FieldType` | Which control to render. Omitted, a declared field renders as `"text"` — or `"reference"` when `reference` is set. The adapter's column type is consulted only by a fully generated form, and only maps number, boolean, date and json. |
 | `options?` | `\| ReadonlyArray<string> \| SelectOption[] \| ((ctx: QueryContext) => Promise<SelectOption[]>)` | Choices for `select` / `multiselect` / `radio`. A function resolves per request. |
 | `reference?` | `ReferenceSpec` | Turn the field into a searchable picker over another resource. |
+| `currency?` | `string` | `money` only: ISO 4217 code shown beside the amount. Default: ``formatting.currency``. |
+| `minorUnits?` | `number` | `money` only: digits after the decimal point, 0 to 8. The form edits major units, `399.99`. Default: `the currency's own: 2 for USD, 0 for JPY, 3 for KWD`. |
+| `storage?` | `"minor" \| "major"` | `money` only: whether the column holds whole minor units (`39999`) or a major-unit decimal (`399.99`). Default: ``"major"` for a decimal or float column, else `"minor"``. |
 | `required?` | `boolean` | Require a value. The form marks it, and the server rejects a create that leaves it empty or an edit that clears it. |
 | `readOnly?` | `boolean \| ((values: Partial<Row>) => boolean)` | Render non-editable. Enforced server-side, not just in the UI. |
 | `hidden?` | `boolean \| ((values: Partial<Row>) => boolean)` | Leave the field out of the form entirely. |
@@ -372,12 +384,36 @@ type FieldType =
   | "date" | "datetime" | "time"
   | "boolean" | "switch" | "checkbox"
   | "select" | "multiselect" | "radio"
-  | "json" | "markdown" | "tags" | "reference" | "hidden" | "color";
+  | "json" | "markdown" | "tags" | "reference" | "hidden" | "color" | "money";
 ```
 
 Without `type`, a field is `"text"`, or `"reference"` when it sets `reference`.
+A `"money"` field edits major units (`399.99`) beside the currency's sign. `storage`
+says whether the column holds minor units (`39999`) or the amount itself; `currency`
+and `minorUnits` (the currency's own digits) set the rest. See
+[money fields](/docs/build/forms#money-fields).
 Only a fully generated form (no `create.fields` or `update.fields`) reads the
 column type, and only for numbers, booleans, dates and JSON.
+
+### `hidden` and default values
+
+`hidden` means something different at each level, and none of them is an access
+rule; use `access` and `fieldAccess` for that.
+
+| Where | What `hidden` does |
+| --- | --- |
+| A resource or a queue | Leaves it out of the navigation and the palette. Its routes still work. |
+| A column | Keeps it out of the table. Export and the drawer still read it. |
+| A filter | Applies the filter, and its `defaultValue`, without a control. |
+| A form field, `hidden: true` or a function of the values | Leaves the control out of the form. The server still fills its `defaultValue`. |
+| A form field with `type: "hidden"` | Renders `<input type="hidden">`, which posts its value and which anyone can edit in the page. |
+
+Two options fill a create's values. `FieldDef.defaultValue` fills a key the
+submission left empty, on the server, and on a visible field pre-fills the
+control, so the browser sees it. `create.defaultValues` fills keys on the server
+only and wins when both name the same key; put trusted values such as the tenant
+there. A filter's `defaultValue` is unrelated: it applies the filter while the
+URL has no value for it.
 
 ### FilterDef
 
@@ -456,6 +492,9 @@ export const card = {
   [timeline](/docs/reference/widgets#timeline) pages through the whole history and a
   heatmap shows its last `days` days. Without `dateRange` the page has no picker and
   widgets see the record's whole history.
+- `history: false` drops the History tab the [audit log](/docs/guides/audit-log) adds to
+  every record. `audit: false` on the resource stops recording its events and drops the
+  tab too.
 
 The header, strip, aside and open tab share one widget context, so a repeated
 `ctx.count`, `ctx.read` or `ctx.query` runs once per page.
@@ -473,6 +512,7 @@ The header, strip, aside and open tab share one widget context, so a repeated
 | `aside?` | `WidgetConfig[]` | Widgets in a column beside the tabs from the `lg` breakpoint, below them on a phone, on every tab. |
 | `tabs?` | `DetailTab<Row>[]` |  |
 | `fields?` | `(keyof Row \| FieldDef<Row>)[] \| "*"` |  |
+| `history?` | `boolean` | The History tab, listing this record's audit events. Shown when the audit log table is on. Default: `true`. |
 
 #### DetailHeaderContext
 

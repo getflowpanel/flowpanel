@@ -1,4 +1,10 @@
-import type { BulkAction, RequestContext, ResourceConfig, RowAction } from "@flowpanel/core";
+import type {
+  BulkAction,
+  RequestContext,
+  ResolvedLabels,
+  ResourceConfig,
+  RowAction,
+} from "@flowpanel/core";
 import { type SerializedBulkAction, serializeBulkAction } from "../actions/bulk-action";
 import { type SerializedRowAction, serializeRowAction } from "../actions/row-action";
 import { filterActionsByAccess } from "../runtime/action-helpers";
@@ -40,6 +46,7 @@ export async function resolveResourceListActions<Row extends Record<string, unkn
   rows: Row[],
   rowKey: string,
   reqCtx: RequestContext,
+  labels: ResolvedLabels,
 ): Promise<ResourceListActions> {
   const rawActions = await filterActionsByAccess(
     resource.options.actions as RowAction<Row>[] | undefined,
@@ -52,7 +59,7 @@ export async function resolveResourceListActions<Row extends Record<string, unkn
   );
   return {
     rowActions,
-    bulkActions: rawBulkActions?.map(serializeBulkAction) ?? [],
+    bulkActions: rawBulkActions?.map((a) => serializeBulkAction(a, labels, resource)) ?? [],
     ...(rawActions?.some((action) => action.hidden)
       ? {
           rowActionsById: await visibleByRow(rawActions, rowActions, rows, rowKey, reqCtx),

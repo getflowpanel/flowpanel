@@ -1,6 +1,8 @@
 "use client";
-import { useAdminTable } from "@flowpanel/react";
+import { useLabels } from "@flowpanel/react";
+import { useSearchParams } from "next/navigation";
 import * as React from "react";
+import { useListNavigation } from "./list-navigation";
 
 const SearchIcon = ({ className }: { className?: string }) => (
   <svg
@@ -37,41 +39,49 @@ export interface ResourceListSearchProps {
   placeholder?: string;
 }
 
-export function ResourceListSearch({ placeholder = "Search…" }: ResourceListSearchProps) {
-  const table = useAdminTable();
-  const [draft, setDraft] = React.useState(table.search);
-  const lastApplied = React.useRef(table.search);
-
-  React.useEffect(() => {
-    if (table.search !== lastApplied.current) {
-      lastApplied.current = table.search;
-      setDraft(table.search);
+export function ResourceListSearch({ placeholder }: ResourceListSearchProps) {
+  const { navigate } = useListNavigation();
+  const { filters } = useLabels();
+  const search = useSearchParams().get("q") ?? "";
+  const [draft, setDraft] = React.useState(search);
+  const lastApplied = React.useRef(search);
+  // A search from the URL (Back, a saved view) shows in the box in this render, not one frame late.
+  const [seen, setSeen] = React.useState(search);
+  if (seen !== search) {
+    setSeen(search);
+    if (search !== lastApplied.current) {
+      lastApplied.current = search;
+      setDraft(search);
     }
-  }, [table.search]);
+  }
 
   React.useEffect(() => {
     if (draft === lastApplied.current) return;
     const t = setTimeout(() => {
       lastApplied.current = draft;
-      table.setSearch(draft);
+      navigate((next) => {
+        if (draft === "") next.delete("q");
+        else next.set("q", draft);
+        next.delete("page");
+      }, "replace");
     }, 250);
     return () => clearTimeout(t);
-  }, [draft, table]);
+  }, [draft, navigate]);
 
   return (
-    <div className="fp-relative fp-w-56">
+    <div className="fp-relative fp-min-w-0 fp-flex-1 sm:fp-w-56 sm:fp-flex-none">
       <SearchIcon className="fp-pointer-events-none fp-absolute fp-left-3 fp-top-1/2 fp-h-3.5 fp-w-3.5 -fp-translate-y-1/2 fp-text-faint" />
       <input
         type="search"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder={placeholder}
-        className="fp-h-9 fp-w-full fp-rounded-full fp-border fp-border-line fp-bg-surface fp-pl-9 fp-pr-8 fp-text-sm fp-text-ink fp-shadow-xs fp-transition-colors placeholder:fp-text-faint hover:fp-border-line-strong focus:fp-border-focus focus:fp-outline-none focus:fp-ring-2 focus:fp-ring-focus/25 [&::-webkit-search-cancel-button]:fp-hidden"
+        placeholder={placeholder ?? filters.searchPlaceholder}
+        className="fp-h-11 fp-w-full fp-rounded-full fp-border fp-border-line fp-bg-surface fp-pl-9 fp-pr-8 fp-text-sm fp-text-ink fp-shadow-xs fp-transition-colors placeholder:fp-text-faint hover:fp-border-line-strong focus:fp-border-focus focus:fp-outline-none focus:fp-ring-2 focus:fp-ring-focus/25 sm:fp-h-9 [&::-webkit-search-cancel-button]:fp-hidden"
       />
       {draft ? (
         <button
           type="button"
-          aria-label="Clear search"
+          aria-label={filters.clearSearch}
           onClick={() => setDraft("")}
           className="fp-absolute fp-right-2 fp-top-1/2 -fp-translate-y-1/2 fp-rounded-sm fp-p-1 fp-text-faint fp-transition-colors hover:fp-bg-fill/70 hover:fp-text-ink"
         >

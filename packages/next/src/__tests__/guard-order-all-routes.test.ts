@@ -164,7 +164,11 @@ describe("inline-update authenticates before it validates", () => {
 });
 
 describe("read-only routes stay reachable when the admin is globally read-only", () => {
-  const config = { ...makeConfig(), readOnly: true } as ResolvedAdminConfig;
+  const config = {
+    ...makeConfig(),
+    readOnly: true,
+    paths: { admin: "/admin", api: "/api/flowpanel" },
+  } as ResolvedAdminConfig;
 
   it("drawer GET still serves its payload", async () => {
     const res = await drawerRoute(config)(new Request("http://localhost/x"), { params: idParams });

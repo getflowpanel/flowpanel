@@ -9,10 +9,10 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-import { DataTable } from "../../_data/DataTable";
-import { AdminNav } from "../../_shell/AdminNav";
-import { KvCard } from "../../_widgets/KvCard";
-import { StatGroupCard } from "../../_widgets/StatGroupCard";
+import { DataTable } from "../../data/DataTable";
+import { AdminNav } from "../../shell/AdminNav";
+import { KvCard } from "../../widgets/KvCard";
+import { StatGroupCard } from "../../widgets/StatGroupCard";
 import { LABEL_TEXT } from "../label-text";
 
 afterEach(cleanup);

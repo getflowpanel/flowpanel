@@ -1,7 +1,6 @@
 import type {
   FlowpanelResult,
   ItemQueryContext,
-  ListQueryContext,
   ListResult,
   RequestContext,
   ResolvedAdminConfig,
@@ -19,8 +18,10 @@ import {
 import { makeActions } from "../actions/resource-actions";
 import { actorIdFromSession } from "../runtime/action-helpers";
 import { DEFAULT_RESOURCE_PAGE_SIZE } from "../runtime/defaults";
+import { rowVisibility, withSoftDeleteColumn } from "../runtime/deleted-row";
+import { listRows, mayListDeleted } from "../runtime/list-rows";
 import { declaredFieldSet, MAX_PAGE } from "../runtime/parse-list-params";
-import { projectAuthorizedRow, projectAuthorizedRows } from "../runtime/project-row";
+import { projectAuthorizedRow } from "../runtime/project-row";
 import {
   resolveReadableFieldSet,
   sanitizeReadableListSearchParams,
@@ -171,58 +172,37 @@ export function createResourceController<Row extends Record<string, unknown>>(
           ctx,
           options.select as readonly string[] | undefined,
         );
-        const declaredQueryFields = declaredFieldSet(resource.options);
-        const readableQueryFields = await resolveReadableFieldSet(
-          declaredQueryFields,
+        const queryFields = await resolveReadableFieldSet(
+          declaredFieldSet(resource.options),
           resource.options.fieldAccess,
           ctx,
         );
-        const requestedFilters = options.filters ?? {};
-        const filters = Object.fromEntries(
-          Object.entries(requestedFilters).filter(([field]) => readableQueryFields.has(field)),
-        );
-        const requestedSort = options.sort ?? resource.options.defaultSort ?? null;
-        const sort =
-          requestedSort && readableQueryFields.has(String(requestedSort.field))
-            ? requestedSort
-            : null;
-        const readableSearchFields = (resource.options.search ?? [])
-          .map(String)
-          .filter((field) => readableQueryFields.has(field));
-        const search = readableSearchFields.length > 0 ? (options.search ?? "") : "";
-        const searchParams = sanitizeReadableListSearchParams(
-          new URL(ctx.req.url).searchParams,
-          readableQueryFields,
-          readableSearchFields.length > 0,
-        );
-        const softDelete = resource.options.delete?.softDelete;
-        const query: ListQueryContext<unknown> = {
-          ...ctx,
-          dateRange: { from: new Date(0), to: new Date() },
-          searchParams,
-          signal: ctx.req.signal,
-          filters,
-          sort: sort as ListQueryContext<unknown>["sort"],
+        const declaredOnly = (values: Record<string, unknown>) =>
+          Object.fromEntries(Object.entries(values).filter(([field]) => queryFields.has(field)));
+        const sort = options.sort && !queryFields.has(options.sort.field) ? null : options.sort;
+        const listed = await listRows(config, resource, ctx, {
+          filters: declaredOnly(options.filters ?? {}),
+          ...(sort !== undefined ? { sort } : {}),
+          search: options.search ?? "",
           page,
           pageSize,
-          search,
-          select,
-          ...(readableSearchFields.length > 0 ? { searchFields: readableSearchFields } : {}),
-          ...(softDelete
-            ? { softDelete: { column: String(softDelete) }, includeDeleted: options.includeDeleted }
+          fields: select,
+          ...(options.includeDeleted && (await mayListDeleted(resource, ctx))
+            ? { includeDeleted: true }
             : {}),
-          ...scopeBinding(resource, ctx),
-        };
-        const result = await runWithRequestContext(ctx, () =>
-          config.adapter.list(resource.ref, query),
-        );
-        const rows = await projectAuthorizedRows(
-          resource,
-          result.rows as Record<string, unknown>[],
-          ctx,
-          select,
-        );
-        return { ...result, rows } as ListResult<Partial<Row>>;
+          searchParams: sanitizeReadableListSearchParams(
+            new URL(ctx.req.url).searchParams,
+            queryFields,
+            (resource.options.search ?? []).some((field) => queryFields.has(String(field))),
+          ),
+          signal: ctx.req.signal,
+        });
+        return {
+          rows: listed.rows,
+          total: listed.total,
+          page: listed.page,
+          pageSize: listed.pageSize,
+        } as ListResult<Partial<Row>>;
       });
     },
 
@@ -240,13 +220,15 @@ export function createResourceController<Row extends Record<string, unknown>>(
           searchParams: new URL(ctx.req.url).searchParams,
           signal: ctx.req.signal,
           id,
-          select,
+          select: withSoftDeleteColumn(resource, select),
           ...scopeBinding(resource, ctx),
         };
         const row = (await runWithRequestContext(ctx, () =>
           config.adapter.get(resource.ref, query),
         )) as Record<string, unknown> | null;
-        if (!row) throw new FlowpanelNotFoundError();
+        if (!row || (await rowVisibility(resource, row, ctx)) === "hidden") {
+          throw new FlowpanelNotFoundError();
+        }
         return projectAuthorizedRow(resource, row, ctx, select) as Promise<Partial<Row>>;
       });
     },

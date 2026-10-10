@@ -1,17 +1,18 @@
 import type { RequestContext, ResolvedAdminConfig, ShellConfig, ShellMode } from "@flowpanel/core";
-import { FlowpanelAccessError, FlowpanelAuthError, mergeLabels } from "@flowpanel/core";
-import { CommandHost, DrawerHost } from "@flowpanel/next/client";
+import { FlowpanelRateLimitError, mergeLabels } from "@flowpanel/core";
+import { CommandHost, DrawerHost, NotFoundBody, PathAwareShell } from "@flowpanel/next/client";
 import {
   AdminShell,
-  EmptyState,
   type FlowpanelComponentSlots,
   FlowpanelGlobals,
+  type NavGroup,
   type ShellBrand,
 } from "@flowpanel/react";
-import { redirect } from "next/navigation";
 import type * as React from "react";
-import { NotFound } from "./pages/not-found";
-import { DevAuthNote, warnNoSession } from "./runtime/dev-auth-note";
+import { Suspense } from "react";
+import { missingRecordCopy, NotFound } from "./pages/not-found";
+import { accountUser } from "./runtime/account-user";
+import { buildServerRequest } from "./runtime/build-server-request";
 import { buildHref, decodeAtom } from "./runtime/href";
 import { buildNav } from "./runtime/nav";
 import {
@@ -24,8 +25,10 @@ import { bindPublisher } from "./runtime/publish";
 import { renderContent } from "./runtime/render-content";
 import { buildRequestContext } from "./runtime/request-setup";
 import { ThemeColor, ThemeVars } from "./runtime/theme-vars";
+import { handleRenderError } from "./runtime/walls";
 
 export { renderContent } from "./runtime/render-content";
+export { handleRenderError } from "./runtime/walls";
 
 type PageProps = {
   params: Promise<PageParams>;
@@ -78,59 +81,103 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
 
     let content: React.ReactNode;
     let reqCtx: RequestContext | undefined;
-    let navGroups: Awaited<ReturnType<typeof buildNav>> = [];
+    let navGroups: NavGroup[] = [];
     try {
       reqCtx = await buildRequestContext({ req, config });
       navGroups = await buildNav(config, reqCtx);
       content = await renderContent(config, slug, sp, req, reqCtx);
     } catch (err) {
-      content = await handleRenderError(err, config, req);
+      const admitted = reqCtx !== undefined;
+      if (err instanceof FlowpanelRateLimitError && !admitted) {
+        reqCtx = await buildRequestContext({ req, config, rateLimit: false }).catch(
+          () => undefined,
+        );
+        navGroups = reqCtx ? await buildNav(config, reqCtx) : [];
+      }
+      content = await handleRenderError(
+        err,
+        config,
+        req,
+        admitted ? { slug, currentPath, navGroups } : undefined,
+      );
     }
-    const navItems = navGroups.flatMap((g) =>
-      g.items.map((it) => ({
-        label: it.label,
-        href: it.href,
-        ...(it.icon ? { icon: it.icon } : {}),
-      })),
-    );
-
-    const shell = resolveShell(config, opts.shell);
-    const accountUser =
-      config.theme?.user && reqCtx ? config.theme.user(reqCtx.session) : undefined;
-
-    const globals = (
-      <>
-        <DrawerHost />
-        <CommandHost
-          navItems={navItems}
-          {...(config.commandPalette ? { config: config.commandPalette } : {})}
-        />
-      </>
-    );
-
-    const body =
-      shell.mode === "bare" ? (
-        <>
-          {content}
-          {globals}
-        </>
-      ) : (
-        <AdminShell
-          variant={shell.mode}
+    return (
+      <AdminFrame config={config}>
+        <AdminChrome
+          config={config}
+          shell={opts.shell}
           navGroups={navGroups}
+          reqCtx={reqCtx}
           currentPath={currentPath}
-          rootHref={buildHref(config)}
-          showSkipLink={shell.showSkipLink}
-          {...(shell.brand !== undefined ? { brand: shell.brand } : {})}
-          {...(accountUser ? { user: accountUser } : {})}
         >
           {content}
-          {globals}
-        </AdminShell>
-      );
-
-    return <AdminFrame config={config}>{body}</AdminFrame>;
+        </AdminChrome>
+      </AdminFrame>
+    );
   };
+}
+
+/** The shell around a page's content, with the drawer and the command palette; `currentPath` unset reads it in the browser. */
+function AdminChrome({
+  config,
+  shell: override,
+  navGroups,
+  reqCtx,
+  currentPath,
+  children,
+}: {
+  config: ResolvedAdminConfig;
+  shell: FlowpanelOptions["shell"];
+  navGroups: NavGroup[];
+  reqCtx: RequestContext | undefined;
+  currentPath?: string;
+  children: React.ReactNode;
+}) {
+  const navItems = navGroups.flatMap((g) =>
+    g.items.map((it) => ({
+      label: it.label,
+      href: it.href,
+      ...(it.icon ? { icon: it.icon } : {}),
+    })),
+  );
+  const shell = resolveShell(config, override);
+  const user = reqCtx ? accountUser(config, reqCtx.session) : undefined;
+  const globals = (
+    <>
+      <DrawerHost />
+      <CommandHost
+        navItems={navItems}
+        {...(config.commandPalette ? { config: config.commandPalette } : {})}
+      />
+    </>
+  );
+  if (shell.mode === "bare") {
+    return (
+      <>
+        {children}
+        {globals}
+      </>
+    );
+  }
+  const props = {
+    variant: shell.mode,
+    navGroups,
+    rootHref: buildHref(config),
+    showSkipLink: shell.showSkipLink,
+    ...(shell.brand !== undefined ? { brand: shell.brand } : {}),
+    ...(user ? { user } : {}),
+  };
+  return currentPath === undefined ? (
+    <PathAwareShell {...props}>
+      {children}
+      {globals}
+    </PathAwareShell>
+  ) : (
+    <AdminShell {...props} currentPath={currentPath}>
+      {children}
+      {globals}
+    </AdminShell>
+  );
 }
 
 function AdminFrame({
@@ -158,16 +205,49 @@ function AdminFrame({
   );
 }
 
-/** The admin's labelled "Page not found" screen, for the host's `not-found.tsx`. */
-export function FlowpanelNotFound(config: ResolvedAdminConfig) {
+/** The admin's not-found page for the host's `not-found.tsx`, inside the shell, naming a missing record's list. */
+export function FlowpanelNotFound(config: ResolvedAdminConfig, opts: FlowpanelOptions = {}) {
   return function FlowpanelNotFoundPage() {
     return (
       <AdminFrame config={config}>
         <title>{mergeLabels(config.labels).notFound.title}</title>
-        <NotFound config={config} />
+        <Suspense fallback={<NotFound config={config} />}>
+          <NotFoundInShell config={config} shell={opts.shell} />
+        </Suspense>
       </AdminFrame>
     );
   };
+}
+
+async function NotFoundInShell({
+  config,
+  shell,
+}: {
+  config: ResolvedAdminConfig;
+  shell: FlowpanelOptions["shell"];
+}) {
+  const req = await buildServerRequest(`http://localhost${buildHref(config)}`);
+  const reqCtx = await buildRequestContext({ req, config, rateLimit: false }).catch(
+    () => undefined,
+  );
+  if (!reqCtx) return <NotFound config={config} />;
+  const { notFound } = mergeLabels(config.labels);
+  const [navGroups, records] = await Promise.all([
+    buildNav(config, reqCtx),
+    missingRecordCopy(config, reqCtx),
+  ]);
+  return (
+    <AdminChrome config={config} shell={shell} navGroups={navGroups} reqCtx={reqCtx}>
+      <NotFoundBody
+        adminPath={buildHref(config)}
+        title={notFound.title}
+        description={notFound.description}
+        back={notFound.back}
+        recordDescription={notFound.recordDescription}
+        records={records}
+      />
+    </AdminChrome>
+  );
 }
 
 /** Sugar for `Flowpanel(config, { shell: "bare" })`. */
@@ -176,39 +256,4 @@ export function FlowpanelContent(
   opts: Omit<FlowpanelOptions, "shell"> = {},
 ) {
   return Flowpanel(config, { ...opts, shell: "bare" });
-}
-
-/** Render-path auth boundary. */
-export async function handleRenderError(
-  err: unknown,
-  config: ResolvedAdminConfig,
-  req: Request,
-): Promise<React.ReactNode> {
-  if (!(err instanceof FlowpanelAccessError) && !(err instanceof FlowpanelAuthError)) {
-    throw err;
-  }
-
-  const session = await config.auth.session(req).catch(() => null);
-  const isAuthError = err instanceof FlowpanelAuthError || session === null;
-  const target = isAuthError ? config.auth.signInUrl : config.auth.forbiddenUrl;
-  if (target) redirect(target);
-
-  const { access } = mergeLabels(config.labels);
-  const developing = process.env.NODE_ENV !== "production";
-  if (isAuthError && developing) warnNoSession();
-  // `data-fp-error` is how `smokeAdmin` tells a rendered admin from a signed-out one.
-  return isAuthError ? (
-    <EmptyState
-      title={access.signInTitle}
-      description={access.signInDescription}
-      {...(developing ? { action: <DevAuthNote /> } : {})}
-      data-fp-error=""
-    />
-  ) : (
-    <EmptyState
-      title={access.deniedTitle}
-      description={access.deniedDescription}
-      data-fp-error=""
-    />
-  );
 }

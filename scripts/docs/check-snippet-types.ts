@@ -58,9 +58,18 @@ const AUTO_IMPORT_MODULES = [
 
 const MISSING_NAME = new Set([2304, 2552, 2582, 18004]);
 
+const PATH_COMMENT = /^\/\/ ([\w./[\]-]+\.tsx?)\s*$/;
+const LOOSE_PATH_COMMENT = /^\/\/ [\w./[\]-]+\.tsx?\b/;
+
 /** `// src/admin/enums.ts` on a block's first line: the project file the reader creates. */
 export function declaredPath(code: string): string | null {
-  return /^\/\/ ([\w./[\]-]+\.tsx?)\s*$/.exec(code.split("\n")[0] ?? "")?.[1] ?? null;
+  return PATH_COMMENT.exec(code.split("\n")[0] ?? "")?.[1] ?? null;
+}
+
+/** A first line that names a file and then says more, so the block would not be checked as that file. */
+export function strayPathComment(code: string): string | null {
+  const first = code.split("\n")[0] ?? "";
+  return LOOSE_PATH_COMMENT.test(first) && !PATH_COMMENT.test(first) ? first : null;
 }
 
 function adapterOf(block: ClassifiedCodeBlock): Adapter {
@@ -120,12 +129,12 @@ export function pageLine(block: Pick<DocBlock, "line" | "offset">, moduleLine: n
   return block.line + 1 + moduleLine - block.offset;
 }
 
-/**
- * The reader's project: the fixtures, what the CLI writes, then every checked block. A block whose
- * first line names a project file is that file (the root config stays the fixture's); the last
- * block of a path keeps its name and earlier ones sit beside it, so relative imports resolve.
- */
-function writeDocBlocks(docsRoot: string): DocBlock[] {
+/** The reader's project: fixtures, then what the CLI writes, then each checked block; a block naming a file is that file. */
+function writeDocBlocks(docsRoot: string): {
+  blocks: DocBlock[];
+  cliFiles: string[];
+  stray: string[];
+} {
   rmSync(project, { recursive: true, force: true });
   cpSync(join(fixtures, "src"), src, { recursive: true });
   cpSync(join(GENERATED_DIR, "src"), src, { recursive: true });
@@ -142,7 +151,14 @@ function writeDocBlocks(docsRoot: string): DocBlock[] {
   const lastOfPath = new Map(
     blocks.flatMap((entry, index) => (entry.claims ? [[entry.path, index] as const] : [])),
   );
-  return blocks.map(({ page, block, path, claims }, index) => {
+  const cliFiles = keepCliFiles(new Set(lastOfPath.keys()));
+  const stray = blocks.flatMap(({ page, block }) => {
+    const line = strayPathComment(block.code ?? "");
+    if (line === null) return [];
+    const at = `apps/site/content/docs/${page}:${block.line + 1}:1`;
+    return [`${at} "${line}" names a file and says more; put the path alone on the line.`];
+  });
+  const written = blocks.map(({ page, block, path, claims }, index) => {
     const ownName = `${page.replace(/\.mdx$/, "").replaceAll("/", "--")}.L${block.line}.${block.language}`;
     const file =
       path && claims
@@ -162,6 +178,17 @@ function writeDocBlocks(docsRoot: string): DocBlock[] {
       offset,
       declared: path !== null,
     };
+  });
+  return { blocks: written, cliFiles, stray };
+}
+
+/** What `init` writes stays in the project to compile; a doc block that replaces a file keeps the CLI's copy beside it. */
+function keepCliFiles(claimed: ReadonlySet<string>): string[] {
+  return walkFiles(join(GENERATED_DIR, "src"), ".ts").map((file) => {
+    const path = relative(GENERATED_DIR, file).replaceAll("\\", "/");
+    const target = claimed.has(path) ? path.replace(/\.ts$/, ".cli.ts") : path;
+    if (target !== path) cpSync(file, join(project, target));
+    return resolve(project, target);
   });
 }
 
@@ -250,7 +277,7 @@ function where(diagnostic: ts.Diagnostic, blocks: Map<string, DocBlock>): string
 }
 
 /** The included snippets and fixtures one adapter's program checks, besides the docs' own blocks. */
-function snippetFiles(adapter: Adapter): string[] {
+function snippetFiles(adapter: Adapter, cliFiles: readonly string[]): string[] {
   const own = [...walkFiles(snippets, ".ts"), ...walkFiles(snippets, ".tsx")].filter(
     (file) =>
       !file.startsWith(project) &&
@@ -261,21 +288,21 @@ function snippetFiles(adapter: Adapter): string[] {
     join(fixtures, "prisma-client.d.ts"),
     join(fixtures, `register-${adapter}.ts`),
     join(src, "lib/your-code.ts"),
-    ...(adapter === "drizzle" ? [join(project, "flowpanel.config.ts")] : []),
+    ...(adapter === "drizzle" ? [join(project, "flowpanel.config.ts"), ...cliFiles] : []),
     ...own.filter((file) => /prisma/.test(file) === (adapter === "prisma")),
   ];
 }
 
 /** Typechecks every checked block of the docs, the included snippets and the fixtures; one line per error. */
 export function checkDocBlocks(docsRoot = DOCS_ROOT): string[] {
-  const blocks = writeDocBlocks(docsRoot);
+  const { blocks, cliFiles, stray } = writeDocBlocks(docsRoot);
   const byFile = new Map(blocks.map((block) => [block.file, block]));
   const options = compilerOptions();
-  const errors: string[] = [];
+  const errors: string[] = [...stray];
   let kit: Map<string, { from: string; value: boolean }> | null = null;
   for (const adapter of ["drizzle", "prisma"] as const) {
     const rootNames = [
-      ...snippetFiles(adapter),
+      ...snippetFiles(adapter, cliFiles),
       ...blocks.filter((block) => block.adapter === adapter).map((block) => block.file),
     ];
     const first = ts.createProgram({ rootNames, options });

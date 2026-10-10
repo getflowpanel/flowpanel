@@ -1,6 +1,13 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RealtimeProvider } from "../../realtime/RealtimeProvider";
 import { useLiveChannel } from "../useLiveChannel";
+import { RealtimeRefresh } from "../useRealtimeRefresh";
+
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh, push: vi.fn(), replace: vi.fn() }),
+}));
 
 const instances: MockEventSource[] = [];
 
@@ -12,10 +19,26 @@ class MockEventSource {
   onerror: ((ev: Event) => void) | null = null;
   onopen: ((ev: Event) => void) | null = null;
   readyState: number = MockEventSource.CONNECTING;
+  /** The server\'s named events, such as the `ready` frame it sends once the stream answers. */
+  listeners = new Map<string, Array<() => void>>();
+  addEventListener(type: string, fn: () => void): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]);
+  }
   constructor(public url: string) {
     instances.push(this);
   }
+  /** The stream answers: the connection opens and the server sends its `ready` frame. */
   open(): void {
+    this.readyState = MockEventSource.OPEN;
+    this.onopen?.({} as Event);
+    for (const fn of this.listeners.get("ready") ?? []) fn();
+  }
+  /** A named server event, such as `closing` before a planned end. */
+  emit(type: string): void {
+    for (const fn of this.listeners.get(type) ?? []) fn();
+  }
+  /** The connection opens but no frame follows yet. */
+  connect(): void {
     this.readyState = MockEventSource.OPEN;
     this.onopen?.({} as Event);
   }
@@ -170,25 +193,25 @@ describe("useLiveChannel", () => {
     expect(instances).toHaveLength(2);
   });
 
-  it("reports offline after 6 consecutive failed attempts, not before", async () => {
+  it("reports offline once failures have lasted 30 seconds, and keeps retrying", async () => {
     const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
     act(() => instances[0]!.open());
-    for (let i = 0; i < 5; i += 1) {
-      act(() => instances[i]!.fail());
-      expect(getByTestId("status").textContent).toBe("reconnecting");
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(31_000);
-      });
-    }
-    act(() => instances[5]!.fail());
+    act(() => instances[0]!.fail());
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(29_000);
+    });
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
     expect(getByTestId("status").textContent).toBe("offline");
-    // Still retrying — offline is a report, not a surrender.
+    const opened = instances.length;
     await act(async () => {
       await vi.advanceTimersByTimeAsync(31_000);
     });
-    expect(instances).toHaveLength(7);
-    expect(getByTestId("status").textContent).toBe("offline");
-    act(() => instances[6]!.open());
+    expect(instances.length).toBeGreaterThan(opened - 1);
+    act(() => instances[instances.length - 1]!.open());
     expect(getByTestId("status").textContent).toBe("live");
   });
 
@@ -237,6 +260,87 @@ describe("useLiveChannel", () => {
     const { getByTestId } = render(<Harness channel="" onMessage={() => undefined} />);
     expect(instances).toHaveLength(0);
     expect(getByTestId("status").textContent).toBe("idle");
+  });
+
+  it("reads 'reconnecting' from the moment the server closes the stream until a frame arrives", () => {
+    const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
+    act(() => instances[0]!.open());
+    expect(getByTestId("status").textContent).toBe("live");
+    // The server ends the response: the browser reports an error and reconnects on its own.
+    act(() => instances[0]!.error());
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+    // The socket opens again, but an open connection proves nothing until the server speaks.
+    act(() => instances[0]!.connect());
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+    act(() => instances[0]!.message(JSON.stringify({ channel: "x", payload: 1 })));
+    expect(getByTestId("status").textContent).toBe("live");
+  });
+
+  it("stays live through a stream the server ends on purpose and reconnects at once", async () => {
+    const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
+    act(() => instances[0]!.open());
+    act(() => instances[0]!.emit("closing"));
+    act(() => instances[0]!.error());
+    expect(getByTestId("status").textContent).toBe("live");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    act(() => instances[0]!.open());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(getByTestId("status").textContent).toBe("live");
+  });
+
+  it("admits a planned reconnect that does not come back in time", async () => {
+    const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
+    act(() => instances[0]!.open());
+    act(() => instances[0]!.emit("closing"));
+    act(() => instances[0]!.error());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+  });
+
+  it("goes offline while the browser's own one-second retries keep failing for 30 seconds", async () => {
+    const { getByTestId } = render(<Harness channel="x" onMessage={() => undefined} />);
+    act(() => instances[0]!.open());
+    for (let second = 0; second < 29; second += 1) {
+      act(() => instances[0]!.error());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+    }
+    expect(getByTestId("status").textContent).toBe("reconnecting");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(getByTestId("status").textContent).toBe("offline");
+    expect(instances).toHaveLength(1);
+  });
+
+  it("joins the admin's provider instead of opening a second stream, without refreshing the route", async () => {
+    const onMessage = vi.fn();
+    render(
+      <RealtimeProvider>
+        <RealtimeRefresh channels="resource.orders" />
+        <Harness channel="ops" onMessage={onMessage} />
+      </RealtimeProvider>,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60);
+    });
+    expect(instances).toHaveLength(1);
+    expect(instances[0]?.url).toContain("channel=ops");
+    expect(instances[0]?.url).toContain("channel=resource.orders");
+    act(() => instances[0]!.open());
+    act(() => instances[0]!.message(JSON.stringify({ channel: "ops", payload: { n: 1 } })));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(onMessage).toHaveBeenCalledWith({ n: 1 });
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   describe("connection pooling", () => {

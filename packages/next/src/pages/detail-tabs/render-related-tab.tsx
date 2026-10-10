@@ -14,6 +14,7 @@ import { projectRowFields } from "../../runtime/project-row";
 import { readOrCard } from "../../runtime/query-error";
 import { withReferenceCells } from "../../runtime/reference-cells";
 import { readRelatedPage } from "../../runtime/require-authorized";
+import { pluralLabel } from "../../runtime/resource-title";
 import { openRowHrefs } from "../../runtime/row-click";
 import { rowKeyOf } from "../../runtime/row-identity";
 import { widgetHref } from "../../runtime/widget-context";
@@ -120,6 +121,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
       config,
       resource: String(tab.resource),
       operation: "list",
+      label: pluralLabel(target, resourceName),
       ...(reqCtx.requestId ? { requestId: reqCtx.requestId } : {}),
     },
     async () => {

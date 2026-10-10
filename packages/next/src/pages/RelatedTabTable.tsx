@@ -69,6 +69,7 @@ export function RelatedTabTable<Row extends Record<string, unknown>>({
         <div className="fp-flex fp-justify-end">
           <Link
             href={openListHref}
+            prefetch={false}
             className="fp-text-sm fp-text-soft fp-underline-offset-4 hover:fp-text-ink hover:fp-underline focus-visible:fp-underline"
           >
             {openListLabel}

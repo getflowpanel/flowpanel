@@ -521,7 +521,7 @@ describe("init end to end", () => {
       const result = await initRun(installed, ["init", "--yes", "--dev-auth"]);
       expect(result.code).toBe(0);
       expect(result.stdout).toBe(
-        "Wrote\n  src/server/lib/auth.ts\n! src/server/lib/auth.ts signs every request in as an admin in development and throws under `next start`. Replace it with your auth provider before deploying.\n\nAdmin: http://localhost:3000/admin\n",
+        "Wrote\n  src/server/lib/auth.ts\n\n! src/server/lib/auth.ts signs every request in as an admin in development and throws under `next start`. Replace it with your auth provider before deploying.\n\nAdmin: http://localhost:3000/admin\n",
       );
       const written = await fs.readFile(sessionFile(), "utf8");
       expect(written).not.toBe(closed);

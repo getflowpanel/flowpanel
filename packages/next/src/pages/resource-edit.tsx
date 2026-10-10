@@ -18,10 +18,12 @@ import { notFound } from "next/navigation";
 import { writableColumns } from "../actions/field-pipeline";
 import { dateInputFor, dateInputValue } from "../runtime/form-dates";
 import { buildApiHref, buildHref } from "../runtime/href";
+import { moneyInputValue, moneyShape } from "../runtime/money-field";
 import { projectRowFields, selectKnownFields } from "../runtime/project-row";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAccessIfSet } from "../runtime/require-access";
 import {
+  columnReferenceFields,
   declaredFormFields,
   deniedFieldWrites,
   hiddenFormFields,
@@ -120,13 +122,15 @@ export async function ResourceEditPage({
         projectedValues,
         denied,
         await hiddenFormFields(resource, reqCtx, denied),
+        written.columns,
       )
     : undefined;
   const columns = writableColumns(resource, written.columns, declared, "update");
   const defaultFields = fields
     ? fields.map((field) => field.name)
     : columns.map((column) => column.name);
-  const { timeZone } = resolveFormatting(config.formatting);
+  const formatting = resolveFormatting(config.formatting);
+  const { timeZone } = formatting;
   const columnTypes = new Map(written.columns.map((column) => [column.name, column.type]));
   const declaredByName = new Map(declared?.map((field) => [field.name, field]));
   const defaultValues = Object.fromEntries(
@@ -134,6 +138,12 @@ export async function ResourceEditPage({
       .filter((field) => readable.includes(field) && Object.hasOwn(projectedValues, field))
       .map((field) => {
         const value = projectedValues[field];
+        const declaredField = declaredByName.get(field);
+        if (declaredField?.type === "money") {
+          const column = written.columns.find((c) => c.name === field);
+          const shape = moneyShape(declaredField, column, formatting);
+          return [field, moneyInputValue(value, shape, formatting.locale)];
+        }
         const input = dateInputFor(
           declared ? (declaredByName.get(field) ?? {}) : undefined,
           columnTypes.get(field),
@@ -149,10 +159,22 @@ export async function ResourceEditPage({
         <AutoForm
           action={action}
           columns={columns}
+          {...(declared
+            ? {}
+            : {
+                columnFields: await columnReferenceFields(
+                  config,
+                  resource,
+                  columns,
+                  reqCtx,
+                  projectedValues,
+                ),
+              })}
           defaultValues={defaultValues}
           hide={[...denied]}
           {...(fields ? { fields } : {})}
           submitLabel={labels.actions.save}
+          successMessage={labels.saving.saved}
           cancelHref={buildHref(config, name, id)}
           redirectTo={buildHref(config, name, id)}
         />

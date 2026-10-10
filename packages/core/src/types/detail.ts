@@ -124,4 +124,9 @@ export interface DetailOptions<Row> {
   aside?: WidgetConfig[];
   tabs?: DetailTab<Row>[];
   fields?: (keyof Row | FieldDef<Row>)[] | "*";
+  /**
+   * The History tab, listing this record's audit events. Shown when the audit log table is on.
+   * @defaultValue true
+   */
+  history?: boolean;
 }

@@ -48,7 +48,7 @@ pnpm flowpanel new runs --dir src/admin/config/resources
 pnpm flowpanel new invoices --dir src/admin/config/resources --hidden
 ```
 
-Each command reads the table, picks columns by type, and adds the export to `src/admin/config/resources/index.ts`. A foreign key becomes a `reference` labelled by the target's `name`, `title` or `email`, and a picker in the create and edit form, once the target has its own file, which is why `customers` goes first. A file with such a picker lists its form fields in `create.fields`, so a column you add to that table later goes into the form only when you add it there. `--hidden` keeps invoices out of the navigation; they appear on the customer's page.
+Each command reads the table, picks columns by type, and adds the export to `src/admin/config/resources/index.ts`. A foreign key becomes a `reference` labelled by the target's `name`, `title` or `email`, and a picker in the create and edit form, once the target has its own file, which is why `customers` goes first. `--hidden` keeps invoices out of the navigation; they appear on the customer's page.
 
 The first `new --dir` wired the directory into the config, so `src/admin/config/index.ts` now reads:
 
@@ -116,17 +116,6 @@ export const runs = resource(schema.runs, {
   ],
   filters: [{ field: "status", type: "multiselect" }],
   defaultSort: { field: "startedAt", dir: "desc" },
-  create: {
-    fields: [
-      { name: "monitorId", label: "Monitor", reference: { resource: "monitors", labelField: "name" } },
-      { name: "status", type: "select", options: RunStatus.options },
-      { name: "pagesCrawled", type: "number" },
-      { name: "durationMs", type: "number" },
-      { name: "startedAt", type: "datetime" },
-      { name: "finishedAt", type: "datetime" },
-      { name: "error" },
-    ],
-  },
 });
 ```
 
@@ -403,7 +392,7 @@ export const realtime = {
 } satisfies PublisherOptions;
 ```
 
-Pass it to `defineAdmin` as `realtime`. Then publish from the worker:
+Pass it to `defineAdmin` with the channel the crawl-queue card subscribes to, `realtime: { ...realtime, channels: { pipeline: {} } }`. Then publish from the worker:
 
 ```ts
 // src/worker/admin-events.ts

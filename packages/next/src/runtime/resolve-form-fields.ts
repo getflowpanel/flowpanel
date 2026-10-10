@@ -1,12 +1,21 @@
 import type {
+  ColumnMeta,
   FieldDef,
   QueryContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { accessAllows, humanize, runWithRequestContext } from "@flowpanel/core";
+import {
+  accessAllows,
+  humanize,
+  humanizeReference,
+  resolveFormatting,
+  runWithRequestContext,
+} from "@flowpanel/core";
 import type { ResolvedField } from "@flowpanel/react";
+import { columnDefs } from "./column-defs";
+import { moneyInputValue, moneyShape } from "./money-field";
 import { readRelatedRows } from "./require-authorized";
 import { toWireOptions } from "./select-options";
 
@@ -93,7 +102,9 @@ export async function resolveFormFields(
   row?: Record<string, unknown>,
   denied: ReadonlySet<string> = new Set(),
   hidden: ReadonlySet<string> = new Set(),
+  columns: ReadonlyArray<ColumnMeta> = [],
 ): Promise<ResolvedField[]> {
+  const formatting = resolveFormatting(config.formatting);
   const queryCtx: QueryContext = {
     ...reqCtx,
     dateRange: { from: new Date(0), to: new Date() },
@@ -122,20 +133,72 @@ export async function resolveFormFields(
                 (f.defaultValue as (ctx: QueryContext) => Promise<unknown>)(queryCtx),
               )
             : f.defaultValue;
+        if (f.type === "money") {
+          const shape = moneyShape(
+            f,
+            columns.find((c) => c.name === f.name),
+            formatting,
+          );
+          defaultValue = moneyInputValue(defaultValue, shape, formatting.locale);
+        }
       }
       return {
         name: f.name,
-        label: f.label ?? humanize(f.name),
+        label: f.label ?? (f.reference ? humanizeReference(f.name) : humanize(f.name)),
         type: f.type ?? (f.reference ? "reference" : "text"),
         ...(f.help ? { help: f.help } : {}),
         ...(f.placeholder ? { placeholder: f.placeholder } : {}),
         ...(f.required ? { required: f.required } : {}),
         ...(fieldFlag(f.readOnly, values) || denied.has(f.name) ? { readOnly: true } : {}),
         ...(defaultValue !== undefined ? { defaultValue } : {}),
+        ...(f.type === "money" && f.currency ? { currency: f.currency } : {}),
         ...(f.span ? { span: f.span } : {}),
         ...(f.group ? { group: f.group } : {}),
         ...(options ? { options } : {}),
       };
     }),
   );
+}
+
+/** The `ColumnDef.reference` and label of each column that declares one. */
+export function columnReferences(
+  resource: ResourceConfig,
+): Map<string, { reference: { resource: string; labelField: string }; label?: string }> {
+  const out = new Map<
+    string,
+    { reference: { resource: string; labelField: string }; label?: string }
+  >();
+  for (const def of columnDefs(resource)) {
+    if (def.field && def.reference) {
+      out.set(def.field, { reference: def.reference, ...(def.label ? { label: def.label } : {}) });
+    }
+  }
+  return out;
+}
+
+/**
+ * A generated form's pickers: each offered column whose `ColumnDef.reference` names another
+ * resource, resolved like a declared `reference` field, current label included.
+ */
+export async function columnReferenceFields(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  columns: ReadonlyArray<{ name: string }>,
+  reqCtx: RequestContext,
+  row?: Record<string, unknown>,
+): Promise<ResolvedField[]> {
+  const references = columnReferences(resource);
+  const fields: FieldDef<Record<string, unknown>>[] = columns.flatMap((column) => {
+    const found = references.get(column.name);
+    return found
+      ? [
+          {
+            name: column.name,
+            reference: found.reference,
+            ...(found.label ? { label: found.label } : {}),
+          },
+        ]
+      : [];
+  });
+  return fields.length > 0 ? resolveFormFields(config, fields, reqCtx, row) : [];
 }

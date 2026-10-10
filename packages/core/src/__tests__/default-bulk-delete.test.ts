@@ -28,25 +28,7 @@ describe("defaultBulkActions — auto-injected delete", () => {
     expect(bulk?.[0]?.variant).toBe("destructive");
   });
 
-  it("uses the resource's delete confirmation copy", () => {
-    const cfg = defineAdmin({
-      adapter: noopAdapter,
-      auth: { session: async () => null, role: () => "guest" },
-      resources: [
-        resource(
-          { __name: "offers" },
-          { columns: [], delete: { confirm: "Also deletes related matches." } },
-        ),
-      ],
-    });
-
-    expect(cfg.resourcesByName.get("offers")?.options.bulkActions?.[0]?.confirm).toEqual({
-      title: "Delete selected items?",
-      description: "Also deletes related matches.",
-    });
-  });
-
-  it("does NOT override explicit bulkActions", () => {
+  it("keeps explicit bulkActions first and appends Delete after them", () => {
     const custom: BulkAction<unknown> = {
       key: "archive",
       label: "Archive",
@@ -58,7 +40,8 @@ describe("defaultBulkActions — auto-injected delete", () => {
       resources: [resource({ __name: "users" }, { columns: [], bulkActions: [custom] })],
     });
     const users = cfg.resourcesByName.get("users");
-    expect(users?.options.bulkActions).toEqual([custom]);
+    expect(users?.options.bulkActions?.map((action) => action.key)).toEqual(["archive", "delete"]);
+    expect(users?.options.bulkActions?.[0]).toBe(custom);
   });
 
   it("does NOT add delete when resource.delete.disabled is true", () => {

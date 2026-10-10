@@ -7,6 +7,7 @@ import { buildApiHref, buildHref } from "../runtime/href";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAccessIfSet } from "../runtime/require-access";
 import {
+  columnReferenceFields,
   declaredFormFields,
   deniedFieldWrites,
   hiddenFormFields,
@@ -44,6 +45,7 @@ export async function ResourceCreatePage({
   const intro = config.adapter.introspect(writeTarget(resource));
   const action = buildApiHref(config, name, "create");
   const declared = declaredFormFields(resource, "create");
+  const offered = writableColumns(resource, intro.columns, declared);
   const denied = await deniedFieldWrites(resource, reqCtx, null);
   const fields = declared
     ? await resolveFormFields(
@@ -53,6 +55,7 @@ export async function ResourceCreatePage({
         undefined,
         denied,
         await hiddenFormFields(resource, reqCtx, denied),
+        intro.columns,
       )
     : undefined;
 
@@ -62,11 +65,15 @@ export async function ResourceCreatePage({
       <div className="fp-max-w-xl fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
         <AutoForm
           action={action}
-          columns={writableColumns(resource, intro.columns, declared)}
+          columns={offered}
+          {...(declared
+            ? {}
+            : { columnFields: await columnReferenceFields(config, resource, offered, reqCtx) })}
           hide={[...denied]}
           {...(fields ? { fields } : {})}
           submitLabel={labels.actions.create}
           cancelHref={buildHref(config, name)}
+          successMessage={singularTitle(labels.saving.created, resource, name)}
           redirectTo={buildHref(config, name)}
         />
       </div>

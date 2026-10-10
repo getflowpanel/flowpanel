@@ -15,7 +15,7 @@ import type {
   ResourceConfig,
   Session,
 } from "@flowpanel/core";
-import { drawerActionRoute } from "../drawer/drawer-route";
+import { drawerActionRoute } from "../drawer/drawer-action-route";
 import { publish, publishResource } from "../runtime/publish";
 
 function makeConfig(
@@ -229,7 +229,7 @@ describe("drawerActionRoute", () => {
     });
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.fieldErrors).toEqual({ reason: "reason is required" });
+    expect(body.fieldErrors).toEqual({ reason: "Reason is required" });
     // The guard must run *before* the handler — otherwise a hand-crafted POST
     // reaches user code with input the form would have rejected.
     expect(run).not.toHaveBeenCalled();

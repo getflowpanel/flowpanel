@@ -8,17 +8,21 @@ export type RealtimeStatus = "idle" | "connecting" | "live" | "reconnecting" | "
 
 export type StatusListener = (status: RealtimeStatus) => void;
 
-/** Consecutive failed attempts before a connection is reported as `offline` (~30s of backoff). */
-export const OFFLINE_AFTER_ATTEMPTS = 6;
+/** How long a connection keeps failing before it reads `offline` instead of `reconnecting`. */
+export const OFFLINE_AFTER_MS = 30_000;
 
-/** Status to surface while retrying: `offline` once the failures stop being plausibly transient. */
-export function statusForAttempt(attempt: number): RealtimeStatus {
-  return attempt >= OFFLINE_AFTER_ATTEMPTS ? "offline" : "reconnecting";
+export interface SubscribeOptions {
+  /**
+   * Whether this subscriber's events refresh the route under a provider. A subscriber that only
+   * reads payloads, as `useLiveChannel` does, passes `false`.
+   * @defaultValue true
+   */
+  refresh?: boolean;
 }
 
 export interface RealtimeBus {
   /** Subscribe to one or more channels. Returns an unsubscribe. */
-  subscribe(channels: string[], cb: Callback): () => void;
+  subscribe(channels: string[], cb: Callback, options?: SubscribeOptions): () => void;
   /** Read current connection status (snapshot). */
   getStatus(): RealtimeStatus;
   /** Subscribe to status transitions. Returns an unsubscribe. */

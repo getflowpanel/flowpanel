@@ -80,6 +80,8 @@ export interface ListQueryContext<Row, Db = unknown> extends QueryContext<Db> {
   filters: Record<string, unknown>;
   /** Active sort, or null when the list is unsorted. */
   sort: { field: keyof Row & string; dir: "asc" | "desc" } | null;
+  /** Columns ordered by after `sort`, ascending, so pages never overlap: the primary key's. */
+  tiebreak?: readonly string[];
   /** 1-based page number. */
   page: number;
   pageSize: number;

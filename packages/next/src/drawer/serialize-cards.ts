@@ -11,7 +11,7 @@ import type {
 import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
 import type { CardDate } from "@flowpanel/react";
 import { barRows } from "../runtime/bar-rows";
-import { type ListCardData, listCardData } from "../runtime/list-rows";
+import { type ListCardData, listCardData } from "../runtime/list-card-data";
 import { realtimeProp } from "../runtime/realtime-channels";
 import { type LinkedRow, linkRows, resolveLink } from "../runtime/resolve-link";
 import { statDisplay } from "../runtime/stat-result";

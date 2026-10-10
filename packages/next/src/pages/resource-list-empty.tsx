@@ -1,8 +1,11 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { formatLabel, mergeLabels } from "@flowpanel/core";
+import { CreateDrawerTrigger } from "@flowpanel/next/client";
 import { Button, FlowpanelIcon } from "@flowpanel/react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { buildHref } from "../runtime/href";
+import { fillLabel, singularTitle } from "../runtime/resource-title";
 
 interface EmptyProps {
   emptyTitle: string;
@@ -28,12 +31,14 @@ function clearedHref(
 function linkButton(href: string, label: string, variant?: "outline"): ReactNode {
   return (
     <Button asChild {...(variant ? { variant } : {})}>
-      <a href={href}>{label}</a>
+      <Link href={href} prefetch={false}>
+        {label}
+      </Link>
     </Button>
   );
 }
 
-/** An empty list says whether there is no data yet or the search and filters found none. */
+/** An empty list says why it is empty and offers the next step: clear the filters, or create the first row. */
 export function listEmptyProps(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
@@ -44,6 +49,7 @@ export function listEmptyProps(
     params: URLSearchParams;
     search?: string;
     defaulted?: ReadonlyArray<{ field: string }>;
+    creatable?: boolean;
   },
 ): EmptyProps {
   const empty = resource.options.empty;
@@ -60,12 +66,23 @@ export function listEmptyProps(
       ),
     };
   }
+  const creatable = narrowed.creatable === true;
+  const action = empty?.action ? (
+    linkButton(empty.action.href, empty.action.label)
+  ) : creatable ? (
+    <CreateDrawerTrigger label={singularTitle(labels.table.createFirst, resource, name)} />
+  ) : null;
   return {
-    emptyTitle: empty?.title ?? formatLabel(labels.table.empty, { label: plural }),
-    ...(empty?.description ? { emptyDescription: empty.description } : {}),
+    emptyTitle: empty?.title ?? fillLabel(labels.table.empty, plural),
+    emptyDescription:
+      empty?.description ??
+      fillLabel(
+        creatable ? labels.table.emptyDescription : labels.table.emptyReadOnlyDescription,
+        plural,
+      ),
     ...(empty?.icon
       ? { emptyIcon: <FlowpanelIcon name={empty.icon} className="fp-h-6 fp-w-6" /> }
       : {}),
-    ...(empty?.action ? { emptyAction: linkButton(empty.action.href, empty.action.label) } : {}),
+    ...(action ? { emptyAction: action } : {}),
   };
 }

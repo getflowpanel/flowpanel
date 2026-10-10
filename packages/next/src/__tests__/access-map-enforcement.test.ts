@@ -17,7 +17,7 @@ import type {
 } from "@flowpanel/core";
 import { bulkActionRoute } from "../actions/bulk-action";
 import { rowActionRoute } from "../actions/row-action";
-import { drawerActionRoute } from "../drawer/drawer-route";
+import { drawerActionRoute } from "../drawer/drawer-action-route";
 import { buildNav } from "../runtime/nav";
 
 function roleOf(s: Session | null): string {

@@ -62,3 +62,31 @@ describe("introspect(drizzle pg table)", () => {
     expect(Object.isFrozen(meta.columns[0])).toBe(true);
   });
 });
+
+describe("introspect: composite primary keys", () => {
+  it("reports every column of a table-level primaryKey, by property name", async () => {
+    const { primaryKey } = await import("drizzle-orm/pg-core");
+    const {
+      sqliteTable,
+      text: sqliteText,
+      primaryKey: sqlitePrimaryKey,
+    } = await import("drizzle-orm/sqlite-core");
+    const memberships = pgTable(
+      "memberships",
+      { orgId: text("org_id").notNull(), userId: text("user_id").notNull(), role: text("role") },
+      (t) => [primaryKey({ columns: [t.orgId, t.userId] })],
+    );
+    const tags = sqliteTable(
+      "tags",
+      { postId: sqliteText("post_id").notNull(), tag: sqliteText("tag").notNull() },
+      (t) => [sqlitePrimaryKey({ columns: [t.postId, t.tag] })],
+    );
+    expect(introspect(memberships).keyColumns).toEqual(["orgId", "userId"]);
+    expect(introspect(tags).keyColumns).toEqual(["postId", "tag"]);
+  });
+
+  it("reports none for a single-column key", () => {
+    const users = pgTable("users", { id: uuid("id").primaryKey(), email: text("email") });
+    expect(introspect(users).keyColumns).toBeUndefined();
+  });
+});

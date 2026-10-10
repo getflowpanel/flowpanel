@@ -1,11 +1,12 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { mergeLabels } from "@flowpanel/core";
+import { accessAllows, mergeLabels, resolveOperationAccess } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
 import { CreateDrawer } from "@flowpanel/next/client";
 import { AutoForm } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
 import { buildApiHref, buildHref } from "../runtime/href";
 import {
+  columnReferenceFields,
   declaredFormFields,
   deniedFieldWrites,
   hiddenFormFields,
@@ -20,13 +21,23 @@ interface ResourceListCreateActionOptions {
   reqCtx: RequestContext;
 }
 
+/** The New button's rule: create is on, the admin takes writes and the caller's role may create. */
+export function mayCreate(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+): Promise<boolean> {
+  if (resource.options.create?.disabled || config.readOnly) return Promise.resolve(false);
+  return accessAllows(resolveOperationAccess(resource.options.access, "create"), reqCtx);
+}
+
 export async function buildResourceListCreateAction({
   config,
   resource,
   name,
   reqCtx,
 }: ResourceListCreateActionOptions) {
-  if (resource.options.create?.disabled) return undefined;
+  if (!(await mayCreate(config, resource, reqCtx))) return undefined;
 
   const declared = declaredFormFields(resource, "create");
   const denied = await deniedFieldWrites(resource, reqCtx, null);
@@ -38,9 +49,15 @@ export async function buildResourceListCreateAction({
         undefined,
         denied,
         await hiddenFormFields(resource, reqCtx, denied),
+        config.adapter.introspect(writeTarget(resource)).columns,
       )
     : undefined;
   const labels = mergeLabels(config.labels);
+  const offered = writableColumns(
+    resource,
+    config.adapter.introspect(writeTarget(resource)).columns,
+    declared,
+  );
 
   return (
     <CreateDrawer
@@ -49,14 +66,14 @@ export async function buildResourceListCreateAction({
     >
       <AutoForm
         action={buildApiHref(config, name, "create")}
-        columns={writableColumns(
-          resource,
-          config.adapter.introspect(writeTarget(resource)).columns,
-          declared,
-        )}
+        columns={offered}
+        {...(declared
+          ? {}
+          : { columnFields: await columnReferenceFields(config, resource, offered, reqCtx) })}
         hide={[...denied]}
         {...(fields ? { fields } : {})}
         submitLabel={labels.actions.create}
+        successMessage={singularTitle(labels.saving.created, resource, name)}
         redirectTo={buildHref(config, name)}
       />
     </CreateDrawer>

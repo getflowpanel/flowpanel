@@ -15,7 +15,8 @@ import { createMigrationMethods } from "./migration-executor";
 import type { MigrationDb } from "./migrations";
 import { inferSchema } from "./schema";
 import { captureScopeClauses } from "./scope";
-import { rawSqlRows } from "./sql-params";
+import { drizzleAuditLog, rawSqlRows } from "./sql-params";
+import { runInTransaction } from "./transaction";
 import { buildWhere, countRows } from "./where";
 import { DIALECT_WRITES } from "./writes";
 
@@ -81,7 +82,8 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
   return {
     kind: "drizzle",
     db: opts.db,
-    transaction: (run) => (opts.db as DrizzleLikeDb).transaction((tx) => run(tx as unknown as DB)),
+    transaction: <T>(run: (db: DB) => Promise<T>) =>
+      runInTransaction(opts.db, (tx) => run(tx as DB)),
 
     introspect: (ref) => introspect(ref),
     inferSchema: (ref) => inferSchema(ref),
@@ -92,11 +94,20 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
       const selected = projection(cols, ctx.select);
       const where = buildWhere(cols, ctx, dialect);
       const sortCol = ctx.sort?.field ? cols[ctx.sort.field] : undefined;
-      const orderBy = sortCol && (ctx.sort?.dir === "asc" ? asc(sortCol) : desc(sortCol));
+      const tieCols = (ctx.tiebreak ?? []).flatMap((field) => {
+        const col = field === ctx.sort?.field ? undefined : cols[field];
+        return col ? [asc(col)] : [];
+      });
+      const orderBy = [
+        ...(sortCol ? [ctx.sort?.dir === "asc" ? asc(sortCol) : desc(sortCol)] : []),
+        ...tieCols,
+      ];
 
       let q: unknown = selectFrom(db, ref, selected);
       if (where) q = (q as { where: (w: SQL) => unknown }).where(where);
-      if (orderBy) q = (q as { orderBy: (o: SQL | AnyColumn) => unknown }).orderBy(orderBy);
+      if (orderBy.length > 0) {
+        q = (q as { orderBy: (...o: Array<SQL | AnyColumn>) => unknown }).orderBy(...orderBy);
+      }
       const offset = (ctx.page - 1) * ctx.pageSize;
       const rows = (await (
         q as { limit: (n: number) => { offset: (o: number) => Promise<unknown[]> } }
@@ -182,6 +193,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
       const filter = buildWhere(cols, { filters: where ?? {} }, dialect);
       return countRows(opts.db as DrizzleLikeDb, ref, filter, dialect);
     },
+    auditLog: drizzleAuditLog(opts.db as MigrationDb, dialect),
     ...migrationMethods,
   };
 }

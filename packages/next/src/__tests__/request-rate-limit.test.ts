@@ -168,3 +168,27 @@ describe("buildRequestContext — rate limit", () => {
     await expect(doCheck()).rejects.toBeInstanceOf(FlowpanelRateLimitError);
   });
 });
+
+describe("buildRequestContext — what a hit is", () => {
+  const limited = () =>
+    mkConfig({ driver: "memory", limit: 1, windowMs: 60_000, per: "user" }, "prefetcher");
+
+  it("does not count a wall's own read of the caller", async () => {
+    const cfg = limited();
+    const req = () => new Request("http://localhost/");
+    await buildRequestContext({ req: req(), config: cfg });
+    await expect(buildRequestContext({ req: req(), config: cfg })).rejects.toBeInstanceOf(
+      FlowpanelRateLimitError,
+    );
+    await expect(
+      buildRequestContext({ req: req(), config: cfg, rateLimit: false }),
+    ).resolves.toMatchObject({ session: { user: { id: "prefetcher" } } });
+  });
+
+  it("counts one page view once however often the page reads its caller", async () => {
+    const cfg = limited();
+    const req = new Request("http://localhost/");
+    const first = await buildRequestContext({ req, config: cfg });
+    await expect(buildRequestContext({ req, config: cfg })).resolves.toBe(first);
+  });
+});

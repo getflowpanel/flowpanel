@@ -23,7 +23,7 @@ import { ServerCard } from "./_server-card";
 import { barRows } from "./bar-rows";
 import { withFilterHrefs } from "./dashboard-filters";
 import { filteredEmptyState } from "./filtered-empty";
-import { listCardData } from "./list-rows";
+import { listCardData } from "./list-card-data";
 import { realtimeChannels } from "./realtime-channels";
 import { scopedCountMetric } from "./record-scope";
 import { renderChartWidget } from "./render-chart-widget";

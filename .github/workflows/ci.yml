@@ -80,8 +80,9 @@ jobs:
           echo "✔ No \`any\` in public exports"
 
       - name: No inline styles in packages/react
+        # Allowed only where the value is computed: column widths, the table's min width and CSS variables.
         run: |
-          found=$(grep -rnE 'style=\{' packages/react/src | grep -v '_feedback/SkeletonCard.tsx' || true)
+          found=$(grep -rnE 'style=\{' packages/react/src --include='*.tsx' | grep -v '/__tests__/' | grep -vE 'feedback/SkeletonCard.tsx|shell/AdminShell.tsx|data/DataTable(Header|Skeleton)?.tsx' || true)
           if [ -n "$found" ]; then
             echo "❌ inline styles found — use Tailwind classes + design tokens"
             echo "$found"
@@ -113,12 +114,15 @@ jobs:
       - name: No circular package imports
         run: pnpm check:cycles
 
+      - name: No unused files, exports or dependencies
+        run: pnpm check:unused
+
       - name: Aggregated changelog is current
         run: |
           pnpm --filter @flowpanel/site changelog
           git diff --exit-code -- apps/site/content/changelog/index.mdx
 
-      - name: Bundle-size budgets (.size-limit.json)
+      - name: Bundle-size budgets (.size-limit.js)
         run: pnpm --filter @flowpanel/kit exec size-limit
 
       - name: Changesets name real workspace packages
@@ -193,6 +197,7 @@ jobs:
       - name: Verify demo sandbox lifecycle against PostgreSQL
         run: |
           pnpm --filter ai-scraper db:push
+          pnpm --filter ai-scraper db:migrate
           pnpm --filter ai-scraper test:integration
 
       - name: Verify scoped admin presentation
@@ -206,6 +211,10 @@ jobs:
       - name: Verify public demo is read-only at the UI and HTTP boundaries
         working-directory: packages/e2e
         run: pnpm test:e2e:demo-readonly
+
+      - name: Verify the admin chrome is fully translated under the ru locale
+        working-directory: packages/e2e
+        run: pnpm test:e2e:demo-ru
 
       - name: Verify the documentation site in a real browser
         working-directory: packages/e2e

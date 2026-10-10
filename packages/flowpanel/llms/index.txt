@@ -20,15 +20,10 @@ documentation: blocks the docs mark `twoslash` are type-checked in CI,
 One file per section of the documentation, or per page of a section longer than 1000 lines, or per part of such a page.
 This directory is canonical; https://flowpanel.tech/llms/<file> serves the same files.
 
-- llms/introduction-getting-started.txt — Getting started: Getting started. Add FlowPanel to an existing Next.js App Router project, expose your first Drizzle table or Prisma model, and open /admin.
-- llms/introduction-founder-admin.txt — Getting started: Build a complete admin. From an empty Next.js app to a deployed admin with dashboards, a record page, a custom widget, live updates and a smoke test.
-- llms/introduction-why-flowpanel.txt — Getting started: Why FlowPanel. Decide whether an embedded, schema-aware admin fits your application better than a hosted tool, an admin framework or a database browser.
-- llms/introduction-limits.txt — Getting started: What FlowPanel does not do yet. The gaps in 0.4 that a real admin runs into, and the workaround for each.
-- llms/introduction-drizzle.txt — Getting started: Drizzle setup. Connect FlowPanel to an existing Drizzle ORM project on PostgreSQL, MySQL or SQLite.
-- llms/introduction-prisma.txt — Getting started: Prisma setup. Connect FlowPanel to an existing Prisma project on PostgreSQL, MySQL or SQLite.
+- llms/introduction.txt — Getting started: Getting started, Build a complete admin, Why FlowPanel, What FlowPanel does not do yet, Drizzle setup, Prisma setup
 - llms/build.txt — Build your admin: Configuration, Resources, Forms, Add actions, Record pages and drawers, Dashboards, Import and export
 - llms/customization.txt — Customize the UI: Choose an extension point, Column renderers, Build a custom widget, Charts, Styling and theme slots, Eject to source
-- llms/guides.txt — Production: Production readiness, Authentication, Roles and permissions, Multi-tenant scope, Realtime, Queues, Upgrade from 0.3
+- llms/guides.txt — Production: Production readiness, Authentication, Roles and permissions, Multi-tenant scope, Audit log, Realtime, Queues, Upgrade from 0.3
 - llms/understand.txt — Understand FlowPanel: How FlowPanel works, Adapters and introspection
 - llms/reference-define-config.txt — Reference: defineAdmin. The config entry point and every option it accepts.
 - llms/reference-resources.txt — Reference: resource(). Every option on a resource, its columns, fields and filters.

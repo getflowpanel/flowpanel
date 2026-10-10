@@ -5,7 +5,7 @@ kind: how-to
 metaTitle: BullMQ queue dashboard
 ---
 
-A queue adds a navigation entry whose page embeds a bull-board server in an iframe. The board is a separate HTTP process with its own token, so protect it on the network as well.
+A queue adds a navigation entry whose page embeds a bull-board server in an iframe. The board is a separate HTTP process with its own secret, so protect it on the network as well.
 
 ```bash
 pnpm add bullmq ioredis @bull-board/api @bull-board/express express
@@ -19,14 +19,15 @@ import { emailQueue } from "@/server/queues";
 
 export const emailQueuePage = queue(emailQueue, {
   label: "Email",
-  boardUrl: "https://internal.example.com/queues/email",
+  boardUrl: "https://internal.example.com/queue/email",
+  boardSecret: process.env.BOARD_SECRET,
   access: "admin",
 });
 ```
 
 Add it to `queues` in the config. The queue's `.name` is its key unless you set `key`. `access` protects the admin page, not the board server.
 
-The page embeds `boardUrl` in an iframe, and the board accepts a `?token=` query, an `Authorization: Bearer` header or its session cookie. Locally, append `?token=<BOARD_TOKEN>` to `boardUrl`. Elsewhere, put the board behind a reverse proxy that adds `Authorization: Bearer <token>`, and point `boardUrl` at the proxy; without either, the iframe shows a 401.
+The page embeds `boardUrl` in an iframe. With `boardSecret`, every render adds a link signed for this queue that expires in a minute; the board checks it and adds the queue to its own session cookie, and the secret never reaches the browser. The session reaches only the queues the user opened from the admin, each for an hour after its latest link, so a user who loses access to a queue page loses that queue on the board within the hour. Without `boardSecret`, put the board behind a reverse proxy that adds `Authorization: Bearer <secret>`, and point `boardUrl` at the proxy; without either, the iframe shows a 401.
 
 ## Start the board
 
@@ -36,22 +37,22 @@ The page embeds `boardUrl` in an iframe, and the board accepts a `?token=` query
 import { startBoardServer } from "@flowpanel/kit/bullmq/board";
 import { queuesByName } from "@/server/queues";
 
-const token = process.env.BOARD_TOKEN;
-if (!token) throw new Error("BOARD_TOKEN is required");
+const secret = process.env.BOARD_SECRET;
+if (!secret) throw new Error("BOARD_SECRET is required");
 
 startBoardServer({
   queues: queuesByName,
   port: 3001,
   bindHost: "127.0.0.1",
-  auth: { token },
+  auth: { secret },
 });
 ```
 
-The token is required. A valid token sets an HttpOnly session cookie for the board's assets and polling.
+The secret is required, and is the same value as each queue's `boardSecret`. A valid link sets an HttpOnly, signed session cookie for the board's assets and polling of that queue, valid for an hour after the queue's latest link. To rotate the secret, pass `auth: { secret: [newSecret, oldSecret] }` until sessions signed with the old one have expired. Behind a TLS-terminating proxy, pass `trustedProxies: 1` so the cookie is `Secure`.
 
 ## Deploy
 
-Anyone who reaches the board port reaches its destructive job controls. Keep it on loopback or behind an authenticated reverse proxy, and run it as its own supervised process. A `?token=` in the URL is fine locally but leaks into logs in shared environments.
+Anyone who reaches the board port with a valid link or cookie reaches its destructive job controls. Keep it on loopback or behind an authenticated reverse proxy, and run it as its own supervised process. A signed link in a log or browser history expires a minute after the page rendered.
 
 ## Count jobs in a dashboard
 
@@ -59,4 +60,4 @@ Wrap the same queue instances with `bullmqAdapter` and call BullMQ methods from 
 
 ## Verify and troubleshoot
 
-Test the admin role gate and the board URL separately: a missing or wrong token returns 401. An unreachable `boardUrl` leaves the iframe empty and the rest of the admin working.
+Test the admin role gate and the board URL separately: a missing, expired or wrongly signed link returns 401. An unreachable `boardUrl` leaves the iframe empty and the rest of the admin working.

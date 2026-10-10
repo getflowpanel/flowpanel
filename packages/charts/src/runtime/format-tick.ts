@@ -1,6 +1,7 @@
 import type { ChartBucket } from "@flowpanel/core";
 import {
   DEFAULT_FORMATTING,
+  formatDateTime,
   formatDateValue,
   formatDayValue,
   type ResolvedFormatting,
@@ -66,12 +67,8 @@ function formatShortTick(
   const tick = toTick(value);
   if (tick === null) return value == null ? "" : String(value);
   const options = bucket === "hour" || bucket === "minute" ? SHORT_TIME : SHORT_DAY;
-  return new Intl.DateTimeFormat(formatting.dateLocale, {
-    ...options,
-    timeZone: zoneOf(tick, formatting),
-  })
-    .format(tick.date)
-    .replace(",", "");
+  const zoned = { ...options, timeZone: zoneOf(tick, formatting) };
+  return formatDateTime(tick.date, formatting.dateLocale, zoned, " ").replace(",", "");
 }
 
 /** Build a tick formatter closure for a chart; a range inside one year prints no year. */

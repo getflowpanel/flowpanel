@@ -37,7 +37,7 @@ export {
   toneFillClass,
   toneTextClass,
 } from "./format-column";
-export { humanize, resolveFieldLabel } from "./humanize";
+export { humanize, humanizeReference, resolveFieldLabel } from "./humanize";
 export type { KeyLabels } from "./internal/key-labels";
 export { RU_LABELS } from "./locales/ru";
 export { accessAllows, requireAccess, resolveOperationAccess } from "./policy/access";

@@ -66,13 +66,15 @@ export interface DrawerFieldFormSpec {
     | ((value: unknown, values: Record<string, unknown>) => string | null | Promise<string | null>);
 }
 
-/** Button rendered in the drawer footer for the open row. */
+/** An action in the open row's header menu, in the drawer and on the record page. */
 export interface DrawerAction<Row = Record<string, unknown>> {
   /** Stable identifier, used in the action's URL. */
   key: string;
   label: string;
   /** `"destructive"` styles the button as dangerous. */
   variant?: "default" | "destructive";
+  /** `"inline"`: a button beside Edit instead of an entry in the record's menu. @defaultValue "menu" */
+  placement?: "inline" | "menu";
   /** Ask for confirmation with this message before running. */
   confirm?: string;
   /** Inputs collected before `run`, passed to it as `formData`. */
@@ -107,6 +109,6 @@ export interface DrawerConfig<Row = Record<string, unknown>> {
   fields?: DrawerFieldList<Row>;
   /** Tabs to render instead of a flat field list. */
   tabs?: DrawerTab<Row>[];
-  /** Buttons rendered in the panel footer. */
+  /** The row's own actions, in the header menu of the drawer and the record page. */
   actions?: DrawerAction<Row>[];
 }

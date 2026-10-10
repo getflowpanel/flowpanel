@@ -108,9 +108,9 @@ another tenant. A custom adapter must do the same.
 ## Post-commit effects
 
 Post-commit audit, realtime or revalidation failures do not turn a committed
-mutation into a false failure. They appear as a `FlowpanelWarning` in result
-metadata; `FlowpanelWarningCode` is `audit_failed`, `realtime_failed`, or
-`revalidation_failed`.
+mutation into a false failure. Each is logged on the server with `console.error`
+(`[flowpanel] audit write failed`, `realtime effect failed`, `revalidation effect
+failed`) and the response reports the write as done.
 
 ## Result envelope
 

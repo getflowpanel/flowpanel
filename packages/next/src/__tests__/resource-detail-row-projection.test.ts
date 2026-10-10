@@ -1,8 +1,7 @@
 import type { Adapter, ItemQueryContext } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
-import { DetailTabsClient, RelatedTabTable } from "@flowpanel/next/client";
+import { DetailTabsClient, RecordActionsBar, RelatedTabTable } from "@flowpanel/next/client";
 import { KVRow, PageHeader } from "@flowpanel/react";
-import Link from "next/link";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ResourceDetailPage } from "../pages/resource-detail";
@@ -335,13 +334,8 @@ describe("ResourceDetailPage — row projection", () => {
         req: new Request("http://localhost/admin/users/1"),
       });
       const actions = findAllElements(node, PageHeader)[0]?.actions as ReactNode;
-      // A Next Link, not a bare anchor: it carries the deployment basePath.
-      const links = findAllElements(actions, Link);
-      expect(links).toHaveLength(shown ? 1 : 0);
-      if (shown) {
-        expect(links[0]?.children).toBe("Редактировать");
-        expect(links[0]?.href).toBe("/admin/users/1/edit");
-      }
+      const menu = findAllElements(actions, RecordActionsBar)[0];
+      expect(menu?.editHref ?? null).toBe(shown ? "/admin/users/1/edit" : null);
     },
   );
 

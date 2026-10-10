@@ -58,6 +58,11 @@ type PublisherOptions =
   | { driver: "redis"; url?: string; client?: RedisLike; keyPrefix?: string };
 ```
 
+`AdminDefinition.realtime` also takes `channels`, the channels of your own the
+stream may serve ([Realtime](/docs/guides/realtime#declare-your-own-channels)):
+
+<AutoTypeTable path="../../packages/core/src/types/realtime.ts" name="RealtimeChannel" />
+
 The memory driver reaches only the publishing process. The Redis driver loads the
 optional `ioredis` peer on first use and needs `url` or `client`; with `client`,
 FlowPanel publishes on it and calls `duplicate()` only to subscribe. Nothing

@@ -4,18 +4,25 @@ import { ToastProvider } from "@flowpanel/react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+let search = "drawer=users:27";
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/admin/users",
-  useSearchParams: () => new URLSearchParams("drawer=users:27"),
+  useSearchParams: () => new URLSearchParams(search),
 }));
 
 import { DrawerHost } from "../DrawerHost";
+import { RECORD_DEFAULTS } from "./payload-fixture";
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  search = "drawer=users:27";
 });
+
+function openMenu(): void {
+  fireEvent.keyDown(screen.getByRole("button", { name: "More actions" }), { key: "Enter" });
+}
 
 function payload(status: string) {
   return {
@@ -28,6 +35,7 @@ function payload(status: string) {
     actions: [{ key: "disable", label: "Disable user" }],
     prerendered: {},
     labels: {},
+    ...RECORD_DEFAULTS,
     formats: {},
   };
 }
@@ -114,7 +122,7 @@ describe("DrawerHost", () => {
     expect(header().textContent).not.toContain("27");
   });
 
-  it("draws its actions as secondary buttons, a destructive one in the error colour", async () => {
+  it("puts the drawer's actions in the record menu, a destructive one in the error colour", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -135,10 +143,32 @@ describe("DrawerHost", () => {
         <DrawerHost />
       </ToastProvider>,
     );
-    const resend = await vi.waitFor(() => screen.getByRole("button", { name: "Resend" }));
-    expect(resend.className).toContain("fp-border-line-strong");
-    expect(resend.className).not.toContain("fp-bg-accent");
-    expect(screen.getByRole("button", { name: "Ban" }).className).toContain("fp-text-err-ink");
+    await vi.waitFor(() => screen.getByRole("button", { name: "More actions" }));
+    openMenu();
+    expect(await screen.findByRole("menuitem", { name: "Resend" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Ban" }).className).toContain("fp-text-err");
+  });
+
+  it("shows a drawer action placed inline as a button beside Edit", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              ...payload("active"),
+              actions: [{ key: "approve", label: "Approve", placement: "inline" }],
+            }),
+          ),
+      ),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    expect(await screen.findByRole("button", { name: "Approve" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
   });
 
   it("re-fetches the row after an action succeeds", async () => {
@@ -150,12 +180,126 @@ describe("DrawerHost", () => {
     );
     await vi.waitFor(() => expect(screen.getByText("active")).toBeTruthy());
 
-    fireEvent.click(screen.getByText("Disable user"));
+    openMenu();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Disable user" }));
     await vi.waitFor(() => expect(screen.getByText("disabled")).toBeTruthy());
 
     const gets = calls.filter((c) => c.init?.method !== "POST");
     expect(gets).toHaveLength(2);
     expect(gets[0]?.url).toBe("/api/flowpanel/drawer/users/27");
+  });
+
+  it("offers Edit and the row's own actions beside Delete, as the record page does", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              ...payload("active"),
+              actions: [],
+              rowActions: [{ key: "retry", label: "Retry run", hasForm: false }],
+              editHref: "/admin/users/27/edit",
+              delete: {
+                label: "Delete",
+                title: "Delete this user?",
+                description: "This can't be undone.",
+                successMessage: "User deleted",
+                listHref: "/admin/users",
+              },
+            }),
+          ),
+      ),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    const edit = await vi.waitFor(() => screen.getByRole("link", { name: "Edit" }));
+    expect(edit.getAttribute("href")).toBe("/admin/users/27/edit");
+    openMenu();
+    expect(await screen.findByRole("menuitem", { name: "Retry run" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    expect(await screen.findByText("Delete this user?")).toBeTruthy();
+  });
+
+  it("never shows the previous record while the next one loads", async () => {
+    let release: (value: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/27")) {
+          return new Response(JSON.stringify({ ...payload("active"), title: "Ann" }));
+        }
+        return new Promise<Response>((resolve) => {
+          release = resolve;
+        });
+      }),
+    );
+    const { rerender } = render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    await vi.waitFor(() => expect(screen.getAllByText("Ann").length).toBeGreaterThan(0));
+
+    search = "drawer=users:28";
+    rerender(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    expect(screen.queryByText("Ann")).toBeNull();
+    expect(screen.queryByText("active")).toBeNull();
+
+    release(
+      new Response(JSON.stringify({ ...payload("trialing"), row: { id: "28" }, title: "Bob" })),
+    );
+    await vi.waitFor(() => expect(screen.getAllByText("Bob").length).toBeGreaterThan(0));
+    expect(screen.queryByText("Ann")).toBeNull();
+  });
+
+  it("says the record is gone when the server answers 404", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ ok: false, error: "row not found" }), { status: 404 }),
+      ),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    expect(await screen.findByText("This record doesn't exist or was deleted.")).toBeTruthy();
+  });
+
+  it("marks a deleted row and offers Restore instead of its actions", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              ...payload("active"),
+              actions: [],
+              deleted: true,
+              deletedTitle: "This user was deleted",
+              restorable: true,
+            }),
+          ),
+      ),
+    );
+    render(
+      <ToastProvider>
+        <DrawerHost />
+      </ToastProvider>,
+    );
+    expect(await screen.findByText("This user was deleted")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Restore" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
   });
 
   it("asks the browser not to serve the payload from cache", async () => {

@@ -15,6 +15,10 @@ vi.mock("../runtime/publish", () => ({
 // `buildServerRequest`, which reads `next/headers` — unavailable outside a
 // real Next.js request scope. Every test below calls `makeActions(config,
 // resource)` without a `reqCtx`, so it needs this mocked.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  connection: async () => {},
+}));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ getAll: () => [] }),

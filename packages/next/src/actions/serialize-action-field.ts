@@ -10,6 +10,9 @@ export function serializeActionFormField(f: FieldDef<Record<string, unknown>>): 
   if (f.type !== undefined) out.type = f.type;
   if (f.required !== undefined) out.required = f.required;
   if (Array.isArray(f.options)) out.options = toWireOptions(f.options);
+  if (f.currency !== undefined) out.currency = f.currency;
+  if (f.minorUnits !== undefined) out.minorUnits = f.minorUnits;
+  if (f.storage !== undefined) out.storage = f.storage;
   return out;
 }
 

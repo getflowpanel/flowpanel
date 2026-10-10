@@ -14,15 +14,25 @@ describe("demo resource delete contract", () => {
     ["monitors", monitors, ["runs", "listings", "matches", "AI usage"]],
     ["listings", listings, ["matches"]],
     ["products", products, ["matches"]],
-  ])("names cascaded dependent data in the %s confirmation", (_name, resource, dependents) => {
-    const confirmation = resource.options.delete?.confirm;
+  ])(
+    "names cascaded dependent data in the %s confirmation, for one and many",
+    (_name, resource, dependents) => {
+      const confirmation = resource.options.delete?.confirm;
 
-    expect(confirmation).toBeTypeOf("string");
-    for (const dependent of dependents) expect(confirmation).toContain(dependent);
-  });
+      expect(confirmation).toBeTypeOf("object");
+      if (typeof confirmation !== "object") return;
+      for (const text of [confirmation.one, confirmation.other]) {
+        for (const dependent of dependents) expect(text).toContain(dependent);
+      }
+      expect(confirmation.other).toContain("{n}");
+    },
+  );
 
   it("makes the leaf review hard delete explicit", () => {
+    const confirmation = matches.options.delete?.confirm;
     expect(matches.options.delete?.disabled).not.toBe(true);
-    expect(matches.options.delete?.confirm).toContain("review decisions");
+    expect(typeof confirmation === "object" ? confirmation.one : confirmation).toContain(
+      "review decision",
+    );
   });
 });

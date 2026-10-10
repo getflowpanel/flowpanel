@@ -51,6 +51,14 @@ export function humanize(name: string): string {
     .join(" ");
 }
 
+/** A foreign key's label without its key suffix: `customerId` and `customer_id` read "Customer". */
+export function humanizeReference(name: string): string {
+  const tokens = splitTokens(name);
+  const last = tokens[tokens.length - 1]?.toLowerCase();
+  if (tokens.length < 2 || (last !== "id" && last !== "uuid")) return humanize(name);
+  return humanize(tokens.slice(0, -1).join(" "));
+}
+
 /** Resolve the display label for a column / field descriptor. */
 export function resolveFieldLabel(label: string | undefined, field: string): string {
   if (label !== undefined) return label;

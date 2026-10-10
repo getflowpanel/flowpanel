@@ -121,9 +121,7 @@ describe("planNewIntoDir", () => {
     expect(intents[0]?.content).toContain(
       '{ field: "userId", label: "User", reference: { resource: "members", labelField: "name" } },',
     );
-    expect(intents[0]?.content).toContain(
-      '      { name: "userId", label: "User", reference: { resource: "members", labelField: "name" } },',
-    );
+    expect(intents[0]?.content).not.toContain("create: {");
   });
 
   it("names the tables there are when the name matches none", async () => {

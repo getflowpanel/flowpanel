@@ -1,3 +1,4 @@
+import { formatDateTime } from "./date-time";
 import {
   columnFormatKind,
   formatBooleanValue,
@@ -47,6 +48,7 @@ export function badgeProps(format: ColumnFormat, value: unknown): BadgeCellProps
     ...(tone ? { tone } : {}),
   };
 }
+export { formatDateTime } from "./date-time";
 export {
   type ColumnFormatKind,
   cellTone,
@@ -61,6 +63,17 @@ export {
   toDateValue,
   urlCellParts,
 } from "./format-values";
+export {
+  currencyDigits,
+  MAX_MINOR_UNITS,
+  type MoneyStorage,
+  majorUnitsInput,
+  moneyDecimals,
+  moneyMinorUnits,
+  moneyStorage,
+  parseMajorUnits,
+  parseMoney,
+} from "./money-input";
 export { toneFillClass, toneTextClass } from "./tone-classes";
 export { toneFor } from "./tone-for";
 export type { Threshold } from "./types/threshold";
@@ -101,21 +114,6 @@ const DAY_OPTIONS: Intl.DateTimeFormatOptions = {
   month: "2-digit",
   day: "2-digit",
 };
-const DATE_FMTS = new Map<string, Intl.DateTimeFormat>();
-
-function dateFmt(
-  locale: string,
-  timeZone: string,
-  options: Intl.DateTimeFormatOptions,
-): Intl.DateTimeFormat {
-  const key = `${locale}|${timeZone}|${options === DAY_OPTIONS ? "day" : "minute"}`;
-  let fmt = DATE_FMTS.get(key);
-  if (!fmt) {
-    fmt = new Intl.DateTimeFormat(locale, { ...options, timeZone });
-    DATE_FMTS.set(key, fmt);
-  }
-  return fmt;
-}
 
 /**
  * The timestamp shape every FlowPanel surface shows — table cells, stat and kv
@@ -126,7 +124,7 @@ export function formatDateValue(
   formatting: ResolvedFormatting = DEFAULT_FORMATTING,
   timeZone: string = formatting.timeZone,
 ): string {
-  return dateFmt(formatting.dateLocale, timeZone, DATE_OPTIONS).format(value).replace(",", "");
+  return formatDateTime(value, formatting.dateLocale, { ...DATE_OPTIONS, timeZone }, " ");
 }
 
 /** The same date without the clock, for a label a full timestamp would crowd. */
@@ -135,7 +133,7 @@ export function formatDayValue(
   formatting: ResolvedFormatting = DEFAULT_FORMATTING,
   timeZone: string = formatting.timeZone,
 ): string {
-  return dateFmt(formatting.dateLocale, timeZone, DAY_OPTIONS).format(value);
+  return formatDateTime(value, formatting.dateLocale, { ...DAY_OPTIONS, timeZone });
 }
 
 /**

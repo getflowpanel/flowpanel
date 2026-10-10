@@ -2,7 +2,6 @@ import type {
   DateRangePreset,
   RequestContext,
   ResolvedAdminConfig,
-  Session,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
@@ -13,11 +12,7 @@ import { renderWidget } from "./render-widget";
 import { rowKeyOf } from "./row-identity";
 import { buildWidgetContext } from "./widget-context";
 
-export interface AdminWidgetContextOptions {
-  /** The signed-in session widgets see as `ctx.session`. @defaultValue null */
-  session?: Session | null;
-  /** The role every access check compares. @defaultValue "admin" */
-  role?: string;
+export interface RequestWidgetContextOptions {
   /** The picked period; its previous period follows. @defaultValue the whole history until now */
   range?: { from: Date; to: Date; preset?: DateRangePreset };
   /** The viewed record, for a record-page widget. */
@@ -26,8 +21,6 @@ export interface AdminWidgetContextOptions {
   resource?: string;
   /** The dashboard filters widgets read as `ctx.filters`. @defaultValue {} */
   filters?: Readonly<Record<string, string>>;
-  /** @defaultValue `http://localhost` followed by the admin's mount */
-  url?: string;
 }
 
 /** What a widget renders with: its kind, and the props its card receives. */
@@ -46,22 +39,14 @@ type Element = ReactElement<Record<string, unknown> & { children?: ReactNode }>;
 const BOUND = new WeakMap<WidgetContext, Bound>();
 
 /**
- * The context a widget receives in this admin — its memo, links, formatters, access checks
- * and adapter — for a unit or integration test. It carries no tenant scope.
+ * The context a widget receives for this request — its memo, links, formatters, access checks and
+ * adapter — under the request's own session, role and scope. `resolveWidget` renders against it.
  */
-export function adminWidgetContext(
+export function requestWidgetContext(
   config: ResolvedAdminConfig,
-  options: AdminWidgetContextOptions = {},
+  reqCtx: RequestContext,
+  options: RequestWidgetContextOptions = {},
 ): WidgetContext {
-  const req = new Request(options.url ?? `http://localhost${config.paths.admin}`);
-  const reqCtx: RequestContext = {
-    req,
-    session: options.session ?? null,
-    role: options.role ?? "admin",
-    scope: null,
-    ip: null,
-    userAgent: null,
-  };
   const range = {
     from: options.range?.from ?? new Date(0),
     to: options.range?.to ?? new Date(),
@@ -72,7 +57,7 @@ export function adminWidgetContext(
   const ctx = buildWidgetContext(
     config,
     reqCtx,
-    req,
+    reqCtx.req,
     range,
     options.row,
     rowKey,
@@ -128,7 +113,7 @@ export async function resolveWidget(
   const bound = BOUND.get(ctx);
   if (!bound) {
     throw new Error(
-      "flowpanel: resolveWidget needs a context from adminWidgetContext(), or from widgetContext() " +
+      "flowpanel: resolveWidget needs a context from requestWidgetContext(), or from widgetContext() " +
         "in @flowpanel/kit/test/widgets; a hand-built context carries no admin to render against.",
     );
   }

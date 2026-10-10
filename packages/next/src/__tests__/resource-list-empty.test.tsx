@@ -1,6 +1,6 @@
 import type { Adapter } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
-import { DataTableWithDrawerRows } from "@flowpanel/next/client";
+import { CreateDrawerTrigger, DataTableWithDrawerRows } from "@flowpanel/next/client";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ResourceListPage } from "../pages/resource-list";
@@ -27,7 +27,7 @@ const adapter: Adapter = {
 
 type Empty = { title?: string; filtered?: string; searched?: string };
 
-function admin(empty?: Empty, locale?: string) {
+function admin(empty?: Empty, locale?: string, creatable = true) {
   return defineAdmin({
     adapter,
     ...(locale ? { formatting: { locale } } : {}),
@@ -37,7 +37,9 @@ function admin(empty?: Empty, locale?: string) {
         { __name: "orders" },
         {
           label: "Orders",
+          labelOne: "Order",
           columns: ["id", "status"],
+          ...(creatable ? {} : { create: { disabled: true } }),
           search: ["status"],
           filters: [{ field: "status", type: "select", options: ["paid", "open"] }],
           ...(empty ? { empty } : {}),
@@ -47,8 +49,8 @@ function admin(empty?: Empty, locale?: string) {
   });
 }
 
-async function table(query: string, empty?: Empty, locale?: string) {
-  const config = admin(empty, locale);
+async function table(query: string, empty?: Empty, locale?: string, creatable = true) {
+  const config = admin(empty, locale, creatable);
   const orders = config.resourcesByName.get("orders");
   if (!orders) throw new Error("orders is not registered");
   const tree = await ResourceListPage({
@@ -59,6 +61,7 @@ async function table(query: string, empty?: Empty, locale?: string) {
   });
   return findAll(tree as ReactNode, DataTableWithDrawerRows)[0] as {
     emptyTitle?: string;
+    emptyDescription?: string;
     emptyAction?: ReactNode;
   };
 }
@@ -72,7 +75,16 @@ function hrefOf(node: ReactNode): string | undefined {
 describe("an empty resource list", () => {
   it("says there is no data yet when nothing narrows it", async () => {
     const props = await table("");
-    expect(props.emptyTitle).toBe("No Orders");
+    expect(props.emptyTitle).toBe("No orders");
+    expect(props.emptyDescription).toBe("Orders you create show up here.");
+    const action = props.emptyAction as ReactElement<{ label?: string }>;
+    expect(action.type).toBe(CreateDrawerTrigger);
+    expect(action.props.label).toBe("Create order");
+  });
+
+  it("offers no create button where nobody creates rows", async () => {
+    const props = await table("", undefined, undefined, false);
+    expect(props.emptyDescription).toBe("Orders show up here once they are recorded.");
     expect(props.emptyAction).toBeUndefined();
   });
 

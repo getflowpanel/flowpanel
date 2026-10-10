@@ -113,13 +113,13 @@ Paths start with `src/` in a `src/app` project.
 
 `init` also adds `suppressHydrationWarning` to the root layout's `<html>` tag, because `ThemeScript` sets an attribute on it before hydration. If it cannot patch the file safely, it prints the edit. `flowpanel doctor --fix` restores a missing route file.
 
-## Optional: audit log tables
+## Optional: the audit log
 
 ```bash
 pnpm flowpanel migrate
 ```
 
-Skip this step unless you turn on the audit log with `audit: { enabled: true }`. The command applies `flowpanel/migrations` through the database client in `flowpanel.config.ts` and creates `_flowpanel_migrations` and `flowpanel_audit_log`. `init` writes the SQL for your database: PostgreSQL, MySQL or SQLite. See [`AuditConfig`](/docs/reference/define-config#auditconfig).
+Run this before you turn on the audit log with `audit: { enabled: true }`; skip it otherwise. The command applies `flowpanel/migrations` through the database client in `flowpanel.config.ts` and creates `_flowpanel_migrations` and `flowpanel_audit_log`, the table behind each record's History tab and the Audit log page. `init` writes the SQL for your database: PostgreSQL, MySQL or SQLite. See [Audit log](/docs/guides/audit-log).
 
 ## Next
 

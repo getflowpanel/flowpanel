@@ -14,7 +14,7 @@ const TabsList = /* @__PURE__ */ named(
     <TabsPrimitive.List
       ref={ref}
       className={cn(
-        "fp-inline-flex fp-h-9 fp-items-center fp-justify-center fp-rounded-lg fp-bg-fill/70 fp-p-1 fp-text-soft",
+        "fp-inline-flex fp-items-center fp-justify-center fp-rounded-lg fp-bg-fill/70 fp-p-1 fp-text-soft sm:fp-h-9",
         className,
       )}
       {...props}
@@ -31,7 +31,7 @@ const TabsTrigger = /* @__PURE__ */ named(
     <TabsPrimitive.Trigger
       ref={ref}
       className={cn(
-        "fp-inline-flex fp-items-center fp-justify-center fp-whitespace-nowrap fp-rounded fp-px-3 fp-py-1 fp-text-sm fp-font-medium fp-transition-all hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 disabled:fp-pointer-events-none disabled:fp-opacity-50 data-[state=active]:fp-bg-surface data-[state=active]:fp-text-ink data-[state=active]:fp-shadow-sm",
+        "fp-inline-flex fp-min-h-11 fp-items-center fp-justify-center fp-whitespace-nowrap fp-rounded fp-px-3 fp-py-1 fp-text-sm sm:fp-min-h-0 fp-font-medium fp-transition-all hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 disabled:fp-pointer-events-none disabled:fp-opacity-50 data-[state=active]:fp-bg-surface data-[state=active]:fp-text-ink data-[state=active]:fp-shadow-sm",
         className,
       )}
       {...props}

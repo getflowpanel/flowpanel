@@ -9,6 +9,10 @@ export interface ActionFormField {
   type?: string;
   required?: boolean;
   options?: { label: string; value: string }[];
+  /** `money` only. */
+  currency?: string;
+  minorUnits?: number;
+  storage?: "minor" | "major";
 }
 
 /** Field-level error map keyed by `ActionFormField.name`. */

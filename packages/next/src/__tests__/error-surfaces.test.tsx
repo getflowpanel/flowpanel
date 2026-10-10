@@ -13,9 +13,11 @@ vi.mock("next/navigation", async (importOriginal) => ({
   useSearchParams: () => new URLSearchParams("drawer=users:27"),
 }));
 
+import { RECORD_DEFAULTS } from "../drawer/__tests__/payload-fixture";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { handleRenderError } from "../flowpanel-page";
 import { renderRelatedTab } from "../pages/detail-tabs/render-related-tab";
+import { FailureCard, type FailureCardProps } from "../runtime/failure-card";
 import { QueryErrorCard } from "../runtime/query-error";
 import { WidgetErrorBoundary } from "../runtime/WidgetErrorBoundary";
 
@@ -58,10 +60,11 @@ function Boom(): never {
 describe("every FlowPanel error surface is findable by data-fp-error", () => {
   it("tags the card a failed adapter read renders", () => {
     const card = QueryErrorCard({
-      site: { config, resource: "users", operation: "get", requestId: "r1" },
+      site: { config, resource: "users", operation: "get", label: "User", requestId: "r1" },
       cause: new Error("boom"),
     });
-    expect((card.props as { "data-fp-error"?: string })["data-fp-error"]).toBe("");
+    const frame = FailureCard(card.props as FailureCardProps);
+    expect((frame.props as { "data-fp-error"?: string })["data-fp-error"]).toBe("");
   });
 
   it("tags the card a failed widget leaves behind", () => {
@@ -121,7 +124,7 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
         new Request("http://localhost/admin"),
       ),
     );
-    expect(screen.getByText(/access denied/i)).toBeTruthy();
+    expect(screen.getByText(/don't have access to this admin/i)).toBeTruthy();
     cleanup();
     render(
       await handleRenderError(
@@ -176,6 +179,7 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
           actions: [],
           prerendered: {},
           labels: {},
+          ...RECORD_DEFAULTS,
           formats: {},
           detailHref: null,
         }),
@@ -187,7 +191,7 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
       </ToastProvider>,
     );
     await waitFor(() => expect(document.querySelector("[data-fp-error]")).toBeTruthy());
-    expect(screen.getByText("Query failed")).toBeTruthy();
+    expect(screen.getByText("Couldn't load this widget. Query failed")).toBeTruthy();
     expect(screen.getByText("Revenue")).toBeTruthy();
   });
 

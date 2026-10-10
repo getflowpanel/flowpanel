@@ -7,7 +7,6 @@ import {
   type RealtimeChannels,
   RealtimeRefresh,
   useAdminDrawer,
-  useAdminTable,
   useRowHrefClick,
 } from "@flowpanel/react";
 import type { ReactNode } from "react";
@@ -17,6 +16,7 @@ import type { SerializedBulkAction } from "../actions/bulk-action";
 import { RestoreButton } from "../actions/RestoreButton";
 import { RowActionsMenu } from "../actions/RowActionsMenu";
 import type { SerializedRowAction } from "../actions/row-action";
+import { useListNavigation } from "../pages/list-navigation";
 import { rowIdentity } from "../runtime/row-identity";
 import { rememberRowCells } from "./table-cells";
 
@@ -28,13 +28,13 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   total: number;
   page: number;
   pageSize: number;
-  /** Sizes offered by the pager; the server clamps `?perPage=` to this set. */
+  /** Sizes offered by the pager; the server clamps `?pageSize=` to this set. */
   pageSizeOptions?: number[];
   rowKey: keyof Row & string;
   sort?: DataTableSort<Row> | null;
   /** Initial row density from `resource.options.density`. Forwarded to `DataTable`. */
   density?: DataTableDensity;
-  /** Export affordance, forwarded verbatim from `resource.options.export`. */
+  /** Export affordance from `resource.options.export`; the export runs on the server for `resource`. */
   exportable?: boolean | { formats?: ("csv" | "json")[]; fields?: string[] };
   /** Show the import button (from `resource.options.import`). */
   importable?: { resource: string; formats: ("csv" | "json")[] };
@@ -61,6 +61,8 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   enteringRowKeys?: string[];
   /** Marker copied from `fp_created`; consumed from the visible URL after paint. */
   createdRowKey?: string;
+  /** What one row is, mid-sentence, for the phone card's link: "Open customer Ann". */
+  rowLabel?: string;
 }
 
 export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
@@ -87,7 +89,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
     ...rest
   } = props;
   const { open } = useAdminDrawer();
-  const table = useAdminTable();
+  const { navigate, pending } = useListNavigation();
   const hrefClick = useRowHrefClick(rows, rowHrefs);
   const onRowClick = openDrawerOnRowClick
     ? (row: Row) => {
@@ -125,6 +127,11 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
   return (
     <>
       {realtime ? <RealtimeRefresh channels={realtime} /> : null}
+      <div aria-hidden className="fp-relative fp-h-0">
+        {pending ? (
+          <span className="fp-pending-bar fp-absolute fp-inset-x-2 fp-top-0 fp-z-10 fp-h-[2px] fp-rounded-full" />
+        ) : null}
+      </div>
       {hasBulkActions ? (
         <BulkActionsBar
           resource={resource}
@@ -143,10 +150,33 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
         {...(emptyAction ? { emptyAction } : {})}
         {...(emptyIcon ? { emptyIcon } : {})}
         {...(prerenderedCells ? { prerenderedCells } : {})}
-        onSortChange={(s) => table.setSort(s as { field: string; dir: "asc" | "desc" })}
-        onPageChange={(p) => table.setPage(p)}
-        onPageSizeChange={(n) => table.setPageSize(n)}
+        onSortChange={(s) =>
+          navigate((q) => {
+            if (s) q.set("sort", `${String(s.field)}:${s.dir}`);
+            else q.delete("sort");
+          }, "push")
+        }
+        onPageChange={(p) => navigate((q) => q.set("page", String(p)), "push", { scroll: true })}
+        onPageSizeChange={(n) =>
+          navigate(
+            (q) => {
+              if (n == null) q.delete("pageSize");
+              else q.set("pageSize", String(n));
+              q.delete("page");
+            },
+            "push",
+            { scroll: true },
+          )
+        }
         inlineEditResource={resource}
+        {...(rest.exportable
+          ? {
+              exportable: {
+                ...(rest.exportable === true ? {} : rest.exportable),
+                resource,
+              },
+            }
+          : {})}
         {...(hasBulkActions ? { selection, onSelectionChange: setSelection } : {})}
         {...(onRowClick ? { onRowClick } : {})}
         {...(hasRowActions || hasRestore

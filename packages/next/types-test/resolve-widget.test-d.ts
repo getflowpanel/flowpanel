@@ -1,20 +1,26 @@
-import type { ResolvedAdminConfig, WidgetConfig, WidgetContext } from "@flowpanel/core";
+import type {
+  RequestContext,
+  ResolvedAdminConfig,
+  WidgetConfig,
+  WidgetContext,
+} from "@flowpanel/core";
 import {
-  type AdminWidgetContextOptions,
-  adminWidgetContext,
+  type RequestWidgetContextOptions,
   type ResolvedWidget,
+  requestWidgetContext,
   resolveWidget,
 } from "@flowpanel/next";
 import { expectAssignable, expectError, expectType } from "tsd";
 
 declare const admin: ResolvedAdminConfig;
+declare const reqCtx: RequestContext;
 declare const widget: WidgetConfig;
 
-const ctx = adminWidgetContext(admin, { role: "support", resource: "users", row: { id: 1 } });
+const ctx = requestWidgetContext(admin, reqCtx, { resource: "users", row: { id: 1 } });
 expectType<WidgetContext>(ctx);
 expectType<Promise<ResolvedWidget>>(resolveWidget(widget, ctx));
-expectAssignable<AdminWidgetContextOptions>({
+expectAssignable<RequestWidgetContextOptions>({
   range: { from: new Date(), to: new Date(), preset: "last7d" },
 });
-expectError(adminWidgetContext(admin, { range: { from: new Date() } }));
-expectError(adminWidgetContext(admin, { role: 1 }));
+expectError(requestWidgetContext(admin, reqCtx, { range: { from: new Date() } }));
+expectError(requestWidgetContext(admin, { role: "admin" }));

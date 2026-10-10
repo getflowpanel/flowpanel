@@ -3,6 +3,10 @@ import { DEFAULT_LABELS, mergeLabels, RU_LABELS } from "../../labels";
 
 const variables = (text: string): string[] => text.match(/\{\w+\}/g) ?? [];
 
+const PLURAL_FORMS = new Set(["zero", "one", "two", "few", "many", "other"]);
+const isPluralLabel = (value: Record<string, unknown>): boolean =>
+  "other" in value && Object.keys(value).every((key) => PLURAL_FORMS.has(key));
+
 function expectSameShape(english: unknown, russian: unknown): void {
   if (typeof english === "string") {
     expect(typeof russian).toBe("string");
@@ -11,6 +15,14 @@ function expectSameShape(english: unknown, russian: unknown): void {
   }
   const group = english as Record<string, unknown>;
   const translated = russian as Record<string, unknown>;
+  if (isPluralLabel(group)) {
+    // A plural takes the categories its language has: English one/other, Russian one/few/many/other.
+    expect(isPluralLabel(translated)).toBe(true);
+    for (const form of Object.values(translated)) {
+      expect(variables(form as string)).toEqual(variables(group.other as string));
+    }
+    return;
+  }
   expect(Object.keys(translated).sort()).toEqual(Object.keys(group).sort());
   for (const [key, value] of Object.entries(group)) expectSameShape(value, translated[key]);
 }

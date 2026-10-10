@@ -221,7 +221,9 @@ a `FlowpanelResultError`, `{ ok: false, error: { code, message } }`, instead:
 ### 404: unknown resource, action or dashboard
 
 The UI routes answer with the same short body in every environment. The message
-names the kind: `resource`, `action` or `dashboard`.
+names the kind: `resource`, `action` or `dashboard`. A route looks the name up only
+after it has identified the caller and applied `readOnly`, so a signed-out or
+refused caller gets the `403` it would get for a name that exists, never this `404`.
 
 ```json
 { "ok": false, "error": { "code": "not_found", "message": "action not found" } }

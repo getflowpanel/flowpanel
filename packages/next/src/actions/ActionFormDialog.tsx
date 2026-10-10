@@ -1,4 +1,5 @@
 "use client";
+import { moneyMinorUnits } from "@flowpanel/core/format";
 import {
   Button,
   Dialog,
@@ -9,7 +10,10 @@ import {
   DialogTitle,
   FormField,
   type FormFieldProps,
+  humanize,
   StandaloneFormFields,
+  useFormatting,
+  useLabels,
 } from "@flowpanel/react";
 import * as React from "react";
 import type { ActionFormField, ActionFormFieldErrors } from "./action-form-field";
@@ -39,13 +43,22 @@ export function ActionFormDialog({
   onSubmit,
 }: ActionFormDialogProps) {
   const formId = React.useId();
+  const labels = useLabels();
+  const formatting = useFormatting();
   const [fieldErrors, setFieldErrors] = React.useState<ActionFormFieldErrors | null>(null);
   const [pending, setPending] = React.useState(false);
   const names = React.useMemo(() => fields.map((f) => f.name), [fields]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const input = readFormValues(fields, new FormData(e.currentTarget));
+    const input = readFormValues(
+      fields.map((f) =>
+        f.type === "money"
+          ? { ...f, minorUnits: moneyMinorUnits(f.minorUnits, f.currency ?? formatting.currency) }
+          : f,
+      ),
+      new FormData(e.currentTarget),
+    );
     setPending(true);
     try {
       const errors = await onSubmit(input);
@@ -89,19 +102,20 @@ export function ActionFormDialog({
                 <FormField
                   key={f.name}
                   name={f.name}
-                  label={f.label ?? f.name}
+                  label={f.label ?? humanize(f.name)}
                   type={(f.type ?? "text") as NonNullable<FormFieldProps["type"]>}
                   {...(f.help ? { help: f.help } : {})}
                   {...(f.placeholder ? { placeholder: f.placeholder } : {})}
                   {...(f.required ? { required: true } : {})}
                   {...(f.options ? { options: f.options } : {})}
+                  {...(f.currency ? { currency: f.currency } : {})}
                 />
               ))}
             </StandaloneFormFields>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
-              Cancel
+              {labels.actions.cancel}
             </Button>
             <Button
               type="submit"

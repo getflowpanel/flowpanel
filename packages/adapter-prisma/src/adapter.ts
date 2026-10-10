@@ -8,6 +8,7 @@ import {
   sanitizeSqlParams,
 } from "@flowpanel/core";
 import { searchedFields } from "@flowpanel/core/internal";
+import { prismaAuditLog } from "./audit-log";
 import { plainDecimals } from "./decimals";
 import { buildFilterWhere, numberFields } from "./filters";
 import type { PrismaDmmf } from "./introspect";
@@ -134,7 +135,12 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
       const scopedWhere = applyScopeToWhere(where, ctx);
 
-      const orderBy = ctx.sort ? { [ctx.sort.field]: ctx.sort.dir } : undefined;
+      const orderBy: Array<Record<string, "asc" | "desc">> = [
+        ...(ctx.sort ? [{ [ctx.sort.field]: ctx.sort.dir }] : []),
+        ...(ctx.tiebreak ?? [])
+          .filter((field) => field !== ctx.sort?.field)
+          .map((field) => ({ [field]: "asc" as const })),
+      ];
 
       const skip = (ctx.page - 1) * ctx.pageSize;
       const take = ctx.pageSize;
@@ -154,7 +160,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         delegate.findMany({
           where: scopedWhere,
           ...(select ? { select } : {}),
-          ...(orderBy ? { orderBy } : {}),
+          ...(orderBy.length > 0 ? { orderBy } : {}),
           skip,
           take,
         }),
@@ -271,6 +277,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       });
     },
 
+    auditLog: prismaAuditLog(prisma, opts.provider),
     ...createMigrationMethods(prisma, opts.provider),
   };
 }

@@ -24,6 +24,7 @@ test("canonical demo exposes one coherent seven-screen journey", async ({ page }
     "Listings",
     "Products",
     "Matches",
+    "Audit log",
   ]);
 
   for (const [href, heading] of [

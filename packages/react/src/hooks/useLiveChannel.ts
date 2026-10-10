@@ -1,10 +1,10 @@
 "use client";
 import * as React from "react";
-import { useApiBase } from "../_provider/ApiBaseContext";
-import { reportListenerError } from "../lib/report-listener-error";
-import { backoffDelay, DEFAULT_RECONNECT_MAX_MS } from "../realtime/backoff";
-import { type RealtimeStatus, statusForAttempt } from "../realtime/context";
-import { readFrame } from "../realtime/frame";
+import { useLatest } from "../lib/use-latest";
+import { useApiBase } from "../provider/ApiBaseContext";
+import type { RealtimeBus, RealtimeStatus } from "../realtime/context";
+import { acquireEngine, peekEngineStatus, releaseEngine } from "../realtime/engine-pool";
+import { useRealtimeBus } from "../realtime/hooks";
 
 /** The same states as `RealtimeStatus`, under the name 0.3 shipped. */
 export type LiveStatus = RealtimeStatus;
@@ -13,8 +13,8 @@ export interface UseLiveChannelOptions {
   /** Override the SSE endpoint. Defaults to the admin's mount point + `/stream`. */
   endpoint?: string;
   /**
-   * Cap on the exponential reconnect delay.
-   * When instances share a connection, the first acquirer's value wins for that entry's lifetime.
+   * Cap on the exponential reconnect delay when no provider is mounted.
+   * When instances share a connection, the first acquirer's value wins for that connection's lifetime.
    * @defaultValue 30_000
    */
   reconnectMaxMs?: number;
@@ -22,191 +22,59 @@ export interface UseLiveChannelOptions {
   enabled?: boolean;
 }
 
-type Listener = (payload: unknown) => void;
-
-interface PoolEntry {
-  source: EventSource | null;
-  refs: number;
-  attempt: number;
-  timer: ReturnType<typeof setTimeout> | null;
-  status: RealtimeStatus;
-  /** Channel → callbacks. One entry can carry several channels on one EventSource. */
-  listeners: Map<string, Set<Listener>>;
-  statusListeners: Set<(s: RealtimeStatus) => void>;
-}
-
-// Module-level Map: client-side per-browser-tab state, not cross-request server state, so I-10 does not apply.
-const pool = new Map<string, PoolEntry>();
-
-function keyOf(endpoint: string, channels: string[]): string {
-  return `${endpoint}\n${channels.join("|")}`;
-}
-
-function setEntryStatus(entry: PoolEntry, status: RealtimeStatus): void {
-  if (entry.status === status) return;
-  entry.status = status;
-  entry.statusListeners.forEach((fn) => {
-    fn(status);
-  });
-}
-
-function dispatch(entry: PoolEntry, channel: string, value: unknown): void {
-  const set = entry.listeners.get(channel);
-  if (!set) return;
-  for (const fn of Array.from(set)) {
-    try {
-      fn(value);
-    } catch (error) {
-      reportListenerError(error);
-    }
-  }
-}
-
-function connectEntry(key: string, endpoint: string, channels: string[], maxMs: number): void {
-  const entry = pool.get(key);
-  if (!entry) return;
-  const params = new URLSearchParams();
-  for (const ch of channels) params.append("channel", ch);
-  const es = new EventSource(`${endpoint}?${params.toString()}`);
-  entry.source = es;
-  setEntryStatus(entry, entry.attempt === 0 ? "connecting" : statusForAttempt(entry.attempt));
-
-  es.onopen = () => {
-    entry.attempt = 0;
-    setEntryStatus(entry, "live");
-  };
-  es.onmessage = (ev) => {
-    entry.attempt = 0;
-    setEntryStatus(entry, "live");
-    const frame = readFrame(ev.data);
-    if (!frame) return;
-    dispatch(entry, frame.channel, frame.payload);
-  };
-  es.onerror = () => {
-    // A superseded source firing onerror is a no-op — only entry.source drives the lifecycle.
-    if (entry.source !== es) {
-      es.close();
-      return;
-    }
-    if (es.readyState !== EventSource.CLOSED) {
-      setEntryStatus(entry, statusForAttempt(entry.attempt));
-      return;
-    }
-    es.close();
-    entry.source = null;
-    const delay = backoffDelay(entry.attempt, maxMs);
-    entry.attempt += 1;
-    setEntryStatus(entry, statusForAttempt(entry.attempt));
-    if (entry.timer) clearTimeout(entry.timer);
-    entry.timer = setTimeout(() => {
-      entry.timer = null;
-      connectEntry(key, endpoint, channels, maxMs);
-    }, delay);
-  };
-}
-
-function acquire(
-  endpoint: string,
-  channels: string[],
-  maxMs: number,
-  onMessage: Listener,
-  onStatus: (s: RealtimeStatus) => void,
-): () => void {
-  const key = keyOf(endpoint, channels);
-  const existing = pool.get(key);
-  const entry: PoolEntry = existing ?? {
-    source: null,
-    refs: 0,
-    attempt: 0,
-    timer: null,
-    status: "idle",
-    listeners: new Map(),
-    statusListeners: new Set(),
-  };
-  if (!existing) {
-    pool.set(key, entry);
-    connectEntry(key, endpoint, channels, maxMs);
-  }
-  entry.refs += 1;
-  for (const ch of channels) {
-    let set = entry.listeners.get(ch);
-    if (!set) {
-      set = new Set();
-      entry.listeners.set(ch, set);
-    }
-    set.add(onMessage);
-  }
-  entry.statusListeners.add(onStatus);
-  onStatus(entry.status);
-
-  return () => {
-    for (const ch of channels) {
-      const set = entry.listeners.get(ch);
-      if (!set) continue;
-      set.delete(onMessage);
-      if (set.size === 0) entry.listeners.delete(ch);
-    }
-    entry.statusListeners.delete(onStatus);
-    entry.refs -= 1;
-    if (entry.refs <= 0) {
-      entry.source?.close();
-      entry.source = null;
-      if (entry.timer) clearTimeout(entry.timer);
-      entry.timer = null;
-      pool.delete(key);
-    }
-  };
-}
-
 /**
- * Subscribe to one or more SSE channels through the shared pool: subscribers of the same
- * endpoint + channel set share a single multiplexed EventSource. Not part of the public API.
+ * The connection a hook joins: the admin's shared one under `RealtimeProvider`, else one shared
+ * per endpoint. Either way the same engine runs the reconnects and reports the status.
  */
-export function acquireLiveChannels(
-  endpoint: string,
-  channels: string[],
-  onMessage: Listener,
-  onStatus: (s: RealtimeStatus) => void = () => undefined,
-  maxMs = DEFAULT_RECONNECT_MAX_MS,
-): () => void {
-  const list = Array.from(new Set(channels.filter(Boolean))).sort();
-  if (list.length === 0) return () => undefined;
-  return acquire(endpoint, list, maxMs, onMessage, onStatus);
+export function useRealtimeConnection(endpoint: string | undefined, reconnectMaxMs?: number) {
+  const bus = useRealtimeBus();
+  const apiBase = useApiBase();
+  const own = bus === null || endpoint !== undefined;
+  const url = endpoint ?? `${apiBase}/stream`;
+  return React.useMemo(
+    () => ({
+      initialStatus: (): RealtimeStatus =>
+        own ? peekEngineStatus(url) : (bus?.getStatus() ?? "idle"),
+      join: (): { bus: RealtimeBus; leave: () => void } => {
+        if (!own && bus) return { bus, leave: () => undefined };
+        return { bus: acquireEngine(url, reconnectMaxMs), leave: () => releaseEngine(url) };
+      },
+    }),
+    [own, url, bus, reconnectMaxMs],
+  );
 }
 
-/** Subscribe to an SSE channel served by @flowpanel/next stream(). */
+/** Subscribe to an SSE channel served by the admin's stream route and read its payloads. */
 export function useLiveChannel(
   channel: string,
   onMessage: (payload: unknown) => void,
   opts: UseLiveChannelOptions = {},
 ): RealtimeStatus {
-  const cbRef = React.useRef(onMessage);
-  React.useEffect(() => {
-    cbRef.current = onMessage;
-  }, [onMessage]);
-
+  const cbRef = useLatest(onMessage);
   const enabled = opts.enabled !== false && channel !== "";
-  const apiBase = useApiBase();
-  const endpoint = opts.endpoint ?? `${apiBase}/stream`;
-  const maxMs = opts.reconnectMaxMs ?? DEFAULT_RECONNECT_MAX_MS;
-
-  const [status, setStatus] = React.useState<RealtimeStatus>(() => {
-    if (!enabled) return "idle";
-    return pool.get(keyOf(endpoint, [channel]))?.status ?? "idle";
-  });
+  const connection = useRealtimeConnection(opts.endpoint, opts.reconnectMaxMs);
+  const [status, setStatus] = React.useState<RealtimeStatus>(() =>
+    enabled ? connection.initialStatus() : "idle",
+  );
 
   React.useEffect(() => {
     if (!enabled) {
       setStatus("idle");
       return;
     }
-    const handleMessage = (payload: unknown) => cbRef.current(payload);
-    const release = acquire(endpoint, [channel], maxMs, handleMessage, setStatus);
+    const { bus, leave } = connection.join();
+    const offMessages = bus.subscribe([channel], (payload) => cbRef.current(payload), {
+      refresh: false,
+    });
+    setStatus(bus.getStatus());
+    const offStatus = bus.subscribeStatus(setStatus);
     return () => {
-      release();
+      offStatus();
+      offMessages();
+      leave();
       setStatus("idle");
     };
-  }, [channel, enabled, endpoint, maxMs]);
+  }, [channel, enabled, connection, cbRef]);
 
   return status;
 }

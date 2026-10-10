@@ -421,7 +421,7 @@ describe("withGuards — guard order", () => {
     });
 
     expect(res.status).toBe(422);
-    expect((await res.json()).fieldErrors).toEqual({ reason: "reason is required" });
+    expect((await res.json()).fieldErrors).toEqual({ reason: "Reason is required" });
     expect(run).not.toHaveBeenCalled();
   });
 });

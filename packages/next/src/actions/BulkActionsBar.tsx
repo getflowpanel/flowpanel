@@ -1,4 +1,5 @@
 "use client";
+import { formatCount, formatLabel } from "@flowpanel/core/labels";
 import {
   Button,
   ConfirmDialog,
@@ -8,6 +9,8 @@ import {
   DropdownMenuTrigger,
   FlowpanelIcon,
   useApiBase,
+  useFormatting,
+  useLabels,
 } from "@flowpanel/react";
 import * as React from "react";
 import { ActionFormDialog } from "./ActionFormDialog";
@@ -24,6 +27,8 @@ export interface BulkActionsBarProps {
 
 export function BulkActionsBar({ resource, selection, onClear, actions }: BulkActionsBarProps) {
   const apiBase = useApiBase();
+  const labels = useLabels();
+  const { locale } = useFormatting();
   const runAction = useActionRunner();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedBulkAction | null>(null);
@@ -42,8 +47,11 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
         `${apiBase}/${encodeURIComponent(resource)}/bulk-actions/${encodeURIComponent(action.key)}`,
         { ids: selection, input },
         {
-          successMessage: `${action.label} ran on ${selection.length}`,
-          failureMessage: `${action.label} failed`,
+          successMessage: formatLabel(labels.actions.ranOn, {
+            label: action.label,
+            n: selection.length,
+          }),
+          failureMessage: formatLabel(labels.errors.actionFailed, { label: action.label }),
           onRefreshed: onClear,
         },
       );
@@ -67,17 +75,17 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
 
   return (
     <section
-      aria-label="Bulk actions"
+      aria-label={labels.bulkBar.label}
       className="fp-mb-2 fp-flex fp-items-center fp-justify-between fp-gap-3 fp-rounded fp-border fp-border-line fp-bg-canvas fp-px-3 fp-py-2"
     >
       <div className="fp-text-sm fp-text-soft">
-        <span className="fp-font-medium fp-text-ink">{selection.length}</span> selected
+        {formatCount(labels.plurals?.selected ?? labels.bulkBar.selected, selection.length, locale)}
       </div>
       <div className="fp-flex fp-items-center fp-gap-2">
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="default" disabled={pending !== null}>
-              Action…
+              {labels.bulkBar.choose}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -95,7 +103,7 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
           </DropdownMenuContent>
         </DropdownMenu>
         <Button size="sm" variant="ghost" onClick={onClear} disabled={pending !== null}>
-          Clear
+          {labels.bulkBar.clear}
         </Button>
       </div>
       {confirming ? (
@@ -104,9 +112,12 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
           onOpenChange={(open) => {
             if (!open) setConfirming(null);
           }}
-          title={confirming.confirm?.title ?? `Run ${confirming.label}?`}
+          title={
+            confirming.confirm?.title ??
+            formatLabel(labels.actions.runConfirm, { label: confirming.label })
+          }
           {...(confirming.confirm?.description
-            ? { description: confirming.confirm.description }
+            ? { description: formatCount(confirming.confirm.description, selection.length, locale) }
             : {})}
           confirmLabel={
             confirming.confirm?.confirmLabel ?? `${confirming.label} (${selection.length})`
@@ -124,7 +135,7 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
         <ActionFormDialog
           title={formAction.confirm?.title ?? formAction.label}
           {...(formAction.confirm?.description
-            ? { description: formAction.confirm.description }
+            ? { description: formatCount(formAction.confirm.description, selection.length, locale) }
             : {})}
           submitLabel={`${formAction.label} (${selection.length})`}
           {...(formAction.variant === "destructive" ? { variant: "destructive" as const } : {})}

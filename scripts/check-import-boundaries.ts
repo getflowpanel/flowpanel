@@ -2,8 +2,7 @@ import { globSync, readFileSync } from "node:fs";
 
 const violations: string[] = [];
 
-// Rule 1: core must never execute React or Next.js at runtime. Type-only
-// render extension contracts remain a 0.2 compatibility bridge.
+// Rule 1: core must never execute React or Next.js at runtime; type-only imports are fine.
 for (const file of globSync("packages/core/src/**/*.ts", {
   exclude: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
   cwd: process.cwd(),
@@ -92,6 +91,22 @@ for (const file of globSync("packages/react/src/**/*.{ts,tsx}", {
   const src = readFileSync(file, "utf-8");
   if (/^(?:import|export)(?!\s+type\b)[^;]*from\s+["']@flowpanel\/core["']/m.test(src)) {
     violations.push(`${file}: runtime core root import in browser code (use a pure subpath)`);
+  }
+}
+
+// React source layout: folders carry no underscore, and a file is a PascalCase component, a
+// `useX` hook or kebab-case, so a name says what the file holds.
+const REACT_SRC = "packages/react/src/";
+const FILE_NAME = /^(?:[A-Z][A-Za-z0-9]*|use[A-Z][A-Za-z0-9]*|[a-z0-9]+(?:-[a-z0-9]+)*)$/;
+for (const file of globSync(`${REACT_SRC}**/*.{ts,tsx,css}`, { cwd: process.cwd() })) {
+  const parts = file.slice(REACT_SRC.length).split("/");
+  const name = parts.pop() ?? "";
+  if (parts.some((dir) => dir.startsWith("_") && dir !== "__tests__")) {
+    violations.push(`${file}: folders under react/src take no leading underscore`);
+  }
+  if (parts.includes("__tests__")) continue;
+  if (!FILE_NAME.test(name.replace(/\.(?:tsx?|css)$/, ""))) {
+    violations.push(`${file}: name it PascalCase (component), useX (hook) or kebab-case`);
   }
 }
 

@@ -27,7 +27,7 @@ const rules = [
     guidance: false,
   },
   {
-    sourcePrefix: "packages/react/src/_forms/",
+    sourcePrefix: "packages/react/src/forms/",
     page: "/docs/reference/react-components",
     anchor: "forms",
     guidance: true,
@@ -55,7 +55,7 @@ describe("API documentation ownership", () => {
           packageName: "@flowpanel/react",
           exportName: "AutoForm",
           declarationName: "AutoForm",
-          declarationPath: "packages/react/src/_forms/AutoForm.tsx",
+          declarationPath: "packages/react/src/forms/AutoForm.tsx",
           kind: "function",
           isTypeOnly: false,
         }),

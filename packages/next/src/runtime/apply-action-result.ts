@@ -4,9 +4,10 @@ import { publish, publishResource } from "./publish";
 
 export interface ApplyActionResultOptions {
   resourceName?: string;
-  pathname?: string;
+  /** The page, or pages, whose cache the change makes stale. */
+  pathname?: string | readonly string[];
   /** A change FlowPanel made itself, published on `resource.<resourceName>` whatever `refresh` says. */
-  change?: { action: "create" | "update" | "delete" };
+  change?: { action: "create" | "update" | "delete"; id?: string };
 }
 
 /** Applies side effects from successful actions: publishes updates and revalidates the cache; failures only log. */
@@ -31,9 +32,10 @@ export async function applyActionResult(
     console.error("[flowpanel] realtime effect failed", error);
   }
 
-  if (refresh !== false && opts.pathname) {
+  if (refresh === false || opts.pathname === undefined) return;
+  for (const path of typeof opts.pathname === "string" ? [opts.pathname] : opts.pathname) {
     try {
-      revalidatePath(opts.pathname);
+      revalidatePath(path);
     } catch (error) {
       console.error("[flowpanel] revalidation effect failed", error);
     }

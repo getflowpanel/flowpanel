@@ -2,6 +2,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../lib/cn";
+import { useLabels } from "../provider/LabelsContext";
 import type { RealtimeStatus } from "../realtime/context";
 import { useRealtimeStats } from "../realtime/hooks";
 import { formatTime, LOG_LIMIT, useStatusLog } from "./useStatusLog";
@@ -14,14 +15,6 @@ const STATUS_DOT_CLASS: Record<RealtimeStatus, string> = {
   live: "fp-bg-ok",
   reconnecting: "fp-bg-warn",
   offline: "fp-bg-faint",
-};
-
-const STATUS_LABEL: Record<RealtimeStatus, string> = {
-  idle: "Idle",
-  connecting: "Connecting…",
-  live: "Live",
-  reconnecting: "Reconnecting…",
-  offline: "Offline",
 };
 
 const PULSING: ReadonlySet<RealtimeStatus> = new Set<RealtimeStatus>([
@@ -73,6 +66,7 @@ export function DevToolsPanel({
   const [mounted, setMounted] = React.useState(false);
   const { status, log } = useStatusLog();
   const { channels, eventCount } = useRealtimeStats();
+  const { realtime } = useLabels();
 
   React.useEffect(() => setMounted(true), []);
 
@@ -105,7 +99,7 @@ export function DevToolsPanel({
           <Section title="Realtime status">
             <div className="fp-flex fp-items-center fp-gap-2">
               <StatusDot status={status} />
-              <span className="fp-text-[13px]">{STATUS_LABEL[status]}</span>
+              <span className="fp-text-[13px]">{realtime[status]}</span>
             </div>
           </Section>
 
@@ -121,7 +115,7 @@ export function DevToolsPanel({
                   >
                     <span className="fp-text-faint fp-tabular-nums">{formatTime(e.at)}</span>
                     <StatusDot status={e.status} />
-                    <span>{STATUS_LABEL[e.status]}</span>
+                    <span>{realtime[e.status]}</span>
                   </li>
                 ))}
               </ul>

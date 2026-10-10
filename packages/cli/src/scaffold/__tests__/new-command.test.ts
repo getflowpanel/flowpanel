@@ -186,16 +186,7 @@ describe("flowpanel new on a Prisma config", () => {
     expect(config).toContain(
       '        { field: "authorId", label: "Author", reference: { resource: "users", labelField: "email" } },',
     );
-    expect(config).toContain(
-      [
-        "      create: {",
-        "        fields: [",
-        '          { name: "title" },',
-        '          { name: "authorId", label: "Author", reference: { resource: "users", labelField: "email" } },',
-        "        ],",
-        "      },",
-      ].join("\n"),
-    );
+    expect(config).not.toContain("create: {");
     expect(config).toContain(
       '    users: import("@prisma/client").User;\n    posts: import("@prisma/client").Post;\n',
     );

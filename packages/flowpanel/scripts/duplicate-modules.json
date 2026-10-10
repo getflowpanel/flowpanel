@@ -3,6 +3,7 @@
   "core/src/builders/enum-of.ts",
   "core/src/compiler/builtin-bulk-delete.ts",
   "core/src/compiler/validate/removed-keys.ts",
+  "core/src/date-time.ts",
   "core/src/format-column.ts",
   "core/src/format-values.ts",
   "core/src/humanize.ts",
@@ -18,6 +19,7 @@
   "core/src/internal/write-target.ts",
   "core/src/internal/zone-time.ts",
   "core/src/locales/ru.ts",
+  "core/src/money-input.ts",
   "core/src/naive-timestamp.ts",
   "core/src/runtime/envelope.ts",
   "core/src/runtime/redis-publisher.ts",
@@ -32,8 +34,12 @@
   "core/src/types/labels/merge.ts",
   "next/src/actions/action-form-field.ts",
   "next/src/actions/form-values.ts",
+  "next/src/command/record-search-wire.ts",
+  "next/src/pages/wall.tsx",
+  "next/src/runtime/failure-card.tsx",
   "next/src/runtime/format-field-value.tsx",
   "next/src/runtime/row-identity.ts",
   "next/src/runtime/select-options.ts",
-  "next/src/runtime/timeline-pages.ts"
+  "next/src/runtime/timeline-pages.ts",
+  "next/src/utils/cn.ts"
 ]

@@ -14,12 +14,4 @@ export const userVisit = resource(schema.userVisit, {
   ],
   filters: [{ field: "surface", type: "select" }],
   defaultSort: { field: "startedAt", dir: "desc" },
-  create: {
-    fields: [
-      { name: "userId", label: "User", reference: { resource: "user", labelField: "email" } },
-      { name: "surface", type: "select", options: Surface.options },
-      { name: "startedAt", type: "datetime" },
-      { name: "touches", type: "number" },
-    ],
-  },
 });

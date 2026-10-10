@@ -1,5 +1,5 @@
 import type { ColumnMeta, ResourceIntrospection } from "@flowpanel/core";
-import { isView } from "drizzle-orm";
+import { entityKind, isView } from "drizzle-orm";
 import { columnsOf, refName } from "./columns";
 
 const memo = new WeakMap<object, ResourceIntrospection>();
@@ -28,18 +28,51 @@ export function introspect(table: unknown): ResourceIntrospection {
       hasDefault: raw.hasDefault === true || raw.default !== undefined,
     };
     if (raw.enumValues) meta.enumValues = raw.enumValues;
+    if (meta.type === "number") meta.integer = isInteger(raw);
     if (raw.primary) primaryKey = name;
     columns.push(meta);
   }
 
+  const keyColumns = view ? undefined : compositeKey(table, cols);
   const result = freeze({
     name: refName(table),
     columns,
     primaryKey,
+    ...(keyColumns ? { keyColumns } : {}),
     ...(view ? { kind: "view" as const } : {}),
   });
   memo.set(table as object, result);
   return result;
+}
+
+const EXTRA_CONFIG_BUILDER = Symbol.for("drizzle:ExtraConfigBuilder");
+const EXTRA_CONFIG_COLUMNS = Symbol.for("drizzle:ExtraConfigColumns");
+
+/** The property names of a table-level `primaryKey({ columns })`, which no column flags as primary. */
+function compositeKey(table: unknown, cols: Record<string, unknown>): string[] | undefined {
+  const source = table as Record<symbol, unknown>;
+  const builder = source[EXTRA_CONFIG_BUILDER];
+  if (typeof builder !== "function") return undefined;
+  const extra: unknown = builder(source[EXTRA_CONFIG_COLUMNS]);
+  const values: unknown[] = Array.isArray(extra)
+    ? extra.flat(1)
+    : Object.values(typeof extra === "object" && extra !== null ? extra : {});
+  for (const value of values) {
+    const kind = (value as { constructor?: Record<symbol, unknown> } | null)?.constructor?.[
+      entityKind
+    ];
+    if (typeof kind !== "string" || !kind.endsWith("PrimaryKeyBuilder")) continue;
+    const keyed = (value as { columns?: unknown[] }).columns ?? [];
+    const names = keyed.flatMap((column) => {
+      const dbName = (column as { name?: unknown } | null)?.name;
+      const name = Object.entries(cols).find(
+        ([, col]) => (col as { name?: unknown } | null)?.name === dbName,
+      )?.[0];
+      return name ? [name] : [];
+    });
+    return names.length === keyed.length && names.length > 0 ? names : undefined;
+  }
+  return undefined;
 }
 
 // Memoized: one object is shared by every caller, so it must not be mutable.
@@ -51,9 +84,21 @@ function freeze(intro: ResourceIntrospection): ResourceIntrospection {
 
 /** A `numeric`/`decimal` column Drizzle reads and writes as text, such as `numeric(10, 2)`. */
 export function isDecimalText(column: unknown): boolean {
-  if (typeof column !== "object" || column === null) return false;
-  const { dataType, columnType } = column as { dataType?: unknown; columnType?: unknown };
-  return dataType === "string" && /numeric|decimal/i.test(String(columnType ?? ""));
+  return (
+    fieldOf(column, "dataType") === "string" &&
+    /numeric|decimal/i.test(String(fieldOf(column, "columnType") ?? ""))
+  );
+}
+
+/** An integer, serial or bigint column of any dialect, such as `PgInteger` or `MySqlBigInt53`. */
+function isInteger(column: unknown): boolean {
+  return /(?:Int|Integer|Serial)(?:53|64)?$/i.test(String(fieldOf(column, "columnType") ?? ""));
+}
+
+function fieldOf(column: unknown, key: "dataType" | "columnType"): unknown {
+  return typeof column === "object" && column !== null && key in column
+    ? Reflect.get(column, key)
+    : undefined;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: drizzle column internals are not publicly typed; col.dataType / col.columnType are read via runtime-guarded String() coercion.

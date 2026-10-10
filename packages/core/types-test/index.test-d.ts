@@ -51,7 +51,7 @@ declare module "@flowpanel/core" {
 declare const minimalConfig: AdminDefinition;
 expectType<ResolvedAdminConfig>(defineAdmin(minimalConfig));
 
-// ── Adapter.kind is an open literal union (I-2, ADR 0016) ────────────────
+// ── Adapter.kind is an open literal union ─────────────────────────────────
 declare const adapter: Adapter;
 expectAssignable<string>(adapter.kind);
 expectAssignable<AdapterKind>("drizzle");
@@ -95,7 +95,7 @@ expectAssignable<{ kind: "table" }>(
   table({ resource: "users", realtime: ["resource.users", "audit.users"] }),
 );
 
-// ── LabelsConfig nesting + string-template slot (I-12) ───────────────────
+// ── LabelsConfig nesting + string-template slot ──────────────────────────
 const validLabels: LabelsConfig = {
   actions: { save: "Сохранить" },
   bulkBar: { selected: "{n} выбрано" },

@@ -1,1 +1,1 @@
-export { humanize, resolveFieldLabel } from "@flowpanel/core/labels";
+export { humanize, humanizeReference, resolveFieldLabel } from "@flowpanel/core/labels";

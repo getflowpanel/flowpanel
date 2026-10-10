@@ -1,6 +1,7 @@
 import { and, eq, lt, lte, or, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../../db/schema";
+import { deleteSandboxAudit } from "./audit-rows";
 
 export interface MaintenanceRepository {
   claim(now: Date, cleanupIntervalMs: number, force?: boolean): Promise<boolean>;
@@ -80,6 +81,10 @@ export function databaseMaintenanceRepository(database: Transaction): Maintenanc
           ),
         )
         .returning({ id: schema.demoSandboxes.id });
+      await deleteSandboxAudit(
+        database,
+        deleted.map((row) => row.id),
+      );
       return deleted.length;
     },
     async approximateRows() {

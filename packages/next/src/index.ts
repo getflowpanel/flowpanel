@@ -33,10 +33,10 @@ export {
   createFlowpanel,
   type FlowpanelRuntime,
 } from "./create-flowpanel";
+export { drawerActionRoute } from "./drawer/drawer-action-route";
 export {
   type DrawerPayload,
   type DrawerRouteCtx,
-  drawerActionRoute,
   drawerRoute,
   type SerializedDrawerAction,
   type SerializedDrawerTab,
@@ -68,9 +68,9 @@ export { bindPublisher, publish, publishResource, subscribe } from "./runtime/pu
 export { browserOrigin } from "./runtime/request-origin";
 export { type BuildRequestCtxArgs, buildRequestContext } from "./runtime/request-setup";
 export {
-  type AdminWidgetContextOptions,
-  adminWidgetContext,
+  type RequestWidgetContextOptions,
   type ResolvedWidget,
+  requestWidgetContext,
   resolveWidget,
 } from "./runtime/resolve-widget";
 export { type StreamOptions, stream } from "./stream";

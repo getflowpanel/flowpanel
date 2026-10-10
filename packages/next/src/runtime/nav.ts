@@ -7,6 +7,7 @@ import type {
 import { accessAllows, resolveOperationAccess, resolveResourceName } from "@flowpanel/core";
 import { mergeLabels } from "@flowpanel/core/labels";
 import type { NavEntry, NavGroup } from "@flowpanel/react";
+import { AUDIT_LOG_SEGMENT, auditReadable } from "./audit-view";
 import { buildHref, buildPath } from "./href";
 import { pluralLabel } from "./resource-title";
 
@@ -46,7 +47,7 @@ export async function buildNav(
   config: ResolvedAdminConfig,
   reqCtx?: RequestContext,
 ): Promise<NavGroup[]> {
-  const { navigation } = mergeLabels(config.labels);
+  const { navigation, audit } = mergeLabels(config.labels);
   const { groups, place } = groupBuilder();
 
   for (const d of config.dashboardsByPath.values()) {
@@ -85,6 +86,12 @@ export async function buildNav(
       label: q.options.label,
       href: buildHref(config, "queues", key),
       ...(q.options.icon ? { icon: q.options.icon } : {}),
+    });
+  }
+
+  if (config.auditLog && (!reqCtx || (await auditReadable(config, reqCtx)))) {
+    groups.push({
+      items: [{ label: audit.title, href: buildHref(config, AUDIT_LOG_SEGMENT), icon: "history" }],
     });
   }
 

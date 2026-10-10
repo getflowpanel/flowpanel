@@ -8,6 +8,8 @@ export interface BuildRequestCtxArgs {
   req: Request;
   config: AdminDefinition;
   requestId?: string;
+  /** `false` resolves the caller without counting a hit, for a wall drawn after the limit refused this request. */
+  rateLimit?: boolean;
 }
 
 function requestIdFrom(req: Request): string {
@@ -47,6 +49,7 @@ async function resolveRequestContext({
   req,
   config,
   requestId,
+  rateLimit = true,
 }: BuildRequestCtxArgs): Promise<RequestContext> {
   const session: Session | null = await config.auth.session(req);
   const role = await config.auth.role(session);
@@ -61,7 +64,7 @@ async function resolveRequestContext({
   const ip = clientIpFrom(req.headers, config.security?.trustedProxies ?? 0);
   const userAgent = req.headers.get("user-agent") ?? null;
 
-  const limiter = getLimiter(config);
+  const limiter = rateLimit ? getLimiter(config) : null;
   if (limiter) {
     const key = rateLimitKey(config, { session, ip });
     if (key !== null && !(await limiter.check(key))) throw new FlowpanelRateLimitError();
@@ -75,6 +78,7 @@ async function resolveRequestContext({
  * All generated and headless surfaces share this binding, so several reads never re-authenticate.
  */
 export function buildRequestContext(args: BuildRequestCtxArgs): Promise<RequestContext> {
+  if (args.rateLimit === false) return resolveRequestContext(args);
   let byAdmin = requestContextCache.get(args.req);
   if (!byAdmin) {
     byAdmin = new WeakMap<object, Promise<RequestContext>>();

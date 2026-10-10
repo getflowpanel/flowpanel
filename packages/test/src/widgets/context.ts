@@ -8,7 +8,7 @@ import {
   type Session,
   type WidgetContext,
 } from "@flowpanel/core";
-import { adminWidgetContext } from "@flowpanel/next";
+import { adminWidgetContext } from "./admin-context";
 import {
   columnsFrom,
   type MemorySource,
